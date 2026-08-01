@@ -2435,3 +2435,34 @@ proper fix; that costs money and was explicitly not taken unilaterally.
 
 **Approval:** Tyler, 2026-08-01, "Approved" against an explicit four-item scope confirmation covering
 this change, the `hv-extract` deploy, scheduling the staging promoter, and merging PR #1232.
+
+### 2026-08-01 — PR #1232, fifth review round (Codex on the Vercel fix)
+
+Three findings, all accepted. One was an operational defect introduced by the Vercel fix itself.
+
+**The daily health check fired inside the digest window.** `15 6 * * *` runs at 06:15 UTC, and
+`app/api/cron/pipeline-manual-review-notify/route.ts` documents the digest as firing 06:00-09:00 UTC.
+As the *only* daily run under the Hobby limit, it would observe a digest that is legitimately still
+pending and could report `digest_missed_today`, with no later run to correct the false alarm. Moved to
+`15 10 * * *` — after the window closes, so the single run observes a finished cycle. This was a real
+defect created by collapsing 4x/day into 1x/day without checking what the remaining slot would
+overlap; the 4x schedule happened to cover both inside and outside the window.
+
+**Operator checklist contradicted the deployed schedule.** `docs/ops/ELITE_DIGEST_DEPLOY.md:44` still
+told operators to verify the cron runs every 6h. Updated to state the daily 10:15 UTC cadence, why
+(Hobby allows one run/day; a 6h schedule fails the deploy outright with 400), and why 10:15
+specifically.
+
+**Malformed relevance scores were silently consumed.** The normaliser added in the third round
+coerced any non-finite `relevance_score` to `0`, which then took the `low_relevance` branch and set
+`fetch_status='extracted'` — permanently consuming the snapshot with no provider fallback and no
+review. That conflates "the provider answered incorrectly" with "the content is irrelevant", and it
+fails *destructively* rather than closed. `normalizeExtraction` now returns a `_score_malformed`
+flag and the caller routes those to `extract_failed` with the offending value in `error_message`, so
+the row stays eligible for retry.
+
+**Commands run:** `npx tsc --noEmit` exit 0; `npm run test` 104 passing across 5 suites.
+
+**Deployment status:** these changes are committed but **NOT deployed**. Production remains
+`hv-extract` v36; the repo is now four commits ahead. Deploying needs a decision — see the standing
+note that edge functions have no CI deploy path.

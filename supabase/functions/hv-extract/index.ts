@@ -250,8 +250,13 @@ async function extractEditorial(snapshot: Snapshot): Promise<{ result: Editorial
 // `NaN < 30` evaluate to FALSE -- a malformed value would sail through the gate
 // and reach staging, and then hv-score's promote threshold, unrejected. Coerce
 // what is coercible, and force anything else to 0 so it fails closed.
-function normalizeExtraction(raw: ExtractionResult): ExtractionResult {
+function normalizeExtraction(raw: ExtractionResult): ExtractionResult & { _score_malformed: boolean } {
   const n = Number((raw as { relevance_score?: unknown }).relevance_score);
+  // Coercing a malformed score to 0 would send it down the low_relevance path,
+  // which marks fetch_status='extracted' and consumes the snapshot for good --
+  // treating "the provider answered incorrectly" as "the content is irrelevant".
+  // Flag it instead so the caller can route it to extract_failed for retry.
+  const _score_malformed = !Number.isFinite(n);
   // floor, not round: Math.round(29.7) -> 30 would ADMIT content the provider
   // scored below the cutoff, which is the opposite of failing closed. Flooring
   // keeps a fractional score on the side of the gate the provider put it on.
@@ -271,7 +276,7 @@ function normalizeExtraction(raw: ExtractionResult): ExtractionResult {
     if (roundTrip === rawDate) effective_date = rawDate;
   }
 
-  return { ...raw, relevance_score, effective_date };
+  return { ...raw, relevance_score, effective_date, _score_malformed };
 }
 
 function isMainstreamMediaSnapshot(snapshot: Snapshot): boolean {
@@ -472,6 +477,20 @@ Deno.serve(async (req: Request) => {
       backendsCompleted.add(outcome.backend);
 
       const extraction = normalizeExtraction(outcome.result);
+
+      if (extraction._score_malformed) {
+        // Not "irrelevant" -- unusable. Mark extract_failed so the row stays
+        // eligible for a later retry rather than being silently consumed.
+        failed++;
+        if (!dryRun) {
+          await supabase.from("source_snapshots").update({
+            fetch_status: "extract_failed",
+            error_message: `malformed relevance_score from ${outcome.backend}: ${JSON.stringify((outcome.result as { relevance_score?: unknown }).relevance_score).slice(0, 200)}`,
+          }).eq("id", snapshot.id);
+        }
+        results.push({ snapshot_id: snapshot.id, status: "error", reason: "malformed_relevance_score", backend: outcome.backend });
+        continue;
+      }
 
       if (extraction.signal_type === "none" || extraction.relevance_score < minRelevance) {
         skippedLowRelevance++;

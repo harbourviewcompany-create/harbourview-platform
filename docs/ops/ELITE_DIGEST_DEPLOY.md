@@ -41,7 +41,11 @@ select public.hv_intelligence_outcome_check();
 2. Digest UI shows corroboration / language chips when present
 3. Mark one item **Useful** → row in `signal_relevance_feedback`
 4. `GET /api/admin/intelligence-health` includes `product_outcome`
-5. After deploy, Vercel cron hits `/api/cron/intelligence-health` every 6h
+5. After deploy, Vercel cron hits `/api/cron/intelligence-health` **once daily at 10:15 UTC**
+   (Hobby plan allows one cron run per day; a 6h schedule fails the deploy outright with
+   `HTTP 400 cron_jobs_limits_reached`. 10:15 is deliberately AFTER the 06:00-09:00 digest
+   window, so the single run observes a finished cycle rather than reporting
+   `digest_missed_today` while the digest is still legitimately pending.)
 
 ## 5. Guardrails
 
