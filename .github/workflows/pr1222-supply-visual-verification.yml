@@ -202,9 +202,9 @@ jobs:
           verify_route \
             detail \
             /supply/cr-mylar-pouch-3-5g-matte-black \
-            "Child-Resistant Mylar Pouch, 3.5g, Matte Black | Harbourview Supply" \
+            "Child-Resistant Mylar Pouch — 3.5g (Matte Black) | Harbourview Supply" \
             "Harbourview Supply" \
-            "Child-Resistant Mylar Pouch, 3.5g, Matte Black" \
+            "Child-Resistant Mylar Pouch — 3.5g (Matte Black)" \
             "Commercial review"
 
           python3 - <<'PY'
