@@ -4,7 +4,7 @@ Date: 2026-08-01
 Branch: `feature/supply-catalog`
 Merge status: not merged
 Verified application and Vercel head: `c3d9a43b7ddac697061d3a87079ee6ca77490b07`
-Current evidence-only descendant: `04d69ce74220bbc536def0cb865a3eeaf0c78bdd`
+Current evidence-only descendant at record time: `1c60b35bedaa4a00dc176b7c97dca5044c804c2c`
 
 ## Scope
 
