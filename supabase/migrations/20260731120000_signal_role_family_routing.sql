@@ -31,8 +31,21 @@
 -- * `cc_pathway_templates.role_id` uses an incompatible vocabulary
 --   ('cultivator_producer' vs role-profiles.ts's 'licensed_cultivator'). That
 --   drift is real and is NOT silently resolved here.
-
-begin;
+--
+-- TRANSACTION HANDLING
+-- --------------------
+-- No explicit begin/commit: the Supabase CLI wraps each migration file in its
+-- own transaction, and only 14 of this repo's 764 migrations nest one manually.
+-- The file is still atomic.
+--
+-- ON `CREATE INDEX CONCURRENTLY` (SQLFluff PG01 / Squawk)
+-- ------------------------------------------------------
+-- Both linters want CONCURRENTLY here. Deliberately not used: it cannot run
+-- inside a transaction block, so adopting it means either giving up this
+-- migration's atomicity or splitting the index builds into a separate
+-- non-transactional file. `public.signals` holds ~12.5k rows, where a plain
+-- index build is milliseconds — not worth either cost. Recorded here so the
+-- next reader does not relitigate it.
 
 -- ── Canonical role-family vocabulary ─────────────────────────────────────────
 -- Mirrors lib/roles/role-families.ts. That file stays the source of truth for
@@ -125,10 +138,63 @@ alter table public.cc_watch_rules
 comment on column public.cc_watch_rules.role_families is
   'Role families this rule subscribes to. NULL/empty = no role-family filter, i.e. geography-only.';
 
-commit;
+-- ── Referential integrity for the text[] role-family columns ─────────────────
+-- Without this the reference table above is decorative: Postgres will happily
+-- accept an invented key, or the internal `harbourview_admin_operator` family,
+-- into either array. The TypeScript resolver only protects callers that go
+-- through it — direct SQL writes, the classifier harvest, and persisted watch
+-- rules all bypass it.
+--
+-- A trigger rather than a CHECK because a CHECK constraint may not query another
+-- table. Added to both columns; NULL and empty arrays remain valid (they mean
+-- "no filter" / "not yet routed").
+
+create or replace function public.hv_assert_routable_role_families()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare invalid text;
+begin
+  if new.role_families is null or cardinality(new.role_families) = 0 then
+    return new;
+  end if;
+
+  select string_agg(k, ', ')
+    into invalid
+  from unnest(new.role_families) as k
+  where not exists (
+    select 1 from public.role_families rf
+    where rf.key = k and rf.is_routable
+  );
+
+  if invalid is not null then
+    raise exception 'unknown or non-routable role_families: %', invalid
+      using errcode = '23514';
+  end if;
+
+  return new;
+end
+$$;
+
+revoke all on function public.hv_assert_routable_role_families() from public;
+
+drop trigger if exists signals_role_families_check on public.signals;
+create trigger signals_role_families_check
+  before insert or update of role_families on public.signals
+  for each row execute function public.hv_assert_routable_role_families();
+
+drop trigger if exists cc_watch_rules_role_families_check on public.cc_watch_rules;
+create trigger cc_watch_rules_role_families_check
+  before insert or update of role_families on public.cc_watch_rules
+  for each row execute function public.hv_assert_routable_role_families();
 
 -- ── Rollback ─────────────────────────────────────────────────────────────────
 -- begin;
+--   drop trigger if exists signals_role_families_check on public.signals;
+--   drop trigger if exists cc_watch_rules_role_families_check on public.cc_watch_rules;
+--   drop function if exists public.hv_assert_routable_role_families();
 --   drop index if exists public.signals_role_families_gin;
 --   drop index if exists public.signals_country_iso2_date_idx;
 --   alter table public.signals

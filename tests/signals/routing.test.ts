@@ -11,6 +11,7 @@ import {
   resolveRoleFamilies,
   roleFamilyLabel,
   signalCountryIso2,
+  signalGeoScope,
   type OperatorProfile,
 } from '@/lib/signals/routing'
 
@@ -161,6 +162,22 @@ describe('matchesOperatorProfile', () => {
     expect(matchesOperatorProfile(routed({ country_iso2: 'PE', role_families: ['cultivation_production'] }), global)).toBe(true)
   })
 
+  it('treats an empty roleFamilies profile as no role filter', () => {
+    // Regression: both review bots caught this. The migration documents an empty
+    // role_families watch rule as geography-only, but `.some()` over an empty
+    // profile array is false for every routed signal — so the code contradicted
+    // its own schema comment, and every geography-only feed would have gone dark
+    // the moment the backfill stamped routing_version.
+    const geographyOnly: OperatorProfile = { countryIso2: ['LS'], roleFamilies: [] }
+    expect(
+      matchesOperatorProfile(routed({ country_iso2: 'LS', role_families: ['pharmacy_dispensing'] }), geographyOnly),
+    ).toBe(true)
+    // Geography still filters.
+    expect(
+      matchesOperatorProfile(routed({ country_iso2: 'US', role_families: ['pharmacy_dispensing'] }), geographyOnly),
+    ).toBe(false)
+  })
+
   it('applies the impact floor', () => {
     const strict: OperatorProfile = { ...lesothoCultivator, minImpact: 'high' }
     const base = { country_iso2: 'LS', role_families: ['cultivation_production'] }
@@ -168,6 +185,53 @@ describe('matchesOperatorProfile', () => {
     expect(matchesOperatorProfile(routed({ ...base, impact: 'medium' }), strict)).toBe(false)
     // An unclassified impact must not sneak past a floor the operator set.
     expect(matchesOperatorProfile(routed(base), strict)).toBe(false)
+  })
+})
+
+describe('geographic scope', () => {
+  // Measured over 90 days: country 10,767 · region 846 · global 517 · unknown 332.
+  // An iso2-only matcher discarded the last three — 10.6% of the corpus — for
+  // every operator with a declared geography.
+  const cultivation = ['cultivation_production']
+
+  it('classifies scope, inferring country for pre-geo-model rows', () => {
+    expect(signalGeoScope({ geo_scope: 'region' })).toBe('region')
+    expect(signalGeoScope({ geo_scope: 'GLOBAL' })).toBe('global')
+    expect(signalGeoScope({ country_iso2: 'LS' })).toBe('country')
+    expect(signalGeoScope({})).toBe('unknown')
+  })
+
+  it('delivers a regional signal to an operator inside that region', () => {
+    // Lesotho is in Africa; an Africa-wide change reaches it.
+    const signal = routed({ geo_scope: 'region', geo_region: 'Africa', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(true)
+  })
+
+  it('delivers a regional signal via an export destination', () => {
+    // Germany is in Europe; an EU-wide rule change reaches a LS→DE exporter.
+    const signal = routed({ geo_scope: 'region', geo_region: 'Europe', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(true)
+  })
+
+  it('withholds a regional signal from an unrelated region', () => {
+    const signal = routed({ geo_scope: 'region', geo_region: 'Oceania', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(false)
+  })
+
+  it('delivers global signals to everyone', () => {
+    // A treaty-level change belongs to no country; it must not be filtered out
+    // for precisely that reason.
+    const signal = routed({ geo_scope: 'global', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(true)
+  })
+
+  it('does not exclude on geography it cannot establish', () => {
+    const signal = routed({ geo_scope: 'unknown', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(true)
+    // ...but role family still narrows it.
+    expect(
+      matchesOperatorProfile(routed({ geo_scope: 'unknown', role_families: ['pharmacy_dispensing'] }), lesothoCultivator),
+    ).toBe(false)
   })
 })
 
@@ -193,5 +257,14 @@ describe('explainMatch', () => {
 
   it('still explains an unrouted signal', () => {
     expect(explainMatch({ country_iso2: 'LS' }, lesothoCultivator)).toBe('Affects your LS operations')
+  })
+
+  it('explains regional and global reach without claiming a country', () => {
+    expect(
+      explainMatch(routed({ geo_scope: 'region', geo_region: 'Europe', role_families: ['cultivation_production'] }), lesothoCultivator),
+    ).toBe('Affects Europe, where you operate (cultivation & production)')
+    expect(
+      explainMatch(routed({ geo_scope: 'global', role_families: ['cultivation_production'] }), lesothoCultivator),
+    ).toBe('Global change affecting all markets (cultivation & production)')
   })
 })

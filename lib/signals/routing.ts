@@ -1,4 +1,5 @@
-import { getCountryByIso3 } from '@/lib/dashboard/countries'
+import { countryIdentityRows } from '@/lib/country-data/generated-country-identity-rows'
+import { countries, getCountryByIso3 } from '@/lib/dashboard/countries'
 import { roleFamilies } from '@/lib/roles/role-families'
 import type { RoleFamily } from '@/lib/roles/types'
 import { resolveCountry, type SignalQualityRow } from './quality'
@@ -84,7 +85,8 @@ export function roleFamilyLabel(key: string): string {
  * supabase-js infers row shape from the select string as a template literal
  * type, and a runtime-built string collapses that inference.
  */
-export const SIGNAL_ROUTING_SELECT = 'role_families,routing_version,routed_at' as const
+export const SIGNAL_ROUTING_SELECT =
+  'role_families,routing_version,routed_at,country_iso2,geo_scope,geo_region' as const
 
 /** The same columns as an array, derived so the two can never drift. */
 export const SIGNAL_ROUTING_COLUMNS = SIGNAL_ROUTING_SELECT.split(',') as readonly string[]
@@ -103,6 +105,29 @@ export type SignalRoutingRow = SignalQualityRow & {
   routing_version?: unknown
   routed_at?: unknown
   country_iso2?: unknown
+  geo_scope?: unknown
+  geo_region?: unknown
+}
+
+/**
+ * How broadly a signal applies, from `signals.geo_scope`.
+ *
+ * Measured over the last 90 days: `country` 10,767 · `region` 846 · `global`
+ * 517 · `unknown` 332. The last three carry no `country_iso2` at all, so an
+ * iso2-only matcher discards **1,363 signals (10.6% of the corpus)** for every
+ * operator who declares a geography — including EU-wide and treaty-level
+ * changes, which are among the most consequential things an exporter can be
+ * told about. Scope-aware matching exists to stop that.
+ */
+export type SignalGeoScope = 'country' | 'region' | 'global' | 'unknown'
+
+export function signalGeoScope(row: SignalRoutingRow): SignalGeoScope {
+  const raw = typeof row.geo_scope === 'string' ? row.geo_scope.trim().toLowerCase() : null
+  if (raw === 'country' || raw === 'region' || raw === 'global') return raw
+  // Rows predating the geo model have no geo_scope; infer from what they carry
+  // rather than dropping them.
+  if (raw === null && normaliseIso2(row.country_iso2)) return 'country'
+  return 'unknown'
 }
 
 /**
@@ -174,6 +199,21 @@ function normaliseIso2(value: unknown): string | null {
  *
  * `resolveCountry` yields ISO-3166-1 alpha-3, so the result is mapped through
  * `getCountryByIso3` rather than truncated — "AUT" is Austria, not Australia.
+ *
+ * KNOWN, MEASURED LIMIT: `getCountryByIso3` covers the 193-country dashboard
+ * set, while `countryIdentityRows` holds 248 canonical identities — 60 have no
+ * dashboard match (Singapore, Seychelles, South Sudan, Bermuda, Aruba…), and
+ * this fallback returns null for them.
+ *
+ * Left as-is on evidence, not by oversight. Every row with a NULL
+ * `country_iso2` in the last 90 days carries a *region or bloc* value
+ * ("Europe", "LATAM", "Africa", "Pacific") — **not one is a country**, because
+ * ingestion populates `country_iso2` whenever it identifies a real country.
+ * The name-resolution fallback is therefore currently unreachable for those 60,
+ * and hand-maintaining a 60-entry alpha-3→alpha-2 table would be dead code with
+ * its own drift risk. The real gap those rows exposed was regional scope, which
+ * {@link matchesGeography} now handles. Revisit if ingestion ever emits a
+ * country name without an iso2.
  */
 export function signalCountryIso2(row: SignalRoutingRow): string | null {
   const direct = normaliseIso2(row.country_iso2)
@@ -183,6 +223,87 @@ export function signalCountryIso2(row: SignalRoutingRow): string | null {
   return normaliseIso2(getCountryByIso3(resolved.code)?.iso2)
 }
 
+/** Every ISO-3166-1 alpha-2 an operator cares about: home plus destinations. */
+function profileCountries(profile: OperatorProfile): Set<string> {
+  return new Set(
+    [...profile.countryIso2, ...(profile.destinationIso2 ?? [])]
+      .map(normaliseIso2)
+      .filter((code): code is string => code !== null),
+  )
+}
+
+/**
+ * ISO-3166-1 alpha-2 → UN macro-region.
+ *
+ * Deliberately NOT `getCountryByIso2().region`: that field is `'Global'` for all
+ * but a handful of hand-overridden entries (Lesotho, Germany and Australia all
+ * report `'Global'`/`'Unspecified'`), so joining on it silently matched nothing.
+ * A test caught this.
+ *
+ * `countryIdentityRows` carries the real UN region for 247 of 248 identities, in
+ * exactly the five-value vocabulary `signals.geo_region` is normalised to
+ * (Africa, Americas, Asia, Europe, Oceania), so the two join with no alias
+ * table. The alpha-2 → alpha-3 hop goes through the dashboard set, which is the
+ * only place both codes coexist.
+ */
+const REGION_BY_ISO2: ReadonlyMap<string, string> = (() => {
+  const regionByIso3 = new Map<string, string>()
+  for (const row of countryIdentityRows) {
+    const [id, , , region] = row as unknown as [string, string, string, string | null]
+    const iso3 = id.split(':')[1]
+    if (iso3 && region) regionByIso3.set(iso3.toUpperCase(), region)
+  }
+  const map = new Map<string, string>()
+  for (const country of countries) {
+    const region = regionByIso3.get(country.iso3.toUpperCase())
+    if (region) map.set(country.iso2.toUpperCase(), region)
+  }
+  return map
+})()
+
+/** UN macro-regions covering an operator's declared countries. */
+function profileRegions(profile: OperatorProfile): Set<string> {
+  const regions = new Set<string>()
+  for (const code of profileCountries(profile)) {
+    const region = REGION_BY_ISO2.get(code)
+    if (region) regions.add(region)
+  }
+  return regions
+}
+
+/**
+ * Does this signal's geography reach this operator?
+ *
+ * Scope-aware rather than iso2-only (see {@link SignalGeoScope}):
+ * - `country` — the country must be one the operator declared.
+ * - `region`  — the region must contain at least one declared country. An
+ *   EU-wide rule change reaches a German importer.
+ * - `global`  — reaches everyone. A treaty-level change is not filtered out by
+ *   virtue of belonging to no single country.
+ * - `unknown` — geography cannot be established, so it cannot be used to
+ *   exclude. Matches, and is then narrowed by role family like any other row.
+ */
+function matchesGeography(row: SignalRoutingRow, profile: OperatorProfile): boolean {
+  const wanted = profileCountries(profile)
+  // An operator who declared no geography is not filtered by geography.
+  if (wanted.size === 0) return true
+
+  switch (signalGeoScope(row)) {
+    case 'country': {
+      const country = signalCountryIso2(row)
+      return country !== null && wanted.has(country)
+    }
+    case 'region': {
+      const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
+      return region !== null && profileRegions(profile).has(region)
+    }
+    case 'global':
+      return true
+    default:
+      return true
+  }
+}
+
 /**
  * Does this signal belong in this operator's feed?
  *
@@ -190,9 +311,19 @@ export function signalCountryIso2(row: SignalRoutingRow): string | null {
  * wants Lesotho cultivation news, not German pharmacy news *and* not Lesotho
  * pharmacy news. Within each dimension, values are ORed.
  *
+ * Two deliberate "empty means no filter" rules, one on each dimension:
+ * - no declared geography → not filtered by geography;
+ * - no declared role families → not filtered by role family.
+ *
+ * The second was missing in the first revision, and both review bots caught it.
+ * The migration documents an empty `role_families` watch rule as geography-only,
+ * so omitting the guard made the code contradict its own schema comment — and
+ * would have silently emptied every geography-only feed the moment the backfill
+ * stamped `routing_version`. That is the exact failure `isRouted()` exists to
+ * prevent, so leaving it one line below would have been indefensible.
+ *
  * An **unrouted** signal (pre-dating the routing stage) matches on geography
- * alone. Requiring a role family would have silently emptied every feed until
- * the backfill completed.
+ * alone, for the same reason.
  */
 export function matchesOperatorProfile(row: SignalRoutingRow, profile: OperatorProfile): boolean {
   const floor = profile.minImpact ? IMPACT_RANK[profile.minImpact] ?? 0 : null
@@ -201,18 +332,10 @@ export function matchesOperatorProfile(row: SignalRoutingRow, profile: OperatorP
     if (impact === undefined || impact < floor) return false
   }
 
-  const wanted = new Set(
-    [...profile.countryIso2, ...(profile.destinationIso2 ?? [])]
-      .map(normaliseIso2)
-      .filter((code): code is string => code !== null),
-  )
-  const country = signalCountryIso2(row)
-  // An operator who declared no geography is not filtered by geography.
-  if (wanted.size > 0) {
-    if (country === null || !wanted.has(country)) return false
-  }
+  if (!matchesGeography(row, profile)) return false
 
   if (!isRouted(row)) return true
+  if (profile.roleFamilies.length === 0) return true
 
   const families = resolveRoleFamilies(row)
   if (families.length === 0) return false
@@ -230,20 +353,31 @@ export function matchesOperatorProfile(row: SignalRoutingRow, profile: OperatorP
 export function explainMatch(row: SignalRoutingRow, profile: OperatorProfile): string | null {
   if (!matchesOperatorProfile(row, profile)) return null
 
-  const country = signalCountryIso2(row)
-  const isDestination =
-    country !== null &&
-    !profile.countryIso2.some((c) => normaliseIso2(c) === country) &&
-    (profile.destinationIso2 ?? []).some((c) => normaliseIso2(c) === country)
-
   const families = resolveRoleFamilies(row).filter((family) => profile.roleFamilies.includes(family))
   const familyPart = families.length > 0 ? roleFamilyLabel(families[0]).toLowerCase() : null
+  const suffix = familyPart ? ` (${familyPart})` : ''
 
-  if (country === null) return familyPart ? `Affects your ${familyPart} operations` : 'Matches your watch profile'
-  if (isDestination) {
-    return familyPart
-      ? `Affects your ${country} export lane (${familyPart})`
-      : `Affects your ${country} export lane`
+  switch (signalGeoScope(row)) {
+    case 'region': {
+      const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
+      return region ? `Affects ${region}, where you operate${suffix}` : `Matches your watch profile${suffix}`
+    }
+    case 'global':
+      return `Global change affecting all markets${suffix}`
+    case 'country': {
+      const country = signalCountryIso2(row)
+      if (country === null) break
+      const isDestination =
+        !profile.countryIso2.some((c) => normaliseIso2(c) === country) &&
+        (profile.destinationIso2 ?? []).some((c) => normaliseIso2(c) === country)
+      if (isDestination) return `Affects your ${country} export lane${suffix}`
+      return familyPart
+        ? `Affects your ${country} ${familyPart} operations`
+        : `Affects your ${country} operations`
+    }
+    default:
+      break
   }
-  return familyPart ? `Affects your ${country} ${familyPart} operations` : `Affects your ${country} operations`
+
+  return familyPart ? `Affects your ${familyPart} operations` : 'Matches your watch profile'
 }

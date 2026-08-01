@@ -198,7 +198,18 @@ async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
       },
       next: { revalidate: 300 },
     })
-    if (!res.ok) return []
+    // Never fail silently. A 400 here — typically "column does not exist" after a
+    // base-table column is added but the PostgREST-exposed view is never
+    // refreshed — is indistinguishable from a genuinely empty feed once this
+    // returns []. That exact confusion hid a broken Command Centre query for
+    // days; see 20260801150000_api_expose_quality_and_routing_columns.sql.
+    if (!res.ok) {
+      console.error(
+        `[regulatory-signals] PostgREST ${res.status} on ${new URL(res.url).pathname}:`,
+        (await res.text().catch(() => '')).slice(0, 300),
+      )
+      return []
+    }
     const rows: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(rows)) return []
     return rows.map(mapApprovedRow).filter((s): s is PublicRegulatorySignal => s !== null)
@@ -239,7 +250,18 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
       next: { revalidate: 300 },
     })
-    if (!res.ok) return []
+    // Never fail silently. A 400 here — typically "column does not exist" after a
+    // base-table column is added but the PostgREST-exposed view is never
+    // refreshed — is indistinguishable from a genuinely empty feed once this
+    // returns []. That exact confusion hid a broken Command Centre query for
+    // days; see 20260801150000_api_expose_quality_and_routing_columns.sql.
+    if (!res.ok) {
+      console.error(
+        `[regulatory-signals] PostgREST ${res.status} on ${new URL(res.url).pathname}:`,
+        (await res.text().catch(() => '')).slice(0, 300),
+      )
+      return []
+    }
     const rows: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(rows)) return []
 
