@@ -4,6 +4,7 @@ Date: 2026-08-01
 Branch: `feature/supply-catalog`
 Merge status: not merged
 Verified application and Vercel head: `c3d9a43b7ddac697061d3a87079ee6ca77490b07`
+Current evidence-only descendant: `04d69ce74220bbc536def0cb865a3eeaf0c78bdd`
 
 ## Scope
 
@@ -19,7 +20,7 @@ After the TypeScript repair, later branch pushes did not create usable previews 
 
 - `/api/cron/intelligence-health`: `15 */6 * * *`
 
-The project permits one scheduled execution per day on its current plan. The branch configuration was changed to the content-equivalent daily schedule already used by the approved Vercel deployment repair:
+The project permits one scheduled execution per day on its current plan. The branch configuration was changed to:
 
 - `/api/cron/intelligence-health`: `15 6 * * *`
 
@@ -47,7 +48,7 @@ Requests were issued to the exact immutable deployment URL for:
 
 Both requests reached the READY deployment but returned HTTP `302` to Vercel SSO because preview deployment protection is enabled. A temporary Vercel share URL was generated, but the connected fetch client did not retain the SSO cookie and continued receiving the protection redirect. Therefore the exact deployment identity is verified, but an authenticated application-level HTTP 200 response from those two immutable URLs is not evidenced in this pass.
 
-The same routes remain independently verified at HTTP 200 through the current-head GitHub visual workflow, including 375px and 1440px browser captures and horizontal-overflow checks.
+The same routes remain independently verified at HTTP 200 through the current-content GitHub visual workflow, including 375px and 1440px browser captures and horizontal-overflow checks.
 
 ## Database and public-boundary verification
 
@@ -63,7 +64,7 @@ An anonymous-role query against `api.supply_catalog_public_v1` succeeded and ret
 
 The dedicated DTO remains `api.supply_catalog_public_v1`; the PR does not expand `marketplace_public_listings_v1`.
 
-## Current-head GitHub checks
+## Current-content GitHub checks
 
 All workflows completed successfully against `c3d9a43b7ddac697061d3a87079ee6ca77490b07`:
 
