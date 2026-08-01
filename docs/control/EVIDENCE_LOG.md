@@ -2403,3 +2403,35 @@ bundle would select were run instead:
 component scripts, or amend `PR_REVIEW_CHECKLIST.md` to stop referencing a bundle that does not
 exist. Both `qa:compliance` and `lint:docs` are cited by control docs but absent from the repo, so
 this is a documentation/tooling drift worth fixing once rather than working around per PR.
+
+### 2026-08-01 — Restoring production deployability (Vercel Hobby cron limit)
+
+**Problem.** `vercel.json` carried `"schedule": "15 */6 * * *"` on `/api/cron/intelligence-health`
+— four runs a day, over the Hobby plan's one-per-day limit. Every production deployment therefore
+failed with `HTTP 400 cron_jobs_limits_reached`. Verified from the Actions log of the one-use
+`Elite Digest Production Release` workflow (run 30642287937), which failed on exactly that error
+while deploying `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` at `SOURCE_SHA 4227d70`.
+
+**Consequence.** Nothing merged to `main` after 2026-07-31 08:05 reached production — including
+`4227d70` ("harden Harbourview Elite Digest release", #1228) and #1223's migration-replay guard.
+Two release attempts were made and both failed; the second also hit a shell bug (bare SHA on line 9)
+and a missing `issues: write` permission, so the workflow could not even report its own failure,
+which is why this went unnoticed.
+
+**Fix.** `15 */6 * * *` -> `15 6 * * *`. All nine crons are now at or under daily, within the Hobby
+limit. JSON re-validated after the edit.
+
+**Correction to an earlier statement in this session.** I described this cron as Elite Digest's
+refresh and said the fix would drop the digest from 4x/day to 1x/day. That was wrong — the path is
+`/api/cron/intelligence-health`. **Digest cadence is unaffected.** The real regression is that an
+intelligence-health check now runs daily rather than four times a day.
+
+**Why that regression is acceptable, with a caveat.** `hv-pipeline-alerts` (pg_cron, hourly,
+built earlier in this session) asserts on pipeline *outcomes* and is unaffected by Vercel's limits,
+so the platform is not left without health monitoring — arguably it is better monitored than before.
+The caveat is that whatever `/api/cron/intelligence-health` checks that `hv_pipeline_alerts` does not
+is now checked 4x less often. Upgrading to Vercel Pro removes the constraint entirely and is the
+proper fix; that costs money and was explicitly not taken unilaterally.
+
+**Approval:** Tyler, 2026-08-01, "Approved" against an explicit four-item scope confirmation covering
+this change, the `hv-extract` deploy, scheduling the staging promoter, and merging PR #1232.
