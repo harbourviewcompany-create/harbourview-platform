@@ -691,7 +691,7 @@ volume.
 
 ---
 
-## 11. Fast reference — key identifiers (updated 2026-07-22)
+## 11. Fast reference — key identifiers (updated 2026-07-31)
 
 - Supabase project: `zvxdgdkukjrrwamdpqrg` (Harbourview Platform, us-west-2,
   **Nano compute tier**)

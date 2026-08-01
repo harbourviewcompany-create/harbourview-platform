@@ -2171,16 +2171,25 @@ chrome: median word count 1,287, 84.1% (992/1,180) containing cannabis keywords,
 **Root cause.** `hv-extract`'s `EXTRACTION_SYSTEM` prompt gives every response field a descriptive
 placeholder — except one:
 
-```
+```text
 "summary":"1-2 sentence plain English summary of the cannabis-relevant signal",
 "relevance_score":0,                            <-- literal value, no range, no meaning
 "confidence":"high|medium|low",
 ```
 
-The model copies the literal `0`, exactly as the schema instructs. The function then gates on
-`extraction.relevance_score < minRelevance` with `minRelevance` defaulting to 30, so **every**
-snapshot exits via the `low_relevance` skip path and is marked `fetch_status='extracted'`, never to
-be reconsidered. Deterministic, content-independent starvation.
+The model anchors on that literal `0`. The function then gates on
+`extraction.relevance_score < minRelevance` with `minRelevance` defaulting to 30, so no snapshot
+clears the gate: every one exits via the `low_relevance` skip path and is marked
+`fetch_status='extracted'`, never to be reconsidered.
+
+**Precision correction, made after review.** An earlier draft of this entry said the model "copies
+the literal 0" and called the starvation "deterministic, content-independent". The measured data does
+not support that stronger claim: v1 returned a *range* of 0-8 (mean 4.4, max 8), not a constant 0.
+What the experiment establishes is that all 20 samples landed far below the threshold — never within
+22 points of it — not that the output was invariant. The accurate description is an
+**underspecified, zero-anchored scale**: the only numeric exemplar in the schema is `0`, so scores
+cluster near it largely regardless of content. The operational effect was the same, but rollback and
+future diagnosis should rest on the weaker, supported claim.
 
 **Measured, not inferred.** Ran the live prompt against 20 real pending snapshots via `pg_net` ->
 OpenAI `gpt-4o-mini` (identical model, prompt, and user-content shape as the function). No writes to
@@ -2270,3 +2279,55 @@ described `hv-extract` as v33. Updated to v34 / v1.7.0. **A second staleness Cod
 found while fixing it:** the same line described `hv-classify` as **v13**, when #1218 deployed **v14**
 (the recall fix) the previous day. Both are now current, with a one-line note on what each version
 actually changed, so an operator rolling back lands on the right one.
+
+### 2026-07-31 — PR #1232, second review round (CodeRabbit + Codex)
+
+Seven findings across both reviewers. Six accepted, one partially — reasoning recorded because two
+were defects in the *previous* round's fix, i.e. this session correcting itself twice on the same
+file.
+
+**Accepted — `backendsCompleted` was populated after the relevance gate (Codex).** The single worst
+of the batch, and a defect in the fix shipped an hour earlier as v35. `backendsCompleted.add()` sat
+*after* the low-relevance skip and after the staging write, so a batch where every snapshot was
+skipped reported `llm_backends_completed: []` despite successful LLM calls — precisely defeating the
+provider-fallback diagnostic the field was added to provide. Moved to immediately after the non-null
+outcome check, on both the signal and editorial branches. A provider that answered did work, whether
+or not the answer is kept.
+
+**Accepted — mixed identifier namespaces (CodeRabbit).** `llmBackendFirstAttempt` used model IDs
+(`gpt-4o-mini`) while `backendsCompleted` collects provider labels (`openai`), so one response could
+read `first_attempted: "gpt-4o-mini"` alongside `completed: ["openai"]` for the same execution. It
+also fell through to reporting Gemini when *no* key was configured and nothing was attempted. Now
+provider labels throughout, `null` when nothing is configured.
+
+**Accepted — no runtime validation of the model's JSON (both reviewers, independently).** This is a
+hole the previous round *introduced*: `relevance_score`'s exemplar changed from a literal `0` (a
+number) to a descriptive string, so an echo now yields a string rather than a number. In JS both
+`"some string" < 30` and `NaN < 30` evaluate to **false**, so a malformed score would pass the gate,
+reach staging, and then hv-score's promote threshold — failing *open*, in the one place that must
+fail closed. Added `normalizeExtraction()`: coerces `relevance_score` to a finite integer clamped
+0-100, forcing anything non-coercible to 0; rejects `effective_date` values that are not a real
+`YYYY-MM-DD`. Applied before the gate and before any write.
+
+**Partially accepted — Codex suggested moving the rubric out of the JSON exemplar and using a
+numeric one.** Sound reasoning, not taken as written. The rubric-in-field shape is the one actually
+*measured* (0/20 -> 12/20 clearing the gate, SEO listicles still scoring 0); swapping to a numeric
+exemplar is unmeasured and reintroduces exactly the literal-value shape that caused the original
+defect — a model that copies `0` may equally copy `72`. Kept the validated prompt, added an explicit
+"Return a bare integer, never a string" instruction, and closed the type hole in code where it
+cannot depend on model compliance at all. Revisit if a future eval shows echo behaviour.
+
+**Accepted — evidence-log overclaim (Codex).** The first draft said the model "copies the literal 0"
+and called the starvation "deterministic, content-independent", while the table directly beneath
+showed a 0-8 range, mean 4.4. The supported claim is weaker: an underspecified, zero-anchored scale
+where scores cluster near the only numeric exemplar. Corrected in place, with the correction left
+visible rather than silently rewritten.
+
+**Accepted — docs hygiene.** Spec §11 heading date 2026-07-22 -> 2026-07-31; MD040 language
+identifier added to the prompt-excerpt fence.
+
+**Commands run:** `npx tsc --noEmit` exit 0; `npm run test` 104 passing across 5 suites.
+`npm run lint:docs` — **does not exist in this repo's package.json**, so the docs-lint step CodeRabbit
+cites could not be run; noted rather than silently skipped. The tsc caveat from the previous entry
+still applies: `tsconfig.json` excludes `supabase/functions`, so the changed file is not statically
+checked and the live probe remains its only real verification.

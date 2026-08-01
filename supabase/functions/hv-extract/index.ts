@@ -53,7 +53,7 @@ type EditorialResult = {
 const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object -- no prose, no markdown, no explanation, no code fences.
 
 Return exactly this structure:
-{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":"integer 0-100. 80-100 = binding regulatory or enforcement action; 50-79 = material policy, licensing, or market development; 30-49 = substantive cannabis coverage with no specific action; 0-29 = incidental mention, stock promotion, listicle, SEO filler, or not cannabis-related. Score the CONTENT -- do not copy this description.","confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
+{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":"integer 0-100. 80-100 = binding regulatory or enforcement action; 50-79 = material policy, licensing, or market development; 30-49 = substantive cannabis coverage with no specific action; 0-29 = incidental mention, stock promotion, listicle, SEO filler, or not cannabis-related. Score the CONTENT -- do not copy this description. Return a bare integer, never a string.","confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
 
 If the content contains no cannabis-relevant signal, return: {"signal_type":"none","relevance_score":0,"confidence":"high","summary":"","key_entities":[],"keywords_matched":[],"jurisdiction":null,"country_iso":null,"effective_date":null}`;
 
@@ -244,6 +244,25 @@ async function extractEditorial(snapshot: Snapshot): Promise<{ result: Editorial
   return null;
 }
 
+// The model returns free-form JSON; nothing enforces the contract at the wire.
+// relevance_score in particular MUST end up a finite number, because the gate is
+// `relevance_score < minRelevance` and in JS both `"not a number" < 30` and
+// `NaN < 30` evaluate to FALSE -- a malformed value would sail through the gate
+// and reach staging, and then hv-score's promote threshold, unrejected. Coerce
+// what is coercible, and force anything else to 0 so it fails closed.
+function normalizeExtraction(raw: ExtractionResult): ExtractionResult {
+  const n = Number((raw as { relevance_score?: unknown }).relevance_score);
+  const relevance_score = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 0;
+
+  const rawDate = (raw as { effective_date?: unknown }).effective_date;
+  const effective_date =
+    typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !Number.isNaN(Date.parse(rawDate))
+      ? rawDate
+      : null;
+
+  return { ...raw, relevance_score, effective_date };
+}
+
 function isMainstreamMediaSnapshot(snapshot: Snapshot): boolean {
   return snapshot.source_type === "mainstream_media";
 }
@@ -285,7 +304,11 @@ Deno.serve(async (req: Request) => {
   // reported "claude-haiku-4-5" on every run while OpenAI did all the work --
   // actively misleading during the 2026-07-31 dark-feed diagnosis, since the
   // Anthropic key exists but is billing-blocked.
-  const llmBackendFirstAttempt = OPENAI_API_KEY ? "gpt-4o-mini" : ANTHROPIC_API_KEY ? "claude-haiku-4-5" : "gemini-3.5-flash";
+  const llmBackendFirstAttempt =
+    OPENAI_API_KEY ? "openai" :
+    ANTHROPIC_API_KEY ? "anthropic" :
+    GEMINI_API_KEY ? "gemini" :
+    null;
   // Backends that actually produced a result this run. Empty when nothing was
   // processed; multiple entries when a fallback kicked in mid-batch -- which is
   // exactly the outage case where an inaccurate single value misleads most.
@@ -361,6 +384,8 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
+        backendsCompleted.add(outcome.backend);
+
         const editorial = outcome.result;
 
         if (!editorial.is_cannabis_relevant || !editorial.headline) {
@@ -391,7 +416,6 @@ Deno.serve(async (req: Request) => {
           staged++;
         }
 
-        backendsCompleted.add(outcome.backend);
         results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", pipeline: "editorial", headline: editorial.headline, country: editorial.country, backend: outcome.backend });
         continue;
       }
@@ -430,7 +454,13 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const extraction = outcome.result;
+      // Recorded here, BEFORE the relevance gate and the staging write: a
+      // provider that answered did work, even if we then discard the answer.
+      // Adding it after the skip made an all-skipped batch report [] despite
+      // successful LLM calls -- which defeats the point of the field.
+      backendsCompleted.add(outcome.backend);
+
+      const extraction = normalizeExtraction(outcome.result);
 
       if (extraction.signal_type === "none" || extraction.relevance_score < minRelevance) {
         skippedLowRelevance++;
@@ -476,7 +506,6 @@ Deno.serve(async (req: Request) => {
         staged++;
       }
 
-      backendsCompleted.add(outcome.backend);
       results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", signal_type: extraction.signal_type, relevance_score: extraction.relevance_score, confidence: extraction.confidence, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, summary: extraction.summary, backend: outcome.backend });
 
     } catch (err) {
