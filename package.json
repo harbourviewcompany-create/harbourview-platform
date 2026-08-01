@@ -63,6 +63,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.0",
     "sonner": "^2.0.7",
     "stripe": "^22.3.2",
     "three": "^0.185.1",
@@ -84,5 +85,18 @@
     "typescript": "^5.4.5",
     "vitest": "^4.1.10",
     "wrangler": "^4.115.0"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.25",
+      "sharp": "0.35.0"
+    },
+    "@sentry/bundler-plugin-core": {
+      "brace-expansion": "2.1.2"
+    },
+    "glob": {
+      "brace-expansion": "2.1.2"
+    },
+    "protobufjs": "7.6.5"
   }
 }
