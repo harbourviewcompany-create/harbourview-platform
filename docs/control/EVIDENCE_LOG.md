@@ -2233,3 +2233,40 @@ testable here; the Anthropic key is billing-blocked. Recorded as a hypothesis, n
   Resolving it means retiring one; that is an architecture decision for Tyler.
 - Crawl ramp deliberately NOT done. Ramping into a stage that discarded 100% of input would have
   multiplied the waste and hidden the real fault.
+
+### 2026-07-31 — PR #1232 addendum: QA gate results and Codex review fixes
+
+Three review findings from `chatgpt-codex-connector` on #1232. All three were correct and are fixed;
+recording them because two were defects in this session's own work.
+
+**P1 — missing backend QA evidence (AGENTS.md §3).** Correct: the original entry recorded only the
+live production probe, and AGENTS.md's backend/API gate requires lint, typecheck, tests and build, or
+a documented substitute. Now run:
+
+- `npx tsc --noEmit` — **exit 0**
+- `npm run test` — **104 passing** across 5 suites (39 + 8 + 7 + 39 + 11)
+- `npm run build` — **exit 0**, full route manifest emitted
+- `npm run lint` — **still unrunnable**, unchanged and unrelated: `eslint-plugin-react@7.37.5`
+  crashes under ESLint 10.8.0. Recorded as a genuine gap, not worked around.
+
+**Important caveat on the typecheck, stated rather than implied:** `tsconfig.json` lists
+`supabase/functions` in `exclude`, so `tsc --noEmit` does **not** typecheck `hv-extract` at all — it
+is Deno, with different runtime types. A green tsc is therefore evidence about the Next.js app, not
+about the changed file. The actual verification for the edge function is the live probe: deploy v34,
+then a real run returning `staged 6/6` with scores `[50,70,80,70,85,50]`. Anyone reading a green QA
+row here should not infer the edge function was statically checked.
+
+**P2 — `llm_backend` still misreported on provider fallback.** Correct, and a defect in this
+session's own fix. Changing it from "presence of `ANTHROPIC_API_KEY`" to "OpenAI if key present"
+still reported the **first attempted** backend, not the completed one. When OpenAI fails, both
+`extractSignal` and `extractEditorial` fall through to Anthropic then Gemini and return that provider
+in `outcome.backend` — so the field stayed wrong precisely during an outage, the case where it
+matters most, and a single batch can legitimately use more than one backend. Replaced with two
+fields: `llm_backend_first_attempted` (honestly named) and `llm_backends_completed` (an array,
+populated from actual `outcome.backend` values).
+
+**P2 — stale canonical version reference.** Correct. `INTELLIGENCE_ARCHITECTURE_SPEC.md` §11 still
+described `hv-extract` as v33. Updated to v34 / v1.7.0. **A second staleness Codex did not flag was
+found while fixing it:** the same line described `hv-classify` as **v13**, when #1218 deployed **v14**
+(the recall fix) the previous day. Both are now current, with a one-line note on what each version
+actually changed, so an operator rolling back lands on the right one.

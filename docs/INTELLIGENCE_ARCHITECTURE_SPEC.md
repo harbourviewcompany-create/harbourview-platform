@@ -711,9 +711,11 @@ volume.
 - Deprecated-pending pipeline (Pipeline A): `intel_eval_set`, `intel_eval_predictions`,
   `api.intel_eval_scoring`, `signal_classifications`, `api.promote_classified_signals`,
   `intel_pipeline_tick()`. Cron `intel-classify-promote`, unscheduled 2026-07-21.
-- Shared classifier: edge function `hv-classify` (v13 as of 2026-07-21 — OpenAI-only,
-  retry + 429 backoff). Shared extraction: edge function `hv-extract` (v33, OpenAI-first
-  provider order).
+- Shared classifier: edge function `hv-classify` (**v14 as of 2026-07-30** — OpenAI-first,
+  retry + 429 backoff; v14 is the recall fix, 0.559 → 0.903 at precision 1.000, stamped
+  `hv-classify/openai/v2-summary-fix`). Shared extraction: edge function `hv-extract`
+  (**v34 / v1.7.0 as of 2026-07-31** — OpenAI-first provider order; v34 is the
+  `relevance_score` rubric fix, without which every snapshot scored 0 and was discarded).
 - Raw landing table: `public.signals` (~7,200+ SOURCE_ENGINE rows historically; 8,684
   with `quality_label` populated as of 2026-07-22)
 - Broken scorer, confirmed dead: `public.score_signal_from_snapshot` — nothing live

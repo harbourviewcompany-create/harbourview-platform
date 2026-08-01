@@ -275,12 +275,21 @@ Deno.serve(async (req: Request) => {
   const rawLimit    = Number(url.searchParams.get("limit") ?? "10");
   const limit       = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 10, 25));
   const minRelevance = Number(url.searchParams.get("min_relevance") ?? "30");
-  // Report the backend that will actually be TRIED FIRST, which is OpenAI (see
-  // extractSignal's attempt order). Keying this off ANTHROPIC_API_KEY's mere
-  // presence reported "claude-haiku-4-5" on every run while OpenAI did all the
-  // work -- actively misleading during the 2026-07-31 dark-feed diagnosis, since
-  // the Anthropic key exists but is billing-blocked.
-  const llmBackend  = OPENAI_API_KEY ? "gpt-4o-mini" : ANTHROPIC_API_KEY ? "claude-haiku-4-5" : "gemini-3.5-flash";
+  // The backend that will be tried FIRST (see extractSignal's attempt order).
+  // Named explicitly as "first attempted" because it is not necessarily the one
+  // that completes: on an OpenAI failure both extractSignal and extractEditorial
+  // fall through to Anthropic then Gemini, and a single batch can legitimately
+  // use more than one. The completed backends are reported separately below.
+  //
+  // The previous version keyed this off ANTHROPIC_API_KEY's mere presence, so it
+  // reported "claude-haiku-4-5" on every run while OpenAI did all the work --
+  // actively misleading during the 2026-07-31 dark-feed diagnosis, since the
+  // Anthropic key exists but is billing-blocked.
+  const llmBackendFirstAttempt = OPENAI_API_KEY ? "gpt-4o-mini" : ANTHROPIC_API_KEY ? "claude-haiku-4-5" : "gemini-3.5-flash";
+  // Backends that actually produced a result this run. Empty when nothing was
+  // processed; multiple entries when a fallback kicked in mid-batch -- which is
+  // exactly the outage case where an inaccurate single value misleads most.
+  const backendsCompleted = new Set<string>();
 
   let query = supabase
     .from("source_snapshots")
@@ -382,6 +391,7 @@ Deno.serve(async (req: Request) => {
           staged++;
         }
 
+        backendsCompleted.add(outcome.backend);
         results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", pipeline: "editorial", headline: editorial.headline, country: editorial.country, backend: outcome.backend });
         continue;
       }
@@ -466,6 +476,7 @@ Deno.serve(async (req: Request) => {
         staged++;
       }
 
+      backendsCompleted.add(outcome.backend);
       results.push({ snapshot_id: snapshot.id, status: dryRun ? "dry_run" : "staged", signal_type: extraction.signal_type, relevance_score: extraction.relevance_score, confidence: extraction.confidence, jurisdiction: extraction.jurisdiction, country_iso: extraction.country_iso, summary: extraction.summary, backend: outcome.backend });
 
     } catch (err) {
@@ -476,5 +487,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.7.0", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.7.0", mode: dryRun ? "dry_run" : "live", llm_backend_first_attempted: llmBackendFirstAttempt, llm_backends_completed: [...backendsCompleted], batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
