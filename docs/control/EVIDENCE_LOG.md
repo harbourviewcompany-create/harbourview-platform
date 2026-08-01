@@ -2155,3 +2155,43 @@ are consequential and hard to reverse:
    rather than leaving it to fail on every push.
 
 Recommendation: (2). The drift is what creates the hazard; the other two only manage it.
+
+## 2026-07-30 — Add Search as a signals sub-tab (PR #NNNN)
+
+**Context:** follow-up to PR #1220, which built `components/dashboard/SignalSemanticSearch.tsx` and
+`app/dashboard/signals/search/page.tsx` but deliberately left the new page unreachable except by
+direct URL, rather than edit `components/dashboard/MobileCommandCentre.tsx` (4,807 lines) under that
+pass's risk budget. `docs/control/AGENT_PREFLIGHT_CHECKLIST.md` flags this file's unscoped global
+`<style>` string as the mechanism behind a real 2026-07-07 production bug (a duplicate class name
+silently winning/losing the cascade).
+
+**What changed (4 lines, no new CSS, no `<style>` block touched):**
+- `SignalSub` type: added `'search'` to the existing `'feed' | 'regulatory' | 'watchlist'` union.
+- `SIGNALS_TABS`: added `{ id: 'search', label: 'Search' }`, following the exact existing shape.
+- `SignalsMobile`'s render switch: added `{sub === 'search' && <SignalSemanticSearch />}` alongside
+  the three existing `sub === '...'` branches, inside the same `hvm-page-stack` wrapper div they
+  already share -- no new class names introduced anywhere.
+- One import: `import SignalSemanticSearch from './SignalSemanticSearch'`.
+
+The "Signals" page already had a working sub-tab bar (Signals / Regulatory / Watchlist) driven by
+this exact `SignalSub` union, `SIGNALS_TABS` array, and `signalsSub` state -- adding a fourth tab
+that reuses the same button/active-state CSS class (`className={signalsSub === t.id ? 'active' : ''}`)
+already used by the other three was the lowest-risk way to make the page reachable, versus adding a
+new nav entry elsewhere or modifying routing.
+
+**Verification:** read the full 4,807-line file into a local sandbox first (not edited blind against
+GitHub's API), applied the 4 changes via exact string-match replacement (each `assert count==1`
+before replacing, so a change silently applying to the wrong location, or not applying at all, would
+have raised rather than shipped quietly). Confirmed via grep that `SignalSemanticSearch` is
+referenced exactly twice (the import, the usage) and that both files live in the same directory
+(`components/dashboard/`), so the relative import resolves. Ran a brace/paren balance count
+before and after (2,680/2,680 and 2,056/2,056) as a cheap syntax sanity guard -- not a real
+TypeScript check, which `npm run typecheck`/`tsc` would provide but could not be run here
+(`node_modules` unavailable, same limitation as every other 2026-07 entry in this log).
+
+**Not done:** no visual/runtime verification (no dev server available in this environment) --
+the tab renders on paper (matches the existing pattern exactly) but has not been seen rendering in a
+browser. If CI's build step or a manual check surfaces a problem, revert is a 4-line diff.
+
+**Human approval status:** "Continue" following the prior turn's explicit framing that the nav link
+was the one clearly-identified remaining piece.
