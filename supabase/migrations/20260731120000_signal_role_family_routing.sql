@@ -114,10 +114,27 @@ create index if not exists signals_role_families_gin
   on public.signals using gin (role_families)
   where role_families is not null;
 
--- Routed reads always filter geography alongside role family.
-create index if not exists signals_country_iso2_date_idx
-  on public.signals (country_iso2, date desc)
-  where country_iso2 is not null;
+-- No (country_iso2, date desc) index is created here. `idx_signals_iso_date`
+-- from 20260716195743_signals_country_iso_resolution.sql is already byte-for-byte
+-- what routed reads need — confirmed live:
+--   CREATE INDEX idx_signals_iso_date ON public.signals
+--     USING btree (country_iso2, date DESC) WHERE (country_iso2 IS NOT NULL)
+-- Postgres does not deduplicate indexes by definition, and a different name
+-- bypasses IF NOT EXISTS, so adding one would have meant two identical B-trees
+-- maintained on every insert and country/date update for no query benefit.
+
+-- Routed state is one fact, so the marker and the result cannot disagree:
+-- `routing_version IS NULL` (never routed, matches on geography alone) must
+-- exactly track `role_families IS NULL`. An empty array with a version set stays
+-- valid — that is "routed, relevant to nobody". Without this, a partial
+-- classifier or backfill write could set one and not the other and silently
+-- widen or empty feeds.
+alter table public.signals
+  drop constraint if exists signals_routing_state_consistent;
+alter table public.signals
+  add constraint signals_routing_state_consistent
+  check ((routing_version is null) = (role_families is null)) not valid;
+alter table public.signals validate constraint signals_routing_state_consistent;
 
 -- ── Structured watch rules ───────────────────────────────────────────────────
 -- cc_watch_rules was (rule_type, keywords) — substring matching only, which
@@ -159,6 +176,15 @@ declare invalid text;
 begin
   if new.role_families is null or cardinality(new.role_families) = 0 then
     return new;
+  end if;
+
+  -- A NULL element must be rejected explicitly. `string_agg` skips NULL inputs,
+  -- so relying on the aggregate alone let `array['cultivation_production', NULL]`
+  -- through with `invalid` still NULL — the check silently passing on exactly the
+  -- malformed input it exists to catch.
+  if exists (select 1 from unnest(new.role_families) as k where k is null) then
+    raise exception 'role_families may not contain NULL elements'
+      using errcode = '23514';
   end if;
 
   select string_agg(k, ', ')

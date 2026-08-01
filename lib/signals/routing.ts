@@ -245,6 +245,22 @@ function profileCountries(profile: OperatorProfile): Set<string> {
  * (Africa, Americas, Asia, Europe, Oceania), so the two join with no alias
  * table. The alpha-2 → alpha-3 hop goes through the dashboard set, which is the
  * only place both codes coexist.
+ *
+ * KNOWN DATA GAP — needs a verified ISO source, not a guess.
+ * The repo has no complete alpha-3 → alpha-2 table. `countries.ts` covers 193
+ * and `natural-earth-countries.ts` 191; their union is 195, still leaving **60
+ * of the 248 canonical identities unmapped — including Singapore, South Sudan,
+ * Seychelles, Barbados and Grenada**, i.e. disproportionately the small-island
+ * and African states this platform's coverage is meant to be strongest in.
+ *
+ * Unlike the signal-side name fallback (measurably unreachable — ingestion
+ * always sets `country_iso2` for real countries), this path IS reachable: it is
+ * driven by operator-declared jurisdictions, and `operator_countries` accepts
+ * any alpha-2. {@link matchesGeography} therefore fails open for affected
+ * profiles rather than silently withholding regional signals. Writing the 60
+ * codes from memory into a compliance-facing product would be exactly the kind
+ * of unverified data this codebase forbids; they should come from a checked ISO
+ * source in a separate, reviewable data change.
  */
 const REGION_BY_ISO2: ReadonlyMap<string, string> = (() => {
   const regionByIso3 = new Map<string, string>()
@@ -295,7 +311,15 @@ function matchesGeography(row: SignalRoutingRow, profile: OperatorProfile): bool
     }
     case 'region': {
       const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
-      return region !== null && profileRegions(profile).has(region)
+      if (region === null) return false
+      const known = profileRegions(profile)
+      // If any declared country has no region mapping, this operator's regional
+      // coverage cannot be proven either way — see REGION_BY_ISO2's note on the
+      // 60 unmapped identities. Deliver rather than drop: for an intelligence
+      // product, one extra regional item costs far less than missing an EU-wide
+      // rule change, and this degrades to exact behaviour once the codes land.
+      if (known.size < profileCountries(profile).size) return true
+      return known.has(region)
     }
     case 'global':
       return true

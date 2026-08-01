@@ -218,6 +218,18 @@ describe('geographic scope', () => {
     expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(false)
   })
 
+  it('fails open for jurisdictions with no region mapping rather than withholding', () => {
+    // 60 of 248 canonical identities have no alpha-3→alpha-2 entry in this repo
+    // (Singapore among them), and operator_countries accepts any alpha-2. Missing
+    // an EU-wide rule change costs more than one extra regional item, so an
+    // unmappable profile must not silently lose regional coverage.
+    const singapore: OperatorProfile = { countryIso2: ['SG'], roleFamilies: cultivation }
+    const signal = routed({ geo_scope: 'region', geo_region: 'Asia', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, singapore)).toBe(true)
+    // A fully-mappable profile is still filtered normally.
+    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(false)
+  })
+
   it('delivers global signals to everyone', () => {
     // A treaty-level change belongs to no country; it must not be filtered out
     // for precisely that reason.

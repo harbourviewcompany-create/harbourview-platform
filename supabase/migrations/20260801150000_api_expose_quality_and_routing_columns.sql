@@ -132,7 +132,16 @@ create or replace view api.role_families as
   from public.role_families;
 
 -- Least privilege: read-only to the browser roles, no write grant (guardrail #6).
+--
+-- BOTH grants are required. The `enforce_api_view_security_invoker_trigger`
+-- event trigger (ddl_command_end) stamps every `api.*` view `security_invoker=on`
+-- — confirmed live: 141 of 141 api views carry it. An invoker view executes with
+-- the caller's privileges, so granting only the view yields
+-- "permission denied for table role_families" at request time. The base-table
+-- grant is what actually makes it readable; the RLS select policy added in
+-- 20260731120000 is what keeps it read-only.
 grant select on api.role_families to anon, authenticated;
+grant select on public.role_families to anon, authenticated;
 
 -- ── Rollback ─────────────────────────────────────────────────────────────────
 -- `create or replace view` cannot drop columns, so a true revert means dropping
