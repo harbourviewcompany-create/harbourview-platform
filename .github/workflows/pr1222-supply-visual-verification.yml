@@ -73,11 +73,7 @@ jobs:
           ]
 
           await fs.mkdir(out, { recursive: true })
-          const browser = await chromium.launch({
-            headless: true,
-            executablePath: '/usr/bin/google-chrome',
-            args: ['--no-sandbox'],
-          })
+          const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] })
           const manifest = []
           try {
             for (const viewport of viewports) {
@@ -109,108 +105,131 @@ jobs:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           VERCEL_IMMUTABLE_BASE_URL: https://harbourview-7gq72hysc-harbourview.vercel.app
         run: |
+          set -euo pipefail
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
           mkdir -p verification-results/pr1222-vercel
-          cat > scripts/verify-pr1222-vercel-routes.mjs <<'EOF'
-          import fs from 'node:fs/promises'
 
-          const base = process.env.VERCEL_IMMUTABLE_BASE_URL
-          const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-          if (!base) throw new Error('VERCEL_IMMUTABLE_BASE_URL is required')
-          if (!bypass) throw new Error('VERCEL_AUTOMATION_BYPASS_SECRET is required')
+          verify_route() {
+            name="$1"
+            path="$2"
+            expected_title="$3"
+            marker_one="$4"
+            marker_two="$5"
+            marker_three="$6"
+            requested_url="${VERCEL_IMMUTABLE_BASE_URL}${path}"
+            html_file="verification-results/pr1222-vercel/${name}.html"
+            headers_file="verification-results/pr1222-vercel/${name}.headers.txt"
+            meta_file="verification-results/pr1222-vercel/${name}.curl-meta.txt"
 
-          const routes = [
-            {
-              path: '/supply',
-              expectedTitle: 'Supply Catalog | Harbourview',
-              requiredText: ['Harbourview Supply', 'Browse the catalog', 'Request a Quote'],
-            },
-            {
-              path: '/supply/cr-mylar-pouch-3-5g-matte-black',
-              expectedTitle: 'Child-Resistant Mylar Pouch, 3.5g, Matte Black | Harbourview Supply',
-              requiredText: ['Harbourview Supply', 'Child-Resistant Mylar Pouch, 3.5g, Matte Black', 'Commercial review'],
-            },
-          ]
+            curl --silent --show-error --fail-with-body \
+              --max-redirs 0 \
+              --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" \
+              --header "user-agent: Harbourview-PR1222-Verification/1.0" \
+              --header "accept: text/html,application/xhtml+xml" \
+              --dump-header "$headers_file" \
+              --output "$html_file" \
+              --write-out $'status=%{http_code}\neffective_url=%{url_effective}\n' \
+              "$requested_url" > "$meta_file"
 
-          const decode = (value) => value
-            .replace(/&amp;/g, '&')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
+            python3 - "$name" "$path" "$requested_url" "$expected_title" "$marker_one" "$marker_two" "$marker_three" <<'PY'
+          import html
+          import json
+          import re
+          import sys
+          from pathlib import Path
 
-          const visibleText = (html) => decode(html
-            .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
-            .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim())
-
-          const results = []
-          for (const route of routes) {
-            const requestedUrl = `${base}${route.path}`
-            const response = await fetch(requestedUrl, {
-              redirect: 'follow',
-              headers: {
-                'x-vercel-protection-bypass': bypass,
-                'x-vercel-set-bypass-cookie': 'true',
-                'user-agent': 'Harbourview-PR1222-Verification/1.0',
-              },
-            })
-            const html = await response.text()
-            const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-            const title = titleMatch ? decode(titleMatch[1].replace(/\s+/g, ' ').trim()) : ''
-            const text = visibleText(html)
-            const requiredText = route.requiredText.map((marker) => ({ marker, present: text.includes(marker) }))
-            const result = {
-              requestedUrl,
-              status: response.status,
-              finalUrl: response.url,
-              title,
-              expectedTitle: route.expectedTitle,
-              titleMatches: title === route.expectedTitle,
-              requiredText,
-              visibleTextExcerpt: text.slice(0, 1200),
-            }
-            results.push(result)
-
-            if (response.status !== 200) throw new Error(`${requestedUrl} returned ${response.status}; final URL ${response.url}`)
-            if (response.url.includes('vercel.com/sso-api')) throw new Error(`${requestedUrl} remained behind Vercel SSO`)
-            if (title !== route.expectedTitle) throw new Error(`${requestedUrl} title mismatch: ${JSON.stringify(title)}`)
-            const missing = requiredText.filter((item) => !item.present).map((item) => item.marker)
-            if (missing.length) throw new Error(`${requestedUrl} missing visible text: ${missing.join(', ')}`)
-          }
-
-          const output = {
-            verifiedAt: new Date().toISOString(),
-            deploymentBaseUrl: base,
-            githubSha: process.env.GITHUB_SHA,
-            routes: results,
-          }
-          await fs.writeFile('verification-results/pr1222-vercel/route-verification.json', JSON.stringify(output, null, 2))
-          await fs.writeFile(
-            'verification-results/pr1222-vercel/route-verification.md',
-            [
-              '# PR #1222 protected Vercel route verification',
-              '',
-              `- Verified at: ${output.verifiedAt}`,
-              `- Workflow SHA: ${output.githubSha}`,
-              `- Immutable deployment: ${base}`,
-              '',
-              ...results.flatMap((result) => [
-                `## ${new URL(result.requestedUrl).pathname}`,
-                '',
-                `- HTTP status: ${result.status}`,
-                `- Effective URL: ${result.finalUrl}`,
-                `- Page title: ${result.title}`,
-                `- Required visible text: ${result.requiredText.map((item) => `${item.marker}=${item.present ? 'present' : 'missing'}`).join('; ')}`,
-                '',
-              ]),
-            ].join('\n'),
+          name, path, requested_url, expected_title, *markers = sys.argv[1:]
+          root = Path('verification-results/pr1222-vercel')
+          body = (root / f'{name}.html').read_text(encoding='utf-8', errors='replace')
+          meta = dict(
+              line.split('=', 1)
+              for line in (root / f'{name}.curl-meta.txt').read_text().splitlines()
+              if '=' in line
           )
-          console.log(JSON.stringify(output, null, 2))
-          EOF
-          node scripts/verify-pr1222-vercel-routes.mjs
-          rm scripts/verify-pr1222-vercel-routes.mjs
+          title_match = re.search(r'<title[^>]*>([\s\S]*?)</title>', body, re.I)
+          title = html.unescape(re.sub(r'\s+', ' ', title_match.group(1)).strip()) if title_match else ''
+          visible = re.sub(r'<script\b[^>]*>[\s\S]*?</script>', ' ', body, flags=re.I)
+          visible = re.sub(r'<style\b[^>]*>[\s\S]*?</style>', ' ', visible, flags=re.I)
+          visible = html.unescape(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', visible))).strip()
+          status = int(meta.get('status', '0'))
+          effective_url = meta.get('effective_url', '')
+          marker_results = [{'marker': marker, 'present': marker in visible} for marker in markers]
+          result = {
+              'path': path,
+              'requestedUrl': requested_url,
+              'status': status,
+              'effectiveUrl': effective_url,
+              'title': title,
+              'expectedTitle': expected_title,
+              'titleMatches': title == expected_title,
+              'requiredText': marker_results,
+              'visibleTextExcerpt': visible[:1200],
+          }
+          (root / f'{name}.json').write_text(json.dumps(result, indent=2) + '\n')
+          (root / f'{name}.md').write_text(
+              f"## {path}\n\n"
+              f"- HTTP status: {status}\n"
+              f"- Effective URL: {effective_url}\n"
+              f"- Page title: {title}\n"
+              f"- Required visible text: " + '; '.join(
+                  f"{item['marker']}={'present' if item['present'] else 'missing'}" for item in marker_results
+              ) + "\n"
+          )
+          errors = []
+          if status != 200:
+              errors.append(f'HTTP status was {status}, expected 200')
+          if effective_url != requested_url:
+              errors.append(f'effective URL changed to {effective_url}')
+          if title != expected_title:
+              errors.append(f'title was {title!r}, expected {expected_title!r}')
+          missing = [item['marker'] for item in marker_results if not item['present']]
+          if missing:
+              errors.append('missing visible text: ' + ', '.join(missing))
+          if errors:
+              raise SystemExit('; '.join(errors))
+          print(json.dumps(result, indent=2))
+          PY
+          }
+
+          verify_route \
+            catalog \
+            /supply \
+            "Supply Catalog | Harbourview" \
+            "Harbourview Supply" \
+            "Browse the catalog" \
+            "Request a Quote"
+
+          verify_route \
+            detail \
+            /supply/cr-mylar-pouch-3-5g-matte-black \
+            "Child-Resistant Mylar Pouch, 3.5g, Matte Black | Harbourview Supply" \
+            "Harbourview Supply" \
+            "Child-Resistant Mylar Pouch, 3.5g, Matte Black" \
+            "Commercial review"
+
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path('verification-results/pr1222-vercel')
+          catalog = json.loads((root / 'catalog.json').read_text())
+          detail = json.loads((root / 'detail.json').read_text())
+          report = {
+              'verifiedAt': datetime.now(timezone.utc).isoformat(),
+              'workflowSha': '${{ github.sha }}',
+              'immutableDeployment': 'https://harbourview-7gq72hysc-harbourview.vercel.app',
+              'routes': [catalog, detail],
+          }
+          (root / 'route-verification.json').write_text(json.dumps(report, indent=2) + '\n')
+          (root / 'route-verification.md').write_text(
+              '# PR #1222 protected Vercel route verification\n\n'
+              f"- Verified at: {report['verifiedAt']}\n"
+              f"- Workflow SHA: {report['workflowSha']}\n"
+              f"- Immutable deployment: {report['immutableDeployment']}\n\n"
+              + (root / 'catalog.md').read_text() + '\n'
+              + (root / 'detail.md').read_text()
+          )
+          PY
 
       - name: Upload visual evidence
         if: always()
