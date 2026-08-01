@@ -717,7 +717,11 @@ volume.
   (**v36 / v1.7.0 as of 2026-07-31** — OpenAI-first provider order. v34 shipped the
   `relevance_score` rubric fix, without which no snapshot cleared the relevance gate; v35 corrected
   backend telemetry; v36 added output normalisation and fixed the completed-backend ordering.
-  Roll back to v33 only — v34/v35 each carry a known defect fixed by the next).
+  **Do NOT roll back this function.** v33 contains the prompt defect that starved the feed for six
+  days; v34 and v35 each carry a defect fixed by the next version. There is no earlier safe target,
+  so a v36 incident is a **forward-fix**: patch and redeploy from
+  `supabase/functions/hv-extract/index.ts`, which is the authoritative source. Note there is no CI
+  path for edge-function deploys — they are manual).
 - Raw landing table: `public.signals` (~7,200+ SOURCE_ENGINE rows historically; 8,684
   with `quality_label` populated as of 2026-07-22)
 - Broken scorer, confirmed dead: `public.score_signal_from_snapshot` — nothing live

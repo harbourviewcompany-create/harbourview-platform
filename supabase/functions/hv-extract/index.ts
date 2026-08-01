@@ -257,11 +257,19 @@ function normalizeExtraction(raw: ExtractionResult): ExtractionResult {
   // keeps a fractional score on the side of the gate the provider put it on.
   const relevance_score = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.floor(n))) : 0;
 
+  // Date.parse is NOT a calendar check: "2026-02-30" parses fine and silently
+  // rolls over to March 2, so a shape-only test would retain a date that does
+  // not exist and hv-score would publish the rolled-over value. Round-trip the
+  // parsed UTC components back to the input and reject any mismatch.
   const rawDate = (raw as { effective_date?: unknown }).effective_date;
-  const effective_date =
-    typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !Number.isNaN(Date.parse(rawDate))
-      ? rawDate
-      : null;
+  let effective_date: string | null = null;
+  if (typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    const d = new Date(`${rawDate}T00:00:00Z`);
+    const roundTrip = Number.isNaN(d.getTime())
+      ? null
+      : `${d.getUTCFullYear().toString().padStart(4, "0")}-${(d.getUTCMonth() + 1).toString().padStart(2, "0")}-${d.getUTCDate().toString().padStart(2, "0")}`;
+    if (roundTrip === rawDate) effective_date = rawDate;
+  }
 
   return { ...raw, relevance_score, effective_date };
 }
@@ -435,7 +443,7 @@ Deno.serve(async (req: Request) => {
             source_record_id: snapshot.id,
             source_url: snapshot.captured_url,
             import_batch_id: batchId,
-            importer_version: "hv-extract@1.7.0+needs_review",
+            importer_version: "hv-extract@1.7.1+needs_review",
             transform_version: "none",
             raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
             raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
@@ -487,7 +495,7 @@ Deno.serve(async (req: Request) => {
           source_record_id: snapshot.id,
           source_url: snapshot.captured_url,
           import_batch_id: batchId,
-          importer_version: `hv-extract@1.7.0+${outcome.backend}`,
+          importer_version: `hv-extract@1.7.1+${outcome.backend}`,
           transform_version: BACKEND_MODEL[outcome.backend] ?? outcome.backend,
           raw_payload: rawPayload,
           raw_payload_hash: rawPayloadHash,
@@ -519,5 +527,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.7.0", mode: dryRun ? "dry_run" : "live", llm_backend_first_attempted: llmBackendFirstAttempt, llm_backends_completed: [...backendsCompleted], batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.7.1", mode: dryRun ? "dry_run" : "live", llm_backend_first_attempted: llmBackendFirstAttempt, llm_backends_completed: [...backendsCompleted], batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
