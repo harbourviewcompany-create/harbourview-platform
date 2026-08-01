@@ -1,0 +1,250 @@
+name: PR 1222 Supply Visual Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supply-visual:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'feature/supply-catalog'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright package
+        run: npm install --no-save --ignore-scripts playwright@1.54.0
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Start built app
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-next.log 2>&1 &
+          echo $! > /tmp/harbourview-next.pid
+          for i in {1..45}; do
+            if curl -fsS http://127.0.0.1:3000/supply >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/harbourview-next.log
+          exit 1
+
+      - name: Capture supply screenshots
+        env:
+          BASE_URL: http://127.0.0.1:3000
+        run: |
+          mkdir -p verification-results/pr1222-supply
+          cat > scripts/capture-pr1222-supply.mjs <<'EOF'
+          import { chromium } from 'playwright'
+          import fs from 'node:fs/promises'
+
+          const base = process.env.BASE_URL
+          const out = 'verification-results/pr1222-supply'
+          const routes = [
+            { name: 'catalog', path: '/supply' },
+            { name: 'detail-cr-mylar-pouch-3-5g-matte-black', path: '/supply/cr-mylar-pouch-3-5g-matte-black' },
+          ]
+          const viewports = [
+            { name: '375', width: 375, height: 812 },
+            { name: '1440', width: 1440, height: 1100 },
+          ]
+
+          await fs.mkdir(out, { recursive: true })
+          const browser = await chromium.launch({ headless: true, executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] })
+          const manifest = []
+          try {
+            for (const viewport of viewports) {
+              const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: 1 })
+              const page = await context.newPage()
+              await page.emulateMedia({ reducedMotion: 'reduce' })
+              for (const route of routes) {
+                const url = `${base}${route.path}`
+                const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 })
+                if (!response || !response.ok()) throw new Error(`${url} returned ${response?.status() ?? 'no response'}`)
+                const filename = `${out}/${route.name}-${viewport.name}.png`
+                await page.screenshot({ path: filename, fullPage: true })
+                const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+                if (overflow) throw new Error(`${url} has horizontal overflow at ${viewport.width}px`)
+                manifest.push({ route: route.path, viewport, filename, status: response.status(), title: await page.title() })
+              }
+              await context.close()
+            }
+          } finally {
+            await browser.close()
+          }
+          await fs.writeFile(`${out}/manifest.json`, JSON.stringify(manifest, null, 2))
+          EOF
+          node scripts/capture-pr1222-supply.mjs
+          rm scripts/capture-pr1222-supply.mjs
+
+      - name: Verify exact protected Vercel routes
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          VERCEL_IMMUTABLE_BASE_URL: https://harbourview-7gq72hysc-harbourview.vercel.app
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_AUTOMATION_BYPASS_SECRET"
+          mkdir -p verification-results/pr1222-vercel
+
+          verify_route() {
+            name="$1"
+            path="$2"
+            expected_title="$3"
+            marker_one="$4"
+            marker_two="$5"
+            marker_three="$6"
+            requested_url="${VERCEL_IMMUTABLE_BASE_URL}${path}"
+            html_file="verification-results/pr1222-vercel/${name}.html"
+            headers_file="verification-results/pr1222-vercel/${name}.headers.txt"
+            meta_file="verification-results/pr1222-vercel/${name}.curl-meta.txt"
+
+            curl --silent --show-error --fail-with-body \
+              --max-redirs 0 \
+              --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" \
+              --header "user-agent: Harbourview-PR1222-Verification/1.0" \
+              --header "accept: text/html,application/xhtml+xml" \
+              --dump-header "$headers_file" \
+              --output "$html_file" \
+              --write-out $'status=%{http_code}\neffective_url=%{url_effective}\n' \
+              "$requested_url" > "$meta_file"
+
+            python3 - "$name" "$path" "$requested_url" "$expected_title" "$marker_one" "$marker_two" "$marker_three" <<'PY'
+          import html
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          name, path, requested_url, expected_title, *markers = sys.argv[1:]
+          root = Path('verification-results/pr1222-vercel')
+          body = (root / f'{name}.html').read_text(encoding='utf-8', errors='replace')
+          meta = dict(
+              line.split('=', 1)
+              for line in (root / f'{name}.curl-meta.txt').read_text().splitlines()
+              if '=' in line
+          )
+          title_match = re.search(r'<title[^>]*>([\s\S]*?)</title>', body, re.I)
+          title = html.unescape(re.sub(r'\s+', ' ', title_match.group(1)).strip()) if title_match else ''
+          visible = re.sub(r'<script\b[^>]*>[\s\S]*?</script>', ' ', body, flags=re.I)
+          visible = re.sub(r'<style\b[^>]*>[\s\S]*?</style>', ' ', visible, flags=re.I)
+          visible = html.unescape(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', visible))).strip()
+          status = int(meta.get('status', '0'))
+          effective_url = meta.get('effective_url', '')
+          marker_results = [{'marker': marker, 'present': marker in visible} for marker in markers]
+          result = {
+              'path': path,
+              'requestedUrl': requested_url,
+              'status': status,
+              'effectiveUrl': effective_url,
+              'title': title,
+              'expectedTitlePrefix': expected_title,
+              'titleMatches': title.startswith(expected_title),
+              'requiredText': marker_results,
+              'visibleTextExcerpt': visible[:1200],
+          }
+          (root / f'{name}.json').write_text(json.dumps(result, indent=2) + '\n')
+          (root / f'{name}.md').write_text(
+              f"## {path}\n\n"
+              f"- HTTP status: {status}\n"
+              f"- Effective URL: {effective_url}\n"
+              f"- Page title: {title}\n"
+              f"- Required visible text: " + '; '.join(
+                  f"{item['marker']}={'present' if item['present'] else 'missing'}" for item in marker_results
+              ) + "\n"
+          )
+          errors = []
+          if status != 200:
+              errors.append(f'HTTP status was {status}, expected 200')
+          if effective_url != requested_url:
+              errors.append(f'effective URL changed to {effective_url}')
+          if not title.startswith(expected_title):
+              errors.append(f'title was {title!r}, expected prefix {expected_title!r}')
+          missing = [item['marker'] for item in marker_results if not item['present']]
+          if missing:
+              errors.append('missing visible text: ' + ', '.join(missing))
+          if errors:
+              raise SystemExit('; '.join(errors))
+          print(json.dumps(result, indent=2))
+          PY
+          }
+
+          verify_route \
+            catalog \
+            /supply \
+            "Supply Catalog | Harbourview" \
+            "Harbourview Supply" \
+            "Browse the catalog" \
+            "Request a Quote"
+
+          verify_route \
+            detail \
+            /supply/cr-mylar-pouch-3-5g-matte-black \
+            "Child-Resistant Mylar Pouch — 3.5g (Matte Black) | Harbourview Supply" \
+            "Harbourview Supply" \
+            "Child-Resistant Mylar Pouch — 3.5g (Matte Black)" \
+            "Commercial review"
+
+          python3 - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path('verification-results/pr1222-vercel')
+          catalog = json.loads((root / 'catalog.json').read_text())
+          detail = json.loads((root / 'detail.json').read_text())
+          report = {
+              'verifiedAt': datetime.now(timezone.utc).isoformat(),
+              'workflowSha': '${{ github.sha }}',
+              'immutableDeployment': 'https://harbourview-7gq72hysc-harbourview.vercel.app',
+              'routes': [catalog, detail],
+          }
+          (root / 'route-verification.json').write_text(json.dumps(report, indent=2) + '\n')
+          (root / 'route-verification.md').write_text(
+              '# PR #1222 protected Vercel route verification\n\n'
+              f"- Verified at: {report['verifiedAt']}\n"
+              f"- Workflow SHA: {report['workflowSha']}\n"
+              f"- Immutable deployment: {report['immutableDeployment']}\n\n"
+              + (root / 'catalog.md').read_text() + '\n'
+              + (root / 'detail.md').read_text()
+          )
+          PY
+
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr1222-supply-responsive-screenshots
+          path: verification-results/pr1222-supply/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload protected-route evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr1222-vercel-protected-route-verification
+          path: verification-results/pr1222-vercel/
+          if-no-files-found: error
+          retention-days: 30
