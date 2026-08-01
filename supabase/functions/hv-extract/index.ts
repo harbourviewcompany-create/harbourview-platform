@@ -252,7 +252,10 @@ async function extractEditorial(snapshot: Snapshot): Promise<{ result: Editorial
 // what is coercible, and force anything else to 0 so it fails closed.
 function normalizeExtraction(raw: ExtractionResult): ExtractionResult {
   const n = Number((raw as { relevance_score?: unknown }).relevance_score);
-  const relevance_score = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 0;
+  // floor, not round: Math.round(29.7) -> 30 would ADMIT content the provider
+  // scored below the cutoff, which is the opposite of failing closed. Flooring
+  // keeps a fractional score on the side of the gate the provider put it on.
+  const relevance_score = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.floor(n))) : 0;
 
   const rawDate = (raw as { effective_date?: unknown }).effective_date;
   const effective_date =

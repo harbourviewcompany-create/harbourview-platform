@@ -2158,7 +2158,7 @@ Recommendation: (2). The drift is what creates the hazard; the other two only ma
 
 ---
 
-## 2026-07-31 — The dark feed: hv-extract scored every snapshot 0 because the prompt told it to
+## 2026-07-31 — The dark feed: no snapshot cleared the relevance gate, because the prompt anchored scoring at 0
 
 **Symptom.** 2 signals created in 24h against ~175 snapshots/day fetched. `hv_import_staging` had
 received nothing since 2026-07-25. 1,180 snapshots sat at `processing_status='pending'`.
@@ -2331,3 +2331,30 @@ identifier added to the prompt-excerpt fence.
 cites could not be run; noted rather than silently skipped. The tsc caveat from the previous entry
 still applies: `tsconfig.json` excludes `supabase/functions`, so the changed file is not statically
 checked and the live probe remains its only real verification.
+
+### 2026-07-31 — PR #1232, third review round (Codex)
+
+Three findings, all accepted.
+
+**`Math.round` admitted content the provider rejected.** The normaliser introduced in the previous
+round used `Math.round`, so a contract-violating fractional score of 29.5-29.99 was rounded *up* to
+30 and cleared the `minRelevance` gate — admitting content the model had scored below the cutoff,
+which is precisely the opposite of the fail-closed behaviour the function was added to guarantee.
+Changed to `Math.floor`, which keeps a fractional score on the side of the gate the provider put it
+on. Narrow trigger (requires a provider to break the integer contract) but the logic was wrong.
+
+**Fast reference stale again, one round later.** §11 was updated to v34 in the previous round, then
+v35 and v36 were deployed — so the canonical operator reference pointed at a version two behind
+production. Now records v36 *and* what each intermediate version changed, plus an explicit
+instruction that the safe rollback target is v33: v34 and v35 each carry a defect fixed by the next
+version, so rolling back to either lands on known-broken behaviour. That is the failure mode this
+reference exists to prevent.
+
+**Incident heading still asserted the disproven all-zero claim.** The previous round corrected the
+body but left the section heading reading "scored every snapshot 0", directly contradicting the
+correction beneath it. Heading now describes what was measured: no snapshot cleared the relevance
+gate, because the prompt anchored scoring at 0.
+
+**Commands run:** `npx tsc --noEmit` exit 0; `npm run test` 104 passing across 5 suites. Same tsc
+caveat as previous entries — `supabase/functions` is excluded from tsconfig, so the changed file is
+not statically checked.
