@@ -8,9 +8,37 @@
 
 import 'server-only'
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+type FeedbackRow = {
+  signal_id: string | null
+  verdict: string | null
+}
 
-type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
+type FeedbackQueryResult = {
+  data: FeedbackRow[] | null
+  error: unknown
+}
+
+type FeedbackDateFilter = PromiseLike<FeedbackQueryResult>
+
+type FeedbackIdFilter = {
+  gte(column: 'created_at', value: string): FeedbackDateFilter
+}
+
+type FeedbackSelect = {
+  in(column: 'signal_id', values: string[]): FeedbackIdFilter
+}
+
+type FeedbackTable = {
+  select(columns: 'signal_id, verdict'): FeedbackSelect
+}
+
+type FeedbackClient = {
+  from(table: 'signal_relevance_feedback'): FeedbackTable
+}
+
+function asFeedbackClient(client: unknown): FeedbackClient {
+  return client as FeedbackClient
+}
 
 export async function loadFeedbackScores(
   userClient: unknown,
@@ -23,10 +51,10 @@ export async function loadFeedbackScores(
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString()
 
   try {
-    let client = userClient as AnySchemaSupabaseClient
+    let client = asFeedbackClient(userClient)
     try {
       const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
-      client = (await createSupabaseServiceClient()) as unknown as AnySchemaSupabaseClient
+      client = asFeedbackClient(await createSupabaseServiceClient())
     } catch {
       /* fall back to caller client */
     }
@@ -46,17 +74,26 @@ export async function loadFeedbackScores(
     for (const row of data) {
       const id = typeof row.signal_id === 'string' ? row.signal_id : ''
       if (!id) continue
-      const t = tallies.get(id) ?? { helpful: 0, not_helpful: 0, stale: 0, wrong_country: 0 }
-      const v = row.verdict
-      if (v === 'helpful') t.helpful++
-      else if (v === 'not_helpful') t.not_helpful++
-      else if (v === 'stale') t.stale++
-      else if (v === 'wrong_country') t.wrong_country++
-      tallies.set(id, t)
+      const tally = tallies.get(id) ?? {
+        helpful: 0,
+        not_helpful: 0,
+        stale: 0,
+        wrong_country: 0,
+      }
+      const verdict = row.verdict
+      if (verdict === 'helpful') tally.helpful++
+      else if (verdict === 'not_helpful') tally.not_helpful++
+      else if (verdict === 'stale') tally.stale++
+      else if (verdict === 'wrong_country') tally.wrong_country++
+      tallies.set(id, tally)
     }
 
-    for (const [id, t] of tallies) {
-      const score = t.helpful * 8 - t.not_helpful * 12 - t.stale * 6 - t.wrong_country * 10
+    for (const [id, tally] of tallies) {
+      const score =
+        tally.helpful * 8 -
+        tally.not_helpful * 12 -
+        tally.stale * 6 -
+        tally.wrong_country * 10
       out.set(id, score)
     }
   } catch {
