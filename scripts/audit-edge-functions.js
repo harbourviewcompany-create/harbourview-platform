@@ -1,9 +1,9 @@
-#/usr/bin/env node
+#!/usr/bin/env node
 
 /**
  * Harbourview Platform - Edge Function Audit Tool
  * Usage: node scripts/audit-edge-functions.js [--pr]
- * 
+ *
  * Generates audit report and optionally creates a PR.
  */
 
@@ -22,7 +22,7 @@ console.log('🚀 Harbourview Edge Function Audit\n');
 function runCommand(cmd) {
   try {
     return execSync(cmd, { encoding: 'utf8' }).trim();
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -42,21 +42,17 @@ if (wrangler) {
 
 // Automated checks
 console.log('\n🔍 Running automated checks...');
-try {
-  runCommand('npm run lint -- --max-warnings=100');
-  runCommand('npm run typecheck');
-  console.log('✅ Lint & Typecheck passed (or skipped if not configured).');
-} catch (e) {
-  console.log('⚠️ Some checks skipped (environment limited).');
-}
+runCommand('npm run lint -- --max-warnings=100');
+runCommand('npm run typecheck');
+console.log('✅ Lint & Typecheck passed (or skipped if not configured).');
 
 // Generate report template
 const reportContent = `# Edge Function Audit Report - ${today}
 
 ## Summary
-- **Total Functions**: 
-- **No JWT Protection**: 
-- **Deletion Candidates**: 
+- **Total Functions**:
+- **No JWT Protection**:
+- **Deletion Candidates**:
 
 ## Automated Checks
 - Lint: Passed/Skipped
@@ -93,8 +89,9 @@ if (createPR) {
     execSync('git commit -m "chore: add edge function audit report template and script"');
     execSync('gh pr create --title "Edge Function Audit Checklist & Script" --body "Automated audit tool + report template. Follow checklist in script comments." --base main');
     console.log('✅ PR created successfully!');
-  } catch (e) {
-    console.error('❌ PR creation failed (ensure gh CLI is installed and authenticated):', e.message);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('❌ PR creation failed (ensure gh CLI is installed and authenticated):', message);
   }
 }
 
