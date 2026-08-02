@@ -426,3 +426,18 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - Live application remains HOLD pending separate operator authorization and
   remote-ledger reconciliation. Rollback is a reviewed forward migration; never
   delete ledger history.
+
+## 2026-08-02 — Elite Digest RPC-only boundary forward hardening
+
+- **Environment:** repository and disposable PostgreSQL 17 + pgvector fixture only. No Supabase migration was applied by this change.
+- **Base commit:** `951d0ea587e3ec8f4485bc828e810eb33113d235`.
+- **Migration:** `20260802163000_elite_digest_rpc_boundary_hardening.sql`, applied only after the existing HNSW and feedback-RPC forward migrations.
+- **Tables affected:** `public.signal_relevance_feedback` privileges only. Existing rows, IDs, verdicts, notes, surfaces, timestamps and RLS policies are preserved.
+- **Functions affected:** direct `anon`/`authenticated` execution is revoked from `public.hv_dedup_assign(double precision, integer)` and `public._digest_cluster_size(text)`; `service_role` retains execution.
+- **Data API contract:** `anon` and `authenticated` receive no direct privileges on `public.signal_relevance_feedback`. Authenticated writes use `api.submit_signal_relevance_feedback`; ranking reads use the service-role-only `api.signal_relevance_feedback_for_ranking` projection.
+- **RLS impact:** RLS remains enabled as defense in depth. It is not forced because the controlled `SECURITY DEFINER` writer must retain owner access.
+- **Backward compatibility:** server ranking, health checks and authenticated feedback submission retain their existing RPC contracts. Direct client table access is intentionally removed.
+- **Data preservation:** the PostgreSQL fixture fingerprints pre-existing feedback before applying the migration and verifies an identical row count and content digest afterward.
+- **Rollback/forward-fix:** restore only the explicitly captured prior grants through a new migration. Do not rewrite migration history or delete operator feedback.
+- **Required verification:** migration-version validation; PostgreSQL 17 + pgvector boundary fixture; lint; typecheck; full tests; production build; visibility and security checks; standard CI; Branch Verification.
+- **Production approval:** HOLD until a separate operator-authorized migration activation.

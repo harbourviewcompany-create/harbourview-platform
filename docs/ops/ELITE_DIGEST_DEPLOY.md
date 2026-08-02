@@ -21,6 +21,7 @@ this version order:
 20260731130000_elite_digest_release_hardening.sql
 20260802073000_hv_dedup_assign_restore_hnsw_knn.sql
 20260802152500_signal_feedback_api_rpcs.sql
+20260802163000_elite_digest_rpc_boundary_hardening.sql
 ```
 
 The previous HNSW file shared `20260731090000` with the feedback-ranking
@@ -34,6 +35,31 @@ fixtures and checks, and separate explicit operator approval.
 The feedback RPC migration fails closed if legacy duplicate `(signal_id, user_id)`
 rows exist. Reconcile those rows explicitly before applying it; the migration does
 not silently delete or choose operator feedback.
+
+### Forward privilege and Data API hardening
+
+Apply the ninth migration only after the HNSW restoration and feedback RPC
+migration:
+
+```text
+20260802163000_elite_digest_rpc_boundary_hardening.sql
+```
+
+This migration preserves all feedback rows while enforcing the approved boundary:
+
+- `public.hv_dedup_assign(double precision, integer)` and
+  `public._digest_cluster_size(text)` are executable only by `service_role`.
+- `anon` and `authenticated` have no direct privileges on
+  `public.signal_relevance_feedback`.
+- authenticated clients submit one current verdict through
+  `api.submit_signal_relevance_feedback`.
+- ranking reads only `signal_id` and `verdict` through the service-role-only
+  `api.signal_relevance_feedback_for_ranking` projection.
+- RLS remains enabled as defense in depth.
+
+Before production application, verify the target has no duplicate
+`(signal_id, user_id)` rows, capture the existing grants and function
+definitions, and run the PostgreSQL 17 + pgvector boundary fixture.
 
 ## 2. Environment names
 

@@ -2849,3 +2849,13 @@ than speed here.
 - The follow-up commit changes evidence only. It must retain green CI and Branch
   Verification before merge; no implementation finding may be waived by this
   evidence record.
+
+## 2026-08-02 — Elite Digest RPC-only boundary hardening
+
+- Base: `951d0ea587e3ec8f4485bc828e810eb33113d235`
+- Branch: `fix/elite-digest-boundary-hardening`
+- Migration: `20260802163000_elite_digest_rpc_boundary_hardening.sql`
+- Scope: revoke public-role execution from the HNSW dedup and Digest cluster helper; remove direct client privileges from `public.signal_relevance_feedback`; preserve authenticated feedback and service-role ranking through narrow `api` RPCs.
+- Data handling: no existing feedback row is deleted or rewritten. The PostgreSQL fixture fingerprints fixture data before the migration and proves identical storage afterward.
+- Production boundary: no migration application, production data write, deployment invocation, alias movement or secret-value access is authorized by this entry.
+- Verification evidence: exact-head workflow and standard check run IDs will be recorded in the PR after completion.
