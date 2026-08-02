@@ -1,0 +1,59 @@
+name: Temporary Publish Global Regulatory OS Replacement V2
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tmp-publish-global-reg-os-replacement-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Rebuild and publish guarded replacement branch
+        env:
+          REPLACEMENT_BRANCH: agent/global-reg-os-phase0-replacement
+          EXPECTED_OLD_HEAD: f57408cf10a972ea930d2a3440eca1f7d09d641f
+          EXPECTED_MAIN: 7134bb6cd696779b3429d98272ce1e3cd7e8236c
+          DATABASE_APPEND_B64: CiMjIDIwMjYtMDgtMDIg4oCUIEdsb2JhbCBSZWd1bGF0b3J5IE9TIFBoYXNlIDAgcmVwbGFjZW1lbnQgcGFja2FnZQoKLSAqKkVudmlyb25tZW50OioqIHJlcG9zaXRvcnkgYW5kIGRpc3Bvc2FibGUgUG9zdGdyZVNRTCAxNyB2ZXJpZmljYXRpb24gb25seS4KLSAqKkhpc3RvcmljYWwgc291cmNlOioqIGNsb3NlZCBQUiAjMTIzNCBpcyBldmlkZW5jZSBvbmx5IGFuZCBpcyBub3QgcmVvcGVuZWQgb3IgbWVyZ2VkLgotICoqQ29udHJvbGxpbmcgYXJjaGl2ZToqKiBgZG9jcy9jb250cm9sL2dsb2JhbC1yZWd1bGF0b3J5LW9zL3NvdXJjZS9nbG9iYWwtY2FubmFiaXMtcmVndWxhdG9yeS1vcy1jb250cm9sLXBhY2stdjEuMC56aXBgLCBTSEEtMjU2IGAzM2ExYjNkZTZmMjk1YWFlYWY2MTAxNzkzN2EyMWIzNjRiYWM3YzA2MDBmNDAzODcwNjAxM2NiNmI0N2NkMTM2YC4KLSAqKkRhdGFiYXNlIHNjb3BlOioqIGlzb2xhdGVkIGNhbm9uaWNhbCBtaWdyYXRpb25zIHVuZGVyIGBkb2NzL2NvbnRyb2wvZ2xvYmFsLXJlZ3VsYXRvcnktb3MvY2Fub25pY2FsL2RiL21pZ3JhdGlvbnNgLiBObyBhY3RpdmUgYHN1cGFiYXNlL21pZ3JhdGlvbnMvKipgIGZpbGUgaXMgYWRkZWQgb3IgbW9kaWZpZWQuCi0gKipBdXRob3JpemF0aW9uOioqIHJlcXVlc3QgaWRlbnRpdHkgaXMgZXN0YWJsaXNoZWQgb25seSBieSB0aGUgbm9uLWxvZ2luIGBodl9hdXRoZW50aWNhdG9yYCByb2xlIGFuZCByZXNvbHZlZCBmcm9tIElBTSB0YWJsZXMuIFJ1bnRpbWUgcm9sZXMgY2Fubm90IHNldCBjb250ZXh0LCByZWFkIG9yIHdyaXRlIGNvbnRleHQgc3RvcmFnZSwgYXNzdW1lIHRoZSBhdXRoZW50aWNhdG9yIHJvbGUsIG9yIGdhaW4gYXV0aG9yaXR5IHRocm91Z2ggY3VzdG9tIEdVQ3MuCi0gKipSTFMvcHVibGljIGJvdW5kYXJ5OioqIGNhbm9uaWNhbCBSTFMgYW5kIHB1YmxpYy9wcml2YXRlIHByb2plY3Rpb24gdGVzdHMgcnVuIGluIGRpc3Bvc2FibGUgUG9zdGdyZVNRTCAxNyBkYXRhYmFzZXMuIENhbm9uaWNhbCByb3dzIGFyZSBub3QgZXhwb3NlZCB0aHJvdWdoIEhhcmJvdXJ2aWV3IHByb2R1Y3Rpb24gcm91dGVzIGJ5IHRoaXMgUFIuCi0gKipVcGdyYWRlIHByb29mOioqIGNsZWFuIGluc3RhbGxhdGlvbiBhbmQgc2ltdWxhdGVkIEhhcmJvdXJ2aWV3IHByZXN0YXRlIHVwZ3JhZGUgYXJlIHJlcXVpcmVkIHdvcmtmbG93IGdhdGVzLgotICoqUHJvZHVjdGlvbiBzdGF0dXM6KiogSE9MRC4gTm8gcHJvZHVjdGlvbiBtaWdyYXRpb24sIGRhdGEgd3JpdGUsIGtleSBwcm92aXNpb25pbmcsIHNvdXJjZSBpbXBvcnQsIGRlcGxveW1lbnQsIG9yIGFsaWFzIG1vdmVtZW50IGlzIGF1dGhvcml6ZWQuCg==
+          EVIDENCE_APPEND_B64: CiMjIDIwMjYtMDgtMDIg4oCUIEdsb2JhbCBSZWd1bGF0b3J5IE9TIFBoYXNlIDAgcmVwbGFjZW1lbnQgZXZpZGVuY2UKCi0gUmVwbGFjZW1lbnQgZHJhZnQgYnJhbmNoOiBgYWdlbnQvZ2xvYmFsLXJlZy1vcy1waGFzZTAtcmVwbGFjZW1lbnRgLgotIENsb3NlZCBQUiAjMTIzNCBpcyByZXRhaW5lZCBvbmx5IGFzIGhpc3RvcmljYWwgZmFpbHVyZSBldmlkZW5jZS4KLSBFeGFjdCBjb250cm9sbGluZyBhcmNoaXZlIGJ5dGVzIGFyZSBjb21taXR0ZWQgYW5kIGRpcmVjdGx5IGhhc2hlZCB0byBgMzNhMWIzZGU2ZjI5NWFhZWFmNjEwMTc5MzdhMjFiMzY0YmFjN2MwNjAwZjQwMzg3MDYwMTNjYjZiNDdjZDEzNmAuCi0gVGhlIHBhY2thZ2UgaXMgbWF0ZXJpYWxpemVkIGFzIG5vcm1hbCBzb3VyY2UgZmlsZXM7IG11bHRpcGFydCBCYXNlNjQgdHJhbnNwb3J0IGlzIGV4Y2x1ZGVkLgotIFRoZSBkZXRlcm1pbmlzdGljIG1hbmlmZXN0IHJlY29yZHMgc291cmNlLXVuY2hhbmdlZCwgc291cmNlLXBhdGNoZWQsIGFuZCBhZGRlZCBmaWxlcy4KLSBQMC0wMDEgdGhyb3VnaCBQMC0wMTIgZWFjaCBoYXZlIGV4cGxpY2l0IGV2aWRlbmNlIHJlY29yZHMgYW5kIGV4aXN0aW5nIGFydGlmYWN0IHBhdGhzOyBvcGVyYXRvciBhcHByb3ZhbCByZW1haW5zIGRpc3RpbmN0IGZyb20gdGVjaG5pY2FsIHZlcmlmaWNhdGlvbi4KLSBBdXRob3JpemF0aW9uIHRlc3RzIGNvdmVyIGZvcmdlZCBHVUNzLCB1bmF1dGhvcml6ZWQgY29udGV4dCBzZXR0ZXIgZXhlY3V0aW9uLCBkaXJlY3QgY29udGV4dCByZWFkcyBhbmQgd3JpdGVzLCBhbmQgZm9yYmlkZGVuIGF1dGhlbnRpY2F0b3Itcm9sZSBhc3N1bXB0aW9uLgotIFJlcXVpcmVkIGZpbmFsIGV2aWRlbmNlOiBzb3VyY2UgYW5kIG1hbmlmZXN0IHZhbGlkYXRpb24sIEpTT04gU2NoZW1hLCBPcGVuQVBJLCBBc3luY0FQSSwgc2VjcmV0IHNjYW4sIFBvc3RncmVTUUwgMTcgY2xlYW4gaW5zdGFsbCBhbmQgdXBncmFkZSwgUkxTIGFuZCBsZWFrYWdlLCBsaW50LCB0eXBlY2hlY2ssIGZ1bGwgdGVzdHMsIHByb2R1Y3Rpb24gYnVpbGQsIEJyYW5jaCBWZXJpZmljYXRpb24sIG1pZ3JhdGlvbiBkcmlmdCwgYW5kIGV4YWN0IFZlcmNlbCBwcmV2aWV3LgotIE5vIHByb2R1Y3Rpb24gbWlncmF0aW9uLCB3cml0ZSwgZGVwbG95bWVudCwgb3IgYWxpYXMgbW92ZW1lbnQgaXMgcGVyZm9ybWVkIGJ5IHRoaXMgcmVwbGFjZW1lbnQgd29yay4K
+        run: |
+          set -euo pipefail
+          git fetch origin main "$REPLACEMENT_BRANCH"
+          ACTUAL_MAIN="$(git rev-parse origin/main)"
+          ACTUAL_OLD_HEAD="$(git rev-parse origin/$REPLACEMENT_BRANCH)"
+          test "$ACTUAL_MAIN" = "$EXPECTED_MAIN"
+          test "$ACTUAL_OLD_HEAD" = "$EXPECTED_OLD_HEAD"
+          git checkout -B replacement-final "$EXPECTED_MAIN"
+          git checkout "$EXPECTED_OLD_HEAD" -- .github/workflows/global-reg-os-phase0-replacement.yml docs/control/global-regulatory-os scripts/global-reg-os
+          printf '%s' "$DATABASE_APPEND_B64" | base64 -d >> docs/control/DATABASE_CONTROL.md
+          printf '%s' "$EVIDENCE_APPEND_B64" | base64 -d >> docs/control/EVIDENCE_LOG.md
+          python -m pip install --disable-pip-version-check pyyaml jsonschema
+          python scripts/global-reg-os/validate_phase0_package.py
+          python scripts/global-reg-os/check_secrets.py
+          cp docs/control/global-regulatory-os/canonical/MANIFEST.json /tmp/MANIFEST.json
+          python scripts/global-reg-os/regenerate_manifest.py
+          diff -u /tmp/MANIFEST.json docs/control/global-regulatory-os/canonical/MANIFEST.json
+          test "$(sha256sum docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip | cut -d' ' -f1)" = "33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136"
+          test "$(find docs/control/global-regulatory-os/canonical/ops/evidence -maxdepth 1 -name 'P0-*.md' | wc -l)" -eq 12
+          ! find docs/control/global-regulatory-os -type f -name '*.b64*' | grep -q .
+          ! git diff --name-only "$EXPECTED_MAIN" | grep -q '^supabase/migrations/'
+          test "$(git diff --name-only "$EXPECTED_MAIN" | wc -l)" -eq 124
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/global-reg-os-phase0-replacement.yml docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md docs/control/global-regulatory-os scripts/global-reg-os
+          git commit -m 'feat: replace Global Regulatory OS Phase 0 package'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/$REPLACEMENT_BRANCH:$EXPECTED_OLD_HEAD" origin "HEAD:refs/heads/$REPLACEMENT_BRANCH"
+          echo "main=$EXPECTED_MAIN"
+          echo "old=$EXPECTED_OLD_HEAD"
+          echo "new=$NEW_HEAD"
