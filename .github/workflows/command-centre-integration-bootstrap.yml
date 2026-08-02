@@ -1,0 +1,192 @@
+name: Command Centre Integration Bootstrap
+
+on:
+  push:
+    branches:
+      - agent/command-centre-integration-rule
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: command-centre-integration-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  integrate-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/command-centre-integration-rule
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Apply integration patch
+        run: python3 scripts/bootstrap-command-centre-integration.py
+
+      - name: Commit implementation before verification
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(command-centre): integrate authenticated product surfaces"
+          git push origin HEAD:agent/command-centre-integration-rule
+
+      - name: Install dependencies
+        id: install
+        continue-on-error: true
+        run: npm ci 2>&1 | tee /tmp/install.log
+
+      - name: Prepare evidence directory
+        run: mkdir -p docs/control/evidence/command-centre-integration
+
+      - name: Type check
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run typecheck 2>&1 | tee docs/control/evidence/command-centre-integration/typecheck.log
+
+      - name: Lint
+        id: lint
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run lint 2>&1 | tee docs/control/evidence/command-centre-integration/lint.log
+
+      - name: Command Centre contract tests
+        id: command_tests
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run test:command-centre 2>&1 | tee docs/control/evidence/command-centre-integration/contract-tests.log
+
+      - name: Full test suite
+        id: tests
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run test 2>&1 | tee docs/control/evidence/command-centre-integration/tests.log
+
+      - name: Production build
+        id: build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run build 2>&1 | tee docs/control/evidence/command-centre-integration/build.log
+
+      - name: Install Chromium
+        id: chromium
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: npx playwright install --with-deps chromium
+
+      - name: Start built application
+        if: steps.build.outcome == 'success' && steps.chromium.outcome == 'success'
+        run: |
+          npm run start -- -p 3100 > docs/control/evidence/command-centre-integration/server.log 2>&1 &
+          echo $! > /tmp/harbourview-next.pid
+          for attempt in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:3100/login >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat docs/control/evidence/command-centre-integration/server.log
+          exit 1
+
+      - name: Responsive Playwright verification
+        id: e2e
+        if: steps.build.outcome == 'success' && steps.chromium.outcome == 'success'
+        continue-on-error: true
+        run: npm run test:e2e:command-centre 2>&1 | tee docs/control/evidence/command-centre-integration/playwright.log
+
+      - name: Write verification report
+        if: always()
+        shell: bash
+        run: |
+          cat > docs/control/evidence/COMMAND_CENTRE_INTEGRATION_2026-08-02.md <<EOF
+          # Command Centre Integration Verification
+
+          Branch: \`agent/command-centre-integration-rule\`  
+          Source event SHA: \`${GITHUB_SHA}\`  
+          Generated: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          ## Command outcomes
+
+          | Command | Outcome |
+          |---|---|
+          | \`npm ci\` | ${{ steps.install.outcome }} |
+          | \`npm run typecheck\` | ${{ steps.typecheck.outcome }} |
+          | \`npm run lint\` | ${{ steps.lint.outcome }} |
+          | \`npm run test:command-centre\` | ${{ steps.command_tests.outcome }} |
+          | \`npm run test\` | ${{ steps.tests.outcome }} |
+          | \`npm run build\` | ${{ steps.build.outcome }} |
+          | Chromium install | ${{ steps.chromium.outcome }} |
+          | \`npm run test:e2e:command-centre\` | ${{ steps.e2e.outcome }} |
+
+          ## Screenshot matrix
+
+          Expected evidence:
+
+          - \`command-centre-320.png\`
+          - \`command-centre-375.png\`
+          - \`command-centre-390.png\`
+          - \`command-centre-430.png\`
+          - \`command-centre-768.png\`
+          - \`command-centre-1440.png\`
+
+          ## Release boundary
+
+          No merge, Vercel deployment, production alias movement, database migration, production write or secret change was performed.
+          EOF
+
+      - name: Commit verification evidence
+        if: always()
+        run: |
+          git add docs/control/evidence
+          if git diff --cached --quiet; then
+            echo "No evidence changes to commit"
+          else
+            git commit -m "test(command-centre): record integration evidence"
+            git push origin HEAD:agent/command-centre-integration-rule
+          fi
+
+      - name: Upload evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: command-centre-integration-evidence
+          path: docs/control/evidence/command-centre-integration
+          if-no-files-found: warn
+
+      - name: Enforce verification gate
+        if: always()
+        run: |
+          failures=0
+          for outcome in \
+            "${{ steps.install.outcome }}" \
+            "${{ steps.typecheck.outcome }}" \
+            "${{ steps.lint.outcome }}" \
+            "${{ steps.command_tests.outcome }}" \
+            "${{ steps.tests.outcome }}" \
+            "${{ steps.build.outcome }}" \
+            "${{ steps.chromium.outcome }}" \
+            "${{ steps.e2e.outcome }}"; do
+            if [ "$outcome" != "success" ]; then failures=$((failures + 1)); fi
+          done
+          if [ "$failures" -ne 0 ]; then
+            echo "Command Centre integration verification has $failures non-success outcome(s)."
+            exit 1
+          fi
