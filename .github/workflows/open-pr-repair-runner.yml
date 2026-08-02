@@ -15,7 +15,7 @@ permissions:
   actions: read
 
 jobs:
-  repair-pr1233:
+  repair-pr1224-followup:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
     steps:
@@ -23,5 +23,5 @@ jobs:
         with:
           fetch-depth: 0
           ref: agent/open-pr-repair-runner
-      - name: Apply reviewed PR 1233 repair
-        run: bash scripts/open-pr-repair/apply-pr1233-v2.sh
+      - name: Apply reviewed PR 1224 collision follow-up
+        run: bash scripts/open-pr-repair/fix-pr1224-followup.sh
