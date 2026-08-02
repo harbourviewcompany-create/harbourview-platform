@@ -392,3 +392,20 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - Rollback: each migration carries an inline rollback block. `create or replace view` cannot drop columns, so reverting the views means drop-and-recreate at the prior column lists, recorded above (30 / 27 / 32 / 8).
 - Required tests: `npm run test:signal-routing` (**41 assertions** as of `ed835b2`; the count grew 35 → 37 → 41 across review rounds, so re-read it from the suite rather than trusting a figure quoted upstream) covers the read-side matcher. No test covers view shape — that is the gap the CI check above would close.
 - Human approval status: **not approved, not applied.** Authored for review under PR #1231.
+
+## 2026-08-02 — PR #1224 pipeline hardening forward migration
+
+- Migration: `20260802080000_harden_eval_labels_and_alert_delivery.sql`.
+- Authorization: direct `api.add_signal_to_eval_set` execution is service-role
+  only; signed-in review uses `api.admin_add_signal_to_eval_set`, which requires
+  an `admin` or `operator` row in `public.user_roles` and derives audit identity
+  from `auth.uid()`.
+- Alert delivery: `public.hv_alert_tick()` harvests asynchronous `pg_net`
+  responses, marks delivery only after 2xx, stores fixed-category sanitized
+  failure metadata, caps retries, and reuses one locked alert-ID set for body
+  construction and queuing.
+- Validation: PostgreSQL 17 fixture applies the forward migration against
+  representative prerequisite objects and asserts grants, role checks,
+  delivery success/failure, sanitization, retry state and locked-ID reuse.
+- Rollback: use a reviewed forward migration. Do not delete an applied migration
+  ledger entry or restore broad authenticated execution.

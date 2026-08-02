@@ -2788,3 +2788,17 @@ than speed here.
 - Mobile dashboard (`MobileCommandCentre.tsx`) and `app/country/[country]/role/[role]/page.tsx`
   Watchlist gating gap (from the #1173 entry) remains open.
 - Admin review UI for pending professional-service applications (from the #1178 entry) remains open.
+
+## 2026-08-02 — PR #1224 current-main rebuild
+
+- Rebuilt `codex/review-harbourview-platform` from current protected `main` after
+  the concurrent routing and grant merges.
+- Preserved the reviewed unique migration
+  `20260802080000_harden_eval_labels_and_alert_delivery.sql`, PostgreSQL 17
+  fixture, contract tests and audit-script main-branch guard.
+- Reapplied only the canonical ESLint 9 pin to current package metadata and
+  regenerated `package-lock.json`, preserving all scripts and dependencies
+  added by intervening merges.
+- No production migration or write occurred during branch repair.
+- Required evidence: lint, typecheck, tests, build, PostgreSQL 17 migration dry
+  run, migration drift, public-surface and regulatory-signal checks.
