@@ -1,4 +1,4 @@
-name: Temporary Export Current Main
+name: Temporary Export Replacement Head
 
 on:
   pull_request:
@@ -14,14 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
-      - name: Verify exact base
-        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.base.sha }}"
-      - name: Package exact base source
-        run: tar --exclude=.git -czf /tmp/harbourview-current-main.tar.gz .
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Verify exact head
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - name: Package exact replacement source
+        run: tar --exclude=.git -czf /tmp/harbourview-replacement-head.tar.gz .
       - uses: actions/upload-artifact@v4
         with:
-          name: harbourview-current-main
-          path: /tmp/harbourview-current-main.tar.gz
+          name: harbourview-replacement-head
+          path: /tmp/harbourview-replacement-head.tar.gz
           retention-days: 1
           if-no-files-found: error
