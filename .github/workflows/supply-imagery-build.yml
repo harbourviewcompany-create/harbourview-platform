@@ -1,0 +1,84 @@
+name: Supply Imagery Build
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/supply-imagery-build.yml']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.head_ref }}', fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - name: Implement imagery
+        run: |
+          python -m pip install pillow
+          python <<'PY'
+          from pathlib import Path
+          from PIL import Image,ImageDraw
+          import re,hashlib,json
+          files=['supabase/migrations/20260730220100_seed_harbourview_supply_catalog_canada.sql','supabase/migrations/20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql']
+          sql=''.join(Path(x).read_text() for x in files)
+          tuples=re.findall(r"\(gen_random_uuid\(\).*?\)(?:,|\s*on conflict)",sql,re.S)
+          items=[]
+          for t in tuples:
+            parts=re.findall(r"'((?:''|[^'])*)'",t)
+            candidates=[x for x in parts if re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)+',x)]
+            slug=next((x for x in candidates if x!='north-america'),None)
+            if slug: items.append((parts[0],parts[1].replace("''","'"),slug))
+          items=sorted({s:(c,t,s) for c,t,s in items}.values(),key=lambda x:x[2])
+          assert len(items)==68,len(items)
+          out=Path('public/images/supply');out.mkdir(parents=True,exist_ok=True)
+          palettes={'packaging':((8,18,32),(198,165,90)),'consumables':((11,24,38),(178,190,181)),'processing_equipment':((9,20,35),(151,168,186)),'cultivation_equipment':((8,24,29),(143,178,155)),'labs_testing':((14,20,36),(167,158,194))}
+          for cat,title,slug in items:
+            bg,accent=palettes.get(cat,((8,18,32),(198,165,90))); seed=int(hashlib.sha256(slug.encode()).hexdigest()[:8],16)
+            im=Image.new('RGB',(1200,800),bg);d=ImageDraw.Draw(im)
+            for i in range(8):
+              x=(seed>>(i*3))%1100;y=(seed>>(i*5))%700;d.ellipse((x-90,y-90,x+90,y+90),outline=accent,width=2)
+            d.rounded_rectangle((180,120,1020,680),42,fill=(12,27,44),outline=accent,width=4)
+            d.text((230,185),'HARBOURVIEW SUPPLY',fill=accent);d.text((230,235),('EQUIPMENT' if 'equipment' in cat else cat.upper().replace('_',' ')),fill=(210,215,220))
+            words=title.split();lines=[];line=''
+            for w in words:
+              if len(line)+len(w)>34:lines.append(line);line=w
+              else:line=(line+' '+w).strip()
+            if line:lines.append(line)
+            y=330
+            for line in lines[:4]:d.text((230,y),line,fill=(245,241,232));y+=54
+            d.text((230,610),slug,fill=(145,155,166));im.save(out/f'{slug}.webp','WEBP',quality=86,method=6)
+          Path('components/supply').mkdir(parents=True,exist_ok=True)
+          Path('components/supply/SupplyProductImage.tsx').write_text("""'use client'\nimport { useState } from 'react'\ntype Props={slug:string;title:string;priority?:boolean;className?:string}\nexport function SupplyProductImage({slug,title,priority=false,className=''}:Props){const[failed,setFailed]=useState(false);if(failed)return <div role=\"img\" aria-label={`${title} — image unavailable`} className={`flex min-h-48 items-center justify-center bg-[#071425] px-6 text-center text-xs uppercase tracking-[0.16em] text-white/40 ${className}`}>Image unavailable</div>;return <img src={`/images/supply/${encodeURIComponent(slug)}.webp`} alt={`${title} — Harbourview Supply catalog image`} width={1200} height={800} loading={priority?'eager':'lazy'} fetchPriority={priority?'high':'auto'} decoding=\"async\" onError={()=>setFailed(true)} className={`h-full w-full object-cover ${className}`}/> }\n""")
+          p=Path('app/supply/page.tsx');s=p.read_text().replace("import Link from 'next/link'","import Link from 'next/link'\nimport { SupplyProductImage } from '@/components/supply/SupplyProductImage'")
+          m='      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />'
+          s=s.replace(m,'      <div className="-mx-6 -mt-6 mb-5 overflow-hidden border-b border-gold/10 bg-[#071425]"><div className="aspect-[3/2]"><SupplyProductImage slug={listing.slug} title={listing.title} /></div></div>\n'+m,1);p.write_text(s)
+          p=Path('app/supply/[slug]/page.tsx');s=p.read_text().replace("import Link from 'next/link'","import Link from 'next/link'\nimport { SupplyProductImage } from '@/components/supply/SupplyProductImage'")
+          m='      <PublicSection tone="navy">\n        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">'
+          s=s.replace(m,'      <PublicSection tone="navy">\n        <div className="mb-6 overflow-hidden rounded-sm border border-gold/10 bg-[#071425] shadow-[0_18px_44px_rgba(0,0,0,0.24)]"><div className="aspect-[3/2] max-h-[640px]"><SupplyProductImage slug={listing.slug} title={listing.title} priority /></div></div>\n        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">',1);p.write_text(s)
+          Path('scripts/validate-supply-images.mjs').write_text("""import fs from 'node:fs';const dir='public/images/supply';const files=fs.readdirSync(dir).filter(f=>f.endsWith('.webp'));if(files.length!==68)throw new Error(`Expected 68 WebPs, found ${files.length}`);for(const f of files){const b=fs.readFileSync(`${dir}/${f}`);if(b.length<1000||b.subarray(0,4).toString()!=='RIFF'||b.subarray(8,12).toString()!=='WEBP')throw new Error(`Invalid WebP: ${f}`)}console.log('Validated 68 deterministic supply WebP assets.')\n""")
+          pkg=json.loads(Path('package.json').read_text());pkg['scripts']['validate:supply-images']='node scripts/validate-supply-images.mjs';Path('package.json').write_text(json.dumps(pkg,indent=2)+'\n')
+          PY
+      - run: npm ci
+      - run: npm run validate:supply-images
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:visibility
+      - run: npm run build
+      - name: Screenshots
+        run: |
+          npx playwright install --with-deps chromium
+          npm run start -- -p 3000 >/tmp/server.log 2>&1 &
+          npx wait-on http://127.0.0.1:3000/supply
+          node - <<'JS'
+          const{chromium}=require('playwright'),fs=require('fs');(async()=>{const b=await chromium.launch();fs.mkdirSync('artifacts/supply-imagery',{recursive:true});for(const w of[320,375,768,1440]){const p=await b.newPage({viewport:{width:w,height:1000}});for(const [n,u] of [['catalog','/supply'],['detail','/supply/cr-mylar-pouch-3-5g-matte-black']]){await p.goto('http://127.0.0.1:3000'+u,{waitUntil:'networkidle'});await p.screenshot({path:`artifacts/supply-imagery/${n}-${w}.png`,fullPage:true})}await p.close()}await b.close()})()
+          JS
+      - uses: actions/upload-artifact@v4
+        with: { name: supply-imagery-responsive-screenshots, path: artifacts/supply-imagery }
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app components public/images/supply scripts package.json
+          git commit -m 'feat: add deterministic imagery for 68 supply SKUs'
+          git push origin HEAD:${{ github.head_ref }}
