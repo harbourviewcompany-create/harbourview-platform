@@ -57,6 +57,16 @@
 -- Additive column exposure only. No base table touched, no row mutated, no
 -- filter altered, no grant widened. Rollback block at the foot.
 
+-- ON `NOTIFY pgrst, 'reload schema'`
+-- ----------------------------------
+-- Not issued here, deliberately. Supabase installs its own schema-cache watchers
+-- in the database rather than in this repo's migrations, so grepping `supabase/`
+-- suggests none exist. Confirmed live on `zvxdgdkukjrrwamdpqrg`:
+--   pgrst_ddl_watch   | ddl_command_end | enabled
+--   pgrst_drop_watch  | sql_drop        | enabled
+-- Both fire the reload automatically after the DDL below, making a manual NOTIFY
+-- redundant. Recorded so this is not re-raised on the next read.
+
 -- ── public.signals_quality — add the columns the view never carried ──────────
 
 create or replace view public.signals_quality as

@@ -131,9 +131,19 @@ create index if not exists signals_role_families_gin
 -- widen or empty feeds.
 alter table public.signals
   drop constraint if exists signals_routing_state_consistent;
+-- Squawk flags NOT VALID + VALIDATE in one transaction as blocking reads. That
+-- guidance exists for large tables; `public.signals` holds ~12.5k rows, where the
+-- validation scan is milliseconds, so splitting this across two migration files
+-- would add a moving part for no measurable lock benefit. Kept as one unit
+-- deliberately — revisit if the table grows by orders of magnitude.
+-- Blank counts as absent, matching `isRouted()` in lib/signals/routing.ts, which
+-- requires a non-empty trimmed string. A bare NULL check accepted
+-- `routing_version = ''` alongside a populated `role_families`, so the database
+-- called the row routed while the read side called it unrouted and skipped
+-- role-family filtering entirely — a malformed write could silently widen feeds.
 alter table public.signals
   add constraint signals_routing_state_consistent
-  check ((routing_version is null) = (role_families is null)) not valid;
+  check ((nullif(btrim(routing_version), '') is null) = (role_families is null)) not valid;
 alter table public.signals validate constraint signals_routing_state_consistent;
 
 -- ── Structured watch rules ───────────────────────────────────────────────────

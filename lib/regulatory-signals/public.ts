@@ -189,7 +189,8 @@ async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
       order:  'published_at.desc',
       limit:  '300',
     })
-    const res = await fetch(`${url}/rest/v1/public_signals?${params}`, {
+    const endpoint = '/rest/v1/public_signals'
+    const res = await fetch(`${url}${endpoint}?${params}`, {
       headers: {
         apikey:            key,
         Authorization:     `Bearer ${key}`,
@@ -205,7 +206,7 @@ async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
     // days; see 20260801150000_api_expose_quality_and_routing_columns.sql.
     if (!res.ok) {
       console.error(
-        `[regulatory-signals] PostgREST ${res.status} on ${new URL(res.url).pathname}:`,
+        `[regulatory-signals] PostgREST ${res.status} on ${endpoint}:`,
         (await res.text().catch(() => '')).slice(0, 300),
       )
       return []
@@ -246,7 +247,8 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
     // constant's own note on NULL NOT IN evaluating to NULL.
     params.append('or', SIGNALS_FEED_CONTENT_TYPE_OR_FILTER)
 
-    const res = await fetch(`${url}/rest/v1/signals?${params}`, {
+    const endpoint = '/rest/v1/signals'
+    const res = await fetch(`${url}${endpoint}?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
       next: { revalidate: 300 },
     })
@@ -257,7 +259,7 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
     // days; see 20260801150000_api_expose_quality_and_routing_columns.sql.
     if (!res.ok) {
       console.error(
-        `[regulatory-signals] PostgREST ${res.status} on ${new URL(res.url).pathname}:`,
+        `[regulatory-signals] PostgREST ${res.status} on ${endpoint}:`,
         (await res.text().catch(() => '')).slice(0, 300),
       )
       return []

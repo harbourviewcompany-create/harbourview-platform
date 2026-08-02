@@ -124,9 +124,14 @@ export type SignalGeoScope = 'country' | 'region' | 'global' | 'unknown'
 export function signalGeoScope(row: SignalRoutingRow): SignalGeoScope {
   const raw = typeof row.geo_scope === 'string' ? row.geo_scope.trim().toLowerCase() : null
   if (raw === 'country' || raw === 'region' || raw === 'global') return raw
-  // Rows predating the geo model have no geo_scope; infer from what they carry
-  // rather than dropping them.
-  if (raw === null && normaliseIso2(row.country_iso2)) return 'country'
+  // Any scope value that is not usable — missing, empty, or outside the
+  // vocabulary — falls back to the country the row actually carries. Requiring
+  // `raw === null` meant a row with `geo_scope = ''` and a perfectly good
+  // `country_iso2` was classified `unknown`, and `matchesGeography` fails open
+  // on `unknown`, so it was delivered to every operator including those who
+  // declared a different country. Trusting the country code is both more precise
+  // and strictly less over-delivering than treating the row as ungeocoded.
+  if (normaliseIso2(row.country_iso2)) return 'country'
   return 'unknown'
 }
 
@@ -265,14 +270,24 @@ function profileCountries(profile: OperatorProfile): Set<string> {
 const REGION_BY_ISO2: ReadonlyMap<string, string> = (() => {
   const regionByIso3 = new Map<string, string>()
   for (const row of countryIdentityRows) {
-    const [id, , , region] = row as unknown as [string, string, string, string | null]
+    // `countryIdentityRows` is a generated `as const` tuple list, so a blind
+    // destructure-with-cast would silently mis-read every row if the generator
+    // ever reorders columns — the map would just come back empty and every
+    // regional match would quietly fail open. Read positionally and validate
+    // instead, so a shape change is skipped rather than misinterpreted.
+    const cells = row as readonly unknown[]
+    const id = cells[0]
+    const region = cells[3]
+    if (typeof id !== 'string' || typeof region !== 'string') continue
+    if (!id.startsWith('country_area:')) continue
     const iso3 = id.split(':')[1]
     if (iso3 && region) regionByIso3.set(iso3.toUpperCase(), region)
   }
   const map = new Map<string, string>()
   for (const country of countries) {
     const region = regionByIso3.get(country.iso3.toUpperCase())
-    if (region) map.set(country.iso2.toUpperCase(), region)
+    // Case-folded to match the lookup in `matchesGeography`.
+    if (region) map.set(country.iso2.toUpperCase(), region.toLowerCase())
   }
   return map
 })()
@@ -294,6 +309,19 @@ function profileRegions(profile: OperatorProfile): Set<string> {
  * - `country` — the country must be one the operator declared.
  * - `region`  — the region must contain at least one declared country. An
  *   EU-wide rule change reaches a German importer.
+ *
+ *   KNOWN LIMITATION, upstream and not fixable here: `signals.geo_region` holds
+ *   only the five UN macro-regions (verified live — Africa, Americas, Asia,
+ *   Europe, Oceania). Ingestion collapses supra-national blocs into them, so
+ *   "European Union" becomes Europe, "LATAM" and "Caribbean" become Americas,
+ *   and "Middle East" becomes Asia. The bloc identity is destroyed before this
+ *   module sees the row, which produces two wrong outcomes it cannot detect:
+ *   a US operator receives LATAM-wide items (over-delivery), and a Cyprus
+ *   operator — UN region **Asia**, confirmed against `countryIdentityRows` —
+ *   misses EU-wide rules entirely (under-delivery, the more damaging one).
+ *   Fixing this needs the original bloc label preserved at ingestion (e.g. a
+ *   `geo_bloc` column) plus real membership data; inventing a bloc table here
+ *   would be guessing. Logged as a follow-up rather than papered over.
  * - `global`  — reaches everyone. A treaty-level change is not filtered out by
  *   virtue of belonging to no single country.
  * - `unknown` — geography cannot be established, so it cannot be used to
@@ -310,8 +338,13 @@ function matchesGeography(row: SignalRoutingRow, profile: OperatorProfile): bool
       return country !== null && wanted.has(country)
     }
     case 'region': {
-      const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
-      if (region === null) return false
+      // Case-folded on both sides. The two vocabularies agree today (both are
+      // Africa/Americas/Asia/Europe/Oceania), but an exact `Set.has` would miss
+      // on any future case drift and silently withhold a regional signal from an
+      // operator inside that region — the exact silent-drop this matcher exists
+      // to prevent, and the fail-open below only covers unmapped countries.
+      const region = typeof row.geo_region === 'string' ? row.geo_region.trim().toLowerCase() : null
+      if (region === null || region === '') return false
       // If any declared country has no region mapping, this operator's regional
       // coverage cannot be proven either way — see REGION_BY_ISO2's note on the
       // 60 unmapped identities. Deliver rather than drop: for an intelligence
@@ -364,10 +397,16 @@ export function matchesOperatorProfile(row: SignalRoutingRow, profile: OperatorP
   if (!matchesGeography(row, profile)) return false
 
   if (!isRouted(row)) return true
-  if (profile.roleFamilies.length === 0) return true
 
+  // Routed-to-nothing is checked BEFORE the roleless-profile shortcut. With the
+  // order reversed, a signal the classifier explicitly rejected for every
+  // audience (`role_families = []`) still reached geography-only operators —
+  // contradicting both the schema comment and this module's own
+  // "sends a routed-to-nothing signal to nobody" test.
   const families = resolveRoleFamilies(row)
   if (families.length === 0) return false
+
+  if (profile.roleFamilies.length === 0) return true
   return families.some((family) => profile.roleFamilies.includes(family))
 }
 
@@ -388,8 +427,14 @@ export function explainMatch(row: SignalRoutingRow, profile: OperatorProfile): s
 
   switch (signalGeoScope(row)) {
     case 'region': {
+      // Deliberately does NOT say "where you operate". Two paths reach here
+      // without establishing that: the fail-open branch for a country with no
+      // region mapping (the operator's region is unknown, not confirmed), and a
+      // match via an export destination only (they trade into the region, they
+      // do not operate in it). Claiming otherwise would put an assertion in
+      // front of a user that the matcher never proved.
       const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
-      return region ? `Affects ${region}, where you operate${suffix}` : `Matches your watch profile${suffix}`
+      return region ? `Affects ${region}, a region you cover${suffix}` : `Matches your watch profile${suffix}`
     }
     case 'global':
       return `Global change affecting all markets${suffix}`
