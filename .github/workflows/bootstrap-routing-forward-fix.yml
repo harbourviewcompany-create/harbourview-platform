@@ -1,0 +1,50 @@
+name: Bootstrap Regional Routing Forward Fix
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/bootstrap-routing-forward-fix.yml'
+      - 'scripts/bootstrap-routing-forward-fix.sh'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.head_ref == 'fix/routing-regional-audiences'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/routing-regional-audiences
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build, validate, and push forward fix
+        run: bash scripts/bootstrap-routing-forward-fix.sh
