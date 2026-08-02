@@ -1,0 +1,97 @@
+name: Temporary Sync Global Regulatory OS Replacement
+
+on:
+  push:
+    branches:
+      - agent/global-reg-os-phase0-replacement
+    paths:
+      - '.github/workflows/tmp-sync-global-reg-os-replacement.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: agent/global-reg-os-phase0-replacement
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Rebuild package on current main
+        env:
+          BRANCH: agent/global-reg-os-phase0-replacement
+        run: |
+          set -euo pipefail
+          OLD_HEAD="$(git rev-parse HEAD)"
+          git fetch origin main "$BRANCH"
+          MAIN_HEAD="$(git rev-parse origin/main)"
+          git checkout -B replacement-sync "$MAIN_HEAD"
+
+          git checkout "$OLD_HEAD" -- \
+            .github/workflows/global-reg-os-phase0-replacement.yml \
+            docs/control/global-regulatory-os \
+            scripts/global-reg-os
+
+          rm -f .github/workflows/tmp-export-current-main.yml
+          rm -f .github/workflows/tmp-sync-global-reg-os-replacement.yml
+          rm -f docs/control/global-regulatory-os-replacement-bootstrap*.md
+
+          if ! grep -q 'Global Regulatory OS Phase 0 replacement package' docs/control/DATABASE_CONTROL.md; then
+            cat >> docs/control/DATABASE_CONTROL.md <<'EOF'
+
+## 2026-08-02 — Global Regulatory OS Phase 0 replacement package
+
+- **Environment:** repository and disposable PostgreSQL 17 verification only.
+- **Historical source:** closed PR #1234 is evidence only and is not reopened or merged.
+- **Controlling archive:** `docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip`, SHA-256 `33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136`.
+- **Database scope:** fourteen isolated canonical migrations under `docs/control/global-regulatory-os/canonical/db/migrations`. No active `supabase/migrations/**` file is added or modified.
+- **Authorization:** request identity is established only by the non-login `hv_authenticator` role and resolved from IAM tables. Runtime roles cannot set context, read/write context storage, assume the authenticator role, or gain authority through custom GUCs.
+- **RLS/public boundary:** canonical RLS and public/private projection tests run in disposable PostgreSQL 17 databases. Canonical rows are not exposed through Harbourview production routes by this PR.
+- **Upgrade proof:** clean install and simulated Harbourview prestate upgrade are required workflow gates.
+- **Production status:** HOLD. No production migration, data write, key provisioning, source import, deployment or alias movement is authorized.
+EOF
+          fi
+
+          if ! grep -q 'Global Regulatory OS Phase 0 replacement evidence' docs/control/EVIDENCE_LOG.md; then
+            cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
+
+## 2026-08-02 — Global Regulatory OS Phase 0 replacement evidence
+
+- Replacement draft branch: `agent/global-reg-os-phase0-replacement`.
+- Closed PR #1234 is retained only as historical failure evidence.
+- Exact controlling archive bytes are committed and directly hashed to `33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136`.
+- The package is materialized as normal source files; multipart Base64 transport is excluded.
+- The deterministic manifest records source-unchanged, source-patched and added files.
+- P0-001 through P0-012 each have explicit evidence records and existing artifact paths; operator approval remains distinct from technical verification.
+- Authorization tests cover forged GUCs, unauthorized context setter execution, direct context reads/writes and forbidden authenticator-role assumption.
+- Required final evidence: source/manifest validation, JSON Schema, OpenAPI, AsyncAPI, secret scan, PostgreSQL 17 clean install and upgrade, RLS/leakage, lint, typecheck, full tests, production build, Branch Verification, migration drift and exact Vercel preview.
+- No production migration, write, deployment or alias movement is performed by this replacement work.
+EOF
+          fi
+
+          python scripts/global-reg-os/validate_phase0_package.py
+          python scripts/global-reg-os/check_secrets.py
+
+          test ! -e .github/workflows/tmp-export-current-main.yml
+          test ! -e .github/workflows/tmp-sync-global-reg-os-replacement.yml
+          ! find docs/control -maxdepth 1 -name 'global-regulatory-os-replacement-bootstrap*.md' | grep -q .
+          ! git diff --name-only "$MAIN_HEAD" | grep -q '^supabase/migrations/'
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/global-reg-os-phase0-replacement.yml \
+            docs/control/global-regulatory-os \
+            scripts/global-reg-os \
+            docs/control/DATABASE_CONTROL.md \
+            docs/control/EVIDENCE_LOG.md
+          git commit -m 'feat: replace Global Regulatory OS Phase 0 package'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/$BRANCH:$OLD_HEAD" origin "HEAD:refs/heads/$BRANCH"
+          echo "main=$MAIN_HEAD"
+          echo "old=$OLD_HEAD"
+          echo "new=$NEW_HEAD"
