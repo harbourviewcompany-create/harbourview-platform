@@ -2,6 +2,25 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 
+const canonicalSupabaseOrigin = 'https://zvxdgdkukjrrwamdpqrg.supabase.co';
+const configuredSupabaseOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || canonicalSupabaseOrigin).origin;
+  } catch {
+    return canonicalSupabaseOrigin;
+  }
+})();
+const configuredSupabaseRealtimeOrigin = configuredSupabaseOrigin
+  .replace(/^https:/, 'wss:')
+  .replace(/^http:/, 'ws:');
+const supabaseImageSources = Array.from(new Set([canonicalSupabaseOrigin, configuredSupabaseOrigin])).join(' ');
+const supabaseConnectSources = Array.from(new Set([
+  canonicalSupabaseOrigin,
+  canonicalSupabaseOrigin.replace(/^https:/, 'wss:'),
+  configuredSupabaseOrigin,
+  configuredSupabaseRealtimeOrigin,
+])).join(' ');
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -22,9 +41,11 @@ const securityHeaders = [
       // Next.js requires unsafe-inline + unsafe-eval for RSC streaming and hydration
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://zvxdgdkukjrrwamdpqrg.supabase.co",
-      // Supabase REST/realtime, Stripe checkout, Vercel preview feedback
-      "connect-src 'self' https://zvxdgdkukjrrwamdpqrg.supabase.co wss://zvxdgdkukjrrwamdpqrg.supabase.co https://api.stripe.com https://vercel.live",
+      `img-src 'self' data: blob: ${supabaseImageSources}`,
+      // Keep production locked to Harbourview's canonical Supabase project while
+      // permitting an explicitly configured isolated Supabase origin for preview
+      // and authenticated browser verification builds.
+      `connect-src 'self' ${supabaseConnectSources} https://api.stripe.com https://vercel.live`,
       "font-src 'self'",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
