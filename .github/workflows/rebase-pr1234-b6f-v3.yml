@@ -1,0 +1,113 @@
+name: One-shot PR 1234 exact rebase onto b6f
+
+on:
+  push:
+    branches:
+      - tmp/pr-1234-rebase-b6f-v3
+
+permissions:
+  contents: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout temporary runner branch
+        uses: actions/checkout@v4
+        with:
+          ref: tmp/pr-1234-rebase-b6f-v3
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebuild exact Phase 0 delta on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="b6f96f86fa6a7b25bbd6c291c463e6b656d8c173"
+          OLD_HEAD="30b0168a391cb9ffca357a281c14d44c3a5a8e31"
+          BACKUP="origin/backup/pr-1234-pre-b6f-rebase-30b0168"
+          TARGET="refs/heads/feat/global-reg-os-phase0"
+
+          git fetch origin main backup/pr-1234-pre-b6f-rebase-30b0168 feat/global-reg-os-phase0
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/global-reg-os-phase0)" = "$OLD_HEAD"
+
+          git reset --hard "$BASE"
+
+          git checkout "$BACKUP" -- \
+            .github/workflows/global-reg-os-phase0.yml \
+            docs/control/global-regulatory-os/REPOSITORY_PACKAGE.md \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part000 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part001 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part002 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part003 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part004 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part005 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256 \
+            docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip.sha256 \
+            lib/signals/feedbackScores.ts \
+            scripts/audit-edge-functions.js \
+            scripts/global-reg-os/apply-repository-patches.py \
+            scripts/global-reg-os/bootstrap-phase0.sh \
+            scripts/global-reg-os/run-postgres-validation-repository.sh \
+            scripts/global-reg-os/validate-repository-phase0.py \
+            tests/global-reg-os/sql/assert_authorization_repository.sql
+
+          node <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (!p.devDependencies) throw new Error('package.json has no devDependencies');
+          p.devDependencies.eslint = '9.39.5';
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          NODE
+
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
+
+          test -f supabase/migrations/20260729020000_fix_candidate_review_and_pathway_template_grants.sql
+          test -f supabase/migrations/20260731120000_signal_role_family_routing.sql
+          test -f supabase/migrations/20260801150000_api_expose_quality_and_routing_columns.sql
+          test -f lib/signals/routing.ts
+          test -f tests/signals/routing.test.ts
+
+          git add -A
+
+          cat > /tmp/expected-files.txt <<'FILES'
+          .github/workflows/global-reg-os-phase0.yml
+          docs/control/global-regulatory-os/REPOSITORY_PACKAGE.md
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part000
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part001
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part002
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part003
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part004
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part005
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256
+          docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip.sha256
+          lib/signals/feedbackScores.ts
+          package-lock.json
+          package.json
+          scripts/audit-edge-functions.js
+          scripts/global-reg-os/apply-repository-patches.py
+          scripts/global-reg-os/bootstrap-phase0.sh
+          scripts/global-reg-os/run-postgres-validation-repository.sh
+          scripts/global-reg-os/validate-repository-phase0.py
+          tests/global-reg-os/sql/assert_authorization_repository.sql
+          FILES
+          sed -i 's/^          //' /tmp/expected-files.txt
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+          git diff --cached --name-only "$BASE" | sort > /tmp/actual-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          test "$(wc -l < /tmp/actual-files.txt)" -eq 19
+          ! grep -Fxq 'components/dashboard/MobileCommandCentre.tsx' /tmp/actual-files.txt
+          ! grep -Fxq 'vercel.json' /tmp/actual-files.txt
+
+          git commit -m "rebase: synchronize Global Regulatory OS Phase 0 with b6f main"
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push origin "HEAD:$TARGET" --force-with-lease="$TARGET:$OLD_HEAD"
+          echo "Rebased PR head: $NEW_HEAD"
