@@ -41,11 +41,21 @@ select public.hv_intelligence_outcome_check();
 2. Digest UI shows corroboration / language chips when present
 3. Mark one item **Useful** → row in `signal_relevance_feedback`
 4. `GET /api/admin/intelligence-health` includes `product_outcome`
-5. After deploy, Vercel cron hits `/api/cron/intelligence-health` **once daily at 10:15 UTC**
-   (Hobby plan allows one cron run per day; a 6h schedule fails the deploy outright with
-   `HTTP 400 cron_jobs_limits_reached`. 10:15 is deliberately AFTER the 06:00-09:00 digest
-   window, so the single run observes a finished cycle rather than reporting
-   `digest_missed_today` while the digest is still legitimately pending.)
+5. After deploy, Vercel cron hits `/api/cron/intelligence-health` **once a day, scheduled
+   `15 10 * * *` (the 10:00 UTC hour)**.
+   - On Hobby, each cron job may run **at most once per day**. This is a per-job frequency
+     cap, not a project-wide one-run-total cap — `vercel.json` carries nine cron jobs and
+     production deploys succeed. A sub-daily schedule fails the deploy outright: the earlier
+     `15 */6 * * *` returned `HTTP 400 cron_jobs_limits_reached` (Actions run 30642287937).
+   - The 10:00 hour is deliberately AFTER the 06:00-09:00 digest window. As the only run of
+     the day, a slot inside that window would report `digest_missed_today` for a digest that
+     is still legitimately pending, with no later run to correct the false alarm.
+   - Treat the fire time as approximate, not as exactly 10:15. Vercel is reported to trigger
+     Hobby crons at some point within the scheduled hour rather than on the minute; that
+     behaviour was **not confirmed against Vercel's own docs** in the session that wrote this
+     note (the pricing page 403s to automated fetches), so it is recorded as unverified. The
+     choice of hour is robust either way — anywhere in 10:00-10:59 is still clear of the
+     digest window.
 
 ## 5. Guardrails
 

@@ -714,12 +714,15 @@ volume.
 - Shared classifier: edge function `hv-classify` (**v14 as of 2026-07-30** — OpenAI-first,
   retry + 429 backoff; v14 is the recall fix, 0.559 → 0.903 at precision 1.000, stamped
   `hv-classify/openai/v2-summary-fix`). Shared extraction: edge function `hv-extract`
-  (**v36 / v1.7.0 as of 2026-07-31** — OpenAI-first provider order. v34 shipped the
+  (**v37 / v1.7.1 as of 2026-08-02** — OpenAI-first provider order. v34 shipped the
   `relevance_score` rubric fix, without which no snapshot cleared the relevance gate; v35 corrected
-  backend telemetry; v36 added output normalisation and fixed the completed-backend ordering.
+  backend telemetry; v36 added output normalisation and fixed the completed-backend ordering; v37
+  closed two defects in v36's own normaliser — `Number()` coercing `null`/`""`/`false`/`[]` to a
+  legitimate-looking `0`, and malformed scores being marked `extract_failed` with no review row,
+  which is terminal because the batch query selects only `fetch_status='success'`.
   **Do NOT roll back this function.** v33 contains the prompt defect that starved the feed for six
-  days; v34 and v35 each carry a defect fixed by the next version. There is no earlier safe target,
-  so a v36 incident is a **forward-fix**: patch and redeploy from
+  days; v34, v35 and v36 each carry a defect fixed by the next version. There is no earlier safe
+  target, so a v37 incident is a **forward-fix**: patch and redeploy from
   `supabase/functions/hv-extract/index.ts`, which is the authoritative source. Note there is no CI
   path for edge-function deploys — they are manual).
 - Raw landing table: `public.signals` (~7,200+ SOURCE_ENGINE rows historically; 8,684

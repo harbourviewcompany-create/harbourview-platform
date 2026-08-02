@@ -249,13 +249,25 @@ async function extractEditorial(snapshot: Snapshot): Promise<{ result: Editorial
 // `relevance_score < minRelevance` and in JS both `"not a number" < 30` and
 // `NaN < 30` evaluate to FALSE -- a malformed value would sail through the gate
 // and reach staging, and then hv-score's promote threshold, unrejected. Coerce
-// what is coercible, and force anything else to 0 so it fails closed.
+// what is coercible, and treat everything else as unusable.
 function normalizeExtraction(raw: ExtractionResult): ExtractionResult & { _score_malformed: boolean } {
-  const n = Number((raw as { relevance_score?: unknown }).relevance_score);
+  const rawScore = (raw as { relevance_score?: unknown }).relevance_score;
+  // Number() alone is NOT a validity test here: Number(null), Number(""),
+  // Number(false) and Number([]) each return a finite 0, so a bare
+  // `Number.isFinite` check would classify all four as a legitimate "scored
+  // zero" rather than as a broken response. That matters because a legitimate 0
+  // takes the low_relevance path below, which sets fetch_status='extracted' and
+  // consumes the snapshot for good -- exactly the silent-consumption failure
+  // this function exists to prevent. Admit only a real number, or a non-blank
+  // string that parses as one; anything else is malformed by construction.
+  const n =
+    typeof rawScore === "number" ? rawScore
+    : (typeof rawScore === "string" && rawScore.trim() !== "") ? Number(rawScore)
+    : NaN;
   // Coercing a malformed score to 0 would send it down the low_relevance path,
   // which marks fetch_status='extracted' and consumes the snapshot for good --
   // treating "the provider answered incorrectly" as "the content is irrelevant".
-  // Flag it instead so the caller can route it to extract_failed for retry.
+  // Flag it instead so the caller can route it to manual review.
   const _score_malformed = !Number.isFinite(n);
   // floor, not round: Math.round(29.7) -> 30 would ADMIT content the provider
   // scored below the cutoff, which is the opposite of failing closed. Flooring
@@ -277,6 +289,55 @@ function normalizeExtraction(raw: ExtractionResult): ExtractionResult & { _score
   }
 
   return { ...raw, relevance_score, effective_date, _score_malformed };
+}
+
+// Files a snapshot into hv_import_staging as a pending needs_review row.
+//
+// This is the ONLY way a snapshot the extractor could not use stays reachable.
+// The batch query selects `fetch_status = 'success'`, so once a row is marked
+// 'extract_failed' no later run will pick it up again, and nothing in this repo
+// resets that status -- "extract_failed" is terminal in practice, not a retry
+// queue. Without a staging row the snapshot is therefore invisible to BOTH the
+// automated pipeline and manual review.
+//
+// Who calls this, and who deliberately does not:
+//   - signal path, all providers failed      -> calls this
+//   - signal path, unusable relevance_score  -> calls this
+//   - editorial path                         -> does NOT; it files a
+//     `stage: "needs_review"` row in editorial_items, which is that pipeline's
+//     own review surface.
+//   - the catch-all at the bottom of the loop -> does NOT, on purpose. Its most
+//     likely cause is `staging_insert_failed`, so a second insert into the same
+//     table would usually fail the same way; the thrown message is preserved on
+//     the snapshot's error_message instead.
+async function stageNeedsReview(
+  snapshot: Snapshot,
+  batchId: string,
+  reason: string,
+  reviewNote: string,
+): Promise<string | null> {
+  const { error } = await supabase.from("hv_import_staging").insert({
+    workspace_id: HV_WORKSPACE_ID,
+    source_system: "source_engine",
+    source_record_id: snapshot.id,
+    source_url: snapshot.captured_url,
+    import_batch_id: batchId,
+    importer_version: "hv-extract@1.7.1+needs_review",
+    transform_version: "none",
+    raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
+    raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
+    normalized_payload: { needs_review: true, reason },
+    normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
+    proposed_object_class: "source_document",
+    proposed_classification: "public",
+    proposed_title: (snapshot.captured_title ?? "Untitled -- needs manual review").slice(0, 500),
+    content_hash: await sha256(snapshot.captured_url),
+    is_duplicate_candidate: false,
+    status: "pending",
+    retry_count: 0,
+    review_note: reviewNote.slice(0, 500),
+  });
+  return error?.message ?? null;
 }
 
 function isMainstreamMediaSnapshot(snapshot: Snapshot): boolean {
@@ -442,28 +503,17 @@ Deno.serve(async (req: Request) => {
       if (!outcome) {
         const reason = (extractSignal as any)._lastError ?? "no_llm_provider_available";
         if (!dryRun) {
-          await supabase.from("hv_import_staging").insert({
-            workspace_id: HV_WORKSPACE_ID,
-            source_system: "source_engine",
-            source_record_id: snapshot.id,
-            source_url: snapshot.captured_url,
-            import_batch_id: batchId,
-            importer_version: "hv-extract@1.7.1+needs_review",
-            transform_version: "none",
-            raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
-            raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
-            normalized_payload: { needs_review: true, reason },
-            normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
-            proposed_object_class: "source_document",
-            proposed_classification: "public",
-            proposed_title: (snapshot.captured_title ?? "Untitled -- needs manual review").slice(0, 500),
-            content_hash: await sha256(snapshot.captured_url),
-            is_duplicate_candidate: false,
-            status: "pending",
-            retry_count: 0,
-            review_note: `Auto-extraction failed on all configured providers: ${reason.slice(0, 300)}`,
-          });
-          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
+          const stageErr = await stageNeedsReview(
+            snapshot,
+            batchId,
+            reason,
+            `Auto-extraction failed on all configured providers: ${reason.slice(0, 300)}`,
+          );
+          // If the review row could not be written, say so on the snapshot
+          // itself -- otherwise 'extract_failed' is the only trace left and it
+          // looks like an ordinary provider failure that someone can find.
+          const detail = stageErr ? `${reason} | needs_review staging insert FAILED: ${stageErr}` : reason;
+          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: detail.slice(0, 500) }).eq("id", snapshot.id);
         }
         failed++;
         results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "signal", reason });
@@ -479,16 +529,28 @@ Deno.serve(async (req: Request) => {
       const extraction = normalizeExtraction(outcome.result);
 
       if (extraction._score_malformed) {
-        // Not "irrelevant" -- unusable. Mark extract_failed so the row stays
-        // eligible for a later retry rather than being silently consumed.
+        // Not "irrelevant" -- unusable. A provider that returns an unscorable
+        // value has told us nothing about the content, so this must NOT take
+        // the low_relevance path (which would mark the snapshot 'extracted' and
+        // retire it as judged). Route it to manual review exactly like a
+        // total provider failure: 'extract_failed' is terminal for the
+        // automated pipeline, so the staging row is what keeps it recoverable.
+        const reason = `malformed relevance_score from ${outcome.backend}: ${JSON.stringify((outcome.result as { relevance_score?: unknown }).relevance_score).slice(0, 200)}`;
         failed++;
         if (!dryRun) {
+          const stageErr = await stageNeedsReview(
+            snapshot,
+            batchId,
+            reason,
+            `Provider returned an unusable relevance_score; content was never assessed. ${reason.slice(0, 300)}`,
+          );
+          const detail = stageErr ? `${reason} | needs_review staging insert FAILED: ${stageErr}` : reason;
           await supabase.from("source_snapshots").update({
             fetch_status: "extract_failed",
-            error_message: `malformed relevance_score from ${outcome.backend}: ${JSON.stringify((outcome.result as { relevance_score?: unknown }).relevance_score).slice(0, 200)}`,
+            error_message: detail.slice(0, 500),
           }).eq("id", snapshot.id);
         }
-        results.push({ snapshot_id: snapshot.id, status: "error", reason: "malformed_relevance_score", backend: outcome.backend });
+        results.push({ snapshot_id: snapshot.id, status: "needs_review", reason: "malformed_relevance_score", backend: outcome.backend });
         continue;
       }
 

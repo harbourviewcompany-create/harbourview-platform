@@ -2449,9 +2449,19 @@ defect created by collapsing 4x/day into 1x/day without checking what the remain
 overlap; the 4x schedule happened to cover both inside and outside the window.
 
 **Operator checklist contradicted the deployed schedule.** `docs/ops/ELITE_DIGEST_DEPLOY.md:44` still
-told operators to verify the cron runs every 6h. Updated to state the daily 10:15 UTC cadence, why
-(Hobby allows one run/day; a 6h schedule fails the deploy outright with 400), and why 10:15
-specifically.
+told operators to verify the cron runs every 6h. Updated to state the once-a-day `15 10 * * *`
+schedule, why (on Hobby each cron job may run at most once per day; a 6h schedule fails the deploy
+outright with `HTTP 400 cron_jobs_limits_reached`), and why the 10:00 hour specifically.
+
+**Correction to the Hobby-limit wording (fifth review round, CodeRabbit).** Two claims in the first
+draft of this entry were imprecise. (1) "Hobby allows one cron run per day" reads as a project-wide
+cap; it is a **per-job** frequency cap. Verified directly: `vercel.json` carries nine cron jobs and
+production deploys succeed, which a one-job-total cap would forbid. (2) "runs at 10:15 UTC" overstates
+the precision — Vercel is reported to fire Hobby crons somewhere within the scheduled hour rather than
+on the minute. That second point could **not** be confirmed against Vercel's primary docs here (the
+pricing page returns 403 to automated fetches) and is recorded as unverified rather than asserted. The
+scheduling decision is unaffected: any time in 10:00-10:59 is still clear of the 06:00-09:00 digest
+window.
 
 **Malformed relevance scores were silently consumed.** The normaliser added in the third round
 coerced any non-finite `relevance_score` to `0`, which then took the `low_relevance` branch and set
@@ -2462,6 +2472,54 @@ flag and the caller routes those to `extract_failed` with the offending value in
 the row stays eligible for retry.
 
 **Commands run:** `npx tsc --noEmit` exit 0; `npm run test` 104 passing across 5 suites.
+
+---
+
+### 2026-08-02 — hv-extract v37 deployed; two defects in my own v36 normaliser; feed blocker relocated
+
+**Two review bots independently found the same real defect in the v36 normaliser, and both were
+right.** Codex (P2) and CodeRabbit (Major) flagged that `Number()` is not a validity test:
+`Number(null)`, `Number("")`, `Number(false)` and `Number([])` each return a finite `0`. So
+`_score_malformed` stayed false for all four, the row fell through to the `low_relevance` branch, and
+`fetch_status` was set to `'extracted'` — the exact silent-consumption failure the normaliser had been
+written to close, reintroduced by the fix for it. `normalizeExtraction` now admits only a real number
+or a non-blank numeric string; everything else is malformed by construction.
+
+**Codex also found that the malformed branch had no review path, and this was the more serious of
+the two.** The branch set `fetch_status='extract_failed'` and wrote no staging row. Because the batch
+query selects only `fetch_status='success'` and nothing in this repo resets that status,
+`extract_failed` is terminal in practice — so the comment claiming the row "stays eligible for a later
+retry" (written in the fourth round, quoted above) was **false**. Those snapshots would have been
+invisible to both the automated pipeline and manual review. Both signal-path failure branches now call
+a shared `stageNeedsReview` helper that files the `hv_import_staging` needs_review row, and a failure
+of that insert is recorded on the snapshot's own `error_message` rather than swallowed. The helper
+documents which branches deliberately do not call it (the editorial path has its own review surface in
+`editorial_items`; the catch-all does not, because its likeliest cause is a staging-insert failure that
+a second insert would reproduce).
+
+**Deployed.** `hv-extract` v36 → **v37**, `verify_jwt: true` preserved. Verified live by dry-run
+(pg_net request 142157, HTTP 200): `"version":"1.7.1"`, `"mode":"dry_run"`,
+`"llm_backend_first_attempted":"openai"`. `snapshots_considered: 0` is correct, not a fault — only 7
+rows carry `fetch_status='success'` and all 7 have `captured_text IS NULL`, which the batch query
+excludes.
+
+**The feed blocker has moved, and the earlier diagnosis in this session is superseded.** An earlier
+entry attributed the dark feed to `trg_promote_snapshot` firing on `processing_status` while
+`hv-extract` writes only `fetch_status`, with "1,303 snapshots pending". Live check contradicts that:
+there is no `pending` status on `source_snapshots` at all today (extracted 8,846 / error 3,589 /
+extract_failed 1,468 / success 7). Pipeline B is fully alive end-to-end — `hv_import_staging` took 96
+rows in 24h (newest 04:10), 1,074 of 1,140 are `promoted`, and `hv_artifacts` took 47 in 24h (newest
+04:20). The prompt fix worked.
+
+What is stale is `public.signals`: 12,465 rows, **0 in 24h**, newest 2026-07-31 06:50, newest reviewed
+2026-07-30. That is the dual-extractor split (Guardrail #10) surfacing as a product symptom —
+`hv-extract` feeds `hv_import_staging` → `hv_artifacts`, while `public.signals` is fed by the older
+`hv_extract_signals_from_captured_text` path. The public feed reads the table that is no longer being
+written. **Not fixed here:** retiring one of the two extractors was explicitly outside the approved
+scope for this change, and it is a routing decision, not a bug fix.
+
+**Commands run:** `npx tsc --noEmit` exit 0; `npm run test` exit 0, 104 passing across 7 files
+(39 + 8 + 7 + 39 + 11).
 
 **Deployment status:** these changes are committed but **NOT deployed**. Production remains
 `hv-extract` v36; the repo is now four commits ahead. Deploying needs a decision — see the standing
