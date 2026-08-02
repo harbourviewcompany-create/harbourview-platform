@@ -1,78 +1,38 @@
 name: PR 166 New Products Equipment Verification
-
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   verify-new-products-equipment:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Public visibility
-        run: npm run test:visibility
-
-      - name: New products equipment intake
-        run: npm run test:new-products-equipment-intake
-
-      - name: Build
-        run: npm run build
-
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:visibility
+      - run: npm run test:new-products-equipment-intake
+      - run: npm run build
       - name: Start built app
         run: |
           npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-next.log 2>&1 &
-          echo $! > /tmp/harbourview-next.pid
           for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:3000/marketplace/new-products >/dev/null; then
-              exit 0
-            fi
+            if curl -fsS http://127.0.0.1:3000/marketplace/new-products >/dev/null; then exit 0; fi
             sleep 2
           done
           cat /tmp/harbourview-next.log
           exit 1
-
-      - name: Scan new products route for forbidden leakage strings
-        run: |
-          html="$(curl -fsS http://127.0.0.1:3000/marketplace/new-products)"
-          forbidden_markers=(
-            'sourceUrl'
-            'sourceName'
-            'contactEmail'
-            'provenanceSummary'
-            'sourceEvidence'
-            'Evidence captured'
-            'pricing metadata'
-            'internal notes'
-            'internalReviewNotes'
-            'review metadata'
-            'reviewedBy'
-            'lastReviewedAt'
-            'nextReviewDueAt'
-          )
-          for forbidden in "${forbidden_markers[@]}"; do
-            if printf '%s' "$html" | grep -Fqi "$forbidden"; then
-              echo "Forbidden string leaked on /marketplace/new-products: $forbidden"
-              exit 1
-            fi
-          done
-          echo "PASS /marketplace/new-products exact forbidden-marker scan"
+      - name: Scan exact forbidden fields
+        env:
+          PROBE_BASE_URL: http://127.0.0.1:3000
+          PROBE_ROUTES: /marketplace/new-products
+          PROBE_API_ROUTES: ''
+          PROBE_MAX_ASSETS: '1'
+        run: node scripts/verification/public-leakage-probe.mjs
