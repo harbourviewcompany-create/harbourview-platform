@@ -77,14 +77,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Run protected-main Playwright suite against validated deployment
+      - name: Run protected-main Playwright suite without trace capture
         env:
           PLAYWRIGHT_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
           HARBOURVIEW_PUBLIC_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           CI: '1'
-        run: npm run test:e2e
-      - name: Upload Playwright evidence
+        run: npm run test:e2e -- --trace=off
+      - name: Remove network archives before artifact upload
+        if: always()
+        run: |
+          find playwright-report test-results -type f \( -name '*.zip' -o -name '*.har' \) -delete 2>/dev/null || true
+      - name: Upload sanitized Playwright evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
