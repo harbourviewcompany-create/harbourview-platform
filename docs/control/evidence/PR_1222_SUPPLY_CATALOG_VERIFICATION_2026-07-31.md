@@ -24,9 +24,9 @@ The protected preview verification completed successfully before merge:
 
 The preview routes returned HTTP 200, preserved their effective URLs, exposed the expected titles and visible text, and did not redirect to Vercel SSO.
 
-## Production deployment attempt
+## Initial production deployment failure
 
-Vercel automatically created a production deployment from the merged main commit:
+Vercel automatically created a production deployment from the original merged main commit:
 
 - Deployment ID: `dpl_9qjwuJUGKUPCSqxCh45f5JrPwLyL`
 - Deployment URL: `https://harbourview-ojq600tyg-harbourview.vercel.app`
@@ -35,73 +35,120 @@ Vercel automatically created a production deployment from the merged main commit
 - `githubCommitSha`: `dc827cba55066ad812214734115cb6d31bded197`
 - Final state: `ERROR`
 - Error code: `lint_or_type_error`
-- Error step: `buildStep`
 - Failed command: `npm run build`
 
-The build cloned the correct main commit, installed dependencies, compiled the application bundle, and then failed during TypeScript validation.
+The failure exposed stale mobile jurisdiction-playbook rendering in `components/dashboard/MobileCommandCentre.tsx`: `steps` was typed as `string[]`, and `key_regulators` was typed as `{ primary: string; secondary: string[] }`, while the mobile renderer still consumed older object/array shapes.
 
-### Blocking TypeScript defect
+## Focused production repair — PR #1236
 
-File:
+Repair PR: `#1236`
+Branch: `repair/mobile-playbook-steps-production`
+Final verified head: `eb1f4ecc3aa014dff30ad3702402ac6ee56c90bc`
+Merge method: squash
+Merged production-repair commit: `999e624fe28f560153441bf340ae320136dc4577`
 
-`components/dashboard/MobileCommandCentre.tsx:3201`
+The final runtime diff was limited to:
 
-Error:
+- `components/dashboard/MobileCommandCentre.tsx`
 
-`Property 'step' does not exist on type 'string'.`
+The repair aligned:
 
-The failing render maps `jurisdictionPlaybook.steps`, whose current type is `string[]`, while the component still accesses object properties including `s.step`, `s.title`, and `s.description`.
+- `jurisdictionPlaybook.steps` with the canonical `string[]` data shape; and
+- `jurisdictionPlaybook.key_regulators` with the canonical `{ primary: string; secondary: string[] }` data shape.
 
-This is a production-release blocker because the merged main commit cannot complete `next build` and therefore cannot become the active production deployment.
+No database, DTO, route, supply-catalog, dependency, migration, or persistent workflow change was included in the final PR diff.
 
-## Production route requests
+### PR #1236 verification results
 
-The production alias remained on the prior successful deployment because the new production deployment failed.
+All required final-head workflows completed successfully:
+
+| Workflow | Run ID | Conclusion |
+|---|---:|---|
+| Type check | `30726830673` | success |
+| Migration Drift Check | `30726830680` | success |
+| HAR-39 HAR-40 Public Surfaces | `30726830709` | success |
+| Project Registry Discipline | `30726830691` | success |
+| PR 166 New Products Equipment Verification | `30726830674` | success |
+| Regulatory Signals Verify | `30726830684` | success |
+| Branch Verification | `30726830711` | success |
+| CI | `30726830710` | success |
+
+Branch Verification included TypeScript validation, tests, public visibility and leakage checks, production build, and route/probe stages. Migration Drift Check completed successfully without any migration changes in the repair PR.
+
+### Repair preview deployment
+
+- Deployment ID: `dpl_58q788zC7W61w5vxZbPBZWZs1mDk`
+- Deployment URL: `https://harbourview-5o3o3minz-harbourview.vercel.app`
+- Target: `preview`
+- `githubCommitSha`: `eb1f4ecc3aa014dff30ad3702402ac6ee56c90bc`
+- Final state: `READY`
+
+## Recovered production deployment
+
+The squash merge of PR #1236 triggered a production deployment from the exact repair commit:
+
+- Deployment ID: `dpl_GF9dqqSyxUissrotqFFG6hYBAB1U`
+- Immutable deployment URL: `https://harbourview-3hjlc303w-harbourview.vercel.app`
+- Production alias verified: `https://harbourview.vercel.app`
+- Target: `production`
+- Source branch: `main`
+- `githubCommitSha`: `999e624fe28f560153441bf340ae320136dc4577`
+- Final state: `READY`
+
+Vercel build logs confirmed successful dependency installation, Next.js compilation, TypeScript validation, page-data collection, static generation, and deployment completion.
+
+## Production route verification
 
 ### `/supply`
 
-- Requested URL: `https://harbourview-harbourview.vercel.app/supply`
-- HTTP status: `404`
-- Matched path: `/404`
-- Page title included: `404: This page could not be found.`
-- Required Supply catalog text was not present.
+- Requested URL: `https://harbourview.vercel.app/supply`
+- HTTP status: `200`
+- Page title: `Supply Catalog | Harbourview | Harbourview`
+- Required visible text confirmed:
+  - `Harbourview Supply`
+  - `Browse the catalog`
+  - `Request a Quote`
 
 ### `/supply/cr-mylar-pouch-3-5g-matte-black`
 
-- Requested URL: `https://harbourview-harbourview.vercel.app/supply/cr-mylar-pouch-3-5g-matte-black`
-- HTTP status observed through the authenticated Vercel fetch path: `302`
-- Redirect target: Vercel SSO endpoint
-- Application-level product response was not reached.
+- Requested URL: `https://harbourview.vercel.app/supply/cr-mylar-pouch-3-5g-matte-black`
+- HTTP status: `200`
+- Matched route: `/supply/[slug]`
+- Page title: `Child-Resistant Mylar Pouch — 3.5g (Matte Black) | Harbourview Supply | Harbourview`
+- Required visible text confirmed:
+  - `Harbourview Supply`
+  - `Child-Resistant Mylar Pouch — 3.5g (Matte Black)`
+  - `Commercial review`
 
-Production route verification therefore failed.
+## Public-boundary and migration evidence
 
-## Public leakage and migration-drift checks
+The final repair head passed:
 
-The release sequence did not reach a deployable main build. The production public-leakage and migration-drift gates could not be accepted as post-merge production evidence.
+- Public-surface and leakage verification: `30726830709`
+- New-products/equipment public-boundary verification: `30726830674`
+- Branch Verification, including public visibility/leakage and production build: `30726830711`
+- Migration Drift Check: `30726830680`
 
-Pre-merge branch evidence remains green, including:
+The repair did not change the dedicated public supply DTO, migrations, database records, route contracts, or the 68 canonical supply slugs.
 
-- Public-surface and leakage workflow run `30721698156`
-- Migration Drift Check run `30721698175`
-- CI run `30721698172`
-- Branch Verification run `30721698199`
-
-Those runs validate the pre-merge verification head, not the failed merged production build. They cannot substitute for a successful post-merge production release gate.
-
-## Release checklist
+## Final release checklist
 
 - [x] PR #1222 squash-merged to main
-- [x] Resulting main commit recorded
-- [x] Production Vercel deployment created from the exact merged commit
-- [ ] Production Vercel deployment reached READY
-- [ ] `npm run build` passed on merged main
-- [ ] Production `/supply` returned HTTP 200 with expected title and visible text
-- [ ] Production `/supply/cr-mylar-pouch-3-5g-matte-black` returned HTTP 200 with expected title and visible text
-- [ ] Post-merge production public-leakage gate accepted
-- [ ] Post-merge migration-drift gate accepted
+- [x] Original failed production deployment and blocking defect recorded
+- [x] Focused repair PR #1236 limited to the confirmed component defect
+- [x] Typecheck passed
+- [x] Tests passed
+- [x] Production build passed
+- [x] Public leakage checks passed
+- [x] Migration drift check passed
+- [x] Repair preview reached READY with matching commit
+- [x] PR #1236 squash-merged after all gates passed
+- [x] Recovered production deployment reached READY with matching merge commit
+- [x] Production `/supply` returned HTTP 200 with expected title and visible text
+- [x] Production `/supply/cr-mylar-pouch-3-5g-matte-black` returned HTTP 200 with expected title and visible text
 
 ## Decision
 
-**HOLD.**
+**GO.**
 
-PR #1222 is merged, but the merged main commit is not production-releasable. The production deployment failed TypeScript validation in `components/dashboard/MobileCommandCentre.tsx`, and the active production alias does not serve the new Supply routes. A focused follow-up fix must align the mobile jurisdiction-playbook rendering with the current `string[]` step shape, pass the full main build and required checks, deploy successfully to Vercel production, and then repeat both production route probes and release gates.
+The Harbourview Supply catalog is deployed to production from repaired main commit `999e624fe28f560153441bf340ae320136dc4577`. The production deployment is READY, both required Supply routes return HTTP 200 with the expected titles and visible content, and the final typecheck, test, build, public-boundary, leakage, and migration-drift gates are green.
