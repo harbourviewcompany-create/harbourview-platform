@@ -118,6 +118,8 @@ jobs:
           TEST_EMAIL="command-centre-${GITHUB_RUN_ID}@harbourview.local"
           TEST_PASSWORD="HvVisual-${GITHUB_RUN_ID}-Aa9!"
           echo "::add-mask::${TEST_PASSWORD}"
+          export PLAYWRIGHT_TEST_EMAIL="${TEST_EMAIL}"
+          export PLAYWRIGHT_TEST_PASSWORD="${TEST_PASSWORD}"
           echo "PLAYWRIGHT_TEST_EMAIL=${TEST_EMAIL}" >> "$GITHUB_ENV"
           echo "PLAYWRIGHT_TEST_PASSWORD=${TEST_PASSWORD}" >> "$GITHUB_ENV"
           node --input-type=module <<'NODE'
