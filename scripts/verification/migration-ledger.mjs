@@ -39,7 +39,7 @@ for (const filename of files) {
   });
 }
 
-async function loadRows(file, source, required = false) {
+async function loadRows(file, source, { required = false, allowSha256 = false } = {}) {
   if (!file) {
     if (required) throw new Error(`${source} file is required`);
     return [];
@@ -48,14 +48,22 @@ async function loadRows(file, source, required = false) {
   if (parsed && !Array.isArray(parsed) && parsed.error) throw new Error(`${source} contains an error response`);
   const rows = Array.isArray(parsed) ? parsed : parsed?.migrations;
   if (!Array.isArray(rows)) throw new Error(`${source} must be an array or { migrations: [] }`);
-  for (const row of rows) {
+
+  return rows.map((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error(`${source} contains a non-object row`);
     if (typeof row.name !== 'string' || !row.name) throw new Error(`${source} contains a row without a name`);
-  }
-  return rows.map((row) => ({ ...row, version: String(row.version), name: String(row.name) }));
+    const projected = { version: String(row.version), name: String(row.name) };
+    if (allowSha256 && row.sha256 !== undefined) {
+      const sha256 = String(row.sha256);
+      if (!/^[0-9a-f]{64}$/i.test(sha256)) throw new Error(`${source} contains an invalid SHA-256 for ${projected.version}`);
+      projected.sha256 = sha256.toLowerCase();
+    }
+    return projected;
+  });
 }
 
-const remote = await loadRows(remoteFile, 'remote ledger', true);
-const canonicalHashes = await loadRows(canonicalHashFile, 'canonical hash ledger');
+const remote = await loadRows(remoteFile, 'remote ledger', { required: true });
+const canonicalHashes = await loadRows(canonicalHashFile, 'canonical hash ledger', { allowSha256: true });
 const localByVersion = uniqueByVersion(local, 'local ledger');
 const remoteByVersion = uniqueByVersion(remote, 'remote ledger');
 const canonicalByVersion = uniqueByVersion(canonicalHashes, 'canonical hash ledger');
