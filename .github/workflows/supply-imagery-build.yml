@@ -1,0 +1,31 @@
+name: Supply Imagery Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/supply/**'
+      - 'components/supply/**'
+      - 'public/images/supply/**'
+      - 'scripts/validate-supply-images.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:supply-images
+      - run: npm run typecheck
+      - run: npm run test:visibility
+      - run: npm run build

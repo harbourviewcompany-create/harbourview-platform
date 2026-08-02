@@ -1,0 +1,4 @@
+'use client'
+import { useState } from 'react'
+type Props={slug:string;title:string;priority?:boolean;className?:string}
+export function SupplyProductImage({slug,title,priority=false,className=''}:Props){const[failed,setFailed]=useState(false);if(failed)return <div role="img" aria-label={`${title} — image unavailable`} className={`flex min-h-48 items-center justify-center bg-[#071425] px-6 text-center text-xs uppercase tracking-[0.16em] text-white/40 ${className}`}>Image unavailable</div>;return <img src={`/images/supply/${encodeURIComponent(slug)}.webp`} alt={`${title} — Harbourview Supply catalog image`} width={1200} height={800} loading={priority?'eager':'lazy'} fetchPriority={priority?'high':'auto'} decoding="async" onError={()=>setFailed(true)} className={`h-full w-full object-cover ${className}`}/> }

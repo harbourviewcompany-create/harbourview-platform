@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { SupplyProductImage } from '@/components/supply/SupplyProductImage'
 import { EmptyState, PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 import {
   getSupplyCatalog,
@@ -40,6 +41,7 @@ function ProductCard({ listing }: { listing: SupplyListing }) {
 
   return (
     <article className="group flex h-full flex-col rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
+      <div className="-mx-6 -mt-6 mb-5 overflow-hidden border-b border-gold/10 bg-[#071425]"><div className="aspect-[3/2]"><SupplyProductImage slug={listing.slug} title={listing.title} /></div></div>
       <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
       <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold/76">
         <span>{categoryLabel}</span>
