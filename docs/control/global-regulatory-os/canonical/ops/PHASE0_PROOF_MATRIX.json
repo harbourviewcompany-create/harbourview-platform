@@ -1,0 +1,190 @@
+{
+  "operator_decision": "PENDING",
+  "source_archive_sha256": "33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136",
+  "technical_decision": "GO",
+  "tickets": [
+    {
+      "acceptance_criterion": "Constitution fixes source-to-action chain, global scope, publication limits and operator authority; approval recorded.",
+      "artifact_paths": [
+        "docs/control/01_PROJECT_CONSTITUTION.md",
+        "docs/control/PHASE0_RELEASE_DECISION.md",
+        "ops/evidence/P0-001.md"
+      ],
+      "operator_approval": "pending",
+      "status": "verified",
+      "ticket_id": "P0-001",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "All countries and territories are represented; parent/relationship model supports all declared jurisdiction layers; missing-universe test passes.",
+      "artifact_paths": [
+        "registries/jurisdictions.v1.json",
+        "ops/evidence/P0-002.md",
+        "ops/evidence/P0-002.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-002",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "All binding, rulemaking, administrative, licence, market and secondary source classes map to controlled concepts.",
+      "artifact_paths": [
+        "registries/source-taxonomy.v1.json",
+        "docs/domain/SOURCE_REGISTRY_SPEC.md",
+        "ops/evidence/P0-003.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-003",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Product form, intended use, cannabinoid, controlled status, dosage, material and packaging concepts pass multi-regime review.",
+      "artifact_paths": [
+        "registries/product-substance-ontology.v1.json",
+        "docs/domain/REGULATORY_ONTOLOGY.md",
+        "ops/evidence/P0-004.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-004",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Cultivation through destruction plus import/export, research, prescribing and dispensing map without jurisdiction-specific information loss.",
+      "artifact_paths": [
+        "registries/activity-licence-facility-ontology.v1.json",
+        "docs/domain/LICENCE_COUNTERPARTY_GRAPH.md",
+        "ops/evidence/P0-005.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-005",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Fact, normalized fact, interpretation, estimate, forecast and recommendation have required evidence and review rules.",
+      "artifact_paths": [
+        "docs/domain/PROVENANCE_SCHEMA.md",
+        "schemas/json/provenance-claim.schema.json",
+        "ops/evidence/P0-006.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-006",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Collection, storage, transformation, redistribution and termination controls are documented and enforceable.",
+      "artifact_paths": [
+        "docs/domain/SOURCE_REGISTRY_SPEC.md",
+        "ops/SOURCE_ONBOARDING_CHECKLIST.md",
+        "ops/evidence/P0-007.md"
+      ],
+      "operator_approval": "pending",
+      "status": "verified",
+      "ticket_id": "P0-007",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Classification, residency, retention, legal hold and deletion policies are mapped to storage and access controls.",
+      "artifact_paths": [
+        "docs/control/03_DATA_GOVERNANCE_AND_PROVENANCE.md",
+        "docs/control/04_SECURITY_AUTHORIZATION.md",
+        "ops/evidence/P0-008.md"
+      ],
+      "operator_approval": "pending",
+      "status": "verified",
+      "ticket_id": "P0-008",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Threat model covers cross-tenant access, public leakage, source injection, SSRF, evidence tampering, model misuse and privileged access.",
+      "artifact_paths": [
+        "docs/security/THREAT_MODEL.md",
+        "docs/security/TRUSTED_REQUEST_CONTEXT.md",
+        "tests/sql/authorization_negative.sql",
+        "ops/evidence/P0-009.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-009",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Ownership and transactional boundaries are fixed; canonical and derived stores are explicitly separated.",
+      "artifact_paths": [
+        "docs/services/SERVICE_BOUNDARIES.md",
+        "docs/control/02_SYSTEM_ARCHITECTURE.md",
+        "ops/evidence/P0-010.md"
+      ],
+      "operator_approval": "pending",
+      "status": "verified",
+      "ticket_id": "P0-010",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "ADR template, owners, decision authority, supersession and review cadence are operational.",
+      "artifact_paths": [
+        "docs/adr/ADR_INDEX.md",
+        "docs/control/12_BUILD_CONTROL.md",
+        "ops/evidence/P0-011.md"
+      ],
+      "operator_approval": "not_required",
+      "status": "verified",
+      "ticket_id": "P0-011",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    },
+    {
+      "acceptance_criterion": "Representative regulatory archetypes prove ontology, provenance, authorization and source-rights design; GO/HOLD signed.",
+      "artifact_paths": [
+        "ops/PHASE0_PROOF_MATRIX.json",
+        "registries/representative-archetypes.v1.json",
+        "VALIDATION_REPORT.md",
+        "ops/evidence/P0-012.md"
+      ],
+      "operator_approval": "pending",
+      "status": "verified",
+      "ticket_id": "P0-012",
+      "verification": [
+        "python scripts/global-reg-os/validate_phase0_package.py",
+        "bash scripts/global-reg-os/run_postgres_validation.sh"
+      ]
+    }
+  ],
+  "version": "1.0.0-harbourview-replacement"
+}

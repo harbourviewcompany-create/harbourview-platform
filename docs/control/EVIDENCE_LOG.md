@@ -2849,3 +2849,14 @@ than speed here.
 - The follow-up commit changes evidence only. It must retain green CI and Branch
   Verification before merge; no implementation finding may be waived by this
   evidence record.
+
+## 2026-08-02 — Global Regulatory OS Phase 0 replacement package
+
+- Closed PR #1234 is historical evidence only and was not reopened or merged.
+- The controlling archive is committed directly and verified as `33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136`.
+- The canonical package is materialized as normal reviewable files; multipart Base64 is not used.
+- The canonical manifest is regenerated after all verified changes and records source-unchanged, source-patched and added files.
+- Client-settable `app.subject_id`, `app.tenant_id` and `app.platform_roles` values are no longer authorization inputs. Trusted request context is established only by `hv_authenticator`, and platform/tenant roles are derived from IAM tables.
+- P0-001 through P0-012 each have a verified technical status and concrete evidence paths. Operator approvals remain explicitly pending where policy ratification is required.
+- No active Supabase migration, production database write, production deployment or public release is performed by the replacement branch.
+

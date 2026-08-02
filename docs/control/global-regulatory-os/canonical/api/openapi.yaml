@@ -1,0 +1,309 @@
+openapi: 3.1.0
+info:
+  title: Global Cannabis Regulatory Intelligence OS API
+  version: 1.0.0
+  description: Evidence-first API for jurisdictions, sources, regulatory instruments, obligations, licences, counterparties, corridors, market metrics, alerts and workflow.
+servers:
+  - url: https://api.example.invalid/v1
+security:
+  - oauth2: [read:intelligence]
+tags:
+  - name: Jurisdictions
+  - name: Sources
+  - name: Evidence
+  - name: Regulatory
+  - name: Compliance
+  - name: Registry
+  - name: Trade
+  - name: Markets
+  - name: Workflow
+paths:
+  /jurisdictions:
+    get:
+      tags: [Jurisdictions]
+      operationId: listJurisdictions
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: coverage_status
+          in: query
+          schema: {type: string}
+      responses:
+        '200': {$ref: '#/components/responses/JurisdictionPage'}
+  /jurisdictions/{jurisdiction_id}:
+    get:
+      tags: [Jurisdictions]
+      operationId: getJurisdiction
+      parameters: [{$ref: '#/components/parameters/JurisdictionId'}]
+      responses:
+        '200': {description: Jurisdiction, content: {application/json: {schema: {$ref: '#/components/schemas/Jurisdiction'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /sources:
+    get:
+      tags: [Sources]
+      operationId: listSources
+      security: [{oauth2: [read:sources]}]
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Source page, content: {application/json: {schema: {$ref: '#/components/schemas/SourcePage'}}}}
+    post:
+      tags: [Sources]
+      operationId: createSource
+      security: [{oauth2: [write:sources]}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SourceCreate'}}}}
+      responses:
+        '201': {description: Source created, content: {application/json: {schema: {$ref: '#/components/schemas/Source'}}}}
+        '422': {$ref: '#/components/responses/Problem'}
+  /sources/{source_id}/acquisitions:
+    post:
+      tags: [Sources]
+      operationId: requestAcquisition
+      security: [{oauth2: [execute:acquisition]}]
+      parameters: [{$ref: '#/components/parameters/SourceId'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AcquisitionRequest'}}}}
+      responses:
+        '202': {description: Accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobAccepted'}}}}
+  /documents:
+    get:
+      tags: [Evidence]
+      operationId: listDocuments
+      security: [{oauth2: [read:evidence]}]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - {name: jurisdiction_id, in: query, schema: {type: string, format: uuid}}
+        - {name: document_kind, in: query, schema: {type: string}}
+      responses:
+        '200': {description: Document page, content: {application/json: {schema: {$ref: '#/components/schemas/DocumentPage'}}}}
+  /claims/{claim_id}:
+    get:
+      tags: [Evidence]
+      operationId: getClaimWithLineage
+      security: [{oauth2: [read:intelligence]}]
+      parameters: [{$ref: '#/components/parameters/ClaimId'}]
+      responses:
+        '200': {description: Claim and exact evidence, content: {application/json: {schema: {$ref: '#/components/schemas/Claim'}}}}
+  /regulatory/changes:
+    get:
+      tags: [Regulatory]
+      operationId: listRegulatoryChanges
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - {name: jurisdiction_id, in: query, schema: {type: string, format: uuid}}
+        - {name: changed_since, in: query, schema: {type: string, format: date-time}}
+        - {name: materiality, in: query, schema: {$ref: '#/components/schemas/RiskTier'}}
+      responses:
+        '200': {description: Change page, content: {application/json: {schema: {$ref: '#/components/schemas/RegulatoryChangePage'}}}}
+  /obligations:
+    get:
+      tags: [Compliance]
+      operationId: listObligations
+      security: [{oauth2: [read:obligations]}]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - {name: jurisdiction_id, in: query, schema: {type: string, format: uuid}}
+        - {name: effective_at, in: query, schema: {type: string, format: date-time}}
+      responses:
+        '200': {description: Obligation page, content: {application/json: {schema: {$ref: '#/components/schemas/ObligationPage'}}}}
+  /applicability/evaluations:
+    post:
+      tags: [Compliance]
+      operationId: evaluateApplicability
+      security: [{oauth2: [execute:applicability]}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ApplicabilityRequest'}}}}
+      responses:
+        '202': {description: Evaluation accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobAccepted'}}}}
+  /entities:
+    get:
+      tags: [Registry]
+      operationId: searchEntities
+      security: [{oauth2: [read:registry]}]
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string, minLength: 2}}
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': {description: Entity page, content: {application/json: {schema: {$ref: '#/components/schemas/EntityPage'}}}}
+  /entities/{entity_id}/counterparty-profile:
+    get:
+      tags: [Registry]
+      operationId: getCounterpartyProfile
+      security: [{oauth2: [read:counterparties]}]
+      parameters: [{$ref: '#/components/parameters/EntityId'}]
+      responses:
+        '200': {description: Counterparty profile, content: {application/json: {schema: {$ref: '#/components/schemas/CounterpartyProfile'}}}}
+  /corridors:
+    post:
+      tags: [Trade]
+      operationId: createCorridor
+      security: [{oauth2: [write:corridors]}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CorridorCreate'}}}}
+      responses:
+        '201': {description: Corridor, content: {application/json: {schema: {$ref: '#/components/schemas/Corridor'}}}}
+  /corridors/{corridor_id}/evaluations:
+    post:
+      tags: [Trade]
+      operationId: evaluateCorridor
+      security: [{oauth2: [execute:corridors]}]
+      parameters: [{$ref: '#/components/parameters/CorridorId'}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CorridorEvaluationRequest'}}}}
+      responses:
+        '202': {description: Evaluation accepted, content: {application/json: {schema: {$ref: '#/components/schemas/JobAccepted'}}}}
+  /corridors/{corridor_id}/determination:
+    get:
+      tags: [Trade]
+      operationId: getCorridorDetermination
+      security: [{oauth2: [read:corridors]}]
+      parameters: [{$ref: '#/components/parameters/CorridorId'}]
+      responses:
+        '200': {description: Determination, content: {application/json: {schema: {$ref: '#/components/schemas/CorridorDetermination'}}}}
+  /market/metrics:
+    get:
+      tags: [Markets]
+      operationId: listMetricDefinitions
+      security: [{oauth2: [read:markets]}]
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Metric page, content: {application/json: {schema: {$ref: '#/components/schemas/MetricPage'}}}}
+  /market/observations:
+    get:
+      tags: [Markets]
+      operationId: listMarketObservations
+      security: [{oauth2: [read:markets]}]
+      parameters:
+        - {name: metric_key, in: query, required: true, schema: {type: string}}
+        - {name: jurisdiction_id, in: query, schema: {type: string, format: uuid}}
+        - {name: period_start, in: query, schema: {type: string, format: date}}
+        - {name: period_end, in: query, schema: {type: string, format: date}}
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200': {description: Observation page, content: {application/json: {schema: {$ref: '#/components/schemas/ObservationPage'}}}}
+  /alerts:
+    get:
+      tags: [Workflow]
+      operationId: listAlerts
+      security: [{oauth2: [read:alerts]}]
+      parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
+      responses:
+        '200': {description: Alert page, content: {application/json: {schema: {$ref: '#/components/schemas/AlertPage'}}}}
+webhooks:
+  regulatoryChangeApproved:
+    post:
+      requestBody: {required: true, content: {application/cloudevents+json: {schema: {$ref: '#/components/schemas/EventEnvelope'}}}}
+      responses: {'200': {description: Receiver acknowledged}}
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://identity.example.invalid/oauth/token
+          scopes:
+            read:intelligence: Read published intelligence
+            read:sources: Read source operations metadata
+            write:sources: Register and edit sources
+            execute:acquisition: Trigger source acquisition
+            read:evidence: Read privileged evidence
+            read:obligations: Read obligations
+            execute:applicability: Run applicability evaluations
+            read:registry: Read entities and licences
+            read:counterparties: Read counterparty risk
+            write:corridors: Create corridors
+            execute:corridors: Run corridor evaluation
+            read:corridors: Read corridor determinations
+            read:markets: Read market data
+            read:alerts: Read alerts
+  parameters:
+    Cursor: {name: cursor, in: query, schema: {type: string}}
+    Limit: {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 500, default: 50}}
+    JurisdictionId: {name: jurisdiction_id, in: path, required: true, schema: {type: string, format: uuid}}
+    SourceId: {name: source_id, in: path, required: true, schema: {type: string, format: uuid}}
+    ClaimId: {name: claim_id, in: path, required: true, schema: {type: string, format: uuid}}
+    EntityId: {name: entity_id, in: path, required: true, schema: {type: string, format: uuid}}
+    CorridorId: {name: corridor_id, in: path, required: true, schema: {type: string, format: uuid}}
+  responses:
+    Problem: {description: RFC 9457 problem, content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    JurisdictionPage: {description: Jurisdiction page, content: {application/json: {schema: {$ref: '#/components/schemas/JurisdictionPage'}}}}
+  schemas:
+    Id: {type: string, format: uuid}
+    RiskTier: {type: string, enum: [low, moderate, high, critical]}
+    PageMeta:
+      type: object
+      required: [has_more]
+      properties: {next_cursor: {type: [string, 'null']}, has_more: {type: boolean}}
+    Jurisdiction:
+      type: object
+      required: [id, name, kind, coverage]
+      properties:
+        id: {$ref: '#/components/schemas/Id'}
+        code: {type: [string, 'null']}
+        name: {type: string}
+        kind: {type: string}
+        parent_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}
+        coverage: {type: array, items: {$ref: '#/components/schemas/Coverage'}}
+    Coverage:
+      type: object
+      required: [domain, maturity_level, status]
+      properties: {domain: {type: string}, maturity_level: {type: integer, minimum: 1, maximum: 13}, status: {type: string}, limitations: {type: [string, 'null']}, last_verified_at: {type: [string, 'null'], format: date-time}}
+    JurisdictionPage: {type: object, required: [data, page], properties: {data: {type: array, items: {$ref: '#/components/schemas/Jurisdiction'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    SourceCreate:
+      type: object
+      required: [source_key, name, source_class, access_method, risk_tier, rights]
+      properties:
+        source_key: {type: string, pattern: '^[a-z0-9._-]+$'}
+        name: {type: string}
+        jurisdiction_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}
+        authority_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}
+        source_class: {type: string}
+        access_method: {type: string}
+        canonical_uri: {type: [string, 'null'], format: uri}
+        official_status: {type: boolean}
+        risk_tier: {$ref: '#/components/schemas/RiskTier'}
+        rights: {type: object}
+        freshness_sla_seconds: {type: integer, minimum: 60}
+    Source: {allOf: [{$ref: '#/components/schemas/SourceCreate'}, {type: object, required: [id, status], properties: {id: {$ref: '#/components/schemas/Id'}, status: {type: string}, freshness_state: {type: [string, 'null']}}}]}
+    SourcePage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Source'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    AcquisitionRequest: {type: object, properties: {force: {type: boolean, default: false}, reason: {type: string}, expected_version: {type: [string, 'null']}}}
+    JobAccepted: {type: object, required: [job_id, status], properties: {job_id: {$ref: '#/components/schemas/Id'}, status: {const: accepted}, correlation_id: {$ref: '#/components/schemas/Id'}}}
+    DocumentSummary: {type: object, required: [id, title, kind, status], properties: {id: {$ref: '#/components/schemas/Id'}, title: {type: string}, kind: {type: string}, jurisdiction_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}, status: {type: string}, latest_version_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}}}
+    DocumentPage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/DocumentSummary'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    EvidenceCitation:
+      type: object
+      required: [passage_id, relationship, anchor, source]
+      properties:
+        passage_id: {$ref: '#/components/schemas/Id'}
+        relationship: {type: string, enum: [supports, contradicts, context, methodology]}
+        anchor: {type: string}
+        quoted_passage: {type: [string, 'null']}
+        source: {type: object, required: [document_id, version_id, snapshot_id, content_hash, retrieved_at], properties: {document_id: {$ref: '#/components/schemas/Id'}, version_id: {$ref: '#/components/schemas/Id'}, snapshot_id: {$ref: '#/components/schemas/Id'}, content_hash: {type: string}, retrieved_at: {type: string, format: date-time}}}
+    Claim:
+      type: object
+      required: [id, truth_class, text, status, evidence]
+      properties: {id: {$ref: '#/components/schemas/Id'}, truth_class: {type: string}, text: {type: string}, structured_claim: {type: object}, status: {type: string}, effective_from: {type: [string, 'null'], format: date-time}, effective_to: {type: [string, 'null'], format: date-time}, confidence: {type: [number, 'null'], minimum: 0, maximum: 1}, uncertainty_reason: {type: [string, 'null']}, evidence: {type: array, minItems: 1, items: {$ref: '#/components/schemas/EvidenceCitation'}}}
+    RegulatoryChange: {type: object, required: [id, change_kind, materiality, detected_at, evidence], properties: {id: {$ref: '#/components/schemas/Id'}, instrument_id: {$ref: '#/components/schemas/Id'}, change_kind: {type: string}, materiality: {$ref: '#/components/schemas/RiskTier'}, detected_at: {type: string, format: date-time}, summary: {type: [string, 'null']}, evidence: {type: array, items: {$ref: '#/components/schemas/EvidenceCitation'}}}}
+    RegulatoryChangePage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/RegulatoryChange'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    Obligation:
+      type: object
+      required: [id, key, version, modality, risk_tier, source_provision_id]
+      properties: {id: {$ref: '#/components/schemas/Id'}, key: {type: string}, version: {type: integer}, modality: {type: string}, subject_concept_id: {$ref: '#/components/schemas/Id'}, action_concept_id: {$ref: '#/components/schemas/Id'}, object_concept_id: {$ref: '#/components/schemas/Id'}, conditions: {type: object}, exceptions: {type: object}, deadline: {type: object}, evidence_requirement: {type: object}, risk_tier: {$ref: '#/components/schemas/RiskTier'}, source_provision_id: {$ref: '#/components/schemas/Id'}}
+    ObligationPage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Obligation'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    ApplicabilityRequest: {type: object, required: [profile_id, as_of], properties: {profile_id: {$ref: '#/components/schemas/Id'}, rule_ids: {type: array, items: {$ref: '#/components/schemas/Id'}}, as_of: {type: string, format: date-time}, dry_run: {type: boolean, default: false}}}
+    Entity: {type: object, required: [id, legal_name, entity_kind, status], properties: {id: {$ref: '#/components/schemas/Id'}, legal_name: {type: string}, entity_kind: {type: string}, jurisdiction_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}, registration_identifier: {type: [string, 'null']}, status: {type: string}}}
+    EntityPage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Entity'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    CounterpartyProfile: {type: object, required: [entity_id, status, components, lineage], properties: {entity_id: {$ref: '#/components/schemas/Id'}, risk_score: {type: [number, 'null']}, status: {type: string}, components: {type: object}, last_verified_at: {type: [string, 'null'], format: date-time}, lineage: {type: array, items: {$ref: '#/components/schemas/EvidenceCitation'}}}}
+    CorridorCreate: {type: object, required: [key, name, origin_jurisdiction_id, destination_jurisdiction_id, product_id, purpose_concept_id, quantity, as_of], properties: {key: {type: string}, name: {type: string}, origin_jurisdiction_id: {$ref: '#/components/schemas/Id'}, transit_jurisdiction_ids: {type: array, items: {$ref: '#/components/schemas/Id'}}, destination_jurisdiction_id: {$ref: '#/components/schemas/Id'}, exporter_entity_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}, importer_entity_id: {oneOf: [{$ref: '#/components/schemas/Id'}, {type: 'null'}]}, product_id: {$ref: '#/components/schemas/Id'}, purpose_concept_id: {$ref: '#/components/schemas/Id'}, quantity: {type: object}, shipping_mode: {type: [string, 'null']}, as_of: {type: string, format: date-time}}}
+    Corridor: {allOf: [{$ref: '#/components/schemas/CorridorCreate'}, {type: object, required: [id, version, status], properties: {id: {$ref: '#/components/schemas/Id'}, version: {type: integer}, status: {type: string}}}]}
+    CorridorEvaluationRequest: {type: object, required: [corridor_version, input_hash], properties: {corridor_version: {type: integer}, input_hash: {type: string}, force_specialist_review: {type: boolean, default: true}}}
+    CorridorGate: {type: object, required: [key, category, status, risk_tier], properties: {key: {type: string}, category: {type: string}, status: {type: string}, risk_tier: {$ref: '#/components/schemas/RiskTier'}, missing_inputs: {type: array, items: {type: string}}, conditions: {type: array, items: {type: object}}, evidence: {type: array, items: {$ref: '#/components/schemas/EvidenceCitation'}}}}
+    CorridorDetermination: {type: object, required: [corridor_id, version, determination, gates, assumptions], properties: {corridor_id: {$ref: '#/components/schemas/Id'}, version: {type: integer}, determination: {type: string, enum: [go, conditional_go, hold, insufficient_information, expired]}, gates: {type: array, items: {$ref: '#/components/schemas/CorridorGate'}}, assumptions: {type: array, items: {type: object}}, confidence: {type: [number, 'null']}, valid_until: {type: [string, 'null'], format: date-time}, specialist_review: {type: object}}}
+    MetricDefinition: {type: object, required: [id, key, version, name, definition, unit, methodology, revision_policy], properties: {id: {$ref: '#/components/schemas/Id'}, key: {type: string}, version: {type: integer}, name: {type: string}, definition: {type: string}, unit: {type: string}, currency: {type: [string, 'null'], minLength: 3, maxLength: 3}, methodology: {type: string}, revision_policy: {type: string}, status: {type: string}}}
+    MetricPage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/MetricDefinition'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    Observation: {type: object, required: [id, metric_definition_id, jurisdiction_id, period_start, period_end, state, value, unit], properties: {id: {$ref: '#/components/schemas/Id'}, metric_definition_id: {$ref: '#/components/schemas/Id'}, jurisdiction_id: {$ref: '#/components/schemas/Id'}, period_start: {type: string, format: date}, period_end: {type: string, format: date}, state: {type: string}, value: {type: number}, unit: {type: string}, currency: {type: [string, 'null']}, confidence: {type: [number, 'null']}, evidence: {type: array, items: {$ref: '#/components/schemas/EvidenceCitation'}}}}
+    ObservationPage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Observation'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    Alert: {type: object, required: [id, event_type, materiality, title, occurred_at, explanation], properties: {id: {$ref: '#/components/schemas/Id'}, event_type: {type: string}, materiality: {$ref: '#/components/schemas/RiskTier'}, title: {type: string}, occurred_at: {type: string, format: date-time}, explanation: {type: object}, acknowledged_at: {type: [string, 'null'], format: date-time}}}
+    AlertPage: {type: object, properties: {data: {type: array, items: {$ref: '#/components/schemas/Alert'}}, page: {$ref: '#/components/schemas/PageMeta'}}}
+    EventEnvelope: {type: object, required: [specversion, id, type, source, time, datacontenttype, data], properties: {specversion: {const: '1.0'}, id: {type: string, format: uuid}, type: {type: string}, source: {type: string, format: uri-reference}, subject: {type: [string, 'null']}, time: {type: string, format: date-time}, datacontenttype: {const: application/json}, dataschema: {type: [string, 'null'], format: uri}, tenant_id: {type: [string, 'null'], format: uuid}, jurisdiction_id: {type: [string, 'null'], format: uuid}, correlation_id: {type: [string, 'null'], format: uuid}, causation_id: {type: [string, 'null'], format: uuid}, trace_id: {type: [string, 'null']}, classification: {type: string}, evidence_ids: {type: array, items: {type: string, format: uuid}}, data: {type: object}}}
+    Problem: {type: object, required: [type, title, status], properties: {type: {type: string, format: uri-reference}, title: {type: string}, status: {type: integer}, detail: {type: string}, instance: {type: string, format: uri-reference}, request_id: {type: string}, errors: {type: array, items: {type: object}}}}

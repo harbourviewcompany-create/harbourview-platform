@@ -426,3 +426,14 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - Live application remains HOLD pending separate operator authorization and
   remote-ledger reconciliation. Rollback is a reviewed forward migration; never
   delete ledger history.
+
+## Global Regulatory OS Phase 0 replacement package — 2026-08-02
+
+- Canonical package: `docs/control/global-regulatory-os/canonical/`
+- Controlling source archive: `docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip`
+- Source SHA-256: `33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136`
+- Canonical migrations remain isolated from `supabase/migrations` and are not production-authorized.
+- Identity context uses `hv_authenticator` + transaction-scoped `app.trusted_request_context`; runtime roles cannot use client-settable custom GUCs as authorization inputs.
+- Required evidence: source hash, regenerated manifest, 12-ticket proof matrix, PostgreSQL 17 clean install, simulated upgrade, RLS and negative privilege-escalation tests.
+- Production application requires a separate integration migration plan, rollback/forward-fix design and explicit operator authorization.
+

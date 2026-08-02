@@ -1,0 +1,106 @@
+{
+  "access_methods": [
+    "official_api",
+    "official_bulk",
+    "official_feed",
+    "webhook",
+    "sftp",
+    "official_html",
+    "official_pdf",
+    "official_email",
+    "licensed_feed",
+    "public_records",
+    "partner_submission",
+    "manual_capture",
+    "secondary_lead"
+  ],
+  "enforcement": "Unknown redistribution or retention rights produce HOLD and prohibit public publication.",
+  "rights_fields": [
+    "collection_basis",
+    "storage_rights",
+    "transformation_rights",
+    "redistribution_rights",
+    "retention_limit",
+    "termination_action",
+    "licence_reference",
+    "territorial_scope"
+  ],
+  "source_classes": [
+    {
+      "authority": "primary",
+      "examples": [
+        "constitution",
+        "statute",
+        "regulation",
+        "order",
+        "treaty"
+      ],
+      "key": "binding_law"
+    },
+    {
+      "authority": "primary",
+      "examples": [
+        "bill",
+        "amendment",
+        "gazette",
+        "consultation"
+      ],
+      "key": "rulemaking"
+    },
+    {
+      "authority": "official",
+      "examples": [
+        "guidance",
+        "faq",
+        "application_form",
+        "register"
+      ],
+      "key": "administrative"
+    },
+    {
+      "authority": "official",
+      "examples": [
+        "licence_condition",
+        "permit_condition",
+        "register"
+      ],
+      "key": "licence_and_permit"
+    },
+    {
+      "authority": "primary",
+      "examples": [
+        "court_decision",
+        "tribunal_decision"
+      ],
+      "key": "adjudicative"
+    },
+    {
+      "authority": "official",
+      "examples": [
+        "inspection_record",
+        "enforcement_notice",
+        "recall"
+      ],
+      "key": "oversight_and_enforcement"
+    },
+    {
+      "authority": "mixed",
+      "examples": [
+        "market_dataset",
+        "company_filing",
+        "tender"
+      ],
+      "key": "market_and_commercial"
+    },
+    {
+      "authority": "secondary",
+      "examples": [
+        "academic",
+        "news_lead",
+        "other"
+      ],
+      "key": "research_and_secondary_lead"
+    }
+  ],
+  "version": "1.0.0"
+}

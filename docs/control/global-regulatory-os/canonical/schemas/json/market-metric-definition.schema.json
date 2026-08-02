@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/market-metric-definition.schema.json",
+  "title": "Canonical Market Metric Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "metric_key",
+    "version",
+    "canonical_name",
+    "definition",
+    "included_activity",
+    "excluded_activity",
+    "unit",
+    "period_basis",
+    "methodology",
+    "revision_policy",
+    "owner",
+    "status"
+  ],
+  "properties": {
+    "metric_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]+$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "canonical_name": {
+      "type": "string"
+    },
+    "definition": {
+      "type": "string"
+    },
+    "included_activity": {
+      "type": "array",
+      "items": {}
+    },
+    "excluded_activity": {
+      "type": "array",
+      "items": {}
+    },
+    "unit": {
+      "type": "string"
+    },
+    "currency": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[A-Z]{3}$"
+    },
+    "tax_treatment": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "gross_net_basis": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "period_basis": {
+      "enum": [
+        "calendar",
+        "fiscal",
+        "rolling",
+        "point_in_time",
+        "event"
+      ]
+    },
+    "allowed_observation_states": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "reported_actual",
+          "revised_actual",
+          "preliminary_actual",
+          "modeled_estimate",
+          "imputed",
+          "forecast",
+          "scenario",
+          "analyst_assumption"
+        ]
+      }
+    },
+    "methodology": {
+      "type": "string"
+    },
+    "calculation_expression": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reconciliation_rules": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "revision_policy": {
+      "type": "string"
+    },
+    "confidence_method": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owner": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "under_review",
+        "approved",
+        "published",
+        "superseded",
+        "archived"
+      ]
+    }
+  }
+}
