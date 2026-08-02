@@ -80,14 +80,54 @@ select
   to_regclass('public.signal_relevance_feedback') is not null as feedback_table_exists,
   to_regclass('public.daily_digest') is not null as daily_digest_table_exists,
   to_regprocedure('auth.uid()') is not null as auth_uid_exists,
-  to_regprocedure('gen_random_uuid()') is not null as gen_random_uuid_exists;
+  to_regprocedure('gen_random_uuid()') is not null as gen_random_uuid_exists
+\gset
+
+\if :api_schema_exists
+\else
+  \echo 'Preflight failed: api schema is absent.'
+  \quit 1
+\endif
+\if :auth_schema_exists
+\else
+  \echo 'Preflight failed: auth schema is absent.'
+  \quit 1
+\endif
+\if :signals_table_exists
+\else
+  \echo 'Preflight failed: public.signals is absent.'
+  \quit 1
+\endif
+\if :feedback_table_exists
+\else
+  \echo 'Preflight failed: public.signal_relevance_feedback is absent.'
+  \quit 1
+\endif
+\if :daily_digest_table_exists
+\else
+  \echo 'Preflight failed: public.daily_digest is absent.'
+  \quit 1
+\endif
+\if :auth_uid_exists
+\else
+  \echo 'Preflight failed: auth.uid() is absent.'
+  \quit 1
+\endif
+\if :gen_random_uuid_exists
+\else
+  \echo 'Preflight failed: gen_random_uuid() is absent.'
+  \quit 1
+\endif
 
 select
-  (select format_type(atttypid, atttypmod)
-     from pg_attribute
-    where attrelid = 'public.signals'::regclass
-      and attname = 'embedding_1024'
-      and not attisdropped) = 'vector(1024)' as embedding_type_ok,
+  coalesce(
+    (select format_type(atttypid, atttypmod)
+       from pg_attribute
+      where attrelid = 'public.signals'::regclass
+        and attname = 'embedding_1024'
+        and not attisdropped) = 'vector(1024)',
+    false
+  ) as embedding_type_ok,
   exists (
     select 1
     from pg_indexes
