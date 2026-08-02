@@ -13,15 +13,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify exact PR base commit
-        run: test "$(git rev-parse HEAD^1)" = "6fd3cb2a2f43fb4a998c52ae03f06e5d0cb14eb5"
-      - name: Remove temporary workflow and package exact base source snapshot
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 1
+      - name: Record exact base commit
         run: |
-          rm -f .github/workflows/tmp-export-main-source-pr.yml
-          tar --exclude=.git -czf /tmp/harbourview-main-6fd3cb2.tar.gz .
+          git rev-parse HEAD
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.base.sha }}"
+      - name: Package exact base source snapshot
+        run: tar --exclude=.git -czf /tmp/harbourview-main-snapshot.tar.gz .
       - uses: actions/upload-artifact@v4
         with:
-          name: harbourview-main-6fd3cb2
-          path: /tmp/harbourview-main-6fd3cb2.tar.gz
+          name: harbourview-main-snapshot
+          path: /tmp/harbourview-main-snapshot.tar.gz
           retention-days: 1
           if-no-files-found: error
