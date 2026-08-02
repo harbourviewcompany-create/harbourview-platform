@@ -1,0 +1,33 @@
+name: Temporary Export Main 7134 Release Remediation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tmp-export-main-7134-release-remediation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7134bb6cd696779b3429d98272ce1e3cd7e8236c
+          fetch-depth: 1
+      - name: Verify exact source and record tree
+        run: |
+          test "$(git rev-parse HEAD)" = "7134bb6cd696779b3429d98272ce1e3cd7e8236c"
+          git rev-parse 'HEAD^{tree}' | tee /tmp/tree-sha.txt
+      - name: Package exact source
+        run: tar --exclude=.git -czf /tmp/harbourview-main-7134.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-main-7134-tree
+          path: |
+            /tmp/harbourview-main-7134.tar.gz
+            /tmp/tree-sha.txt
+          retention-days: 1
+          if-no-files-found: error
