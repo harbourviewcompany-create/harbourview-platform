@@ -39,6 +39,40 @@ where (version, name) in (
   \quit 1
 \endif
 
+select
+  to_regclass('public.signal_relevance_feedback') is not null as feedback_table_exists,
+  to_regprocedure('api.submit_signal_relevance_feedback(text,text,text,text)') is not null as writer_exists,
+  to_regprocedure('api.signal_relevance_feedback_for_ranking(text[],timestamp with time zone)') is not null as ranking_projection_exists,
+  to_regprocedure('public.hv_dedup_assign(double precision,integer)') is not null as dedup_function_exists,
+  to_regprocedure('public._digest_cluster_size(text)') is not null as cluster_helper_exists
+\gset
+
+\if :feedback_table_exists
+\else
+  \echo 'Postflight failed: public.signal_relevance_feedback is absent.'
+  \quit 1
+\endif
+\if :writer_exists
+\else
+  \echo 'Postflight failed: feedback writer RPC is absent.'
+  \quit 1
+\endif
+\if :ranking_projection_exists
+\else
+  \echo 'Postflight failed: ranking projection RPC is absent.'
+  \quit 1
+\endif
+\if :dedup_function_exists
+\else
+  \echo 'Postflight failed: hv_dedup_assign is absent.'
+  \quit 1
+\endif
+\if :cluster_helper_exists
+\else
+  \echo 'Postflight failed: _digest_cluster_size is absent.'
+  \quit 1
+\endif
+
 \echo '=== elite_digest_postflight: feedback integrity ==='
 select
   count(*) as row_count,
@@ -91,8 +125,6 @@ from (
 
 \echo '=== elite_digest_postflight: function and grant contract ==='
 select
-  to_regprocedure('api.submit_signal_relevance_feedback(text,text,text,text)') is not null as writer_exists,
-  to_regprocedure('api.signal_relevance_feedback_for_ranking(text[],timestamp with time zone)') is not null as ranking_projection_exists,
   has_function_privilege('authenticated', 'api.submit_signal_relevance_feedback(text,text,text,text)', 'EXECUTE') as authenticated_writer_execute,
   not has_function_privilege('anon', 'api.submit_signal_relevance_feedback(text,text,text,text)', 'EXECUTE') as anon_writer_denied,
   not has_function_privilege('service_role', 'api.submit_signal_relevance_feedback(text,text,text,text)', 'EXECUTE') as service_writer_denied,
@@ -107,16 +139,6 @@ select
   not has_function_privilege('authenticated', 'public._digest_cluster_size(text)', 'EXECUTE') as authenticated_cluster_denied
 \gset
 
-\if :writer_exists
-\else
-  \echo 'Postflight failed: feedback writer RPC is absent.'
-  \quit 1
-\endif
-\if :ranking_projection_exists
-\else
-  \echo 'Postflight failed: ranking projection RPC is absent.'
-  \quit 1
-\endif
 \if :authenticated_writer_execute
 \else
   \echo 'Postflight failed: authenticated writer EXECUTE is absent.'
