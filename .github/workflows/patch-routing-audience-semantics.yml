@@ -1,0 +1,43 @@
+name: Patch Routing Audience Semantics
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/patch-routing-audience-semantics.yml'
+      - 'scripts/patch-routing-audience-semantics.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.head_ref == 'fix/routing-regional-audiences'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/routing-regional-audiences
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply and validate retained-audience definitions
+        run: |
+          git config user.name 'Harbourview Repair Operator'
+          git config user.email 'repair-operator@users.noreply.github.com'
+          python3 scripts/patch-routing-audience-semantics.py
+          npm ci
+          npm run test:signal-routing
+          npm run lint
+          git diff --check
+          git add \
+            lib/signals/routing.ts \
+            tests/signals/routing.test.ts \
+            docs/control/REGIONAL_ROUTING_DEFINITIONS.md \
+            docs/control/EVIDENCE_LOG.md
+          git commit -m 'fix: keep retained regional audiences distinct'
+          git push origin HEAD:fix/routing-regional-audiences
