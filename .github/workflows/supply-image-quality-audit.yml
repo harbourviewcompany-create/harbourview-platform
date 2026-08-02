@@ -1,0 +1,31 @@
+name: Supply Image Quality Audit
+
+on:
+  pull_request:
+    paths:
+      - 'public/images/supply/**'
+      - 'components/supply/**'
+      - 'app/supply/**'
+      - 'scripts/audit_supply_images.py'
+      - '.github/workflows/supply-image-quality-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check pillow ImageHash
+      - run: python scripts/audit_supply_images.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supply-image-quality-audit
+          path: artifacts/supply-image-audit/
+          if-no-files-found: error
+          retention-days: 14
