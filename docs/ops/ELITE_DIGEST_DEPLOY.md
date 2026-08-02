@@ -31,6 +31,10 @@ keep production on HOLD. Do not use production as an automatic preview fallback.
 Production application requires remote-ledger reconciliation, all documented
 fixtures and checks, and separate explicit operator approval.
 
+The feedback RPC migration fails closed if legacy duplicate `(signal_id, user_id)`
+rows exist. Reconcile those rows explicitly before applying it; the migration does
+not silently delete or choose operator feedback.
+
 ## 2. Environment names
 
 Verify names and presence without copying values into logs or PRs:
@@ -56,8 +60,9 @@ select pg_get_functiondef('api.signal_relevance_feedback_for_ranking(text[],time
 ```
 
 Confirm the HNSW body retains `ORDER BY <=> LIMIT`, the feedback writer forces
-`user_id` from `auth.uid()`, and the ranking projection is executable only by
-`service_role`.
+`user_id` from `auth.uid()`, rejects unknown signal IDs, and upserts one current
+verdict per operator and signal. Confirm the ranking projection is executable
+only by `service_role` and exposes no user IDs, notes, or other operator data.
 
 ## 4. Product smoke
 
@@ -68,12 +73,13 @@ gates pass:
 2. Corroboration, language, source confidence, and decoded text render correctly.
 3. Select a designated test signal and record the authenticated verifier ID and
    UTC start time.
-4. Submit each verdict through `POST /api/signals/feedback` and capture the exact
-   returned `feedbackId` values.
-5. Verify helpful is positive and `not_helpful`, `stale`, and `wrong_country` are
-   negative ranking effects.
-6. Delete only those captured rows through a separately authorized service-role
-   cleanup action, then prove the IDs no longer exist. Verification feedback must
+4. Submit `helpful` through `POST /api/signals/feedback`; capture the returned
+   `feedbackId` and verify a `+8` current verdict.
+5. Submit `not_helpful`, `stale`, and `wrong_country` sequentially as the same
+   verifier. Confirm the same current-verdict row is updated rather than creating
+   repeated votes, and verify effects `-12`, `-6`, and `-10` respectively.
+6. Delete only the captured test row through a separately authorized service-role
+   cleanup action, then prove its ID no longer exists. Verification feedback must
    not bias live ranking for 90 days.
 7. Verify `/api/admin/intelligence-health` includes `product_outcome`.
 
@@ -95,5 +101,7 @@ gates pass:
 - Feedback effects remain signed: helpful `+8`, not helpful `-12`, stale `-6`,
   wrong country `-10`; the final ranking contribution remains clamped by the
   Digest ranker.
+- One operator contributes one current verdict per signal; repeated submissions
+  update that row and cannot amplify ranking weight.
 - The underlying feedback table is not exposed through PostgREST.
 - No production migration or deployment action is implied by merge.
