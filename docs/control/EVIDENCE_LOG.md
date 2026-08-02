@@ -2802,3 +2802,17 @@ than speed here.
 - No production migration or write occurred during branch repair.
 - Required evidence: lint, typecheck, tests, build, PostgreSQL 17 migration dry
   run, migration drift, public-surface and regulatory-signal checks.
+
+## 2026-08-02 — PR #1233 current-main rebuild and final migration version
+
+- Rebuilt `codex/complete-elite-digest-deploy-verification` from the latest
+  protected `main` after the concurrent #1231 and #1242 merges.
+- Preserved the reviewed HNSW migration SQL body and assigned the unique version
+  `20260802073000_hv_dedup_assign_restore_hnsw_knn.sql`; removed the colliding
+  `20260731090000` and intermediate `20260731120000` filenames.
+- Retained the seven-migration prerequisite list, environment-name checks,
+  immutable unaliased deployment gate, smoke-verification gate and alias-last
+  release order.
+- No migration was applied, no secret was read and no deployment alias changed.
+- Validation required: migration filename discipline, repository CI, typecheck,
+  public-surface checks, regulatory-signal checks and branch verification.
