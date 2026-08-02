@@ -1,0 +1,18 @@
+# Copy to .dev.vars for local `wrangler dev` / OpenNext preview use.
+# Never commit .dev.vars or real secrets.
+NEXTJS_ENV=development
+
+NEXT_PUBLIC_SITE_URL=http://127.0.0.1:8787
+NEXT_PUBLIC_APP_URL=http://127.0.0.1:8787
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_JWT_SECRET=
+
+# Optional server integrations. Set only when exercising the related feature.
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+SENTRY_DSN=

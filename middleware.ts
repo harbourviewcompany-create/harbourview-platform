@@ -13,44 +13,33 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
-// ── Subscription tier type ───────────────────────────────────────────────────
-// Canonical tier names — matches user_profiles.tier CHECK constraint
-// and app_metadata.subscription_tier written by the Stripe webhook.
-// Previous names ('starter', 'professional', 'enterprise') are retired.
 type SubscriptionTier = 'free' | 'intel' | 'operator'
 
 const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
 
-// Routes that require a minimum subscription tier beyond free.
 const TIER_GATED_PREFIXES: Record<string, SubscriptionTier> = {
-  '/signals':       'intel',
-  '/intelligence':  'intel',
-  '/genetics':      'operator',
-  '/network':       'intel',
-  '/vault':         'intel',
+  '/signals': 'intel',
+  '/intelligence': 'intel',
+  '/genetics': 'operator',
+  '/network': 'intel',
+  '/vault': 'intel',
   '/opportunities': 'intel',
 }
 
-function tierMeetsMinimum(
-  actual: SubscriptionTier | string | undefined,
-  required: SubscriptionTier,
-): boolean {
+function tierMeetsMinimum(actual: SubscriptionTier | string | undefined, required: SubscriptionTier): boolean {
   if (!actual) return false
-  // Normalise any legacy tier names that may still be in existing JWTs
   const normalised = normaliseTier(actual)
   return TIER_ORDER.indexOf(normalised) >= TIER_ORDER.indexOf(required)
 }
 
-// Map legacy Stripe tier names → current names so old JWTs still work
-// during the transition period (tokens expire within 1h).
 function normaliseTier(raw: string): SubscriptionTier {
   switch (raw) {
-    case 'intel':        return 'intel'
-    case 'operator':     return 'operator'
-    case 'professional': return 'operator'   // legacy
-    case 'enterprise':   return 'operator'   // legacy
-    case 'starter':      return 'intel'      // legacy
-    default:             return 'free'
+    case 'intel': return 'intel'
+    case 'operator': return 'operator'
+    case 'professional': return 'operator'
+    case 'enterprise': return 'operator'
+    case 'starter': return 'intel'
+    default: return 'free'
   }
 }
 
@@ -75,31 +64,20 @@ const PROTECTED_PREFIXES = [
   '/marketplace/intake',
 ]
 
-/**
- * Public marketing shells under otherwise-protected prefixes.
- * These pages must not require auth or subscription tier — they deep-link
- * into authenticated Command Centre / My Briefings for interactive work.
- */
-const PUBLIC_AUTH_EXCEPTIONS = [
-  '/intelligence/watchlists',
-]
+const PUBLIC_AUTH_EXCEPTIONS = ['/intelligence/watchlists']
 
 function isPublicAuthException(pathname: string): boolean {
-  return PUBLIC_AUTH_EXCEPTIONS.some(
-    (path) => pathname === path || pathname.startsWith(path + '/'),
-  )
+  return PUBLIC_AUTH_EXCEPTIONS.some((path) => pathname === path || pathname.startsWith(path + '/'))
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  const normalizedPathname =
-    pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  const normalizedPathname = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
     '/marketplace/wanted-requests': '/marketplace/wanted',
-    '/commercial-intelligence':     '/intelligence',
+    '/commercial-intelligence': '/intelligence',
   }
   const redirectTo = legacyRedirects[normalizedPathname]
   if (redirectTo) {
@@ -109,10 +87,7 @@ export async function proxy(request: NextRequest) {
     return applyNoStoreHeaders(NextResponse.redirect(url, 308))
   }
 
-  // Public marketing exceptions skip auth + tier gates entirely.
-  if (isPublicAuthException(normalizedPathname)) {
-    return NextResponse.next()
-  }
+  if (isPublicAuthException(normalizedPathname)) return NextResponse.next()
 
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/'),
@@ -136,16 +111,13 @@ export async function proxy(request: NextRequest) {
     }
 
     let response = NextResponse.next({ request })
-
     const supabase = createServerClient(supabaseUrl, supabasePublicKey, {
       cookies: {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          )
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         },
       },
     })
@@ -159,13 +131,8 @@ export async function proxy(request: NextRequest) {
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
-    // ── Subscription tier gate ───────────────────────────────────────────────
-    // Reads subscription_tier from JWT app_metadata — set by Stripe webhook via
-    // supabase.auth.admin.updateUserById(). Zero DB round-trip.
-    // Falls back to 'free' if not present (new signups before first purchase).
     const rawTier = user.app_metadata?.subscription_tier as string | undefined
-    const tier    = normaliseTier(rawTier ?? 'free')
-
+    const tier = normaliseTier(rawTier ?? 'free')
     const matchedTierPrefix = Object.keys(TIER_GATED_PREFIXES).find(
       (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/'),
     )
