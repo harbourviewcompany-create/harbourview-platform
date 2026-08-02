@@ -11,4 +11,9 @@ needle = "python3 scripts/country-data/generate-iso-region-rows.py\n\npython3 - 
 replacement = "python3 scripts/country-data/generate-iso-region-rows.py\n\n# The branch checkout occurs inside this repair script, so install the exact\n# target lockfile before invoking Vitest, typecheck, or ESLint.\nnpm ci\n\npython3 - <<'PY'\n"
 if needle not in text:
     raise SystemExit('dependency-install insertion point not found')
-path.write_text(text.replace(needle, replacement))
+text = text.replace(needle, replacement)
+text = text.replace(
+    "return matchesRegionalAudience(row, countries)",
+    "return matchesRegionalAudience(row, profileCountries(profile))",
+)
+path.write_text(text)
