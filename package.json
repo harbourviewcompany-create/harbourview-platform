@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
+    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts tests/dashboard/navigationRoutes.test.ts",
     "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
