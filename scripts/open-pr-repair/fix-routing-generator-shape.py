@@ -16,4 +16,12 @@ text = text.replace(
     "return matchesRegionalAudience(row, countries)",
     "return matchesRegionalAudience(row, profileCountries(profile))",
 )
+text = text.replace(
+    "const audience = regionalAudienceLabel(row)\n      return audience ? `Affects ${audience}, a region or bloc you cover${suffix}` : `Matches your watch profile${suffix}`",
+    "const audience = typeof row.country === 'string' && row.country.trim()\n        ? row.country.trim()\n        : typeof row.geo_region === 'string' && row.geo_region.trim()\n          ? row.geo_region.trim()\n          : null\n      return audience ? `Affects ${audience}, a region or bloc you cover${suffix}` : `Matches your watch profile${suffix}`",
+)
+text = text.replace(
+    "Affects Europe, a region you cover (cultivation & production)",
+    "Affects Europe, a region or bloc you cover (cultivation & production)",
+)
 path.write_text(text)
