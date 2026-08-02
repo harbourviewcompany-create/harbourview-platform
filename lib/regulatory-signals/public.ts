@@ -189,7 +189,8 @@ async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
       order:  'published_at.desc',
       limit:  '300',
     })
-    const res = await fetch(`${url}/rest/v1/public_signals?${params}`, {
+    const endpoint = '/rest/v1/public_signals'
+    const res = await fetch(`${url}${endpoint}?${params}`, {
       headers: {
         apikey:            key,
         Authorization:     `Bearer ${key}`,
@@ -198,7 +199,18 @@ async function fetchApprovedSignals(): Promise<PublicRegulatorySignal[]> {
       },
       next: { revalidate: 300 },
     })
-    if (!res.ok) return []
+    // Never fail silently. A 400 here — typically "column does not exist" after a
+    // base-table column is added but the PostgREST-exposed view is never
+    // refreshed — is indistinguishable from a genuinely empty feed once this
+    // returns []. That exact confusion hid a broken Command Centre query for
+    // days; see 20260801150000_api_expose_quality_and_routing_columns.sql.
+    if (!res.ok) {
+      console.error(
+        `[regulatory-signals] PostgREST ${res.status} on ${endpoint}:`,
+        (await res.text().catch(() => '')).slice(0, 300),
+      )
+      return []
+    }
     const rows: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(rows)) return []
     return rows.map(mapApprovedRow).filter((s): s is PublicRegulatorySignal => s !== null)
@@ -235,11 +247,23 @@ async function fetchReviewedSignals(): Promise<PublicRegulatorySignal[]> {
     // constant's own note on NULL NOT IN evaluating to NULL.
     params.append('or', SIGNALS_FEED_CONTENT_TYPE_OR_FILTER)
 
-    const res = await fetch(`${url}/rest/v1/signals?${params}`, {
+    const endpoint = '/rest/v1/signals'
+    const res = await fetch(`${url}${endpoint}?${params}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
       next: { revalidate: 300 },
     })
-    if (!res.ok) return []
+    // Never fail silently. A 400 here — typically "column does not exist" after a
+    // base-table column is added but the PostgREST-exposed view is never
+    // refreshed — is indistinguishable from a genuinely empty feed once this
+    // returns []. That exact confusion hid a broken Command Centre query for
+    // days; see 20260801150000_api_expose_quality_and_routing_columns.sql.
+    if (!res.ok) {
+      console.error(
+        `[regulatory-signals] PostgREST ${res.status} on ${endpoint}:`,
+        (await res.text().catch(() => '')).slice(0, 300),
+      )
+      return []
+    }
     const rows: Record<string, unknown>[] = await res.json()
     if (!Array.isArray(rows)) return []
 
