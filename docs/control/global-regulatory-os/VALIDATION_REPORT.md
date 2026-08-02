@@ -21,5 +21,6 @@ The complete verification matrix passed on package head `d0127a1c4abb3b22b957c3a
 
 This report update is documentation-only and exists to activate an exact-head Vercel preview after the earlier Vercel request was rejected before build by account build-rate capacity.
 
+- Exact preview retry activation: issued after the Vercel project returned to available preview capacity.
 - Technical Phase 0 status: GO after all final-head automated gates and exact preview pass.
 - Operator release status: HOLD pending explicit policy, migration, merge and production authorization.
