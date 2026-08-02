@@ -14,14 +14,16 @@ permissions:
   contents: read
 jobs:
   verify-inputs:
+    if: github.ref == 'refs/heads/main'
+    environment: release-verification
     runs-on: ubuntu-latest
     outputs:
       deployment_url: ${{ steps.output.outputs.deployment_url }}
     steps:
-      - name: Checkout trusted verifier revision
+      - name: Checkout protected-main verifier revision
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -34,7 +36,7 @@ jobs:
           [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
           git fetch origin main "$COMMIT_SHA"
           git merge-base --is-ancestor "$COMMIT_SHA" origin/main
-      - name: Validate immutable deployment metadata with trusted code
+      - name: Validate immutable deployment metadata with protected-main code
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ inputs.deployment_url }}
@@ -60,20 +62,22 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   e2e:
+    if: github.ref == 'refs/heads/main'
+    environment: release-verification
     needs: verify-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Run trusted Playwright suite against validated deployment
+      - name: Run protected-main Playwright suite against validated deployment
         env:
           PLAYWRIGHT_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
           HARBOURVIEW_PUBLIC_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
@@ -91,13 +95,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
   public-leakage:
+    if: github.ref == 'refs/heads/main'
+    environment: release-verification
     needs: verify-inputs
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
