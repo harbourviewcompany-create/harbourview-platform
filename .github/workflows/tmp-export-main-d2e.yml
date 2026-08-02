@@ -1,0 +1,27 @@
+name: Temporary Export Main D2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tmp-export-main-d2e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: Verify exact base
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.base.sha }}"
+      - name: Package exact base
+        run: tar --exclude=.git -czf /tmp/harbourview-main-d2e.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harbourview-main-d2e
+          path: /tmp/harbourview-main-d2e.tar.gz
+          retention-days: 1
+          if-no-files-found: error
