@@ -8,23 +8,25 @@ import re
 from pathlib import Path
 from statistics import mean
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
+from PIL import Image, ImageDraw, ImageFont, ImageStat
 import imagehash
 
 ROOT = Path(__file__).resolve().parents[1]
-SQL = ROOT / "supabase/migrations/20260730220100_seed_harbourview_supply_catalog_canada.sql"
+SQL_FILES = sorted((ROOT / "supabase/migrations").glob("20260730220*_seed_harbourview_supply_catalog_canada*.sql"))
 IMAGE_DIR = ROOT / "public/images/supply"
 OUT = ROOT / "artifacts/supply-image-audit"
 OUT.mkdir(parents=True, exist_ok=True)
 
-sql = SQL.read_text(encoding="utf-8")
+sql = "\n".join(path.read_text(encoding="utf-8") for path in SQL_FILES)
 pattern = re.compile(
     r"\(gen_random_uuid\(\),'(?P<category>[^']+)','(?P<title>(?:[^']|'')*)'.*?,'(?P<slug>[^']+)','(?P<section>[^']+)',true,'(?P<sku>[^']+)'",
     re.S,
 )
 rows = [m.groupdict() for m in pattern.finditer(sql)]
+# Preserve canonical first occurrence if historical files overlap.
+rows = list({row["slug"]: row for row in rows}.values())
 if len(rows) != 68:
-    raise SystemExit(f"Expected 68 canonical rows, found {len(rows)}")
+    raise SystemExit(f"Expected 68 canonical rows, found {len(rows)} across {len(SQL_FILES)} seed files")
 
 font = ImageFont.load_default()
 thumb_w, thumb_h = 300, 200
@@ -34,7 +36,7 @@ contact_pages = []
 records = []
 hashes = {}
 
-for i, row in enumerate(rows):
+for row in rows:
     path = IMAGE_DIR / f"{row['slug']}.webp"
     if not path.exists():
         raise SystemExit(f"Missing image: {path}")
@@ -43,11 +45,9 @@ for i, row in enumerate(rows):
         width, height = im.size
         file_bytes = path.stat().st_size
         ratio = width / height
-        # Current UI uses object-cover inside 3:2 media. Calculate retained fraction.
         target_ratio = 1.5
         retained = min(ratio / target_ratio, target_ratio / ratio)
         crop_loss_pct = round((1 - retained) * 100, 2)
-        # Edge activity flags likely subject clipping at object-cover crop boundaries.
         edge = max(4, min(width, height) // 30)
         gray = im.convert("L")
         center = gray.crop((edge, edge, width - edge, height - edge))
@@ -79,7 +79,6 @@ for i, row in enumerate(rows):
             "phash": ph,
         })
 
-# Perceptual repetition clusters, threshold <= 4 bits.
 for rec in records:
     peers = []
     h = hashes[rec['slug']]
@@ -100,7 +99,6 @@ with (OUT / "supply-image-audit-raw.csv").open("w", newline="", encoding="utf-8"
     w = csv.DictWriter(f, fieldnames=fieldnames)
     w.writeheader(); w.writerows(records)
 
-# Contact sheets: 16 items/page, with exact title, SKU, dimensions and weight.
 for page_start in range(0, len(records), 16):
     subset = records[page_start:page_start+16]
     page_rows = math.ceil(len(subset) / cols)
@@ -111,7 +109,6 @@ for page_start in range(0, len(records), 16):
         y = (j // cols) * card_h
         with Image.open(IMAGE_DIR / f"{rec['slug']}.webp") as src:
             src = src.convert("RGB")
-            # exact current 3:2 object-cover crop
             sw, sh = src.size
             tr = thumb_w / thumb_h
             sr = sw / sh
@@ -124,16 +121,15 @@ for page_start in range(0, len(records), 16):
             crop.thumbnail((thumb_w, thumb_h))
             sheet.paste(crop, (x+10, y+10))
         draw.rectangle((x+9, y+9, x+311, y+211), outline="#8b7355", width=1)
-        title = rec['title']
         wrapped=[]; line=""
-        for word in title.split():
+        for word in rec['title'].split():
             test=(line+" "+word).strip()
             if draw.textlength(test, font=font) > 292:
                 wrapped.append(line); line=word
             else: line=test
         if line: wrapped.append(line)
-        for k, line in enumerate(wrapped[:3]):
-            draw.text((x+12, y+218+k*12), line, fill="#111827", font=font)
+        for k, text_line in enumerate(wrapped[:3]):
+            draw.text((x+12, y+218+k*12), text_line, fill="#111827", font=font)
         meta=f"{rec['sku']} | {rec['width_px']}×{rec['height_px']} | {rec['file_kb']} KB"
         draw.text((x+12, y+258), meta, fill="#4b5563", font=font)
     p = OUT / f"contact-sheet-{page_start//16+1}.png"
