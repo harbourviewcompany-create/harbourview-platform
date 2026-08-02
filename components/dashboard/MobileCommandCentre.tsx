@@ -3197,10 +3197,10 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook, pathway
       {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
         <div className="hvm-signal-card hvm-signal-card--rich">
           <div className="hvm-kicker">MARKET ENTRY STEPS</div>
-          {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
-            <div key={s.step} style={{ marginTop: s.step === 1 ? 4 : 10, paddingTop: s.step === 1 ? 0 : 10, borderTop: s.step === 1 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {s.step}: {s.title}</div>
-              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{s.description}</div>
+          {jurisdictionPlaybook.steps.slice(0, 5).map((step, index) => (
+            <div key={`${index}-${step}`} style={{ marginTop: index === 0 ? 4 : 10, paddingTop: index === 0 ? 0 : 10, borderTop: index === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {index + 1}</div>
+              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{step}</div>
             </div>
           ))}
         </div>
