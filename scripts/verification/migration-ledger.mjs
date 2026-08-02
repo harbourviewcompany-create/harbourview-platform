@@ -23,7 +23,9 @@ function uniqueByVersion(rows, source) {
 const files = (await readdir(migrationDir)).filter((name) => name.endsWith('.sql')).sort();
 const local = [];
 for (const filename of files) {
-  const match = filename.match(/^(\d{14})_([A-Za-z0-9_]+)\.sql$/);
+  // Existing repository migration names contain underscores and hyphens. Keep
+  // the version strict while accepting the already-established name alphabet.
+  const match = filename.match(/^(\d{14})_([A-Za-z0-9_-]+)\.sql$/);
   if (!match) throw new Error(`Invalid migration filename: ${filename}`);
   const sql = await readFile(path.join(migrationDir, filename), 'utf8');
   const normalized = sql.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim().replace(/;+/g, ';');
