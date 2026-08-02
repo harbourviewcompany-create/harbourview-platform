@@ -15,7 +15,7 @@ permissions:
   actions: read
 
 jobs:
-  repair-pr1224:
+  repair-pr1233:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
     steps:
@@ -23,8 +23,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: agent/open-pr-repair-runner
-      - name: Apply reviewed PR 1224 repair
+      - name: Apply reviewed PR 1233 repair
         run: |
-          base64 --decode scripts/open-pr-repair/apply-pr1224-v2.sh.gz.b64 | gzip --decompress > /tmp/apply-pr1224.sh
-          chmod +x /tmp/apply-pr1224.sh
-          /tmp/apply-pr1224.sh
+          base64 --decode scripts/open-pr-repair/apply-pr1233.sh.gz.b64 | gzip --decompress > /tmp/apply-pr1233.sh
+          chmod +x /tmp/apply-pr1233.sh
+          /tmp/apply-pr1233.sh
