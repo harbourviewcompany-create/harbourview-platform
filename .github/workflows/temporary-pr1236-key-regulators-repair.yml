@@ -2,7 +2,7 @@ name: Temporary PR 1236 Key Regulators Repair
 
 on:
   pull_request_target:
-    types: [edited]
+    types: [reopened]
 
 permissions:
   contents: write
