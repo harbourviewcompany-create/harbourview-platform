@@ -64,6 +64,23 @@ const PROTECTED_PREFIXES = [
   '/marketplace/intake',
 ]
 
+const COMMAND_CENTRE_ROOT_REDIRECTS: Readonly<Record<string, {
+  page: string
+  module?: string
+}>> = {
+  '/signals': { page: 'signals' },
+  '/intelligence': { page: 'signals' },
+  '/genetics': { page: 'genetics' },
+  '/network': { page: 'experts', module: 'directories' },
+  '/opportunities': { page: 'marketplace' },
+  '/reviewed-connections': { page: 'experts', module: 'directories' },
+  '/professionals': { page: 'experts', module: 'directories' },
+  '/assessments': { page: 'compliance' },
+  '/compliance': { page: 'compliance' },
+  '/education': { page: 'education' },
+  '/marketplace/my-listings': { page: 'marketplace' },
+}
+
 const PUBLIC_AUTH_EXCEPTIONS = ['/intelligence/watchlists']
 
 function isPublicAuthException(pathname: string): boolean {
@@ -145,6 +162,19 @@ export async function middleware(request: NextRequest) {
         upgradeUrl.search = `?feature=${encodeURIComponent(matchedTierPrefix.slice(1))}&required=${required}&current=${tier}`
         return applyNoStoreHeaders(NextResponse.redirect(upgradeUrl))
       }
+    }
+
+    const commandCentreTarget = COMMAND_CENTRE_ROOT_REDIRECTS[normalizedPathname]
+    if (commandCentreTarget) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      url.searchParams.set('page', commandCentreTarget.page)
+      if (commandCentreTarget.module) {
+        url.searchParams.set('module', commandCentreTarget.module)
+      } else {
+        url.searchParams.delete('module')
+      }
+      return applyNoStoreHeaders(NextResponse.redirect(url, 308))
     }
 
     return applyNoStoreHeaders(response)
