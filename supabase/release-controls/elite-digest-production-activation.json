@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "release": "elite-digest-production-activation",
+  "source_main_sha": "d2e03cb13b61da12d37e0ed128032242570963fb",
+  "approved_migrations": [
+    {
+      "version": "20260802073000",
+      "file": "20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+      "git_blob_sha": "6b8544df5969f12d72891201d2c82b4406d56c51"
+    },
+    {
+      "version": "20260802152500",
+      "file": "20260802152500_signal_feedback_api_rpcs.sql",
+      "git_blob_sha": "512a5c59207fe2ae29fb87e4cceeb6264ab40a34"
+    },
+    {
+      "version": "20260802163000",
+      "file": "20260802163000_elite_digest_rpc_boundary_hardening.sql",
+      "git_blob_sha": "f9b1cb7c09a6183f8bd1f080df37be9a619ba4eb"
+    }
+  ]
+}
