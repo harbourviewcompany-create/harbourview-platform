@@ -36,7 +36,7 @@ if (!Number.isInteger(maxAssets) || maxAssets < 0 || maxAssets > 5000) {
 
 const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '';
 const commonHeaders = {
-  'user-agent': 'Harbourview-Release-Verification/3.0',
+  'user-agent': 'Harbourview-Release-Verification/3.1',
   ...(bypassSecret ? { 'x-vercel-protection-bypass': bypassSecret } : {}),
 };
 
@@ -76,11 +76,18 @@ function contextDigest(text, index, length = 160) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function isScannableStaticPath(pathname) {
+  return /\.(?:js|mjs|json|map)$/i.test(pathname);
+}
+
 function enqueueAsset(raw, currentUrl, source) {
   if (queuedStaticAssets >= maxAssets) return;
   try {
     const url = new URL(raw, currentUrl);
     if (url.origin !== base.origin || !url.pathname.startsWith('/_next/static/')) return;
+    // Stylesheets, fonts and images are expected Next.js output but are not
+    // meaningful UTF-8 leakage surfaces. Queue only textual code/manifest data.
+    if (!isScannableStaticPath(url.pathname)) return;
     const key = `static:${url.href}`;
     if (seen.has(key) || queue.some((item) => `${item.kind}:${item.url}` === key)) return;
     queue.push({ url: url.href, kind: 'static', headers: {}, source });
@@ -101,9 +108,29 @@ function discoverAssets(text, currentUrl) {
   }
 }
 
+async function fetchSameOrigin(item) {
+  let current = new URL(item.url);
+  for (let hop = 0; hop <= 5; hop += 1) {
+    if (current.origin !== base.origin) throw new Error(`Cross-origin request rejected before fetch: ${current.href}`);
+    const response = await fetch(current, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: { ...commonHeaders, ...item.headers },
+    });
+    if (response.status < 300 || response.status >= 400) return response;
+    const location = response.headers.get('location');
+    if (!location) throw new Error(`Redirect without Location for ${current.href}`);
+    const next = new URL(location, current);
+    // Validate the next hop before making another request with the bypass header.
+    if (next.origin !== base.origin) throw new Error(`Cross-origin redirect rejected before forwarding headers: ${current.href} -> ${next.href}`);
+    current = next;
+  }
+  throw new Error(`Too many redirects for ${item.url}`);
+}
+
 function assertResponse(item, response) {
   const finalUrl = new URL(response.url || item.url);
-  if (finalUrl.origin !== base.origin) throw new Error(`Cross-origin redirect rejected for ${item.url}`);
+  if (finalUrl.origin !== base.origin) throw new Error(`Cross-origin response rejected for ${item.url}`);
   if (response.status !== 200) throw new Error(`Unexpected HTTP ${response.status} for ${item.kind} ${item.url}`);
   const contentType = (response.headers.get('content-type') || '').toLowerCase();
   const expected = item.kind === 'api'
@@ -125,11 +152,7 @@ while (queue.length) {
   if (seen.has(key)) continue;
   seen.add(key);
 
-  const response = await fetch(item.url, {
-    method: 'GET',
-    redirect: 'follow',
-    headers: { ...commonHeaders, ...item.headers },
-  });
+  const response = await fetchSameOrigin(item);
   const { finalUrl, contentType } = assertResponse(item, response);
   const text = await response.text();
   responses.push({
