@@ -25,7 +25,7 @@ const newBlock = `      {jurisdictionPlaybook?.key_regulators && (
             <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{jurisdictionPlaybook.key_regulators.primary}</div>
           </div>
           {jurisdictionPlaybook.key_regulators.secondary.map((regulator, index) => (
-            <div key={\`${index}-${regulator}\`} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(245,240,232,.08)' }}>
+            <div key={index + '-' + regulator} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(245,240,232,.08)' }}>
               <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', lineHeight: 1.5 }}>{regulator}</div>
             </div>
           ))}
