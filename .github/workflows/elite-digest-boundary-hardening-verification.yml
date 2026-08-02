@@ -1,0 +1,86 @@
+name: Elite Digest Boundary Hardening Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'scripts/check-elite-digest-migration-versions.mjs'
+      - 'supabase/migrations/20260802163000_elite_digest_rpc_boundary_hardening.sql'
+      - 'tests/sql/elite_digest_boundary_hardening_dry_run.sql'
+      - 'docs/ops/ELITE_DIGEST_DEPLOY.md'
+      - 'docs/control/DATABASE_CONTROL.md'
+      - 'docs/control/EVIDENCE_LOG.md'
+      - '.github/workflows/elite-digest-boundary-hardening-verification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Elite Digest migration ordering
+        run: node scripts/check-elite-digest-migration-versions.mjs
+      - name: Forward migration is data-preserving DCL
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('supabase/migrations/20260802163000_elite_digest_rpc_boundary_hardening.sql')
+          sql = path.read_text()
+          without_comments = re.sub(r'--.*$', '', sql, flags=re.MULTILINE)
+          forbidden = re.compile(
+              r'\b(insert\s+into|update\s+|delete\s+from|truncate\s+|drop\s+table|alter\s+table\s+[^;]+\s+drop\s+)\b',
+              re.IGNORECASE,
+          )
+          match = forbidden.search(without_comments)
+          if match:
+              raise SystemExit(
+                  f'forbidden data/destructive statement in hardening migration: {match.group(0)}'
+              )
+          print('Forward hardening migration contains no data mutation or destructive table operation.')
+          PY
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full tests
+        run: npm run test
+      - name: Production build
+        run: npm run build
+      - name: Public boundary checks
+        run: |
+          npm run test:visibility
+          npm run test:security
+      - name: Existing Elite Digest PostgreSQL fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/elite_digest_forward_repair_dry_run.sql
+      - name: RPC boundary PostgreSQL 17 + pgvector fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/elite_digest_boundary_hardening_dry_run.sql
