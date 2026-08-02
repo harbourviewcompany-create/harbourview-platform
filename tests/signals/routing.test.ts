@@ -273,9 +273,11 @@ describe('geographic scope', () => {
   it('does not widen LATAM to all of the Americas', () => {
     const usa: OperatorProfile = { countryIso2: ['US'], roleFamilies: cultivation }
     const colombia: OperatorProfile = { countryIso2: ['CO'], roleFamilies: cultivation }
+    const barbados: OperatorProfile = { countryIso2: ['BB'], roleFamilies: cultivation }
     const signal = routed({ geo_scope: 'region', geo_region: 'Americas', country: 'LATAM', role_families: cultivation })
     expect(matchesOperatorProfile(signal, usa)).toBe(false)
     expect(matchesOperatorProfile(signal, colombia)).toBe(true)
+    expect(matchesOperatorProfile(signal, barbados)).toBe(false)
   })
 
   it('matches Caribbean as a subregion rather than all Americas', () => {
@@ -286,12 +288,44 @@ describe('geographic scope', () => {
     expect(matchesOperatorProfile(signal, usa)).toBe(false)
   })
 
+  it('matches Latin America and the Caribbean as the combined audience', () => {
+    const barbados: OperatorProfile = { countryIso2: ['BB'], roleFamilies: cultivation }
+    const colombia: OperatorProfile = { countryIso2: ['CO'], roleFamilies: cultivation }
+    const usa: OperatorProfile = { countryIso2: ['US'], roleFamilies: cultivation }
+    const signal = routed({
+      geo_scope: 'region',
+      geo_region: 'Americas',
+      country: 'Latin America and the Caribbean',
+      role_families: cultivation,
+    })
+    expect(matchesOperatorProfile(signal, barbados)).toBe(true)
+    expect(matchesOperatorProfile(signal, colombia)).toBe(true)
+    expect(matchesOperatorProfile(signal, usa)).toBe(false)
+  })
+
   it('matches European Union membership independently of UN macro-region', () => {
     const cyprus: OperatorProfile = { countryIso2: ['CY'], roleFamilies: cultivation }
     const uk: OperatorProfile = { countryIso2: ['GB'], roleFamilies: cultivation }
     const signal = routed({ geo_scope: 'region', geo_region: 'Europe', country: 'European Union', role_families: cultivation })
     expect(matchesOperatorProfile(signal, cyprus)).toBe(true)
     expect(matchesOperatorProfile(signal, uk)).toBe(false)
+  })
+
+  it('preserves the retained Eastern Europe/Central Asia audience', () => {
+    const poland: OperatorProfile = { countryIso2: ['PL'], roleFamilies: cultivation }
+    const kazakhstan: OperatorProfile = { countryIso2: ['KZ'], roleFamilies: cultivation }
+    const germany: OperatorProfile = { countryIso2: ['DE'], roleFamilies: cultivation }
+    const singapore: OperatorProfile = { countryIso2: ['SG'], roleFamilies: cultivation }
+    const signal = routed({
+      geo_scope: 'region',
+      geo_region: 'Europe',
+      country: 'Eastern Europe/Central Asia',
+      role_families: cultivation,
+    })
+    expect(matchesOperatorProfile(signal, poland)).toBe(true)
+    expect(matchesOperatorProfile(signal, kazakhstan)).toBe(true)
+    expect(matchesOperatorProfile(signal, germany)).toBe(false)
+    expect(matchesOperatorProfile(signal, singapore)).toBe(false)
   })
 
   it('does not widen Middle East to all of Asia or North Africa', () => {
@@ -375,9 +409,8 @@ describe('explainMatch', () => {
   it('explains regional and global reach without claiming a country', () => {
     expect(
       explainMatch(routed({ geo_scope: 'region', geo_region: 'Europe', role_families: ['cultivation_production'] }), lesothoCultivator),
-    // Deliberately not "where you operate": a region can match via an export
-    // destination, or via the fail-open path for an unmapped country, neither of
-    // which establishes that the operator operates there.
+    // Deliberately not "where you operate": a region can match through an
+    // export destination, which does not establish that the operator operates there.
     ).toBe('Affects Europe, a region or bloc you cover (cultivation & production)')
     expect(
       explainMatch(routed({ geo_scope: 'global', role_families: ['cultivation_production'] }), lesothoCultivator),

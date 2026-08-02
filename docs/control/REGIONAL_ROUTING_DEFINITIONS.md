@@ -18,13 +18,16 @@ LATAM or the European Union from being widened to a broader UN macro-region.
 
 - `Africa`, `Americas`, `Asia`, `Europe`, and `Oceania` match the corresponding
   UN M49 macro-region.
-- `LATAM`, `Latin America`, and `Latin America and the Caribbean` match the UN
-  M49 Caribbean, Central America, and South America subregions. Northern America
-  is excluded.
+- `LATAM` and `Latin America` match the UN M49 Central America and South America
+  subregions. The separately retained Caribbean audience is excluded.
+- `Latin America and the Caribbean` matches Caribbean, Central America, and South
+  America. Northern America is excluded.
 - `Caribbean` matches only the UN M49 Caribbean subregion.
 - `European Union` / `EU` matches the controlled 27-member ISO-2 set. Cyprus is
   included despite its UN M49 placement in Western Asia; the United Kingdom is
   excluded.
+- `Eastern Europe/Central Asia` matches the UN M49 Eastern Europe and Central Asia
+  subregions only.
 - `Middle East` uses Harbourview's explicit operational definition of UN M49
   Western Asia plus Egypt. It does not widen to all Asia or all MENA.
 - `Pacific` matches the UN M49 Oceania macro-region.

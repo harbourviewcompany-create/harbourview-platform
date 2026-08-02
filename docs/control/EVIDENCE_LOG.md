@@ -2809,8 +2809,9 @@ than speed here.
   `pycountry 24.6.1` and the checked-in UN M49-derived identity table.
 - Replaced the incomplete 193-country dashboard bridge and removed regional
   fail-open behavior for unmapped country codes.
-- Preserved explicit European Union, LATAM, Caribbean, Middle East, Pacific, and
-  UN macro-region audience semantics.
+- Preserved explicit European Union, LATAM, Caribbean, Eastern Europe/Central
+  Asia, Middle East, Pacific, and UN macro-region audience semantics. LATAM is
+  kept distinct from the separately retained Caribbean label.
 - Added regression cases covering Singapore, the US versus Colombia, Barbados
   versus the US, Cyprus versus the UK, Egypt/UAE versus Singapore/Morocco,
   Australia versus Japan, all five UN macro-regions, and unknown-bloc fail-closed

@@ -242,7 +242,8 @@ const EU_MEMBER_ISO2 = new Set([
   'SI', 'ES', 'SE',
 ])
 
-const LATAM_SUBREGIONS = new Set(['caribbean', 'central america', 'south america'])
+const LATAM_SUBREGIONS = new Set(['central america', 'south america'])
+const LATAM_AND_CARIBBEAN_SUBREGIONS = new Set(['caribbean', 'central america', 'south america'])
 const UN_MACRO_REGIONS = new Set(['africa', 'americas', 'asia', 'europe', 'oceania'])
 
 function normaliseRegionalLabel(value: unknown): string | null {
@@ -273,12 +274,16 @@ function matchesRegionalAudience(row: SignalRoutingRow, profileIso2: Set<string>
         return EU_MEMBER_ISO2.has(iso2)
       case 'latam':
       case 'latin america':
+        return LATAM_SUBREGIONS.has(metadata.subregion)
       case 'latin america and the caribbean':
       case 'latin america & caribbean':
       case 'latin america and caribbean':
-        return LATAM_SUBREGIONS.has(metadata.subregion)
+        return LATAM_AND_CARIBBEAN_SUBREGIONS.has(metadata.subregion)
       case 'caribbean':
         return metadata.subregion === 'caribbean'
+      case 'eastern europe/central asia':
+      case 'eastern europe and central asia':
+        return metadata.subregion === 'eastern europe' || metadata.subregion === 'central asia'
       case 'middle east':
         // Controlled Harbourview definition: UN M49 Western Asia plus Egypt.
         // It deliberately does not widen to all Asia or all MENA.
@@ -289,9 +294,7 @@ function matchesRegionalAudience(row: SignalRoutingRow, profileIso2: Set<string>
       default:
         // A retained but unknown bloc label must fail closed rather than widen
         // to the signal's coarser macro-region. Macro-regions remain explicit.
-        return !explicitCountryLabel && UN_MACRO_REGIONS.has(label)
-          ? metadata.region === label
-          : UN_MACRO_REGIONS.has(label) && metadata.region === label
+        return UN_MACRO_REGIONS.has(label) && metadata.region === label
     }
   })
 }
