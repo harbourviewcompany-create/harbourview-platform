@@ -1,5 +1,4 @@
-import { countryIdentityRows } from '@/lib/country-data/generated-country-identity-rows'
-import { countries, getCountryByIso3 } from '@/lib/dashboard/countries'
+import { isoRegionRows } from '@/lib/country-data/generated-iso-region-rows'
 import { roleFamilies } from '@/lib/roles/role-families'
 import type { RoleFamily } from '@/lib/roles/types'
 import { resolveCountry, type SignalQualityRow } from './quality'
@@ -196,36 +195,17 @@ function normaliseIso2(value: unknown): string | null {
 /**
  * ISO-3166-1 alpha-2 for a signal.
  *
- * Prefers the structured `country_iso2` column, then falls back to resolving the
- * free-text `country` value. The fallback matters: 1,113 of the last 30 days'
- * 9,884 signals have a NULL `country_iso2` while still carrying a usable country
- * string, and dropping them would discard 11% of the feed from every routed
- * query.
- *
- * `resolveCountry` yields ISO-3166-1 alpha-3, so the result is mapped through
- * `getCountryByIso3` rather than truncated — "AUT" is Austria, not Australia.
- *
- * KNOWN, MEASURED LIMIT: `getCountryByIso3` covers the 193-country dashboard
- * set, while `countryIdentityRows` holds 248 canonical identities — 60 have no
- * dashboard match (Singapore, Seychelles, South Sudan, Bermuda, Aruba…), and
- * this fallback returns null for them.
- *
- * Left as-is on evidence, not by oversight. Every row with a NULL
- * `country_iso2` in the last 90 days carries a *region or bloc* value
- * ("Europe", "LATAM", "Africa", "Pacific") — **not one is a country**, because
- * ingestion populates `country_iso2` whenever it identifies a real country.
- * The name-resolution fallback is therefore currently unreachable for those 60,
- * and hand-maintaining a 60-entry alpha-3→alpha-2 table would be dead code with
- * its own drift risk. The real gap those rows exposed was regional scope, which
- * {@link matchesGeography} now handles. Revisit if ingestion ever emits a
- * country name without an iso2.
+ * Prefers the structured `country_iso2` column, then resolves a free-text
+ * country through the deterministic 248-country ISO-3/ISO-2 bridge generated
+ * from the checked-in Harbourview identity table. Region and bloc labels still
+ * return null here and are handled by the regional audience matcher.
  */
 export function signalCountryIso2(row: SignalRoutingRow): string | null {
   const direct = normaliseIso2(row.country_iso2)
   if (direct) return direct
   const resolved = resolveCountry(row.country)
   if (!resolved) return null
-  return normaliseIso2(getCountryByIso3(resolved.code)?.iso2)
+  return ISO2_BY_ISO3.get(resolved.code.toUpperCase()) ?? null
 }
 
 /** Every ISO-3166-1 alpha-2 an operator cares about: home plus destinations. */
@@ -238,95 +218,84 @@ function profileCountries(profile: OperatorProfile): Set<string> {
 }
 
 /**
- * ISO-3166-1 alpha-2 → UN macro-region.
- *
- * Deliberately NOT `getCountryByIso2().region`: that field is `'Global'` for all
- * but a handful of hand-overridden entries (Lesotho, Germany and Australia all
- * report `'Global'`/`'Unspecified'`), so joining on it silently matched nothing.
- * A test caught this.
- *
- * `countryIdentityRows` carries the real UN region for 247 of 248 identities, in
- * exactly the five-value vocabulary `signals.geo_region` is normalised to
- * (Africa, Americas, Asia, Europe, Oceania), so the two join with no alias
- * table. The alpha-2 → alpha-3 hop goes through the dashboard set, which is the
- * only place both codes coexist.
- *
- * KNOWN DATA GAP — needs a verified ISO source, not a guess.
- * The repo has no complete alpha-3 → alpha-2 table. `countries.ts` covers 193
- * and `natural-earth-countries.ts` 191; their union is 195, still leaving **60
- * of the 248 canonical identities unmapped — including Singapore, South Sudan,
- * Seychelles, Barbados and Grenada**, i.e. disproportionately the small-island
- * and African states this platform's coverage is meant to be strongest in.
- *
- * Unlike the signal-side name fallback (measurably unreachable — ingestion
- * always sets `country_iso2` for real countries), this path IS reachable: it is
- * driven by operator-declared jurisdictions, and `operator_countries` accepts
- * any alpha-2. {@link matchesGeography} therefore fails open for affected
- * profiles rather than silently withholding regional signals. Writing the 60
- * codes from memory into a compliance-facing product would be exactly the kind
- * of unverified data this codebase forbids; they should come from a checked ISO
- * source in a separate, reviewable data change.
+ * Deterministic ISO and UN M49 geography bridge for all 248 checked identities.
+ * The generated rows are static runtime data; regeneration is pinned and checked
+ * in CI so production does not depend on Python or an external lookup service.
  */
-const REGION_BY_ISO2: ReadonlyMap<string, string> = (() => {
-  const regionByIso3 = new Map<string, string>()
-  for (const row of countryIdentityRows) {
-    // `countryIdentityRows` is a generated `as const` tuple list, so a blind
-    // destructure-with-cast would silently mis-read every row if the generator
-    // ever reorders columns — the map would just come back empty and every
-    // regional match would quietly fail open. Read positionally and validate
-    // instead, so a shape change is skipped rather than misinterpreted.
-    const cells = row as readonly unknown[]
-    const id = cells[0]
-    const region = cells[3]
-    if (typeof id !== 'string' || typeof region !== 'string') continue
-    if (!id.startsWith('country_area:')) continue
-    const iso3 = id.split(':')[1]
-    if (iso3 && region) regionByIso3.set(iso3.toUpperCase(), region)
-  }
-  const map = new Map<string, string>()
-  for (const country of countries) {
-    const region = regionByIso3.get(country.iso3.toUpperCase())
-    // Case-folded to match the lookup in `matchesGeography`.
-    if (region) map.set(country.iso2.toUpperCase(), region.toLowerCase())
-  }
-  return map
-})()
+type RegionMetadata = { region: string; subregion: string }
 
-/** UN macro-regions covering an operator's declared countries. */
-function profileRegions(profile: OperatorProfile): Set<string> {
-  const regions = new Set<string>()
-  for (const code of profileCountries(profile)) {
-    const region = REGION_BY_ISO2.get(code)
-    if (region) regions.add(region)
-  }
-  return regions
+const ISO2_BY_ISO3: ReadonlyMap<string, string> = new Map(
+  isoRegionRows.map(([iso2, iso3]) => [iso3, iso2]),
+)
+
+const REGION_METADATA_BY_ISO2: ReadonlyMap<string, RegionMetadata> = new Map(
+  isoRegionRows.map(([iso2, , region, subregion]) => [
+    iso2,
+    { region: region.toLowerCase(), subregion: subregion.toLowerCase() },
+  ]),
+)
+
+/** Current 27-member European Union set, verified against the official EU list on 2026-08-02. */
+const EU_MEMBER_ISO2 = new Set([
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR',
+  'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK',
+  'SI', 'ES', 'SE',
+])
+
+const LATAM_SUBREGIONS = new Set(['caribbean', 'central america', 'south america'])
+const UN_MACRO_REGIONS = new Set(['africa', 'americas', 'asia', 'europe', 'oceania'])
+
+function normaliseRegionalLabel(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const label = value.trim().toLowerCase().replace(/[._-]+/g, ' ').replace(/\s+/g, ' ')
+  return label || null
 }
 
-/**
- * Does this signal's geography reach this operator?
- *
- * Scope-aware rather than iso2-only (see {@link SignalGeoScope}):
- * - `country` — the country must be one the operator declared.
- * - `region`  — the region must contain at least one declared country. An
- *   EU-wide rule change reaches a German importer.
- *
- *   KNOWN LIMITATION, upstream and not fixable here: `signals.geo_region` holds
- *   only the five UN macro-regions (verified live — Africa, Americas, Asia,
- *   Europe, Oceania). Ingestion collapses supra-national blocs into them, so
- *   "European Union" becomes Europe, "LATAM" and "Caribbean" become Americas,
- *   and "Middle East" becomes Asia. The bloc identity is destroyed before this
- *   module sees the row, which produces two wrong outcomes it cannot detect:
- *   a US operator receives LATAM-wide items (over-delivery), and a Cyprus
- *   operator — UN region **Asia**, confirmed against `countryIdentityRows` —
- *   misses EU-wide rules entirely (under-delivery, the more damaging one).
- *   Fixing this needs the original bloc label preserved at ingestion (e.g. a
- *   `geo_bloc` column) plus real membership data; inventing a bloc table here
- *   would be guessing. Logged as a follow-up rather than papered over.
- * - `global`  — reaches everyone. A treaty-level change is not filtered out by
- *   virtue of belonging to no single country.
- * - `unknown` — geography cannot be established, so it cannot be used to
- *   exclude. Matches, and is then narrowed by role family like any other row.
- */
+function regionalAudienceDisplayLabel(row: SignalRoutingRow): string | null {
+  for (const value of [row.country, row.geo_region]) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function matchesRegionalAudience(row: SignalRoutingRow, profileIso2: Set<string>): boolean {
+  const explicitCountryLabel = normaliseRegionalLabel(row.country)
+  const label = explicitCountryLabel ?? normaliseRegionalLabel(row.geo_region)
+  if (!label) return false
+
+  return [...profileIso2].some((iso2) => {
+    const metadata = REGION_METADATA_BY_ISO2.get(iso2)
+    if (!metadata) return false
+
+    switch (label) {
+      case 'eu':
+      case 'european union':
+        return EU_MEMBER_ISO2.has(iso2)
+      case 'latam':
+      case 'latin america':
+      case 'latin america and the caribbean':
+      case 'latin america & caribbean':
+      case 'latin america and caribbean':
+        return LATAM_SUBREGIONS.has(metadata.subregion)
+      case 'caribbean':
+        return metadata.subregion === 'caribbean'
+      case 'middle east':
+        // Controlled Harbourview definition: UN M49 Western Asia plus Egypt.
+        // It deliberately does not widen to all Asia or all MENA.
+        return metadata.subregion === 'western asia' || iso2 === 'EG'
+      case 'pacific':
+      case 'pacific islands':
+        return metadata.region === 'oceania'
+      default:
+        // A retained but unknown bloc label must fail closed rather than widen
+        // to the signal's coarser macro-region. Macro-regions remain explicit.
+        return !explicitCountryLabel && UN_MACRO_REGIONS.has(label)
+          ? metadata.region === label
+          : UN_MACRO_REGIONS.has(label) && metadata.region === label
+    }
+  })
+}
+
 function matchesGeography(row: SignalRoutingRow, profile: OperatorProfile): boolean {
   const wanted = profileCountries(profile)
   // An operator who declared no geography is not filtered by geography.
@@ -337,28 +306,8 @@ function matchesGeography(row: SignalRoutingRow, profile: OperatorProfile): bool
       const country = signalCountryIso2(row)
       return country !== null && wanted.has(country)
     }
-    case 'region': {
-      // Case-folded on both sides. The two vocabularies agree today (both are
-      // Africa/Americas/Asia/Europe/Oceania), but an exact `Set.has` would miss
-      // on any future case drift and silently withhold a regional signal from an
-      // operator inside that region — the exact silent-drop this matcher exists
-      // to prevent, and the fail-open below only covers unmapped countries.
-      const region = typeof row.geo_region === 'string' ? row.geo_region.trim().toLowerCase() : null
-      if (region === null || region === '') return false
-      // If any declared country has no region mapping, this operator's regional
-      // coverage cannot be proven either way — see REGION_BY_ISO2's note on the
-      // 60 unmapped identities. Deliver rather than drop: for an intelligence
-      // product, one extra regional item costs far less than missing an EU-wide
-      // rule change, and this degrades to exact behaviour once the codes land.
-      //
-      // Test per country, NOT by set size. Comparing `profileRegions().size` to
-      // `profileCountries().size` compares regions against countries: two
-      // countries in one region (LS + ZA) gave 1 < 2 and fired the guard for the
-      // common case, widening the very filter it was meant to make safe.
-      const countries = profileCountries(profile)
-      if ([...countries].some((code) => !REGION_BY_ISO2.has(code))) return true
-      return profileRegions(profile).has(region)
-    }
+    case 'region':
+      return matchesRegionalAudience(row, wanted)
     case 'global':
       return true
     default:
@@ -427,14 +376,10 @@ export function explainMatch(row: SignalRoutingRow, profile: OperatorProfile): s
 
   switch (signalGeoScope(row)) {
     case 'region': {
-      // Deliberately does NOT say "where you operate". Two paths reach here
-      // without establishing that: the fail-open branch for a country with no
-      // region mapping (the operator's region is unknown, not confirmed), and a
-      // match via an export destination only (they trade into the region, they
-      // do not operate in it). Claiming otherwise would put an assertion in
-      // front of a user that the matcher never proved.
-      const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
-      return region ? `Affects ${region}, a region you cover${suffix}` : `Matches your watch profile${suffix}`
+      const audience = regionalAudienceDisplayLabel(row)
+      return audience
+        ? `Affects ${audience}, a region or bloc you cover${suffix}`
+        : `Matches your watch profile${suffix}`
     }
     case 'global':
       return `Global change affecting all markets${suffix}`
