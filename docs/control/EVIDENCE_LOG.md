@@ -2788,3 +2788,25 @@ than speed here.
 - Mobile dashboard (`MobileCommandCentre.tsx`) and `app/country/[country]/role/[role]/page.tsx`
   Watchlist gating gap (from the #1173 entry) remains open.
 - Admin review UI for pending professional-service applications (from the #1178 entry) remains open.
+
+## 2026-08-02 — PR #1227 release-verification trust-boundary repair
+
+- Rebased `agent/release-verification-infrastructure` onto current `main` and
+  rebuilt the verification scripts from the reviewed trust model.
+- Removed the proposed production migration-ledger database credential. The
+  manual ledger workflow now accepts validated version/name metadata only and
+  runs trusted verifier code against an audited protected-main checkout treated
+  as data.
+- Hardened immutable Vercel URL validation against control characters, output
+  injection, credentials, mutable aliases, paths, queries and fragments.
+- Hardened leakage probing to require expected 200 responses/content types,
+  reject cross-origin redirects, respect an explicitly empty API allowlist,
+  validate asset caps, support Vercel protection bypass, and store only hashed
+  redacted context when a forbidden token is found.
+- Added duplicate-version and invalid-filename rejection to migration comparison.
+- No production write, deployment alias mutation, database credential access or
+  schema change occurred.
+- Validation: Node syntax checks, local mock-response probe tests, migration
+  ledger fixture comparison, `git diff --check`, and repository CI.
+- Rollback: revert the PR; the change is verification-only and creates no remote
+  infrastructure or data mutation.
