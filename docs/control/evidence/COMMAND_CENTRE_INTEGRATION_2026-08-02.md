@@ -8,7 +8,7 @@ Canonical feature branch: `agent/command-centre-integration-rule`
 
 The previous wait-on-PR-#1249 workflow was removed. The mobile navigation changes from PR #1249 and the Command Centre integration changes from PR #1257 have been consolidated into one branch derived from current `main` plus the verified PR #1249 merge tree.
 
-PR #1249 is to be closed as superseded once PR #1257 points at the consolidated head.
+PR #1249 is closed without merge as superseded. PR #1257 now points to the consolidated branch and is the only active implementation path.
 
 ## Implemented surfaces
 
@@ -25,12 +25,12 @@ PR #1249 is to be closed as superseded once PR #1257 points at the consolidated 
 
 | Check | Status |
 |---|---|
-| Dependency installation | PENDING on consolidated head |
-| Lint | PENDING on consolidated head |
-| Typecheck | PENDING on consolidated head |
-| Command Centre unit and route-contract tests | PENDING on consolidated head |
-| Full repository test partitions | PENDING on consolidated head |
-| Production build | PENDING on consolidated head |
+| Dependency installation | RUNNING on consolidated head |
+| Lint | PENDING |
+| Typecheck | PENDING |
+| Command Centre unit and route-contract tests | PENDING |
+| Full repository test partitions | PENDING |
+| Production build | PENDING |
 | Fresh Vercel preview | PENDING |
 | Authenticated 320 screenshot | PENDING |
 | Authenticated 375 screenshot | PENDING |
@@ -61,4 +61,4 @@ The screenshot suite requires an authenticated non-production storage state or d
 
 ## Status
 
-**HOLD** until the consolidated branch is attached to PR #1257 and the verification matrix is complete.
+**HOLD** until the consolidated verification matrix and authenticated screenshot evidence are complete.
