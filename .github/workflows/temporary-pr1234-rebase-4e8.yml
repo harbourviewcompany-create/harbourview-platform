@@ -1,0 +1,115 @@
+name: Temporary PR 1234 Exact Rebase 4e8
+
+on:
+  push:
+    branches: [feat/global-reg-os-phase0]
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/global-reg-os-phase0
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Rebuild exact Phase 0 delta on current-main baseline
+        run: |
+          set -euo pipefail
+          git fetch origin main backup/pr-1234-pre-4e8-rebase-9b4622d
+          test "$(git rev-parse origin/main)" = "4e8b2919b0f3ebeb23705f1b5b4e6804c661bebb"
+
+          git checkout origin/backup/pr-1234-pre-4e8-rebase-9b4622d -- \
+            .github/workflows/global-reg-os-phase0.yml \
+            docs/control/global-regulatory-os/REPOSITORY_PACKAGE.md \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part000 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part001 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part002 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part003 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part004 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part005 \
+            docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256 \
+            docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip.sha256 \
+            lib/signals/feedbackScores.ts \
+            scripts/audit-edge-functions.js \
+            scripts/global-reg-os/apply-repository-patches.py \
+            scripts/global-reg-os/bootstrap-phase0.sh \
+            scripts/global-reg-os/run-postgres-validation-repository.sh \
+            scripts/global-reg-os/validate-repository-phase0.py \
+            tests/global-reg-os/sql/assert_authorization_repository.sql
+
+          node - <<'NODE'
+          const fs = require('fs')
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          pkg.devDependencies.eslint = '9.39.5'
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
+          NODE
+
+          npm install --package-lock-only --ignore-scripts
+          rm .github/workflows/temporary-pr1234-rebase-4e8.yml
+
+          git diff --exit-code origin/main -- \
+            components/dashboard/MobileCommandCentre.tsx \
+            vercel.json \
+            supabase/functions/hv-extract/index.ts \
+            app/supply \
+            components/supply \
+            public/images/supply \
+            scripts/validate-supply-images.mjs \
+            .github/workflows/supply-imagery-build.yml
+
+          node - <<'NODE'
+          const fs = require('fs')
+          const pkg = require('./package.json')
+          const lock = require('./package-lock.json')
+          if (pkg.devDependencies.eslint !== '9.39.5') throw new Error('ESLint pin missing')
+          if (pkg.scripts['validate:supply-images'] !== 'node scripts/validate-supply-images.mjs') throw new Error('Current-main supply validation script missing')
+          if (pkg.dependencies.linkedom !== '^0.18.12') throw new Error('Current-main linkedom dependency missing')
+          if (lock.packages[''].devDependencies.eslint !== '9.39.5') throw new Error('Lockfile ESLint pin missing')
+          if (lock.packages[''].dependencies.linkedom !== '^0.18.12') throw new Error('Lockfile linkedom missing')
+          const mobile = fs.readFileSync('components/dashboard/MobileCommandCentre.tsx', 'utf8')
+          if (!mobile.includes('.map((step, index) =>')) throw new Error('String steps renderer missing')
+          if (!mobile.includes('key_regulators.primary')) throw new Error('Primary regulator renderer missing')
+          if (!mobile.includes('key_regulators.secondary.map')) throw new Error('Secondary regulator renderer missing')
+          NODE
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "rebase: synchronize Global Regulatory OS Phase 0 with current main"
+
+          cat > /tmp/expected-files.txt <<'EOF'
+          .github/workflows/global-reg-os-phase0.yml
+          docs/control/global-regulatory-os/REPOSITORY_PACKAGE.md
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part000
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part001
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part002
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part003
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part004
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part005
+          docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256
+          docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip.sha256
+          lib/signals/feedbackScores.ts
+          package-lock.json
+          package.json
+          scripts/audit-edge-functions.js
+          scripts/global-reg-os/apply-repository-patches.py
+          scripts/global-reg-os/bootstrap-phase0.sh
+          scripts/global-reg-os/run-postgres-validation-repository.sh
+          scripts/global-reg-os/validate-repository-phase0.py
+          tests/global-reg-os/sql/assert_authorization_repository.sql
+          EOF
+          sed -i 's/^          //' /tmp/expected-files.txt
+          git diff --name-only origin/main..HEAD | sort > /tmp/actual-files.txt
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          test "$(wc -l < /tmp/actual-files.txt)" -eq 19
+
+          git push origin HEAD:feat/global-reg-os-phase0 --force-with-lease
