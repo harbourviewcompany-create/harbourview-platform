@@ -29,7 +29,10 @@ for root in ['docs', 'tests']:
                 p.write_text(s.replace(old, new))
 p = Path('tests/signals/pipeline-hardening.test.ts')
 s = p.read_text()
-s = s.replace("expect(migration).toContain(\"v_alert_ids bigint[] := '{}'::bigint[]\")", "expect(migration).toMatch(/v_alert_ids\\s+bigint\\[\\]\\s*:=\\s*'\\{\\}'::bigint\\[\\]/)")
+s = s.replace(
+    "expect(migration).toContain(\"v_alert_ids bigint[] := '{}'::bigint[]\")",
+    r"expect(migration).toMatch(/v_alert_ids\s+bigint\[\]\s*:=\s*'\{\}'::bigint\[\]/)",
+)
 p.write_text(s)
 PY
 
@@ -43,12 +46,18 @@ cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
 - Updated migration-contract, PostgreSQL dry-run, database-control and evidence
   references to the unique version.
 - Made the locked-alert-ID declaration assertion whitespace-insensitive.
-- Validation required: migration filename discipline, signal-quality tests,
-  PostgreSQL 17 dry run and the complete PR check set.
+- Validation required: targeted migration-version uniqueness, signal-quality
+  tests, PostgreSQL 17 dry run and the complete PR check set.
 EOF
 
-node scripts/check-migration-filenames.mjs || true
-npm run test:signal-quality
+python3 - <<'CHECK'
+from pathlib import Path
+matches = sorted(p.name for p in Path('supabase/migrations').glob('20260802080000_*.sql'))
+assert matches == ['20260802080000_harden_eval_labels_and_alert_delivery.sql'], matches
+assert not Path('supabase/migrations/20260731100000_harden_eval_labels_and_alert_delivery.sql').exists()
+print('PR 1224 unique migration version check passed')
+CHECK
+
 git diff --check
 git add -A
 git commit -m 'fix: assign pipeline hardening a unique migration version'
