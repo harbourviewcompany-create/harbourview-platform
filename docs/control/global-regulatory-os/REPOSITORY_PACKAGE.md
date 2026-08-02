@@ -20,4 +20,4 @@ Repository preview compatibility uses Harbourview's existing daily `/api/cron/in
 
 PR #1234 is rebased onto repaired `main`. The inherited `MobileCommandCentre.tsx` merge conflict is resolved by retaining the repaired main implementation, which renders market-entry steps as strings and handles `key_regulators` through its `primary` value and `secondary[]` collection. The Global Regulatory OS artifacts and service architecture are unchanged.
 
-Current-main synchronization evidence: the branch was rebuilt on `4e8b2919b0f3ebeb23705f1b5b4e6804c661bebb`; current-main package, extraction, supply imagery and Vercel changes were retained; `package-lock.json` was regenerated from the combined manifest; and `MobileCommandCentre.tsx` plus `vercel.json` remain outside the PR diff.
+Current-main synchronization evidence: the branch was rebuilt on `2eb6384e825c98d5eba044ed3148ac0cfe2b8b54`; current-main package, extraction, supply imagery, supply-image audit and Vercel changes were retained; `package-lock.json` was regenerated from the combined manifest; and `MobileCommandCentre.tsx` plus `vercel.json` remain outside the PR diff.
