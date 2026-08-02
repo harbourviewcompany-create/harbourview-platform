@@ -9,6 +9,9 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Supabase schema generics are invariant and callers use multiple exposed schemas.
+// This boundary erases compile-time schema parameters only; runtime behavior is unchanged.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
 
 export async function loadFeedbackScores(

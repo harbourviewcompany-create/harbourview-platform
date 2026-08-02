@@ -2802,3 +2802,22 @@ than speed here.
 - No production migration or write occurred during branch repair.
 - Required evidence: lint, typecheck, tests, build, PostgreSQL 17 migration dry
   run, migration drift, public-surface and regulatory-signal checks.
+
+## 2026-08-02 — Regional/bloc routing forward fix after PR #1231
+
+- Added a deterministic 248-row ISO-2/ISO-3 bridge generated from pinned
+  `pycountry 24.6.1` and the checked-in UN M49-derived identity table.
+- Replaced the incomplete 193-country dashboard bridge and removed regional
+  fail-open behavior for unmapped country codes.
+- Preserved explicit European Union, LATAM, Caribbean, Eastern Europe/Central
+  Asia, Middle East, Pacific, and UN macro-region audience semantics. LATAM is
+  kept distinct from the separately retained Caribbean label.
+- Added regression cases covering Singapore, the US versus Colombia, Barbados
+  versus the US, Cyprus versus the UK, Egypt/UAE versus Singapore/Morocco,
+  Australia versus Japan, all five UN macro-regions, and unknown-bloc fail-closed
+  behavior.
+- No production migration, database write, deployment, alias movement, or secret
+  access was performed by this forward-fix branch.
+- Required evidence: generated-data reproducibility, routing tests, lint,
+  typecheck, full tests, production build, public-boundary checks, and the
+  PostgreSQL 17 pipeline-hardening migration fixture.

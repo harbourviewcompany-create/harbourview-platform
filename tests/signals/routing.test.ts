@@ -262,22 +262,107 @@ describe('geographic scope', () => {
     expect(matchesOperatorProfile(africa, southernAfrica)).toBe(true)
   })
 
-  it('fails open for jurisdictions with no region mapping rather than withholding', () => {
-    // 60 of 248 canonical identities have no alpha-3→alpha-2 entry in this repo
-    // (Singapore among them), and operator_countries accepts any alpha-2. Missing
-    // an EU-wide rule change costs more than one extra regional item, so an
-    // unmappable profile must not silently lose regional coverage.
-    //
-    // MAINTENANCE: 'SG' is used because it is currently unmapped. When the ISO
-    // data gap is closed from a checked source, THIS TEST WILL FAIL — that is the
-    // data fix landing, not a routing regression. Retire this case, or repoint it
-    // at a still-unmapped code, at that time. The `does not fail open` test above
-    // is the one that guards the actual filtering behaviour.
+  it('uses the complete checked ISO mapping for Singapore', () => {
     const singapore: OperatorProfile = { countryIso2: ['SG'], roleFamilies: cultivation }
-    const signal = routed({ geo_scope: 'region', geo_region: 'Asia', role_families: cultivation })
-    expect(matchesOperatorProfile(signal, singapore)).toBe(true)
-    // A fully-mappable profile is still filtered normally.
-    expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(false)
+    const asia = routed({ geo_scope: 'region', geo_region: 'Asia', role_families: cultivation })
+    const europe = routed({ geo_scope: 'region', geo_region: 'Europe', role_families: cultivation })
+    expect(matchesOperatorProfile(asia, singapore)).toBe(true)
+    expect(matchesOperatorProfile(europe, singapore)).toBe(false)
+  })
+
+  it('does not widen LATAM to all of the Americas', () => {
+    const usa: OperatorProfile = { countryIso2: ['US'], roleFamilies: cultivation }
+    const colombia: OperatorProfile = { countryIso2: ['CO'], roleFamilies: cultivation }
+    const barbados: OperatorProfile = { countryIso2: ['BB'], roleFamilies: cultivation }
+    const signal = routed({ geo_scope: 'region', geo_region: 'Americas', country: 'LATAM', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, usa)).toBe(false)
+    expect(matchesOperatorProfile(signal, colombia)).toBe(true)
+    expect(matchesOperatorProfile(signal, barbados)).toBe(false)
+  })
+
+  it('matches Caribbean as a subregion rather than all Americas', () => {
+    const barbados: OperatorProfile = { countryIso2: ['BB'], roleFamilies: cultivation }
+    const usa: OperatorProfile = { countryIso2: ['US'], roleFamilies: cultivation }
+    const signal = routed({ geo_scope: 'region', geo_region: 'Americas', country: 'Caribbean', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, barbados)).toBe(true)
+    expect(matchesOperatorProfile(signal, usa)).toBe(false)
+  })
+
+  it('matches Latin America and the Caribbean as the combined audience', () => {
+    const barbados: OperatorProfile = { countryIso2: ['BB'], roleFamilies: cultivation }
+    const colombia: OperatorProfile = { countryIso2: ['CO'], roleFamilies: cultivation }
+    const usa: OperatorProfile = { countryIso2: ['US'], roleFamilies: cultivation }
+    const signal = routed({
+      geo_scope: 'region',
+      geo_region: 'Americas',
+      country: 'Latin America and the Caribbean',
+      role_families: cultivation,
+    })
+    expect(matchesOperatorProfile(signal, barbados)).toBe(true)
+    expect(matchesOperatorProfile(signal, colombia)).toBe(true)
+    expect(matchesOperatorProfile(signal, usa)).toBe(false)
+  })
+
+  it('matches European Union membership independently of UN macro-region', () => {
+    const cyprus: OperatorProfile = { countryIso2: ['CY'], roleFamilies: cultivation }
+    const uk: OperatorProfile = { countryIso2: ['GB'], roleFamilies: cultivation }
+    const signal = routed({ geo_scope: 'region', geo_region: 'Europe', country: 'European Union', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, cyprus)).toBe(true)
+    expect(matchesOperatorProfile(signal, uk)).toBe(false)
+  })
+
+  it('preserves the retained Eastern Europe/Central Asia audience', () => {
+    const poland: OperatorProfile = { countryIso2: ['PL'], roleFamilies: cultivation }
+    const kazakhstan: OperatorProfile = { countryIso2: ['KZ'], roleFamilies: cultivation }
+    const germany: OperatorProfile = { countryIso2: ['DE'], roleFamilies: cultivation }
+    const singapore: OperatorProfile = { countryIso2: ['SG'], roleFamilies: cultivation }
+    const signal = routed({
+      geo_scope: 'region',
+      geo_region: 'Europe',
+      country: 'Eastern Europe/Central Asia',
+      role_families: cultivation,
+    })
+    expect(matchesOperatorProfile(signal, poland)).toBe(true)
+    expect(matchesOperatorProfile(signal, kazakhstan)).toBe(true)
+    expect(matchesOperatorProfile(signal, germany)).toBe(false)
+    expect(matchesOperatorProfile(signal, singapore)).toBe(false)
+  })
+
+  it('does not widen Middle East to all of Asia or North Africa', () => {
+    const egypt: OperatorProfile = { countryIso2: ['EG'], roleFamilies: cultivation }
+    const uae: OperatorProfile = { countryIso2: ['AE'], roleFamilies: cultivation }
+    const singapore: OperatorProfile = { countryIso2: ['SG'], roleFamilies: cultivation }
+    const morocco: OperatorProfile = { countryIso2: ['MA'], roleFamilies: cultivation }
+    const signal = routed({ geo_scope: 'region', geo_region: 'Asia', country: 'Middle East', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, egypt)).toBe(true)
+    expect(matchesOperatorProfile(signal, uae)).toBe(true)
+    expect(matchesOperatorProfile(signal, singapore)).toBe(false)
+    expect(matchesOperatorProfile(signal, morocco)).toBe(false)
+  })
+
+  it('matches Pacific to Oceania without widening globally', () => {
+    const australia: OperatorProfile = { countryIso2: ['AU'], roleFamilies: cultivation }
+    const japan: OperatorProfile = { countryIso2: ['JP'], roleFamilies: cultivation }
+    const signal = routed({ geo_scope: 'region', geo_region: 'Oceania', country: 'Pacific', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, australia)).toBe(true)
+    expect(matchesOperatorProfile(signal, japan)).toBe(false)
+  })
+
+  it.each([
+    ['Africa', 'LS', 'DE'],
+    ['Americas', 'US', 'DE'],
+    ['Asia', 'SG', 'DE'],
+    ['Europe', 'DE', 'LS'],
+    ['Oceania', 'AU', 'DE'],
+  ])('matches the UN macro-region %s exactly', (region, included, excluded) => {
+    const signal = routed({ geo_scope: 'region', geo_region: region, role_families: cultivation })
+    expect(matchesOperatorProfile(signal, { countryIso2: [included], roleFamilies: cultivation })).toBe(true)
+    expect(matchesOperatorProfile(signal, { countryIso2: [excluded], roleFamilies: cultivation })).toBe(false)
+  })
+
+  it('fails closed for an unknown retained bloc label', () => {
+    const signal = routed({ geo_scope: 'region', geo_region: 'Americas', country: 'Unknown bloc', role_families: cultivation })
+    expect(matchesOperatorProfile(signal, { countryIso2: ['US'], roleFamilies: cultivation })).toBe(false)
   })
 
   it('delivers global signals to everyone', () => {
@@ -324,10 +409,9 @@ describe('explainMatch', () => {
   it('explains regional and global reach without claiming a country', () => {
     expect(
       explainMatch(routed({ geo_scope: 'region', geo_region: 'Europe', role_families: ['cultivation_production'] }), lesothoCultivator),
-    // Deliberately not "where you operate": a region can match via an export
-    // destination, or via the fail-open path for an unmapped country, neither of
-    // which establishes that the operator operates there.
-    ).toBe('Affects Europe, a region you cover (cultivation & production)')
+    // Deliberately not "where you operate": a region can match through an
+    // export destination, which does not establish that the operator operates there.
+    ).toBe('Affects Europe, a region or bloc you cover (cultivation & production)')
     expect(
       explainMatch(routed({ geo_scope: 'global', role_families: ['cultivation_production'] }), lesothoCultivator),
     ).toBe('Global change affecting all markets (cultivation & production)')

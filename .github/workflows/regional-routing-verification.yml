@@ -1,0 +1,71 @@
+name: Regional Routing Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lib/signals/routing.ts'
+      - 'lib/country-data/generated-iso-region-rows.ts'
+      - 'scripts/country-data/generate-iso-region-rows.py'
+      - 'tests/signals/routing.test.ts'
+      - 'docs/control/REGIONAL_ROUTING_DEFINITIONS.md'
+      - 'docs/control/EVIDENCE_LOG.md'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify generated 248-country mapping
+        run: |
+          python3 -m pip install --disable-pip-version-check 'pycountry==24.6.1'
+          python3 scripts/country-data/generate-iso-region-rows.py
+          git diff --exit-code -- lib/country-data/generated-iso-region-rows.ts
+      - name: Install dependencies
+        run: npm ci
+      - name: Routing regression suite
+        run: npm run test:signal-routing
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm run test
+      - name: Production build
+        run: npm run build
+      - name: Public boundary checks
+        run: |
+          npm run test:visibility
+          npm run test:security
+      - name: PostgreSQL 17 pipeline-hardening migration fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/pr1224_pipeline_hardening_dry_run.sql
