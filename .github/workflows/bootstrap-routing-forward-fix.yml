@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/bootstrap-routing-forward-fix.yml'
       - 'scripts/bootstrap-routing-forward-fix.sh'
+      - 'scripts/continue-routing-forward-fix.py'
 
 permissions:
   contents: write
@@ -47,4 +48,32 @@ jobs:
         with:
           python-version: '3.13'
       - name: Build, validate, and push forward fix
-        run: bash scripts/bootstrap-routing-forward-fix.sh
+        run: |
+          set +e
+          bash scripts/bootstrap-routing-forward-fix.sh
+          bootstrap_status=$?
+          set -e
+          if [ "$bootstrap_status" -eq 0 ]; then
+            exit 0
+          fi
+
+          python3 scripts/continue-routing-forward-fix.py
+          npm run lint
+          npm run typecheck
+          npm run test
+          npm run build
+          npm run test:visibility
+          npm run test:security
+          psql -v ON_ERROR_STOP=1 -f tests/sql/pr1224_pipeline_hardening_dry_run.sql
+          git diff --check
+
+          git add \
+            lib/signals/feedbackScores.ts \
+            lib/signals/routing.ts \
+            lib/country-data/generated-iso-region-rows.ts \
+            scripts/country-data/generate-iso-region-rows.py \
+            tests/signals/routing.test.ts \
+            docs/control/REGIONAL_ROUTING_DEFINITIONS.md \
+            docs/control/EVIDENCE_LOG.md
+          git commit -m 'fix: route regional signals by explicit audience definitions'
+          git push origin HEAD:fix/routing-regional-audiences
