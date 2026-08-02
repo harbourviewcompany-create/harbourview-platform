@@ -1,0 +1,47 @@
+name: Diagnose PR 1233 Lint
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-pr1233-lint.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint-json:
+    if: github.event.pull_request.number == 1241
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 127312b6325b2ca7a5cd541a91f51554ae41b255
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Capture ESLint JSON
+        run: |
+          mkdir -p diagnostics
+          npx eslint . --format json > diagnostics/pr1233-eslint.json || true
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const rows = JSON.parse(readFileSync('diagnostics/pr1233-eslint.json', 'utf8'));
+          const failures = rows.flatMap((row) => row.messages.filter((m) => m.severity === 2).map((m) => ({
+            file: row.filePath,
+            line: m.line,
+            column: m.column,
+            ruleId: m.ruleId,
+            message: m.message,
+          })));
+          writeFileSync('diagnostics/pr1233-errors.json', JSON.stringify(failures, null, 2));
+          console.log(JSON.stringify(failures, null, 2));
+          if (failures.length === 0) console.log('No ESLint errors; npm script failure is outside rule output.');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr1233-lint-diagnostics
+          path: diagnostics
+          retention-days: 1
