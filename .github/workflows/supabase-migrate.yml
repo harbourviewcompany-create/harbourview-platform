@@ -1,4 +1,4 @@
-name: supabase-migrate
+name: Elite Digest production migration activation
 
 on:
   workflow_dispatch:
@@ -12,179 +12,307 @@ on:
           - HOLD
           - APPLY_PRODUCTION_MIGRATIONS
 
+permissions:
+  contents: read
+
+concurrency:
+  group: elite-digest-production-migration-activation
+  cancel-in-progress: false
+
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
-  SUPABASE_DB_HOST: aws-1-us-west-2.pooler.supabase.com
-  SUPABASE_DB_PORT: "5432"
-  SUPABASE_DB_USER: postgres.zvxdgdkukjrrwamdpqrg
-  SUPABASE_DB_NAME: postgres
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+  RELEASE_CONTROL_FILE: supabase/release-controls/elite-digest-production-activation.json
 
 jobs:
-  migrate:
-    if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
-    name: Apply Supabase migrations — explicit production authorization
+  preflight:
+    name: Read-only manifest and rollback evidence
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-
+    timeout-minutes: 20
+    outputs:
+      feedback_fingerprint: ${{ steps.feedback.outputs.fingerprint }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Require main branch dispatch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Production migration activation must be dispatched from main. Current ref: $GITHUB_REF"
+            exit 1
+          fi
 
-      - name: Setup Supabase CLI
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          # Pinned to a known-good stable release. supabase/cli cuts several
-          # betas a day; `latest` had been resolving correctly but is an
-          # unnecessary source of version drift for a production pipeline.
-          # Bump deliberately, not automatically.
           version: 2.109.1
 
-      - name: Install postgresql-client
+      - name: Install PostgreSQL client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
-      - name: Build DB connection string
-        id: dbconn
-        run: |
-          # The DB password can legitimately contain URL-reserved characters
-          # (this pipeline previously broke silently when it was rotated to
-          # one that did -- "postgresql://user:PASS@host" with an unescaped
-          # '@' in PASS gets misparsed as extra host segments). Percent-encode
-          # it properly once, here, rather than assuming future rotations
-          # will always be encoding-safe.
-          ENCODED_PASSWORD=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$SUPABASE_DB_PASSWORD")
-          DB_URL="postgresql://${SUPABASE_DB_USER}:${ENCODED_PASSWORD}@${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT}/${SUPABASE_DB_NAME}"
-          echo "::add-mask::$DB_URL"
-          echo "db_url=$DB_URL" >> "$GITHUB_OUTPUT"
-        env:
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-
-      - name: Link project
-        run: supabase link --project-ref $SUPABASE_PROJECT_REF
+      - name: Read linked migration state
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - name: Scan pending migrations for destructive statements
         run: |
-          set +e
-          FLAGGED=""
-          for f in supabase/migrations/*.sql; do
-            # DROP TABLE / DROP SCHEMA / TRUNCATE-as-statement / naked DELETE FROM.
-            # Deliberately excludes REVOKE ... ON TABLE ... TRUNCATE (a privilege
-            # name, not a command) by requiring TRUNCATE to open the statement.
-            if grep -qiE '(^|;)\s*(DROP TABLE|DROP SCHEMA)\b' "$f" \
-               || grep -qiE '(^|;)\s*TRUNCATE\b' "$f" \
-               || grep -qiE '(^|;)\s*DELETE\s+FROM\s+[a-zA-Z0-9_."]+\s*;' "$f"; then
-              FLAGGED="$FLAGGED\n  $f"
+          mkdir -p artifacts/elite-digest-preflight
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked \
+            > artifacts/elite-digest-preflight/remote-migrations.txt
+
+      - name: Generate fail-closed pending manifest
+        id: manifest
+        continue-on-error: true
+        run: |
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/elite-digest-preflight/remote-migrations.txt \
+            --local-dir supabase/migrations \
+            --control-file "$RELEASE_CONTROL_FILE" \
+            --json-out artifacts/elite-digest-preflight/manifest.json \
+            --markdown-out artifacts/elite-digest-preflight/manifest.md \
+            --mode activation-preflight \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Capture read-only SQL preflight and rollback evidence
+        id: sql_preflight
+        continue-on-error: true
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          psql -X -v ON_ERROR_STOP=1 \
+            -f tests/sql/elite_digest_production_preflight_read_only.sql \
+            > artifacts/elite-digest-preflight/sql-preflight-and-rollback-evidence.txt
+
+      - name: Capture feedback data fingerprint
+        id: feedback
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -o pipefail
+          FINGERPRINT=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "
+            begin transaction read only;
+            select count(*)::text || ':' || coalesce(
+              md5(string_agg(
+                concat_ws('|', id::text, signal_id, coalesce(user_id::text, ''), verdict, coalesce(note, ''), surface, created_at::text),
+                E'\\n' order by id
+              )),
+              md5('')
+            )
+            from public.signal_relevance_feedback;
+            rollback;
+          " | sed -n '1p')
+          if [ -z "$FINGERPRINT" ]; then
+            echo "::error::Feedback fingerprint query returned no value."
+            exit 1
+          fi
+          echo "fingerprint=$FINGERPRINT" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$FINGERPRINT" \
+            > artifacts/elite-digest-preflight/feedback-fingerprint.txt
+
+      - name: Publish preflight summary
+        if: always()
+        run: |
+          if [ -f artifacts/elite-digest-preflight/manifest.md ]; then
+            cat artifacts/elite-digest-preflight/manifest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Production action requested: \`${{ inputs.production_action }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "No migration is applied by the preflight job." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elite-digest-preflight-${{ github.sha }}
+          path: artifacts/elite-digest-preflight/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce preflight gates
+        if: always()
+        env:
+          MANIFEST_OUTCOME: ${{ steps.manifest.outcome }}
+          SQL_PREFLIGHT_OUTCOME: ${{ steps.sql_preflight.outcome }}
+        run: |
+          FAILED=0
+          if [ "$MANIFEST_OUTCOME" != "success" ]; then
+            echo "::error::Pending migration manifest is HOLD."
+            FAILED=1
+          fi
+          if [ "$SQL_PREFLIGHT_OUTCOME" != "success" ]; then
+            echo "::error::Read-only SQL preflight failed."
+            FAILED=1
+          fi
+          exit "$FAILED"
+
+  apply-approved:
+    name: Apply exact approved Elite Digest sequence
+    needs: preflight
+    if: needs.preflight.result == 'success' && inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    runs-on: ubuntu-latest
+    environment: production-database
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Recheck exact pending set immediately before push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          mkdir -p artifacts/elite-digest-activation
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked \
+            > artifacts/elite-digest-activation/remote-before.txt
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/elite-digest-activation/remote-before.txt \
+            --local-dir supabase/migrations \
+            --control-file "$RELEASE_CONTROL_FILE" \
+            --json-out artifacts/elite-digest-activation/manifest-before.json \
+            --markdown-out artifacts/elite-digest-activation/manifest-before.md \
+            --mode activation-preflight \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Apply repository migrations after exact allowlist proof
+        id: db_push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          # --include-all is required because 20260802073000 sorts before newer
+          # remote-only history. The immediately preceding manifest gate proves
+          # that the complete repository-only set is exactly the three approved
+          # versions and that their filenames and Git blob SHAs match the control file.
+          ENCODED_PASSWORD=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+          print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))
+          PY
+          )
+          DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::$DB_URL"
+          supabase db push --include-all --db-url "$DB_URL"
+
+      - name: Read post-application migration state
+        if: always()
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          mkdir -p artifacts/elite-digest-activation
+          supabase migration list --linked \
+            > artifacts/elite-digest-activation/remote-after.txt
+
+      - name: Verify postflight ledger
+        id: post_manifest
+        if: always()
+        continue-on-error: true
+        run: |
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/elite-digest-activation/remote-after.txt \
+            --local-dir supabase/migrations \
+            --control-file "$RELEASE_CONTROL_FILE" \
+            --json-out artifacts/elite-digest-activation/manifest-after.json \
+            --markdown-out artifacts/elite-digest-activation/manifest-after.md \
+            --mode activation-postflight \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Run read-only SQL postflight
+        id: sql_postflight
+        if: always()
+        continue-on-error: true
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          psql -X -v ON_ERROR_STOP=1 \
+            -f tests/sql/elite_digest_production_postflight_read_only.sql \
+            > artifacts/elite-digest-activation/sql-postflight.txt
+
+      - name: Prove feedback data is unchanged
+        id: feedback_postflight
+        if: always()
+        continue-on-error: true
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          BEFORE_FINGERPRINT: ${{ needs.preflight.outputs.feedback_fingerprint }}
+        run: |
+          set -o pipefail
+          AFTER_FINGERPRINT=$(psql -X -qAt -v ON_ERROR_STOP=1 -c "
+            begin transaction read only;
+            select count(*)::text || ':' || coalesce(
+              md5(string_agg(
+                concat_ws('|', id::text, signal_id, coalesce(user_id::text, ''), verdict, coalesce(note, ''), surface, created_at::text),
+                E'\\n' order by id
+              )),
+              md5('')
+            )
+            from public.signal_relevance_feedback;
+            rollback;
+          " | sed -n '1p')
+          if [ -z "$AFTER_FINGERPRINT" ]; then
+            echo "::error::Postflight feedback fingerprint query returned no value."
+            exit 1
+          fi
+          printf 'before=%s\nafter=%s\n' "$BEFORE_FINGERPRINT" "$AFTER_FINGERPRINT" \
+            > artifacts/elite-digest-activation/feedback-fingerprint-comparison.txt
+          if [ "$AFTER_FINGERPRINT" != "$BEFORE_FINGERPRINT" ]; then
+            echo "::error::Feedback data fingerprint changed during migration activation."
+            exit 1
+          fi
+
+      - name: Publish activation summary
+        if: always()
+        run: |
+          if [ -f artifacts/elite-digest-activation/manifest-after.md ]; then
+            cat artifacts/elite-digest-activation/manifest-after.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload activation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elite-digest-activation-${{ github.sha }}
+          path: artifacts/elite-digest-activation/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce postflight gates
+        if: always()
+        env:
+          DB_PUSH_OUTCOME: ${{ steps.db_push.outcome }}
+          POST_MANIFEST_OUTCOME: ${{ steps.post_manifest.outcome }}
+          SQL_POSTFLIGHT_OUTCOME: ${{ steps.sql_postflight.outcome }}
+          FEEDBACK_POSTFLIGHT_OUTCOME: ${{ steps.feedback_postflight.outcome }}
+        run: |
+          FAILED=0
+          for OUTCOME in \
+            "$POST_MANIFEST_OUTCOME" \
+            "$SQL_POSTFLIGHT_OUTCOME" \
+            "$FEEDBACK_POSTFLIGHT_OUTCOME"; do
+            if [ "$OUTCOME" != "success" ]; then
+              FAILED=1
             fi
           done
-          if [ -n "$FLAGGED" ]; then
-            echo "::error title=Destructive statement detected::The following migration file(s) contain DROP TABLE, DROP SCHEMA, TRUNCATE, or an unqualified DELETE FROM with no WHERE clause, and will NOT be auto-applied:${FLAGGED}\n\nReview and apply manually via Supabase MCP if intended, then convert the file to a documented no-op stub (see any existing stub in supabase/migrations/ for the convention) so this pipeline can proceed on subsequent pushes."
-            exit 1
-          fi
-          echo "No destructive statements found in pending migrations."
-
-      - name: Auto-reconcile remote-only migrations
-        id: reconcile
-        run: |
-          set +e
-          rm -f /tmp/reconcile_versions.txt
-
-          psql -h "$SUPABASE_DB_HOST" -p "$SUPABASE_DB_PORT" -U "$SUPABASE_DB_USER" -d "$SUPABASE_DB_NAME" \
-            -t -A -F'|' \
-            -c "select version, name from supabase_migrations.schema_migrations order by version;" \
-            > /tmp/reconcile_versions.txt 2> /tmp/psql_stderr.log
-          PSQL_EXIT=$?
-
-          if [ $PSQL_EXIT -ne 0 ]; then
-            ERR=$(cat /tmp/psql_stderr.log | tr '\n' ' ' | sed 's/%/%25/g' | tr -d '\r')
-            echo "::error title=Auto-reconcile: psql query failed::exit code $PSQL_EXIT -- ${ERR}"
-            echo "count=0" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
-
-          LINE_COUNT=$(wc -l < /tmp/reconcile_versions.txt)
-          echo "Remote has $LINE_COUNT registered migration version(s)."
-          if [ "$LINE_COUNT" -eq 0 ]; then
-            echo "::error title=Auto-reconcile: empty result set::psql connected successfully but returned zero rows from supabase_migrations.schema_migrations. This should never happen on a live project -- treating as a failure rather than silently proceeding as if there were nothing to reconcile."
-            echo "count=0" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
-
-          NEW_COUNT=0
-          while IFS='|' read -r version name; do
-            [ -z "$version" ] && continue
-            if ! ls supabase/migrations/"${version}"_*.sql >/dev/null 2>&1; then
-              FILE="supabase/migrations/${version}_${name}.sql"
-              {
-                printf -- '-- Applied directly to production via Supabase MCP or another session.\n'
-                printf -- '-- Auto-generated placeholder by the supabase-migrate CI pipeline to\n'
-                printf -- '-- satisfy local/remote migration history parity (see\n'
-                printf -- '-- supabase_migrations.schema_migrations for the original application\n'
-                printf -- '-- timestamp). No DDL executed by this file. If this represents real,\n'
-                printf -- '-- reviewable work, replace this stub with the actual statements and a\n'
-                printf -- '-- proper description before the next release.\n'
-                printf -- 'SELECT 1;\n'
-              } > "$FILE"
-              echo "Created placeholder: $FILE"
-              NEW_COUNT=$((NEW_COUNT + 1))
+          if [ "$FAILED" -ne 0 ]; then
+            if [ "$DB_PUSH_OUTCOME" = "success" ]; then
+              echo "::error::One or more postflight gates failed after migrations were applied. Use the captured rollback-forward evidence; do not delete migration ledger history."
+            else
+              echo "::error::Activation stopped before a successful migration push. No rollback-forward repair is implied by this run."
             fi
-          done < /tmp/reconcile_versions.txt
-
-          echo "count=$NEW_COUNT" >> "$GITHUB_OUTPUT"
-
-          if [ "$NEW_COUNT" -gt 200 ]; then
-            echo "::error title=Reconciliation cap exceeded::Found $NEW_COUNT remote-only migrations in one pass, far above the normal drift rate seen this week (single digits to low dozens). Likely a bug in this step rather than genuine drift. Refusing to auto-commit -- investigate manually."
-            git checkout -- supabase/migrations/
-            exit 1
           fi
-
-          if [ "$NEW_COUNT" -gt 0 ]; then
-            git config user.name "supabase-migrate-bot"
-            git config user.email "actions@github.com"
-            git add supabase/migrations/
-            git commit -m "chore(supabase): auto-reconcile $NEW_COUNT remote-only migration(s)"
-
-            PUSHED=0
-            for attempt in 1 2 3; do
-              if git push origin HEAD:main 2>/tmp/git_push.log; then
-                PUSHED=1
-                break
-              fi
-              echo "Push rejected (attempt $attempt/3):"
-              cat /tmp/git_push.log
-              git pull --rebase origin main
-            done
-
-            if [ "$PUSHED" -eq 0 ]; then
-              ERR=$(tail -c 2000 /tmp/git_push.log | tr '\n' ' ' | sed 's/%/%25/g' | tr -d '\r')
-              echo "::error title=Auto-reconcile: git push failed after 3 attempts::${ERR}"
-              exit 1
-            fi
-            echo "Committed and pushed $NEW_COUNT placeholder file(s). This push will trigger a follow-up run against a clean tree."
-          else
-            echo "Nothing to reconcile -- local and remote migration history already match."
-          fi
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-
-      - name: Push migrations
-        if: steps.reconcile.outputs.count == '0'
-        run: |
-          set +e
-          supabase db push --include-all --db-url "${{ steps.dbconn.outputs.db_url }}" > /tmp/push_output.log 2>&1
-          PUSH_EXIT_CODE=$?
-          cat /tmp/push_output.log
-          if [ $PUSH_EXIT_CODE -ne 0 ]; then
-            SUMMARY=$(grep -B2 -A3 "^ERROR:" /tmp/push_output.log | tail -c 3200)
-            if [ -z "$SUMMARY" ]; then
-              SUMMARY=$(tail -c 3200 /tmp/push_output.log)
-            fi
-            ENCODED=$(echo "$SUMMARY" | sed 's/%/%25/g; s/\r/%0D/g; s/$/%0A/' | tr -d '\n')
-            echo "::error title=Push migrations failed (ERROR context)::${ENCODED}"
-          fi
-          exit $PUSH_EXIT_CODE
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          exit "$FAILED"

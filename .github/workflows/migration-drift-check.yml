@@ -1,116 +1,109 @@
 name: Migration Drift Check
 
-# Catches the exact failure mode in HANDOFF.md's "MIGRATION DRIFT PROTOCOL":
-# migrations applied via Supabase MCP / dashboard without a matching .sql file
-# committed to supabase/migrations/ in the same session. Runs on every PR/push
-# to main AND on a schedule, so drift is caught same-day, not 4 days later.
+# Detects migrations applied outside the repository and reports repository-only
+# pending migrations. The parser accepts both ASCII and box-drawing table output
+# from Supabase CLI and fails if a nonempty linked-project result parses as zero
+# remote rows.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      - '.github/workflows/migration-drift-check.yml'
+      - 'scripts/migration-ledger-manifest.mjs'
+      - 'tests/scripts/migration-ledger-manifest.test.mjs'
+      - 'supabase/release-controls/elite-digest-production-activation.json'
   push:
     branches: [main]
   schedule:
-    - cron: "0 * * * *"   # hourly — drift can be introduced outside of PRs (direct MCP calls)
+    - cron: '0 * * * *'
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
+env:
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+
 jobs:
-  check-drift:
+  parser-contract:
+    name: Verify migration-list parser
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run parser and fail-closed manifest tests
+        run: node --test tests/scripts/migration-ledger-manifest.test.mjs
+
+  check-drift:
+    name: Compare repository and live migration ledgers
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.109.1
 
-      - name: List migrations registered in prod ledger
-        id: remote
+      - name: Read live migration ledger
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
-          supabase link --project-ref "$SUPABASE_PROJECT_ID"
-          # `supabase migration list` has no --json flag (confirmed against the
-          # current CLI reference: only --db-url/--linked/--local/-p exist).
-          # It prints a box-drawing LOCAL | REMOTE | TIME table -- parse that instead.
-          supabase migration list --linked > remote_migrations.txt
-          cat remote_migrations.txt
+          mkdir -p artifacts/migration-drift
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked \
+            > artifacts/migration-drift/remote-migrations.txt
 
-      - name: List migrations committed to repo
-        id: local
+      - name: Generate exact drift manifest
+        id: manifest
+        continue-on-error: true
         run: |
-          ls supabase/migrations/*.sql 2>/dev/null \
-            | xargs -n1 basename \
-            | sed -E 's/^([0-9]+)_.*/\1/' \
-            | sort > local_migrations.txt
-          cat local_migrations.txt
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/migration-drift/remote-migrations.txt \
+            --local-dir supabase/migrations \
+            --control-file supabase/release-controls/elite-digest-production-activation.json \
+            --json-out artifacts/migration-drift/manifest.json \
+            --markdown-out artifacts/migration-drift/manifest.md \
+            --mode drift \
+            --source-sha "$GITHUB_SHA"
 
-      - name: Compare remote ledger vs repo files
+      - name: Publish manifest summary
+        if: always()
         run: |
-          python3 - <<'PY'
-          import re, sys
+          if [ -f artifacts/migration-drift/manifest.md ]; then
+            cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-          # Parse the REMOTE column out of `supabase migration list`'s box-drawing
-          # table. Row shape: " <local> │ <remote> │ <time> " -- a populated REMOTE
-          # column (14-digit timestamp) means that version is applied to prod.
-          remote_versions = set()
-          with open("remote_migrations.txt") as f:
-              for line in f:
-                  if "│" not in line:
-                      continue
-                  cols = [c.strip() for c in line.split("│")]
-                  if len(cols) < 2:
-                      continue
-                  candidate = cols[1]
-                  if re.fullmatch(r"\d{14}", candidate):
-                      remote_versions.add(candidate)
+      - name: Upload drift evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-drift-${{ github.sha }}
+          path: artifacts/migration-drift/
+          if-no-files-found: error
+          retention-days: 14
 
-          with open("local_migrations.txt") as f:
-              local_versions = set(l.strip() for l in f if l.strip())
-
-          applied_not_committed = remote_versions - local_versions
-          committed_not_applied = local_versions - remote_versions
-
-          drift = False
-
-          if applied_not_committed:
-              drift = True
-              print("::error::Migrations applied to prod but NOT committed to supabase/migrations/:")
-              for v in sorted(applied_not_committed):
-                  print(f"  - {v}")
-              print("These were likely applied via Supabase MCP/dashboard without the paired .sql commit. "
-                    "See HANDOFF.md > MIGRATION DRIFT PROTOCOL.")
-
-          if committed_not_applied:
-              # Not necessarily an error (could be a pending PR migration) — warn only.
-              print("::warning::Migrations committed to repo but not yet applied to prod:")
-              for v in sorted(committed_not_applied):
-                  print(f"  - {v}")
-
-          if drift:
-              sys.exit(1)
-
-          print(f"OK — {len(remote_versions)} remote migrations, all committed to repo.")
-          PY
-
-      - name: Post summary if drift detected
-        if: failure()
+      - name: Enforce drift result
+        if: always()
         run: |
-          echo "## ⚠️ Migration drift detected" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "One or more migrations exist in the live database but have no matching file in \`supabase/migrations/\`." >> "$GITHUB_STEP_SUMMARY"
-          echo "This blocks the next real migration and requires a manual reconciliation pass (see \`HANDOFF.md\`)." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Do not apply new migrations until this is reconciled.**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.manifest.outcome }}" != "success" ]; then
+            echo "::error::Migration drift parser or remote-ledger reconciliation failed."
+            exit 1
+          fi
 
-  # Optional companion check: block the specific "placeholder comment as code"
-  # landmine called out in HANDOFF.md ADR-style notes (e.g. `// Keep other
-  # functions as they were` committed as literal code, silently deleting
-  # working functions).
   check-placeholder-landmines:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Grep for known placeholder-comment landmines
@@ -135,6 +128,6 @@ jobs:
             fi
           done
           if [ "$FOUND" -eq 1 ]; then
-            echo "::error::Found placeholder-comment code landmines. These have previously caused silent deletion of working functions. Replace with real implementations before merging."
+            echo "::error::Found placeholder-comment code landmines. Replace them with complete implementations before merging."
             exit 1
           fi

@@ -1,0 +1,282 @@
+name: Elite Digest Release Control Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/migration-drift-check.yml'
+      - '.github/workflows/supabase-migrate.yml'
+      - '.github/workflows/elite-digest-release-control-verification.yml'
+      - 'scripts/migration-ledger-manifest.mjs'
+      - 'tests/scripts/migration-ledger-manifest.test.mjs'
+      - 'tests/sql/elite_digest_production_preflight_read_only.sql'
+      - 'tests/sql/elite_digest_production_postflight_read_only.sql'
+      - 'supabase/release-controls/elite-digest-production-activation.json'
+      - 'docs/ops/ELITE_DIGEST_DEPLOY.md'
+      - 'docs/control/ELITE_DIGEST_RELEASE_CONTROL.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: elite-digest-release-control-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Elite Digest release control
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify parser and fail-closed release manifest
+        run: node --test tests/scripts/migration-ledger-manifest.test.mjs
+
+      - name: Verify ordered Elite Digest migration sequence
+        run: node scripts/check-elite-digest-migration-versions.mjs
+
+      - name: Verify workflow control contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          activation = Path('.github/workflows/supabase-migrate.yml').read_text()
+          drift = Path('.github/workflows/migration-drift-check.yml').read_text()
+          required = [
+              'workflow_dispatch:',
+              'APPLY_PRODUCTION_MIGRATIONS',
+              'environment: production-database',
+              'activation-preflight',
+              'activation-postflight',
+              'elite-digest-production-activation.json',
+              'elite_digest_production_preflight_read_only.sql',
+              'elite_digest_production_postflight_read_only.sql',
+              'SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg',
+          ]
+          missing = [value for value in required if value not in activation]
+          if 'SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg' not in drift:
+              missing.append('matching drift workflow project reference')
+
+          referenced_paths = [
+              'supabase/release-controls/elite-digest-production-activation.json',
+              'tests/sql/elite_digest_production_preflight_read_only.sql',
+              'tests/sql/elite_digest_production_postflight_read_only.sql',
+              'scripts/migration-ledger-manifest.mjs',
+          ]
+          absent = [value for value in referenced_paths if not Path(value).is_file()]
+          forbidden = [
+              'git push origin HEAD:main',
+              'auto-reconcile',
+              'contents: write',
+              'SUPABASE_PROJECT_ID',
+              'sys.argv[1]',
+              'db_url=$DB_URL',
+          ]
+          present = [value for value in forbidden if value in activation or value in drift]
+          if missing or present or absent:
+              raise SystemExit(
+                  f'missing={missing}; forbidden_present={present}; absent_files={absent}'
+              )
+          print('Manual, independently approved, content-bound, fail-closed workflow contract verified.')
+          PY
+
+      - name: Verify production SQL packet gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          preflight = Path('tests/sql/elite_digest_production_preflight_read_only.sql').read_text()
+          postflight = Path('tests/sql/elite_digest_production_postflight_read_only.sql').read_text()
+          required_preflight = [
+              'first_six_applied_exactly',
+              'm.name is not distinct from e.expected_name',
+              'approved_three_unapplied',
+              'signals_table_exists',
+              'feedback_table_exists',
+              'begin transaction read only',
+          ]
+          required_postflight = [
+              'approved_three_applied_exactly',
+              'feedback_rls_enabled',
+              'dedup_function_exists',
+              'cluster_helper_exists',
+              'anon_direct_table_denied',
+              'authenticated_direct_table_denied',
+              'begin transaction read only',
+          ]
+          missing = [
+              value for value in required_preflight if value not in preflight
+          ] + [
+              value for value in required_postflight if value not in postflight
+          ]
+          if missing:
+              raise SystemExit(f'missing production SQL packet gates: {missing}')
+          print('Exact ledger-name, dependency, read-only, RLS, and direct-table packet gates verified.')
+          PY
+
+      - name: Existing HNSW and feedback RPC PostgreSQL fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/elite_digest_forward_repair_dry_run.sql
+
+      - name: Existing RPC boundary PostgreSQL 17 fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/elite_digest_boundary_hardening_dry_run.sql
+
+      - name: Execute production preflight and postflight packets on PostgreSQL 17
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create extension if not exists vector;
+          create extension if not exists pgcrypto;
+          create schema if not exists auth;
+          create schema if not exists api;
+          create schema if not exists supabase_migrations;
+
+          do $roles$
+          begin
+            if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+            if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+            if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
+          end
+          $roles$;
+
+          create table auth.users (id uuid primary key);
+          create or replace function auth.uid()
+          returns uuid
+          language sql
+          stable
+          as $$
+            select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+          $$;
+
+          create table public.signals (
+            id text primary key,
+            embedding_1024 vector(1024),
+            created_at timestamptz not null default now(),
+            quality_confidence numeric,
+            cluster_rep_id text,
+            is_representative boolean,
+            reviewed boolean,
+            reviewed_at timestamptz,
+            quality_label text
+          );
+
+          create table public.daily_digest (
+            digest_date date,
+            status text,
+            headlines jsonb,
+            editorial_headlines jsonb
+          );
+
+          create index idx_signals_embedding_1024_hnsw
+            on public.signals using hnsw (embedding_1024 vector_cosine_ops);
+
+          create or replace function public._digest_cluster_size(p_cluster_rep_id text)
+          returns integer
+          language sql
+          stable
+          security invoker
+          set search_path to 'public'
+          as $$
+            select greatest(1, count(*)::integer)
+            from public.signals s
+            where s.cluster_rep_id is not null
+              and s.cluster_rep_id = p_cluster_rep_id;
+          $$;
+
+          create or replace function public._digest_rank_score(
+            p_quality numeric,
+            p_signal_id text,
+            p_country text,
+            p_cluster_size integer,
+            p_language text
+          ) returns numeric
+          language sql
+          stable
+          as $$ select coalesce(p_quality, 0) $$;
+
+          create or replace function public.run_daily_digest()
+          returns void
+          language plpgsql
+          as $$
+          begin
+            return;
+          end
+          $$;
+
+          create table supabase_migrations.schema_migrations (
+            version text primary key,
+            statements text[],
+            name text
+          );
+
+          \ir supabase/migrations/20260730233000_intelligence_self_improve_loop.sql
+          \ir supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql
+
+          insert into supabase_migrations.schema_migrations(version, name) values
+            ('20260730230000', 'elite_digest_from_pipeline_b'),
+            ('20260730233000', 'intelligence_self_improve_loop'),
+            ('20260731090000', 'digest_rank_includes_feedback'),
+            ('20260731100000', 'run_daily_digest_uses_feedback_rank'),
+            ('20260731110000', 'feedback_service_aggregates'),
+            ('20260731130000', 'elite_digest_release_hardening');
+          SQL
+
+          psql -v ON_ERROR_STOP=1 \
+            -f tests/sql/elite_digest_production_preflight_read_only.sql
+
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          \ir supabase/migrations/20260802152500_signal_feedback_api_rpcs.sql
+          \ir supabase/migrations/20260802163000_elite_digest_rpc_boundary_hardening.sql
+
+          insert into supabase_migrations.schema_migrations(version, name) values
+            ('20260802073000', 'hv_dedup_assign_restore_hnsw_knn'),
+            ('20260802152500', 'signal_feedback_api_rpcs'),
+            ('20260802163000', 'elite_digest_rpc_boundary_hardening');
+          SQL
+
+          psql -v ON_ERROR_STOP=1 \
+            -f tests/sql/elite_digest_production_postflight_read_only.sql
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Lint docs when configured
+        run: npm run lint:docs --if-present
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Full tests
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Public boundary checks
+        run: |
+          npm run test:visibility
+          npm run test:security
