@@ -10,39 +10,23 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   actions: read
 
 jobs:
-  validate-pr1233:
+  rebase-pr1224:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: codex/complete-elite-digest-deploy-verification
+          ref: agent/open-pr-repair-runner
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
-      - name: Validate migration versions and diff scope
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          versions = {}
-          for p in Path('supabase/migrations').glob('*.sql'):
-              versions.setdefault(p.name.split('_', 1)[0], []).append(p.name)
-          assert versions.get('20260731090000') == ['20260731090000_digest_rank_includes_feedback.sql']
-          assert versions.get('20260731120000') == ['20260731120000_signal_role_family_routing.sql']
-          assert versions.get('20260802073000') == ['20260802073000_hv_dedup_assign_restore_hnsw_knn.sql']
-          PY
-          git diff --check origin/main...HEAD
-          unexpected=$(git diff --name-only origin/main...HEAD | grep -Ev '^(docs/ops/ELITE_DIGEST_|docs/control/EVIDENCE_LOG.md|supabase/migrations/20260731090000_hv_dedup_assign_restore_hnsw_knn.sql|supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql)$' || true)
-          test -z "$unexpected" || { echo "Unexpected changed files:"; echo "$unexpected"; exit 1; }
+      - name: Rebuild reviewed PR 1224 on current main
+        run: bash scripts/open-pr-repair/rebase-pr1224-current-main.sh
