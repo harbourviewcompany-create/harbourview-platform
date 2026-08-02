@@ -10,6 +10,7 @@ const expected = [
   '20260731130000_elite_digest_release_hardening.sql',
   '20260802073000_hv_dedup_assign_restore_hnsw_knn.sql',
   '20260802152500_signal_feedback_api_rpcs.sql',
+  '20260802163000_elite_digest_rpc_boundary_hardening.sql',
 ]
 const migrationsDir = path.resolve('supabase/migrations')
 const files = fs.readdirSync(migrationsDir).filter((file) => file.endsWith('.sql'))
