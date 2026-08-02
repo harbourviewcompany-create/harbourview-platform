@@ -1,0 +1,32 @@
+name: Temporary Inspect GROS Raw Overlay
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tmp-inspect-gros-raw-overlay.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 7207471ea6da91dc51501018fa8309edc5e74625
+      - name: Reconstruct raw overlay without repository patches
+        run: |
+          mkdir -p /tmp/raw
+          cat docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part* | base64 --decode > /tmp/overlay.tar.gz
+          sha256sum -c docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256 --ignore-missing
+          tar -xzf /tmp/overlay.tar.gz -C /tmp/raw
+          find /tmp/raw -type f | sed 's#^/tmp/raw/##' | LC_ALL=C sort > /tmp/raw-files.txt
+          cat /tmp/raw-files.txt
+          tar -czf /tmp/raw-overlay.tar.gz -C /tmp/raw .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gros-raw-overlay
+          path: /tmp/raw-overlay.tar.gz
+          retention-days: 1
+          if-no-files-found: error
