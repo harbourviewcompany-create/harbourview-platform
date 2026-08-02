@@ -22,10 +22,14 @@ on:
 permissions:
   contents: read
 
+env:
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+
 jobs:
   parser-contract:
     name: Verify migration-list parser
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +42,7 @@ jobs:
     name: Compare repository and live migration ledgers
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -53,10 +58,9 @@ jobs:
       - name: Read live migration ledger
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           mkdir -p artifacts/migration-drift
-          supabase link --project-ref "$SUPABASE_PROJECT_ID"
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
           supabase migration list --linked \
             > artifacts/migration-drift/remote-migrations.txt
 
@@ -99,6 +103,7 @@ jobs:
 
   check-placeholder-landmines:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Grep for known placeholder-comment landmines
