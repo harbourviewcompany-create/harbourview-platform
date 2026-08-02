@@ -19,7 +19,9 @@ jobs:
         run: |
           mkdir -p /tmp/raw
           cat docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.b64.part* | base64 --decode > /tmp/overlay.tar.gz
-          sha256sum -c docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256 --ignore-missing
+          expected="$(awk '{print $1}' docs/control/global-regulatory-os/phase0-overlay-v1.0.3.tar.gz.sha256)"
+          actual="$(sha256sum /tmp/overlay.tar.gz | awk '{print $1}')"
+          test "$actual" = "$expected"
           tar -xzf /tmp/overlay.tar.gz -C /tmp/raw
           find /tmp/raw -type f | sed 's#^/tmp/raw/##' | LC_ALL=C sort > /tmp/raw-files.txt
           cat /tmp/raw-files.txt
