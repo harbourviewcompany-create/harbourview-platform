@@ -52,6 +52,15 @@ The `Supply Image Quality Audit` workflow produces:
 
 The complete operator matrix is exported separately as `harbourview-supply-image-quality-audit-68-skus.xlsx` and includes every SKU, image path, dimensions, file weight, crop status, alt-text status, perceptual peers, rationale, patch action and final verdict.
 
+## Registry review
+
+Affected rows reviewed:
+
+- Harbourview Platform
+- Harbourview Vercel Target
+
+Registry change required: No. This patch replaces static presentation assets and adds verification tooling without changing project identity, deployment ownership, database target, production domain or route ownership.
+
 ## Acceptance boundary
 
 These are controlled product-format illustrations, not supplier photography. They communicate product class and physical form only. They must not be interpreted as proof of exact delivered appearance, brand, certification, stock condition or supplier authorization.
