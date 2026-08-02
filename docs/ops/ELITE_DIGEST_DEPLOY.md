@@ -54,7 +54,12 @@ select public.hv_intelligence_outcome_check();
 
 1. `GET /api/dashboard/digest` → `mode: "curated-edition"` or `elite-ranked-fallback`
 2. Digest UI shows corroboration / language chips when present
-3. Mark one item **Useful** → row in `signal_relevance_feedback`
+3. Choose a designated release-verification signal and record its `signal_id`, the
+   authenticated verifier `user_id`, and the UTC start timestamp. Mark it **Useful**,
+   capture the exact inserted `signal_relevance_feedback.id`, verify the UI response,
+   then delete that exact row through the authorized admin path before ending the
+   smoke. Confirm the captured ID no longer exists so release verification cannot
+   bias digest ranking for 90 days.
 4. `GET /api/admin/intelligence-health` includes `product_outcome`
 5. After deploy, Vercel cron hits `/api/cron/intelligence-health` **once a day, scheduled
    `15 10 * * *` (the 10:00 UTC hour)**.

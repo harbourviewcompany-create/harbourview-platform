@@ -42,6 +42,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
+| 2026-08-02 | PR #1233 Elite Digest release-control and HNSW migration-version repair | PostgreSQL 17 + pgvector dry-run; lint; typecheck; tests; build; migration-version checks | Unique HNSW version `20260802073000`; migration compiles and preserves HNSW `ORDER BY <=> LIMIT`; smoke feedback requires exact-row cleanup; no live migration or alias action performed | PR #1233 and `PR 1233 HNSW Migration Dry Run` workflow | Current — merge gate |
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
 | 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
@@ -2816,3 +2817,17 @@ than speed here.
 - No migration was applied, no secret was read and no deployment alias changed.
 - Validation required: migration filename discipline, repository CI, typecheck,
   public-surface checks, regulatory-signal checks and branch verification.
+
+
+## 2026-08-02 — PR #1233 final database-adjacent gates
+
+- Classified the HNSW migration rename as database-adjacent because the
+  `supabase/migrations/**` workflow may reconcile its unique version.
+- Added a PostgreSQL 17 + pgvector fixture that creates representative signals
+  storage and HNSW index, applies the migration, verifies the installed function
+  retains `ORDER BY <=>` plus bounded-neighbour `LIMIT`, and rolls the fixture
+  transaction back.
+- Updated the product smoke to capture and delete its exact feedback row before
+  release verification ends, preventing a 90-day ranking bias.
+- No production migration, database write, secret read, deployment, or alias
+  mutation occurred during this PR repair.

@@ -409,3 +409,24 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
   delivery success/failure, sanitization, retry state and locked-ID reuse.
 - Rollback: use a reviewed forward migration. Do not delete an applied migration
   ledger entry or restore broad authenticated execution.
+
+## 2026-08-02 — PR #1233 HNSW deduplication migration version repair
+
+- Migration: `20260802073000_hv_dedup_assign_restore_hnsw_knn.sql`.
+- Purpose: preserve the production-verified HNSW k-nearest-neighbour form of
+  `public.hv_dedup_assign(double precision, integer)` after the older timeout
+  migration, while assigning a version unique from feedback ranking and signal
+  role-family routing.
+- Scope: `CREATE OR REPLACE FUNCTION` plus function comment only. No table,
+  column, policy, grant, data backfill, or index creation is included.
+- Validation: `tests/sql/pr1233_hnsw_migration_dry_run.sql` runs against
+  PostgreSQL 17 with pgvector, creates representative `signals` columns and an
+  HNSW cosine index, applies the migration, checks function ownership/security
+  attributes and confirms the body contains the bounded `ORDER BY <=> LIMIT`
+  index-probe shape, then rolls back the fixture transaction.
+- Production application: only through the sanctioned migration workflow after
+  remote-ledger reconciliation. The checklist remains HOLD until live function
+  definition and execution evidence are recorded.
+- Rollback: never delete an applied ledger version. Ship a reviewed forward
+  migration restoring the previous known-good `hv_dedup_assign` body if the new
+  definition fails production verification.
