@@ -44,6 +44,8 @@ export interface ScraperSource {
   cadenceHours: number
   region: string
   notes?: string
+  /** When true, prefer Playwright after a minimal/failed fast fetch */
+  jsRendered?: boolean
   selectors?: {               // CSS selectors for html-card parsers
     container?: string
     title?: string
@@ -115,4 +117,10 @@ export interface ScrapeRunSummary {
   totalFailed: number
   sourceResults: ScrapeRunResult[]
   budgetExceeded?: boolean // true if the run stopped early to stay under the route's maxDuration
+  // Observability (runner-v2)
+  avgFetchLatencyMs?: number
+  avgNormaliseLatencyMs?: number
+  aiApiCalls?: number
+  passthroughRate?: number
+  topErrors?: Array<{ error: string; count: number }>
 }
