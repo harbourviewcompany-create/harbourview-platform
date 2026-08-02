@@ -60,6 +60,7 @@ This migration preserves all feedback rows while enforcing the approved boundary
 Before production application, verify the target has no duplicate
 `(signal_id, user_id)` rows, capture the existing grants and function
 definitions, and run the PostgreSQL 17 + pgvector boundary fixture.
+
 ## 2. Environment names
 
 Verify names and presence without copying values into logs or PRs:
