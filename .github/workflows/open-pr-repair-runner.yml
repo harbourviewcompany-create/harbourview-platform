@@ -15,14 +15,25 @@ permissions:
   actions: read
 
 jobs:
-  finalize-pr1233:
+  build-routing-forward-fix:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: agent/open-pr-repair-runner
-      - name: Add final database-adjacent gates to PR 1233
-        run: bash scripts/open-pr-repair/finalize-pr1233-db-gates.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build and validate regional routing forward fix
+        run: |
+          python3 scripts/open-pr-repair/fix-routing-generator-shape.py
+          cp scripts/open-pr-repair/build-routing-regional-forward-fix.sh /tmp/build-routing-forward-fix.sh
+          git restore scripts/open-pr-repair/build-routing-regional-forward-fix.sh
+          bash /tmp/build-routing-forward-fix.sh
