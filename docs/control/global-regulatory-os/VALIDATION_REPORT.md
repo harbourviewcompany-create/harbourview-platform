@@ -10,17 +10,26 @@
 
 ## Verified GitHub evidence
 
-The complete verification matrix passed on package head `d0127a1c4abb3b22b957c3ab2365c3e8d5665fba`:
+The complete verification matrix passed on implementation head `1bc3334d6836b97c6409b89b5214d9d29960976a`:
 
-- Global Regulatory OS Phase 0 Replacement: run `30757139130` — source provenance, deterministic manifest, proof matrix, secret scan, OpenAPI, AsyncAPI, PostgreSQL 17 clean install, simulated upgrade, trusted authorization, negative privilege escalation, RLS and public leakage passed.
-- Full CI: run `30757139129` — install, critical environment checks, typecheck, security/leakage, domain logic, signal runtime, intake/listings, smoke tests and production build passed.
-- Branch Verification: run `30757139138` — typecheck, fixtures, extraction, listing quality, public imagery, leakage probes, production build, Playwright route/mobile probes and safe no-write production visibility checks passed.
-- Migration Drift Check: run `30757139149` — passed.
-- Project Registry Discipline: run `30757139186` — passed.
-- Regulatory Signals Verify, Regional Routing Verification, Elite Digest Forward Repair Verification, HAR-39/HAR-40 Public Surfaces and PR 166 equipment verification — passed.
+- Global Regulatory OS Phase 0 Replacement: run `30761771045` — source provenance, deterministic manifest, proof matrix, secret scan, migration isolation and ledger parser, OpenAPI, AsyncAPI, PostgreSQL 17 clean install, simulated upgrade, trusted authorization, negative privilege escalation, RLS and public leakage passed.
+- Full CI: run `30761771035` — install, critical environment checks, typecheck, security and leakage, domain logic, signal runtime, intake and listings, smoke tests and production build passed.
+- Branch Verification: run `30761771031` — typecheck, fixtures, extraction, listing quality, public imagery, leakage probes, production build, Playwright route and mobile probes, and safe no-write production visibility checks passed.
+- Regional Routing Verification: run `30761771042` — generated mapping, lint, typecheck, full tests, production build, public-boundary checks and PostgreSQL 17 fixture passed.
+- Project Registry Discipline: run `30761771032` — passed.
+- Regulatory Signals Verify: run `30761771053` — passed.
+- Elite Digest Forward Repair Verification: run `30761771055` — passed.
+- Elite Digest Boundary Hardening Verification: run `30761771077` — passed.
+- HAR-39/HAR-40 Public Surfaces: run `30761771048` — passed.
+- PR 166 equipment verification: run `30761771057` — passed.
+- Type check: run `30761771049` — passed.
 
-This report update is documentation-only and exists to activate an exact-head Vercel preview after the earlier Vercel request was rejected before build by account build-rate capacity.
+## Vercel preview status
 
-- Exact preview retry activation: issued after the Vercel project returned to available preview capacity.
-- Technical Phase 0 status: GO after all final-head automated gates and exact preview pass.
-- Operator release status: HOLD pending explicit policy, migration, merge and production authorization.
+At the time of this evidence correction, Vercel had not created a deployment for implementation head `1bc3334d6836b97c6409b89b5214d9d29960976a`. The Git status was rejected before build with `build-rate-limit`; this is an external preview-capacity HOLD, not a repository build failure. No production deployment was initiated.
+
+## Decision
+
+- Technical Phase 0 package: GO based on the verified repository and PostgreSQL evidence above.
+- Exact Vercel preview gate: HOLD until a READY preview exists for the then-current draft head.
+- Operator release status: HOLD pending explicit constitution, source-rights, retention and residency, bounded-context, migration-sequencing, deployment and public-claims decisions.
