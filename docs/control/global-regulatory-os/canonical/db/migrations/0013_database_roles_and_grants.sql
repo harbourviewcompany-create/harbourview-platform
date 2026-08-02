@@ -9,8 +9,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_ingestion_runtime') THEN CREATE ROLE hv_ingestion_runtime NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_governance_runtime') THEN CREATE ROLE hv_governance_runtime NOLOGIN; END IF;
 END $roles$;
+ALTER ROLE hv_context_owner NOLOGIN NOINHERIT BYPASSRLS;
+GRANT USAGE,CREATE ON SCHEMA app TO hv_context_owner;
 
 GRANT hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime TO hv_authenticator;
+GRANT USAGE ON SCHEMA app TO hv_authenticator,hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA iam,billing,geo,source_ops,evidence,ontology,regulatory,compliance,registry,trade,market,workflow,ai,governance,publication,public_api,tenant_api,internal_api FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA iam,billing,geo,source_ops,evidence,ontology,regulatory,compliance,registry,trade,market,workflow,ai,governance,publication FROM PUBLIC;

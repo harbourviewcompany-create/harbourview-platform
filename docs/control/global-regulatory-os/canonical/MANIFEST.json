@@ -30,10 +30,10 @@
       "source_sha256": "4b0d275f41c176c39ea58dd3cb3f2f2ee3772f1e4c170af351a76e94d4408de2"
     },
     {
-      "bytes": 23054,
-      "origin": "source_unchanged",
+      "bytes": 24497,
+      "origin": "source_patched",
       "path": "api/openapi.yaml",
-      "sha256": "537e7df265f060ffb5761f0822bcc634d7585c4716debf84c040c9f9c521a386",
+      "sha256": "55bdc9ab37675765a2b24ff7d918f137e86bc56609a8bd0e043bf7d8e563c681",
       "source_sha256": "537e7df265f060ffb5761f0822bcc634d7585c4716debf84c040c9f9c521a386"
     },
     {
@@ -121,10 +121,10 @@
       "source_sha256": "abb2a8bc59681efb49f6e27b7ffef6cffcea912e312071da954eb965e8be1748"
     },
     {
-      "bytes": 6249,
+      "bytes": 6505,
       "origin": "source_patched",
       "path": "db/migrations/0013_database_roles_and_grants.sql",
-      "sha256": "3380f9b66a1855bd6649b210492f4f06ee0d8c892a61197af35de7e3221f0975",
+      "sha256": "370ce7c4c9b65b849959be7fc199f19fe717da8f92a9696cd53e5d11a2ae2ddf",
       "source_sha256": "93fab620b609a929989cb068e5651a4d93b4bd510b30146f4d780cb24d7ad47e"
     },
     {

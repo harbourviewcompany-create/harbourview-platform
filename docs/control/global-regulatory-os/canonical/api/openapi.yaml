@@ -3,25 +3,37 @@ info:
   title: Global Cannabis Regulatory Intelligence OS API
   version: 1.0.0
   description: Evidence-first API for jurisdictions, sources, regulatory instruments, obligations, licences, counterparties, corridors, market metrics, alerts and workflow.
+  license:
+    name: Proprietary
 servers:
   - url: https://api.example.invalid/v1
 security:
   - oauth2: [read:intelligence]
 tags:
   - name: Jurisdictions
+    description: Jurisdiction coverage, profiles and regulatory geography.
   - name: Sources
+    description: Source registry and acquisition operations.
   - name: Evidence
+    description: Evidence documents, claims and lineage.
   - name: Regulatory
+    description: Regulatory instruments and change intelligence.
   - name: Compliance
+    description: Obligations and applicability evaluation.
   - name: Registry
+    description: Entities, licences and counterparty intelligence.
   - name: Trade
+    description: Trade corridors and market-entry determinations.
   - name: Markets
+    description: Market metrics and observations.
   - name: Workflow
+    description: Alerts and controlled workflow operations.
 paths:
   /jurisdictions:
     get:
       tags: [Jurisdictions]
       operationId: listJurisdictions
+      summary: List jurisdictions
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -34,6 +46,7 @@ paths:
     get:
       tags: [Jurisdictions]
       operationId: getJurisdiction
+      summary: Get a jurisdiction
       parameters: [{$ref: '#/components/parameters/JurisdictionId'}]
       responses:
         '200': {description: Jurisdiction, content: {application/json: {schema: {$ref: '#/components/schemas/Jurisdiction'}}}}
@@ -42,6 +55,7 @@ paths:
     get:
       tags: [Sources]
       operationId: listSources
+      summary: List registered sources
       security: [{oauth2: [read:sources]}]
       parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
       responses:
@@ -49,6 +63,7 @@ paths:
     post:
       tags: [Sources]
       operationId: createSource
+      summary: Create a registered source
       security: [{oauth2: [write:sources]}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/SourceCreate'}}}}
       responses:
@@ -58,6 +73,7 @@ paths:
     post:
       tags: [Sources]
       operationId: requestAcquisition
+      summary: Request a source acquisition
       security: [{oauth2: [execute:acquisition]}]
       parameters: [{$ref: '#/components/parameters/SourceId'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AcquisitionRequest'}}}}
@@ -67,6 +83,7 @@ paths:
     get:
       tags: [Evidence]
       operationId: listDocuments
+      summary: List evidence documents
       security: [{oauth2: [read:evidence]}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -79,6 +96,7 @@ paths:
     get:
       tags: [Evidence]
       operationId: getClaimWithLineage
+      summary: Get a claim with evidence lineage
       security: [{oauth2: [read:intelligence]}]
       parameters: [{$ref: '#/components/parameters/ClaimId'}]
       responses:
@@ -87,6 +105,7 @@ paths:
     get:
       tags: [Regulatory]
       operationId: listRegulatoryChanges
+      summary: List regulatory changes
       parameters:
         - $ref: '#/components/parameters/Cursor'
         - $ref: '#/components/parameters/Limit'
@@ -99,6 +118,7 @@ paths:
     get:
       tags: [Compliance]
       operationId: listObligations
+      summary: List compliance obligations
       security: [{oauth2: [read:obligations]}]
       parameters:
         - $ref: '#/components/parameters/Cursor'
@@ -111,6 +131,7 @@ paths:
     post:
       tags: [Compliance]
       operationId: evaluateApplicability
+      summary: Evaluate obligation applicability
       security: [{oauth2: [execute:applicability]}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ApplicabilityRequest'}}}}
       responses:
@@ -119,6 +140,7 @@ paths:
     get:
       tags: [Registry]
       operationId: searchEntities
+      summary: Search registry entities
       security: [{oauth2: [read:registry]}]
       parameters:
         - {name: q, in: query, required: true, schema: {type: string, minLength: 2}}
@@ -130,6 +152,7 @@ paths:
     get:
       tags: [Registry]
       operationId: getCounterpartyProfile
+      summary: Get a counterparty profile
       security: [{oauth2: [read:counterparties]}]
       parameters: [{$ref: '#/components/parameters/EntityId'}]
       responses:
@@ -138,6 +161,7 @@ paths:
     post:
       tags: [Trade]
       operationId: createCorridor
+      summary: Create a trade corridor
       security: [{oauth2: [write:corridors]}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CorridorCreate'}}}}
       responses:
@@ -146,6 +170,7 @@ paths:
     post:
       tags: [Trade]
       operationId: evaluateCorridor
+      summary: Evaluate a trade corridor
       security: [{oauth2: [execute:corridors]}]
       parameters: [{$ref: '#/components/parameters/CorridorId'}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/CorridorEvaluationRequest'}}}}
@@ -155,6 +180,7 @@ paths:
     get:
       tags: [Trade]
       operationId: getCorridorDetermination
+      summary: Get a corridor determination
       security: [{oauth2: [read:corridors]}]
       parameters: [{$ref: '#/components/parameters/CorridorId'}]
       responses:
@@ -163,6 +189,7 @@ paths:
     get:
       tags: [Markets]
       operationId: listMetricDefinitions
+      summary: List market metric definitions
       security: [{oauth2: [read:markets]}]
       parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
       responses:
@@ -171,6 +198,7 @@ paths:
     get:
       tags: [Markets]
       operationId: listMarketObservations
+      summary: List market observations
       security: [{oauth2: [read:markets]}]
       parameters:
         - {name: metric_key, in: query, required: true, schema: {type: string}}
@@ -185,6 +213,7 @@ paths:
     get:
       tags: [Workflow]
       operationId: listAlerts
+      summary: List workflow alerts
       security: [{oauth2: [read:alerts]}]
       parameters: [{$ref: '#/components/parameters/Cursor'}, {$ref: '#/components/parameters/Limit'}]
       responses:
@@ -192,6 +221,8 @@ paths:
 webhooks:
   regulatoryChangeApproved:
     post:
+      operationId: receiveRegulatoryChangeApproved
+      summary: Receive an approved regulatory change event
       requestBody: {required: true, content: {application/cloudevents+json: {schema: {$ref: '#/components/schemas/EventEnvelope'}}}}
       responses: {'200': {description: Receiver acknowledged}}
 components:
