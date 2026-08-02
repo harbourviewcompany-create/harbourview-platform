@@ -44,15 +44,12 @@ test.describe('production public routes', () => {
 
   test('desktop homepage exposes expected route links and globe controller or fallback', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' })
-    // Nav is always present — home link confirms layout rendered
     await expect(page.getByRole('link', { name: /Harbourview home/i })).toBeVisible()
-    // Exchange is always accessible from the nav
     await expect(
       page.getByRole('link', { name: /Exchange Home/i })
         .or(page.getByRole('link', { name: /Marketplace/i }))
         .first()
     ).toBeVisible()
-    // Globe route controller OR its fallback heading must be present
     const globeControl = page.getByLabel(/Interactive Harbourview globe route controller/i)
     const globeCanvas = page.getByLabel(/Harbourview country globe/i)
     const globeFallback = page.getByRole('heading', { name: /Market routing fallback/i })
@@ -72,8 +69,14 @@ test.describe('production public routes', () => {
   test('anonymous admin is not publicly accessible', async ({ page }) => {
     const response = await page.goto('/admin', { waitUntil: 'networkidle' })
     const status = response ? response.status() : 0
+    const finalPath = new URL(page.url()).pathname
     const body = await page.content()
-    expect(status, '/admin must not return a normal anonymous HTTP 200 admin surface').not.toBe(200)
+    const deniedByStatus = status === 401 || status === 403
+    const deniedByLoginRedirect = finalPath === '/login'
+    expect(
+      deniedByStatus || deniedByLoginRedirect,
+      `/admin must deny anonymous access; status=${status}, finalPath=${finalPath}`
+    ).toBeTruthy()
     await assertNoForbiddenStrings(body, '/admin anonymous')
   })
 })
