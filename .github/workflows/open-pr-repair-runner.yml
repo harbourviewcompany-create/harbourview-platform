@@ -10,39 +10,26 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
   actions: read
 
 jobs:
-  validate-pr1233:
+  build-routing-forward-fix:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: 127312b6325b2ca7a5cd541a91f51554ae41b255
+          ref: agent/open-pr-repair-runner
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test
-      - run: npm run build
-      - name: Validate migration versions and exact changed-file scope
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          versions = {}
-          for p in Path('supabase/migrations').glob('*.sql'):
-              versions.setdefault(p.name.split('_', 1)[0], []).append(p.name)
-          assert versions.get('20260731090000') == ['20260731090000_digest_rank_includes_feedback.sql']
-          assert versions.get('20260731120000') == ['20260731120000_signal_role_family_routing.sql']
-          assert versions.get('20260802073000') == ['20260802073000_hv_dedup_assign_restore_hnsw_knn.sql']
-          PY
-          git diff --check 1134ff3809d07e9203dd6f4ed5ce10a44e3a9431...HEAD
-          unexpected=$(git diff --name-only 1134ff3809d07e9203dd6f4ed5ce10a44e3a9431...HEAD | grep -Ev '^(docs/ops/ELITE_DIGEST_|docs/control/EVIDENCE_LOG.md|supabase/migrations/20260731090000_hv_dedup_assign_restore_hnsw_knn.sql|supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql)$' || true)
-          test -z "$unexpected" || { echo "Unexpected changed files:"; echo "$unexpected"; exit 1; }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build and validate regional routing forward fix
+        run: bash scripts/open-pr-repair/build-routing-regional-forward-fix.sh
