@@ -77,7 +77,7 @@
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.185.1",
     "esbuild": "^0.28.1",
-    "eslint": "^10.8.0",
+    "eslint": "9.39.5",
     "eslint-config-next": "16.2.12",
     "postcss": "^8.5.25",
     "tailwindcss": "^4.3.3",

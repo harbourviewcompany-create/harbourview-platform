@@ -9,7 +9,6 @@ import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { RegulatoryRadar } from './pages/RegulatoryRadar'
 import ClinicalPage from './pages/ClinicalPage'
-import SignalSemanticSearch from './SignalSemanticSearch'
 
 const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
   permitted: '#5fb87a',
@@ -1265,13 +1264,12 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
   )
 }
 
-type SignalSub = 'feed' | 'regulatory' | 'watchlist' | 'search'
+type SignalSub = 'feed' | 'regulatory' | 'watchlist'
 
 const SIGNALS_TABS: { id: SignalSub; label: string }[] = [
   { id: 'feed',       label: 'Signals' },
   { id: 'regulatory', label: 'Regulatory' },
   { id: 'watchlist',  label: 'Watchlist' },
-  { id: 'search',     label: 'Search' },
 ]
 
 const SIG_CATS = [
@@ -1787,7 +1785,6 @@ function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCo
       {sub === 'feed'       && <SignalsFeed country={country} signals={effectiveSignals} />}
       {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={effectiveSignals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
       {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} signals={effectiveSignals} />}
-      {sub === 'search'     && <SignalSemanticSearch />}
     </div>
   )
 }
@@ -3197,27 +3194,30 @@ function ComplianceMobile({ country, countryIntel, jurisdictionPlaybook, pathway
       {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
         <div className="hvm-signal-card hvm-signal-card--rich">
           <div className="hvm-kicker">MARKET ENTRY STEPS</div>
-          {jurisdictionPlaybook.steps.slice(0, 5).map((step, index) => (
-            <div key={`${index}-${step}`} style={{ marginTop: index === 0 ? 4 : 10, paddingTop: index === 0 ? 0 : 10, borderTop: index === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {index + 1}</div>
+          {jurisdictionPlaybook.steps.slice(0, 5).map((step, i) => (
+            <div key={`${i}-${step}`} style={{ marginTop: i === 0 ? 4 : 10, paddingTop: i === 0 ? 0 : 10, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#d4a84b' }}>Step {i + 1}</div>
               <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', marginTop: 3, lineHeight: 1.5 }}>{step}</div>
             </div>
           ))}
         </div>
       )}
-      {jurisdictionPlaybook?.key_regulators && (
-        <div className="hvm-signal-card hvm-signal-card--rich">
-          <div className="hvm-kicker">KEY REGULATORS</div>
-          <div style={{ marginTop: 4 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{jurisdictionPlaybook.key_regulators.primary}</div>
+      {jurisdictionPlaybook?.key_regulators && (() => {
+        const regulators = jurisdictionPlaybook.key_regulators
+        const regulatorNames = [regulators.primary, ...regulators.secondary].filter(Boolean)
+        if (regulatorNames.length === 0) return null
+        return (
+          <div className="hvm-signal-card hvm-signal-card--rich">
+            <div className="hvm-kicker">KEY REGULATORS</div>
+            {regulatorNames.map((name, i) => (
+              <div key={name} style={{ marginTop: i === 0 ? 4 : 8, paddingTop: i === 0 ? 0 : 8, borderTop: i === 0 ? 'none' : '1px solid rgba(245,240,232,.08)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(245,240,232,.9)' }}>{name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(245,240,232,.5)', marginTop: 2 }}>{i === 0 ? 'Primary regulator' : 'Secondary regulator'}</div>
+              </div>
+            ))}
           </div>
-          {jurisdictionPlaybook.key_regulators.secondary.map((regulator, index) => (
-            <div key={index + '-' + regulator} style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(245,240,232,.08)' }}>
-              <div style={{ fontSize: 12, color: 'rgba(245,240,232,.6)', lineHeight: 1.5 }}>{regulator}</div>
-            </div>
-          ))}
-        </div>
-      )}
+        )
+      })()}
       {jurisdictionPlaybook?.common_pitfalls && jurisdictionPlaybook.common_pitfalls.length > 0 && (
         <div className="hvm-signal-card hvm-signal-card--rich" style={{ borderColor: 'rgba(229,115,115,.2)' }}>
           <div className="hvm-kicker" style={{ color: 'rgba(229,115,115,.7)' }}>COMMON PITFALLS</div>
