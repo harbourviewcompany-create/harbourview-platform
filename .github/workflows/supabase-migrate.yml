@@ -1,12 +1,16 @@
 name: supabase-migrate
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'supabase/migrations/**'
   workflow_dispatch:
+    inputs:
+      production_action:
+        description: 'Explicit production migration authorization'
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_PRODUCTION_MIGRATIONS
 
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
@@ -17,7 +21,8 @@ env:
 
 jobs:
   migrate:
-    name: Apply Supabase migrations
+    if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    name: Apply Supabase migrations — explicit production authorization
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

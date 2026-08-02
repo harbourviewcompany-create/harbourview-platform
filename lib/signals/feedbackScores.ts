@@ -1,8 +1,12 @@
 /**
- * Load soft ranking boosts from signal_relevance_feedback.
- * Uses service role so aggregates include all operators — user-scoped
- * RLS only returns the caller's own rows and would under-weight the loop.
- * Fails open (empty map) so a missing table never breaks the digest.
+ * Load signed ranking effects from persisted signal relevance verdicts.
+ *
+ * The project exposes only the `api` schema through PostgREST, while the source
+ * table lives in `public`. A narrow service-role-only RPC returns only
+ * `signal_id` and `verdict`; the table itself remains unexposed.
+ *
+ * Fails open (empty map) so an unavailable feedback subsystem never breaks the
+ * Digest response.
  */
 
 import 'server-only'
@@ -13,6 +17,19 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // This boundary erases compile-time schema parameters only; runtime behavior is unchanged.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
+
+export const FEEDBACK_VERDICT_WEIGHTS = {
+  helpful: 8,
+  not_helpful: -12,
+  stale: -6,
+  wrong_country: -10,
+} as const
+
+export type FeedbackVerdict = keyof typeof FEEDBACK_VERDICT_WEIGHTS
+
+function isFeedbackVerdict(value: unknown): value is FeedbackVerdict {
+  return typeof value === 'string' && value in FEEDBACK_VERDICT_WEIGHTS
+}
 
 export async function loadFeedbackScores(
   _userClient: AnySchemaSupabaseClient,
@@ -30,36 +47,23 @@ export async function loadFeedbackScores(
       const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
       client = await createSupabaseServiceClient()
     } catch {
-      /* fall back to caller client */
+      /* fall back to caller client; the RPC remains service-role-only */
     }
 
-    const { data, error } = await client
-      .from('signal_relevance_feedback')
-      .select('signal_id, verdict')
-      .in('signal_id', unique)
-      .gte('created_at', since)
+    const { data, error } = await client.rpc('signal_relevance_feedback_for_ranking', {
+      p_signal_ids: unique,
+      p_since: since,
+    })
 
-    if (error || !data) return out
+    if (error || !Array.isArray(data)) return out
 
-    const tallies = new Map<
-      string,
-      { helpful: number; not_helpful: number; stale: number; wrong_country: number }
-    >()
     for (const row of data) {
-      const id = typeof row.signal_id === 'string' ? row.signal_id : ''
-      if (!id) continue
-      const t = tallies.get(id) ?? { helpful: 0, not_helpful: 0, stale: 0, wrong_country: 0 }
-      const v = row.verdict
-      if (v === 'helpful') t.helpful++
-      else if (v === 'not_helpful') t.not_helpful++
-      else if (v === 'stale') t.stale++
-      else if (v === 'wrong_country') t.wrong_country++
-      tallies.set(id, t)
-    }
-
-    for (const [id, t] of tallies) {
-      const score = t.helpful * 8 - t.not_helpful * 12 - t.stale * 6 - t.wrong_country * 10
-      out.set(id, score)
+      if (!row || typeof row !== 'object') continue
+      const record = row as Record<string, unknown>
+      const id = typeof record.signal_id === 'string' ? record.signal_id : ''
+      const verdict = record.verdict
+      if (!id || !isFeedbackVerdict(verdict)) continue
+      out.set(id, (out.get(id) ?? 0) + FEEDBACK_VERDICT_WEIGHTS[verdict])
     }
   } catch {
     return out

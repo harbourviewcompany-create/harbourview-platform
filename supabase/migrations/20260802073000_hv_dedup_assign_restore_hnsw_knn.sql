@@ -19,7 +19,7 @@
 -- that scans instead of using idx_signals_embedding_1024_hnsw, reintroducing the
 -- 120s statement timeout that made dedup unrunnable (fixed to ~2.4s).
 --
--- Because this file sorts after 20260730110000, it lands last and wins
+-- Because this uniquely-versioned forward migration sorts after 20260730110000, it lands last and wins
 -- regardless of what the stale file does. That is deliberate: correcting the
 -- stale file alone would still leave the outcome dependent on file ordering.
 --

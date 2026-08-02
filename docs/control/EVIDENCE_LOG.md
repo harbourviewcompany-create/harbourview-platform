@@ -42,6 +42,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
+| 2026-08-02 | Elite Digest feedback/HNSW forward repair | Implementation head `732cf15cb4e4b91ddec0934eab7e83929ad65d19`; dedicated run `30755310208`; CI `30755310269`; Branch Verification `30755310228` | Eight ordered/unique Digest migrations; signed current-verdict RPC tests; lint; typecheck; full tests; build; public-boundary/security; PostgreSQL 17 + pgvector invocation; safe no-write production probes | PR #1246; supporting runs `30755310256`, `30755310358`, `30755310416`, `30755310324`, `30755310217`, `30755310242`, `30755310207` | **GO on implementation head — final evidence-only head must remain green** |
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
 | 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
@@ -2821,3 +2822,30 @@ than speed here.
 - Required evidence: generated-data reproducibility, routing tests, lint,
   typecheck, full tests, production build, public-boundary checks, and the
   PostgreSQL 17 pipeline-hardening migration fixture.
+
+## 2026-08-02 — Elite Digest feedback/HNSW replacement repair
+
+- Clean base: `6fd3cb2a2f43fb4a998c52ae03f06e5d0cb14eb5`.
+- Required outcomes: persisted `verdict` scoring with signed effects; narrow
+  authenticated feedback writer; service-role-only ranking projection; unique
+  HNSW migration version; actual PostgreSQL 17 + pgvector invocation; sorted
+  migration controls; manual-only production migration application.
+- Production boundaries: no live migration, deployment, alias movement, secret
+  read, or secret persistence.
+- Implementation head `732cf15cb4e4b91ddec0934eab7e83929ad65d19` passed:
+  - Elite Digest Forward Repair Verification run `30755310208`: eight migration
+    versions ordered and unique; targeted feedback regressions; lint; typecheck;
+    full tests; production build; public-boundary and security checks; and the
+    PostgreSQL 17 + pgvector fixture with an actual `hv_dedup_assign()` call.
+  - CI run `30755310269`: install, environment, domain logic, signal runtime,
+    intake/listings, security/leakage, smoke tests, and Next.js build.
+  - Branch Verification run `30755310228`: build, visibility, Playwright route
+    and mobile checks, and production visibility probes in safe no-write mode.
+  - Supporting green runs: Project Registry Discipline `30755310256`, Migration
+    Drift Check `30755310358`, Type check `30755310416`, HAR-39/HAR-40 Public
+    Surfaces `30755310324`, PR 166 verification `30755310217`, Regulatory Signals
+    Verify `30755310242`, and Regional Routing Verification `30755310207`.
+- Review-thread audit on the implementation head found zero unresolved threads.
+- The follow-up commit changes evidence only. It must retain green CI and Branch
+  Verification before merge; no implementation finding may be waived by this
+  evidence record.

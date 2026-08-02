@@ -409,3 +409,20 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
   delivery success/failure, sanitization, retry state and locked-ID reuse.
 - Rollback: use a reviewed forward migration. Do not delete an applied migration
   ledger entry or restore broad authenticated execution.
+
+## 2026-08-02 — Elite Digest feedback API boundary and HNSW forward version
+
+- Replaces the duplicate-prefix HNSW file with unique migration
+  `20260802073000_hv_dedup_assign_restore_hnsw_knn.sql`.
+- Adds `20260802152500_signal_feedback_api_rpcs.sql` with two narrow functions:
+  authenticated feedback insertion that forces `user_id = auth.uid()`, and a
+  service-role-only verdict projection for ranking. The public table remains
+  unexposed.
+- Converts `.github/workflows/supabase-migrate.yml` to explicit manual dispatch.
+  A push or merge is not production database authorization.
+- PostgreSQL verification must create pgvector storage, apply both migrations,
+  invoke `hv_dedup_assign`, submit all four persisted verdicts, verify the signed
+  aggregate is `-20`, and verify execute grants.
+- Live application remains HOLD pending separate operator authorization and
+  remote-ledger reconciliation. Rollback is a reviewed forward migration; never
+  delete ledger history.
