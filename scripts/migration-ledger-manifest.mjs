@@ -7,6 +7,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const VERSION_RE = /^\d{14}$/
+const GIT_BLOB_SHA_RE = /^[0-9a-f]{40}$/
 
 function normalizeCell(value) {
   return value.trim().replace(/^`+|`+$/g, '').trim()
@@ -131,8 +132,8 @@ export function loadReleaseControl(controlPath) {
       throw new Error(`Approved migration filename does not match version ${versions[index]}: ${file}`)
     }
     const expectedBlob = approved[index].git_blob_sha
-    if (expectedBlob && !/^[0-9a-f]{40}$/.test(expectedBlob)) {
-      throw new Error(`Approved migration git_blob_sha is invalid for ${file}`)
+    if (typeof expectedBlob !== 'string' || !GIT_BLOB_SHA_RE.test(expectedBlob)) {
+      throw new Error(`Approved migration git_blob_sha is required and invalid for ${file}`)
     }
   }
 
@@ -158,13 +159,13 @@ export function buildManifest({ repository, remote, control, sourceSha = null })
     if (
       files.length !== 1 ||
       files[0] !== migration.file ||
-      (migration.git_blob_sha && actualBlobSha !== migration.git_blob_sha)
+      actualBlobSha !== migration.git_blob_sha
     ) {
       approvedFileMismatches.push({
         version: migration.version,
         expected: migration.file,
         actual: files,
-        expected_git_blob_sha: migration.git_blob_sha ?? null,
+        expected_git_blob_sha: migration.git_blob_sha,
         actual_git_blob_sha: actualBlobSha,
       })
     }
@@ -317,13 +318,23 @@ export function runCli(argv = process.argv.slice(2)) {
   const remoteDrift = manifest.applied_not_committed.length > 0
   const approvedStillPending = manifest.approved_pending.length > 0
   const unexpectedPending = manifest.unexpected_pending.length > 0
+  const approvedFilesExact = manifest.approved_file_mismatches.length === 0
+  const repositoryNamesValid = manifest.invalid_migration_filenames.length === 0
+  const allApprovedApplied =
+    manifest.approved_already_applied.length === control.approved_migrations.length
+
   manifest.execution_gate = {
     ok:
       args.mode === 'drift'
         ? !remoteDrift
         : args.mode === 'activation-preflight'
           ? manifest.activation_gate.ok
-          : !remoteDrift && !approvedStillPending && !unexpectedPending,
+          : !remoteDrift &&
+            !approvedStillPending &&
+            !unexpectedPending &&
+            approvedFilesExact &&
+            repositoryNamesValid &&
+            allApprovedApplied,
   }
 
   writeOutput(args['json-out'], `${JSON.stringify(manifest, null, 2)}\n`)
@@ -339,17 +350,18 @@ export function runCli(argv = process.argv.slice(2)) {
   }
 
   if (args.mode === 'activation-preflight' && !manifest.activation_gate.ok) {
+    const failedRequirements = Object.entries(manifest.activation_gate.requirements)
+      .filter(([, passed]) => !passed)
+      .map(([name]) => name)
     throw new Error(
-      `Activation manifest is HOLD. Unexpected pending versions: ${manifest.unexpected_pending.join(', ') || 'none'}`,
+      `Activation manifest is HOLD. Failed requirements: ${failedRequirements.join(', ')}. Unexpected pending versions: ${manifest.unexpected_pending.join(', ') || 'none'}`,
     )
   }
 
-  if (args.mode === 'activation-postflight') {
-    if (remoteDrift || approvedStillPending || unexpectedPending) {
-      throw new Error(
-        `Postflight ledger verification failed. Approved still pending: ${manifest.approved_pending.join(', ') || 'none'}; unexpected pending: ${manifest.unexpected_pending.join(', ') || 'none'}; remote-only: ${manifest.applied_not_committed.join(', ') || 'none'}`,
-      )
-    }
+  if (args.mode === 'activation-postflight' && !manifest.execution_gate.ok) {
+    throw new Error(
+      `Postflight ledger verification failed. Approved still pending: ${manifest.approved_pending.join(', ') || 'none'}; approved applied: ${manifest.approved_already_applied.join(', ') || 'none'}; unexpected pending: ${manifest.unexpected_pending.join(', ') || 'none'}; remote-only: ${manifest.applied_not_committed.join(', ') || 'none'}; file mismatches: ${manifest.approved_file_mismatches.length}`,
+    )
   }
 
   return manifest
