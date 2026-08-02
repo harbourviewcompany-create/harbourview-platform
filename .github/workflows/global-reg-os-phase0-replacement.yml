@@ -6,6 +6,7 @@ on:
       - agent/global-reg-os-phase0-replacement
     paths:
       - '.github/workflows/global-reg-os-phase0-replacement.yml'
+      - '.github/gros-repair-trigger'
   pull_request:
     paths:
       - 'docs/control/global-regulatory-os/**'
@@ -133,16 +134,17 @@ jobs:
           python scripts/global-reg-os/check_secrets.py
           python -m py_compile scripts/global-reg-os/*.py
           find scripts/global-reg-os -type d -name __pycache__ -prune -exec rm -rf {} +
+          rm -f .github/gros-repair-trigger
           test "$(grep -c '^[[:space:]]*summary:' docs/control/global-regulatory-os/canonical/api/openapi.yaml)" = '19'
           grep -q 'GRANT USAGE ON SCHEMA app TO hv_authenticator,hv_public_runtime,hv_tenant_runtime' docs/control/global-regulatory-os/canonical/db/migrations/0013_database_roles_and_grants.sql
           changed="$(git diff --name-only | wc -l | tr -d ' ')"
-          echo "Verified repair files: $changed"
-          test "$changed" = '6'
+          echo "Verified repair changes including trigger removal: $changed"
+          test "$changed" = '7'
       - name: Commit verified repair
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/control/global-regulatory-os
+          git add -A
           git commit -m 'fix: close Phase 0 contract and runtime grant gaps'
           git push origin HEAD:agent/global-reg-os-phase0-replacement
 
