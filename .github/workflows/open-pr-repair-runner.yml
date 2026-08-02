@@ -18,7 +18,7 @@ jobs:
   build-routing-forward-fix:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
