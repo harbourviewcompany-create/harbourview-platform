@@ -1,0 +1,151 @@
+name: Temporary Global Regulatory OS Repair
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tmp-global-reg-os-repair.yml'
+      - '.github/gros-repair-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/global-reg-os-phase0-replacement
+          fetch-depth: 0
+      - id: gate
+        name: Detect disposable repair trigger
+        run: |
+          if test -f .github/gros-repair-trigger; then
+            echo 'needed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'needed=false' >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.gate.outputs.needed == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - if: steps.gate.outputs.needed == 'true'
+        run: python -m pip install --disable-pip-version-check pyyaml jsonschema
+      - if: steps.gate.outputs.needed == 'true'
+        name: Patch verified contract and runtime-grant defects
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          api = Path('docs/control/global-regulatory-os/canonical/api/openapi.yaml')
+          text = api.read_text(encoding='utf-8')
+          description = '  description: Evidence-first API for jurisdictions, sources, regulatory instruments, obligations, licences, counterparties, corridors, market metrics, alerts and workflow.\n'
+          if '  license:\n' not in text.split('servers:', 1)[0]:
+              text = text.replace(description, description + '  license:\n    name: Proprietary\n', 1)
+          tag_descriptions = {
+              'Jurisdictions': 'Jurisdiction coverage, profiles and regulatory geography.',
+              'Sources': 'Source registry and acquisition operations.',
+              'Evidence': 'Evidence documents, claims and lineage.',
+              'Regulatory': 'Regulatory instruments and change intelligence.',
+              'Compliance': 'Obligations and applicability evaluation.',
+              'Registry': 'Entities, licences and counterparty intelligence.',
+              'Trade': 'Trade corridors and market-entry determinations.',
+              'Markets': 'Market metrics and observations.',
+              'Workflow': 'Alerts and controlled workflow operations.',
+          }
+          for name, detail in tag_descriptions.items():
+              old = f'  - name: {name}\n'
+              new = old + f'    description: {detail}\n'
+              if new not in text:
+                  if old not in text:
+                      raise SystemExit(f'missing OpenAPI tag: {name}')
+                  text = text.replace(old, new, 1)
+          summaries = {
+              'listJurisdictions': 'List jurisdictions',
+              'getJurisdiction': 'Get a jurisdiction',
+              'listSources': 'List registered sources',
+              'createSource': 'Create a registered source',
+              'requestAcquisition': 'Request a source acquisition',
+              'listDocuments': 'List evidence documents',
+              'getClaimWithLineage': 'Get a claim with evidence lineage',
+              'listRegulatoryChanges': 'List regulatory changes',
+              'listObligations': 'List compliance obligations',
+              'evaluateApplicability': 'Evaluate obligation applicability',
+              'searchEntities': 'Search registry entities',
+              'getCounterpartyProfile': 'Get a counterparty profile',
+              'createCorridor': 'Create a trade corridor',
+              'evaluateCorridor': 'Evaluate a trade corridor',
+              'getCorridorDetermination': 'Get a corridor determination',
+              'listMetricDefinitions': 'List market metric definitions',
+              'listMarketObservations': 'List market observations',
+              'listAlerts': 'List workflow alerts',
+          }
+          for operation_id, summary in summaries.items():
+              marker = f'      operationId: {operation_id}\n'
+              replacement = marker + f'      summary: {summary}\n'
+              if replacement not in text:
+                  if marker not in text:
+                      raise SystemExit(f'missing operationId: {operation_id}')
+                  text = text.replace(marker, replacement, 1)
+          webhook = '  regulatoryChangeApproved:\n    post:\n      requestBody:'
+          webhook_replacement = '  regulatoryChangeApproved:\n    post:\n      operationId: receiveRegulatoryChangeApproved\n      summary: Receive an approved regulatory change event\n      requestBody:'
+          if webhook in text:
+              text = text.replace(webhook, webhook_replacement, 1)
+          elif 'operationId: receiveRegulatoryChangeApproved' not in text:
+              raise SystemExit('missing regulatoryChangeApproved webhook')
+          api.write_text(text, encoding='utf-8')
+
+          grants = Path('docs/control/global-regulatory-os/canonical/db/migrations/0013_database_roles_and_grants.sql')
+          sql = grants.read_text(encoding='utf-8')
+          marker = 'END $roles$;\n\nGRANT hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime TO hv_authenticator;'
+          replacement = "END $roles$;\nALTER ROLE hv_context_owner NOLOGIN NOINHERIT BYPASSRLS;\nGRANT USAGE,CREATE ON SCHEMA app TO hv_context_owner;\n\nGRANT hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime TO hv_authenticator;\nGRANT USAGE ON SCHEMA app TO hv_authenticator,hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime;"
+          if 'GRANT USAGE ON SCHEMA app TO hv_authenticator,hv_public_runtime,hv_tenant_runtime' not in sql:
+              if marker not in sql:
+                  raise SystemExit('missing trusted-role grant marker')
+              sql = sql.replace(marker, replacement, 1)
+          grants.write_text(sql, encoding='utf-8')
+
+          patchset = Path('docs/control/global-regulatory-os/canonical/HARBOURVIEW_PATCHSET.md')
+          patch_text = patchset.read_text(encoding='utf-8')
+          old = '7. Regenerate `MANIFEST.json` after all changes.'
+          new = '7. Complete OpenAPI operation summaries, tag metadata and webhook identity so the canonical contract passes structural lint.\n8. Restore explicit `app` schema usage and trusted-context owner privileges for runtime accessors and negative privilege-escalation tests.\n9. Regenerate `MANIFEST.json` after all changes.'
+          if old in patch_text:
+              patch_text = patch_text.replace(old, new, 1)
+          patchset.write_text(patch_text, encoding='utf-8')
+
+          for filename in [
+              'docs/control/global-regulatory-os/canonical/VALIDATION_REPORT.md',
+              'docs/control/global-regulatory-os/VALIDATION_REPORT.md',
+          ]:
+              report = Path(filename)
+              report_text = report.read_text(encoding='utf-8')
+              marker = '- Canonical manifest is regenerated after the trusted-context and Phase 0 proof additions.\n'
+              addition = '- OpenAPI operation metadata and trusted runtime schema grants are validated in the replacement workflow.\n'
+              if addition not in report_text:
+                  if marker not in report_text:
+                      raise SystemExit(f'missing validation report marker: {filename}')
+                  report_text = report_text.replace(marker, marker + addition, 1)
+              report.write_text(report_text, encoding='utf-8')
+          PY
+      - if: steps.gate.outputs.needed == 'true'
+        name: Regenerate and verify canonical evidence
+        run: |
+          python scripts/global-reg-os/regenerate_manifest.py
+          python scripts/global-reg-os/validate_phase0_package.py
+          python scripts/global-reg-os/check_secrets.py
+          python -m py_compile scripts/global-reg-os/*.py
+          find scripts/global-reg-os -type d -name __pycache__ -prune -exec rm -rf {} +
+          rm .github/gros-repair-trigger
+          test "$(grep -c '^[[:space:]]*summary:' docs/control/global-regulatory-os/canonical/api/openapi.yaml)" = '19'
+          grep -q 'GRANT USAGE ON SCHEMA app TO hv_authenticator,hv_public_runtime,hv_tenant_runtime' docs/control/global-regulatory-os/canonical/db/migrations/0013_database_roles_and_grants.sql
+          changed="$(git diff --name-only | wc -l | tr -d ' ')"
+          echo "Verified repair changes including trigger removal: $changed"
+          test "$changed" = '7'
+      - if: steps.gate.outputs.needed == 'true'
+        name: Commit verified repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: close Phase 0 contract and runtime grant gaps'
+          git push origin HEAD:agent/global-reg-os-phase0-replacement
