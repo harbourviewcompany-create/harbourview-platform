@@ -25,6 +25,6 @@ jobs:
           ref: agent/open-pr-repair-runner
       - name: Apply reviewed PR 1224 repair
         run: |
-          base64 --decode scripts/open-pr-repair/apply-pr1224.sh.gz.b64 | gzip --decompress > /tmp/apply-pr1224.sh
+          base64 --decode scripts/open-pr-repair/apply-pr1224-v2.sh.gz.b64 | gzip --decompress > /tmp/apply-pr1224.sh
           chmod +x /tmp/apply-pr1224.sh
           /tmp/apply-pr1224.sh
