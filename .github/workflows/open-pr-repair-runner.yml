@@ -15,7 +15,7 @@ permissions:
   actions: read
 
 jobs:
-  rebase-pr1224:
+  rebase-pr1233:
     if: github.event_name == 'pull_request' && github.event.pull_request.number == 1241
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -24,9 +24,5 @@ jobs:
         with:
           fetch-depth: 0
           ref: agent/open-pr-repair-runner
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - name: Rebuild reviewed PR 1224 on current main
-        run: bash scripts/open-pr-repair/rebase-pr1224-current-main.sh
+      - name: Rebuild reviewed PR 1233 on post-1224 main
+        run: bash scripts/open-pr-repair/rebase-pr1233-current-main.sh
