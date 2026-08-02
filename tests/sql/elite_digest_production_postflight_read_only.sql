@@ -180,6 +180,8 @@ select
 
 \echo '=== elite_digest_postflight: direct table boundary ==='
 select
+  (select relrowsecurity from pg_class where oid = 'public.signal_relevance_feedback'::regclass)
+    as feedback_rls_enabled,
   not (
     has_table_privilege('anon', 'public.signal_relevance_feedback', 'SELECT')
     or has_table_privilege('anon', 'public.signal_relevance_feedback', 'INSERT')
@@ -196,6 +198,11 @@ select
   has_table_privilege('service_role', 'public.signal_relevance_feedback', 'INSERT') as service_insert_retained
 \gset
 
+\if :feedback_rls_enabled
+\else
+  \echo 'Postflight failed: feedback-table RLS is disabled.'
+  \quit 1
+\endif
 \if :anon_direct_table_denied
 \else
   \echo 'Postflight failed: anon retains a direct feedback-table privilege.'
