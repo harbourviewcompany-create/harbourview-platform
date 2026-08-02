@@ -13,15 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify parent is exact source commit
-        run: test "$(git rev-parse HEAD^2)" = "1134ff3809d07e9203dd6f4ed5ce10a44e3a9431" || test "$(git rev-parse HEAD^)" = "1134ff3809d07e9203dd6f4ed5ce10a44e3a9431"
-      - name: Remove temporary workflow and package source snapshot
+      - name: Verify exact PR base commit
+        run: test "$(git rev-parse HEAD^1)" = "6fd3cb2a2f43fb4a998c52ae03f06e5d0cb14eb5"
+      - name: Remove temporary workflow and package exact base source snapshot
         run: |
           rm -f .github/workflows/tmp-export-main-source-pr.yml
-          tar --exclude=.git -czf /tmp/harbourview-main-1134ff.tar.gz .
+          tar --exclude=.git -czf /tmp/harbourview-main-6fd3cb2.tar.gz .
       - uses: actions/upload-artifact@v4
         with:
-          name: harbourview-main-1134ff
-          path: /tmp/harbourview-main-1134ff.tar.gz
+          name: harbourview-main-6fd3cb2
+          path: /tmp/harbourview-main-6fd3cb2.tar.gz
           retention-days: 1
           if-no-files-found: error
