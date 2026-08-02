@@ -45,7 +45,7 @@ Repair PR: `#1236`
 Branch: `repair/mobile-playbook-steps-production`
 Final verified head: `eb1f4ecc3aa014dff30ad3702402ac6ee56c90bc`
 Merge method: squash
-Merged production-repair commit: `999e624fe28f560153441bf340ae320136dc4577`
+Merged production-repair commit: `58a1523c3e74d72a9ed5d6be12ffb03d2eefc4bb`
 
 The final runtime diff was limited to:
 
@@ -92,7 +92,7 @@ The squash merge of PR #1236 triggered a production deployment from the exact re
 - Production alias verified: `https://harbourview.vercel.app`
 - Target: `production`
 - Source branch: `main`
-- `githubCommitSha`: `999e624fe28f560153441bf340ae320136dc4577`
+- `githubCommitSha`: `58a1523c3e74d72a9ed5d6be12ffb03d2eefc4bb`
 - Final state: `READY`
 
 Vercel build logs confirmed successful dependency installation, Next.js compilation, TypeScript validation, page-data collection, static generation, and deployment completion.
@@ -151,4 +151,4 @@ The repair did not change the dedicated public supply DTO, migrations, database 
 
 **GO.**
 
-The Harbourview Supply catalog is deployed to production from repaired main commit `999e624fe28f560153441bf340ae320136dc4577`. The production deployment is READY, both required Supply routes return HTTP 200 with the expected titles and visible content, and the final typecheck, test, build, public-boundary, leakage, and migration-drift gates are green.
+The Harbourview Supply catalog is deployed to production from repaired main commit `58a1523c3e74d72a9ed5d6be12ffb03d2eefc4bb`. The production deployment is READY, both required Supply routes return HTTP 200 with the expected titles and visible content, and the final typecheck, test, build, public-boundary, leakage, and migration-drift gates are green.
