@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { SupplyProductImage } from '@/components/supply/SupplyProductImage'
 import { notFound } from 'next/navigation'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 import { getSupplyItemBySlug, isSupplyCategory, SUPPLY_CATEGORY_LABELS } from '@/lib/server/supplyQuery'
@@ -43,6 +44,7 @@ export default async function SupplyProductDetailPage({ params }: PageProps) {
       </PublicHero>
 
       <PublicSection tone="navy">
+        <div className="mb-6 overflow-hidden rounded-sm border border-gold/10 bg-[#071425] shadow-[0_18px_44px_rgba(0,0,0,0.24)]"><div className="aspect-[3/2] max-h-[640px]"><SupplyProductImage slug={listing.slug} title={listing.title} priority /></div></div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <PublicCard className="space-y-3 p-7 text-sm leading-7 text-white/62">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold/76">Commercial review</p>

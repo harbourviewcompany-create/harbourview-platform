@@ -41,7 +41,8 @@
     "intelligence:ingest": "tsx scripts/engine/run-ingestion.ts",
     "intelligence:deep-discovery": "tsx scripts/engine/run-deep-discovery.ts",
     "intelligence:worker": "tsx scripts/engine/start-worker.ts",
-    "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
+    "intelligence:json-worker": "tsx scripts/engine/json-worker.ts",
+    "validate:supply-images": "node scripts/validate-supply-images.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
