@@ -1,4 +1,4 @@
-#/usr/bin/env node
+#!/usr/bin/env node
 
 /**
  * Harbourview Platform - Edge Function Audit Tool
@@ -88,13 +88,20 @@ console.log(`✅ Report generated: ${reportPath}`);
 
 if (createPR) {
   console.log('\n🔄 Creating PR...');
-  try {
-    execSync('git add docs/control/edge-function-audit-*.md scripts/audit-edge-functions.js');
-    execSync('git commit -m "chore: add edge function audit report template and script"');
-    execSync('gh pr create --title "Edge Function Audit Checklist & Script" --body "Automated audit tool + report template. Follow checklist in script comments." --base main');
-    console.log('✅ PR created successfully!');
-  } catch (e) {
-    console.error('❌ PR creation failed (ensure gh CLI is installed and authenticated):', e.message);
+  const currentBranch = runCommand('git branch --show-current');
+  if (!currentBranch || currentBranch === 'main' || currentBranch === 'master') {
+    console.error('❌ Refusing --pr on the default branch. Switch to a non-default feature branch first.');
+    process.exitCode = 1;
+  } else {
+    try {
+      execSync('git add docs/control/edge-function-audit-*.md scripts/audit-edge-functions.js');
+      execSync('git commit -m "chore: add edge function audit report template and script"');
+      execSync('gh pr create --title "Edge Function Audit Checklist & Script" --body "Automated audit tool + report template. Follow checklist in script comments." --base main');
+      console.log('✅ PR created successfully!');
+    } catch (e) {
+      console.error('❌ PR creation failed (ensure gh CLI is installed and authenticated):', e.message);
+      process.exitCode = 1;
+    }
   }
 }
 
