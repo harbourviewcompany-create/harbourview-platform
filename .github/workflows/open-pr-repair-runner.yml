@@ -24,7 +24,4 @@ jobs:
           fetch-depth: 0
           ref: agent/open-pr-repair-runner
       - name: Apply reviewed PR 1233 repair
-        run: |
-          base64 --decode scripts/open-pr-repair/apply-pr1233-v2.sh.gz.b64 | gzip --decompress > /tmp/apply-pr1233.sh
-          chmod +x /tmp/apply-pr1233.sh
-          /tmp/apply-pr1233.sh
+        run: bash scripts/open-pr-repair/apply-pr1233-v2.sh
