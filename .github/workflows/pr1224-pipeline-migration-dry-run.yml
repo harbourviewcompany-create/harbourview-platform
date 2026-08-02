@@ -1,0 +1,38 @@
+name: PR 1224 Pipeline Migration Dry Run
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20260802080000_harden_eval_labels_and_alert_delivery.sql'
+      - 'tests/sql/pr1224_pipeline_hardening_dry_run.sql'
+      - '.github/workflows/pr1224-pipeline-migration-dry-run.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-17:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify migration fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/pr1224_pipeline_hardening_dry_run.sql
