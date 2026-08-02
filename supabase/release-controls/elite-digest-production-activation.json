@@ -1,7 +1,6 @@
 {
   "version": 1,
   "release": "elite-digest-production-activation",
-  "source_main_sha": "d2e03cb13b61da12d37e0ed128032242570963fb",
   "approved_migrations": [
     {
       "version": "20260802073000",
