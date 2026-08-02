@@ -1,0 +1,108 @@
+name: Bootstrap Elite Digest Boundary Hardening
+
+on:
+  push:
+    branches:
+      - 'fix/elite-digest-boundary-hardening'
+    paths:
+      - '.github/workflows/bootstrap-elite-digest-boundary-hardening.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 'fix/elite-digest-boundary-hardening'
+          fetch-depth: 0
+      - name: Confirm exact base ancestry
+        run: git merge-base --is-ancestor 951d0ea587e3ec8f4485bc828e810eb33113d235 HEAD
+      - name: Generate forward-hardening patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          migration_path = Path("supabase/migrations/20260802163000_elite_digest_rpc_boundary_hardening.sql")
+          fixture_path = Path("tests/sql/elite_digest_boundary_hardening_dry_run.sql")
+
+          migration_path.write_text("-- Elite Digest forward hardening: least-privilege execution and RPC-only feedback writes.\n--\n-- Forward-only and data-preserving:\n-- - changes grants only;\n-- - does not delete, rewrite, or backfill operator feedback;\n-- - keeps RLS enabled as defense in depth;\n-- - preserves service-role aggregate access required by ranking and health checks.\n\nalter table public.signal_relevance_feedback enable row level security;\n\n-- The feedback table is not a client Data API surface. Authenticated clients write\n-- through api.submit_signal_relevance_feedback(), and ranking reads through the\n-- service-role-only api.signal_relevance_feedback_for_ranking() projection.\nrevoke all privileges on table public.signal_relevance_feedback\n  from PUBLIC, anon, authenticated;\n\ngrant select, insert on table public.signal_relevance_feedback\n  to service_role;\n\n-- Internal intelligence functions must not be directly callable by public API roles.\nrevoke all privileges\n  on function public.hv_dedup_assign(double precision, integer)\n  from PUBLIC, anon, authenticated;\n\ngrant execute\n  on function public.hv_dedup_assign(double precision, integer)\n  to service_role;\n\nrevoke all privileges\n  on function public._digest_cluster_size(text)\n  from PUBLIC, anon, authenticated;\n\ngrant execute\n  on function public._digest_cluster_size(text)\n  to service_role;\n\n-- Reassert the narrow RPC contract in case a prior environment drifted.\ngrant usage on schema api to authenticated, service_role;\n\nrevoke all privileges\n  on function api.submit_signal_relevance_feedback(text, text, text, text)\n  from PUBLIC, anon, service_role;\n\ngrant execute\n  on function api.submit_signal_relevance_feedback(text, text, text, text)\n  to authenticated;\n\nrevoke all privileges\n  on function api.signal_relevance_feedback_for_ranking(text[], timestamptz)\n  from PUBLIC, anon, authenticated;\n\ngrant execute\n  on function api.signal_relevance_feedback_for_ranking(text[], timestamptz)\n  to service_role;\n\ncomment on table public.signal_relevance_feedback is\n  'Operator judgments retained in public storage but client writes are RPC-only through api.submit_signal_relevance_feedback; ranking uses the service-role-only projection.';\n\ncomment on function public.hv_dedup_assign(double precision, integer) is\n  'Service-role-only HNSW dedup assignment. Public API roles have no EXECUTE privilege.';\n\ncomment on function public._digest_cluster_size(text) is\n  'Service-role-only internal Digest corroboration helper. Public API roles have no EXECUTE privilege.';\n")
+          fixture_path.write_text("\\set ON_ERROR_STOP on\nbegin;\n\ncreate extension if not exists vector;\ncreate schema if not exists auth;\ncreate schema if not exists api;\n\ndo $roles$\nbegin\n  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;\n  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;\n  if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;\nend\n$roles$;\n\ncreate table auth.users (id uuid primary key);\ncreate or replace function auth.uid()\nreturns uuid\nlanguage sql\nstable\nas $$\n  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;\n$$;\n\ngrant usage on schema auth to authenticated;\ngrant execute on function auth.uid() to authenticated;\n\ncreate table public.signals (\n  id text primary key,\n  embedding_1024 vector(1024),\n  created_at timestamptz not null default now(),\n  quality_confidence numeric,\n  cluster_rep_id text,\n  is_representative boolean,\n  reviewed boolean,\n  reviewed_at timestamptz,\n  quality_label text\n);\n\ngrant select on table public.signals to service_role;\n\ncreate or replace function public._digest_cluster_size(p_cluster_rep_id text)\nreturns integer\nlanguage sql\nstable\nsecurity invoker\nset search_path to 'public'\nas $$\n  select greatest(1, count(*)::integer)\n  from public.signals s\n  where s.cluster_rep_id is not null\n    and s.cluster_rep_id = p_cluster_rep_id;\n$$;\n\ncreate table public.daily_digest (\n  digest_date date,\n  status text,\n  headlines jsonb,\n  editorial_headlines jsonb\n);\n\ncreate index idx_signals_embedding_1024_hnsw\n  on public.signals using hnsw (embedding_1024 vector_cosine_ops);\n\n\\ir ../../supabase/migrations/20260730233000_intelligence_self_improve_loop.sql\n\\ir ../../supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql\n\\ir ../../supabase/migrations/20260802152500_signal_feedback_api_rpcs.sql\n\ninsert into auth.users (id) values\n  ('11111111-1111-1111-1111-111111111111'),\n  ('22222222-2222-2222-2222-222222222222');\n\ninsert into public.signals (\n  id, embedding_1024, created_at, quality_confidence, cluster_rep_id, is_representative\n) values (\n  'signal-a',\n  ('[1,' || repeat('0,', 1022) || '0]')::vector,\n  now() - interval '1 minute',\n  0.90,\n  null,\n  null\n);\n\n-- Create existing feedback through the approved writer before hardening, then\n-- fingerprint it so the forward migration must preserve every stored value.\nselect set_config(\n  'request.jwt.claim.sub',\n  '11111111-1111-1111-1111-111111111111',\n  true\n);\nset local role authenticated;\nselect api.submit_signal_relevance_feedback(\n  'signal-a',\n  'helpful',\n  'preserve me',\n  'digest'\n);\nreset role;\n\ncreate temporary table feedback_before_hardening as\nselect\n  count(*)::bigint as row_count,\n  md5(\n    string_agg(\n      concat_ws(\n        '|',\n        id::text,\n        signal_id,\n        coalesce(user_id::text, ''),\n        verdict,\n        coalesce(note, ''),\n        surface,\n        created_at::text\n      ),\n      E'\\n'\n      order by id\n    )\n  ) as content_md5\nfrom public.signal_relevance_feedback;\n\n\\ir ../../supabase/migrations/20260802163000_elite_digest_rpc_boundary_hardening.sql\n\ndo $preservation_and_grants$\ndeclare\n  v_before_count bigint;\n  v_before_md5 text;\n  v_after_count bigint;\n  v_after_md5 text;\nbegin\n  select row_count, content_md5\n    into v_before_count, v_before_md5\n  from feedback_before_hardening;\n\n  select\n    count(*)::bigint,\n    md5(\n      string_agg(\n        concat_ws(\n          '|',\n          id::text,\n          signal_id,\n          coalesce(user_id::text, ''),\n          verdict,\n          coalesce(note, ''),\n          surface,\n          created_at::text\n        ),\n        E'\\n'\n        order by id\n      )\n    )\n    into v_after_count, v_after_md5\n  from public.signal_relevance_feedback;\n\n  if v_before_count <> v_after_count or v_before_md5 is distinct from v_after_md5 then\n    raise exception\n      'boundary hardening changed feedback data: before count/md5 %/%, after %/%',\n      v_before_count, v_before_md5, v_after_count, v_after_md5;\n  end if;\n\n  if has_schema_privilege('anon', 'api', 'USAGE')\n     or not has_schema_privilege('authenticated', 'api', 'USAGE')\n     or not has_schema_privilege('service_role', 'api', 'USAGE') then\n    raise exception 'api schema usage boundary mismatch';\n  end if;\n\n  if has_table_privilege('anon', 'public.signal_relevance_feedback', 'SELECT')\n     or has_table_privilege('anon', 'public.signal_relevance_feedback', 'INSERT')\n     or has_table_privilege('authenticated', 'public.signal_relevance_feedback', 'SELECT')\n     or has_table_privilege('authenticated', 'public.signal_relevance_feedback', 'INSERT')\n     or has_table_privilege('authenticated', 'public.signal_relevance_feedback', 'UPDATE')\n     or has_table_privilege('authenticated', 'public.signal_relevance_feedback', 'DELETE') then\n    raise exception 'public API roles retain direct feedback table privileges';\n  end if;\n\n  if not has_table_privilege('service_role', 'public.signal_relevance_feedback', 'SELECT')\n     or not has_table_privilege('service_role', 'public.signal_relevance_feedback', 'INSERT') then\n    raise exception 'service_role aggregate access was not preserved';\n  end if;\n\n  if has_function_privilege(\n       'anon',\n       'public.hv_dedup_assign(double precision,integer)',\n       'EXECUTE'\n     )\n     or has_function_privilege(\n       'authenticated',\n       'public.hv_dedup_assign(double precision,integer)',\n       'EXECUTE'\n     )\n     or not has_function_privilege(\n       'service_role',\n       'public.hv_dedup_assign(double precision,integer)',\n       'EXECUTE'\n     ) then\n    raise exception 'hv_dedup_assign execution boundary mismatch';\n  end if;\n\n  if has_function_privilege(\n       'anon',\n       'public._digest_cluster_size(text)',\n       'EXECUTE'\n     )\n     or has_function_privilege(\n       'authenticated',\n       'public._digest_cluster_size(text)',\n       'EXECUTE'\n     )\n     or not has_function_privilege(\n       'service_role',\n       'public._digest_cluster_size(text)',\n       'EXECUTE'\n     ) then\n    raise exception '_digest_cluster_size execution boundary mismatch';\n  end if;\n\n  if has_function_privilege(\n       'anon',\n       'api.submit_signal_relevance_feedback(text,text,text,text)',\n       'EXECUTE'\n     )\n     or not has_function_privilege(\n       'authenticated',\n       'api.submit_signal_relevance_feedback(text,text,text,text)',\n       'EXECUTE'\n     )\n     or has_function_privilege(\n       'service_role',\n       'api.submit_signal_relevance_feedback(text,text,text,text)',\n       'EXECUTE'\n     ) then\n    raise exception 'feedback writer RPC boundary mismatch';\n  end if;\n\n  if has_function_privilege(\n       'anon',\n       'api.signal_relevance_feedback_for_ranking(text[],timestamptz)',\n       'EXECUTE'\n     )\n     or has_function_privilege(\n       'authenticated',\n       'api.signal_relevance_feedback_for_ranking(text[],timestamptz)',\n       'EXECUTE'\n     )\n     or not has_function_privilege(\n       'service_role',\n       'api.signal_relevance_feedback_for_ranking(text[],timestamptz)',\n       'EXECUTE'\n     ) then\n    raise exception 'ranking projection RPC boundary mismatch';\n  end if;\nend\n$preservation_and_grants$;\n\n-- Authenticated clients can update their current verdict through the API RPC,\n-- but direct Data API table reads and writes fail for the same role.\nselect set_config(\n  'request.jwt.claim.sub',\n  '11111111-1111-1111-1111-111111111111',\n  true\n);\nset local role authenticated;\n\ndo $direct_read_denied$\nbegin\n  begin\n    perform count(*) from public.signal_relevance_feedback;\n    raise exception 'authenticated direct feedback SELECT unexpectedly succeeded';\n  exception\n    when insufficient_privilege then null;\n  end;\nend\n$direct_read_denied$;\n\ndo $direct_insert_denied$\nbegin\n  begin\n    insert into public.signal_relevance_feedback (\n      signal_id, user_id, verdict, surface\n    ) values (\n      'signal-a',\n      '22222222-2222-2222-2222-222222222222',\n      'helpful',\n      'digest'\n    );\n    raise exception 'authenticated direct feedback INSERT unexpectedly succeeded';\n  exception\n    when insufficient_privilege then null;\n  end;\nend\n$direct_insert_denied$;\n\nselect api.submit_signal_relevance_feedback(\n  'signal-a',\n  'wrong_country',\n  'updated through RPC',\n  'signals'\n);\nreset role;\n\ndo $rpc_update_verify$\ndeclare\n  v_count integer;\nbegin\n  select count(*) into v_count\n  from public.signal_relevance_feedback\n  where signal_id = 'signal-a'\n    and user_id = '11111111-1111-1111-1111-111111111111'\n    and verdict = 'wrong_country'\n    and note = 'updated through RPC'\n    and surface = 'signals';\n\n  if v_count <> 1 then\n    raise exception 'authenticated writer RPC did not update one current verdict';\n  end if;\nend\n$rpc_update_verify$;\n\n-- Service role can consume the narrow ranking projection and invoke internal\n-- helpers while receiving no notes or user identifiers from the projection.\nset local role service_role;\nselect *\nfrom api.signal_relevance_feedback_for_ranking(\n  array['signal-a'],\n  now() - interval '1 day'\n);\nselect public._digest_cluster_size(null);\nselect public.hv_dedup_assign(0.90, 120);\nreset role;\n\nrollback;\n")
+
+          checker = Path("scripts/check-elite-digest-migration-versions.mjs")
+          checker_text = checker.read_text()
+          new_migration = "  '20260802163000_elite_digest_rpc_boundary_hardening.sql',\n"
+          anchor = "  '20260802152500_signal_feedback_api_rpcs.sql',\n"
+          if new_migration not in checker_text:
+              if anchor not in checker_text:
+                  raise SystemExit("Elite Digest migration-list anchor is missing")
+              checker_text = checker_text.replace(anchor, anchor + new_migration, 1)
+          checker.write_text(checker_text)
+
+          database_control = Path("docs/control/DATABASE_CONTROL.md")
+          database_text = database_control.read_text()
+          database_marker = "## 2026-08-02 — Elite Digest RPC-only boundary forward hardening"
+          if database_marker not in database_text:
+              database_control.write_text(database_text.rstrip() + '\n\n## 2026-08-02 — Elite Digest RPC-only boundary forward hardening\n\n- **Environment:** repository and disposable PostgreSQL 17 + pgvector fixture only. No Supabase migration was applied by this change.\n- **Base commit:** `951d0ea587e3ec8f4485bc828e810eb33113d235`.\n- **Migration:** `20260802163000_elite_digest_rpc_boundary_hardening.sql`, applied only after the existing HNSW and feedback-RPC forward migrations.\n- **Tables affected:** `public.signal_relevance_feedback` privileges only. Existing rows, IDs, verdicts, notes, surfaces, timestamps and RLS policies are preserved.\n- **Functions affected:** direct `anon`/`authenticated` execution is revoked from `public.hv_dedup_assign(double precision, integer)` and `public._digest_cluster_size(text)`; `service_role` retains execution.\n- **Data API contract:** `anon` and `authenticated` receive no direct privileges on `public.signal_relevance_feedback`. Authenticated writes use `api.submit_signal_relevance_feedback`; ranking reads use the service-role-only `api.signal_relevance_feedback_for_ranking` projection.\n- **RLS impact:** RLS remains enabled as defense in depth. It is not forced because the controlled `SECURITY DEFINER` writer must retain owner access.\n- **Backward compatibility:** server ranking, health checks and authenticated feedback submission retain their existing RPC contracts. Direct client table access is intentionally removed.\n- **Data preservation:** the PostgreSQL fixture fingerprints pre-existing feedback before applying the migration and verifies an identical row count and content digest afterward.\n- **Rollback/forward-fix:** restore only the explicitly captured prior grants through a new migration. Do not rewrite migration history or delete operator feedback.\n- **Required verification:** migration-version validation; PostgreSQL 17 + pgvector boundary fixture; lint; typecheck; full tests; production build; visibility and security checks; standard CI; Branch Verification.\n- **Production approval:** HOLD until a separate operator-authorized migration activation.\n' + "\n")
+
+          evidence_log = Path("docs/control/EVIDENCE_LOG.md")
+          evidence_text = evidence_log.read_text()
+          evidence_marker = "## 2026-08-02 — Elite Digest RPC-only boundary hardening"
+          if evidence_marker not in evidence_text:
+              evidence_log.write_text(evidence_text.rstrip() + '\n\n## 2026-08-02 — Elite Digest RPC-only boundary hardening\n\n- Base: `951d0ea587e3ec8f4485bc828e810eb33113d235`\n- Branch: `fix/elite-digest-boundary-hardening`\n- Migration: `20260802163000_elite_digest_rpc_boundary_hardening.sql`\n- Scope: revoke public-role execution from the HNSW dedup and Digest cluster helper; remove direct client privileges from `public.signal_relevance_feedback`; preserve authenticated feedback and service-role ranking through narrow `api` RPCs.\n- Data handling: no existing feedback row is deleted or rewritten. The PostgreSQL fixture fingerprints fixture data before the migration and proves identical storage afterward.\n- Production boundary: no migration application, production data write, deployment invocation, alias movement or secret-value access is authorized by this entry.\n- Verification evidence: exact-head workflow and standard check run IDs will be recorded in the PR after completion.\n' + "\n")
+
+          deploy = Path("docs/ops/ELITE_DIGEST_DEPLOY.md")
+          deploy_text = deploy.read_text()
+          deploy_anchor = "20260802152500_signal_feedback_api_rpcs.sql\n```"
+          deploy_replacement = "20260802152500_signal_feedback_api_rpcs.sql\n20260802163000_elite_digest_rpc_boundary_hardening.sql\n```"
+          if "20260802163000_elite_digest_rpc_boundary_hardening.sql" not in deploy_text:
+              if deploy_anchor not in deploy_text:
+                  raise SystemExit("Elite Digest deployment migration-list anchor is missing")
+              deploy_text = deploy_text.replace(deploy_anchor, deploy_replacement, 1)
+          section_marker = "### Forward privilege and Data API hardening"
+          if section_marker not in deploy_text:
+              heading = "\n## 2. Environment names"
+              if heading not in deploy_text:
+                  raise SystemExit("Elite Digest deployment environment heading is missing")
+              deploy_text = deploy_text.replace(heading, '\n\n### Forward privilege and Data API hardening\n\nApply the ninth migration only after the HNSW restoration and feedback RPC\nmigration:\n\n```text\n20260802163000_elite_digest_rpc_boundary_hardening.sql\n```\n\nThis migration preserves all feedback rows while enforcing the approved boundary:\n\n- `public.hv_dedup_assign(double precision, integer)` and\n  `public._digest_cluster_size(text)` are executable only by `service_role`.\n- `anon` and `authenticated` have no direct privileges on\n  `public.signal_relevance_feedback`.\n- authenticated clients submit one current verdict through\n  `api.submit_signal_relevance_feedback`.\n- ranking reads only `signal_id` and `verdict` through the service-role-only\n  `api.signal_relevance_feedback_for_ranking` projection.\n- RLS remains enabled as defense in depth.\n\nBefore production application, verify the target has no duplicate\n`(signal_id, user_id)` rows, capture the existing grants and function\ndefinitions, and run the PostgreSQL 17 + pgvector boundary fixture.\n' + heading, 1)
+          deploy.write_text(deploy_text)
+          PY
+      - name: Validate migration sequence
+        run: node scripts/check-elite-digest-migration-versions.mjs
+      - name: Verify PostgreSQL boundary fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/elite_digest_boundary_hardening_dry_run.sql
+      - name: Commit validated patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            scripts/check-elite-digest-migration-versions.mjs \
+            supabase/migrations/20260802163000_elite_digest_rpc_boundary_hardening.sql \
+            tests/sql/elite_digest_boundary_hardening_dry_run.sql \
+            docs/control/DATABASE_CONTROL.md \
+            docs/control/EVIDENCE_LOG.md \
+            docs/ops/ELITE_DIGEST_DEPLOY.md
+          git diff --cached --check
+          git commit -m "fix(db): harden Elite Digest RPC boundary"
+          git push origin HEAD:fix/elite-digest-boundary-hardening
