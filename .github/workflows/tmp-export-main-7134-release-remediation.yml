@@ -1,4 +1,4 @@
-name: Temporary Export Main 7134 Release Remediation
+name: Temporary Audited Release Remediation Evidence
 
 on:
   pull_request:
@@ -6,28 +6,139 @@ on:
       - '.github/workflows/tmp-export-main-7134-release-remediation.yml'
 
 permissions:
+  actions: read
   contents: read
+  deployments: read
 
 jobs:
-  export:
+  evidence:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    env:
+      SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+      PGHOST: aws-1-us-west-2.pooler.supabase.com
+      PGPORT: '5432'
+      PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+      PGDATABASE: postgres
     steps:
       - uses: actions/checkout@v4
         with:
           ref: 7134bb6cd696779b3429d98272ce1e3cd7e8236c
           fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Verify exact source and record tree
         run: |
+          set -euo pipefail
+          mkdir -p artifacts/release-remediation
           test "$(git rev-parse HEAD)" = "7134bb6cd696779b3429d98272ce1e3cd7e8236c"
-          git rev-parse 'HEAD^{tree}' | tee /tmp/tree-sha.txt
-      - name: Package exact source
-        run: tar --exclude=.git -czf /tmp/harbourview-main-7134.tar.gz .
-      - uses: actions/upload-artifact@v4
+          git rev-parse 'HEAD^{tree}' | tee artifacts/release-remediation/tree-sha.txt
+          tar --exclude=.git -czf artifacts/release-remediation/harbourview-main-7134.tar.gz .
+
+      - name: Install Supabase CLI and PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - uses: supabase/setup-cli@v1
         with:
-          name: harbourview-main-7134-tree
-          path: |
-            /tmp/harbourview-main-7134.tar.gz
-            /tmp/tree-sha.txt
+          version: 2.109.1
+
+      - name: Read live migration ledger
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked > artifacts/release-remediation/remote-migrations.txt
+
+      - name: Generate exact activation manifest
+        id: manifest
+        continue-on-error: true
+        run: |
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/release-remediation/remote-migrations.txt \
+            --local-dir supabase/migrations \
+            --control-file supabase/release-controls/elite-digest-production-activation.json \
+            --json-out artifacts/release-remediation/manifest.json \
+            --markdown-out artifacts/release-remediation/manifest.md \
+            --mode activation-preflight \
+            --source-sha 7134bb6cd696779b3429d98272ce1e3cd7e8236c
+          echo "outcome=GO" > artifacts/release-remediation/manifest-outcome.txt
+
+      - name: Record expected HOLD outcome
+        if: always()
+        env:
+          MANIFEST_OUTCOME: ${{ steps.manifest.outcome }}
+        run: |
+          printf 'manifest_step_outcome=%s\n' "$MANIFEST_OUTCOME" \
+            > artifacts/release-remediation/manifest-step-outcome.txt
+          test -f artifacts/release-remediation/manifest.json
+          test -f artifacts/release-remediation/manifest.md
+
+      - name: Capture read-only SQL preflight evidence
+        id: sql_preflight
+        continue-on-error: true
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          psql -X -v ON_ERROR_STOP=1 \
+            -f tests/sql/elite_digest_production_preflight_read_only.sql \
+            > artifacts/release-remediation/sql-preflight-and-rollback-evidence.txt
+
+      - name: Probe production-database environment through GitHub API
+        id: environment_probe
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/environments/production-database" \
+            > artifacts/release-remediation/environment-raw.json \
+            2> artifacts/release-remediation/environment-error.txt
+          ENV_EXIT=$?
+          printf 'environment_endpoint_exit=%s\n' "$ENV_EXIT" \
+            > artifacts/release-remediation/environment-probe-status.txt
+          if [ "$ENV_EXIT" -eq 0 ]; then
+            jq '{name, protection_rules, deployment_branch_policy}' \
+              artifacts/release-remediation/environment-raw.json \
+              > artifacts/release-remediation/environment.json
+            gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/$GITHUB_REPOSITORY/environments/production-database/deployment-branch-policies" \
+              > artifacts/release-remediation/environment-branch-policies-raw.json \
+              2>> artifacts/release-remediation/environment-error.txt
+            POLICIES_EXIT=$?
+            printf 'branch_policies_endpoint_exit=%s\n' "$POLICIES_EXIT" \
+              >> artifacts/release-remediation/environment-probe-status.txt
+            if [ "$POLICIES_EXIT" -eq 0 ]; then
+              jq '{total_count, branch_policies}' \
+                artifacts/release-remediation/environment-branch-policies-raw.json \
+                > artifacts/release-remediation/environment-branch-policies.json
+            fi
+          fi
+          exit "$ENV_EXIT"
+
+      - name: Record evidence outcomes
+        if: always()
+        env:
+          MANIFEST_OUTCOME: ${{ steps.manifest.outcome }}
+          SQL_OUTCOME: ${{ steps.sql_preflight.outcome }}
+          ENVIRONMENT_OUTCOME: ${{ steps.environment_probe.outcome }}
+        run: |
+          printf 'manifest=%s\nsql_preflight=%s\nenvironment_probe=%s\n' \
+            "$MANIFEST_OUTCOME" "$SQL_OUTCOME" "$ENVIRONMENT_OUTCOME" \
+            > artifacts/release-remediation/outcomes.txt
+
+      - name: Upload read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audited-release-remediation-evidence
+          path: artifacts/release-remediation/
           retention-days: 1
           if-no-files-found: error
