@@ -1,3 +1,13 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { buildCountryDashboardHref } from '@/lib/dashboard/navigationRoutes'
+
 export const dynamic = 'force-dynamic'
-export default function Page() { redirect('/dashboard?page=countries') }
+
+type Props = { params: Promise<{ country: string }> }
+
+export default async function CountryDashboardRedirect({ params }: Props) {
+  const { country } = await params
+  const href = buildCountryDashboardHref(country)
+  if (!href) notFound()
+  redirect(href)
+}
