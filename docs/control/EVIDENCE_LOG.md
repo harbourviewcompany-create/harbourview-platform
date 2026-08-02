@@ -2659,3 +2659,75 @@ scope for this change, and it is a routing decision, not a bug fix.
 **Deployment status:** these changes are committed but **NOT deployed**. Production remains
 `hv-extract` v36; the repo is now four commits ahead. Deploying needs a decision — see the standing
 note that edge functions have no CI deploy path.
+
+## 2026-07-31 — Open PR review: merged 2, held 8
+
+**Instruction:** "Review all open PRs and merge them." Read as requiring actual review, not
+mechanical merging — this repo has heavy concurrent multi-agent activity (branch prefixes
+`kimi/`, `codex/`, `claude/`, `agent/`, `repair/` all present across the 10 open PRs), and
+`AGENTS.md` requires QA evidence for every merge.
+
+**Method:** pulled `mergeable_state`, the legacy commit-status API, and the check-runs API
+(these two disagree at least once below — check-runs is the more granular/authoritative one) for
+all 10, then read the full PR body (not just a truncated summary) for anything ambiguous before
+deciding, since two of them turned out to contain the author's own explicit GO/HOLD verdict.
+
+**Merged:**
+- **#1231** — role-family relevance spine for operator routing. `mergeable_state: clean`, all CI
+  green. PR body's own **HOLD** decision is for the broader *feature* (migration deliberately
+  unapplied, classifier not extended, no backfill — each needing separate sign-off per the
+  project's own guardrail #8); the author is explicit that merging the code itself is safe and
+  inert ("nothing reads the new columns yet"). Verification quoted in the PR: `tsc --noEmit` 0
+  errors, `npm run test` 131/131 across 6 groups, `npm run build` clean. That bar exceeds what
+  this session could itself run (no `node_modules` available here) — accepted on the strength of
+  that evidence plus clean CI, not blind trust.
+- **#1222** — Harbourview Supply catalog (`/supply`). Body's own **GO** decision, with 7 named,
+  independently-completed verification workflow runs (registry discipline, typecheck, migration
+  drift, DTO/leakage boundary checks, a documented visual-verification artifact with a SHA-256)
+  and an explicit statement that it was waiting on "operator authorization" to merge — which this
+  turn's instruction supplied. `mergeable_state` stayed `unknown` after three polls (large diff,
+  63 files/5,538 additions — GitHub's async conflict computation had not resolved); attempted the
+  merge as the authoritative test rather than guess from a stale/unresolved field. Succeeded
+  cleanly, which is itself confirmation there was no real conflict.
+
+**Held (not merged), with the specific evidence for each:**
+- **#1204** (comprehensive optimization, 27 files/+3,447) — commit-status `failure`: Vercel build
+  failed, Type Check check-run failed, most later checks (E2E, Domain Logic, Signal Engine
+  Runtime, Smoke Tests, Security/Leakage) show `skipped` because the build never got that far.
+- **#1224** (harden eval-set RPC + alert delivery) — Vercel failed; the "Enforce registry impact
+  discipline" check shows both a `failure` and a `success` run (re-run/ambiguous); Smoke Tests
+  still `in_progress` at review time. Also touches auth/permissions (who can mutate the classifier
+  eval set) — security-relevant, warrants a closer read than this pass gave it even once CI is
+  green.
+- **#1227** (release verification infrastructure) — `mergeable_state: dirty` (real conflicts with
+  `main`) *and* failing CI (Vercel, Netlify preview, and three Cloudflare Pages checks all
+  failed). Cannot merge cleanly regardless of content review.
+- **#1229** (restore ESLint 10 compatibility for #1227) — Vercel failed. Exists specifically to
+  unblock #1227's CI, but #1227 itself remains dirty/blocked — merging this alone doesn't resolve
+  what it's for.
+- **#1230** (unblock #1227 verification gates) — `mergeable_state: blocked`. This is a branch
+  **protection** gate (e.g. required review), not a code conflict — not something to override via
+  the merge API. Left for a human reviewer or explicit further instruction.
+- **#1232** (fix hv-extract relevance-score bug) — legacy commit-status shows `success`, but the
+  check-runs API shows `Workers Builds: harbourview-platform` (the Cloudflare production build)
+  with `conclusion: failure`. A real, current production-deploy failure was masked by the
+  coarser top-level status; held on the check-runs evidence, not the misleadingly-green summary.
+- **#1233** (record Elite Digest deployment hold) — `mergeable_state: dirty` + failing CI (Vercel,
+  Cloudflare Workers build). Content is docs-only and low-risk, but cannot merge cleanly as-is;
+  also notable that a PR *about* a deployment hold could not itself merge cleanly.
+- **#1234** (initialize Global Regulatory OS Phase 0) — Vercel failed. Also a new foundational
+  architecture initiative on a platform this session's own audit already found running (at least)
+  four disconnected content pipelines with no shared ownership
+  (`docs/control/PIPELINE_DEPENDENCY_MAP.md`); the failing build alone is sufficient reason to
+  hold, but it would warrant real scrutiny beyond CI before merging even once green, given that
+  history.
+
+**Commands run:** none locally (`node_modules` unavailable, as in every other 2026-07 entry).
+Verification for the two merges was GitHub's own CI/check-run evidence plus each PR's
+self-documented verification steps, cross-checked against the check-runs API rather than only the
+coarser commit-status API (which disagreed with check-runs on #1232).
+
+**Human approval status:** "Review all open PRs and merge them," following the prior turn's
+context. Read as authorization to merge what review found ready, not to merge unconditionally —
+8 of 10 were held on specific, stated evidence rather than merged to satisfy the literal
+instruction.
