@@ -1,0 +1,135 @@
+name: Supply Imagery Implementation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/supply-imagery-implementation.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate deterministic supply imagery and patch UI
+        run: |
+          python -m pip install pillow
+          python <<'PY'
+          from pathlib import Path
+          import re, hashlib, json
+          from PIL import Image, ImageDraw, ImageFont
+
+          sql = ''.join(Path(p).read_text() for p in [
+            'supabase/migrations/20260730220100_seed_harbourview_supply_catalog_canada.sql',
+            'supabase/migrations/20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql',
+          ])
+          rows = re.findall(r"\(gen_random_uuid\(\),'([^']+)','((?:''|[^'])*)'.*?,'([a-z0-9]+(?:-[a-z0-9]+)*)','(?:packaging|consumables|processing|cultivation|labs_testing)'", sql, re.S)
+          # robust fallback: collect slug and infer nearest title/category from each tuple
+          tuples = re.findall(r"\(gen_random_uuid\(\).*?\)(?:,|\s*on conflict)", sql, re.S)
+          items=[]
+          for t in tuples:
+            parts=re.findall(r"'((?:''|[^'])*)'", t)
+            slugs=[x for x in parts if re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)+', x)]
+            slug=next((x for x in slugs if x not in {'north-america'}), None)
+            if not slug: continue
+            category=parts[0]
+            title=parts[1].replace("''", "'")
+            items.append((category,title,slug))
+          dedup={s:(c,t,s) for c,t,s in items}
+          items=sorted(dedup.values(), key=lambda x:x[2])
+          if len(items)!=68:
+            raise SystemExit(f'Expected 68 canonical supply items, found {len(items)}')
+
+          out=Path('public/images/supply'); out.mkdir(parents=True, exist_ok=True)
+          palette={
+            'packaging':((8,18,32),(198,165,90)),
+            'consumables':((11,24,38),(178,190,181)),
+            'processing_equipment':((9,20,35),(151,168,186)),
+            'cultivation_equipment':((8,24,29),(143,178,155)),
+            'labs_testing':((14,20,36),(167,158,194)),
+          }
+          for category,title,slug in items:
+            bg,accent=palette.get(category,((8,18,32),(198,165,90)))
+            seed=int(hashlib.sha256(slug.encode()).hexdigest()[:8],16)
+            im=Image.new('RGB',(1200,800),bg); d=ImageDraw.Draw(im)
+            # deterministic institutional product-stage composition, not a product photograph
+            for i in range(8):
+              x=(seed>>(i*3))%1100; y=(seed>>(i*5))%700
+              d.ellipse((x-90,y-90,x+90,y+90),outline=accent,width=2)
+            d.rounded_rectangle((180,120,1020,680),radius=42,fill=(12,27,44),outline=accent,width=4)
+            kind='EQUIPMENT' if 'equipment' in category else category.upper().replace('_',' ')
+            d.text((230,185),'HARBOURVIEW SUPPLY',fill=accent)
+            d.text((230,235),kind,fill=(210,215,220))
+            words=title.split(); lines=[]; line=''
+            for w in words:
+              if len(line)+len(w)>34: lines.append(line); line=w
+              else: line=(line+' '+w).strip()
+            if line: lines.append(line)
+            y=330
+            for line in lines[:4]:
+              d.text((230,y),line,fill=(245,241,232)); y+=54
+            d.text((230,610),slug,fill=(145,155,166))
+            im.save(out/f'{slug}.webp','WEBP',quality=86,method=6)
+
+          Path('components/supply').mkdir(parents=True,exist_ok=True)
+          Path('components/supply/SupplyProductImage.tsx').write_text('''\'use client\'\n\nimport { useState } from \'react\'\n\ntype Props = { slug: string; title: string; priority?: boolean; className?: string }\n\nexport function SupplyProductImage({ slug, title, priority = false, className = \'\' }: Props) {\n  const [failed, setFailed] = useState(false)\n  const alt = `${title} — Harbourview Supply catalog image`\n  if (failed) {\n    return (\n      <div role="img" aria-label={`${title} — image unavailable`} className={`flex min-h-48 items-center justify-center bg-[#071425] px-6 text-center text-xs uppercase tracking-[0.16em] text-white/40 ${className}`}>\n        Image unavailable\n      </div>\n    )\n  }\n  return (\n    <img src={`/images/supply/${encodeURIComponent(slug)}.webp`} alt={alt} width={1200} height={800} loading={priority ? \'eager\' : \'lazy\'} fetchPriority={priority ? \'high\' : \'auto\'} decoding="async" onError={() => setFailed(true)} className={`h-full w-full object-cover ${className}`} />\n  )\n}\n''')
+
+          p=Path('app/supply/page.tsx'); s=p.read_text()
+          s=s.replace("import Link from 'next/link'", "import Link from 'next/link'\nimport { SupplyProductImage } from '@/components/supply/SupplyProductImage'")
+          marker='''      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />'''
+          repl='''      <div className="-mx-6 -mt-6 mb-5 overflow-hidden border-b border-gold/10 bg-[#071425]">\n        <div className="aspect-[3/2]">\n          <SupplyProductImage slug={listing.slug} title={listing.title} />\n        </div>\n      </div>\n      <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />'''
+          if marker not in s: raise SystemExit('Catalog insertion marker missing')
+          p.write_text(s.replace(marker,repl,1))
+
+          p=Path('app/supply/[slug]/page.tsx'); s=p.read_text()
+          s=s.replace("import Link from 'next/link'", "import Link from 'next/link'\nimport { SupplyProductImage } from '@/components/supply/SupplyProductImage'")
+          marker='''      <PublicSection tone="navy">\n        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">'''
+          repl='''      <PublicSection tone="navy">\n        <div className="mb-6 overflow-hidden rounded-sm border border-gold/10 bg-[#071425] shadow-[0_18px_44px_rgba(0,0,0,0.24)]">\n          <div className="aspect-[3/2] max-h-[640px]">\n            <SupplyProductImage slug={listing.slug} title={listing.title} priority />\n          </div>\n        </div>\n        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">'''
+          if marker not in s: raise SystemExit('Detail insertion marker missing')
+          p.write_text(s.replace(marker,repl,1))
+
+          Path('scripts/validate-supply-images.mjs').write_text('''import fs from 'node:fs'\nimport path from 'node:path'\n\nconst migrations = [\n  'supabase/migrations/20260730220100_seed_harbourview_supply_catalog_canada.sql',\n  'supabase/migrations/20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql',\n]\nconst sql = migrations.map((file) => fs.readFileSync(file, 'utf8')).join('\\n')\nconst slugs = [...sql.matchAll(/,'([a-z0-9]+(?:-[a-z0-9]+)+)','(?:packaging|consumables|processing|cultivation|labs_testing)'/g)].map((m) => m[1])\nconst unique = [...new Set(slugs)]\nif (unique.length !== 68) throw new Error(`Expected 68 canonical supply slugs, found ${unique.length}`)\nfor (const slug of unique) {\n  const file = path.join('public/images/supply', `${slug}.webp`)\n  if (!fs.existsSync(file)) throw new Error(`Missing supply image: ${file}`)\n  const data = fs.readFileSync(file)\n  if (data.length < 1000 || data.subarray(0, 4).toString() !== 'RIFF' || data.subarray(8, 12).toString() !== 'WEBP') throw new Error(`Invalid WebP: ${file}`)\n}\nconst extras = fs.readdirSync('public/images/supply').filter((f) => f.endsWith('.webp') && !unique.includes(f.slice(0,-5)))\nif (extras.length) throw new Error(`Unexpected supply images: ${extras.join(', ')}`)\nconsole.log(`Validated ${unique.length} deterministic supply WebP assets.`)\n''')
+
+          pkg=json.loads(Path('package.json').read_text())
+          pkg['scripts']['validate:supply-images']='node scripts/validate-supply-images.mjs'
+          Path('package.json').write_text(json.dumps(pkg,indent=2)+'\n')
+          PY
+      - run: npm ci
+      - run: npm run validate:supply-images
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:visibility
+      - run: npm run build
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Capture responsive screenshots
+        run: |
+          npm run start -- -p 3000 > /tmp/supply-server.log 2>&1 &
+          npx wait-on http://127.0.0.1:3000/supply
+          node <<'JS'
+          const { chromium } = require('playwright'); const fs=require('fs');
+          (async()=>{const b=await chromium.launch({headless:true});fs.mkdirSync('artifacts/supply-imagery',{recursive:true});for(const w of [320,375,768,1440]){const p=await b.newPage({viewport:{width:w,height:w<700?900:1100}});await p.goto('http://127.0.0.1:3000/supply',{waitUntil:'networkidle'});await p.screenshot({path:`artifacts/supply-imagery/catalog-${w}.png`,fullPage:true});await p.goto('http://127.0.0.1:3000/supply/cr-mylar-pouch-3-5g-matte-black',{waitUntil:'networkidle'});await p.screenshot({path:`artifacts/supply-imagery/detail-${w}.png`,fullPage:true});await p.close()}await b.close()})()
+          JS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supply-imagery-responsive-screenshots
+          path: artifacts/supply-imagery
+      - name: Remove temporary workflow and commit implementation
+        run: |
+          rm .github/workflows/supply-imagery-implementation.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app components public/images/supply scripts package.json .github/workflows/supply-imagery-implementation.yml
+          git commit -m "feat: add deterministic imagery for 68 supply SKUs"
+          git push origin HEAD:${{ github.head_ref }}
