@@ -1,0 +1,118 @@
+name: Manual Immutable Release E2E
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: Immutable root Vercel deployment URL, not a mutable alias
+        required: true
+        type: string
+      commit_sha:
+        description: Exact protected-main commit SHA deployed at deployment_url
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify-inputs:
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.output.outputs.deployment_url }}
+    steps:
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate protected-main ancestry
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main "$COMMIT_SHA"
+          git merge-base --is-ancestor "$COMMIT_SHA" origin/main
+      - name: Validate immutable deployment metadata with trusted code
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ inputs.deployment_url }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          VERCEL_PROJECT_ID: prj_Zp8HBDstqAAOCN6W7LAElahsq3qS
+          VERCEL_TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
+          VERCEL_VALIDATION_OUTPUT: release-evidence/vercel-deployment-validation.json
+        run: |
+          set -euo pipefail
+          test -n "$VERCEL_TOKEN"
+          node scripts/verification/validate-vercel-deployment.mjs
+      - name: Export normalized URL
+        id: output
+        run: |
+          value=$(node -e "const r=require('./release-evidence/vercel-deployment-validation.json'); process.stdout.write(r.normalizedDeploymentUrl)")
+          printf 'deployment_url=%s\n' "$value" >> "$GITHUB_OUTPUT"
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vercel-validation-${{ inputs.commit_sha }}
+          path: release-evidence/vercel-deployment-validation.json
+          if-no-files-found: error
+          retention-days: 30
+  e2e:
+    needs: verify-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Run trusted Playwright suite against validated deployment
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
+          HARBOURVIEW_PUBLIC_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          CI: '1'
+        run: npm run test:e2e
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ inputs.commit_sha }}
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 30
+  public-leakage:
+    needs: verify-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probe validated public surfaces
+        env:
+          PROBE_BASE_URL: ${{ needs.verify-inputs.outputs.deployment_url }}
+          PROBE_API_ROUTES: /api/globe
+          PROBE_MAX_ASSETS: '500'
+          PROBE_OUTPUT: release-evidence/public-leakage-${{ inputs.commit_sha }}.json
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/verification/public-leakage-probe.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-leakage-${{ inputs.commit_sha }}
+          path: release-evidence/public-leakage-${{ inputs.commit_sha }}.json
+          if-no-files-found: error
+          retention-days: 30
