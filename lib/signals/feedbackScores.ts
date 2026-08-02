@@ -9,6 +9,9 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// This helper intentionally accepts typed and untyped Supabase clients because
+// the feedback table may not yet exist in every generated Database type.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
 
 export async function loadFeedbackScores(

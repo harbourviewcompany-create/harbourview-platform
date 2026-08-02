@@ -1,9 +1,9 @@
-#/usr/bin/env node
+#!/usr/bin/env node
 
 /**
  * Harbourview Platform - Edge Function Audit Tool
  * Usage: node scripts/audit-edge-functions.js [--pr]
- * 
+ *
  * Generates audit report and optionally creates a PR.
  */
 
