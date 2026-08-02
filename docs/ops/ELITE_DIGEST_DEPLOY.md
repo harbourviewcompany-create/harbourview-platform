@@ -61,6 +61,32 @@ Before production application, verify the target has no duplicate
 `(signal_id, user_id)` rows, capture the existing grants and function
 definitions, and run the PostgreSQL 17 + pgvector boundary fixture.
 
+### Exact production allowlist
+
+Production activation is controlled by:
+
+```text
+supabase/release-controls/elite-digest-production-activation.json
+```
+
+Only these exact versions, filenames and Git blob SHAs are approved:
+
+```text
+20260802073000
+20260802152500
+20260802163000
+```
+
+The production workflow generates a complete repository-versus-live manifest and
+returns HOLD when any remote-only migration, unrelated pending migration, partial
+activation, duplicate pending version, invalid filename or approved-file mismatch
+exists. It rechecks the same gate immediately before `db push --include-all`.
+The broad push command is never reached unless the complete pending set is exactly
+the approved sequence.
+
+The migration drift parser accepts both ASCII and box-drawing Supabase CLI tables.
+A nonempty linked-project result that parses to zero rows is a hard failure.
+
 ## 2. Environment names
 
 Verify names and presence without copying values into logs or PRs:
@@ -75,7 +101,22 @@ Verify names and presence without copying values into logs or PRs:
 
 ## 3. Database verification
 
-Before any deployment alias changes:
+The production workflow runs these evidence packets without invoking mutating
+application functions:
+
+```text
+tests/sql/elite_digest_production_preflight_read_only.sql
+tests/sql/elite_digest_production_postflight_read_only.sql
+```
+
+The preflight packet captures the live ledger, schema prerequisites, feedback
+integrity, RLS, policies, ACLs, indexes, function definitions and definition hashes.
+The postflight packet verifies exact ledger names, RPC grants, direct-table denial,
+HNSW shape and one-current-verdict enforcement. A separate read-only fingerprint
+comparison proves that feedback storage did not change during activation.
+
+After activation and before any deployment alias changes, verify operational
+functions separately under explicit write/run authorization:
 
 ```sql
 select public.run_daily_digest();
@@ -111,16 +152,27 @@ gates pass:
 
 ## 5. Deployment and alias order
 
-1. Reconcile and explicitly authorize migrations.
-2. Verify environment names without exposing values.
-3. Create an immutable deployment and keep it unaliased.
-4. Run database and authenticated product smoke checks.
-5. Record sanitized evidence.
-6. Move the production alias only under separate explicit authorization.
-7. Observe a successful daily `/api/cron/intelligence-health` invocation at
-   `15 10 * * *`.
+1. Generate the exact migration manifest and require GO.
+2. Explicitly authorize the three-version migration activation.
+3. Preserve the preflight rollback-forward evidence artifact.
+4. Apply the approved sequence and require postflight GO.
+5. Verify environment names without exposing values.
+6. Create an immutable deployment and keep it unaliased.
+7. Run database and authenticated product smoke checks.
+8. Record sanitized evidence.
+9. Move the production alias only under separate explicit authorization.
+10. Observe a successful daily `/api/cron/intelligence-health` invocation at
+    `15 10 * * *`.
 
-## 6. Guardrails
+## 6. Rollback-forward
+
+Never delete an applied migration ledger row or rewrite migration history. Use the
+preflight artifact to create a new uniquely versioned repair that restores only
+the captured prior grants or definitions. Preserve feedback rows, the HNSW
+implementation and the RPC-only client boundary unless a reviewed production
+defect requires a narrower correction.
+
+## 7. Guardrails
 
 - Human `reviewed` flags are unchanged.
 - Only actually selected Digest signals receive `used_in_digest_at`.
