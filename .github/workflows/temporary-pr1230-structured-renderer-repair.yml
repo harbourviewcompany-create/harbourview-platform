@@ -84,3 +84,4 @@ jobs:
           git add -u .github/workflows/temporary-pr1230-mobile-renderer-repair.yml || true
           git commit -m "fix: align mobile playbook renderers with declared types"
           git push origin repair/pr1227-blockers
+# activation commit
