@@ -34,4 +34,6 @@ jobs:
       - name: Build and validate regional routing forward fix
         run: |
           python3 scripts/open-pr-repair/fix-routing-generator-shape.py
-          bash scripts/open-pr-repair/build-routing-regional-forward-fix.sh
+          cp scripts/open-pr-repair/build-routing-regional-forward-fix.sh /tmp/build-routing-forward-fix.sh
+          git restore scripts/open-pr-repair/build-routing-regional-forward-fix.sh
+          bash /tmp/build-routing-forward-fix.sh
