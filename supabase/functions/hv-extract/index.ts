@@ -53,7 +53,7 @@ type EditorialResult = {
 const EXTRACTION_SYSTEM = `You are a cannabis industry intelligence extractor. Extract structured signal data from the provided content and return ONLY a valid JSON object -- no prose, no markdown, no explanation, no code fences.
 
 Return exactly this structure:
-{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":0,"confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
+{"signal_type":"regulatory_change|enforcement_action|market_entry|policy_update|licensing|recall|research|other|none","jurisdiction":"string or null","country_iso":"ISO 3166-1 alpha-2 or null","key_entities":["array of named organizations, regulators, or persons -- max 8"],"effective_date":"YYYY-MM-DD or null","summary":"1-2 sentence plain English summary of the cannabis-relevant signal","relevance_score":"integer 0-100. 80-100 = binding regulatory or enforcement action; 50-79 = material policy, licensing, or market development; 30-49 = substantive cannabis coverage with no specific action; 0-29 = incidental mention, stock promotion, listicle, SEO filler, or not cannabis-related. Score the CONTENT -- do not copy this description. Return a bare integer, never a string.","confidence":"high|medium|low","keywords_matched":["cannabis-relevant keywords found -- max 10"]}
 
 If the content contains no cannabis-relevant signal, return: {"signal_type":"none","relevance_score":0,"confidence":"high","summary":"","key_entities":[],"keywords_matched":[],"jurisdiction":null,"country_iso":null,"effective_date":null}`;
 
@@ -244,6 +244,102 @@ async function extractEditorial(snapshot: Snapshot): Promise<{ result: Editorial
   return null;
 }
 
+// The model returns free-form JSON; nothing enforces the contract at the wire.
+// relevance_score in particular MUST end up a finite number, because the gate is
+// `relevance_score < minRelevance` and in JS both `"not a number" < 30` and
+// `NaN < 30` evaluate to FALSE -- a malformed value would sail through the gate
+// and reach staging, and then hv-score's promote threshold, unrejected. Coerce
+// what is coercible, and treat everything else as unusable.
+function normalizeExtraction(raw: ExtractionResult): ExtractionResult & { _score_malformed: boolean } {
+  const rawScore = (raw as { relevance_score?: unknown }).relevance_score;
+  // Number() alone is NOT a validity test here: Number(null), Number(""),
+  // Number(false) and Number([]) each return a finite 0, so a bare
+  // `Number.isFinite` check would classify all four as a legitimate "scored
+  // zero" rather than as a broken response. That matters because a legitimate 0
+  // takes the low_relevance path below, which sets fetch_status='extracted' and
+  // consumes the snapshot for good -- exactly the silent-consumption failure
+  // this function exists to prevent. Admit only a real number, or a non-blank
+  // string that parses as one; anything else is malformed by construction.
+  const n =
+    typeof rawScore === "number" ? rawScore
+    : (typeof rawScore === "string" && rawScore.trim() !== "") ? Number(rawScore)
+    : NaN;
+  // Coercing a malformed score to 0 would send it down the low_relevance path,
+  // which marks fetch_status='extracted' and consumes the snapshot for good --
+  // treating "the provider answered incorrectly" as "the content is irrelevant".
+  // Flag it instead so the caller can route it to manual review.
+  const _score_malformed = !Number.isFinite(n);
+  // floor, not round: Math.round(29.7) -> 30 would ADMIT content the provider
+  // scored below the cutoff, which is the opposite of failing closed. Flooring
+  // keeps a fractional score on the side of the gate the provider put it on.
+  const relevance_score = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.floor(n))) : 0;
+
+  // Date.parse is NOT a calendar check: "2026-02-30" parses fine and silently
+  // rolls over to March 2, so a shape-only test would retain a date that does
+  // not exist and hv-score would publish the rolled-over value. Round-trip the
+  // parsed UTC components back to the input and reject any mismatch.
+  const rawDate = (raw as { effective_date?: unknown }).effective_date;
+  let effective_date: string | null = null;
+  if (typeof rawDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    const d = new Date(`${rawDate}T00:00:00Z`);
+    const roundTrip = Number.isNaN(d.getTime())
+      ? null
+      : `${d.getUTCFullYear().toString().padStart(4, "0")}-${(d.getUTCMonth() + 1).toString().padStart(2, "0")}-${d.getUTCDate().toString().padStart(2, "0")}`;
+    if (roundTrip === rawDate) effective_date = rawDate;
+  }
+
+  return { ...raw, relevance_score, effective_date, _score_malformed };
+}
+
+// Files a snapshot into hv_import_staging as a pending needs_review row.
+//
+// This is the ONLY way a snapshot the extractor could not use stays reachable.
+// The batch query selects `fetch_status = 'success'`, so once a row is marked
+// 'extract_failed' no later run will pick it up again, and nothing in this repo
+// resets that status -- "extract_failed" is terminal in practice, not a retry
+// queue. Without a staging row the snapshot is therefore invisible to BOTH the
+// automated pipeline and manual review.
+//
+// Who calls this, and who deliberately does not:
+//   - signal path, all providers failed      -> calls this
+//   - signal path, unusable relevance_score  -> calls this
+//   - editorial path                         -> does NOT; it files a
+//     `stage: "needs_review"` row in editorial_items, which is that pipeline's
+//     own review surface.
+//   - the catch-all at the bottom of the loop -> does NOT, on purpose. Its most
+//     likely cause is `staging_insert_failed`, so a second insert into the same
+//     table would usually fail the same way; the thrown message is preserved on
+//     the snapshot's error_message instead.
+async function stageNeedsReview(
+  snapshot: Snapshot,
+  batchId: string,
+  reason: string,
+  reviewNote: string,
+): Promise<string | null> {
+  const { error } = await supabase.from("hv_import_staging").insert({
+    workspace_id: HV_WORKSPACE_ID,
+    source_system: "source_engine",
+    source_record_id: snapshot.id,
+    source_url: snapshot.captured_url,
+    import_batch_id: batchId,
+    importer_version: "hv-extract@1.7.1+needs_review",
+    transform_version: "none",
+    raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
+    raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
+    normalized_payload: { needs_review: true, reason },
+    normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
+    proposed_object_class: "source_document",
+    proposed_classification: "public",
+    proposed_title: (snapshot.captured_title ?? "Untitled -- needs manual review").slice(0, 500),
+    content_hash: await sha256(snapshot.captured_url),
+    is_duplicate_candidate: false,
+    status: "pending",
+    retry_count: 0,
+    review_note: reviewNote.slice(0, 500),
+  });
+  return error?.message ?? null;
+}
+
 function isMainstreamMediaSnapshot(snapshot: Snapshot): boolean {
   return snapshot.source_type === "mainstream_media";
 }
@@ -275,7 +371,25 @@ Deno.serve(async (req: Request) => {
   const rawLimit    = Number(url.searchParams.get("limit") ?? "10");
   const limit       = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 10, 25));
   const minRelevance = Number(url.searchParams.get("min_relevance") ?? "30");
-  const llmBackend  = ANTHROPIC_API_KEY ? "claude-haiku-4-5" : GEMINI_API_KEY ? "gemini-3.5-flash" : "gpt-4o-mini";
+  // The backend that will be tried FIRST (see extractSignal's attempt order).
+  // Named explicitly as "first attempted" because it is not necessarily the one
+  // that completes: on an OpenAI failure both extractSignal and extractEditorial
+  // fall through to Anthropic then Gemini, and a single batch can legitimately
+  // use more than one. The completed backends are reported separately below.
+  //
+  // The previous version keyed this off ANTHROPIC_API_KEY's mere presence, so it
+  // reported "claude-haiku-4-5" on every run while OpenAI did all the work --
+  // actively misleading during the 2026-07-31 dark-feed diagnosis, since the
+  // Anthropic key exists but is billing-blocked.
+  const llmBackendFirstAttempt =
+    OPENAI_API_KEY ? "openai" :
+    ANTHROPIC_API_KEY ? "anthropic" :
+    GEMINI_API_KEY ? "gemini" :
+    null;
+  // Backends that actually produced a result this run. Empty when nothing was
+  // processed; multiple entries when a fallback kicked in mid-batch -- which is
+  // exactly the outage case where an inaccurate single value misleads most.
+  const backendsCompleted = new Set<string>();
 
   let query = supabase
     .from("source_snapshots")
@@ -347,6 +461,8 @@ Deno.serve(async (req: Request) => {
           continue;
         }
 
+        backendsCompleted.add(outcome.backend);
+
         const editorial = outcome.result;
 
         if (!editorial.is_cannabis_relevant || !editorial.headline) {
@@ -387,35 +503,56 @@ Deno.serve(async (req: Request) => {
       if (!outcome) {
         const reason = (extractSignal as any)._lastError ?? "no_llm_provider_available";
         if (!dryRun) {
-          await supabase.from("hv_import_staging").insert({
-            workspace_id: HV_WORKSPACE_ID,
-            source_system: "source_engine",
-            source_record_id: snapshot.id,
-            source_url: snapshot.captured_url,
-            import_batch_id: batchId,
-            importer_version: "hv-extract@1.6.1+needs_review",
-            transform_version: "none",
-            raw_payload: { snapshot_id: snapshot.id, captured_title: snapshot.captured_title, captured_text: snapshot.captured_text?.slice(0, 2000), error: reason },
-            raw_payload_hash: await sha256(`needs_review|${snapshot.id}`),
-            normalized_payload: { needs_review: true, reason },
-            normalized_hash: await sha256(`needs_review|${snapshot.id}|${Date.now()}`),
-            proposed_object_class: "source_document",
-            proposed_classification: "public",
-            proposed_title: (snapshot.captured_title ?? "Untitled -- needs manual review").slice(0, 500),
-            content_hash: await sha256(snapshot.captured_url),
-            is_duplicate_candidate: false,
-            status: "pending",
-            retry_count: 0,
-            review_note: `Auto-extraction failed on all configured providers: ${reason.slice(0, 300)}`,
-          });
-          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: reason.slice(0, 500) }).eq("id", snapshot.id);
+          const stageErr = await stageNeedsReview(
+            snapshot,
+            batchId,
+            reason,
+            `Auto-extraction failed on all configured providers: ${reason.slice(0, 300)}`,
+          );
+          // If the review row could not be written, say so on the snapshot
+          // itself -- otherwise 'extract_failed' is the only trace left and it
+          // looks like an ordinary provider failure that someone can find.
+          const detail = stageErr ? `${reason} | needs_review staging insert FAILED: ${stageErr}` : reason;
+          await supabase.from("source_snapshots").update({ fetch_status: "extract_failed", error_message: detail.slice(0, 500) }).eq("id", snapshot.id);
         }
         failed++;
         results.push({ snapshot_id: snapshot.id, status: "needs_review", pipeline: "signal", reason });
         continue;
       }
 
-      const extraction = outcome.result;
+      // Recorded here, BEFORE the relevance gate and the staging write: a
+      // provider that answered did work, even if we then discard the answer.
+      // Adding it after the skip made an all-skipped batch report [] despite
+      // successful LLM calls -- which defeats the point of the field.
+      backendsCompleted.add(outcome.backend);
+
+      const extraction = normalizeExtraction(outcome.result);
+
+      if (extraction._score_malformed) {
+        // Not "irrelevant" -- unusable. A provider that returns an unscorable
+        // value has told us nothing about the content, so this must NOT take
+        // the low_relevance path (which would mark the snapshot 'extracted' and
+        // retire it as judged). Route it to manual review exactly like a
+        // total provider failure: 'extract_failed' is terminal for the
+        // automated pipeline, so the staging row is what keeps it recoverable.
+        const reason = `malformed relevance_score from ${outcome.backend}: ${JSON.stringify((outcome.result as { relevance_score?: unknown }).relevance_score).slice(0, 200)}`;
+        failed++;
+        if (!dryRun) {
+          const stageErr = await stageNeedsReview(
+            snapshot,
+            batchId,
+            reason,
+            `Provider returned an unusable relevance_score; content was never assessed. ${reason.slice(0, 300)}`,
+          );
+          const detail = stageErr ? `${reason} | needs_review staging insert FAILED: ${stageErr}` : reason;
+          await supabase.from("source_snapshots").update({
+            fetch_status: "extract_failed",
+            error_message: detail.slice(0, 500),
+          }).eq("id", snapshot.id);
+        }
+        results.push({ snapshot_id: snapshot.id, status: "needs_review", reason: "malformed_relevance_score", backend: outcome.backend });
+        continue;
+      }
 
       if (extraction.signal_type === "none" || extraction.relevance_score < minRelevance) {
         skippedLowRelevance++;
@@ -439,7 +576,7 @@ Deno.serve(async (req: Request) => {
           source_record_id: snapshot.id,
           source_url: snapshot.captured_url,
           import_batch_id: batchId,
-          importer_version: `hv-extract@1.6.1+${outcome.backend}`,
+          importer_version: `hv-extract@1.7.1+${outcome.backend}`,
           transform_version: BACKEND_MODEL[outcome.backend] ?? outcome.backend,
           raw_payload: rawPayload,
           raw_payload_hash: rawPayloadHash,
@@ -471,5 +608,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return respond(200, { ok: true, function: "hv-extract", version: "1.6.1", mode: dryRun ? "dry_run" : "live", llm_backend: llmBackend, batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
+  return respond(200, { ok: true, function: "hv-extract", version: "1.7.1", mode: dryRun ? "dry_run" : "live", llm_backend_first_attempted: llmBackendFirstAttempt, llm_backends_completed: [...backendsCompleted], batch_id: dryRun ? null : batchId, snapshots_considered: snapshots?.length ?? 0, extracted, staged, skipped_low_relevance: skippedLowRelevance, failed, min_relevance_threshold: minRelevance, results });
 });
