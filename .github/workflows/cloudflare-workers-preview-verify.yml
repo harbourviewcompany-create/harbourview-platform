@@ -105,72 +105,80 @@ jobs:
           const { chromium } = require('playwright')
           const fs = require('node:fs/promises')
           const path = require('node:path')
-          const baseUrl = 'http://127.0.0.1:8787'
-          const routes = [
-            '/countries/mexico',
-            '/dashboard/country/mexico',
-            '/dashboard/country/mexico/market',
-            '/dashboard/country/mexico/education',
-            '/dashboard/country/mexico/compliance',
-            '/dashboard/country/mexico/signals',
-            '/network/clinical-education',
-            '/network/clinical-education/request',
-          ]
-          const expected = [
-            '/dashboard?country=MX&page=countries',
-            '/dashboard?country=MX',
-            '/dashboard?country=MX&page=marketplace',
-            '/dashboard?country=MX&page=education',
-            '/dashboard?country=MX&page=compliance',
-            '/dashboard?country=MX&page=signals',
-            '/dashboard?page=clinical',
-            '/contact',
-          ]
-          const slug = (value) => value.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-') || 'root'
-          const browser = await chromium.launch({ headless: true })
-          const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
-          const report = { baseUrl, viewport: { width: 390, height: 844 }, routes: [] }
-          for (let index = 0; index < routes.length; index += 1) {
-            const page = await context.newPage()
-            const redirects = []
-            const consoleErrors = []
-            const pageErrors = []
-            page.on('response', (response) => {
-              if (response.request().isNavigationRequest() && response.request().frame() === page.mainFrame()) {
-                redirects.push({ url: response.url(), status: response.status() })
+
+          async function main() {
+            const baseUrl = 'http://127.0.0.1:8787'
+            const routes = [
+              '/countries/mexico',
+              '/dashboard/country/mexico',
+              '/dashboard/country/mexico/market',
+              '/dashboard/country/mexico/education',
+              '/dashboard/country/mexico/compliance',
+              '/dashboard/country/mexico/signals',
+              '/network/clinical-education',
+              '/network/clinical-education/request',
+            ]
+            const expected = [
+              '/dashboard?country=MX&page=countries',
+              '/dashboard?country=MX',
+              '/dashboard?country=MX&page=marketplace',
+              '/dashboard?country=MX&page=education',
+              '/dashboard?country=MX&page=compliance',
+              '/dashboard?country=MX&page=signals',
+              '/dashboard?page=clinical',
+              '/contact',
+            ]
+            const slug = (value) => value.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-') || 'root'
+            const browser = await chromium.launch({ headless: true })
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+            const report = { baseUrl, viewport: { width: 390, height: 844 }, routes: [] }
+            for (let index = 0; index < routes.length; index += 1) {
+              const page = await context.newPage()
+              const redirects = []
+              const consoleErrors = []
+              const pageErrors = []
+              page.on('response', (response) => {
+                if (response.request().isNavigationRequest() && response.request().frame() === page.mainFrame()) {
+                  redirects.push({ url: response.url(), status: response.status() })
+                }
+              })
+              page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()) })
+              page.on('pageerror', (error) => pageErrors.push(error.message))
+              const response = await page.goto(new URL(routes[index], baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: 60000 })
+              await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
+              const screenshot = `screenshots/${slug(routes[index])}.png`
+              await page.screenshot({ path: path.join('artifacts/cloudflare-workers-preview', screenshot), fullPage: true })
+              const final = new URL(page.url())
+              const finalPath = `${final.pathname}${final.search}`
+              const item = {
+                route: routes[index],
+                expected: expected[index],
+                redirects,
+                finalUrl: page.url(),
+                finalStatus: response?.status() ?? null,
+                title: await page.title(),
+                h1: await page.locator('h1').first().innerText().catch(() => null),
+                consoleErrors,
+                pageErrors,
+                screenshot,
+                passed: finalPath === expected[index] && (response?.status() ?? 500) < 400,
               }
-            })
-            page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()) })
-            page.on('pageerror', (error) => pageErrors.push(error.message))
-            const response = await page.goto(new URL(routes[index], baseUrl).toString(), { waitUntil: 'domcontentloaded', timeout: 60000 })
-            await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
-            const screenshot = `screenshots/${slug(routes[index])}.png`
-            await page.screenshot({ path: path.join('artifacts/cloudflare-workers-preview', screenshot), fullPage: true })
-            const final = new URL(page.url())
-            const finalPath = `${final.pathname}${final.search}`
-            const item = {
-              route: routes[index],
-              expected: expected[index],
-              redirects,
-              finalUrl: page.url(),
-              finalStatus: response?.status() ?? null,
-              title: await page.title(),
-              h1: await page.locator('h1').first().innerText().catch(() => null),
-              consoleErrors,
-              pageErrors,
-              screenshot,
-              passed: finalPath === expected[index] && (response?.status() ?? 500) < 400,
+              report.routes.push(item)
+              await page.close()
             }
-            report.routes.push(item)
-            await page.close()
+            await browser.close()
+            await fs.writeFile('artifacts/cloudflare-workers-preview/report.json', JSON.stringify(report, null, 2))
+            if (report.routes.some((item) => !item.passed)) {
+              console.error(JSON.stringify(report, null, 2))
+              process.exit(1)
+            }
+            console.log(JSON.stringify(report, null, 2))
           }
-          await browser.close()
-          await fs.writeFile('artifacts/cloudflare-workers-preview/report.json', JSON.stringify(report, null, 2))
-          if (report.routes.some((item) => !item.passed)) {
-            console.error(JSON.stringify(report, null, 2))
+
+          main().catch((error) => {
+            console.error(error)
             process.exit(1)
-          }
-          console.log(JSON.stringify(report, null, 2))
+          })
           NODE
 
       - name: Upload OpenNext build and preview evidence
