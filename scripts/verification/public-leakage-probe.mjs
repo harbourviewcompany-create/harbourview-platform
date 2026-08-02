@@ -46,7 +46,10 @@ const forbidden = [
   'reviewedBy','reviewed_by','lastReviewedAt','last_reviewed_at','nextReviewDueAt',
   'next_review_due_at','verificationStatus','verification_status','availabilityStatus',
   'availability_status','sellerAuthorizationStatus','seller_authorization_status',
-  'contactEmail','contact_email','View source listing','Evidence captured'
+  'contactEmail','contact_email','View source listing','Evidence captured',
+  'Internal notes','Internal review notes','Review metadata','Pricing metadata',
+  'Source evidence','Provenance summary','Seller authorization status',
+  'Verification status','Availability status'
 ];
 
 const queue = [];
@@ -85,8 +88,6 @@ function enqueueAsset(raw, currentUrl, source) {
   try {
     const url = new URL(raw, currentUrl);
     if (url.origin !== base.origin || !url.pathname.startsWith('/_next/static/')) return;
-    // Stylesheets, fonts and images are expected Next.js output but are not
-    // meaningful UTF-8 leakage surfaces. Queue only textual code/manifest data.
     if (!isScannableStaticPath(url.pathname)) return;
     const key = `static:${url.href}`;
     if (seen.has(key) || queue.some((item) => `${item.kind}:${item.url}` === key)) return;
@@ -121,7 +122,6 @@ async function fetchSameOrigin(item) {
     const location = response.headers.get('location');
     if (!location) throw new Error(`Redirect without Location for ${current.href}`);
     const next = new URL(location, current);
-    // Validate the next hop before making another request with the bypass header.
     if (next.origin !== base.origin) throw new Error(`Cross-origin redirect rejected before forwarding headers: ${current.href} -> ${next.href}`);
     current = next;
   }
