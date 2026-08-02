@@ -53,7 +53,9 @@ create index idx_signals_embedding_1024_hnsw
 
 insert into auth.users (id) values
   ('11111111-1111-1111-1111-111111111111'),
-  ('22222222-2222-2222-2222-222222222222');
+  ('22222222-2222-2222-2222-222222222222'),
+  ('33333333-3333-3333-3333-333333333333'),
+  ('44444444-4444-4444-4444-444444444444');
 
 insert into public.signals (
   id, embedding_1024, created_at, quality_confidence, cluster_rep_id, is_representative
@@ -89,22 +91,77 @@ begin
 end
 $dedup_verify$;
 
+-- The authenticated writer rejects arbitrary IDs before any row is created.
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 set local role authenticated;
+do $unknown_signal$
+begin
+  begin
+    perform api.submit_signal_relevance_feedback('missing-signal', 'helpful', null, 'digest');
+    raise exception 'feedback writer accepted an unknown signal';
+  exception
+    when invalid_parameter_value then null;
+  end;
+end
+$unknown_signal$;
 select api.submit_signal_relevance_feedback('signal-a', 'helpful', 'fixture', 'digest');
+-- A repeated vote updates the same current-verdict row instead of amplifying it.
+select api.submit_signal_relevance_feedback('signal-a', 'helpful', 'latest fixture', 'email');
+reset role;
+
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+set local role authenticated;
 select api.submit_signal_relevance_feedback('signal-a', 'not_helpful', null, 'signals');
+reset role;
+
+select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
+set local role authenticated;
 select api.submit_signal_relevance_feedback('signal-a', 'stale', null, 'search');
+reset role;
+
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-4444-444444444444', true);
+set local role authenticated;
 select api.submit_signal_relevance_feedback('signal-a', 'wrong_country', null, 'email');
+reset role;
+
+-- Prove the restricted projection is executable as service_role, not merely
+-- granted according to catalog metadata.
+set local role service_role;
+select *
+from api.signal_relevance_feedback_for_ranking(
+  array['signal-a'], now() - interval '1 day'
+);
 reset role;
 
 do $feedback_verify$
 declare
   v_score numeric;
   v_count integer;
+  v_distinct_users integer;
 begin
   select public.signal_feedback_score('signal-a') into v_score;
   if v_score <> -20 then
     raise exception 'signed feedback score mismatch: expected -20, got %', v_score;
+  end if;
+
+  select count(*), count(distinct user_id)
+    into v_count, v_distinct_users
+  from public.signal_relevance_feedback
+  where signal_id = 'signal-a';
+  if v_count <> 4 or v_distinct_users <> 4 then
+    raise exception 'expected one current verdict for each of four operators, got rows %, users %', v_count, v_distinct_users;
+  end if;
+
+  if not exists (
+    select 1
+    from public.signal_relevance_feedback
+    where signal_id = 'signal-a'
+      and user_id = '11111111-1111-1111-1111-111111111111'
+      and verdict = 'helpful'
+      and surface = 'email'
+      and note = 'latest fixture'
+  ) then
+    raise exception 'repeated feedback did not update the operator current-verdict row';
   end if;
 
   select count(*) into v_count
@@ -112,7 +169,7 @@ begin
     array['signal-a'], now() - interval '1 day'
   );
   if v_count <> 4 then
-    raise exception 'ranking verdict projection expected 4 rows, got %', v_count;
+    raise exception 'ranking verdict projection expected 4 current rows, got %', v_count;
   end if;
 
   if has_function_privilege(
