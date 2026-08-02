@@ -83,6 +83,36 @@ jobs:
           print('Manual, read-only-evidence-first, fail-closed workflow contract verified.')
           PY
 
+      - name: Verify production SQL packet gates
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          preflight = Path('tests/sql/elite_digest_production_preflight_read_only.sql').read_text()
+          postflight = Path('tests/sql/elite_digest_production_postflight_read_only.sql').read_text()
+          required_preflight = [
+              'first_six_applied_exactly',
+              'm.name is not distinct from e.expected_name',
+              'approved_three_unapplied',
+              'begin transaction read only',
+          ]
+          required_postflight = [
+              'approved_three_applied_exactly',
+              'feedback_rls_enabled',
+              'anon_direct_table_denied',
+              'authenticated_direct_table_denied',
+              'begin transaction read only',
+          ]
+          missing = [
+              value for value in required_preflight if value not in preflight
+          ] + [
+              value for value in required_postflight if value not in postflight
+          ]
+          if missing:
+              raise SystemExit(f'missing production SQL packet gates: {missing}')
+          print('Exact ledger-name, read-only, RLS, and direct-table packet gates verified.')
+          PY
+
       - name: Existing HNSW and feedback RPC PostgreSQL fixture
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/elite_digest_forward_repair_dry_run.sql
 
