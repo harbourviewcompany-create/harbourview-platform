@@ -1,0 +1,34 @@
+role_key,role_family,primary_domain,authority_boundary
+platform_super_administrator,platform,admin,No routine editorial publication
+security_administrator,platform,security,"Identity, keys, incidents"
+privacy_officer,platform,privacy,"Retention, residency, subject rights"
+data_governance_lead,platform,data,Canonical definitions and corrections
+product_administrator,platform,product,Features and entitlements
+source_operations_analyst,editorial,sources,Source registry and health
+ingestion_engineer,engineering,sources,Connectors and parsers
+data_steward,editorial,data,Normalization and duplicate resolution
+regulatory_analyst,editorial,regulatory,Draft regulatory facts and impacts
+senior_regulatory_reviewer,editorial,regulatory,Approve non-critical intelligence
+jurisdiction_counsel,editorial,legal,Jurisdiction-authorized interpretation
+quality_gxp_specialist,editorial,quality,GxP and pharmaceutical review
+trade_customs_analyst,editorial,trade,Corridor and customs review
+market_analyst,editorial,markets,Metrics and forecasts
+entity_resolution_analyst,editorial,registry,Entity and relationship review
+model_risk_reviewer,governance,ai,Model and prompt release
+organization_owner,customer,all,Tenant contractual authority
+organization_administrator,customer,admin,Tenant users and configuration
+executive,customer,read,Portfolio intelligence
+general_counsel,customer,legal,Privileged and legal approvals
+regulatory_affairs_lead,customer,regulatory,Monitoring and submissions
+compliance_lead,customer,compliance,Obligations and controls
+quality_lead,customer,quality,Quality records and evidence
+market_access_lead,customer,trade,Market entry and corridors
+operations_lead,customer,operations,Facilities and operational controls
+supply_chain_lead,customer,trade,Shipment and suppliers
+commercial_lead,customer,markets,Opportunities and partners
+internal_auditor,customer,audit,Assessments and read-only evidence
+restricted_viewer,customer,read,Explicit scope only
+external_counsel,external,legal,Matter-limited and expiring
+auditor_certification_body,external,quality,Assigned audit scope
+supplier_importer_exporter,external,transaction,Deal-room scope only
+api_service_account,machine,scoped,OAuth scopes and tenant attributes

@@ -1,0 +1,78 @@
+{
+  "fixtures": [
+    {
+      "key": "federal_subnational_conflict",
+      "region": "Americas",
+      "tests": [
+        "jurisdiction_parentage",
+        "conflict_visibility",
+        "non-definitive_unknowns"
+      ]
+    },
+    {
+      "key": "supranational_member_state_import",
+      "region": "Europe",
+      "tests": [
+        "supranational_relationship",
+        "import_export_gate",
+        "quality_standard"
+      ]
+    },
+    {
+      "key": "medical_prescription_only",
+      "region": "Oceania",
+      "tests": [
+        "product_intended_use",
+        "prescribing",
+        "dispensing"
+      ]
+    },
+    {
+      "key": "state_controlled_adult_use",
+      "region": "Americas",
+      "tests": [
+        "adult_use",
+        "distribution_model",
+        "market_programme"
+      ]
+    },
+    {
+      "key": "hemp_threshold_regime",
+      "region": "Global",
+      "tests": [
+        "controlled_status",
+        "threshold_versioning",
+        "product_classification"
+      ]
+    },
+    {
+      "key": "strict_thc_prohibition_cbd_exception",
+      "region": "Asia",
+      "tests": [
+        "substance_distinction",
+        "exception_evidence",
+        "hold_on_unknown"
+      ]
+    },
+    {
+      "key": "research_only_access",
+      "region": "Africa",
+      "tests": [
+        "research_activity",
+        "facility_licence",
+        "restricted_visibility"
+      ]
+    },
+    {
+      "key": "territory_with_parent_state",
+      "region": "Global",
+      "tests": [
+        "territory_parentage",
+        "delegated_authority",
+        "coverage_gap"
+      ]
+    }
+  ],
+  "purpose": "Structural fixtures only; they do not assert current legal status or authorize activity.",
+  "version": "1.0.0"
+}

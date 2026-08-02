@@ -2859,3 +2859,15 @@ than speed here.
 - Data handling: no existing feedback row is deleted or rewritten. The PostgreSQL fixture fingerprints fixture data before the migration and proves identical storage afterward.
 - Production boundary: no migration application, production data write, deployment invocation, alias movement or secret-value access is authorized by this entry.
 - Verification evidence: exact-head workflow and standard check run IDs will be recorded in the PR after completion.
+
+## 2026-08-02 — Global Regulatory OS Phase 0 replacement evidence
+
+- Replacement draft branch: `agent/global-reg-os-phase0-replacement`.
+- Closed PR #1234 is retained only as historical failure evidence.
+- Exact controlling archive bytes are committed and directly hashed to `33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136`.
+- The package is materialized as normal source files; multipart Base64 transport is excluded.
+- The deterministic manifest records source-unchanged, source-patched, and added files.
+- P0-001 through P0-012 each have explicit evidence records and existing artifact paths; operator approval remains distinct from technical verification.
+- Authorization tests cover forged GUCs, unauthorized context setter execution, direct context reads and writes, and forbidden authenticator-role assumption.
+- Required final evidence: source and manifest validation, JSON Schema, OpenAPI, AsyncAPI, secret scan, PostgreSQL 17 clean install and upgrade, RLS and leakage, lint, typecheck, full tests, production build, Branch Verification, migration drift, and exact Vercel preview.
+- No production migration, write, deployment, or alias movement is performed by this replacement work.

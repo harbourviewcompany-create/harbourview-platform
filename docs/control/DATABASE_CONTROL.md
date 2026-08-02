@@ -441,3 +441,14 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - **Rollback/forward-fix:** restore only the explicitly captured prior grants through a new migration. Do not rewrite migration history or delete operator feedback.
 - **Required verification:** migration-version validation; PostgreSQL 17 + pgvector boundary fixture; lint; typecheck; full tests; production build; visibility and security checks; standard CI; Branch Verification.
 - **Production approval:** HOLD until a separate operator-authorized migration activation.
+
+## 2026-08-02 — Global Regulatory OS Phase 0 replacement package
+
+- **Environment:** repository and disposable PostgreSQL 17 verification only.
+- **Historical source:** closed PR #1234 is evidence only and is not reopened or merged.
+- **Controlling archive:** `docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip`, SHA-256 `33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136`.
+- **Database scope:** isolated canonical migrations under `docs/control/global-regulatory-os/canonical/db/migrations`. No active `supabase/migrations/**` file is added or modified.
+- **Authorization:** request identity is established only by the non-login `hv_authenticator` role and resolved from IAM tables. Runtime roles cannot set context, read or write context storage, assume the authenticator role, or gain authority through custom GUCs.
+- **RLS/public boundary:** canonical RLS and public/private projection tests run in disposable PostgreSQL 17 databases. Canonical rows are not exposed through Harbourview production routes by this PR.
+- **Upgrade proof:** clean installation and simulated Harbourview prestate upgrade are required workflow gates.
+- **Production status:** HOLD. No production migration, data write, key provisioning, source import, deployment, or alias movement is authorized.

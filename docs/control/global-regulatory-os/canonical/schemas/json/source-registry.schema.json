@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/source-registry.schema.json",
+  "title": "Source Registry Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_key",
+    "name",
+    "source_class",
+    "access_method",
+    "official_status",
+    "rights",
+    "risk_tier",
+    "freshness_sla_seconds",
+    "owner",
+    "status"
+  ],
+  "properties": {
+    "source_key": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_class": {
+      "type": "string"
+    },
+    "access_method": {
+      "enum": [
+        "official_api",
+        "official_bulk",
+        "official_feed",
+        "webhook",
+        "sftp",
+        "official_html",
+        "official_pdf",
+        "official_email",
+        "licensed_feed",
+        "public_records",
+        "partner_submission",
+        "manual_capture",
+        "secondary_lead"
+      ]
+    },
+    "jurisdiction_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "authority_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "canonical_uri": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "official_status": {
+      "type": "boolean"
+    },
+    "language": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rights": {
+      "type": "object",
+      "required": [
+        "collection_allowed",
+        "storage_allowed",
+        "redistribution_allowed"
+      ],
+      "properties": {
+        "collection_allowed": {
+          "type": "boolean"
+        },
+        "storage_allowed": {
+          "type": "boolean"
+        },
+        "redistribution_allowed": {
+          "type": "boolean"
+        },
+        "attribution_required": {
+          "type": "boolean"
+        },
+        "restricted_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "terms_uri": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": true
+    },
+    "risk_tier": {
+      "enum": [
+        "low",
+        "moderate",
+        "high",
+        "critical"
+      ]
+    },
+    "freshness_sla_seconds": {
+      "type": "integer",
+      "minimum": 60
+    },
+    "schedule_expression": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "uri",
+          "method",
+          "allowed_hosts"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "method": {
+            "enum": [
+              "GET",
+              "POST"
+            ]
+          },
+          "allowed_hosts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "content_types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "credential_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "parser_key": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_source_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "owner": {
+      "type": "object",
+      "required": [
+        "team",
+        "subject_id"
+      ],
+      "properties": {
+        "team": {
+          "type": "string"
+        },
+        "subject_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "under_review",
+        "approved",
+        "suspended",
+        "archived"
+      ]
+    }
+  }
+}
