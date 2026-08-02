@@ -15,7 +15,7 @@ on:
       - 'lib/dashboard/commandCentreIntegration.ts'
       - 'lib/dashboard/personalBriefingsData.ts'
       - 'lib/countries.ts'
-      - 'proxy.ts'
+      - 'middleware.ts'
       - 'tests/dashboard/commandCentre*.test.ts'
       - 'tests/e2e/command-centre-integration.spec.ts'
       - '.github/workflows/command-centre-integration-verify.yml'
