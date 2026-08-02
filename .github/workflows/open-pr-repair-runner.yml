@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - agent/open-pr-repair-runner
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/open-pr-repair-runner.yml'
+      - 'scripts/open-pr-repair/**'
   workflow_dispatch:
 
 permissions:
