@@ -1,47 +1,10 @@
 /**
  * GET /api/dashboard/digest
  *
- * Daily digest endpoint for the CommandCentre DigestPage.
- *
- * Two content types are merged into one feed, distinguished by `contentType`:
- *   - 'signal'    — trade/regulatory intelligence, curated by run_daily_digest()
- *                   from ia_signals. Rendered with a confidence score + category chip.
- *   - 'editorial' — mainstream-media cannabis news, curated by run_editorial_digest()
- *                   from editorial_items (sources tagged source_type='mainstream_media'
- *                   in source_registry). No confidence score, no commercial framing —
- *                   rendered as a plain headline + why-it-matters card.
- *
- * When today's `daily_digest` row has neither headlines nor editorial_headlines
- * populated yet (e.g. early in the day, or on a quiet news day), this endpoint
- * falls back to a ROLLING WINDOW over the raw `signals_quality` view: it tries
- * the last 24h first, then widens to 7d, then 30d, then falls back to the N
- * most-recent reviewed rows regardless of age. That fallback path only ever
- * produces 'signal' content type — there is no raw-editorial equivalent, since
- * editorial_items should always be curated through run_editorial_digest() before
- * reaching the UI. The window that actually produced the returned rows is
- * reported back so the UI can label it honestly ("New in the last 24h" vs
- * "Most recent — nothing new in 24h").
- *
- * Query params:
- *   country — country name (e.g. "Germany"). Optional. Omit or "all" for global.
- *   limit   — max results, capped at 40. Default: 20.
- *
- * Returns:
- *   {
- *     signals:   DashboardSignal[],
- *     window:    "24h" | "7d" | "30d" | "recent",
- *     total:     number,   // total reviewed rows matching the country filter
- *     source:    "live" | "error"
- *   }
- *
- * Security:
- *   - DTO: only the same safe public columns the signals route exposes —
- *     never summary, source_url/url, analyst_notes, in_network, company,
- *     query_pack, or action.
- *   - Reads through the `signals_quality` view (reviewed-gated for
- *     SOURCE_ENGINE) and additionally filters reviewed=true, matching the
- *     rest of the dashboard's public signal surface.
- *   - Cache-Control: private, short TTL — browser only, not CDN cached.
+ * Daily digest for CommandCentre DigestPage.
+ * Curated edition first; else Pipeline B quality window ranked by
+ * digestRank (confidence, impact, content type, corroboration,
+ * operator feedback, max 3 per country).
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -52,14 +15,21 @@ import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
   resolveConfidence,
+  resolveContentType,
+  displayHeadline,
+  buildCorroborationIndex,
+  corroborationCount,
+  isTranslated,
+  originalLanguageLabel,
   type SignalQualityRow,
 } from '@/lib/signals/quality'
+import { rankDigestCandidates, type DigestCandidate } from '@/lib/signals/digestRank'
+import { loadFeedbackScores } from '@/lib/signals/feedbackScores'
+import { buildDigestConfidenceMap } from '@/lib/signals/digestPresentation'
+import { cleanPlainText } from '@/lib/utils/htmlEntities'
 
-// ── DTO: exact columns returned — nothing else ────────────────────────────────
-// `score` excluded on purpose — see /api/dashboard/signals and spec §2.5.
 const SAFE_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
-// ── Signal tag display map (mirrors /api/dashboard/signals) ───────────────────
 const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string; border: string }> = {
   regulatory_change:    { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
   importer_activity:    { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
@@ -67,6 +37,8 @@ const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string;
   new_product_category: { label: 'TRADE',        color: '#B07ED4', bg: 'rgba(139,95,168,0.15)',  border: 'rgba(139,95,168,0.30)'  },
   distressed_asset:     { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
   facility_expansion:   { label: 'INVESTMENT',   color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
+  story:                { label: 'STORY',        color: '#E8C87A', bg: 'rgba(232,200,122,0.12)', border: 'rgba(232,200,122,0.30)' },
+  research:             { label: 'RESEARCH',     color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
 }
 
 const LANE_TO_TAG: Record<string, string> = {
@@ -82,30 +54,18 @@ const LANE_TO_TAG: Record<string, string> = {
   supply:        'distressed_asset',
   source_engine: 'regulatory_change',
   licensing:     'importer_activity',
+  story:         'story',
+  research:      'research',
 }
 
-// ── Rolling windows, in priority order ────────────────────────────────────────
 const WINDOWS = [
   { key: '24h' as const, hours: 24 },
   { key: '7d'  as const, hours: 24 * 7 },
   { key: '30d' as const, hours: 24 * 30 },
 ]
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function stripHtml(raw: string): string {
-  return raw
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&apos;|&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, 200)
+  return cleanPlainText(raw, 200)
 }
 
 function timeAgo(dateStr: string | null | undefined): string {
@@ -123,12 +83,6 @@ function timeAgo(dateStr: string | null | undefined): string {
   }
 }
 
-// Editorial content spans a wide age range (breaking-today alongside
-// notable-but-older stories), unlike same-day trade signals. Showing "3w
-// ago" or worse "104w ago" for a two-year-old piece is both misleading (it
-// wasn't curated today's digest because it's fresh) and ugly. Past ~5 weeks,
-// fall back to an absolute "Mon YYYY" so the card is honest about its age
-// without pretending to be a relative-time app.
 function publishedLabel(dateStr: string | null | undefined): string {
   if (!dateStr) return 'Recently'
   try {
@@ -141,22 +95,20 @@ function publishedLabel(dateStr: string | null | undefined): string {
   }
 }
 
-type SignalRow = {
+type SignalRow = SignalQualityRow & {
   id: string
   headline: string
   cat: string | null
   top_lane: string | null
   pri: string | null
-  quality_label?: string | null
-  quality_confidence?: number | string | null
-  reviewed?: boolean | null
   country: string | null
   date: string | null
   created_at: string
 }
 
-function rowToSignal(s: SignalRow): DashboardSignal {
-  const laneKey = (s.top_lane ?? s.cat ?? '').toLowerCase()
+function rowToSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSignal {
+  const contentType = typeof s.content_type === 'string' ? s.content_type.toLowerCase() : ''
+  const laneKey = (contentType || s.top_lane || s.cat || '').toLowerCase()
   const tagKey  = LANE_TO_TAG[laneKey] ?? 'regulatory_change'
   const tag     = SIGNAL_TAG_MAP[tagKey] ?? SIGNAL_TAG_MAP.regulatory_change
   const market  = s.country ?? ''
@@ -165,27 +117,30 @@ function rowToSignal(s: SignalRow): DashboardSignal {
                 : pri === 'high'   ? 'High-priority'
                 : pri === 'medium' ? 'Medium-priority'
                 : 'Monitoring-level'
+  const corr = corroborationCount(s, corrIndex)
+  const corrNote = corr > 1 ? ` · ${corr} sources reporting` : ''
+  const title = displayHeadline(s) ?? s.headline
 
   return {
     id:               s.id,
     slug:             undefined,
-    title:            stripHtml(s.headline),
+    title:            stripHtml(title),
     type:             tagKey,
     market,
     tag,
     timeAgo:          timeAgo(s.date ?? s.created_at),
-    confidence:       resolveConfidence(s as SignalQualityRow) ?? 50,
-    commercialImpact: `${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}.`,
-    sourceLabel:      'Harbourview Regulatory Watch',
+    confidence:       resolveConfidence(s) ?? 50,
+    commercialImpact: `${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}${corrNote}.`,
+    sourceLabel:      'Harbourview Intelligence',
     flag:             flagForMarket(market),
     contentType:      'signal',
+    corroborationCount: corr,
+    translated: isTranslated(s),
+    originalLanguageLabel: originalLanguageLabel(s),
+    signalContentType: resolveContentType(s),
   }
 }
 
-// The date field that determines "freshness". `date` is the editorial/signal
-// date; `created_at` is ingestion time. We sort by the greater-of via COALESCE
-// on the DB side is not available across the view uniformly, so we sort by
-// created_at (always present) descending and treat that as recency.
 function isWithin(row: SignalRow, hours: number): boolean {
   const ref = row.date ?? row.created_at
   if (!ref) return false
@@ -193,14 +148,9 @@ function isWithin(row: SignalRow, hours: number): boolean {
   return diff <= hours * 3_600_000 && diff >= 0
 }
 
-// ── Route handler ─────────────────────────────────────────────────────────────
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  // Strip PostgREST filter delimiters ( , ( ) ) before this value is
-  // interpolated into a .or() / .ilike() clause below, to prevent a crafted
-  // ?country= value from breaking out of its filter and injecting conditions.
   const countryParam = (searchParams.get('country') ?? '').trim().replace(/[,()]/g, '')
   const parsedLimit  = parseInt(searchParams.get('limit') ?? '20', 10)
   const limit        = Math.min(Math.max(Number.isFinite(parsedLimit) ? parsedLimit : 20, 1), 40)
@@ -214,11 +164,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    // ── 0. Editorial edition first ────────────────────────────────────────────
-    // The published daily_digest (same content as the public /daily page):
-    // curated headlines with an editorial "why it matters" line, generated by
-    // the run_daily_digest() pipeline. When an edition exists it IS the digest;
-    // the signals_quality rolling window below remains as fallback only.
     const { data: edition, error: editionError } = await supabase
       .from('daily_digest')
       .select('digest_date, headlines, editorial_headlines, generated_at')
@@ -243,8 +188,6 @@ export async function GET(req: NextRequest) {
       let newsItems = (hasEditorialEdition ? edition!.editorial_headlines as NewsHeadline[] : [])
         .filter(h => typeof h?.headline === 'string' && h.headline.length > 0)
 
-      // Country-priority: matching market first, everything else after —
-      // same spirit as the signals feed (never blank on a country filter).
       if (isCountryFiltered) {
         const needle = countryParam.toLowerCase()
         const prioritize = <T extends { market?: string }>(items: T[]) => {
@@ -256,6 +199,28 @@ export async function GET(req: NextRequest) {
         newsItems   = prioritize(newsItems)
       }
 
+      const sourceSignalIds = [...new Set(
+        signalItems
+          .map((item) => typeof item.signal_id === 'string' ? item.signal_id : '')
+          .filter(Boolean),
+      )]
+      let confidenceBySignalId = new Map<string, number>()
+      if (sourceSignalIds.length > 0) {
+        const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
+          .from('signals_quality')
+          .select('id, quality_confidence')
+          .in('id', sourceSignalIds)
+
+        if (sourceConfidenceError) {
+          console.error(
+            '[/api/dashboard/digest] source confidence query failed:',
+            sourceConfidenceError.message,
+          )
+        } else {
+          confidenceBySignalId = buildDigestConfidenceMap(sourceConfidenceRows)
+        }
+      }
+
       const todayUtc  = new Date().toISOString().slice(0, 10)
       const windowKey = edition!.digest_date === todayUtc ? '24h' as const : 'recent' as const
       const tag       = SIGNAL_TAG_MAP.regulatory_change
@@ -264,30 +229,28 @@ export async function GET(req: NextRequest) {
       const signalSignals: DashboardSignal[] = signalItems.slice(0, limit).map((h, i) => ({
         id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
         slug:             undefined,
-        title:            h.headline!,
+        title:            stripHtml(h.headline!),
         type:             'regulatory_change',
         market:           h.market ?? 'Global',
         tag,
         timeAgo:          timeAgo(edition!.generated_at),
-        confidence:       80,
-        commercialImpact: h.why_it_matters ?? '',
+        confidence:       h.signal_id ? (confidenceBySignalId.get(h.signal_id) ?? 80) : 80,
+        commercialImpact: stripHtml(h.why_it_matters ?? ''),
         sourceLabel:      'Harbourview Daily',
         flag:             flagForMarket(h.market ?? 'Global'),
         contentType:      'signal',
       }))
 
-      // Editorial items are interleaved after signal items (or lead, if no
-      // signal edition exists yet) — no confidence score, distinct tag.
       const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
         id:               h.item_id ?? `editorial-${edition!.digest_date}-${i}`,
         slug:             undefined,
-        title:            h.headline!,
+        title:            stripHtml(h.headline!),
         type:             'editorial',
         market:           h.market ?? 'Global',
         tag:              editorialTag,
         timeAgo:          publishedLabel(h.published_at),
         confidence:       0,
-        commercialImpact: h.why_it_matters ?? '',
+        commercialImpact: stripHtml(h.why_it_matters ?? ''),
         sourceLabel:      h.outlet_name ?? 'Global Cannabis News',
         sourceUrl:        h.source_url,
         flag:             flagForMarket(h.market ?? 'Global'),
@@ -298,7 +261,7 @@ export async function GET(req: NextRequest) {
       const total = signalItems.length + newsItems.length
 
       return NextResponse.json(
-        { signals, window: windowKey, total, source: 'live' },
+        { signals, window: windowKey, total, source: 'live', mode: 'curated-edition' },
         { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=60' } },
       )
     }
@@ -315,8 +278,6 @@ export async function GET(req: NextRequest) {
       query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
     }
 
-    // Pull a generous recent slice once, then window client-side. This avoids
-    // 3 round-trips for the 24h/7d/30d fallback ladder.
     const { data, error, count } = await query.range(0, 199)
 
     if (error) {
@@ -328,8 +289,9 @@ export async function GET(req: NextRequest) {
     }
 
     let rows = (data ?? []) as SignalRow[]
+    const corrIndex = buildCorroborationIndex(rows)
+    const feedbackMap = await loadFeedbackScores(supabase, rows.map((r) => r.id))
 
-    // Country-priority sort: country-specific first, Global second.
     if (isCountryFiltered) {
       const needle = countryParam.toLowerCase()
       const countrySpecific = rows.filter(r => r.country?.toLowerCase().includes(needle))
@@ -337,7 +299,6 @@ export async function GET(req: NextRequest) {
       rows = [...countrySpecific, ...global]
     }
 
-    // Rolling-window ladder: first window that yields any rows wins.
     let windowKey: '24h' | '7d' | '30d' | 'recent' = 'recent'
     let windowed: SignalRow[] = []
     for (const w of WINDOWS) {
@@ -348,16 +309,40 @@ export async function GET(req: NextRequest) {
         break
       }
     }
-    // Nothing in any dated window → fall back to most-recent overall.
     if (windowed.length === 0) {
       windowKey = 'recent'
       windowed = rows
     }
 
-    const signals = windowed.slice(0, limit).map(rowToSignal)
+    const candidates: DigestCandidate[] = windowed.map((r) => ({
+      ...r,
+      corroboration_count: corroborationCount(r, corrIndex),
+      feedback_score: feedbackMap.get(r.id) ?? 0,
+    }))
+
+    const ranked = rankDigestCandidates(candidates, {
+      maxPerCountry: isCountryFiltered ? 40 : 3,
+      limit: Math.max(limit * 2, 24),
+    })
+
+    const byId = new Map(windowed.map((r) => [r.id, r]))
+    const ordered = ranked
+      .map((item) => byId.get(item.id))
+      .filter((r): r is SignalRow => Boolean(r))
+
+    const finalRows = ordered.length > 0 ? ordered : windowed
+    const signals = finalRows.slice(0, limit).map((r) => rowToSignal(r, corrIndex))
 
     return NextResponse.json(
-      { signals, window: windowKey, total: windowed.length, totalReviewed: count ?? windowed.length, source: 'live' },
+      {
+        signals,
+        window: windowKey,
+        total: finalRows.length,
+        totalReviewed: count ?? finalRows.length,
+        source: 'live',
+        mode: 'elite-ranked-fallback',
+        feedbackApplied: feedbackMap.size > 0,
+      },
       {
         headers: {
           'Cache-Control': 'private, max-age=300, stale-while-revalidate=60',

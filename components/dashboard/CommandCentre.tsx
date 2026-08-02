@@ -273,8 +273,7 @@ const BRIEFING_ROLE_MODULES: Record<string, Array<{ page: CommandPage; icon: str
     { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Formulary, scheduling, and dispensing rule updates' },
   ],
   'Budtender':   [
-    { page: 'education',      icon: '⊞', label: 'Education',          why: 'Product knowledge, terpene profiles, and patient advisory' },
-    { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Retail sales rules and age-verification requirements' },
+        { page: 'regulatory',     icon: '◷', label: 'Regulatory Watch',   why: 'Retail sales rules and age-verification requirements' },
     { page: 'marketplace',    icon: '◈', label: 'Marketplace',        why: 'Available SKUs, new listings, and product mix' },
   ],
   'Cultivator':  [
@@ -343,8 +342,7 @@ const BRIEFING_ROLE_MODULES: Record<string, Array<{ page: CommandPage; icon: str
     { page: 'compliance',     icon: '◫', label: 'Compliance',         why: 'Standards and SOPs across regulated jurisdictions' },
   ],
   'Patient Ed.': [
-    { page: 'education',      icon: '⊞', label: 'Education',          why: 'Patient-facing resources, dosing guides, and product info' },
-    { page: 'experts',        icon: '⊛', label: 'Expert Directory',   why: 'Find qualified patient educators and healthcare professionals' },
+        { page: 'experts',        icon: '⊛', label: 'Expert Directory',   why: 'Find qualified patient educators and healthcare professionals' },
     { page: 'access-pathway', icon: '◎', label: 'Access Pathway',     why: 'Patient access framework for your jurisdiction' },
   ],
   'GMP/QA':      [
@@ -1877,7 +1875,6 @@ const EducationPage = React.memo(function EducationPage({
                 </div>
               </div>
             ))}
-            <button className="cc-right-link" onClick={() => onPageChange?.('education')}>Browse all tracks →</button>
           </div>
         )}
 
@@ -5945,26 +5942,32 @@ const CompliancePage = React.memo(function CompliancePage({
             {jurisdictionPlaybook?.steps && jurisdictionPlaybook.steps.length > 0 && (
               <div className="cc-sig-group">
                 <div className="cc-sig-group-hd"><span>Market Entry Steps</span><span>{jurisdictionPlaybook.steps.length}</span></div>
-                {jurisdictionPlaybook.steps.slice(0, 5).map(s => (
-                  <div key={s.step} className="cc-sig-row">
+                {jurisdictionPlaybook.steps.slice(0, 5).map((s, i) => (
+                  <div key={i} className="cc-sig-row">
                     <div className="cc-sig-dot low" />
                     <div className="cc-sig-body">
-                      <strong>{s.step}. {s.title}</strong>
-                      <small>{s.description}</small>
+                      <strong>{i + 1}. {s}</strong>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            {jurisdictionPlaybook?.key_regulators && jurisdictionPlaybook.key_regulators.length > 0 && (
+            {jurisdictionPlaybook?.key_regulators && (
               <div className="cc-sig-group">
                 <div className="cc-sig-group-hd"><span>Key Regulators</span></div>
-                {jurisdictionPlaybook.key_regulators.map(r => (
-                  <div key={r.name} className="cc-sig-row">
+                <div className="cc-sig-row">
+                  <div className="cc-sig-dot low" />
+                  <div className="cc-sig-body">
+                    <strong>{jurisdictionPlaybook.key_regulators.primary}</strong>
+                    <small>Primary Regulator</small>
+                  </div>
+                </div>
+                {(jurisdictionPlaybook.key_regulators.secondary ?? []).map((name, i) => (
+                  <div key={i} className="cc-sig-row">
                     <div className="cc-sig-dot low" />
                     <div className="cc-sig-body">
-                      <strong>{r.name}</strong>
-                      <small>{r.role}</small>
+                      <strong>{name}</strong>
+                      <small>Secondary Regulator</small>
                     </div>
                   </div>
                 ))}

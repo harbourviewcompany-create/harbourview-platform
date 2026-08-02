@@ -197,8 +197,48 @@ export function routeContentType(row: SignalQualityRow): Array<'signals' | 'dige
     case 'market':     return ['signals', 'digest']
     case 'story':      return ['digest']
     case 'research':   return ['digest']
+    // `noise` routes nowhere. Returning ['signals'] from the default branch — as an
+    // earlier revision did — would have surfaced it, which a test caught.
+    case 'noise':      return []
+    // NULL only: rows promoted before Pipeline B classified them predate the
+    // taxonomy and default to the Signals feed rather than disappearing.
     default:           return ['signals']
   }
+}
+
+/**
+ * Content types the Signals feed carries.
+ *
+ * `story` and `research` belong on the Digest (spec §4.3) and are bridged there by
+ * `hv_route_signals_to_digest()`. Until 2026-07-30 nothing enforced this in either
+ * direction: 395 promoted story/research signals were presenting as regulatory
+ * intelligence in the Signals feed while the Digest starved for candidates.
+ *
+ * NULL `content_type` is retained — rows promoted before Pipeline B classified them
+ * predate the taxonomy, and dropping them would silently shrink the feed.
+ */
+export const SIGNALS_FEED_CONTENT_TYPES = ['regulatory', 'market'] as const
+
+/** The content types that must not appear on the Signals feed. */
+export const SIGNALS_FEED_CONTENT_TYPE_NOT_IN = "(story,research,noise)"
+
+/**
+ * PostgREST filter enforcing the above server-side.
+ *
+ * Must be an explicit `or` against `is.null` rather than a bare
+ * `content_type=not.in.(...)`. SQL three-valued logic makes `NULL NOT IN (...)`
+ * evaluate to NULL, not TRUE, so a bare `not.in` silently drops every row with
+ * no content_type — 40 legacy reviewed rows at the time of writing. That is the
+ * exact silent shrink `belongsOnSignalsFeed` exists to prevent, and it would
+ * have made the query and the mapper disagree about the same rows.
+ */
+export const SIGNALS_FEED_CONTENT_TYPE_OR_FILTER =
+  `(content_type.is.null,content_type.not.in.${SIGNALS_FEED_CONTENT_TYPE_NOT_IN})` as const
+
+export function belongsOnSignalsFeed(row: SignalQualityRow): boolean {
+  const ct = resolveContentType(row)
+  if (ct === null) return true
+  return routeContentType(row).includes('signals')
 }
 
 // ── Translation ───────────────────────────────────────────────────────────────

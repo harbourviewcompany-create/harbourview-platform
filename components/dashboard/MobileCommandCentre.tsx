@@ -9,6 +9,7 @@ import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { RegulatoryRadar } from './pages/RegulatoryRadar'
 import ClinicalPage from './pages/ClinicalPage'
+import SignalSemanticSearch from './SignalSemanticSearch'
 
 const MOBILE_FORMAT_STATUS_COLOR: Record<string, string> = {
   permitted: '#5fb87a',
@@ -1264,12 +1265,13 @@ function EducationMobile({ country, roleLabel, eduCategories, liveTiles, recentE
   )
 }
 
-type SignalSub = 'feed' | 'regulatory' | 'watchlist'
+type SignalSub = 'feed' | 'regulatory' | 'watchlist' | 'search'
 
 const SIGNALS_TABS: { id: SignalSub; label: string }[] = [
   { id: 'feed',       label: 'Signals' },
   { id: 'regulatory', label: 'Regulatory' },
   { id: 'watchlist',  label: 'Watchlist' },
+  { id: 'search',     label: 'Search' },
 ]
 
 const SIG_CATS = [
@@ -1785,6 +1787,7 @@ function SignalsMobile({ country, signals, watchlistData, countryIntel, sourceCo
       {sub === 'feed'       && <SignalsFeed country={country} signals={effectiveSignals} />}
       {sub === 'regulatory' && <RegulatoryMobile country={country} roleLabel="Regulatory" signals={effectiveSignals} watchlistData={watchlistData} countryIntel={countryIntel} sourceCoverage={sourceCoverage} />}
       {sub === 'watchlist'  && <WatchlistMobile country={country} roleLabel="Watchlist" watchlistData={watchlistData} signals={effectiveSignals} />}
+      {sub === 'search'     && <SignalSemanticSearch />}
     </div>
   )
 }

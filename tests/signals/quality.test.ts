@@ -18,6 +18,9 @@ import {
   resolveCountry,
   resolveImpact,
   routeContentType,
+  belongsOnSignalsFeed,
+  SIGNALS_FEED_CONTENT_TYPE_NOT_IN,
+  SIGNALS_FEED_CONTENT_TYPE_OR_FILTER,
 } from '@/lib/signals/quality'
 
 describe('quality columns', () => {
@@ -210,5 +213,50 @@ describe('feed freshness', () => {
 
   it('ignores unparseable dates', () => {
     expect(feedAgeHours([null, undefined, 'not-a-date'])).toBeNull()
+  })
+})
+
+describe('Stage D signals-feed routing', () => {
+  it('keeps regulatory and market on the Signals feed', () => {
+    expect(belongsOnSignalsFeed({ content_type: 'regulatory' })).toBe(true)
+    expect(belongsOnSignalsFeed({ content_type: 'market' })).toBe(true)
+  })
+
+  it('routes story and research off the Signals feed', () => {
+    // 395 promoted rows of these types were presenting as regulatory intelligence.
+    expect(belongsOnSignalsFeed({ content_type: 'story' })).toBe(false)
+    expect(belongsOnSignalsFeed({ content_type: 'research' })).toBe(false)
+  })
+
+  it('excludes noise', () => {
+    expect(belongsOnSignalsFeed({ content_type: 'noise' })).toBe(false)
+  })
+
+  it('keeps NULL content_type — pre-Pipeline-B rows predate the taxonomy', () => {
+    // Dropping these would silently shrink the feed.
+    expect(belongsOnSignalsFeed({})).toBe(true)
+    expect(belongsOnSignalsFeed({ content_type: null })).toBe(true)
+  })
+
+  it('the PostgREST filter excludes exactly the digest-bound types', () => {
+    expect(SIGNALS_FEED_CONTENT_TYPE_NOT_IN).toContain('story')
+    expect(SIGNALS_FEED_CONTENT_TYPE_NOT_IN).toContain('research')
+    expect(SIGNALS_FEED_CONTENT_TYPE_NOT_IN).toContain('noise')
+    expect(SIGNALS_FEED_CONTENT_TYPE_NOT_IN).not.toContain('regulatory')
+    expect(SIGNALS_FEED_CONTENT_TYPE_NOT_IN).not.toContain('market')
+  })
+
+  it('the server-side filter keeps NULL content_type, matching belongsOnSignalsFeed', () => {
+    // A bare `content_type=not.in.(...)` passes the assertion above while still
+    // dropping every NULL row, because SQL evaluates `NULL NOT IN (...)` to NULL
+    // rather than TRUE. That silently shrank the feed by 40 legacy rows and made
+    // the query disagree with the mapper. The filter must test for null explicitly.
+    expect(SIGNALS_FEED_CONTENT_TYPE_OR_FILTER).toContain('content_type.is.null')
+    expect(SIGNALS_FEED_CONTENT_TYPE_OR_FILTER).toContain(
+      `content_type.not.in.${SIGNALS_FEED_CONTENT_TYPE_NOT_IN}`,
+    )
+    // and it must be an or-group, or PostgREST reads it as a single conjunct
+    expect(SIGNALS_FEED_CONTENT_TYPE_OR_FILTER.startsWith('(')).toBe(true)
+    expect(SIGNALS_FEED_CONTENT_TYPE_OR_FILTER.endsWith(')')).toBe(true)
   })
 })

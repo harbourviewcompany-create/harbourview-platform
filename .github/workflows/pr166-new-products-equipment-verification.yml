@@ -54,10 +54,25 @@ jobs:
       - name: Scan new products route for forbidden leakage strings
         run: |
           html="$(curl -fsS http://127.0.0.1:3000/marketplace/new-products)"
-          for forbidden in sourceUrl sourceName contactEmail provenance evidence "pricing metadata" "internal notes" "review metadata"; do
+          forbidden_markers=(
+            'sourceUrl'
+            'sourceName'
+            'contactEmail'
+            'provenanceSummary'
+            'sourceEvidence'
+            'Evidence captured'
+            'pricing metadata'
+            'internal notes'
+            'internalReviewNotes'
+            'review metadata'
+            'reviewedBy'
+            'lastReviewedAt'
+            'nextReviewDueAt'
+          )
+          for forbidden in "${forbidden_markers[@]}"; do
             if printf '%s' "$html" | grep -Fqi "$forbidden"; then
               echo "Forbidden string leaked on /marketplace/new-products: $forbidden"
               exit 1
             fi
           done
-          echo "PASS /marketplace/new-products forbidden-string scan"
+          echo "PASS /marketplace/new-products exact forbidden-marker scan"

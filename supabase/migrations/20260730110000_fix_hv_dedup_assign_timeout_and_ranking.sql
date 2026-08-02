@@ -1,3 +1,17 @@
+-- SUPERSEDED -- do not treat the body below as current.
+--
+-- This was the first pass at the timeout fix. It reduced the comparison count but
+-- still filtered on `WHERE (1 - (a <=> b)) >= p_tau`, which pgvector cannot serve
+-- from the HNSW index. Production was moved to the k-NN form
+-- (`ORDER BY <=> LIMIT c_neighbours`, threshold applied afterwards) by
+-- `20260730104633_hv_dedup_assign_use_hnsw_index`, applied via Supabase MCP and
+-- therefore absent from this directory.
+--
+-- The body below is kept verbatim rather than edited, so the migration history
+-- stays an honest record of what was applied when. The current definition is
+-- restored by `20260731090000_hv_dedup_assign_restore_hnsw_knn.sql`, which sorts
+-- after this file and so wins if CI ever replays both.
+--
 -- Fix hv_dedup_assign: statement timeout + inverted-scorer ranking
 --
 -- CONTEXT (verified live 2026-07-30, see docs/PLATFORM_OPTIMIZATION_REVIEW_2026-07-30.md)
