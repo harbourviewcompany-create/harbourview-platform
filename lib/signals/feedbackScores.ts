@@ -9,6 +9,11 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Callers may be generated against different exposed PostgREST schemas and the
+// feedback table is not present in every generated Database type. Supabase's
+// schema generics are invariant, so this boundary intentionally erases only the
+// compile-time schema parameters while preserving the SupabaseClient runtime API.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySchemaSupabaseClient = SupabaseClient<any, any, any, any, any>
 
 export async function loadFeedbackScores(
@@ -32,30 +37,25 @@ export async function loadFeedbackScores(
 
     const { data, error } = await client
       .from('signal_relevance_feedback')
-      .select('signal_id, verdict')
+      .select('signal_id,relevant')
       .in('signal_id', unique)
       .gte('created_at', since)
 
-    if (error || !data) return out
+    if (error || !Array.isArray(data)) return out
 
-    const tallies = new Map<
-      string,
-      { helpful: number; not_helpful: number; stale: number; wrong_country: number }
-    >()
+    const counts = new Map<string, { positive: number; total: number }>()
     for (const row of data) {
       const id = typeof row.signal_id === 'string' ? row.signal_id : ''
       if (!id) continue
-      const t = tallies.get(id) ?? { helpful: 0, not_helpful: 0, stale: 0, wrong_country: 0 }
-      const v = row.verdict
-      if (v === 'helpful') t.helpful++
-      else if (v === 'not_helpful') t.not_helpful++
-      else if (v === 'stale') t.stale++
-      else if (v === 'wrong_country') t.wrong_country++
-      tallies.set(id, t)
+      const current = counts.get(id) ?? { positive: 0, total: 0 }
+      current.total += 1
+      if (row.relevant === true) current.positive += 1
+      counts.set(id, current)
     }
 
-    for (const [id, t] of tallies) {
-      const score = t.helpful * 8 - t.not_helpful * 12 - t.stale * 6 - t.wrong_country * 10
+    for (const [id, count] of counts) {
+      // Bayesian prior of 50/50 with 4 pseudo-votes prevents single-click swings.
+      const score = (count.positive + 2) / (count.total + 4)
       out.set(id, score)
     }
   } catch {
