@@ -1,0 +1,68 @@
+name: Temporary Apply Pending Migration Remediation Bundle
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tmp-apply-pending-migration-remediation-bundle.yml'
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Recover and verify public-source remediation bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA256: cd6077675cd84dba9c5be0d072a87f2ef379789eb26b2e46411ae4364311988d
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/issues/1258" --jq .body > /tmp/issue-body.txt
+          awk '/^BEGIN_BUNDLE$/{capture=1;next}/^END_BUNDLE$/{capture=0}capture' \
+            /tmp/issue-body.txt | tr -d '\r\n' | base64 --decode > /tmp/remediation-bundle.tar.gz
+          test "$(sha256sum /tmp/remediation-bundle.tar.gz | awk '{print $1}')" = "$EXPECTED_SHA256"
+          tar -xzf /tmp/remediation-bundle.tar.gz -C .
+
+      - name: Validate exact scope and evidence controls
+        run: |
+          set -euo pipefail
+          node scripts/check-pending-production-migration-decisions.mjs
+          node --test tests/scripts/pending-production-migration-decisions.test.mjs
+          node --check scripts/check-pending-production-migration-decisions.mjs
+          python3 - <<'PY'
+          import yaml
+          from pathlib import Path
+          yaml.safe_load(Path('.github/workflows/pending-migration-decision-verification.yml').read_text())
+          print('Workflow YAML parsed.')
+          PY
+
+      - name: Commit reviewed remediation files and remove bootstrap
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-apply-pending-migration-remediation-bundle.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            .github/workflows/pending-migration-decision-verification.yml \
+            docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md \
+            docs/control/PRODUCTION_DATABASE_ENVIRONMENT_EVIDENCE_2026-08-02.md \
+            docs/control/PENDING_PRODUCTION_MIGRATION_REMEDIATION_EVIDENCE_2026-08-02.md \
+            scripts/check-pending-production-migration-decisions.mjs \
+            supabase/release-controls/pending-production-migration-decisions.json \
+            tests/scripts/pending-production-migration-decisions.test.mjs \
+            .github/workflows/tmp-apply-pending-migration-remediation-bundle.yml
+          if git diff --cached --name-only | grep -q '^supabase/migrations/'; then
+            echo '::error::Migration SQL changes are forbidden in this remediation PR.'
+            exit 1
+          fi
+          test "$(git diff --cached --name-only | wc -l)" -eq 8
+          git commit -m 'chore(release): record pending migration decisions'
+          git push origin "HEAD:${{ github.head_ref }}"
