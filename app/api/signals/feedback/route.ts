@@ -1,6 +1,6 @@
 // POST /api/signals/feedback
 // Authenticated operators mark a signal helpful / not_helpful / stale / wrong_country.
-// Feeds public.signal_relevance_feedback → ranking soft boost + health metrics.
+// Writes through a narrow api-schema RPC; public.signal_relevance_feedback remains unexposed.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
@@ -51,21 +51,21 @@ export async function POST(request: Request) {
     )
   }
 
-  const { error } = await supabase.from('signal_relevance_feedback').insert({
-    signal_id: signalId,
-    user_id: user.id,
-    verdict,
-    note,
-    surface,
+  const { data: feedbackId, error } = await supabase.rpc('submit_signal_relevance_feedback', {
+    p_signal_id: signalId,
+    p_verdict: verdict,
+    p_note: note,
+    p_surface: surface,
   })
 
   if (error) {
-    console.error('signals/feedback insert failed', error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('signals/feedback RPC failed', { code: error.code })
+    return NextResponse.json({ error: 'Unable to record feedback' }, { status: 500 })
   }
 
   return NextResponse.json({
     ok: true,
+    feedbackId: typeof feedbackId === 'string' ? feedbackId : null,
     message:
       verdict === 'helpful'
         ? 'Thanks — this helps the daily brief learn what matters.'

@@ -42,6 +42,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
+| 2026-08-02 | Elite Digest feedback/HNSW forward repair | Exact-head workflow evidence pending | Controlled API RPCs, unique migration versions, actual pgvector invocation, and manual-only production migration gate | Replacement PR — update with immutable run IDs before merge | **Current — merge HOLD pending exact-head evidence** |
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
 | 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
@@ -2821,3 +2822,17 @@ than speed here.
 - Required evidence: generated-data reproducibility, routing tests, lint,
   typecheck, full tests, production build, public-boundary checks, and the
   PostgreSQL 17 pipeline-hardening migration fixture.
+
+## 2026-08-02 — Elite Digest feedback/HNSW replacement repair
+
+- Clean base: `6fd3cb2a2f43fb4a998c52ae03f06e5d0cb14eb5`.
+- Required outcomes: persisted `verdict` scoring with signed effects; narrow
+  authenticated feedback writer; service-role-only ranking projection; unique
+  HNSW migration version; actual PostgreSQL 17 + pgvector invocation; sorted
+  migration controls; manual-only production migration application.
+- Production boundaries: no live migration, deployment, alias movement, secret
+  read, or secret persistence.
+- Merge remains HOLD until exact-head targeted tests, migration uniqueness, lint,
+  typecheck, full tests, build, public-boundary checks, PostgreSQL fixture, CI,
+  Branch Verification, and review-thread audit are all recorded with immutable
+  run IDs and zero unresolved material findings.
