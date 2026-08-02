@@ -1,15 +1,15 @@
 name: Temporary PR 1230 Mobile Renderer Repair
 
 on:
-  push:
-    branches: [repair/pr1227-blockers]
+  pull_request:
+    types: [synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   repair:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event.pull_request.number == 1230 && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,4 +83,3 @@ jobs:
           git add -u .github/workflows/temporary-pr1230-mobile-renderer-repair.yml
           git commit -m "fix: align mobile playbook renderers with declared types"
           git push origin repair/pr1227-blockers
-# trigger: 2026-08-02
