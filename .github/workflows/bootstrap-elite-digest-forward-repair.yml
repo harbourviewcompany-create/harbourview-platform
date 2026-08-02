@@ -120,6 +120,7 @@ jobs:
           git config user.name 'Harbourview Repair Operator'
           git config user.email 'repair-operator@users.noreply.github.com'
           rm .github/workflows/elite-digest-forward-repair-verification.yml
+          git restore --source=HEAD -- .github/workflows/supabase-migrate.yml
           git add -A
           git commit -m 'fix: rebuild Elite Digest feedback and migration controls'
           git push origin HEAD:fix/elite-digest-feedback-forward-repair
