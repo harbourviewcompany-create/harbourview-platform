@@ -1,6 +1,6 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-07-30
+Last updated: 2026-08-02
 Status: Gate 4 GO (2026-06-25); country/role white-screen defect + MOBILE_CSS class-collision defect fixed and verified 2026-07-07; branch-protection gap on `main` found and open; Intelligence Stage 2 classifier validation partially blocked (LLM provider billing + `hv-classify` schema bug, both open — see 2026-07-19 entry)
 Authority: Canonical evidence log for Harbourview finish-line execution
 
@@ -42,6 +42,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
+| 2026-08-02 | Supply Supabase credentials to Branch Verification | `npm run typecheck` (pass); `npm run test` (104 tests pass); `npm run build` (pass); Ruby/Psych workflow YAML parse (pass); `npm run lint` (blocked by the pre-existing ESLint 10 / `eslint-plugin-react` `contextOrFilename.getFilename` incompatibility) | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and server-only `SUPABASE_SERVICE_ROLE_KEY` are sourced from GitHub Actions secrets at job scope; values are not committed or logged | Branch `work`; PR pending | Current |
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
 | 2026-06-25 | Gate 4 full test-suite baseline | All `test:*` scripts + `typecheck` + `lint` + `build` on branch `claude/gate-4-verification-baseline` | 19 test scripts PASS (267 total assertions); `typecheck` 0 errors; `lint` 0 errors; `build` clean; tooling gap closed in PR #857 — see Gate 4 detail | Branch `claude/gate-4-verification-baseline`; PR #857 | **Current — Gate 4 GO** |
