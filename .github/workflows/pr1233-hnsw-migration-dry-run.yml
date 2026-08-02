@@ -1,0 +1,38 @@
+name: PR 1233 HNSW Migration Dry Run
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql'
+      - 'tests/sql/pr1233_hnsw_migration_dry_run.sql'
+      - '.github/workflows/pr1233-hnsw-migration-dry-run.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-17-pgvector:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply and verify HNSW migration fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/pr1233_hnsw_migration_dry_run.sql
