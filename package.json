@@ -7,6 +7,7 @@
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
+    "pretypecheck": "node scripts/repair-pr1236.mjs",
     "typecheck": "tsc --noEmit",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
     "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
