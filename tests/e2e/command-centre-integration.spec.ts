@@ -11,49 +11,131 @@ const viewports = [
   { name: '1440', width: 1440, height: 1000 },
 ] as const
 
-const customModules = [
-  { id: 'personal-briefings', page: 'digest' },
-  { id: 'search', page: 'signals' },
-  { id: 'market', page: 'local-intel' },
-  { id: 'supply', page: 'marketplace' },
-  { id: 'financing', page: 'marketplace' },
-  { id: 'directories', page: 'experts' },
-  { id: 'talent', page: 'jobs' },
+const modules = [
+  { id: 'briefing', label: 'Briefing', page: 'briefing', custom: false },
+  { id: 'digest', label: 'Digest', page: 'digest', custom: false },
+  { id: 'personal-briefings', label: 'My Briefings', page: 'digest', custom: true, stateSelector: '.ccig-card, .ccig-empty' },
+  { id: 'intel', label: 'Intel', page: 'signals', custom: false },
+  { id: 'search', label: 'Search', page: 'signals', custom: true, stateSelector: 'input, form, .ccig-empty' },
+  { id: 'compliance', label: 'Compliance', page: 'compliance', custom: false },
+  { id: 'market', label: 'Market', page: 'local-intel', custom: true, stateSelector: '.ccig-card, .ccig-empty' },
+  { id: 'marketplace', label: 'Marketplace', page: 'marketplace', custom: false },
+  { id: 'supply', label: 'Supply', page: 'marketplace', custom: true, stateSelector: '.ccig-card, .ccig-empty' },
+  { id: 'financing', label: 'Financing', page: 'marketplace', custom: true, stateSelector: 'form, .ccig-empty' },
+  { id: 'directories', label: 'Directories', page: 'experts', custom: true, stateSelector: '.ccig-card, .ccig-empty' },
+  { id: 'talent', label: 'Talent', page: 'jobs', custom: true, stateSelector: '.ccig-card, .ccig-empty' },
+  { id: 'genetics', label: 'Genetics', page: 'genetics', custom: false },
+  { id: 'clinical', label: 'Clinical', page: 'clinical', custom: false },
+  { id: 'watchlist', label: 'Watchlist', page: 'watchlist', custom: false },
+  { id: 'pathways', label: 'Pathways', page: 'access-pathway', custom: false },
 ] as const
+
+function moduleHref(entry: (typeof modules)[number]) {
+  const params = new URLSearchParams({ country: 'CA' })
+  if (entry.page !== 'briefing') params.set('page', entry.page)
+  if (entry.custom) params.set('module', entry.id)
+  return `/dashboard?${params.toString()}`
+}
 
 for (const viewport of viewports) {
   test(`canonical Command Centre modules render at ${viewport.name}px`, async ({ page }) => {
-    test.setTimeout(180_000)
+    test.setTimeout(360_000)
+    const pageErrors: string[] = []
+    page.on('pageerror', error => pageErrors.push(error.message))
+
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
-    await page.goto('/dashboard?country=CA')
+    await page.goto('/dashboard?country=CA', { waitUntil: 'domcontentloaded' })
 
-    test.skip(
-      /\/login(?:\?|$)/.test(page.url()),
-      'This responsive suite requires an authenticated Playwright storage state.',
-    )
-
+    expect(page.url()).not.toMatch(/\/login(?:\?|$)/)
     await expect(page.locator(viewport.width <= 767 ? '.hvm-app' : '.cc-app')).toBeVisible()
-    await expect(page.getByRole('button', { name: /modules/i })).toBeVisible()
 
-    for (const entry of customModules) {
-      await page.goto(`/dashboard?country=CA&page=${entry.page}&module=${entry.id}`)
-      await expect(page.locator(`[data-command-centre-module="${entry.id}"]`)).toBeVisible()
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      )
-      expect(overflow).toBeLessThanOrEqual(1)
+    const launcher = page.getByRole('button', { name: /modules/i })
+    await expect(launcher).toBeVisible()
+    await launcher.click()
+    const launcherDialog = page.getByRole('dialog', { name: 'Command Centre module launcher' })
+    await expect(launcherDialog).toBeVisible()
+    for (const entry of modules) {
+      await expect(launcherDialog.getByRole('link', { name: new RegExp(entry.label, 'i') })).toBeVisible()
+    }
+    await launcherDialog.getByRole('button', { name: 'Close module launcher' }).click()
+
+    const moduleResults: Array<Record<string, unknown>> = []
+
+    for (const entry of modules) {
+      const errorsBefore = pageErrors.length
+      await page.goto(moduleHref(entry), { waitUntil: 'domcontentloaded' })
+      expect(page.url(), `${entry.label} redirected out of the authenticated shell`).not.toMatch(/\/login(?:\?|$)/)
+
+      const shellSelector = entry.custom
+        ? `[data-command-centre-module="${entry.id}"]`
+        : viewport.width <= 767 ? '.hvm-app' : '.cc-app'
+      await expect(page.locator(shellSelector).first(), `${entry.label} shell`).toBeVisible()
+
+      if (entry.custom) {
+        await expect(page.getByRole('heading', { name: entry.label, exact: true }).first()).toBeVisible()
+        if ('stateSelector' in entry) {
+          await expect(page.locator(entry.stateSelector).first(), `${entry.label} must expose content, empty, loading-resolved, or error state`).toBeVisible({ timeout: 15_000 })
+        }
+        const loading = page.getByText(/Loading personalized briefings|Loading open roles/i)
+        await expect(loading).toBeHidden({ timeout: 15_000 })
+      } else {
+        await expect(page.getByRole('button', { name: /modules/i })).toBeVisible()
+      }
+
+      const layout = await page.evaluate(() => {
+        const fixedViolations: string[] = []
+        for (const element of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+          const style = getComputedStyle(element)
+          if (style.position !== 'fixed' || style.display === 'none' || style.visibility === 'hidden') continue
+          const rect = element.getBoundingClientRect()
+          if (rect.width <= 0 || rect.height <= 0) continue
+          if (rect.left < -1 || rect.right > window.innerWidth + 1 || rect.top < -1 || rect.bottom > window.innerHeight + 1) {
+            fixedViolations.push(`${element.tagName.toLowerCase()}.${element.className}:${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.right)},${Math.round(rect.bottom)}`)
+          }
+        }
+        return {
+          horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          fixedViolations,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        }
+      })
+
+      expect(layout.horizontalOverflow, `${entry.label} horizontal overflow`).toBeLessThanOrEqual(1)
+      expect(layout.fixedViolations, `${entry.label} fixed or safe-area obstruction`).toEqual([])
+
+      const newErrors = pageErrors.slice(errorsBefore)
+      expect(newErrors, `${entry.label} uncaught browser errors`).toEqual([])
+
+      const state = entry.custom
+        ? await page.locator('.ccig-empty.error').first().isVisible().then(visible => visible ? 'error' : null)
+          ?? await page.locator('.ccig-empty').first().isVisible().then(visible => visible ? 'empty' : null)
+          ?? await page.locator('.ccig-card').first().isVisible().then(visible => visible ? 'content' : 'interactive')
+        : 'legacy-shell'
+
+      moduleResults.push({
+        module: entry.id,
+        label: entry.label,
+        url: page.url(),
+        shell: entry.custom ? 'shared-module' : viewport.width <= 767 ? 'mobile-command-centre' : 'desktop-command-centre',
+        state,
+        ...layout,
+        pageErrors: newErrors,
+      })
     }
 
-    const evidenceDirectory = path.join(
-      process.cwd(),
-      'docs/control/evidence/command-centre-integration',
-    )
+    const evidenceDirectory = path.join(process.cwd(), 'docs/control/evidence/command-centre-integration')
     fs.mkdirSync(evidenceDirectory, { recursive: true })
-    await page.goto('/dashboard?country=CA&page=marketplace&module=supply')
+
+    await page.goto('/dashboard?country=CA&page=marketplace&module=supply', { waitUntil: 'networkidle' })
     await expect(page.locator('[data-command-centre-module="supply"]')).toBeVisible()
     await page.screenshot({
       path: path.join(evidenceDirectory, `command-centre-${viewport.name}.png`),
       fullPage: true,
     })
+    fs.writeFileSync(
+      path.join(evidenceDirectory, `command-centre-${viewport.name}.json`),
+      `${JSON.stringify({ viewport, modules: moduleResults }, null, 2)}\n`,
+    )
   })
 }
