@@ -218,6 +218,20 @@ describe('geographic scope', () => {
     expect(matchesOperatorProfile(signal, lesothoCultivator)).toBe(false)
   })
 
+  it('does not fail open when every declared country IS mapped', () => {
+    // Regression: the first version compared a set of REGIONS against a set of
+    // COUNTRIES (`known.size < profileCountries.size`). Lesotho and South Africa
+    // are both mapped and both Africa, giving 1 < 2 — so the fail-open guard
+    // fired for any profile with two countries in one region (the common case)
+    // and silently widened the filter it was added to make safe.
+    const southernAfrica: OperatorProfile = { countryIso2: ['LS', 'ZA'], roleFamilies: cultivation }
+    const europe = routed({ geo_scope: 'region', geo_region: 'Europe', role_families: cultivation })
+    expect(matchesOperatorProfile(europe, southernAfrica)).toBe(false)
+    // ...and the region they are actually in still matches.
+    const africa = routed({ geo_scope: 'region', geo_region: 'Africa', role_families: cultivation })
+    expect(matchesOperatorProfile(africa, southernAfrica)).toBe(true)
+  })
+
   it('fails open for jurisdictions with no region mapping rather than withholding', () => {
     // 60 of 248 canonical identities have no alpha-3→alpha-2 entry in this repo
     // (Singapore among them), and operator_countries accepts any alpha-2. Missing

@@ -312,14 +312,19 @@ function matchesGeography(row: SignalRoutingRow, profile: OperatorProfile): bool
     case 'region': {
       const region = typeof row.geo_region === 'string' ? row.geo_region.trim() : null
       if (region === null) return false
-      const known = profileRegions(profile)
       // If any declared country has no region mapping, this operator's regional
       // coverage cannot be proven either way — see REGION_BY_ISO2's note on the
       // 60 unmapped identities. Deliver rather than drop: for an intelligence
       // product, one extra regional item costs far less than missing an EU-wide
       // rule change, and this degrades to exact behaviour once the codes land.
-      if (known.size < profileCountries(profile).size) return true
-      return known.has(region)
+      //
+      // Test per country, NOT by set size. Comparing `profileRegions().size` to
+      // `profileCountries().size` compares regions against countries: two
+      // countries in one region (LS + ZA) gave 1 < 2 and fired the guard for the
+      // common case, widening the very filter it was meant to make safe.
+      const countries = profileCountries(profile)
+      if ([...countries].some((code) => !REGION_BY_ISO2.has(code))) return true
+      return profileRegions(profile).has(region)
     }
     case 'global':
       return true
