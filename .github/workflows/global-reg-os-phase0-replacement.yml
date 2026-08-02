@@ -34,7 +34,7 @@ jobs:
       - name: Verify migration isolation and ledger parser
         run: |
           git fetch origin "${{ github.event.pull_request.base.sha }}" --depth=1
-          git diff --exit-code "${{ github.event.pull_request.base.sha }}"...HEAD -- supabase/migrations
+          git diff --exit-code "${{ github.event.pull_request.base.sha }}" HEAD -- supabase/migrations
           node --test tests/scripts/migration-ledger-manifest.test.mjs
       - name: Validate OpenAPI
         run: npx --yes @redocly/cli@1.34.3 lint docs/control/global-regulatory-os/canonical/api/openapi.yaml
