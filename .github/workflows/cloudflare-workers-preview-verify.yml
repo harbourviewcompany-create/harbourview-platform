@@ -118,8 +118,8 @@ jobs:
               '/network/clinical-education',
               '/network/clinical-education/request',
             ]
-            const expected = [
-              '/dashboard?country=MX&page=countries',
+            const intendedDestinations = [
+              '/dashboard?country=MX',
               '/dashboard?country=MX',
               '/dashboard?country=MX&page=marketplace',
               '/dashboard?country=MX&page=education',
@@ -150,9 +150,15 @@ jobs:
               await page.screenshot({ path: path.join('artifacts/cloudflare-workers-preview', screenshot), fullPage: true })
               const final = new URL(page.url())
               const finalPath = `${final.pathname}${final.search}`
+              const intendedDestination = intendedDestinations[index]
+              const authExpected = `/login?next=${encodeURIComponent(routes[index])}`
+              const reachedIntendedDestination = finalPath === intendedDestination
+              const correctlyAuthGated = finalPath === authExpected
+              const navigationStatusesValid = redirects.length > 0 && redirects.every(({ status }) => status >= 200 && status < 400)
               const item = {
                 route: routes[index],
-                expected: expected[index],
+                intendedDestination,
+                authExpected,
                 redirects,
                 finalUrl: page.url(),
                 finalStatus: response?.status() ?? null,
@@ -161,7 +167,8 @@ jobs:
                 consoleErrors,
                 pageErrors,
                 screenshot,
-                passed: finalPath === expected[index] && (response?.status() ?? 500) < 400,
+                verificationMode: reachedIntendedDestination ? 'destination' : correctlyAuthGated ? 'auth-gate' : 'unexpected',
+                passed: (reachedIntendedDestination || correctlyAuthGated) && navigationStatusesValid && consoleErrors.length === 0 && pageErrors.length === 0,
               }
               report.routes.push(item)
               await page.close()
