@@ -47,7 +47,7 @@ export async function fetchSourceHtmlV2(
   const url = source.searchUrl ?? source.url
 
   const fastResult = await fetchSourceHtml(url)
-  if (fastResult.ok && fastResult.html && fastResult.html.length > 500) {
+  if (fastResult.ok && fastResult.html && fastResult.html.length >= 500) {
     return {
       ok: true,
       html: fastResult.html,

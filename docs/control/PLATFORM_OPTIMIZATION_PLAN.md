@@ -21,7 +21,7 @@ This plan implements the 8 GitHub issues (#1186–#1193) created during the comp
 - Exponential backoff retry for transient 5xxs
 - Model fallback chain: Claude → Gemini → HF Qwen
 
-**Impact:** ~80% reduction in AI latency, elimination of TIME_BUDGET bottlenecks
+**Expected impact (not yet measured):** target ~80% reduction in AI latency, elimination of TIME_BUDGET bottlenecks — needs before/after timing data to confirm.
 
 **Required env vars:**
 ```
@@ -60,7 +60,7 @@ HF_TOKEN_SERVER
 - Zod validation on every AI response before DB insertion
 - Full fallback chain prevents total pipeline degradation
 
-**Impact:** Eliminates prompt injection risk and parsing failures
+**Expected impact:** mitigates (not eliminates) prompt injection risk, reduces parsing failures via schema validation. "Eliminates" overstates it — prompt-injection defense against untrusted scraped text is inherently hard to fully close off; see the sanitisation hardening done during PR review for what's actually covered, and what isn't.
 
 ### 3. Intake Security — Rate Limiting + PII Redaction
 **Files:** `lib/marketplace/intakeRateLimit.ts`, `lib/marketplace/piiScanner.ts`
@@ -70,7 +70,7 @@ HF_TOKEN_SERVER
 - PII scanner detects credit cards, SSNs, API keys, Bitcoin addresses
 - Quarantines submissions with suspected PII for manual review
 
-**Impact:** Closes spam/abuse vector and data leakage risk
+**Expected impact:** substantially reduces (not closes) the spam/abuse vector and data leakage risk — rate limiting and PII scanning both have known gaps (e.g. PII regex coverage, distributed rate-limit correctness) rather than fully closing these off.
 
 **Required env vars:**
 ```
@@ -89,7 +89,7 @@ UPSTASH_REDIS_REST_TOKEN
 - RLS policies for `professional_service_providers` (PR #1178)
 - Updated `promote_snapshot_to_signals()` to populate `snapshot_id`
 
-**Impact:** Full data lineage, reproducible pipelines, compliance auditing
+**Expected impact:** enables data lineage, reproducible pipelines, and compliance auditing going forward — not yet validated against a real audit/compliance review.
 
 ---
 
@@ -174,8 +174,9 @@ UPSTASH_REDIS_REST_TOKEN
 4. Update `vercel.json` with 4 partition cron schedules
 5. Deploy branch to staging
 6. Run `npm run typecheck && npm run lint && npm run build`
-7. Merge to main
-8. Monitor dashboard for 48 hours
+7. Obtain explicit sign-off (per this repo's CLAUDE.md: no merge/deploy without it)
+8. Merge to main
+9. Monitor dashboard for 48 hours
 
 ---
 

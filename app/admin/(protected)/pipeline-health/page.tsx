@@ -34,17 +34,32 @@ export default function PipelineHealthPage() {
   const [sources, setSources] = useState<SourceHealth[]>([])
   const [metrics, setMetrics] = useState<RunMetrics[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'healthy' | 'degraded' | 'failing'>('all')
 
   useEffect(() => {
+    async function fetchJsonOrThrow(url: string) {
+      const res = await fetch(url)
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? `${url} returned ${res.status}`)
+      }
+      return res.json()
+    }
+
     Promise.all([
-      fetch('/api/admin/pipeline/sources').then((r) => r.json()).catch(() => ({ sources: [] })),
-      fetch('/api/admin/pipeline/metrics').then((r) => r.json()).catch(() => ({ runs: [] })),
-    ]).then(([sourcesData, metricsData]) => {
-      setSources(sourcesData.sources ?? [])
-      setMetrics(metricsData.runs ?? [])
-      setLoading(false)
-    })
+      fetchJsonOrThrow('/api/admin/pipeline/sources'),
+      fetchJsonOrThrow('/api/admin/pipeline/metrics'),
+    ])
+      .then(([sourcesData, metricsData]) => {
+        setSources(sourcesData.sources ?? [])
+        setMetrics(metricsData.runs ?? [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err))
+        setLoading(false)
+      })
   }, [])
 
   const filteredSources = sources.filter((s) => filter === 'all' || s.status === filter)
@@ -120,6 +135,10 @@ export default function PipelineHealthPage() {
 
         {loading ? (
           <div className="p-8 text-center text-white/40">Loading source health...</div>
+        ) : error ? (
+          <div className="p-8 text-center text-rose-400">
+            Failed to load pipeline health: {error}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">

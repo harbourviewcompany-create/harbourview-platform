@@ -39,29 +39,16 @@ CREATE TABLE IF NOT EXISTS ia_extraction_failures (
 CREATE INDEX IF NOT EXISTS idx_ia_extraction_failures_retry ON ia_extraction_failures(retry_count, created_at)
   WHERE retry_count < 3 AND resolved_at IS NULL;
 
--- 7. Create countries reference table (replaces hard-coded map)
-CREATE TABLE IF NOT EXISTS countries (
-  iso2 CHAR(2) PRIMARY KEY,
-  iso3 CHAR(3) UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  region TEXT NOT NULL CHECK (region IN ('north_america', 'europe', 'asia_pacific', 'latin_america', 'middle_east_africa', 'global'))
-);
-
--- Seed countries (subset — full seed via script)
-INSERT INTO countries (iso2, iso3, name, region) VALUES
-  ('CA', 'CAN', 'Canada', 'north_america'),
-  ('US', 'USA', 'United States', 'north_america'),
-  ('DE', 'DEU', 'Germany', 'europe'),
-  ('GB', 'GBR', 'United Kingdom', 'europe'),
-  ('NL', 'NLD', 'Netherlands', 'europe'),
-  ('PT', 'PRT', 'Portugal', 'europe'),
-  ('IL', 'ISR', 'Israel', 'middle_east_africa'),
-  ('CO', 'COL', 'Colombia', 'latin_america'),
-  ('BR', 'BRA', 'Brazil', 'latin_america'),
-  ('AU', 'AUS', 'Australia', 'asia_pacific'),
-  ('TH', 'THA', 'Thailand', 'asia_pacific'),
-  ('ZA', 'ZAF', 'South Africa', 'middle_east_africa')
-ON CONFLICT (iso2) DO NOTHING;
+-- 7. (removed) `countries` reference table: a real, actively-used table
+-- already exists under this name — 203 rows, columns iso_alpha2/iso_alpha3/
+-- country_name/region/regulatory_tier/opportunity_score/etc., consumed by
+-- lib/globe/supabaseGlobeData.ts, lib/dashboard/dashboardLiveData.ts, and
+-- lib/dashboard/getCountryMarketSignals.ts. This migration's simplified
+-- CREATE TABLE IF NOT EXISTS (iso2/iso3/name/region) correctly no-op'd
+-- against it, but the seed INSERT below it referenced columns that don't
+-- exist on the real table and would have failed outright. Confirmed no file
+-- changed by this PR queries a `countries` table with these column names --
+-- removed rather than fixed, since there's nothing here to reconcile with.
 
 -- 8. Add RLS to ia_extraction_failures
 ALTER TABLE ia_extraction_failures ENABLE ROW LEVEL SECURITY;
@@ -74,21 +61,12 @@ CREATE POLICY "System can insert extraction failures"
   ON ia_extraction_failures FOR INSERT
   WITH CHECK (true);
 
--- 9. Add professional_service_providers RLS (for PR #1178)
-ALTER TABLE IF EXISTS professional_service_providers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS professional_service_provider_applications ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY IF NOT EXISTS "Public can view approved providers"
-  ON professional_service_providers FOR SELECT
-  USING (status = 'approved');
-
-CREATE POLICY IF NOT EXISTS "Authenticated users can submit applications"
-  ON professional_service_provider_applications FOR INSERT
-  WITH CHECK (auth.uid() IS NOT NULL);
-
-CREATE POLICY IF NOT EXISTS "Admins can review applications"
-  ON professional_service_provider_applications FOR ALL
-  USING (auth.uid() IN (SELECT id FROM auth.users WHERE raw_user_meta_data->>'role' = 'admin'));
+-- 9. (removed) RLS for professional_service_providers/_applications: wrong
+-- table names. The real table PR #1178 built is
+-- professional_service_provider_listings (one table, not split into
+-- providers/applications), which already has its own RLS enabled and two
+-- policies ("Public can view approved listings", "Authenticated users can
+-- apply to be listed") -- unrelated to and predating this migration.
 
 -- 10. Update promote_snapshot_to_signals to populate snapshot_id
 CREATE OR REPLACE FUNCTION public.promote_snapshot_to_signals(p_snapshot_id uuid)

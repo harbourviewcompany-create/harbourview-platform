@@ -6,9 +6,10 @@ import type { RawScrapedItem, AINormalisedListing, ScraperCategory } from './typ
 import { z } from 'zod'
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
-const CLAUDE_MODEL = 'claude-sonnet-4-6'
+const CLAUDE_MODEL = 'claude-sonnet-5'
 const GEMINI_API =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+const AI_FETCH_TIMEOUT_MS = 45000 // batched calls (up to 5 items) can run long
 
 const NormalisedSchema = z.object({
   title: z.string().max(300),
@@ -54,6 +55,42 @@ const NormalisedSchema = z.object({
 
 type NormalisedOutput = z.infer<typeof NormalisedSchema>
 
+// Hand-written JSON Schema matching NormalisedSchema, shared between the Claude
+// tool-call input_schema and the Gemini/HF prompt text. buildBatchPrompt used to
+// embed JSON.stringify(NormalisedSchema.shape), which stringifies Zod's internal
+// type-definition objects, not an actual schema -- it produced near-content-free
+// output (Zod schema instances have no meaningful own-enumerable properties), so
+// Gemini/HF had materially worse guidance on the expected shape/enum values than
+// Claude's tool_use path did.
+const LISTING_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    title: { type: 'string' },
+    description: { type: 'string' },
+    category: { type: 'string' },
+    productType: { type: 'string' },
+    region: { type: 'string' },
+    locationCountry: { type: ['string', 'null'] },
+    priceAmount: { type: ['number', 'null'] },
+    priceCurrency: { type: ['string', 'null'] },
+    condition: { type: ['string', 'null'] },
+    sellerType: { type: 'string' },
+    tags: { type: 'array', items: { type: 'string' } },
+    confidence: { type: 'number' },
+    publicSafe: { type: 'boolean' },
+    redactionNote: { type: ['string', 'null'] },
+  },
+  required: [
+    'title',
+    'description',
+    'category',
+    'productType',
+    'region',
+    'confidence',
+    'publicSafe',
+  ],
+}
+
 function toAINormalisedListing(item: NormalisedOutput, isPassthrough: boolean): AINormalisedListing {
   return {
     title: item.title,
@@ -88,7 +125,17 @@ function sanitiseForPrompt(text: string): string {
   return text
     .replace(/[{}]/g, '')
     .replace(/<\/?[a-z][^>]*>/gi, '')
+    // Neutralise this file's own item-delimiter pattern so scraped content
+    // can't forge a fake "--- ITEM N ---" boundary and inject instructions
+    // that read as a new item / system-level directive to the model.
+    .replace(/---+\s*ITEM\s*\d+\s*---+/gi, '[stripped]')
     .slice(0, 4000)
+}
+
+function sanitiseSourceId(sourceId: string): string {
+  // sourceId is registry-controlled, not scraped page content, but sanitise
+  // anyway since it's interpolated into the prompt unescaped as "Category hint".
+  return sanitiseForPrompt(sourceId).slice(0, 200)
 }
 
 function buildBatchPrompt(items: RawScrapedItem[]): string {
@@ -98,17 +145,19 @@ function buildBatchPrompt(items: RawScrapedItem[]): string {
 --- ITEM ${i + 1} ---
 Title: ${sanitiseForPrompt(item.rawTitle)}
 Description: ${sanitiseForPrompt(item.rawDescription)}
-Price: ${item.rawPrice ?? 'not specified'}
-Location: ${item.rawLocation ?? 'not specified'}
-Condition: ${item.rawCondition ?? 'not specified'}
-Category hint: ${item.sourceId}
+Price: ${item.rawPrice ? sanitiseForPrompt(item.rawPrice) : 'not specified'}
+Location: ${item.rawLocation ? sanitiseForPrompt(item.rawLocation) : 'not specified'}
+Condition: ${item.rawCondition ? sanitiseForPrompt(item.rawCondition) : 'not specified'}
+Category hint: ${sanitiseSourceId(item.sourceId)}
 `,
     )
     .join('\n')
 
   return `Normalise ${items.length} scraped listings into valid JSON array.
 Each object must match this exact schema:
-${JSON.stringify(NormalisedSchema.shape, null, 2)}
+${JSON.stringify(LISTING_JSON_SCHEMA, null, 2)}
+Allowed category values: ${NormalisedSchema.shape.category.options.join(', ')}
+Allowed region values: ${NormalisedSchema.shape.region.options.join(', ')}
 
 ${itemPrompts}
 
@@ -187,34 +236,7 @@ async function normaliseWithClaude(items: RawScrapedItem[]): Promise<AINormalise
             properties: {
               listings: {
                 type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    title: { type: 'string' },
-                    description: { type: 'string' },
-                    category: { type: 'string' },
-                    productType: { type: 'string' },
-                    region: { type: 'string' },
-                    locationCountry: { type: ['string', 'null'] },
-                    priceAmount: { type: ['number', 'null'] },
-                    priceCurrency: { type: ['string', 'null'] },
-                    condition: { type: ['string', 'null'] },
-                    sellerType: { type: 'string' },
-                    tags: { type: 'array', items: { type: 'string' } },
-                    confidence: { type: 'number' },
-                    publicSafe: { type: 'boolean' },
-                    redactionNote: { type: ['string', 'null'] },
-                  },
-                  required: [
-                    'title',
-                    'description',
-                    'category',
-                    'productType',
-                    'region',
-                    'confidence',
-                    'publicSafe',
-                  ],
-                },
+                items: LISTING_JSON_SCHEMA,
               },
             },
             required: ['listings'],
@@ -223,6 +245,7 @@ async function normaliseWithClaude(items: RawScrapedItem[]): Promise<AINormalise
       ],
       tool_choice: { type: 'tool', name: 'normalise_listings' },
     }),
+    signal: AbortSignal.timeout(AI_FETCH_TIMEOUT_MS),
   })
 
   if (!response.ok) {
@@ -234,7 +257,8 @@ async function normaliseWithClaude(items: RawScrapedItem[]): Promise<AINormalise
   const toolUse = data.content?.find((c: { type: string }) => c.type === 'tool_use')
   if (!toolUse) throw new Error('No tool_use in Claude response')
 
-  const listings = (toolUse.input?.listings ?? []) as NormalisedOutput[]
+  const rawListings = (toolUse.input?.listings ?? []) as unknown[]
+  const listings = rawListings.map((item) => NormalisedSchema.parse(item))
   return listings.map((item) => toAINormalisedListing(item, false))
 }
 
@@ -251,6 +275,7 @@ async function normaliseWithGemini(items: RawScrapedItem[]): Promise<AINormalise
         responseMimeType: 'application/json',
       },
     }),
+    signal: AbortSignal.timeout(AI_FETCH_TIMEOUT_MS),
   })
 
   if (!response.ok) {
@@ -279,6 +304,7 @@ async function normaliseWithHF(items: RawScrapedItem[]): Promise<AINormalisedLis
       inputs: buildBatchPrompt(items),
       parameters: { max_new_tokens: 2048, return_full_text: false },
     }),
+    signal: AbortSignal.timeout(AI_FETCH_TIMEOUT_MS),
   })
 
   if (!response.ok) {
@@ -317,6 +343,20 @@ export async function normaliseWithAI(
           batchResults = rawPassthrough(batch, 'all_models_failed')
         }
       }
+    }
+
+    // Defensive guard (not a full fix): results are paired to the input batch
+    // by array position, but nothing enforces that the model returned exactly
+    // one output per input in the same order -- a merge, drop, or reorder by
+    // the model would silently misattribute metadata downstream. A proper fix
+    // means having the model echo back a per-item id/index and reconciling
+    // explicitly; that's a larger change than this pass, so for now: if the
+    // count doesn't match, don't trust the positional pairing at all.
+    if (batchResults.length !== batch.length) {
+      console.warn(
+        `[normaliser-v2] batch size mismatch (sent ${batch.length}, got ${batchResults.length}) -- discarding AI output for this batch, using passthrough`,
+      )
+      batchResults = rawPassthrough(batch, 'batch_count_mismatch')
     }
 
     results.push(...batchResults)

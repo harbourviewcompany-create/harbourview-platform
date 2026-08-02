@@ -58,16 +58,9 @@ async function verifyMigration(): Promise<VerificationResult[]> {
     })
   }
 
-  // 4. Check countries table exists and has data
-  const { data: countryCount } = await supabase
-    .from('countries')
-    .select('*', { count: 'exact', head: true })
-
-  results.push({
-    check: 'countries table has data',
-    passed: (countryCount?.length ?? 0) > 0,
-    details: `${countryCount?.length ?? 0} rows`,
-  })
+  // 4. (removed) countries-table check: this migration no longer creates or
+  // seeds `countries` -- see 20260729000000_platform_optimizations.sql for
+  // why (a real, unrelated 203-row table already existed under that name).
 
   // 5. Check ia_extraction_failures table exists
   const { data: failuresTable } = await supabase

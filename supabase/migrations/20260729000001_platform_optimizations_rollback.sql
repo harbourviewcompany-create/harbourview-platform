@@ -27,19 +27,21 @@ DROP INDEX IF EXISTS idx_hv_artifacts_last_embedded_at;
 -- 6. Drop extraction failures table and its policies
 DROP TABLE IF EXISTS ia_extraction_failures CASCADE;
 
--- 7. Drop countries table
-DROP TABLE IF EXISTS countries CASCADE;
+-- 7. (removed) A real, actively-used `countries` table (203 rows,
+-- iso_alpha2/iso_alpha3/country_name/regulatory_tier/opportunity_score/etc.)
+-- already existed under this name before this migration was written. The
+-- forward migration's CREATE TABLE IF NOT EXISTS correctly no-op'd against
+-- it, so this migration never created (and must never drop) `countries` --
+-- the original `DROP TABLE IF EXISTS countries CASCADE` here would have
+-- destroyed that real table and anything depending on it via CASCADE.
 
 -- 8. Restore original promote_snapshot_to_signals (without snapshot_id)
 -- Note: The original function signature is preserved; snapshot_id column is simply absent.
 -- If you need the exact pre-migration function body, restore from your backup.
 
--- 9. Drop RLS policies on professional_service_providers (if they were added by this migration)
-DROP POLICY IF EXISTS "Public can view approved providers" ON professional_service_providers;
-DROP POLICY IF EXISTS "Authenticated users can submit applications" ON professional_service_provider_applications;
-DROP POLICY IF EXISTS "Admins can review applications" ON professional_service_provider_applications;
+-- 9. (removed) This referenced the wrong table names (professional_service_providers /
+-- _applications) -- the real table PR #1178 built is professional_service_provider_listings,
+-- already has its own RLS + policies unrelated to this migration, and this
+-- section never successfully applied in the first place. Nothing to roll back.
 
--- 10. Disable RLS if it was not enabled before
--- ALTER TABLE professional_service_providers DISABLE ROW LEVEL SECURITY;
--- ALTER TABLE professional_service_provider_applications DISABLE ROW LEVEL SECURITY;
--- ^ Uncomment only if RLS was NOT previously enabled on these tables.
+-- 10. (removed, same reason as 9 above)

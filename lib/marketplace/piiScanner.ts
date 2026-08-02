@@ -12,7 +12,11 @@ export interface PIIScanResult {
 const PII_PATTERNS = [
   {
     type: 'credit_card',
-    pattern: /\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12})\b/g,
+    // Allows optional spaces/dashes between groups, matching how people
+    // actually type or paste card numbers (the prior digits-only pattern
+    // missed "4111 1111 1111 1111" and "4111-1111-1111-1111" entirely).
+    pattern:
+      /\b(?:4[0-9]{3}[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{1,4}|5[1-5][0-9]{2}[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4}|3[47][0-9]{2}[\s-]?[0-9]{6}[\s-]?[0-9]{5}|3(?:0[0-5]|[68][0-9])[0-9][\s-]?[0-9]{6}[\s-]?[0-9]{4}|6(?:011|5[0-9]{2})[\s-]?[0-9]{4}[\s-]?[0-9]{4}[\s-]?[0-9]{4})\b/g,
   },
   {
     type: 'ssn',
@@ -20,8 +24,14 @@ const PII_PATTERNS = [
   },
   {
     type: 'phone_number',
-    // Only flag excessive phone numbers (3+ in one text = likely PII dump)
-    pattern: /\b\+?[1-9]\d{1,2}[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g,
+    // North American 10-digit, optional leading +1/1, optional parens around
+    // area code, any of space/dot/dash as separators. The prior pattern
+    // matched none of the common formats (parens, dots, or a leading +1) —
+    // tested against (555) 123-4567 / 555-123-4567 / +1 555-123-4567 /
+    // 5551234567, all previously unmatched. Lookaround (not \b) at the edges
+    // so a leading "(" or "+" is included in the match/redaction, and a
+    // longer digit run (e.g. an order number) is not partially matched.
+    pattern: /(?<![\d.])(?:\+?1[\s.-]?)?\(?[2-9]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?!\d)/g,
   },
   {
     type: 'email_in_message',
