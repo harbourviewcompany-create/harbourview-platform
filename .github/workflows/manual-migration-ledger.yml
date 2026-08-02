@@ -1,0 +1,90 @@
+name: Manual Migration Ledger
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Exact protected-main commit SHA to audit
+        required: true
+        type: string
+      remote_ledger_b64:
+        description: Base64 JSON export of version/name rows from the target migration ledger
+        required: true
+        type: string
+      canonical_hash_path:
+        description: Optional reviewed JSON path in the audited commit containing canonical SHA-256 values
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted verifier revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Validate protected-main ancestry
+        env:
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git fetch origin main "$COMMIT_SHA"
+          git merge-base --is-ancestor "$COMMIT_SHA" origin/main
+      - name: Checkout audited commit as data only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+          path: audited
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Decode and validate remote ledger metadata
+        env:
+          REMOTE_LEDGER_B64: ${{ inputs.remote_ledger_b64 }}
+        run: |
+          mkdir -p release-evidence
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const encoded = process.env.REMOTE_LEDGER_B64 || '';
+          if (!encoded || !/^[A-Za-z0-9+/=\r\n]+$/.test(encoded)) throw new Error('remote_ledger_b64 is missing or malformed');
+          const text = Buffer.from(encoded.replace(/\s+/g, ''), 'base64').toString('utf8');
+          const parsed = JSON.parse(text);
+          if (parsed && !Array.isArray(parsed) && parsed.error) throw new Error('Remote ledger contains an error response');
+          const rows = Array.isArray(parsed) ? parsed : parsed?.migrations;
+          if (!Array.isArray(rows)) throw new Error('Remote ledger must be an array or { migrations: [] }');
+          for (const row of rows) {
+            if (!/^\d{14}$/.test(String(row.version)) || typeof row.name !== 'string' || !row.name) throw new Error('Remote ledger contains an invalid row');
+          }
+          writeFileSync('release-evidence/supabase-migrations.json', JSON.stringify(rows, null, 2));
+          NODE
+      - name: Validate optional canonical hash path
+        env:
+          CANONICAL_HASH_PATH: ${{ inputs.canonical_hash_path }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$CANONICAL_HASH_PATH" ]]; then
+            [[ "$CANONICAL_HASH_PATH" =~ ^[A-Za-z0-9_./-]+\.json$ ]]
+            [[ "$CANONICAL_HASH_PATH" != /* ]]
+            [[ "$CANONICAL_HASH_PATH" != *..* ]]
+            test -f "audited/$CANONICAL_HASH_PATH"
+          fi
+      - name: Generate comparison with trusted verifier
+        env:
+          MIGRATION_DIR: audited/supabase/migrations
+          SUPABASE_MIGRATIONS_JSON: release-evidence/supabase-migrations.json
+          CANONICAL_MIGRATION_HASHES_JSON: ${{ inputs.canonical_hash_path && format('audited/{0}', inputs.canonical_hash_path) || '' }}
+          LEDGER_OUTPUT_DIR: release-evidence
+        run: node scripts/verification/migration-ledger.mjs
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-ledger-${{ inputs.commit_sha }}
+          path: release-evidence
+          if-no-files-found: error
+          retention-days: 30
