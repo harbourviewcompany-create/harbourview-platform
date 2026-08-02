@@ -2731,3 +2731,60 @@ coarser commit-status API (which disagreed with check-runs on #1232).
 context. Read as authorization to merge what review found ready, not to merge unconditionally —
 8 of 10 were held on specific, stated evidence rather than merged to satisfy the literal
 instruction.
+
+
+## 2026-08-02 — Completed the missing-grant audit: PR #1225, #1242 (production data-access bugs, systemic pattern)
+
+**Context:** Continuation of the missing-grant bug class found in PR #1178/#1199. Systematically
+audited all ~140 views in the `api` schema for the same pattern (view has SELECT grant, underlying
+base table doesn't, `security_invoker=true` enforcement blocks every read regardless).
+
+**PR #1225** — fixed 10 more tables with the identical bug shape: `listings`, `local_authorities`,
+`local_intel_coverage`, `local_open_questions`, `local_operating_notes`, `local_subdivisions_intel`,
+`operator_countries`, `cc_watchlist_notifications`, `subscriptions`, `workspace_members`. Applied
+live and REST-verified (`listings`, `local_authorities` both confirmed `200` with real data as anon)
+before the PR/CI existed, given the production impact. Also investigated and resolved a CI false
+positive (`verify-new-products-equipment` flagged the string "evidence" — traced to a navigation
+link URL `/dashboard?page=evidence` present on every page, not a real data leak) — confirmed
+unrelated by reproducing the full build+start+scan sequence locally byte for byte.
+
+**Deliberately excluded from #1225** (documented in the migration file, not silently skipped):
+- `local_evidence_coverage` — its view joins `public.marketplace_inquiries`, which has only an
+  INSERT policy (write-only, holds buyer contact data). Fixing this needs a schema change (e.g. a
+  maintained aggregate), not a grant — granting it as-is would expose raw inquiry rows via the join.
+- `talent_jobs_public` — joins `public.workspaces`, which has no anon-facing policy either. Same
+  shape of problem, not fixed.
+
+**PR #1242** — checked the remaining `authenticated`-only gaps individually rather than
+blanket-granting. Fixed `candidate_review_events` (RLS already restricts to admin/operator via
+`user_roles` — even admins couldn't read this before) and `cc_pathway_templates` (RLS policy name
+and `is_active=true` condition both signal clear read intent). Explicitly left `marketplace_inquiries`
+(write-only by design), `signal_candidates`, and `stripe_webhook_events` (both `service_role`-only
+by design, confirmed via policy name/condition) untouched — granting those would go against their
+own clear design intent, not fix a bug.
+
+**Bridge outage encountered mid-session:** `github-bridge` returned 401 Unauthorized on every call
+for a period (including simple reads that worked moments before, with unchanged credentials),
+concurrent with evidence of another active session using the same database (a stray response from
+an unrelated `signals_query_failed`/`rpc_get_signals_pending_analysis` call was observed). Resolved
+on its own; no root cause identified from this session's side — flagged in case it recurs.
+
+**Result:**
+| PR | Title | Merge commit |
+|---|---|---|
+| #1199 | fix(db): critical - jurisdiction_playbooks missing SELECT grant | (merged prior to this entry) |
+| #1225 | fix(db): grant SELECT on tables with correct RLS but missing grants | `963dd07` |
+| #1242 | fix(db): grant SELECT for candidate_review_events + cc_pathway_templates | `c614c17` |
+
+**Human approval status:** Given — same standing "optimize for production" instruction, applied
+with individual per-table judgment rather than a blanket grant-everything pass, per Tyler's implicit
+expectation (demonstrated by his approval of the #1178 investigation) that correctness matters more
+than speed here.
+
+**Not done — flagged for follow-up:**
+- `regulatory_signals.*` views from the original audit were never re-checked in either follow-up PR.
+- `local_evidence_coverage` and `talent_jobs_public` need a schema-level decision from Tyler, not
+  another grant migration.
+- Mobile dashboard (`MobileCommandCentre.tsx`) and `app/country/[country]/role/[role]/page.tsx`
+  Watchlist gating gap (from the #1173 entry) remains open.
+- Admin review UI for pending professional-service applications (from the #1178 entry) remains open.
