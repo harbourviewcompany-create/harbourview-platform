@@ -37,30 +37,32 @@ left join supabase_migrations.schema_migrations m
   on m.version = e.version
 order by e.sequence_no;
 
+with expected(version, expected_name, sequence_no) as (
+  values
+    ('20260730230000', 'elite_digest_from_pipeline_b', 1),
+    ('20260730233000', 'intelligence_self_improve_loop', 2),
+    ('20260731090000', 'digest_rank_includes_feedback', 3),
+    ('20260731100000', 'run_daily_digest_uses_feedback_rank', 4),
+    ('20260731110000', 'feedback_service_aggregates', 5),
+    ('20260731130000', 'elite_digest_release_hardening', 6),
+    ('20260802073000', 'hv_dedup_assign_restore_hnsw_knn', 7),
+    ('20260802152500', 'signal_feedback_api_rpcs', 8),
+    ('20260802163000', 'elite_digest_rpc_boundary_hardening', 9)
+)
 select
   count(*) filter (
-    where version in (
-      '20260730230000',
-      '20260730233000',
-      '20260731090000',
-      '20260731100000',
-      '20260731110000',
-      '20260731130000'
-    )
-  ) = 6 as first_six_applied,
-  count(*) filter (
-    where version in (
-      '20260802073000',
-      '20260802152500',
-      '20260802163000'
-    )
-  ) = 0 as approved_three_unapplied
-from supabase_migrations.schema_migrations
+    where e.sequence_no <= 6
+      and m.name is not distinct from e.expected_name
+  ) = 6 as first_six_applied_exactly,
+  count(m.version) filter (where e.sequence_no >= 7) = 0 as approved_three_unapplied
+from expected e
+left join supabase_migrations.schema_migrations m
+  on m.version = e.version
 \gset
 
-\if :first_six_applied
+\if :first_six_applied_exactly
 \else
-  \echo 'Preflight failed: one or more prerequisite Elite Digest migrations are absent.'
+  \echo 'Preflight failed: one or more prerequisite Elite Digest migration versions or names are absent or mismatched.'
   \quit 1
 \endif
 
