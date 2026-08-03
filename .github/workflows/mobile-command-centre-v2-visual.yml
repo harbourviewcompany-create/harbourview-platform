@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - next.config.mjs
+      - lib/supabase/env.ts
       - components/dashboard/MobileCommandCentreRebuild.tsx
       - components/dashboard/MobileCommandCentreRebuild.css
       - components/dashboard/DashboardResponsiveShell.tsx
       - components/dashboard/mobile-command/**
       - tests/dashboard/mobileCommandCentreV2.test.ts
+      - tests/supabase/env.test.ts
       - tests/e2e/mobile-command-centre-v2.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
   workflow_dispatch:
@@ -51,8 +53,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify focused mobile command contracts
-        run: npx vitest run tests/dashboard/mobileCommandCentreV2.test.ts
+      - name: Verify focused mobile command and local-auth contracts
+        run: npx vitest run tests/dashboard/mobileCommandCentreV2.test.ts tests/supabase/env.test.ts
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
