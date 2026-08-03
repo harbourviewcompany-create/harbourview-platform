@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 60
     env:
       CI: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
       HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       PLAYWRIGHT_STORAGE_STATE: .playwright/command-centre-auth.json
