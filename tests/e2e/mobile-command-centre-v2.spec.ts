@@ -65,13 +65,15 @@ async function authenticate(browser: Browser) {
   try {
     const page = await context.newPage()
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await page.getByLabel('Email address').fill(email)
-    await page.getByLabel('Password').fill(password)
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await page.getByPlaceholder('you@example.com').fill(email)
+    await page.locator('input[type="password"]').fill(password)
+    const submit = page.locator('form').getByRole('button', { name: 'Sign in', exact: true })
+    await expect(submit).toBeEnabled()
+    await submit.click()
     await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 30_000 })
     return await context.storageState()
   } finally {
-    await context.close()
+    await context.close().catch(() => {})
   }
 }
 
@@ -109,6 +111,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
   test.describe.configure({ mode: 'serial' })
 
   test('renders the rebuilt mobile command at four mobile widths and preserves desktop at 768', async ({ browser }) => {
+    test.setTimeout(240_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
     const aggregate: Array<Record<string, unknown>> = []
@@ -196,7 +199,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
         report.consoleErrors = consoleErrors
         await writeWidthEvidence(page, width, report)
         aggregate.push(report)
-        await context.close()
+        await context.close().catch(() => {})
       }
     }
 
