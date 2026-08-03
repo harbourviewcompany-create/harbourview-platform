@@ -40,48 +40,24 @@ jobs:
           ref: agent/command-centre-integration-rule
           fetch-depth: 0
 
-      - name: Apply verified Command Centre empty-state fixes
+      - name: Verify committed empty-state fixes and temporary workflow removal
         shell: python
         run: |
           from pathlib import Path
 
-          path = Path('components/dashboard/CommandCentreIntegrationGateway.tsx')
-          source = path.read_text()
+          gateway = Path('components/dashboard/CommandCentreIntegrationGateway.tsx').read_text()
+          required = [
+              'const hasMarketData = metrics.length > 0 || flows.length > 0',
+              'No market metrics or trade flows match the current context.',
+              'No open roles match the current context.',
+          ]
+          missing = [marker for marker in required if marker not in gateway]
+          if missing:
+              raise SystemExit(f'Missing verified Command Centre fixes: {missing}')
 
-          market_before = """function MarketModule({ props }: { props: DashboardProps }) {
-            const metrics = props.marketMetrics ?? []
-            const flows = props.tradeFlows ?? []
-            return (
-              <Section eyebrow=\"Market Intelligence\" title=\"Market\" description=\"Country-context market metrics, trade flows and operating indicators.\">
-                <div className=\"ccig-grid\">
-                  {metrics.map((metric, index) => (
-          """
-          market_after = """function MarketModule({ props }: { props: DashboardProps }) {
-            const metrics = props.marketMetrics ?? []
-            const flows = props.tradeFlows ?? []
-            const hasMarketData = metrics.length > 0 || flows.length > 0
-            return (
-              <Section eyebrow=\"Market Intelligence\" title=\"Market\" description=\"Country-context market metrics, trade flows and operating indicators.\">
-                <div className=\"ccig-grid\">
-                  {!hasMarketData && <div className=\"ccig-empty\">No market metrics or trade flows match the current context.</div>}
-                  {metrics.map((metric, index) => (
-          """
-
-          talent_before = "        {jobs?.map(job => ("
-          talent_after = "        {!error && jobs?.length === 0 && <div className=\"ccig-empty\">No open roles match the current context.</div>}\n        {jobs?.map(job => ("
-
-          if market_before in source:
-            source = source.replace(market_before, market_after, 1)
-          elif 'const hasMarketData = metrics.length > 0 || flows.length > 0' not in source:
-            raise SystemExit('MarketModule patch anchor not found')
-
-          if talent_before in source:
-            source = source.replace(talent_before, talent_after, 1)
-          elif 'No open roles match the current context.' not in source:
-            raise SystemExit('TalentModule patch anchor not found')
-
-          path.write_text(source)
-          Path('.github/workflows/command-centre-empty-state-hotfix.yml').unlink(missing_ok=True)
+          temporary = Path('.github/workflows/command-centre-empty-state-hotfix.yml')
+          if temporary.exists():
+              raise SystemExit(f'Temporary workflow must be removed: {temporary}')
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -236,20 +212,18 @@ jobs:
           if [ -f /tmp/harbourview-next.pid ]; then kill "$(cat /tmp/harbourview-next.pid)" 2>/dev/null || true; fi
           supabase stop --no-backup || true
 
-      - name: Commit product fixes and six-width evidence
+      - name: Commit six-width evidence
         if: success()
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "Harbourview Verification"
           git config user.email "harbourviewcompany@gmail.com"
-          git add components/dashboard/CommandCentreIntegrationGateway.tsx
-          git add -A .github/workflows/command-centre-empty-state-hotfix.yml
           git add docs/control/evidence/command-centre-integration/command-centre-*.png
           git add docs/control/evidence/command-centre-integration/command-centre-*.json
           if git diff --cached --quiet; then
-            echo "No product fix or visual evidence was generated"
-            exit 1
+            echo "Six-width evidence is already current"
+            exit 0
           fi
           git commit -m "test(command-centre): commit verified shell evidence [visual-evidence]"
           git push origin HEAD:agent/command-centre-integration-rule
