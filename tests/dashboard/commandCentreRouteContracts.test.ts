@@ -16,9 +16,10 @@ describe('Command Centre route contracts', () => {
   it('uses one shared module registry for desktop and mobile navigation', () => {
     const source = read('components/dashboard/CommandCentreIntegrationGateway.tsx')
     expect(source).toContain('COMMAND_CENTRE_MODULES.map')
-    expect(source).toContain('ccig-nav--desktop')
-    expect(source).toContain('ccig-nav--mobile')
-    expect(source).toContain('ccig-nav--inline')
+    expect(source).toContain("mode: 'desktop' | 'mobile' | 'inline'")
+    expect(source).toContain('ccig-nav--${mode}')
+    expect(source).toContain("mode={isMobile ? 'mobile' : 'desktop'}")
+    expect(source).toContain('mode="inline"')
   })
 
   it('renders custom modules into the canonical shell main regions instead of a standalone frame', () => {
