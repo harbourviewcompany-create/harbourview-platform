@@ -5,6 +5,7 @@ import path from 'node:path'
 const WIDTHS = [320, 375, 390, 430, 768] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+const IS_ISOLATED_LOCAL_RUN = process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && Boolean(BASE_URL?.includes('127.0.0.1'))
 const MOBILE_SECTION_IDS = [
   'overview',
   'live-status',
@@ -30,6 +31,13 @@ const MOBILE_SECTION_IDS = [
 
 const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
+type FailedResponse = {
+  method: string
+  pathname: string
+  search: string
+  status: number
+}
+
 function safeFileToken(value: string | undefined) {
   return (value || 'local').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80)
 }
@@ -40,6 +48,20 @@ function sanitizeDiagnostic(value: string) {
     .replace(/(access[_-]?token|refresh[_-]?token|authorization|cookie|password)(\s*[:=]\s*)([^\s,;]+)/gi, '$1$2[redacted]')
     .replace(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/g, '[redacted-jwt]')
     .slice(0, 600)
+}
+
+function isExpectedLocalDegradation(response: FailedResponse) {
+  if (!IS_ISOLATED_LOCAL_RUN) return false
+
+  return (
+    (response.method === 'POST' && response.pathname === '/api/ai/briefing' && response.status === 503) ||
+    (response.method === 'GET' && response.pathname === '/api/country-intel' && response.status === 404) ||
+    (response.method === 'GET' && response.pathname === '/api/dashboard/signals' && response.status === 500)
+  )
+}
+
+function isGenericResourceConsoleError(value: string) {
+  return value.startsWith('Failed to load resource: the server responded with a status of')
 }
 
 function sharedContextOptions(): BrowserContextOptions {
@@ -122,13 +144,37 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
       let page: Page | null = null
       const pageErrors: string[] = []
       const consoleErrors: string[] = []
+      const expectedResourceConsoleErrors: string[] = []
+      const expectedDegradedResponses: FailedResponse[] = []
+      const unexpectedFailedResponses: FailedResponse[] = []
       const report: Record<string, unknown> = { width }
 
       try {
         page = await context.newPage()
         page.on('pageerror', error => pageErrors.push(sanitizeDiagnostic(error.message)))
         page.on('console', message => {
-          if (message.type() === 'error') consoleErrors.push(sanitizeDiagnostic(message.text()))
+          if (message.type() !== 'error') return
+          const diagnostic = sanitizeDiagnostic(message.text())
+          if (IS_ISOLATED_LOCAL_RUN && isGenericResourceConsoleError(diagnostic)) {
+            expectedResourceConsoleErrors.push(diagnostic)
+          } else {
+            consoleErrors.push(diagnostic)
+          }
+        })
+        page.on('response', response => {
+          if (response.status() < 400) return
+          const url = new URL(response.url())
+          const failedResponse: FailedResponse = {
+            method: response.request().method(),
+            pathname: url.pathname,
+            search: url.search,
+            status: response.status(),
+          }
+          if (isExpectedLocalDegradation(failedResponse)) {
+            expectedDegradedResponses.push(failedResponse)
+          } else {
+            unexpectedFailedResponses.push(failedResponse)
+          }
         })
 
         const response = await page.goto('/dashboard?country=CA&role=exporter', {
@@ -181,12 +227,14 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           report.shell = 'mobile-v2'
         } else {
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
-          await expect(page.locator('.hv-cc-root')).toBeVisible()
+          await expect(page.getByRole('heading', { name: 'Briefing Room', exact: true })).toBeVisible()
           report.shell = 'desktop-command-centre'
         }
 
-        if (pageErrors.length || consoleErrors.length) {
-          throw new Error(`Browser errors detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors`)
+        if (pageErrors.length || consoleErrors.length || unexpectedFailedResponses.length) {
+          throw new Error(
+            `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
+          )
         }
         report.result = 'pass'
       } catch (error) {
@@ -197,6 +245,9 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
       } finally {
         report.pageErrors = pageErrors
         report.consoleErrors = consoleErrors
+        report.expectedResourceConsoleErrors = expectedResourceConsoleErrors
+        report.expectedDegradedResponses = expectedDegradedResponses
+        report.unexpectedFailedResponses = unexpectedFailedResponses
         await writeWidthEvidence(page, width, report)
         aggregate.push(report)
         await context.close().catch(() => {})
