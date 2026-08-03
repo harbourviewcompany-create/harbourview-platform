@@ -5,9 +5,10 @@ on:
     branches:
       - build/mobile-command-centre-v2
     paths:
-      - components/dashboard/MobileCommandCentreV2.tsx
-      - components/dashboard/MobileCommandCentreV2.css
+      - components/dashboard/MobileCommandCentreRebuild.tsx
+      - components/dashboard/MobileCommandCentreRebuild.css
       - components/dashboard/DashboardResponsiveShell.tsx
+      - components/dashboard/mobile-command/**
       - tests/e2e/mobile-command-centre-v2.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
   workflow_dispatch:
@@ -15,6 +16,7 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: read
 
 concurrency:
   group: mobile-command-centre-v2-visual-${{ github.ref }}
@@ -27,16 +29,16 @@ jobs:
     env:
       HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
       PLAYWRIGHT_BASE_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
-      EXPECTED_PREVIEW_SHA: e4955ccd197120b45b7a782e9d861cf67bc28d0a
+      EXPECTED_PREVIEW_SHA: ${{ github.sha }}
       E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
       E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - name: Checkout verified branch head
+      - name: Checkout exact verified branch head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: build/mobile-command-centre-v2
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Node
@@ -44,6 +46,15 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+
+      - name: Validate authenticated visual secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${E2E_TEST_USER_EMAIL:-}" || { echo 'HOLD: E2E_TEST_USER_EMAIL is not configured.'; exit 1; }
+          test -n "${E2E_TEST_USER_PASSWORD:-}" || { echo 'HOLD: E2E_TEST_USER_PASSWORD is not configured.'; exit 1; }
+          test -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" || { echo 'HOLD: VERCEL_AUTOMATION_BYPASS_SECRET is not configured.'; exit 1; }
+          echo 'GO: authenticated preview inputs are configured.'
 
       - name: Install dependencies
         run: npm ci
@@ -53,11 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 90); do
-            if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
-              body="$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${HARBOURVIEW_PUBLIC_BASE_URL}/login" || true)"
-            else
-              body="$(curl -sS "${HARBOURVIEW_PUBLIC_BASE_URL}/login" || true)"
-            fi
+            body="$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${HARBOURVIEW_PUBLIC_BASE_URL}/login" || true)"
             if printf '%s' "$body" | grep -q "$EXPECTED_PREVIEW_SHA"; then
               echo "Preview is ready at expected application SHA ${EXPECTED_PREVIEW_SHA}"
               exit 0
@@ -65,7 +72,7 @@ jobs:
             echo "Attempt ${attempt}: preview is not yet serving ${EXPECTED_PREVIEW_SHA}"
             sleep 4
           done
-          echo "Preview did not become ready at the expected application SHA"
+          echo "HOLD: preview did not become ready at the expected application SHA"
           exit 1
 
       - name: Install Chromium
@@ -86,10 +93,17 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Record visual run on PR
+      - name: Record visual run on the open PR
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           JOB_RESULT: ${{ job.status }}
+        shell: bash
         run: |
-          gh pr comment 1279 --body "Mobile Command Centre V2 authenticated visual run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against preview application SHA \`${EXPECTED_PREVIEW_SHA}\`. Artifact: \`mobile-command-centre-v2-${GITHUB_RUN_ID}\`."
+          set -euo pipefail
+          pr_number="$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$pr_number" ]; then
+            echo 'No open PR found for this branch; skipping PR comment.'
+            exit 0
+          fi
+          gh pr comment "$pr_number" --body "Mobile Command Centre V2 authenticated visual run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against preview application SHA \`${EXPECTED_PREVIEW_SHA}\`. Artifact: \`mobile-command-centre-v2-${GITHUB_RUN_ID}\`."
