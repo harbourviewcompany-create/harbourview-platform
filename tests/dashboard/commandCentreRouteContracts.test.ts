@@ -22,11 +22,12 @@ describe('Command Centre route contracts', () => {
     expect(source).toContain('mode="inline"')
   })
 
-  it('renders custom modules into the canonical shell main regions instead of a standalone frame', () => {
+  it('renders custom modules and focused workflows into the canonical shell main regions', () => {
     const source = read('components/dashboard/CommandCentreIntegrationGateway.tsx')
     expect(source).toContain("const selector = isMobile ? '.hvm-main' : '.cc-main'")
     expect(source).toContain('createPortal(')
     expect(source).toContain('data-command-centre-shell=')
+    expect(source).toContain('data-command-centre-action=')
     expect(source).not.toContain('function Frame(')
     expect(source).not.toContain('ccig-shell')
   })
@@ -85,8 +86,21 @@ describe('Command Centre route contracts', () => {
       'PersonalBriefingsModule',
       'SearchModule',
       'TalentModule',
+      'MarketplaceActionSurface',
     ]) {
       expect(source).toContain(`function ${moduleName}`)
     }
+    expect(source).toContain('<DynamicMarketplaceIntakeForm')
+    expect(source).toContain('<MySubmissionsPanel />')
+    expect(source).toContain("type MarketplaceAction = 'sell' | 'intake' | 'my-listings'")
+  })
+
+  it('allows local Supabase only behind an explicit loopback-only verification gate', () => {
+    const envSource = read('lib/supabase/env.ts')
+    const workflow = read('.github/workflows/command-centre-authenticated-visual.yml')
+    expect(envSource).toContain("process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1'")
+    expect(envSource).toContain("parsed.protocol === 'http:'")
+    expect(envSource).toContain('LOCAL_SUPABASE_HOSTS.has(parsed.hostname)')
+    expect(workflow).toContain("HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'")
   })
 })
