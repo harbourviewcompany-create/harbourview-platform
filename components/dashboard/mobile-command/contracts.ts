@@ -22,6 +22,12 @@ export type SectionId =
   | 'network'
   | 'financing'
 
+export type MobileCommandTool =
+  | 'wanted-intake'
+  | 'supply-intake'
+  | 'introduction'
+  | 'financing-intake'
+
 export type Tone = 'neutral' | 'gold' | 'ok' | 'warn'
 
 export type NavDestination = {
@@ -105,6 +111,34 @@ export const SECTION_NAV: NavDestination[] = [
   { id: 'financing', label: 'Trade financing', icon: '¤' },
 ]
 
+/**
+ * One canonical target for every module. URLs carry both the desktop page and
+ * mobile section, so the same link remains inside the appropriate command
+ * surface before and after a responsive breakpoint change.
+ */
+export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
+  overview: 'briefing',
+  'live-status': 'briefing',
+  'market-intelligence': 'prices',
+  marketplace: 'marketplace',
+  supply: 'marketplace',
+  'next-actions': 'briefing',
+  'weekly-signals': 'signals',
+  'personal-briefing': 'digest',
+  search: 'assistant',
+  education: 'education',
+  jurisdiction: 'access-pathway',
+  'market-status': 'marketplace',
+  'review-gates': 'evidence',
+  directories: 'experts',
+  talent: 'jobs',
+  genetics: 'genetics',
+  clinical: 'clinical',
+  compliance: 'compliance',
+  network: 'experts',
+  financing: 'trade-calc',
+}
+
 export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   briefing: 'overview',
   digest: 'personal-briefing',
@@ -128,9 +162,23 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   experts: 'directories',
   banking: 'financing',
   'trade-calc': 'financing',
+  insurance: 'financing',
+  events: 'weekly-signals',
+  assistant: 'search',
+  documents: 'review-gates',
+  notifications: 'next-actions',
+  kyb: 'review-gates',
+  organization: 'overview',
+  settings: 'overview',
 }
 
 export const SECTION_IDS = new Set<string>(SECTION_NAV.map(section => section.id))
+export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
+  'wanted-intake',
+  'supply-intake',
+  'introduction',
+  'financing-intake',
+])
 
 /**
  * Approved dashboard mediation and release-control wording.
@@ -195,6 +243,25 @@ export function parseConfidence(raw: unknown): number | null {
   if (typeof raw !== 'number' && typeof raw !== 'string') return null
   const parsed = Number(raw)
   return Number.isFinite(parsed) ? clampPercent(parsed) : null
+}
+
+export function parseMobileCommandTool(raw: string | null): MobileCommandTool | null {
+  return raw && MOBILE_COMMAND_TOOLS.has(raw as MobileCommandTool)
+    ? raw as MobileCommandTool
+    : null
+}
+
+export function defaultListingTypeForView(view: MarketView): string {
+  const byView: Record<MarketView, string> = {
+    cannabis: 'Cannabis Inventory',
+    wanted: 'Wanted Request',
+    opportunities: 'Business Opportunity',
+    equipment: 'Used / Surplus Equipment',
+    consumables: 'Consumables',
+    services: 'Service',
+    'new-products': 'New Product',
+  }
+  return byView[view]
 }
 
 export function normalizeListing(
