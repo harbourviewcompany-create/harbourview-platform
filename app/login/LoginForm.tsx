@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import PasswordResetButton from './PasswordResetButton'
 
 const inputCls =
   'w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-[#F5F1E8] placeholder-[#F5F1E8]/25 outline-none transition-colors focus:border-[#C6A55A]/50 focus:bg-white/[0.06]'
@@ -116,22 +117,14 @@ export default function LoginForm({
   if (signupComplete) {
     return (
       <div className="rounded-2xl border border-white/10 bg-[#07111F] p-8 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#C6A55A]/30 bg-[#C6A55A]/10 text-xl text-[#C6A55A]">
-          ✓
-        </div>
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#C6A55A]/30 bg-[#C6A55A]/10 text-xl text-[#C6A55A]">✓</div>
         <h2 className="text-lg font-semibold text-[#F5F1E8]">Check your inbox</h2>
         <p className="mt-2 text-sm leading-6 text-[#F5F1E8]/50">
           We sent a confirmation link to <span className="text-[#F5F1E8]/80">{email}</span>. Follow it to activate your account and sign in.
         </p>
 
         {feedback && (
-          <div
-            className={`mt-5 rounded-xl px-4 py-3 text-left text-sm ${
-              feedback.type === 'error'
-                ? 'border border-red-500/20 bg-red-900/20 text-red-300'
-                : 'border border-emerald-500/20 bg-emerald-900/20 text-emerald-300'
-            }`}
-          >
+          <div className={`mt-5 rounded-xl px-4 py-3 text-left text-sm ${feedback.type === 'error' ? 'border border-red-500/20 bg-red-900/20 text-red-300' : 'border border-emerald-500/20 bg-emerald-900/20 text-emerald-300'}`}>
             {feedback.text}
           </div>
         )}
@@ -150,18 +143,13 @@ export default function LoginForm({
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#07111F] p-8">
-      {/* Tab toggle */}
       <div className="mb-6 flex rounded-xl border border-white/10 bg-[#0B1A2F] p-1">
         {(['signin', 'signup'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => { setMode(m); setFeedback(null) }}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-              mode === m
-                ? 'bg-[#C6A55A]/15 text-[#C6A55A]'
-                : 'text-[#F5F1E8]/40 hover:text-[#F5F1E8]/70'
-            }`}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${mode === m ? 'bg-[#C6A55A]/15 text-[#C6A55A]' : 'text-[#F5F1E8]/40 hover:text-[#F5F1E8]/70'}`}
           >
             {m === 'signin' ? 'Sign in' : 'Create account'}
           </button>
@@ -170,9 +158,9 @@ export default function LoginForm({
 
       {mode === 'signup' && (
         <ul className="mb-5 grid grid-cols-2 gap-x-3 gap-y-1.5">
-          {SIGNUP_BENEFITS.map((b) => (
-            <li key={b} className="flex items-start gap-1.5 text-xs text-[#F5F1E8]/45">
-              <span className="mt-0.5 text-[#C6A55A]/70">✓</span>{b}
+          {SIGNUP_BENEFITS.map((benefit) => (
+            <li key={benefit} className="flex items-start gap-1.5 text-xs text-[#F5F1E8]/45">
+              <span className="mt-0.5 text-[#C6A55A]/70">✓</span>{benefit}
             </li>
           ))}
         </ul>
@@ -180,11 +168,8 @@ export default function LoginForm({
 
       {feedback && (
         <div
-          className={`mb-5 rounded-xl px-4 py-3 text-sm ${
-            feedback.type === 'error'
-              ? 'border border-red-500/20 bg-red-900/20 text-red-300'
-              : 'border border-emerald-500/20 bg-emerald-900/20 text-emerald-300'
-          }`}
+          className={`mb-5 rounded-xl px-4 py-3 text-sm ${feedback.type === 'error' ? 'border border-red-500/20 bg-red-900/20 text-red-300' : 'border border-emerald-500/20 bg-emerald-900/20 text-emerald-300'}`}
+          role={feedback.type === 'error' ? 'alert' : 'status'}
         >
           {feedback.text}
         </div>
@@ -192,9 +177,7 @@ export default function LoginForm({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">
-            Email address
-          </label>
+          <label className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">Email address</label>
           <input
             type="email"
             required
@@ -207,9 +190,7 @@ export default function LoginForm({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">
-            Password
-          </label>
+          <label className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">Password</label>
           <input
             type="password"
             required
@@ -232,33 +213,18 @@ export default function LoginForm({
           disabled={loading || !canSubmit}
           className="mt-2 w-full rounded-xl bg-[#C6A55A] py-3 text-sm font-semibold text-[#07111F] transition-colors hover:bg-[#d4b468] disabled:opacity-50"
         >
-          {loading
-            ? mode === 'signin' ? 'Signing in…' : 'Creating account…'
-            : mode === 'signin' ? 'Sign in' : 'Create account'}
+          {loading ? (mode === 'signin' ? 'Signing in…' : 'Creating account…') : (mode === 'signin' ? 'Sign in' : 'Create account')}
         </button>
       </form>
 
       {mode === 'signin' && (
         <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={async () => {
-              if (!email) { setFeedback({ type: 'error', text: 'Enter your email address first.' }); return }
-              setLoading(true)
-              const supabase = createClient()
-              const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth/callback`,
-              })
-              setLoading(false)
-              setFeedback(err
-                ? { type: 'error', text: friendlyAuthError(err.message) }
-                : { type: 'success', text: 'Password reset email sent.' }
-              )
-            }}
-            className="text-xs text-[#F5F1E8]/30 hover:text-[#C6A55A]/70 transition-colors"
-          >
-            Forgot password?
-          </button>
+          <PasswordResetButton
+            email={email}
+            disabled={loading}
+            onStart={() => { setLoading(true); setFeedback(null) }}
+            onFinish={(result) => { setLoading(false); setFeedback(result.type === 'error' ? { type: 'error', text: friendlyAuthError(result.text) } : result) }}
+          />
         </div>
       )}
     </div>
