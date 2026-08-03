@@ -1,0 +1,236 @@
+{
+  "viewport": {
+    "name": "1440",
+    "width": 1440,
+    "height": 1000
+  },
+  "modules": [
+    {
+      "module": "briefing",
+      "label": "Briefing",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "digest",
+      "label": "Digest",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=digest",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "personal-briefings",
+      "label": "My Briefings",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=digest&module=personal-briefings",
+      "shell": "desktop-command-centre",
+      "state": "error",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "intel",
+      "label": "Intel",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=signals",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "search",
+      "label": "Search",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=signals&module=search",
+      "shell": "desktop-command-centre",
+      "state": "interactive",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "compliance",
+      "label": "Compliance",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=compliance",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "market",
+      "label": "Market",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=local-intel&module=market",
+      "shell": "desktop-command-centre",
+      "state": "empty",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "marketplace",
+      "label": "Marketplace",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=marketplace",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "supply",
+      "label": "Supply",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=marketplace&module=supply",
+      "shell": "desktop-command-centre",
+      "state": "empty",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "financing",
+      "label": "Financing",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=marketplace&module=financing",
+      "shell": "desktop-command-centre",
+      "state": "interactive",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "directories",
+      "label": "Directories",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=experts&module=directories",
+      "shell": "desktop-command-centre",
+      "state": "empty",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "talent",
+      "label": "Talent",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=jobs&module=talent",
+      "shell": "desktop-command-centre",
+      "state": "empty",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "genetics",
+      "label": "Genetics",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=genetics",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "clinical",
+      "label": "Clinical",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=clinical",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "watchlist",
+      "label": "Watchlist",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=watchlist",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "module": "pathways",
+      "label": "Pathways",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=access-pathway",
+      "shell": "desktop-command-centre",
+      "state": "legacy-shell",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    }
+  ],
+  "marketplaceActions": [
+    {
+      "action": "sell",
+      "label": "Submit Listing",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=marketplace&action=sell",
+      "shell": "desktop-command-centre",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "action": "intake",
+      "label": "Marketplace Intake",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=marketplace&action=intake",
+      "shell": "desktop-command-centre",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    },
+    {
+      "action": "my-listings",
+      "label": "My Submissions",
+      "url": "http://127.0.0.1:3000/dashboard?country=CA&page=marketplace&action=my-listings",
+      "shell": "desktop-command-centre",
+      "horizontalOverflow": 0,
+      "fixedViolations": [],
+      "viewportWidth": 1440,
+      "viewportHeight": 1000,
+      "pageErrors": []
+    }
+  ]
+}

@@ -189,9 +189,11 @@ function Section({ eyebrow, title, description, children }: { eyebrow: string; t
 function MarketModule({ props }: { props: DashboardProps }) {
   const metrics = props.marketMetrics ?? []
   const flows = props.tradeFlows ?? []
+  const hasMarketData = metrics.length > 0 || flows.length > 0
   return (
     <Section eyebrow="Market Intelligence" title="Market" description="Country-context market metrics, trade flows and operating indicators.">
       <div className="ccig-grid">
+        {!hasMarketData && <div className="ccig-empty">No market metrics or trade flows match the current context.</div>}
         {metrics.map((metric, index) => (
           <article className="ccig-card" key={`metric-${index}`}>
             <span>{text(metric, ['category', 'metric_type', 'label'], 'Market metric')}</span>
@@ -353,6 +355,7 @@ function TalentModule() {
       {error && <div className="ccig-empty error">Talent roles could not be loaded.</div>}
       {!error && jobs === null && <div className="ccig-empty">Loading open roles…</div>}
       <div className="ccig-grid">
+        {!error && jobs?.length === 0 && <div className="ccig-empty">No open roles match the current context.</div>}
         {jobs?.map(job => (
           <article className="ccig-card" key={job.id}>
             <span>{job.location ?? 'Location pending'} · {job.department ?? 'General'}</span>
