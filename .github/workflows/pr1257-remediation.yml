@@ -1,0 +1,631 @@
+name: PR 1257 Complete Remediation
+
+on:
+  push:
+    branches:
+      - agent/command-centre-integration-rule
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr1257-complete-remediation
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    if: contains(github.event.head_commit.message, '[pr1257-remediate]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout dedicated branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: agent/command-centre-integration-rule
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge current main and apply reviewed remediations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Harbourview PR 1257 Remediation"
+          git config user.email "harbourviewcompany@gmail.com"
+          git fetch origin main
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            git merge --no-edit origin/main
+          fi
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path: str, old: str, new: str, count: int = 1) -> None:
+              file = Path(path)
+              text = file.read_text()
+              actual = text.count(old)
+              if actual != count:
+                  raise SystemExit(f'{path}: expected {count} occurrence(s), found {actual}: {old[:120]!r}')
+              file.write_text(text.replace(old, new, count))
+
+          def write(path: str, content: str) -> None:
+              Path(path).write_text(content)
+
+          # Critical module-registry hardening.
+          replace(
+              'lib/dashboard/commandCentreIntegration.ts',
+              "  return ALIASES[key] ?? null\n}\n\nexport function getCommandCentreModule(id: CommandCentreModule) {\n  return MODULE_BY_ID.get(id)!\n}",
+              "  return Object.hasOwn(ALIASES, key) ? ALIASES[key] : null\n}\n\nexport function getCommandCentreModule(id: CommandCentreModule) {\n  const definition = MODULE_BY_ID.get(id)\n  if (!definition) throw new Error(`Unknown Command Centre module: ${String(id)}`)\n  return definition\n}",
+          )
+
+          # Gateway accessibility, bounded queries/retries and precise memo closure.
+          gateway = 'components/dashboard/CommandCentreIntegrationGateway.tsx'
+          replace(gateway, "import { useEffect, useMemo, useState } from 'react'", "import { useEffect, useMemo, useRef, useState } from 'react'")
+          old_launcher = '''function ModuleLauncher({
+            active,
+            context,
+            isMobile,
+          }: {
+            active: CommandCentreModule
+            context: { country?: string | null; role?: string | null }
+            isMobile: boolean
+          }) {
+            const [open, setOpen] = useState(false)
+            return (
+              <div className={`ccig-launcher ${isMobile ? 'mobile' : 'desktop'}`}>
+                <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open}>
+                  <span aria-hidden="true">⌘</span> Modules
+                </button>
+                {open && (
+                  <div className="ccig-launcher-panel" role="dialog" aria-label="Command Centre module launcher">
+                    <div className="ccig-launcher-head">
+                      <strong>Command Centre</strong>
+                      <button type="button" onClick={() => setOpen(false)} aria-label="Close module launcher">×</button>
+                    </div>
+                    <ModuleNavigation active={active} context={context} mode={isMobile ? 'mobile' : 'desktop'} />
+                  </div>
+                )}
+              </div>
+            )
+          }'''
+          new_launcher = '''function ModuleLauncher({
+            active,
+            context,
+            isMobile,
+          }: {
+            active: CommandCentreModule
+            context: { country?: string | null; role?: string | null }
+            isMobile: boolean
+          }) {
+            const [open, setOpen] = useState(false)
+            const dialogRef = useRef<HTMLDialogElement>(null)
+            const triggerRef = useRef<HTMLButtonElement>(null)
+
+            useEffect(() => {
+              const dialog = dialogRef.current
+              if (!dialog) return
+              let focusFrame = 0
+
+              if (open && !dialog.open) {
+                dialog.showModal()
+                focusFrame = window.requestAnimationFrame(() => {
+                  dialog.querySelector<HTMLButtonElement>('[data-launcher-close]')?.focus()
+                })
+              } else if (!open && dialog.open) {
+                dialog.close()
+              }
+
+              return () => {
+                if (focusFrame) window.cancelAnimationFrame(focusFrame)
+              }
+            }, [open])
+
+            const closeLauncher = () => setOpen(false)
+
+            return (
+              <div className={`ccig-launcher ${isMobile ? 'mobile' : 'desktop'}`}>
+                <button
+                  ref={triggerRef}
+                  type="button"
+                  onClick={() => setOpen(value => !value)}
+                  aria-haspopup="dialog"
+                  aria-expanded={open}
+                  aria-controls="command-centre-module-launcher"
+                >
+                  <span aria-hidden="true">⌘</span> Modules
+                </button>
+                <dialog
+                  ref={dialogRef}
+                  id="command-centre-module-launcher"
+                  className={`ccig-launcher-panel ${isMobile ? 'mobile' : 'desktop'}`}
+                  aria-label="Command Centre module launcher"
+                  onCancel={(event) => {
+                    event.preventDefault()
+                    closeLauncher()
+                  }}
+                  onClose={() => {
+                    setOpen(false)
+                    triggerRef.current?.focus()
+                  }}
+                >
+                  <div className="ccig-launcher-head">
+                    <strong>Command Centre</strong>
+                    <button data-launcher-close type="button" onClick={closeLauncher} aria-label="Close module launcher">×</button>
+                  </div>
+                  <ModuleNavigation active={active} context={context} mode={isMobile ? 'mobile' : 'desktop'} />
+                </dialog>
+              </div>
+            )
+          }'''
+          replace(gateway, old_launcher, new_launcher)
+          replace(gateway, 'function supplyRows(props: DashboardProps) {\n  const rows = props.marketplaceRows as Record<string, readonly (readonly unknown[])[]> | undefined', "function supplyRows(marketplaceRows: DashboardProps['marketplaceRows']) {\n  const rows = marketplaceRows as Record<string, readonly (readonly unknown[])[]> | undefined")
+          replace(gateway, 'const rows = useMemo(() => supplyRows(props), [props.marketplaceRows])', 'const rows = useMemo(() => supplyRows(props.marketplaceRows), [props.marketplaceRows])')
+          replace(gateway, ".order('created_at', { ascending: false })\n      .then", ".order('created_at', { ascending: false })\n      .limit(60)\n      .then")
+          replace(gateway, "  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)\n", "  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)\n  const [portalError, setPortalError] = useState<string | null>(null)\n")
+          old_attach = '''  useEffect(() => {
+            if (!hasPortalSurface) {
+              setPortalTarget(null)
+              return
+            }
+
+            let cancelled = false
+            let frame = 0
+            const selector = isMobile ? '.hvm-main' : '.cc-main'
+
+            const attach = () => {
+              if (cancelled) return
+              const target = document.querySelector<HTMLElement>(selector)
+              if (target) {
+                setPortalTarget(target)
+                return
+              }
+              frame = window.requestAnimationFrame(attach)
+            }
+
+            frame = window.requestAnimationFrame(attach)
+            return () => {
+              cancelled = true
+              window.cancelAnimationFrame(frame)
+            }
+          }, [hasPortalSurface, isMobile])'''
+          new_attach = '''  useEffect(() => {
+            if (!hasPortalSurface) {
+              setPortalTarget(null)
+              setPortalError(null)
+              return
+            }
+
+            let cancelled = false
+            let frame = 0
+            let attempts = 0
+            const selector = isMobile ? '.hvm-main' : '.cc-main'
+            setPortalError(null)
+
+            const attach = () => {
+              if (cancelled) return
+              const target = document.querySelector<HTMLElement>(selector)
+              if (target) {
+                setPortalTarget(target)
+                return
+              }
+              attempts += 1
+              if (attempts >= 180) {
+                setPortalError(`Command Centre surface ${selector} could not be attached. Return to Briefing and retry.`)
+                return
+              }
+              frame = window.requestAnimationFrame(attach)
+            }
+
+            frame = window.requestAnimationFrame(attach)
+            return () => {
+              cancelled = true
+              window.cancelAnimationFrame(frame)
+            }
+          }, [hasPortalSurface, isMobile])'''
+          replace(gateway, old_attach, new_attach)
+          replace(gateway, '      <ModuleLauncher active={active} context={context} isMobile={isMobile} />', '      {portalError && <div className="ccig-portal-error" role="alert">{portalError}</div>}\n      <ModuleLauncher active={active} context={context} isMobile={isMobile} />')
+          replace(gateway, '.ccig-launcher{position:fixed;z-index:120}', '.ccig-portal-error{position:fixed;right:18px;bottom:76px;z-index:121;max-width:min(420px,calc(100vw - 24px));padding:12px 14px;border:1px solid rgba(224,80,80,.35);border-radius:12px;background:#18111a;color:#f0b0b0;box-shadow:0 16px 44px rgba(0,0,0,.45)}.ccig-launcher{position:fixed;z-index:120}')
+          replace(gateway, '.ccig-launcher-panel{position:absolute;right:0;bottom:50px;width:min(360px,calc(100vw - 24px));max-height:70dvh;overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#07111f;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:12px}', '.ccig-launcher-panel{position:fixed;inset:auto 18px 68px auto;width:min(360px,calc(100vw - 24px));max-height:70dvh;overflow:auto;margin:0;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#07111f;color:#f5f0e8;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:12px}.ccig-launcher-panel.mobile{inset:auto 12px 140px auto}.ccig-launcher-panel::backdrop{background:rgba(0,0,0,.38)}')
+          replace(gateway, '@media(max-width:767px){.ccig-portal.mobile', '@media(max-width:767px){.ccig-portal-error{right:12px;bottom:140px}.ccig-portal.mobile')
+
+          # Personal briefing cache: user + canonical watch-rule fingerprint, short TTL and bounded memory.
+          briefing = 'lib/dashboard/personalBriefingsData.ts'
+          replace(briefing, "import 'server-only'\n", "import 'server-only'\n\nimport { createHash } from 'node:crypto'\n")
+          replace(briefing, "const ISO2_RE = /^[A-Z]{2}$/\n", '''const ISO2_RE = /^[A-Z]{2}$/
+          const PERSONAL_BRIEFING_CACHE_TTL_MS = 5 * 60 * 1000
+          const PERSONAL_BRIEFING_CACHE_MAX_ENTRIES = 250
+          type PersonalBriefingInput = Parameters<typeof generatePersonalBriefing>[0]
+          type PersonalBriefingResult = Awaited<ReturnType<typeof generatePersonalBriefing>>
+          type PersonalBriefingCacheEntry = { expiresAt: number; promise: Promise<PersonalBriefingResult> }
+          const personalBriefingCache = new Map<string, PersonalBriefingCacheEntry>()
+
+          function personalBriefingFingerprint(input: PersonalBriefingInput): string {
+            const canonical = JSON.stringify({
+              keywords: [...input.keywords].map(value => value.trim().toLowerCase()).sort(),
+              iso2List: [...input.iso2List].map(value => value.trim().toUpperCase()).sort(),
+              ruleTypes: [...input.ruleTypes].map(value => value.trim().toLowerCase()).sort(),
+            })
+            return createHash('sha256').update(canonical).digest('hex')
+          }
+
+          function prunePersonalBriefingCache(now: number) {
+            for (const [key, entry] of personalBriefingCache) {
+              if (entry.expiresAt <= now) personalBriefingCache.delete(key)
+            }
+            while (personalBriefingCache.size >= PERSONAL_BRIEFING_CACHE_MAX_ENTRIES) {
+              const oldestKey = personalBriefingCache.keys().next().value as string | undefined
+              if (!oldestKey) break
+              personalBriefingCache.delete(oldestKey)
+            }
+          }
+
+          function getCachedPersonalBriefing(userId: string, input: PersonalBriefingInput) {
+            const now = Date.now()
+            const cacheKey = `${userId}:${personalBriefingFingerprint(input)}`
+            const cached = personalBriefingCache.get(cacheKey)
+            if (cached && cached.expiresAt > now) return cached.promise
+
+            prunePersonalBriefingCache(now)
+            const promise = generatePersonalBriefing(input).catch(error => {
+              personalBriefingCache.delete(cacheKey)
+              throw error
+            })
+            personalBriefingCache.set(cacheKey, { expiresAt: now + PERSONAL_BRIEFING_CACHE_TTL_MS, promise })
+            return promise
+          }
+''')
+          replace(briefing, 'generatePersonalBriefing({ keywords: keywordPool, iso2List, ruleTypes })', 'getCachedPersonalBriefing(userId, { keywords: keywordPool, iso2List, ruleTypes })')
+
+          # Middleware routing, auth destination preservation and exact public exceptions.
+          middleware = 'middleware.ts'
+          replace(middleware, "  { path: '/network/clinical-education', page: 'clinical', descendants: true },", "  { path: '/network/clinical-education', page: 'clinical' },")
+          replace(middleware, "const PUBLIC_AUTH_EXCEPTIONS = ['/intelligence/watchlists']\n\nfunction isPublicAuthException(pathname: string): boolean {\n  return PUBLIC_AUTH_EXCEPTIONS.some((path) => pathname === path || pathname.startsWith(path + '/'))\n}\n\nfunction commandCentreTarget", "const PUBLIC_AUTH_EXCEPTIONS = new Set([\n  '/intelligence/watchlists',\n  '/network/clinical-education/request',\n])\n\nexport function isPublicAuthException(pathname: string): boolean {\n  return PUBLIC_AUTH_EXCEPTIONS.has(pathname)\n}\n\nexport function commandCentreTarget")
+          replace(middleware, "  const normalizedPathname = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname\n", "  const normalizedPathname = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname\n  const requestedDestination = `${normalizedPathname}${request.nextUrl.search}`\n")
+          replace(middleware, "      loginUrl.pathname = '/login'\n      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`", "      loginUrl.pathname = '/login'\n      loginUrl.search = ''\n      loginUrl.searchParams.set('next', requestedDestination)\n      loginUrl.searchParams.set('error', 'Auth configuration is missing a browser-safe Supabase public key.')")
+          replace(middleware, "      loginUrl.pathname = '/login'\n      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`", "      loginUrl.pathname = '/login'\n      loginUrl.search = ''\n      loginUrl.searchParams.set('next', requestedDestination)")
+
+          # Local Supabase is CI-loopback-only and rejected for production deployments.
+          env = 'lib/supabase/env.ts'
+          replace(env, "function isExplicitlyAllowedLocalSupabaseUrl(url: string) {\n  if (process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1') return false", "function isExplicitlyAllowedLocalSupabaseUrl(url: string) {\n  if (process.env.VERCEL_ENV === 'production') return false\n  if (process.env.CI !== '1' || process.env.GITHUB_ACTIONS !== 'true') return false\n  if (process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1') return false")
+
+          # Shared Playwright defaults stay parallel; authenticated visual invocation owns serialization.
+          playwright = 'playwright.config.js'
+          replace(playwright, "  fullyParallel: false,\n  workers: 1,\n", '')
+
+          # Cloudflare compatibility contract.
+          replace('wrangler.jsonc', '"compatibility_date": "2026-07-29"', '"compatibility_date": "2026-08-02"')
+
+          # Cloudflare verification: immutable actions, no persisted credentials, complete query-state assertions.
+          cloudflare = '.github/workflows/cloudflare-workers-preview-verify.yml'
+          replace(cloudflare, 'uses: actions/checkout@v4\n', 'uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2\n        with:\n          persist-credentials: false\n')
+          replace(cloudflare, 'uses: actions/setup-node@v4', 'uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0')
+          replace(cloudflare, "              '/contact',", "              '/contact?topic=clinical-education',")
+          replace(cloudflare, "              const intendedDestinationPath = new URL(intendedDestination, baseUrl).pathname\n              const authExpected = [\n                `/login?next=${encodeURIComponent(routes[index])}`,\n                `/login?next=${encodeURIComponent(intendedDestinationPath)}`,\n              ]", "              const authExpected = [\n                `/login?next=${encodeURIComponent(routes[index])}`,\n                `/login?next=${encodeURIComponent(intendedDestination)}`,\n              ]")
+          replace(cloudflare, 'uses: actions/upload-artifact@v4', 'uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2')
+
+          # Focused integration workflow: immutable actions, no persisted token, complete contract suite.
+          integration = '.github/workflows/command-centre-integration-verify.yml'
+          replace(integration, "      - 'tests/dashboard/commandCentre*.test.ts'", "      - 'tests/dashboard/commandCentre*.test.ts'\n      - 'tests/dashboard/navigationRoutes.test.ts'")
+          replace(integration, '      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4', '      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2\n        with:\n          persist-credentials: false\n      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0')
+          replace(integration, '          tests/dashboard/commandCentreRouteContracts.test.ts', '          tests/dashboard/commandCentreRouteContracts.test.ts\n          tests/dashboard/navigationRoutes.test.ts')
+
+          # Direct executable route tests and registry regression tests.
+          registry_test = 'tests/dashboard/commandCentreIntegration.test.ts'
+          replace(registry_test, "    expect(normalizeCommandCentreModule('not-a-module')).toBeNull()", "    expect(normalizeCommandCentreModule('not-a-module')).toBeNull()\n    expect(normalizeCommandCentreModule('constructor')).toBeNull()\n    expect(normalizeCommandCentreModule('toString')).toBeNull()\n    expect(normalizeCommandCentreModule('valueOf')).toBeNull()\n    expect(() => getCommandCentreModule('constructor' as CommandCentreModule)).toThrow('Unknown Command Centre module')")
+
+          route_test = 'tests/dashboard/commandCentreRouteContracts.test.ts'
+          replace(route_test, "import { describe, expect, it } from 'vitest'\n", "import { describe, expect, it } from 'vitest'\nimport { commandCentreTarget, isPublicAuthException } from '@/middleware'\n")
+          marker = "  it('keeps personal briefing data behind authentication and entitlement checks', () => {"
+          executable_tests = '''  it('resolves protected route outputs directly, including descendant focus', () => {
+            const cases = [
+              ['/dashboard/my-briefings', { page: 'digest', module: 'personal-briefings' }],
+              ['/dashboard/signals/search', { page: 'signals', module: 'search' }],
+              ['/marketplace/financing', { page: 'marketplace', module: 'financing' }],
+              ['/marketplace/my-listings', { page: 'marketplace', action: 'my-listings' }],
+              ['/marketplace/sell/equipment', { page: 'marketplace', action: 'sell', focus: 'equipment' }],
+              ['/marketplace/intake/wanted', { page: 'marketplace', action: 'intake', focus: 'wanted' }],
+              ['/signals/search/advanced', { page: 'signals', module: 'search', focus: 'advanced' }],
+              ['/signals/regulatory', { page: 'signals', focus: 'regulatory' }],
+              ['/network/clinical-education', { page: 'clinical' }],
+              ['/network/operators', { page: 'experts', module: 'directories', focus: 'operators' }],
+              ['/education/pharmacists', { page: 'education', focus: 'pharmacists' }],
+            ] as const
+
+            for (const [pathname, expected] of cases) {
+              expect(commandCentreTarget(pathname)).toMatchObject(expected)
+            }
+          })
+
+          it('allows only exact public exception paths', () => {
+            expect(isPublicAuthException('/intelligence/watchlists')).toBe(true)
+            expect(isPublicAuthException('/intelligence/watchlists/private')).toBe(false)
+            expect(isPublicAuthException('/network/clinical-education/request')).toBe(true)
+            expect(isPublicAuthException('/network/clinical-education/request/private')).toBe(false)
+          })
+
+'''
+          replace(route_test, marker, executable_tests + marker)
+          replace(route_test, "    expect(envSource).toContain(\"process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1'\")", "    expect(envSource).toContain(\"process.env.VERCEL_ENV === 'production'\")\n    expect(envSource).toContain(\"process.env.CI !== '1' || process.env.GITHUB_ACTIONS !== 'true'\")\n    expect(envSource).toContain(\"process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1'\")")
+          replace(route_test, "    expect(workflow).toContain(\"HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'\")", "    expect(workflow).toContain(\"HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'\")\n    expect(workflow).toContain('--workers=1')")
+          replace(route_test, "  it('keeps personal briefing data behind authentication and entitlement checks', () => {", "  it('keeps personal briefing data behind authentication, entitlement checks and bounded generation caching', () => {")
+          replace(route_test, "    expect(source).toContain('status: 403')", "    expect(source).toContain('status: 403')\n    const dataSource = read('lib/dashboard/personalBriefingsData.ts')\n    expect(dataSource).toContain('PERSONAL_BRIEFING_CACHE_TTL_MS')\n    expect(dataSource).toContain('personalBriefingFingerprint')\n    expect(dataSource).toContain('getCachedPersonalBriefing(userId')")
+
+          # Full authenticated workflow: least privilege jobs, immutable actions and explicit final push token.
+          visual = '''name: Command Centre Authenticated Visual
+
+          on:
+            workflow_dispatch:
+            push:
+              branches:
+                - agent/command-centre-integration-rule
+              paths-ignore:
+                - docs/control/evidence/command-centre-integration/**
+                - docs/control/evidence/COMMAND_CENTRE_INTEGRATION_2026-08-02.md
+
+          permissions:
+            contents: read
+
+          concurrency:
+            group: command-centre-authenticated-visual-__GH__{{ github.ref }}
+            cancel-in-progress: true
+
+          jobs:
+            visual:
+              if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[visual-evidence]')
+              runs-on: ubuntu-24.04
+              timeout-minutes: 60
+              permissions:
+                contents: read
+              env:
+                CI: '1'
+                HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+                HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+                PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+                PLAYWRIGHT_STORAGE_STATE: .playwright/command-centre-auth.json
+                SUPABASE_DB_SCHEMA: api
+              steps:
+                - name: Checkout feature branch
+                  uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+                  with:
+                    ref: agent/command-centre-integration-rule
+                    fetch-depth: 0
+                    persist-credentials: false
+
+                - name: Verify committed empty-state fixes and temporary workflow removal
+                  shell: python
+                  run: |
+                    from pathlib import Path
+                    gateway = Path('components/dashboard/CommandCentreIntegrationGateway.tsx').read_text()
+                    required = [
+                        'const hasMarketData = metrics.length > 0 || flows.length > 0',
+                        'No market metrics or trade flows match the current context.',
+                        'No open roles match the current context.',
+                    ]
+                    missing = [marker for marker in required if marker not in gateway]
+                    if missing:
+                        raise SystemExit(f'Missing verified Command Centre fixes: {missing}')
+                    temporary = Path('.github/workflows/command-centre-empty-state-hotfix.yml')
+                    if temporary.exists():
+                        raise SystemExit(f'Temporary workflow must be removed: {temporary}')
+
+                - name: Setup Node
+                  uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+                  with:
+                    node-version: 22
+                    cache: npm
+
+                - name: Install dependencies
+                  run: npm ci
+
+                - name: Lint
+                  run: npm run lint
+
+                - name: Typecheck
+                  run: npm run typecheck
+
+                - name: Test suite
+                  run: npm test
+
+                - name: Setup Supabase CLI
+                  uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+                  with:
+                    version: latest
+
+                - name: Prepare isolated local Supabase schema
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    mv supabase/migrations /tmp/harbourview-production-migrations
+                    if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+                    mkdir -p supabase/migrations
+                    cat > supabase/migrations/00000000000000_command_centre_visual.sql <<'SQL'
+                    create schema if not exists api;
+                    grant usage on schema api to anon, authenticated, service_role;
+                    create table if not exists api.user_dashboard_preferences (
+                      user_id uuid primary key,
+                      country_iso2 text,
+                      role_id text
+                    );
+                    create table if not exists api.workspace_members (
+                      user_id uuid not null,
+                      workspace_id uuid not null default gen_random_uuid(),
+                      status text not null default 'active'
+                    );
+                    create table if not exists api.talent_jobs_public (
+                      id uuid primary key default gen_random_uuid(),
+                      title text not null,
+                      department text,
+                      location text,
+                      operator_name text,
+                      operator_verification_status text,
+                      created_at timestamptz not null default now()
+                    );
+                    grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
+                    grant select on all tables in schema api to anon;
+                    SQL
+                    : > supabase/seed.sql
+
+                - name: Start isolated Supabase
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    supabase start
+                    eval "$(supabase status -o env)"
+                    {
+                      echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+                      echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+                      echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+                      echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+                    } >> "$GITHUB_ENV"
+
+                - name: Create dedicated local test account
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    TEST_EMAIL="command-centre-${GITHUB_RUN_ID}@harbourview.local"
+                    TEST_PASSWORD="HvVisual-${GITHUB_RUN_ID}-Aa9!"
+                    echo "::add-mask::${TEST_PASSWORD}"
+                    export PLAYWRIGHT_TEST_EMAIL="${TEST_EMAIL}"
+                    export PLAYWRIGHT_TEST_PASSWORD="${TEST_PASSWORD}"
+                    echo "PLAYWRIGHT_TEST_EMAIL=${TEST_EMAIL}" >> "$GITHUB_ENV"
+                    echo "PLAYWRIGHT_TEST_PASSWORD=${TEST_PASSWORD}" >> "$GITHUB_ENV"
+                    node --input-type=module <<'NODE'
+                    import { createClient } from '@supabase/supabase-js'
+                    const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+                      auth: { autoRefreshToken: false, persistSession: false },
+                    })
+                    const { data, error } = await client.auth.admin.createUser({
+                      email: process.env.PLAYWRIGHT_TEST_EMAIL,
+                      password: process.env.PLAYWRIGHT_TEST_PASSWORD,
+                      email_confirm: true,
+                      app_metadata: { command_centre_visual_test: true },
+                      user_metadata: { purpose: 'isolated-playwright' },
+                    })
+                    if (error) throw error
+                    if (!data.user) throw new Error('Local visual test user was not created')
+                    console.log(`Created isolated visual user ${data.user.id}`)
+                    NODE
+
+                - name: Production build against isolated Supabase
+                  run: npm run build
+
+                - name: Install Chromium
+                  run: npx playwright install --with-deps chromium
+
+                - name: Start built application
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    npm start -- --hostname 127.0.0.1 > /tmp/harbourview-next.log 2>&1 &
+                    echo $! > /tmp/harbourview-next.pid
+                    for attempt in $(seq 1 90); do
+                      if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
+                      sleep 2
+                    done
+                    cat /tmp/harbourview-next.log
+                    exit 1
+
+                - name: Create authenticated browser state
+                  run: node scripts/create-playwright-auth-state.mjs
+
+                - name: Run six-width Command Centre visual suite
+                  run: npx playwright test tests/e2e/command-centre-integration.spec.ts --project=chromium-desktop --retries=0 --workers=1
+
+                - name: Upload visual evidence
+                  if: always()
+                  uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+                  with:
+                    name: command-centre-authenticated-visual-__GH__{{ github.run_id }}
+                    if-no-files-found: warn
+                    retention-days: 14
+                    path: |
+                      docs/control/evidence/command-centre-integration/
+                      playwright-report/
+                      test-results/
+                      /tmp/harbourview-next.log
+
+                - name: Restore production migration source tree
+                  if: always()
+                  shell: bash
+                  run: |
+                    rm -rf supabase/migrations supabase/seed.sql
+                    if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+                    if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+                - name: Stop isolated services
+                  if: always()
+                  shell: bash
+                  run: |
+                    if [ -f /tmp/harbourview-next.pid ]; then kill "$(cat /tmp/harbourview-next.pid)" 2>/dev/null || true; fi
+                    supabase stop --no-backup || true
+
+            commit-evidence:
+              name: Commit verified six-width evidence
+              if: __GH__{{ github.event_name == 'push' && needs.visual.result == 'success' }}
+              needs: visual
+              runs-on: ubuntu-24.04
+              timeout-minutes: 10
+              permissions:
+                contents: write
+              steps:
+                - name: Checkout feature branch without persisted credentials
+                  uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+                  with:
+                    ref: agent/command-centre-integration-rule
+                    fetch-depth: 0
+                    persist-credentials: false
+
+                - name: Download verified evidence artifact
+                  uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+                  with:
+                    name: command-centre-authenticated-visual-__GH__{{ github.run_id }}
+                    path: /tmp/command-centre-evidence
+
+                - name: Stage bounded visual evidence
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    target='docs/control/evidence/command-centre-integration'
+                    mkdir -p "$target"
+                    find /tmp/command-centre-evidence -type f -name 'command-centre-*.png' -exec cp -f {} "$target"/ \;
+                    find /tmp/command-centre-evidence -type f -name 'command-centre-*.json' -exec cp -f {} "$target"/ \;
+                    test "$(find "$target" -maxdepth 1 -type f -name 'command-centre-*.png' | wc -l)" -eq 6
+                    test "$(find "$target" -maxdepth 1 -type f -name 'command-centre-*.json' | wc -l)" -eq 6
+
+                - name: Commit evidence with step-scoped authentication
+                  shell: bash
+                  env:
+                    GITHUB_TOKEN: __GH__{{ secrets.GITHUB_TOKEN }}
+                  run: |
+                    set -euo pipefail
+                    git config user.name "Harbourview Verification"
+                    git config user.email "harbourviewcompany@gmail.com"
+                    git add docs/control/evidence/command-centre-integration/command-centre-*.png
+                    git add docs/control/evidence/command-centre-integration/command-centre-*.json
+                    if git diff --cached --quiet; then
+                      echo "Six-width evidence is already current"
+                      exit 0
+                    fi
+                    git commit -m "test(command-centre): commit verified shell evidence [visual-evidence]"
+                    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+                    git push origin HEAD:agent/command-centre-integration-rule
+          '''
+          visual = visual.replace('__GH__', '$')
+          import textwrap
+          write('.github/workflows/command-centre-authenticated-visual.yml', textwrap.dedent(visual))
+
+          # Remove this bounded remediation workflow from the resulting branch.
+          Path('.github/workflows/pr1257-remediation.yml').unlink()
+          PY
+
+          git status --short
+          git add -A
+          git commit -m "fix(command-centre): close PR 1257 review findings"
+
+      - name: Push remediated branch
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin HEAD:agent/command-centre-integration-rule
