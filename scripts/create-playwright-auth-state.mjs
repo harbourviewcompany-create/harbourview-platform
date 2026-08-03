@@ -51,7 +51,7 @@ try {
     return {
       name: cookie.name,
       value: cookie.value,
-      url: cookieURL.origin,
+      domain: cookieURL.hostname,
       path: typeof options.path === 'string' ? options.path : '/',
       httpOnly: Boolean(options.httpOnly),
       secure: cookieURL.protocol === 'https:' ? options.secure !== false : false,
@@ -62,18 +62,20 @@ try {
 
   await page.goto(`${baseURL.replace(/\/$/, '')}/dashboard?country=CA`, { waitUntil: 'domcontentloaded' })
   if (new URL(page.url()).pathname.startsWith('/login')) {
-    const bodyText = await page.locator('body').innerText().catch(() => '')
-    fs.writeFileSync(path.join(diagnosticDirectory, 'auth-failure.txt'), `URL: ${page.url()}\n\n${bodyText}\n`)
-    await page.screenshot({ path: path.join(diagnosticDirectory, 'auth-failure.png'), fullPage: true })
     throw new Error('Injected Supabase SSR session did not authenticate the dashboard route')
   }
 
+  await page.locator('.cc-app, .hvm-app').first().waitFor({ state: 'visible', timeout: 45_000 })
   await page.waitForLoadState('networkidle').catch(() => undefined)
   await context.storageState({ path: storageStatePath })
   console.log(`Authenticated Playwright storage state written to ${storageStatePath} for user ${data.user.id}`)
 } catch (error) {
   const bodyText = await page.locator('body').innerText().catch(() => '')
-  fs.writeFileSync(path.join(diagnosticDirectory, 'auth-failure.txt'), `URL: ${page.url()}\n\n${bodyText}\n`)
+  const cookies = await context.cookies().catch(() => [])
+  fs.writeFileSync(
+    path.join(diagnosticDirectory, 'auth-failure.txt'),
+    `URL: ${page.url()}\nCOOKIES: ${cookies.map(cookie => cookie.name).join(', ')}\n\n${bodyText}\n`,
+  )
   await page.screenshot({ path: path.join(diagnosticDirectory, 'auth-failure.png'), fullPage: true }).catch(() => undefined)
   throw error
 } finally {
