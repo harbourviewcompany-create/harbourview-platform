@@ -15,6 +15,14 @@ function applyNoStoreHeaders(response: NextResponse) {
 
 type SubscriptionTier = 'free' | 'intel' | 'operator'
 
+type CommandCentreRouteTarget = {
+  path: string
+  page: string
+  module?: string
+  action?: string
+  descendants?: boolean
+}
+
 const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
 
 const TIER_GATED_PREFIXES: Record<string, SubscriptionTier> = {
@@ -50,6 +58,8 @@ const PROTECTED_PREFIXES = [
   '/dashboard',
   '/intake',
   '/marketplace/sell',
+  '/marketplace/intake',
+  '/marketplace/financing',
   '/marketplace/my-listings',
   '/signals',
   '/intelligence',
@@ -61,30 +71,51 @@ const PROTECTED_PREFIXES = [
   '/assessments',
   '/compliance',
   '/education',
-  '/marketplace/intake',
 ]
 
-const COMMAND_CENTRE_ROOT_REDIRECTS: Readonly<Record<string, {
-  page: string
-  module?: string
-}>> = {
-  '/signals': { page: 'signals' },
-  '/intelligence': { page: 'signals' },
-  '/genetics': { page: 'genetics' },
-  '/network': { page: 'experts', module: 'directories' },
-  '/opportunities': { page: 'marketplace' },
-  '/reviewed-connections': { page: 'experts', module: 'directories' },
-  '/professionals': { page: 'experts', module: 'directories' },
-  '/assessments': { page: 'compliance' },
-  '/compliance': { page: 'compliance' },
-  '/education': { page: 'education' },
-  '/marketplace/my-listings': { page: 'marketplace' },
-}
+// Order is significant: the most specific authenticated deep links are matched
+// before their broader feature families. Every matched customer feature resolves
+// into the desktop CommandCentre or MobileCommandCentre shell.
+const COMMAND_CENTRE_ROUTE_REDIRECTS: readonly CommandCentreRouteTarget[] = [
+  { path: '/dashboard/my-briefings', page: 'digest', module: 'personal-briefings', descendants: true },
+  { path: '/dashboard/signals/search', page: 'signals', module: 'search', descendants: true },
+  { path: '/dashboard/genetics', page: 'genetics', descendants: true },
+  { path: '/marketplace/financing', page: 'marketplace', module: 'financing', descendants: true },
+  { path: '/marketplace/my-listings', page: 'marketplace', action: 'my-listings', descendants: true },
+  { path: '/marketplace/sell', page: 'marketplace', action: 'sell', descendants: true },
+  { path: '/marketplace/intake', page: 'marketplace', action: 'intake', descendants: true },
+  { path: '/signals/search', page: 'signals', module: 'search', descendants: true },
+  { path: '/signals', page: 'signals', descendants: true },
+  { path: '/intelligence', page: 'signals', descendants: true },
+  { path: '/genetics', page: 'genetics', descendants: true },
+  { path: '/network/clinical-education', page: 'clinical', descendants: true },
+  { path: '/network', page: 'experts', module: 'directories', descendants: true },
+  { path: '/opportunities', page: 'marketplace', descendants: true },
+  { path: '/reviewed-connections', page: 'experts', module: 'directories', descendants: true },
+  { path: '/professionals', page: 'experts', module: 'directories', descendants: true },
+  { path: '/assessments', page: 'compliance', descendants: true },
+  { path: '/compliance', page: 'compliance', descendants: true },
+  { path: '/education', page: 'education', descendants: true },
+]
 
 const PUBLIC_AUTH_EXCEPTIONS = ['/intelligence/watchlists']
 
 function isPublicAuthException(pathname: string): boolean {
   return PUBLIC_AUTH_EXCEPTIONS.some((path) => pathname === path || pathname.startsWith(path + '/'))
+}
+
+function commandCentreTarget(pathname: string): (CommandCentreRouteTarget & { focus?: string }) | null {
+  for (const target of COMMAND_CENTRE_ROUTE_REDIRECTS) {
+    const exact = pathname === target.path
+    const descendant = target.descendants && pathname.startsWith(target.path + '/')
+    if (!exact && !descendant) continue
+
+    return {
+      ...target,
+      ...(descendant ? { focus: pathname.slice(target.path.length + 1) } : {}),
+    }
+  }
+  return null
 }
 
 export async function middleware(request: NextRequest) {
@@ -164,17 +195,18 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    const commandCentreTarget = COMMAND_CENTRE_ROOT_REDIRECTS[normalizedPathname]
-    if (commandCentreTarget) {
+    const target = commandCentreTarget(normalizedPathname)
+    if (target) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
-      url.searchParams.set('page', commandCentreTarget.page)
-      if (commandCentreTarget.module) {
-        url.searchParams.set('module', commandCentreTarget.module)
-      } else {
-        url.searchParams.delete('module')
-      }
-      return applyNoStoreHeaders(NextResponse.redirect(url, 308))
+      url.searchParams.set('page', target.page)
+      if (target.module) url.searchParams.set('module', target.module)
+      else url.searchParams.delete('module')
+      if (target.action) url.searchParams.set('action', target.action)
+      else url.searchParams.delete('action')
+      if (target.focus) url.searchParams.set('focus', target.focus)
+      else url.searchParams.delete('focus')
+      return applyNoStoreHeaders(NextResponse.redirect(url, 307))
     }
 
     return applyNoStoreHeaders(response)
@@ -203,6 +235,8 @@ export const config = {
     '/compliance/:path*',
     '/education/:path*',
     '/marketplace/sell/:path*',
+    '/marketplace/intake/:path*',
+    '/marketplace/financing/:path*',
     '/marketplace/my-listings/:path*',
     '/marketplace/submit-listing',
     '/marketplace/wanted-requests',
