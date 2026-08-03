@@ -26,11 +26,7 @@ function readEnv(name: string) {
 
 function requireEnv(name: string) {
   const value = readEnv(name)
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`)
-  }
-
+  if (!value) throw new Error(`Missing required environment variable: ${name}`)
   return value
 }
 
@@ -51,6 +47,8 @@ function isExpectedSupabaseUrl(url: string) {
 }
 
 function isExplicitlyAllowedLocalSupabaseUrl(url: string) {
+  if (process.env.VERCEL_ENV === 'production') return false
+  if (process.env.CI !== '1' || process.env.GITHUB_ACTIONS !== 'true') return false
   if (process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1') return false
   const parsed = parseUrlSafely(url)
   return Boolean(parsed && parsed.protocol === 'http:' && LOCAL_SUPABASE_HOSTS.has(parsed.hostname))
@@ -98,9 +96,7 @@ export function isSupabaseSecretKey(value: string) {
 export function assertBrowserSafeSupabaseKey(value: string, sourceName: string) {
   const key = value.trim()
 
-  if (!key) {
-    throw new Error(`Missing browser-safe Supabase public key: ${sourceName}`)
-  }
+  if (!key) throw new Error(`Missing browser-safe Supabase public key: ${sourceName}`)
 
   if (isSupabaseSecretKey(key)) {
     throw new Error(
@@ -167,9 +163,7 @@ export function getSupabaseEnvStatus() {
   const resolvedUrl = resolveLockedSupabaseUrl(url)
   let rawHost: string | null = null
 
-  if (normalizedUrl) {
-    rawHost = parseHostnameSafely(normalizedUrl)
-  }
+  if (normalizedUrl) rawHost = parseHostnameSafely(normalizedUrl)
   const resolvedHost = new URL(resolvedUrl).hostname
   const urlUsesExpectedProject = Boolean(rawHost && rawHost === EXPECTED_SUPABASE_HOST)
   const usesExplicitLocalVerification = Boolean(normalizedUrl && isExplicitlyAllowedLocalSupabaseUrl(normalizedUrl))
@@ -190,9 +184,7 @@ export function getSupabaseEnvStatus() {
     })
   }
 
-  if (url) {
-    assertAllowedSupabaseUrl(resolveLockedSupabaseUrl(url))
-  }
+  if (url) assertAllowedSupabaseUrl(resolveLockedSupabaseUrl(url))
 
   return {
     configured: missing.length === 0,
