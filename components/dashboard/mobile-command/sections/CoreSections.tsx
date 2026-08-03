@@ -1,0 +1,214 @@
+import Link from 'next/link'
+import type { MarketView } from '../../CommandCentre'
+import type { MobileCommandCentreProps } from '../props'
+import {
+  MARKET_TABS,
+  MOBILE_COMMAND_COPY,
+  formatStatus,
+  readString,
+  type NextAction,
+  type NormalizedListing,
+} from '../contracts'
+import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+
+export function OverviewSection({
+  sectionRef,
+  countryLabel,
+  roleLabel,
+  publicSummary,
+  marketAccessStatus,
+  reviewStatus,
+  dataCompleteness,
+  firstAction,
+  onOpenActions,
+}: {
+  sectionRef: SectionRef
+  countryLabel: string
+  roleLabel: string
+  publicSummary?: string | null
+  marketAccessStatus?: string | null
+  reviewStatus: string
+  dataCompleteness: string
+  firstAction?: NextAction
+  onOpenActions: () => void
+}) {
+  return (
+    <section id="overview" ref={sectionRef} className="hvm2-section hvm2-overview">
+      <div className="hvm2-hero-grid">
+        <article className="hvm2-command-brief">
+          <span>Command brief</span>
+          <h2>{countryLabel} operating picture</h2>
+          <p>{publicSummary?.trim() || `${countryLabel} is loaded as the active jurisdiction for ${roleLabel}. Live marketplace, intelligence, pathway and education signals are consolidated below.`}</p>
+          <div className="hvm2-brief-tags">
+            <StatusPill tone="gold">{formatStatus(marketAccessStatus, 'Market access review')}</StatusPill>
+            <StatusPill>{reviewStatus}</StatusPill>
+            <StatusPill>{dataCompleteness}</StatusPill>
+          </div>
+        </article>
+        <article className="hvm2-priority-card">
+          <span>Immediate priority</span>
+          <strong>{firstAction?.label ?? 'Validate the active market context'}</strong>
+          <p>{firstAction?.detail ?? 'Review the live operating picture before moving into commercial action.'}</p>
+          <button type="button" onClick={onOpenActions}>Open action queue</button>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+export function LiveStatusSection({
+  sectionRef,
+  marketplaceCount,
+  wantedCount,
+  signalCount,
+  confidence,
+  reviewStatus,
+  sourceCoverageCount,
+}: {
+  sectionRef: SectionRef
+  marketplaceCount: number
+  wantedCount: number
+  signalCount: number
+  confidence: number | null
+  reviewStatus: string
+  sourceCoverageCount: number
+}) {
+  return (
+    <SectionShell id="live-status" sectionRef={sectionRef} eyebrow="Metrics / live status" title="Current operating state" description="A compact read on opportunity, demand, evidence and intelligence in the selected jurisdiction-role context.">
+      <div className="hvm2-metric-grid">
+        <Metric label="Marketplace records" value={marketplaceCount} detail="Across all active categories" tone="gold" />
+        <Metric label="Wanted demand" value={wantedCount} detail="Approved demand records" />
+        <Metric label="Live intelligence" value={signalCount} detail="Signals in current feed" tone="ok" />
+        <Metric label="Evidence confidence" value={confidence == null ? '—' : `${confidence}%`} detail={`${reviewStatus} · ${sourceCoverageCount} source lanes`} tone={confidence != null && confidence >= 75 ? 'ok' : 'neutral'} />
+      </div>
+    </SectionShell>
+  )
+}
+
+export function MarketIntelligenceSection({
+  sectionRef,
+  marketMetrics,
+  tradeFlows,
+}: {
+  sectionRef: SectionRef
+  marketMetrics: NonNullable<MobileCommandCentreProps['marketMetrics']>
+  tradeFlows: NonNullable<MobileCommandCentreProps['tradeFlows']>
+}) {
+  return (
+    <SectionShell id="market-intelligence" sectionRef={sectionRef} eyebrow="Market intelligence" title="Metrics and trade flows" description="Country-context market indicators and reviewed trade corridors are presented separately from marketplace listings.">
+      {marketMetrics.length > 0 || tradeFlows.length > 0 ? (
+        <div className="hvm2-compliance-grid">
+          {marketMetrics.map((metric, index) => (
+            <article key={`metric-${readString(metric, ['id'], String(index))}`}>
+              <span>{readString(metric, ['category', 'metric_type', 'label'], 'Market metric')}</span>
+              <strong>{readString(metric, ['metric_name', 'name', 'title'], 'Market indicator')}</strong>
+              <p>{readString(metric, ['display_value', 'value', 'summary'], 'Value under review')}</p>
+            </article>
+          ))}
+          {tradeFlows.map((flow, index) => (
+            <article key={`flow-${readString(flow, ['id'], String(index))}`}>
+              <span>{readString(flow, ['origin', 'source_country'], 'Trade')} → {readString(flow, ['destination', 'destination_country'], 'Market')}</span>
+              <strong>{readString(flow, ['product', 'product_type', 'title'], 'Reviewed trade flow')}</strong>
+              <p>{readString(flow, ['summary', 'status', 'volume'], 'Corridor evidence under review')}</p>
+            </article>
+          ))}
+        </div>
+      ) : <EmptyState title="Market intelligence is ready for data" detail="No reviewed metrics or trade flows matched the current jurisdiction yet." />}
+    </SectionShell>
+  )
+}
+
+function ListingCard({ row, href, cta }: { row: NormalizedListing; href: string; cta: string }) {
+  return (
+    <article className="hvm2-listing-card">
+      <div className="hvm2-card-topline"><StatusPill tone="gold">{row.category}</StatusPill><span>{row.jurisdiction}</span></div>
+      <h3>{row.title}</h3>
+      <p>{row.summary}</p>
+      <div className="hvm2-card-meta">
+        <span>{formatStatus(row.status)}</span>
+        <span>{formatStatus(row.channel, MOBILE_COMMAND_COPY.listingChannel)}</span>
+        {row.confidence != null && <span>{row.confidence}% confidence</span>}
+      </div>
+      <Link href={href}>{cta}</Link>
+    </article>
+  )
+}
+
+export function MarketplaceSection({
+  sectionRef,
+  activeMarketView,
+  marketQuery,
+  marketRows,
+  filteredRows,
+  onMarketViewChange,
+  onMarketQueryChange,
+  routeHref,
+}: {
+  sectionRef: SectionRef
+  activeMarketView: MarketView
+  marketQuery: string
+  marketRows: NormalizedListing[]
+  filteredRows: NormalizedListing[]
+  onMarketViewChange: (view: MarketView) => void
+  onMarketQueryChange: (value: string) => void
+  routeHref: (path: string, changes?: Record<string, string>) => string
+}) {
+  const searchLabel = `Search ${MARKET_TABS.find(tab => tab.id === activeMarketView)?.label.toLowerCase() ?? 'marketplace'}`
+  return (
+    <SectionShell id="marketplace" sectionRef={sectionRef} eyebrow="Marketplace control" title="Demand, supply and commercial routes" description={MOBILE_COMMAND_COPY.marketplaceDescription} action={<Link className="hvm2-text-link" href={routeHref('/marketplace')}>Open exchange</Link>} className="hvm2-market-section">
+      <div className="hvm2-quick-actions">
+        <Link href={routeHref('/marketplace/wanted')}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></Link>
+        <Link href={routeHref('/marketplace/sell')}><span>↗</span><strong>Submit supply</strong><small>Controlled review intake</small></Link>
+        <Link href={routeHref('/marketplace/financing')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></Link>
+      </div>
+      <div className="hvm2-market-controls">
+        <div className="hvm2-tab-rail" role="tablist" aria-label="Marketplace categories">
+          {MARKET_TABS.map(tab => {
+            const count = marketRows.filter(row => row.view === tab.id).length
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`hvm2-tab-${tab.id}`}
+                aria-controls="hvm2-market-panel"
+                aria-selected={activeMarketView === tab.id}
+                tabIndex={activeMarketView === tab.id ? 0 : -1}
+                className={activeMarketView === tab.id ? 'active' : ''}
+                onClick={() => onMarketViewChange(tab.id)}
+              >
+                {tab.label}<span aria-label={`${count} records`}>{count}</span>
+              </button>
+            )
+          })}
+        </div>
+        <label className="hvm2-search-field">
+          <span aria-hidden="true">⌕</span>
+          <input value={marketQuery} onChange={event => onMarketQueryChange(event.target.value)} aria-label={searchLabel} placeholder={searchLabel} />
+        </label>
+      </div>
+      <div id="hvm2-market-panel" role="tabpanel" aria-labelledby={`hvm2-tab-${activeMarketView}`}>
+        {filteredRows.length > 0 ? (
+          <div className="hvm2-listing-grid">
+            {filteredRows.map(row => <ListingCard key={`${row.view}-${row.id}`} row={row} href={routeHref('/intake', { topic: 'marketplace', listing: row.id })} cta={MOBILE_COMMAND_COPY.reviewedIntroduction} />)}
+          </div>
+        ) : <EmptyState title="No records match this view" detail="The category remains available. Adjust the search or post a wanted requirement for Harbourview review." />}
+      </div>
+    </SectionShell>
+  )
+}
+
+export function SupplySection({ sectionRef, supplyRows, routeHref }: { sectionRef: SectionRef; supplyRows: NormalizedListing[]; routeHref: (path: string, changes?: Record<string, string>) => string }) {
+  return (
+    <SectionShell id="supply" sectionRef={sectionRef} eyebrow="Supply" title="Products, consumables, equipment and services" description="The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products." action={<Link className="hvm2-text-link" href={routeHref('/supply')}>Supply catalogue</Link>}>
+      <div className="hvm2-metric-grid">
+        {MARKET_TABS.filter(tab => !['wanted', 'opportunities'].includes(tab.id)).map(tab => <Metric key={tab.id} label={tab.label} value={supplyRows.filter(row => row.view === tab.id).length} detail="Approved loaded records" />)}
+      </div>
+      {supplyRows.length > 0 ? (
+        <div className="hvm2-horizontal-deck hvm2-deck-spaced">
+          {supplyRows.map(row => <ListingCard key={`supply-${row.view}-${row.id}`} row={row} href={routeHref('/intake', { topic: 'supply', listing: row.id })} cta={MOBILE_COMMAND_COPY.supplyReview} />)}
+        </div>
+      ) : <EmptyState title="No reviewed supply records loaded" detail="Post a supply submission or wanted requirement for Harbourview review." />}
+    </SectionShell>
+  )
+}
