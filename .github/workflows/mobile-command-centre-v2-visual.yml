@@ -9,6 +9,7 @@ on:
       - lib/supabase/env.ts
       - components/dashboard/MobileCommandCentreRebuild.tsx
       - components/dashboard/MobileCommandCentreRebuild.css
+      - components/dashboard/MobileCommandCentreWorkspaces.css
       - components/dashboard/DashboardResponsiveShell.tsx
       - components/dashboard/mobile-command/**
       - tests/dashboard/mobileCommandCentreV2.test.ts
