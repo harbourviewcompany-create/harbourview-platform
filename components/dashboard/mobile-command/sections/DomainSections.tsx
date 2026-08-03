@@ -16,9 +16,9 @@ export function GeneticsSection({ sectionRef, records, commandHref }: { sectionR
     <SectionShell id="genetics" sectionRef={sectionRef} eyebrow="Genetics" title="Cultivar and program intelligence" description="Reviewed cultivar passports and genetics records remain tied to evidence and controlled requests." action={<Link className="hvm2-text-link" href={commandHref('genetics')}>Genetics command</Link>}>
       {records.length > 0 ? (
         <div className="hvm2-horizontal-deck">
-          {records.map(item => <article className="hvm2-directory-card" key={item.id}><span>Cultivar passport</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
+          {records.map(item => <article className="hvm2-directory-card" key={item.id}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
         </div>
-      ) : <EmptyState title="No reviewed genetics records loaded" detail="Genetics remains available through controlled program and evidence requests." />}
+      ) : <EmptyState title="No reviewed genetics records loaded" detail={MOBILE_COMMAND_COPY.geneticsEmptyDetail} />}
     </SectionShell>
   )
 }
@@ -32,11 +32,15 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
   physicianAccess?: string | null
   commandHref: CommandHref
 }) {
+  const prescriberStatus = physicianAccess?.trim()
+    ? 'Guidance available'
+    : 'Prescriber pathway review'
+
   return (
     <SectionShell id="clinical" sectionRef={sectionRef} eyebrow="Clinical" title="Clinical access and education" description="Country-specific patient, prescriber and pharmacy context is kept separate from commercial claims." action={<Link className="hvm2-text-link" href={commandHref('clinical')}>Clinical command</Link>}>
       <div className="hvm2-two-column">
         <article><span>Patient access</span><h3>{programStatus || formatStatus(medicalStatus, 'Clinical pathway review')}</h3><p>{patientAccess || 'Patient-access detail is available when supported by reviewed jurisdiction evidence.'}</p></article>
-        <article><span>Prescriber access</span><h3>{roleShort}</h3><p>{physicianAccess || 'Prescribing, dispensing and professional obligations remain jurisdiction-specific and evidence-gated.'}</p></article>
+        <article><span>Prescriber access</span><h3>{prescriberStatus}</h3><p>{physicianAccess || `${roleShort} prescribing, dispensing and professional obligations remain jurisdiction-specific and evidence-gated.`}</p></article>
       </div>
     </SectionShell>
   )
@@ -99,7 +103,7 @@ export function FinancingSection({
   onCloseTool: () => void
 }) {
   return (
-    <SectionShell id="financing" sectionRef={sectionRef} eyebrow="Trade financing" title="Structure the commercial corridor" description={MOBILE_COMMAND_COPY.financingDescription} action={<button type="button" className="hvm2-text-link" onClick={() => onOpenTool('financing-intake')}>Open financing intake</button>}>
+    <SectionShell id="financing" sectionRef={sectionRef} eyebrow="Trade financing" title="Structure the commercial corridor" description={MOBILE_COMMAND_COPY.financingDescription}>
       <article className="hvm2-finance-card">
         <div><span>Active corridor</span><strong>{countryLabel} · {roleShort}</strong></div>
         <ol>
