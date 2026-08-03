@@ -15,7 +15,7 @@ function applyNoStoreHeaders(response: NextResponse) {
 
 type SubscriptionTier = 'free' | 'intel' | 'operator'
 
-type CommandCentreRouteTarget = {
+export type CommandCentreRouteTarget = {
   path: string
   page: string
   module?: string
@@ -76,7 +76,7 @@ const PROTECTED_PREFIXES = [
 // Order is significant: the most specific authenticated deep links are matched
 // before their broader feature families. Every matched customer feature resolves
 // into the desktop CommandCentre or MobileCommandCentre shell.
-const COMMAND_CENTRE_ROUTE_REDIRECTS: readonly CommandCentreRouteTarget[] = [
+export const COMMAND_CENTRE_ROUTE_REDIRECTS: readonly CommandCentreRouteTarget[] = [
   { path: '/dashboard/my-briefings', page: 'digest', module: 'personal-briefings', descendants: true },
   { path: '/dashboard/signals/search', page: 'signals', module: 'search', descendants: true },
   { path: '/dashboard/genetics', page: 'genetics', descendants: true },
@@ -88,7 +88,7 @@ const COMMAND_CENTRE_ROUTE_REDIRECTS: readonly CommandCentreRouteTarget[] = [
   { path: '/signals', page: 'signals', descendants: true },
   { path: '/intelligence', page: 'signals', descendants: true },
   { path: '/genetics', page: 'genetics', descendants: true },
-  { path: '/network/clinical-education', page: 'clinical', descendants: true },
+  { path: '/network/clinical-education', page: 'clinical' },
   { path: '/network', page: 'experts', module: 'directories', descendants: true },
   { path: '/opportunities', page: 'marketplace', descendants: true },
   { path: '/reviewed-connections', page: 'experts', module: 'directories', descendants: true },
@@ -98,16 +98,19 @@ const COMMAND_CENTRE_ROUTE_REDIRECTS: readonly CommandCentreRouteTarget[] = [
   { path: '/education', page: 'education', descendants: true },
 ]
 
-const PUBLIC_AUTH_EXCEPTIONS = ['/intelligence/watchlists']
+const PUBLIC_AUTH_EXCEPTIONS = new Set([
+  '/intelligence/watchlists',
+  '/network/clinical-education/request',
+])
 
-function isPublicAuthException(pathname: string): boolean {
-  return PUBLIC_AUTH_EXCEPTIONS.some((path) => pathname === path || pathname.startsWith(path + '/'))
+export function isPublicAuthException(pathname: string): boolean {
+  return PUBLIC_AUTH_EXCEPTIONS.has(pathname)
 }
 
-function commandCentreTarget(pathname: string): (CommandCentreRouteTarget & { focus?: string }) | null {
+export function commandCentreTarget(pathname: string): (CommandCentreRouteTarget & { focus?: string }) | null {
   for (const target of COMMAND_CENTRE_ROUTE_REDIRECTS) {
     const exact = pathname === target.path
-    const descendant = target.descendants && pathname.startsWith(target.path + '/')
+    const descendant = Boolean(target.descendants && pathname.startsWith(target.path + '/'))
     if (!exact && !descendant) continue
 
     return {
@@ -121,6 +124,7 @@ function commandCentreTarget(pathname: string): (CommandCentreRouteTarget & { fo
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const normalizedPathname = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  const requestedDestination = `${normalizedPathname}${request.nextUrl.search}`
 
   const legacyRedirects: Record<string, string> = {
     '/marketplace/submit-listing': '/marketplace/sell',
@@ -154,7 +158,9 @@ export async function middleware(request: NextRequest) {
       })
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
-      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
+      loginUrl.search = ''
+      loginUrl.searchParams.set('next', requestedDestination)
+      loginUrl.searchParams.set('error', 'Auth configuration is missing a browser-safe Supabase public key.')
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
@@ -175,7 +181,8 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
-      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
+      loginUrl.search = ''
+      loginUrl.searchParams.set('next', requestedDestination)
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
