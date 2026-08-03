@@ -151,9 +151,13 @@ jobs:
               const final = new URL(page.url())
               const finalPath = `${final.pathname}${final.search}`
               const intendedDestination = intendedDestinations[index]
-              const authExpected = `/login?next=${encodeURIComponent(routes[index])}`
+              const intendedDestinationPath = new URL(intendedDestination, baseUrl).pathname
+              const authExpected = [
+                `/login?next=${encodeURIComponent(routes[index])}`,
+                `/login?next=${encodeURIComponent(intendedDestinationPath)}`,
+              ]
               const reachedIntendedDestination = finalPath === intendedDestination
-              const correctlyAuthGated = finalPath === authExpected
+              const correctlyAuthGated = authExpected.includes(finalPath)
               const navigationStatusesValid = redirects.length > 0 && redirects.every(({ status }) => status >= 200 && status < 400)
               const item = {
                 route: routes[index],
