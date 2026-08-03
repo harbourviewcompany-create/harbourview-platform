@@ -5,7 +5,7 @@ Final remediation and evidence pass: 2026-08-03
 Draft PR: #1257  
 Canonical feature branch: `agent/command-centre-integration-rule`  
 Verified application/workflow source head: `ee4faaef61b1df60ce5e7d26dc574e5779b51546`  
-Authenticated evidence commit: `72d6b770938d1dab0c70b3d53b23b846668525a6`
+Authenticated evidence commit: [`72d6b770938d1dab0c70b3d53b23b846668525a6`](https://github.com/harbourviewcompany-create/harbourview-platform/commit/72d6b770938d1dab0c70b3d53b23b846668525a6)
 
 ## Final execution state
 
@@ -80,30 +80,30 @@ The complete relevant verification set passed on the remediated source head `ee4
 
 | Workflow | Run | Result |
 |---|---:|---|
-| Branch Verification | `30808599590` | PASS |
-| CI | `30808599628` | PASS |
-| Command Centre Integration Verify | `30808599776` | PASS |
-| Cloudflare Workers Preview Verify | `30808599585` | PASS |
-| Project Registry Discipline | `30808599731` | PASS |
-| Install Only Verification | `30808599927` | PASS |
-| Type Check | `30808599576` | PASS |
-| Supply Imagery Validation | `30808599574` | PASS |
-| Regulatory Signals Verify | `30808599652` | PASS |
-| HAR-39 HAR-40 Public Surfaces | `30808599638` | PASS |
-| PR 166 New Products Equipment Verification | `30808599689` | PASS |
-| PR 1222 Supply Visual Verification | — | SKIPPED — unrelated path scope |
+| Branch Verification | [`30808599590`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599590) | PASS |
+| CI | [`30808599628`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599628) | PASS |
+| Command Centre Integration Verify | [`30808599776`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599776) | PASS |
+| Cloudflare Workers Preview Verify | [`30808599585`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599585) | PASS |
+| Project Registry Discipline | [`30808599731`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599731) | PASS |
+| Install Only Verification | [`30808599927`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599927) | PASS |
+| Type Check | [`30808599576`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599576) | PASS |
+| Supply Imagery Validation | [`30808599574`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599574) | PASS |
+| Regulatory Signals Verify | [`30808599652`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599652) | PASS |
+| HAR-39 HAR-40 Public Surfaces | [`30808599638`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599638) | PASS |
+| PR 166 New Products Equipment Verification | [`30808599689`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808599689) | PASS |
+| PR 1222 Supply Visual Verification | [`30809842735`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30809842735) | SKIPPED — unrelated path scope on final documentation head |
 
 The successful partitions cover dependency installation, lint, typecheck, the full test suite, focused Command Centre and middleware/route tests, production build, branch probes, public-surface and leakage checks, Cloudflare/OpenNext preview execution, registry discipline and related repository verification.
 
 ## Authenticated six-width verification
 
-Workflow: `Command Centre Authenticated Visual`  
-Run: `30808598022`  
+Workflow: [`Command Centre Authenticated Visual`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808598022)  
+Run: [`30808598022`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808598022)  
 Verified source SHA: `ee4faaef61b1df60ce5e7d26dc574e5779b51546`  
-Visual job: `91669747975` — success  
-Evidence-commit job: `91670356958` — success  
-Evidence commit: `72d6b770938d1dab0c70b3d53b23b846668525a6`  
-Artifact: `command-centre-authenticated-visual-30808598022` (`8854002997`, 14-day retention)
+Visual job: [`91669747975`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808598022/job/91669747975) — success  
+Evidence-commit job: [`91670356958`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808598022/job/91670356958) — success  
+Evidence commit: [`72d6b770938d1dab0c70b3d53b23b846668525a6`](https://github.com/harbourviewcompany-create/harbourview-platform/commit/72d6b770938d1dab0c70b3d53b23b846668525a6)  
+Artifact: [`command-centre-authenticated-visual-30808598022`](https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/30808598022/artifacts/8854002997) (`8854002997`, 14-day retention)
 
 Successful stages:
 
