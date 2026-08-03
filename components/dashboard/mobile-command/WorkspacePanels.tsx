@@ -8,6 +8,7 @@ import {
   type MobileCommandTool,
   type NormalizedListing,
 } from './contracts'
+import '../MobileCommandCentreWorkspaces.css'
 
 export function MarketplaceWorkspacePanel({
   tool,
