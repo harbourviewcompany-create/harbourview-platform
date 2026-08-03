@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   assertBrowserSafeSupabaseKey,
   getSupabaseEnvStatus,
@@ -30,6 +30,7 @@ function fakeJwtWithRole(role: string) {
 describe('getSupabaseEnvStatus', () => {
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV }
+    vi.unstubAllGlobals()
   })
 
   it('does not throw and reports malformed URL deterministically', () => {
@@ -37,6 +38,7 @@ describe('getSupabaseEnvStatus', () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-test-key'
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
 
     expect(() => getSupabaseEnvStatus()).not.toThrow()
 
@@ -61,6 +63,7 @@ describe('getSupabaseEnvStatus', () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
 
     expect(() => getSupabaseEnvStatus()).not.toThrow()
 
@@ -79,10 +82,11 @@ describe('getSupabaseEnvStatus', () => {
     })
   })
 
-  it('accepts an explicitly gated loopback Supabase URL outside Vercel', () => {
+  it('accepts an explicitly gated loopback Supabase URL on the server outside Vercel', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
 
@@ -98,10 +102,35 @@ describe('getSupabaseEnvStatus', () => {
     })
   })
 
+  it('accepts an explicitly gated loopback Supabase URL in browser code', () => {
+    vi.stubGlobal('window', {})
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
+    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.VERCEL
+    delete process.env.VERCEL_ENV
+
+    expect(isExplicitLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)).toBe(true)
+    expect(getSupabaseUrl()).toBe('http://localhost:54321')
+  })
+
+  it('accepts the IPv6 loopback host under the explicit local gate', () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://[::1]:54321'
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
+    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    delete process.env.VERCEL
+    delete process.env.VERCEL_ENV
+
+    expect(isExplicitLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)).toBe(true)
+    expect(getSupabaseUrl()).toBe('http://[::1]:54321')
+  })
+
   it('keeps loopback URLs locked to the canonical project without the explicit gate', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
 
@@ -114,6 +143,7 @@ describe('getSupabaseEnvStatus', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     process.env.VERCEL = '1'
     process.env.VERCEL_ENV = 'preview'
 
