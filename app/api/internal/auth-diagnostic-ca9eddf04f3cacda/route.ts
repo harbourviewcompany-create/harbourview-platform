@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// Temporary preview-only, read-only diagnostic. No Auth mutation methods are called.
 const TARGET_EMAIL_SHA256 = 'ca9eddf04f3cacda649c2d1873707ad01b00e8b0754b8e9ac8d0b852373b54ac'
 
 function hashEmail(value: unknown) {
