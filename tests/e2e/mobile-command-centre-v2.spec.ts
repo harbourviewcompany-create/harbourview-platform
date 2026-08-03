@@ -3,6 +3,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 const WIDTHS = [320, 375, 390, 430, 768] as const
+const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const MOBILE_SECTION_IDS = [
   'overview',
   'live-status',
@@ -28,12 +30,25 @@ const MOBILE_SECTION_IDS = [
 
 const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
+function sharedContextOptions(): BrowserContextOptions {
+  if (!BASE_URL) throw new Error('HARBOURVIEW_PUBLIC_BASE_URL or PLAYWRIGHT_BASE_URL is required')
+  return {
+    baseURL: BASE_URL,
+    ...(BYPASS_TOKEN ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': BYPASS_TOKEN } } : {}),
+  }
+}
+
 async function authenticate(browser: Browser) {
   const email = process.env.E2E_TEST_USER_EMAIL
   const password = process.env.E2E_TEST_USER_PASSWORD
   if (!email || !password) throw new Error('E2E_TEST_USER_EMAIL and E2E_TEST_USER_PASSWORD are required')
 
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const context = await browser.newContext({
+    ...sharedContextOptions(),
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  })
   const page = await context.newPage()
   await page.goto('/login', { waitUntil: 'domcontentloaded' })
   await page.getByLabel('Email address').fill(email)
@@ -47,6 +62,7 @@ async function authenticate(browser: Browser) {
 
 function contextOptions(width: number, storageState: BrowserContextOptions['storageState']): BrowserContextOptions {
   return {
+    ...sharedContextOptions(),
     viewport: { width, height: width < 768 ? 900 : 960 },
     storageState,
     isMobile: width < 768,
