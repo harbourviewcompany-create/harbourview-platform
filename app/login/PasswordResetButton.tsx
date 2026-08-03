@@ -1,5 +1,6 @@
 'use client'
 
+import { getHarbourviewAuthCallbackUrl } from '@/lib/auth/canonicalRedirect'
 import { createClient } from '@/lib/supabase/client'
 
 export default function PasswordResetButton({
@@ -20,17 +21,16 @@ export default function PasswordResetButton({
     }
 
     onStart()
-    const recoveryRedirect = new URL('/auth/callback', window.location.origin)
-    recoveryRedirect.searchParams.set('next', '/reset-password')
+    const recoveryRedirect = getHarbourviewAuthCallbackUrl('/reset-password', window.location.origin)
 
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: recoveryRedirect.toString(),
+      redirectTo: recoveryRedirect,
     })
 
     onFinish(error
       ? { type: 'error', text: error.message }
-      : { type: 'success', text: 'Password reset email sent. Open the link in that email to choose a new password.' }
+      : { type: 'success', text: 'Password reset email sent. Open the newest message and use its link to choose a new password.' }
     )
   }
 
