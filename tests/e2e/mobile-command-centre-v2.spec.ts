@@ -6,6 +6,7 @@ const WIDTHS = [320, 375, 390, 430, 768] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && Boolean(BASE_URL?.includes('127.0.0.1'))
+const SENSITIVE_QUERY_KEY = /(?:code|token|secret|key|password|authorization|cookie|session|jwt)/i
 const MOBILE_SECTION_IDS = [
   'overview',
   'live-status',
@@ -42,10 +43,38 @@ function safeFileToken(value: string | undefined) {
   return (value || 'local').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80)
 }
 
+function sanitizeUrlForEvidence(value: string) {
+  try {
+    const url = new URL(value, BASE_URL || 'http://127.0.0.1')
+    for (const key of [...url.searchParams.keys()]) {
+      if (SENSITIVE_QUERY_KEY.test(key)) url.searchParams.set(key, '[redacted]')
+    }
+    url.hash = ''
+    return `${url.pathname}${url.search}`
+  } catch {
+    return sanitizeDiagnostic(value)
+  }
+}
+
+function sanitizeSearchForEvidence(search: string) {
+  if (!search) return ''
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  for (const key of [...params.keys()]) {
+    if (SENSITIVE_QUERY_KEY.test(key)) params.set(key, '[redacted]')
+  }
+  const sanitized = params.toString()
+  return sanitized ? `?${sanitized}` : ''
+}
+
 function sanitizeDiagnostic(value: string) {
   return value
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
-    .replace(/(access[_-]?token|refresh[_-]?token|authorization|cookie|password)(\s*[:=]\s*)([^\s,;]+)/gi, '$1$2[redacted]')
+    .replace(/((?:access|refresh|id)?[_-]?token|authorization|cookie|password|secret|api[_-]?key|code)(\s*[:=]\s*)([^\s,;&]+)/gi, '$1$2[redacted]')
+    .replace(/([?&](?:code|token|secret|key|password|authorization|cookie|session|jwt)=[^&#\s]*)/gi, (match) => {
+      const separator = match[0]
+      const key = match.slice(1).split('=')[0]
+      return `${separator}${key}=[redacted]`
+    })
     .replace(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/g, '[redacted-jwt]')
     .slice(0, 600)
 }
@@ -169,7 +198,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           const failedResponse: FailedResponse = {
             method: response.request().method(),
             pathname: url.pathname,
-            search: url.search,
+            search: sanitizeSearchForEvidence(url.search),
             status: response.status(),
           }
           if (isExpectedLocalDegradation(failedResponse)) {
@@ -185,7 +214,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
         })
         await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
-        report.finalUrl = page.url()
+        report.finalUrl = sanitizeUrlForEvidence(page.url())
         report.status = response?.status() ?? null
         expect(response?.status()).toBeLessThan(400)
 
@@ -207,6 +236,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             const href = (link as HTMLAnchorElement).href
             return new URL(href).pathname
           }))
+          expect(commandLinkPaths.length).toBeGreaterThan(0)
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
