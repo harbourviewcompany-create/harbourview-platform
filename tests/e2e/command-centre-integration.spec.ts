@@ -43,11 +43,15 @@ for (const viewport of viewports) {
     const pageErrors: string[] = []
     page.on('pageerror', error => pageErrors.push(error.message))
 
+    const isMobile = viewport.width <= 767
+    const shellSelector = isMobile ? '.hvm-app' : '.cc-app'
+    const shellMainSelector = isMobile ? '.hvm-main' : '.cc-main'
+
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.goto('/dashboard?country=CA', { waitUntil: 'domcontentloaded' })
 
     expect(page.url()).not.toMatch(/\/login(?:\?|$)/)
-    await expect(page.locator(viewport.width <= 767 ? '.hvm-app' : '.cc-app')).toBeVisible()
+    await expect(page.locator(shellSelector)).toBeVisible()
 
     const launcher = page.getByRole('button', { name: /modules/i })
     await expect(launcher).toBeVisible()
@@ -66,17 +70,18 @@ for (const viewport of viewports) {
       await page.goto(moduleHref(entry), { waitUntil: 'domcontentloaded' })
       expect(page.url(), `${entry.label} redirected out of the authenticated shell`).not.toMatch(/\/login(?:\?|$)/)
 
-      const shellSelector = entry.custom
-        ? `[data-command-centre-module="${entry.id}"]`
-        : viewport.width <= 767 ? '.hvm-app' : '.cc-app'
-      await expect(page.locator(shellSelector).first(), `${entry.label} shell`).toBeVisible()
+      await expect(page.locator(shellSelector), `${entry.label} canonical shell`).toBeVisible()
+      await expect(page.locator(shellMainSelector), `${entry.label} canonical shell main`).toBeVisible()
 
       if (entry.custom) {
-        await expect(page.getByRole('heading', { name: entry.label, exact: true }).first()).toBeVisible()
+        const moduleSurface = page.locator(`${shellMainSelector} > [data-command-centre-module="${entry.id}"]`)
+        await expect(moduleSurface, `${entry.label} must render inside the canonical shell main`).toBeVisible()
+        await expect(moduleSurface).toHaveAttribute('data-command-centre-shell', isMobile ? 'mobile' : 'desktop')
+        await expect(moduleSurface.getByRole('heading', { name: entry.label, exact: true }).first()).toBeVisible()
         if ('stateSelector' in entry) {
-          await expect(page.locator(entry.stateSelector).first(), `${entry.label} must expose content, empty, loading-resolved, or error state`).toBeVisible({ timeout: 15_000 })
+          await expect(moduleSurface.locator(entry.stateSelector).first(), `${entry.label} must expose content, empty, loading-resolved, or error state`).toBeVisible({ timeout: 15_000 })
         }
-        const loading = page.getByText(/Loading personalized briefings|Loading open roles/i)
+        const loading = moduleSurface.getByText(/Loading personalized briefings|Loading open roles/i)
         await expect(loading).toBeHidden({ timeout: 15_000 })
       } else {
         await expect(page.getByRole('button', { name: /modules/i })).toBeVisible()
@@ -117,7 +122,7 @@ for (const viewport of viewports) {
         module: entry.id,
         label: entry.label,
         url: page.url(),
-        shell: entry.custom ? 'shared-module' : viewport.width <= 767 ? 'mobile-command-centre' : 'desktop-command-centre',
+        shell: isMobile ? 'mobile-command-centre' : 'desktop-command-centre',
         state,
         ...layout,
         pageErrors: newErrors,
@@ -128,7 +133,7 @@ for (const viewport of viewports) {
     fs.mkdirSync(evidenceDirectory, { recursive: true })
 
     await page.goto('/dashboard?country=CA&page=marketplace&module=supply', { waitUntil: 'networkidle' })
-    await expect(page.locator('[data-command-centre-module="supply"]')).toBeVisible()
+    await expect(page.locator(`${shellMainSelector} > [data-command-centre-module="supply"]`)).toBeVisible()
     await page.screenshot({
       path: path.join(evidenceDirectory, `command-centre-${viewport.name}.png`),
       fullPage: true,
