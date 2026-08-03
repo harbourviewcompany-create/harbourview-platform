@@ -1,0 +1,46 @@
+name: PR 1257 Rollback Bootstrap
+
+on:
+  push:
+    branches:
+      - rollback/pr1257-command-centre
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr1257-rollback-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    if: contains(github.event.head_commit.message, '[pr1257-rollback-bootstrap]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout rollback branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: rollback/pr1257-command-centre
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Revert PR 1257 merge commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Harbourview Rollback"
+          git config user.email "harbourviewcompany@gmail.com"
+          git revert --no-commit 3779af890853572bbf13080c7d66c6dfed15baa7
+          rm -f .github/workflows/pr1257-rollback-bootstrap.yml
+          git add -A
+          git commit -m "revert: roll back Command Centre integration from PR 1257"
+
+      - name: Push rollback commit
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin HEAD:rollback/pr1257-command-centre
