@@ -1,10 +1,11 @@
 'use client'
 
-import type { MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useRef } from 'react'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
 import FinancingInquiryForm from '@/app/marketplace/financing/FinancingInquiryForm'
 import type { MarketView } from '../CommandCentre'
 import {
+  MOBILE_COMMAND_COPY,
   defaultListingTypeForView,
   type MobileCommandTool,
   type NormalizedListing,
@@ -22,15 +23,21 @@ export function MarketplaceWorkspacePanel({
   selectedListing: NormalizedListing | null
   activeMarketView: MarketView
   onClose: () => void
-  onViewSubmissions?: () => void
+  onViewSubmissions: () => void
 }) {
+  const workspaceRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (tool && tool !== 'financing-intake') workspaceRef.current?.focus()
+  }, [tool])
+
   if (!tool || tool === 'financing-intake') return null
 
   const config = tool === 'wanted-intake'
     ? {
         eyebrow: 'Marketplace command / wanted demand',
         title: 'Post a wanted requirement',
-        description: 'Create a buyer-led requirement without leaving Mobile Command. The submission remains review-gated before publication or counterparty routing.',
+        description: MOBILE_COMMAND_COPY.wantedIntakeDescription,
         defaultType: 'Wanted Request',
         defaultHeadline: '',
         defaultMarkets: '',
@@ -39,7 +46,7 @@ export function MarketplaceWorkspacePanel({
       ? {
           eyebrow: 'Marketplace command / supply intake',
           title: 'Submit supply for controlled review',
-          description: 'Add product, equipment, consumable, service or opportunity supply directly inside Mobile Command.',
+          description: MOBILE_COMMAND_COPY.supplyIntakeDescription,
           defaultType: defaultListingTypeForView(activeMarketView),
           defaultHeadline: '',
           defaultMarkets: '',
@@ -47,28 +54,19 @@ export function MarketplaceWorkspacePanel({
       : {
           eyebrow: 'Marketplace command / reviewed introduction',
           title: selectedListing ? `Request access to ${selectedListing.title}` : 'Request a reviewed introduction',
-          description: 'Harbourview reviews authorization, evidence, commercial fit and disclosure boundaries before any counterparty introduction.',
+          description: MOBILE_COMMAND_COPY.introductionDescription,
           defaultType: 'Qualified Access Request',
           defaultHeadline: selectedListing ? `Reviewed introduction request: ${selectedListing.title}` : '',
           defaultMarkets: selectedListing?.jurisdiction ?? '',
         }
 
-  function keepSuccessNavigationInCommand(event: ReactMouseEvent<HTMLElement>) {
-    const target = event.target
-    if (!(target instanceof Element)) return
-    const anchor = target.closest<HTMLAnchorElement>('a[href="/dashboard?page=marketplace"]')
-    if (!anchor) return
-    event.preventDefault()
-    if (onViewSubmissions) onViewSubmissions()
-    else onClose()
-  }
-
   return (
     <section
+      ref={workspaceRef}
+      tabIndex={-1}
       className="hvm2-workspace"
       data-mobile-command-tool={tool}
       aria-label={config.title}
-      onClickCapture={keepSuccessNavigationInCommand}
     >
       <header className="hvm2-workspace-header">
         <div>
@@ -91,21 +89,34 @@ export function MarketplaceWorkspacePanel({
         defaultType={config.defaultType}
         defaultHeadline={config.defaultHeadline}
         defaultMarkets={config.defaultMarkets}
+        onViewSubmissions={onViewSubmissions}
       />
     </section>
   )
 }
 
 export function FinancingWorkspacePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const workspaceRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    if (open) workspaceRef.current?.focus()
+  }, [open])
+
   if (!open) return null
 
   return (
-    <section className="hvm2-workspace hvm2-financing-workspace" data-mobile-command-tool="financing-intake" aria-label="Trade financing inquiry">
+    <section
+      ref={workspaceRef}
+      tabIndex={-1}
+      className="hvm2-workspace hvm2-financing-workspace"
+      data-mobile-command-tool="financing-intake"
+      aria-label="Trade financing inquiry"
+    >
       <header className="hvm2-workspace-header">
         <div>
           <span>Trade finance command / structured inquiry</span>
           <h3>Request financing support</h3>
-          <p>Complete the reviewed financing inquiry without leaving Mobile Command. This creates an inquiry only; it does not approve credit.</p>
+          <p>{MOBILE_COMMAND_COPY.financingInquiryDescription}</p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close financing workflow">Close</button>
       </header>
