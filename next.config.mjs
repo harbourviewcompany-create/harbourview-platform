@@ -2,6 +2,15 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 
+const allowLocalSupabase = process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1';
+const supabaseConnectSources = [
+  'https://zvxdgdkukjrrwamdpqrg.supabase.co',
+  'wss://zvxdgdkukjrrwamdpqrg.supabase.co',
+  ...(allowLocalSupabase
+    ? ['http://127.0.0.1:54321', 'ws://127.0.0.1:54321', 'http://localhost:54321', 'ws://localhost:54321']
+    : []),
+];
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -23,8 +32,9 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://zvxdgdkukjrrwamdpqrg.supabase.co",
-      // Supabase REST/realtime, Stripe checkout, Vercel preview feedback
-      "connect-src 'self' https://zvxdgdkukjrrwamdpqrg.supabase.co wss://zvxdgdkukjrrwamdpqrg.supabase.co https://api.stripe.com https://vercel.live",
+      // Production stays project-locked. Explicit local test runs add only the
+      // loopback Supabase endpoints needed for isolated authenticated evidence.
+      `connect-src 'self' ${supabaseConnectSources.join(' ')} https://api.stripe.com https://vercel.live`,
       "font-src 'self'",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
