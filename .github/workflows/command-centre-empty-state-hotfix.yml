@@ -1,0 +1,77 @@
+name: Command Centre Empty State Hotfix
+
+on:
+  push:
+    branches:
+      - agent/command-centre-integration-rule
+    paths:
+      - .github/workflows/command-centre-empty-state-hotfix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/command-centre-integration-rule
+          fetch-depth: 0
+
+      - name: Patch verified empty-state defects
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('components/dashboard/CommandCentreIntegrationGateway.tsx')
+          source = path.read_text()
+
+          market_before = """function MarketModule({ props }: { props: DashboardProps }) {
+            const metrics = props.marketMetrics ?? []
+            const flows = props.tradeFlows ?? []
+            return (
+              <Section eyebrow=\"Market Intelligence\" title=\"Market\" description=\"Country-context market metrics, trade flows and operating indicators.\">
+                <div className=\"ccig-grid\">
+                  {metrics.map((metric, index) => (
+          """
+          market_after = """function MarketModule({ props }: { props: DashboardProps }) {
+            const metrics = props.marketMetrics ?? []
+            const flows = props.tradeFlows ?? []
+            const hasMarketData = metrics.length > 0 || flows.length > 0
+            return (
+              <Section eyebrow=\"Market Intelligence\" title=\"Market\" description=\"Country-context market metrics, trade flows and operating indicators.\">
+                <div className=\"ccig-grid\">
+                  {!hasMarketData && <div className=\"ccig-empty\">No market metrics or trade flows match the current context.</div>}
+                  {metrics.map((metric, index) => (
+          """
+
+          talent_before = """      <div className=\"ccig-grid\">
+                {jobs?.map(job => (
+                  <article className=\"ccig-card\" key={job.id}>
+          """
+          talent_after = """      <div className=\"ccig-grid\">
+                {!error && jobs?.length === 0 && <div className=\"ccig-empty\">No open roles match the current context.</div>}
+                {jobs?.map(job => (
+                  <article className=\"ccig-card\" key={job.id}>
+          """
+
+          if market_before not in source:
+            raise SystemExit('MarketModule patch anchor not found')
+          if talent_before not in source:
+            raise SystemExit('TalentModule patch anchor not found')
+
+          source = source.replace(market_before, market_after, 1)
+          source = source.replace(talent_before, talent_after, 1)
+          path.write_text(source)
+
+      - name: Remove one-time workflow and commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/command-centre-empty-state-hotfix.yml
+          git config user.name "Harbourview Verification"
+          git config user.email "harbourviewcompany@gmail.com"
+          git add components/dashboard/CommandCentreIntegrationGateway.tsx .github/workflows/command-centre-empty-state-hotfix.yml
+          git commit -m "fix(command-centre): add verified empty states"
+          git push origin HEAD:agent/command-centre-integration-rule
