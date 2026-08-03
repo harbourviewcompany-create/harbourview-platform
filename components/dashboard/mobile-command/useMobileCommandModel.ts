@@ -12,13 +12,16 @@ import {
   PAGE_TO_SECTION,
   SECTION_IDS,
   SECTION_NAV,
+  SECTION_TO_DESKTOP_PAGE,
   clampPercent,
   formatStatus,
   matchesQuery,
   normalizeListing,
+  parseMobileCommandTool,
   readString,
   titleCase,
   type DirectoryRecord,
+  type MobileCommandTool,
   type NextAction,
   type NormalizedListing,
   type SectionId,
@@ -42,6 +45,10 @@ function contextParams(country: string | null | undefined, role: string | null |
   return params
 }
 
+function isMarketView(value: string | null): value is MarketView {
+  return Boolean(value && MARKET_TABS.some(tab => tab.id === value))
+}
+
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -50,6 +57,8 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const [activeMarketView, setActiveMarketView] = useState<MarketView>('cannabis')
   const [marketQuery, setMarketQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTool, setActiveTool] = useState<MobileCommandTool | null>(null)
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const sectionNodes = useRef(new Map<SectionId, HTMLElement>())
   const lastAppliedSection = useRef<SectionId | null>(null)
 
@@ -90,18 +99,22 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const currentCountry = searchParams.get('country') || props.initialCountryIso2
   const currentRole = searchParams.get('role') || props.initialRoleId
+  const baseContext = useMemo(
+    () => contextParams(currentCountry, currentRole),
+    [currentCountry, currentRole],
+  )
 
-  const sectionHref = useCallback((changes: Record<string, string>) => {
-    return buildHref(pathname, searchParams, changes)
-  }, [pathname, searchParams])
+  const dashboardHref = useCallback((changes: Record<string, string | null>) => {
+    return buildHref('/dashboard', baseContext, changes)
+  }, [baseContext])
 
-  const dashboardHref = useCallback((changes: Record<string, string>) => {
-    return buildHref('/dashboard', contextParams(currentCountry, currentRole), changes)
-  }, [currentCountry, currentRole])
-
-  const routeHref = useCallback((path: string, changes: Record<string, string> = {}) => {
-    return buildHref(path, contextParams(currentCountry, currentRole), changes)
-  }, [currentCountry, currentRole])
+  const commandHref = useCallback((section: SectionId, changes: Record<string, string | null> = {}) => {
+    return buildHref('/dashboard', baseContext, {
+      page: SECTION_TO_DESKTOP_PAGE[section],
+      section,
+      ...changes,
+    })
+  }, [baseContext])
 
   const marketRows = useMemo(
     () => MARKET_TABS.flatMap(tab => (props.marketplaceRows?.[tab.id] ?? [])
@@ -117,6 +130,11 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const supplyRows = useMemo(
     () => marketRows.filter(row => row.view !== 'wanted' && row.view !== 'opportunities'),
     [marketRows],
+  )
+
+  const selectedListing = useMemo(
+    () => selectedListingId ? marketRows.find(row => row.id === selectedListingId) ?? null : null,
+    [marketRows, selectedListingId],
   )
 
   const signals = props.digestSignals?.length ? props.digestSignals : props.signals
@@ -181,46 +199,46 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       id: 'inquiries',
       label: `Review ${pipeline.inquiry} active ${pipeline.inquiry === 1 ? 'inquiry' : 'inquiries'}`,
       detail: 'Qualify intent and decide whether the request should advance to controlled review.',
-      href: sectionHref({ section: 'market-status' }),
+      href: commandHref('market-status'),
       tone: 'gold',
     })
     if (pipeline.proof_review > 0) actions.push({
       id: 'proof',
       label: `${pipeline.proof_review} proof ${pipeline.proof_review === 1 ? 'gate' : 'gates'} require review`,
       detail: 'Check authorization, evidence and counterparty readiness before an introduction is released.',
-      href: sectionHref({ section: 'review-gates' }),
+      href: commandHref('review-gates'),
       tone: 'warn',
     })
     if ((props.wantedCount ?? 0) > 0) actions.push({
       id: 'wanted',
       label: `Assess ${props.wantedCount} wanted ${props.wantedCount === 1 ? 'request' : 'requests'}`,
       detail: 'Match verified demand against approved supply and service capacity.',
-      href: routeHref('/marketplace/wanted'),
+      href: commandHref('marketplace', { marketView: 'wanted' }),
       tone: 'gold',
     })
     actions.push({
       id: 'pathway',
       label: `Validate the ${countryLabel} access pathway`,
       detail: props.countryIntel?.commercial_pathway_summary?.trim() || 'Confirm licence, import/export, quality and evidence requirements for the selected role.',
-      href: sectionHref({ section: 'jurisdiction' }),
+      href: commandHref('jurisdiction'),
       tone: props.countryIntel?.review_status === 'approved' ? 'ok' : 'neutral',
     })
     if (!props.hasOrg) actions.push({
       id: 'organization',
       label: 'Connect an organization profile',
       detail: 'Add the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-      href: routeHref('/account'),
+      href: commandHref('overview', { page: 'organization' }),
       tone: 'warn',
     })
     if (educationTiles.length > 0) actions.push({
       id: 'education',
       label: `Continue the ${roleShort} education path`,
       detail: `${educationTiles.length} role-relevant modules are available in the current context.`,
-      href: sectionHref({ section: 'education' }),
+      href: commandHref('education'),
       tone: 'neutral',
     })
     return actions
-  }, [countryLabel, educationTiles.length, pipeline.inquiry, pipeline.proof_review, props.countryIntel, props.hasOrg, props.wantedCount, roleShort, routeHref, sectionHref])
+  }, [commandHref, countryLabel, educationTiles.length, pipeline.inquiry, pipeline.proof_review, props.countryIntel, props.hasOrg, props.wantedCount, roleShort])
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -236,14 +254,24 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     const initial = requested && SECTION_IDS.has(requested)
       ? requested as SectionId
       : PAGE_TO_SECTION[props.initialPage ?? 'briefing'] ?? 'overview'
-    if (lastAppliedSection.current === initial) return
-    lastAppliedSection.current = initial
-    setActiveSection(initial)
-    if (initial !== 'overview') {
-      const timer = window.setTimeout(() => sectionNodes.current.get(initial)?.scrollIntoView({ block: 'start' }), 120)
-      return () => window.clearTimeout(timer)
+    if (lastAppliedSection.current !== initial) {
+      lastAppliedSection.current = initial
+      setActiveSection(initial)
+      if (initial !== 'overview') {
+        const timer = window.setTimeout(() => sectionNodes.current.get(initial)?.scrollIntoView({ block: 'start' }), 120)
+        return () => window.clearTimeout(timer)
+      }
     }
   }, [props.initialPage, searchParams])
+
+  useEffect(() => {
+    const tool = parseMobileCommandTool(searchParams.get('tool'))
+    const requestedView = searchParams.get('marketView')
+    setActiveTool(tool)
+    setSelectedListingId(tool === 'introduction' ? searchParams.get('listing') : null)
+    if (isMarketView(requestedView)) setActiveMarketView(requestedView)
+    if (tool === 'wanted-intake') setActiveMarketView('wanted')
+  }, [searchParams])
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -257,9 +285,31 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const navigateToSection = useCallback((id: SectionId) => {
     setActiveSection(id)
     lastAppliedSection.current = id
-    router.replace(sectionHref({ section: id }), { scroll: false })
+    router.replace(commandHref(id), { scroll: false })
     window.requestAnimationFrame(() => sectionNodes.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }, [router, sectionHref])
+  }, [commandHref, router])
+
+  const openTool = useCallback((tool: MobileCommandTool, options: { listing?: NormalizedListing; marketView?: MarketView } = {}) => {
+    const section: SectionId = tool === 'financing-intake' ? 'financing' : 'marketplace'
+    const nextView = tool === 'wanted-intake' ? 'wanted' : options.marketView ?? options.listing?.view ?? activeMarketView
+    setActiveTool(tool)
+    setSelectedListingId(options.listing?.id ?? null)
+    setActiveMarketView(nextView)
+    setActiveSection(section)
+    lastAppliedSection.current = section
+    router.replace(commandHref(section, {
+      tool,
+      marketView: nextView,
+      listing: options.listing?.id ?? null,
+    }), { scroll: false })
+    window.requestAnimationFrame(() => sectionNodes.current.get(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [activeMarketView, commandHref, router])
+
+  const closeTool = useCallback(() => {
+    setActiveTool(null)
+    setSelectedListingId(null)
+    router.replace(commandHref(activeSection, { tool: null, listing: null }), { scroll: false })
+  }, [activeSection, commandHref, router])
 
   const updateContext = useCallback((key: 'country' | 'role', value: string) => {
     const nextCountryIso2 = key === 'country' ? value : currentCountry
@@ -293,14 +343,18 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     activeMarketView,
     marketQuery,
     searchQuery,
+    activeTool,
+    selectedListing,
     setActiveMarketView,
     setMarketQuery,
     setSearchQuery,
     sectionRef,
     navigateToSection,
+    openTool,
+    closeTool,
     updateContext,
     dashboardHref,
-    routeHref,
+    commandHref,
     country,
     countryLabel,
     countryIso2,
