@@ -94,8 +94,7 @@ describe('public route smoke coverage', () => {
   })
 
   it('keeps marketplace sell fallback redirect wired in middleware', () => {
-    const middlewareEntry = existsSync(join(repoRoot, 'middleware.ts')) ? 'middleware.ts' : 'proxy.ts'
-    const middlewareSource = readRepoFile(middlewareEntry)
+    const middlewareSource = readRepoFile('proxy.ts')
 
     expect(middlewareSource).toContain("'/marketplace/submit-listing': '/marketplace/sell'")
 

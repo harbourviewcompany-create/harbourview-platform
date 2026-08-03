@@ -25,16 +25,15 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
-cloudflare-env.d.ts
 
 # Local transient test artifacts
 tmp-test-*.bin
 
-# OpenNext generated Workers build output
-.open-next/
+# OpenNext
+.open-next
 
-# Wrangler local state and uncommitted Worker variables
-.wrangler/
+# wrangler files
+.wrangler
 .dev.vars*
 !.dev.vars.example
 
