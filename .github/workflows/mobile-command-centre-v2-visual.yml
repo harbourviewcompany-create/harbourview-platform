@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - next.config.mjs
       - components/dashboard/MobileCommandCentreRebuild.tsx
       - components/dashboard/MobileCommandCentreRebuild.css
       - components/dashboard/DashboardResponsiveShell.tsx
