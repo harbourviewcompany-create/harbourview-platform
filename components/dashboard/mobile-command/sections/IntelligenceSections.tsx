@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { MobileCommandCentreProps } from '../props'
-import type { NextAction, NormalizedListing, SectionId } from '../contracts'
+import { readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
 import { EmptyState, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
 type Signal = MobileCommandCentreProps['signals'][number]
@@ -77,18 +77,23 @@ export function SearchSection({ sectionRef, searchQuery, signalResults, listingR
   onListingSelect: (row: NormalizedListing) => void
 }) {
   const label = 'Search markets, products, regulations, operators or actions'
+  const totalResults = signalResults.length + listingResults.length
   return (
     <SectionShell id="search" sectionRef={sectionRef} eyebrow="Cross-command search" title="Search intelligence and marketplace records" description="Search operates across every signal and marketplace record already loaded into this authenticated command session.">
       <label className="hvm2-search-field hvm2-search-field-large">
         <span aria-hidden="true">⌕</span>
         <input value={searchQuery} onChange={event => onQueryChange(event.target.value)} aria-label={label} placeholder={label} />
       </label>
-      <div className="hvm2-search-summary"><span>{signalResults.length} signals</span><span>{listingResults.length} marketplace records</span></div>
+      <div className="hvm2-search-summary" role="status" aria-live="polite" aria-atomic="true">
+        <span>{totalResults} total results</span>
+        <span>{signalResults.length} signals</span>
+        <span>{listingResults.length} marketplace records</span>
+      </div>
       {searchQuery.trim() && (
-        <div className="hvm2-search-results">
-          {signalResults.map(signal => <button type="button" key={`signal-${signal.id}`} onClick={onSignalSelect}><span>Signal</span><strong>{signal.title}</strong><small>{signal.market}</small></button>)}
-          {listingResults.map(row => <button type="button" key={`listing-${row.view}-${row.id}`} onClick={() => onListingSelect(row)}><span>Marketplace</span><strong>{row.title}</strong><small>{row.category} · {row.jurisdiction}</small></button>)}
-          {signalResults.length === 0 && listingResults.length === 0 && <EmptyState title="No command records matched" detail="Try a country, product, regulatory topic or commercial category." />}
+        <div className="hvm2-search-results" role="list" aria-label="Command search results">
+          {signalResults.map(signal => <button type="button" role="listitem" key={`signal-${signal.id}`} onClick={onSignalSelect}><span>Signal</span><strong>{signal.title}</strong><small>{signal.market}</small></button>)}
+          {listingResults.map(row => <button type="button" role="listitem" key={`listing-${row.view}-${row.id}`} onClick={() => onListingSelect(row)}><span>Marketplace</span><strong>{row.title}</strong><small>{row.category} · {row.jurisdiction}</small></button>)}
+          {totalResults === 0 && <EmptyState title="No command records matched" detail="Try a country, product, regulatory topic or commercial category." />}
         </div>
       )}
     </SectionShell>
@@ -111,21 +116,16 @@ export function EducationSection({
       {tiles.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {tiles.map((tile, index) => {
-            const record = tile as unknown as Record<string, unknown>
-            const module = typeof record.slug === 'string' && record.slug ? record.slug : 'overview'
-            const title = typeof record.title === 'string' && record.title ? record.title : 'Education module'
-            const description = typeof record.desc === 'string' && record.desc
-              ? record.desc
-              : typeof record.description === 'string' && record.description
-                ? record.description
-                : 'Role-relevant education content.'
-            const icon = typeof record.icon === 'string' && record.icon ? record.icon : '◇'
+            const moduleSlug = readString(tile, ['slug'], 'overview')
+            const title = readString(tile, ['title'], 'Education module')
+            const description = readString(tile, ['desc', 'description'], 'Role-relevant education content.')
+            const icon = readString(tile, ['icon'], '◇')
             return (
-              <article className="hvm2-education-card" key={`${module}-${index}`}>
+              <article className="hvm2-education-card" key={`${moduleSlug}-${index}`}>
                 <span aria-hidden="true">{icon}</span>
                 <h3>{title}</h3>
                 <p>{description}</p>
-                <Link href={commandHref('education', { module })}>Open module</Link>
+                <Link href={commandHref('education', { module: moduleSlug })}>Open module</Link>
               </article>
             )
           })}
