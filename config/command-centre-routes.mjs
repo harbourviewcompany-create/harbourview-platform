@@ -34,17 +34,18 @@ export const COMMAND_CENTRE_MODULES = [
 ]
 
 export const COMMAND_CENTRE_ROUTE_POLICY = [
-  { source: '/commercial-intelligence', destination: '/dashboard?page=signals', mode: 'redirect-now', reason: 'Legacy alias already represented by the intelligence module.' },
-  { source: '/intelligence', destination: '/dashboard?page=signals', mode: 'redirect-now', reason: 'Canonical intelligence rendering belongs in the command shell.' },
-  { source: '/intelligence/country-briefs', destination: '/dashboard?page=countries', mode: 'redirect-now', reason: 'Country intelligence is already loaded by the command shell.' },
-  { source: '/intelligence/regulatory-pathways', destination: '/dashboard?page=regulatory', mode: 'redirect-now', reason: 'Regulatory pathway rendering belongs in the command shell.' },
+  { source: '/commercial-intelligence', destination: '/intelligence', mode: 'redirect-now', reason: 'Legacy alias retains the current public intelligence entry until guest command parity is complete.' },
   { source: '/intelligence/counterparty-intelligence', destination: '/dashboard?page=evidence', mode: 'redirect-now', reason: 'Private counterparty review belongs behind authenticated evidence controls.' },
-  { source: '/signals', destination: '/dashboard?page=signals', mode: 'redirect-now', reason: 'Signals already render as a command module.' },
-  { source: '/markets', destination: '/dashboard?page=countries', mode: 'redirect-now', reason: 'Country and jurisdiction context belong in the command shell.' },
-  { source: '/compliance', destination: '/dashboard?page=compliance', mode: 'redirect-now', reason: 'Compliance is a command module.' },
-  { source: '/professionals', destination: '/dashboard?page=experts', mode: 'redirect-now', reason: 'Reviewed professional records belong in directories.' },
-  { source: '/reviewed-connections', destination: '/dashboard?page=experts', mode: 'redirect-now', reason: 'Reviewed connections belong in directories and network modules.' },
-  { source: '/network', destination: '/dashboard?page=experts', mode: 'redirect-now', reason: 'Network discovery belongs in the command shell.' },
+
+  { source: '/intelligence', destination: '/dashboard?page=signals', mode: 'redirect-after-parity', reason: 'Public intelligence orientation must render in a guest command shell before retirement.' },
+  { source: '/intelligence/country-briefs', destination: '/dashboard?page=countries', mode: 'redirect-after-parity', reason: 'Country brief public, SEO, source-status and request-path parity is required.' },
+  { source: '/intelligence/regulatory-pathways', destination: '/dashboard?page=regulatory', mode: 'redirect-after-parity', reason: 'Public regulatory orientation and disclaimer parity is required before retirement.' },
+  { source: '/signals', destination: '/dashboard?page=signals', mode: 'redirect-after-parity', reason: 'Published and fallback signal origin disclosure must be preserved in guest command mode.' },
+  { source: '/markets', destination: '/dashboard?page=countries', mode: 'redirect-after-parity', reason: 'Public country discovery, SEO and request-path parity is required.' },
+  { source: '/compliance', destination: '/dashboard?page=compliance', mode: 'redirect-after-parity', reason: 'Public compliance orientation and legal-boundary copy must be embedded first.' },
+  { source: '/professionals', destination: '/dashboard?page=experts', mode: 'redirect-after-parity', reason: 'Public professional projection and reviewed-access behavior must be preserved.' },
+  { source: '/reviewed-connections', destination: '/dashboard?page=experts', mode: 'redirect-after-parity', reason: 'Public reviewed-connection framing and request workflow must be embedded first.' },
+  { source: '/network', destination: '/dashboard?page=experts', mode: 'redirect-after-parity', reason: 'Public network orientation must have guest command parity before retirement.' },
   { source: '/education', destination: '/dashboard?page=education', mode: 'redirect-after-parity', reason: 'Preserve public education disclaimers until every track is embedded with parity.' },
   { source: '/network/clinical-education', destination: '/dashboard?page=clinical', mode: 'redirect-after-parity', reason: 'Clinical disclaimer and request flows must be embedded before retirement.' },
   { source: '/intelligence/licensing-pathways', destination: '/dashboard?page=licences', mode: 'redirect-after-parity', reason: 'Live-data and disclaimer parity required by repository control policy.' },
@@ -53,6 +54,7 @@ export const COMMAND_CENTRE_ROUTE_POLICY = [
   { source: '/marketplace/listings', destination: '/dashboard?page=marketplace', mode: 'redirect-after-parity', reason: 'Public-safe listing projection must render in guest command mode first.' },
   { source: '/marketplace/services', destination: '/dashboard?page=marketplace', mode: 'redirect-after-parity', reason: 'Service listing parity required.' },
   { source: '/marketplace/business-opportunities', destination: '/dashboard?page=marketplace', mode: 'redirect-after-parity', reason: 'Confidential opportunity intake must become an in-shell workflow first.' },
+
   { source: '/marketplace/sell', destination: '/dashboard?page=marketplace&action=sell', mode: 'intercept-next', reason: 'Convert to an in-shell drawer/modal with direct-load fallback.' },
   { source: '/marketplace/wanted', destination: '/dashboard?page=marketplace&action=wanted', mode: 'intercept-next', reason: 'Convert to an in-shell drawer/modal with direct-load fallback.' },
   { source: '/marketplace/financing', destination: '/dashboard?page=banking&action=financing', mode: 'intercept-next', reason: 'Convert to an in-shell financing workflow.' },
@@ -65,8 +67,8 @@ export const PUBLIC_ENTRY_EXCEPTIONS = [
   '/forgot-password',
   '/reset-password',
   '/auth/callback',
-  '/privacy',
-  '/terms',
+  '/legal/privacy',
+  '/legal/terms',
   '/accessibility',
 ]
 
