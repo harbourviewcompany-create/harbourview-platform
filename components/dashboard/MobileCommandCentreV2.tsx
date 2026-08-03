@@ -119,7 +119,6 @@ const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   compliance: 'compliance',
   licences: 'compliance',
   experts: 'network',
-  financing: 'financing' as never,
   banking: 'financing',
   'trade-calc': 'financing',
 }
@@ -136,16 +135,6 @@ function readString(value: unknown, keys: string[], fallback = ''): string {
     const candidate = item[key]
     if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
     if (typeof candidate === 'number' && Number.isFinite(candidate)) return String(candidate)
-  }
-  return fallback
-}
-
-function readNumber(value: unknown, keys: string[], fallback = 0): number {
-  const item = asRecord(value)
-  for (const key of keys) {
-    const candidate = item[key]
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate
-    if (typeof candidate === 'string' && candidate.trim() && Number.isFinite(Number(candidate))) return Number(candidate)
   }
   return fallback
 }
@@ -352,7 +341,7 @@ export default function MobileCommandCentreV2(props: Props) {
       id: 'organization',
       label: 'Connect an organization profile',
       detail: 'Add the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-      href: '/dashboard?page=organization',
+      href: '/account',
       tone: 'warn',
     })
     if (educationTiles.length > 0) actions.push({
@@ -419,7 +408,8 @@ export default function MobileCommandCentreV2(props: Props) {
 
   function updateContext(key: 'country' | 'role', value: string) {
     const params = new URLSearchParams(searchParams.toString())
-    params.set(key, value)
+    if (value) params.set(key, value)
+    else params.delete(key)
     params.set('section', activeSection)
     router.push(`/dashboard?${params.toString()}`)
   }
