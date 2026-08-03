@@ -51,8 +51,7 @@ try {
     return {
       name: cookie.name,
       value: cookie.value,
-      domain: cookieURL.hostname,
-      path: typeof options.path === 'string' ? options.path : '/',
+      url: cookieURL.origin,
       httpOnly: Boolean(options.httpOnly),
       secure: cookieURL.protocol === 'https:' ? options.secure !== false : false,
       ...(sameSite ? { sameSite } : {}),
@@ -72,9 +71,18 @@ try {
 } catch (error) {
   const bodyText = await page.locator('body').innerText().catch(() => '')
   const cookies = await context.cookies().catch(() => [])
+  const cookieSummary = cookies.map(cookie => ({
+    name: cookie.name,
+    domain: cookie.domain,
+    path: cookie.path,
+    httpOnly: cookie.httpOnly,
+    secure: cookie.secure,
+    sameSite: cookie.sameSite,
+    expires: cookie.expires,
+  }))
   fs.writeFileSync(
     path.join(diagnosticDirectory, 'auth-failure.txt'),
-    `URL: ${page.url()}\nCOOKIES: ${cookies.map(cookie => cookie.name).join(', ')}\n\n${bodyText}\n`,
+    `URL: ${page.url()}\nCOOKIES: ${JSON.stringify(cookieSummary, null, 2)}\n\n${bodyText}\n`,
   )
   await page.screenshot({ path: path.join(diagnosticDirectory, 'auth-failure.png'), fullPage: true }).catch(() => undefined)
   throw error
