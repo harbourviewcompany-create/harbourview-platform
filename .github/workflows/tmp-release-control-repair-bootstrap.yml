@@ -1,5 +1,6 @@
 name: Temporary release-control repair bootstrap
 
+# Second branch-only push activates this already-existing temporary workflow.
 on:
   push:
     branches:
