@@ -6,12 +6,13 @@ const root = process.cwd()
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8')
 
 const parent = read('components/dashboard/MobileCommandCentreRebuild.tsx')
+const model = read('components/dashboard/mobile-command/useMobileCommandModel.ts')
 const contracts = read('components/dashboard/mobile-command/contracts.ts')
 const core = read('components/dashboard/mobile-command/sections/CoreSections.tsx')
 const intelligence = read('components/dashboard/mobile-command/sections/IntelligenceSections.tsx')
 const operations = read('components/dashboard/mobile-command/sections/OperationsSections.tsx')
 const domains = read('components/dashboard/mobile-command/sections/DomainSections.tsx')
-const source = [parent, contracts, core, intelligence, operations, domains].join('\n')
+const source = [parent, model, contracts, core, intelligence, operations, domains].join('\n')
 const css = read('components/dashboard/MobileCommandCentreRebuild.css')
 const responsiveShell = read('components/dashboard/DashboardResponsiveShell.tsx')
 
@@ -55,7 +56,8 @@ describe('Mobile Command Centre rebuild contracts', () => {
     expect(intelligence).toContain('export function WeeklySignalsSection')
     expect(operations).toContain('export function DirectoriesSection')
     expect(domains).toContain('export function FinancingSection')
-    expect(parent.split('\n').length).toBeLessThan(400)
+    expect(model).toContain('export function useMobileCommandModel')
+    expect(parent.split('\n').length).toBeLessThan(180)
     expect(core.split('\n').length).toBeLessThan(350)
   })
 
@@ -78,9 +80,10 @@ describe('Mobile Command Centre rebuild contracts', () => {
   it('preserves jurisdiction and role across section and cross-route navigation', () => {
     expect(parent).toContain("updateContext('country', event.target.value)")
     expect(parent).toContain("updateContext('role', event.target.value)")
-    expect(parent).toContain("const countryValue = searchParams.get('country') || props.initialCountryIso2")
-    expect(parent).toContain("const roleValue = searchParams.get('role') || props.initialRoleId")
-    expect(parent).toContain('router.replace(dashboardHref({ section: id })')
+    expect(model).toContain("const currentCountry = searchParams.get('country') || props.initialCountryIso2")
+    expect(model).toContain("const currentRole = searchParams.get('role') || props.initialRoleId")
+    expect(model).toContain('router.replace(sectionHref({ section: id })')
+    expect(model).toContain("return buildHref('/dashboard', contextParams(currentCountry, currentRole), changes)")
   })
 
   it('centralizes approved mediation and private-data boundary copy', () => {
