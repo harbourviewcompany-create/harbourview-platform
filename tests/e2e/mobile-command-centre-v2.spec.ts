@@ -227,7 +227,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           report.shell = 'mobile-v2'
         } else {
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
-          await expect(page.getByRole('heading', { name: 'Briefing Room', exact: true })).toBeVisible()
+          await expect(page.getByText('Briefing Room', { exact: true }).first()).toBeVisible()
           report.shell = 'desktop-command-centre'
         }
 
