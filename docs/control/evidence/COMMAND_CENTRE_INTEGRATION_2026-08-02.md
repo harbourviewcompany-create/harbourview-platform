@@ -4,7 +4,7 @@ Date opened: 2026-08-02
 Final verification pass: 2026-08-03  
 Draft PR: #1257  
 Canonical feature branch: `agent/command-centre-integration-rule`  
-Verified head before this evidence update: `f826a1c67941c55c6eed0af4f2c727efaec12ac8`
+Verified evidence head: `9a205e50b79271927b631cfc72277563c543e3cf`
 
 ## Current execution state
 
@@ -54,6 +54,8 @@ The repaired workflow now:
 4. exits successfully when evidence is already current; and
 5. commits and pushes evidence only after the complete authenticated verification job succeeds.
 
+Evidence-only workflow loops were then prevented in commit `ca4c828e599244e1d0e3198e49554f97fcc9c945` by excluding both the screenshot directory and this verification document from the authenticated visual workflow triggers.
+
 The Market and Talent fixes are committed in `components/dashboard/CommandCentreIntegrationGateway.tsx`:
 
 - Market: `No market metrics or trade flows match the current context.`
@@ -64,10 +66,10 @@ The temporary `.github/workflows/command-centre-empty-state-hotfix.yml` file is 
 ## Successful final verification
 
 Workflow: `Command Centre Authenticated Visual`  
-Run: `30789726216`  
-Job: `91610531350`  
+Run: `30790868445`  
+Job: `91613904571`  
 Conclusion: `success`  
-Evidence commit: `f826a1c67941c55c6eed0af4f2c727efaec12ac8`
+Evidence commit: `9a205e50b79271927b631cfc72277563c543e3cf`
 
 | Command / stage | Exit | Result |
 |---|---:|---|
@@ -82,6 +84,8 @@ Evidence commit: `f826a1c67941c55c6eed0af4f2c727efaec12ac8`
 | Upload evidence artifact | 0 | PNG, JSON, report and runner logs uploaded |
 | Restore migrations and stop local services | 0 | Repository source tree restored; local services removed |
 | Commit six-width evidence | 0 | Required evidence committed to the feature branch |
+
+The preceding repaired run `30789726216`, job `91610531350`, also completed every stage successfully and proved the original Git pathspec failure was resolved.
 
 ## Screenshot and JSON evidence
 
@@ -109,7 +113,7 @@ No additional verified overflow, safe-area, navigation, loading, error, empty-st
 
 ## Deployment boundary
 
-The finishing pass did not create a production deployment or move a production alias. Vercel Git integration automatically created READY preview deployments for commits `eead12e09275200624aa69bbcd003051b58b446b` and `f826a1c67941c55c6eed0af4f2c727efaec12ac8`; both have `target: null` and remain non-production previews associated with the feature branch.
+The finishing pass did not create a production deployment or move a production alias. Vercel Git integration automatically created non-production preview deployments for feature-branch commits; the inspected deployments have `target: null` and remain previews associated with `agent/command-centre-integration-rule`.
 
 No manual Vercel deployment command was run. No production alias, database migration, secret or production data was changed.
 
