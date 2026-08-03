@@ -18,6 +18,16 @@ describe('Command Centre route contracts', () => {
     expect(source).toContain('COMMAND_CENTRE_MODULES.map')
     expect(source).toContain('ccig-nav--desktop')
     expect(source).toContain('ccig-nav--mobile')
+    expect(source).toContain('ccig-nav--inline')
+  })
+
+  it('renders custom modules into the canonical shell main regions instead of a standalone frame', () => {
+    const source = read('components/dashboard/CommandCentreIntegrationGateway.tsx')
+    expect(source).toContain("const selector = isMobile ? '.hvm-main' : '.cc-main'")
+    expect(source).toContain('createPortal(')
+    expect(source).toContain('data-command-centre-shell=')
+    expect(source).not.toContain('function Frame(')
+    expect(source).not.toContain('ccig-shell')
   })
 
   it('routes legacy authenticated standalone pages into the canonical shell', () => {
@@ -27,11 +37,11 @@ describe('Command Centre route contracts', () => {
       .toContain("redirect('/dashboard?page=signals&module=search')")
   })
 
-  it('redirects exact authenticated product roots only after auth and tier checks', () => {
+  it('redirects authenticated product routes only after auth and tier checks', () => {
     const source = read('middleware.ts')
     const authIndex = source.indexOf('if (!user)')
     const tierIndex = source.indexOf('if (matchedTierPrefix)')
-    const redirectIndex = source.indexOf('const commandCentreTarget')
+    const redirectIndex = source.indexOf('const target = commandCentreTarget')
     expect(authIndex).toBeGreaterThan(-1)
     expect(tierIndex).toBeGreaterThan(authIndex)
     expect(redirectIndex).toBeGreaterThan(tierIndex)
@@ -40,16 +50,21 @@ describe('Command Centre route contracts', () => {
       '/intelligence',
       '/genetics',
       '/network',
+      '/network/clinical-education',
       '/opportunities',
       '/reviewed-connections',
       '/professionals',
       '/assessments',
       '/compliance',
       '/education',
+      '/marketplace/sell',
+      '/marketplace/intake',
+      '/marketplace/financing',
       '/marketplace/my-listings',
     ]) {
       expect(source).toContain(`'${route}'`)
     }
+    expect(source).toContain("url.searchParams.set('focus', target.focus)")
   })
 
   it('keeps personal briefing data behind authentication and entitlement checks', () => {
