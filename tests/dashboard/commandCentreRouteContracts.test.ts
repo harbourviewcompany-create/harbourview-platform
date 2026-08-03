@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { commandCentreTarget, isPublicAuthException } from '@/middleware'
 
 const root = process.cwd()
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8')
@@ -47,33 +48,51 @@ describe('Command Centre route contracts', () => {
     expect(authIndex).toBeGreaterThan(-1)
     expect(tierIndex).toBeGreaterThan(authIndex)
     expect(redirectIndex).toBeGreaterThan(tierIndex)
-    for (const route of [
-      '/signals',
-      '/intelligence',
-      '/genetics',
-      '/network',
-      '/network/clinical-education',
-      '/opportunities',
-      '/reviewed-connections',
-      '/professionals',
-      '/assessments',
-      '/compliance',
-      '/education',
-      '/marketplace/sell',
-      '/marketplace/intake',
-      '/marketplace/financing',
-      '/marketplace/my-listings',
-    ]) {
-      expect(source).toContain(`'${route}'`)
-    }
     expect(source).toContain("url.searchParams.set('focus', target.focus)")
+    expect(source).toContain("loginUrl.searchParams.set('next', requestedDestination)")
   })
 
-  it('keeps personal briefing data behind authentication and entitlement checks', () => {
+  it('resolves protected route outputs directly, including descendant focus', () => {
+    const cases = [
+      ['/dashboard/my-briefings', { page: 'digest', module: 'personal-briefings' }],
+      ['/dashboard/signals/search', { page: 'signals', module: 'search' }],
+      ['/marketplace/financing', { page: 'marketplace', module: 'financing' }],
+      ['/marketplace/my-listings', { page: 'marketplace', action: 'my-listings' }],
+      ['/marketplace/sell/equipment', { page: 'marketplace', action: 'sell', focus: 'equipment' }],
+      ['/marketplace/intake/wanted', { page: 'marketplace', action: 'intake', focus: 'wanted' }],
+      ['/signals/search/advanced', { page: 'signals', module: 'search', focus: 'advanced' }],
+      ['/signals/regulatory', { page: 'signals', focus: 'regulatory' }],
+      ['/network/clinical-education', { page: 'clinical' }],
+      ['/network/operators', { page: 'experts', module: 'directories', focus: 'operators' }],
+      ['/education/pharmacists', { page: 'education', focus: 'pharmacists' }],
+    ] as const
+
+    for (const [pathname, expected] of cases) {
+      expect(commandCentreTarget(pathname)).toMatchObject(expected)
+    }
+    expect(commandCentreTarget('/network/clinical-education/request')).toMatchObject({
+      page: 'experts',
+      module: 'directories',
+      focus: 'clinical-education/request',
+    })
+  })
+
+  it('allows only exact public exception paths', () => {
+    expect(isPublicAuthException('/intelligence/watchlists')).toBe(true)
+    expect(isPublicAuthException('/intelligence/watchlists/private')).toBe(false)
+    expect(isPublicAuthException('/network/clinical-education/request')).toBe(true)
+    expect(isPublicAuthException('/network/clinical-education/request/private')).toBe(false)
+  })
+
+  it('keeps personal briefing data behind authentication, entitlement checks and bounded generation caching', () => {
     const source = read('app/api/dashboard/personal-briefings/route.ts')
     expect(source).toContain('if (!user)')
     expect(source).toContain("checkFeatureAccess({ app_metadata: user.app_metadata }, 'watchlist')")
     expect(source).toContain('status: 403')
+    const dataSource = read('lib/dashboard/personalBriefingsData.ts')
+    expect(dataSource).toContain('PERSONAL_BRIEFING_CACHE_TTL_MS')
+    expect(dataSource).toContain('personalBriefingFingerprint')
+    expect(dataSource).toContain('getCachedPersonalBriefing(userId')
   })
 
   it('integrates all custom surfaces through the gateway', () => {
@@ -95,9 +114,11 @@ describe('Command Centre route contracts', () => {
     expect(source).toContain("type MarketplaceAction = 'sell' | 'intake' | 'my-listings'")
   })
 
-  it('allows local Supabase only behind an explicit loopback-only verification gate', () => {
+  it('allows local Supabase only in explicit GitHub Actions loopback verification', () => {
     const envSource = read('lib/supabase/env.ts')
     const workflow = read('.github/workflows/command-centre-authenticated-visual.yml')
+    expect(envSource).toContain("process.env.VERCEL_ENV === 'production'")
+    expect(envSource).toContain("process.env.CI !== '1' || process.env.GITHUB_ACTIONS !== 'true'")
     expect(envSource).toContain("process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1'")
     expect(envSource).toContain("parsed.protocol === 'http:'")
     expect(envSource).toContain('LOCAL_SUPABASE_HOSTS.has(parsed.hostname)')
