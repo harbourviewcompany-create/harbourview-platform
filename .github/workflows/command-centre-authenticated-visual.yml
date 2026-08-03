@@ -67,15 +67,8 @@ jobs:
                   {metrics.map((metric, index) => (
           """
 
-          talent_before = """      <div className=\"ccig-grid\">
-                {jobs?.map(job => (
-                  <article className=\"ccig-card\" key={job.id}>
-          """
-          talent_after = """      <div className=\"ccig-grid\">
-                {!error && jobs?.length === 0 && <div className=\"ccig-empty\">No open roles match the current context.</div>}
-                {jobs?.map(job => (
-                  <article className=\"ccig-card\" key={job.id}>
-          """
+          talent_before = "        {jobs?.map(job => ("
+          talent_after = "        {!error && jobs?.length === 0 && <div className=\"ccig-empty\">No open roles match the current context.</div>}\n        {jobs?.map(job => ("
 
           if market_before in source:
             source = source.replace(market_before, market_after, 1)
