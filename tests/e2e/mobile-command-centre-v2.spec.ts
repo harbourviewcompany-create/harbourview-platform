@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContextOptions } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -32,6 +32,14 @@ const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
 function safeFileToken(value: string | undefined) {
   return (value || 'local').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80)
+}
+
+function sanitizeDiagnostic(value: string) {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
+    .replace(/(access[_-]?token|refresh[_-]?token|authorization|cookie|password)(\s*[:=]\s*)([^\s,;]+)/gi, '$1$2[redacted]')
+    .replace(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/g, '[redacted-jwt]')
+    .slice(0, 600)
 }
 
 function sharedContextOptions(): BrowserContextOptions {
@@ -77,6 +85,26 @@ function contextOptions(width: number, storageState: BrowserContextOptions['stor
   }
 }
 
+async function writeWidthEvidence(
+  page: Page | null,
+  width: number,
+  report: Record<string, unknown>,
+) {
+  const screenshot = `mobile-command-v2-${width}.png`
+  if (page) {
+    try {
+      await page.screenshot({ path: path.join(evidenceRoot, screenshot), fullPage: true })
+      report.screenshot = screenshot
+    } catch (error) {
+      report.screenshotError = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
+    }
+  }
+  await fs.writeFile(
+    path.join(evidenceRoot, `mobile-command-v2-${width}.json`),
+    `${JSON.stringify(report, null, 2)}\n`,
+  )
+}
+
 test.describe('Mobile Command Centre V2 authenticated visual verification', () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -84,27 +112,31 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
     const aggregate: Array<Record<string, unknown>> = []
+    const failures: string[] = []
 
     for (const width of WIDTHS) {
       const context = await browser.newContext(contextOptions(width, storageState))
+      let page: Page | null = null
+      const pageErrors: string[] = []
+      const consoleErrors: string[] = []
+      const report: Record<string, unknown> = { width }
+
       try {
-        const page = await context.newPage()
-        const pageErrors: string[] = []
-        const consoleErrors: string[] = []
-        page.on('pageerror', error => pageErrors.push(error.message))
-        page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()) })
+        page = await context.newPage()
+        page.on('pageerror', error => pageErrors.push(sanitizeDiagnostic(error.message)))
+        page.on('console', message => {
+          if (message.type() === 'error') consoleErrors.push(sanitizeDiagnostic(message.text()))
+        })
 
-        const response = await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+        const response = await page.goto('/dashboard?country=CA&role=exporter', {
+          waitUntil: 'domcontentloaded',
+          timeout: 60_000,
+        })
         await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {})
-        expect(response?.status()).toBeLessThan(400)
 
-        const report: Record<string, unknown> = {
-          width,
-          finalUrl: page.url(),
-          status: response?.status() ?? null,
-          pageErrors,
-          consoleErrors,
-        }
+        report.finalUrl = page.url()
+        report.status = response?.status() ?? null
+        expect(response?.status()).toBeLessThan(400)
 
         if (width < 768) {
           await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible()
@@ -116,7 +148,9 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           await expect(page.getByText('Trade financing', { exact: true }).first()).toBeVisible()
           await expect(page.getByText('⌘ Modules')).toHaveCount(0)
 
-          for (const section of MOBILE_SECTION_IDS) await expect(page.locator(`#${section}`)).toHaveCount(1)
+          for (const section of MOBILE_SECTION_IDS) {
+            await expect(page.locator(`#${section}`)).toHaveCount(1)
+          }
 
           const wantedHref = await page.getByRole('link', { name: 'Post wanted demand' }).getAttribute('href')
           expect(wantedHref).toContain('country=CA')
@@ -136,6 +170,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
               sectionCount: document.querySelectorAll('.hvm2-main > section').length,
             }
           })
+
           expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
           expect(geometry.sectionCount).toBe(MOBILE_SECTION_IDS.length)
           expect(geometry.bottomNav).not.toBeNull()
@@ -147,24 +182,36 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           report.shell = 'desktop-command-centre'
         }
 
-        expect(pageErrors).toEqual([])
-        expect(consoleErrors).toEqual([])
-
-        const screenshot = `mobile-command-v2-${width}.png`
-        await page.screenshot({ path: path.join(evidenceRoot, screenshot), fullPage: true })
-        report.screenshot = screenshot
-        await fs.writeFile(path.join(evidenceRoot, `mobile-command-v2-${width}.json`), JSON.stringify(report, null, 2))
-        aggregate.push(report)
+        if (pageErrors.length || consoleErrors.length) {
+          throw new Error(`Browser errors detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors`)
+        }
+        report.result = 'pass'
+      } catch (error) {
+        const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
+        report.result = 'fail'
+        report.failure = diagnostic
+        failures.push(`${width}px: ${diagnostic}`)
       } finally {
+        report.pageErrors = pageErrors
+        report.consoleErrors = consoleErrors
+        await writeWidthEvidence(page, width, report)
+        aggregate.push(report)
         await context.close()
       }
     }
 
-    const sourceToken = safeFileToken(process.env.GITHUB_SHA)
-    await fs.writeFile(path.join(evidenceRoot, `mobile-command-v2-summary-${sourceToken}.json`), JSON.stringify({
-      generatedAt: new Date().toISOString(),
-      sourceSha: process.env.GITHUB_SHA ?? null,
-      reports: aggregate,
-    }, null, 2))
+    const sourceSha = process.env.MOBILE_COMMAND_SOURCE_SHA || process.env.GITHUB_SHA || null
+    const sourceToken = safeFileToken(sourceSha ?? undefined)
+    await fs.writeFile(
+      path.join(evidenceRoot, `mobile-command-v2-summary-${sourceToken}.json`),
+      `${JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        sourceSha,
+        failures,
+        reports: aggregate,
+      }, null, 2)}\n`,
+    )
+
+    expect(failures, failures.join('\n')).toEqual([])
   })
 })
