@@ -41,11 +41,13 @@ export function normalizeCommandCentreModule(raw: string | null | undefined): Co
   if (!raw) return null
   const key = raw.trim().toLowerCase().replace(/_/g, '-')
   if (MODULE_BY_ID.has(key as CommandCentreModule)) return key as CommandCentreModule
-  return ALIASES[key] ?? null
+  return Object.hasOwn(ALIASES, key) ? ALIASES[key] : null
 }
 
 export function getCommandCentreModule(id: CommandCentreModule) {
-  return MODULE_BY_ID.get(id)!
+  const definition = MODULE_BY_ID.get(id)
+  if (!definition) throw new Error(`Unknown Command Centre module: ${String(id)}`)
+  return definition
 }
 
 export function isCustomCommandCentreModule(id: CommandCentreModule): boolean {
