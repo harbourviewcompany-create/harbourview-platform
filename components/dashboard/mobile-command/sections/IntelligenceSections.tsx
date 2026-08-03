@@ -1,10 +1,10 @@
 import Link from 'next/link'
 import type { MobileCommandCentreProps } from '../props'
-import type { NextAction, NormalizedListing } from '../contracts'
+import type { NextAction, NormalizedListing, SectionId } from '../contracts'
 import { EmptyState, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
- type Signal = MobileCommandCentreProps['signals'][number]
- type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
+type Signal = MobileCommandCentreProps['signals'][number]
+type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
 
 export function NextActionsSection({ sectionRef, actions }: { sectionRef: SectionRef; actions: NextAction[] }) {
   return (
@@ -22,9 +22,9 @@ export function NextActionsSection({ sectionRef, actions }: { sectionRef: Sectio
   )
 }
 
-export function WeeklySignalsSection({ sectionRef, signals, routeHref }: { sectionRef: SectionRef; signals: Signal[]; routeHref: (path: string) => string }) {
+export function WeeklySignalsSection({ sectionRef, signals }: { sectionRef: SectionRef; signals: Signal[] }) {
   return (
-    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Context / weekly signals" title="Intelligence requiring attention" description="All signals loaded into the current dashboard feed remain visible and reviewable here." action={<Link className="hvm2-text-link" href={routeHref('/signals')}>Signals workspace</Link>}>
+    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Context / weekly signals" title="Intelligence requiring attention" description="All signals loaded into the current dashboard feed remain visible and reviewable here.">
       {signals.length > 0 ? (
         <div className="hvm2-horizontal-deck" aria-label="Weekly intelligence signals">
           {signals.map(signal => (
@@ -95,9 +95,19 @@ export function SearchSection({ sectionRef, searchQuery, signalResults, listingR
   )
 }
 
-export function EducationSection({ sectionRef, roleShort, tiles, dashboardHref }: { sectionRef: SectionRef; roleShort: string; tiles: EducationTile[]; dashboardHref: (changes: Record<string, string>) => string }) {
+export function EducationSection({
+  sectionRef,
+  roleShort,
+  tiles,
+  commandHref,
+}: {
+  sectionRef: SectionRef
+  roleShort: string
+  tiles: EducationTile[]
+  commandHref: (section: SectionId, changes?: Record<string, string | null>) => string
+}) {
   return (
-    <SectionShell id="education" sectionRef={sectionRef} eyebrow="Context / education path" title={`${roleShort} learning path`} description="Role-relevant education is kept in the same operational context as market, access and compliance work." action={<Link className="hvm2-text-link" href={dashboardHref({ page: 'education' })}>Education hub</Link>}>
+    <SectionShell id="education" sectionRef={sectionRef} eyebrow="Context / education path" title={`${roleShort} learning path`} description="Role-relevant education is kept in the same operational context as market, access and compliance work.">
       {tiles.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {tiles.map((tile, index) => {
@@ -115,7 +125,7 @@ export function EducationSection({ sectionRef, roleShort, tiles, dashboardHref }
                 <span aria-hidden="true">{icon}</span>
                 <h3>{title}</h3>
                 <p>{description}</p>
-                <Link href={dashboardHref({ page: 'education', module })}>Open module</Link>
+                <Link href={commandHref('education', { module })}>Open module</Link>
               </article>
             )
           })}
