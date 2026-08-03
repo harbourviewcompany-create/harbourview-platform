@@ -30,7 +30,7 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
   return (
     <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description="Country status, regulator, access posture and commercial pathway remain tied to the selected role." action={<Link className="hvm2-text-link" href={commandHref('jurisdiction', { page: 'countries' })}>Country command</Link>}>
       <article className="hvm2-jurisdiction-card">
-        <div className="hvm2-jurisdiction-title"><span>{flag}</span><div><h3>{countryLabel}</h3><p>{region || 'Global regulated market'}</p></div></div>
+        <div className="hvm2-jurisdiction-title"><span aria-hidden="true">{flag}</span><div><h3>{countryLabel}</h3><p>{region || 'Global regulated market'}</p></div></div>
         <p>{outlook?.trim() || pathway?.trim() || 'Regulatory and commercial pathway detail remains subject to controlled evidence review.'}</p>
         <div className="hvm2-status-matrix">
           <div><span>Import</span><strong>{formatStatus(importStatus)}</strong></div>
