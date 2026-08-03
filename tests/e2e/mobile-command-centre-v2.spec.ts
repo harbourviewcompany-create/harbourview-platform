@@ -208,7 +208,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
-            await page.getByRole('button', { name: 'Post wanted demand', exact: true }).click()
+            await page.getByRole('button', { name: /^Post wanted demand/ }).click()
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toBeVisible()
             await expect(page.getByText('Post a wanted requirement', { exact: true })).toBeVisible()
             let activeUrl = new URL(page.url())
@@ -221,7 +221,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toHaveCount(0)
 
-            await page.getByRole('button', { name: 'Request financing', exact: true }).click()
+            await page.getByRole('button', { name: /^Request financing/ }).first().click()
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toBeVisible()
             await expect(page.getByText('Request financing support', { exact: true })).toBeVisible()
             activeUrl = new URL(page.url())
