@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { CommandPage, MarketRow, MarketView } from './CommandCentre'
+import { JOB_LISTINGS, JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from './data/jobsBoard'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -14,7 +15,9 @@ type Props = React.ComponentProps<typeof import('./CommandCentre').default>
 type SectionId =
   | 'overview'
   | 'live-status'
+  | 'market-intelligence'
   | 'marketplace'
+  | 'supply'
   | 'next-actions'
   | 'weekly-signals'
   | 'personal-briefing'
@@ -23,6 +26,7 @@ type SectionId =
   | 'jurisdiction'
   | 'market-status'
   | 'review-gates'
+  | 'directories'
   | 'talent'
   | 'genetics'
   | 'clinical'
@@ -83,7 +87,9 @@ const PRIMARY_NAV: PrimaryDestination[] = [
 const SECTION_NAV: SectionDestination[] = [
   { id: 'overview', label: 'Command brief', icon: '◎' },
   { id: 'live-status', label: 'Live status', icon: '◷' },
+  { id: 'market-intelligence', label: 'Market intelligence', icon: '≈' },
   { id: 'marketplace', label: 'Marketplace control', icon: '⊞' },
+  { id: 'supply', label: 'Supply', icon: '▤' },
   { id: 'next-actions', label: 'Next actions', icon: '→' },
   { id: 'weekly-signals', label: 'Weekly signals', icon: '≋' },
   { id: 'personal-briefing', label: 'Personal briefing', icon: '❑' },
@@ -92,11 +98,12 @@ const SECTION_NAV: SectionDestination[] = [
   { id: 'jurisdiction', label: 'Jurisdiction context', icon: '◉' },
   { id: 'market-status', label: 'Marketplace status', icon: '◫' },
   { id: 'review-gates', label: 'Review gates', icon: '◆' },
+  { id: 'directories', label: 'Directories', icon: '⊚' },
   { id: 'talent', label: 'Talent', icon: '✦' },
   { id: 'genetics', label: 'Genetics', icon: '⊕' },
   { id: 'clinical', label: 'Clinical', icon: '⚕' },
   { id: 'compliance', label: 'Compliance', icon: '▣' },
-  { id: 'network', label: 'Network', icon: '⊚' },
+  { id: 'network', label: 'Network', icon: '◎' },
   { id: 'financing', label: 'Trade financing', icon: '¤' },
 ]
 
@@ -112,13 +119,15 @@ const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   'local-intel': 'jurisdiction',
   countries: 'jurisdiction',
   evidence: 'review-gates',
+  prices: 'market-intelligence',
+  logistics: 'supply',
   talent: 'talent',
   jobs: 'talent',
   genetics: 'genetics',
   clinical: 'clinical',
   compliance: 'compliance',
   licences: 'compliance',
-  experts: 'network',
+  experts: 'directories',
   banking: 'financing',
   'trade-calc': 'financing',
 }
@@ -259,6 +268,11 @@ export default function MobileCommandCentreV2(props: Props) {
     })
   }, [marketRows, activeMarketView, marketQuery])
 
+  const supplyRows = useMemo(
+    () => marketRows.filter(row => row.view !== 'wanted' && row.view !== 'opportunities'),
+    [marketRows],
+  )
+
   const signals = props.digestSignals?.length ? props.digestSignals : props.signals
   const educationTiles = props.liveTiles?.length ? props.liveTiles : props.eduCategories
   const confidence = clampPercent(props.countryIntel?.confidence_score ?? props.countryIntel?.opportunity_score)
@@ -268,6 +282,8 @@ export default function MobileCommandCentreV2(props: Props) {
   const marketplaceCount = marketRows.length
   const reviewStatus = formatStatus(props.countryIntel?.review_status, 'Pending review')
   const dataCompleteness = formatStatus(props.countryIntel?.data_completeness, 'Coverage pending')
+  const marketMetrics = props.marketMetrics ?? []
+  const tradeFlows = props.tradeFlows ?? []
 
   const directoryRecords = useMemo<DirectoryRecord[]>(() => {
     const professionals = (props.professionals ?? []).map((item, index) => ({
@@ -306,6 +322,14 @@ export default function MobileCommandCentreV2(props: Props) {
     title: readString(item, ['title', 'headline', 'listing_title'], 'Marketplace submission'),
     status: readString(item, ['status', 'review_status', 'publication_state'], 'Received'),
   })), [props.mySubmissions])
+
+  const talentRecords = useMemo(() => {
+    const normalizedRole = roleShort.toLowerCase()
+    const inContext = JOB_LISTINGS.filter(job =>
+      job.country === countryIso2 || job.roles.some(jobRole => normalizedRole.includes(jobRole.toLowerCase())),
+    )
+    return inContext.length > 0 ? inContext : JOB_LISTINGS
+  }, [countryIso2, roleShort])
 
   const nextActions = useMemo(() => {
     const actions: Array<{ id: string; label: string; detail: string; href: string; tone: 'neutral' | 'gold' | 'ok' | 'warn' }> = []
@@ -497,6 +521,28 @@ export default function MobileCommandCentreV2(props: Props) {
           </div>
         </section>
 
+        <section id="market-intelligence" ref={registerSection('market-intelligence')} className="hvm2-section">
+          <SectionHeading eyebrow="Market intelligence" title="Metrics and trade flows" description="Country-context market indicators and reviewed trade corridors are presented separately from marketplace listings." />
+          {marketMetrics.length > 0 || tradeFlows.length > 0 ? (
+            <div className="hvm2-compliance-grid">
+              {marketMetrics.map((metric, index) => (
+                <article key={`metric-${readString(metric, ['id'], String(index))}`}>
+                  <span>{readString(metric, ['category', 'metric_type', 'label'], 'Market metric')}</span>
+                  <strong>{readString(metric, ['metric_name', 'name', 'title'], 'Market indicator')}</strong>
+                  <p>{readString(metric, ['display_value', 'value', 'summary'], 'Value under review')}</p>
+                </article>
+              ))}
+              {tradeFlows.map((flow, index) => (
+                <article key={`flow-${readString(flow, ['id'], String(index))}`}>
+                  <span>{readString(flow, ['origin', 'source_country'], 'Trade')} → {readString(flow, ['destination', 'destination_country'], 'Market')}</span>
+                  <strong>{readString(flow, ['product', 'product_type', 'title'], 'Reviewed trade flow')}</strong>
+                  <p>{readString(flow, ['summary', 'status', 'volume'], 'Corridor evidence under review')}</p>
+                </article>
+              ))}
+            </div>
+          ) : <EmptyState title="Market intelligence is ready for data" detail="No reviewed metrics or trade flows matched the current jurisdiction yet." />}
+        </section>
+
         <section id="marketplace" ref={registerSection('marketplace')} className="hvm2-section hvm2-market-section">
           <SectionHeading
             eyebrow="Marketplace control"
@@ -541,6 +587,28 @@ export default function MobileCommandCentreV2(props: Props) {
           ) : (
             <EmptyState title="No records match this view" detail="The category remains available. Adjust the search or post a wanted requirement for Harbourview review." />
           )}
+        </section>
+
+        <section id="supply" ref={registerSection('supply')} className="hvm2-section">
+          <SectionHeading eyebrow="Supply" title="Products, consumables, equipment and services" description="The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products." action={<Link className="hvm2-text-link" href="/supply">Supply catalogue</Link>} />
+          <div className="hvm2-metric-grid">
+            {MARKET_TABS.filter(tab => !['wanted', 'opportunities'].includes(tab.id)).map(tab => (
+              <Metric key={tab.id} label={tab.label} value={supplyRows.filter(row => row.view === tab.id).length} detail="Approved loaded records" />
+            ))}
+          </div>
+          {supplyRows.length > 0 ? (
+            <div className="hvm2-horizontal-deck hvm2-deck-spaced">
+              {supplyRows.map(row => (
+                <article className="hvm2-listing-card" key={`supply-${row.view}-${row.id}`}>
+                  <div className="hvm2-card-topline"><StatusPill tone="gold">{row.category}</StatusPill><span>{row.jurisdiction}</span></div>
+                  <h3>{row.title}</h3>
+                  <p>{row.summary}</p>
+                  <div className="hvm2-card-meta"><span>{formatStatus(row.status)}</span><span>{formatStatus(row.channel)}</span></div>
+                  <Link href={`/intake?topic=supply&listing=${encodeURIComponent(row.id)}`}>Start controlled supply review</Link>
+                </article>
+              ))}
+            </div>
+          ) : <EmptyState title="No reviewed supply records loaded" detail="Post a supply submission or wanted requirement for Harbourview review." />}
         </section>
 
         <section id="next-actions" ref={registerSection('next-actions')} className="hvm2-section">
@@ -668,13 +736,29 @@ export default function MobileCommandCentreV2(props: Props) {
           <div className="hvm2-control-note"><strong>Controlled by default</strong><p>No supplier identity, private source evidence, internal review notes or counterparty detail is released from this mobile surface.</p></div>
         </section>
 
-        <section id="talent" ref={registerSection('talent')} className="hvm2-section">
-          <SectionHeading eyebrow="Talent" title="Operators, professionals and capability" description="Talent and operating capability are presented as reviewed network records, not an open directory." action={<Link className="hvm2-text-link" href="/professionals">Professional network</Link>} />
+        <section id="directories" ref={registerSection('directories')} className="hvm2-section">
+          <SectionHeading eyebrow="Directories" title="Reviewed professionals, providers and operators" description="Directory records remain evidence-aware and mediated rather than exposing an open supplier or counterparty directory." action={<Link className="hvm2-text-link" href="/reviewed-connections">Reviewed connections</Link>} />
           {directoryRecords.length > 0 ? (
             <div className="hvm2-horizontal-deck">
               {directoryRecords.map(item => <article className="hvm2-directory-card" key={`${item.kind}-${item.id}`}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
             </div>
-          ) : <EmptyState title="No reviewed talent records loaded" detail="The section remains active and will populate from approved professional, service-provider and operator records." />}
+          ) : <EmptyState title="No reviewed directory records loaded" detail="Professionals, providers and operators will appear after public projection and review requirements are satisfied." />}
+        </section>
+
+        <section id="talent" ref={registerSection('talent')} className="hvm2-section">
+          <SectionHeading eyebrow="Talent" title="Roles and operating capability" description="Talent opportunities remain separated from counterparty records and are filtered to the active jurisdiction or role where possible." action={<Link className="hvm2-text-link" href="/dashboard?page=jobs">Jobs workspace</Link>} />
+          {talentRecords.length > 0 ? (
+            <div className="hvm2-horizontal-deck">
+              {talentRecords.map(job => (
+                <article className="hvm2-directory-card" key={job.id}>
+                  <span>{JOB_SECTOR_LABELS[job.sector]} · {job.country}</span>
+                  <h3>{job.title}</h3>
+                  <p>{job.company} · {job.city}{job.remote ? ' · Remote' : ''}</p>
+                  <div className="hvm2-card-meta"><span>{JOB_TYPE_LABELS[job.type]}</span>{job.salary && <span>{job.salary}</span>}</div>
+                </article>
+              ))}
+            </div>
+          ) : <EmptyState title="No talent opportunities loaded" detail="The talent section remains active and will populate from the approved jobs dataset." />}
         </section>
 
         <section id="genetics" ref={registerSection('genetics')} className="hvm2-section">
@@ -704,7 +788,7 @@ export default function MobileCommandCentreV2(props: Props) {
         </section>
 
         <section id="network" ref={registerSection('network')} className="hvm2-section">
-          <SectionHeading eyebrow="Network" title="Reviewed commercial network" description="Professionals, service providers and licensed operators are available through controlled Harbourview access paths." action={<Link className="hvm2-text-link" href="/reviewed-connections">Reviewed connections</Link>} />
+          <SectionHeading eyebrow="Network" title="Reviewed commercial network" description="Professionals, service providers, licensed operators and collaboration projects remain available through controlled Harbourview access paths." action={<Link className="hvm2-text-link" href="/network">Network workspace</Link>} />
           <div className="hvm2-metric-grid">
             <Metric label="Professionals" value={props.professionals?.length ?? 0} detail="Reviewed professional records" />
             <Metric label="Service providers" value={props.serviceProviders?.length ?? 0} detail="Approved capability records" />
