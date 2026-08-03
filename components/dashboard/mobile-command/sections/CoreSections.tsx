@@ -1,8 +1,12 @@
+'use client'
+
+import { useRef, type KeyboardEvent } from 'react'
 import type { MarketView } from '../../CommandCentre'
 import type { MobileCommandCentreProps } from '../props'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
+  SUPPLY_TABS,
   formatStatus,
   readString,
   type MobileCommandTool,
@@ -127,7 +131,7 @@ function ListingCard({ row, cta, onSelect }: { row: NormalizedListing; cta: stri
       <p>{row.summary}</p>
       <div className="hvm2-card-meta">
         <span>{formatStatus(row.status)}</span>
-        <span>{formatStatus(row.channel, MOBILE_COMMAND_COPY.listingChannel)}</span>
+        <span>{row.channel || MOBILE_COMMAND_COPY.listingChannel}</span>
         {row.confidence != null && <span>{row.confidence}% confidence</span>}
       </div>
       <button type="button" className="hvm2-inline-cta" onClick={onSelect}>{cta}</button>
@@ -147,6 +151,7 @@ export function MarketplaceSection({
   onMarketQueryChange,
   onOpenTool,
   onCloseTool,
+  onViewSubmissions,
 }: {
   sectionRef: SectionRef
   activeMarketView: MarketView
@@ -159,8 +164,31 @@ export function MarketplaceSection({
   onMarketQueryChange: (value: string) => void
   onOpenTool: (tool: MobileCommandTool, options?: { listing?: NormalizedListing; marketView?: MarketView }) => void
   onCloseTool: () => void
+  onViewSubmissions: () => void
 }) {
+  const tabRefs = useRef(new Map<MarketView, HTMLButtonElement>())
   const searchLabel = `Search ${MARKET_TABS.find(tab => tab.id === activeMarketView)?.label.toLowerCase() ?? 'marketplace'}`
+
+  function selectAndFocus(view: MarketView) {
+    onMarketViewChange(view)
+    window.requestAnimationFrame(() => tabRefs.current.get(view)?.focus())
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentView: MarketView) {
+    const currentIndex = MARKET_TABS.findIndex(tab => tab.id === currentView)
+    if (currentIndex < 0) return
+
+    let nextIndex: number | null = null
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % MARKET_TABS.length
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + MARKET_TABS.length) % MARKET_TABS.length
+    if (event.key === 'Home') nextIndex = 0
+    if (event.key === 'End') nextIndex = MARKET_TABS.length - 1
+    if (nextIndex == null) return
+
+    event.preventDefault()
+    selectAndFocus(MARKET_TABS[nextIndex].id)
+  }
+
   return (
     <SectionShell id="marketplace" sectionRef={sectionRef} eyebrow="Marketplace control" title="Demand, supply and commercial routes" description={MOBILE_COMMAND_COPY.marketplaceDescription} className="hvm2-market-section">
       <div className="hvm2-quick-actions">
@@ -169,7 +197,13 @@ export function MarketplaceSection({
         <button type="button" onClick={() => onOpenTool('financing-intake')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></button>
       </div>
 
-      <MarketplaceWorkspacePanel tool={activeTool} selectedListing={selectedListing} activeMarketView={activeMarketView} onClose={onCloseTool} />
+      <MarketplaceWorkspacePanel
+        tool={activeTool}
+        selectedListing={selectedListing}
+        activeMarketView={activeMarketView}
+        onClose={onCloseTool}
+        onViewSubmissions={onViewSubmissions}
+      />
 
       <div className="hvm2-market-controls">
         <div className="hvm2-tab-rail" role="tablist" aria-label="Marketplace categories">
@@ -178,16 +212,22 @@ export function MarketplaceSection({
             return (
               <button
                 key={tab.id}
+                ref={(node) => {
+                  if (node) tabRefs.current.set(tab.id, node)
+                  else tabRefs.current.delete(tab.id)
+                }}
                 type="button"
                 role="tab"
                 id={`hvm2-tab-${tab.id}`}
                 aria-controls="hvm2-market-panel"
                 aria-selected={activeMarketView === tab.id}
+                aria-label={`${tab.label}, ${count} records`}
                 tabIndex={activeMarketView === tab.id ? 0 : -1}
                 className={activeMarketView === tab.id ? 'active' : ''}
                 onClick={() => onMarketViewChange(tab.id)}
+                onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
               >
-                {tab.label}<span aria-label={`${count} records`}>{count}</span>
+                {tab.label}<span aria-hidden="true">{count}</span>
               </button>
             )
           })}
@@ -197,12 +237,12 @@ export function MarketplaceSection({
           <input value={marketQuery} onChange={event => onMarketQueryChange(event.target.value)} aria-label={searchLabel} placeholder={searchLabel} />
         </label>
       </div>
-      <div id="hvm2-market-panel" role="tabpanel" aria-labelledby={`hvm2-tab-${activeMarketView}`}>
+      <div id="hvm2-market-panel" role="tabpanel" aria-labelledby={`hvm2-tab-${activeMarketView}`} tabIndex={0}>
         {filteredRows.length > 0 ? (
           <div className="hvm2-listing-grid">
             {filteredRows.map(row => <ListingCard key={`${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.reviewedIntroduction} />)}
           </div>
-        ) : <EmptyState title="No records match this view" detail="The category remains available. Adjust the search or post a wanted requirement for Harbourview review." />}
+        ) : <EmptyState title="No records match this view" detail={MOBILE_COMMAND_COPY.marketplaceEmptyDetail} />}
       </div>
     </SectionShell>
   )
@@ -227,7 +267,7 @@ export function SupplySection({
       action={<button type="button" className="hvm2-text-link" onClick={() => onOpenTool('supply-intake', { marketView: 'cannabis' })}>Submit supply</button>}
     >
       <div className="hvm2-metric-grid">
-        {MARKET_TABS.filter(tab => !['wanted', 'opportunities'].includes(tab.id)).map(tab => <Metric key={tab.id} label={tab.label} value={supplyRows.filter(row => row.view === tab.id).length} detail="Approved loaded records" />)}
+        {SUPPLY_TABS.map(tab => <Metric key={tab.id} label={tab.label} value={supplyRows.filter(row => row.view === tab.id).length} detail="Approved loaded records" />)}
       </div>
       {supplyRows.length > 0 ? (
         <div className="hvm2-horizontal-deck hvm2-deck-spaced">
