@@ -40,19 +40,7 @@ jobs:
           BEFORE_SITE_URL="$(jq -r '.site_url // ""' "$CURRENT_FILE")"
           BEFORE_ALLOW_LIST="$(jq -r 'if (.uri_allow_list | type) == "array" then (.uri_allow_list | join(",")) else (.uri_allow_list // "") end' "$CURRENT_FILE")"
 
-          UPDATED_ALLOW_LIST="$(python3 - "$BEFORE_ALLOW_LIST" "$CANONICAL_ALLOW_PATTERN" <<'PY'
-import sys
-existing, required = sys.argv[1], sys.argv[2]
-items = []
-for value in existing.split(','):
-    value = value.strip()
-    if value and value not in items:
-        items.append(value)
-if required not in items:
-    items.append(required)
-print(','.join(items))
-PY
-          )"
+          UPDATED_ALLOW_LIST="$(python3 -c 'import sys; existing, required = sys.argv[1], sys.argv[2]; items=[]; [items.append(v) for v in [x.strip() for x in existing.split(",")] if v and v not in items]; items.append(required) if required not in items else None; print(",".join(items))' "$BEFORE_ALLOW_LIST" "$CANONICAL_ALLOW_PATTERN")"
 
           jq -n \
             --arg site_url "$CANONICAL_SITE_URL" \
