@@ -269,6 +269,10 @@ jobs:
           git add docs/control/evidence/command-centre-integration/command-centre-*.png
           git add docs/control/evidence/command-centre-integration/command-centre-*.json
           git add docs/control/evidence/command-centre-integration/verification-run.json
+          if git diff --cached --quiet; then
+            echo "No evidence changes to commit"
+            exit 0
+          fi
           git commit -m "test(command-centre): commit verified shell evidence run ${GITHUB_RUN_ID} [visual-evidence]"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin HEAD:agent/command-centre-integration-rule
