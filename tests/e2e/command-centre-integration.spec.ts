@@ -173,13 +173,16 @@ for (const viewport of viewports) {
 
     await page.goto('/dashboard?country=CA&page=marketplace&module=supply', { waitUntil: 'networkidle' })
     await expect(page.locator(`${shellMainSelector} > [data-command-centre-module="supply"]`)).toBeVisible()
+    const screenshotPath = path.join(evidenceDirectory, `command-centre-${viewport.name}.png`)
     await page.screenshot({
-      path: path.join(evidenceDirectory, `command-centre-${viewport.name}.png`),
-      fullPage: true,
+      path: screenshotPath,
+      fullPage: false,
     })
+    const screenshotSize = fs.statSync(screenshotPath).size
+    expect(screenshotSize, `command-centre-${viewport.name}.png repository evidence size`).toBeLessThanOrEqual(10 * 1024 * 1024)
     fs.writeFileSync(
       path.join(evidenceDirectory, `command-centre-${viewport.name}.json`),
-      `${JSON.stringify({ viewport, modules: moduleResults, marketplaceActions: actionResults }, null, 2)}\n`,
+      `${JSON.stringify({ viewport, screenshotBytes: screenshotSize, modules: moduleResults, marketplaceActions: actionResults }, null, 2)}\n`,
     )
   })
 }
