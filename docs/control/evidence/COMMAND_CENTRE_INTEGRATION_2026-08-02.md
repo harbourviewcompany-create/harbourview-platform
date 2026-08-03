@@ -54,7 +54,7 @@ The repaired workflow now:
 4. exits successfully when evidence is already current; and
 5. commits and pushes evidence only after the complete authenticated verification job succeeds.
 
-Evidence-only workflow loops were then prevented in commit `ca4c828e599244e1d0e3198e49554f97fcc9c945` by excluding both the screenshot directory and this verification document from the authenticated visual workflow triggers.
+Evidence-only workflow loops were closed in commits `ca4c828e599244e1d0e3198e49554f97fcc9c945` and `40fd9b10ffea237753b9a389af0e0d0e6655dee5`: screenshot and evidence-document paths are ignored for branch pushes, and the redundant pull-request trigger was removed. The workflow now runs on explicit dispatch or substantive pushes to the dedicated feature branch without retriggering itself after committing evidence.
 
 The Market and Talent fixes are committed in `components/dashboard/CommandCentreIntegrationGateway.tsx`:
 
@@ -116,6 +116,10 @@ No additional verified overflow, safe-area, navigation, loading, error, empty-st
 The finishing pass did not create a production deployment or move a production alias. Vercel Git integration automatically created non-production preview deployments for feature-branch commits; the inspected deployments have `target: null` and remain previews associated with `agent/command-centre-integration-rule`.
 
 No manual Vercel deployment command was run. No production alias, database migration, secret or production data was changed.
+
+## Registry decision
+
+The existing Harbourview Platform registry row remains canonical. No project-registry change is required for this PR.
 
 ## Release status
 
