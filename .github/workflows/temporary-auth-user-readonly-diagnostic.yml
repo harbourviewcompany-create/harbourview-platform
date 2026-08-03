@@ -1,0 +1,94 @@
+name: Temporary Auth User Read-Only Diagnostic
+
+on:
+  push:
+    branches:
+      - fix/password-recovery-flow
+    paths:
+      - .github/workflows/temporary-auth-user-readonly-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-auth-user:
+    name: Inspect target Auth user without mutation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TARGET_EMAIL_SHA256: ca9eddf04f3cacda649c2d1873707ad01b00e8b0754b8e9ac8d0b852373b54ac
+    steps:
+      - name: Read Auth user metadata only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const crypto = require('node:crypto')
+
+          const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+          const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+          const targetHash = process.env.TARGET_EMAIL_SHA256
+
+          if (!baseUrl || !serviceKey || !targetHash) {
+            throw new Error('Required read-only diagnostic inputs are unavailable.')
+          }
+
+          const parsed = new URL(baseUrl)
+          if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('.supabase.co')) {
+            throw new Error('Supabase URL is not a canonical HTTPS project URL.')
+          }
+
+          const hashEmail = (value) => crypto.createHash('sha256').update(String(value || '').trim().toLowerCase()).digest('hex')
+          let found = null
+          let page = 1
+
+          while (!found && page <= 100) {
+            const response = await fetch(`${baseUrl.replace(/\/$/, '')}/auth/v1/admin/users?page=${page}&per_page=1000`, {
+              method: 'GET',
+              headers: {
+                apikey: serviceKey,
+                Authorization: `Bearer ${serviceKey}`,
+                Accept: 'application/json',
+              },
+            })
+
+            if (!response.ok) {
+              throw new Error(`Auth admin read failed with HTTP ${response.status}.`)
+            }
+
+            const body = await response.json()
+            const users = Array.isArray(body) ? body : Array.isArray(body.users) ? body.users : []
+            found = users.find((user) => hashEmail(user.email) === targetHash) || null
+
+            const nextPage = Number(body?.next_page || 0)
+            if (found || users.length < 1000 || !nextPage) break
+            page = nextPage
+          }
+
+          console.log(`AUTH_PROJECT_REF=${parsed.hostname.split('.')[0]}`)
+          console.log(`TARGET_USER_FOUND=${Boolean(found)}`)
+
+          if (!found) {
+            console.log('DIAGNOSIS=NO_MATCHING_AUTH_USER_IN_CANONICAL_PROJECT')
+            process.exit(0)
+          }
+
+          const identities = Array.isArray(found.identities) ? found.identities : []
+          const providers = [...new Set(identities.map((identity) => identity?.provider).filter(Boolean))].sort()
+          const bannedUntil = found.banned_until ? Date.parse(found.banned_until) : NaN
+          const isBanned = Number.isFinite(bannedUntil) && bannedUntil > Date.now()
+
+          console.log(`EMAIL_CONFIRMED=${Boolean(found.email_confirmed_at || found.confirmed_at)}`)
+          console.log(`EMAIL_PASSWORD_IDENTITY=${providers.includes('email')}`)
+          console.log(`AUTH_PROVIDERS=${providers.join(',') || 'none'}`)
+          console.log(`USER_BANNED=${isBanned}`)
+          console.log(`LAST_SIGN_IN_RECORDED=${Boolean(found.last_sign_in_at)}`)
+          console.log('DIAGNOSIS=AUTH_USER_EXISTS_PASSWORD_HASH_NOT_READABLE_BY_DESIGN')
+          NODE
+
+      - name: Confirm no mutation occurred
+        run: |
+          echo "GO: diagnostic used only the Auth admin list-users GET endpoint."
+          echo "GO: no password reset, user update, user creation, deletion, role change, migration, data write, or configuration change was performed."
