@@ -233,7 +233,7 @@ jobs:
           name: command-centre-authenticated-visual-${{ github.run_id }}
           path: /tmp/command-centre-evidence
 
-      - name: Stage bounded visual evidence
+      - name: Stage bounded visual evidence and run identity
         shell: bash
         run: |
           set -euo pipefail
@@ -243,6 +243,20 @@ jobs:
           find /tmp/command-centre-evidence -type f -name 'command-centre-*.json' -exec cp -f {} "$target"/ \;
           test "$(find "$target" -maxdepth 1 -type f -name 'command-centre-*.png' | wc -l)" -eq 6
           test "$(find "$target" -maxdepth 1 -type f -name 'command-centre-*.json' | wc -l)" -eq 6
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          Path('docs/control/evidence/command-centre-integration/verification-run.json').write_text(
+              json.dumps({
+                  'runId': int(os.environ['GITHUB_RUN_ID']),
+                  'sourceSha': os.environ['GITHUB_SHA'],
+                  'workflow': 'Command Centre Authenticated Visual',
+                  'event': os.environ['GITHUB_EVENT_NAME'],
+                  'runUrl': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              }, indent=2) + '\n'
+          )
+          PY
 
       - name: Commit evidence with step-scoped authentication
         shell: bash
@@ -254,10 +268,7 @@ jobs:
           git config user.email "harbourviewcompany@gmail.com"
           git add docs/control/evidence/command-centre-integration/command-centre-*.png
           git add docs/control/evidence/command-centre-integration/command-centre-*.json
-          if git diff --cached --quiet; then
-            echo "Six-width evidence is already current"
-            exit 0
-          fi
-          git commit -m "test(command-centre): commit verified shell evidence [visual-evidence]"
+          git add docs/control/evidence/command-centre-integration/verification-run.json
+          git commit -m "test(command-centre): commit verified shell evidence run ${GITHUB_RUN_ID} [visual-evidence]"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin HEAD:agent/command-centre-integration-rule
