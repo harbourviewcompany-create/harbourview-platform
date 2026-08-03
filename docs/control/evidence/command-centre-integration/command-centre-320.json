@@ -4,6 +4,7 @@
     "width": 320,
     "height": 760
   },
+  "screenshotBytes": 123463,
   "modules": [
     {
       "module": "briefing",
