@@ -9,11 +9,13 @@ import type { MarketView } from '../CommandCentre'
 import type { MobileCommandCentreProps } from './props'
 import {
   MARKET_TABS,
+  NON_SUPPLY_VIEWS,
   PAGE_TO_SECTION,
   SECTION_IDS,
   SECTION_NAV,
   SECTION_TO_DESKTOP_PAGE,
   clampPercent,
+  confidenceFractionToPercent,
   formatStatus,
   matchesQuery,
   normalizeListing,
@@ -49,6 +51,10 @@ function isMarketView(value: string | null): value is MarketView {
   return Boolean(value && MARKET_TABS.some(tab => tab.id === value))
 }
 
+function preferredScrollBehavior(): ScrollBehavior {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+}
+
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -60,29 +66,41 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const [activeTool, setActiveTool] = useState<MobileCommandTool | null>(null)
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const sectionNodes = useRef(new Map<SectionId, HTMLElement>())
-  const lastAppliedSection = useRef<SectionId | null>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const lastUrlSection = useRef<SectionId | null>(null)
 
   const sectionRefs = useMemo(() => {
     const refs = new Map<SectionId, (node: HTMLElement | null) => void>()
     for (const section of SECTION_NAV) {
       refs.set(section.id, (node) => {
-        if (node) sectionNodes.current.set(section.id, node)
-        else sectionNodes.current.delete(section.id)
+        const previous = sectionNodes.current.get(section.id)
+        if (previous && previous !== node) observerRef.current?.unobserve(previous)
+
+        if (node) {
+          sectionNodes.current.set(section.id, node)
+          observerRef.current?.observe(node)
+        } else {
+          sectionNodes.current.delete(section.id)
+        }
       })
     }
     return refs
   }, [])
 
-  const sectionRef = useCallback((id: SectionId) => {
-    const callback = sectionRefs.get(id)
-    if (!callback) throw new Error(`Missing mobile command section ref: ${id}`)
-    return callback
-  }, [sectionRefs])
+  const sectionRef = useCallback((id: SectionId) => sectionRefs.get(id)!, [sectionRefs])
 
+  const requestedCountry = searchParams.get('country') || props.initialCountryIso2
   const country = useMemo(() => {
-    const match = ALL_COUNTRIES.find(item => item.iso2 === props.initialCountryIso2)
+    const match = ALL_COUNTRIES.find(item => item.iso2 === requestedCountry)
     return match ?? ALL_COUNTRIES.find(item => item.iso2 === 'CA') ?? ALL_COUNTRIES[0]
-  }, [props.initialCountryIso2])
+  }, [requestedCountry])
+  const currentCountry = country?.iso2 ?? 'CA'
+
+  const requestedRole = searchParams.get('role') || props.initialRoleId
+  const role = requestedRole
+    ? ROLE_PROFILES[requestedRole as keyof typeof ROLE_PROFILES]
+    : null
+  const currentRole = role ? requestedRole : null
 
   const roleEntries = useMemo(
     () => Object.entries(ROLE_PROFILES)
@@ -91,14 +109,11 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     [],
   )
 
-  const role = ROLE_PROFILES[props.initialRoleId as keyof typeof ROLE_PROFILES]
-  const roleLabel = role?.label ?? (props.initialRoleId ? titleCase(props.initialRoleId) : 'All roles')
+  const roleLabel = role?.label ?? (currentRole ? titleCase(currentRole) : 'All roles')
   const roleShort = role?.short ?? roleLabel
   const countryLabel = country?.displayName ?? 'Global'
-  const countryIso2 = country?.iso2 ?? 'GLOBAL'
+  const countryIso2 = currentCountry
 
-  const currentCountry = searchParams.get('country') || props.initialCountryIso2
-  const currentRole = searchParams.get('role') || props.initialRoleId
   const baseContext = useMemo(
     () => contextParams(currentCountry, currentRole),
     [currentCountry, currentRole],
@@ -123,12 +138,11 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   )
 
   const filteredMarketRows = useMemo(() => {
-    const query = marketQuery.trim().toLowerCase()
-    return marketRows.filter(row => row.view === activeMarketView && (!query || matchesQuery(query, [row.title, row.summary, row.category, row.jurisdiction, row.status])))
+    return marketRows.filter(row => row.view === activeMarketView && matchesQuery(marketQuery, [row.title, row.summary, row.category, row.jurisdiction, row.status]))
   }, [activeMarketView, marketQuery, marketRows])
 
   const supplyRows = useMemo(
-    () => marketRows.filter(row => row.view !== 'wanted' && row.view !== 'opportunities'),
+    () => marketRows.filter(row => !NON_SUPPLY_VIEWS.has(row.view)),
     [marketRows],
   )
 
@@ -139,7 +153,11 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const signals = props.digestSignals?.length ? props.digestSignals : props.signals
   const educationTiles = props.liveTiles?.length ? props.liveTiles : props.eduCategories
-  const confidence = clampPercent(props.countryIntel?.confidence_score ?? props.countryIntel?.opportunity_score)
+  const confidence = props.countryIntel?.confidence_score != null
+    ? (props.countryIntel.confidence_score <= 1
+        ? confidenceFractionToPercent(props.countryIntel.confidence_score)
+        : clampPercent(props.countryIntel.confidence_score))
+    : clampPercent(props.countryIntel?.opportunity_score)
   const pipeline = props.pipeline ?? { wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 }
   const pipelineTotal = pipeline.wanted + pipeline.matched + pipeline.proof_review + pipeline.inquiry + pipeline.deal_room
   const sourceCoverageCount = props.sourceCoverage?.length ?? 0
@@ -173,7 +191,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const geneticsRecords = useMemo<DirectoryRecord[]>(() => (props.cultivarPassports ?? []).map((item, index) => ({
     id: readString(item, ['id', 'slug', 'cultivar_id'], `cultivar-${index}`),
-    kind: 'Cultivar passport',
+    kind: readString(item, ['passport_type', 'record_type'], 'Cultivar passport'),
     title: readString(item, ['cultivar_name', 'name', 'display_name', 'title'], 'Cultivar passport'),
     subtitle: readString(item, ['public_summary', 'description', 'breeder_name', 'origin'], 'Reviewed genetics record.'),
     status: readString(item, ['verification_status', 'review_status', 'status'], 'Reviewed'),
@@ -186,12 +204,12 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   })), [props.mySubmissions])
 
   const talentRecords = useMemo(() => {
-    const roleTokens = (props.initialRoleId ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean)
+    const roleTokens = (currentRole ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean)
     const contextual = JOB_LISTINGS.filter(job =>
       job.country === countryIso2 || job.roles.some(jobRole => roleTokens.includes(jobRole.toLowerCase())),
     )
     return contextual.length > 0 ? contextual : JOB_LISTINGS
-  }, [countryIso2, props.initialRoleId])
+  }, [countryIso2, currentRole])
 
   const nextActions = useMemo<NextAction[]>(() => {
     const actions: NextAction[] = []
@@ -241,28 +259,32 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [commandHref, countryLabel, educationTiles.length, pipeline.inquiry, pipeline.proof_review, props.countryIntel, props.hasOrg, props.wantedCount, roleShort])
 
   const searchResults = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) return { signals: props.signals, listings: marketRows }
+    if (!searchQuery.trim()) return { signals, listings: marketRows }
     return {
-      signals: props.signals.filter(signal => matchesQuery(query, [signal.title, signal.market, signal.type, signal.commercialImpact])),
-      listings: marketRows.filter(row => matchesQuery(query, [row.title, row.summary, row.category, row.jurisdiction])),
+      signals: signals.filter(signal => matchesQuery(searchQuery, [signal.title, signal.market, signal.type, signal.commercialImpact])),
+      listings: marketRows.filter(row => matchesQuery(searchQuery, [row.title, row.summary, row.category, row.jurisdiction])),
     }
-  }, [marketRows, props.signals, searchQuery])
+  }, [marketRows, searchQuery, signals])
 
-  useEffect(() => {
+  const resolvedUrlSection = useMemo(() => {
     const requested = searchParams.get('section')
-    const initial = requested && SECTION_IDS.has(requested)
+    return requested && SECTION_IDS.has(requested as SectionId)
       ? requested as SectionId
       : PAGE_TO_SECTION[props.initialPage ?? 'briefing'] ?? 'overview'
-    if (lastAppliedSection.current !== initial) {
-      lastAppliedSection.current = initial
-      setActiveSection(initial)
-      if (initial !== 'overview') {
-        const timer = window.setTimeout(() => sectionNodes.current.get(initial)?.scrollIntoView({ block: 'start' }), 120)
-        return () => window.clearTimeout(timer)
-      }
-    }
   }, [props.initialPage, searchParams])
+
+  useEffect(() => {
+    if (lastUrlSection.current === resolvedUrlSection) return
+    lastUrlSection.current = resolvedUrlSection
+    setActiveSection(resolvedUrlSection)
+
+    if (resolvedUrlSection !== 'overview') {
+      const timer = window.setTimeout(() => {
+        sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ block: 'start' })
+      }, 120)
+      return () => window.clearTimeout(timer)
+    }
+  }, [resolvedUrlSection])
 
   useEffect(() => {
     const tool = parseMobileCommandTool(searchParams.get('tool'))
@@ -275,19 +297,36 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter(entry => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-      if (visible) setActiveSection(visible.target.id as SectionId)
+      const visible = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+      if (!visible) return
+
+      const visibleSection = visible.target.id as SectionId
+      setActiveSection(visibleSection)
+      if (lastUrlSection.current !== visibleSection) lastUrlSection.current = null
     }, { rootMargin: '-28% 0px -58% 0px', threshold: [0.05, 0.2, 0.5] })
+
+    observerRef.current = observer
     sectionNodes.current.forEach(node => observer.observe(node))
-    return () => observer.disconnect()
+    return () => {
+      observerRef.current = null
+      observer.disconnect()
+    }
   }, [])
 
   const navigateToSection = useCallback((id: SectionId) => {
     setActiveSection(id)
-    lastAppliedSection.current = id
-    router.replace(commandHref(id), { scroll: false })
-    window.requestAnimationFrame(() => sectionNodes.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }, [commandHref, router])
+    setActiveTool(null)
+    setSelectedListingId(null)
+    lastUrlSection.current = id
+    router.replace(commandHref(id, {
+      marketView: activeMarketView,
+      tool: null,
+      listing: null,
+    }), { scroll: false })
+    window.requestAnimationFrame(() => sectionNodes.current.get(id)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
+  }, [activeMarketView, commandHref, router])
 
   const openTool = useCallback((tool: MobileCommandTool, options: { listing?: NormalizedListing; marketView?: MarketView } = {}) => {
     const section: SectionId = tool === 'financing-intake' ? 'financing' : 'marketplace'
@@ -296,22 +335,42 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     setSelectedListingId(options.listing?.id ?? null)
     setActiveMarketView(nextView)
     setActiveSection(section)
-    lastAppliedSection.current = section
+    lastUrlSection.current = section
     router.replace(commandHref(section, {
       tool,
       marketView: nextView,
       listing: options.listing?.id ?? null,
     }), { scroll: false })
-    window.requestAnimationFrame(() => sectionNodes.current.get(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    window.requestAnimationFrame(() => sectionNodes.current.get(section)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
   }, [activeMarketView, commandHref, router])
 
   const closeTool = useCallback(() => {
     setActiveTool(null)
     setSelectedListingId(null)
-    router.replace(commandHref(activeSection, { tool: null, listing: null }), { scroll: false })
-  }, [activeSection, commandHref, router])
+    router.replace(commandHref(activeSection, {
+      marketView: activeMarketView,
+      tool: null,
+      listing: null,
+    }), { scroll: false })
+  }, [activeMarketView, activeSection, commandHref, router])
+
+  const viewSubmissions = useCallback(() => {
+    setActiveTool(null)
+    setSelectedListingId(null)
+    setActiveSection('market-status')
+    lastUrlSection.current = 'market-status'
+    router.replace(commandHref('market-status', {
+      marketView: activeMarketView,
+      tool: null,
+      listing: null,
+    }), { scroll: false })
+    window.requestAnimationFrame(() => sectionNodes.current.get('market-status')?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
+  }, [activeMarketView, commandHref, router])
 
   const updateContext = useCallback((key: 'country' | 'role', value: string) => {
+    setActiveTool(null)
+    setSelectedListingId(null)
+
     const nextCountryIso2 = key === 'country' ? value : currentCountry
     const nextRole = key === 'role' ? value : currentRole
     const isCountryRoleRoute = /^\/country\/[^/]+\/role\/[^/]+/.test(pathname)
@@ -323,14 +382,24 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         nextParams.set('section', activeSection)
         nextParams.delete('country')
         nextParams.delete('role')
+        nextParams.delete('tool')
+        nextParams.delete('listing')
         const query = nextParams.toString()
         router.push(`/country/${nextCountry.slug}/role/${nextRole}${query ? `?${query}` : ''}`)
         return
       }
     }
 
-    router.push(buildHref(pathname, searchParams, { section: activeSection, [key]: value || null }))
-  }, [activeSection, currentCountry, currentRole, pathname, router, searchParams])
+    router.push(buildHref('/dashboard', new URLSearchParams(), {
+      country: nextCountryIso2 || null,
+      role: nextRole || null,
+      page: SECTION_TO_DESKTOP_PAGE[activeSection],
+      section: activeSection,
+      marketView: activeMarketView,
+      tool: null,
+      listing: null,
+    }))
+  }, [activeMarketView, activeSection, currentCountry, currentRole, pathname, router, searchParams])
 
   const selectListingResult = useCallback((row: NormalizedListing) => {
     setActiveMarketView(row.view)
@@ -345,6 +414,8 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     searchQuery,
     activeTool,
     selectedListing,
+    currentCountry,
+    currentRole,
     setActiveMarketView,
     setMarketQuery,
     setSearchQuery,
@@ -352,6 +423,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     navigateToSection,
     openTool,
     closeTool,
+    viewSubmissions,
     updateContext,
     dashboardHref,
     commandHref,
