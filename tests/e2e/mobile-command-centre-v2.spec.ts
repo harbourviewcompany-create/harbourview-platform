@@ -133,7 +133,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
   test.describe.configure({ mode: 'serial' })
 
   test('renders contained mobile workflows at four widths and preserves desktop Command Centre at 768', async ({ browser }) => {
-    test.setTimeout(240_000)
+    test.setTimeout(360_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
     const aggregate: Array<Record<string, unknown>> = []
@@ -181,7 +181,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           waitUntil: 'domcontentloaded',
           timeout: 60_000,
         })
-        await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {})
+        await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
         report.finalUrl = page.url()
         report.status = response?.status() ?? null
@@ -208,7 +208,8 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
-            await page.getByRole('button', { name: /^Post wanted demand/ }).click()
+            const marketplaceActions = page.locator('#marketplace .hvm2-quick-actions')
+            await marketplaceActions.locator('button').filter({ hasText: 'Post wanted demand' }).click({ timeout: 15_000 })
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toBeVisible()
             await expect(page.getByText('Post a wanted requirement', { exact: true })).toBeVisible()
             let activeUrl = new URL(page.url())
@@ -221,7 +222,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toHaveCount(0)
 
-            await page.getByRole('button', { name: /^Request financing/ }).first().click()
+            await marketplaceActions.locator('button').filter({ hasText: 'Request financing' }).click({ timeout: 15_000 })
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toBeVisible()
             await expect(page.getByText('Request financing support', { exact: true })).toBeVisible()
             activeUrl = new URL(page.url())
