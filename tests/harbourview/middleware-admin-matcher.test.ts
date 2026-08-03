@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { config } from '@/proxy'
+import { config } from '@/middleware'
 
 describe('middleware admin matcher coverage', () => {
   it('includes exact and nested admin matchers', () => {

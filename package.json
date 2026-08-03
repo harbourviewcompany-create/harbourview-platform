@@ -4,11 +4,16 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
+    "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts tests/dashboard/navigationRoutes.test.ts",
     "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
@@ -72,6 +77,7 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.2",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^26.1.2",

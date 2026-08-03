@@ -1,6 +1,7 @@
 const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
 const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
+const LOCAL_SUPABASE_HOSTS = new Set(['127.0.0.1', 'localhost', '::1'])
 
 // PostgREST on this project only exposes the `api` schema (Settings → Data API
 // → Exposed schemas). It does NOT expose `public`, even though every table
@@ -25,24 +26,39 @@ function readEnv(name: string) {
 
 function requireEnv(name: string) {
   const value = readEnv(name)
-
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`)
-  }
-
+  if (!value) throw new Error(`Missing required environment variable: ${name}`)
   return value
 }
 
-function assertLockedSupabaseUrl(url: string) {
-  let parsed: URL
+function normalizeUrl(url: string) {
+  return url.trim().replace(/\/$/, '')
+}
 
+function parseUrlSafely(url: string): URL | null {
   try {
-    parsed = new URL(url)
+    return new URL(url)
   } catch {
-    throw new Error('Invalid Supabase URL. Expected a valid project URL.')
+    return null
   }
+}
 
-  if (parsed.hostname !== EXPECTED_SUPABASE_HOST) {
+function isExpectedSupabaseUrl(url: string) {
+  return parseUrlSafely(url)?.hostname === EXPECTED_SUPABASE_HOST
+}
+
+function isExplicitlyAllowedLocalSupabaseUrl(url: string) {
+  if (process.env.VERCEL_ENV === 'production') return false
+  if (process.env.CI !== '1' || process.env.GITHUB_ACTIONS !== 'true') return false
+  if (process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE !== '1') return false
+  const parsed = parseUrlSafely(url)
+  return Boolean(parsed && parsed.protocol === 'http:' && LOCAL_SUPABASE_HOSTS.has(parsed.hostname))
+}
+
+function assertAllowedSupabaseUrl(url: string) {
+  const parsed = parseUrlSafely(url)
+  if (!parsed) throw new Error('Invalid Supabase URL. Expected a valid project URL.')
+
+  if (parsed.hostname !== EXPECTED_SUPABASE_HOST && !isExplicitlyAllowedLocalSupabaseUrl(url)) {
     throw new Error(
       `Supabase project mismatch: URL must point to ${EXPECTED_SUPABASE_PROJECT_REF}. Current value points elsewhere.`
     )
@@ -51,24 +67,8 @@ function assertLockedSupabaseUrl(url: string) {
   return url
 }
 
-function normalizeUrl(url: string) {
-  return url.trim().replace(/\/$/, '')
-}
-
-function isExpectedSupabaseUrl(url: string) {
-  try {
-    return new URL(url).hostname === EXPECTED_SUPABASE_HOST
-  } catch {
-    return false
-  }
-}
-
 function parseHostnameSafely(url: string) {
-  try {
-    return new URL(url).hostname
-  } catch {
-    return null
-  }
+  return parseUrlSafely(url)?.hostname ?? null
 }
 
 function decodeJwtPayload(value: string): Record<string, unknown> | null {
@@ -96,9 +96,7 @@ export function isSupabaseSecretKey(value: string) {
 export function assertBrowserSafeSupabaseKey(value: string, sourceName: string) {
   const key = value.trim()
 
-  if (!key) {
-    throw new Error(`Missing browser-safe Supabase public key: ${sourceName}`)
-  }
+  if (!key) throw new Error(`Missing browser-safe Supabase public key: ${sourceName}`)
 
   if (isSupabaseSecretKey(key)) {
     throw new Error(
@@ -123,11 +121,14 @@ export function getLockedSupabaseUrl() {
 
 export function resolveLockedSupabaseUrl(rawUrl = readEnv('NEXT_PUBLIC_SUPABASE_URL')) {
   const normalizedUrl = normalizeUrl(rawUrl)
-  return normalizedUrl && isExpectedSupabaseUrl(normalizedUrl) ? normalizedUrl : LOCKED_SUPABASE_URL
+  if (normalizedUrl && (isExpectedSupabaseUrl(normalizedUrl) || isExplicitlyAllowedLocalSupabaseUrl(normalizedUrl))) {
+    return normalizedUrl
+  }
+  return LOCKED_SUPABASE_URL
 }
 
 export function getSupabaseUrl() {
-  return resolveLockedSupabaseUrl(requireEnv('NEXT_PUBLIC_SUPABASE_URL'))
+  return assertAllowedSupabaseUrl(resolveLockedSupabaseUrl(requireEnv('NEXT_PUBLIC_SUPABASE_URL')))
 }
 
 export function getSupabaseAnonKey() {
@@ -162,11 +163,10 @@ export function getSupabaseEnvStatus() {
   const resolvedUrl = resolveLockedSupabaseUrl(url)
   let rawHost: string | null = null
 
-  if (normalizedUrl) {
-    rawHost = parseHostnameSafely(normalizedUrl)
-  }
+  if (normalizedUrl) rawHost = parseHostnameSafely(normalizedUrl)
   const resolvedHost = new URL(resolvedUrl).hostname
   const urlUsesExpectedProject = Boolean(rawHost && rawHost === EXPECTED_SUPABASE_HOST)
+  const usesExplicitLocalVerification = Boolean(normalizedUrl && isExplicitlyAllowedLocalSupabaseUrl(normalizedUrl))
   const missing = [
     !hasAnonKey && !hasPublishableKey
       ? 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY'
@@ -176,8 +176,7 @@ export function getSupabaseEnvStatus() {
       : '',
   ].filter(Boolean)
 
-
-  if (normalizedUrl && rawHost && rawHost !== EXPECTED_SUPABASE_HOST) {
+  if (normalizedUrl && rawHost && rawHost !== EXPECTED_SUPABASE_HOST && !usesExplicitLocalVerification) {
     console.warn('harbourview_supabase_host_mismatch', {
       expectedHost: EXPECTED_SUPABASE_HOST,
       providedHost: rawHost,
@@ -185,9 +184,7 @@ export function getSupabaseEnvStatus() {
     })
   }
 
-  if (url) {
-    assertLockedSupabaseUrl(resolveLockedSupabaseUrl(url))
-  }
+  if (url) assertAllowedSupabaseUrl(resolveLockedSupabaseUrl(url))
 
   return {
     configured: missing.length === 0,
@@ -196,6 +193,7 @@ export function getSupabaseEnvStatus() {
     host: rawHost,
     resolvedHost,
     urlUsesExpectedProject,
+    usesExplicitLocalVerification,
     hasUrl: Boolean(url),
     hasAnonKey,
     hasPublishableKey,

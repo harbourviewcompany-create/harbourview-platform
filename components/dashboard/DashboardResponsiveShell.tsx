@@ -2,25 +2,22 @@
 
 import React, { useEffect, useState } from 'react'
 import CommandCentre from '@/components/dashboard/CommandCentre'
+import CommandCentreIntegrationGateway from '@/components/dashboard/CommandCentreIntegrationGateway'
 import MobileCommandCentre from '@/components/dashboard/MobileCommandCentre'
 
 type CommandCentreProps = React.ComponentProps<typeof CommandCentre>
 
 export default function DashboardResponsiveShell(props: CommandCentreProps) {
-  // Start with null — render nothing until we know viewport size.
-  // Avoids hydration mismatch and eliminates the double-DOM penalty.
   const [isMobile, setIsMobile] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)')
-    setIsMobile(mq.matches)
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
+    const media = window.matchMedia('(max-width: 767px)')
+    setIsMobile(media.matches)
+    const handleChange = (event: MediaQueryListEvent) => setIsMobile(event.matches)
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
   }, [])
 
-  // SSR / pre-hydration: render desktop shell with CSS guard so crawlers and
-  // initial paint are correct, then swap to the right component after mount.
   if (isMobile === null) {
     return (
       <>
@@ -30,7 +27,9 @@ export default function DashboardResponsiveShell(props: CommandCentreProps) {
     )
   }
 
-  return isMobile
-    ? <MobileCommandCentre {...props} />
-    : <CommandCentre {...props} />
+  return (
+    <CommandCentreIntegrationGateway isMobile={isMobile} dashboardProps={props}>
+      {isMobile ? <MobileCommandCentre {...props} /> : <CommandCentre {...props} />}
+    </CommandCentreIntegrationGateway>
+  )
 }
