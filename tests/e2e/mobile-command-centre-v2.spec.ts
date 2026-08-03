@@ -132,7 +132,7 @@ async function writeWidthEvidence(
 test.describe('Mobile Command Centre V2 authenticated visual verification', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('renders the rebuilt mobile command at four mobile widths and preserves desktop at 768', async ({ browser }) => {
+  test('renders contained mobile workflows at four widths and preserves desktop Command Centre at 768', async ({ browser }) => {
     test.setTimeout(240_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
@@ -201,9 +201,38 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             await expect(page.locator(`#${section}`)).toHaveCount(1)
           }
 
-          const wantedHref = await page.getByRole('link', { name: 'Post wanted demand' }).getAttribute('href')
-          expect(wantedHref).toContain('country=CA')
-          expect(wantedHref).toContain('role=exporter')
+          const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll((links) => links.map((link) => {
+            const href = (link as HTMLAnchorElement).href
+            return new URL(href).pathname
+          }))
+          expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
+
+          if (width === 390) {
+            await page.getByRole('button', { name: 'Post wanted demand', exact: true }).click()
+            await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toBeVisible()
+            await expect(page.getByText('Post a wanted requirement', { exact: true })).toBeVisible()
+            let activeUrl = new URL(page.url())
+            expect(activeUrl.pathname).toBe('/dashboard')
+            expect(activeUrl.searchParams.get('page')).toBe('marketplace')
+            expect(activeUrl.searchParams.get('section')).toBe('marketplace')
+            expect(activeUrl.searchParams.get('tool')).toBe('wanted-intake')
+            expect(activeUrl.searchParams.get('country')).toBe('CA')
+            expect(activeUrl.searchParams.get('role')).toBe('exporter')
+            await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
+            await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toHaveCount(0)
+
+            await page.getByRole('button', { name: 'Request financing', exact: true }).click()
+            await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toBeVisible()
+            await expect(page.getByText('Request financing support', { exact: true })).toBeVisible()
+            activeUrl = new URL(page.url())
+            expect(activeUrl.pathname).toBe('/dashboard')
+            expect(activeUrl.searchParams.get('page')).toBe('trade-calc')
+            expect(activeUrl.searchParams.get('section')).toBe('financing')
+            expect(activeUrl.searchParams.get('tool')).toBe('financing-intake')
+            await page.getByRole('button', { name: 'Close financing workflow' }).click()
+            await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toHaveCount(0)
+            report.containedWorkflows = ['wanted-intake', 'financing-intake']
+          }
 
           const geometry = await page.evaluate(() => {
             const root = document.documentElement
