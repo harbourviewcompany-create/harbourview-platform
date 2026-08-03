@@ -8,16 +8,20 @@ const read = (relativePath: string) => fs.readFileSync(path.join(root, relativeP
 const parent = read('components/dashboard/MobileCommandCentreRebuild.tsx')
 const model = read('components/dashboard/mobile-command/useMobileCommandModel.ts')
 const contracts = read('components/dashboard/mobile-command/contracts.ts')
+const workspace = read('components/dashboard/mobile-command/WorkspacePanels.tsx')
 const core = read('components/dashboard/mobile-command/sections/CoreSections.tsx')
 const intelligence = read('components/dashboard/mobile-command/sections/IntelligenceSections.tsx')
 const operations = read('components/dashboard/mobile-command/sections/OperationsSections.tsx')
 const domains = read('components/dashboard/mobile-command/sections/DomainSections.tsx')
-const source = [parent, model, contracts, core, intelligence, operations, domains].join('\n')
-const css = read('components/dashboard/MobileCommandCentreRebuild.css')
+const source = [parent, model, contracts, workspace, core, intelligence, operations, domains].join('\n')
+const css = [
+  read('components/dashboard/MobileCommandCentreRebuild.css'),
+  read('components/dashboard/MobileCommandCentreWorkspaces.css'),
+].join('\n')
 const responsiveShell = read('components/dashboard/DashboardResponsiveShell.tsx')
 
 describe('Mobile Command Centre rebuild contracts', () => {
-  it('is the mobile shell selected by DashboardResponsiveShell', () => {
+  it('is the mobile renderer for the canonical Command Centre route', () => {
     expect(responsiveShell).toContain("import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'")
     expect(responsiveShell).toContain('? <MobileCommandCentreRebuild {...props} />')
     expect(responsiveShell).not.toContain('MobileCommandCentreV2')
@@ -48,7 +52,32 @@ describe('Mobile Command Centre rebuild contracts', () => {
     ]) {
       expect(source).toContain(`id=\"${section}\"`)
       expect(parent).toContain(`sectionRef('${section}')`)
+      expect(contracts).toContain(`${section.includes('-') ? `'${section}'` : section}:`)
     }
+  })
+
+  it('maps every mobile section to a desktop Command Centre page', () => {
+    expect(contracts).toContain('SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage>')
+    expect(model).toContain('page: SECTION_TO_DESKTOP_PAGE[section]')
+    expect(model).toContain("return buildHref('/dashboard', baseContext")
+    expect(model).toContain('router.replace(commandHref(id)')
+    expect(parent).toContain("model.commandHref('overview', { page: 'organization' })")
+  })
+
+  it('keeps all new commercial workflows inside Mobile Command', () => {
+    expect(workspace).toContain('DynamicMarketplaceIntakeForm')
+    expect(workspace).toContain('FinancingInquiryForm')
+    expect(core).toContain("onOpenTool('wanted-intake'")
+    expect(core).toContain("onOpenTool('supply-intake'")
+    expect(core).toContain("onOpenTool('introduction'")
+    expect(domains).toContain("onOpenTool('financing-intake')")
+    expect(source).not.toContain('routeHref')
+    expect(source).not.toContain("href=\"/marketplace")
+    expect(source).not.toContain("href=\"/signals")
+    expect(source).not.toContain("href=\"/supply")
+    expect(source).not.toContain("href=\"/network")
+    expect(source).not.toContain("href=\"/account")
+    expect(source).not.toContain("href=\"/intake")
   })
 
   it('splits the twenty sections into focused modules instead of one monolith', () => {
@@ -77,13 +106,12 @@ describe('Mobile Command Centre rebuild contracts', () => {
     expect(core).toContain('Request financing')
   })
 
-  it('preserves jurisdiction and role across section and cross-route navigation', () => {
+  it('preserves jurisdiction and role in every command-surface URL', () => {
     expect(parent).toContain("updateContext('country', event.target.value)")
     expect(parent).toContain("updateContext('role', event.target.value)")
     expect(model).toContain("const currentCountry = searchParams.get('country') || props.initialCountryIso2")
     expect(model).toContain("const currentRole = searchParams.get('role') || props.initialRoleId")
-    expect(model).toContain('router.replace(sectionHref({ section: id })')
-    expect(model).toContain("return buildHref('/dashboard', contextParams(currentCountry, currentRole), changes)")
+    expect(model).toContain('contextParams(currentCountry, currentRole)')
   })
 
   it('centralizes approved mediation and private-data boundary copy', () => {
@@ -115,10 +143,12 @@ describe('Mobile Command Centre rebuild contracts', () => {
     expect(css).not.toContain('ccig-launcher')
   })
 
-  it('implements mobile safe-area and overflow protections', () => {
+  it('implements mobile safe-area, workspace and overflow protections', () => {
     expect(css).toContain('max-width: 100vw')
     expect(css).toContain('overflow-x: hidden')
     expect(css).toContain('env(safe-area-inset-bottom)')
+    expect(css).toContain('.hvm2-workspace')
+    expect(css).toContain('.hvm2-inline-cta')
     expect(css).toContain('@media (max-width: 359px)')
     expect(css).toContain('@media (prefers-reduced-motion: reduce)')
   })
