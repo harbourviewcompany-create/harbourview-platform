@@ -17,6 +17,7 @@ on:
       - app/dashboard/country/**
       - app/network/clinical-education/**
       - lib/dashboard/navigationRoutes.ts
+      - middleware.ts
   workflow_dispatch:
 
 permissions:
@@ -39,10 +40,12 @@ jobs:
 
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
@@ -126,7 +129,7 @@ jobs:
               '/dashboard?country=MX&page=compliance',
               '/dashboard?country=MX&page=signals',
               '/dashboard?page=clinical',
-              '/contact',
+              '/contact?topic=clinical-education',
             ]
             const slug = (value) => value.replace(/^\//, '').replace(/[^a-z0-9]+/gi, '-') || 'root'
             const browser = await chromium.launch({ headless: true })
@@ -151,10 +154,9 @@ jobs:
               const final = new URL(page.url())
               const finalPath = `${final.pathname}${final.search}`
               const intendedDestination = intendedDestinations[index]
-              const intendedDestinationPath = new URL(intendedDestination, baseUrl).pathname
               const authExpected = [
                 `/login?next=${encodeURIComponent(routes[index])}`,
-                `/login?next=${encodeURIComponent(intendedDestinationPath)}`,
+                `/login?next=${encodeURIComponent(intendedDestination)}`,
               ]
               const reachedIntendedDestination = finalPath === intendedDestination
               const correctlyAuthGated = authExpected.includes(finalPath)
@@ -194,7 +196,7 @@ jobs:
 
       - name: Upload OpenNext build and preview evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: cloudflare-workers-preview-verification
           path: |
