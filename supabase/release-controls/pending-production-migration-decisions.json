@@ -1,0 +1,652 @@
+{
+  "version": 1,
+  "status": "HOLD",
+  "snapshot": {
+    "source_commit": "7134bb6cd696779b3429d98272ce1e3cd7e8236c",
+    "source_tree": "c50c393d3b61052886030a16e296f44cf53d75d8",
+    "workflow_run_id": 30766999778,
+    "artifact_id": 8839263343,
+    "artifact_sha256": "0fd8a01b6e85e5da2533dbd67a4a74023fddd17cb860e3f27fa271ee0ced12ee",
+    "repository_migration_files": 784,
+    "repository_unique_versions": 782,
+    "live_versions": 798,
+    "repository_only_versions": 36,
+    "repository_only_files": 37,
+    "live_only_versions": 52,
+    "duplicate_repository_versions": [
+      "20260722120000",
+      "20260729000000"
+    ],
+    "pending_duplicate_versions": [
+      "20260729000000"
+    ],
+    "invalid_filenames": []
+  },
+  "classification_definitions": {
+    "approved": "Exact three-file Elite Digest allowlist; no expansion.",
+    "separately_authorized": "Independent release scope; not production-authorized by Elite Digest.",
+    "obsolete": "Must not be applied; retire from active forward migrations after preserving evidence.",
+    "requiring_forward_reconciliation": "Recover exact live-version source/provenance before retiring mismatched repository history."
+  },
+  "reason_codes": {
+    "exact_live_name_different_version": "Same migration name is already applied under a different live version; recover canonical live-version source before retiring this file.",
+    "live_state_split_across_versions": "Intended state is already live through multiple or differently named applied versions; recover exact sources before retiring this file.",
+    "independent_release_not_authorized": "Valid independent release not authorized by Elite Digest; separately activate with its own evidence or explicitly retire.",
+    "obsolete_transient_or_superseded": "Must not apply: transient maintenance, no-op parity stub, rollback, or superseded definition.",
+    "elite_digest_approved": "Exact content-bound Elite Digest allowlist entry."
+  },
+  "elite_digest_allowlist_unchanged": [
+    {
+      "version": "20260802073000",
+      "file": "20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+      "git_blob_sha": "6b8544df5969f12d72891201d2c82b4406d56c51"
+    },
+    {
+      "version": "20260802152500",
+      "file": "20260802152500_signal_feedback_api_rpcs.sql",
+      "git_blob_sha": "512a5c59207fe2ae29fb87e4cceeb6264ab40a34"
+    },
+    {
+      "version": "20260802163000",
+      "file": "20260802163000_elite_digest_rpc_boundary_hardening.sql",
+      "git_blob_sha": "f9b1cb7c09a6183f8bd1f080df37be9a619ba4eb"
+    }
+  ],
+  "repository_only_decisions": [
+    {
+      "version": "20260722021500",
+      "file": "20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql",
+      "git_blob_sha": "bbde4876a597ccac01dd06a48abeb6f950d3c95f",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260722182917"
+      ]
+    },
+    {
+      "version": "20260722021600",
+      "file": "20260722021600_deprecate_unused_stage3_pipeline_a.sql",
+      "git_blob_sha": "090b5ec626c7623146fce6ee6993ef367d35678a",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260722182921"
+      ]
+    },
+    {
+      "version": "20260722021700",
+      "file": "20260722021700_fix_rows_needing_titles_pipeline_b.sql",
+      "git_blob_sha": "bea2f782b73215c789693419fb054e1b8544b5ef",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260722183144"
+      ]
+    },
+    {
+      "version": "20260722022000",
+      "file": "20260722022000_hv_promote_signals_structural_confidence_floor.sql",
+      "git_blob_sha": "84a507d7a895fa4bf60818f009a66d2c658bcccb",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260722185023"
+      ]
+    },
+    {
+      "version": "20260722022100",
+      "file": "20260722022100_rows_needing_titles_promoted_only.sql",
+      "git_blob_sha": "db597b34e58038b64a461be21b18a012515066cd",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260722185025"
+      ]
+    },
+    {
+      "version": "20260722030000",
+      "file": "20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql",
+      "git_blob_sha": "5cfbdc8512e8293fe298ab11999e00fe83e12219",
+      "classification": "obsolete",
+      "reason_code": "obsolete_transient_or_superseded",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260722031500",
+      "file": "20260722031500_revoke_anon_authenticated_hv_pipeline_functions.sql",
+      "git_blob_sha": "b36fe365539f32236e71fd2b1a0a45e9be2fceb4",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260722200145"
+      ]
+    },
+    {
+      "version": "20260723180000",
+      "file": "20260723180000_revoke_legacy_jurisdiction_briefings_grants.sql",
+      "git_blob_sha": "0f0cb166eae2eb38effafa1da243bbc7d9be2378",
+      "classification": "obsolete",
+      "reason_code": "obsolete_transient_or_superseded",
+      "live_equivalent_versions": [
+        "20260727002735"
+      ]
+    },
+    {
+      "version": "20260724000000",
+      "file": "20260724000000_fix_entity_decode_blanking_bug_in_signal_extraction.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50",
+      "classification": "obsolete",
+      "reason_code": "obsolete_transient_or_superseded",
+      "live_equivalent_versions": [
+        "20260724105120"
+      ]
+    },
+    {
+      "version": "20260727160000",
+      "file": "20260727160000_clinical_control_foundation.sql",
+      "git_blob_sha": "9b7a493bbe5d2060c4fc0c3267f9b64744b9be3d",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260727161000",
+      "file": "20260727161000_clinical_patient_core.sql",
+      "git_blob_sha": "97db4d674bc5651829f0ff564fd7b88820477fe2",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260727162000",
+      "file": "20260727162000_clinical_workflows.sql",
+      "git_blob_sha": "705d9c0d7b8a6bed476edaf0a951f5f75f848fa9",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260727163000",
+      "file": "20260727163000_clinical_api_surface.sql",
+      "git_blob_sha": "04bcea31c4720e63ee13a62ac0e5973c885aafcc",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260728000000",
+      "file": "20260728000000_professional_service_providers.sql",
+      "git_blob_sha": "cc6b804efc11a48774bd5999226ffb05b0afa15e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260728191340"
+      ]
+    },
+    {
+      "version": "20260728010000",
+      "file": "20260728010000_rename_professional_service_providers_table.sql",
+      "git_blob_sha": "e9c1f4428b5eb5dc9182d5ae660259953948f427",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260728192052"
+      ]
+    },
+    {
+      "version": "20260728020000",
+      "file": "20260728020000_grant_public_view_access_to_approved_listings.sql",
+      "git_blob_sha": "90c7f2c08e5ccb86e3a33c13c85a482af2cb99ee",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260729021820"
+      ]
+    },
+    {
+      "version": "20260729000000",
+      "file": "20260729000000_fix_jurisdiction_playbooks_missing_grant.sql",
+      "git_blob_sha": "d4b0e6b79665f48e0736d2458e7c1fe0522a2ba2",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260729095416"
+      ]
+    },
+    {
+      "version": "20260729000000",
+      "file": "20260729000000_platform_optimizations.sql",
+      "git_blob_sha": "1bdbd56c502ce0e23e54a1f9f8c6b5cffb923053",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260731110914"
+      ]
+    },
+    {
+      "version": "20260729000001",
+      "file": "20260729000001_platform_optimizations_rollback.sql",
+      "git_blob_sha": "25ba474b84a389bc1c9369249f1c3c798ce95a97",
+      "classification": "obsolete",
+      "reason_code": "obsolete_transient_or_superseded",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260729010000",
+      "file": "20260729010000_fix_missing_public_read_grants.sql",
+      "git_blob_sha": "a916fa9435d4b49d7331fc935621ff5f95f9c8c1",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260730103137"
+      ]
+    },
+    {
+      "version": "20260729020000",
+      "file": "20260729020000_fix_candidate_review_and_pathway_template_grants.sql",
+      "git_blob_sha": "c7c915974c4945ee6e4c8031f3d56209a07e1c2a",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260802134657"
+      ]
+    },
+    {
+      "version": "20260729130000",
+      "file": "20260729130000_source_registry_metadata_and_api_seeds.sql",
+      "git_blob_sha": "364011a1d63c9aad11b7218787222954e98c9be3",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260730185321"
+      ]
+    },
+    {
+      "version": "20260730110000",
+      "file": "20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql",
+      "git_blob_sha": "ca0dcb87efcb08e27602901070e10dade29751f0",
+      "classification": "obsolete",
+      "reason_code": "obsolete_transient_or_superseded",
+      "live_equivalent_versions": [
+        "20260730104444"
+      ]
+    },
+    {
+      "version": "20260730123000",
+      "file": "20260730123000_harvest_stamp_classifier_v2_summary_fix.sql",
+      "git_blob_sha": "ec81d9dbafefde1f5ff078743f0ed3994f0dbd51",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260730161318"
+      ]
+    },
+    {
+      "version": "20260730180000",
+      "file": "20260730180000_search_public_signals_rpc.sql",
+      "git_blob_sha": "d8a028f90cd8c276dccbb7ec2bdb4e3107ee30ae",
+      "classification": "obsolete",
+      "reason_code": "obsolete_transient_or_superseded",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260730220000",
+      "file": "20260730220000_add_harbourview_supply_catalog.sql",
+      "git_blob_sha": "0d29581a6cc963de0e7aff43734dc3f54d7630b4",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "live_state_split_across_versions",
+      "live_equivalent_versions": [
+        "20260730211141",
+        "20260730211147",
+        "20260730212129"
+      ]
+    },
+    {
+      "version": "20260730220100",
+      "file": "20260730220100_seed_harbourview_supply_catalog_canada.sql",
+      "git_blob_sha": "4c7f8344b180f60dd0610cc73d38505a27ca23ec",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260730211325"
+      ]
+    },
+    {
+      "version": "20260730220200",
+      "file": "20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql",
+      "git_blob_sha": "15d6b7f139aa28a6362800854e4d03e6e445322a",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "live_state_split_across_versions",
+      "live_equivalent_versions": [
+        "20260730211507",
+        "20260730211621",
+        "20260730211756"
+      ]
+    },
+    {
+      "version": "20260730221500",
+      "file": "20260730221500_automate_entity_extraction_stop_rescan_ungate.sql",
+      "git_blob_sha": "e45fdc35a1ef01f6a95364a6ab8cb0d56a20ce3f",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260730220913"
+      ]
+    },
+    {
+      "version": "20260730222000",
+      "file": "20260730222000_entities_dispatch_ungated_and_reaping.sql",
+      "git_blob_sha": "c1df49f1b1ccde64dbe0474df5440900a023b662",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260730221151"
+      ]
+    },
+    {
+      "version": "20260731013000",
+      "file": "20260731013000_search_public_signals_stage_d_consistency.sql",
+      "git_blob_sha": "a5ed5281df4c5758c79e67adb630a98c736c65b0",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "exact_live_name_different_version",
+      "live_equivalent_versions": [
+        "20260731084635"
+      ]
+    },
+    {
+      "version": "20260731120000",
+      "file": "20260731120000_signal_role_family_routing.sql",
+      "git_blob_sha": "9c347578cfbc99ad5d1c2cd2160c34650effbe17",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260801150000",
+      "file": "20260801150000_api_expose_quality_and_routing_columns.sql",
+      "git_blob_sha": "e44a7748aaa2c55309ab14b2474b175d36dacb8d",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260802073000",
+      "file": "20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+      "git_blob_sha": "6b8544df5969f12d72891201d2c82b4406d56c51",
+      "classification": "approved",
+      "reason_code": "elite_digest_approved",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260802080000",
+      "file": "20260802080000_harden_eval_labels_and_alert_delivery.sql",
+      "git_blob_sha": "3672f3a0f838578aefd050fb41d1c97b24871aaf",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260802152500",
+      "file": "20260802152500_signal_feedback_api_rpcs.sql",
+      "git_blob_sha": "512a5c59207fe2ae29fb87e4cceeb6264ab40a34",
+      "classification": "approved",
+      "reason_code": "elite_digest_approved",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260802163000",
+      "file": "20260802163000_elite_digest_rpc_boundary_hardening.sql",
+      "git_blob_sha": "f9b1cb7c09a6183f8bd1f080df37be9a619ba4eb",
+      "classification": "approved",
+      "reason_code": "elite_digest_approved",
+      "live_equivalent_versions": []
+    }
+  ],
+  "live_only_reconciliation": [
+    {
+      "version": "20260727213922",
+      "name": "populate_health_canada_tranche1_57_licence_sites_v2"
+    },
+    {
+      "version": "20260728191340",
+      "name": "professional_service_providers",
+      "matching_repository_file": "20260728000000_professional_service_providers.sql"
+    },
+    {
+      "version": "20260728192052",
+      "name": "rename_professional_service_providers_table",
+      "matching_repository_file": "20260728010000_rename_professional_service_providers_table.sql"
+    },
+    {
+      "version": "20260729021338",
+      "name": "fix_professional_services_public_schema_access"
+    },
+    {
+      "version": "20260729021608",
+      "name": "fix_provider_view_security_invoker"
+    },
+    {
+      "version": "20260729021709",
+      "name": "explicitly_set_security_invoker_false"
+    },
+    {
+      "version": "20260729021820",
+      "name": "grant_select_and_rls_for_approved_listings"
+    },
+    {
+      "version": "20260729095416",
+      "name": "fix_jurisdiction_playbooks_missing_grant",
+      "matching_repository_file": "20260729000000_fix_jurisdiction_playbooks_missing_grant.sql"
+    },
+    {
+      "version": "20260729102231",
+      "name": "optimize_rls_auth_function_reevaluation"
+    },
+    {
+      "version": "20260729230849",
+      "name": "create_job_search_schema"
+    },
+    {
+      "version": "20260729233712",
+      "name": "job_search_expose_schema_grants"
+    },
+    {
+      "version": "20260730003050",
+      "name": "expose_all_pipeline_tick_counters_in_json"
+    },
+    {
+      "version": "20260730103137",
+      "name": "fix_missing_public_read_grants",
+      "matching_repository_file": "20260729010000_fix_missing_public_read_grants.sql"
+    },
+    {
+      "version": "20260730104444",
+      "name": "fix_hv_dedup_assign_timeout_and_ranking",
+      "matching_repository_file": "20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql"
+    },
+    {
+      "version": "20260730104633",
+      "name": "hv_dedup_assign_use_hnsw_index"
+    },
+    {
+      "version": "20260730112133",
+      "name": "job_search_anon_rls_policies"
+    },
+    {
+      "version": "20260730112457",
+      "name": "job_search_fix_settings_shape"
+    },
+    {
+      "version": "20260730112526",
+      "name": "job_search_seed_remaining_settings_and_opportunities"
+    },
+    {
+      "version": "20260730112536",
+      "name": "job_search_004_005_006_source_and_indexes"
+    },
+    {
+      "version": "20260730112600",
+      "name": "job_search_fix_fit_reasons_type"
+    },
+    {
+      "version": "20260730112630",
+      "name": "job_search_applications_unique_job_id"
+    },
+    {
+      "version": "20260730160830",
+      "name": "job_search_jobs_source_check_add_remoteok"
+    },
+    {
+      "version": "20260730160833",
+      "name": "job_search_resumes_storage_bucket"
+    },
+    {
+      "version": "20260730161011",
+      "name": "job_search_schedule_daily_job_pull"
+    },
+    {
+      "version": "20260730161013",
+      "name": "job_search_schedule_daily_follow_up"
+    },
+    {
+      "version": "20260730161318",
+      "name": "harvest_stamp_classifier_v2_summary_fix",
+      "matching_repository_file": "20260730123000_harvest_stamp_classifier_v2_summary_fix.sql"
+    },
+    {
+      "version": "20260730182043",
+      "name": "add_prospects_table"
+    },
+    {
+      "version": "20260730182145",
+      "name": "add_geo_columns_to_jobs"
+    },
+    {
+      "version": "20260730182606",
+      "name": "seed_real_prospects_and_status_support"
+    },
+    {
+      "version": "20260730184257",
+      "name": "fix_duplicate_dispatch_translate_and_embed"
+    },
+    {
+      "version": "20260730185321",
+      "name": "source_registry_metadata_and_api_seeds",
+      "matching_repository_file": "20260729130000_source_registry_metadata_and_api_seeds.sql"
+    },
+    {
+      "version": "20260730211141",
+      "name": "add_harbourview_direct_supply_catalog_fields"
+    },
+    {
+      "version": "20260730211147",
+      "name": "create_supply_catalog_public_view"
+    },
+    {
+      "version": "20260730211325",
+      "name": "seed_supply_catalog_canada_starter"
+    },
+    {
+      "version": "20260730211507",
+      "name": "seed_supply_catalog_canada_batch2"
+    },
+    {
+      "version": "20260730211621",
+      "name": "seed_supply_catalog_canada_batch3"
+    },
+    {
+      "version": "20260730211756",
+      "name": "seed_supply_catalog_canada_batch4"
+    },
+    {
+      "version": "20260730212129",
+      "name": "extend_public_listings_view_for_supply_catalog"
+    },
+    {
+      "version": "20260730220913",
+      "name": "automate_entity_extraction_stop_rescan_ungate",
+      "matching_repository_file": "20260730221500_automate_entity_extraction_stop_rescan_ungate.sql"
+    },
+    {
+      "version": "20260730221151",
+      "name": "fix_entities_dispatch_alias_collision"
+    },
+    {
+      "version": "20260730222127",
+      "name": "hv_pipeline_alerts_outcome_assertions",
+      "matching_repository_file": "20260730222221_hv_pipeline_alerts_outcome_assertions.sql"
+    },
+    {
+      "version": "20260730222807",
+      "name": "add_signal_to_eval_set_learning_loop",
+      "matching_repository_file": "20260730222849_add_signal_to_eval_set_learning_loop.sql"
+    },
+    {
+      "version": "20260730223248",
+      "name": "revoke_anon_execute_on_pipeline_operator_functions"
+    },
+    {
+      "version": "20260730223308",
+      "name": "restrict_pipeline_operator_functions_to_service_role"
+    },
+    {
+      "version": "20260731004024",
+      "name": "gmail_oauth_tokens_and_draft_tracking"
+    },
+    {
+      "version": "20260731084635",
+      "name": "search_public_signals_stage_d_consistency",
+      "matching_repository_file": "20260731013000_search_public_signals_stage_d_consistency.sql"
+    },
+    {
+      "version": "20260731090302",
+      "name": "job_search_adzuna_vault_credentials"
+    },
+    {
+      "version": "20260731110914",
+      "name": "platform_optimizations",
+      "matching_repository_file": "20260729000000_platform_optimizations.sql"
+    },
+    {
+      "version": "20260801144813",
+      "name": "schedule_hv_promote_staging_to_artifacts"
+    },
+    {
+      "version": "20260802011926",
+      "name": "job_search_operator_boundary_rls"
+    },
+    {
+      "version": "20260802014521",
+      "name": "jobs_effective_timestamp"
+    },
+    {
+      "version": "20260802134657",
+      "name": "fix_candidate_review_and_pathway_template_grants",
+      "matching_repository_file": "20260729020000_fix_candidate_review_and_pathway_template_grants.sql"
+    }
+  ],
+  "environment_verification": {
+    "workflow_run_id": 30766999778,
+    "path": "GET /repos/harbourviewcompany-create/harbourview-platform/environments/production-database",
+    "token_scope": "GitHub Actions token with actions:read, contents:read, deployments:read",
+    "result": "HTTP 404 Not Found",
+    "interpretation": "inconclusive: the scoped token cannot prove whether the environment is absent or hidden by missing Administration:read permission",
+    "required_admin_evidence": [
+      "environment exists",
+      "at least one required reviewer",
+      "prevent_self_review enabled or explicitly accepted",
+      "deployment_branch_policy.custom_branch_policies=true",
+      "exact branch policy main"
+    ]
+  },
+  "go_conditions": [
+    "zero live-only versions",
+    "zero unexpected repository-only versions",
+    "exactly the three approved Elite Digest versions pending",
+    "zero pending duplicate versions",
+    "zero invalid filenames",
+    "exact approved filename and Git blob SHA matches",
+    "read-only SQL preflight success",
+    "administration-authorized production-database environment evidence"
+  ]
+}
