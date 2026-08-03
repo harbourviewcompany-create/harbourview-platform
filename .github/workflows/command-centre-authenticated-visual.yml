@@ -1,224 +1,67 @@
-name: Command Centre Authenticated Visual
+name: PR 1257 Remediation Bootstrap
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - agent/command-centre-integration-rule
-    paths-ignore:
-      - docs/control/evidence/command-centre-integration/**
-      - docs/control/evidence/COMMAND_CENTRE_INTEGRATION_2026-08-02.md
 
 permissions:
   contents: write
 
 concurrency:
-  group: command-centre-authenticated-visual-${{ github.ref }}
-  cancel-in-progress: true
+  group: pr1257-remediation-bootstrap
+  cancel-in-progress: false
 
 jobs:
-  visual:
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[visual-evidence]')
+  remediate:
+    if: contains(github.event.head_commit.message, '[pr1257-bootstrap]')
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CI: '1'
-      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
-      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-      PLAYWRIGHT_STORAGE_STATE: .playwright/command-centre-auth.json
-      SUPABASE_DB_SCHEMA: api
+    timeout-minutes: 20
     steps:
-      - name: Checkout feature branch
-        uses: actions/checkout@v4
+      - name: Checkout dedicated branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: agent/command-centre-integration-rule
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Verify committed empty-state fixes and temporary workflow removal
-        shell: python
+      - name: Merge current main and execute bounded remediation
+        shell: bash
         run: |
+          set -euo pipefail
+          git config user.name "Harbourview PR 1257 Remediation"
+          git config user.email "harbourviewcompany@gmail.com"
+          git fetch origin main
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            git merge --no-edit origin/main
+          fi
+
+          python3 <<'PY'
           from pathlib import Path
 
-          gateway = Path('components/dashboard/CommandCentreIntegrationGateway.tsx').read_text()
-          required = [
-              'const hasMarketData = metrics.length > 0 || flows.length > 0',
-              'No market metrics or trade flows match the current context.',
-              'No open roles match the current context.',
-          ]
-          missing = [marker for marker in required if marker not in gateway]
-          if missing:
-              raise SystemExit(f'Missing verified Command Centre fixes: {missing}')
+          source = Path('.github/workflows/pr1257-remediation.yml').read_text().splitlines()
+          start_marker = "          python3 <<'PY'"
+          end_marker = "          PY"
+          try:
+              start = source.index(start_marker) + 1
+              end = source.index(end_marker, start)
+          except ValueError as error:
+              raise SystemExit(f'Unable to locate embedded remediation script: {error}')
 
-          temporary = Path('.github/workflows/command-centre-empty-state-hotfix.yml')
-          if temporary.exists():
-              raise SystemExit(f'Temporary workflow must be removed: {temporary}')
+          script_lines = [line[10:] if line.startswith('          ') else line for line in source[start:end]]
+          script = '\n'.join(script_lines) + '\n'
+          exec(compile(script, 'pr1257-remediation.py', 'exec'), {'__name__': '__main__'})
+          PY
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+          git status --short
+          git add -A
+          git commit -m "fix(command-centre): close PR 1257 review findings"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test suite
-        run: npm test
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Prepare isolated local Supabase schema
+      - name: Push remediated branch
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          mv supabase/migrations /tmp/harbourview-production-migrations
-          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
-          mkdir -p supabase/migrations
-          cat > supabase/migrations/00000000000000_command_centre_visual.sql <<'SQL'
-          create schema if not exists api;
-          grant usage on schema api to anon, authenticated, service_role;
-
-          create table if not exists api.user_dashboard_preferences (
-            user_id uuid primary key,
-            country_iso2 text,
-            role_id text
-          );
-          create table if not exists api.workspace_members (
-            user_id uuid not null,
-            workspace_id uuid not null default gen_random_uuid(),
-            status text not null default 'active'
-          );
-          create table if not exists api.talent_jobs_public (
-            id uuid primary key default gen_random_uuid(),
-            title text not null,
-            department text,
-            location text,
-            operator_name text,
-            operator_verification_status text,
-            created_at timestamptz not null default now()
-          );
-
-          grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
-          grant select on all tables in schema api to anon;
-          SQL
-          : > supabase/seed.sql
-
-      - name: Start isolated Supabase
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase start
-          eval "$(supabase status -o env)"
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
-            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
-            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
-          } >> "$GITHUB_ENV"
-
-      - name: Create dedicated local test account
-        shell: bash
-        run: |
-          set -euo pipefail
-          TEST_EMAIL="command-centre-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvVisual-${GITHUB_RUN_ID}-Aa9!"
-          echo "::add-mask::${TEST_PASSWORD}"
-          export PLAYWRIGHT_TEST_EMAIL="${TEST_EMAIL}"
-          export PLAYWRIGHT_TEST_PASSWORD="${TEST_PASSWORD}"
-          echo "PLAYWRIGHT_TEST_EMAIL=${TEST_EMAIL}" >> "$GITHUB_ENV"
-          echo "PLAYWRIGHT_TEST_PASSWORD=${TEST_PASSWORD}" >> "$GITHUB_ENV"
-          node --input-type=module <<'NODE'
-          import { createClient } from '@supabase/supabase-js'
-          const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-            auth: { autoRefreshToken: false, persistSession: false },
-          })
-          const { data, error } = await client.auth.admin.createUser({
-            email: process.env.PLAYWRIGHT_TEST_EMAIL,
-            password: process.env.PLAYWRIGHT_TEST_PASSWORD,
-            email_confirm: true,
-            app_metadata: { command_centre_visual_test: true },
-            user_metadata: { purpose: 'isolated-playwright' },
-          })
-          if (error) throw error
-          if (!data.user) throw new Error('Local visual test user was not created')
-          console.log(`Created isolated visual user ${data.user.id}`)
-          NODE
-
-      - name: Production build against isolated Supabase
-        run: npm run build
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Start built application
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm start -- --hostname 127.0.0.1 > /tmp/harbourview-next.log 2>&1 &
-          echo $! > /tmp/harbourview-next.pid
-          for attempt in $(seq 1 90); do
-            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
-            sleep 2
-          done
-          cat /tmp/harbourview-next.log
-          exit 1
-
-      - name: Create authenticated browser state
-        run: node scripts/create-playwright-auth-state.mjs
-
-      - name: Run six-width Command Centre visual suite
-        run: npx playwright test tests/e2e/command-centre-integration.spec.ts --project=chromium-desktop --retries=0
-
-      - name: Upload visual evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: command-centre-authenticated-visual-${{ github.run_id }}
-          if-no-files-found: warn
-          retention-days: 14
-          path: |
-            docs/control/evidence/command-centre-integration/
-            playwright-report/
-            test-results/
-            /tmp/harbourview-next.log
-
-      - name: Restore production migration source tree
-        if: always()
-        shell: bash
-        run: |
-          rm -rf supabase/migrations supabase/seed.sql
-          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
-          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
-
-      - name: Stop isolated services
-        if: always()
-        shell: bash
-        run: |
-          if [ -f /tmp/harbourview-next.pid ]; then kill "$(cat /tmp/harbourview-next.pid)" 2>/dev/null || true; fi
-          supabase stop --no-backup || true
-
-      - name: Commit six-width evidence
-        if: success()
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "Harbourview Verification"
-          git config user.email "harbourviewcompany@gmail.com"
-          git add docs/control/evidence/command-centre-integration/command-centre-*.png
-          git add docs/control/evidence/command-centre-integration/command-centre-*.json
-          if git diff --cached --quiet; then
-            echo "Six-width evidence is already current"
-            exit 0
-          fi
-          git commit -m "test(command-centre): commit verified shell evidence [visual-evidence]"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin HEAD:agent/command-centre-integration-rule
