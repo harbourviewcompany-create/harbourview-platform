@@ -23,16 +23,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  authenticated-preview-visual:
+  authenticated-visual:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
-      HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
-      PLAYWRIGHT_BASE_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
-      EXPECTED_PREVIEW_SHA: ${{ github.sha }}
+      PREVIEW_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
+      EXPECTED_SOURCE_SHA: ${{ github.sha }}
       E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
       E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - name: Checkout exact verified branch head
@@ -47,32 +50,66 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Validate authenticated visual secrets
+      - name: Validate authenticated visual inputs
         shell: bash
         run: |
           set -euo pipefail
           test -n "${E2E_TEST_USER_EMAIL:-}" || { echo 'HOLD: E2E_TEST_USER_EMAIL is not configured.'; exit 1; }
           test -n "${E2E_TEST_USER_PASSWORD:-}" || { echo 'HOLD: E2E_TEST_USER_PASSWORD is not configured.'; exit 1; }
-          test -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" || { echo 'HOLD: VERCEL_AUTOMATION_BYPASS_SECRET is not configured.'; exit 1; }
-          echo 'GO: authenticated preview inputs are configured.'
+          test -n "${NEXT_PUBLIC_SUPABASE_URL:-}" || { echo 'HOLD: NEXT_PUBLIC_SUPABASE_URL is not configured.'; exit 1; }
+          test -n "${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}" || { echo 'HOLD: NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured.'; exit 1; }
+          test -n "${SUPABASE_SERVICE_ROLE_KEY:-}" || { echo 'HOLD: SUPABASE_SERVICE_ROLE_KEY is not configured.'; exit 1; }
+          echo 'GO: authenticated visual inputs are configured.'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for exact branch preview source
+      - name: Resolve exact verification target
+        id: target
         shell: bash
         run: |
           set -euo pipefail
-          for attempt in $(seq 1 90); do
-            body="$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${HARBOURVIEW_PUBLIC_BASE_URL}/login" || true)"
-            if printf '%s' "$body" | grep -q "$EXPECTED_PREVIEW_SHA"; then
-              echo "Preview is ready at expected application SHA ${EXPECTED_PREVIEW_SHA}"
+          for attempt in $(seq 1 24); do
+            if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
+              body="$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${PREVIEW_URL}/login" || true)"
+            else
+              body="$(curl -sS "${PREVIEW_URL}/login" || true)"
+            fi
+            if printf '%s' "$body" | grep -q "$EXPECTED_SOURCE_SHA"; then
+              echo 'mode=preview' >> "$GITHUB_OUTPUT"
+              echo "HARBOURVIEW_PUBLIC_BASE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
+              echo "PLAYWRIGHT_BASE_URL=${PREVIEW_URL}" >> "$GITHUB_ENV"
+              echo "GO: exact preview source ${EXPECTED_SOURCE_SHA} is ready."
               exit 0
             fi
-            echo "Attempt ${attempt}: preview is not yet serving ${EXPECTED_PREVIEW_SHA}"
-            sleep 4
+            echo "Attempt ${attempt}: preview is not yet serving ${EXPECTED_SOURCE_SHA}"
+            sleep 5
           done
-          echo "HOLD: preview did not become ready at the expected application SHA"
+
+          echo 'mode=local-exact-build' >> "$GITHUB_OUTPUT"
+          echo 'HARBOURVIEW_PUBLIC_BASE_URL=http://127.0.0.1:3000' >> "$GITHUB_ENV"
+          echo 'PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000' >> "$GITHUB_ENV"
+          echo 'Preview is unavailable at the exact source SHA; using an exact local production build.'
+
+      - name: Build exact source locally
+        if: steps.target.outputs.mode == 'local-exact-build'
+        run: npm run build
+
+      - name: Start exact local production build
+        if: steps.target.outputs.mode == 'local-exact-build'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 > /tmp/mobile-command-next.log 2>&1 &
+          echo $! > /tmp/mobile-command-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
+              echo 'GO: exact local production build is ready.'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/mobile-command-next.log
           exit 1
 
       - name: Install Chromium
@@ -90,14 +127,24 @@ jobs:
             artifacts/mobile-command-v2/
             playwright-report/
             test-results/
+            /tmp/mobile-command-next.log
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Stop local production build
+        if: always() && steps.target.outputs.mode == 'local-exact-build'
+        shell: bash
+        run: |
+          if [ -f /tmp/mobile-command-next.pid ]; then
+            kill "$(cat /tmp/mobile-command-next.pid)" 2>/dev/null || true
+          fi
 
       - name: Record visual run on the open PR
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           JOB_RESULT: ${{ job.status }}
+          VERIFICATION_MODE: ${{ steps.target.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
@@ -106,4 +153,4 @@ jobs:
             echo 'No open PR found for this branch; skipping PR comment.'
             exit 0
           fi
-          gh pr comment "$pr_number" --body "Mobile Command Centre V2 authenticated visual run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against preview application SHA \`${EXPECTED_PREVIEW_SHA}\`. Artifact: \`mobile-command-centre-v2-${GITHUB_RUN_ID}\`."
+          gh pr comment "$pr_number" --body "Mobile Command Centre V2 authenticated visual run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against exact source SHA \`${EXPECTED_SOURCE_SHA}\` in mode **${VERIFICATION_MODE:-unresolved}**. Artifact: \`mobile-command-centre-v2-${GITHUB_RUN_ID}\`."
