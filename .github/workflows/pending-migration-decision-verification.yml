@@ -6,6 +6,10 @@ on:
     paths:
       - '.github/workflows/pending-migration-decision-verification.yml'
       - 'supabase/release-controls/pending-production-migration-decisions.json'
+      - 'supabase/release-controls/pending-production-migration-manifest-snapshot.json'
+      - 'supabase/release-controls/production-database-environment-verification.json'
+      - 'supabase/release-controls/evidence/elite-digest-preflight-manifest-30766999778.json'
+      - 'supabase/release-controls/evidence/elite-digest-remote-migrations-30766999778.txt'
       - 'scripts/check-pending-production-migration-decisions.mjs'
       - 'tests/scripts/pending-production-migration-decisions.test.mjs'
       - 'docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md'
@@ -24,21 +28,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout exact PR merge context
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Validate complete decision record and unchanged Elite Digest allowlist
+
+      - name: Validate immutable evidence, complete manifest and environment state
         run: node scripts/check-pending-production-migration-decisions.mjs
+
       - name: Run fail-closed decision tests
         run: node --test tests/scripts/pending-production-migration-decisions.test.mjs
+
       - name: Prove no migration SQL changed in this PR
+        shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'supabase/migrations/*.sql' | grep -q .; then
-            echo '::error::This release-control remediation must not modify migration SQL.'
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA"
+          git cat-file -e "${BASE_SHA}^{commit}"
+          git cat-file -e "${HEAD_SHA}^{commit}"
+          CHANGED_FILE="$(mktemp)"
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'supabase/migrations/*.sql' > "$CHANGED_FILE"
+          if [[ -s "$CHANGED_FILE" ]]; then
+            echo '::error::This release-control repair must not modify migration SQL.'
+            cat "$CHANGED_FILE"
             exit 1
           fi
