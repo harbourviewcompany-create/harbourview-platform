@@ -32,6 +32,7 @@ jobs:
     env:
       CI: '1'
       HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
       HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       MOBILE_COMMAND_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
