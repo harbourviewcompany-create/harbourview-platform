@@ -1,5 +1,2 @@
 import { redirect } from 'next/navigation'
-
-export default function Page() {
-  redirect('/dashboard?page=clinical')
-}
+export default function Page() { redirect('/dashboard?page=education') }
