@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import type { MarketView } from '../../CommandCentre'
 import type { MobileCommandCentreProps } from '../props'
 import {
@@ -6,9 +5,11 @@ import {
   MOBILE_COMMAND_COPY,
   formatStatus,
   readString,
+  type MobileCommandTool,
   type NextAction,
   type NormalizedListing,
 } from '../contracts'
+import { MarketplaceWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
 export function OverviewSection({
@@ -118,7 +119,7 @@ export function MarketIntelligenceSection({
   )
 }
 
-function ListingCard({ row, href, cta }: { row: NormalizedListing; href: string; cta: string }) {
+function ListingCard({ row, cta, onSelect }: { row: NormalizedListing; cta: string; onSelect: () => void }) {
   return (
     <article className="hvm2-listing-card">
       <div className="hvm2-card-topline"><StatusPill tone="gold">{row.category}</StatusPill><span>{row.jurisdiction}</span></div>
@@ -129,7 +130,7 @@ function ListingCard({ row, href, cta }: { row: NormalizedListing; href: string;
         <span>{formatStatus(row.channel, MOBILE_COMMAND_COPY.listingChannel)}</span>
         {row.confidence != null && <span>{row.confidence}% confidence</span>}
       </div>
-      <Link href={href}>{cta}</Link>
+      <button type="button" className="hvm2-inline-cta" onClick={onSelect}>{cta}</button>
     </article>
   )
 }
@@ -140,27 +141,36 @@ export function MarketplaceSection({
   marketQuery,
   marketRows,
   filteredRows,
+  activeTool,
+  selectedListing,
   onMarketViewChange,
   onMarketQueryChange,
-  routeHref,
+  onOpenTool,
+  onCloseTool,
 }: {
   sectionRef: SectionRef
   activeMarketView: MarketView
   marketQuery: string
   marketRows: NormalizedListing[]
   filteredRows: NormalizedListing[]
+  activeTool: MobileCommandTool | null
+  selectedListing: NormalizedListing | null
   onMarketViewChange: (view: MarketView) => void
   onMarketQueryChange: (value: string) => void
-  routeHref: (path: string, changes?: Record<string, string>) => string
+  onOpenTool: (tool: MobileCommandTool, options?: { listing?: NormalizedListing; marketView?: MarketView }) => void
+  onCloseTool: () => void
 }) {
   const searchLabel = `Search ${MARKET_TABS.find(tab => tab.id === activeMarketView)?.label.toLowerCase() ?? 'marketplace'}`
   return (
-    <SectionShell id="marketplace" sectionRef={sectionRef} eyebrow="Marketplace control" title="Demand, supply and commercial routes" description={MOBILE_COMMAND_COPY.marketplaceDescription} action={<Link className="hvm2-text-link" href={routeHref('/marketplace')}>Open exchange</Link>} className="hvm2-market-section">
+    <SectionShell id="marketplace" sectionRef={sectionRef} eyebrow="Marketplace control" title="Demand, supply and commercial routes" description={MOBILE_COMMAND_COPY.marketplaceDescription} className="hvm2-market-section">
       <div className="hvm2-quick-actions">
-        <Link href={routeHref('/marketplace/wanted')}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></Link>
-        <Link href={routeHref('/marketplace/sell')}><span>↗</span><strong>Submit supply</strong><small>Controlled review intake</small></Link>
-        <Link href={routeHref('/marketplace/financing')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></Link>
+        <button type="button" onClick={() => onOpenTool('wanted-intake', { marketView: 'wanted' })}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></button>
+        <button type="button" onClick={() => onOpenTool('supply-intake', { marketView: activeMarketView === 'wanted' ? 'cannabis' : activeMarketView })}><span>↗</span><strong>Submit supply</strong><small>Controlled review intake</small></button>
+        <button type="button" onClick={() => onOpenTool('financing-intake')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></button>
       </div>
+
+      <MarketplaceWorkspacePanel tool={activeTool} selectedListing={selectedListing} activeMarketView={activeMarketView} onClose={onCloseTool} />
+
       <div className="hvm2-market-controls">
         <div className="hvm2-tab-rail" role="tablist" aria-label="Marketplace categories">
           {MARKET_TABS.map(tab => {
@@ -190,7 +200,7 @@ export function MarketplaceSection({
       <div id="hvm2-market-panel" role="tabpanel" aria-labelledby={`hvm2-tab-${activeMarketView}`}>
         {filteredRows.length > 0 ? (
           <div className="hvm2-listing-grid">
-            {filteredRows.map(row => <ListingCard key={`${row.view}-${row.id}`} row={row} href={routeHref('/intake', { topic: 'marketplace', listing: row.id })} cta={MOBILE_COMMAND_COPY.reviewedIntroduction} />)}
+            {filteredRows.map(row => <ListingCard key={`${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.reviewedIntroduction} />)}
           </div>
         ) : <EmptyState title="No records match this view" detail="The category remains available. Adjust the search or post a wanted requirement for Harbourview review." />}
       </div>
@@ -198,15 +208,30 @@ export function MarketplaceSection({
   )
 }
 
-export function SupplySection({ sectionRef, supplyRows, routeHref }: { sectionRef: SectionRef; supplyRows: NormalizedListing[]; routeHref: (path: string, changes?: Record<string, string>) => string }) {
+export function SupplySection({
+  sectionRef,
+  supplyRows,
+  onOpenTool,
+}: {
+  sectionRef: SectionRef
+  supplyRows: NormalizedListing[]
+  onOpenTool: (tool: MobileCommandTool, options?: { listing?: NormalizedListing; marketView?: MarketView }) => void
+}) {
   return (
-    <SectionShell id="supply" sectionRef={sectionRef} eyebrow="Supply" title="Products, consumables, equipment and services" description="The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products." action={<Link className="hvm2-text-link" href={routeHref('/supply')}>Supply catalogue</Link>}>
+    <SectionShell
+      id="supply"
+      sectionRef={sectionRef}
+      eyebrow="Supply"
+      title="Products, consumables, equipment and services"
+      description="The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products."
+      action={<button type="button" className="hvm2-text-link" onClick={() => onOpenTool('supply-intake', { marketView: 'cannabis' })}>Submit supply</button>}
+    >
       <div className="hvm2-metric-grid">
         {MARKET_TABS.filter(tab => !['wanted', 'opportunities'].includes(tab.id)).map(tab => <Metric key={tab.id} label={tab.label} value={supplyRows.filter(row => row.view === tab.id).length} detail="Approved loaded records" />)}
       </div>
       {supplyRows.length > 0 ? (
         <div className="hvm2-horizontal-deck hvm2-deck-spaced">
-          {supplyRows.map(row => <ListingCard key={`supply-${row.view}-${row.id}`} row={row} href={routeHref('/intake', { topic: 'supply', listing: row.id })} cta={MOBILE_COMMAND_COPY.supplyReview} />)}
+          {supplyRows.map(row => <ListingCard key={`supply-${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.supplyReview} />)}
         </div>
       ) : <EmptyState title="No reviewed supply records loaded" detail="Post a supply submission or wanted requirement for Harbourview review." />}
     </SectionShell>
