@@ -22,7 +22,7 @@ export function MarketplaceWorkspacePanel({
   selectedListing: NormalizedListing | null
   activeMarketView: MarketView
   onClose: () => void
-  onViewSubmissions: () => void
+  onViewSubmissions?: () => void
 }) {
   if (!tool || tool === 'financing-intake') return null
 
@@ -59,7 +59,8 @@ export function MarketplaceWorkspacePanel({
     const anchor = target.closest<HTMLAnchorElement>('a[href="/dashboard?page=marketplace"]')
     if (!anchor) return
     event.preventDefault()
-    onViewSubmissions()
+    if (onViewSubmissions) onViewSubmissions()
+    else onClose()
   }
 
   return (
