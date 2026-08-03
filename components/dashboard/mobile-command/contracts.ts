@@ -101,7 +101,7 @@ export const SECTION_NAV: NavDestination[] = [
   { id: 'genetics', label: 'Genetics', icon: '⊕' },
   { id: 'clinical', label: 'Clinical', icon: '⚕' },
   { id: 'compliance', label: 'Compliance', icon: '▣' },
-  { id: 'network', label: 'Network', icon: '◎' },
+  { id: 'network', label: 'Network', icon: '⎈' },
   { id: 'financing', label: 'Trade financing', icon: '¤' },
 ]
 
