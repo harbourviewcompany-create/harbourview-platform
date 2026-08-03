@@ -157,6 +157,9 @@ function ModuleLauncher({
         id="command-centre-module-launcher"
         className={`ccig-launcher-panel ${isMobile ? 'mobile' : 'desktop'}`}
         aria-label="Command Centre module launcher"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) closeLauncher()
+        }}
         onCancel={(event) => {
           event.preventDefault()
           closeLauncher()
