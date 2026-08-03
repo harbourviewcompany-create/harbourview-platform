@@ -86,7 +86,7 @@ for (const viewport of viewports) {
     const launcherDialog = page.getByRole('dialog', { name: 'Command Centre module launcher' })
     await expect(launcherDialog).toBeVisible()
     for (const entry of modules) {
-      await expect(launcherDialog.getByRole('link', { name: new RegExp(entry.label, 'i') })).toBeVisible()
+      await expect(launcherDialog.getByRole('link', { name: entry.label, exact: true })).toBeVisible()
     }
     await launcherDialog.getByRole('button', { name: 'Close module launcher' }).click()
 
