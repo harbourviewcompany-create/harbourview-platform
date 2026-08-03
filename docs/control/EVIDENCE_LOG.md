@@ -2859,3 +2859,52 @@ than speed here.
 - Data handling: no existing feedback row is deleted or rewritten. The PostgreSQL fixture fingerprints fixture data before the migration and proves identical storage afterward.
 - Production boundary: no migration application, production data write, deployment invocation, alias movement or secret-value access is authorized by this entry.
 - Verification evidence: exact-head workflow and standard check run IDs will be recorded in the PR after completion.
+
+## 2026-08-02 — Migration-ledger drift investigation (not a required check; partial fix)
+
+**Context:** flagged as a `main`-branch build failure, then investigated on "Fix it." Re-checked
+against branch protection first: **"Supabase Preview" / "Compare repository and live migration
+ledgers" is not in the required-status-checks list** (`Type Check`, `Next.js Build`,
+`Security / Leakage`, `Critical Env Secrets` are). All four required checks were green on `main`'s
+current HEAD throughout this investigation — `main` was never actually broken for merge/deploy
+purposes; the earlier alarm came from the coarser legacy commit-status API disagreeing with the
+more granular check-runs API.
+
+**Scale:** compared every `version` in `supabase_migrations.schema_migrations` from the last ~8 days
+(72 rows) against `supabase/migrations/*.sql` filenames in the repo. **52 of 72 have no file with a
+matching version prefix.** Spans subsystems this session has no prior context on: `job_search`
+schema (13 migrations), Gmail OAuth token storage, a `prospects` table, professional-service
+provider listings, clinical workflows, entity-extraction pipeline gating. `main`'s HEAD moved twice
+during this investigation alone — whatever is applying these (CLI/dashboard, by another
+concurrently-active session per the same-day PR review entry above) is still running.
+
+**Decision: did not attempt a full reconciliation.** Fabricating 47+ migration files for unfamiliar,
+in several cases security-relevant subsystems (RLS policies, OAuth token handling) by guessing at
+intent, for the sole purpose of satisfying a non-blocking check, is not a real fix — it risks
+introducing genuinely wrong content into the migration history. It also would not be durable: the
+root cause is a process gap (whatever is applying live migrations isn't committing matching files as
+part of its own workflow), not a one-time state this session can clean up from outside. A full
+reconciliation today would likely be stale again within hours.
+
+**What was fixed, narrowly, where content could be verified rather than guessed:**
+- `fix_hv_dedup_assign_timeout_and_ranking` (tracked version `20260730104444`) — the repo has a file
+  with this name at a different version (`20260730110000`), but its content opens with
+  `-- SUPERSEDED -- do not treat the body below as current`. Copying it under the "correct" version
+  number would have shipped superseded code as if current. **Not fixed** — left as-is; the file's own
+  header already documents why.
+- `search_public_signals_stage_d_consistency` (tracked version `20260731084635`) — repo had this at
+  `20260731013000`. Read in full before trusting it: it's a `CREATE OR REPLACE` extension of this
+  session's own `api.search_public_signals` (PR #1220), reconciling it against a separate PR
+  (#1218, "Stage D routing") that landed hours later and would otherwise have made search return
+  `noise`-classified rows the feed itself never shows. **Verified byte-for-byte against the live
+  function definition** (`pg_get_functiondef`) before creating the correctly-versioned file — not
+  assumed from the filename match alone. Added as
+  `supabase/migrations/20260731084635_search_public_signals_stage_d_consistency.sql`.
+
+**Recommendation, not actioned:** the durable fix is upstream of this repo's git history — whatever
+is running these migrations needs to commit a matching file as part of applying them, or this
+pattern will keep recurring regardless of how many times it's reconciled after the fact.
+
+**Commands run:** none locally (`node_modules` unavailable). Verification was live SQL
+(`schema_migrations` query, `pg_get_functiondef` byte-comparison) and the GitHub API (check-runs,
+branch protection), not the repo's own test suite.
