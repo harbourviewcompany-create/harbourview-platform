@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString } from './mobile-command/contracts'
@@ -45,8 +46,19 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
           <Link href={model.routeHref('/account')} className="hvm2-account-link" aria-label="Open account">Account</Link>
         </div>
         <div className="hvm2-context-controls" aria-label="Dashboard context">
-          <label><span>Jurisdiction</span><select value={model.countryIso2} onChange={event => model.updateContext('country', event.target.value)}>{model.country && model.countryIso2 === 'GLOBAL' && <option value="GLOBAL">Global</option>}{model.country && model.countryIso2 !== 'GLOBAL' && null}{model.country && model.countryIso2 === '' && null}{model.country && model.countryIso2 !== '' && null}{/* keep the full country universe visible */}{model.country && null}{import('@/lib/dashboard/countries') && null}</select></label>
-          <label><span>Role</span><select value={props.initialRoleId ?? ''} onChange={event => model.updateContext('role', event.target.value)}><option value="">All roles</option>{model.roleEntries.map(([id, profile]) => <option key={id} value={id}>{profile.label}</option>)}</select></label>
+          <label>
+            <span>Jurisdiction</span>
+            <select value={model.countryIso2} onChange={event => model.updateContext('country', event.target.value)}>
+              {ALL_COUNTRIES.map(option => <option key={option.iso2} value={option.iso2}>{option.displayName}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Role</span>
+            <select value={props.initialRoleId ?? ''} onChange={event => model.updateContext('role', event.target.value)}>
+              <option value="">All roles</option>
+              {model.roleEntries.map(([id, profile]) => <option key={id} value={id}>{profile.label}</option>)}
+            </select>
+          </label>
         </div>
       </header>
 
