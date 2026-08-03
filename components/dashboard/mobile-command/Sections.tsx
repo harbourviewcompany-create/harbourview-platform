@@ -1,6 +1,3 @@
-import type { ComponentProps } from 'react'
-import { JurisdictionSection as JurisdictionSectionBase } from './sections/OperationsSections'
-
 export {
   OverviewSection,
   LiveStatusSection,
@@ -18,18 +15,12 @@ export {
 } from './sections/IntelligenceSections'
 
 export {
+  JurisdictionSection,
   MarketStatusSection,
   ReviewGatesSection,
   DirectoriesSection,
   TalentSection,
 } from './sections/OperationsSections'
-
-export function JurisdictionSection({
-  countryIso2,
-  ...props
-}: Omit<ComponentProps<typeof JurisdictionSectionBase>, 'flag'> & { countryIso2: string }) {
-  return <JurisdictionSectionBase {...props} flag={countryIso2} />
-}
 
 export {
   GeneticsSection,
