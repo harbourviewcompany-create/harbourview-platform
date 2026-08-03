@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import FinancingInquiryForm from '@/app/marketplace/financing/FinancingInquiryForm'
@@ -116,20 +116,62 @@ function ModuleLauncher({
   isMobile: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+    let focusFrame = 0
+
+    if (open && !dialog.open) {
+      dialog.showModal()
+      focusFrame = window.requestAnimationFrame(() => {
+        dialog.querySelector<HTMLButtonElement>('[data-launcher-close]')?.focus()
+      })
+    } else if (!open && dialog.open) {
+      dialog.close()
+    }
+
+    return () => {
+      if (focusFrame) window.cancelAnimationFrame(focusFrame)
+    }
+  }, [open])
+
+  const closeLauncher = () => setOpen(false)
+
   return (
     <div className={`ccig-launcher ${isMobile ? 'mobile' : 'desktop'}`}>
-      <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open}>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen(value => !value)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls="command-centre-module-launcher"
+      >
         <span aria-hidden="true">⌘</span> Modules
       </button>
-      {open && (
-        <div className="ccig-launcher-panel" role="dialog" aria-label="Command Centre module launcher">
-          <div className="ccig-launcher-head">
-            <strong>Command Centre</strong>
-            <button type="button" onClick={() => setOpen(false)} aria-label="Close module launcher">×</button>
-          </div>
-          <ModuleNavigation active={active} context={context} mode={isMobile ? 'mobile' : 'desktop'} />
+      <dialog
+        ref={dialogRef}
+        id="command-centre-module-launcher"
+        className={`ccig-launcher-panel ${isMobile ? 'mobile' : 'desktop'}`}
+        aria-label="Command Centre module launcher"
+        onCancel={(event) => {
+          event.preventDefault()
+          closeLauncher()
+        }}
+        onClose={() => {
+          setOpen(false)
+          triggerRef.current?.focus()
+        }}
+      >
+        <div className="ccig-launcher-head">
+          <strong>Command Centre</strong>
+          <button data-launcher-close type="button" onClick={closeLauncher} aria-label="Close module launcher">×</button>
         </div>
-      )}
+        <ModuleNavigation active={active} context={context} mode={isMobile ? 'mobile' : 'desktop'} />
+      </dialog>
     </div>
   )
 }
@@ -213,8 +255,8 @@ function MarketModule({ props }: { props: DashboardProps }) {
   )
 }
 
-function supplyRows(props: DashboardProps) {
-  const rows = props.marketplaceRows as Record<string, readonly (readonly unknown[])[]> | undefined
+function supplyRows(marketplaceRows: DashboardProps['marketplaceRows']) {
+  const rows = marketplaceRows as Record<string, readonly (readonly unknown[])[]> | undefined
   return ['consumables', 'equipment', 'new-products', 'cannabis']
     .flatMap(section => (rows?.[section] ?? []).map((row, index) => ({
       id: String(row[7] ?? `${section}-${index}`),
@@ -227,7 +269,7 @@ function supplyRows(props: DashboardProps) {
 }
 
 function SupplyModule({ props }: { props: DashboardProps }) {
-  const rows = useMemo(() => supplyRows(props), [props.marketplaceRows])
+  const rows = useMemo(() => supplyRows(props.marketplaceRows), [props.marketplaceRows])
   return (
     <Section eyebrow="Trade & Commerce" title="Supply" description="Consumables, packaging, equipment and product supply in the active Command Centre context.">
       <div className="ccig-grid">
@@ -343,6 +385,7 @@ function TalentModule() {
       .from('talent_jobs_public')
       .select('id, title, department, location, operator_name, operator_verification_status')
       .order('created_at', { ascending: false })
+      .limit(60)
       .then(({ data, error: queryError }) => {
         if (cancelled) return
         if (queryError) setError(true)
@@ -426,22 +469,31 @@ export default function CommandCentreIntegrationGateway({ isMobile, dashboardPro
   const active = requestedAction ? 'marketplace' : requestedModule ?? fallbackModule
   const context = { country: dashboardProps.initialCountryIso2, role: dashboardProps.initialRoleId }
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null)
+  const [portalError, setPortalError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!hasPortalSurface) {
       setPortalTarget(null)
+      setPortalError(null)
       return
     }
 
     let cancelled = false
     let frame = 0
+    let attempts = 0
     const selector = isMobile ? '.hvm-main' : '.cc-main'
+    setPortalError(null)
 
     const attach = () => {
       if (cancelled) return
       const target = document.querySelector<HTMLElement>(selector)
       if (target) {
         setPortalTarget(target)
+        return
+      }
+      attempts += 1
+      if (attempts >= 180) {
+        setPortalError(`Command Centre surface ${selector} could not be attached. Return to Briefing and retry.`)
         return
       }
       frame = window.requestAnimationFrame(attach)
@@ -492,11 +544,12 @@ export default function CommandCentreIntegrationGateway({ isMobile, dashboardPro
         </ModuleSurface>,
         portalTarget,
       )}
+      {portalError && <div className="ccig-portal-error" role="alert">{portalError}</div>}
       <ModuleLauncher active={active} context={context} isMobile={isMobile} />
     </>
   )
 }
 
 const CSS = `
-.cc-main[data-ccig-active] > :not(.ccig-portal),.hvm-main[data-ccig-active] > :not(.ccig-portal){display:none!important}.cc-page-title[data-ccig-title],.hvm-titlebar h1[data-ccig-title]{font-size:0!important}.cc-page-title[data-ccig-title]::before,.hvm-titlebar h1[data-ccig-title]::before{content:attr(data-ccig-title);font-size:inherit}.cc-page-title[data-ccig-title]::before{font-size:15px}.hvm-titlebar h1[data-ccig-title]::before{font-size:clamp(28px,9vw,40px)}.cc-page-title[data-ccig-title] .cc-change-ctx{font-size:10px}.ccig-portal{width:100%;max-width:100%;min-width:0;color:#f5f0e8}.ccig-inline-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 0 18px;border-bottom:1px solid rgba(255,255,255,.08)}.ccig-inline-header span,.ccig-page>header span,.ccig-card>span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(212,168,75,.78)}.ccig-inline-header h1{font-family:Georgia,serif;font-size:30px;font-weight:400;margin:3px 0 0}.ccig-inline-header>a{color:#d4a84b;text-decoration:none;border:1px solid rgba(212,168,75,.3);border-radius:999px;padding:9px 14px}.ccig-nav{background:transparent}.ccig-nav a{display:flex;align-items:center;gap:10px;color:rgba(245,240,232,.58);text-decoration:none;border-radius:10px}.ccig-nav a.active{background:rgba(212,168,75,.11);color:#d4a84b}.ccig-nav em{font-style:normal;font-size:12px}.ccig-nav--inline{display:flex;gap:6px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}.ccig-nav--inline a{flex:0 0 auto;padding:8px 11px;border:1px solid rgba(255,255,255,.06)}.ccig-main{min-width:0;padding:18px 0 0;overflow:hidden}.ccig-page{max-width:1180px;margin:0 auto}.ccig-page>header{margin-bottom:20px}.ccig-page>header h2{font-family:Georgia,serif;font-size:clamp(30px,4vw,44px);font-weight:400;margin:7px 0}.ccig-page>header p,.ccig-card p{color:rgba(245,240,232,.58);line-height:1.65}.ccig-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}.ccig-stack{display:grid;gap:14px}.ccig-card,.ccig-empty{min-width:0;padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.ccig-card.featured{border-color:rgba(212,168,75,.27);background:rgba(212,168,75,.055)}.ccig-card h3{margin:8px 0;font-size:16px}.ccig-card p{font-size:13px;margin:7px 0 12px}.ccig-card em{display:inline-flex;font-style:normal;font-size:10px;color:#d4a84b;border:1px solid rgba(212,168,75,.25);border-radius:999px;padding:4px 8px}.ccig-empty{color:rgba(245,240,232,.55)}.ccig-empty.error{color:#e08080;border-color:rgba(224,80,80,.25)}.ccig-action-note{max-width:900px;margin:0 0 16px;padding:14px 16px;border:1px solid rgba(212,168,75,.18);border-radius:12px;background:rgba(212,168,75,.05);color:rgba(245,240,232,.62);font-size:13px;line-height:1.6}.ccig-action-row{display:flex;justify-content:flex-end;margin:-8px 0 12px}.ccig-action-row a{border-radius:999px;background:#d4a84b;color:#07111f;padding:9px 14px;text-decoration:none;font-size:12px;font-weight:700}.ccig-submissions{max-width:900px}.ccig-submissions .cc-right-section{border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035);padding:16px}.ccig-launcher{position:fixed;z-index:120}.ccig-launcher.desktop{right:18px;bottom:18px}.ccig-launcher.mobile{right:12px;bottom:92px}.ccig-launcher>button{border:1px solid rgba(212,168,75,.36);background:#101826;color:#d4a84b;border-radius:999px;padding:10px 15px;font-weight:700;box-shadow:0 12px 30px rgba(0,0,0,.35)}.ccig-launcher-panel{position:absolute;right:0;bottom:50px;width:min(360px,calc(100vw - 24px));max-height:70dvh;overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#07111f;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:12px}.ccig-launcher-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 10px;color:#f5f0e8}.ccig-launcher-head button{border:0;background:transparent;color:#f5f0e8;font-size:22px}.ccig-launcher-panel .ccig-nav{display:grid;grid-template-columns:1fr 1fr;gap:5px}.ccig-launcher-panel .ccig-nav a{padding:10px}.ccig-page .fif-card{max-width:900px}.ccig-page>div[style]{max-width:none!important;margin:0!important;padding:0!important}@media(max-width:767px){.ccig-portal.mobile .ccig-inline-header{align-items:flex-start;padding-bottom:14px}.ccig-portal.mobile .ccig-inline-header h1{font-size:28px}.ccig-nav--inline{margin:0 -2px;padding-top:10px}.ccig-nav--inline a{padding:8px 10px}.ccig-main{padding-top:14px}.ccig-grid{grid-template-columns:minmax(0,1fr)}.ccig-launcher-panel .ccig-nav{grid-template-columns:1fr 1fr}.ccig-page .fif-card{padding:18px 14px}.ccig-action-row{justify-content:flex-start}}
+.cc-main[data-ccig-active] > :not(.ccig-portal),.hvm-main[data-ccig-active] > :not(.ccig-portal){display:none!important}.cc-page-title[data-ccig-title],.hvm-titlebar h1[data-ccig-title]{font-size:0!important}.cc-page-title[data-ccig-title]::before,.hvm-titlebar h1[data-ccig-title]::before{content:attr(data-ccig-title);font-size:inherit}.cc-page-title[data-ccig-title]::before{font-size:15px}.hvm-titlebar h1[data-ccig-title]::before{font-size:clamp(28px,9vw,40px)}.cc-page-title[data-ccig-title] .cc-change-ctx{font-size:10px}.ccig-portal{width:100%;max-width:100%;min-width:0;color:#f5f0e8}.ccig-inline-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 0 18px;border-bottom:1px solid rgba(255,255,255,.08)}.ccig-inline-header span,.ccig-page>header span,.ccig-card>span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(212,168,75,.78)}.ccig-inline-header h1{font-family:Georgia,serif;font-size:30px;font-weight:400;margin:3px 0 0}.ccig-inline-header>a{color:#d4a84b;text-decoration:none;border:1px solid rgba(212,168,75,.3);border-radius:999px;padding:9px 14px}.ccig-nav{background:transparent}.ccig-nav a{display:flex;align-items:center;gap:10px;color:rgba(245,240,232,.58);text-decoration:none;border-radius:10px}.ccig-nav a.active{background:rgba(212,168,75,.11);color:#d4a84b}.ccig-nav em{font-style:normal;font-size:12px}.ccig-nav--inline{display:flex;gap:6px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:none}.ccig-nav--inline a{flex:0 0 auto;padding:8px 11px;border:1px solid rgba(255,255,255,.06)}.ccig-main{min-width:0;padding:18px 0 0;overflow:hidden}.ccig-page{max-width:1180px;margin:0 auto}.ccig-page>header{margin-bottom:20px}.ccig-page>header h2{font-family:Georgia,serif;font-size:clamp(30px,4vw,44px);font-weight:400;margin:7px 0}.ccig-page>header p,.ccig-card p{color:rgba(245,240,232,.58);line-height:1.65}.ccig-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px}.ccig-stack{display:grid;gap:14px}.ccig-card,.ccig-empty{min-width:0;padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.ccig-card.featured{border-color:rgba(212,168,75,.27);background:rgba(212,168,75,.055)}.ccig-card h3{margin:8px 0;font-size:16px}.ccig-card p{font-size:13px;margin:7px 0 12px}.ccig-card em{display:inline-flex;font-style:normal;font-size:10px;color:#d4a84b;border:1px solid rgba(212,168,75,.25);border-radius:999px;padding:4px 8px}.ccig-empty{color:rgba(245,240,232,.55)}.ccig-empty.error{color:#e08080;border-color:rgba(224,80,80,.25)}.ccig-action-note{max-width:900px;margin:0 0 16px;padding:14px 16px;border:1px solid rgba(212,168,75,.18);border-radius:12px;background:rgba(212,168,75,.05);color:rgba(245,240,232,.62);font-size:13px;line-height:1.6}.ccig-action-row{display:flex;justify-content:flex-end;margin:-8px 0 12px}.ccig-action-row a{border-radius:999px;background:#d4a84b;color:#07111f;padding:9px 14px;text-decoration:none;font-size:12px;font-weight:700}.ccig-submissions{max-width:900px}.ccig-submissions .cc-right-section{border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035);padding:16px}.ccig-portal-error{position:fixed;right:18px;bottom:76px;z-index:121;max-width:min(420px,calc(100vw - 24px));padding:12px 14px;border:1px solid rgba(224,80,80,.35);border-radius:12px;background:#18111a;color:#f0b0b0;box-shadow:0 16px 44px rgba(0,0,0,.45)}.ccig-launcher{position:fixed;z-index:120}.ccig-launcher.desktop{right:18px;bottom:18px}.ccig-launcher.mobile{right:12px;bottom:92px}.ccig-launcher>button{border:1px solid rgba(212,168,75,.36);background:#101826;color:#d4a84b;border-radius:999px;padding:10px 15px;font-weight:700;box-shadow:0 12px 30px rgba(0,0,0,.35)}.ccig-launcher-panel{position:fixed;inset:auto 18px 68px auto;width:min(360px,calc(100vw - 24px));max-height:70dvh;overflow:auto;margin:0;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#07111f;color:#f5f0e8;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:12px}.ccig-launcher-panel.mobile{inset:auto 12px 140px auto}.ccig-launcher-panel::backdrop{background:rgba(0,0,0,.38)}.ccig-launcher-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 10px;color:#f5f0e8}.ccig-launcher-head button{border:0;background:transparent;color:#f5f0e8;font-size:22px}.ccig-launcher-panel .ccig-nav{display:grid;grid-template-columns:1fr 1fr;gap:5px}.ccig-launcher-panel .ccig-nav a{padding:10px}.ccig-page .fif-card{max-width:900px}.ccig-page>div[style]{max-width:none!important;margin:0!important;padding:0!important}@media(max-width:767px){.ccig-portal-error{right:12px;bottom:140px}.ccig-portal.mobile .ccig-inline-header{align-items:flex-start;padding-bottom:14px}.ccig-portal.mobile .ccig-inline-header h1{font-size:28px}.ccig-nav--inline{margin:0 -2px;padding-top:10px}.ccig-nav--inline a{padding:8px 10px}.ccig-main{padding-top:14px}.ccig-grid{grid-template-columns:minmax(0,1fr)}.ccig-launcher-panel .ccig-nav{grid-template-columns:1fr 1fr}.ccig-page .fif-card{padding:18px 14px}.ccig-action-row{justify-content:flex-start}}
 `
