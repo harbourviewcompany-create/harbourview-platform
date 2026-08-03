@@ -4,13 +4,15 @@ import {
   MOBILE_COMMAND_COPY,
   formatStatus,
   type DirectoryRecord,
+  type SectionId,
   type SubmissionRecord,
 } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
 type TalentRecord = (typeof JOB_LISTINGS)[number]
+type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
-export function JurisdictionSection({ sectionRef, countryLabel, flag, region, outlook, pathway, importStatus, exportStatus, medicalStatus, adultUseStatus, regulator, reviewStatus, routeHref }: {
+export function JurisdictionSection({ sectionRef, countryLabel, flag, region, outlook, pathway, importStatus, exportStatus, medicalStatus, adultUseStatus, regulator, reviewStatus, commandHref }: {
   sectionRef: SectionRef
   countryLabel: string
   flag: string
@@ -23,10 +25,10 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
   adultUseStatus?: string | null
   regulator?: string | null
   reviewStatus: string
-  routeHref: (path: string) => string
+  commandHref: CommandHref
 }) {
   return (
-    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description="Country status, regulator, access posture and commercial pathway remain tied to the selected role." action={<Link className="hvm2-text-link" href={routeHref('/markets')}>All markets</Link>}>
+    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description="Country status, regulator, access posture and commercial pathway remain tied to the selected role." action={<Link className="hvm2-text-link" href={commandHref('jurisdiction', { page: 'countries' })}>Country command</Link>}>
       <article className="hvm2-jurisdiction-card">
         <div className="hvm2-jurisdiction-title"><span>{flag}</span><div><h3>{countryLabel}</h3><p>{region || 'Global regulated market'}</p></div></div>
         <p>{outlook?.trim() || pathway?.trim() || 'Regulatory and commercial pathway detail remains subject to controlled evidence review.'}</p>
@@ -85,9 +87,9 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, dataCom
   )
 }
 
-export function DirectoriesSection({ sectionRef, records, routeHref }: { sectionRef: SectionRef; records: DirectoryRecord[]; routeHref: (path: string) => string }) {
+export function DirectoriesSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: DirectoryRecord[]; commandHref: CommandHref }) {
   return (
-    <SectionShell id="directories" sectionRef={sectionRef} eyebrow="Directories" title="Reviewed professionals, providers and operators" description={MOBILE_COMMAND_COPY.directoryDescription} action={<Link className="hvm2-text-link" href={routeHref('/reviewed-connections')}>Reviewed connections</Link>}>
+    <SectionShell id="directories" sectionRef={sectionRef} eyebrow="Directories" title="Reviewed professionals, providers and operators" description={MOBILE_COMMAND_COPY.directoryDescription} action={<Link className="hvm2-text-link" href={commandHref('directories')}>Directory command</Link>}>
       {records.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {records.map(item => <article className="hvm2-directory-card" key={`${item.kind}-${item.id}`}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
@@ -97,9 +99,9 @@ export function DirectoriesSection({ sectionRef, records, routeHref }: { section
   )
 }
 
-export function TalentSection({ sectionRef, records, dashboardHref }: { sectionRef: SectionRef; records: TalentRecord[]; dashboardHref: (changes: Record<string, string>) => string }) {
+export function TalentSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: TalentRecord[]; commandHref: CommandHref }) {
   return (
-    <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description="Talent opportunities remain separated from counterparty records and are filtered to the active jurisdiction or role where possible." action={<Link className="hvm2-text-link" href={dashboardHref({ page: 'jobs' })}>Jobs workspace</Link>}>
+    <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description="Talent opportunities remain separated from counterparty records and are filtered to the active jurisdiction or role where possible." action={<Link className="hvm2-text-link" href={commandHref('talent')}>Jobs command</Link>}>
       {records.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {records.map(job => <article className="hvm2-directory-card" key={job.id}><span>{JOB_SECTOR_LABELS[job.sector]} · {job.country}</span><h3>{job.title}</h3><p>{job.company} · {job.city}{job.remote ? ' · Remote' : ''}</p><div className="hvm2-card-meta"><span>{JOB_TYPE_LABELS[job.type]}</span>{job.salary && <span>{job.salary}</span>}</div></article>)}
