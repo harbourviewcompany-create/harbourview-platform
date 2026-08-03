@@ -1,9 +1,9 @@
 name: Mobile Command Centre V2 Visual
 
 on:
-  push:
+  pull_request:
     branches:
-      - build/mobile-command-centre-v2
+      - main
     paths:
       - components/dashboard/MobileCommandCentreRebuild.tsx
       - components/dashboard/MobileCommandCentreRebuild.css
@@ -15,11 +15,9 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: read
 
 concurrency:
-  group: mobile-command-centre-v2-visual-${{ github.ref }}
+  group: mobile-command-centre-v2-visual-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -28,7 +26,7 @@ jobs:
     timeout-minutes: 45
     env:
       PREVIEW_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
-      EXPECTED_SOURCE_SHA: ${{ github.sha }}
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
       E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -41,7 +39,7 @@ jobs:
       - name: Checkout exact verified branch head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.EXPECTED_SOURCE_SHA }}
           persist-credentials: false
 
       - name: Set up Node
@@ -138,19 +136,3 @@ jobs:
           if [ -f /tmp/mobile-command-next.pid ]; then
             kill "$(cat /tmp/mobile-command-next.pid)" 2>/dev/null || true
           fi
-
-      - name: Record visual run on the open PR
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          JOB_RESULT: ${{ job.status }}
-          VERIFICATION_MODE: ${{ steps.target.outputs.mode }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          pr_number="$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty')"
-          if [ -z "$pr_number" ]; then
-            echo 'No open PR found for this branch; skipping PR comment.'
-            exit 0
-          fi
-          gh pr comment "$pr_number" --body "Mobile Command Centre V2 authenticated visual run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against exact source SHA \`${EXPECTED_SOURCE_SHA}\` in mode **${VERIFICATION_MODE:-unresolved}**. Artifact: \`mobile-command-centre-v2-${GITHUB_RUN_ID}\`."
