@@ -30,6 +30,12 @@ const modules = [
   { id: 'pathways', label: 'Pathways', page: 'access-pathway', custom: false },
 ] as const
 
+const marketplaceActions = [
+  { id: 'sell', label: 'Submit Listing', stateSelector: 'form' },
+  { id: 'intake', label: 'Marketplace Intake', stateSelector: 'form' },
+  { id: 'my-listings', label: 'My Submissions', stateSelector: '.cc-right-section' },
+] as const
+
 function moduleHref(entry: (typeof modules)[number]) {
   const params = new URLSearchParams({ country: 'CA' })
   if (entry.page !== 'briefing') params.set('page', entry.page)
@@ -37,9 +43,30 @@ function moduleHref(entry: (typeof modules)[number]) {
   return `/dashboard?${params.toString()}`
 }
 
+async function layoutState(page: import('@playwright/test').Page) {
+  return page.evaluate(() => {
+    const fixedViolations: string[] = []
+    for (const element of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+      const style = getComputedStyle(element)
+      if (style.position !== 'fixed' || style.display === 'none' || style.visibility === 'hidden') continue
+      const rect = element.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) continue
+      if (rect.left < -1 || rect.right > window.innerWidth + 1 || rect.top < -1 || rect.bottom > window.innerHeight + 1) {
+        fixedViolations.push(`${element.tagName.toLowerCase()}.${element.className}:${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.right)},${Math.round(rect.bottom)}`)
+      }
+    }
+    return {
+      horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      fixedViolations,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    }
+  })
+}
+
 for (const viewport of viewports) {
   test(`canonical Command Centre modules render at ${viewport.name}px`, async ({ page }) => {
-    test.setTimeout(360_000)
+    test.setTimeout(420_000)
     const pageErrors: string[] = []
     page.on('pageerror', error => pageErrors.push(error.message))
 
@@ -64,6 +91,7 @@ for (const viewport of viewports) {
     await launcherDialog.getByRole('button', { name: 'Close module launcher' }).click()
 
     const moduleResults: Array<Record<string, unknown>> = []
+    const actionResults: Array<Record<string, unknown>> = []
 
     for (const entry of modules) {
       const errorsBefore = pageErrors.length
@@ -87,25 +115,7 @@ for (const viewport of viewports) {
         await expect(page.getByRole('button', { name: /modules/i })).toBeVisible()
       }
 
-      const layout = await page.evaluate(() => {
-        const fixedViolations: string[] = []
-        for (const element of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
-          const style = getComputedStyle(element)
-          if (style.position !== 'fixed' || style.display === 'none' || style.visibility === 'hidden') continue
-          const rect = element.getBoundingClientRect()
-          if (rect.width <= 0 || rect.height <= 0) continue
-          if (rect.left < -1 || rect.right > window.innerWidth + 1 || rect.top < -1 || rect.bottom > window.innerHeight + 1) {
-            fixedViolations.push(`${element.tagName.toLowerCase()}.${element.className}:${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.right)},${Math.round(rect.bottom)}`)
-          }
-        }
-        return {
-          horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-          fixedViolations,
-          viewportWidth: window.innerWidth,
-          viewportHeight: window.innerHeight,
-        }
-      })
-
+      const layout = await layoutState(page)
       expect(layout.horizontalOverflow, `${entry.label} horizontal overflow`).toBeLessThanOrEqual(1)
       expect(layout.fixedViolations, `${entry.label} fixed or safe-area obstruction`).toEqual([])
 
@@ -129,6 +139,35 @@ for (const viewport of viewports) {
       })
     }
 
+    for (const action of marketplaceActions) {
+      const errorsBefore = pageErrors.length
+      await page.goto(`/dashboard?country=CA&page=marketplace&action=${action.id}`, { waitUntil: 'domcontentloaded' })
+      expect(page.url(), `${action.label} redirected out of the authenticated shell`).not.toMatch(/\/login(?:\?|$)/)
+
+      await expect(page.locator(shellSelector), `${action.label} canonical shell`).toBeVisible()
+      const surface = page.locator(`${shellMainSelector} > [data-command-centre-action="${action.id}"]`)
+      await expect(surface, `${action.label} must render inside the canonical shell main`).toBeVisible()
+      await expect(surface).toHaveAttribute('data-command-centre-module', 'marketplace')
+      await expect(surface).toHaveAttribute('data-command-centre-shell', isMobile ? 'mobile' : 'desktop')
+      await expect(surface.getByRole('heading', { name: action.label, exact: true }).first()).toBeVisible()
+      await expect(surface.locator(action.stateSelector).first()).toBeVisible({ timeout: 15_000 })
+
+      const layout = await layoutState(page)
+      expect(layout.horizontalOverflow, `${action.label} horizontal overflow`).toBeLessThanOrEqual(1)
+      expect(layout.fixedViolations, `${action.label} fixed or safe-area obstruction`).toEqual([])
+      const newErrors = pageErrors.slice(errorsBefore)
+      expect(newErrors, `${action.label} uncaught browser errors`).toEqual([])
+
+      actionResults.push({
+        action: action.id,
+        label: action.label,
+        url: page.url(),
+        shell: isMobile ? 'mobile-command-centre' : 'desktop-command-centre',
+        ...layout,
+        pageErrors: newErrors,
+      })
+    }
+
     const evidenceDirectory = path.join(process.cwd(), 'docs/control/evidence/command-centre-integration')
     fs.mkdirSync(evidenceDirectory, { recursive: true })
 
@@ -140,7 +179,7 @@ for (const viewport of viewports) {
     })
     fs.writeFileSync(
       path.join(evidenceDirectory, `command-centre-${viewport.name}.json`),
-      `${JSON.stringify({ viewport, modules: moduleResults }, null, 2)}\n`,
+      `${JSON.stringify({ viewport, modules: moduleResults, marketplaceActions: actionResults }, null, 2)}\n`,
     )
   })
 }
