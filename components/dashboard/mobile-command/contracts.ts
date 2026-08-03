@@ -80,6 +80,9 @@ export const MARKET_TABS: Array<{ id: MarketView; label: string }> = [
   { id: 'new-products', label: 'New products' },
 ]
 
+export const NON_SUPPLY_VIEWS = new Set<MarketView>(['wanted', 'opportunities'])
+export const SUPPLY_TABS = MARKET_TABS.filter(tab => !NON_SUPPLY_VIEWS.has(tab.id))
+
 export const PRIMARY_NAV: NavDestination[] = [
   { id: 'overview', label: 'Command', icon: '◎' },
   { id: 'marketplace', label: 'Market', icon: '⊞' },
@@ -88,28 +91,30 @@ export const PRIMARY_NAV: NavDestination[] = [
   { id: 'jurisdiction', label: 'Context', icon: '◉' },
 ]
 
-export const SECTION_NAV: NavDestination[] = [
-  { id: 'overview', label: 'Command brief', icon: '◎' },
-  { id: 'live-status', label: 'Live status', icon: '◷' },
-  { id: 'market-intelligence', label: 'Market intelligence', icon: '≈' },
-  { id: 'marketplace', label: 'Marketplace control', icon: '⊞' },
-  { id: 'supply', label: 'Supply', icon: '▤' },
-  { id: 'next-actions', label: 'Next actions', icon: '→' },
-  { id: 'weekly-signals', label: 'Weekly signals', icon: '≋' },
-  { id: 'personal-briefing', label: 'Personal briefing', icon: '❑' },
-  { id: 'search', label: 'Search', icon: '⌕' },
-  { id: 'education', label: 'Education path', icon: '◇' },
-  { id: 'jurisdiction', label: 'Jurisdiction context', icon: '◉' },
-  { id: 'market-status', label: 'Marketplace status', icon: '◫' },
-  { id: 'review-gates', label: 'Review gates', icon: '◆' },
-  { id: 'directories', label: 'Directories', icon: '⊚' },
-  { id: 'talent', label: 'Talent', icon: '✦' },
-  { id: 'genetics', label: 'Genetics', icon: '⊕' },
-  { id: 'clinical', label: 'Clinical', icon: '⚕' },
-  { id: 'compliance', label: 'Compliance', icon: '▣' },
-  { id: 'network', label: 'Network', icon: '⎈' },
-  { id: 'financing', label: 'Trade financing', icon: '¤' },
-]
+const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
+  overview: { id: 'overview', label: 'Command brief', icon: '◎' },
+  'live-status': { id: 'live-status', label: 'Live status', icon: '◷' },
+  'market-intelligence': { id: 'market-intelligence', label: 'Market intelligence', icon: '≈' },
+  marketplace: { id: 'marketplace', label: 'Marketplace control', icon: '⊞' },
+  supply: { id: 'supply', label: 'Supply', icon: '▤' },
+  'next-actions': { id: 'next-actions', label: 'Next actions', icon: '→' },
+  'weekly-signals': { id: 'weekly-signals', label: 'Weekly signals', icon: '≋' },
+  'personal-briefing': { id: 'personal-briefing', label: 'Personal briefing', icon: '❑' },
+  search: { id: 'search', label: 'Search', icon: '⌕' },
+  education: { id: 'education', label: 'Education path', icon: '◇' },
+  jurisdiction: { id: 'jurisdiction', label: 'Jurisdiction context', icon: '◉' },
+  'market-status': { id: 'market-status', label: 'Marketplace status', icon: '◫' },
+  'review-gates': { id: 'review-gates', label: 'Review gates', icon: '◆' },
+  directories: { id: 'directories', label: 'Directories', icon: '⊚' },
+  talent: { id: 'talent', label: 'Talent', icon: '✦' },
+  genetics: { id: 'genetics', label: 'Genetics', icon: '⊕' },
+  clinical: { id: 'clinical', label: 'Clinical', icon: '⚕' },
+  compliance: { id: 'compliance', label: 'Compliance', icon: '▣' },
+  network: { id: 'network', label: 'Network', icon: '⎈' },
+  financing: { id: 'financing', label: 'Trade financing', icon: '¤' },
+}
+
+export const SECTION_NAV: NavDestination[] = Object.values(SECTION_NAV_BY_ID)
 
 /**
  * One canonical target for every module. URLs carry both the desktop page and
@@ -172,7 +177,7 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   settings: 'overview',
 }
 
-export const SECTION_IDS = new Set<string>(SECTION_NAV.map(section => section.id))
+export const SECTION_IDS = new Set<SectionId>(SECTION_NAV.map(section => section.id))
 export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'wanted-intake',
   'supply-intake',
@@ -180,19 +185,27 @@ export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'financing-intake',
 ])
 
-/**
- * Approved dashboard mediation and release-control wording.
- * Control source: docs/control/DASHBOARD_DESIGN_HANDOFF.md and the public/private
- * projection boundaries enforced by the Harbourview leakage test suite.
- */
+// Controlling copy source: docs/control/DASHBOARD_DESIGN_HANDOFF.md
+// Public/private projection boundaries are additionally enforced by the
+// Harbourview marketplace leakage regression suite.
 export const MOBILE_COMMAND_COPY = {
   marketplaceDescription:
     'Review approved records, search the active category, post demand and move qualified opportunities into controlled Harbourview workflows.',
+  marketplaceEmptyDetail:
+    'The category remains available. Adjust the search or post a wanted requirement for Harbourview review.',
   listingFallback:
     'Commercial detail is available through a controlled Harbourview workflow.',
   listingChannel: 'Harbourview mediated',
   reviewedIntroduction: 'Request reviewed introduction',
   supplyReview: 'Start controlled supply review',
+  wantedIntakeDescription:
+    'Create a buyer-led requirement without leaving Mobile Command. The submission remains review-gated before publication or counterparty routing.',
+  supplyIntakeDescription:
+    'Add product, equipment, consumable, service or opportunity supply directly inside Mobile Command.',
+  introductionDescription:
+    'Harbourview reviews authorization, evidence, commercial fit and disclosure boundaries before any counterparty introduction.',
+  financingInquiryDescription:
+    'Complete the reviewed financing inquiry without leaving Mobile Command. This creates an inquiry only; it does not approve credit.',
   transactionPipeline:
     'Harbourview remains the mediated layer between demand, proof review, qualified matches and controlled deal-room access.',
   reviewDescription:
@@ -202,6 +215,8 @@ export const MOBILE_COMMAND_COPY = {
     'No supplier identity, private source evidence, internal review notes or counterparty detail is released from this mobile surface.',
   directoryDescription:
     'Directory records remain evidence-aware and mediated rather than exposing an open supplier or counterparty directory.',
+  geneticsEmptyDetail:
+    'Genetics remains available through controlled program and evidence requests.',
   financingDescription:
     'Financing is reviewed alongside jurisdiction, evidence, counterparty and transaction readiness—not as an instant checkout product.',
 } as const
@@ -232,10 +247,16 @@ export function formatStatus(value: unknown, fallback = 'Review required'): stri
   return typeof value === 'string' && value.trim() ? titleCase(value) : fallback
 }
 
+/** Clamp values already stored on a 0–100 scale. */
 export function clampPercent(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null
-  const normalized = value > 0 && value < 1 ? value * 100 : value
-  return Math.max(0, Math.min(100, Math.round(normalized)))
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
+
+/** Convert a confidence fraction (0–1) into a percentage. */
+export function confidenceFractionToPercent(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null
+  return clampPercent(value * 100)
 }
 
 export function parseConfidence(raw: unknown): number | null {
@@ -270,19 +291,23 @@ export function normalizeListing(
   view: MarketView,
   fallbackJurisdiction: string,
 ): NormalizedListing {
+  const [title, summary, jurisdiction, category, status, channel, confidence, id] = row
+
   return {
-    id: String(row[7] || `${view}-${index}`),
-    title: String(row[0] || 'Reviewed marketplace record'),
-    summary: String(row[1] || MOBILE_COMMAND_COPY.listingFallback),
-    jurisdiction: String(row[2] || fallbackJurisdiction),
-    category: String(row[3] || MARKET_TABS.find(tab => tab.id === view)?.label || 'Marketplace'),
-    status: String(row[4] || 'Pending review'),
-    channel: String(row[5] || MOBILE_COMMAND_COPY.listingChannel),
-    confidence: parseConfidence(row[6]),
+    id: String(id || `${view}-${index}`),
+    title: String(title || 'Reviewed marketplace record'),
+    summary: String(summary || MOBILE_COMMAND_COPY.listingFallback),
+    jurisdiction: String(jurisdiction || fallbackJurisdiction),
+    category: String(category || MARKET_TABS.find(tab => tab.id === view)?.label || 'Marketplace'),
+    status: String(status || 'Pending review'),
+    channel: String(channel || MOBILE_COMMAND_COPY.listingChannel),
+    confidence: parseConfidence(confidence),
     view,
   }
 }
 
 export function matchesQuery(query: string, values: Array<unknown>): boolean {
-  return values.some(value => String(value ?? '').toLowerCase().includes(query))
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return true
+  return values.some(value => String(value ?? '').toLowerCase().includes(normalizedQuery))
 }
