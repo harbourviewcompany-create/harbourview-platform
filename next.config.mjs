@@ -2,7 +2,10 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 
-const allowLocalSupabase = process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1';
+const isVercelRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+const allowLocalSupabase =
+  process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' &&
+  !isVercelRuntime;
 const supabaseConnectSources = [
   'https://zvxdgdkukjrrwamdpqrg.supabase.co',
   'wss://zvxdgdkukjrrwamdpqrg.supabase.co',
