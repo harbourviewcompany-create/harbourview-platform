@@ -50,12 +50,17 @@ describe('Command Centre integration registry', () => {
       .toBe('/dashboard?page=marketplace&module=supply')
   })
 
-  it('normalizes product-language aliases', () => {
+  it('normalizes product-language aliases without accepting inherited object keys', () => {
     expect(normalizeCommandCentreModule('intelligence')).toBe('intel')
     expect(normalizeCommandCentreModule('my_briefings')).toBe('personal-briefings')
     expect(normalizeCommandCentreModule('trade-finance')).toBe('financing')
     expect(normalizeCommandCentreModule('professionals')).toBe('directories')
     expect(normalizeCommandCentreModule('not-a-module')).toBeNull()
+    expect(normalizeCommandCentreModule('constructor')).toBeNull()
+    expect(normalizeCommandCentreModule('toString')).toBeNull()
+    expect(normalizeCommandCentreModule('valueOf')).toBeNull()
+    expect(() => getCommandCentreModule('constructor' as CommandCentreModule))
+      .toThrow('Unknown Command Centre module')
   })
 
   it('marks only gateway-rendered modules as custom', () => {
