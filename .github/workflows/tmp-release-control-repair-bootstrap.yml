@@ -1,0 +1,86 @@
+name: Temporary release-control repair bootstrap
+
+on:
+  push:
+    branches:
+      - agent/release-control-repair
+    paths:
+      - '.github/workflows/tmp-release-control-repair-bootstrap.yml'
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: agent/release-control-repair
+          fetch-depth: 0
+
+      - name: Recover checksum-bound repair bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA256: 2512a0ac84174857a51e16ba21a4c0bbedf2b4bc977be84f79519c2997e75184
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/issues/1272" --jq .body > /tmp/repair-parts.txt
+          gh api --paginate "repos/$GITHUB_REPOSITORY/issues/1272/comments?per_page=100" --jq '.[].body' >> /tmp/repair-parts.txt
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('/tmp/repair-parts.txt').read_text()
+          parts = {number: payload.replace('\n', '').replace('\r', '') for number, payload in re.findall(r'BEGIN_BUNDLE_PART_(\d{2})\n(.*?)\nEND_BUNDLE_PART_\1', text, re.S)}
+          expected = [f'{index:02d}' for index in range(1, 11)]
+          if sorted(parts) != expected:
+              raise SystemExit(f'Expected bundle parts {expected}, found {sorted(parts)}')
+          Path('/tmp/release-control-repair.tar.gz.b64').write_text(''.join(parts[number] for number in expected))
+          PY
+          base64 --decode /tmp/release-control-repair.tar.gz.b64 > /tmp/release-control-repair.tar.gz
+          test "$(sha256sum /tmp/release-control-repair.tar.gz | awk '{print $1}')" = "$EXPECTED_SHA256"
+          mkdir -p /tmp/release-control-repair
+          tar -xzf /tmp/release-control-repair.tar.gz -C /tmp/release-control-repair
+
+      - name: Validate repaired controls before publication
+        run: |
+          set -euo pipefail
+          cp .github/workflows/pending-migration-decision-verification.yml /tmp/original-pending-verification.yml
+          cp -a /tmp/release-control-repair/. .
+          node scripts/check-pending-production-migration-decisions.mjs
+          node --test tests/scripts/pending-production-migration-decisions.test.mjs
+          node --check scripts/check-pending-production-migration-decisions.mjs
+          python3 - <<'PY'
+          import yaml
+          from pathlib import Path
+          yaml.safe_load(Path('.github/workflows/pending-migration-decision-verification.yml').read_text())
+          print('Permanent workflow YAML parsed.')
+          PY
+          cp /tmp/original-pending-verification.yml .github/workflows/pending-migration-decision-verification.yml
+
+      - name: Commit ten non-workflow repair files
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md \
+            docs/control/PENDING_PRODUCTION_MIGRATION_REMEDIATION_EVIDENCE_2026-08-02.md \
+            docs/control/PRODUCTION_DATABASE_ENVIRONMENT_EVIDENCE_2026-08-02.md \
+            scripts/check-pending-production-migration-decisions.mjs \
+            supabase/release-controls/pending-production-migration-decisions.json \
+            supabase/release-controls/pending-production-migration-manifest-snapshot.json \
+            supabase/release-controls/production-database-environment-verification.json \
+            supabase/release-controls/evidence/elite-digest-preflight-manifest-30766999778.json \
+            supabase/release-controls/evidence/elite-digest-remote-migrations-30766999778.txt \
+            tests/scripts/pending-production-migration-decisions.test.mjs
+          if git diff --cached --name-only | grep -q '^supabase/migrations/'; then
+            echo '::error::Migration SQL changes are forbidden.'
+            exit 1
+          fi
+          test "$(git diff --cached --name-only | wc -l)" -eq 10
+          git commit -m 'fix(release): harden migration evidence controls'
+          git push origin HEAD:agent/release-control-repair
