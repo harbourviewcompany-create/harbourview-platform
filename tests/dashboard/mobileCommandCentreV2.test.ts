@@ -20,7 +20,9 @@ describe('Mobile Command Centre V2 contracts', () => {
     for (const section of [
       'overview',
       'live-status',
+      'market-intelligence',
       'marketplace',
+      'supply',
       'next-actions',
       'weekly-signals',
       'personal-briefing',
@@ -29,6 +31,7 @@ describe('Mobile Command Centre V2 contracts', () => {
       'jurisdiction',
       'market-status',
       'review-gates',
+      'directories',
       'talent',
       'genetics',
       'clinical',
@@ -39,6 +42,31 @@ describe('Mobile Command Centre V2 contracts', () => {
       expect(source).toContain(`id=\"${section}\"`)
       expect(source).toContain(`ref={registerSection('${section}')}`)
     }
+  })
+
+  it('exposes every new Command Centre capability as an explicit section', () => {
+    for (const label of [
+      'Market intelligence',
+      'Marketplace control',
+      'Supply',
+      'Trade financing',
+      'Directories',
+      'Personal briefing',
+      'Search',
+      'Talent',
+      'Genetics',
+      'Clinical',
+      'Education path',
+      'Compliance',
+      'Network',
+    ]) {
+      expect(source).toContain(`label: '${label}'`)
+    }
+    expect(source).toContain('JOB_LISTINGS')
+    expect(source).toContain('marketMetrics.map')
+    expect(source).toContain('tradeFlows.map')
+    expect(source).toContain('supplyRows.map')
+    expect(source).toContain('directoryRecords.map')
   })
 
   it('keeps every marketplace category visible without narrowing scope', () => {
