@@ -1,5 +1,6 @@
 'use client'
 
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
 import FinancingInquiryForm from '@/app/marketplace/financing/FinancingInquiryForm'
 import type { MarketView } from '../CommandCentre'
@@ -15,11 +16,13 @@ export function MarketplaceWorkspacePanel({
   selectedListing,
   activeMarketView,
   onClose,
+  onViewSubmissions,
 }: {
   tool: MobileCommandTool | null
   selectedListing: NormalizedListing | null
   activeMarketView: MarketView
   onClose: () => void
+  onViewSubmissions: () => void
 }) {
   if (!tool || tool === 'financing-intake') return null
 
@@ -50,8 +53,22 @@ export function MarketplaceWorkspacePanel({
           defaultMarkets: selectedListing?.jurisdiction ?? '',
         }
 
+  function keepSuccessNavigationInCommand(event: ReactMouseEvent<HTMLElement>) {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const anchor = target.closest<HTMLAnchorElement>('a[href="/dashboard?page=marketplace"]')
+    if (!anchor) return
+    event.preventDefault()
+    onViewSubmissions()
+  }
+
   return (
-    <section className="hvm2-workspace" data-mobile-command-tool={tool} aria-label={config.title}>
+    <section
+      className="hvm2-workspace"
+      data-mobile-command-tool={tool}
+      aria-label={config.title}
+      onClickCapture={keepSuccessNavigationInCommand}
+    >
       <header className="hvm2-workspace-header">
         <div>
           <span>{config.eyebrow}</span>
