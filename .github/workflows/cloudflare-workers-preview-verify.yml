@@ -90,7 +90,7 @@ jobs:
 
       - name: Start local Workers runtime
         run: |
-          npx wrangler dev --local --port 8787 > /tmp/harbourview-wrangler.log 2>&1 &
+          npx --yes wrangler@4.118.0 dev --local --port 8787 > /tmp/harbourview-wrangler.log 2>&1 &
           echo $! > /tmp/harbourview-wrangler.pid
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8787/ >/dev/null; then
