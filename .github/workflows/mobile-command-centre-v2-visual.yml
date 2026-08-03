@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: mobile-command-centre-v2-visual-${{ github.ref }}
@@ -26,6 +27,7 @@ jobs:
     env:
       HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
       PLAYWRIGHT_BASE_URL: https://harbourview-git-build-mobile-command-centre-v2-harbourview.vercel.app
+      EXPECTED_PREVIEW_SHA: e4955ccd197120b45b7a782e9d861cf67bc28d0a
       E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
       E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -46,24 +48,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Wait for branch preview
+      - name: Wait for exact branch preview source
         shell: bash
         run: |
           set -euo pipefail
           for attempt in $(seq 1 90); do
             if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET:-}" ]; then
-              status="$(curl -sS -o /dev/null -w '%{http_code}' -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${HARBOURVIEW_PUBLIC_BASE_URL}/login")"
+              body="$(curl -sS -H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" "${HARBOURVIEW_PUBLIC_BASE_URL}/login" || true)"
             else
-              status="$(curl -sS -o /dev/null -w '%{http_code}' "${HARBOURVIEW_PUBLIC_BASE_URL}/login")"
+              body="$(curl -sS "${HARBOURVIEW_PUBLIC_BASE_URL}/login" || true)"
             fi
-            if [ "$status" = "200" ]; then
-              echo "Preview is ready"
+            if printf '%s' "$body" | grep -q "$EXPECTED_PREVIEW_SHA"; then
+              echo "Preview is ready at expected application SHA ${EXPECTED_PREVIEW_SHA}"
               exit 0
             fi
-            echo "Attempt ${attempt}: preview returned HTTP ${status}"
+            echo "Attempt ${attempt}: preview is not yet serving ${EXPECTED_PREVIEW_SHA}"
             sleep 4
           done
-          echo "Preview did not become ready"
+          echo "Preview did not become ready at the expected application SHA"
           exit 1
 
       - name: Install Chromium
@@ -83,3 +85,11 @@ jobs:
             test-results/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Record visual run on PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_RESULT: ${{ job.status }}
+        run: |
+          gh pr comment 1279 --body "Mobile Command Centre V2 authenticated visual run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against preview application SHA \`${EXPECTED_PREVIEW_SHA}\`. Artifact: \`mobile-command-centre-v2-${GITHUB_RUN_ID}\`."
