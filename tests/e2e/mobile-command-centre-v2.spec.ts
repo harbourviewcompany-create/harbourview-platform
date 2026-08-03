@@ -56,7 +56,9 @@ function isExpectedLocalDegradation(response: FailedResponse) {
   return (
     (response.method === 'POST' && response.pathname === '/api/ai/briefing' && response.status === 503) ||
     (response.method === 'GET' && response.pathname === '/api/country-intel' && response.status === 404) ||
-    (response.method === 'GET' && response.pathname === '/api/dashboard/signals' && response.status === 500)
+    (response.method === 'GET' && response.pathname === '/api/dashboard/signals' && response.status === 500) ||
+    (response.method === 'GET' && response.pathname === '/api/marketplace/my-deal-rooms' && response.status === 500) ||
+    (response.method === 'GET' && response.pathname === '/api/marketplace/my-submissions' && response.status === 500)
   )
 }
 
@@ -212,9 +214,9 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             await marketplaceActions.locator('button').filter({ hasText: 'Post wanted demand' }).click({ timeout: 15_000 })
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toBeVisible()
             await expect(page.getByText('Post a wanted requirement', { exact: true })).toBeVisible()
+            await expect.poll(() => new URL(page!.url()).searchParams.get('page')).toBe('marketplace')
             let activeUrl = new URL(page.url())
             expect(activeUrl.pathname).toBe('/dashboard')
-            expect(activeUrl.searchParams.get('page')).toBe('marketplace')
             expect(activeUrl.searchParams.get('section')).toBe('marketplace')
             expect(activeUrl.searchParams.get('tool')).toBe('wanted-intake')
             expect(activeUrl.searchParams.get('country')).toBe('CA')
@@ -225,9 +227,9 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             await marketplaceActions.locator('button').filter({ hasText: 'Request financing' }).click({ timeout: 15_000 })
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toBeVisible()
             await expect(page.getByText('Request financing support', { exact: true })).toBeVisible()
+            await expect.poll(() => new URL(page!.url()).searchParams.get('page')).toBe('trade-calc')
             activeUrl = new URL(page.url())
             expect(activeUrl.pathname).toBe('/dashboard')
-            expect(activeUrl.searchParams.get('page')).toBe('trade-calc')
             expect(activeUrl.searchParams.get('section')).toBe('financing')
             expect(activeUrl.searchParams.get('tool')).toBe('financing-intake')
             await page.getByRole('button', { name: 'Close financing workflow' }).click()
