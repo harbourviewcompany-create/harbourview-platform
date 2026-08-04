@@ -6,9 +6,11 @@ const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs
 
 describe('production Supabase security hardening', () => {
   it('uses an explicit view inventory, existence guard, and security-invoker execution', () => {
-    expect(migration).toContain('public.view_exists(view_row.schema_name, view_row.relation_name)')
-    expect(migration).toContain('alter view %I.%I set (security_invoker = true)')
-    expect(migration).toContain('revoke all privileges on table %I.%I from public, anon, authenticated')
+    expect(migration).toContain('create or replace function public.view_exists(p_schema text, p_view text)')
+    expect(migration).toContain("if public.view_exists('api', 'hv_artifacts') then")
+    expect(migration).toContain('set (security_invoker = true)')
+    expect(migration).toContain('revoke all privileges on table api.hv_artifacts from public, anon, authenticated')
+    expect(migration).toContain('grant select on table api.hv_artifacts to service_role')
   })
 
   it('keeps policyless RLS tables deny-by-default without synthetic policies', () => {
