@@ -8,14 +8,18 @@ where c.relkind = 'v'
   and n.nspname in ('public','api','signals','regulatory_signals')
   and not coalesce((select bool_or(option_name = 'security_invoker' and option_value = 'true') from pg_options_to_table(c.reloptions)), false);
 
--- RLS tables without a policy.
+-- Policyless RLS tables that still expose table privileges to application roles.
 select n.nspname as schema_name, c.relname as table_name
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where c.relkind in ('r','p','f')
   and c.relrowsecurity
   and n.nspname in ('public','api','signals','regulatory_signals')
-  and not exists (select 1 from pg_policy p where p.polrelid = c.oid);
+  and not exists (select 1 from pg_policy p where p.polrelid = c.oid)
+  and (
+    has_table_privilege('anon', c.oid, 'select,insert,update,delete')
+    or has_table_privilege('authenticated', c.oid, 'select,insert,update,delete')
+  );
 
 -- SECURITY DEFINER routines executable by anon.
 select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)
