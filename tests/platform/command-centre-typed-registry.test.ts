@@ -47,9 +47,9 @@ describe('typed Command Centre registry', () => {
   })
 
   it('maps every registered module to a deterministic mobile destination', () => {
-    for (const module of COMMAND_CENTRE_MODULE_REGISTRY) {
-      expect(getMobileSectionForPage(module.desktopPage)).toBeTruthy()
-      expect(getCommandCentreModule(module.id)).toEqual(module)
+    for (const mod of COMMAND_CENTRE_MODULE_REGISTRY) {
+      expect(getMobileSectionForPage(mod.desktopPage)).toBeTruthy()
+      expect(getCommandCentreModule(mod.id)).toEqual(mod)
     }
     expect(getMobileSectionForPage('marketplace')).toBe('marketplace')
     expect(getMobileSectionForPage('experts')).toBe('directories')
