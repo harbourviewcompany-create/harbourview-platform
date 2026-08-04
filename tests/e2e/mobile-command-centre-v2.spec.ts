@@ -137,15 +137,30 @@ function contextOptions(width: number, storageState: BrowserContextOptions['stor
 }
 
 async function expectCommandState(page: Page, expected: ExpectedCommandState) {
-  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard')
-  const url = new URL(page.url())
-  expect(url.searchParams.get('country')).toBe('CA')
-  expect(url.searchParams.get('role')).toBe('exporter')
-  expect(url.searchParams.get('page')).toBe(expected.page)
-  expect(url.searchParams.get('section')).toBe(expected.section)
-  if (expected.marketView !== undefined) expect(url.searchParams.get('marketView')).toBe(expected.marketView)
-  if (expected.tool !== undefined) expect(url.searchParams.get('tool')).toBe(expected.tool)
-  if (expected.listing !== undefined) expect(url.searchParams.get('listing')).toBe(expected.listing)
+  const expectedState = {
+    pathname: '/dashboard',
+    country: 'CA',
+    role: 'exporter',
+    page: expected.page,
+    section: expected.section,
+    ...(expected.marketView !== undefined ? { marketView: expected.marketView } : {}),
+    ...(expected.tool !== undefined ? { tool: expected.tool } : {}),
+    ...(expected.listing !== undefined ? { listing: expected.listing } : {}),
+  }
+
+  await expect.poll(() => {
+    const url = new URL(page.url())
+    return {
+      pathname: url.pathname,
+      country: url.searchParams.get('country'),
+      role: url.searchParams.get('role'),
+      page: url.searchParams.get('page'),
+      section: url.searchParams.get('section'),
+      ...(expected.marketView !== undefined ? { marketView: url.searchParams.get('marketView') } : {}),
+      ...(expected.tool !== undefined ? { tool: url.searchParams.get('tool') } : {}),
+      ...(expected.listing !== undefined ? { listing: url.searchParams.get('listing') } : {}),
+    }
+  }, { timeout: 15_000 }).toEqual(expectedState)
 }
 
 async function reloadTool(page: Page, tool: string, title: string) {
@@ -157,9 +172,13 @@ async function reloadTool(page: Page, tool: string, title: string) {
 async function closeMarketplaceTool(page: Page, tool: string) {
   await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
   await expect(page.locator(`[data-mobile-command-tool="${tool}"]`)).toHaveCount(0)
-  const url = new URL(page.url())
-  expect(url.searchParams.get('tool')).toBeNull()
-  expect(url.searchParams.get('listing')).toBeNull()
+  await expect.poll(() => {
+    const url = new URL(page.url())
+    return {
+      tool: url.searchParams.get('tool'),
+      listing: url.searchParams.get('listing'),
+    }
+  }).toEqual({ tool: null, listing: null })
 }
 
 async function writeWidthEvidence(
@@ -347,7 +366,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
             await reloadTool(page, 'financing-intake', 'Request financing support')
             await page.getByRole('button', { name: 'Close financing workflow' }).click()
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toHaveCount(0)
-            expect(new URL(page.url()).searchParams.get('tool')).toBeNull()
+            await expect.poll(() => new URL(page.url()).searchParams.get('tool')).toBeNull()
 
             report.marketViewReload = 'equipment -> cannabis'
             report.containedWorkflows = ['wanted-intake', 'supply-intake', 'introduction', 'financing-intake']
@@ -378,7 +397,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
           report.geometry = geometry
           report.shell = 'mobile-v2'
         } else {
-          const desktopRoot = page.locator('.hv-cc-root:visible')
+          const desktopRoot = page.locator('.cc-app:visible')
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
           await expect(desktopRoot).toBeVisible()
           await expect(desktopRoot.locator('.cc-page-title')).toHaveText('Briefing Room')
@@ -391,7 +410,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
                 { waitUntil: 'domcontentloaded', timeout: 60_000 },
               )
               expect(pageResponse?.status()).toBeLessThan(400)
-              await expect(page.locator('.hv-cc-root:visible')).toBeVisible()
+              await expect(page.locator('.cc-app:visible')).toBeVisible()
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
               verifiedPages.push(commandPage)
             }
