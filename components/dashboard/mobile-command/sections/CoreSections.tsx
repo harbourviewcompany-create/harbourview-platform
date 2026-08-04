@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, type KeyboardEvent } from 'react'
+import { useRef, type KeyboardEvent, type MouseEvent } from 'react'
 import type { MarketView } from '../../CommandCentre'
 import type { MobileCommandCentreProps } from '../props'
 import {
@@ -12,6 +12,7 @@ import {
   type MobileCommandTool,
   type NextAction,
   type NormalizedListing,
+  type SectionId,
 } from '../contracts'
 import { MarketplaceWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
@@ -152,6 +153,7 @@ export function MarketplaceSection({
   onOpenTool,
   onCloseTool,
   onViewSubmissions,
+  commandHref,
 }: {
   sectionRef: SectionRef
   activeMarketView: MarketView
@@ -165,9 +167,11 @@ export function MarketplaceSection({
   onOpenTool: (tool: MobileCommandTool, options?: { listing?: NormalizedListing; marketView?: MarketView }) => void
   onCloseTool: () => void
   onViewSubmissions: () => void
+  commandHref: (section: SectionId, changes?: Record<string, string | null>) => string
 }) {
   const tabRefs = useRef(new Map<MarketView, HTMLButtonElement>())
   const searchLabel = `Search ${MARKET_TABS.find(tab => tab.id === activeMarketView)?.label.toLowerCase() ?? 'marketplace'}`
+  const supplyView = activeMarketView === 'wanted' ? 'cannabis' : activeMarketView
 
   function selectAndFocus(view: MarketView) {
     onMarketViewChange(view)
@@ -189,12 +193,21 @@ export function MarketplaceSection({
     selectAndFocus(MARKET_TABS[nextIndex].id)
   }
 
+  function keepInCommand(
+    event: MouseEvent<HTMLAnchorElement>,
+    tool: MobileCommandTool,
+    options?: { listing?: NormalizedListing; marketView?: MarketView },
+  ) {
+    event.preventDefault()
+    onOpenTool(tool, options)
+  }
+
   return (
     <SectionShell id="marketplace" sectionRef={sectionRef} eyebrow="Marketplace control" title="Demand, supply and commercial routes" description={MOBILE_COMMAND_COPY.marketplaceDescription} className="hvm2-market-section">
       <div className="hvm2-quick-actions">
-        <button type="button" onClick={() => onOpenTool('wanted-intake', { marketView: 'wanted' })}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></button>
-        <button type="button" onClick={() => onOpenTool('supply-intake', { marketView: activeMarketView === 'wanted' ? 'cannabis' : activeMarketView })}><span>↗</span><strong>Submit supply</strong><small>Controlled review intake</small></button>
-        <button type="button" onClick={() => onOpenTool('financing-intake')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></button>
+        <a href={commandHref('marketplace', { tool: 'wanted-intake', marketView: 'wanted' })} onClick={event => keepInCommand(event, 'wanted-intake', { marketView: 'wanted' })}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></a>
+        <a href={commandHref('marketplace', { tool: 'supply-intake', marketView: supplyView })} onClick={event => keepInCommand(event, 'supply-intake', { marketView: supplyView })}><span>↗</span><strong>Submit supply</strong><small>Controlled review intake</small></a>
+        <a href={commandHref('financing', { tool: 'financing-intake', marketView: activeMarketView })} onClick={event => keepInCommand(event, 'financing-intake')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></a>
       </div>
 
       <MarketplaceWorkspacePanel
