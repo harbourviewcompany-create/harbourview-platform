@@ -5,7 +5,7 @@ import {
   PUBLIC_ENTRY_EXCEPTIONS,
 } from '@/config/command-centre-routes.mjs'
 import type { CommandPage } from '@/components/dashboard/CommandCentre'
-import type { SectionId } from '@/components/dashboard/mobile-command/contracts'
+import { SECTION_IDS, type SectionId } from '@/components/dashboard/mobile-command/contracts'
 
 export type CommandCentreCriticality = 'launch-critical' | 'important'
 export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next'
@@ -25,6 +25,74 @@ export type CommandCentreRoutePolicy = Readonly<{
   reason: string
 }>
 
+const SUPPORTED_COMMAND_PAGES = Object.freeze<CommandPage[]>([
+  'briefing',
+  'digest',
+  'access-pathway',
+  'marketplace',
+  'evidence',
+  'education',
+  'regulatory',
+  'local-intel',
+  'signals',
+  'watchlist',
+  'settings',
+  'genetics',
+  'clinical',
+  'compliance',
+  'countries',
+  'assistant',
+  'documents',
+  'events',
+  'experts',
+  'banking',
+  'notifications',
+  'kyb',
+  'prices',
+  'logistics',
+  'jobs',
+  'insurance',
+  'licences',
+  'trade-calc',
+  'organization',
+  'talent',
+])
+
+const supportedPageSet = new Set<CommandPage>(SUPPORTED_COMMAND_PAGES)
+
+const CANONICAL_MOBILE_SECTION_BY_PAGE: Readonly<Record<CommandPage, SectionId>> = Object.freeze({
+  briefing: 'overview',
+  digest: 'personal-briefing',
+  'access-pathway': 'jurisdiction',
+  marketplace: 'marketplace',
+  evidence: 'review-gates',
+  education: 'education',
+  regulatory: 'jurisdiction',
+  'local-intel': 'jurisdiction',
+  signals: 'weekly-signals',
+  watchlist: 'weekly-signals',
+  settings: 'overview',
+  genetics: 'genetics',
+  clinical: 'clinical',
+  compliance: 'compliance',
+  countries: 'jurisdiction',
+  assistant: 'search',
+  documents: 'review-gates',
+  events: 'network',
+  experts: 'directories',
+  banking: 'financing',
+  notifications: 'next-actions',
+  kyb: 'review-gates',
+  prices: 'market-intelligence',
+  logistics: 'supply',
+  jobs: 'talent',
+  insurance: 'financing',
+  licences: 'compliance',
+  'trade-calc': 'financing',
+  organization: 'review-gates',
+  talent: 'talent',
+})
+
 function assertString(value: unknown, field: string): asserts value is string {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`[command-centre-registry] ${field} must be a non-empty string`)
@@ -42,6 +110,12 @@ function normalizeModule(value: unknown, index: number): CommandCentreModule {
   assertString(record.desktopPage, `module ${index}.desktopPage`)
   assertString(record.mobileSection, `module ${index}.mobileSection`)
 
+  if (!supportedPageSet.has(record.desktopPage as CommandPage)) {
+    throw new Error(`[command-centre-registry] module ${record.id}.desktopPage is unsupported: ${record.desktopPage}`)
+  }
+  if (!SECTION_IDS.has(record.mobileSection as SectionId)) {
+    throw new Error(`[command-centre-registry] module ${record.id}.mobileSection is unsupported: ${record.mobileSection}`)
+  }
   if (record.criticality !== 'launch-critical' && record.criticality !== 'important') {
     throw new Error(`[command-centre-registry] module ${record.id}.criticality is invalid`)
   }
@@ -115,17 +189,14 @@ for (const route of COMMAND_CENTRE_ROUTE_REGISTRY) {
   routeSources.add(route.source)
 }
 
-if (COMMAND_CENTRE_MODULE_REGISTRY.length !== 32) {
-  throw new Error(`[command-centre-registry] expected 32 modules, received ${COMMAND_CENTRE_MODULE_REGISTRY.length}`)
-}
-
 export const COMMAND_CENTRE_MODULE_IDS = Object.freeze([...moduleIds])
-export const COMMAND_CENTRE_PAGE_IDS = Object.freeze([...modulePages])
+export const COMMAND_CENTRE_PAGE_IDS = SUPPORTED_COMMAND_PAGES
+export const COMMAND_CENTRE_CONFIGURED_PAGE_IDS = Object.freeze([...modulePages])
 
 export function normalizeCommandPage(raw: string | null | undefined): CommandPage | null {
   if (!raw) return null
   const page = raw.trim().toLowerCase() as CommandPage
-  return modulePages.has(page) ? page : null
+  return supportedPageSet.has(page) ? page : null
 }
 
 export function getCommandCentreModule(id: string | null | undefined): CommandCentreModule | null {
@@ -141,8 +212,8 @@ export function getCommandCentreModulesForMobileSection(section: SectionId): Com
   return COMMAND_CENTRE_MODULE_REGISTRY.filter(module => module.mobileSection === section)
 }
 
-export function getMobileSectionForPage(page: CommandPage): SectionId | null {
-  return getCommandCentreModulesForPage(page)[0]?.mobileSection ?? null
+export function getMobileSectionForPage(page: CommandPage): SectionId {
+  return CANONICAL_MOBILE_SECTION_BY_PAGE[page]
 }
 
 export function buildCommandCentreHref(
@@ -177,6 +248,7 @@ export function getCommandCentreReadinessSummary() {
     launchCriticalModules: critical.length,
     importantModules: COMMAND_CENTRE_MODULE_REGISTRY.length - critical.length,
     uniqueDesktopPages: COMMAND_CENTRE_PAGE_IDS.length,
+    configuredDesktopPages: COMMAND_CENTRE_CONFIGURED_PAGE_IDS.length,
     mobileSections: new Set(COMMAND_CENTRE_MODULE_REGISTRY.map(module => module.mobileSection)).size,
     routePolicies: COMMAND_CENTRE_ROUTE_REGISTRY.length,
   })
