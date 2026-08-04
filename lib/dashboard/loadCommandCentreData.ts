@@ -11,6 +11,20 @@ import type {
   CommandCentreSourceMeta,
 } from '@/lib/dashboard/commandCentreDataTypes'
 
+const DEFAULT_SOURCE_TIMEOUT_MS = 8_000
+
+class CommandCentreSourceFailure extends Error {
+  readonly durationMs: number
+  readonly original: unknown
+
+  constructor(error: unknown, durationMs: number) {
+    super(error instanceof Error ? error.message : 'Command Centre source failed')
+    this.name = errorCode(error)
+    this.durationMs = durationMs
+    this.original = error
+  }
+}
+
 function defaultIsEmpty(value: unknown): boolean {
   if (value == null) return true
   if (Array.isArray(value)) return value.length === 0
@@ -59,6 +73,36 @@ function errorCode(error: unknown): string {
   return 'SOURCE_LOAD_FAILED'
 }
 
+function withTimeout<T>(load: () => Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let complete = false
+    const timer = setTimeout(() => {
+      if (complete) return
+      complete = true
+      const error = new Error('Command Centre source timed out')
+      error.name = 'SOURCE_TIMEOUT'
+      reject(error)
+    }, timeoutMs)
+
+    Promise.resolve()
+      .then(load)
+      .then(
+        value => {
+          if (complete) return
+          complete = true
+          clearTimeout(timer)
+          resolve(value)
+        },
+        error => {
+          if (complete) return
+          complete = true
+          clearTimeout(timer)
+          reject(error)
+        },
+      )
+  })
+}
+
 export async function loadCommandCentreData<TDefinitions extends CommandCentreSourceMap>(
   context: CommandCentreLoadContext,
   definitions: TDefinitions,
@@ -72,8 +116,15 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
     keys.map(async key => {
       const definition = definitions[key]
       const sourceStartedAt = Date.now()
-      const data = await definition.load()
-      return { key, data, durationMs: Date.now() - sourceStartedAt }
+      try {
+        const data = await withTimeout(
+          definition.load,
+          definition.timeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS,
+        )
+        return { key, data, durationMs: Date.now() - sourceStartedAt }
+      } catch (error) {
+        throw new CommandCentreSourceFailure(error, Date.now() - sourceStartedAt)
+      }
     }),
   )
 
@@ -103,7 +154,10 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
     }
 
     data[dataKey] = definition.fallback as TData[keyof TData]
-    const code = errorCode(result.reason)
+    const failure = result.reason instanceof CommandCentreSourceFailure
+      ? result.reason
+      : new CommandCentreSourceFailure(result.reason, 0)
+    const code = errorCode(failure.original)
     sources[dataKey] = Object.freeze({
       key: String(key),
       state: defaultIsEmpty(definition.fallback) ? 'error' : 'fallback',
@@ -112,7 +166,7 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
       loadedAt,
       freshAt: null,
       staleAfterMs: definition.staleAfterMs ?? null,
-      durationMs: Date.now() - startedAt,
+      durationMs: failure.durationMs,
       errorCode: code,
     }) as CommandCentreSourceMeta
 
@@ -127,7 +181,7 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
 
   const states = Object.values(sources).map(source => source.state)
   const state: CommandCentreDataState = states.some(value => value === 'error')
-    ? (states.some(value => value === 'live' || value === 'stale' || value === 'fallback') ? 'partial' : 'error')
+    ? (states.some(value => value !== 'error') ? 'partial' : 'error')
     : states.some(value => value === 'fallback')
       ? 'partial'
       : states.some(value => value === 'stale')
