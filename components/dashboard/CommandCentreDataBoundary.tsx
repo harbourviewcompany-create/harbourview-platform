@@ -43,7 +43,7 @@ export default function CommandCentreDataBoundary({
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2 text-sm">
             <p className="m-0">{STATE_COPY[state]}</p>
             <p className="m-0 text-xs text-[#f5f1e8]/60">
-              {counts.live} live · {counts.stale} stale · {counts.fallback} fallback · {counts.error} unavailable
+              {counts.live} live · {counts.partial} partial · {counts.stale} stale · {counts.fallback} fallback · {counts.empty} empty · {counts.error} unavailable
             </p>
           </div>
         </aside>
