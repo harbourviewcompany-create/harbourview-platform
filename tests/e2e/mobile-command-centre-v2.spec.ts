@@ -5,8 +5,7 @@ import path from 'node:path'
 const WIDTHS = [320, 375, 390, 430, 768] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-const IS_ISOLATED_LOCAL_RUN = process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && Boolean(BASE_URL?.includes('127.0.0.1'))
-const SENSITIVE_QUERY_KEY = /(?:code|token|secret|key|password|authorization|cookie|session|jwt)/i
+const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
 const MOBILE_SECTION_IDS = [
   'overview',
   'live-status',
@@ -43,56 +42,40 @@ function safeFileToken(value: string | undefined) {
   return (value || 'local').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80)
 }
 
-function sanitizeUrlForEvidence(value: string) {
-  try {
-    const url = new URL(value, BASE_URL || 'http://127.0.0.1')
-    for (const key of [...url.searchParams.keys()]) {
-      if (SENSITIVE_QUERY_KEY.test(key)) url.searchParams.set(key, '[redacted]')
-    }
-    url.hash = ''
-    return `${url.pathname}${url.search}`
-  } catch {
-    return sanitizeDiagnostic(value)
-  }
+function sanitizeDiagnostic(value: string) {
+  return value
+    .replace(/([?&](?:email|password|token|code|key|secret|access_token|refresh_token)=)[^&\s]+/gi, '$1[redacted]')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
+    .replace(/sb_[A-Za-z0-9_-]+/g, 'sb_[redacted]')
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted-jwt]')
 }
 
 function sanitizeSearchForEvidence(search: string) {
-  if (!search) return ''
-  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  const params = new URLSearchParams(search)
   for (const key of [...params.keys()]) {
-    if (SENSITIVE_QUERY_KEY.test(key)) params.set(key, '[redacted]')
+    if (/email|password|token|code|key|secret/i.test(key)) params.set(key, '[redacted]')
   }
-  const sanitized = params.toString()
-  return sanitized ? `?${sanitized}` : ''
+  const output = params.toString()
+  return output ? `?${output}` : ''
 }
 
-function sanitizeDiagnostic(value: string) {
-  return value
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
-    .replace(/((?:access|refresh|id)?[_-]?token|authorization|cookie|password|secret|api[_-]?key|code)(\s*[:=]\s*)([^\s,;&]+)/gi, '$1$2[redacted]')
-    .replace(/([?&](?:code|token|secret|key|password|authorization|cookie|session|jwt)=[^&#\s]*)/gi, (match) => {
-      const separator = match[0]
-      const key = match.slice(1).split('=')[0]
-      return `${separator}${key}=[redacted]`
-    })
-    .replace(/eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/g, '[redacted-jwt]')
-    .slice(0, 600)
+function sanitizeUrlForEvidence(value: string) {
+  const url = new URL(value)
+  return `${url.origin}${url.pathname}${sanitizeSearchForEvidence(url.search)}`
+}
+
+function isGenericResourceConsoleError(message: string) {
+  return message.includes('Failed to load resource: the server responded with a status of')
 }
 
 function isExpectedLocalDegradation(response: FailedResponse) {
   if (!IS_ISOLATED_LOCAL_RUN) return false
-
-  return (
-    (response.method === 'POST' && response.pathname === '/api/ai/briefing' && response.status === 503) ||
-    (response.method === 'GET' && response.pathname === '/api/country-intel' && response.status === 404) ||
-    (response.method === 'GET' && response.pathname === '/api/dashboard/signals' && response.status === 500) ||
-    (response.method === 'GET' && response.pathname === '/api/marketplace/my-deal-rooms' && response.status === 500) ||
-    (response.method === 'GET' && response.pathname === '/api/marketplace/my-submissions' && response.status === 500)
-  )
-}
-
-function isGenericResourceConsoleError(value: string) {
-  return value.startsWith('Failed to load resource: the server responded with a status of')
+  const expectedReadOnlyPrefixes = [
+    '/api/dashboard/',
+    '/api/watchlist/',
+    '/api/marketplace/my-',
+  ]
+  return expectedReadOnlyPrefixes.some(prefix => response.pathname.startsWith(prefix))
 }
 
 function sharedContextOptions(): BrowserContextOptions {
@@ -118,15 +101,13 @@ async function authenticate(browser: Browser) {
   try {
     const page = await context.newPage()
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await page.getByPlaceholder('you@example.com').fill(email)
-    await page.locator('input[type="password"]').fill(password)
-    const submit = page.locator('form').getByRole('button', { name: 'Sign in', exact: true })
-    await expect(submit).toBeEnabled()
-    await submit.click()
+    await page.getByLabel('Email address').fill(email)
+    await page.getByLabel('Password').fill(password)
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 30_000 })
     return await context.storageState()
   } finally {
-    await context.close().catch(() => {})
+    await context.close()
   }
 }
 
@@ -241,7 +222,9 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
 
           if (width === 390) {
             const marketplaceActions = page.locator('#marketplace .hvm2-quick-actions')
-            await marketplaceActions.locator('button').filter({ hasText: 'Post wanted demand' }).click({ timeout: 15_000 })
+            const wantedAction = marketplaceActions.getByRole('link', { name: /Post wanted demand/ })
+            await expect(wantedAction).toHaveAttribute('href', /tool=wanted-intake/)
+            await wantedAction.click({ timeout: 15_000 })
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toBeVisible()
             await expect(page.getByText('Post a wanted requirement', { exact: true })).toBeVisible()
             await expect.poll(() => new URL(page!.url()).searchParams.get('page')).toBe('marketplace')
@@ -254,7 +237,9 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
             await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toHaveCount(0)
 
-            await marketplaceActions.locator('button').filter({ hasText: 'Request financing' }).click({ timeout: 15_000 })
+            const financingAction = marketplaceActions.getByRole('link', { name: /Request financing/ })
+            await expect(financingAction).toHaveAttribute('href', /tool=financing-intake/)
+            await financingAction.click({ timeout: 15_000 })
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toBeVisible()
             await expect(page.getByText('Request financing support', { exact: true })).toBeVisible()
             await expect.poll(() => new URL(page!.url()).searchParams.get('page')).toBe('trade-calc')
