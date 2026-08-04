@@ -98,16 +98,41 @@ async function authenticate(browser: Browser) {
     hasTouch: true,
   })
 
+  const page = await context.newPage()
+  page.setDefaultTimeout(15_000)
+  page.setDefaultNavigationTimeout(45_000)
+
   try {
-    const page = await context.newPage()
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await page.getByLabel('Email address').fill(email)
-    await page.getByLabel('Password').fill(password)
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 30_000 })
+    await page.goto('/login?next=%2Fdashboard', { waitUntil: 'domcontentloaded', timeout: 45_000 })
+
+    const emailInput = page.getByLabel('Email address', { exact: true })
+    const passwordInput = page.getByLabel('Password', { exact: true })
+    const submit = page.locator('form').getByRole('button', { name: 'Sign in', exact: true })
+
+    await expect(emailInput).toBeVisible({ timeout: 15_000 })
+    await expect(passwordInput).toBeVisible({ timeout: 15_000 })
+    await emailInput.fill(email, { timeout: 15_000 })
+    await passwordInput.fill(password, { timeout: 15_000 })
+    await expect(submit).toBeEnabled({ timeout: 15_000 })
+    await submit.click({ timeout: 15_000 })
+
+    const outcome = await Promise.race([
+      page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 45_000 }).then(() => 'dashboard' as const),
+      page.getByRole('alert').waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
+    ])
+
+    if (outcome === 'error') {
+      const feedback = sanitizeDiagnostic((await page.getByRole('alert').textContent())?.trim() || 'Unknown authentication error')
+      throw new Error(`Authentication failed: ${feedback}`)
+    }
+
     return await context.storageState()
+  } catch (error) {
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    await page.screenshot({ path: path.join(evidenceRoot, 'mobile-command-auth-failure.png'), fullPage: true }).catch(() => {})
+    throw error
   } finally {
-    await context.close()
+    await context.close().catch(() => {})
   }
 }
 
@@ -163,6 +188,8 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
 
       try {
         page = await context.newPage()
+        page.setDefaultTimeout(15_000)
+        page.setDefaultNavigationTimeout(60_000)
         page.on('pageerror', error => pageErrors.push(sanitizeDiagnostic(error.message)))
         page.on('console', message => {
           if (message.type() !== 'error') return
