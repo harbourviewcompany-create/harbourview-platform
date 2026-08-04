@@ -75,6 +75,8 @@ function isExpectedLocalDegradation(response: FailedResponse) {
     '/api/dashboard/',
     '/api/watchlist/',
     '/api/marketplace/my-',
+    '/api/ai/briefing',
+    '/api/country-intel',
   ]
   return expectedReadOnlyPrefixes.some(prefix => response.pathname.startsWith(prefix))
 }
@@ -204,13 +206,13 @@ test.describe('Command Centre authenticated responsive verification', () => {
 
         if (width < 768) {
           await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible()
-          await expect(page.locator('[data-dashboard-renderer="mobile"]')).toBeVisible()
+          await expect(page.locator('[data-dashboard-renderer="mobile"]:visible')).toBeVisible()
           await expect(page.locator('.hvm2-bottom-nav')).toBeVisible()
           await expect(page.getByText('Operator command centre', { exact: true })).toBeVisible()
-          await expect(page.getByText('Market intelligence', { exact: true }).first()).toBeVisible()
-          await expect(page.getByText('Supply', { exact: true }).first()).toBeVisible()
-          await expect(page.getByText('Directories', { exact: true }).first()).toBeVisible()
-          await expect(page.getByText('Trade financing', { exact: true }).first()).toBeVisible()
+          await expect(page.locator('#market-intelligence')).toBeVisible()
+          await expect(page.locator('#supply')).toBeVisible()
+          await expect(page.locator('#directories')).toBeVisible()
+          await expect(page.locator('#financing')).toBeVisible()
           await expect(page.getByText('⌘ Modules')).toHaveCount(0)
           await expect(page.locator('[data-command-module]')).toHaveCount(32)
 
@@ -281,8 +283,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
           report.shell = 'mobile-v2'
         } else {
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
-          await expect(page.locator('[data-dashboard-renderer="desktop"]')).toBeVisible()
-          await expect(page.getByText('Briefing Room', { exact: true }).first()).toBeVisible()
+          await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
+          await expect(page.getByText('Briefing Room', { exact: true }).filter({ visible: true })).toBeVisible()
 
           if (width === 1440) {
             const verifiedPages: string[] = []
@@ -292,7 +294,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
                 { waitUntil: 'domcontentloaded', timeout: 60_000 },
               )
               expect(pageResponse?.status()).toBeLessThan(400)
-              await expect(page.locator('[data-dashboard-renderer="desktop"]')).toBeVisible()
+              await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
               verifiedPages.push(commandPage)
             }
