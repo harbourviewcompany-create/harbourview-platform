@@ -36,12 +36,12 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Pin audited Wrangler release in dependency metadata
+      - name: Pin current patched Wrangler release in dependency metadata
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/wrangler-security-pin
-          npm install --package-lock-only --ignore-scripts --save-dev-exact wrangler@4.35.0
+          npm install --package-lock-only --ignore-scripts --save-dev-exact wrangler@4.118.0
           git diff -- package.json package-lock.json > artifacts/wrangler-security-pin/dependency.patch
 
       - name: Install exact dependency tree
