@@ -87,5 +87,8 @@
     "typescript": "^5.4.5",
     "vitest": "^4.1.10",
     "wrangler": "^4.115.0"
+  },
+  "overrides": {
+    "undici": "7.29.0"
   }
 }
