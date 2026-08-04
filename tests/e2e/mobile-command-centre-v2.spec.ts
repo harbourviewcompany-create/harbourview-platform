@@ -101,11 +101,13 @@ async function authenticate(browser: Browser) {
 
   try {
     const page = await context.newPage()
-    await page.goto('/login', { waitUntil: 'domcontentloaded' })
-    await page.getByLabel('Email address').fill(email)
-    await page.getByLabel('Password').fill(password)
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-    await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 30_000 })
+    await page.goto('/login?next=%2Fdashboard', { waitUntil: 'domcontentloaded' })
+    await page.getByLabel('Email address', { exact: true }).fill(email)
+    await page.getByLabel('Password', { exact: true }).fill(password)
+    const submit = page.locator('form').getByRole('button', { name: 'Sign in', exact: true })
+    await expect(submit).toBeEnabled()
+    await submit.click()
+    await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 45_000 })
     return await context.storageState()
   } finally {
     await context.close()
