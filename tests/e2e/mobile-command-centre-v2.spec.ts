@@ -386,8 +386,11 @@ test.describe('Command Centre authenticated responsive verification', () => {
                 { waitUntil: 'domcontentloaded', timeout: 60_000 },
               )
               expect(pageResponse?.status()).toBeLessThan(400)
-              await expect(page.locator('.cc-app:visible')).toBeVisible()
+              const commandRoot = page.locator('.cc-app:visible')
+              await expect(commandRoot).toBeVisible()
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
+              await expect(commandRoot.locator('.cc-main')).not.toBeEmpty()
+              await expect(commandRoot.locator('.cc-main')).toContainText(/\S/)
               verifiedPages.push(commandPage)
             }
             report.verifiedDesktopPages = verifiedPages

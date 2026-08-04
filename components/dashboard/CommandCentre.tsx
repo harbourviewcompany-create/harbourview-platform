@@ -207,8 +207,9 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Industry',
     items: [
-      { id: 'events',  label: 'Events',          icon: '◷' },
-      { id: 'jobs',    label: 'Jobs Board',      icon: '◉' },
+      { id: 'events',  label: 'Events',           icon: '◷' },
+      { id: 'jobs',    label: 'Jobs Board',       icon: '◉' },
+      { id: 'talent',  label: 'Talent',           icon: '◇' },
       { id: 'experts', label: 'Expert Directory', icon: '⊚' },
     ],
   },
@@ -11104,6 +11105,7 @@ export default function CommandCentre({
       case 'logistics':
         return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'jobs':
+      case 'talent':
         return <JobsBoardPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
