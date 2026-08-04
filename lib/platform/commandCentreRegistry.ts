@@ -174,12 +174,12 @@ const moduleIds = new Set<string>()
 const modulePages = new Set<CommandPage>()
 const routeSources = new Set<string>()
 
-for (const module of COMMAND_CENTRE_MODULE_REGISTRY) {
-  if (moduleIds.has(module.id)) {
-    throw new Error(`[command-centre-registry] duplicate module id: ${module.id}`)
+for (const mod of COMMAND_CENTRE_MODULE_REGISTRY) {
+  if (moduleIds.has(mod.id)) {
+    throw new Error(`[command-centre-registry] duplicate module id: ${mod.id}`)
   }
-  moduleIds.add(module.id)
-  modulePages.add(module.desktopPage)
+  moduleIds.add(mod.id)
+  modulePages.add(mod.desktopPage)
 }
 
 for (const route of COMMAND_CENTRE_ROUTE_REGISTRY) {
