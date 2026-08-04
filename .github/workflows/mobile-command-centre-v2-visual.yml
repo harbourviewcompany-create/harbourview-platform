@@ -45,6 +45,8 @@ jobs:
     timeout-minutes: 60
     env:
       CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
       HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
       NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
       HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
@@ -133,6 +135,68 @@ jobs:
             bio_public text,
             verification_status text not null default 'verified',
             status text not null default 'active'
+          );
+
+          create table if not exists api.daily_digest (
+            digest_date date primary key,
+            headlines jsonb not null default '[]'::jsonb,
+            editorial_headlines jsonb not null default '[]'::jsonb,
+            generated_at timestamptz not null default now(),
+            status text not null default 'draft'
+          );
+
+          create table if not exists api.signals_quality (
+            id uuid primary key default gen_random_uuid(),
+            headline text not null default '',
+            cat text,
+            top_lane text,
+            pri text,
+            country text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed boolean not null default false,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            impact text,
+            title_en text,
+            summary_en text,
+            lang_detected text,
+            is_representative boolean,
+            cluster_rep_id uuid
+          );
+
+          create table if not exists api.market_metrics (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text,
+            metric_name text,
+            metric_value numeric,
+            metric_unit text,
+            source_name text,
+            source_url text,
+            source_date date
+          );
+
+          create table if not exists api.deal_rooms (
+            id uuid primary key default gen_random_uuid(),
+            title text,
+            listing_ref text,
+            status text,
+            updated_at timestamptz not null default now(),
+            initiator_id uuid,
+            counterparty_id uuid
+          );
+
+          create table if not exists api.marketplace_candidates (
+            id uuid primary key default gen_random_uuid(),
+            title_public_draft text,
+            marketplace_category text,
+            listing_type text,
+            status text,
+            created_at timestamptz not null default now(),
+            country text,
+            submitted_by uuid,
+            submission_source text
           );
 
           create table if not exists public.marketplace_public_listings_v1 (
