@@ -72,6 +72,21 @@ describe('Command Centre access and leakage boundaries', () => {
         destination: '/dashboard?page=evidence',
         permanent: false,
       },
+      {
+        source: '/marketplace/sell',
+        destination: '/dashboard?page=marketplace&section=supply&marketView=cannabis&tool=supply-intake',
+        permanent: false,
+      },
+      {
+        source: '/marketplace/wanted',
+        destination: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake',
+        permanent: false,
+      },
+      {
+        source: '/marketplace/financing',
+        destination: '/dashboard?page=trade-calc&section=financing&tool=financing-intake',
+        permanent: false,
+      },
     ])
 
     const inactivePolicies = COMMAND_CENTRE_ROUTE_REGISTRY.filter(route => route.mode !== 'redirect-now')
