@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   pin-and-verify:
-    name: Pin and verify audited Wrangler dependency
+    name: Pin and verify audited Wrangler toolchain
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
