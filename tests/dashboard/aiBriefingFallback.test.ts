@@ -50,4 +50,23 @@ describe('AI briefing route fallback', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Invalid JSON body' })
   })
+
+  it.each([
+    null,
+    [],
+    { country: 42 },
+    { role: false },
+    { intel: { public_summary: 123 } },
+    { intel: { opportunity_score: Number.POSITIVE_INFINITY } },
+  ])('returns 400 for an invalid normalized request shape: %j', async payload => {
+    const { POST } = await import('@/app/api/ai/briefing/route')
+    const response = await POST(new Request('http://localhost/api/ai/briefing', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error: 'Invalid briefing request' })
+  })
 })
