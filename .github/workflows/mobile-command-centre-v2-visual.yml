@@ -120,8 +120,62 @@ jobs:
             created_at timestamptz not null default now()
           );
 
+          create table if not exists public.marketplace_public_listings_v1 (
+            id uuid primary key,
+            slug text,
+            title text not null,
+            description text not null,
+            category text not null,
+            subcategory text,
+            marketplace_section text not null,
+            product_type text,
+            region text not null,
+            condition text,
+            location_country text,
+            location_region text,
+            price_amount numeric,
+            price_currency text not null,
+            price_display text,
+            seller_type text not null,
+            is_featured boolean not null default false,
+            high_level_specs jsonb not null default '{}'::jsonb,
+            created_at timestamptz not null default now(),
+            average_rating numeric,
+            review_count integer
+          );
+
+          insert into public.marketplace_public_listings_v1 (
+            id, slug, title, description, category, subcategory,
+            marketplace_section, product_type, region, condition,
+            location_country, location_region, price_amount, price_currency,
+            price_display, seller_type, is_featured, high_level_specs,
+            average_rating, review_count
+          ) values (
+            '00000000-0000-4000-8000-000000000127',
+            'visual-safe-bulk-flower',
+            'Visual Safe Bulk Flower Lot',
+            'Publicly approved bulk flower supply fixture for authenticated mobile verification.',
+            'cannabis_inventory',
+            'bulk_flower',
+            'cannabis_inventory',
+            'Dried flower',
+            'global',
+            'new',
+            'CA',
+            'Ontario',
+            null,
+            'CAD',
+            'Request reviewed terms',
+            'licensed_operator',
+            true,
+            '{"score": 88, "regulatory_ready": true, "cultivation_standard": "GACP"}'::jsonb,
+            4.8,
+            12
+          ) on conflict (id) do nothing;
+
           grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
           grant select on all tables in schema api to anon;
+          grant select on public.marketplace_public_listings_v1 to anon, authenticated, service_role;
           SQL
           : > supabase/seed.sql
 
