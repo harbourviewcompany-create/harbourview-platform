@@ -1,0 +1,164 @@
+name: Repair Production Readiness V7
+
+on:
+  push:
+    branches:
+      - build/harbourview-production-command-platform
+    paths:
+      - .github/workflows/repair-production-readiness-v7.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-production-readiness-v7
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID: ${{ github.run_id }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: build/harbourview-production-command-platform
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: latest
+
+      - name: Assemble repair tree and correct canonical recovery function
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/repair-production-readiness-v6.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          source = textwrap.dedent(workflow[start:end])
+          exec(compile(source, 'repair-production-readiness-v6.py', 'exec'), {})
+
+          path = Path('supabase/migrations/20260526030100_phase1_source_import_recovery.sql')
+          sql = path.read_text()
+          sql = sql.replace(
+              "  create temp table tmp_source_import_records on commit drop as\n",
+              "  drop table if exists pg_temp.tmp_source_import_upserted;\n  drop table if exists pg_temp.tmp_source_import_valid;\n  drop table if exists pg_temp.tmp_source_import_records;\n\n  create temp table tmp_source_import_records on commit drop as\n",
+              1,
+          )
+          sql = sql.replace(
+              "  create temp table tmp_source_import_upserted on commit drop as\n  insert into public.source_registry (",
+              "  create temp table tmp_source_import_upserted (was_inserted boolean not null) on commit drop;\n\n  with upserted as (\n  insert into public.source_registry (",
+              1,
+          )
+          sql = sql.replace(
+              "  returning (xmax = 0) as was_inserted;\n\n  select\n",
+              "  returning (xmax = 0) as was_inserted\n  )\n  insert into tmp_source_import_upserted (was_inserted)\n  select was_inserted from upserted;\n\n  select\n",
+              1,
+          )
+          if 'create temp table tmp_source_import_upserted on commit drop as' in sql:
+              raise SystemExit('Invalid canonical CREATE TABLE AS INSERT syntax remains')
+          path.write_text(sql)
+
+          function_start = sql.index('create or replace function public.import_source_registry_batch')
+          function_end = sql.index('alter table public.source_import_batches enable row level security;', function_start)
+          forward = 'begin;\n\n' + sql[function_start:function_end] + 'commit;\n'
+          Path('supabase/migrations/20260804235500_fix_source_import_batch_function.sql').write_text(forward)
+          PY
+          git diff --check
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild complete local Supabase history and assert hardened state
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -Atf supabase/tests/production_security_hardening.sql | tee /tmp/production-security-assertions.txt
+          test ! -s /tmp/production-security-assertions.txt
+
+      - name: Verify focused contracts
+        run: >-
+          npx vitest run
+          tests/dashboard/aiBriefingFallback.test.ts
+          tests/dashboard/commandCentreHealth.test.ts
+          tests/dashboard/loadCommandCentreData.test.ts
+          tests/dashboard/commandCentreSourcePlan.test.ts
+          tests/platform/command-centre-route-registry.test.ts
+          tests/platform/command-centre-typed-registry.test.ts
+          tests/supabase/productionSecurityHardening.test.ts
+          tests/supabase/env.test.ts
+
+      - name: Verify lint typecheck and production build
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run build
+
+      - name: Commit verified repair tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'harbourview-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+          git add \
+            app/dashboard/page.tsx \
+            components/dashboard/DesktopCommandWorkspace.css \
+            components/dashboard/DesktopCommandWorkspace.tsx \
+            components/dashboard/DashboardResponsiveShell.tsx \
+            docs/control/CLAUDE_PRODUCTION_COMMAND_CENTRE_HANDOFF.md \
+            docs/control/DATABASE_CONTROL.md \
+            docs/control/PRODUCTION_COMMAND_CENTRE_ARCHITECTURE.md \
+            docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md \
+            lib/dashboard/buildDashboardCommandSources.ts \
+            lib/marketplace/candidates.ts \
+            lib/marketplace/liveSources.ts \
+            lib/supabase/env.ts \
+            scripts/configure-supabase-auth-production.mjs \
+            supabase/migrations/20260304000000_marketplace_conversion_v1.sql \
+            supabase/migrations/20260304001000_harden_marketplace_supabase_exposure.sql \
+            supabase/migrations/20260305000000_live_source_intake_v0_consumables.sql \
+            supabase/migrations/20260526000000_phase1_source_import_recovery.sql \
+            supabase/migrations/20260526030100_phase1_source_import_recovery.sql \
+            supabase/migrations/20260804190000_production_security_hardening.sql \
+            supabase/migrations/20260804233000_marketplace_inquiries_conversion_repair.sql \
+            supabase/migrations/20260804234000_marketplace_exposure_forward_repair.sql \
+            supabase/migrations/20260804235000_separate_marketplace_source_intake.sql \
+            supabase/migrations/20260804235500_fix_source_import_batch_function.sql \
+            supabase/tests/production_security_hardening.sql \
+            tests/dashboard/commandCentreHealth.test.ts \
+            tests/dashboard/loadCommandCentreData.test.ts \
+            tests/e2e/mobile-command-centre-v2.spec.ts \
+            tests/platform/command-centre-route-registry.test.ts \
+            tests/supabase/productionSecurityHardening.test.ts
+          git commit -m 'fix(release): close command centre production-readiness defects'
+          git push origin HEAD:build/harbourview-production-command-platform
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
