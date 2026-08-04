@@ -1,0 +1,74 @@
+name: Command Centre Production Ready Apply
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .production-ready-bundle.b64
+      - .github/workflows/command-centre-production-ready-apply.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: command-centre-production-ready-apply-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://zvxdgdkukjrrwamdpqrg.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Apply staged source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .production-ready-bundle.b64 > /tmp/production-ready-bundle.tgz
+          tar -xzf /tmp/production-ready-bundle.tgz
+          rm .production-ready-bundle.b64
+          git diff --check
+
+      - name: Verify product tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run test:command-centre-production
+          npx vitest run \
+            tests/dashboard/loadCommandCentreData.test.ts \
+            tests/platform/command-centre-route-registry.test.ts \
+            tests/platform/command-centre-typed-registry.test.ts \
+            tests/security/command-centre-boundaries.test.ts
+          npm run typecheck
+          npm run build
+
+      - name: Commit verified product changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- ':!.github/workflows/**'
+          git diff --cached --check
+          git commit -m 'feat(command-centre): close production readiness blockers'
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
