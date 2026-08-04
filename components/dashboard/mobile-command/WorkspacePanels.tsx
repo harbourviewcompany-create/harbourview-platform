@@ -12,6 +12,24 @@ import {
 } from './contracts'
 import '../MobileCommandCentreWorkspaces.css'
 
+function useWorkspaceFocus(open: boolean, workspaceRef: React.RefObject<HTMLElement | null>) {
+  const openingTriggerRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+
+    const activeElement = document.activeElement
+    openingTriggerRef.current = activeElement instanceof HTMLElement ? activeElement : null
+    workspaceRef.current?.focus()
+
+    return () => {
+      const trigger = openingTriggerRef.current
+      openingTriggerRef.current = null
+      window.requestAnimationFrame(() => trigger?.focus())
+    }
+  }, [open, workspaceRef])
+}
+
 export function MarketplaceWorkspacePanel({
   tool,
   selectedListing,
@@ -26,10 +44,8 @@ export function MarketplaceWorkspacePanel({
   onViewSubmissions: () => void
 }) {
   const workspaceRef = useRef<HTMLElement>(null)
-
-  useEffect(() => {
-    if (tool && tool !== 'financing-intake') workspaceRef.current?.focus()
-  }, [tool])
+  const open = Boolean(tool && tool !== 'financing-intake')
+  useWorkspaceFocus(open, workspaceRef)
 
   if (!tool || tool === 'financing-intake') return null
 
@@ -60,6 +76,15 @@ export function MarketplaceWorkspacePanel({
           defaultMarkets: selectedListing?.jurisdiction ?? '',
         }
 
+  const formKey = [
+    tool,
+    activeMarketView,
+    selectedListing?.id ?? 'none',
+    config.defaultType,
+    config.defaultHeadline,
+    config.defaultMarkets,
+  ].join(':')
+
   return (
     <section
       ref={workspaceRef}
@@ -86,6 +111,7 @@ export function MarketplaceWorkspacePanel({
       )}
 
       <DynamicMarketplaceIntakeForm
+        key={formKey}
         defaultType={config.defaultType}
         defaultHeadline={config.defaultHeadline}
         defaultMarkets={config.defaultMarkets}
@@ -97,10 +123,7 @@ export function MarketplaceWorkspacePanel({
 
 export function FinancingWorkspacePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const workspaceRef = useRef<HTMLElement>(null)
-
-  useEffect(() => {
-    if (open) workspaceRef.current?.focus()
-  }, [open])
+  useWorkspaceFocus(open, workspaceRef)
 
   if (!open) return null
 
