@@ -68,15 +68,24 @@ jobs:
           tar -xzf /tmp/production-ready-bundle.tgz
           python - <<'PY'
           from pathlib import Path
-          path = Path('lib/platform/commandCentreRegistry.ts')
-          source = path.read_text()
+
+          registry = Path('lib/platform/commandCentreRegistry.ts')
+          source = registry.read_text()
           old_type = "export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next'"
           new_type = "export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next' | 'retain-public'"
           old_check = "!['redirect-now', 'redirect-after-parity', 'intercept-next'].includes"
           new_check = "!['redirect-now', 'redirect-after-parity', 'intercept-next', 'retain-public'].includes"
           if source.count(old_type) != 1 or source.count(old_check) != 1:
               raise SystemExit('Route-mode compatibility patch did not match exactly once')
-          path.write_text(source.replace(old_type, new_type).replace(old_check, new_check))
+          registry.write_text(source.replace(old_type, new_type).replace(old_check, new_check))
+
+          sources = Path('lib/dashboard/buildDashboardCommandSources.ts')
+          source = sources.read_text()
+          old_return = "  } as const satisfies CommandCentreSourceMap\n"
+          new_return = "  } satisfies CommandCentreSourceMap\n"
+          if source.count(old_return) != 1:
+              raise SystemExit(f'Source-map mutability patch expected one match, found {source.count(old_return)}')
+          sources.write_text(source.replace(old_return, new_return, 1))
           PY
           git diff --check
 
