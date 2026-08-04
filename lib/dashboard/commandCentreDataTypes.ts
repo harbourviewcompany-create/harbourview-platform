@@ -49,11 +49,15 @@ export type CommandCentreSourceDefinition<T> = Readonly<{
   sourceLabel: string
   access?: CommandCentreDataAccess
   staleAfterMs?: number
+  timeoutMs?: number
   freshAt?: (data: T) => string | Date | null | undefined
   isEmpty?: (data: T) => boolean
-  classify?: (data: T) => Exclude<CommandCentreDataState, 'error' | 'stale'>
+  classify?: (data: T) => Exclude<CommandCentreDataState, 'error' | 'stale' | 'partial'>
 }>
 
+// Heterogeneous source maps require an erased value type at this boundary.
+// The mapped CommandCentreSourceData type restores each source's inferred value.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CommandCentreSourceMap = Record<string, CommandCentreSourceDefinition<any>>
 
 export type CommandCentreSourceData<TDefinitions extends CommandCentreSourceMap> = {
