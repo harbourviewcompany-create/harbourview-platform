@@ -1,0 +1,86 @@
+name: Dependency Security Audit
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - package.json
+      - package-lock.json
+      - .github/workflows/dependency-security-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-security-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Capture npm dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/dependency-audit
+          npm audit --json > artifacts/dependency-audit/npm-audit.json || true
+          node <<'NODE'
+          const fs = require('node:fs')
+          const reportPath = 'artifacts/dependency-audit/npm-audit.json'
+          const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'))
+          const counts = report.metadata?.vulnerabilities ?? {}
+          const summary = {
+            generatedAt: new Date().toISOString(),
+            total: Number(counts.total ?? 0),
+            critical: Number(counts.critical ?? 0),
+            high: Number(counts.high ?? 0),
+            moderate: Number(counts.moderate ?? 0),
+            low: Number(counts.low ?? 0),
+            info: Number(counts.info ?? 0),
+          }
+          fs.writeFileSync(
+            'artifacts/dependency-audit/summary.json',
+            `${JSON.stringify(summary, null, 2)}\n`,
+          )
+          fs.writeFileSync(
+            'artifacts/dependency-audit/summary.md',
+            [
+              '# Dependency Security Audit',
+              '',
+              `- Critical: ${summary.critical}`,
+              `- High: ${summary.high}`,
+              `- Moderate: ${summary.moderate}`,
+              `- Low: ${summary.low}`,
+              `- Total: ${summary.total}`,
+              '',
+            ].join('\n'),
+          )
+          console.log(summary)
+          if (summary.critical > 0 || summary.high > 0) process.exitCode = 1
+          NODE
+
+      - name: Upload dependency audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dependency-security-audit-${{ github.run_id }}
+          path: artifacts/dependency-audit/
+          if-no-files-found: error
+          retention-days: 14

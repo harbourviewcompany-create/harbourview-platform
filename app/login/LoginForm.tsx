@@ -168,6 +168,7 @@ export default function LoginForm({
 
       {feedback && (
         <div
+          id="auth-feedback"
           className={`mb-5 rounded-xl px-4 py-3 text-sm ${feedback.type === 'error' ? 'border border-red-500/20 bg-red-900/20 text-red-300' : 'border border-emerald-500/20 bg-emerald-900/20 text-emerald-300'}`}
           role={feedback.type === 'error' ? 'alert' : 'status'}
         >
@@ -177,21 +178,24 @@ export default function LoginForm({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">Email address</label>
+          <label htmlFor="auth-email" className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">Email address</label>
           <input
+            id="auth-email"
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
+            aria-describedby={feedback ? 'auth-feedback' : undefined}
             className={inputCls}
           />
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">Password</label>
+          <label htmlFor="auth-password" className="mb-1.5 block text-xs font-medium text-[#F5F1E8]/50">Password</label>
           <input
+            id="auth-password"
             type="password"
             required
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
@@ -199,6 +203,7 @@ export default function LoginForm({
             onChange={(e) => setPassword(e.target.value)}
             placeholder={mode === 'signup' ? 'Minimum 8 characters' : '••••••••'}
             minLength={8}
+            aria-describedby={feedback ? 'auth-feedback' : undefined}
             className={inputCls}
           />
           {mode === 'signup' && password.length > 0 && (
