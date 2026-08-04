@@ -120,6 +120,21 @@ jobs:
             created_at timestamptz not null default now()
           );
 
+          create table if not exists api.hv_professionals (
+            id uuid primary key default gen_random_uuid(),
+            full_name text not null,
+            title text,
+            credential_type text,
+            specialties text[] not null default '{}',
+            countries text[] not null default '{}',
+            institution text,
+            accepts_referrals boolean not null default false,
+            consultation_available boolean not null default false,
+            bio_public text,
+            verification_status text not null default 'verified',
+            status text not null default 'active'
+          );
+
           create table if not exists public.marketplace_public_listings_v1 (
             id uuid primary key,
             slug text,
