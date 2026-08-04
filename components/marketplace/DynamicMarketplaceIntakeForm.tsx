@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   MARKETPLACE_LISTING_TYPE_OPTIONS,
@@ -151,11 +151,24 @@ export function DynamicMarketplaceIntakeForm({
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  const previewUrlsRef = useRef<string[]>([])
+
+  useEffect(() => () => {
+    previewUrlsRef.current.forEach(url => URL.revokeObjectURL(url))
+    previewUrlsRef.current = []
+  }, [])
 
   const typeKey: MarketplaceListingTypeKey =
     TYPE_KEY_BY_LABEL[listingType] ?? 'used_surplus_equipment'
 
   const fieldsets = useMemo(() => getFieldsetsForListingType(typeKey), [typeKey])
+
+  function replaceImagePreviews(files: File[]) {
+    const nextUrls = files.map(file => URL.createObjectURL(file))
+    previewUrlsRef.current.forEach(url => URL.revokeObjectURL(url))
+    previewUrlsRef.current = nextUrls
+    setImagePreviews(nextUrls)
+  }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     const incoming = Array.from<File>(event.target.files ?? []).filter(
@@ -163,14 +176,14 @@ export function DynamicMarketplaceIntakeForm({
     )
     const combined = [...imageFiles, ...incoming].slice(0, MAX_IMAGES)
     setImageFiles(combined)
-    setImagePreviews(combined.map((file) => URL.createObjectURL(file)))
+    replaceImagePreviews(combined)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function removeImage(index: number) {
     const updated = imageFiles.filter((_, itemIndex) => itemIndex !== index)
     setImageFiles(updated)
-    setImagePreviews(updated.map((file) => URL.createObjectURL(file)))
+    replaceImagePreviews(updated)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -204,7 +217,7 @@ export function DynamicMarketplaceIntakeForm({
         )
         formEl.reset()
         setImageFiles([])
-        setImagePreviews([])
+        replaceImagePreviews([])
       } else {
         setSubmitStatus(result?.error ?? 'Submission failed. Please try again.')
       }

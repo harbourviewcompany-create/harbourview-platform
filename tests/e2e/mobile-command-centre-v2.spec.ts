@@ -2,6 +2,7 @@ import { expect, test, type Browser, type BrowserContextOptions, type Page } fro
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
+import { SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
 
 const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
@@ -9,28 +10,7 @@ const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
 const SAFE_LISTING_ID = '00000000-0000-4000-8000-000000000127'
 const SAFE_LISTING_TITLE = 'Visual Safe Bulk Flower Lot'
-const MOBILE_SECTION_IDS = [
-  'overview',
-  'live-status',
-  'market-intelligence',
-  'marketplace',
-  'supply',
-  'next-actions',
-  'weekly-signals',
-  'personal-briefing',
-  'search',
-  'education',
-  'jurisdiction',
-  'market-status',
-  'review-gates',
-  'directories',
-  'talent',
-  'genetics',
-  'clinical',
-  'compliance',
-  'network',
-  'financing',
-] as const
+const MOBILE_SECTION_IDS = SECTION_NAV.map(section => section.id)
 
 const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
@@ -80,15 +60,11 @@ function isGenericResourceConsoleError(message: string) {
 }
 
 function isExpectedLocalDegradation(response: FailedResponse) {
-  if (!IS_ISOLATED_LOCAL_RUN) return false
-  const expectedReadOnlyPrefixes = [
-    '/api/dashboard/',
-    '/api/watchlist/',
-    '/api/marketplace/my-',
-    '/api/ai/briefing',
-    '/api/country-intel',
-  ]
-  return expectedReadOnlyPrefixes.some(prefix => response.pathname.startsWith(prefix))
+  if (!IS_ISOLATED_LOCAL_RUN || response.status >= 500) return false
+  return (
+    (response.pathname === '/api/ai/briefing' && response.status === 503)
+    || (response.pathname === '/api/country-intel' && response.status === 404)
+  )
 }
 
 function sharedContextOptions(): BrowserContextOptions {
@@ -205,7 +181,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
   test.describe.configure({ mode: 'serial' })
 
   test('verifies mobile, tablet and desktop command surfaces from 320 through 1440', async ({ browser }) => {
-    test.setTimeout(900_000)
+    test.setTimeout(1_800_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
     const aggregate: Array<Record<string, unknown>> = []

@@ -280,7 +280,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
     if (resolvedUrlSection !== 'overview') {
       const timer = window.setTimeout(() => {
-        sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ block: 'start' })
+        sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' })
       }, 120)
       return () => window.clearTimeout(timer)
     }

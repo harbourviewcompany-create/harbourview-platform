@@ -148,17 +148,17 @@ async function getDashboardMarketplaceRows(
 ): Promise<Partial<DashboardMarketplaceRows>> {
   const allSections = Array.from(new Set(Object.values(VIEW_SECTIONS).flat()))
   const listings = await getListingsBySections(allSections, countryIso2, 56)
-  const sectionToView = new Map<string, MarketView>()
-
-  for (const [view, sections] of Object.entries(VIEW_SECTIONS) as [MarketView, string[]][]) {
-    for (const section of sections) sectionToView.set(section, view)
-  }
-
   const buckets: Partial<DashboardMarketplaceRows> = {}
   for (const listing of listings) {
-    const view = sectionToView.get(listing.marketplace_section) ?? 'cannabis'
-    if (!buckets[view]) buckets[view] = []
-    if (buckets[view]!.length < 8) buckets[view]!.push(mapListingToDashboardRow(listing))
+    const matchingViews = (Object.entries(VIEW_SECTIONS) as [MarketView, string[]][])
+      .filter(([, sections]) => sections.includes(listing.marketplace_section))
+      .map(([view]) => view)
+    const views: MarketView[] = matchingViews.length > 0 ? matchingViews : ['cannabis']
+
+    for (const view of views) {
+      if (!buckets[view]) buckets[view] = []
+      if (buckets[view]!.length < 8) buckets[view]!.push(mapListingToDashboardRow(listing))
+    }
   }
   return buckets
 }
@@ -179,7 +179,7 @@ export default async function DashboardPage({
   let userAppMetadata: Record<string, unknown> | undefined
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
-  let hasOrg = true
+  let hasOrg = false
 
   try {
     const supabase = await createClient()
@@ -212,6 +212,11 @@ export default async function DashboardPage({
 
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId = urlRole ?? storedRoleId
+  let cannabisOperatorsRequest: ReturnType<typeof getCannabisOperators> | null = null
+  const loadCannabisOperators = () => {
+    cannabisOperatorsRequest ??= getCannabisOperators(countryIso2)
+    return cannabisOperatorsRequest
+  }
 
   const commandData = await loadCommandCentreData(
     {
@@ -348,10 +353,16 @@ export default async function DashboardPage({
         access: 'public',
       },
       cannabisOperators: {
-        load: () => getCannabisOperators(countryIso2),
+        load: loadCannabisOperators,
         fallback: undefined,
         sourceLabel: 'Public operator projection',
         access: 'public',
+      },
+      operatorLicenceMatrix: {
+        load: async () => getOperatorLicenceMatrix((await loadCannabisOperators()).map(operator => operator.id)),
+        fallback: { entitled: false as const },
+        sourceLabel: 'Authorized operator licence matrix',
+        access: 'operator',
       },
       cultivarPassports: {
         load: () => getPublicCultivarPassports(),
@@ -414,6 +425,7 @@ export default async function DashboardPage({
     tradeFlows,
     professionals,
     cannabisOperators,
+    operatorLicenceMatrix,
     cultivarPassports,
     serviceProviders,
     collaborationProjects,
@@ -423,17 +435,6 @@ export default async function DashboardPage({
   } = commandData.data
 
   const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
-  const operatorLicenceMatrix = await getOperatorLicenceMatrix((cannabisOperators ?? []).map(operator => operator.id))
-    .catch(error => {
-      console.error('[command-centre-source]', {
-        source: 'operatorLicenceMatrix',
-        code: error instanceof Error ? error.name : 'OPERATOR_LICENCE_MATRIX_FAILED',
-        countryIso2,
-        roleId,
-        page: urlPage,
-      })
-      return { entitled: false as const }
-    })
 
   const pathwayData = deriveRequirementStatusesFromIntel(
     mergePathwayData(orgPathway, publicPathway),

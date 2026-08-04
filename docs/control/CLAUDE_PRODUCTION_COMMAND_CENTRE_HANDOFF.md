@@ -25,7 +25,7 @@ Do not create another dashboard, launcher, microsite, duplicate route system or 
 7. `docs/control/VERIFICATION_PLAN.md`
 8. `docs/control/EVIDENCE_LOG.md`
 9. `components/dashboard/CommandCentre.tsx`
-10. `components/dashboard/MobileCommandCentreV2.tsx`
+10. `components/dashboard/MobileCommandCentreRebuild.tsx`
 11. `components/dashboard/DashboardResponsiveShell.tsx`
 12. `app/dashboard/page.tsx`
 13. `app/country/[country]/role/[role]/page.tsx`

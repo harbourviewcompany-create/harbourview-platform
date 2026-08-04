@@ -1089,3 +1089,15 @@
     animation: none !important;
   }
 }
+
+.hvm2-search-results ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hvm2-search-results li {
+  min-width: 0;
+}

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   assertBrowserSafeSupabaseKey,
   getSupabaseEnvStatus,
@@ -28,6 +28,18 @@ function fakeJwtWithRole(role: string) {
 }
 
 describe('getSupabaseEnvStatus', () => {
+  beforeEach(() => {
+    process.env = { ...ORIGINAL_ENV }
+    delete process.env.CI
+    delete process.env.HARBOURVIEW_LOCAL_TEST_BUILD
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD
+    delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.VERCEL
+    delete process.env.VERCEL_ENV
+    vi.unstubAllGlobals()
+  })
+
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV }
     vi.unstubAllGlobals()
@@ -85,6 +97,8 @@ describe('getSupabaseEnvStatus', () => {
   it('accepts an explicitly gated loopback Supabase URL on the server outside Vercel', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
+    process.env.CI = '1'
+    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.VERCEL
@@ -106,6 +120,7 @@ describe('getSupabaseEnvStatus', () => {
     vi.stubGlobal('window', {})
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
+    process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.VERCEL
@@ -118,6 +133,8 @@ describe('getSupabaseEnvStatus', () => {
   it('accepts the IPv6 loopback host under the explicit local gate', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://[::1]:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
+    process.env.CI = '1'
+    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
@@ -142,6 +159,9 @@ describe('getSupabaseEnvStatus', () => {
   it('never accepts loopback Supabase URLs in a Vercel deployment environment', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
+    process.env.CI = '1'
+    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
+    process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     process.env.VERCEL = '1'
@@ -155,6 +175,8 @@ describe('getSupabaseEnvStatus', () => {
   it('rejects non-loopback alternate Supabase hosts even when the local gate is enabled', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-test-key'
+    process.env.CI = '1'
+    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
