@@ -1,0 +1,102 @@
+name: Fix Security Migration Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-security-migration-lint.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Convert dynamic security operations to explicit guarded statements
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('supabase/migrations/20260804190000_production_security_hardening.sql')
+          source = path.read_text()
+
+          view_match = re.search(r"-- Explicit inventory.*?do \\$\\$(.*?)\\$\\$;\\n\\n-- Internal/admin", source, re.S)
+          if not view_match:
+              raise SystemExit('Exposed-view block not found')
+          views = re.findall(r"\\('([^']+)','([^']+)'\\)", view_match.group(1))
+          if len(views) != 36:
+              raise SystemExit(f'Expected 36 exposed views, found {len(views)}')
+          lines = [
+              '-- Explicit inventory of exposed views identified by the production advisor.',
+              '-- Each literal ALTER VIEW is paired with its own existence guard.',
+              'do $$',
+              'begin',
+          ]
+          for schema, relation in views:
+              lines.extend([
+                  f"  if public.view_exists('{schema}', '{relation}') then",
+                  f'    alter view {schema}.{relation} set (security_invoker = true);',
+                  f'    revoke all privileges on table {schema}.{relation} from public, anon, authenticated;',
+                  f'    grant select on table {schema}.{relation} to service_role;',
+                  '  end if;',
+              ])
+          lines.extend(['end', '$$;'])
+          source = source[:view_match.start()] + '\n'.join(lines) + '\n\n-- Internal/admin' + source[view_match.end():]
+
+          service_match = re.search(r"-- Audited service-role RPC allowlist.*?do \\$\\$(.*?)\\$\\$;\\n\\n-- Audited authenticated", source, re.S)
+          if not service_match:
+              raise SystemExit('Service-role allowlist block not found')
+          service_signatures = re.findall(r"'([^']+\\([^']*\\))'", service_match.group(1))
+          if len(service_signatures) < 40:
+              raise SystemExit(f'Expected service-role allowlist, found {len(service_signatures)} signatures')
+          lines = ['-- Audited service-role RPC allowlist. Every grant names one exact signature.', 'do $$', 'begin']
+          for signature in service_signatures:
+              lines.extend([
+                  f"  if to_regprocedure('{signature}') is not null then",
+                  f'    grant execute on function {signature} to service_role;',
+                  '  end if;',
+              ])
+          lines.extend(['end', '$$;'])
+          source = source[:service_match.start()] + '\n'.join(lines) + '\n\n-- Audited authenticated' + source[service_match.end():]
+
+          authenticated_match = re.search(r"-- Audited authenticated RPC/policy-helper allowlist\\.\\ndo \\$\\$(.*?)\\$\\$;\\n\\n-- Pin search_path", source, re.S)
+          if not authenticated_match:
+              raise SystemExit('Authenticated allowlist block not found')
+          authenticated_signatures = re.findall(r"'([^']+\\([^']*\\))'", authenticated_match.group(1))
+          if len(authenticated_signatures) < 10:
+              raise SystemExit(f'Expected authenticated allowlist, found {len(authenticated_signatures)} signatures')
+          lines = ['-- Audited authenticated RPC/policy-helper allowlist.', 'do $$', 'begin']
+          for signature in authenticated_signatures:
+              lines.extend([
+                  f"  if to_regprocedure('{signature}') is not null then",
+                  f'    grant execute on function {signature} to authenticated;',
+                  '  end if;',
+              ])
+          lines.extend(['end', '$$;'])
+          source = source[:authenticated_match.start()] + '\n'.join(lines) + '\n\n-- Pin search_path' + source[authenticated_match.end():]
+
+          path.write_text(source)
+          print(f'Converted {len(views)} views, {len(service_signatures)} service grants, and {len(authenticated_signatures)} authenticated grants.')
+          PY
+          git diff --check
+      - name: Commit migration fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/migrations/20260804190000_production_security_hardening.sql
+          git diff --cached --check
+          git commit -m 'security(supabase): make hardening operations explicitly auditable'
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
