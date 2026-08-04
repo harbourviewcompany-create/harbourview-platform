@@ -30,7 +30,11 @@ jobs:
           persist-credentials: true
 
       - name: Apply fail-closed patches
-        run: python scripts/command-centre-review-fixes.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/command-centre-review-fixes.py
+          sed -i '${/^$/d;}' components/dashboard/MobileCommandCentreRebuild.css
 
       - name: Verify patched tree
         shell: bash
