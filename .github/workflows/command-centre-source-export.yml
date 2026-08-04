@@ -1,0 +1,34 @@
+name: Command Centre Source Export
+
+on:
+  push:
+    branches:
+      - build/harbourview-production-command-platform
+    paths:
+      - .github/workflows/command-centre-source-export.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Package source
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --exclude=.git --exclude=node_modules --exclude=.next -czf /tmp/harbourview-command-centre-source.tgz .
+      - name: Upload source artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: harbourview-command-centre-source-${{ github.run_id }}
+          path: /tmp/harbourview-command-centre-source.tgz
+          retention-days: 1
