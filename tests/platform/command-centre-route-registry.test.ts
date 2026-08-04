@@ -11,10 +11,10 @@ describe('production command centre route registry', () => {
     const ids = COMMAND_CENTRE_MODULES.map(module => module.id)
     expect(new Set(ids).size).toBe(ids.length)
 
-    for (const module of COMMAND_CENTRE_MODULES) {
-      expect(module.desktopPage).toBeTruthy()
-      expect(module.mobileSection).toBeTruthy()
-      expect(['launch-critical', 'important']).toContain(module.criticality)
+    for (const mod of COMMAND_CENTRE_MODULES) {
+      expect(mod.desktopPage).toBeTruthy()
+      expect(mod.mobileSection).toBeTruthy()
+      expect(['launch-critical', 'important']).toContain(mod.criticality)
     }
   })
 
