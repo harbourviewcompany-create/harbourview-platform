@@ -69,15 +69,51 @@ jobs:
           tar -xzf /tmp/production-ready-bundle.tgz
           python - <<'PY'
           from pathlib import Path
-          path = Path('lib/platform/commandCentreRegistry.ts')
-          source = path.read_text()
+
+          registry = Path('lib/platform/commandCentreRegistry.ts')
+          source = registry.read_text()
           old_type = "export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next'"
           new_type = "export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next' | 'retain-public'"
           old_check = "!['redirect-now', 'redirect-after-parity', 'intercept-next'].includes"
           new_check = "!['redirect-now', 'redirect-after-parity', 'intercept-next', 'retain-public'].includes"
           if source.count(old_type) != 1 or source.count(old_check) != 1:
               raise SystemExit('Route-mode compatibility patch did not match exactly once')
-          path.write_text(source.replace(old_type, new_type).replace(old_check, new_check))
+          registry.write_text(source.replace(old_type, new_type).replace(old_check, new_check))
+
+          boundary = Path('tests/security/command-centre-boundaries.test.ts')
+          source = boundary.read_text()
+          old_redirect_tail = """      {
+                source: '/intelligence/counterparty-intelligence',
+                destination: '/dashboard?page=evidence',
+                permanent: false,
+              },
+            ])
+          """
+          new_redirect_tail = """      {
+                source: '/intelligence/counterparty-intelligence',
+                destination: '/dashboard?page=evidence',
+                permanent: false,
+              },
+              {
+                source: '/marketplace/sell',
+                destination: '/dashboard?page=marketplace&section=supply&marketView=cannabis&tool=supply-intake',
+                permanent: false,
+              },
+              {
+                source: '/marketplace/wanted',
+                destination: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake',
+                permanent: false,
+              },
+              {
+                source: '/marketplace/financing',
+                destination: '/dashboard?page=trade-calc&section=financing&tool=financing-intake',
+                permanent: false,
+              },
+            ])
+          """
+          if source.count(old_redirect_tail) != 1:
+              raise SystemExit(f'Approved redirect contract patch expected one match, found {source.count(old_redirect_tail)}')
+          boundary.write_text(source.replace(old_redirect_tail, new_redirect_tail, 1))
           PY
           git diff --check
 
