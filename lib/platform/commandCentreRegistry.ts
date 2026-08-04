@@ -227,8 +227,8 @@ export function buildCommandCentreHref(
     listing?: string | null
   } = {},
 ): string {
-  const module = getCommandCentreModule(moduleId)
-  if (!module) throw new Error(`[command-centre-registry] unknown module: ${moduleId}`)
+  const mod = getCommandCentreModule(moduleId)
+  if (!mod) throw new Error(`[command-centre-registry] unknown module: ${moduleId}`)
 
   const params = new URLSearchParams()
   if (context.country) params.set('country', context.country)
