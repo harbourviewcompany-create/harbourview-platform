@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - app/dashboard/**
+      - app/api/health/command-centre/**
       - next.config.mjs
       - lib/supabase/env.ts
       - lib/platform/commandCentreRegistry.ts
@@ -22,6 +23,7 @@ on:
       - tests/dashboard/mobileCommandCentreV2.test.ts
       - tests/dashboard/dashboardResponsiveShell.behavior.test.ts
       - tests/dashboard/loadCommandCentreData.test.ts
+      - tests/dashboard/commandCentreHealth.test.ts
       - tests/platform/command-centre-typed-registry.test.ts
       - tests/supabase/env.test.ts
       - tests/e2e/mobile-command-centre-v2.spec.ts
@@ -66,12 +68,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify command registry loader responsive shell and local-auth contracts
+      - name: Verify command registry loader responsive shell readiness and local-auth contracts
         run: >-
           npx vitest run
           tests/dashboard/mobileCommandCentreV2.test.ts
           tests/dashboard/dashboardResponsiveShell.behavior.test.ts
           tests/dashboard/loadCommandCentreData.test.ts
+          tests/dashboard/commandCentreHealth.test.ts
           tests/platform/command-centre-typed-registry.test.ts
           tests/supabase/env.test.ts
 
