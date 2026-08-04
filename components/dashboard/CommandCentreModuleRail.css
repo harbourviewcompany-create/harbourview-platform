@@ -69,7 +69,11 @@
 .hv-module-rail-grid a:focus-visible {
   border-color: rgba(198, 165, 90, 0.55);
   background: rgba(198, 165, 90, 0.09);
-  outline: none;
+}
+
+.hv-module-rail-grid a:focus-visible {
+  outline: 2px solid #c6a55a;
+  outline-offset: 2px;
 }
 
 .hv-module-rail-grid strong {
