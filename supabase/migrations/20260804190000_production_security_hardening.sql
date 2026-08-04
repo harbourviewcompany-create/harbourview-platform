@@ -44,73 +44,191 @@ end
 $$;
 
 -- Explicit inventory of exposed views identified by the production advisor.
--- Each change is guarded so a clean-history or environment-specific absence is
--- safe and deterministic.
+-- Each literal ALTER VIEW is paired with its own existence guard.
 do $$
-declare
-  view_row record;
-  anon_select boolean;
-  authenticated_select boolean;
 begin
-  for view_row in
-    select * from (values
-      ('api','hv_artifacts'),
-      ('api','hv_processing_jobs'),
-      ('api','schema_drift_alerts'),
-      ('api','scraper_source_state'),
-      ('public','admin_active_matches'),
-      ('public','admin_pending_buyer_requests'),
-      ('public','admin_pending_listings'),
-      ('public','content_coverage_queue'),
-      ('public','country_intel_public'),
-      ('public','genetics_public_claims'),
-      ('public','genetics_public_collaboration_projects'),
-      ('public','genetics_public_country_opportunities'),
-      ('public','genetics_public_cultivar_aliases'),
-      ('public','genetics_public_cultivar_passports'),
-      ('public','genetics_public_evidence_summaries'),
-      ('public','genetics_public_profiles'),
-      ('public','genetics_public_service_providers'),
-      ('public','ia_sources_live'),
-      ('public','jurisdiction_cross_table_conflicts'),
-      ('public','local_intel_jurisdiction_combined'),
-      ('public','local_intel_next_batch'),
-      ('public','marketplace_public_listings_v1'),
-      ('public','platform_coverage_summary'),
-      ('public','playbook_regulator_drift'),
-      ('public','playbook_staleness_queue'),
-      ('public','public_country_profile_dto'),
-      ('public','signals_for_digest'),
-      ('public','signals_intelligence_feed'),
-      ('public','signals_quality'),
-      ('public','source_domain_type'),
-      ('public','source_yield_report'),
-      ('public','v_jurisdiction_unified'),
-      ('regulatory_signals','public_signals'),
-      ('regulatory_signals','public_source_status'),
-      ('regulatory_signals','public_watchlist_collection_signals'),
-      ('regulatory_signals','public_watchlist_collections')
-    ) as exposed(schema_name, relation_name)
-  loop
-    if public.view_exists(view_row.schema_name, view_row.relation_name) then
-      anon_select := has_table_privilege('anon', format('%I.%I', view_row.schema_name, view_row.relation_name), 'select');
-      authenticated_select := has_table_privilege('authenticated', format('%I.%I', view_row.schema_name, view_row.relation_name), 'select');
-
-      execute format('alter view %I.%I set (security_invoker = true)', view_row.schema_name, view_row.relation_name);
-      execute format('revoke all privileges on table %I.%I from public, anon, authenticated', view_row.schema_name, view_row.relation_name);
-      execute format('grant select on table %I.%I to service_role', view_row.schema_name, view_row.relation_name);
-
-      if anon_select then
-        execute format('grant select on table %I.%I to anon', view_row.schema_name, view_row.relation_name);
-      end if;
-      if authenticated_select then
-        execute format('grant select on table %I.%I to authenticated', view_row.schema_name, view_row.relation_name);
-      end if;
-    end if;
-  end loop;
+  if public.view_exists('api', 'hv_artifacts') then
+    alter view api.hv_artifacts set (security_invoker = true);
+    revoke all privileges on table api.hv_artifacts from public, anon, authenticated;
+    grant select on table api.hv_artifacts to service_role;
+  end if;
+  if public.view_exists('api', 'hv_processing_jobs') then
+    alter view api.hv_processing_jobs set (security_invoker = true);
+    revoke all privileges on table api.hv_processing_jobs from public, anon, authenticated;
+    grant select on table api.hv_processing_jobs to service_role;
+  end if;
+  if public.view_exists('api', 'schema_drift_alerts') then
+    alter view api.schema_drift_alerts set (security_invoker = true);
+    revoke all privileges on table api.schema_drift_alerts from public, anon, authenticated;
+    grant select on table api.schema_drift_alerts to service_role;
+  end if;
+  if public.view_exists('api', 'scraper_source_state') then
+    alter view api.scraper_source_state set (security_invoker = true);
+    revoke all privileges on table api.scraper_source_state from public, anon, authenticated;
+    grant select on table api.scraper_source_state to service_role;
+  end if;
+  if public.view_exists('public', 'admin_active_matches') then
+    alter view public.admin_active_matches set (security_invoker = true);
+    revoke all privileges on table public.admin_active_matches from public, anon, authenticated;
+    grant select on table public.admin_active_matches to service_role;
+  end if;
+  if public.view_exists('public', 'admin_pending_buyer_requests') then
+    alter view public.admin_pending_buyer_requests set (security_invoker = true);
+    revoke all privileges on table public.admin_pending_buyer_requests from public, anon, authenticated;
+    grant select on table public.admin_pending_buyer_requests to service_role;
+  end if;
+  if public.view_exists('public', 'admin_pending_listings') then
+    alter view public.admin_pending_listings set (security_invoker = true);
+    revoke all privileges on table public.admin_pending_listings from public, anon, authenticated;
+    grant select on table public.admin_pending_listings to service_role;
+  end if;
+  if public.view_exists('public', 'content_coverage_queue') then
+    alter view public.content_coverage_queue set (security_invoker = true);
+    revoke all privileges on table public.content_coverage_queue from public, anon, authenticated;
+    grant select on table public.content_coverage_queue to service_role;
+  end if;
+  if public.view_exists('public', 'country_intel_public') then
+    alter view public.country_intel_public set (security_invoker = true);
+    revoke all privileges on table public.country_intel_public from public, anon, authenticated;
+    grant select on table public.country_intel_public to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_claims') then
+    alter view public.genetics_public_claims set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_claims from public, anon, authenticated;
+    grant select on table public.genetics_public_claims to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_collaboration_projects') then
+    alter view public.genetics_public_collaboration_projects set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_collaboration_projects from public, anon, authenticated;
+    grant select on table public.genetics_public_collaboration_projects to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_country_opportunities') then
+    alter view public.genetics_public_country_opportunities set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_country_opportunities from public, anon, authenticated;
+    grant select on table public.genetics_public_country_opportunities to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_cultivar_aliases') then
+    alter view public.genetics_public_cultivar_aliases set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_cultivar_aliases from public, anon, authenticated;
+    grant select on table public.genetics_public_cultivar_aliases to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_cultivar_passports') then
+    alter view public.genetics_public_cultivar_passports set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_cultivar_passports from public, anon, authenticated;
+    grant select on table public.genetics_public_cultivar_passports to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_evidence_summaries') then
+    alter view public.genetics_public_evidence_summaries set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_evidence_summaries from public, anon, authenticated;
+    grant select on table public.genetics_public_evidence_summaries to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_profiles') then
+    alter view public.genetics_public_profiles set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_profiles from public, anon, authenticated;
+    grant select on table public.genetics_public_profiles to service_role;
+  end if;
+  if public.view_exists('public', 'genetics_public_service_providers') then
+    alter view public.genetics_public_service_providers set (security_invoker = true);
+    revoke all privileges on table public.genetics_public_service_providers from public, anon, authenticated;
+    grant select on table public.genetics_public_service_providers to service_role;
+  end if;
+  if public.view_exists('public', 'ia_sources_live') then
+    alter view public.ia_sources_live set (security_invoker = true);
+    revoke all privileges on table public.ia_sources_live from public, anon, authenticated;
+    grant select on table public.ia_sources_live to service_role;
+  end if;
+  if public.view_exists('public', 'jurisdiction_cross_table_conflicts') then
+    alter view public.jurisdiction_cross_table_conflicts set (security_invoker = true);
+    revoke all privileges on table public.jurisdiction_cross_table_conflicts from public, anon, authenticated;
+    grant select on table public.jurisdiction_cross_table_conflicts to service_role;
+  end if;
+  if public.view_exists('public', 'local_intel_jurisdiction_combined') then
+    alter view public.local_intel_jurisdiction_combined set (security_invoker = true);
+    revoke all privileges on table public.local_intel_jurisdiction_combined from public, anon, authenticated;
+    grant select on table public.local_intel_jurisdiction_combined to service_role;
+  end if;
+  if public.view_exists('public', 'local_intel_next_batch') then
+    alter view public.local_intel_next_batch set (security_invoker = true);
+    revoke all privileges on table public.local_intel_next_batch from public, anon, authenticated;
+    grant select on table public.local_intel_next_batch to service_role;
+  end if;
+  if public.view_exists('public', 'marketplace_public_listings_v1') then
+    alter view public.marketplace_public_listings_v1 set (security_invoker = true);
+    revoke all privileges on table public.marketplace_public_listings_v1 from public, anon, authenticated;
+    grant select on table public.marketplace_public_listings_v1 to service_role;
+  end if;
+  if public.view_exists('public', 'platform_coverage_summary') then
+    alter view public.platform_coverage_summary set (security_invoker = true);
+    revoke all privileges on table public.platform_coverage_summary from public, anon, authenticated;
+    grant select on table public.platform_coverage_summary to service_role;
+  end if;
+  if public.view_exists('public', 'playbook_regulator_drift') then
+    alter view public.playbook_regulator_drift set (security_invoker = true);
+    revoke all privileges on table public.playbook_regulator_drift from public, anon, authenticated;
+    grant select on table public.playbook_regulator_drift to service_role;
+  end if;
+  if public.view_exists('public', 'playbook_staleness_queue') then
+    alter view public.playbook_staleness_queue set (security_invoker = true);
+    revoke all privileges on table public.playbook_staleness_queue from public, anon, authenticated;
+    grant select on table public.playbook_staleness_queue to service_role;
+  end if;
+  if public.view_exists('public', 'public_country_profile_dto') then
+    alter view public.public_country_profile_dto set (security_invoker = true);
+    revoke all privileges on table public.public_country_profile_dto from public, anon, authenticated;
+    grant select on table public.public_country_profile_dto to service_role;
+  end if;
+  if public.view_exists('public', 'signals_for_digest') then
+    alter view public.signals_for_digest set (security_invoker = true);
+    revoke all privileges on table public.signals_for_digest from public, anon, authenticated;
+    grant select on table public.signals_for_digest to service_role;
+  end if;
+  if public.view_exists('public', 'signals_intelligence_feed') then
+    alter view public.signals_intelligence_feed set (security_invoker = true);
+    revoke all privileges on table public.signals_intelligence_feed from public, anon, authenticated;
+    grant select on table public.signals_intelligence_feed to service_role;
+  end if;
+  if public.view_exists('public', 'signals_quality') then
+    alter view public.signals_quality set (security_invoker = true);
+    revoke all privileges on table public.signals_quality from public, anon, authenticated;
+    grant select on table public.signals_quality to service_role;
+  end if;
+  if public.view_exists('public', 'source_domain_type') then
+    alter view public.source_domain_type set (security_invoker = true);
+    revoke all privileges on table public.source_domain_type from public, anon, authenticated;
+    grant select on table public.source_domain_type to service_role;
+  end if;
+  if public.view_exists('public', 'source_yield_report') then
+    alter view public.source_yield_report set (security_invoker = true);
+    revoke all privileges on table public.source_yield_report from public, anon, authenticated;
+    grant select on table public.source_yield_report to service_role;
+  end if;
+  if public.view_exists('public', 'v_jurisdiction_unified') then
+    alter view public.v_jurisdiction_unified set (security_invoker = true);
+    revoke all privileges on table public.v_jurisdiction_unified from public, anon, authenticated;
+    grant select on table public.v_jurisdiction_unified to service_role;
+  end if;
+  if public.view_exists('regulatory_signals', 'public_signals') then
+    alter view regulatory_signals.public_signals set (security_invoker = true);
+    revoke all privileges on table regulatory_signals.public_signals from public, anon, authenticated;
+    grant select on table regulatory_signals.public_signals to service_role;
+  end if;
+  if public.view_exists('regulatory_signals', 'public_source_status') then
+    alter view regulatory_signals.public_source_status set (security_invoker = true);
+    revoke all privileges on table regulatory_signals.public_source_status from public, anon, authenticated;
+    grant select on table regulatory_signals.public_source_status to service_role;
+  end if;
+  if public.view_exists('regulatory_signals', 'public_watchlist_collection_signals') then
+    alter view regulatory_signals.public_watchlist_collection_signals set (security_invoker = true);
+    revoke all privileges on table regulatory_signals.public_watchlist_collection_signals from public, anon, authenticated;
+    grant select on table regulatory_signals.public_watchlist_collection_signals to service_role;
+  end if;
+  if public.view_exists('regulatory_signals', 'public_watchlist_collections') then
+    alter view regulatory_signals.public_watchlist_collections set (security_invoker = true);
+    revoke all privileges on table regulatory_signals.public_watchlist_collections from public, anon, authenticated;
+    grant select on table regulatory_signals.public_watchlist_collections to service_role;
+  end if;
 end
 $$;
-
 -- Internal/admin projections are never direct application-role surfaces.
 do $$
 declare
@@ -211,99 +329,190 @@ begin
 end
 $$;
 
--- Audited service-role RPC allowlist. Missing signatures are ignored so this
--- migration remains replayable across local and hosted extension variants.
+-- Audited service-role RPC allowlist. Every grant names one exact signature.
 do $$
-declare
-  signature text;
-  routine regprocedure;
 begin
-  foreach signature in array array[
-    'api.acquire_crawl_targets(integer,text)',
-    'api.apply_airtable_tier(text,text,text)',
-    'api.apply_editorial_title(text,text,text)',
-    'api.check_and_increment_llm_rate_limit(uuid,timestamptz,integer)',
-    'api.claim_intelligence_job(text,text)',
-    'api.enqueue_regulatory_enrichment()',
-    'api.get_airtable_sync_config()',
-    'api.get_command_centre_stats()',
-    'api.get_corridor_stats(text)',
-    'api.get_github_pat()',
-    'api.get_source_registry_coverage(text)',
-    'api.hv_bridge_key_matches(text)',
-    'api.hv_extract_signals_from_captured_text(integer)',
-    'api.hv_ingest_snapshot_to_staging(integer,uuid)',
-    'api.intel_eval_rows_needing_prediction(text,integer)',
-    'api.pool_rows_needing_classification(integer)',
-    'api.promote_all_extracted_snapshots()',
-    'api.reconcile_airtable_tiers(jsonb)',
-    'api.regulatory_pending_changes_feed()',
-    'api.rows_needing_titles(integer)',
-    'api.search_public_signals(extensions.vector,integer,text,text)',
-    'api.signal_relevance_feedback_for_ranking(text[],timestamptz)',
-    'api.submit_signal_relevance_feedback(text,text,text,text)',
-    'api.is_verified_clinician(uuid)',
-    'api.clinical_has_active_consent(uuid,text)',
-    'api.clinical_request_verification(text,text,text,uuid)',
-    'api.clinical_admin_verify_professional(uuid,boolean,text)',
-    'public.acquire_crawl_targets(integer,text)',
-    'public.check_and_increment_llm_rate_limit(uuid,timestamptz,integer)',
-    'public.claim_intelligence_job(text,text)',
-    'public.enqueue_regulatory_enrichment()',
-    'public.get_command_centre_stats()',
-    'public.get_corridor_stats(text)',
-    'public.get_github_pat()',
-    'public.hv_extract_signals_from_captured_text(integer)',
-    'public.hv_ingest_snapshot_to_staging(integer,uuid)',
-    'public.hv_intelligence_outcome_check()',
-    'public.promote_all_extracted_snapshots()',
-    'public.hv_is_org_member(uuid)',
-    'public.hv_is_platform_staff()',
-    'public.is_genetics_admin_or_reviewer()',
-    'public.is_hv_staff()',
-    'public.current_user_tier()',
-    'public.is_regulatory_tier_admin()'
-  ]
-  loop
-    routine := to_regprocedure(signature);
-    if routine is not null then
-      execute format('grant execute on function %s to service_role', routine);
-    end if;
-  end loop;
+  if to_regprocedure('api.acquire_crawl_targets(integer,text)') is not null then
+    grant execute on function api.acquire_crawl_targets(integer,text) to service_role;
+  end if;
+  if to_regprocedure('api.apply_airtable_tier(text,text,text)') is not null then
+    grant execute on function api.apply_airtable_tier(text,text,text) to service_role;
+  end if;
+  if to_regprocedure('api.apply_editorial_title(text,text,text)') is not null then
+    grant execute on function api.apply_editorial_title(text,text,text) to service_role;
+  end if;
+  if to_regprocedure('api.check_and_increment_llm_rate_limit(uuid,timestamptz,integer)') is not null then
+    grant execute on function api.check_and_increment_llm_rate_limit(uuid,timestamptz,integer) to service_role;
+  end if;
+  if to_regprocedure('api.claim_intelligence_job(text,text)') is not null then
+    grant execute on function api.claim_intelligence_job(text,text) to service_role;
+  end if;
+  if to_regprocedure('api.enqueue_regulatory_enrichment()') is not null then
+    grant execute on function api.enqueue_regulatory_enrichment() to service_role;
+  end if;
+  if to_regprocedure('api.get_airtable_sync_config()') is not null then
+    grant execute on function api.get_airtable_sync_config() to service_role;
+  end if;
+  if to_regprocedure('api.get_command_centre_stats()') is not null then
+    grant execute on function api.get_command_centre_stats() to service_role;
+  end if;
+  if to_regprocedure('api.get_corridor_stats(text)') is not null then
+    grant execute on function api.get_corridor_stats(text) to service_role;
+  end if;
+  if to_regprocedure('api.get_github_pat()') is not null then
+    grant execute on function api.get_github_pat() to service_role;
+  end if;
+  if to_regprocedure('api.get_source_registry_coverage(text)') is not null then
+    grant execute on function api.get_source_registry_coverage(text) to service_role;
+  end if;
+  if to_regprocedure('api.hv_bridge_key_matches(text)') is not null then
+    grant execute on function api.hv_bridge_key_matches(text) to service_role;
+  end if;
+  if to_regprocedure('api.hv_extract_signals_from_captured_text(integer)') is not null then
+    grant execute on function api.hv_extract_signals_from_captured_text(integer) to service_role;
+  end if;
+  if to_regprocedure('api.hv_ingest_snapshot_to_staging(integer,uuid)') is not null then
+    grant execute on function api.hv_ingest_snapshot_to_staging(integer,uuid) to service_role;
+  end if;
+  if to_regprocedure('api.intel_eval_rows_needing_prediction(text,integer)') is not null then
+    grant execute on function api.intel_eval_rows_needing_prediction(text,integer) to service_role;
+  end if;
+  if to_regprocedure('api.pool_rows_needing_classification(integer)') is not null then
+    grant execute on function api.pool_rows_needing_classification(integer) to service_role;
+  end if;
+  if to_regprocedure('api.promote_all_extracted_snapshots()') is not null then
+    grant execute on function api.promote_all_extracted_snapshots() to service_role;
+  end if;
+  if to_regprocedure('api.reconcile_airtable_tiers(jsonb)') is not null then
+    grant execute on function api.reconcile_airtable_tiers(jsonb) to service_role;
+  end if;
+  if to_regprocedure('api.regulatory_pending_changes_feed()') is not null then
+    grant execute on function api.regulatory_pending_changes_feed() to service_role;
+  end if;
+  if to_regprocedure('api.rows_needing_titles(integer)') is not null then
+    grant execute on function api.rows_needing_titles(integer) to service_role;
+  end if;
+  if to_regprocedure('api.search_public_signals(extensions.vector,integer,text,text)') is not null then
+    grant execute on function api.search_public_signals(extensions.vector,integer,text,text) to service_role;
+  end if;
+  if to_regprocedure('api.signal_relevance_feedback_for_ranking(text[],timestamptz)') is not null then
+    grant execute on function api.signal_relevance_feedback_for_ranking(text[],timestamptz) to service_role;
+  end if;
+  if to_regprocedure('api.submit_signal_relevance_feedback(text,text,text,text)') is not null then
+    grant execute on function api.submit_signal_relevance_feedback(text,text,text,text) to service_role;
+  end if;
+  if to_regprocedure('api.is_verified_clinician(uuid)') is not null then
+    grant execute on function api.is_verified_clinician(uuid) to service_role;
+  end if;
+  if to_regprocedure('api.clinical_has_active_consent(uuid,text)') is not null then
+    grant execute on function api.clinical_has_active_consent(uuid,text) to service_role;
+  end if;
+  if to_regprocedure('api.clinical_request_verification(text,text,text,uuid)') is not null then
+    grant execute on function api.clinical_request_verification(text,text,text,uuid) to service_role;
+  end if;
+  if to_regprocedure('api.clinical_admin_verify_professional(uuid,boolean,text)') is not null then
+    grant execute on function api.clinical_admin_verify_professional(uuid,boolean,text) to service_role;
+  end if;
+  if to_regprocedure('public.acquire_crawl_targets(integer,text)') is not null then
+    grant execute on function public.acquire_crawl_targets(integer,text) to service_role;
+  end if;
+  if to_regprocedure('public.check_and_increment_llm_rate_limit(uuid,timestamptz,integer)') is not null then
+    grant execute on function public.check_and_increment_llm_rate_limit(uuid,timestamptz,integer) to service_role;
+  end if;
+  if to_regprocedure('public.claim_intelligence_job(text,text)') is not null then
+    grant execute on function public.claim_intelligence_job(text,text) to service_role;
+  end if;
+  if to_regprocedure('public.enqueue_regulatory_enrichment()') is not null then
+    grant execute on function public.enqueue_regulatory_enrichment() to service_role;
+  end if;
+  if to_regprocedure('public.get_command_centre_stats()') is not null then
+    grant execute on function public.get_command_centre_stats() to service_role;
+  end if;
+  if to_regprocedure('public.get_corridor_stats(text)') is not null then
+    grant execute on function public.get_corridor_stats(text) to service_role;
+  end if;
+  if to_regprocedure('public.get_github_pat()') is not null then
+    grant execute on function public.get_github_pat() to service_role;
+  end if;
+  if to_regprocedure('public.hv_extract_signals_from_captured_text(integer)') is not null then
+    grant execute on function public.hv_extract_signals_from_captured_text(integer) to service_role;
+  end if;
+  if to_regprocedure('public.hv_ingest_snapshot_to_staging(integer,uuid)') is not null then
+    grant execute on function public.hv_ingest_snapshot_to_staging(integer,uuid) to service_role;
+  end if;
+  if to_regprocedure('public.hv_intelligence_outcome_check()') is not null then
+    grant execute on function public.hv_intelligence_outcome_check() to service_role;
+  end if;
+  if to_regprocedure('public.promote_all_extracted_snapshots()') is not null then
+    grant execute on function public.promote_all_extracted_snapshots() to service_role;
+  end if;
+  if to_regprocedure('public.hv_is_org_member(uuid)') is not null then
+    grant execute on function public.hv_is_org_member(uuid) to service_role;
+  end if;
+  if to_regprocedure('public.hv_is_platform_staff()') is not null then
+    grant execute on function public.hv_is_platform_staff() to service_role;
+  end if;
+  if to_regprocedure('public.is_genetics_admin_or_reviewer()') is not null then
+    grant execute on function public.is_genetics_admin_or_reviewer() to service_role;
+  end if;
+  if to_regprocedure('public.is_hv_staff()') is not null then
+    grant execute on function public.is_hv_staff() to service_role;
+  end if;
+  if to_regprocedure('public.current_user_tier()') is not null then
+    grant execute on function public.current_user_tier() to service_role;
+  end if;
+  if to_regprocedure('public.is_regulatory_tier_admin()') is not null then
+    grant execute on function public.is_regulatory_tier_admin() to service_role;
+  end if;
 end
 $$;
-
 -- Audited authenticated RPC/policy-helper allowlist.
 do $$
-declare
-  signature text;
-  routine regprocedure;
 begin
-  foreach signature in array array[
-    'api.get_command_centre_stats()',
-    'api.get_corridor_stats(text)',
-    'api.get_source_registry_coverage(text)',
-    'api.regulatory_pending_changes_feed()',
-    'api.submit_signal_relevance_feedback(text,text,text,text)',
-    'api.is_verified_clinician(uuid)',
-    'api.clinical_has_active_consent(uuid,text)',
-    'api.clinical_request_verification(text,text,text,uuid)',
-    'public.hv_is_org_member(uuid)',
-    'public.hv_is_platform_staff()',
-    'public.is_genetics_admin_or_reviewer()',
-    'public.is_hv_staff()',
-    'public.current_user_tier()',
-    'public.is_regulatory_tier_admin()'
-  ]
-  loop
-    routine := to_regprocedure(signature);
-    if routine is not null then
-      execute format('grant execute on function %s to authenticated', routine);
-    end if;
-  end loop;
+  if to_regprocedure('api.get_command_centre_stats()') is not null then
+    grant execute on function api.get_command_centre_stats() to authenticated;
+  end if;
+  if to_regprocedure('api.get_corridor_stats(text)') is not null then
+    grant execute on function api.get_corridor_stats(text) to authenticated;
+  end if;
+  if to_regprocedure('api.get_source_registry_coverage(text)') is not null then
+    grant execute on function api.get_source_registry_coverage(text) to authenticated;
+  end if;
+  if to_regprocedure('api.regulatory_pending_changes_feed()') is not null then
+    grant execute on function api.regulatory_pending_changes_feed() to authenticated;
+  end if;
+  if to_regprocedure('api.submit_signal_relevance_feedback(text,text,text,text)') is not null then
+    grant execute on function api.submit_signal_relevance_feedback(text,text,text,text) to authenticated;
+  end if;
+  if to_regprocedure('api.is_verified_clinician(uuid)') is not null then
+    grant execute on function api.is_verified_clinician(uuid) to authenticated;
+  end if;
+  if to_regprocedure('api.clinical_has_active_consent(uuid,text)') is not null then
+    grant execute on function api.clinical_has_active_consent(uuid,text) to authenticated;
+  end if;
+  if to_regprocedure('api.clinical_request_verification(text,text,text,uuid)') is not null then
+    grant execute on function api.clinical_request_verification(text,text,text,uuid) to authenticated;
+  end if;
+  if to_regprocedure('public.hv_is_org_member(uuid)') is not null then
+    grant execute on function public.hv_is_org_member(uuid) to authenticated;
+  end if;
+  if to_regprocedure('public.hv_is_platform_staff()') is not null then
+    grant execute on function public.hv_is_platform_staff() to authenticated;
+  end if;
+  if to_regprocedure('public.is_genetics_admin_or_reviewer()') is not null then
+    grant execute on function public.is_genetics_admin_or_reviewer() to authenticated;
+  end if;
+  if to_regprocedure('public.is_hv_staff()') is not null then
+    grant execute on function public.is_hv_staff() to authenticated;
+  end if;
+  if to_regprocedure('public.current_user_tier()') is not null then
+    grant execute on function public.current_user_tier() to authenticated;
+  end if;
+  if to_regprocedure('public.is_regulatory_tier_admin()') is not null then
+    grant execute on function public.is_regulatory_tier_admin() to authenticated;
+  end if;
 end
 $$;
-
 -- Pin search_path for every custom application routine. Extension-owned
 -- routines are excluded so extension upgrades remain vendor-controlled.
 do $$
