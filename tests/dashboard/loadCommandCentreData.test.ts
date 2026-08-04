@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
@@ -16,6 +16,10 @@ describe('loadCommandCentreData', () => {
 
   beforeAll(async () => {
     ;({ loadCommandCentreData } = await import('@/lib/dashboard/loadCommandCentreData'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('isolates one failed source and retains successful data', async () => {
@@ -86,5 +90,46 @@ describe('loadCommandCentreData', () => {
 
     expect(bundle.state).toBe('empty')
     expect(bundle.sources.records.state).toBe('empty')
+  })
+
+  it('treats successful empty data plus one failure as partial rather than a full error', async () => {
+    const bundle = await loadCommandCentreData(context, {
+      emptyRecords: {
+        load: async () => [],
+        fallback: [],
+        sourceLabel: 'Empty records',
+      },
+      unavailableRecords: {
+        load: async () => { throw new Error('Unavailable') },
+        fallback: [],
+        sourceLabel: 'Unavailable records',
+      },
+    })
+
+    expect(bundle.state).toBe('partial')
+    expect(bundle.sources.emptyRecords.state).toBe('empty')
+    expect(bundle.sources.unavailableRecords.state).toBe('error')
+  })
+
+  it('bounds a hanging source and records its source-level duration', async () => {
+    vi.useFakeTimers()
+    const bundlePromise = loadCommandCentreData(context, {
+      hanging: {
+        load: () => new Promise<string>(() => {}),
+        fallback: 'Controlled fallback',
+        sourceLabel: 'Hanging source',
+        timeoutMs: 50,
+      },
+    })
+
+    await vi.advanceTimersByTimeAsync(50)
+    const bundle = await bundlePromise
+
+    expect(bundle.state).toBe('partial')
+    expect(bundle.data.hanging).toBe('Controlled fallback')
+    expect(bundle.sources.hanging.state).toBe('fallback')
+    expect(bundle.sources.hanging.errorCode).toBe('SOURCE_TIMEOUT')
+    expect(bundle.sources.hanging.durationMs).toBeGreaterThanOrEqual(50)
+    expect(bundle.sources.hanging.durationMs).toBeLessThan(100)
   })
 })
