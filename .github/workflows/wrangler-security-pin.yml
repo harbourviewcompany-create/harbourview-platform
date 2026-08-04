@@ -36,11 +36,12 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Pin current patched Wrangler release in dependency metadata
+      - name: Pin patched Wrangler and Undici dependency metadata
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/wrangler-security-pin
+          npm pkg set 'overrides.undici=7.29.0'
           npm install --package-lock-only --ignore-scripts --save-dev-exact wrangler@4.118.0
           git diff -- package.json package-lock.json > artifacts/wrangler-security-pin/dependency.patch
 
@@ -52,6 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           npx wrangler --version | tee artifacts/wrangler-security-pin/wrangler-version.txt
+          node -e "const version=require('undici/package.json').version; console.log('undici', version); if(version!=='7.29.0') process.exit(1)" | tee artifacts/wrangler-security-pin/undici-version.txt
           npx wrangler deploy --dry-run --outdir artifacts/wrangler-security-pin/worker-bundle
 
       - name: Verify dependency vulnerability ceiling
