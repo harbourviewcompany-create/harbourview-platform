@@ -3,8 +3,6 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-const client = new Anthropic()
-
 const SYSTEM_PROMPT = `You are Harbourview's executive briefing engine. You receive structured country intelligence data and produce a 2–3 sentence intelligence summary that a senior industry professional can act on immediately.
 
 Rules:
@@ -14,18 +12,18 @@ Rules:
 - Focus on what is actionable for the stated role`
 
 type IntelSnapshot = {
-  medical_status?:       string | null
+  medical_status?: string | null
   market_access_status?: string | null
-  import_status?:        string | null
-  export_status?:        string | null
-  opportunity_score?:    number | null
-  public_summary?:       string | null
+  import_status?: string | null
+  export_status?: string | null
+  opportunity_score?: number | null
+  public_summary?: string | null
 }
 
 type Body = {
   country?: unknown
-  role?:    unknown
-  intel?:   unknown
+  role?: unknown
+  intel?: unknown
 }
 
 const cache = new Map<string, { text: string; expiresAt: number }>()
@@ -35,75 +33,122 @@ const rateLimit = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 10
 const RATE_WINDOW_MS = 60 * 1000
 
+function normalizeBody(body: Body) {
+  const country = typeof body.country === 'string' && body.country.trim()
+    ? body.country.trim()
+    : 'Global'
+  const role = typeof body.role === 'string' && body.role.trim()
+    ? body.role.trim()
+    : 'Operator'
+  const intel = body.intel && typeof body.intel === 'object' && !Array.isArray(body.intel)
+    ? body.intel as IntelSnapshot
+    : null
+
+  return { country, role, intel }
+}
+
+function buildDeterministicBriefing(country: string, role: string, intel: IntelSnapshot | null) {
+  const facts: string[] = []
+  if (intel?.medical_status) facts.push(`medical programme: ${intel.medical_status}`)
+  if (intel?.market_access_status) facts.push(`market access: ${intel.market_access_status}`)
+  if (intel?.import_status) facts.push(`imports: ${intel.import_status}`)
+  if (intel?.export_status) facts.push(`exports: ${intel.export_status}`)
+  if (intel?.opportunity_score != null) facts.push(`opportunity score: ${intel.opportunity_score}/100`)
+
+  if (facts.length === 0) {
+    const recordSummary = intel?.public_summary?.trim()
+    if (recordSummary) {
+      return `${recordSummary} For the ${role} context, verify the current access, evidence, and counterparty requirements before taking commercial action.`
+    }
+    return `${country} does not yet have enough structured intelligence for a detailed executive briefing. For the ${role} context, verify current regulatory, access, and evidence requirements before taking commercial action.`
+  }
+
+  return `${country} records currently show ${facts.slice(0, 4).join('; ')}. For the ${role} context, validate the recorded access pathway and supporting evidence before taking commercial action.`
+}
+
+function briefingResponse(briefing: string, options: { cached?: boolean; degraded?: boolean } = {}) {
+  return NextResponse.json({
+    briefing,
+    cached: options.cached ?? false,
+    degraded: options.degraded ?? false,
+    source: options.degraded ? 'deterministic-records' : 'enhanced-briefing',
+  })
+}
+
 export async function POST(request: Request) {
+  let body: Body
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
-    if (!apiKey) {
-      return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
+    body = await request.json() as Body
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const { country, role, intel } = normalizeBody(body)
+  const fallback = buildDeterministicBriefing(country, role, intel)
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
+
+  if (!apiKey) {
+    return briefingResponse(fallback, { degraded: true })
+  }
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const now = Date.now()
+  const rl = rateLimit.get(ip)
+  if (rl && rl.resetAt > now) {
+    if (rl.count >= RATE_LIMIT) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
+    rl.count += 1
+  } else {
+    rateLimit.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
+  }
 
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-    const now = Date.now()
-    const rl = rateLimit.get(ip)
-    if (rl && rl.resetAt > now) {
-      if (rl.count >= RATE_LIMIT) {
-        return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-      }
-      rl.count++
-    } else {
-      rateLimit.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
-    }
+  const cacheKey = `${country}:${role}:${intel?.medical_status ?? ''}:${intel?.market_access_status ?? ''}:${intel?.opportunity_score ?? ''}`
+  const cached = cache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return briefingResponse(cached.text, { cached: true })
+  }
 
-    const body = (await request.json()) as Body
-    const country = typeof body.country === 'string' ? body.country.trim() : 'Global'
-    const role    = typeof body.role    === 'string' ? body.role.trim()    : 'Operator'
-    const intel   = (body.intel && typeof body.intel === 'object' && !Array.isArray(body.intel))
-      ? (body.intel as IntelSnapshot)
-      : null
+  const intelLines: string[] = []
+  if (intel) {
+    if (intel.medical_status) intelLines.push(`Medical programme status: ${intel.medical_status}`)
+    if (intel.market_access_status) intelLines.push(`Market access status: ${intel.market_access_status}`)
+    if (intel.import_status) intelLines.push(`Import status: ${intel.import_status}`)
+    if (intel.export_status) intelLines.push(`Export status: ${intel.export_status}`)
+    if (intel.opportunity_score != null) intelLines.push(`Opportunity score: ${intel.opportunity_score}/100`)
+    if (intel.public_summary) intelLines.push(`Summary on record: ${intel.public_summary}`)
+  }
 
-    const cacheKey = `${country}:${role}:${intel?.medical_status ?? ''}:${intel?.market_access_status ?? ''}:${intel?.opportunity_score ?? ''}`
-    const cached = cache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return NextResponse.json({ briefing: cached.text, cached: true })
-    }
+  const intelBlock = intelLines.length > 0
+    ? `\n\nKnown data for this jurisdiction:\n${intelLines.join('\n')}`
+    : '\n\nNote: no structured intelligence data is available for this jurisdiction yet.'
 
-    const intelLines: string[] = []
-    if (intel) {
-      if (intel.medical_status)       intelLines.push(`Medical programme status: ${intel.medical_status}`)
-      if (intel.market_access_status) intelLines.push(`Market access status: ${intel.market_access_status}`)
-      if (intel.import_status)        intelLines.push(`Import status: ${intel.import_status}`)
-      if (intel.export_status)        intelLines.push(`Export status: ${intel.export_status}`)
-      if (intel.opportunity_score != null) intelLines.push(`Opportunity score: ${intel.opportunity_score}/100`)
-      if (intel.public_summary)       intelLines.push(`Summary on record: ${intel.public_summary}`)
-    }
-
-    const intelBlock = intelLines.length > 0
-      ? `\n\nKnown data for this jurisdiction:\n${intelLines.join('\n')}`
-      : '\n\nNote: no structured intelligence data is available for this jurisdiction yet.'
-
+  try {
+    const client = new Anthropic({ apiKey })
     const message = await client.messages.create({
-      model:      'claude-sonnet-5',
+      model: 'claude-sonnet-5',
       max_tokens: 200,
-      system:     [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      messages:   [{
-        role:    'user',
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages: [{
+        role: 'user',
         content: `Jurisdiction: ${country}\nRole: ${role}${intelBlock}\n\nWrite a 2–3 sentence executive intelligence briefing.`,
       }],
     })
 
     const text = message.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map(b => b.text)
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map(block => block.text)
       .join('')
+      .trim()
+
+    if (!text) return briefingResponse(fallback, { degraded: true })
 
     cache.set(cacheKey, { text, expiresAt: Date.now() + CACHE_TTL_MS })
-
-    return NextResponse.json({ briefing: text })
+    return briefingResponse(text)
   } catch (error) {
-    console.error('[briefing route]', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Request failed' },
-      { status: 500 },
-    )
+    console.error('[briefing route]', {
+      code: error instanceof Error ? error.name : 'BRIEFING_PROVIDER_FAILED',
+    })
+    return briefingResponse(fallback, { degraded: true })
   }
 }
