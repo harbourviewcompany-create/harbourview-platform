@@ -7,6 +7,8 @@ const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
+const SAFE_LISTING_ID = '00000000-0000-4000-8000-000000000127'
+const SAFE_LISTING_TITLE = 'Visual Safe Bulk Flower Lot'
 const MOBILE_SECTION_IDS = [
   'overview',
   'live-status',
@@ -37,6 +39,14 @@ type FailedResponse = {
   pathname: string
   search: string
   status: number
+}
+
+type ExpectedCommandState = {
+  page: string
+  section: string
+  marketView?: string
+  tool?: string | null
+  listing?: string | null
 }
 
 function safeFileToken(value: string | undefined) {
@@ -124,6 +134,32 @@ function contextOptions(width: number, storageState: BrowserContextOptions['stor
     isMobile: width < 768,
     hasTouch: width < 768,
   }
+}
+
+async function expectCommandState(page: Page, expected: ExpectedCommandState) {
+  await expect.poll(() => new URL(page.url()).pathname).toBe('/dashboard')
+  const url = new URL(page.url())
+  expect(url.searchParams.get('country')).toBe('CA')
+  expect(url.searchParams.get('role')).toBe('exporter')
+  expect(url.searchParams.get('page')).toBe(expected.page)
+  expect(url.searchParams.get('section')).toBe(expected.section)
+  if (expected.marketView !== undefined) expect(url.searchParams.get('marketView')).toBe(expected.marketView)
+  if (expected.tool !== undefined) expect(url.searchParams.get('tool')).toBe(expected.tool)
+  if (expected.listing !== undefined) expect(url.searchParams.get('listing')).toBe(expected.listing)
+}
+
+async function reloadTool(page: Page, tool: string, title: string) {
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator(`[data-mobile-command-tool="${tool}"]`)).toBeVisible()
+  await expect(page.getByText(title, { exact: true })).toBeVisible()
+}
+
+async function closeMarketplaceTool(page: Page, tool: string) {
+  await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
+  await expect(page.locator(`[data-mobile-command-tool="${tool}"]`)).toHaveCount(0)
+  const url = new URL(page.url())
+  expect(url.searchParams.get('tool')).toBeNull()
+  expect(url.searchParams.get('listing')).toBeNull()
 }
 
 async function writeWidthEvidence(
@@ -228,35 +264,95 @@ test.describe('Command Centre authenticated responsive verification', () => {
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
+            const equipmentTab = page.getByRole('tab', { name: /Equipment/ })
+            await equipmentTab.click()
+            await expectCommandState(page, {
+              page: 'marketplace',
+              section: 'marketplace',
+              marketView: 'equipment',
+              tool: null,
+              listing: null,
+            })
+            await page.reload({ waitUntil: 'domcontentloaded' })
+            await expect(equipmentTab).toHaveAttribute('aria-selected', 'true')
+
+            const cannabisTab = page.getByRole('tab', { name: /Cannabis/ })
+            await cannabisTab.click()
+            await expectCommandState(page, {
+              page: 'marketplace',
+              section: 'marketplace',
+              marketView: 'cannabis',
+              tool: null,
+              listing: null,
+            })
+            await page.reload({ waitUntil: 'domcontentloaded' })
+            await expect(cannabisTab).toHaveAttribute('aria-selected', 'true')
+            await expect(page.getByText(SAFE_LISTING_TITLE, { exact: true }).first()).toBeVisible()
+
             const marketplaceActions = page.locator('#marketplace .hvm2-quick-actions')
             const wantedAction = marketplaceActions.getByRole('link', { name: /Post wanted demand/ })
-            await expect(wantedAction).toHaveAttribute('href', /tool=wanted-intake/)
-            await wantedAction.click({ timeout: 15_000 })
+            await wantedAction.click()
             await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toBeVisible()
-            await expect(page.getByText('Post a wanted requirement', { exact: true })).toBeVisible()
-            await expect.poll(() => new URL(page!.url()).searchParams.get('page')).toBe('marketplace')
-            let activeUrl = new URL(page.url())
-            expect(activeUrl.pathname).toBe('/dashboard')
-            expect(activeUrl.searchParams.get('section')).toBe('marketplace')
-            expect(activeUrl.searchParams.get('tool')).toBe('wanted-intake')
-            expect(activeUrl.searchParams.get('country')).toBe('CA')
-            expect(activeUrl.searchParams.get('role')).toBe('exporter')
-            await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
-            await expect(page.locator('[data-mobile-command-tool="wanted-intake"]')).toHaveCount(0)
+            await expectCommandState(page, {
+              page: 'marketplace',
+              section: 'marketplace',
+              marketView: 'wanted',
+              tool: 'wanted-intake',
+              listing: null,
+            })
+            await reloadTool(page, 'wanted-intake', 'Post a wanted requirement')
+            await closeMarketplaceTool(page, 'wanted-intake')
+
+            await cannabisTab.click()
+            const supplyAction = marketplaceActions.getByRole('link', { name: /Submit supply/ })
+            await supplyAction.click()
+            await expect(page.locator('[data-mobile-command-tool="supply-intake"]')).toBeVisible()
+            await expectCommandState(page, {
+              page: 'marketplace',
+              section: 'marketplace',
+              marketView: 'cannabis',
+              tool: 'supply-intake',
+              listing: null,
+            })
+            await reloadTool(page, 'supply-intake', 'Submit supply for controlled review')
+            await closeMarketplaceTool(page, 'supply-intake')
+
+            const listingCard = page.locator('.hvm2-listing-card').filter({ hasText: SAFE_LISTING_TITLE }).first()
+            await expect(listingCard).toBeVisible()
+            await listingCard.getByRole('button', { name: 'Request reviewed introduction' }).click()
+            await expect(page.locator('[data-mobile-command-tool="introduction"]')).toBeVisible()
+            await expectCommandState(page, {
+              page: 'marketplace',
+              section: 'marketplace',
+              marketView: 'cannabis',
+              tool: 'introduction',
+              listing: SAFE_LISTING_ID,
+            })
+            await reloadTool(page, 'introduction', `Request access to ${SAFE_LISTING_TITLE}`)
+            const safeContext = page.locator('[data-mobile-command-tool="introduction"] .hvm2-workspace-context')
+            await expect(safeContext).toContainText(SAFE_LISTING_TITLE)
+            await expect(safeContext).toContainText('Publicly approved bulk flower supply fixture')
+            await closeMarketplaceTool(page, 'introduction')
 
             const financingAction = marketplaceActions.getByRole('link', { name: /Request financing/ })
-            await expect(financingAction).toHaveAttribute('href', /tool=financing-intake/)
-            await financingAction.click({ timeout: 15_000 })
+            await financingAction.click()
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toBeVisible()
-            await expect(page.getByText('Request financing support', { exact: true })).toBeVisible()
-            await expect.poll(() => new URL(page!.url()).searchParams.get('page')).toBe('trade-calc')
-            activeUrl = new URL(page.url())
-            expect(activeUrl.pathname).toBe('/dashboard')
-            expect(activeUrl.searchParams.get('section')).toBe('financing')
-            expect(activeUrl.searchParams.get('tool')).toBe('financing-intake')
+            await expectCommandState(page, {
+              page: 'trade-calc',
+              section: 'financing',
+              marketView: 'cannabis',
+              tool: 'financing-intake',
+              listing: null,
+            })
+            await reloadTool(page, 'financing-intake', 'Request financing support')
             await page.getByRole('button', { name: 'Close financing workflow' }).click()
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toHaveCount(0)
-            report.containedWorkflows = ['wanted-intake', 'financing-intake']
+            expect(new URL(page.url()).searchParams.get('tool')).toBeNull()
+
+            report.marketViewReload = 'equipment -> cannabis'
+            report.containedWorkflows = ['wanted-intake', 'supply-intake', 'introduction', 'financing-intake']
+            report.reloadRestored = ['marketView', 'wanted-intake', 'supply-intake', 'introduction', 'financing-intake']
+            report.safeIntroductionListing = SAFE_LISTING_ID
           }
 
           const geometry = await page.evaluate(() => {
