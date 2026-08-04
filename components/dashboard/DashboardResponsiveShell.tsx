@@ -28,9 +28,12 @@ export function DashboardResponsiveShellContent({
   isMobile,
   ...props
 }: MobileCommandCentreProps & { isMobile: boolean }) {
+  const renderer = isMobile ? 'mobile' : 'desktop'
+
   return (
     <div
-      data-command-centre-renderer={isMobile ? 'mobile' : 'desktop'}
+      data-dashboard-renderer={renderer}
+      data-command-centre-renderer={renderer}
       data-command-centre-module-count={COMMAND_CENTRE_MODULE_REGISTRY.length}
     >
       {isMobile
