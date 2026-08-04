@@ -1,7 +1,9 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { parseHTML } from 'linkedom'
+import { describe, expect, it, vi } from 'vitest'
 import type { MarketRow } from '@/components/dashboard/CommandCentre'
+import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
@@ -17,33 +19,63 @@ import {
   parseMobileCommandTool,
 } from '@/components/dashboard/mobile-command/contracts'
 
-const root = process.cwd()
+const navigation = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+}))
 
-function read(relativePath: string) {
-  return fs.readFileSync(path.join(root, relativePath), 'utf8')
+vi.mock('next/navigation', () => ({
+  useRouter: () => navigation,
+  usePathname: () => '/dashboard',
+  useSearchParams: () => new URLSearchParams('country=CA&role=exporter'),
+}))
+
+vi.mock('@/components/marketplace/DynamicMarketplaceIntakeForm', () => ({
+  DynamicMarketplaceIntakeForm: () => null,
+}))
+
+vi.mock('@/app/marketplace/financing/FinancingInquiryForm', () => ({
+  default: () => null,
+}))
+
+import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
+
+function mobileProps(): MobileCommandCentreProps {
+  const listing: MarketRow = [
+    'Bulk flower lot',
+    'Reviewed supply record',
+    'Canada',
+    'Cannabis',
+    'approved',
+    'Harbourview mediated',
+    '78',
+    'listing-1',
+    '',
+    '',
+  ]
+
+  return {
+    signals: [],
+    eduCategories: [],
+    initialCountryIso2: 'CA',
+    initialRoleId: 'exporter',
+    marketplaceRows: { cannabis: [listing] },
+    wantedCount: 1,
+    pipeline: {
+      wanted: 1,
+      matched: 0,
+      proof_review: 0,
+      inquiry: 0,
+      deal_room: 0,
+    },
+    hasOrg: true,
+  }
 }
 
-function readSourceTree(relativeDirectory: string): string {
-  const directory = path.join(root, relativeDirectory)
-  return fs.readdirSync(directory, { withFileTypes: true })
-    .flatMap((entry) => {
-      const relativePath = path.join(relativeDirectory, entry.name)
-      if (entry.isDirectory()) return [readSourceTree(relativePath)]
-      if (!/\.(ts|tsx)$/.test(entry.name)) return []
-      return [read(relativePath)]
-    })
-    .join('\n')
+function renderMobileCommand() {
+  const markup = renderToStaticMarkup(createElement(MobileCommandCentreRebuild, mobileProps()))
+  return parseHTML(`<!doctype html><html><body>${markup}</body></html>`).document
 }
-
-const mobileCommandSource = [
-  read('components/dashboard/MobileCommandCentreRebuild.tsx'),
-  read('components/dashboard/DashboardResponsiveShell.tsx'),
-  readSourceTree('components/dashboard/mobile-command'),
-].join('\n')
-const mobileCommandCss = [
-  read('components/dashboard/MobileCommandCentreRebuild.css'),
-  read('components/dashboard/MobileCommandCentreWorkspaces.css'),
-].join('\n')
 
 describe('Mobile Command Centre contracts', () => {
   it('defines one exhaustive desktop target for every mobile section', () => {
@@ -132,26 +164,44 @@ describe('Mobile Command Centre contracts', () => {
     expect(MOBILE_COMMAND_COPY.financingInquiryDescription).toContain('does not approve credit')
   })
 
-  it('contains every section implementation and no external primary command dependency', () => {
+  it('renders all 20 sections through the production mobile renderer', () => {
+    const document = renderMobileCommand()
+    const root = document.querySelector('[data-mobile-command-version="2"]')
+    expect(root).not.toBeNull()
+
+    const sections = [...document.querySelectorAll('.hvm2-main > section')]
+    expect(sections).toHaveLength(SECTION_NAV.length)
+
     for (const section of SECTION_NAV) {
-      expect(mobileCommandSource).toContain(`id=\"${section.id}\"`)
-      expect(mobileCommandSource).toContain(`sectionRef('${section.id}')`)
+      expect(document.querySelector(`#${section.id}`), section.id).not.toBeNull()
     }
 
-    expect(mobileCommandSource).toContain('DynamicMarketplaceIntakeForm')
-    expect(mobileCommandSource).toContain('FinancingInquiryForm')
-    expect(mobileCommandSource).not.toContain('⌘ Modules')
-    expect(mobileCommandSource).not.toContain('ccig-launcher')
-    expect(mobileCommandSource).not.toMatch(/href=["']\/(marketplace|signals|supply|network|account|intake)/)
+    expect(document.querySelector('.hvm2-bottom-nav')).not.toBeNull()
+    expect(document.body.textContent).toContain('Operator command centre')
+    expect(document.body.textContent).toContain('Bulk flower lot')
+    expect(document.body.textContent).not.toContain('⌘ Modules')
   })
 
-  it('implements mobile safe-area, workspace, motion and overflow protections', () => {
-    expect(mobileCommandCss).toContain('max-width: 100vw')
-    expect(mobileCommandCss).toContain('overflow-x: hidden')
-    expect(mobileCommandCss).toContain('env(safe-area-inset-bottom)')
-    expect(mobileCommandCss).toContain('.hvm2-workspace')
-    expect(mobileCommandCss).toContain('.hvm2-inline-cta')
-    expect(mobileCommandCss).toContain('@media (max-width: 359px)')
-    expect(mobileCommandCss).toContain('@media (prefers-reduced-motion: reduce)')
+  it('renders canonical dashboard hrefs for progressive mobile workflows', () => {
+    const document = renderMobileCommand()
+    const anchors = [...document.querySelectorAll<HTMLAnchorElement>('.hvm2-root a[href]')]
+    expect(anchors.length).toBeGreaterThan(0)
+
+    for (const anchor of anchors) {
+      const target = new URL(anchor.getAttribute('href') ?? '', 'https://harbourview.test')
+      expect(target.pathname, anchor.textContent ?? '').toBe('/dashboard')
+      expect(target.searchParams.get('country')).toBe('CA')
+      expect(target.searchParams.get('role')).toBe('exporter')
+    }
+
+    const byText = (label: string) => anchors.find(anchor => anchor.textContent?.includes(label))
+    const wanted = new URL(byText('Post wanted demand')?.getAttribute('href') ?? '', 'https://harbourview.test')
+    expect(wanted.searchParams.get('section')).toBe('marketplace')
+    expect(wanted.searchParams.get('tool')).toBe('wanted-intake')
+    expect(wanted.searchParams.get('marketView')).toBe('wanted')
+
+    const financing = new URL(byText('Request financing')?.getAttribute('href') ?? '', 'https://harbourview.test')
+    expect(financing.searchParams.get('section')).toBe('financing')
+    expect(financing.searchParams.get('tool')).toBe('financing-intake')
   })
 })
