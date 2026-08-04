@@ -1,0 +1,107 @@
+.hv-module-rail {
+  margin: 0 16px 16px;
+  border: 1px solid rgba(198, 165, 90, 0.2);
+  border-radius: 14px;
+  background: rgba(7, 17, 31, 0.96);
+  color: #f5f1e8;
+}
+
+.hv-module-rail > summary {
+  min-height: 48px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.hv-module-rail > summary small {
+  color: rgba(245, 241, 232, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hv-module-rail nav {
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  padding: 0 14px 16px;
+  overscroll-behavior: contain;
+}
+
+.hv-module-rail section + section {
+  margin-top: 18px;
+}
+
+.hv-module-rail h2 {
+  margin: 0 0 9px;
+  color: rgba(198, 165, 90, 0.88);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hv-module-rail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hv-module-rail-grid a {
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: 10px;
+  background: rgba(245, 241, 232, 0.025);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hv-module-rail-grid a:hover,
+.hv-module-rail-grid a:focus-visible {
+  border-color: rgba(198, 165, 90, 0.55);
+  background: rgba(198, 165, 90, 0.09);
+  outline: none;
+}
+
+.hv-module-rail-grid strong {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.hv-module-rail-grid span {
+  color: rgba(245, 241, 232, 0.48);
+  font-size: 10px;
+  line-height: 1.2;
+  text-transform: capitalize;
+}
+
+@media (max-width: 359px) {
+  .hv-module-rail {
+    margin-inline: 10px;
+  }
+
+  .hv-module-rail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .hv-module-rail {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-module-rail nav {
+    scroll-behavior: auto;
+  }
+}
