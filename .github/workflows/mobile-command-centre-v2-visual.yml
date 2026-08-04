@@ -5,29 +5,6 @@ on:
     branches:
       - main
     paths:
-      - app/dashboard/**
-      - app/api/health/command-centre/**
-      - next.config.mjs
-      - lib/supabase/env.ts
-      - lib/platform/commandCentreRegistry.ts
-      - lib/dashboard/commandCentreDataTypes.ts
-      - lib/dashboard/loadCommandCentreData.ts
-      - components/dashboard/CommandCentreDataBoundary.tsx
-      - components/dashboard/CommandCentreModuleRail.tsx
-      - components/dashboard/CommandCentreModuleRail.css
-      - components/dashboard/MobileCommandCentreRebuild.tsx
-      - components/dashboard/MobileCommandCentreRebuild.css
-      - components/dashboard/MobileCommandCentreWorkspaces.css
-      - components/dashboard/DashboardResponsiveShell.tsx
-      - components/dashboard/mobile-command/**
-      - tests/dashboard/mobileCommandCentreV2.test.ts
-      - tests/dashboard/dashboardResponsiveShell.behavior.test.ts
-      - tests/dashboard/loadCommandCentreData.test.ts
-      - tests/dashboard/commandCentreHealth.test.ts
-      - tests/platform/command-centre-typed-registry.test.ts
-      - tests/security/command-centre-boundaries.test.ts
-      - tests/supabase/env.test.ts
-      - tests/e2e/mobile-command-centre-v2.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
   workflow_dispatch:
 
@@ -35,357 +12,23 @@ permissions:
   contents: write
 
 concurrency:
-  group: mobile-command-centre-v2-visual-${{ github.event.pull_request.number || github.ref }}
+  group: command-centre-review-remediation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  authenticated-visual:
-    name: Authenticated nine-width Command Centre evidence
+  remediate:
+    name: Apply and verify production review fixes
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CI: '1'
-      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
-      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
-      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
-      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
-      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
-      MOBILE_COMMAND_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      SUPABASE_DB_SCHEMA: api
-      NEXT_TELEMETRY_DISABLED: '1'
+    timeout-minutes: 35
     steps:
-      - name: Checkout exact verified branch head
+      - name: Checkout PR branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: ${{ env.MOBILE_COMMAND_SOURCE_SHA }}
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify registry loader shell readiness auth leakage and local-auth contracts
-        run: >-
-          npx vitest run
-          tests/dashboard/mobileCommandCentreV2.test.ts
-          tests/dashboard/dashboardResponsiveShell.behavior.test.ts
-          tests/dashboard/loadCommandCentreData.test.ts
-          tests/dashboard/commandCentreHealth.test.ts
-          tests/platform/command-centre-typed-registry.test.ts
-          tests/security/command-centre-boundaries.test.ts
-          tests/supabase/env.test.ts
-
-      - name: Set up Supabase CLI
-        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
-        with:
-          version: latest
-
-      - name: Prepare isolated local Supabase schema
-        shell: bash
-        run: |
-          set -euo pipefail
-          mv supabase/migrations /tmp/harbourview-production-migrations
-          if [ -f supabase/seed.sql ]; then
-            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
-          fi
-          mkdir -p supabase/migrations
-          cat > supabase/migrations/00000000000000_mobile_command_visual.sql <<'SQL'
-          create schema if not exists api;
-          grant usage on schema api to anon, authenticated, service_role;
-
-          create table if not exists api.user_dashboard_preferences (
-            user_id uuid primary key,
-            country_iso2 text,
-            role_id text
-          );
-
-          create table if not exists api.workspace_members (
-            user_id uuid not null,
-            workspace_id uuid not null default gen_random_uuid(),
-            status text not null default 'active'
-          );
-
-          create table if not exists api.talent_jobs_public (
-            id uuid primary key default gen_random_uuid(),
-            title text not null,
-            department text,
-            location text,
-            operator_name text,
-            operator_verification_status text,
-            created_at timestamptz not null default now()
-          );
-
-          create table if not exists api.hv_professionals (
-            id uuid primary key default gen_random_uuid(),
-            full_name text not null,
-            title text,
-            credential_type text,
-            specialties text[] not null default '{}',
-            countries text[] not null default '{}',
-            institution text,
-            accepts_referrals boolean not null default false,
-            consultation_available boolean not null default false,
-            bio_public text,
-            verification_status text not null default 'verified',
-            status text not null default 'active'
-          );
-
-          create table if not exists api.daily_digest (
-            digest_date date primary key,
-            headlines jsonb not null default '[]'::jsonb,
-            editorial_headlines jsonb not null default '[]'::jsonb,
-            generated_at timestamptz not null default now(),
-            status text not null default 'draft'
-          );
-
-          create table if not exists api.signals_quality (
-            id uuid primary key default gen_random_uuid(),
-            headline text not null default '',
-            cat text,
-            top_lane text,
-            pri text,
-            country text,
-            date timestamptz,
-            created_at timestamptz not null default now(),
-            reviewed boolean not null default false,
-            quality_label text,
-            quality_confidence numeric,
-            content_type text,
-            impact text,
-            title_en text,
-            summary_en text,
-            lang_detected text,
-            is_representative boolean,
-            cluster_rep_id uuid
-          );
-
-          create table if not exists api.market_metrics (
-            id uuid primary key default gen_random_uuid(),
-            country_iso2 text,
-            metric_name text,
-            metric_value numeric,
-            metric_unit text,
-            source_name text,
-            source_url text,
-            source_date date
-          );
-
-          create table if not exists api.deal_rooms (
-            id uuid primary key default gen_random_uuid(),
-            title text,
-            listing_ref text,
-            status text,
-            updated_at timestamptz not null default now(),
-            initiator_id uuid,
-            counterparty_id uuid
-          );
-
-          create table if not exists api.marketplace_candidates (
-            id uuid primary key default gen_random_uuid(),
-            title_public_draft text,
-            marketplace_category text,
-            listing_type text,
-            status text,
-            created_at timestamptz not null default now(),
-            country text,
-            submitted_by uuid,
-            submission_source text
-          );
-
-          create table if not exists public.marketplace_public_listings_v1 (
-            id uuid primary key,
-            slug text,
-            title text not null,
-            description text not null,
-            category text not null,
-            subcategory text,
-            marketplace_section text not null,
-            product_type text,
-            region text not null,
-            condition text,
-            location_country text,
-            location_region text,
-            price_amount numeric,
-            price_currency text not null,
-            price_display text,
-            seller_type text not null,
-            is_featured boolean not null default false,
-            high_level_specs jsonb not null default '{}'::jsonb,
-            created_at timestamptz not null default now(),
-            average_rating numeric,
-            review_count integer
-          );
-
-          insert into public.marketplace_public_listings_v1 (
-            id, slug, title, description, category, subcategory,
-            marketplace_section, product_type, region, condition,
-            location_country, location_region, price_amount, price_currency,
-            price_display, seller_type, is_featured, high_level_specs,
-            average_rating, review_count
-          ) values (
-            '00000000-0000-4000-8000-000000000127',
-            'visual-safe-bulk-flower',
-            'Visual Safe Bulk Flower Lot',
-            'Publicly approved bulk flower supply fixture for authenticated mobile verification.',
-            'cannabis_inventory',
-            'bulk_flower',
-            'cannabis_inventory',
-            'Dried flower',
-            'global',
-            'new',
-            'CA',
-            'Ontario',
-            null,
-            'CAD',
-            'Request reviewed terms',
-            'licensed_operator',
-            true,
-            '{"score": 88, "regulatory_ready": true, "cultivation_standard": "GACP"}'::jsonb,
-            4.8,
-            12
-          ) on conflict (id) do nothing;
-
-          grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
-          grant select on all tables in schema api to anon;
-          grant select on public.marketplace_public_listings_v1 to anon, authenticated, service_role;
-          SQL
-          : > supabase/seed.sql
-
-      - name: Start isolated local Supabase
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase start
-          eval "$(supabase status -o env)"
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
-            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
-            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
-          } >> "$GITHUB_ENV"
-
-      - name: Create isolated authenticated test account
-        shell: bash
-        run: |
-          set -euo pipefail
-          TEST_EMAIL="mobile-command-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
-          echo "::add-mask::${TEST_EMAIL}"
-          echo "::add-mask::${TEST_PASSWORD}"
-          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
-          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
-          {
-            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
-            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
-          } >> "$GITHUB_ENV"
-          node --input-type=module <<'NODE'
-          import { createClient } from '@supabase/supabase-js'
-
-          const client = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY,
-            { auth: { autoRefreshToken: false, persistSession: false } },
-          )
-
-          const { data, error } = await client.auth.admin.createUser({
-            email: process.env.E2E_TEST_USER_EMAIL,
-            password: process.env.E2E_TEST_USER_PASSWORD,
-            email_confirm: true,
-            app_metadata: { mobile_command_visual_test: true },
-            user_metadata: { purpose: 'isolated-playwright' },
-          })
-
-          if (error) throw error
-          if (!data.user) throw new Error('Isolated mobile command test user was not created')
-          console.log(`Created isolated visual user ${data.user.id}`)
-          NODE
-
-      - name: Build exact source against isolated Supabase
-        run: npm run build
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Start exact local production build
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm start -- --hostname 127.0.0.1 > /tmp/mobile-command-next.log 2>&1 &
-          echo $! > /tmp/mobile-command-next.pid
-          for attempt in $(seq 1 90); do
-            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
-              echo 'GO: exact local production build is ready.'
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/mobile-command-next.log
-          exit 1
-
-      - name: Run authenticated nine-width visual gate
-        run: npx playwright test tests/e2e/mobile-command-centre-v2.spec.ts --project=chromium-desktop --workers=1 --retries=0
-
-      - name: Collect local server evidence
-        if: always()
-        shell: bash
-        run: |
-          mkdir -p artifacts/mobile-command-v2
-          if [ -f /tmp/mobile-command-next.log ]; then
-            cp /tmp/mobile-command-next.log artifacts/mobile-command-v2/server.log
-          fi
-
-      - name: Upload Command Centre visual evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: command-centre-responsive-${{ github.run_id }}
-          path: |
-            artifacts/mobile-command-v2/
-            playwright-report/
-            test-results/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Restore production migration source tree
-        if: always()
-        shell: bash
-        run: |
-          rm -rf supabase/migrations supabase/seed.sql
-          if [ -d /tmp/harbourview-production-migrations ]; then
-            mv /tmp/harbourview-production-migrations supabase/migrations
-          fi
-          if [ -f /tmp/harbourview-production-seed.sql ]; then
-            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
-          fi
-
-      - name: Stop isolated services
-        if: always()
-        shell: bash
-        run: |
-          if [ -f /tmp/mobile-command-next.pid ]; then
-            kill "$(cat /tmp/mobile-command-next.pid)" 2>/dev/null || true
-          fi
-          supabase stop --no-backup || true
-
-  review-fixes:
-    name: Apply production review fixes
-    runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
           fetch-depth: 1
           persist-credentials: true
 
-      - name: Patch and self-remove
+      - name: Apply fail-closed patches
         shell: bash
         run: |
           set -euo pipefail
@@ -396,8 +39,9 @@ jobs:
           def replace_once(path: str, old: str, new: str) -> None:
               file = Path(path)
               text = file.read_text()
-              if text.count(old) != 1:
-                  raise SystemExit(f'{path}: expected one exact match for {old[:100]!r}, found {text.count(old)}')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one exact match, found {count}: {old[:120]!r}')
               file.write_text(text.replace(old, new, 1))
 
           def regex_once(path: str, pattern: str, replacement: str) -> None:
@@ -405,13 +49,24 @@ jobs:
               text = file.read_text()
               updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
               if count != 1:
-                  raise SystemExit(f'{path}: expected one regex match, found {count}: {pattern[:100]!r}')
+                  raise SystemExit(f'{path}: expected one regex match, found {count}: {pattern[:120]!r}')
               file.write_text(updated)
 
           e2e = 'tests/e2e/mobile-command-centre-v2.spec.ts'
-          replace_once(e2e, "import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'\n", "import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'\nimport { SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'\n")
-          regex_once(e2e, r"const MOBILE_SECTION_IDS = \[.*?\] as const\n", "const MOBILE_SECTION_IDS = SECTION_NAV.map(section => section.id)\n")
-          regex_once(e2e, r"function isExpectedLocalDegradation\(response: FailedResponse\) \{.*?\n\}\n\nfunction sharedContextOptions", """function isExpectedLocalDegradation(response: FailedResponse) {
+          replace_once(
+              e2e,
+              "import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'\n",
+              "import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'\nimport { SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'\n",
+          )
+          regex_once(
+              e2e,
+              r"const MOBILE_SECTION_IDS = \[.*?\] as const\n",
+              "const MOBILE_SECTION_IDS = SECTION_NAV.map(section => section.id)\n",
+          )
+          regex_once(
+              e2e,
+              r"function isExpectedLocalDegradation\(response: FailedResponse\) \{.*?\n\}\n\nfunction sharedContextOptions",
+              """function isExpectedLocalDegradation(response: FailedResponse) {
             if (!IS_ISOLATED_LOCAL_RUN || response.status >= 500) return false
             return (
               (response.pathname === '/api/ai/briefing' && response.status === 503)
@@ -419,14 +74,26 @@ jobs:
             )
           }
 
-          function sharedContextOptions""".replace('          ', ''))
+          function sharedContextOptions""".replace('          ', ''),
+          )
           replace_once(e2e, '    test.setTimeout(900_000)\n', '    test.setTimeout(1_800_000)\n')
 
-          replace_once('components/dashboard/mobile-command/useMobileCommandModel.ts', "sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ block: 'start' })", "sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' })")
+          replace_once(
+              'components/dashboard/mobile-command/useMobileCommandModel.ts',
+              "sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ block: 'start' })",
+              "sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' })",
+          )
 
           form = 'components/marketplace/DynamicMarketplaceIntakeForm.tsx'
-          replace_once(form, "import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react'", "import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'")
-          replace_once(form, "  const formRef = useRef<HTMLFormElement>(null)\n\n  const typeKey", """  const formRef = useRef<HTMLFormElement>(null)
+          replace_once(
+              form,
+              "import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react'",
+              "import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react'",
+          )
+          replace_once(
+              form,
+              "  const formRef = useRef<HTMLFormElement>(null)\n\n  const typeKey",
+              """  const formRef = useRef<HTMLFormElement>(null)
             const previewUrlsRef = useRef<string[]>([])
 
             useEffect(() => () => {
@@ -434,8 +101,12 @@ jobs:
               previewUrlsRef.current = []
             }, [])
 
-            const typeKey""".replace('          ', ''))
-          regex_once(form, r"  function handleImageChange\(event: ChangeEvent<HTMLInputElement>\) \{.*?\n  \}\n\n  function removeImage\(index: number\) \{.*?\n  \}\n", """  function replaceImagePreviews(files: File[]) {
+            const typeKey""".replace('          ', ''),
+          )
+          regex_once(
+              form,
+              r"  function handleImageChange\(event: ChangeEvent<HTMLInputElement>\) \{.*?\n  \}\n\n  function removeImage\(index: number\) \{.*?\n  \}\n",
+              """  function replaceImagePreviews(files: File[]) {
             const nextUrls = files.map(file => URL.createObjectURL(file))
             previewUrlsRef.current.forEach(url => URL.revokeObjectURL(url))
             previewUrlsRef.current = nextUrls
@@ -457,57 +128,83 @@ jobs:
             setImageFiles(updated)
             replaceImagePreviews(updated)
           }
-          """.replace('          ', ''))
-          replace_once(form, '        setImageFiles([])\n        setImagePreviews([])\n', '        setImageFiles([])\n        replaceImagePreviews([])\n')
+          """.replace('          ', ''),
+          )
+          replace_once(
+              form,
+              '        setImageFiles([])\n        setImagePreviews([])\n',
+              '        setImageFiles([])\n        replaceImagePreviews([])\n',
+          )
 
           page = 'app/dashboard/page.tsx'
           replace_once(page, '  let hasOrg = true\n', '  let hasOrg = false\n')
-          regex_once(page, r"  const sectionToView = new Map<string, MarketView>\(\).*?if \(buckets\[view\]!\.length < 8\) buckets\[view\]!\.push\(mapListingToDashboardRow\(listing\)\)\n  \}\n", """  const buckets: Partial<DashboardMarketplaceRows> = {}
+          regex_once(
+              page,
+              r"  const sectionToView = new Map<string, MarketView>\(\).*?\n  const buckets: Partial<DashboardMarketplaceRows> = \{\}\n  for \(const listing of listings\) \{.*?\n  \}\n",
+              """  const buckets: Partial<DashboardMarketplaceRows> = {}
             for (const listing of listings) {
               const matchingViews = (Object.entries(VIEW_SECTIONS) as [MarketView, string[]][])
                 .filter(([, sections]) => sections.includes(listing.marketplace_section))
                 .map(([view]) => view)
-              const views = matchingViews.length > 0 ? matchingViews : ['cannabis' as const]
+              const views: MarketView[] = matchingViews.length > 0 ? matchingViews : ['cannabis']
 
               for (const view of views) {
                 if (!buckets[view]) buckets[view] = []
                 if (buckets[view]!.length < 8) buckets[view]!.push(mapListingToDashboardRow(listing))
               }
             }
-          """.replace('          ', ''))
-          replace_once(page, '  const roleId = urlRole ?? storedRoleId\n\n  const commandData', """  const roleId = urlRole ?? storedRoleId
+          """.replace('          ', ''),
+          )
+          replace_once(
+              page,
+              '  const roleId = urlRole ?? storedRoleId\n\n  const commandData',
+              """  const roleId = urlRole ?? storedRoleId
             let cannabisOperatorsRequest: ReturnType<typeof getCannabisOperators> | null = null
             const loadCannabisOperators = () => {
               cannabisOperatorsRequest ??= getCannabisOperators(countryIso2)
               return cannabisOperatorsRequest
             }
 
-            const commandData""".replace('          ', ''))
-          replace_once(page, """      cannabisOperators: {
-            load: () => getCannabisOperators(countryIso2),
-            fallback: undefined,
-            sourceLabel: 'Public operator projection',
-            access: 'public',
-          },
-          """, """      cannabisOperators: {
-            load: loadCannabisOperators,
-            fallback: undefined,
-            sourceLabel: 'Public operator projection',
-            access: 'public',
-          },
-          operatorLicenceMatrix: {
-            load: async () => getOperatorLicenceMatrix((await loadCannabisOperators()).map(operator => operator.id)),
-            fallback: { entitled: false as const },
-            sourceLabel: 'Authorized operator licence matrix',
-            access: 'operator',
-          },
-          """)
-          replace_once(page, '    cannabisOperators,\n    cultivarPassports,\n', '    cannabisOperators,\n    operatorLicenceMatrix,\n    cultivarPassports,\n')
-          regex_once(page, r"  const watchlistAccess = checkFeatureAccess\(\{ app_metadata: userAppMetadata \}, 'watchlist'\)\n  const operatorLicenceMatrix = await getOperatorLicenceMatrix.*?\n\n  return \(", "  const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')\n\n  return (")
+            const commandData""".replace('          ', ''),
+          )
+          regex_once(
+              page,
+              r"      cannabisOperators: \{\n        load: \(\) => getCannabisOperators\(countryIso2\),\n        fallback: undefined,\n        sourceLabel: 'Public operator projection',\n        access: 'public',\n      \},\n",
+              """      cannabisOperators: {
+                load: loadCannabisOperators,
+                fallback: undefined,
+                sourceLabel: 'Public operator projection',
+                access: 'public',
+              },
+              operatorLicenceMatrix: {
+                load: async () => getOperatorLicenceMatrix((await loadCannabisOperators()).map(operator => operator.id)),
+                fallback: { entitled: false as const },
+                sourceLabel: 'Authorized operator licence matrix',
+                access: 'operator',
+              },
+          """.replace('          ', ''),
+          )
+          replace_once(
+              page,
+              '    cannabisOperators,\n    cultivarPassports,\n',
+              '    cannabisOperators,\n    operatorLicenceMatrix,\n    cultivarPassports,\n',
+          )
+          regex_once(
+              page,
+              r"  const watchlistAccess = checkFeatureAccess\(\{ app_metadata: userAppMetadata \}, 'watchlist'\)\n  const operatorLicenceMatrix = await getOperatorLicenceMatrix.*?\n\n  const pathwayData",
+              "  const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')\n\n  const pathwayData",
+          )
 
           env_test = 'tests/supabase/env.test.ts'
-          replace_once(env_test, "import { afterEach, describe, expect, it, vi } from 'vitest'", "import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'")
-          replace_once(env_test, "describe('getSupabaseEnvStatus', () => {\n  afterEach", """describe('getSupabaseEnvStatus', () => {
+          replace_once(
+              env_test,
+              "import { afterEach, describe, expect, it, vi } from 'vitest'",
+              "import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'",
+          )
+          replace_once(
+              env_test,
+              "describe('getSupabaseEnvStatus', () => {\n  afterEach",
+              """describe('getSupabaseEnvStatus', () => {
             beforeEach(() => {
               process.env = { ...ORIGINAL_ENV }
               delete process.env.CI
@@ -520,20 +217,46 @@ jobs:
               vi.unstubAllGlobals()
             })
 
-            afterEach""".replace('          ', ''))
-          replace_once(env_test, "    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n", "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n")
-          replace_once(env_test, "    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n", "    process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n")
+            afterEach""".replace('          ', ''),
+          )
+          replace_once(
+              env_test,
+              "    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n",
+              "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n",
+          )
+          replace_once(
+              env_test,
+              "    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n",
+              "    process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE\n",
+          )
           ipv6 = "    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.VERCEL\n    delete process.env.VERCEL_ENV\n\n    expect(isExplicitLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)).toBe(true)\n    expect(getSupabaseUrl()).toBe('http://[::1]:54321')"
-          replace_once(env_test, ipv6, "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n" + ipv6)
-          replace_once(env_test, "    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.VERCEL = '1'\n", "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.VERCEL = '1'\n")
+          replace_once(
+              env_test,
+              ipv6,
+              "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n" + ipv6,
+          )
+          replace_once(
+              env_test,
+              "    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.VERCEL = '1'\n",
+              "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    process.env.VERCEL = '1'\n",
+          )
           alternate = "    process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'\n    delete process.env.VERCEL\n    delete process.env.VERCEL_ENV\n\n    expect(isExplicitLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)).toBe(false)"
-          replace_once(env_test, alternate, "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n" + alternate)
+          replace_once(
+              env_test,
+              alternate,
+              "    process.env.CI = '1'\n    process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'\n" + alternate,
+          )
 
-          replace_once('docs/control/CLAUDE_PRODUCTION_COMMAND_CENTRE_HANDOFF.md', '`components/dashboard/MobileCommandCentreV2.tsx`', '`components/dashboard/MobileCommandCentreRebuild.tsx`')
+          replace_once(
+              'docs/control/CLAUDE_PRODUCTION_COMMAND_CENTRE_HANDOFF.md',
+              '`components/dashboard/MobileCommandCentreV2.tsx`',
+              '`components/dashboard/MobileCommandCentreRebuild.tsx`',
+          )
 
           css = Path('components/dashboard/MobileCommandCentreRebuild.css')
           css_text = css.read_text()
-          addition = """
+          if '.hvm2-search-results ul {' not in css_text:
+              css.write_text(css_text.rstrip() + """
 
           .hvm2-search-results ul {
             display: grid;
@@ -546,23 +269,38 @@ jobs:
           .hvm2-search-results li {
             min-width: 0;
           }
-          """.replace('          ', '')
-          if '.hvm2-search-results ul {' not in css_text:
-              css.write_text(css_text.rstrip() + addition + '\n')
-
-          workflow = Path('.github/workflows/mobile-command-centre-v2-visual.yml')
-          workflow_text = workflow.read_text()
-          marker = '\n  review-fixes:\n'
-          if workflow_text.count(marker) != 1:
-              raise SystemExit('review-fixes self-removal marker missing or duplicated')
-          workflow_text = workflow_text.split(marker, 1)[0].rstrip() + '\n'
-          workflow_text = workflow_text.replace('permissions:\n  contents: write', 'permissions:\n  contents: read', 1)
-          workflow.write_text(workflow_text)
+          """.replace('          ', '') + '\n')
           PY
 
+      - name: Restore read-only evidence workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin 8bf6916d21c837ffb79f152971a85c68df2cd868 --depth=1
+          git checkout 8bf6916d21c837ffb79f152971a85c68df2cd868 -- .github/workflows/mobile-command-centre-v2-visual.yml
+
+      - name: Verify patched tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          npm ci
+          npx vitest run \
+            tests/dashboard/loadCommandCentreData.test.ts \
+            tests/dashboard/mobileCommandCentreV2.test.ts \
+            tests/dashboard/dashboardResponsiveShell.behavior.test.ts \
+            tests/platform/command-centre-typed-registry.test.ts \
+            tests/security/command-centre-boundaries.test.ts \
+            tests/supabase/env.test.ts
+          npm run typecheck
+
+      - name: Commit verified remediation
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git diff --cached --check
           git commit -m 'fix(command-centre): close production review blockers'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
