@@ -90,9 +90,21 @@ export function SearchSection({ sectionRef, searchQuery, signalResults, listingR
         <span>{listingResults.length} marketplace records</span>
       </div>
       {searchQuery.trim() && (
-        <div className="hvm2-search-results" role="list" aria-label="Command search results">
-          {signalResults.map(signal => <button type="button" role="listitem" key={`signal-${signal.id}`} onClick={onSignalSelect}><span>Signal</span><strong>{signal.title}</strong><small>{signal.market}</small></button>)}
-          {listingResults.map(row => <button type="button" role="listitem" key={`listing-${row.view}-${row.id}`} onClick={() => onListingSelect(row)}><span>Marketplace</span><strong>{row.title}</strong><small>{row.category} · {row.jurisdiction}</small></button>)}
+        <div className="hvm2-search-results">
+          {totalResults > 0 && (
+            <ul aria-label="Command search results">
+              {signalResults.map(signal => (
+                <li key={`signal-${signal.id}`}>
+                  <button type="button" onClick={onSignalSelect}><span>Signal</span><strong>{signal.title}</strong><small>{signal.market}</small></button>
+                </li>
+              ))}
+              {listingResults.map(row => (
+                <li key={`listing-${row.view}-${row.id}`}>
+                  <button type="button" onClick={() => onListingSelect(row)}><span>Marketplace</span><strong>{row.title}</strong><small>{row.category} · {row.jurisdiction}</small></button>
+                </li>
+              ))}
+            </ul>
+          )}
           {totalResults === 0 && <EmptyState title="No command records matched" detail="Try a country, product, regulatory topic or commercial category." />}
         </div>
       )}
