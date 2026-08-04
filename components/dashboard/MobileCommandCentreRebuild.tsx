@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import CommandCentreModuleRail from './CommandCentreModuleRail'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString } from './mobile-command/contracts'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
@@ -65,6 +66,8 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
       <nav className="hvm2-section-rail" aria-label="All mobile command sections">
         {SECTION_NAV.map(section => <button key={section.id} type="button" className={model.activeSection === section.id ? 'active' : ''} aria-current={model.activeSection === section.id ? 'page' : undefined} onClick={() => model.navigateToSection(section.id)}><span aria-hidden="true">{section.icon}</span>{section.label}</button>)}
       </nav>
+
+      <CommandCentreModuleRail country={model.currentCountry} role={model.currentRole} />
 
       <main className="hvm2-main">
         <OverviewSection sectionRef={model.sectionRef('overview')} countryLabel={model.countryLabel} roleLabel={model.roleLabel} publicSummary={props.countryIntel?.public_summary} marketAccessStatus={props.countryIntel?.market_access_status} reviewStatus={model.reviewStatus} dataCompleteness={model.dataCompleteness} firstAction={model.nextActions[0]} onOpenActions={() => model.navigateToSection('next-actions')} />
