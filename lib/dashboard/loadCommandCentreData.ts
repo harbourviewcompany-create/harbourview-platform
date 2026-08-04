@@ -5,8 +5,9 @@ import type {
   CommandCentreDataEnvelope,
   CommandCentreDataState,
   CommandCentreLoadContext,
+  CommandCentreSourceData,
   CommandCentreSourceDefinition,
-  CommandCentreSourceDefinitions,
+  CommandCentreSourceMap,
   CommandCentreSourceMeta,
 } from '@/lib/dashboard/commandCentreDataTypes'
 
@@ -58,11 +59,12 @@ function errorCode(error: unknown): string {
   return 'SOURCE_LOAD_FAILED'
 }
 
-export async function loadCommandCentreData<T extends Record<string, unknown>>(
+export async function loadCommandCentreData<TDefinitions extends CommandCentreSourceMap>(
   context: CommandCentreLoadContext,
-  definitions: CommandCentreSourceDefinitions<T>,
-): Promise<CommandCentreDataBundle<T>> {
-  const keys = Object.keys(definitions) as Array<keyof T>
+  definitions: TDefinitions,
+): Promise<CommandCentreDataBundle<CommandCentreSourceData<TDefinitions>>> {
+  type TData = CommandCentreSourceData<TDefinitions>
+  const keys = Object.keys(definitions) as Array<keyof TDefinitions>
   const startedAt = Date.now()
   const loadedAt = new Date(startedAt).toISOString()
 
@@ -75,17 +77,18 @@ export async function loadCommandCentreData<T extends Record<string, unknown>>(
     }),
   )
 
-  const data = {} as T
-  const sources = {} as CommandCentreDataBundle<T>['sources']
+  const data = {} as TData
+  const sources = {} as CommandCentreDataBundle<TData>['sources']
 
   settled.forEach((result, index) => {
     const key = keys[index]
     const definition = definitions[key]
+    const dataKey = key as keyof TData
 
     if (result.status === 'fulfilled') {
       const freshAt = normalizeDate(definition.freshAt?.(result.value.data))
-      data[key] = result.value.data
-      sources[key] = Object.freeze({
+      data[dataKey] = result.value.data as TData[keyof TData]
+      sources[dataKey] = Object.freeze({
         key: String(key),
         state: sourceState(definition, result.value.data, freshAt, startedAt),
         access: definition.access ?? 'authenticated',
@@ -99,9 +102,9 @@ export async function loadCommandCentreData<T extends Record<string, unknown>>(
       return
     }
 
-    data[key] = definition.fallback
+    data[dataKey] = definition.fallback as TData[keyof TData]
     const code = errorCode(result.reason)
-    sources[key] = Object.freeze({
+    sources[dataKey] = Object.freeze({
       key: String(key),
       state: defaultIsEmpty(definition.fallback) ? 'error' : 'fallback',
       access: definition.access ?? 'authenticated',
@@ -149,10 +152,10 @@ export async function loadCommandCentreSource<T>(
 ): Promise<CommandCentreDataEnvelope<T>> {
   const bundle = await loadCommandCentreData(context, {
     [key]: definition,
-  } as Record<string, CommandCentreSourceDefinition<T>>)
+  })
 
   return Object.freeze({
-    data: bundle.data[key],
+    data: bundle.data[key] as T,
     meta: bundle.sources[key],
   })
 }
