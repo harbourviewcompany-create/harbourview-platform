@@ -5,6 +5,15 @@ import CommandCentre from '@/components/dashboard/CommandCentre'
 import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 
+export function DashboardResponsiveShellContent({
+  isMobile,
+  ...props
+}: MobileCommandCentreProps & { isMobile: boolean }) {
+  return isMobile
+    ? <MobileCommandCentreRebuild {...props} />
+    : <CommandCentre {...props} />
+}
+
 export default function DashboardResponsiveShell(props: MobileCommandCentreProps) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null)
 
@@ -27,7 +36,5 @@ export default function DashboardResponsiveShell(props: MobileCommandCentreProps
     )
   }
 
-  return isMobile
-    ? <MobileCommandCentreRebuild {...props} />
-    : <CommandCentre {...props} />
+  return <DashboardResponsiveShellContent isMobile={isMobile} {...props} />
 }
