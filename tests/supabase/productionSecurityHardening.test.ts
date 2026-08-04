@@ -5,26 +5,28 @@ const migration = readFileSync('supabase/migrations/20260804190000_production_se
 const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs', 'utf8')
 
 describe('production Supabase security hardening', () => {
-  it('converts exposed views to security invoker and removes blanket application privileges', () => {
-    expect(migration).toContain("alter view %I.%I set (security_invoker = true)")
-    expect(migration).toContain('revoke all privileges on table %I.%I from anon, authenticated')
+  it('uses an explicit view inventory, existence guard, and security-invoker execution', () => {
+    expect(migration).toContain('public.view_exists(view_row.schema_name, view_row.relation_name)')
+    expect(migration).toContain('alter view %I.%I set (security_invoker = true)')
+    expect(migration).toContain('revoke all privileges on table %I.%I from public, anon, authenticated')
   })
 
-  it('keeps policyless RLS tables explicitly deny-by-default', () => {
-    expect(migration).toContain('deny_application_roles_until_reviewed')
-    expect(migration).toContain('using (false) with check (false)')
+  it('keeps policyless RLS tables deny-by-default without synthetic policies', () => {
+    expect(migration).toContain("and not exists (select 1 from pg_policy p where p.polrelid = c.oid)")
+    expect(migration).not.toContain('deny_application_roles_until_reviewed')
+    expect(migration).not.toContain('using (false) with check (false)')
   })
 
-  it('makes SECURITY DEFINER service-only with an explicit authenticated allowlist', () => {
+  it('closes SECURITY DEFINER routines and restores only explicit allowlists', () => {
     expect(migration).toContain('where p.prosecdef')
-    expect(migration).toContain('grant execute on %s %s to service_role')
     expect(migration).toContain("'api.get_command_centre_stats()'")
     expect(migration).toContain("'public.hv_is_platform_staff()'")
+    expect(migration).not.toContain('grant execute on all functions')
   })
 
   it('contains foreign tables and non-relocatable pg_net access', () => {
     expect(migration).toContain('information_schema.foreign_tables')
-    expect(migration).toContain('revoke usage on schema net from anon, authenticated')
+    expect(migration).toContain('revoke usage on schema net from public, anon, authenticated')
   })
 
   it('locks leaked-password protection to the production project and one config field', () => {
