@@ -46,7 +46,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
           <div><span>{model.countryLabel} · {model.roleShort}</span><h1>Operator command centre</h1></div>
           <Link href={model.commandHref('overview', { page: 'organization' })} className="hvm2-account-link" aria-label="Open organization in Command Centre">Organization</Link>
         </div>
-        <div className="hvm2-context-controls" aria-label="Dashboard context">
+        <div className="hvm2-context-controls" role="group" aria-label="Dashboard context">
           <label>
             <span>Jurisdiction</span>
             <select value={model.currentCountry} onChange={event => model.updateContext('country', event.target.value)}>
