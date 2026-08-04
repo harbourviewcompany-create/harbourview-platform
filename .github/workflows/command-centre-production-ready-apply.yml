@@ -60,11 +60,10 @@ jobs:
 
       - name: Build clean candidate tree
         shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          git reset --hard "$BASE_SHA"
+          git fetch origin build/harbourview-production-command-platform
+          git reset --hard origin/build/harbourview-production-command-platform
           rm -f .production-ready-bundle.b64
           tar -xzf /tmp/production-ready-bundle.tgz
           python - <<'PY'
