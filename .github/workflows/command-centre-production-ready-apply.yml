@@ -3,17 +3,15 @@ name: Command Centre Production Ready Apply
 on:
   pull_request:
     branches:
-      - main
+      - build/harbourview-production-command-platform
     paths:
-      - .production-ready-bundle.b64
-      - .github/workflows/command-centre-production-ready-apply.yml
-  workflow_dispatch:
+      - .production-ready-chunk.*
 
 permissions:
   contents: write
 
 concurrency:
-  group: command-centre-production-ready-apply-${{ github.event.pull_request.number || github.ref }}
+  group: command-centre-production-ready-apply-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -26,11 +24,11 @@ jobs:
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
-      - name: Checkout PR branch
+      - name: Checkout staging branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
-          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
           persist-credentials: true
 
       - name: Set up Node
@@ -39,13 +37,36 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Apply staged source bundle
+      - name: Reconstruct and verify exact source bundle
         shell: bash
         run: |
           set -euo pipefail
-          base64 --decode .production-ready-bundle.b64 > /tmp/production-ready-bundle.tgz
+          cat \
+            .production-ready-chunk.00 \
+            .production-ready-chunk.01 \
+            .production-ready-chunk.02 \
+            .production-ready-chunk.03 \
+            .production-ready-chunk.04 \
+            .production-ready-chunk.05 \
+            .production-ready-chunk.06 \
+            .production-ready-chunk.07 \
+            .production-ready-chunk.07a \
+            .production-ready-chunk.08 \
+            .production-ready-chunk.10 \
+            .production-ready-chunk.11 > /tmp/production-ready-bundle.b64
+          echo 'e89dd4cf1a8b3d8ddb583d84cb812468eb7162fe912eb724e0b3c29cf7f71542  /tmp/production-ready-bundle.b64' | sha256sum --check
+          base64 --decode /tmp/production-ready-bundle.b64 > /tmp/production-ready-bundle.tgz
+          tar -tzf /tmp/production-ready-bundle.tgz >/dev/null
+
+      - name: Build clean candidate tree
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git reset --hard "$BASE_SHA"
+          rm -f .production-ready-bundle.b64
           tar -xzf /tmp/production-ready-bundle.tgz
-          rm .production-ready-bundle.b64
           git diff --check
 
       - name: Verify product tree
@@ -62,7 +83,7 @@ jobs:
           npm run typecheck
           npm run build
 
-      - name: Commit verified product changes
+      - name: Commit verified non-workflow changes
         shell: bash
         run: |
           set -euo pipefail
@@ -71,4 +92,4 @@ jobs:
           git add -A -- ':!.github/workflows/**'
           git diff --cached --check
           git commit -m 'feat(command-centre): close production readiness blockers'
-          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
+          git push --force-with-lease origin HEAD:${{ github.event.pull_request.head.ref }}
