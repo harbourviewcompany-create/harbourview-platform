@@ -1,9 +1,9 @@
 name: Command Centre Source Export
 
 on:
-  push:
+  pull_request:
     branches:
-      - build/harbourview-production-command-platform
+      - main
     paths:
       - .github/workflows/command-centre-source-export.yml
   workflow_dispatch:
@@ -19,6 +19,7 @@ jobs:
       - name: Checkout exact branch head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
       - name: Package source
