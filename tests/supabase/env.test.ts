@@ -35,6 +35,7 @@ describe('getSupabaseEnvStatus', () => {
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
     vi.unstubAllGlobals()
@@ -51,6 +52,9 @@ describe('getSupabaseEnvStatus', () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID
+    delete process.env.GITHUB_ACTIONS
+    delete process.env.GITHUB_RUN_ID
 
     expect(() => getSupabaseEnvStatus()).not.toThrow()
 
@@ -76,6 +80,9 @@ describe('getSupabaseEnvStatus', () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID
+    delete process.env.GITHUB_ACTIONS
+    delete process.env.GITHUB_RUN_ID
 
     expect(() => getSupabaseEnvStatus()).not.toThrow()
 
@@ -100,7 +107,10 @@ describe('getSupabaseEnvStatus', () => {
     process.env.CI = '1'
     process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.GITHUB_ACTIONS = 'true'
+    process.env.GITHUB_RUN_ID = '12345'
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
 
@@ -122,6 +132,7 @@ describe('getSupabaseEnvStatus', () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
     process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID = '12345'
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
@@ -136,6 +147,8 @@ describe('getSupabaseEnvStatus', () => {
     process.env.CI = '1'
     process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.GITHUB_ACTIONS = 'true'
+    process.env.GITHUB_RUN_ID = '12345'
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
 
@@ -148,6 +161,9 @@ describe('getSupabaseEnvStatus', () => {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-local-test-key'
     delete process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE
     delete process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE
+    delete process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID
+    delete process.env.GITHUB_ACTIONS
+    delete process.env.GITHUB_RUN_ID
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
 
@@ -163,7 +179,10 @@ describe('getSupabaseEnvStatus', () => {
     process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.GITHUB_ACTIONS = 'true'
+    process.env.GITHUB_RUN_ID = '12345'
     process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID = '12345'
     process.env.VERCEL = '1'
     process.env.VERCEL_ENV = 'preview'
 
@@ -178,6 +197,8 @@ describe('getSupabaseEnvStatus', () => {
     process.env.CI = '1'
     process.env.HARBOURVIEW_LOCAL_TEST_BUILD = '1'
     process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE = '1'
+    process.env.GITHUB_ACTIONS = 'true'
+    process.env.GITHUB_RUN_ID = '12345'
     delete process.env.VERCEL
     delete process.env.VERCEL_ENV
 

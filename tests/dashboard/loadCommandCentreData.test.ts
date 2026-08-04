@@ -132,4 +132,28 @@ describe('loadCommandCentreData', () => {
     expect(bundle.sources.hanging.durationMs).toBeGreaterThanOrEqual(50)
     expect(bundle.sources.hanging.durationMs).toBeLessThan(100)
   })
+
+  it('does not execute disabled sources and excludes them from bundle health', async () => {
+    const disabledLoad = vi.fn(async () => ['should-not-load'])
+    const bundle = await loadCommandCentreData(context, {
+      active: {
+        load: async () => ['ready'],
+        fallback: [],
+        sourceLabel: 'Active source',
+      },
+      disabled: {
+        enabled: false,
+        load: disabledLoad,
+        fallback: [],
+        sourceLabel: 'Disabled source',
+      },
+    })
+
+    expect(disabledLoad).not.toHaveBeenCalled()
+    expect(bundle.data.disabled).toEqual([])
+    expect(bundle.sources.disabled.requested).toBe(false)
+    expect(bundle.sources.active.requested).toBe(true)
+    expect(bundle.state).toBe('live')
+  })
+
 })

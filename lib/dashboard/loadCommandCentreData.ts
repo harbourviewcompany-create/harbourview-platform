@@ -115,13 +115,17 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
   const settled = await Promise.allSettled(
     keys.map(async key => {
       const definition = definitions[key]
+      if (definition.enabled === false) {
+        return { key, data: definition.fallback, durationMs: 0, requested: false }
+      }
+
       const sourceStartedAt = Date.now()
       try {
         const data = await withTimeout(
           definition.load,
           definition.timeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS,
         )
-        return { key, data, durationMs: Date.now() - sourceStartedAt }
+        return { key, data, durationMs: Date.now() - sourceStartedAt, requested: true }
       } catch (error) {
         throw new CommandCentreSourceFailure(error, Date.now() - sourceStartedAt)
       }
@@ -149,6 +153,7 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
         staleAfterMs: definition.staleAfterMs ?? null,
         durationMs: result.value.durationMs,
         errorCode: null,
+        requested: result.value.requested,
       }) as CommandCentreSourceMeta
       return
     }
@@ -168,6 +173,7 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
       staleAfterMs: definition.staleAfterMs ?? null,
       durationMs: failure.durationMs,
       errorCode: code,
+      requested: true,
     }) as CommandCentreSourceMeta
 
     console.error('[command-centre-source]', {
@@ -179,8 +185,10 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
     })
   })
 
-  const states = Object.values(sources).map(source => source.state)
-  const state: CommandCentreDataState = states.some(value => value === 'error')
+  const states = Object.values(sources).filter(source => source.requested).map(source => source.state)
+  const state: CommandCentreDataState = states.length === 0
+    ? 'live'
+    : states.some(value => value === 'error')
     ? (states.some(value => value !== 'error') ? 'partial' : 'error')
     : states.some(value => value === 'fallback')
       ? 'partial'

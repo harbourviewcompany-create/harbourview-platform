@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { COMMAND_CENTRE_COPY } from '@/lib/platform/commandCentreCopy'
 
 export default function DashboardError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -32,13 +33,13 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
         }}
       >
         <p style={{ margin: 0, color: '#c6a55a', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-          Harbourview Command Centre
+          {COMMAND_CENTRE_COPY.errorBoundary.eyebrow}
         </p>
         <h1 style={{ margin: '12px 0 8px', fontFamily: 'Georgia, serif', fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 400 }}>
-          The command surface could not finish loading
+          {COMMAND_CENTRE_COPY.errorBoundary.title}
         </h1>
         <p style={{ margin: 0, color: 'rgba(245,241,232,.66)', lineHeight: 1.65 }}>
-          The platform stopped before presenting incomplete or unreliable operating information. Retry the request. If the issue persists, the failure digest can be used for support review.
+          {COMMAND_CENTRE_COPY.errorBoundary.detail}
         </p>
         {error.digest && (
           <p style={{ margin: '16px 0 0', color: 'rgba(245,241,232,.42)', fontFamily: 'monospace', fontSize: 12 }}>
@@ -59,7 +60,7 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
             fontWeight: 800,
           }}
         >
-          Retry command centre
+          {COMMAND_CENTRE_COPY.errorBoundary.retry}
         </button>
       </section>
     </main>

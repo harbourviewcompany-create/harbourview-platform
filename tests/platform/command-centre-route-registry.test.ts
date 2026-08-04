@@ -39,7 +39,7 @@ describe('production command centre route registry', () => {
     for (const route of PUBLIC_ENTRY_EXCEPTIONS) expect(redirectSources.has(route)).toBe(false)
   })
 
-  it('does not force public product routes through authenticated dashboard before guest parity', () => {
+  it('retains canonical public entry surfaces outside the authenticated command route', () => {
     const publicProductRoutes = [
       '/intelligence',
       '/intelligence/country-briefs',
@@ -63,7 +63,7 @@ describe('production command centre route registry', () => {
     for (const source of publicProductRoutes) {
       const policy = COMMAND_CENTRE_ROUTE_POLICY.find(route => route.source === source)
       expect(policy).toBeDefined()
-      expect(policy?.mode).toBe('redirect-after-parity')
+      expect(policy?.mode).toBe('retain-public')
     }
   })
 
@@ -75,10 +75,12 @@ describe('production command centre route registry', () => {
     })
   })
 
-  it('keeps transactional routes shareable until intercepted shell workflows exist', () => {
-    for (const source of ['/marketplace/sell', '/marketplace/wanted', '/marketplace/financing', '/intake']) {
+  it('activates only the three transaction workflows with verified in-shell reload parity', () => {
+    for (const source of ['/marketplace/sell', '/marketplace/wanted', '/marketplace/financing']) {
       const policy = COMMAND_CENTRE_ROUTE_POLICY.find(route => route.source === source)
-      expect(policy?.mode).toBe('intercept-next')
+      expect(policy?.mode).toBe('redirect-now')
+      expect(policy?.destination).toContain('tool=')
     }
+    expect(COMMAND_CENTRE_ROUTE_POLICY.find(route => route.source === '/intake')?.mode).toBe('retain-public')
   })
 })

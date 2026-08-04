@@ -1,22 +1,15 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
-import { fetchDashboardSignals, fetchDailyDigest, getEduCategoriesForRole, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
-import { getPipelineCounts, getWantedListings, getLiveEduTiles, getCountryIntelProfile, getOrgPathwayProgress, getPublicPathwayTemplate, getWatchlistData, getEvidenceData, getRecentEduModules, getLocalIntel, getSourceCoverage, getRegistryCoverageSummary, getJurisdictionPlaybook, getEducationTracks, getMarketMetrics, getTradeFlows, getProfessionals, getCannabisOperators, getUserMarketplaceSubmissions, getCountryEducationOverlays } from '@/lib/dashboard/dashboardLiveData'
-import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
-import { getPublicCultivarPassports, getPublicServiceProviders, getPublicCollaborationProjects } from '@/lib/genetics/queries'
-import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
-import { checkFeatureAccess } from '@/lib/billing/entitlements'
-import { getOperatorLicenceMatrix } from '@/lib/intelligence/operatorIntelligence'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'
-import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
-import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
-import { getListingsBySections } from '@/lib/server/listingsQuery'
-import type { PublicListing } from '@/lib/server/listingsQuery'
-import type { RoleId } from '@/types/globe-router'
-import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
+import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
+import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
+import { checkFeatureAccess } from '@/lib/billing/entitlements'
+import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
+import { createClient } from '@/lib/supabase/server'
+import type { RoleId } from '@/types/globe-router'
 
 export const metadata: Metadata = {
   title: 'Dashboard | Harbourview',
@@ -43,16 +36,6 @@ const ROLE_ALIASES: Record<string, RoleId> = {
   regulator: 'government_regulator',
 }
 
-const VIEW_SECTIONS: Record<MarketView, string[]> = {
-  cannabis:        ['cannabis_inventory', 'export_ready', 'export', 'import_demand', 'genetics', 'flower', 'extract', 'biomass'],
-  equipment:       ['cultivation_equipment', 'processing_equipment', 'used_surplus', 'equipment'],
-  consumables:     ['consumables', 'packaging'],
-  'new-products':  ['new_products', 'new-products'],
-  services:        ['services', 'professional_services', 'logistics', 'lab_testing', 'labs_testing'],
-  opportunities:   ['distressed_businesses', 'distressed_inventory', 'business_opportunities', 'qualified_access', 'wanted_requests'],
-  wanted:          ['wanted_requests', 'wanted'],
-}
-
 function firstParam(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null
   return typeof value === 'string' && value.trim() ? value : null
@@ -72,95 +55,6 @@ function normalizeRoleParam(raw: string | null): string | null {
   const key = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
   const resolved = ROLE_ALIASES[key] ?? (key as RoleId)
   return ROLE_PROFILES[resolved] ? resolved : null
-}
-
-function safeText(value: string | null | undefined, fallback: string): string {
-  return value && value.trim() ? value.trim() : fallback
-}
-
-function formatTitle(input: string): string {
-  return input
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map(part => part.slice(0, 1).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function getListingSpecType(listing: PublicListing): MarketRow[0] {
-  const s = listing.marketplace_section
-  if (s === 'equipment' || s === 'used_surplus' || s === 'cultivation_equipment' || s === 'processing_equipment') return 'equip'
-  if (s === 'services' || s === 'professional_services' || s === 'logistics' || s === 'lab_testing') return 'service'
-  return 'supply'
-}
-
-function getListingTags(listing: PublicListing): string {
-  const specs = Object.entries(listing.high_level_specs)
-    .slice(0, 3)
-    .map(([key]) => key)
-  return [listing.category, listing.subcategory, listing.product_type, listing.location_country, ...specs]
-    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
-    .slice(0, 5)
-    .map(v => v.replace(/\s+/g, '-').toLowerCase())
-    .join('|')
-}
-
-function getTrustBar(listing: PublicListing): string {
-  const st = listing.seller_type ?? ''
-  const ver   = st === 'verified_seller'   ? 'VER:ok'   : st === 'licensed_operator' ? 'VER:ok'   : 'VER:warn'
-  const proof = st === 'verified_seller'   ? 'PROOF:ok' : st === 'licensed_operator' ? 'PROOF:warn': 'PROOF:warn'
-  const specs = listing.high_level_specs ?? {}
-  const reg   = specs.regulatory_ready    ? 'REG:ok'   : 'REG:warn'
-  const rawScore = typeof specs.score === 'number' ? specs.score : 0
-  const score = rawScore > 0 ? `${rawScore}:${rawScore >= 80 ? 'ok' : 'warn'}` : null
-  const parts = [ver, proof, reg, score, 'PUBLIC'].filter(Boolean)
-  return parts.join('|')
-}
-
-function mapListingToDashboardRow(listing: PublicListing): MarketRow {
-  const categoryLabel = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
-  const regionLabel = listing.location_region ?? listing.location_country ?? listing.region
-  const st = listing.seller_type ?? ''
-  const isVerified = st === 'verified_seller' || st === 'licensed_operator'
-  const rawScore = typeof (listing.high_level_specs as Record<string, unknown>)?.score === 'number'
-    ? (listing.high_level_specs as Record<string, unknown>).score as number
-    : 0
-  const confidence = rawScore > 0 ? String(rawScore) : isVerified ? '78' : '62'
-
-  const averageRating = Number(listing.average_rating) || 0
-  const reviewCount = Number(listing.review_count) || 0
-
-  return [
-    listing.title,
-    safeText(listing.description, `${categoryLabel} listing${regionLabel ? ' — ' + regionLabel : ''}.`),
-    listing.location_country ?? listing.region ?? '',
-    categoryLabel,
-    isVerified ? 'Verified' : 'Pending Review',
-    isVerified ? 'Licensed Direct' : 'Mediated',
-    confidence,
-    listing.id,
-    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
-    reviewCount > 0 ? String(reviewCount) : '',
-  ]
-}
-
-async function getDashboardMarketplaceRows(
-  countryIso2?: string | null,
-): Promise<Partial<DashboardMarketplaceRows>> {
-  const allSections = Array.from(new Set(Object.values(VIEW_SECTIONS).flat()))
-  const listings = await getListingsBySections(allSections, countryIso2, 56)
-  const buckets: Partial<DashboardMarketplaceRows> = {}
-  for (const listing of listings) {
-    const matchingViews = (Object.entries(VIEW_SECTIONS) as [MarketView, string[]][])
-      .filter(([, sections]) => sections.includes(listing.marketplace_section))
-      .map(([view]) => view)
-    const views: MarketView[] = matchingViews.length > 0 ? matchingViews : ['cannabis']
-
-    for (const view of views) {
-      if (!buckets[view]) buckets[view] = []
-      if (buckets[view]!.length < 8) buckets[view]!.push(mapListingToDashboardRow(listing))
-    }
-  }
-  return buckets
 }
 
 export default async function DashboardPage({
@@ -212,194 +106,17 @@ export default async function DashboardPage({
 
   const countryIso2 = urlCountry ?? storedCountryIso2
   const roleId = urlRole ?? storedRoleId
-  let cannabisOperatorsRequest: ReturnType<typeof getCannabisOperators> | null = null
-  const loadCannabisOperators = () => {
-    cannabisOperatorsRequest ??= getCannabisOperators(countryIso2)
-    return cannabisOperatorsRequest
-  }
-
+  const loadContext = {
+    countryIso2,
+    roleId,
+    page: urlPage,
+    userId,
+    userEmail,
+    hasOrganization: hasOrg,
+  } as const
   const commandData = await loadCommandCentreData(
-    {
-      countryIso2,
-      roleId,
-      page: urlPage,
-      userId,
-      userEmail,
-      hasOrganization: hasOrg,
-    },
-    {
-      signals: {
-        load: () => fetchDashboardSignals(30),
-        fallback: [],
-        sourceLabel: 'Harbourview intelligence signals',
-        access: 'public',
-        staleAfterMs: 7 * 24 * 60 * 60 * 1000,
-      },
-      dailyDigest: {
-        load: () => urlPage === 'digest'
-          ? fetchDailyDigest(20, ALL_COUNTRIES.find(country => country.iso2 === countryIso2)?.displayName)
-          : Promise.resolve({ signals: [], window: 'recent' as const }),
-        fallback: { signals: [], window: 'recent' as const },
-        sourceLabel: 'Harbourview daily digest',
-      },
-      wantedCount: {
-        load: () => getWantedRequestsCount(),
-        fallback: 0,
-        sourceLabel: 'Public wanted demand count',
-        access: 'public',
-      },
-      marketplaceRows: {
-        load: () => getDashboardMarketplaceRows(countryIso2),
-        fallback: {},
-        sourceLabel: 'Public marketplace projection',
-        access: 'public',
-      },
-      pipeline: {
-        load: () => getPipelineCounts(),
-        fallback: undefined,
-        sourceLabel: 'Authenticated marketplace pipeline',
-      },
-      wantedListings: {
-        load: () => getWantedListings(countryIso2),
-        fallback: [],
-        sourceLabel: 'Public wanted listings',
-        access: 'public',
-      },
-      countryIntel: {
-        load: () => getCountryIntelProfile(countryIso2),
-        fallback: null,
-        sourceLabel: 'Country intelligence profile',
-        access: 'public',
-      },
-      liveEduTiles: {
-        load: () => getLiveEduTiles(roleId, 6),
-        fallback: [],
-        sourceLabel: 'Role education modules',
-        access: 'public',
-      },
-      orgPathway: {
-        load: () => getOrgPathwayProgress(userId, countryIso2, roleId),
-        fallback: undefined,
-        sourceLabel: 'Organization pathway progress',
-      },
-      publicPathway: {
-        load: () => getPublicPathwayTemplate(countryIso2, roleId),
-        fallback: undefined,
-        sourceLabel: 'Public pathway template',
-        access: 'public',
-      },
-      watchlistData: {
-        load: () => getWatchlistData(userId),
-        fallback: undefined,
-        sourceLabel: 'Authenticated watchlist',
-      },
-      evidenceData: {
-        load: () => getEvidenceData(userId, countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Authorized evidence summary',
-      },
-      recentEduModules: {
-        load: () => getRecentEduModules(3),
-        fallback: [],
-        sourceLabel: 'Recent education modules',
-        access: 'public',
-      },
-      localIntel: {
-        load: () => getLocalIntel(countryIso2),
-        fallback: null,
-        sourceLabel: 'Local intelligence',
-        access: 'public',
-      },
-      sourceCoverage: {
-        load: () => getSourceCoverage(countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Public source coverage',
-        access: 'public',
-      },
-      registryCoverageSummary: {
-        load: () => getRegistryCoverageSummary(countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Registry coverage summary',
-        access: 'public',
-      },
-      jurisdictionPlaybook: {
-        load: () => getJurisdictionPlaybook(countryIso2),
-        fallback: null,
-        sourceLabel: 'Jurisdiction playbook',
-        access: 'public',
-      },
-      educationTracks: {
-        load: () => getEducationTracks(),
-        fallback: [],
-        sourceLabel: 'Education tracks',
-        access: 'public',
-      },
-      marketMetrics: {
-        load: () => getMarketMetrics(countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Market metrics',
-        access: 'public',
-      },
-      tradeFlows: {
-        load: () => getTradeFlows(countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Trade flow intelligence',
-        access: 'public',
-      },
-      professionals: {
-        load: () => getProfessionals(countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Public professional projection',
-        access: 'public',
-      },
-      cannabisOperators: {
-        load: loadCannabisOperators,
-        fallback: undefined,
-        sourceLabel: 'Public operator projection',
-        access: 'public',
-      },
-      operatorLicenceMatrix: {
-        load: async () => getOperatorLicenceMatrix((await loadCannabisOperators()).map(operator => operator.id)),
-        fallback: { entitled: false as const },
-        sourceLabel: 'Authorized operator licence matrix',
-        access: 'operator',
-      },
-      cultivarPassports: {
-        load: () => getPublicCultivarPassports(),
-        fallback: [],
-        sourceLabel: 'Public cultivar passports',
-        access: 'public',
-      },
-      serviceProviders: {
-        load: () => getPublicServiceProviders(),
-        fallback: [],
-        sourceLabel: 'Public service providers',
-        access: 'public',
-      },
-      collaborationProjects: {
-        load: () => getPublicCollaborationProjects(),
-        fallback: [],
-        sourceLabel: 'Public collaboration projects',
-        access: 'public',
-      },
-      mySubmissions: {
-        load: () => getUserMarketplaceSubmissions(userId),
-        fallback: [],
-        sourceLabel: 'Authenticated marketplace submissions',
-      },
-      countryEducationOverlays: {
-        load: () => getCountryEducationOverlays(countryIso2, roleId),
-        fallback: [],
-        sourceLabel: 'Country education overlays',
-        access: 'public',
-      },
-      pathwayMatrix: {
-        load: () => getCountryPathwayMatrix(countryIso2),
-        fallback: undefined,
-        sourceLabel: 'Regulatory pathway matrix',
-        access: 'public',
-      },
-    },
+    loadContext,
+    buildDashboardCommandSources(loadContext),
   )
 
   const {

@@ -1,4 +1,7 @@
 import type { CommandPage, MarketRow, MarketView } from '../CommandCentre'
+import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
+
+export { MOBILE_COMMAND_COPY }
 
 export type SectionId =
   | 'overview'
@@ -185,41 +188,7 @@ export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'financing-intake',
 ])
 
-// Controlling copy source: docs/control/DASHBOARD_DESIGN_HANDOFF.md
-// Public/private projection boundaries are additionally enforced by the
-// Harbourview marketplace leakage regression suite.
-export const MOBILE_COMMAND_COPY = {
-  marketplaceDescription:
-    'Review approved records, search the active category, post demand and move qualified opportunities into controlled Harbourview workflows.',
-  marketplaceEmptyDetail:
-    'The category remains available. Adjust the search or post a wanted requirement for Harbourview review.',
-  listingFallback:
-    'Commercial detail is available through a controlled Harbourview workflow.',
-  listingChannel: 'Harbourview mediated',
-  reviewedIntroduction: 'Request reviewed introduction',
-  supplyReview: 'Start controlled supply review',
-  wantedIntakeDescription:
-    'Create a buyer-led requirement without leaving Mobile Command. The submission remains review-gated before publication or counterparty routing.',
-  supplyIntakeDescription:
-    'Add product, equipment, consumable, service or opportunity supply directly inside Mobile Command.',
-  introductionDescription:
-    'Harbourview reviews authorization, evidence, commercial fit and disclosure boundaries before any counterparty introduction.',
-  financingInquiryDescription:
-    'Complete the reviewed financing inquiry without leaving Mobile Command. This creates an inquiry only; it does not approve credit.',
-  transactionPipeline:
-    'Harbourview remains the mediated layer between demand, proof review, qualified matches and controlled deal-room access.',
-  reviewDescription:
-    'Commercial visibility, introductions and sensitive detail remain controlled by evidence, authorization and operator review.',
-  controlTitle: 'Controlled by default',
-  controlDetail:
-    'No supplier identity, private source evidence, internal review notes or counterparty detail is released from this mobile surface.',
-  directoryDescription:
-    'Directory records remain evidence-aware and mediated rather than exposing an open supplier or counterparty directory.',
-  geneticsEmptyDetail:
-    'Genetics remains available through controlled program and evidence requests.',
-  financingDescription:
-    'Financing is reviewed alongside jurisdiction, evidence, counterparty and transaction readiness—not as an instant checkout product.',
-} as const
+// Customer-facing control copy is versioned in lib/platform/commandCentreCopy.ts.
 
 export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {}

@@ -8,7 +8,7 @@ import type { CommandPage } from '@/components/dashboard/CommandCentre'
 import { SECTION_IDS, type SectionId } from '@/components/dashboard/mobile-command/contracts'
 
 export type CommandCentreCriticality = 'launch-critical' | 'important'
-export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next'
+export type CommandCentreRouteMode = 'redirect-now' | 'redirect-after-parity' | 'intercept-next' | 'retain-public'
 
 export type CommandCentreModule = Readonly<{
   id: string
@@ -139,7 +139,7 @@ function normalizeRoute(value: unknown, index: number): CommandCentreRoutePolicy
   assertString(record.destination, `route ${index}.destination`)
   assertString(record.reason, `route ${index}.reason`)
 
-  if (!['redirect-now', 'redirect-after-parity', 'intercept-next'].includes(String(record.mode))) {
+  if (!['redirect-now', 'redirect-after-parity', 'intercept-next', 'retain-public'].includes(String(record.mode))) {
     throw new Error(`[command-centre-registry] route ${record.source}.mode is invalid`)
   }
 

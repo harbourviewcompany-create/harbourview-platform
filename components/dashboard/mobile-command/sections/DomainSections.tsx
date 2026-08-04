@@ -13,7 +13,7 @@ type CommandHref = (section: SectionId, changes?: Record<string, string | null>)
 
 export function GeneticsSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: DirectoryRecord[]; commandHref: CommandHref }) {
   return (
-    <SectionShell id="genetics" sectionRef={sectionRef} eyebrow="Genetics" title="Cultivar and program intelligence" description="Reviewed cultivar passports and genetics records remain tied to evidence and controlled requests." action={<Link className="hvm2-text-link" href={commandHref('genetics')}>Genetics command</Link>}>
+    <SectionShell id="genetics" sectionRef={sectionRef} eyebrow="Genetics" title="Cultivar and program intelligence" description={MOBILE_COMMAND_COPY.geneticsDescription} action={<Link className="hvm2-text-link" href={commandHref('genetics')}>Genetics command</Link>}>
       {records.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {records.map(item => <article className="hvm2-directory-card" key={item.id}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
@@ -37,10 +37,10 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
     : 'Prescriber pathway review'
 
   return (
-    <SectionShell id="clinical" sectionRef={sectionRef} eyebrow="Clinical" title="Clinical access and education" description="Country-specific patient, prescriber and pharmacy context is kept separate from commercial claims." action={<Link className="hvm2-text-link" href={commandHref('clinical')}>Clinical command</Link>}>
+    <SectionShell id="clinical" sectionRef={sectionRef} eyebrow="Clinical" title="Clinical access and education" description={MOBILE_COMMAND_COPY.clinicalDescription} action={<Link className="hvm2-text-link" href={commandHref('clinical')}>Clinical command</Link>}>
       <div className="hvm2-two-column">
-        <article><span>Patient access</span><h3>{programStatus || formatStatus(medicalStatus, 'Clinical pathway review')}</h3><p>{patientAccess || 'Patient-access detail is available when supported by reviewed jurisdiction evidence.'}</p></article>
-        <article><span>Prescriber access</span><h3>{prescriberStatus}</h3><p>{physicianAccess || `${roleShort} prescribing, dispensing and professional obligations remain jurisdiction-specific and evidence-gated.`}</p></article>
+        <article><span>Patient access</span><h3>{programStatus || formatStatus(medicalStatus, 'Clinical pathway review')}</h3><p>{patientAccess || MOBILE_COMMAND_COPY.clinicalPatientFallback}</p></article>
+        <article><span>Prescriber access</span><h3>{prescriberStatus}</h3><p>{physicianAccess || `${roleShort}: ${MOBILE_COMMAND_COPY.clinicalProfessionalFallback}`}</p></article>
       </div>
     </SectionShell>
   )
@@ -57,11 +57,11 @@ export function ComplianceSection({ sectionRef, regulatoryTier, outlook, dataCom
   commandHref: CommandHref
 }) {
   return (
-    <SectionShell id="compliance" sectionRef={sectionRef} eyebrow="Compliance" title="Regulatory and quality control" description="Import/export, licensing, quality and evidence requirements are consolidated for the active market-role combination." action={<Link className="hvm2-text-link" href={commandHref('compliance')}>Compliance command</Link>}>
+    <SectionShell id="compliance" sectionRef={sectionRef} eyebrow="Compliance" title="Regulatory and quality control" description={MOBILE_COMMAND_COPY.complianceDescription} action={<Link className="hvm2-text-link" href={commandHref('compliance')}>Compliance command</Link>}>
       <div className="hvm2-compliance-grid">
-        <article><span>Regulatory tier</span><strong>{formatStatus(regulatoryTier)}</strong><p>{outlook || 'Regulatory outlook requires reviewed source support.'}</p></article>
+        <article><span>Regulatory tier</span><strong>{formatStatus(regulatoryTier)}</strong><p>{outlook || MOBILE_COMMAND_COPY.complianceOutlookFallback}</p></article>
         <article><span>Quality posture</span><strong>{dataCompleteness}</strong><p>{playbookStatus}</p></article>
-        <article><span>Access pathway</span><strong>{formatStatus(marketAccessStatus)}</strong><p>{pathway || 'Licence, permit, customs and quality gates remain jurisdiction-specific.'}</p></article>
+        <article><span>Access pathway</span><strong>{formatStatus(marketAccessStatus)}</strong><p>{pathway || MOBILE_COMMAND_COPY.compliancePathwayFallback}</p></article>
       </div>
     </SectionShell>
   )
@@ -76,7 +76,7 @@ export function NetworkSection({ sectionRef, professionalCount, providerCount, o
   commandHref: CommandHref
 }) {
   return (
-    <SectionShell id="network" sectionRef={sectionRef} eyebrow="Network" title="Reviewed commercial network" description="Professionals, service providers, licensed operators and collaboration projects remain available through controlled Harbourview access paths." action={<Link className="hvm2-text-link" href={commandHref('network')}>Network command</Link>}>
+    <SectionShell id="network" sectionRef={sectionRef} eyebrow="Network" title="Reviewed commercial network" description={MOBILE_COMMAND_COPY.networkDescription} action={<Link className="hvm2-text-link" href={commandHref('network')}>Network command</Link>}>
       <div className="hvm2-metric-grid">
         <Metric label="Professionals" value={professionalCount} detail="Reviewed professional records" />
         <Metric label="Service providers" value={providerCount} detail="Approved capability records" />

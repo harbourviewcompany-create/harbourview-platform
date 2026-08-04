@@ -99,7 +99,7 @@ export function MarketplaceWorkspacePanel({
           <h3>{config.title}</h3>
           <p>{config.description}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close marketplace workflow">Close</button>
+        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.marketplaceWorkflowClose}>Close</button>
       </header>
 
       {selectedListing && tool === 'introduction' && (
@@ -137,11 +137,11 @@ export function FinancingWorkspacePanel({ open, onClose }: { open: boolean; onCl
     >
       <header className="hvm2-workspace-header">
         <div>
-          <span>Trade finance command / structured inquiry</span>
-          <h3>Request financing support</h3>
+          <span>{MOBILE_COMMAND_COPY.financingWorkflowEyebrow}</span>
+          <h3>{MOBILE_COMMAND_COPY.financingWorkflowTitle}</h3>
           <p>{MOBILE_COMMAND_COPY.financingInquiryDescription}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close financing workflow">Close</button>
+        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.financingWorkflowClose}>Close</button>
       </header>
       <FinancingInquiryForm />
     </section>

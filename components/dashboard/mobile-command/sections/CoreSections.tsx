@@ -276,7 +276,7 @@ export function SupplySection({
       sectionRef={sectionRef}
       eyebrow="Supply"
       title="Products, consumables, equipment and services"
-      description="The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products."
+      description={MOBILE_COMMAND_COPY.supplyDescription}
       action={<button type="button" className="hvm2-text-link" onClick={() => onOpenTool('supply-intake', { marketView: 'cannabis' })}>Submit supply</button>}
     >
       <div className="hvm2-metric-grid">
@@ -286,7 +286,7 @@ export function SupplySection({
         <div className="hvm2-horizontal-deck hvm2-deck-spaced">
           {supplyRows.map(row => <ListingCard key={`supply-${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.supplyReview} />)}
         </div>
-      ) : <EmptyState title="No reviewed supply records loaded" detail="Post a supply submission or wanted requirement for Harbourview review." />}
+      ) : <EmptyState title="No reviewed supply records loaded" detail={MOBILE_COMMAND_COPY.supplyEmptyDetail} />}
     </SectionShell>
   )
 }

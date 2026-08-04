@@ -5,6 +5,8 @@ import { ACTIVE_COMMAND_CENTRE_REDIRECTS } from './config/command-centre-routes.
 
 const isVercelRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
 const allowLocalSupabase =
+  process.env.GITHUB_ACTIONS === 'true' &&
+  /^\d+$/.test(process.env.GITHUB_RUN_ID ?? '') &&
   process.env.CI === '1' &&
   process.env.HARBOURVIEW_LOCAL_TEST_BUILD === '1' &&
   process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' &&

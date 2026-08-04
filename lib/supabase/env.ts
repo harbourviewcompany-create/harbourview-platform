@@ -50,12 +50,15 @@ function isLocalSupabaseGateEnabled() {
   if (process.env.VERCEL || process.env.VERCEL_ENV) return false
 
   if (typeof window === 'undefined') {
-    return process.env.CI === '1'
+    return process.env.GITHUB_ACTIONS === 'true'
+      && /^\d+$/.test(process.env.GITHUB_RUN_ID ?? '')
+      && process.env.CI === '1'
       && process.env.HARBOURVIEW_LOCAL_TEST_BUILD === '1'
       && process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1'
   }
 
-  return process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD === '1'
+  return /^\d+$/.test(process.env.NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID ?? '')
+    && process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD === '1'
     && process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1'
 }
 
@@ -66,8 +69,9 @@ function isLocalSupabaseGateEnabled() {
  * - the target is a loopback host;
  * - the process is not running in a Vercel deployment environment.
  *
- * Browser gates use only literal NEXT_PUBLIC_ variables that Next.js can inline
- * at build time. Production deployments do not set the isolated-test marker.
+ * Browser gates require a numeric workflow run id plus literal NEXT_PUBLIC_
+ * isolation markers that Next.js can inline at build time. Production builds
+ * do not set this complete marker set.
  */
 export function isExplicitLocalSupabaseUrl(url: string) {
   if (!isLocalSupabaseGateEnabled()) return false

@@ -28,10 +28,10 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
   commandHref: CommandHref
 }) {
   return (
-    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description="Country status, regulator, access posture and commercial pathway remain tied to the selected role." action={<Link className="hvm2-text-link" href={commandHref('jurisdiction', { page: 'countries' })}>Country command</Link>}>
+    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description={MOBILE_COMMAND_COPY.jurisdictionDescription} action={<Link className="hvm2-text-link" href={commandHref('jurisdiction', { page: 'countries' })}>Country command</Link>}>
       <article className="hvm2-jurisdiction-card">
         <div className="hvm2-jurisdiction-title"><span aria-hidden="true">{flag}</span><div><h3>{countryLabel}</h3><p>{region || 'Global regulated market'}</p></div></div>
-        <p>{outlook?.trim() || pathway?.trim() || 'Regulatory and commercial pathway detail remains subject to controlled evidence review.'}</p>
+        <p>{outlook?.trim() || pathway?.trim() || MOBILE_COMMAND_COPY.jurisdictionFallback}</p>
         <div className="hvm2-status-matrix">
           <div><span>Import</span><strong>{formatStatus(importStatus)}</strong></div>
           <div><span>Export</span><strong>{formatStatus(exportStatus)}</strong></div>
@@ -94,19 +94,19 @@ export function DirectoriesSection({ sectionRef, records, commandHref }: { secti
         <div className="hvm2-horizontal-deck">
           {records.map(item => <article className="hvm2-directory-card" key={`${item.kind}-${item.id}`}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
         </div>
-      ) : <EmptyState title="No reviewed directory records loaded" detail="Professionals, providers and operators will appear after projection and review requirements are satisfied." />}
+      ) : <EmptyState title="No reviewed directory records loaded" detail={MOBILE_COMMAND_COPY.directoryEmptyDetail} />}
     </SectionShell>
   )
 }
 
 export function TalentSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: TalentRecord[]; commandHref: CommandHref }) {
   return (
-    <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description="Talent opportunities remain separated from counterparty records and are filtered to the active jurisdiction or role where possible." action={<Link className="hvm2-text-link" href={commandHref('talent')}>Jobs command</Link>}>
+    <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description={MOBILE_COMMAND_COPY.talentDescription} action={<Link className="hvm2-text-link" href={commandHref('talent')}>Jobs command</Link>}>
       {records.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {records.map(job => <article className="hvm2-directory-card" key={job.id}><span>{JOB_SECTOR_LABELS[job.sector]} · {job.country}</span><h3>{job.title}</h3><p>{job.company} · {job.city}{job.remote ? ' · Remote' : ''}</p><div className="hvm2-card-meta"><span>{JOB_TYPE_LABELS[job.type]}</span>{job.salary && <span>{job.salary}</span>}</div></article>)}
         </div>
-      ) : <EmptyState title="No talent opportunities loaded" detail="The talent section remains active and will populate from the approved jobs dataset." />}
+      ) : <EmptyState title="No talent opportunities loaded" detail={MOBILE_COMMAND_COPY.talentEmptyDetail} />}
     </SectionShell>
   )
 }

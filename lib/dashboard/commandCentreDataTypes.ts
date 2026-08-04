@@ -28,6 +28,7 @@ export type CommandCentreSourceMeta = Readonly<{
   staleAfterMs: number | null
   durationMs: number
   errorCode: string | null
+  requested: boolean
 }>
 
 export type CommandCentreDataEnvelope<T> = Readonly<{
@@ -44,6 +45,7 @@ export type CommandCentreDataBundle<T extends Record<string, unknown>> = Readonl
 }>
 
 export type CommandCentreSourceDefinition<T> = Readonly<{
+  enabled?: boolean
   load: () => Promise<T>
   fallback: T
   sourceLabel: string

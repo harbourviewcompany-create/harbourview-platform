@@ -441,3 +441,8 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - **Rollback/forward-fix:** restore only the explicitly captured prior grants through a new migration. Do not rewrite migration history or delete operator feedback.
 - **Required verification:** migration-version validation; PostgreSQL 17 + pgvector boundary fixture; lint; typecheck; full tests; production build; visibility and security checks; standard CI; Branch Verification.
 - **Production approval:** HOLD until a separate operator-authorized migration activation.
+
+
+## Production security hardening
+
+The controlling migration and release procedure are defined in `docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md`. Production application is gated on local migration replay, zero-row security assertions, a current backup/PITR checkpoint, leaked-password protection verification, and complete application leakage/authorization evidence.

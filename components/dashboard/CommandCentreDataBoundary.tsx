@@ -1,14 +1,6 @@
 import type { ReactNode } from 'react'
 import type { CommandCentreDataState, CommandCentreSourceMeta } from '@/lib/dashboard/commandCentreDataTypes'
-
-const STATE_COPY: Record<CommandCentreDataState, string> = {
-  live: 'All available Command Centre sources loaded successfully.',
-  partial: 'Some Command Centre sources are temporarily degraded. Available verified data remains accessible.',
-  fallback: 'A controlled fallback is being shown while a live source is unavailable.',
-  empty: 'No records match the current jurisdiction and role context.',
-  error: 'Command Centre data is temporarily unavailable. Retry without changing your submitted information.',
-  stale: 'Some records are older than their configured freshness window and are labelled accordingly.',
-}
+import { COMMAND_CENTRE_COPY } from '@/lib/platform/commandCentreCopy'
 
 export default function CommandCentreDataBoundary({
   state,
@@ -21,7 +13,8 @@ export default function CommandCentreDataBoundary({
   loadedAt: string
   children: ReactNode
 }) {
-  const counts = Object.values(sources).reduce<Record<CommandCentreDataState, number>>((summary, source) => {
+  const requestedSources = Object.values(sources).filter(source => source.requested)
+  const counts = requestedSources.reduce<Record<CommandCentreDataState, number>>((summary, source) => {
     summary[source.state] += 1
     return summary
   }, { live: 0, partial: 0, fallback: 0, empty: 0, error: 0, stale: 0 })
@@ -32,7 +25,7 @@ export default function CommandCentreDataBoundary({
     <div
       data-command-centre-state={state}
       data-command-centre-loaded-at={loadedAt}
-      data-command-centre-source-count={Object.keys(sources).length}
+      data-command-centre-source-count={requestedSources.length}
     >
       {showNotice && (
         <aside
@@ -41,7 +34,7 @@ export default function CommandCentreDataBoundary({
           className="border-b border-[#c6a55a]/20 bg-[#07111f] px-4 py-3 text-[#f5f1e8]"
         >
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2 text-sm">
-            <p className="m-0">{STATE_COPY[state]}</p>
+            <p className="m-0">{COMMAND_CENTRE_COPY.dataBoundary[state]}</p>
             <p className="m-0 text-xs text-[#f5f1e8]/60">
               {counts.live} live · {counts.partial} partial · {counts.stale} stale · {counts.fallback} fallback · {counts.empty} empty · {counts.error} unavailable
             </p>

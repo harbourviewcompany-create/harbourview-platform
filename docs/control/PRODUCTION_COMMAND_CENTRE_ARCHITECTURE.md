@@ -35,8 +35,9 @@ The following remain independent routes because they are not product modules:
 Everything else is classified in `config/command-centre-routes.mjs` as:
 
 - `redirect-now`: already represented by desktop and mobile command modules;
-- `redirect-after-parity`: must be embedded with full data and disclaimer parity before route retirement;
-- `intercept-next`: transactional route that must open inside the command shell while preserving a direct-load fallback.
+- `retain-public`: canonical public/SEO entry surface retained outside the authenticated operating shell;
+- `redirect-now`: legacy or transactional route with verified authenticated Command Centre parity and reload restoration;
+- `intercept-next`: transitional route awaiting a contained workflow (none remain in the current route policy).
 
 ### Canonical product URL
 
@@ -335,3 +336,42 @@ Not yet complete:
 - full preview evidence and production promotion.
 
 The branch remains implementation-active and must stay draft until all acceptance gates are satisfied.
+
+
+## Controlled customer-facing copy contract
+
+`lib/platform/commandCentreCopy.ts` is the sole customer-facing control-copy module for the Command Centre surface. It is governed by this document and covers:
+
+- public/private projection and reviewed-access language;
+- evidence, authorization and counterparty-release boundaries;
+- degraded, stale, fallback, empty and failure-state assurances;
+- marketplace, supply, talent, clinical, compliance, network and financing controls;
+- support and recovery language.
+
+Components must consume this module rather than introducing local control claims. Neutral labels, factual data values and accessibility-only labels may remain local when they make no legal, trust, privacy, evidence or reliability commitment.
+
+## Demand-driven source contract
+
+`lib/dashboard/commandCentreSourcePlan.ts` defines the exact source keys required by each supported desktop page. `lib/dashboard/buildDashboardCommandSources.ts` builds the typed source map and marks all unrequested sources as disabled. Disabled sources return typed fallback values without network or database execution and are excluded from requested-source health aggregation.
+
+The default route resolves to the Briefing Room plan. Page-specific navigation therefore pays only for sources rendered by that page while retaining a stable prop contract across both responsive shells.
+
+## Public and authenticated route boundary
+
+Public intelligence, market, education, compliance, network and marketplace browse pages remain canonical public entry surfaces under `retain-public`. They preserve guest access, SEO, disclaimers and public-safe projection contracts. The authenticated Command Centre is the operating surface.
+
+The supply, wanted and financing legacy transaction routes redirect into verified, URL-addressable Command Centre workflows. Confidential `/intake` remains public and shareable because authentication is not a prerequisite for initiating a confidential discussion.
+
+## Isolated local Supabase evidence boundary
+
+Loopback Supabase endpoints are accepted only for a GitHub Actions evidence build carrying all explicit CI markers, a GitHub run identifier and the repository-specific workflow contract. Vercel and other hosted runtimes are always denied. The production application allowlist remains locked to the canonical Supabase project. This controlled evidence build produces a production-optimized Next.js artifact against an ephemeral local database without authorizing loopback endpoints in deployed runtime environments.
+
+
+## Production release closure
+
+- `lib/dashboard/commandCentreSourcePlan.ts` is the complete page-to-source dependency contract. A route may not execute an unlisted source.
+- `lib/dashboard/buildDashboardCommandSources.ts` is the server-only source-definition boundary and is independently unit tested.
+- `lib/platform/commandCentreCopy.ts` is the canonical customer-facing control-copy contract.
+- Public orientation and SEO routes remain canonical public entry surfaces. Verified authenticated transaction routes redirect into URL-addressable in-shell workflows.
+- Local Supabase is permitted only in GitHub Actions with a numeric workflow run identifier and the complete isolated-build marker set.
+- Database release requirements are controlled by `docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md`.
