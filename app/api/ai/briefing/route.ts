@@ -12,18 +12,18 @@ Rules:
 - Focus on what is actionable for the stated role`
 
 type IntelSnapshot = {
-  medical_status?: string | null
-  market_access_status?: string | null
-  import_status?: string | null
-  export_status?: string | null
-  opportunity_score?: number | null
-  public_summary?: string | null
+  medical_status: string | null
+  market_access_status: string | null
+  import_status: string | null
+  export_status: string | null
+  opportunity_score: number | null
+  public_summary: string | null
 }
 
-type Body = {
-  country?: unknown
-  role?: unknown
-  intel?: unknown
+type NormalizedBody = {
+  country: string
+  role: string
+  intel: IntelSnapshot | null
 }
 
 const cache = new Map<string, { text: string; expiresAt: number }>()
@@ -33,16 +33,66 @@ const rateLimit = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 10
 const RATE_WINDOW_MS = 60 * 1000
 
-function normalizeBody(body: Body) {
-  const country = typeof body.country === 'string' && body.country.trim()
-    ? body.country.trim()
+function normalizeOptionalString(value: unknown): string | null | undefined {
+  if (value == null) return null
+  if (typeof value !== 'string') return undefined
+  return value.trim() || null
+}
+
+function normalizeIntelSnapshot(value: unknown): IntelSnapshot | null | undefined {
+  if (value == null) return null
+  if (typeof value !== 'object' || Array.isArray(value)) return undefined
+
+  const record = value as Record<string, unknown>
+  const medicalStatus = normalizeOptionalString(record.medical_status)
+  const marketAccessStatus = normalizeOptionalString(record.market_access_status)
+  const importStatus = normalizeOptionalString(record.import_status)
+  const exportStatus = normalizeOptionalString(record.export_status)
+  const publicSummary = normalizeOptionalString(record.public_summary)
+  const rawOpportunityScore = record.opportunity_score
+  const opportunityScore = rawOpportunityScore == null
+    ? null
+    : typeof rawOpportunityScore === 'number' && Number.isFinite(rawOpportunityScore)
+      ? rawOpportunityScore
+      : undefined
+
+  if (
+    medicalStatus === undefined
+    || marketAccessStatus === undefined
+    || importStatus === undefined
+    || exportStatus === undefined
+    || publicSummary === undefined
+    || opportunityScore === undefined
+  ) {
+    return undefined
+  }
+
+  return {
+    medical_status: medicalStatus,
+    market_access_status: marketAccessStatus,
+    import_status: importStatus,
+    export_status: exportStatus,
+    opportunity_score: opportunityScore,
+    public_summary: publicSummary,
+  }
+}
+
+function normalizeBody(body: unknown): NormalizedBody | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null
+
+  const record = body as Record<string, unknown>
+  if (record.country != null && typeof record.country !== 'string') return null
+  if (record.role != null && typeof record.role !== 'string') return null
+
+  const intel = normalizeIntelSnapshot(record.intel)
+  if (intel === undefined) return null
+
+  const country = typeof record.country === 'string' && record.country.trim()
+    ? record.country.trim()
     : 'Global'
-  const role = typeof body.role === 'string' && body.role.trim()
-    ? body.role.trim()
+  const role = typeof record.role === 'string' && record.role.trim()
+    ? record.role.trim()
     : 'Operator'
-  const intel = body.intel && typeof body.intel === 'object' && !Array.isArray(body.intel)
-    ? body.intel as IntelSnapshot
-    : null
 
   return { country, role, intel }
 }
@@ -56,7 +106,7 @@ function buildDeterministicBriefing(country: string, role: string, intel: IntelS
   if (intel?.opportunity_score != null) facts.push(`opportunity score: ${intel.opportunity_score}/100`)
 
   if (facts.length === 0) {
-    const recordSummary = intel?.public_summary?.trim()
+    const recordSummary = intel?.public_summary
     if (recordSummary) {
       return `${recordSummary} For the ${role} context, verify the current access, evidence, and counterparty requirements before taking commercial action.`
     }
@@ -76,14 +126,19 @@ function briefingResponse(briefing: string, options: { cached?: boolean; degrade
 }
 
 export async function POST(request: Request) {
-  let body: Body
+  let body: unknown
   try {
-    body = await request.json() as Body
+    body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { country, role, intel } = normalizeBody(body)
+  const normalized = normalizeBody(body)
+  if (!normalized) {
+    return NextResponse.json({ error: 'Invalid briefing request' }, { status: 400 })
+  }
+
+  const { country, role, intel } = normalized
   const fallback = buildDeterministicBriefing(country, role, intel)
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
 
@@ -103,7 +158,7 @@ export async function POST(request: Request) {
     rateLimit.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
   }
 
-  const cacheKey = `${country}:${role}:${intel?.medical_status ?? ''}:${intel?.market_access_status ?? ''}:${intel?.opportunity_score ?? ''}`
+  const cacheKey = JSON.stringify({ country, role, intel })
   const cached = cache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) {
     return briefingResponse(cached.text, { cached: true })
