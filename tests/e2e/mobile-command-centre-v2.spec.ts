@@ -108,6 +108,7 @@ async function authenticate(browser: Browser) {
     const emailInput = page.getByLabel('Email address', { exact: true })
     const passwordInput = page.getByLabel('Password', { exact: true })
     const submit = page.locator('form').getByRole('button', { name: 'Sign in', exact: true })
+    const authFeedback = page.locator('#auth-feedback[role="alert"]')
 
     await expect(emailInput).toBeVisible({ timeout: 15_000 })
     await expect(passwordInput).toBeVisible({ timeout: 15_000 })
@@ -118,11 +119,11 @@ async function authenticate(browser: Browser) {
 
     const outcome = await Promise.race([
       page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 45_000 }).then(() => 'dashboard' as const),
-      page.getByRole('alert').waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
+      authFeedback.waitFor({ state: 'visible', timeout: 45_000 }).then(() => 'error' as const),
     ])
 
     if (outcome === 'error') {
-      const feedback = sanitizeDiagnostic((await page.getByRole('alert').textContent())?.trim() || 'Unknown authentication error')
+      const feedback = sanitizeDiagnostic((await authFeedback.textContent())?.trim() || 'Unknown authentication error')
       throw new Error(`Authentication failed: ${feedback}`)
     }
 
