@@ -54,6 +54,10 @@ export type CommandCentreSourceDefinition<T> = Readonly<{
   classify?: (data: T) => Exclude<CommandCentreDataState, 'error' | 'stale'>
 }>
 
-export type CommandCentreSourceDefinitions<T extends Record<string, unknown>> = {
-  [K in keyof T]: CommandCentreSourceDefinition<T[K]>
+export type CommandCentreSourceMap = Record<string, CommandCentreSourceDefinition<any>>
+
+export type CommandCentreSourceData<TDefinitions extends CommandCentreSourceMap> = {
+  [K in keyof TDefinitions]: TDefinitions[K] extends CommandCentreSourceDefinition<infer TValue>
+    ? TValue
+    : never
 }
