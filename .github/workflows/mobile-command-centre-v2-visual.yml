@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
+      - package.json
+      - package-lock.json
       - next.config.mjs
+      - app/login/LoginForm.tsx
       - lib/supabase/env.ts
       - components/dashboard/MobileCommandCentreRebuild.tsx
       - components/dashboard/MobileCommandCentreRebuild.css
