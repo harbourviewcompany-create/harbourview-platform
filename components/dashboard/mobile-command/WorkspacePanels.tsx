@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
 import FinancingInquiryForm from '@/app/marketplace/financing/FinancingInquiryForm'
 import type { MarketView } from '../CommandCentre'
@@ -12,7 +12,7 @@ import {
 } from './contracts'
 import '../MobileCommandCentreWorkspaces.css'
 
-function useWorkspaceFocus(open: boolean, workspaceRef: React.RefObject<HTMLElement | null>) {
+function useWorkspaceFocus(open: boolean, workspaceRef: RefObject<HTMLElement | null>) {
   const openingTriggerRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
