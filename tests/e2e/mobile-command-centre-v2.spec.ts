@@ -1,8 +1,9 @@
 import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
 
-const WIDTHS = [320, 375, 390, 430, 768] as const
+const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
@@ -141,11 +142,11 @@ async function writeWidthEvidence(
   )
 }
 
-test.describe('Mobile Command Centre V2 authenticated visual verification', () => {
+test.describe('Command Centre authenticated responsive verification', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('renders contained mobile workflows at four widths and preserves desktop Command Centre at 768', async ({ browser }) => {
-    test.setTimeout(360_000)
+  test('verifies mobile, tablet and desktop command surfaces from 320 through 1440', async ({ browser }) => {
+    test.setTimeout(900_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
     const aggregate: Array<Record<string, unknown>> = []
@@ -201,6 +202,7 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
 
         if (width < 768) {
           await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible()
+          await expect(page.locator('[data-dashboard-renderer="mobile"]')).toBeVisible()
           await expect(page.locator('.hvm2-bottom-nav')).toBeVisible()
           await expect(page.getByText('Operator command centre', { exact: true })).toBeVisible()
           await expect(page.getByText('Market intelligence', { exact: true }).first()).toBeVisible()
@@ -208,12 +210,13 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
           await expect(page.getByText('Directories', { exact: true }).first()).toBeVisible()
           await expect(page.getByText('Trade financing', { exact: true }).first()).toBeVisible()
           await expect(page.getByText('⌘ Modules')).toHaveCount(0)
+          await expect(page.locator('[data-command-module]')).toHaveCount(32)
 
           for (const section of MOBILE_SECTION_IDS) {
             await expect(page.locator(`#${section}`)).toHaveCount(1)
           }
 
-          const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll((links) => links.map((link) => {
+          const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll(links => links.map(link => {
             const href = (link as HTMLAnchorElement).href
             return new URL(href).pathname
           }))
@@ -264,17 +267,48 @@ test.describe('Mobile Command Centre V2 authenticated visual verification', () =
               bottomNav: navRect ? { top: navRect.top, bottom: navRect.bottom, height: navRect.height } : null,
               viewportHeight: window.innerHeight,
               sectionCount: document.querySelectorAll('.hvm2-main > section').length,
+              moduleCount: document.querySelectorAll('[data-command-module]').length,
             }
           })
 
           expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
           expect(geometry.sectionCount).toBe(MOBILE_SECTION_IDS.length)
+          expect(geometry.moduleCount).toBe(32)
           expect(geometry.bottomNav).not.toBeNull()
           report.geometry = geometry
           report.shell = 'mobile-v2'
         } else {
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
+          await expect(page.locator('[data-dashboard-renderer="desktop"]')).toBeVisible()
           await expect(page.getByText('Briefing Room', { exact: true }).first()).toBeVisible()
+
+          if (width === 1440) {
+            const verifiedPages: string[] = []
+            for (const commandPage of COMMAND_CENTRE_PAGE_IDS) {
+              const pageResponse = await page.goto(
+                `/dashboard?country=CA&role=exporter&page=${encodeURIComponent(commandPage)}`,
+                { waitUntil: 'domcontentloaded', timeout: 60_000 },
+              )
+              expect(pageResponse?.status()).toBeLessThan(400)
+              await expect(page.locator('[data-dashboard-renderer="desktop"]')).toBeVisible()
+              expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
+              verifiedPages.push(commandPage)
+            }
+            report.verifiedDesktopPages = verifiedPages
+          }
+
+          const geometry = await page.evaluate(() => {
+            const root = document.documentElement
+            const body = document.body
+            return {
+              scrollWidth: Math.max(root.scrollWidth, body.scrollWidth),
+              clientWidth: root.clientWidth,
+              horizontalOverflow: Math.max(0, Math.max(root.scrollWidth, body.scrollWidth) - root.clientWidth),
+              viewportHeight: window.innerHeight,
+            }
+          })
+          expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
+          report.geometry = geometry
           report.shell = 'desktop-command-centre'
         }
 
