@@ -52,6 +52,10 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
 
+  env: {
+    NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID: allowLocalSupabase ? process.env.GITHUB_RUN_ID : '',
+  },
+
   experimental: {
     turbopackFileSystemCacheForDev: true,
     authInterrupts: true,
