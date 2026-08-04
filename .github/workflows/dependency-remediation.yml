@@ -1,0 +1,91 @@
+name: Dependency Remediation
+
+on:
+  push:
+    branches:
+      - build/mobile-command-centre-v2
+    paths:
+      - .github/workflows/dependency-remediation.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-remediation-build-mobile-command-centre-v2
+  cancel-in-progress: false
+
+jobs:
+  remediate-lockfile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact remediation source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Apply non-breaking npm audit remediation to lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/dependency-remediation
+          npm audit --json > artifacts/dependency-remediation/before.json || true
+          npm audit fix --package-lock-only --ignore-scripts || true
+          npm audit --json > artifacts/dependency-remediation/after.json || true
+          git diff -- package.json package-lock.json > artifacts/dependency-remediation/lockfile.patch
+
+      - name: Summarize remaining vulnerabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs')
+          function counts(file) {
+            const report = JSON.parse(fs.readFileSync(file, 'utf8'))
+            return report.metadata?.vulnerabilities ?? {}
+          }
+          const summary = {
+            before: counts('artifacts/dependency-remediation/before.json'),
+            after: counts('artifacts/dependency-remediation/after.json'),
+          }
+          fs.writeFileSync(
+            'artifacts/dependency-remediation/summary.json',
+            `${JSON.stringify(summary, null, 2)}\n`,
+          )
+          console.log(summary)
+          NODE
+
+      - name: Commit remediated dependency metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- package.json package-lock.json; then
+            echo 'No safe dependency metadata changes were available.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json
+          git commit -m 'fix(security): apply safe dependency audit updates'
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin HEAD:build/mobile-command-centre-v2
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: Upload remediation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dependency-remediation-${{ github.run_id }}
+          path: artifacts/dependency-remediation/
+          if-no-files-found: error
+          retention-days: 14
