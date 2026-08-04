@@ -102,7 +102,7 @@ jobs:
             created_at timestamptz not null default now()
           );
 
-          create table if not exists api.marketplace_public_listings_v1 (
+          create table if not exists public.marketplace_public_listings_v1 (
             id uuid primary key,
             slug text,
             title text not null,
@@ -126,7 +126,7 @@ jobs:
             review_count integer
           );
 
-          insert into api.marketplace_public_listings_v1 (
+          insert into public.marketplace_public_listings_v1 (
             id, slug, title, description, category, subcategory,
             marketplace_section, product_type, region, condition,
             location_country, location_region, price_amount, price_currency,
@@ -157,6 +157,7 @@ jobs:
 
           grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
           grant select on all tables in schema api to anon;
+          grant select on public.marketplace_public_listings_v1 to anon, authenticated, service_role;
           SQL
           : > supabase/seed.sql
 
