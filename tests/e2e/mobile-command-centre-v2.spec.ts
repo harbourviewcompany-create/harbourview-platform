@@ -282,9 +282,10 @@ test.describe('Command Centre authenticated responsive verification', () => {
           report.geometry = geometry
           report.shell = 'mobile-v2'
         } else {
+          const desktopRoot = page.locator('.hv-cc-root:visible')
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
-          await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
-          await expect(page.getByText('Briefing Room', { exact: true }).filter({ visible: true })).toBeVisible()
+          await expect(desktopRoot).toBeVisible()
+          await expect(desktopRoot.locator('.cc-page-title')).toHaveText('Briefing Room')
 
           if (width === 1440) {
             const verifiedPages: string[] = []
@@ -294,7 +295,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
                 { waitUntil: 'domcontentloaded', timeout: 60_000 },
               )
               expect(pageResponse?.status()).toBeLessThan(400)
-              await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
+              await expect(page.locator('.hv-cc-root:visible')).toBeVisible()
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
               verifiedPages.push(commandPage)
             }
