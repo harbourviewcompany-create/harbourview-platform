@@ -13,8 +13,11 @@ main = "scripts/engine/cloudflare-worker.ts"
 compatibility_date = "2025-06-28"
 compatibility_flags = ["nodejs_compat"]
 
+# Wrangler bundles the Worker entrypoint. This build gate performs the same
+# strict project-aware TypeScript verification used by CI; it must fail rather
+# than suppress compiler defects with a false-success `|| true` path.
 [build]
-command = "npx tsc --noEmit scripts/engine/cloudflare-worker.ts || true"
+command = "npm run typecheck"
 
 # ── Cron triggers ──────────────────────────────────────────────────────────────
 [triggers]

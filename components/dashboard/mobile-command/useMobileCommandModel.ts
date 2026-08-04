@@ -328,6 +328,19 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     window.requestAnimationFrame(() => sectionNodes.current.get(id)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
   }, [activeMarketView, commandHref, router])
 
+  const selectMarketView = useCallback((view: MarketView) => {
+    setActiveMarketView(view)
+    setActiveTool(null)
+    setSelectedListingId(null)
+    setActiveSection('marketplace')
+    lastUrlSection.current = 'marketplace'
+    router.replace(commandHref('marketplace', {
+      marketView: view,
+      tool: null,
+      listing: null,
+    }), { scroll: false })
+  }, [commandHref, router])
+
   const openTool = useCallback((tool: MobileCommandTool, options: { listing?: NormalizedListing; marketView?: MarketView } = {}) => {
     const section: SectionId = tool === 'financing-intake' ? 'financing' : 'marketplace'
     const nextView = tool === 'wanted-intake' ? 'wanted' : options.marketView ?? options.listing?.view ?? activeMarketView
@@ -402,10 +415,10 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [activeMarketView, activeSection, currentCountry, currentRole, pathname, router, searchParams])
 
   const selectListingResult = useCallback((row: NormalizedListing) => {
-    setActiveMarketView(row.view)
     setMarketQuery(searchQuery)
-    navigateToSection('marketplace')
-  }, [navigateToSection, searchQuery])
+    selectMarketView(row.view)
+    window.requestAnimationFrame(() => sectionNodes.current.get('marketplace')?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
+  }, [searchQuery, selectMarketView])
 
   return {
     activeSection,
@@ -416,7 +429,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     selectedListing,
     currentCountry,
     currentRole,
-    setActiveMarketView,
+    selectMarketView,
     setMarketQuery,
     setSearchQuery,
     sectionRef,
