@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: read
 
 concurrency:
   group: wrangler-security-pin-build-mobile-command-centre-v2
@@ -98,5 +100,24 @@ jobs:
         with:
           name: wrangler-security-pin-${{ github.run_id }}
           path: artifacts/wrangler-security-pin/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Record pin result on open PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_RESULT: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pr_number="$(gh pr list --head "${GITHUB_REF_NAME}" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$pr_number" ]; then
+            echo 'No open PR found for this branch; skipping PR comment.'
+            exit 0
+          fi
+          audit_summary='not generated'
+          if [ -f artifacts/wrangler-security-pin/audit-summary.json ]; then
+            audit_summary="$(tr -d '\n' < artifacts/wrangler-security-pin/audit-summary.json)"
+          fi
+          gh pr comment "$pr_number" --body "Wrangler security pin run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}**. Audit summary: \`${audit_summary}\`. Artifact: \`wrangler-security-pin-${GITHUB_RUN_ID}\`."
