@@ -54,6 +54,8 @@ describe('typed Command Centre registry', () => {
     expect(summary.totalModules).toBe(32)
     expect(summary.launchCriticalModules + summary.importantModules).toBe(32)
     expect(summary.uniqueDesktopPages).toBeGreaterThan(20)
-    expect(summary.mobileSections).toBe(20)
+    // The registry maps product modules to 18 destinations. Mobile additionally
+    // renders live-status and market-status as operational summary sections.
+    expect(summary.mobileSections).toBe(18)
   })
 })
