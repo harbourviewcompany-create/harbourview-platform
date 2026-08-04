@@ -3,6 +3,18 @@ import { ACTIVE_COMMAND_CENTRE_REDIRECTS } from './config/command-centre-routes.
 
 /** @type {import('next').NextConfig} */
 
+const isVercelRuntime = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+const allowLocalSupabase =
+  process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' &&
+  !isVercelRuntime;
+const supabaseConnectSources = [
+  'https://zvxdgdkukjrrwamdpqrg.supabase.co',
+  'wss://zvxdgdkukjrrwamdpqrg.supabase.co',
+  ...(allowLocalSupabase
+    ? ['http://127.0.0.1:54321', 'ws://127.0.0.1:54321', 'http://localhost:54321', 'ws://localhost:54321']
+    : []),
+];
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -23,7 +35,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://zvxdgdkukjrrwamdpqrg.supabase.co",
-      "connect-src 'self' https://zvxdgdkukjrrwamdpqrg.supabase.co wss://zvxdgdkukjrrwamdpqrg.supabase.co https://api.stripe.com https://vercel.live",
+      `connect-src 'self' ${supabaseConnectSources.join(' ')} https://api.stripe.com https://vercel.live`,
       "font-src 'self'",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",

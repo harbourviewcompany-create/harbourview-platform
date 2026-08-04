@@ -1,24 +1,32 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import CommandCentre from '@/components/dashboard/CommandCentre'
-import MobileCommandCentreV2 from '@/components/dashboard/MobileCommandCentreV2'
+import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
+import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 
-type CommandCentreProps = React.ComponentProps<typeof CommandCentre>
+export function DashboardResponsiveShellContent({
+  isMobile,
+  ...props
+}: MobileCommandCentreProps & { isMobile: boolean }) {
+  return isMobile
+    ? <MobileCommandCentreRebuild {...props} />
+    : <CommandCentre {...props} />
+}
 
-export default function DashboardResponsiveShell(props: CommandCentreProps) {
+export default function DashboardResponsiveShell(props: MobileCommandCentreProps) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)')
-    setIsMobile(mq.matches)
-    const handler = (event: MediaQueryListEvent) => setIsMobile(event.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
+    const media = window.matchMedia('(max-width: 767px)')
+    setIsMobile(media.matches)
+    const handleChange = (event: MediaQueryListEvent) => setIsMobile(event.matches)
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
   }, [])
 
-  // Keep the desktop shell as the server-rendered fallback. CSS prevents it
-  // from flashing on mobile while viewport detection hydrates.
+  // Desktop remains the server-rendered fallback. The inline media rule avoids
+  // showing the desktop shell while the mobile viewport hydrates.
   if (isMobile === null) {
     return (
       <>
@@ -28,7 +36,5 @@ export default function DashboardResponsiveShell(props: CommandCentreProps) {
     )
   }
 
-  return isMobile
-    ? <MobileCommandCentreV2 {...props} />
-    : <CommandCentre {...props} />
+  return <DashboardResponsiveShellContent isMobile={isMobile} {...props} />
 }

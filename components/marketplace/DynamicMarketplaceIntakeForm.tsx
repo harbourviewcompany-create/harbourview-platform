@@ -13,8 +13,6 @@ import {
 } from '@/lib/marketplace/intakeFieldsets'
 import type { MarketplaceListingTypeKey } from '@/lib/marketplace/marketplaceTypes'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const TYPE_KEY_BY_LABEL: Record<string, MarketplaceListingTypeKey> = {
   'New Product': 'new_product',
   'Used / Surplus Equipment': 'used_surplus_equipment',
@@ -31,7 +29,6 @@ const TYPE_KEY_BY_LABEL: Record<string, MarketplaceListingTypeKey> = {
   'Genetics Program': 'genetics_program',
   'Qualified Access Request': 'qualified_access_request',
   'Education Resource': 'education_resource',
-  // Vision-plan additions
   'Licensing Opportunity': 'licensing_opportunity',
   'Facility / Real Estate': 'real_estate_facility',
   'Technology & Software': 'technology_software',
@@ -65,8 +62,6 @@ const CATEGORY_KEY_BY_TYPE: Record<string, string> = {
 const MAX_IMAGES = 5
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
-// ── Field renderer ────────────────────────────────────────────────────────────
-
 const inputCls =
   'mt-1.5 w-full rounded-xl border border-[#C6A55A]/20 bg-[#061322] px-3 py-2 text-sm text-[#F5F1E8] placeholder:text-[#F5F1E8]/25 outline-none focus:border-[#C6A55A] transition-colors'
 
@@ -97,9 +92,9 @@ function renderField(field: MarketplaceIntakeField) {
         {label}
         <select name={field.name} required={field.required} className={inputCls}>
           <option value="">Select</option>
-          {field.options?.map((o) => (
-            <option key={o} value={o}>
-              {o}
+          {field.options?.map((option) => (
+            <option key={option} value={option}>
+              {option}
             </option>
           ))}
         </select>
@@ -130,20 +125,18 @@ function renderField(field: MarketplaceIntakeField) {
   )
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
-
 interface DynamicMarketplaceIntakeFormProps {
   defaultType?: string
   defaultHeadline?: string
   defaultMarkets?: string
+  onViewSubmissions?: () => void
 }
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export function DynamicMarketplaceIntakeForm({
   defaultType,
   defaultHeadline = '',
   defaultMarkets = '',
+  onViewSubmissions,
 }: DynamicMarketplaceIntakeFormProps) {
   const resolvedDefault =
     resolveMarketplaceListingTypeOption(defaultType) ?? 'Used / Surplus Equipment'
@@ -164,25 +157,21 @@ export function DynamicMarketplaceIntakeForm({
 
   const fieldsets = useMemo(() => getFieldsetsForListingType(typeKey), [typeKey])
 
-  // ── Image handlers ──────────────────────────────────────────────────────────
-
-  function handleImageChange(e: ChangeEvent<HTMLInputElement>) {
-    const incoming = Array.from<File>(e.target.files ?? []).filter(
-      (f) => f.size <= MAX_IMAGE_BYTES,
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const incoming = Array.from<File>(event.target.files ?? []).filter(
+      (file) => file.size <= MAX_IMAGE_BYTES,
     )
     const combined = [...imageFiles, ...incoming].slice(0, MAX_IMAGES)
     setImageFiles(combined)
-    setImagePreviews(combined.map((f) => URL.createObjectURL(f)))
+    setImagePreviews(combined.map((file) => URL.createObjectURL(file)))
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   function removeImage(index: number) {
-    const updated = imageFiles.filter((_, i) => i !== index)
+    const updated = imageFiles.filter((_, itemIndex) => itemIndex !== index)
     setImageFiles(updated)
-    setImagePreviews(updated.map((f) => URL.createObjectURL(f)))
+    setImagePreviews(updated.map((file) => URL.createObjectURL(file)))
   }
-
-  // ── Submit ──────────────────────────────────────────────────────────────────
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -192,13 +181,9 @@ export function DynamicMarketplaceIntakeForm({
 
     const formEl = event.currentTarget
     const data = new FormData(formEl)
-
-    // Inject derived fields
     data.set('category_key', CATEGORY_KEY_BY_TYPE[typeKey] ?? typeKey)
     data.set('listing_type_key', typeKey)
-
-    // Attach images
-    imageFiles.forEach((f) => data.append('images', f))
+    imageFiles.forEach((file) => data.append('images', file))
 
     try {
       const response = await fetch('/api/marketplace/submit', {
@@ -230,9 +215,10 @@ export function DynamicMarketplaceIntakeForm({
     }
   }
 
-  // ── Success state ───────────────────────────────────────────────────────────
-
   if (success) {
+    const submissionActionClass =
+      'rounded-full bg-[#C6A55A] px-5 py-2.5 text-sm font-semibold text-[#061322] hover:bg-[#D8BD75] transition-colors'
+
     return (
       <div className="rounded-3xl border border-[#C6A55A]/20 bg-[#0B1A2F]/90 p-10 text-center shadow-2xl shadow-black/30">
         <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#C6A55A]/30 bg-[#C6A55A]/10">
@@ -241,6 +227,7 @@ export function DynamicMarketplaceIntakeForm({
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -253,12 +240,15 @@ export function DynamicMarketplaceIntakeForm({
         <h2 className="text-xl font-semibold text-[#F5F1E8]">Submission received</h2>
         <p className="mt-3 text-sm leading-6 text-[#F5F1E8]/60">{submitStatus}</p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Link
-            href="/dashboard?page=marketplace"
-            className="rounded-full bg-[#C6A55A] px-5 py-2.5 text-sm font-semibold text-[#061322] hover:bg-[#D8BD75] transition-colors"
-          >
-            View my submissions →
-          </Link>
+          {onViewSubmissions ? (
+            <button type="button" onClick={onViewSubmissions} className={submissionActionClass}>
+              View my submissions →
+            </button>
+          ) : (
+            <Link href="/dashboard?page=marketplace" className={submissionActionClass}>
+              View my submissions →
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -274,18 +264,14 @@ export function DynamicMarketplaceIntakeForm({
     )
   }
 
-  // ── Form ────────────────────────────────────────────────────────────────────
-
   return (
     <form
       ref={formRef}
       onSubmit={handleSubmit}
       className="space-y-8 rounded-3xl border border-[#C6A55A]/20 bg-[#0B1A2F]/90 p-6 shadow-2xl shadow-black/30 md:p-8"
     >
-      {/* Honeypot */}
       <input type="text" name="hp_field" className="hidden" tabIndex={-1} autoComplete="off" />
 
-      {/* Header */}
       <div>
         <p className="text-xs uppercase tracking-[0.28em] text-[#C6A55A]">
           Private marketplace intake
@@ -299,21 +285,20 @@ export function DynamicMarketplaceIntakeForm({
         </p>
       </div>
 
-      {/* Listing type + price */}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="text-sm text-[#F5F1E8]/70">Listing type</span>
           <select
             name="listing_type"
             value={listingType}
-            onChange={(e) =>
-              setListingType(e.target.value as MarketplaceListingTypeOption)
+            onChange={(event) =>
+              setListingType(event.target.value as MarketplaceListingTypeOption)
             }
             className={inputCls}
           >
-            {MARKETPLACE_LISTING_TYPE_OPTIONS.map((o) => (
-              <option key={o} value={o}>
-                {o}
+            {MARKETPLACE_LISTING_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
               </option>
             ))}
           </select>
@@ -327,7 +312,6 @@ export function DynamicMarketplaceIntakeForm({
         </label>
       </div>
 
-      {/* Title */}
       <label className="block">
         <span className="text-sm text-[#F5F1E8]/70">
           Title <span className="text-red-400">*</span>
@@ -341,7 +325,6 @@ export function DynamicMarketplaceIntakeForm({
         />
       </label>
 
-      {/* Description */}
       <label className="block">
         <span className="text-sm text-[#F5F1E8]/70">
           Description <span className="text-red-400">*</span>
@@ -355,7 +338,6 @@ export function DynamicMarketplaceIntakeForm({
         />
       </label>
 
-      {/* Optional pre-fills from props */}
       {defaultHeadline && (
         <label className="block">
           <span className="text-sm text-[#F5F1E8]/70">Listing headline</span>
@@ -369,7 +351,6 @@ export function DynamicMarketplaceIntakeForm({
         </label>
       )}
 
-      {/* Company + phone */}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="text-sm text-[#F5F1E8]/70">
@@ -385,7 +366,6 @@ export function DynamicMarketplaceIntakeForm({
         </label>
       </div>
 
-      {/* Dynamic fieldsets */}
       {fieldsets.map((fieldset) => (
         <section
           key={fieldset.key}
@@ -400,7 +380,6 @@ export function DynamicMarketplaceIntakeForm({
         </section>
       ))}
 
-      {/* Image upload */}
       <section className="space-y-3 rounded-2xl border border-[#C6A55A]/10 bg-[#061322]/45 p-5">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C6A55A]">
@@ -432,19 +411,19 @@ export function DynamicMarketplaceIntakeForm({
 
         {imagePreviews.length > 0 && (
           <div className="flex flex-wrap gap-3">
-            {imagePreviews.map((src, i) => (
-              <div key={i} className="relative h-24 w-24 flex-shrink-0">
+            {imagePreviews.map((src, index) => (
+              <div key={src} className="relative h-24 w-24 flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={src}
-                  alt={`Preview ${i + 1}`}
+                  alt={`Preview ${index + 1}`}
                   className="h-24 w-24 rounded-xl object-cover border border-[#C6A55A]/20"
                 />
                 <button
                   type="button"
-                  onClick={() => removeImage(i)}
+                  onClick={() => removeImage(index)}
                   className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[#C6A55A]/20 bg-[#061322] text-xs text-[#F5F1E8]/50 hover:text-[#F5F1E8] transition-colors"
-                  aria-label={`Remove image ${i + 1}`}
+                  aria-label={`Remove image ${index + 1}`}
                 >
                   ×
                 </button>
@@ -454,7 +433,6 @@ export function DynamicMarketplaceIntakeForm({
         )}
       </section>
 
-      {/* Submit row */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="submit"

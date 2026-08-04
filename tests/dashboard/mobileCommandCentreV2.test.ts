@@ -1,119 +1,207 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { parseHTML } from 'linkedom'
+import { describe, expect, it, vi } from 'vitest'
+import type { MarketRow } from '@/components/dashboard/CommandCentre'
+import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
+import {
+  MARKET_TABS,
+  MOBILE_COMMAND_COPY,
+  PAGE_TO_SECTION,
+  SECTION_NAV,
+  SECTION_TO_DESKTOP_PAGE,
+  SUPPLY_TABS,
+  clampPercent,
+  confidenceFractionToPercent,
+  defaultListingTypeForView,
+  matchesQuery,
+  normalizeListing,
+  parseMobileCommandTool,
+} from '@/components/dashboard/mobile-command/contracts'
 
-const root = process.cwd()
-const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const navigation = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+}))
 
-describe('Mobile Command Centre V2 contracts', () => {
-  const source = read('components/dashboard/MobileCommandCentreV2.tsx')
-  const css = read('components/dashboard/MobileCommandCentreV2.css')
-  const responsiveShell = read('components/dashboard/DashboardResponsiveShell.tsx')
+vi.mock('next/navigation', () => ({
+  useRouter: () => navigation,
+  usePathname: () => '/dashboard',
+  useSearchParams: () => new URLSearchParams('country=CA&role=exporter'),
+}))
 
-  it('is the mobile shell selected by DashboardResponsiveShell', () => {
-    expect(responsiveShell).toContain("import MobileCommandCentreV2 from '@/components/dashboard/MobileCommandCentreV2'")
-    expect(responsiveShell).toContain('? <MobileCommandCentreV2 {...props} />')
-    expect(responsiveShell).not.toContain("import MobileCommandCentre from '@/components/dashboard/MobileCommandCentre'")
-  })
+vi.mock('@/components/marketplace/DynamicMarketplaceIntakeForm', () => ({
+  DynamicMarketplaceIntakeForm: () => null,
+}))
 
-  it('contains the complete authorized mobile command section universe', () => {
-    for (const section of [
-      'overview',
-      'live-status',
-      'market-intelligence',
-      'marketplace',
-      'supply',
-      'next-actions',
-      'weekly-signals',
-      'personal-briefing',
-      'search',
-      'education',
-      'jurisdiction',
-      'market-status',
-      'review-gates',
-      'directories',
-      'talent',
-      'genetics',
-      'clinical',
-      'compliance',
-      'network',
-      'financing',
-    ]) {
-      expect(source).toContain(`id=\"${section}\"`)
-      expect(source).toContain(`ref={registerSection('${section}')}`)
+vi.mock('@/app/marketplace/financing/FinancingInquiryForm', () => ({
+  default: () => null,
+}))
+
+import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
+
+function mobileProps(): MobileCommandCentreProps {
+  const listing: MarketRow = [
+    'Bulk flower lot',
+    'Reviewed supply record',
+    'Canada',
+    'Cannabis',
+    'approved',
+    'Harbourview mediated',
+    '78',
+    'listing-1',
+    '',
+    '',
+  ]
+
+  return {
+    signals: [],
+    eduCategories: [],
+    initialCountryIso2: 'CA',
+    initialRoleId: 'exporter',
+    marketplaceRows: { cannabis: [listing] },
+    wantedCount: 1,
+    pipeline: {
+      wanted: 1,
+      matched: 0,
+      proof_review: 0,
+      inquiry: 0,
+      deal_room: 0,
+    },
+    hasOrg: true,
+  }
+}
+
+function renderMobileCommand() {
+  const markup = renderToStaticMarkup(createElement(MobileCommandCentreRebuild, mobileProps()))
+  return parseHTML(`<!doctype html><html><body>${markup}</body></html>`).document
+}
+
+describe('Mobile Command Centre contracts', () => {
+  it('defines one exhaustive desktop target for every mobile section', () => {
+    const sectionIds = SECTION_NAV.map(section => section.id)
+    expect(sectionIds).toHaveLength(20)
+    expect(new Set(sectionIds).size).toBe(sectionIds.length)
+    expect(Object.keys(SECTION_TO_DESKTOP_PAGE).sort()).toEqual([...sectionIds].sort())
+
+    for (const pageTarget of Object.values(PAGE_TO_SECTION)) {
+      expect(sectionIds).toContain(pageTarget)
     }
   })
 
-  it('exposes every new Command Centre capability as an explicit section', () => {
-    for (const label of [
-      'Market intelligence',
-      'Marketplace control',
-      'Supply',
-      'Trade financing',
-      'Directories',
-      'Personal briefing',
-      'Search',
-      'Talent',
-      'Genetics',
-      'Clinical',
-      'Education path',
-      'Compliance',
-      'Network',
-    ]) {
-      expect(source).toContain(`label: '${label}'`)
+  it('preserves the complete marketplace and supply universes', () => {
+    expect(MARKET_TABS.map(tab => tab.id)).toEqual([
+      'cannabis',
+      'wanted',
+      'opportunities',
+      'equipment',
+      'consumables',
+      'services',
+      'new-products',
+    ])
+    expect(SUPPLY_TABS.map(tab => tab.id)).toEqual([
+      'cannabis',
+      'equipment',
+      'consumables',
+      'services',
+      'new-products',
+    ])
+  })
+
+  it('normalizes marketplace tuples by named position without corrupting confidence', () => {
+    const row: MarketRow = [
+      'Bulk flower lot',
+      'Reviewed supply record',
+      'Canada',
+      'Cannabis',
+      'approved',
+      'Harbourview mediated',
+      '1',
+      'listing-1',
+      '',
+      '',
+    ]
+
+    expect(normalizeListing(row, 0, 'cannabis', 'Global')).toEqual({
+      id: 'listing-1',
+      title: 'Bulk flower lot',
+      summary: 'Reviewed supply record',
+      jurisdiction: 'Canada',
+      category: 'Cannabis',
+      status: 'approved',
+      channel: 'Harbourview mediated',
+      confidence: 1,
+      view: 'cannabis',
+    })
+  })
+
+  it('keeps stored percentages and confidence fractions as distinct units', () => {
+    expect(clampPercent(1)).toBe(1)
+    expect(clampPercent(101)).toBe(100)
+    expect(confidenceFractionToPercent(0.72)).toBe(72)
+    expect(confidenceFractionToPercent(1)).toBe(100)
+  })
+
+  it('normalizes query casing and whitespace inside the query helper', () => {
+    expect(matchesQuery('  CANADA ', ['Canada', 'Germany'])).toBe(true)
+    expect(matchesQuery('extract', ['Cultivation', 'Extraction'])).toBe(true)
+    expect(matchesQuery('', ['Anything'])).toBe(true)
+    expect(matchesQuery('missing', ['Anything'])).toBe(false)
+  })
+
+  it('parses only supported contained tools and resolves intake types', () => {
+    expect(parseMobileCommandTool('wanted-intake')).toBe('wanted-intake')
+    expect(parseMobileCommandTool('financing-intake')).toBe('financing-intake')
+    expect(parseMobileCommandTool('external-checkout')).toBeNull()
+    expect(defaultListingTypeForView('equipment')).toBe('Used / Surplus Equipment')
+    expect(defaultListingTypeForView('wanted')).toBe('Wanted Request')
+  })
+
+  it('keeps mediation and release-control copy centralized', () => {
+    expect(MOBILE_COMMAND_COPY.reviewedIntroduction).toBe('Request reviewed introduction')
+    expect(MOBILE_COMMAND_COPY.controlTitle).toBe('Controlled by default')
+    expect(MOBILE_COMMAND_COPY.controlDetail).toContain('No supplier identity')
+    expect(MOBILE_COMMAND_COPY.financingInquiryDescription).toContain('does not approve credit')
+  })
+
+  it('renders all 20 sections through the production mobile renderer', () => {
+    const document = renderMobileCommand()
+    const root = document.querySelector('[data-mobile-command-version="2"]')
+    expect(root).not.toBeNull()
+
+    const sections = [...document.querySelectorAll('.hvm2-main > section')]
+    expect(sections).toHaveLength(SECTION_NAV.length)
+
+    for (const section of SECTION_NAV) {
+      expect(document.querySelector(`#${section.id}`), section.id).not.toBeNull()
     }
-    expect(source).toContain('JOB_LISTINGS')
-    expect(source).toContain('marketMetrics.map')
-    expect(source).toContain('tradeFlows.map')
-    expect(source).toContain('supplyRows.map')
-    expect(source).toContain('directoryRecords.map')
+
+    expect(document.querySelector('.hvm2-bottom-nav')).not.toBeNull()
+    expect(document.body.textContent).toContain('Operator command centre')
+    expect(document.body.textContent).toContain('Bulk flower lot')
+    expect(document.body.textContent).not.toContain('⌘ Modules')
   })
 
-  it('keeps every marketplace category visible without narrowing scope', () => {
-    for (const category of [
-      "{ id: 'cannabis', label: 'Cannabis' }",
-      "{ id: 'wanted', label: 'Wanted' }",
-      "{ id: 'opportunities', label: 'Opportunities' }",
-      "{ id: 'equipment', label: 'Equipment' }",
-      "{ id: 'consumables', label: 'Consumables' }",
-      "{ id: 'services', label: 'Services' }",
-      "{ id: 'new-products', label: 'New products' }",
-    ]) {
-      expect(source).toContain(category)
+  it('renders canonical dashboard hrefs for progressive mobile workflows', () => {
+    const document = renderMobileCommand()
+    const anchors = [...document.querySelectorAll<HTMLAnchorElement>('.hvm2-root a[href]')]
+    expect(anchors.length).toBeGreaterThan(0)
+
+    for (const anchor of anchors) {
+      const target = new URL(anchor.getAttribute('href') ?? '', 'https://harbourview.test')
+      expect(target.pathname, anchor.textContent ?? '').toBe('/dashboard')
+      expect(target.searchParams.get('country')).toBe('CA')
+      expect(target.searchParams.get('role')).toBe('exporter')
     }
-    expect(source).toContain('Post wanted demand')
-    expect(source).toContain('Submit supply')
-    expect(source).toContain('Request financing')
-  })
 
-  it('preserves jurisdiction and role as explicit URL-backed context controls', () => {
-    expect(source).toContain("updateContext('country', event.target.value)")
-    expect(source).toContain("updateContext('role', event.target.value)")
-    expect(source).toContain("params.set('section', activeSection)")
-    expect(source).toContain("params.delete(key)")
-  })
+    const byText = (label: string) => anchors.find(anchor => anchor.textContent?.includes(label))
+    const wanted = new URL(byText('Post wanted demand')?.getAttribute('href') ?? '', 'https://harbourview.test')
+    expect(wanted.searchParams.get('section')).toBe('marketplace')
+    expect(wanted.searchParams.get('tool')).toBe('wanted-intake')
+    expect(wanted.searchParams.get('marketView')).toBe('wanted')
 
-  it('preserves Harbourview mediation and private-data boundaries', () => {
-    expect(source).toContain('Request reviewed introduction')
-    expect(source).toContain('Controlled by default')
-    expect(source).toContain('No supplier identity, private source evidence, internal review notes or counterparty detail is released')
-    expect(source).not.toContain('Contact seller directly')
-    expect(source).not.toContain('Buy now')
-    expect(source).not.toContain('Checkout')
-  })
-
-  it('removes the rejected floating Modules launcher', () => {
-    expect(source).not.toContain('⌘ Modules')
-    expect(source).not.toContain('ccig-launcher')
-    expect(source).not.toContain('ModuleLauncher')
-    expect(css).not.toContain('ccig-launcher')
-  })
-
-  it('implements mobile safe-area and overflow protections', () => {
-    expect(css).toContain('max-width:100vw')
-    expect(css).toContain('overflow-x:hidden')
-    expect(css).toContain('env(safe-area-inset-bottom)')
-    expect(css).toContain('@media(max-width:359px)')
-    expect(css).toContain('@media(prefers-reduced-motion:reduce)')
+    const financing = new URL(byText('Request financing')?.getAttribute('href') ?? '', 'https://harbourview.test')
+    expect(financing.searchParams.get('section')).toBe('financing')
+    expect(financing.searchParams.get('tool')).toBe('financing-intake')
   })
 })
