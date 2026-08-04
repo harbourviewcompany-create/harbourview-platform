@@ -11,7 +11,7 @@ on:
 permissions:
   contents: write
   issues: write
-  pull-requests: read
+  pull-requests: write
 
 concurrency:
   group: wrangler-security-pin-${{ github.event.pull_request.number || github.ref }}
@@ -39,16 +39,32 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Pin current audited Wrangler release in dependency metadata
+      - name: Override vulnerable Undici transitive dependency
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/wrangler-security-pin
-          npm install --package-lock-only --ignore-scripts --save-dev-exact wrangler@4.114.0
+          npm pkg set 'overrides.undici=7.29.0'
+          npm install --package-lock-only --ignore-scripts
           git diff -- package.json package-lock.json > artifacts/wrangler-security-pin/dependency.patch
 
       - name: Install exact dependency tree
         run: npm ci
+
+      - name: Verify resolved dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ls wrangler miniflare undici | tee artifacts/wrangler-security-pin/dependency-tree.txt
+          node <<'NODE'
+          const fs = require('node:fs')
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'))
+          const resolved = lock.packages?.['node_modules/undici']?.version
+          if (resolved !== '7.29.0') {
+            throw new Error(`Expected undici 7.29.0, resolved ${resolved ?? 'missing'}`)
+          }
+          console.log(`Resolved patched undici ${resolved}`)
+          NODE
 
       - name: Verify Wrangler and build Worker without deployment
         shell: bash
@@ -81,7 +97,7 @@ jobs:
           if (summary.critical > 0 || summary.high > 0) process.exitCode = 1
           NODE
 
-      - name: Commit verified dependency pin
+      - name: Commit verified dependency override
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -94,12 +110,12 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package.json package-lock.json
-          git commit -m 'fix(security): pin audited Wrangler dependency'
+          git commit -m 'fix(security): override vulnerable Undici transitive'
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push origin "HEAD:${TARGET_BRANCH}"
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
 
-      - name: Upload pin and dry-run evidence
+      - name: Upload dependency and Worker evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -108,7 +124,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Record pin result on PR
+      - name: Record verification result on PR
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -129,4 +145,4 @@ jobs:
           if [ -f artifacts/wrangler-security-pin/audit-summary.json ]; then
             audit_summary="$(tr -d '\n' < artifacts/wrangler-security-pin/audit-summary.json)"
           fi
-          gh pr comment "$pr_number" --body "Wrangler security pin run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against source \`${TARGET_SHA}\`. Audit summary: \`${audit_summary}\`. Artifact: \`wrangler-security-pin-${GITHUB_RUN_ID}\`."
+          gh pr comment "$pr_number" --body "Dependency and Wrangler verification run [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) completed with status **${JOB_RESULT}** against source \`${TARGET_SHA}\`. Audit summary: \`${audit_summary}\`. Artifact: \`wrangler-security-pin-${GITHUB_RUN_ID}\`."
