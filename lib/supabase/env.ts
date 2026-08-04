@@ -1,7 +1,7 @@
 const EXPECTED_SUPABASE_PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
 const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
-const LOCAL_SUPABASE_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
+const LOCAL_SUPABASE_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
 // PostgREST on this project only exposes the `api` schema (Settings → Data API
 // → Exposed schemas). It does NOT expose `public`, even though every table
@@ -49,19 +49,25 @@ function parseUrlSafely(url: string) {
 function isLocalSupabaseGateEnabled() {
   if (process.env.VERCEL || process.env.VERCEL_ENV) return false
 
-  return typeof window === 'undefined'
-    ? process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1'
-    : process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1'
+  if (typeof window === 'undefined') {
+    return process.env.CI === '1'
+      && process.env.HARBOURVIEW_LOCAL_TEST_BUILD === '1'
+      && process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1'
+  }
+
+  return process.env.NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD === '1'
+    && process.env.NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1'
 }
 
 /**
- * Isolated test/local Supabase is accepted only when all safety conditions hold:
- * - the explicit runtime-appropriate local-only gate is enabled;
+ * Isolated Supabase is accepted only when all safety conditions hold:
+ * - the explicit server or browser local gate is enabled;
+ * - the build is explicitly marked as an isolated CI test build;
  * - the target is a loopback host;
  * - the process is not running in a Vercel deployment environment.
  *
- * Browser code requires NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE because
- * unprefixed environment variables are not embedded into client bundles.
+ * Browser gates use only literal NEXT_PUBLIC_ variables that Next.js can inline
+ * at build time. Production deployments do not set the isolated-test marker.
  */
 export function isExplicitLocalSupabaseUrl(url: string) {
   if (!isLocalSupabaseGateEnabled()) return false
