@@ -23,9 +23,10 @@ begin
   if not exists (
     select 1 from pg_policies
     where schemaname = 'intelligence'
-      and tablename = 'country_intelligence_profiles'
+      and tablename  = 'country_intelligence_profiles'
       and policyname = 'intelligence_country_public_read'
   ) then
+drop policy if exists intelligence_country_public_read on intelligence.country_intelligence_profiles;
     create policy intelligence_country_public_read
     on intelligence.country_intelligence_profiles
     for select
@@ -34,10 +35,9 @@ begin
       and publish_to_public = true
     );
   end if;
-end
-$$;
+end $$;
 
-create or replace view intelligence.public_country_intelligence as
+create view if not exists intelligence.public_country_intelligence as
 select
   id,
   country_code,
@@ -48,4 +48,4 @@ select
   last_reviewed_at
 from intelligence.country_intelligence_profiles
 where public_safe = true
-  and publish_to_public = true;
+and publish_to_public = true;

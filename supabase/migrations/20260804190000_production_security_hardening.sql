@@ -6,24 +6,6 @@ create schema if not exists extensions;
 revoke create on schema extensions from public;
 grant usage on schema extensions to postgres, service_role, authenticated, anon;
 
--- Migration-local existence helper required by the repository SQL safety gate.
-create or replace function public.view_exists(p_schema text, p_view text)
-returns boolean
-language sql
-stable
-set search_path = pg_catalog
-as $function$
-  select exists (
-    select 1
-    from pg_class c
-    join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = p_schema
-      and c.relname = p_view
-      and c.relkind = 'v'
-  );
-$function$;
-revoke all on function public.view_exists(text, text) from public, anon, authenticated;
-
 -- Relocate only extensions PostgreSQL marks relocatable. pg_net is not
 -- relocatable on this project; it is contained through schema/function grants.
 do $$
@@ -43,220 +25,132 @@ begin
 end
 $$;
 
--- Explicit inventory of exposed views identified by the production advisor.
--- Each literal ALTER VIEW is paired with its own existence guard.
-do $$
-begin
-  if public.view_exists('api', 'hv_artifacts') then
-    alter view api.hv_artifacts set (security_invoker = true);
-    revoke all privileges on table api.hv_artifacts from public, anon, authenticated;
-    grant select on table api.hv_artifacts to service_role;
-  end if;
-  if public.view_exists('api', 'hv_processing_jobs') then
-    alter view api.hv_processing_jobs set (security_invoker = true);
-    revoke all privileges on table api.hv_processing_jobs from public, anon, authenticated;
-    grant select on table api.hv_processing_jobs to service_role;
-  end if;
-  if public.view_exists('api', 'schema_drift_alerts') then
-    alter view api.schema_drift_alerts set (security_invoker = true);
-    revoke all privileges on table api.schema_drift_alerts from public, anon, authenticated;
-    grant select on table api.schema_drift_alerts to service_role;
-  end if;
-  if public.view_exists('api', 'scraper_source_state') then
-    alter view api.scraper_source_state set (security_invoker = true);
-    revoke all privileges on table api.scraper_source_state from public, anon, authenticated;
-    grant select on table api.scraper_source_state to service_role;
-  end if;
-  if public.view_exists('public', 'admin_active_matches') then
-    alter view public.admin_active_matches set (security_invoker = true);
-    revoke all privileges on table public.admin_active_matches from public, anon, authenticated;
-    grant select on table public.admin_active_matches to service_role;
-  end if;
-  if public.view_exists('public', 'admin_pending_buyer_requests') then
-    alter view public.admin_pending_buyer_requests set (security_invoker = true);
-    revoke all privileges on table public.admin_pending_buyer_requests from public, anon, authenticated;
-    grant select on table public.admin_pending_buyer_requests to service_role;
-  end if;
-  if public.view_exists('public', 'admin_pending_listings') then
-    alter view public.admin_pending_listings set (security_invoker = true);
-    revoke all privileges on table public.admin_pending_listings from public, anon, authenticated;
-    grant select on table public.admin_pending_listings to service_role;
-  end if;
-  if public.view_exists('public', 'content_coverage_queue') then
-    alter view public.content_coverage_queue set (security_invoker = true);
-    revoke all privileges on table public.content_coverage_queue from public, anon, authenticated;
-    grant select on table public.content_coverage_queue to service_role;
-  end if;
-  if public.view_exists('public', 'country_intel_public') then
-    alter view public.country_intel_public set (security_invoker = true);
-    revoke all privileges on table public.country_intel_public from public, anon, authenticated;
-    grant select on table public.country_intel_public to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_claims') then
-    alter view public.genetics_public_claims set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_claims from public, anon, authenticated;
-    grant select on table public.genetics_public_claims to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_collaboration_projects') then
-    alter view public.genetics_public_collaboration_projects set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_collaboration_projects from public, anon, authenticated;
-    grant select on table public.genetics_public_collaboration_projects to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_country_opportunities') then
-    alter view public.genetics_public_country_opportunities set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_country_opportunities from public, anon, authenticated;
-    grant select on table public.genetics_public_country_opportunities to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_cultivar_aliases') then
-    alter view public.genetics_public_cultivar_aliases set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_cultivar_aliases from public, anon, authenticated;
-    grant select on table public.genetics_public_cultivar_aliases to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_cultivar_passports') then
-    alter view public.genetics_public_cultivar_passports set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_cultivar_passports from public, anon, authenticated;
-    grant select on table public.genetics_public_cultivar_passports to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_evidence_summaries') then
-    alter view public.genetics_public_evidence_summaries set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_evidence_summaries from public, anon, authenticated;
-    grant select on table public.genetics_public_evidence_summaries to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_profiles') then
-    alter view public.genetics_public_profiles set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_profiles from public, anon, authenticated;
-    grant select on table public.genetics_public_profiles to service_role;
-  end if;
-  if public.view_exists('public', 'genetics_public_service_providers') then
-    alter view public.genetics_public_service_providers set (security_invoker = true);
-    revoke all privileges on table public.genetics_public_service_providers from public, anon, authenticated;
-    grant select on table public.genetics_public_service_providers to service_role;
-  end if;
-  if public.view_exists('public', 'ia_sources_live') then
-    alter view public.ia_sources_live set (security_invoker = true);
-    revoke all privileges on table public.ia_sources_live from public, anon, authenticated;
-    grant select on table public.ia_sources_live to service_role;
-  end if;
-  if public.view_exists('public', 'jurisdiction_cross_table_conflicts') then
-    alter view public.jurisdiction_cross_table_conflicts set (security_invoker = true);
-    revoke all privileges on table public.jurisdiction_cross_table_conflicts from public, anon, authenticated;
-    grant select on table public.jurisdiction_cross_table_conflicts to service_role;
-  end if;
-  if public.view_exists('public', 'local_intel_jurisdiction_combined') then
-    alter view public.local_intel_jurisdiction_combined set (security_invoker = true);
-    revoke all privileges on table public.local_intel_jurisdiction_combined from public, anon, authenticated;
-    grant select on table public.local_intel_jurisdiction_combined to service_role;
-  end if;
-  if public.view_exists('public', 'local_intel_next_batch') then
-    alter view public.local_intel_next_batch set (security_invoker = true);
-    revoke all privileges on table public.local_intel_next_batch from public, anon, authenticated;
-    grant select on table public.local_intel_next_batch to service_role;
-  end if;
-  if public.view_exists('public', 'marketplace_public_listings_v1') then
-    alter view public.marketplace_public_listings_v1 set (security_invoker = true);
-    revoke all privileges on table public.marketplace_public_listings_v1 from public, anon, authenticated;
-    grant select on table public.marketplace_public_listings_v1 to service_role;
-  end if;
-  if public.view_exists('public', 'platform_coverage_summary') then
-    alter view public.platform_coverage_summary set (security_invoker = true);
-    revoke all privileges on table public.platform_coverage_summary from public, anon, authenticated;
-    grant select on table public.platform_coverage_summary to service_role;
-  end if;
-  if public.view_exists('public', 'playbook_regulator_drift') then
-    alter view public.playbook_regulator_drift set (security_invoker = true);
-    revoke all privileges on table public.playbook_regulator_drift from public, anon, authenticated;
-    grant select on table public.playbook_regulator_drift to service_role;
-  end if;
-  if public.view_exists('public', 'playbook_staleness_queue') then
-    alter view public.playbook_staleness_queue set (security_invoker = true);
-    revoke all privileges on table public.playbook_staleness_queue from public, anon, authenticated;
-    grant select on table public.playbook_staleness_queue to service_role;
-  end if;
-  if public.view_exists('public', 'public_country_profile_dto') then
-    alter view public.public_country_profile_dto set (security_invoker = true);
-    revoke all privileges on table public.public_country_profile_dto from public, anon, authenticated;
-    grant select on table public.public_country_profile_dto to service_role;
-  end if;
-  if public.view_exists('public', 'signals_for_digest') then
-    alter view public.signals_for_digest set (security_invoker = true);
-    revoke all privileges on table public.signals_for_digest from public, anon, authenticated;
-    grant select on table public.signals_for_digest to service_role;
-  end if;
-  if public.view_exists('public', 'signals_intelligence_feed') then
-    alter view public.signals_intelligence_feed set (security_invoker = true);
-    revoke all privileges on table public.signals_intelligence_feed from public, anon, authenticated;
-    grant select on table public.signals_intelligence_feed to service_role;
-  end if;
-  if public.view_exists('public', 'signals_quality') then
-    alter view public.signals_quality set (security_invoker = true);
-    revoke all privileges on table public.signals_quality from public, anon, authenticated;
-    grant select on table public.signals_quality to service_role;
-  end if;
-  if public.view_exists('public', 'source_domain_type') then
-    alter view public.source_domain_type set (security_invoker = true);
-    revoke all privileges on table public.source_domain_type from public, anon, authenticated;
-    grant select on table public.source_domain_type to service_role;
-  end if;
-  if public.view_exists('public', 'source_yield_report') then
-    alter view public.source_yield_report set (security_invoker = true);
-    revoke all privileges on table public.source_yield_report from public, anon, authenticated;
-    grant select on table public.source_yield_report to service_role;
-  end if;
-  if public.view_exists('public', 'v_jurisdiction_unified') then
-    alter view public.v_jurisdiction_unified set (security_invoker = true);
-    revoke all privileges on table public.v_jurisdiction_unified from public, anon, authenticated;
-    grant select on table public.v_jurisdiction_unified to service_role;
-  end if;
-  if public.view_exists('regulatory_signals', 'public_signals') then
-    alter view regulatory_signals.public_signals set (security_invoker = true);
-    revoke all privileges on table regulatory_signals.public_signals from public, anon, authenticated;
-    grant select on table regulatory_signals.public_signals to service_role;
-  end if;
-  if public.view_exists('regulatory_signals', 'public_source_status') then
-    alter view regulatory_signals.public_source_status set (security_invoker = true);
-    revoke all privileges on table regulatory_signals.public_source_status from public, anon, authenticated;
-    grant select on table regulatory_signals.public_source_status to service_role;
-  end if;
-  if public.view_exists('regulatory_signals', 'public_watchlist_collection_signals') then
-    alter view regulatory_signals.public_watchlist_collection_signals set (security_invoker = true);
-    revoke all privileges on table regulatory_signals.public_watchlist_collection_signals from public, anon, authenticated;
-    grant select on table regulatory_signals.public_watchlist_collection_signals to service_role;
-  end if;
-  if public.view_exists('regulatory_signals', 'public_watchlist_collections') then
-    alter view regulatory_signals.public_watchlist_collections set (security_invoker = true);
-    revoke all privileges on table regulatory_signals.public_watchlist_collections from public, anon, authenticated;
-    grant select on table regulatory_signals.public_watchlist_collections to service_role;
-  end if;
-end
-$$;
--- Internal/admin projections are never direct application-role surfaces.
+-- Explicit grant matrix for every advisor-identified view.
+-- public: documented guest projections; anon/authenticated SELECT is explicit.
+-- preserve: application projections with existing read contracts; writes are removed
+--           without widening or removing the current SELECT ACL.
+-- internal: admin/operator projections; browser roles receive no privileges.
 do $$
 declare
-  protected_row record;
+  view_row record;
+  anon_can_select boolean;
+  authenticated_can_select boolean;
 begin
-  for protected_row in
+  for view_row in
     select * from (values
-      ('api','hv_artifacts'),
-      ('api','hv_processing_jobs'),
-      ('api','schema_drift_alerts'),
-      ('api','scraper_source_state'),
-      ('public','admin_active_matches'),
-      ('public','admin_pending_buyer_requests'),
-      ('public','admin_pending_listings'),
-      ('public','content_coverage_queue'),
-      ('public','jurisdiction_cross_table_conflicts'),
-      ('public','local_intel_next_batch'),
-      ('public','playbook_regulator_drift'),
-      ('public','playbook_staleness_queue'),
-      ('public','signals_for_digest'),
-      ('public','signals_quality'),
-      ('public','source_domain_type'),
-      ('public','source_yield_report')
-    ) as protected(schema_name, relation_name)
+      ('api','hv_artifacts','internal'),
+      ('api','hv_processing_jobs','internal'),
+      ('api','schema_drift_alerts','internal'),
+      ('api','scraper_source_state','internal'),
+      ('public','admin_active_matches','internal'),
+      ('public','admin_pending_buyer_requests','internal'),
+      ('public','admin_pending_listings','internal'),
+      ('public','content_coverage_queue','internal'),
+      ('public','country_intel_public','public'),
+      ('public','genetics_public_claims','public'),
+      ('public','genetics_public_collaboration_projects','public'),
+      ('public','genetics_public_country_opportunities','public'),
+      ('public','genetics_public_cultivar_aliases','public'),
+      ('public','genetics_public_cultivar_passports','public'),
+      ('public','genetics_public_evidence_summaries','public'),
+      ('public','genetics_public_profiles','public'),
+      ('public','genetics_public_service_providers','public'),
+      ('public','ia_sources_live','preserve'),
+      ('public','jurisdiction_cross_table_conflicts','internal'),
+      ('public','local_intel_jurisdiction_combined','preserve'),
+      ('public','local_intel_next_batch','internal'),
+      ('public','marketplace_public_listings_v1','public'),
+      ('public','platform_coverage_summary','preserve'),
+      ('public','playbook_regulator_drift','internal'),
+      ('public','playbook_staleness_queue','internal'),
+      ('public','public_country_profile_dto','public'),
+      ('public','signals_for_digest','internal'),
+      ('public','signals_intelligence_feed','preserve'),
+      ('public','signals_quality','internal'),
+      ('public','source_domain_type','internal'),
+      ('public','source_yield_report','internal'),
+      ('public','v_jurisdiction_unified','preserve'),
+      ('regulatory_signals','public_signals','public'),
+      ('regulatory_signals','public_source_status','public'),
+      ('regulatory_signals','public_watchlist_collection_signals','public'),
+      ('regulatory_signals','public_watchlist_collections','public')
+    ) as inventory(schema_name, relation_name, access_policy)
   loop
-    if public.view_exists(protected_row.schema_name, protected_row.relation_name) then
-      execute format('revoke all privileges on table %I.%I from public, anon, authenticated', protected_row.schema_name, protected_row.relation_name);
-      execute format('grant select on table %I.%I to service_role', protected_row.schema_name, protected_row.relation_name);
+    if exists (
+      select 1
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = view_row.schema_name
+        and c.relname = view_row.relation_name
+        and c.relkind = 'v'
+    ) then
+      execute format(
+        'alter view %I.%I set (security_invoker = true)',
+        view_row.schema_name,
+        view_row.relation_name
+      );
+
+      if view_row.access_policy = 'public' then
+        execute format(
+          'revoke all privileges on table %I.%I from public, anon, authenticated',
+          view_row.schema_name,
+          view_row.relation_name
+        );
+        execute format(
+          'grant select on table %I.%I to anon, authenticated, service_role',
+          view_row.schema_name,
+          view_row.relation_name
+        );
+      elsif view_row.access_policy = 'preserve' then
+        -- Preserve the effective browser-role SELECT contract without retaining
+        -- historical write grants or widening access for a role that did not
+        -- already have read permission.
+        anon_can_select := has_table_privilege(
+          'anon',
+          format('%I.%I', view_row.schema_name, view_row.relation_name),
+          'select'
+        );
+        authenticated_can_select := has_table_privilege(
+          'authenticated',
+          format('%I.%I', view_row.schema_name, view_row.relation_name),
+          'select'
+        );
+        execute format(
+          'revoke all privileges on table %I.%I from public, anon, authenticated',
+          view_row.schema_name,
+          view_row.relation_name
+        );
+        if anon_can_select then
+          execute format(
+            'grant select on table %I.%I to anon',
+            view_row.schema_name,
+            view_row.relation_name
+          );
+        end if;
+        if authenticated_can_select then
+          execute format(
+            'grant select on table %I.%I to authenticated',
+            view_row.schema_name,
+            view_row.relation_name
+          );
+        end if;
+        execute format(
+          'grant select on table %I.%I to service_role',
+          view_row.schema_name,
+          view_row.relation_name
+        );
+      else
+        execute format(
+          'revoke all privileges on table %I.%I from public, anon, authenticated',
+          view_row.schema_name,
+          view_row.relation_name
+        );
+        execute format(
+          'grant select on table %I.%I to service_role',
+          view_row.schema_name,
+          view_row.relation_name
+        );
+      end if;
     end if;
   end loop;
 end
@@ -300,8 +194,15 @@ end
 $$;
 
 -- Remove direct access to asynchronous network internals from browser roles.
-revoke usage on schema net from public, anon, authenticated;
-grant usage on schema net to service_role;
+-- pg_net is optional in isolated/local environments, so guard the schema.
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'net') then
+    execute 'revoke usage on schema net from public, anon, authenticated';
+    execute 'grant usage on schema net to service_role';
+  end if;
+end
+$$;
 
 -- SECURITY DEFINER routines default closed. Catalog-wide revocation is safe;
 -- execution is restored only through the explicit allowlists below.
@@ -466,6 +367,7 @@ begin
   end if;
 end
 $$;
+
 -- Audited authenticated RPC/policy-helper allowlist.
 do $$
 begin
@@ -513,6 +415,7 @@ begin
   end if;
 end
 $$;
+
 -- Pin search_path for every custom application routine. Extension-owned
 -- routines are excluded so extension upgrades remain vendor-controlled.
 do $$
@@ -551,5 +454,3 @@ alter default privileges for role postgres in schema public revoke all on tables
 alter default privileges for role postgres in schema api revoke all on tables from public, anon, authenticated;
 
 notify pgrst, 'reload schema';
-
-drop function public.view_exists(text, text);

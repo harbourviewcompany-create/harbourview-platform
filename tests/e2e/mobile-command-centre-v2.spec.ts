@@ -259,6 +259,27 @@ test.describe('Command Centre authenticated responsive verification', () => {
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
+            // Load the canonical marketplace page before exercising marketplace
+            // controls. The server loader is page-specific, so changing tabs from
+            // the default briefing page cannot retroactively load marketplaceRows.
+            const marketplaceResponse = await page.goto(
+              '/dashboard?country=CA&role=exporter&page=marketplace&section=marketplace&marketView=cannabis',
+              { waitUntil: 'domcontentloaded', timeout: 60_000 },
+            )
+            expect(marketplaceResponse?.status()).toBeLessThan(400)
+            await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible()
+            await expectCommandState(page, {
+              page: 'marketplace',
+              section: 'marketplace',
+              marketView: 'cannabis',
+              tool: null,
+              listing: null,
+            })
+
+            const cannabisTab = page.getByRole('tab', { name: /Cannabis/ })
+            await expect(cannabisTab).toHaveAttribute('aria-selected', 'true')
+            await expect(page.getByText(SAFE_LISTING_TITLE, { exact: true }).first()).toBeVisible()
+
             const equipmentTab = page.getByRole('tab', { name: /Equipment/ })
             await equipmentTab.click()
             await expectCommandState(page, {
@@ -271,7 +292,6 @@ test.describe('Command Centre authenticated responsive verification', () => {
             await page.reload({ waitUntil: 'domcontentloaded' })
             await expect(equipmentTab).toHaveAttribute('aria-selected', 'true')
 
-            const cannabisTab = page.getByRole('tab', { name: /Cannabis/ })
             await cannabisTab.click()
             await expectCommandState(page, {
               page: 'marketplace',
