@@ -1,7 +1,7 @@
 -- Production's public.hv_review_decisions relation and audit trigger existed
 -- before the July 8 RLS initplan advisory snapshot, but their creating DDL was
--- absent from repository zero-state history. Restore the exact production
--- contract without replacing rows or changing an existing relation.
+-- absent from repository zero-state history. Restore the production table and
+-- the table-compatible audit behavior without replacing existing rows.
 
 create table if not exists public.hv_review_decisions (
   id uuid primary key default gen_random_uuid(),
@@ -39,6 +39,10 @@ grant select, insert, update, delete on table public.hv_review_decisions
   to anon, authenticated;
 grant all privileges on table public.hv_review_decisions to service_role;
 
+-- The production trigger function currently references columns that are not
+-- present on production's legacy audit_events table. Retain the same review
+-- decision evidence in the live entity/actor/metadata audit contract so the
+-- restored trigger is executable rather than reproducing that latent failure.
 create or replace function public.hv_audit_review_decision()
 returns trigger
 language plpgsql
@@ -47,37 +51,30 @@ set search_path = public
 as $function$
 begin
   insert into public.audit_events (
-    user_id,
+    entity_type,
+    entity_id,
     action,
-    event_type,
-    resource_type,
-    resource_id,
-    resource_name,
-    workspace_id,
-    before_state,
-    after_state,
+    actor,
+    actor_user_id,
+    actor_org_id,
     metadata
   )
   values (
+    'hv_review_decision',
+    new.id,
+    'review_decision.' || new.decision,
+    new.decided_by::text,
     new.decided_by,
-    'review_decision',
-    'UPDATE',
-    'artifact',
-    new.artifact_id,
-    null,
     new.workspace_id,
     jsonb_build_object(
-      'review_status', new.previous_status,
-      'lifecycle_stage', new.previous_lifecycle
-    ),
-    jsonb_build_object(
-      'review_status', new.new_status,
-      'lifecycle_stage', new.new_lifecycle,
-      'public_eligible', new.public_eligible_set
-    ),
-    jsonb_build_object(
-      'decision', new.decision,
-      'note', new.decision_note,
+      'artifact_id', new.artifact_id,
+      'decision_note', new.decision_note,
+      'previous_status', new.previous_status,
+      'new_status', new.new_status,
+      'previous_lifecycle', new.previous_lifecycle,
+      'new_lifecycle', new.new_lifecycle,
+      'public_eligible_set', new.public_eligible_set,
+      'public_eligible_reason', new.public_eligible_reason,
       'evidence_ids', new.evidence_ids,
       'linked_sources', new.linked_sources
     )
