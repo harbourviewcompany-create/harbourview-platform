@@ -1,0 +1,71 @@
+name: Migration Stub Audit
+
+on:
+  push:
+    branches:
+      - stage/pr1280-production-ready-20260805
+    paths:
+      - .github/workflows/migration-stub-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: stage/pr1280-production-ready-20260805
+          fetch-depth: 1
+
+      - name: Inventory production-only and placeholder migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          migrations = Path('supabase/migrations')
+          findings = []
+          patterns = {
+            'production_stub': re.compile(r'applied directly to production|file added to satisfy supabase migration version tracking', re.I),
+            'placeholder_select': re.compile(r'^\s*(?:--[^\n]*\n)*\s*select\s+1\s*;?\s*$', re.I | re.S),
+            'manual_only': re.compile(r'manual application required|run this sql in the supabase sql editor', re.I),
+            'table_dependency': re.compile(r'\b(?:alter table|drop policy|create policy|comment on table|comment on column)\s+(?:if exists\s+)?(?:public\.)?([a-z_][a-z0-9_]*)', re.I),
+          }
+
+          for path in sorted(migrations.glob('*.sql')):
+            sql = path.read_text(encoding='utf-8')
+            labels = [
+              label for label, pattern in patterns.items()
+              if label != 'table_dependency' and pattern.search(sql)
+            ]
+            if labels:
+              findings.append({
+                'file': path.name,
+                'labels': labels,
+                'referenced_relations': sorted(set(patterns['table_dependency'].findall(sql))),
+                'bytes': len(sql.encode('utf-8')),
+              })
+
+          report = {
+            'count': len(findings),
+            'findings': findings,
+          }
+          Path('/tmp/migration-stub-audit.json').write_text(
+            json.dumps(report, indent=2) + '\n',
+            encoding='utf-8',
+          )
+          print(json.dumps(report, indent=2))
+          PY
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: migration-stub-audit
+          path: /tmp/migration-stub-audit.json
+          retention-days: 14
