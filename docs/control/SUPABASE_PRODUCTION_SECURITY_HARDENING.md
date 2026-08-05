@@ -58,7 +58,7 @@ Internal/admin projections use `security_invoker=true`, revoke all privileges fr
 - The service-role allowlist retains exact-signature execution, including `api.get_github_pat()` and `public.get_github_pat()` when those functions exist.
 - Custom application routines have a pinned search path.
 - Relocatable `vector` and `pg_trgm` extensions live in `extensions`.
-- `pg_net` remains vendor-managed; direct `net` schema access is removed from browser roles when the schema exists.
+- `pg_net` remains vendor-managed; direct `net` schema usage and routine execution are removed from `public`, `anon`, and `authenticated` when the schema exists, while `service_role` retains explicit schema usage and routine execution.
 - Default privileges for future functions and tables start closed and must be granted intentionally by a forward migration.
 
 ## Verification boundary

@@ -204,6 +204,36 @@ begin
 end
 $$;
 
+-- pg_net routines are extension-owned and therefore excluded from the generic
+-- custom-routine loop below. Close their routine ACLs explicitly while keeping
+-- the service-role integration path available.
+do $$
+declare
+  routine record;
+  routine_kind text;
+begin
+  for routine in
+    select p.oid::regprocedure as signature, p.prokind
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'net'
+      and p.prokind in ('f','p')
+  loop
+    routine_kind := case when routine.prokind = 'p' then 'procedure' else 'function' end;
+    execute format(
+      'revoke all privileges on %s %s from public, anon, authenticated',
+      routine_kind,
+      routine.signature
+    );
+    execute format(
+      'grant execute on %s %s to service_role',
+      routine_kind,
+      routine.signature
+    );
+  end loop;
+end
+$$;
+
 -- SECURITY DEFINER routines default closed. Catalog-wide revocation is safe;
 -- execution is restored only through the explicit allowlists below.
 do $$
