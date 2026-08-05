@@ -158,6 +158,9 @@ revoke all on table public.matches from public, anon, authenticated;
 grant select on table public.matches to authenticated;
 grant all on table public.matches to service_role;
 
+comment on table public.matches is
+  'Server-only matching workflow table. RLS intentionally has no client policies; access must go through trusted server paths.';
+
 alter table public.matches
   add column if not exists match_rationale text,
   add column if not exists match_rationale_model text,
