@@ -122,3 +122,58 @@ DROP TRIGGER IF EXISTS trg_briefings_field_changes ON public.cc_jurisdiction_bri
 CREATE TRIGGER trg_briefings_field_changes
   AFTER UPDATE ON public.cc_jurisdiction_briefings
   FOR EACH ROW EXECUTE FUNCTION public.trg_track_briefing_field_changes();
+
+-- RESTORED 2026-08-05 (zero-state chronology repair, PR #1280): the two RPCs below
+-- were part of the original prod migration 20260627033143 (see ledger statements in
+-- supabase_migrations.schema_migrations) but were omitted from this file's Jul-01
+-- reconciliation rewrite. Their absence made public.get_regulatory_calendar() not
+-- exist at zero-state replay time, which broke the api-schema wrapper created later
+-- by 20260710123000_expose_actively_broken_tables_api_schema.sql. Bodies below are
+-- verbatim from the prod ledger (pre-search_path-hardening; that hardening is applied
+-- chronologically later by the existing 20260708212112 migration, already present).
+
+CREATE OR REPLACE FUNCTION public.get_field_changes_for_country(
+  p_iso2  text,
+  p_limit int DEFAULT 20
+)
+RETURNS TABLE (
+  id           uuid,
+  table_name   text,
+  field_name   text,
+  old_value    text,
+  new_value    text,
+  changed_at   timestamptz,
+  source_label text
+)
+LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT id, table_name, field_name, old_value, new_value, changed_at, source_label
+  FROM public.regulatory_field_changes
+  WHERE row_id = upper(p_iso2) OR row_id LIKE upper(p_iso2) || ':%'
+  ORDER BY changed_at DESC
+  LIMIT p_limit;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_regulatory_calendar(
+  p_iso2  text DEFAULT NULL,
+  p_limit int  DEFAULT 30
+)
+RETURNS TABLE (
+  id            uuid,
+  iso2          text,
+  event_type    text,
+  title         text,
+  summary       text,
+  expected_date date,
+  confidence    text,
+  source_url    text,
+  source_label  text,
+  status        text
+)
+LANGUAGE sql STABLE SECURITY DEFINER AS $$
+  SELECT id, iso2, event_type, title, summary, expected_date, confidence, source_url, source_label, status
+  FROM public.regulatory_calendar
+  WHERE (p_iso2 IS NULL OR iso2 = upper(p_iso2))
+    AND status = 'upcoming'
+  ORDER BY expected_date ASC NULLS LAST
+  LIMIT p_limit;
+$$;
