@@ -8,6 +8,7 @@ on:
       - .github/workflows/stage-production-candidate.yml
       - supabase/migrations/20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql
       - supabase/migrations/20260607230000_hv_bge_m3_1024_dim_embedding_column_and_search.sql
+      - supabase/migrations/20260611153902_create_hv_source_pull_trigger.sql
   workflow_dispatch:
 
 permissions:
@@ -50,21 +51,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .github/workflows
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/5f0da6d3d5244b3fa6fc3a5f981831d52b75e65d/.github/workflows/repair-production-readiness.yml \
-            -o .github/workflows/repair-production-readiness.yml
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/0f35bf5f9d73ed38446076cbd46f81c4a90cd843/.github/workflows/repair-production-readiness-v2.yml \
-            -o .github/workflows/repair-production-readiness-v2.yml
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/cab35f9f1d343066b5c1a6d3b9f4150bc151edd4/.github/workflows/repair-production-readiness-v3.yml \
-            -o .github/workflows/repair-production-readiness-v3.yml
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/23af0e37ac7470672656a60335424eda84c2b678/.github/workflows/repair-production-readiness-v4.yml \
-            -o .github/workflows/repair-production-readiness-v4.yml
-          curl --fail --silent --show-error --location \
-            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/7077adb90093f0665adfc6a3e7de158581d784e8/scripts/tmp_production_readiness_repair.py \
-            -o /tmp/production_readiness_repair.py
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/5f0da6d3d5244b3fa6fc3a5f981831d52b75e65d/.github/workflows/repair-production-readiness.yml -o .github/workflows/repair-production-readiness.yml
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/0f35bf5f9d73ed38446076cbd46f81c4a90cd843/.github/workflows/repair-production-readiness-v2.yml -o .github/workflows/repair-production-readiness-v2.yml
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/cab35f9f1d343066b5c1a6d3b9f4150bc151edd4/.github/workflows/repair-production-readiness-v3.yml -o .github/workflows/repair-production-readiness-v3.yml
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/23af0e37ac7470672656a60335424eda84c2b678/.github/workflows/repair-production-readiness-v4.yml -o .github/workflows/repair-production-readiness-v4.yml
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/7077adb90093f0665adfc6a3e7de158581d784e8/scripts/tmp_production_readiness_repair.py -o /tmp/production_readiness_repair.py
           python /tmp/production_readiness_repair.py
           git diff --check
 
@@ -85,16 +76,7 @@ jobs:
           test ! -s /tmp/production-security-assertions.txt
 
       - name: Verify focused contracts
-        run: >-
-          npx vitest run
-          tests/dashboard/aiBriefingFallback.test.ts
-          tests/dashboard/commandCentreHealth.test.ts
-          tests/dashboard/loadCommandCentreData.test.ts
-          tests/dashboard/commandCentreSourcePlan.test.ts
-          tests/platform/command-centre-route-registry.test.ts
-          tests/platform/command-centre-typed-registry.test.ts
-          tests/supabase/productionSecurityHardening.test.ts
-          tests/supabase/env.test.ts
+        run: npx vitest run tests/dashboard/aiBriefingFallback.test.ts tests/dashboard/commandCentreHealth.test.ts tests/dashboard/loadCommandCentreData.test.ts tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-route-registry.test.ts tests/platform/command-centre-typed-registry.test.ts tests/supabase/productionSecurityHardening.test.ts tests/supabase/env.test.ts
 
       - name: Verify lint, TypeScript, and production build
         run: |
@@ -106,12 +88,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f \
-            .github/workflows/repair-production-readiness.yml \
-            .github/workflows/repair-production-readiness-v2.yml \
-            .github/workflows/repair-production-readiness-v3.yml \
-            .github/workflows/repair-production-readiness-v4.yml \
-            .github/workflows/stage-production-candidate.yml
+          rm -f .github/workflows/repair-production-readiness.yml .github/workflows/repair-production-readiness-v2.yml .github/workflows/repair-production-readiness-v3.yml .github/workflows/repair-production-readiness-v4.yml .github/workflows/stage-production-candidate.yml
           git config user.name 'harbourview-release-bot'
           git config user.email 'release-bot@users.noreply.github.com'
           git add -A
