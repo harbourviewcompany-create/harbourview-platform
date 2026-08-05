@@ -51,6 +51,11 @@ create index if not exists idx_hv_evidence_workspace
 
 alter table public.hv_evidence enable row level security;
 
+drop trigger if exists trg_hv_evidence_updated_at on public.hv_evidence;
+create trigger trg_hv_evidence_updated_at
+  before update on public.hv_evidence
+  for each row execute function public.hv_set_updated_at();
+
 -- Preserve the live ACL boundary. The following migration installs the exact
 -- reviewed workspace-isolation policy captured from production.
 grant select, insert, update, delete on table public.hv_evidence
