@@ -1,0 +1,164 @@
+name: Candidate Country Replay Gate
+
+on:
+  push:
+    branches: [build/harbourview-production-command-platform]
+    paths: [.github/workflows/candidate-country-replay-gate.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID: ${{ github.run_id }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: build/harbourview-production-command-platform
+          fetch-depth: 1
+          persist-credentials: true
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: latest
+
+      - name: Assemble candidate and repair countries dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/repair-production-readiness-v8.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          exec(compile(textwrap.dedent(workflow[start:end]), 'repair-production-readiness-v8.py', 'exec'), {})
+
+          country_schema = textwrap.dedent('''\
+          create table if not exists public.countries (
+            id uuid primary key default gen_random_uuid(),
+            country_name text not null,
+            country_slug text not null,
+            iso_alpha2 text not null,
+            iso_alpha3 text,
+            region text,
+            subregion text,
+            market_access_status text not null default 'unknown',
+            medical_status text not null default 'unknown',
+            adult_use_status text not null default 'unknown',
+            import_status text not null default 'unknown',
+            export_status text not null default 'unknown',
+            signals_status text not null default 'unknown',
+            opportunity_status text not null default 'unknown',
+            opportunity_score integer not null default 0,
+            regulator_label text,
+            lat double precision,
+            lng double precision,
+            public_summary text,
+            data_completeness text not null default 'stub',
+            last_updated_label text,
+            opportunity_categories text[],
+            trade_roles text[],
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+
+          alter table public.countries
+            add column if not exists opportunity_score integer not null default 0;
+
+          update public.countries set opportunity_score = case market_access_status::text
+            when 'open' then 95
+            when 'active' then 82
+            when 'regulated' then 64
+            when 'emerging' then 52
+            when 'limited' then 36
+            when 'restricted' then 22
+            when 'unknown' then 10
+            else 10
+          end
+          where opportunity_score = 0;
+
+          create or replace function public.sync_opportunity_score()
+          returns trigger
+          language plpgsql
+          set search_path = pg_catalog, public
+          as $$
+          begin
+            new.opportunity_score := case new.market_access_status::text
+              when 'open' then 95
+              when 'active' then 82
+              when 'regulated' then 64
+              when 'emerging' then 52
+              when 'limited' then 36
+              when 'restricted' then 22
+              when 'unknown' then 10
+              else 10
+            end;
+            return new;
+          end;
+          $$;
+
+          drop trigger if exists sync_opportunity_score_trigger on public.countries;
+          create trigger sync_opportunity_score_trigger
+            before insert or update of market_access_status
+            on public.countries
+            for each row execute function public.sync_opportunity_score();
+          ''')
+          Path('supabase/migrations/20260604000000_countries_public_table_v1.sql').write_text(
+              '-- Deterministic replay-safe countries foundation. Data seeding remains in 20260609000000.\n' + country_schema
+          )
+          Path('supabase/migrations/20260805000000_countries_table_replay_repair.sql').write_text(
+              '-- Forward, idempotent reconciliation for production histories that passed the old timestamp.\n' + country_schema
+          )
+          PY
+          git diff --check
+
+      - run: npm ci
+
+      - name: Rebuild migration history and assert security state
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -Atf supabase/tests/production_security_hardening.sql | tee /tmp/security.txt
+          test ! -s /tmp/security.txt
+
+      - name: Verify application candidate
+        run: |
+          npx vitest run tests/dashboard/aiBriefingFallback.test.ts tests/dashboard/commandCentreHealth.test.ts tests/dashboard/loadCommandCentreData.test.ts tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-route-registry.test.ts tests/platform/command-centre-typed-registry.test.ts tests/supabase/productionSecurityHardening.test.ts tests/supabase/env.test.ts
+          npm run lint
+          npm run typecheck
+          npm run build
+
+      - name: Commit verified candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name harbourview-release-bot
+          git config user.email release-bot@users.noreply.github.com
+          git add app/dashboard/page.tsx components/dashboard/DesktopCommandWorkspace.css components/dashboard/DesktopCommandWorkspace.tsx components/dashboard/DashboardResponsiveShell.tsx docs/control/CLAUDE_PRODUCTION_COMMAND_CENTRE_HANDOFF.md docs/control/DATABASE_CONTROL.md docs/control/PRODUCTION_COMMAND_CENTRE_ARCHITECTURE.md docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md lib/dashboard/buildDashboardCommandSources.ts lib/marketplace/candidates.ts lib/marketplace/liveSources.ts lib/supabase/env.ts scripts/configure-supabase-auth-production.mjs supabase/migrations/20260304000000_marketplace_conversion_v1.sql supabase/migrations/20260304001000_harden_marketplace_supabase_exposure.sql supabase/migrations/20260305000000_live_source_intake_v0_consumables.sql supabase/migrations/20260526000000_phase1_source_import_recovery.sql supabase/migrations/20260526030100_phase1_source_import_recovery.sql supabase/migrations/20260604000000_countries_public_table_v1.sql supabase/migrations/20260804190000_production_security_hardening.sql supabase/migrations/20260804233000_marketplace_inquiries_conversion_repair.sql supabase/migrations/20260804234000_marketplace_exposure_forward_repair.sql supabase/migrations/20260804235000_separate_marketplace_source_intake.sql supabase/migrations/20260804235500_fix_source_import_batch_function.sql supabase/migrations/20260805000000_countries_table_replay_repair.sql supabase/tests/production_security_hardening.sql tests/dashboard/commandCentreHealth.test.ts tests/dashboard/loadCommandCentreData.test.ts tests/e2e/mobile-command-centre-v2.spec.ts tests/platform/command-centre-route-registry.test.ts tests/supabase/productionSecurityHardening.test.ts
+          git commit -m 'fix(release): close command centre production-readiness defects'
+          git push origin HEAD:build/harbourview-production-command-platform
+
+      - if: always()
+        run: supabase stop --no-backup || true
