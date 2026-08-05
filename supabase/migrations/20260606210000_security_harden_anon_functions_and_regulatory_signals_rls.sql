@@ -1,14 +1,29 @@
 -- ============================================================
 -- PART 1: Revoke anon EXECUTE on SECURITY DEFINER functions
 -- that should never be callable via RPC without auth.
+-- Deterministic replay guard: some functions are created later in the
+-- historical chain in zero-state environments.
 -- ============================================================
 
-REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.hv_audit_publication() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.hv_audit_review_decision() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.hv_requeue_failed_embed_jobs() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.sync_subscription_tier() FROM anon;
-
+do $anon_function_hardening$
+begin
+  if to_regprocedure('public.handle_new_user()') is not null then
+    execute 'revoke execute on function public.handle_new_user() from anon';
+  end if;
+  if to_regprocedure('public.hv_audit_publication()') is not null then
+    execute 'revoke execute on function public.hv_audit_publication() from anon';
+  end if;
+  if to_regprocedure('public.hv_audit_review_decision()') is not null then
+    execute 'revoke execute on function public.hv_audit_review_decision() from anon';
+  end if;
+  if to_regprocedure('public.hv_requeue_failed_embed_jobs()') is not null then
+    execute 'revoke execute on function public.hv_requeue_failed_embed_jobs() from anon';
+  end if;
+  if to_regprocedure('public.sync_subscription_tier()') is not null then
+    execute 'revoke execute on function public.sync_subscription_tier() from anon';
+  end if;
+end
+$anon_function_hardening$;
 
 -- ============================================================
 -- PART 2: Scope regulatory_signals RLS policies from
