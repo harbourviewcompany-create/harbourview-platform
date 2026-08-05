@@ -91,7 +91,7 @@ as $$
     (select count(*) from public.signals_quality where upper(pri) = 'HIGH')::int,
     (select count(*) from public.signals_quality where upper(pri) = 'MONITOR')::int,
     (select count(distinct country) from public.signals_quality where country is not null)::int,
-    (select count(*) from public.listings where status = 'approved'::public.listing_status)::int,
+    (select count(*) from public.listings where status::text = 'approved')::int,
     (select count(distinct category) from public.listings)::int,
     (select count(distinct location_country) from public.listings where location_country is not null)::int,
     (select count(*) from public.source_registry where is_active is true)::int,
