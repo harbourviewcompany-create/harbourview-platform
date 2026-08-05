@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync('supabase/migrations/20260804190000_production_security_hardening.sql', 'utf8')
+const serviceOnlyRoutines = readFileSync('supabase/migrations/20260805233500_service_only_digest_enrichment.sql', 'utf8')
 const assertions = readFileSync('supabase/tests/production_security_hardening.sql', 'utf8')
 const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs', 'utf8')
 
@@ -28,10 +29,11 @@ describe('production Supabase security hardening', () => {
   })
 
   it('keeps external digest and enrichment routines service-role only', () => {
-    expect(migration).toContain("to_regprocedure('public.run_editorial_digest()')")
-    expect(migration).toContain('grant execute on function public.run_editorial_digest() to service_role')
-    expect(migration).toContain("to_regprocedure('public.run_country_intel_enrichment()')")
-    expect(migration).toContain('grant execute on function public.run_country_intel_enrichment() to service_role')
+    expect(serviceOnlyRoutines).toContain("to_regprocedure('public.run_editorial_digest()')")
+    expect(serviceOnlyRoutines).toContain('grant execute on function public.run_editorial_digest() to service_role')
+    expect(serviceOnlyRoutines).toContain("to_regprocedure('public.run_country_intel_enrichment()')")
+    expect(serviceOnlyRoutines).toContain('grant execute on function public.run_country_intel_enrichment() to service_role')
+    expect(serviceOnlyRoutines).toContain('from public, anon, authenticated')
     expect(assertions).toContain("('anon', 'public.run_editorial_digest()', false)")
     expect(assertions).toContain("('authenticated', 'public.run_editorial_digest()', false)")
     expect(assertions).toContain("('service_role', 'public.run_editorial_digest()', true)")
