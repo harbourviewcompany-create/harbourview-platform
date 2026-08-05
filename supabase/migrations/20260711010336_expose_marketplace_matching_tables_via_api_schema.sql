@@ -23,26 +23,29 @@ from public.buyer_requests;
 grant select, insert on api.buyer_requests to anon, authenticated;
 grant select on api.buyer_requests to service_role;
 
--- marketplace_item_images: public-safe subset, omits reviewed_by/rejection_reason (internal review detail)
-create view api.marketplace_item_images as
-select
-  id,
-  listing_id,
-  candidate_id,
-  uploader_user_id,
-  storage_path,
-  public_url,
-  mime_type,
-  file_size_bytes,
-  review_status,
-  alt_text,
-  display_order,
-  is_primary,
-  created_at,
-  updated_at
-from public.marketplace_item_images;
-
-grant select on api.marketplace_item_images to anon, authenticated, service_role;
+-- DELIBERATELY NOT RESTORED: api.marketplace_item_images.
+--
+-- The recorded body creates this view over columns
+-- (listing_id, candidate_id, uploader_user_id, storage_path, mime_type,
+-- display_order, is_primary) that describe the seventeen-column
+-- public.marketplace_item_images living in production. That is not the table
+-- this repository builds. 20260605000000_marketplace_image_trust_layer.sql
+-- creates a different forty-column table of the same name, and
+-- lib/marketplace/images/*.ts reads the trust-layer shape (item_id,
+-- image_class, image_role, original_storage_path, edited_storage_path,
+-- public_storage_bucket, adobe_edit_summary, content_credentials_status).
+--
+-- The trust-layer migration has never executed against production: its ledger
+-- row carries an empty statement array, none of its marketplace_image_* enum
+-- types exist there, and production's table has zero trust-layer columns.
+-- Production is therefore behind this repository for this table, and the
+-- recorded view body encodes the superseded pre-trust-layer shape.
+--
+-- Restoring it verbatim would fail replay (column "listing_id" does not
+-- exist). Choosing a replacement column list instead is a public-exposure
+-- decision governed by docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md,
+-- because the view is granted to anon. Left for an explicit decision rather
+-- than guessed. 20260711160935 still expects this view to exist.
 
 -- matches: already admin/operator-only via RLS, full passthrough is fine
 create view api.matches as
