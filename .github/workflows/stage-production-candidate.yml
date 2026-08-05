@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: stage-pr1280-production-candidate
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   candidate:
@@ -31,9 +31,15 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: stage/pr1280-production-ready-20260805
-          fetch-depth: 1
+          ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: true
+
+      - name: Verify exact triggering head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -86,11 +92,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           rm -f .github/workflows/repair-production-readiness.yml .github/workflows/repair-production-readiness-v2.yml .github/workflows/repair-production-readiness-v3.yml .github/workflows/repair-production-readiness-v4.yml .github/workflows/stage-production-candidate.yml .github/workflows/country-reference-audit.yml .github/workflows/migration-stub-audit.yml
           git config user.name 'harbourview-release-bot'
           git config user.email 'release-bot@users.noreply.github.com'
           git add -A
           git commit -m 'fix(release): close command centre production-readiness defects'
+          git fetch origin stage/pr1280-production-ready-20260805
+          test "$(git rev-parse origin/stage/pr1280-production-ready-20260805)" = "$GITHUB_SHA"
           git push origin HEAD:stage/pr1280-production-ready-20260805
 
       - name: Stop local Supabase
