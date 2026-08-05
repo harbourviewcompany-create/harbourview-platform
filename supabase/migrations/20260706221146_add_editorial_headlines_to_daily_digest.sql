@@ -1,6 +1,2 @@
--- Repair stub: migration 20260706221146 (add_editorial_headlines_to_daily_digest) was applied directly to the
--- remote database and has no corresponding local file. This stub reconciles
--- the local migration directory with the remote
--- supabase_migrations.schema_migrations table. The schema changes from this
--- migration are already live in the remote database.
-SELECT 1; -- no-op
+ALTER TABLE daily_digest
+ADD COLUMN IF NOT EXISTS editorial_headlines jsonb;
