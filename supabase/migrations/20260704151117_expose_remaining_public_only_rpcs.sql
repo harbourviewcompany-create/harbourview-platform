@@ -129,18 +129,26 @@ revoke all on function api.hv_ingest_snapshot_to_staging(integer, uuid) from pub
 grant execute on function api.hv_ingest_snapshot_to_staging(integer, uuid) to service_role;
 
 
+-- Production also had public.hv_extract_signals_from_captured_text() before this
+-- wrapper migration. Defer only the function lookup; the batch size remains a
+-- bound parameter and the wrapper is not executable by browser roles.
 create or replace function api.hv_extract_signals_from_captured_text(p_batch_size integer)
 returns table(snapshot_id uuid, source_name text, country text, candidates_found integer, status_set text)
-language sql
+language plpgsql
 security definer
 set search_path = ''
-as $$
-  select * from public.hv_extract_signals_from_captured_text(p_batch_size);
-$$;
+as $function$
+begin
+  return query execute
+    'select * from public.hv_extract_signals_from_captured_text($1)'
+    using p_batch_size;
+end;
+$function$;
 
 comment on function api.hv_extract_signals_from_captured_text(integer) is
   'PostgREST-exposed wrapper for public.hv_extract_signals_from_captured_text(). '
   'Called by the admin Hub panel (app/admin/(protected)/hub) via '
-  'app/api/admin/hub-proxy.';
+  'app/api/admin/hub-proxy. The parameterized constant dynamic call permits '
+  'deterministic zero-state replay before the public implementation exists.';
 revoke all on function api.hv_extract_signals_from_captured_text(integer) from public;
 grant execute on function api.hv_extract_signals_from_captured_text(integer) to service_role;
