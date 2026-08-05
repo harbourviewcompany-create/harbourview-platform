@@ -6,6 +6,7 @@ on:
       - stage/pr1280-production-ready-20260805
     paths:
       - .github/workflows/stage-production-candidate.yml
+      - supabase/migrations/20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql
   workflow_dispatch:
 
 permissions:
