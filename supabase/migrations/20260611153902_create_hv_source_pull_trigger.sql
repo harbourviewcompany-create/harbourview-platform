@@ -1,5 +1,6 @@
--- create_hv_source_pull_trigger: pg_net edge function trigger + cron schedule
--- Applied: 2026-06-11; stub created to reconcile supabase migration history
+-- create_hv_source_pull_trigger: pg_net edge function trigger + optional cron schedule
+-- The trigger function is always installed. The recurring schedule is installed only
+-- where the Supabase pg_cron extension and cron.job catalog are available.
 
 create or replace function public.hv_trigger_source_pull_runner()
 returns bigint
@@ -19,14 +20,30 @@ as $$
   );
 $$;
 
-do $$
+revoke execute on function public.hv_trigger_source_pull_runner() from public, anon, authenticated;
+grant execute on function public.hv_trigger_source_pull_runner() to service_role;
+
+do $source_pull_schedule$
+declare
+  job_exists boolean;
 begin
-  if not exists (select 1 from cron.job where jobname = 'hv-source-pull-runner-safe-rss') then
+  if to_regclass('cron.job') is null
+    or to_regprocedure('cron.schedule(text,text,text)') is null
+  then
+    raise notice 'pg_cron unavailable; hv-source-pull-runner schedule not installed in this environment';
+    return;
+  end if;
+
+  execute 'select exists (select 1 from cron.job where jobname = $1)'
+    into job_exists
+    using 'hv-source-pull-runner-safe-rss';
+
+  if not job_exists then
     perform cron.schedule(
       'hv-source-pull-runner-safe-rss',
       '*/30 * * * *',
       'select public.hv_trigger_source_pull_runner();'
     );
   end if;
-end;
-$$;
+end
+$source_pull_schedule$;
