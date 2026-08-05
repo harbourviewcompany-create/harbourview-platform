@@ -3,6 +3,7 @@
 -- stub, which left zero-state replay without the atomic crawl-target claim RPC.
 
 alter table public.source_registry
+  add column if not exists is_active boolean,
   add column if not exists crawl_allowed boolean not null default true,
   add column if not exists next_crawl_at timestamptz default now(),
   add column if not exists locked_until timestamptz,
@@ -10,6 +11,30 @@ alter table public.source_registry
   add column if not exists consecutive_failures integer not null default 0,
   add column if not exists last_error_log text,
   add column if not exists network_status text not null default 'online';
+
+do $source_registry_activity_backfill$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'source_registry'
+      and column_name = 'status'
+  ) then
+    execute $sql$
+      update public.source_registry
+      set is_active = coalesce(is_active, status <> 'disabled')
+    $sql$;
+  else
+    update public.source_registry
+    set is_active = coalesce(is_active, true);
+  end if;
+end
+$source_registry_activity_backfill$;
+
+alter table public.source_registry
+  alter column is_active set default true,
+  alter column is_active set not null;
 
 create index if not exists idx_source_registry_crawl_queue
   on public.source_registry (next_crawl_at, locked_until)
