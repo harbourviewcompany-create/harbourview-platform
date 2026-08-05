@@ -4,8 +4,6 @@
 -- apply the production-owned rationale delta. Existing production tables and
 -- data are preserved.
 
-create extension if not exists "uuid-ossp";
-
 do $matching_enum_contracts$
 declare
   enum_contract record;
@@ -47,7 +45,7 @@ end
 $matching_enum_contracts$;
 
 create table if not exists public.buyer_requests (
-  id uuid primary key default public.uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   category public.marketplace_category not null,
   title text not null,
   description text not null,
@@ -109,7 +107,7 @@ grant select, insert on table public.buyer_requests to anon, authenticated;
 grant all on table public.buyer_requests to service_role;
 
 create table if not exists public.matches (
-  id uuid primary key default public.uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   listing_id uuid references public.listings(id),
   buyer_request_id uuid references public.buyer_requests(id),
   inquiry_id uuid references public.marketplace_inquiries(id),
