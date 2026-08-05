@@ -7,10 +7,10 @@
 -- stats get computed instead via ~8 separate inline round-trip
 -- queries later in that file.
 --
--- Production already had public.signals_quality out of band before this
--- migration. Zero-state replay must restore the original quality-gate contract
--- before compiling the aggregate RPC. The view is created only when absent;
--- later dated migrations remain the sole owners of subsequent gate changes.
+-- Production already had public.signals_quality and
+-- public.admin_dashboard_counts out of band before this migration. Zero-state
+-- replay restores their original contracts only when absent; later dated
+-- migrations remain the owners of subsequent signal-quality refinements.
 -- ============================================================
 
 do $restore_initial_signals_quality$
@@ -58,6 +58,38 @@ begin
   end if;
 end
 $restore_initial_signals_quality$;
+
+do $restore_admin_dashboard_counts$
+begin
+  if not exists (
+    select 1
+    from information_schema.views
+    where table_schema = 'public'
+      and table_name = 'admin_dashboard_counts'
+  ) then
+    execute $view$
+      create view public.admin_dashboard_counts
+      with (security_invoker = true)
+      as
+      select
+        (select count(*) from public.listings
+          where status::text = 'pending_review') as pending_listings,
+        (select count(*) from public.buyer_requests
+          where status::text = 'pending_review') as pending_buyer_requests,
+        (select count(*) from public.marketplace_inquiries
+          where review_status = 'received') as new_inquiries,
+        (select count(*) from public.matches
+          where status::text = 'proposed') as pending_matches,
+        (select count(*) from public.disclosure_requests
+          where status::text = 'requested') as pending_disclosures
+    $view$;
+
+    revoke all on table public.admin_dashboard_counts
+      from public, anon, authenticated;
+    grant select on table public.admin_dashboard_counts to service_role;
+  end if;
+end
+$restore_admin_dashboard_counts$;
 
 create or replace function public.get_command_centre_stats()
 returns table (
