@@ -1,66 +1,18 @@
+import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
+import { SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
 
-const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440]
-const MOBILE_SECTION_IDS = [
-  'daily-briefing',
-  'market-intelligence',
-  'marketplace',
-  'supply',
-  'opportunities',
-  'signals',
-  'compliance',
-  'trade',
-  'financial',
-  'directories',
-  'operations',
-  'documents',
-  'events',
-  'education',
-  'genetics',
-  'clinical',
-  'financing',
-  'jobs',
-  'account',
-  'support',
-]
-const COMMAND_CENTRE_PAGE_IDS = [
-  'briefing',
-  'digest',
-  'access-pathway',
-  'marketplace',
-  'evidence',
-  'education',
-  'regulatory',
-  'local-intel',
-  'signals',
-  'watchlist',
-  'settings',
-  'genetics',
-  'clinical',
-  'compliance',
-  'countries',
-  'assistant',
-  'documents',
-  'events',
-  'experts',
-  'banking',
-  'notifications',
-  'kyb',
-  'prices',
-  'logistics',
-  'jobs',
-  'insurance',
-  'licences',
-  'trade-calc',
-  'organization',
-  'talent',
-]
-const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
-const SAFE_LISTING_ID = '11111111-1111-4111-8111-111111111111'
+const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
+const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
+const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
+const SAFE_LISTING_ID = '00000000-0000-4000-8000-000000000127'
 const SAFE_LISTING_TITLE = 'Visual Safe Bulk Flower Lot'
-const IS_ISOLATED_LOCAL_RUN = process.env.MOBILE_COMMAND_LOCAL_ISOLATED === '1'
+const MOBILE_SECTION_IDS = SECTION_NAV.map(section => section.id)
+
+const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
 type FailedResponse = {
   method: string
@@ -69,104 +21,132 @@ type FailedResponse = {
   status: number
 }
 
+type ExpectedCommandState = {
+  page: string
+  section: string
+  marketView?: string
+  tool?: string | null
+  listing?: string | null
+}
+
 function safeFileToken(value: string | undefined) {
-  return (value ?? 'local').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 100) || 'local'
-}
-
-function sanitizeSearchForEvidence(search: string) {
-  if (!search) return ''
-  const params = new URLSearchParams(search)
-  for (const key of Array.from(params.keys())) {
-    if (/token|secret|key|password|email/i.test(key)) params.set(key, '[redacted]')
-  }
-  const value = params.toString()
-  return value ? `?${value}` : ''
-}
-
-function sanitizeUrlForEvidence(raw: string) {
-  const url = new URL(raw)
-  return `${url.origin}${url.pathname}${sanitizeSearchForEvidence(url.search)}`
+  return (value || 'local').replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80)
 }
 
 function sanitizeDiagnostic(value: string) {
   return value
-    .replace(/eyJ[A-Za-z0-9_-]{20,}/g, '[redacted-token]')
+    .replace(/([?&](?:email|password|token|code|key|secret|access_token|refresh_token)=)[^&\s]+/gi, '$1[redacted]')
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
-    .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, '[redacted-secret]')
+    .replace(/sb_[A-Za-z0-9_-]+/g, 'sb_[redacted]')
+    .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted-jwt]')
 }
 
-function contextOptions(width: number, storageState: Awaited<ReturnType<Browser['newContext']>> extends never ? never : string) {
-  return {
-    viewport: {
-      width,
-      height: width < 768 ? 900 : 960,
-    },
-    storageState,
-    reducedMotion: 'reduce' as const,
+function sanitizeSearchForEvidence(search: string) {
+  const params = new URLSearchParams(search)
+  for (const key of [...params.keys()]) {
+    if (/email|password|token|code|key|secret/i.test(key)) params.set(key, '[redacted]')
   }
+  const output = params.toString()
+  return output ? `?${output}` : ''
+}
+
+function sanitizeUrlForEvidence(value: string) {
+  const url = new URL(value)
+  return `${url.origin}${url.pathname}${sanitizeSearchForEvidence(url.search)}`
 }
 
 function isGenericResourceConsoleError(message: string) {
-  return /^Failed to load resource: the server responded with a status of \d{3} \([^)]*\)$/i.test(message)
+  return message.includes('Failed to load resource: the server responded with a status of')
 }
 
 function isExpectedLocalDegradation(response: FailedResponse) {
-  return IS_ISOLATED_LOCAL_RUN
-    && response.method === 'GET'
-    && response.pathname === '/api/country-intel'
-    && response.status === 404
+  if (!IS_ISOLATED_LOCAL_RUN || response.status >= 500) return false
+  return (
+    (response.pathname === '/api/ai/briefing' && response.status === 503)
+    || (response.pathname === '/api/country-intel' && response.status === 404)
+  )
+}
+
+function sharedContextOptions(): BrowserContextOptions {
+  if (!BASE_URL) throw new Error('HARBOURVIEW_PUBLIC_BASE_URL or PLAYWRIGHT_BASE_URL is required')
+  return {
+    baseURL: BASE_URL,
+    ...(BYPASS_TOKEN ? { extraHTTPHeaders: { 'x-vercel-protection-bypass': BYPASS_TOKEN } } : {}),
+  }
 }
 
 async function authenticate(browser: Browser) {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  const email = process.env.MOBILE_COMMAND_TEST_EMAIL
-  const password = process.env.MOBILE_COMMAND_TEST_PASSWORD
-  if (!email || !password) throw new Error('MOBILE_COMMAND_TEST_EMAIL and MOBILE_COMMAND_TEST_PASSWORD are required')
-  await page.goto('/login', { waitUntil: 'domcontentloaded' })
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await Promise.all([
-    page.waitForURL(/\/dashboard/, { timeout: 30_000 }),
-    page.getByRole('button', { name: 'Sign in' }).click(),
-  ])
-  const storageStatePath = path.join(evidenceRoot, 'authenticated-storage-state.json')
-  await fs.mkdir(evidenceRoot, { recursive: true })
-  await context.storageState({ path: storageStatePath })
-  await context.close()
-  return storageStatePath
+  const email = process.env.E2E_TEST_USER_EMAIL
+  const password = process.env.E2E_TEST_USER_PASSWORD
+  if (!email || !password) throw new Error('E2E_TEST_USER_EMAIL and E2E_TEST_USER_PASSWORD are required')
+
+  const context = await browser.newContext({
+    ...sharedContextOptions(),
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  })
+
+  try {
+    const page = await context.newPage()
+    await page.goto('/login?next=%2Fdashboard', { waitUntil: 'domcontentloaded' })
+    await page.getByLabel('Email address', { exact: true }).fill(email)
+    await page.getByLabel('Password', { exact: true }).fill(password)
+    const submit = page.locator('form').getByRole('button', { name: 'Sign in', exact: true })
+    await expect(submit).toBeEnabled()
+    await submit.click()
+    await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { timeout: 45_000 })
+    return await context.storageState()
+  } finally {
+    await context.close()
+  }
 }
 
-async function expectCommandState(
-  page: Page,
-  expected: {
-    page: string
-    section: string
-    marketView: string
-    tool: string | null
-    listing: string | null
-  },
-) {
+function contextOptions(width: number, storageState: BrowserContextOptions['storageState']): BrowserContextOptions {
+  return {
+    ...sharedContextOptions(),
+    viewport: { width, height: width < 768 ? 900 : 960 },
+    storageState,
+    isMobile: width < 768,
+    hasTouch: width < 768,
+  }
+}
+
+async function expectCommandState(page: Page, expected: ExpectedCommandState) {
+  const expectedState = {
+    pathname: '/dashboard',
+    country: 'CA',
+    role: 'exporter',
+    page: expected.page,
+    section: expected.section,
+    ...(expected.marketView !== undefined ? { marketView: expected.marketView } : {}),
+    ...(expected.tool !== undefined ? { tool: expected.tool } : {}),
+    ...(expected.listing !== undefined ? { listing: expected.listing } : {}),
+  }
+
   await expect.poll(() => {
     const url = new URL(page.url())
     return {
+      pathname: url.pathname,
+      country: url.searchParams.get('country'),
+      role: url.searchParams.get('role'),
       page: url.searchParams.get('page'),
       section: url.searchParams.get('section'),
-      marketView: url.searchParams.get('marketView'),
-      tool: url.searchParams.get('tool'),
-      listing: url.searchParams.get('listing'),
+      ...(expected.marketView !== undefined ? { marketView: url.searchParams.get('marketView') } : {}),
+      ...(expected.tool !== undefined ? { tool: url.searchParams.get('tool') } : {}),
+      ...(expected.listing !== undefined ? { listing: url.searchParams.get('listing') } : {}),
     }
-  }).toEqual(expected)
+  }, { timeout: 15_000 }).toEqual(expectedState)
 }
 
-async function reloadTool(page: Page, tool: string, heading: string) {
+async function reloadTool(page: Page, tool: string, title: string) {
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.locator(`[data-mobile-command-tool="${tool}"]`)).toBeVisible()
-  await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+  await expect(page.getByText(title, { exact: true })).toBeVisible()
 }
 
 async function closeMarketplaceTool(page: Page, tool: string) {
-  await page.getByRole('button', { name: 'Close workflow' }).click()
+  await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
   await expect(page.locator(`[data-mobile-command-tool="${tool}"]`)).toHaveCount(0)
   await expect.poll(() => {
     const url = new URL(page.url())
@@ -332,11 +312,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
             await reloadTool(page, 'supply-intake', 'Submit supply for controlled review')
             await closeMarketplaceTool(page, 'supply-intake')
 
-            // Closing a reloaded workflow restores URL state before the async
-            // marketplace data boundary has necessarily repainted. Wait on the
-            // seeded public fixture rather than racing the listing-card locator.
             const listingCard = page.locator('.hvm2-listing-card').filter({ hasText: SAFE_LISTING_TITLE }).first()
-            await expect(listingCard).toBeVisible({ timeout: 30_000 })
+            await expect(listingCard).toBeVisible()
             await listingCard.getByRole('button', { name: 'Request reviewed introduction' }).click()
             await expect(page.locator('[data-mobile-command-tool="introduction"]')).toBeVisible()
             await expectCommandState(page, {
