@@ -193,16 +193,9 @@ begin
 end
 $$;
 
--- Remove direct access to asynchronous network internals from browser roles.
--- pg_net is optional in isolated/local environments, so guard the schema.
-do $$
-begin
-  if exists (select 1 from pg_namespace where nspname = 'net') then
-    execute 'revoke usage on schema net from public, anon, authenticated';
-    execute 'grant usage on schema net to service_role';
-  end if;
-end
-$$;
+-- pg_net is extension-owned and vendor-managed. This migration does not attempt
+-- to rewrite its schema or routine ACLs. The custom-routine hardening below
+-- still covers any non-extension-owned routine introduced into schema net.
 
 -- SECURITY DEFINER routines default closed. Catalog-wide revocation is safe;
 -- execution is restored only through the explicit allowlists below.

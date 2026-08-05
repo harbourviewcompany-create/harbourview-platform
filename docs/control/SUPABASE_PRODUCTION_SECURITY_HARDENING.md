@@ -58,19 +58,19 @@ Internal/admin projections use `security_invoker=true`, revoke all privileges fr
 - The service-role allowlist retains exact-signature execution, including `api.get_github_pat()` and `public.get_github_pat()` when those functions exist.
 - Custom application routines have a pinned search path.
 - Relocatable `vector` and `pg_trgm` extensions live in `extensions`.
-- `pg_net` remains vendor-managed. Browser roles lose `net` schema usage, so extension-owned routines are not directly callable even when their vendor-managed function ACLs remain unchanged; `service_role` retains schema usage.
+- `pg_net` remains vendor-managed. This migration does not attempt to rewrite extension-owned `net` schema or routine ACLs. State assertions exclude only routines proven extension-owned through `pg_depend`, while any exposed non-extension-owned SECURITY DEFINER routine in `net` remains a failure; Harbourview browser code must not invoke `net` directly.
 - Default privileges for future functions and tables start closed and must be granted intentionally by a forward migration.
 
 ## Verification boundary
 
-The `Production Security Hardening` workflow applies the exact candidate migration to an isolated local Supabase fixture representing public, preserved-contract, internal, policyless-RLS, and SECURITY DEFINER boundaries. It then runs `supabase/tests/production_security_hardening.sql` as a zero-row state assertion.
+The `Production Security Hardening` workflow applies the exact candidate migration to an isolated local Supabase fixture representing public, preserved-contract, internal, policyless-RLS, and SECURITY DEFINER boundaries. It then runs `supabase/tests/production_security_hardening.sql` as a zero-row state assertion. The sole encoded vendor exception is an extension-owned routine proven by a `pg_depend` extension-membership record; schema-name matching alone does not create an exception.
 
 This workflow intentionally does not claim that the repository's complete historical migration chain is replayable. Exact-head run `30959615043` exposed an earlier independent history defect: `20260304000000_marketplace_conversion_v1.sql` references `public.marketplace_inquiries` before that relation exists. That legacy defect must be repaired through a separate reviewed forward/history-reconciliation decision; it must not be concealed by rewriting an applied migration inside this hardening change.
 
 Required pre-release evidence:
 
 1. The isolated hardening fixture applies the exact migration successfully.
-2. `supabase/tests/production_security_hardening.sql` returns zero rows. No accepted exceptions are implicit.
+2. `supabase/tests/production_security_hardening.sql` returns zero rows after the explicit extension-owned `pg_net` exception encoded by `pg_depend`; no other accepted exception is implicit.
 3. The public marketplace, public intelligence, genetics, and regulatory routes pass guest and authenticated access probes against a release-candidate database.
 4. Admin authorization, provenance leakage, and production-visibility probes remain green.
 5. A current database backup or PITR checkpoint is confirmed.

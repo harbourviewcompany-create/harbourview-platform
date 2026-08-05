@@ -31,12 +31,13 @@ describe('production Supabase security hardening', () => {
     expect(assertions).toContain("'anon_security_definer_execute'")
   })
 
-  it('contains foreign tables and guards optional pg_net access', () => {
+  it('contains foreign tables and records the extension-owned pg_net boundary', () => {
     expect(migration).toContain('information_schema.foreign_tables')
-    expect(migration).toContain("if exists (select 1 from pg_namespace where nspname = 'net') then")
-    expect(migration).toContain("execute 'revoke usage on schema net from public, anon, authenticated'")
+    expect(migration).toContain('pg_net is extension-owned and vendor-managed')
+    expect(migration).not.toContain('revoke usage on schema net')
     expect(assertions).toContain("has_schema_privilege('anon', n.oid, 'usage')")
     expect(assertions).toContain("has_schema_privilege('authenticated', n.oid, 'usage')")
+    expect((assertions.match(/and d\.deptype = 'e'/g) ?? []).length).toBeGreaterThanOrEqual(2)
   })
 
   it('asserts database state for public reads and internal denial', () => {
