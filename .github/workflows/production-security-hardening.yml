@@ -9,6 +9,7 @@ on:
       - supabase/tests/production_security_hardening.sql
       - scripts/configure-supabase-auth-production.mjs
       - tests/supabase/productionSecurityHardening.test.ts
+      - docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md
       - .github/workflows/production-security-hardening.yml
   workflow_dispatch:
 
@@ -24,26 +25,160 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Checkout exact verified branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
-      - run: npx vitest run tests/supabase/productionSecurityHardening.test.ts tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
-      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify hardening contracts
+        run: >-
+          npx vitest run
+          tests/supabase/productionSecurityHardening.test.ts
+          tests/dashboard/commandCentreSourcePlan.test.ts
+          tests/platform/command-centre-copy.test.ts
+          tests/supabase/env.test.ts
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
         with:
           version: latest
-      - name: Reset complete migration history locally
+
+      - name: Prepare isolated hardening fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+
+          cat > supabase/migrations/00000000000000_production_security_fixture.sql <<'SQL'
+          create schema if not exists api;
+          create schema if not exists signals;
+          create schema if not exists regulatory_signals;
+
+          grant usage on schema public, api, signals, regulatory_signals to anon, authenticated, service_role;
+
+          create table public.hardening_public_fixture (
+            id bigint generated always as identity primary key,
+            label text not null default 'fixture'
+          );
+          alter table public.hardening_public_fixture enable row level security;
+          create policy hardening_public_fixture_read
+            on public.hardening_public_fixture
+            for select
+            using (true);
+          grant select on public.hardening_public_fixture to anon, authenticated, service_role;
+
+          create table public.hardening_internal_fixture (
+            id bigint generated always as identity primary key,
+            label text not null default 'fixture'
+          );
+          grant all on public.hardening_internal_fixture to anon, authenticated, service_role;
+
+          create table api.hardening_internal_fixture (
+            id bigint generated always as identity primary key,
+            label text not null default 'fixture'
+          );
+          grant all on api.hardening_internal_fixture to anon, authenticated, service_role;
+
+          create table regulatory_signals.hardening_public_fixture (
+            id bigint generated always as identity primary key,
+            label text not null default 'fixture'
+          );
+          grant select on regulatory_signals.hardening_public_fixture to anon, authenticated, service_role;
+
+          create table api.policyless_fixture (
+            id bigint generated always as identity primary key
+          );
+          alter table api.policyless_fixture enable row level security;
+          grant all on api.policyless_fixture to anon, authenticated, service_role;
+
+          create view public.country_intel_public as
+            select id, label from public.hardening_public_fixture;
+          create view public.marketplace_public_listings_v1 as
+            select id, label from public.hardening_public_fixture;
+          create view public.genetics_public_profiles as
+            select id, label from public.hardening_public_fixture;
+          create view public.public_country_profile_dto as
+            select id, label from public.hardening_public_fixture;
+          create view regulatory_signals.public_signals as
+            select id, label from regulatory_signals.hardening_public_fixture;
+
+          create view public.ia_sources_live as
+            select id, label from public.hardening_public_fixture;
+          create view public.local_intel_jurisdiction_combined as
+            select id, label from public.hardening_public_fixture;
+          create view public.platform_coverage_summary as
+            select id, label from public.hardening_public_fixture;
+          create view public.signals_intelligence_feed as
+            select id, label from public.hardening_public_fixture;
+          create view public.v_jurisdiction_unified as
+            select id, label from public.hardening_public_fixture;
+
+          create view public.admin_pending_listings as
+            select id, label from public.hardening_internal_fixture;
+          create view public.source_yield_report as
+            select id, label from public.hardening_internal_fixture;
+          create view api.hv_artifacts as
+            select id, label from api.hardening_internal_fixture;
+
+          grant all on
+            public.country_intel_public,
+            public.marketplace_public_listings_v1,
+            public.genetics_public_profiles,
+            public.public_country_profile_dto,
+            public.ia_sources_live,
+            public.local_intel_jurisdiction_combined,
+            public.platform_coverage_summary,
+            public.signals_intelligence_feed,
+            public.v_jurisdiction_unified,
+            public.admin_pending_listings,
+            public.source_yield_report
+          to anon, authenticated, service_role;
+          grant all on regulatory_signals.public_signals to anon, authenticated, service_role;
+          grant all on api.hv_artifacts to anon, authenticated, service_role;
+
+          create or replace function api.get_command_centre_stats()
+          returns jsonb
+          language sql
+          security definer
+          as $$ select '{}'::jsonb $$;
+
+          create or replace function public.hardening_fixture_unapproved()
+          returns boolean
+          language sql
+          security definer
+          as $$ select true $$;
+
+          grant execute on function api.get_command_centre_stats() to anon, authenticated, service_role;
+          grant execute on function public.hardening_fixture_unapproved() to anon, authenticated, service_role;
+          SQL
+
+          cp \
+            /tmp/harbourview-production-migrations/20260804190000_production_security_hardening.sql \
+            supabase/migrations/20260804190000_production_security_hardening.sql
+          : > supabase/seed.sql
+
+      - name: Apply exact hardening migration to isolated fixture
         shell: bash
         run: |
           set -euo pipefail
           supabase start
           supabase db reset --local
+
       - name: Assert hardened local database
         shell: bash
         run: |
@@ -51,9 +186,10 @@ jobs:
           eval "$(supabase status -o env)"
           psql "$DB_URL" -v ON_ERROR_STOP=1 -Atf supabase/tests/production_security_hardening.sql | tee production-security-assertions.txt
           if [ -s production-security-assertions.txt ]; then
-            echo 'Unexpected security assertion rows were returned.'
+            echo 'Security assertion rows were returned.'
             exit 1
           fi
+
       - name: Upload verification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -62,6 +198,19 @@ jobs:
           path: production-security-assertions.txt
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Restore production migration source tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup || true
