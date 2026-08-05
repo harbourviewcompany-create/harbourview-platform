@@ -1,0 +1,132 @@
+name: Country Reference Audit
+
+on:
+  push:
+    branches:
+      - stage/pr1280-production-ready-20260805
+    paths:
+      - .github/workflows/country-reference-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: stage/pr1280-production-ready-20260805
+          fetch-depth: 1
+
+      - uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
+        with:
+          python-version: '3.12'
+
+      - name: Install ISO reference package
+        run: python -m pip install --disable-pip-version-check --no-cache-dir pycountry==24.6.1
+
+      - name: Audit migration country references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import re
+          from pathlib import Path
+
+          import pycountry
+
+          migration_dir = Path('supabase/migrations')
+          seed_name = '20260609000000_seed_countries_all_191_v1.sql'
+          seed_path = migration_dir / seed_name
+          seed_sql = seed_path.read_text(encoding='utf-8')
+
+          row_pattern = re.compile(
+              r"\(\s*'(?:[^']|'')*'\s*,\s*'(?:[^']|'')*'\s*,\s*'([A-Z]{2})'\s*,\s*'([A-Z]{3})'",
+              re.MULTILINE,
+          )
+          seeded_pairs = row_pattern.findall(seed_sql)
+          seeded_codes = {alpha2 for alpha2, _ in seeded_pairs}
+          if len(seeded_codes) != len(seeded_pairs):
+              raise SystemExit('Duplicate iso_alpha2 rows detected in seed migration')
+
+          canonical = {country.alpha_2: country.name for country in pycountry.countries}
+          canonical['XK'] = 'Kosovo'
+
+          reference_columns = re.compile(
+              r'country_code|country_iso|iso_alpha2|iso_alpha3|\biso\b|jurisdiction_code|country_slug|public\.countries|local_authorit|local_regulation|local_market',
+              re.IGNORECASE,
+          )
+          literal_pattern = re.compile(r"'([A-Z]{2})'")
+
+          references: dict[str, list[dict[str, object]]] = {}
+          files = sorted(
+              path for path in migration_dir.glob('*.sql')
+              if path.name > seed_name
+          )
+
+          for path in files:
+              lines = path.read_text(encoding='utf-8').splitlines()
+              for index, line in enumerate(lines):
+                  codes = [code for code in literal_pattern.findall(line) if code in canonical]
+                  if not codes:
+                      continue
+                  start = max(0, index - 3)
+                  end = min(len(lines), index + 4)
+                  context = '\n'.join(lines[start:end])
+                  if not reference_columns.search(context):
+                      continue
+                  for code in codes:
+                      references.setdefault(code, []).append({
+                          'file': path.name,
+                          'line': index + 1,
+                          'text': line.strip(),
+                      })
+
+          referenced_codes = set(references)
+          missing_codes = sorted(referenced_codes - seeded_codes)
+          unknown_seed_codes = sorted(seeded_codes - set(canonical))
+          unused_seed_codes = sorted(seeded_codes - referenced_codes)
+
+          report = {
+              'seed_file': seed_name,
+              'seeded_count': len(seeded_codes),
+              'referenced_count': len(referenced_codes),
+              'missing_codes': [
+                  {
+                      'iso_alpha2': code,
+                      'country_name': canonical.get(code),
+                      'references': references[code],
+                  }
+                  for code in missing_codes
+              ],
+              'unknown_seed_codes': unknown_seed_codes,
+              'referenced_codes': sorted(referenced_codes),
+              'unused_seed_count': len(unused_seed_codes),
+          }
+
+          Path('/tmp/country-reference-audit.json').write_text(
+              json.dumps(report, indent=2, ensure_ascii=False) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(report, indent=2, ensure_ascii=False))
+
+          if unknown_seed_codes:
+              raise SystemExit(f'Non-canonical seed codes detected: {unknown_seed_codes}')
+          if missing_codes:
+              raise SystemExit(f'Country references absent from seed: {missing_codes}')
+          PY
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: country-reference-audit
+          path: /tmp/country-reference-audit.json
+          if-no-files-found: warn
+          retention-days: 14
