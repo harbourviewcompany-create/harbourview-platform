@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync('supabase/migrations/20260804190000_production_security_hardening.sql', 'utf8')
+const assertions = readFileSync('supabase/tests/production_security_hardening.sql', 'utf8')
 const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs', 'utf8')
 
 describe('production Supabase security hardening', () => {
@@ -24,6 +25,19 @@ describe('production Supabase security hardening', () => {
     expect(migration).toContain("'api.get_command_centre_stats()'")
     expect(migration).toContain("'public.hv_is_platform_staff()'")
     expect(migration).not.toContain('grant execute on all functions')
+  })
+
+  it('keeps external digest and enrichment routines service-role only', () => {
+    expect(migration).toContain("to_regprocedure('public.run_editorial_digest()')")
+    expect(migration).toContain('grant execute on function public.run_editorial_digest() to service_role')
+    expect(migration).toContain("to_regprocedure('public.run_country_intel_enrichment()')")
+    expect(migration).toContain('grant execute on function public.run_country_intel_enrichment() to service_role')
+    expect(assertions).toContain("('anon', 'public.run_editorial_digest()', false)")
+    expect(assertions).toContain("('authenticated', 'public.run_editorial_digest()', false)")
+    expect(assertions).toContain("('service_role', 'public.run_editorial_digest()', true)")
+    expect(assertions).toContain("('anon', 'public.run_country_intel_enrichment()', false)")
+    expect(assertions).toContain("('authenticated', 'public.run_country_intel_enrichment()', false)")
+    expect(assertions).toContain("('service_role', 'public.run_country_intel_enrichment()', true)")
   })
 
   it('contains foreign tables and non-relocatable pg_net access', () => {
