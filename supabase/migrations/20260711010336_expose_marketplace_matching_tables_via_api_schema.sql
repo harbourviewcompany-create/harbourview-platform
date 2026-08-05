@@ -23,29 +23,59 @@ from public.buyer_requests;
 grant select, insert on api.buyer_requests to anon, authenticated;
 grant select on api.buyer_requests to service_role;
 
--- DELIBERATELY NOT RESTORED: api.marketplace_item_images.
+-- marketplace_item_images: NOT the recorded body, deliberately.
 --
--- The recorded body creates this view over columns
--- (listing_id, candidate_id, uploader_user_id, storage_path, mime_type,
--- display_order, is_primary) that describe the seventeen-column
--- public.marketplace_item_images living in production. That is not the table
--- this repository builds. 20260605000000_marketplace_image_trust_layer.sql
--- creates a different forty-column table of the same name, and
--- lib/marketplace/images/*.ts reads the trust-layer shape (item_id,
--- image_class, image_role, original_storage_path, edited_storage_path,
--- public_storage_bucket, adobe_edit_summary, content_credentials_status).
+-- The recorded body selects listing_id, candidate_id, uploader_user_id,
+-- storage_path, mime_type, display_order and is_primary, which describe the
+-- seventeen-column public.marketplace_item_images living in production. That
+-- is not the table this repository builds.
+-- 20260605000000_marketplace_image_trust_layer.sql creates a different
+-- forty-column table of the same name, and lib/marketplace/images/*.ts reads
+-- that trust-layer shape.
 --
 -- The trust-layer migration has never executed against production: its ledger
 -- row carries an empty statement array, none of its marketplace_image_* enum
--- types exist there, and production's table has zero trust-layer columns.
--- Production is therefore behind this repository for this table, and the
--- recorded view body encodes the superseded pre-trust-layer shape.
+-- types exist there, and production's table has zero trust-layer columns. The
+-- repository is ahead of production here, so the recorded body encodes the
+-- superseded pre-trust-layer shape and replaying it verbatim fails with
+-- column "listing_id" does not exist.
 --
--- Restoring it verbatim would fail replay (column "listing_id" does not
--- exist). Choosing a replacement column list instead is a public-exposure
--- decision governed by docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md,
--- because the view is granted to anon. Left for an explicit decision rather
--- than guessed. 20260711160935 still expects this view to exist.
+-- The column list below is not invented: it is exactly
+-- PUBLIC_MARKETPLACE_IMAGE_COLUMNS from lib/marketplace/images/dto.ts, the
+-- repository's own public projection for this table, which that module keeps
+-- deliberately separate from ADMIN_MARKETPLACE_IMAGE_COLUMNS. Nothing from the
+-- admin set is exposed here: no original/edited/public storage bucket or path,
+-- no source_name/source_url/source_reference, no adobe_edit_summary, no
+-- content_credentials_*, no checksum, no rejection_reason, no reviewed_by,
+-- no uploaded_by. created_at and updated_at are outside that public list and
+-- are therefore also omitted.
+--
+-- Row visibility is unchanged: the trust layer's own "Public can read approved
+-- public marketplace images" policy still gates anon to review_status =
+-- 'APPROVED_PUBLIC' with rights_status <> 'UNKNOWN', image_class <>
+-- 'ADMIN_PRIVATE_EVIDENCE' and public_url not null, and 20260711160935 sets
+-- security_invoker on this view so that policy is enforced rather than
+-- bypassed.
+create view api.marketplace_item_images as
+select
+  id,
+  item_id,
+  image_class,
+  image_role,
+  source_type,
+  public_url,
+  thumbnail_url,
+  hero_url,
+  gallery_url,
+  social_url,
+  alt_text,
+  caption,
+  is_illustrative,
+  review_status,
+  rights_status
+from public.marketplace_item_images;
+
+grant select on api.marketplace_item_images to anon, authenticated, service_role;
 
 -- matches: already admin/operator-only via RLS, full passthrough is fine
 create view api.matches as
