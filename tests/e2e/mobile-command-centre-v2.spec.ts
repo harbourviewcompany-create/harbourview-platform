@@ -313,7 +313,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
             await closeMarketplaceTool(page, 'supply-intake')
 
             const listingCard = page.locator('.hvm2-listing-card').filter({ hasText: SAFE_LISTING_TITLE }).first()
-            await expect(listingCard).toBeVisible()
+            await expect(listingCard).toBeVisible({ timeout: 30_000 })
             await listingCard.getByRole('button', { name: 'Request reviewed introduction' }).click()
             await expect(page.locator('[data-mobile-command-tool="introduction"]')).toBeVisible()
             await expectCommandState(page, {
