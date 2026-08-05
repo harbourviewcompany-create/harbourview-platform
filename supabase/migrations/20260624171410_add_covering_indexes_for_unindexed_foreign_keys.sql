@@ -1,112 +1,55 @@
--- Add covering indexes for all foreign keys flagged by Supabase's
--- performance advisor (unindexed_foreign_keys, 102 findings as of
--- 2026-06-24). Verified each one directly against pg_constraint +
--- pg_namespace + pg_index before generating this list: all 102 are
--- single-column FKs (85 in public, 17 in regulatory_signals -- this
--- schema has its own evidence/signals/sources/etc. tables distinct
--- from public's), none already covered by an existing index with
--- the FK column as the leading key. CREATE INDEX IF NOT EXISTS makes
--- this safe to re-run.
+-- Add covering indexes for single-column foreign keys in the public and
+-- regulatory_signals schemas when no valid index already uses the foreign-key
+-- column as its leading key.
+--
+-- The production migration was generated as a static 102-statement snapshot.
+-- Repository zero-state history can legitimately omit production-only optional
+-- relations, so replay must derive the same operation from the catalog rather
+-- than assuming every historical relation exists.
 
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_conflicts_canonical_operator_id ON public.canadian_operator_conflicts (canonical_operator_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_conflicts_site_id ON public.canadian_operator_conflicts (site_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_conflicts_source_row_id ON public.canadian_operator_conflicts (source_row_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_duplicate_clusters_canonical_operator_id ON public.canadian_operator_duplicate_clusters (canonical_operator_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_duplicate_clusters_site_id ON public.canadian_operator_duplicate_clusters (site_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_exclusions_canonical_operator_id ON public.canadian_operator_exclusions (canonical_operator_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_exclusions_source_row_id ON public.canadian_operator_exclusions (source_row_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_individual_holds_canonical_operator_id ON public.canadian_operator_individual_holds (canonical_operator_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_individual_holds_source_row_id ON public.canadian_operator_individual_holds (source_row_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_licence_sites_source_row_id ON public.canadian_operator_licence_sites (source_row_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_outreach_queue_canonical_operator_id ON public.canadian_operator_outreach_queue (canonical_operator_id);
-CREATE INDEX IF NOT EXISTS idx_canadian_operator_outreach_queue_site_id ON public.canadian_operator_outreach_queue (site_id);
-CREATE INDEX IF NOT EXISTS idx_cannabis_operators_primary_country_iso2 ON public.cannabis_operators (primary_country_iso2);
-CREATE INDEX IF NOT EXISTS idx_cc_org_requirement_status_evidence_document_id ON public.cc_org_requirement_status (evidence_document_id);
-CREATE INDEX IF NOT EXISTS idx_cc_org_requirement_status_licence_id ON public.cc_org_requirement_status (licence_id);
-CREATE INDEX IF NOT EXISTS idx_cc_org_requirement_status_reviewed_by ON public.cc_org_requirement_status (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_cc_watch_rules_created_by ON public.cc_watch_rules (created_by);
-CREATE INDEX IF NOT EXISTS idx_cc_watchlist_items_added_by ON public.cc_watchlist_items (added_by);
-CREATE INDEX IF NOT EXISTS idx_cc_watchlist_notifications_org_id ON public.cc_watchlist_notifications (org_id);
-CREATE INDEX IF NOT EXISTS idx_chapter_decision_support_map_decision_support_id ON public.chapter_decision_support_map (decision_support_id);
-CREATE INDEX IF NOT EXISTS idx_country_coverage_matrix_jurisdiction_id ON public.country_coverage_matrix (jurisdiction_id);
-CREATE INDEX IF NOT EXISTS idx_country_profiles_public_jurisdiction_id ON public.country_profiles_public (jurisdiction_id);
-CREATE INDEX IF NOT EXISTS idx_country_regulatory_profiles_admin_jurisdiction_id ON public.country_regulatory_profiles_admin (jurisdiction_id);
-CREATE INDEX IF NOT EXISTS idx_cultivar_aliases_cultivar_id ON public.cultivar_aliases (cultivar_id);
-CREATE INDEX IF NOT EXISTS idx_cultivar_passports_breeder_profile_id ON public.cultivar_passports (breeder_profile_id);
-CREATE INDEX IF NOT EXISTS idx_cultivar_passports_owner_user_id ON public.cultivar_passports (owner_user_id);
-CREATE INDEX IF NOT EXISTS idx_cultivar_passports_rights_holder_profile_id ON public.cultivar_passports (rights_holder_profile_id);
-CREATE INDEX IF NOT EXISTS idx_deal_room_messages_sender_id ON public.deal_room_messages (sender_id);
-CREATE INDEX IF NOT EXISTS idx_education_articles_module_id ON public.education_articles (module_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_access_grants_access_request_id ON public.genetics_access_grants (access_request_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_access_grants_grantee_profile_id ON public.genetics_access_grants (grantee_profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_access_grants_grantor_profile_id ON public.genetics_access_grants (grantor_profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_access_grants_grantor_user_id ON public.genetics_access_grants (grantor_user_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_access_grants_revoked_by ON public.genetics_access_grants (revoked_by);
-CREATE INDEX IF NOT EXISTS idx_genetics_access_requests_requester_profile_id ON public.genetics_access_requests (requester_profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_audit_events_actor_profile_id ON public.genetics_audit_events (actor_profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_audit_events_actor_user_id ON public.genetics_audit_events (actor_user_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_claim_reviews_cultivar_id ON public.genetics_claim_reviews (cultivar_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_claim_reviews_evidence_item_id ON public.genetics_claim_reviews (evidence_item_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_claim_reviews_reviewer_user_id ON public.genetics_claim_reviews (reviewer_user_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_claims_evidence_item_id ON public.genetics_claims (evidence_item_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_claims_reviewer_user_id ON public.genetics_claims (reviewer_user_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_collaboration_projects_linked_cultivar_id ON public.genetics_collaboration_projects (linked_cultivar_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_collaboration_projects_owner_profile_id ON public.genetics_collaboration_projects (owner_profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_evidence_items_created_by ON public.genetics_evidence_items (created_by);
-CREATE INDEX IF NOT EXISTS idx_genetics_evidence_items_profile_id ON public.genetics_evidence_items (profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_profiles_owner_user_id ON public.genetics_profiles (owner_user_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_project_members_profile_id ON public.genetics_project_members (profile_id);
-CREATE INDEX IF NOT EXISTS idx_genetics_service_providers_profile_id ON public.genetics_service_providers (profile_id);
-CREATE INDEX IF NOT EXISTS idx_hv_admin_review_queue_assigned_to ON public.hv_admin_review_queue (assigned_to);
-CREATE INDEX IF NOT EXISTS idx_hv_artifacts_created_by ON public.hv_artifacts (created_by);
-CREATE INDEX IF NOT EXISTS idx_hv_artifacts_owned_by ON public.hv_artifacts (owned_by);
-CREATE INDEX IF NOT EXISTS idx_hv_artifacts_reviewed_by ON public.hv_artifacts (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_hv_artifacts_superseded_by ON public.hv_artifacts (superseded_by);
-CREATE INDEX IF NOT EXISTS idx_hv_claim_reviews_claim_id ON public.hv_claim_reviews (claim_id);
-CREATE INDEX IF NOT EXISTS idx_hv_claim_reviews_reviewed_by ON public.hv_claim_reviews (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_hv_claims_evidence_document_id ON public.hv_claims (evidence_document_id);
-CREATE INDEX IF NOT EXISTS idx_hv_evidence_captured_by ON public.hv_evidence (captured_by);
-CREATE INDEX IF NOT EXISTS idx_hv_evidence_reviewed_by ON public.hv_evidence (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_hv_evidence_documents_uploaded_by ON public.hv_evidence_documents (uploaded_by);
-CREATE INDEX IF NOT EXISTS idx_hv_evidence_documents_verified_by ON public.hv_evidence_documents (verified_by);
-CREATE INDEX IF NOT EXISTS idx_hv_facilities_certification_evidence_id ON public.hv_facilities (certification_evidence_id);
-CREATE INDEX IF NOT EXISTS idx_hv_import_staging_duplicate_of ON public.hv_import_staging (duplicate_of);
-CREATE INDEX IF NOT EXISTS idx_hv_import_staging_promoted_artifact_id ON public.hv_import_staging (promoted_artifact_id);
-CREATE INDEX IF NOT EXISTS idx_hv_import_staging_reviewed_by ON public.hv_import_staging (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_hv_licences_evidence_document_id ON public.hv_licences (evidence_document_id);
-CREATE INDEX IF NOT EXISTS idx_hv_licences_verified_by ON public.hv_licences (verified_by);
-CREATE INDEX IF NOT EXISTS idx_hv_public_feed_approved_by ON public.hv_public_feed (approved_by);
-CREATE INDEX IF NOT EXISTS idx_hv_public_feed_created_by ON public.hv_public_feed (created_by);
-CREATE INDEX IF NOT EXISTS idx_hv_public_feed_workspace_id ON public.hv_public_feed (workspace_id);
-CREATE INDEX IF NOT EXISTS idx_hv_relations_created_by ON public.hv_relations (created_by);
-CREATE INDEX IF NOT EXISTS idx_hv_relations_reviewed_by ON public.hv_relations (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_hv_relations_workspace_id ON public.hv_relations (workspace_id);
-CREATE INDEX IF NOT EXISTS idx_ia_evidence_vault_linked_counterparty_id ON public.ia_evidence_vault (linked_counterparty_id);
-CREATE INDEX IF NOT EXISTS idx_ia_scoring_records_counterparty_id ON public.ia_scoring_records (counterparty_id);
-CREATE INDEX IF NOT EXISTS idx_ia_signals_source_id ON public.ia_signals (source_id);
-CREATE INDEX IF NOT EXISTS idx_local_authorities_source_id ON public.local_authorities (source_id);
-CREATE INDEX IF NOT EXISTS idx_local_evidence_coverage_source_id ON public.local_evidence_coverage (source_id);
-CREATE INDEX IF NOT EXISTS idx_local_operating_notes_source_id ON public.local_operating_notes (source_id);
-CREATE INDEX IF NOT EXISTS idx_local_subdivisions_intel_source_id ON public.local_subdivisions_intel (source_id);
-CREATE INDEX IF NOT EXISTS idx_marketplace_candidates_promoted_listing_id ON public.marketplace_candidates (promoted_listing_id);
-CREATE INDEX IF NOT EXISTS idx_operator_countries_country_iso2 ON public.operator_countries (country_iso2);
-CREATE INDEX IF NOT EXISTS idx_review_queue_jurisdiction_id ON public.review_queue (jurisdiction_id);
-CREATE INDEX IF NOT EXISTS idx_subchapter_evidence_map_evidence_id ON public.subchapter_evidence_map (evidence_id);
-CREATE INDEX IF NOT EXISTS idx_workspaces_verified_by ON public.workspaces (verified_by);
-CREATE INDEX IF NOT EXISTS idx_evidence_captured_by ON regulatory_signals.evidence (captured_by);
-CREATE INDEX IF NOT EXISTS idx_evidence_duplicate_of ON regulatory_signals.evidence (duplicate_of);
-CREATE INDEX IF NOT EXISTS idx_evidence_source_id ON regulatory_signals.evidence (source_id);
-CREATE INDEX IF NOT EXISTS idx_evidence_validated_by ON regulatory_signals.evidence (validated_by);
-CREATE INDEX IF NOT EXISTS idx_publication_events_publisher_id ON regulatory_signals.publication_events (publisher_id);
-CREATE INDEX IF NOT EXISTS idx_publication_events_signal_id ON regulatory_signals.publication_events (signal_id);
-CREATE INDEX IF NOT EXISTS idx_review_events_reviewer_id ON regulatory_signals.review_events (reviewer_id);
-CREATE INDEX IF NOT EXISTS idx_review_events_signal_id ON regulatory_signals.review_events (signal_id);
-CREATE INDEX IF NOT EXISTS idx_signal_evidence_links_evidence_id ON regulatory_signals.signal_evidence_links (evidence_id);
-CREATE INDEX IF NOT EXISTS idx_signals_created_by ON regulatory_signals.signals (created_by);
-CREATE INDEX IF NOT EXISTS idx_signals_reviewer_id ON regulatory_signals.signals (reviewer_id);
-CREATE INDEX IF NOT EXISTS idx_signals_source_id ON regulatory_signals.signals (source_id);
-CREATE INDEX IF NOT EXISTS idx_signals_updated_by ON regulatory_signals.signals (updated_by);
-CREATE INDEX IF NOT EXISTS idx_source_check_runs_signal_id ON regulatory_signals.source_check_runs (signal_id);
-CREATE INDEX IF NOT EXISTS idx_source_check_runs_snapshot_id ON regulatory_signals.source_check_runs (snapshot_id);
-CREATE INDEX IF NOT EXISTS idx_sources_created_by ON regulatory_signals.sources (created_by);
-CREATE INDEX IF NOT EXISTS idx_sources_updated_by ON regulatory_signals.sources (updated_by);
+do $cover_unindexed_foreign_keys$
+declare
+  foreign_key record;
+  index_name text;
+begin
+  for foreign_key in
+    select
+      namespace.nspname as schema_name,
+      relation.relname as table_name,
+      attribute.attname as column_name,
+      constraint_record.conrelid as relation_id,
+      constraint_record.conkey[1] as column_number
+    from pg_constraint constraint_record
+    join pg_class relation
+      on relation.oid = constraint_record.conrelid
+    join pg_namespace namespace
+      on namespace.oid = relation.relnamespace
+    join pg_attribute attribute
+      on attribute.attrelid = constraint_record.conrelid
+     and attribute.attnum = constraint_record.conkey[1]
+    where constraint_record.contype = 'f'
+      and cardinality(constraint_record.conkey) = 1
+      and namespace.nspname in ('public', 'regulatory_signals')
+      and not exists (
+        select 1
+        from pg_index index_record
+        where index_record.indrelid = constraint_record.conrelid
+          and index_record.indisvalid
+          and index_record.indisready
+          and index_record.indnkeyatts > 0
+          and index_record.indkey[0] = constraint_record.conkey[1]
+      )
+    order by namespace.nspname, relation.relname, attribute.attname
+  loop
+    index_name := format('idx_%s_%s', foreign_key.table_name, foreign_key.column_name);
+
+    execute format(
+      'create index if not exists %I on %I.%I (%I)',
+      index_name,
+      foreign_key.schema_name,
+      foreign_key.table_name,
+      foreign_key.column_name
+    );
+  end loop;
+end
+$cover_unindexed_foreign_keys$;
