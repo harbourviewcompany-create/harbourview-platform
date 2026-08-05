@@ -1,108 +1,108 @@
--- Migration: security_advisor_fixes_jun22
--- Addresses Supabase security advisor findings from 2026-06-22 audit
--- Covers: anon SECURITY DEFINER exposure, storage bucket listing, RLS no-policy tables
--- Note: vector and pg_net extension schema move requires downtime — deferred to separate migration
--- Note: Enable leaked password protection manually in Supabase Dashboard → Auth → Password Settings
+-- June 22 security-advisor remediation, replay-safe across historical states.
+-- Every function and relation change is applied only when its exact target
+-- exists. Browser grants are aligned with each policy instead of relying on RLS
+-- policy presence alone.
 
--- =============================================================================
--- SECTION 1: Revoke EXECUTE on anon-callable SECURITY DEFINER functions
--- These functions are callable by the anon role but should not be.
--- =============================================================================
+-- Revoke anonymous execution from privileged helper functions when present.
+do $advisor_function_hardening$
+declare
+  signature text;
+begin
+  foreach signature in array array[
+    'public.get_country_status(text)',
+    'public.is_genetics_admin_or_reviewer()'
+  ]
+  loop
+    if to_regprocedure(signature) is not null then
+      execute format('revoke execute on function %s from public, anon', signature);
+      execute format('grant execute on function %s to authenticated, service_role', signature);
+    end if;
+  end loop;
+end
+$advisor_function_hardening$;
 
-REVOKE EXECUTE ON FUNCTION public.get_country_status(p_iso2 text) FROM anon;
-REVOKE EXECUTE ON FUNCTION public.is_genetics_admin_or_reviewer() FROM anon;
+-- This trigger helper performs no privileged reads or writes and should execute
+-- with the caller's privileges.
+create or replace function public.cc_set_updated_at()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $function$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$function$;
 
+-- Retain object reads for the public-assets bucket while removing the former
+-- blanket policy definition. Bucket listing behavior remains controlled by the
+-- storage API and the bucket's public configuration.
+do $public_assets_policy$
+begin
+  if to_regclass('storage.objects') is not null then
+    execute 'drop policy if exists "public_assets_public_read" on storage.objects';
+    execute 'drop policy if exists "public_assets_object_read" on storage.objects';
+    execute $policy$
+      create policy "public_assets_object_read"
+      on storage.objects
+      for select
+      to public
+      using (bucket_id = 'public-assets' and name is not null)
+    $policy$;
+  end if;
+end
+$public_assets_policy$;
 
--- =============================================================================
--- SECTION 2: Switch SECURITY DEFINER trigger function to SECURITY INVOKER
--- Only cc_set_updated_at() is safe to recreate as a simple trigger helper.
--- get_country_status and is_genetics_admin_or_reviewer bodies are not
--- reproduced here to avoid accidental breakage — only the anon REVOKE above
--- is applied for those two functions.
--- =============================================================================
+-- Close internal tables to browser roles and expose only the explicitly audited
+-- read-only operational surfaces to authenticated users.
+do $advisor_table_policies$
+declare
+  item record;
+  qualified_name text;
+begin
+  for item in
+    select *
+    from (values
+      ('_push_staging',                    'service_role_only',  'service'),
+      ('adi_cache',                        'service_role_only',  'service'),
+      ('adi_source_log',                   'service_role_only',  'service'),
+      ('country_coverage_matrix',          'authenticated_read', 'read'),
+      ('country_data_import_runs',         'service_role_only',  'service'),
+      ('country_regulatory_profiles_admin','authenticated_read', 'read'),
+      ('llm_rate_limits',                  'service_role_only',  'service'),
+      ('review_queue',                     'service_role_only',  'service'),
+      ('source_expansion_coverage_queue',  'authenticated_read', 'read'),
+      ('source_expansion_import_runs',     'service_role_only',  'service'),
+      ('source_expansion_import_staging',  'service_role_only',  'service'),
+      ('source_import_batches',            'service_role_only',  'service'),
+      ('source_import_rejections',         'service_role_only',  'service')
+    ) as policy_inventory(table_name, policy_name, access_mode)
+  loop
+    qualified_name := format('public.%I', item.table_name);
+    if to_regclass(qualified_name) is null then
+      continue;
+    end if;
 
-CREATE OR REPLACE FUNCTION public.cc_set_updated_at()
-  RETURNS trigger
-  LANGUAGE plpgsql
-  SECURITY INVOKER
-  SET search_path = ''
-AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$;
+    execute format('alter table %s enable row level security', qualified_name);
+    execute format('drop policy if exists %I on %s', item.policy_name, qualified_name);
+    execute format('revoke all privileges on table %s from public, anon, authenticated', qualified_name);
+    execute format('grant all privileges on table %s to service_role', qualified_name);
 
-
--- =============================================================================
--- SECTION 3: Restrict storage bucket listing for public-assets
--- Remove broad SELECT policy that allows listing all files, then re-add a
--- more targeted policy that allows read by URL but not directory listing.
--- =============================================================================
-
-DROP POLICY IF EXISTS "public_assets_public_read" ON storage.objects;
-
-CREATE POLICY "public_assets_object_read" ON storage.objects
-  FOR SELECT TO public
-  USING (bucket_id = 'public-assets' AND name IS NOT NULL);
-
-
--- =============================================================================
--- SECTION 4: Add RLS policies for tables with RLS enabled but zero policies
--- These tables currently block all access. Policies are added per table role.
--- =============================================================================
-
--- _push_staging: service role only
-CREATE POLICY "service_role_only" ON public._push_staging
-  USING (auth.role() = 'service_role');
-
--- adi_cache: service role only
-CREATE POLICY "service_role_only" ON public.adi_cache
-  USING (auth.role() = 'service_role');
-
--- adi_source_log: service role only
-CREATE POLICY "service_role_only" ON public.adi_source_log
-  USING (auth.role() = 'service_role');
-
--- country_coverage_matrix: allow authenticated read
-CREATE POLICY "authenticated_read" ON public.country_coverage_matrix
-  FOR SELECT TO authenticated
-  USING (true);
-
--- country_data_import_runs: service role only
-CREATE POLICY "service_role_only" ON public.country_data_import_runs
-  USING (auth.role() = 'service_role');
-
--- country_regulatory_profiles_admin: allow authenticated read
-CREATE POLICY "authenticated_read" ON public.country_regulatory_profiles_admin
-  FOR SELECT TO authenticated
-  USING (true);
-
--- llm_rate_limits: service role only
-CREATE POLICY "service_role_only" ON public.llm_rate_limits
-  USING (auth.role() = 'service_role');
-
--- review_queue: service role only
-CREATE POLICY "service_role_only" ON public.review_queue
-  USING (auth.role() = 'service_role');
-
--- source_expansion_coverage_queue: allow authenticated read
-CREATE POLICY "authenticated_read" ON public.source_expansion_coverage_queue
-  FOR SELECT TO authenticated
-  USING (true);
-
--- source_expansion_import_runs: service role only
-CREATE POLICY "service_role_only" ON public.source_expansion_import_runs
-  USING (auth.role() = 'service_role');
-
--- source_expansion_import_staging: service role only
-CREATE POLICY "service_role_only" ON public.source_expansion_import_staging
-  USING (auth.role() = 'service_role');
-
--- source_import_batches: service role only
-CREATE POLICY "service_role_only" ON public.source_import_batches
-  USING (auth.role() = 'service_role');
-
--- source_import_rejections: service role only
-CREATE POLICY "service_role_only" ON public.source_import_rejections
-  USING (auth.role() = 'service_role');
+    if item.access_mode = 'read' then
+      execute format('grant select on table %s to authenticated', qualified_name);
+      execute format(
+        'create policy %I on %s for select to authenticated using (true)',
+        item.policy_name,
+        qualified_name
+      );
+    else
+      execute format(
+        'create policy %I on %s for all to service_role using (true) with check (true)',
+        item.policy_name,
+        qualified_name
+      );
+    end if;
+  end loop;
+end
+$advisor_table_policies$;
