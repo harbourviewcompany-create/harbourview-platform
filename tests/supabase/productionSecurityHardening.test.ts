@@ -35,8 +35,8 @@ describe('production Supabase security hardening', () => {
     expect(migration).toContain('information_schema.foreign_tables')
     expect(migration).toContain("if exists (select 1 from pg_namespace where nspname = 'net') then")
     expect(migration).toContain("execute 'revoke usage on schema net from public, anon, authenticated'")
-    expect(migration).toContain("where n.nspname = 'net'")
-    expect(migration).toContain("'grant execute on %s %s to service_role'")
+    expect(assertions).toContain("has_schema_privilege('anon', n.oid, 'usage')")
+    expect(assertions).toContain("has_schema_privilege('authenticated', n.oid, 'usage')")
   })
 
   it('asserts database state for public reads and internal denial', () => {

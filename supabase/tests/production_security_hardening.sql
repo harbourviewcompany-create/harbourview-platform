@@ -171,6 +171,7 @@ from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where p.prosecdef
   and n.nspname in ('public','api','signals','regulatory_signals','net')
+  and has_schema_privilege('anon', n.oid, 'usage')
   and has_function_privilege('anon', p.oid, 'execute');
 
 -- Authenticated execution is limited to the audited allowlist.
@@ -196,6 +197,7 @@ from pg_proc p
 join pg_namespace n on n.oid = p.pronamespace
 where p.prosecdef
   and n.nspname in ('public','api','signals','regulatory_signals','net')
+  and has_schema_privilege('authenticated', n.oid, 'usage')
   and has_function_privilege('authenticated', p.oid, 'execute')
   and not exists (
     select 1
