@@ -35,6 +35,10 @@ begin
     alter table public.countries
       add column data_completeness public.data_completeness not null default 'stub';
   elsif current_type <> 'data_completeness' then
+    -- PostgreSQL does not permit a column type change while a view depends on
+    -- that column. The canonical view is recreated below with the same contract.
+    drop view if exists public.v_jurisdiction_unified;
+
     alter table public.countries
       alter column data_completeness drop default;
 
@@ -52,3 +56,39 @@ begin
   end if;
 end
 $countries_data_completeness_column$;
+
+create or replace view public.v_jurisdiction_unified
+with (security_invoker = true)
+as
+select
+  xref.canonical_iso2,
+  xref.canonical_name,
+  xref.hv_core_jurisdiction_iso_code,
+  country.country_name,
+  country.market_access_status,
+  country.medical_status,
+  country.adult_use_status,
+  country.import_status,
+  country.export_status,
+  country.opportunity_score,
+  country.data_completeness,
+  country.regulator_label,
+  country.public_summary as countries_public_summary,
+  jurisdiction.jurisdiction_id,
+  jurisdiction.data_release_status,
+  jurisdiction.identity_verification_status,
+  public_profile.public_summary as profile_public_summary,
+  public_profile.confidence_band_public,
+  public_profile.last_regulatory_verified_at
+from public.jurisdiction_crossref xref
+left join public.countries country
+  on country.iso_alpha2 = xref.countries_iso2
+left join public.jurisdictions jurisdiction
+  on jurisdiction.jurisdiction_id = xref.jurisdictions_id
+left join public.country_profiles_public public_profile
+  on public_profile.jurisdiction_id = jurisdiction.jurisdiction_id;
+
+revoke all privileges on table public.v_jurisdiction_unified
+  from public, anon, authenticated;
+grant select on table public.v_jurisdiction_unified
+  to anon, authenticated, service_role;
