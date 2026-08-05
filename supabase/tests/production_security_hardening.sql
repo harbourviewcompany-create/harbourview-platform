@@ -29,6 +29,31 @@ where p.prosecdef
   and n.nspname in ('public','api','signals','regulatory_signals','net')
   and has_function_privilege('anon', p.oid, 'execute');
 
+-- External-network digest and country-enrichment routines must exist, remain
+-- unavailable to browser roles, and be executable only through service_role.
+with expected_privileges(role_name, routine_signature, should_execute) as (
+  values
+    ('anon', 'public.run_editorial_digest()', false),
+    ('authenticated', 'public.run_editorial_digest()', false),
+    ('service_role', 'public.run_editorial_digest()', true),
+    ('anon', 'public.run_country_intel_enrichment()', false),
+    ('authenticated', 'public.run_country_intel_enrichment()', false),
+    ('service_role', 'public.run_country_intel_enrichment()', true)
+), resolved as (
+  select
+    role_name,
+    routine_signature,
+    should_execute,
+    to_regprocedure(routine_signature) as routine_oid
+  from expected_privileges
+)
+select role_name, routine_signature, should_execute, routine_oid
+from resolved
+where case
+  when routine_oid is null then true
+  else has_function_privilege(role_name, routine_oid, 'execute') is distinct from should_execute
+end;
+
 -- Foreign integration tables exposed to application roles.
 select foreign_table_schema, foreign_table_name
 from information_schema.foreign_tables
