@@ -7,17 +7,57 @@
 -- stats get computed instead via ~8 separate inline round-trip
 -- queries later in that file.
 --
--- This creates the real function, replicating the inline TS logic's
--- exact semantics (including its null-handling for source health:
--- `!s.is_active` counts both false AND null as inactive; a null
--- last_checked_at counts as stale). All counts cast to int4 so
--- PostgREST/JSON serializes them as numbers, not bigint strings —
--- matching the CommandCentreStats TS interface's `number` fields.
---
--- Exposed the same way as every other fix this session: real logic
--- in public, thin security-definer wrapper in api (the only schema
--- PostgREST exposes — see lib/supabase/env.ts).
+-- Production already had public.signals_quality out of band before this
+-- migration. Zero-state replay must restore the original quality-gate contract
+-- before compiling the aggregate RPC. The view is created only when absent;
+-- later dated migrations remain the sole owners of subsequent gate changes.
 -- ============================================================
+
+do $restore_initial_signals_quality$
+begin
+  if not exists (
+    select 1
+    from information_schema.views
+    where table_schema = 'public'
+      and table_name = 'signals_quality'
+  ) then
+    execute $view$
+      create view public.signals_quality as
+      select
+        id,
+        date,
+        cat,
+        pri,
+        score,
+        headline,
+        summary,
+        source,
+        url,
+        verification,
+        tier,
+        lang,
+        company,
+        country,
+        in_network,
+        lane_r,
+        lane_e,
+        lane_t,
+        top_lane,
+        query_pack,
+        commercial_impact,
+        reviewed,
+        action,
+        created_at,
+        embedding_1024,
+        embedding_model,
+        embedded_at
+      from public.signals
+      where cat <> 'SOURCE_ENGINE'
+         or (cat = 'SOURCE_ENGINE' and reviewed = true and score >= 50)
+    $view$;
+  end if;
+end
+$restore_initial_signals_quality$;
 
 create or replace function public.get_command_centre_stats()
 returns table (
