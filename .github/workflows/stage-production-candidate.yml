@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/stage-production-candidate.yml
       - supabase/migrations/20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql
+      - supabase/migrations/20260607230000_hv_bge_m3_1024_dim_embedding_column_and_search.sql
   workflow_dispatch:
 
 permissions:
