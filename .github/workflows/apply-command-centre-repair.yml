@@ -71,3 +71,5 @@ jobs:
           git add -A
           git commit -m 'fix(release): repair command centre verification gates'
           git push origin HEAD:build/harbourview-production-command-platform
+
+# Registered workflow trigger.
