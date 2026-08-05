@@ -103,19 +103,28 @@ revoke all on function api.promote_all_extracted_snapshots() from public;
 grant execute on function api.promote_all_extracted_snapshots() to service_role;
 
 
+-- Production also had public.hv_ingest_snapshot_to_staging() before the wrapper
+-- migration, while repository zero-state restores its implementation later.
+-- The constant statement contains no caller-controlled SQL and keeps the API
+-- wrapper unavailable to browser roles.
 create or replace function api.hv_ingest_snapshot_to_staging(p_batch_size integer, p_workspace_id uuid)
 returns table(snapshot_id uuid, staging_ids uuid[], candidates_count integer, skipped boolean, skip_reason text)
-language sql
+language plpgsql
 security definer
 set search_path = ''
-as $$
-  select * from public.hv_ingest_snapshot_to_staging(p_batch_size, p_workspace_id);
-$$;
+as $function$
+begin
+  return query execute
+    'select * from public.hv_ingest_snapshot_to_staging($1, $2)'
+    using p_batch_size, p_workspace_id;
+end;
+$function$;
 
 comment on function api.hv_ingest_snapshot_to_staging(integer, uuid) is
   'PostgREST-exposed wrapper for public.hv_ingest_snapshot_to_staging(). '
   'Called by the admin Hub panel (app/admin/(protected)/hub) via '
-  'app/api/admin/hub-proxy.';
+  'app/api/admin/hub-proxy. The parameterized constant dynamic call permits '
+  'deterministic zero-state replay before the public implementation exists.';
 revoke all on function api.hv_ingest_snapshot_to_staging(integer, uuid) from public;
 grant execute on function api.hv_ingest_snapshot_to_staging(integer, uuid) to service_role;
 
