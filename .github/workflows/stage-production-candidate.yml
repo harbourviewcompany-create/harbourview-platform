@@ -42,7 +42,7 @@ jobs:
 
       - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
         with:
-          version: latest
+          version: '2.111.0'
 
       - name: Restore immutable repair sources and assemble candidate
         shell: bash
@@ -86,7 +86,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .github/workflows/repair-production-readiness.yml .github/workflows/repair-production-readiness-v2.yml .github/workflows/repair-production-readiness-v3.yml .github/workflows/repair-production-readiness-v4.yml .github/workflows/stage-production-candidate.yml .github/workflows/country-reference-audit.yml
+          rm -f .github/workflows/repair-production-readiness.yml .github/workflows/repair-production-readiness-v2.yml .github/workflows/repair-production-readiness-v3.yml .github/workflows/repair-production-readiness-v4.yml .github/workflows/stage-production-candidate.yml .github/workflows/country-reference-audit.yml .github/workflows/migration-stub-audit.yml
           git config user.name 'harbourview-release-bot'
           git config user.email 'release-bot@users.noreply.github.com'
           git add -A
