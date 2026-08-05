@@ -1,6 +1,5 @@
--- Repair stub: migration 20260708011346 (expose_daily_digest_via_api_schema) was applied directly to the
--- remote database and has no corresponding local file. This stub reconciles
--- the local migration directory with the remote
--- supabase_migrations.schema_migrations table. The schema changes from this
--- migration are already live in the remote database.
-SELECT 1; -- no-op
+create view api.daily_digest as
+select id, digest_date, status, headlines, editorial_headlines, markets, generated_at, updated_at
+from public.daily_digest;
+
+grant select on api.daily_digest to anon, authenticated;
