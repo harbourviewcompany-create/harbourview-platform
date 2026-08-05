@@ -6,6 +6,8 @@ on:
       - stage/pr1280-production-ready-20260805
     paths:
       - .github/workflows/country-reference-audit.yml
+      - supabase/migrations/20260613170000_canonical_country_reference_repair.sql
+      - supabase/migrations/**
   workflow_dispatch:
 
 permissions:
@@ -28,7 +30,7 @@ jobs:
       - name: Install ISO reference package
         run: python -m pip install --disable-pip-version-check --no-cache-dir pycountry==24.6.1
 
-      - name: Audit migration country references
+      - name: Audit chronological migration country references
         shell: bash
         run: |
           set -euo pipefail
@@ -43,35 +45,54 @@ jobs:
 
           migration_dir = Path('supabase/migrations')
           seed_name = '20260609000000_seed_countries_all_191_v1.sql'
+          repair_name = '20260613170000_canonical_country_reference_repair.sql'
           seed_path = migration_dir / seed_name
-          seed_sql = seed_path.read_text(encoding='utf-8')
 
-          row_pattern = re.compile(
+          country_row_pattern = re.compile(
               r"\(\s*'(?:[^']|'')*'\s*,\s*'(?:[^']|'')*'\s*,\s*'([A-Z]{2})'\s*,\s*'([A-Z]{3})'",
               re.MULTILINE,
           )
-          seeded_pairs = row_pattern.findall(seed_sql)
-          seeded_codes = {alpha2 for alpha2, _ in seeded_pairs}
-          if len(seeded_codes) != len(seeded_pairs):
-              raise SystemExit('Duplicate iso_alpha2 rows detected in seed migration')
+          literal_pattern = re.compile(r"'([A-Z]{2})'")
+          reference_context = re.compile(
+              r'country_code|country_iso|iso_alpha2|iso_alpha3|\biso\b|jurisdiction_code|country_slug|public\.countries|local_authorit|local_regulation|local_market',
+              re.IGNORECASE,
+          )
 
           canonical = {country.alpha_2: country.name for country in pycountry.countries}
           canonical['XK'] = 'Kosovo'
 
-          reference_columns = re.compile(
-              r'country_code|country_iso|iso_alpha2|iso_alpha3|\biso\b|jurisdiction_code|country_slug|public\.countries|local_authorit|local_regulation|local_market',
-              re.IGNORECASE,
-          )
-          literal_pattern = re.compile(r"'([A-Z]{2})'")
+          seed_sql = seed_path.read_text(encoding='utf-8')
+          seeded_pairs = country_row_pattern.findall(seed_sql)
+          seeded_codes = {alpha2 for alpha2, _ in seeded_pairs}
+          if len(seeded_codes) != len(seeded_pairs):
+              raise SystemExit('Duplicate iso_alpha2 rows detected in seed migration')
 
+          available_codes = set(seeded_codes)
+          declared_after_seed: dict[str, str] = {}
           references: dict[str, list[dict[str, object]]] = {}
+          chronological_gaps: list[dict[str, object]] = []
+
           files = sorted(
               path for path in migration_dir.glob('*.sql')
               if path.name > seed_name
           )
 
           for path in files:
-              lines = path.read_text(encoding='utf-8').splitlines()
+              sql = path.read_text(encoding='utf-8')
+              if re.search(r'insert\s+into\s+public\.countries\b', sql, re.IGNORECASE):
+                  for alpha2, alpha3 in country_row_pattern.findall(sql):
+                      if alpha2 not in canonical:
+                          chronological_gaps.append({
+                              'file': path.name,
+                              'line': 0,
+                              'iso_alpha2': alpha2,
+                              'defect': 'non_canonical_country_declaration',
+                          })
+                          continue
+                      available_codes.add(alpha2)
+                      declared_after_seed.setdefault(alpha2, path.name)
+
+              lines = sql.splitlines()
               for index, line in enumerate(lines):
                   codes = [code for code in literal_pattern.findall(line) if code in canonical]
                   if not codes:
@@ -79,35 +100,48 @@ jobs:
                   start = max(0, index - 3)
                   end = min(len(lines), index + 4)
                   context = '\n'.join(lines[start:end])
-                  if not reference_columns.search(context):
+                  if not reference_context.search(context):
                       continue
                   for code in codes:
-                      references.setdefault(code, []).append({
+                      reference = {
                           'file': path.name,
                           'line': index + 1,
                           'text': line.strip(),
-                      })
+                      }
+                      references.setdefault(code, []).append(reference)
+                      if code not in available_codes:
+                          chronological_gaps.append({
+                              **reference,
+                              'iso_alpha2': code,
+                              'country_name': canonical.get(code),
+                              'defect': 'referenced_before_country_declaration',
+                          })
 
           referenced_codes = set(references)
-          missing_codes = sorted(referenced_codes - seeded_codes)
-          unknown_seed_codes = sorted(seeded_codes - set(canonical))
-          unused_seed_codes = sorted(seeded_codes - referenced_codes)
+          seed_gaps = sorted(referenced_codes - seeded_codes)
+          repaired_codes = sorted(
+              code for code in seed_gaps
+              if declared_after_seed.get(code) == repair_name
+          )
+          unresolved_codes = sorted(referenced_codes - available_codes)
+          repair_codes = {
+              alpha2
+              for alpha2, _ in country_row_pattern.findall(
+                  (migration_dir / repair_name).read_text(encoding='utf-8')
+              )
+          }
 
           report = {
               'seed_file': seed_name,
               'seeded_count': len(seeded_codes),
               'referenced_count': len(referenced_codes),
-              'missing_codes': [
-                  {
-                      'iso_alpha2': code,
-                      'country_name': canonical.get(code),
-                      'references': references[code],
-                  }
-                  for code in missing_codes
-              ],
-              'unknown_seed_codes': unknown_seed_codes,
-              'referenced_codes': sorted(referenced_codes),
-              'unused_seed_count': len(unused_seed_codes),
+              'seed_gaps': seed_gaps,
+              'repair_file': repair_name,
+              'repair_declared_count': len(repair_codes),
+              'repaired_codes': repaired_codes,
+              'unresolved_codes': unresolved_codes,
+              'chronological_gaps': chronological_gaps,
+              'final_country_reference_count': len(available_codes),
           }
 
           Path('/tmp/country-reference-audit.json').write_text(
@@ -116,10 +150,17 @@ jobs:
           )
           print(json.dumps(report, indent=2, ensure_ascii=False))
 
-          if unknown_seed_codes:
-              raise SystemExit(f'Non-canonical seed codes detected: {unknown_seed_codes}')
-          if missing_codes:
-              raise SystemExit(f'Country references absent from seed: {missing_codes}')
+          expected_repair_codes = set(seed_gaps)
+          if repair_codes != expected_repair_codes:
+              missing = sorted(expected_repair_codes - repair_codes)
+              extra = sorted(repair_codes - expected_repair_codes)
+              raise SystemExit(
+                  f'Canonical repair does not exactly match audited seed gaps; missing={missing}, extra={extra}'
+              )
+          if unresolved_codes or chronological_gaps:
+              raise SystemExit(
+                  f'Country reference coverage remains incomplete; unresolved={unresolved_codes}, chronological_gaps={len(chronological_gaps)}'
+              )
           PY
 
       - name: Upload audit report
@@ -128,5 +169,5 @@ jobs:
         with:
           name: country-reference-audit
           path: /tmp/country-reference-audit.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
