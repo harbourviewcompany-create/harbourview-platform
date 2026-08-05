@@ -145,16 +145,16 @@ async function reloadTool(page: Page, tool: string, title: string) {
   await expect(page.getByText(title, { exact: true })).toBeVisible()
 }
 
-async function closeMarketplaceTool(page: Page, tool: string) {
+async function closeMarketplaceTool(page: Page, tool: string, marketView: string) {
   await page.getByRole('button', { name: 'Close marketplace workflow' }).click()
   await expect(page.locator(`[data-mobile-command-tool="${tool}"]`)).toHaveCount(0)
-  await expect.poll(() => {
-    const url = new URL(page.url())
-    return {
-      tool: url.searchParams.get('tool'),
-      listing: url.searchParams.get('listing'),
-    }
-  }).toEqual({ tool: null, listing: null })
+  await expectCommandState(page, {
+    page: 'marketplace',
+    section: 'marketplace',
+    marketView,
+    tool: null,
+    listing: null,
+  })
 }
 
 async function writeWidthEvidence(
@@ -316,7 +316,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
               listing: null,
             })
             await reloadTool(page, 'wanted-intake', 'Post a wanted requirement')
-            await closeMarketplaceTool(page, 'wanted-intake')
+            await closeMarketplaceTool(page, 'wanted-intake', 'wanted')
 
             await cannabisTab.click()
             const supplyAction = marketplaceActions.getByRole('link', { name: /Submit supply/ })
@@ -330,7 +330,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
               listing: null,
             })
             await reloadTool(page, 'supply-intake', 'Submit supply for controlled review')
-            await closeMarketplaceTool(page, 'supply-intake')
+            await closeMarketplaceTool(page, 'supply-intake', 'cannabis')
 
             const listingCard = page.locator('.hvm2-listing-card').filter({ hasText: SAFE_LISTING_TITLE }).first()
             await expect(listingCard).toBeVisible()
@@ -347,7 +347,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
             const safeContext = page.locator('[data-mobile-command-tool="introduction"] .hvm2-workspace-context')
             await expect(safeContext).toContainText(SAFE_LISTING_TITLE)
             await expect(safeContext).toContainText('Publicly approved bulk flower supply fixture')
-            await closeMarketplaceTool(page, 'introduction')
+            await closeMarketplaceTool(page, 'introduction', 'cannabis')
 
             const financingAction = marketplaceActions.getByRole('link', { name: /Request financing/ })
             await financingAction.click()
@@ -362,7 +362,13 @@ test.describe('Command Centre authenticated responsive verification', () => {
             await reloadTool(page, 'financing-intake', 'Request financing support')
             await page.getByRole('button', { name: 'Close financing workflow' }).click()
             await expect(page.locator('[data-mobile-command-tool="financing-intake"]')).toHaveCount(0)
-            await expect.poll(() => new URL(page.url()).searchParams.get('tool')).toBeNull()
+            await expectCommandState(page, {
+              page: 'trade-calc',
+              section: 'financing',
+              marketView: 'cannabis',
+              tool: null,
+              listing: null,
+            })
 
             report.marketViewReload = 'equipment -> cannabis'
             report.containedWorkflows = ['wanted-intake', 'supply-intake', 'introduction', 'financing-intake']
@@ -443,6 +449,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
         report.failure = diagnostic
         failures.push(`${width}px: ${diagnostic}`)
       } finally {
+        if (page) report.finalUrl = sanitizeUrlForEvidence(page.url())
         report.pageErrors = pageErrors
         report.consoleErrors = consoleErrors
         report.expectedResourceConsoleErrors = expectedResourceConsoleErrors
