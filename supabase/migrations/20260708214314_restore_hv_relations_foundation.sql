@@ -3,6 +3,23 @@
 -- zero-state history. Restore the production contract without replacing rows
 -- or modifying an existing relation.
 
+do $restore_hv_relation_type$
+begin
+  create type public.hv_relation_type as enum (
+    'references',
+    'derived_from',
+    'contradicts',
+    'supports',
+    'part_of',
+    'follow_up',
+    'supersedes',
+    'related_to'
+  );
+exception
+  when duplicate_object then null;
+end
+$restore_hv_relation_type$;
+
 create table if not exists public.hv_relations (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references public.workspaces(id),
