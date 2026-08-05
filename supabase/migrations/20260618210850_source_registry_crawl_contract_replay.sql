@@ -1,9 +1,10 @@
 -- Replay-safe convergence between the historical used/surplus source registry
 -- and the production intelligence-source crawl contract.
 --
--- Legacy keys, category fields and parser settings remain intact. The fields
--- required by scheduling, source health, translation and verification flows are
--- added and derived without deleting or re-keying any source record.
+-- Existing legacy keys, category fields and parser settings remain intact for
+-- historical rows. Modern intelligence-source rows are not required to invent
+-- those retired identifiers; canonical source_name/source_url fields own the
+-- forward contract.
 
 alter table public.source_registry
   add column if not exists source_name text,
@@ -66,6 +67,14 @@ set
   network_status = coalesce(nullif(network_status, ''), 'online'),
   content_change_rate = coalesce(content_change_rate, 0.5),
   metadata = coalesce(metadata, '{}'::jsonb);
+
+-- The historical used/surplus table required these three fields. Production's
+-- unified registry does not. Retain populated legacy values, but permit all later
+-- canonical rows to rely on source_name/source_url without synthetic identifiers.
+alter table public.source_registry
+  alter column source_key drop not null,
+  alter column category drop not null,
+  alter column name drop not null;
 
 alter table public.source_registry
   alter column source_name set not null,
