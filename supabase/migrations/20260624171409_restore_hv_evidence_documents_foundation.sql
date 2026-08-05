@@ -1,5 +1,5 @@
--- Replay-safe restoration of the production hv_evidence_documents and
--- hv_claims foundations.
+-- Replay-safe restoration of the production hv_evidence_documents, hv_claims,
+-- hv_facilities and hv_licences foundations.
 --
 -- The production relations and their access helpers predate their first
 -- recorded migration-ledger reference (20260624171410), but no registered
@@ -406,3 +406,211 @@ begin
   end if;
 end
 $restore_hv_claims_comments$;
+
+-- public.hv_facilities and public.hv_licences are the same defect again, with
+-- the same evidence profile as hv_claims above: both exist in production, both
+-- are first referenced by ledger version 20260624171410, no registered
+-- migration creates either, and both carry a foreign key into
+-- hv_evidence_documents. They belong in this slot for the same reason.
+--
+-- Ownership unchanged: 20260624171410 still derives
+-- idx_hv_facilities_certification_evidence_id,
+-- idx_hv_licences_evidence_document_id and idx_hv_licences_verified_by, and
+-- 20260711010651 still creates the api views over both tables.
+
+create table if not exists public.hv_facilities (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.workspaces(id) on delete cascade,
+  name text not null,
+  facility_type text not null,
+  country text not null,
+  region text,
+  gmp_certified boolean not null default false,
+  gacp_certified boolean not null default false,
+  certification_evidence_id uuid,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  constraint hv_facilities_evidence_fk
+    foreign key (certification_evidence_id)
+    references public.hv_evidence_documents(id),
+  constraint hv_facilities_type_check check (
+    facility_type in (
+      'cultivation',
+      'processing',
+      'storage',
+      'lab',
+      'retail',
+      'distribution',
+      'export_hub'
+    )
+  ),
+  constraint hv_facilities_status_check check (
+    status in ('active', 'inactive', 'under_review')
+  )
+);
+
+create table if not exists public.hv_licences (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.workspaces(id) on delete cascade,
+  licence_number text not null,
+  issuing_authority text not null,
+  jurisdiction_country text not null,
+  jurisdiction_region text,
+  licence_type text not null,
+  permitted_activities text[],
+  issued_at date,
+  expires_at date not null,
+  status text not null default 'active',
+  evidence_document_id uuid,
+  verified boolean not null default false,
+  verified_at timestamptz,
+  verified_by uuid references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint hv_licences_evidence_fk
+    foreign key (evidence_document_id)
+    references public.hv_evidence_documents(id),
+  constraint hv_licences_status_check check (
+    status in (
+      'active',
+      'expired',
+      'suspended',
+      'revoked',
+      'pending_renewal',
+      'pending'
+    )
+  )
+);
+
+-- idx_hv_facilities_org and idx_hv_licences_org lead on org_id, which is why
+-- production has no separate org_id covering index from 20260624171410.
+create index if not exists idx_hv_facilities_org
+  on public.hv_facilities (org_id);
+
+create index if not exists idx_hv_licences_org
+  on public.hv_licences (org_id);
+
+create index if not exists idx_hv_licences_expiry
+  on public.hv_licences (expires_at, status);
+
+create index if not exists idx_hv_licences_type_status
+  on public.hv_licences (licence_type, status);
+
+alter table public.hv_facilities enable row level security;
+alter table public.hv_licences enable row level security;
+
+grant select, insert, update, delete
+  on table public.hv_facilities
+  to anon, authenticated;
+grant all privileges
+  on table public.hv_facilities
+  to service_role;
+
+grant select, insert, update, delete
+  on table public.hv_licences
+  to anon, authenticated;
+grant all privileges
+  on table public.hv_licences
+  to service_role;
+
+do $restore_hv_facilities_licences_policies$
+declare
+  target record;
+begin
+  for target in
+    select unnest(array['hv_facilities', 'hv_licences']) as table_name
+  loop
+    if not exists (
+      select 1 from pg_policy
+      where polrelid = format('public.%I', target.table_name)::regclass
+        and polname = target.table_name || '_org_member_insert'
+    ) then
+      execute format(
+        'create policy %I on public.%I as permissive for insert to public '
+        || 'with check (public.hv_is_org_member(org_id))',
+        target.table_name || '_org_member_insert', target.table_name);
+    end if;
+
+    if not exists (
+      select 1 from pg_policy
+      where polrelid = format('public.%I', target.table_name)::regclass
+        and polname = target.table_name || '_org_member_select'
+    ) then
+      execute format(
+        'create policy %I on public.%I as permissive for select to public '
+        || 'using (public.hv_is_org_member(org_id))',
+        target.table_name || '_org_member_select', target.table_name);
+    end if;
+
+    if not exists (
+      select 1 from pg_policy
+      where polrelid = format('public.%I', target.table_name)::regclass
+        and polname = target.table_name || '_org_member_update'
+    ) then
+      execute format(
+        'create policy %I on public.%I as permissive for update to public '
+        || 'using (public.hv_is_org_member(org_id))',
+        target.table_name || '_org_member_update', target.table_name);
+    end if;
+
+    if not exists (
+      select 1 from pg_policy
+      where polrelid = format('public.%I', target.table_name)::regclass
+        and polname = target.table_name || '_staff_all'
+    ) then
+      execute format(
+        'create policy %I on public.%I as permissive for all to public '
+        || 'using (public.hv_is_platform_staff())',
+        target.table_name || '_staff_all', target.table_name);
+    end if;
+  end loop;
+end
+$restore_hv_facilities_licences_policies$;
+
+do $restore_hv_facilities_licences_comments$
+begin
+  if obj_description('public.hv_facilities'::regclass, 'pg_class') is null then
+    execute $comment$
+      comment on table public.hv_facilities is
+        'Physical facilities. Address below country level stored in settings jsonb or omitted.'
+    $comment$;
+  end if;
+
+  if col_description('public.hv_facilities'::regclass, (
+    select attnum from pg_attribute
+    where attrelid = 'public.hv_facilities'::regclass and attname = 'country'
+  )) is null then
+    execute $comment$
+      comment on column public.hv_facilities.country is
+        'ISO 3166-1 alpha-2. Only country+region public-safe.'
+    $comment$;
+  end if;
+
+  if obj_description('public.hv_licences'::regclass, 'pg_class') is null then
+    execute $comment$
+      comment on table public.hv_licences is
+        'Regulatory licences linked to org. Verified by admin.'
+    $comment$;
+  end if;
+
+  if col_description('public.hv_licences'::regclass, (
+    select attnum from pg_attribute
+    where attrelid = 'public.hv_licences'::regclass and attname = 'licence_number'
+  )) is null then
+    execute $comment$
+      comment on column public.hv_licences.licence_number is
+        'PRIVATE: never in public DTOs'
+    $comment$;
+  end if;
+
+  if col_description('public.hv_licences'::regclass, (
+    select attnum from pg_attribute
+    where attrelid = 'public.hv_licences'::regclass and attname = 'verified'
+  )) is null then
+    execute $comment$
+      comment on column public.hv_licences.verified is
+        'Admin-asserted: document cross-checked'
+    $comment$;
+  end if;
+end
+$restore_hv_facilities_licences_comments$;
