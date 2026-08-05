@@ -1,0 +1,121 @@
+name: Stage Production Candidate
+
+on:
+  push:
+    branches:
+      - stage/pr1280-production-ready-20260805
+    paths:
+      - .github/workflows/stage-production-candidate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stage-pr1280-production-candidate
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID: ${{ github.run_id }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: stage/pr1280-production-ready-20260805
+          fetch-depth: 1
+          persist-credentials: true
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: latest
+
+      - name: Restore immutable repair sources and assemble candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .github/workflows
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/5f0da6d3d5244b3fa6fc3a5f981831d52b75e65d/.github/workflows/repair-production-readiness.yml \
+            -o .github/workflows/repair-production-readiness.yml
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/0f35bf5f9d73ed38446076cbd46f81c4a90cd843/.github/workflows/repair-production-readiness-v2.yml \
+            -o .github/workflows/repair-production-readiness-v2.yml
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/cab35f9f1d343066b5c1a6d3b9f4150bc151edd4/.github/workflows/repair-production-readiness-v3.yml \
+            -o .github/workflows/repair-production-readiness-v3.yml
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/23af0e37ac7470672656a60335424eda84c2b678/.github/workflows/repair-production-readiness-v4.yml \
+            -o .github/workflows/repair-production-readiness-v4.yml
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/harbourviewcompany-create/harbourview-platform/7077adb90093f0665adfc6a3e7de158581d784e8/scripts/tmp_production_readiness_repair.py \
+            -o /tmp/production_readiness_repair.py
+          python /tmp/production_readiness_repair.py
+          git diff --check
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild complete Supabase history and assert hardened state
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local
+          eval "$(supabase status -o env)"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -Atf supabase/tests/production_security_hardening.sql | tee /tmp/production-security-assertions.txt
+          test ! -s /tmp/production-security-assertions.txt
+
+      - name: Verify focused contracts
+        run: >-
+          npx vitest run
+          tests/dashboard/aiBriefingFallback.test.ts
+          tests/dashboard/commandCentreHealth.test.ts
+          tests/dashboard/loadCommandCentreData.test.ts
+          tests/dashboard/commandCentreSourcePlan.test.ts
+          tests/platform/command-centre-route-registry.test.ts
+          tests/platform/command-centre-typed-registry.test.ts
+          tests/supabase/productionSecurityHardening.test.ts
+          tests/supabase/env.test.ts
+
+      - name: Verify lint, TypeScript, and production build
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run build
+
+      - name: Commit verified product candidate and remove staging controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/repair-production-readiness.yml \
+            .github/workflows/repair-production-readiness-v2.yml \
+            .github/workflows/repair-production-readiness-v3.yml \
+            .github/workflows/repair-production-readiness-v4.yml \
+            .github/workflows/stage-production-candidate.yml
+          git config user.name 'harbourview-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(release): close command centre production-readiness defects'
+          git push origin HEAD:stage/pr1280-production-ready-20260805
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true
