@@ -78,19 +78,27 @@ revoke all on function api.acquire_crawl_targets(integer, text) from public;
 grant execute on function api.acquire_crawl_targets(integer, text) to service_role;
 
 
+-- Production already had public.promote_all_extracted_snapshots() when this
+-- wrapper was applied, but repository zero-state history creates/replaces the
+-- public function later. A constant dynamic call preserves the exact API return
+-- contract while deferring dependency resolution until service-role execution.
 create or replace function api.promote_all_extracted_snapshots()
 returns table(snapshot_id uuid, signals_promoted integer)
-language sql
+language plpgsql
 security definer
 set search_path = ''
-as $$
-  select * from public.promote_all_extracted_snapshots();
-$$;
+as $function$
+begin
+  return query execute
+    'select * from public.promote_all_extracted_snapshots()';
+end;
+$function$;
 
 comment on function api.promote_all_extracted_snapshots() is
   'PostgREST-exposed wrapper for public.promote_all_extracted_snapshots(). '
   'Called by the admin Hub panel (app/admin/(protected)/hub) via '
-  'app/api/admin/hub-proxy.';
+  'app/api/admin/hub-proxy. The constant dynamic call permits deterministic '
+  'zero-state replay before the public implementation is restored later.';
 revoke all on function api.promote_all_extracted_snapshots() from public;
 grant execute on function api.promote_all_extracted_snapshots() to service_role;
 
