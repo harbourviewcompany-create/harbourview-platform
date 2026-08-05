@@ -1,7 +1,7 @@
--- Production's public.hv_relations relation existed before the July 8 RLS
--- initplan advisory snapshot, but its creating DDL was absent from repository
--- zero-state history. Restore the production contract without replacing rows
--- or modifying an existing relation.
+-- Production's Harbourview relation and review-decision controls existed before
+-- the July 8 RLS initplan advisory snapshot, but their creating DDL was absent
+-- from repository zero-state history. Restore the exact contracts without
+-- replacing rows or modifying existing relations.
 
 do $restore_hv_relation_type$
 begin
@@ -56,8 +56,73 @@ create index if not exists idx_hv_relations_workspace_id
 
 alter table public.hv_relations enable row level security;
 
+create or replace function public.hv_audit_review_decision()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $function$
+begin
+  insert into public.audit_events (entity_type, entity_id, action, actor, metadata)
+  values (
+    'hv_review_decision',
+    new.id,
+    'review_decision.' || new.decision,
+    new.decided_by::text,
+    jsonb_build_object(
+      'artifact_id', new.artifact_id,
+      'previous_status', new.previous_status,
+      'new_status', new.new_status,
+      'previous_lifecycle', new.previous_lifecycle,
+      'new_lifecycle', new.new_lifecycle,
+      'public_eligible_set', new.public_eligible_set
+    )
+  );
+  return new;
+end;
+$function$;
+
+create table if not exists public.hv_review_decisions (
+  id uuid primary key default gen_random_uuid(),
+  artifact_id uuid not null references public.hv_artifacts(id) on delete cascade,
+  workspace_id uuid not null references public.workspaces(id),
+  decision text not null,
+  decision_note text,
+  previous_status public.hv_review_status,
+  new_status public.hv_review_status not null,
+  previous_lifecycle public.hv_lifecycle_stage,
+  new_lifecycle public.hv_lifecycle_stage not null,
+  public_eligible_set boolean,
+  public_eligible_reason text,
+  decided_by uuid not null references auth.users(id),
+  decided_at timestamptz not null default now(),
+  evidence_ids uuid[],
+  linked_sources text[],
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_hv_review_decisions_artifact
+  on public.hv_review_decisions (artifact_id);
+create index if not exists idx_hv_review_decisions_decided_at
+  on public.hv_review_decisions (decided_at desc);
+create index if not exists idx_hv_review_decisions_decided_by
+  on public.hv_review_decisions (decided_by);
+create index if not exists idx_hv_review_decisions_workspace
+  on public.hv_review_decisions (workspace_id);
+
+alter table public.hv_review_decisions enable row level security;
+
+drop trigger if exists trg_hv_review_decision_audit on public.hv_review_decisions;
+create trigger trg_hv_review_decision_audit
+  after insert on public.hv_review_decisions
+  for each row execute function public.hv_audit_review_decision();
+
 -- Preserve the live ACL boundary. The July 8 migration installs the exact
--- reviewed workspace-isolation policy captured from production.
+-- reviewed workspace-isolation policies captured from production.
 grant select, insert, update, delete on table public.hv_relations
   to anon, authenticated;
 grant all privileges on table public.hv_relations to service_role;
+
+grant select, insert, update, delete on table public.hv_review_decisions
+  to anon, authenticated;
+grant all privileges on table public.hv_review_decisions to service_role;
