@@ -1,5 +1,17 @@
-revoke execute on function public.smoke_verify_marketplace_inquiry(text, text, text) from anon, authenticated;
-revoke execute on function public.smoke_close_marketplace_inquiry(text, text, text) from anon, authenticated;
+-- The production project had these smoke helpers out of band. A clean replay
+-- must still harden them when present without requiring repository history to
+-- create them. Keep the revokes signature-specific and conditional.
+do $harden_optional_marketplace_smoke_functions$
+begin
+  if to_regprocedure('public.smoke_verify_marketplace_inquiry(text,text,text)') is not null then
+    revoke execute on function public.smoke_verify_marketplace_inquiry(text, text, text) from anon, authenticated;
+  end if;
+
+  if to_regprocedure('public.smoke_close_marketplace_inquiry(text,text,text)') is not null then
+    revoke execute on function public.smoke_close_marketplace_inquiry(text, text, text) from anon, authenticated;
+  end if;
+end
+$harden_optional_marketplace_smoke_functions$;
 
 create or replace view public.marketplace_listings_public_view
 with (security_invoker = true)
