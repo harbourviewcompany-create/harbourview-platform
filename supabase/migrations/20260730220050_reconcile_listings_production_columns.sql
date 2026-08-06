@@ -33,10 +33,11 @@
 --     uuid_generate_v4() default is not reproduced, because that depends on the
 --     uuid-ossp extension; id already exists in replay regardless.
 --
--- status is intentionally left alone. Production types it as listing_status and
--- the repository builds it as text; changing it here would require dropping and
--- recreating the five-plus views that read it, which is out of scope for this
--- reconciliation. See 20260730220000 for how the predicate was aligned instead.
+-- status is intentionally left alone here. It is converted to production's
+-- listing_status enum much earlier, at 20260528033001, immediately after the
+-- table is created and before any view is built over it -- the only point where
+-- the type can be changed without dropping and recreating dependent views.
+-- ADD COLUMN IF NOT EXISTS would skip it in any case.
 
 -- price_range is the one enum this table needs that the repository never
 -- creates. The other four (marketplace_category, region, seller_type,
