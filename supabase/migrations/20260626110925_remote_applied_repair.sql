@@ -21,8 +21,56 @@ CREATE OR REPLACE VIEW api.marketplace_public_listings_v1 AS
   SELECT * FROM public.marketplace_public_listings_v1;
 
 -- ── Public schema: signals and intelligence ───────────────────────────────
+-- Second and last deviation from the recorded body, same cause as the
+-- regulatory_signals.signals view below. The recorded statement is
+-- "SELECT * FROM public.signals", which in production resolved to the column
+-- list below. In zero-state replay public.signals carries fifty-three columns,
+-- so SELECT * would produce a wider view.
+--
+-- 20260720200000 later issues CREATE OR REPLACE VIEW on api.signals with
+-- exactly these thirty-two columns, which would require dropping twenty-one --
+-- CREATE OR REPLACE cannot do that. 20260801150000 then extends the same list
+-- to forty-eight; that list is an exact prefix-extension of this one, so it
+-- replays as a pure append.
+--
+-- All thirty-two columns already exist on public.signals at this version, so
+-- pinning here is safe and makes both later replaces succeed with privileges
+-- preserved.
 CREATE OR REPLACE VIEW api.signals AS
-  SELECT * FROM public.signals;
+  SELECT
+    id,
+    date,
+    cat,
+    pri,
+    score,
+    headline,
+    summary,
+    source,
+    url,
+    verification,
+    tier,
+    lang,
+    company,
+    country,
+    in_network,
+    lane_r,
+    lane_e,
+    lane_t,
+    top_lane,
+    query_pack,
+    commercial_impact,
+    reviewed,
+    action,
+    created_at,
+    embedding_1024,
+    embedding_model,
+    embedded_at,
+    reviewed_by,
+    reviewed_at,
+    editorial_title,
+    editorial_blurb,
+    country_iso2
+  FROM public.signals;
 
 CREATE OR REPLACE VIEW api.source_registry AS
   SELECT * FROM public.source_registry;
