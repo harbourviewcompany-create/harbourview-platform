@@ -2908,3 +2908,167 @@ pattern will keep recurring regardless of how many times it's reconciled after t
 **Commands run:** none locally (`node_modules` unavailable). Verification was live SQL
 (`schema_migrations` query, `pg_get_functiondef` byte-comparison) and the GitHub API (check-runs,
 branch protection), not the repo's own test suite.
+
+---
+
+## 2026-08-06 — PR #1280 production candidate: zero-state migration replay repaired to completion
+
+Branch: `stage/pr1280-production-ready-20260805`
+Workflow: `Stage Production Candidate` (`stage-production-candidate.yml`)
+Live project consulted read-only throughout: `zvxdgdkukjrrwamdpqrg`
+
+### Result
+
+The deterministic zero-state Supabase replay now completes. Candidate run
+31109976518 reached the end of history and reported:
+
+```
+Applying migration 20260805233500_service_only_digest_enrichment.sql...
+Seeding data from supabase/seed.sql...
+Finished supabase db reset on branch main.
+```
+
+Step 8 runs the history twice -- `supabase start` then `supabase db reset
+--local` -- and both passes now apply all 827 migrations plus `seed.sql`.
+
+44 migration/application repairs were committed to get there, each one driven by
+a single confirmed failure, verified locally against PostgreSQL 16 before
+commit, then confirmed by the next candidate run. Defect classes encountered:
+
+- production-recorded bodies replaced by `SELECT 1;` parity stubs
+- production objects and columns with no creator anywhere in the repository
+- duplicate migration version prefixes (both resolved: 20260722120000, 20260729000000)
+- headers committed with literal `\n` escapes that commented out the SQL below them (5 files)
+- hardcoded, database-local pg_cron job ids
+- an emergency rollback file sitting in the forward migration directory
+- repository/production type divergence on `public.listings.status`
+- `CREATE INDEX CONCURRENTLY` inside the CLI statement pipeline
+
+### Gate status
+
+| Gate | State | Evidence |
+|---|---|---|
+| Zero-state migration replay | **PASS** | run 31109976518, both passes, full history + seed |
+| `scripts/check-migration-filenames.mjs` | **PASS** | 827 files, no duplicate prefixes, no invalid names |
+| Step 9 focused contracts | **PASS locally** | 8 files, 53 tests |
+| `npm run typecheck` | **PASS locally** | `tsc --noEmit`, clean |
+| `npm run lint` | **PASS locally** | exit 0; 0 errors, 144 warnings |
+| `npm run build` | **PASS locally** | full Next.js production build |
+| Step 8 hardened-state assertions | **BLOCKED** | see below |
+| Visual / responsive / preview gates | **NOT RUN** | |
+
+Steps 9 and 10 have never executed in CI, because step 8 has never passed. They
+were run locally instead, against the same commands the workflow uses.
+
+### Open blocker: the assertion generator is broken in pinned tooling
+
+Step 8's final action is
+`psql -Atf supabase/tests/production_security_hardening.sql`, which must return
+zero rows. It fails with:
+
+```
+psql:supabase/tests/production_security_hardening.sql:161: ERROR:  syntax error
+at or near "'api.get_command_centre_stats()'"
+```
+
+The repository's copy of that file is 63 lines, is valid SQL (executed locally,
+exit 0), and does not contain that string. The runner executes a longer
+generated version. The generator lives in `repair-production-readiness.yml`
+pinned at `5f0da6d3d5244b3fa6fc3a5f981831d52b75e65d`, which the workflow
+downloads at CI time, and the bug is on the line above the write:
+
+```python
+authenticated_sql = ',\n    '.join(f"'{signature}'" for signature in authenticated_signatures)
+```
+
+The signatures are emitted as bare quoted literals with no surrounding
+parentheses, unlike the sibling `inventory_value_sql` which correctly emits
+`('{schema}','{relation}')`. Interpolated into a `values` clause this produces
+exactly the observed syntax error.
+
+**This cannot be fixed from the candidate branch.** The file is fetched from a
+fixed SHA at run time and is not part of the repository. It needs either the
+pinned workflow corrected at source, or the stage workflow pointed at the
+repository's own valid assertions file.
+
+Not fully explained: the stage workflow downloads that workflow into
+`.github/workflows/` but never executes it, and no other writer of the
+assertions file was found in `scripts/tmp_production_readiness_repair.py` or in
+the stage workflow itself. How the generated file reaches the runner is
+therefore still unaccounted for and is recorded here as unresolved rather than
+assumed.
+
+### Security finding fixed on the way
+
+`net.http_get` and `net.http_post` are `SECURITY DEFINER` and executable by
+`anon` **in production** -- verified live against the catalog. pg_net queues
+arbitrary outbound HTTP, so via the public anon key this is a server-side
+request forgery primitive against anything the database can reach. Closed for
+the candidate at `20260805234000`, revoking from `public, anon, authenticated`
+after granting `postgres, service_role` explicitly. Revoking only from anon and
+authenticated does not work -- both inherit through the PUBLIC pseudo-role grant
+-- which `20260722031500` had already recorded hitting once before.
+
+**This is still live in production.** The migration hardens the candidate only;
+production was not modified.
+
+### Known divergences that a green replay does not cover
+
+These cannot fail the replay and so are invisible to this gate:
+
+1. **263 of 827 migrations are `SELECT 1;` no-ops** (167 explicitly labelled
+   "No DDL executed by this file"). Cross-checked against the live ledger: 261
+   have ledger rows, 258 of those carry a real recorded body, totalling
+   ~1,138,000 characters of DDL that zero-state replay never executes. A green
+   replay proves the chain applies without error; it does not prove the
+   candidate database matches production.
+2. `public.hv_pipeline_tick()` has no creator anywhere in the repository, yet
+   `20260730030414` schedules a cron job whose command calls it. `cron.schedule`
+   stores the command unresolved, so the migration succeeds and leaves a job
+   that fails at runtime.
+3. `20260719092904_populate_deal_tables_batch1_curaleaf_tilray_canopy.sql` is a
+   stub whose recorded body is 6291 characters (md5 `cc265d4d532e42010e281609eff82728`).
+   Batches 2 and 3 were restored because later migrations depended on them;
+   batch 1 has no dependant, so the candidate loads batches 2-3 without batch 1.
+
+### Release-control record is now stale, caused by this work
+
+`tests/scripts/pending-production-migration-decisions.test.mjs` validates
+`supabase/release-controls/pending-production-migration-decisions.json` against
+the tree by git blob SHA. Eight of its entries no longer match, all as a direct
+result of repairs above:
+
+- blob changed: `20260722021500`, `20260722031500`, `20260730220000`,
+  `20260730220100`, `20260731120000`
+- renamed: `20260729000000_fix_jurisdiction_playbooks_missing_grant.sql` ->
+  `20260729000002_...`, `20260730220200_..._batch2-4.sql` -> `..._batch2_4.sql`
+- removed to a runbook: `20260729000001_platform_optimizations_rollback.sql`
+  (see `docs/control/PLATFORM_OPTIMIZATIONS_ROLLBACK_RUNBOOK.md`)
+
+The record was deliberately left unmodified. It is a point-in-time artifact of
+workflow run `30766999778` with a recorded artifact sha256, so hand-editing it
+would falsify a generated governance record, and regenerating it requires
+re-running that workflow. It needs an explicit decision, and it is part of the
+forward-reconciliation workstream already held at HOLD in
+`PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md`.
+
+### Other pre-existing failures, not introduced here
+
+Full `vitest run`: 6 files failed, 1 test failed, 679 passed. None are release
+gates. Only the decisions record above is attributable to this work.
+
+- `tests/e2e/production-verification.spec.js`, `tests/e2e/mobile-command-centre-v2.spec.ts`
+  -- Playwright specs collected by vitest; runner mismatch
+- `tests/scripts/migration-ledger-manifest.test.mjs` -- `node:test` file; passes under `node --test`
+- `tests/signals/eliteDigestHardening.test.ts` -- reads
+  `components/dashboard/MobileCommandCentre.tsx`, deleted by `dbd23813`
+- `tests/globe-polygon-rendering.test.ts` -- Russia antimeridian geometry assertion
+
+`scripts/check-no-secret-strings.mjs` also exits 1 at baseline, on the same
+files as before this work began.
+
+### Status
+
+**HOLD.** PR #1280 is not reconciled, not marked ready, not merged, not
+deployed. No production data, schema, grants or auth settings were modified;
+production access was read-only throughout.
