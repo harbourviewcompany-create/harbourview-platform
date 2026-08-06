@@ -30,6 +30,19 @@ create policy ia_signals_intel_tier_read on ia_signals
 -- ── country_intel: was open to literally anyone, anon included ─────────────
 drop policy if exists country_intel_public_active_select on country_intel;
 
+-- Deviation from the recorded body: one added drop, mirroring the guard the
+-- line above already uses. In production this policy did not exist before this
+-- migration, so the recorded CREATE was unconditional. In zero-state replay it
+-- does exist: 20260618211000_country_intel_foundation_replay.sql, a
+-- repository-only reconciliation migration with no ledger entry, already
+-- creates a policy of the same name three weeks earlier. Without this drop the
+-- replay fails here with:
+--   policy "country_intel_intel_tier_read" for table "country_intel"
+--   already exists (SQLSTATE 42710)
+-- The recorded definition below still wins, which is the correct outcome since
+-- this migration is its production-recorded owner.
+drop policy if exists country_intel_intel_tier_read on country_intel;
+
 create policy country_intel_intel_tier_read on country_intel
   for select
   to authenticated
