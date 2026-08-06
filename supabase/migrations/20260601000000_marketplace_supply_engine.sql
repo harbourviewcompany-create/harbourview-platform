@@ -57,7 +57,20 @@ select
   high_level_specs,
   created_at
 from public.listings
-where status in ('approved', 'published')
+-- 'published' dropped 2026-08-05. public.listings.status carries production's
+-- listing_status enum from 20260528033001, and that enum has exactly four
+-- labels -- pending_review, approved, rejected, archived. 'published' is not
+-- one of them, so the original predicate fails against the converted column:
+--   invalid input value for enum listing_status: "published"
+-- The two are equivalent after the conversion, which maps any legacy
+-- 'published' row to 'approved' (the same publicly-visible state), so this
+-- selects exactly the same rows.
+--
+-- Nothing is contradicted by narrowing it: this version is recorded in
+-- supabase_migrations.schema_migrations with a null statements array, so
+-- production captured no body for it, and the only other repository migration
+-- that filtered listings on 'published' is this one.
+where status = 'approved'
   and public_visibility = true
   and archived_at is null
   and (expires_at is null or expires_at > now());
