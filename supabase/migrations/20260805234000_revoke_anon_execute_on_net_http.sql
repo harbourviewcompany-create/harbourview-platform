@@ -52,6 +52,23 @@ begin
       raise notice 'skipping revoke, % not present', target;
     else
       begin
+        -- The net schema and these functions are owned by supabase_admin, and
+        -- their acl entries are granted by supabase_admin. A role that is not
+        -- the grantor cannot change them -- and crucially Postgres does not
+        -- raise for this, it emits
+        --   WARNING (01007): no privileges were granted for "http_get"
+        --   WARNING (01006): no privileges could be revoked for "http_get"
+        -- and carries on. The first version of this migration therefore
+        -- reported success while changing nothing. Try to assume the grantor
+        -- role first; if that is not permitted, the verification below reports
+        -- the truth instead of assuming it.
+        begin
+          set local role supabase_admin;
+        exception
+          when others then
+            raise notice 'could not assume supabase_admin; attempting as current role';
+        end;
+
         -- Grant the operational roles explicitly BEFORE revoking PUBLIC, so
         -- they keep access when the blanket grant goes away. This reproduces
         -- production's acl shape, which names every role individually and has
@@ -65,9 +82,24 @@ begin
         -- hitting it on the hv_* pipeline functions, and a local test of the
         -- anon-and-authenticated-only form here reproduced it again.
         execute format('revoke execute on function %s from public, anon, authenticated', target);
-        raise notice 'revoked public/anon/authenticated execute on %', target;
+
+        reset role;
+
+        -- Verify rather than assume. Postgres only warns when the grantor is
+        -- wrong, so the statements above can be no-ops and still "succeed".
+        if has_function_privilege('anon', to_regprocedure(target), 'execute')
+           or has_function_privilege('authenticated', to_regprocedure(target), 'execute')
+        then
+          raise warning
+            'anon/authenticated still hold EXECUTE on % after revoke -- the acl is '
+            'owned by another grantor and this migration could not change it. '
+            'This must be revoked by supabase_admin.', target;
+        else
+          raise notice 'revoked public/anon/authenticated execute on %', target;
+        end if;
       exception
         when insufficient_privilege then
+          reset role;
           raise notice 'insufficient privilege to revoke on %; left unchanged', target;
       end;
     end if;

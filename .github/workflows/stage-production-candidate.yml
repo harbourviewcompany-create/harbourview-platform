@@ -143,6 +143,39 @@ jobs:
           if wrapped:
               assertions.write_text('\n'.join(repaired))
               print(f'repaired {wrapped} bare VALUES literals in the generated assertions')
+
+          # Second defect in the same generator. The authenticated allowlist is
+          # written in type-only form -- 'api.clinical_has_active_consent(uuid,text)' --
+          # but the check compares it against
+          #   format('%I.%I(%s)', ..., pg_get_function_identity_arguments(p.oid))
+          # and pg_get_function_identity_arguments includes PARAMETER NAMES, e.g.
+          #   api.clinical_has_active_consent(p_patient_id uuid, p_consent_type text)
+          # Those can never be equal, so every allowlisted function is reported as a
+          # defect and the gate can only pass by revoking grants the application
+          # legitimately needs. Confirmed against run 31112554218, which flagged six
+          # functions that are all present in the allowlist.
+          #
+          # oidvectortypes(proargtypes) yields the type-only list the allowlist is
+          # written in. regprocedure was rejected: it omits the schema for anything in
+          # search_path, so public.hv_is_org_member(uuid) would render unqualified and
+          # still not match. Only the comparison is rewritten; the SELECT list keeps
+          # identity arguments so the reported defect stays human-readable.
+          text = assertions.read_text()
+          broken_predicate = (
+              "format('%I.%I(%s)', n.nspname, p.proname, "
+              "pg_get_function_identity_arguments(p.oid))"
+          )
+          fixed_predicate = (
+              "format('%s.%s(%s)', n.nspname, p.proname, "
+              "replace(pg_catalog.oidvectortypes(p.proargtypes), ', ', ','))"
+          )
+          occurrences = text.count(broken_predicate)
+          if occurrences != 1:
+              raise SystemExit(
+                  f'expected exactly one allowlist comparison to repair, found {occurrences}'
+              )
+          assertions.write_text(text.replace(broken_predicate, fixed_predicate, 1))
+          print('repaired the authenticated allowlist signature comparison')
           PY
           git diff --check
 
