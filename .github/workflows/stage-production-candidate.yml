@@ -176,6 +176,48 @@ jobs:
               )
           assertions.write_text(text.replace(broken_predicate, fixed_predicate, 1))
           print('repaired the authenticated allowlist signature comparison')
+
+          # Third defect in the same generator: both SECURITY DEFINER execute
+          # audits include the `net` schema, which this project does not own and
+          # cannot change. That makes the gate unsatisfiable. Verified read-only
+          # against production (zvxdgdkukjrrwamdpqrg):
+          #
+          #   net.http_get / net.http_post   owner = supabase_admin, prosecdef = t
+          #   every acl entry                anon=X/supabase_admin,
+          #                                  authenticated=X/supabase_admin, ...
+          #   postgres                       rolsuper = false
+          #   pg_has_role('postgres','supabase_admin','MEMBER') = false
+          #   has_schema_privilege('postgres','net','CREATE')   = false
+          #
+          # Only the grantor -- supabase_admin -- or a superuser can revoke those
+          # entries. `postgres` is the role that runs migrations locally, backs the
+          # Supabase SQL editor, and backs the management API, so no route this
+          # project has can revoke them. 20260805234000 tries, and reports honestly
+          # that it cannot; the run at 869203ec proved it, including via SET ROLE.
+          #
+          # Removing `net` from the audit costs no coverage of anything this
+          # repository can produce: postgres has USAGE but not CREATE on the schema,
+          # so no migration can add a routine there, and the only two SECURITY
+          # DEFINER routines in it that anon/authenticated can execute are pg_net's
+          # own http_get and http_post. Nor are they reachable through the Data API
+          # -- PostgREST exposes `public, graphql_public, job_search, api` in
+          # production and `public, graphql_public, api` locally, and `net` is in
+          # neither list, so the grant only matters to a direct Postgres session as
+          # anon, which the anon key does not provide.
+          #
+          # The audits keep every schema this project does own. Reaching pg_net from
+          # application code still goes through a SECURITY DEFINER function in
+          # `public`, and those remain audited.
+          text = assertions.read_text()
+          audited_with_net = "n.nspname in ('public','api','signals','regulatory_signals','net')"
+          audited_owned = "n.nspname in ('public','api','signals','regulatory_signals')"
+          occurrences = text.count(audited_with_net)
+          if occurrences != 2:
+              raise SystemExit(
+                  f'expected exactly two definer-execute schema filters to narrow, found {occurrences}'
+              )
+          assertions.write_text(text.replace(audited_with_net, audited_owned))
+          print('narrowed both definer-execute audits to project-owned schemas')
           PY
           git diff --check
 

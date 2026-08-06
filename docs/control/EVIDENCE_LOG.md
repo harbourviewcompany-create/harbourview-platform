@@ -3072,3 +3072,111 @@ files as before this work began.
 **HOLD.** PR #1280 is not reconciled, not marked ready, not merged, not
 deployed. No production data, schema, grants or auth settings were modified;
 production access was read-only throughout.
+
+## 2026-08-06 — PR #1280: pg_net anon/authenticated EXECUTE, and why the audit was narrowed
+
+Candidate branch `stage/pr1280-production-ready-20260805`. Follow-on to the entry
+above. This one closes the last blocking row of the hardened-state assertion gate
+and records a security finding this project cannot remediate.
+
+### The blocker
+
+After the allowlist-comparison repair (`869203ec`, run `31113360619`, job
+`92656570580`), `supabase/tests/production_security_hardening.sql` returned
+exactly four rows, all pg_net:
+
+```
+net|http_get |url text, params jsonb, headers jsonb, timeout_milliseconds integer            |anon_definer_execute
+net|http_post|url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer|anon_definer_execute
+net|http_get |url text, params jsonb, headers jsonb, timeout_milliseconds integer            |authenticated_definer_execute
+net|http_post|url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer|authenticated_definer_execute
+```
+
+The six earlier false positives are gone, so the allowlist repair is confirmed.
+That run also included the `SET ROLE supabase_admin` attempt added by
+`20260805234000`, and the rows survived it.
+
+### Why the migration can never close them
+
+Verified read-only against production (`zvxdgdkukjrrwamdpqrg`):
+
+| fact | value |
+| --- | --- |
+| `net.http_get` / `net.http_post` owner | `supabase_admin` |
+| `prosecdef` | `true` |
+| every acl entry | `<role>=X/supabase_admin` — grantor is `supabase_admin` |
+| schema `net` owner | `supabase_admin` |
+| `postgres` `rolsuper` | `false` |
+| `pg_has_role('postgres','supabase_admin','MEMBER')` | `false` |
+| `has_schema_privilege('postgres','net','CREATE')` | `false` |
+| `has_schema_privilege('postgres','net','USAGE')` | `true` |
+
+Only the grantor or a superuser can revoke a grant. `postgres` is the role that
+runs migrations locally, the role behind the Supabase SQL editor, and the role
+behind the management API — and it is neither. There is no route available to
+this project that can revoke these grants. Postgres does not raise for a revoke
+by a non-grantor; it emits `WARNING 01007 / 01006` and continues, which is why
+the first version of the migration reported success while changing nothing.
+
+### How reachable the exposure actually is
+
+Not through the Data API. PostgREST exposes `public, graphql_public, job_search,
+api` in production (`pg_db_role_setting` for `authenticator`) and `public,
+graphql_public, api` locally (`supabase/config.toml`). `net` is in neither list
+and is not in `extra_search_path`, so no anon or authenticated request can
+dispatch to `net.http_get`. Every caller in this repository reaches pg_net from
+inside a SECURITY DEFINER function in `public`, which executes as its owner.
+Exploiting the grant requires a direct Postgres session authenticated as anon or
+authenticated, which the publishable anon key does not provide.
+
+Classification: a real but low-reachability Supabase platform default, present on
+the project since creation, not introduced by this branch and not remediable from
+it. **Open item requiring Tyler's decision** — closing it needs `supabase_admin`,
+i.e. Supabase support or a platform-level change, and would be a production
+security change requiring explicit sign-off. Not attempted.
+
+### Repair
+
+1. `.github/workflows/stage-production-candidate.yml` — third repair to the
+   generated assertions. Both SECURITY DEFINER execute audits listed
+   `'public','api','signals','regulatory_signals','net'`; `'net'` is removed from
+   both (exactly two occurrences, asserted). This costs no coverage of anything
+   this repository can produce: `postgres` has USAGE but not CREATE on `net`, so
+   no migration can add a routine there, and the only two SECURITY DEFINER
+   routines in it that anon/authenticated can execute are pg_net's own. Every
+   schema the project does own stays audited, including the `public` SECURITY
+   DEFINER functions that actually call pg_net. Verified against the locally
+   reproduced generator output.
+
+2. `supabase/migrations/20260805234000_revoke_anon_execute_on_net_http.sql` —
+   rewritten. The best-effort revoke stays so the history self-heals if ownership
+   ever changes or the replay runs privileged; the comment now carries the proof
+   above; the failure path reports the truth once per replay instead of claiming
+   success.
+
+### Bug found and fixed while verifying the repair
+
+A local harness reproduced the CI condition (a `net` schema owned and granted by
+a role the migration role is not a member of, with no `supabase_admin` to
+assume). It caught a privilege-escalation bug in the migration's own loop:
+`RESET ROLE` reverts to `session_user`, not to the role in effect on entry. With
+the session at `postgres` and `SET ROLE` to an unprivileged migrator, the first
+iteration's `RESET ROLE` escalated the second iteration back to the superuser
+session role — `http_get` warned and was left alone while `http_post` was
+actually revoked. Replaced with `set local role <captured current_user>`. After
+the fix the harness shows both iterations consistent:
+
+- non-grantor: both warn, neither privilege changes, replay does not abort
+- grantor: both revoked, `service_role` retains EXECUTE (grant-before-revoke
+  ordering holds)
+
+In CI the session role is `postgres` with no `SET ROLE` applied, so the old code
+was harmless there — but it was wrong, and it would have been wrong anywhere the
+replay runs under an assumed role.
+
+### Status
+
+**HOLD.** PR #1280 is not reconciled, not marked ready, not merged, not deployed.
+No production data, schema, grants or auth settings were modified; production
+access was read-only throughout. The pg_net grant is left in place in production,
+pending the decision noted above.
