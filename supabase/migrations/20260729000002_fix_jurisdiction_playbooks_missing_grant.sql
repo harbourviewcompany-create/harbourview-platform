@@ -1,0 +1,44 @@
+-- CRITICAL PRODUCTION FIX. Found while auditing all api-schema views for the
+-- same class of bug fixed in 20260728020000 (view granted SELECT, but the
+-- underlying base table wasn't, so the security_invoker=true enforcement
+-- trigger on api-schema views blocks every read regardless of the view's
+-- own grant).
+--
+-- public.jurisdiction_playbooks already has a correct RLS policy
+-- (`public_read_published_playbooks`, `status = 'published'`, applies to
+-- all roles) but had ZERO grants for anon or authenticated -- only postgres
+-- and service_role. Confirmed live: GET /rest/v1/jurisdiction_playbooks as
+-- anon returned 401 "permission denied for table jurisdiction_playbooks".
+--
+-- This is the table backing the public jurisdiction playbook pages
+-- (/intelligence/playbooks/[country]) and the PDF export route added in
+-- PR #1168 -- meaning those pages have likely been non-functional for
+-- anonymous AND authenticated visitors in production. The RLS policy
+-- already does the correct row-level restriction (published rows only), so
+-- granting SELECT broadly here is safe and matches existing table design
+-- intent -- this is purely restoring a missing grant, not a new access
+-- decision.
+
+-- Renumbered 2026-08-05 from 20260729000000 to 20260729000002. The grant below
+-- is unchanged. This file shared version 20260729000000 with
+-- platform_optimizations.sql; the CLI applies both by filename order, so this
+-- one recorded the version and platform_optimizations then failed on its
+-- ledger row:
+--   duplicate key value violates unique constraint "schema_migrations_pkey"
+--   (SQLSTATE 23505), Key (version)=(20260729000000) already exists
+--
+-- The live ledger does not settle ownership here the way it did for the
+-- 20260722120000 collision: it records neither file at this version. This one
+-- is applied live as 20260729095416 and platform_optimizations as
+-- 20260731110914, so 20260729000000 is arbitrary for both, and reconciling
+-- either onto its live version belongs to the forward-reconciliation
+-- workstream held at HOLD in
+-- docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md.
+--
+-- So the tie is broken on disruption instead: this file is a single GRANT with
+-- no dependants, while platform_optimizations is 17 statements of DDL. Moving
+-- this one to the next free second -- unused in both the repository and the
+-- live ledger -- changes nothing about what replay produces. Nothing between
+-- the two positions touches jurisdiction_playbooks.
+
+grant select on public.jurisdiction_playbooks to anon, authenticated;
