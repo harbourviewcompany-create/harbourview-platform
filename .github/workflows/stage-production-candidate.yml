@@ -101,6 +101,48 @@ jobs:
           if old_predicate not in creator_text:
               raise SystemExit('schema_drift_alerts creator predicate not found exactly')
           creator.write_text(creator_text.replace(old_predicate, new_predicate, 1))
+
+          # The assembler regenerates supabase/tests/production_security_hardening.sql
+          # by exec'ing the embedded Python of the pinned repair workflows, and that
+          # generator emits one malformed VALUES list. Where it builds the view and
+          # table inventories it wraps each row -- ('{schema}','{relation}') -- but for
+          # the authenticated allowlist it emits bare quoted literals:
+          #     authenticated_sql = ',\n    '.join(f"'{signature}'" for signature in ...)
+          # so the generated CTE reads `values` followed by 'api.get_command_centre_stats()',
+          # and psql aborts the whole assertion file with
+          #   ERROR: syntax error at or near "'api.get_command_centre_stats()'"
+          # before a single check runs.
+          #
+          # The generator is fetched from a fixed SHA and cannot be corrected from this
+          # branch, so the generated file is repaired here instead. This only adds the
+          # missing parentheses; no signature, check or defect label is altered, so the
+          # assertions still run exactly as written -- including the anon/authenticated
+          # SECURITY DEFINER checks, which are the ones that caught the pg_net exposure
+          # closed at 20260805234000. Remove this once the pinned generator is fixed.
+          assertions = Path('supabase/tests/production_security_hardening.sql')
+          lines = assertions.read_text().split('\n')
+          repaired: list[str] = []
+          wrapped = 0
+          index = 0
+          while index < len(lines):
+              repaired.append(lines[index])
+              if lines[index].strip() == 'values' and index + 1 < len(lines) \
+                      and lines[index + 1].strip().startswith("'"):
+                  index += 1
+                  while index < len(lines) and lines[index].strip().startswith("'"):
+                      raw = lines[index]
+                      indent = raw[:len(raw) - len(raw.lstrip())]
+                      body = raw.strip()
+                      trailing = ',' if body.endswith(',') else ''
+                      literal = body[:-1] if trailing else body
+                      repaired.append(f'{indent}({literal}){trailing}')
+                      wrapped += 1
+                      index += 1
+                  continue
+              index += 1
+          if wrapped:
+              assertions.write_text('\n'.join(repaired))
+              print(f'repaired {wrapped} bare VALUES literals in the generated assertions')
           PY
           git diff --check
 
