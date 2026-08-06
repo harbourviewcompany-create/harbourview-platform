@@ -1,8 +1,13 @@
 -- Replay-safe reconciliation of the regulatory_signals.signals column contract.
 --
--- 20260713223057 recreates api."regulatory_signals.signals" with an explicit
--- forty-three column list taken from the live table. Zero-state replay fails
--- there with: column "raw_excerpt" does not exist.
+-- Two migrations read this table by an explicit forty-three column list taken
+-- from the live shape: 20260626110925, which creates
+-- api."regulatory_signals.signals", and 20260713223057, which replaces it.
+-- Zero-state replay fails at the earlier of the two with:
+-- column "raw_excerpt" does not exist.
+--
+-- This therefore sits immediately before 20260626110925, the earliest
+-- consumer, rather than next to the later one.
 --
 -- Cause: production and this repository build two different shapes of the same
 -- table. 20260312000000_regulatory_signals_v1.sql creates
