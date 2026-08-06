@@ -1,5 +1,9 @@
 name: Stage Production Candidate
 
+# Runs on push to the staging branch when the workflow itself or any migration
+# changes, and on manual dispatch. If a push lands without producing a run, the
+# pushing credential is one whose pushes do not create workflow runs -- start it
+# from the Actions tab instead.
 on:
   push:
     branches:
