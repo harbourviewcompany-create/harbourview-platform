@@ -1,4 +1,45 @@
--- Fix: promote_snapshot_to_signals() had no guard for an orphaned source_id\n-- (snapshot references a source_registry row that no longer exists). When that\n-- happened, v_source came back entirely NULL, the md5() concatenation for\n-- v_signal_id collapsed to NULL, and the INSERT into signals failed its NOT NULL\n-- id constraint -- which aborted the ENTIRE daily promote_all_extracted_snapshots()\n-- batch, not just the one bad snapshot. This had been silently failing the whole\n-- batch daily; ~4,100 legitimate snapshots were backlogged behind ~21 orphaned ones\n-- in the captured_at-ordered queue.\n--\n-- Fix: (1) skip snapshots with a missing/orphaned source instead of erroring, and\n-- (2) wrap the per-snapshot call in the batch loop with its own exception handler\n-- so any future unknown failure degrades to skipping one row, not aborting the run.\n--\n-- Applied directly to production via Supabase MCP; committed here per\n-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).\n\nCREATE OR REPLACE FUNCTION public.promote_snapshot_to_signals(p_snapshot_id uuid)
+-- Repaired 2026-08-05. Two file-level defects, no change to what this
+-- migration does:
+--
+-- 1. The comment block below was committed as a single physical line with 16
+--    literal backslash-n escapes instead of real newlines. The last thing on
+--    that line was the CREATE OR REPLACE FUNCTION signature for
+--    promote_snapshot_to_signals, so the leading `--` commented the signature
+--    out and replay reached the next real line, ` RETURNS integer`:
+--      ERROR: syntax error at or near "RETURNS" (SQLSTATE 42601)
+--    Fixed by expanding the escapes to real newlines.
+--
+-- 2. Neither statement was terminated. Production applied these as two
+--    separate MCP calls, so no terminator was needed there and the ledger
+--    records two statements without one; replayed as one file the parser could
+--    not split them and failed at the second CREATE. Two semicolons added
+--    after the closing $function$ delimiters.
+--
+-- Both function bodies are otherwise byte-identical to the production record.
+-- With the two added semicolons discounted they match statements[1] and
+-- statements[2] of the live ledger row exactly:
+--   promote_snapshot_to_signals      5523 chars, md5 1d898c0b3cbf4cb5a91ff4b3f42f567e
+--   promote_all_extracted_snapshots  1111 chars, md5 7a64f863787929b2cc73ed3a30893ca2
+-- Verified on a local PostgreSQL 16 database: both functions create with the
+-- recorded signatures, return types and SECURITY DEFINER.
+
+-- Fix: promote_snapshot_to_signals() had no guard for an orphaned source_id
+-- (snapshot references a source_registry row that no longer exists). When that
+-- happened, v_source came back entirely NULL, the md5() concatenation for
+-- v_signal_id collapsed to NULL, and the INSERT into signals failed its NOT NULL
+-- id constraint -- which aborted the ENTIRE daily promote_all_extracted_snapshots()
+-- batch, not just the one bad snapshot. This had been silently failing the whole
+-- batch daily; ~4,100 legitimate snapshots were backlogged behind ~21 orphaned ones
+-- in the captured_at-ordered queue.
+--
+-- Fix: (1) skip snapshots with a missing/orphaned source instead of erroring, and
+-- (2) wrap the per-snapshot call in the batch loop with its own exception handler
+-- so any future unknown failure degrades to skipping one row, not aborting the run.
+--
+-- Applied directly to production via Supabase MCP; committed here per
+-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).
+
+CREATE OR REPLACE FUNCTION public.promote_snapshot_to_signals(p_snapshot_id uuid)
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -154,7 +195,7 @@ BEGIN
   -- No self-referential UPDATE here — status is already 'extracted' when called
   RETURN v_promoted;
 END;
-$function$
+$function$;
 
 
 CREATE OR REPLACE FUNCTION public.promote_all_extracted_snapshots()
@@ -188,4 +229,4 @@ BEGIN
     RETURN NEXT;
   END LOOP;
 END;
-$function$
+$function$;
