@@ -3245,3 +3245,63 @@ independently replayable until that commit lands.
 
 **HOLD.** Unchanged. Nothing merged, marked ready, reconciled or deployed;
 production access read-only throughout.
+
+## 2026-08-06 — PR #1280: why the candidate workflow stopped being triggerable
+
+Correcting the previous entry. Its conclusion — "the session's git push credential
+changed to one whose pushes do not create workflow runs" — is **half right and
+misses the actual blocker**.
+
+### What is actually true
+
+| actor / mechanism | creates workflow runs? |
+| --- | --- |
+| agent `git push` (Claude <noreply@anthropic.com>) | **no** — 3 consecutive pushes, incl. one touching a declared trigger path |
+| agent REST API commit via MCP (authored Harbourview) — `8a04b361` | **no** |
+| Tyler's GitHub web-UI commit (Harbourview) — `986f098c`, 19:16:47Z | **yes** — push-event runs created 19:17:08Z |
+
+So agent-originated commits do not create runs by either route, and the MCP token
+has no `actions: write` at all: both `POST .../dispatches` and
+`POST .../runs/31113360619/cancel` return `403 Resource not accessible by
+integration`.
+
+### The blocker is narrower than "CI is broken"
+
+`986f098c` modified `.github/workflows/stage-production-candidate.yml`, which is a
+declared trigger path, and it **did** create push-event runs — but only for other
+workflows (`sync-figma-tokens`, `low-friction-branch-verification`). It created
+**no** Stage Production Candidate run: that workflow's `total_count` stayed at 145
+with no `#146`.
+
+The one property distinguishing Stage Production Candidate from the workflows that
+did run is its concurrency group:
+
+```yaml
+concurrency:
+  group: stage-pr1280-production-candidate
+  cancel-in-progress: true
+```
+
+Run `#145` (`31113360619`, head `869203ec`) was re-run and has been sitting in
+`status: queued` since `run_started_at: 2026-08-06T18:47:08Z` — it never started.
+While that run occupies the group, no new run for the group is being created.
+
+**Action required:** cancel run `#145`
+(https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/31113360619
+— the GitHub mobile app exposes a "Cancel workflow" button on this run), then make
+one more trigger-path commit from the web UI to start a fresh run at branch tip.
+
+Note that re-running `#145` is not useful regardless: a re-run replays its original
+commit `869203ec`, which predates repair 48.
+
+### Cleanup
+
+`docs/control/ci-trigger-probe.md`, added by `8a04b361` to test the REST-API route,
+is removed in the same commit as this entry. Its result is recorded in the table
+above.
+
+### Status
+
+**HOLD.** Unchanged. Repair 48 (`3ff84f9e`) remains committed, pushed and unverified
+in CI. Nothing merged, marked ready, reconciled or deployed; production access
+read-only throughout.
