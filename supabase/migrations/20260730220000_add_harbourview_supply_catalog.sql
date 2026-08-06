@@ -86,7 +86,20 @@ select
   'Attributes, availability, pricing, lead time and jurisdiction fit require Harbourview review before reliance or purchase.'::text as review_note
 from public.listings l
 where l.sold_by_harbourview = true
-  and l.status = 'approved'::listing_status
+  -- Cast dropped 2026-08-05. This file is repository-only -- the live ledger has
+  -- no row at 20260730220000 -- and production built the same surface as
+  -- 20260730211141 + 20260730211147, whose recorded view writes this predicate
+  -- with a bare literal and no cast:
+  --   where l.sold_by_harbourview = true
+  --     and l.status = 'approved'
+  --     and l.public_visibility = true;
+  -- The ::listing_status cast was therefore never production's contract, and it
+  -- fails zero-state replay because the repository builds public.listings with
+  -- `status text` (20260528033000) while production's column is the enum:
+  --   ERROR: operator does not exist: text = listing_status (SQLSTATE 42883)
+  -- A bare unknown-typed literal resolves against either type, so this matches
+  -- production today and stays correct if the column is ever made the enum.
+  and l.status = 'approved'
   and l.public_visibility = true
   and l.archived_at is null
   and l.slug is not null
