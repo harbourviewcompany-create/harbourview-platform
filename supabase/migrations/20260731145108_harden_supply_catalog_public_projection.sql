@@ -141,7 +141,29 @@ select
   'Attributes, availability, pricing, lead time and jurisdiction fit require Harbourview review before reliance or purchase.'::text as review_note
 from public.listings l
 where l.sold_by_harbourview = true
-  and l.status = 'approved'::listing_status
+  -- Replay deviation from the recorded body, added 2026-08-05. This file IS
+  -- ledger-recorded and its recorded statement casts the literal:
+  --   and l.status = 'approved'::listing_status
+  -- That works in production, whose public.listings.status is the
+  -- listing_status enum. The repository's listings.status is text, so zero-state
+  -- replay fails:
+  --   ERROR: operator does not exist: text = listing_status (SQLSTATE 42883)
+  --
+  -- Casting the column instead of the literal keeps the predicate identical in
+  -- both worlds -- it selects exactly the same rows against a text column and
+  -- against production's enum -- without changing which rows this view exposes.
+  --
+  -- Converting the column to the enum was implemented and then rejected as the
+  -- riskier fix. Production's listings was created entirely outside the ledger
+  -- and is a different table from the repository's, which carries columns
+  -- production does not have (listing_type, visibility, subcategory), so this
+  -- one column is not meaningfully "behind" production. Converting requires
+  -- dropping and recreating every dependent view, and four view-creating
+  -- migrations compare status to a literal -- pg_get_viewdef bakes the resolved
+  -- 'x'::text cast into the stored definition, so replaying those definitions
+  -- against a converted column fails. That is four views put at risk to satisfy
+  -- one predicate; this migration is the only remaining consumer of the cast.
+  and l.status::text = 'approved'
   and l.public_visibility = true
   and l.archived_at is null
   and l.slug is not null
