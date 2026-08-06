@@ -1,3 +1,15 @@
+-- CONCURRENTLY removed 2026-08-05 for zero-state replay. The Supabase CLI sends
+-- a migration's statements as one pipeline, and Postgres refuses CREATE INDEX
+-- CONCURRENTLY there:
+--   ERROR: CREATE INDEX CONCURRENTLY cannot be executed within a pipeline
+--   (SQLSTATE 25001)
+-- Only the keyword is dropped; every index name, table and column list below is
+-- unchanged, so the resulting schema is identical. CONCURRENTLY exists to avoid
+-- locking a populated table, which is meaningless against the empty database a
+-- replay builds, and production already carries these indexes -- this version is
+-- recorded in supabase_migrations.schema_migrations, applied there as a single
+-- statement, which is why the pipeline rule never bit in production.
+
 -- Signal → operator routing: role-family dimension
 --
 -- WHY
@@ -38,9 +50,9 @@
 -- own transaction, and only 14 of this repo's 764 migrations nest one manually.
 -- The file is still atomic.
 --
--- ON `CREATE INDEX CONCURRENTLY` (SQLFluff PG01 / Squawk)
+-- ON `CREATE INDEX` (SQLFluff PG01 / Squawk)
 -- ------------------------------------------------------
--- Both linters want CONCURRENTLY here. Deliberately not used: it cannot run
+-- Both linters want here. Deliberately not used: it cannot run
 -- inside a transaction block, so adopting it means either giving up this
 -- migration's atomicity or splitting the index builds into a separate
 -- non-transactional file. `public.signals` holds ~12.5k rows, where a plain
