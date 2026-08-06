@@ -33,6 +33,39 @@ SET gate_passed = true,
     notes = notes || E'\n\nDecision (2026-07-29): Tyler confirmed ship-as-is. Precision (1.000) clears the bar with no false positives; recall (0.559) accepted rather than holding for further prompt-tuning. Gate flipped, hv-quality-pipeline and hv-quality-promote crons re-enabled.'
 WHERE classifier_version = 'hv-classify/openai/v1';
 
-SELECT cron.alter_job(48, schedule := '*/10 * * * *', active := true); -- hv-quality-promote
+-- Replay guard added 2026-08-05. The recorded statement here is
+--   SELECT cron.alter_job(48, schedule := '*/10 * * * *', active := true);
+-- which resolves hv-quality-promote by a hardcoded job id. Job ids are
+-- database-local, so in zero-state replay this fails outright:
+--   ERROR: Job 48 does not exist or you don't own it (SQLSTATE XX000)
+--
+-- This is the same trap 20260722185015 fixed in production ("resolve quality
+-- crons by name") and that 20260722021500 already carries a guard for on this
+-- branch. Nothing in the repository ever schedules hv-quality-promote -- it is
+-- only ever altered -- so during replay the job simply does not exist and this
+-- becomes a documented no-op.
+--
+-- The guard only decides whether to run, never what to do. Where the job is
+-- present -- production, where id 48 is hv-quality-promote -- resolving by name
+-- reaches exactly that job and applies the identical schedule and active flag.
+do $enable_hv_quality_promote$
+declare
+  v_promote_id bigint;
+begin
+  if to_regclass('cron.job') is null then
+    raise notice 'pg_cron not present; skipping hv-quality-promote activation';
+    return;
+  end if;
+
+  select jobid into v_promote_id from cron.job where jobname = 'hv-quality-promote';
+
+  if v_promote_id is null then
+    raise notice 'hv-quality-promote not scheduled; skipping activation';
+    return;
+  end if;
+
+  perform cron.alter_job(v_promote_id, schedule := '*/10 * * * *', active := true);
+end
+$enable_hv_quality_promote$;
 
 SELECT cron.schedule('hv-quality-pipeline', '*/10 * * * *', 'select public.hv_pipeline_tick();');
