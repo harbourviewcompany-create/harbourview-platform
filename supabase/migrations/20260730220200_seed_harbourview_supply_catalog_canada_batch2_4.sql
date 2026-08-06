@@ -1,3 +1,11 @@
+-- Renamed 2026-08-05: the description ended `..._batch2-4.sql`, and a hyphen is
+-- not allowed by scripts/check-migration-filenames.mjs, whose pattern is
+-- ^(\d{14})_[a-z0-9_]+\.sql$. It was the last failure in that gate. Only the
+-- hyphen became an underscore -- the 20260730220200 version and the SQL below
+-- are unchanged, and the version is repository-only (production applied these
+-- seeds as three separate ledger rows, 20260730211507/211621/211756), so no
+-- recorded migration is renamed by this.
+--
 -- Harbourview-direct supply catalog: Canada seed batches 2-4 (48 SKUs),
 -- continuing supabase/migrations/20260730220100_..._batch1.sql (20 SKUs).
 -- Combined total: 68 SKUs, matching what is live in production.
