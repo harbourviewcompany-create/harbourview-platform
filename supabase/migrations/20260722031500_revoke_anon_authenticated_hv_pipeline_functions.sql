@@ -31,15 +31,48 @@
 -- Rollback: `grant execute on function <fn> to public;` per function below --
 -- not recommended, restores the unauthenticated exposure.
 
-revoke execute on function public.hv_classify_corpus_dispatch(integer, integer) from public;
-revoke execute on function public.hv_classify_corpus_harvest() from public;
-revoke execute on function public.hv_dedup_assign(double precision, integer) from public;
-revoke execute on function public.hv_embed_dispatch(text[]) from public;
-revoke execute on function public.hv_embed_harvest() from public;
-revoke execute on function public.hv_entities_dispatch(integer) from public;
-revoke execute on function public.hv_entities_harvest() from public;
-revoke execute on function public.hv_pipeline_tick() from public;
-revoke execute on function public.hv_promote_signals(numeric) from public;
-revoke execute on function public.hv_quality_promote_tick() from public;
-revoke execute on function public.hv_translate_dispatch(integer, boolean) from public;
-revoke execute on function public.hv_translate_harvest() from public;
+-- Replay guard added 2026-08-05. The twelve signatures and the REVOKE ... FROM
+-- PUBLIC semantics are unchanged; only the "does it exist yet" test is new.
+--
+-- In production all twelve existed when this ran. Zero-state replay differs for
+-- two of them:
+--   hv_dedup_assign(double precision, integer) is first created eight days
+--     later, by 20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql
+--   hv_pipeline_tick() has no creator anywhere in the repository
+-- REVOKE on a missing function is a hard error, so replay stopped here.
+--
+-- Guarding does not reopen the exposure this migration closes. Both later
+-- definitions of hv_dedup_assign are SECURITY DEFINER, and
+-- 20260804190000_production_security_hardening.sql performs a catalog-wide
+-- REVOKE of EXECUTE from public/anon/authenticated/service_role across every
+-- prosecdef routine in this schema before re-granting from an explicit
+-- allowlist -- so it is closed again there, and
+-- supabase/tests/production_security_hardening.sql asserts it afterwards.
+-- hv_pipeline_tick never exists during replay, so there is nothing to expose.
+do $revoke_hv_pipeline_public_execute$
+declare
+  target text;
+begin
+  foreach target in array array[
+    'public.hv_classify_corpus_dispatch(integer, integer)',
+    'public.hv_classify_corpus_harvest()',
+    'public.hv_dedup_assign(double precision, integer)',
+    'public.hv_embed_dispatch(text[])',
+    'public.hv_embed_harvest()',
+    'public.hv_entities_dispatch(integer)',
+    'public.hv_entities_harvest()',
+    'public.hv_pipeline_tick()',
+    'public.hv_promote_signals(numeric)',
+    'public.hv_quality_promote_tick()',
+    'public.hv_translate_dispatch(integer, boolean)',
+    'public.hv_translate_harvest()'
+  ]
+  loop
+    if to_regprocedure(target) is null then
+      raise notice 'skipping revoke, % not present yet', target;
+    else
+      execute format('revoke execute on function %s from public', target);
+    end if;
+  end loop;
+end
+$revoke_hv_pipeline_public_execute$;
