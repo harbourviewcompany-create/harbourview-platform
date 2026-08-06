@@ -57,7 +57,7 @@ describe('AI briefing route fallback', () => {
     { country: 42 },
     { role: false },
     { intel: { public_summary: 123 } },
-    { intel: { opportunity_score: Number.POSITIVE_INFINITY } },
+    { intel: { opportunity_score: 'high' } },
   ])('returns 400 for an invalid normalized request shape: %j', async payload => {
     const { POST } = await import('@/app/api/ai/briefing/route')
     const response = await POST(new Request('http://localhost/api/ai/briefing', {
@@ -68,5 +68,34 @@ describe('AI briefing route fallback', () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toEqual({ error: 'Invalid briefing request' })
+  })
+
+  // Sent as a raw body rather than through the it.each table above, because a
+  // non-finite number cannot survive JSON.stringify -- it serializes to null,
+  // which is a legitimate opportunity_score (the route types it number | null),
+  // so the case degenerated into a valid payload and asserted 400 against a
+  // correct 200. JSON numbers that overflow parse back as Infinity, so 1e999
+  // delivers the non-finite value the route's Number.isFinite guard exists for.
+  it('returns 400 when opportunity_score is a non-finite number', async () => {
+    const { POST } = await import('@/app/api/ai/briefing/route')
+    const response = await POST(new Request('http://localhost/api/ai/briefing', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"intel":{"opportunity_score":1e999}}',
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error: 'Invalid briefing request' })
+  })
+
+  it('accepts a null opportunity_score, which is a valid value', async () => {
+    const { POST } = await import('@/app/api/ai/briefing/route')
+    const response = await POST(new Request('http://localhost/api/ai/briefing', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"intel":{"opportunity_score":null}}',
+    }))
+
+    expect(response.status).toBe(200)
   })
 })
