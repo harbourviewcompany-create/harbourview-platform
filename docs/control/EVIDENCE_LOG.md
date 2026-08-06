@@ -3305,3 +3305,69 @@ above.
 **HOLD.** Unchanged. Repair 48 (`3ff84f9e`) remains committed, pushed and unverified
 in CI. Nothing merged, marked ready, reconciled or deployed; production access
 read-only throughout.
+
+## 2026-08-06 — URGENT: anon-executable secret-returning RPCs live in production
+
+Found while running the fully-patched hardened-state assertions read-only against
+production as a substitute for the blocked CI gate. **This is a live production
+finding, not a candidate-branch defect.**
+
+### The exposure
+
+| function | secdef | reads vault | returns | anon EXECUTE | schema exposed by PostgREST |
+| --- | --- | --- | --- | --- | --- |
+| `public.get_github_pat()` | yes | `vault.decrypted_secrets` | `text` | **yes** | **yes** (`public`) |
+| `api.hv_get_github_pat()` | yes | `vault.decrypted_secrets` | `text` | **yes** | **yes** (`api`) |
+| `public.verify_hv_cron_secret(text)` | yes | `vault.decrypted_secrets` | `boolean` | **yes** | **yes** |
+| `public.verify_hv_bridge_key(text)` | yes | `vault.decrypted_secrets` | `boolean` | **yes** | **yes** |
+| `public.verify_source_engine_cron_secret(text)` | yes | `vault.decrypted_secrets` | `boolean` | **yes** | **yes** |
+
+acl on all of them: `{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}`,
+owner `postgres`. PostgREST exposes `public, graphql_public, job_search, api`
+(`pg_db_role_setting` for `authenticator`).
+
+The first two are SECURITY DEFINER, read the vault, return `text`, are executable
+by `anon`, and sit in schemas the Data API dispatches RPC for. The publishable
+anon key is therefore sufficient to retrieve a GitHub PAT in plaintext. The three
+`verify_*` functions return boolean and act as anon-callable oracles against the
+cron secret, bridge key and source-engine secret.
+
+**Not exploited.** Calling them would disclose the secret, so no call was made.
+Every fact above comes from the catalog (`pg_proc`, `pg_namespace`,
+`pg_db_role_setting`), read-only. Confirming end-to-end exploitability would
+require an anon-key RPC call and is Tyler's decision, not something to do here.
+
+This is materially different from the pg_net finding recorded earlier: pg_net's
+`net` schema is **not** exposed by PostgREST, so that grant is unreachable from
+the Data API. These are reachable.
+
+### Scope
+
+The same read-only run reported roughly 300 SECURITY DEFINER routines in
+`public`/`api` executable by `anon` or `authenticated` in production, plus every
+hardened view missing `security_invoker`, 16 internal views exposed, 2 foreign
+tables exposed, and 35 policyless RLS tables carrying application-role grants.
+
+**That count is production's current state, not a preview of the step 8 gate.**
+Production has never had `20260804190000_production_security_hardening.sql`
+applied — that migration is part of this candidate. It performs 49 revokes and
+then re-grants the operational subset to `service_role`, including
+`api.get_github_pat()` and `public.get_github_pat()` at lines 362 and 434.
+
+So the candidate **is** the remediation. That raises the stakes of landing it, and
+means deploying it will make a large number of privilege changes to production at
+once — which is exactly the kind of change that needs explicit sign-off.
+
+### Recommended, pending Tyler's decision (no production change made)
+
+1. **Rotate the GitHub PAT.** Exposure window is unknown; rotation does not depend
+   on any of the above being confirmed exploitable.
+2. Decide between an immediate targeted revoke in production on these five
+   functions, versus waiting for the full candidate to land. A targeted revoke is
+   a production grant change and is outside what this session is permitted to do.
+3. Treat the ~300-row surface as a release-planning input for the eventual deploy.
+
+### Status
+
+**HOLD.** No production data, schema, grants or auth settings were modified;
+production access was read-only throughout.
