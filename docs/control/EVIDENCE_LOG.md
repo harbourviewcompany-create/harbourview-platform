@@ -3180,3 +3180,68 @@ replay runs under an assumed role.
 No production data, schema, grants or auth settings were modified; production
 access was read-only throughout. The pg_net grant is left in place in production,
 pending the decision noted above.
+
+## 2026-08-06 — PR #1280: candidate verification blocked, pushes stopped triggering workflows
+
+Repair 48 is committed and pushed at `3ff84f9e` (verified at the remote:
+`git ls-remote origin stage/pr1280-production-ready-20260805` returns
+`3ff84f9e698d10ee38dfbeebfdeb1d73191c5e37`). It has **not been verified in CI**,
+because the push created no workflow runs.
+
+### Evidence
+
+| push | head | push-event runs created |
+| --- | --- | --- |
+| ~14:46Z | `b58e39ec` | Stage Production Candidate + others, within ~2s |
+| ~14:56Z | `869203ec` | Stage Production Candidate + others, within ~2s |
+| ~15:02Z | `ee40409c` | 8 workflows (CI, Branch Verification, …), within ~2s |
+| ~18:18Z | `3ff84f9e` | **none**, still none 9 minutes later |
+
+This is repo-wide, not path-scoped: `3ff84f9e` changed
+`.github/workflows/stage-production-candidate.yml`, `supabase/migrations/**` and
+`docs/**`, so CI and Branch Verification should have fired regardless of the
+candidate workflow's `paths` filter. None did. The `on: push` block of the
+candidate workflow is byte-identical to `ee40409c`; the entire diff is inside the
+assembler step's `run:` block (line 176+).
+
+Actions itself is healthy — a scheduled Migration Drift Check ran at 17:56Z. The
+most likely cause is that the session's git push credential changed across the
+break at ~15:0x to one whose pushes do not create workflow runs.
+
+`workflow_dispatch` via the API is unavailable to this session:
+`POST /actions/workflows/stage-production-candidate.yml/dispatches` returns
+`403 Resource not accessible by integration` (no `actions: write`).
+
+**Needed from Tyler:** run *Stage Production Candidate* from the Actions tab
+against `stage/pr1280-production-ready-20260805` (the workflow declares
+`workflow_dispatch`, so the UI button works and will run at `3ff84f9e`), or push
+any trivial commit to the branch from his own credentials.
+
+### Aside: why "Production Security Hardening" fails on this branch
+
+Run `31113899388` on `ee40409c` failed at the fifth migration:
+
+```
+ERROR: relation "public.marketplace_inquiries" does not exist (SQLSTATE 42P01)
+At statement: 0
+alter table public.marketplace_inquiries add column if not exists review_status ...
+```
+
+Chronology defect: `20260304000000_marketplace_conversion_v1.sql` alters a table
+created at `20260430000000_marketplace_inquiries.sql`. This is **not** new and is
+**not** introduced by this branch. The candidate workflow's replay passes because
+the pinned assembler rewrites that migration with a `to_regclass` guard before
+replaying, and the committed file is unguarded. Diffing the assembled tree against
+the committed one shows 25 migrations rewritten and 9 added this way.
+
+Those corrections only reach the branch in the candidate workflow's final step
+("Commit verified product candidate and remove staging controls"), which no run
+has reached yet. So every workflow that replays the *committed* migrations will
+keep failing until a candidate run goes green — that is the staging design, not a
+regression. Worth flagging as a structural risk: the branch is not
+independently replayable until that commit lands.
+
+### Status
+
+**HOLD.** Unchanged. Nothing merged, marked ready, reconciled or deployed;
+production access read-only throughout.
