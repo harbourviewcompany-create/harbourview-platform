@@ -1,4 +1,39 @@
--- Fix: promote_snapshot_to_signals() built the headline from the keyword-matched\n-- candidate snippet first, falling back to the real page <title> (captured_title)\n-- only if the candidate text was null (which it almost never is). For several\n-- source templates (Wikipedia navboxes, related-articles sidebars, menu widgets),\n-- the keyword scanner matches page chrome rather than the article itself, so the\n-- exact same boilerplate string got promoted as "the headline" for many unrelated\n-- countries at once. Verified directly: for every affected row checked,\n-- source_snapshots.captured_title held the correct real title.\n--\n-- Fix: prefer captured_title, fall back to candidate text only if the title is\n-- missing. Summary is unchanged (still prefers candidate text -- no better\n-- body-text alternative exists at this point in the pipeline).\n--\n-- Historical backfill considered and abandoned: there is no snapshot_id FK on\n-- signals, and the best available join (captured_at + source name) produces\n-- false matches whenever a source's crawl batch shares one captured_at across\n-- many snapshots -- sampled 12 "matches" before running anything and found both\n-- old and new headlines were legitimate but unrelated articles, i.e. the backfill\n-- would have silently replaced correct headlines with wrong ones. Forward-only fix.\n--\n-- Applied directly to production via Supabase MCP; committed here per\n-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).\n\nCREATE OR REPLACE FUNCTION public.promote_snapshot_to_signals(p_snapshot_id uuid)
+-- Repaired 2026-08-05. The comment block below was committed as one physical
+-- line carrying literal backslash-n escapes instead of real newlines, and the
+-- last thing on that line was this migration's CREATE OR REPLACE FUNCTION
+-- signature. The leading `--` commented the signature out, leaving replay to
+-- hit the next real line bare:
+--   ERROR: syntax error at or near "RETURNS" (SQLSTATE 42601)
+-- Third instance of this defect on this branch, after 20260727105241 and
+-- 20260727212340. Only the escapes were expanded. This file holds a single
+-- statement, so unlike 20260727105241 it needed no added terminator, and the
+-- body still matches statements[1] of the live ledger row exactly
+-- (5693 chars, md5 e8978827677725ec9d8f8c40fe9debbc).
+
+-- Fix: promote_snapshot_to_signals() built the headline from the keyword-matched
+-- candidate snippet first, falling back to the real page <title> (captured_title)
+-- only if the candidate text was null (which it almost never is). For several
+-- source templates (Wikipedia navboxes, related-articles sidebars, menu widgets),
+-- the keyword scanner matches page chrome rather than the article itself, so the
+-- exact same boilerplate string got promoted as "the headline" for many unrelated
+-- countries at once. Verified directly: for every affected row checked,
+-- source_snapshots.captured_title held the correct real title.
+--
+-- Fix: prefer captured_title, fall back to candidate text only if the title is
+-- missing. Summary is unchanged (still prefers candidate text -- no better
+-- body-text alternative exists at this point in the pipeline).
+--
+-- Historical backfill considered and abandoned: there is no snapshot_id FK on
+-- signals, and the best available join (captured_at + source name) produces
+-- false matches whenever a source's crawl batch shares one captured_at across
+-- many snapshots -- sampled 12 "matches" before running anything and found both
+-- old and new headlines were legitimate but unrelated articles, i.e. the backfill
+-- would have silently replaced correct headlines with wrong ones. Forward-only fix.
+--
+-- Applied directly to production via Supabase MCP; committed here per
+-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).
+
+CREATE OR REPLACE FUNCTION public.promote_snapshot_to_signals(p_snapshot_id uuid)
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
