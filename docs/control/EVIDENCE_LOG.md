@@ -3476,3 +3476,104 @@ currently working is disturbed.
 are unchanged -- altering them is a production grant change and needs explicit
 sign-off. No production data, schema, grants or auth settings were modified;
 access was read-only throughout.
+
+## 2026-08-07 — hv-promote-staging: null object_class, 380 rows backed up
+
+### Symptom
+
+`cron.job_run_details` for `hv-promote-staging`, 3-day window: **22 failed, 50
+succeeded**. Every failure identical:
+
+```
+ERROR:  null value in column "object_class" of relation "hv_artifacts"
+        violates not-null constraint
+DETAIL: Failing row contains (..., null, internal, null,
+        Medical Marijuana - Arkansas Department of Health, ...)
+```
+
+`hv_import_staging` holds **380 unpromoted rows**. Because the whole batch aborts,
+the offending row is never marked and is re-selected on the next tick, so it
+recurs until the payload changes. Every other cron job is clean — `hv-score-every-30min`
+is 144/144, which also retires the stale `CLAUDE.md` note claiming `hv-score` is
+failing on Anthropic credit balance.
+
+### Root cause
+
+Production body, captured read-only from `pg_proc.prosrc`:
+
+```sql
+v_class_text := v_norm->>'object_class';
+BEGIN
+  v_object_class := v_class_text::hv_object_class;
+EXCEPTION WHEN invalid_text_representation THEN
+  v_object_class := 'regulatory_event'::hv_object_class;
+END;
+```
+
+`NULL::hv_object_class` is NULL, **not an error**. A missing `object_class` key, or
+a JSON null, casts to NULL without raising, so the handler never fires,
+`v_object_class` stays NULL, and the INSERT hits the NOT NULL constraint
+(`hv_artifacts.object_class` is NOT NULL with no default — verified). The handler
+only ever caught a non-null-but-invalid string.
+
+`v_authority` had the identical flaw, so its `'G'` fallback was equally unreachable
+for a missing key.
+
+This is the same defect shape as `20260805234000`: an exception handler guarding a
+failure mode that does not raise.
+
+### Repair: `20260807001100_fix_promote_staging_null_object_class.sql`
+
+The function was **production-only** — `grep -rl hv_promote_staging_to_artifacts
+supabase/ lib/ app/ scripts/` matched only
+`supabase/release-controls/pending-production-migration-decisions.json`. Defect
+category 3: production object created outside the recorded ledger, restored here
+as a replay foundation.
+
+Change is two lines: `COALESCE(NULLIF(btrim(...), ''), <fallback>)` before each
+cast. The `EXCEPTION` blocks are retained — they still cover the
+non-null-but-invalid case they were written for.
+
+Also adds the explicit grant discipline. The production copy is currently
+executable by `anon` and `authenticated` (it appears in both definer-execute
+assertion results) despite being a SECURITY DEFINER writer that inserts artifacts,
+evidence and jobs. Revoked from `public, anon, authenticated`, granted to
+`service_role`, following `20260710190300`'s pattern.
+
+### Verified
+
+**Transcription fidelity.** Extracted the body from the migration, reverted exactly
+the two intended edits to production's originals, and hashed:
+
+```
+reverted length : 5482 chars (production: 5482)
+reverted md5    : e3501b60dabe593b46abb2d155db2b8c
+production md5  : e3501b60dabe593b46abb2d155db2b8c   MATCH
+```
+
+So everything outside the two-line fix is byte-faithful.
+
+**Behaviour**, old form vs new on PostgreSQL 16.13:
+
+| payload | old | new |
+| --- | --- | --- |
+| key missing | **NULL → NOT NULL violation** | `regulatory_event` |
+| explicit json null | **NULL → NOT NULL violation** | `regulatory_event` |
+| empty string | `regulatory_event` | `regulatory_event` |
+| whitespace only | `regulatory_event` | `regulatory_event` |
+| invalid string | `regulatory_event` | `regulatory_event` |
+| valid value | `guidance` | `guidance` |
+
+The happy path is unchanged, so no regression.
+
+**Creation.** Applied against stub enums: `prosecdef = true`,
+`proconfig = {search_path=public}`, signature
+`TABLE(staging_id uuid, artifact_id uuid, action text, title text, country text)`
+all match production; `anon` and `authenticated` EXECUTE resolve **false**,
+`service_role` **true**.
+
+### Status
+
+**HOLD.** Committed to the branch only. Production still runs the unfixed function
+and the 380-row backlog is still there — replacing it is a production schema change
+and needs explicit sign-off. Production access was read-only throughout.
