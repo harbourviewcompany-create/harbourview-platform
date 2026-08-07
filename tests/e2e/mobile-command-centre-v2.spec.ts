@@ -275,8 +275,24 @@ test.describe('Command Centre authenticated responsive verification', () => {
               for (const section of sections) {
                 await expect(page.locator(`#${section}`), `${destination}/${section}`).toHaveCount(1)
               }
-              const mounted = await page.locator('.hvm2-main > section').count()
-              expect(mounted, destination).toBe(sections.length)
+
+              // Assert absence of every other group rather than counting
+              // `.hvm2-main > section`.
+              //
+              // `locator.count()` is a one-shot read with no auto-retry, unlike the
+              // `expect(...).toHaveCount()` assertions around it. The mobile
+              // renderer is loaded with `ssr: false`, so it hydrates client-side
+              // and the count raced a half-built tree — it reported 2 of 4 while
+              // every retrying assertion on the same sections passed.
+              //
+              // Absence is also the invariant that actually matters here: one
+              // destination at a time.
+              const foreign = Object.entries(SECTION_GROUPS)
+                .filter(([other]) => other !== destination)
+                .flatMap(([, otherSections]) => otherSections)
+              for (const section of foreign) {
+                await expect(page.locator(`#${section}`), `${destination} must not mount ${section}`).toHaveCount(0)
+              }
             }
 
           }
