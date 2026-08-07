@@ -4474,3 +4474,42 @@ change:
   column. Same on "Reviewed commercial network" / "Network command".
 - **The Aurora/Tilray/Canopy paragraph still appears three times** across command
   brief, access pathway and personal briefing.
+
+### Follow-on, same PR — Market intelligence was discarding populated data
+
+Tyler's screenshots of the folded Market destination showed six metrics all
+reading "Value under review" and roughly a dozen identical
+"Reviewed trade flow / Corridor evidence under review" cards. Neither is a data
+problem. Verified against production for Canada:
+
+| metric | stored value | rendered |
+| --- | --- | --- |
+| Average Wholesale Flower Price 2025 | 3 CAD/g | Value under review |
+| export_volume_kg | 8000 kg | Value under review |
+| legal_sales_usd | 5100000000 USD | Value under review |
+| Licensed Producers Active | 900 licensees | Value under review |
+| patient_count | 400000 count | Value under review |
+| store_count | 3800 count | Value under review |
+
+`trade_flows` for Canada: 16 rows, all 16 carrying `product_category`,
+`flow_direction` and `legal_status`, 15 with `permit_authority`.
+
+**Cause: the renderer read field names the query never selects.**
+`dashboardLiveData` selects `metric_name, metric_value, metric_unit, data_type…`
+and `origin_iso2, destination_iso2, flow_direction, product_category,
+legal_status, permit_authority`. `CoreSections.tsx` read metrics from
+`display_value` / `value` / `summary` and flows from `origin` / `destination` /
+`product` / `summary` — **not one of which exists on either table.** Every field
+fell through to its fallback, which is why sixteen distinct corridors rendered as
+sixteen identical cards.
+
+This is the same defect class as the marketplace starvation fixed earlier today:
+code and data disagreeing on names, with fallbacks masking it completely.
+
+Fixed by reading the real columns, adding `formatMetricValue` (value + unit,
+compacted above 10,000 so `5100000000 USD` reads as `5.1B USD`), and composing
+the flow body from `legal_status`, `flow_direction` and `permit_authority`.
+Raw column names such as `export_volume_kg` are now passed through `titleCase`.
+
+The pre-existing fallbacks are kept as the last entry in each key list, so a
+future schema that does supply `display_value` still works.

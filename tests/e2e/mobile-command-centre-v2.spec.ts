@@ -2,7 +2,7 @@ import { expect, test, type Browser, type BrowserContextOptions, type Page } fro
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
-import { SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
+import { SECTION_GROUPS } from '@/components/dashboard/mobile-command/contracts'
 
 const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
@@ -10,7 +10,6 @@ const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
 const SAFE_LISTING_ID = '00000000-0000-4000-8000-000000000127'
 const SAFE_LISTING_TITLE = 'Visual Safe Bulk Flower Lot'
-const MOBILE_SECTION_IDS = SECTION_NAV.map(section => section.id)
 
 const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
@@ -240,16 +239,39 @@ test.describe('Command Centre authenticated responsive verification', () => {
           await expect(page.locator('[data-dashboard-renderer="mobile"]:visible')).toBeVisible()
           await expect(page.locator('.hvm2-bottom-nav')).toBeVisible()
           await expect(page.getByText('Operator command centre', { exact: true })).toBeVisible()
-          await expect(page.locator('#market-intelligence')).toBeVisible()
-          await expect(page.locator('#supply')).toBeVisible()
-          await expect(page.locator('#directories')).toBeVisible()
-          await expect(page.locator('#financing')).toBeVisible()
           await expect(page.getByText('⌘ Modules')).toHaveCount(0)
           await expect(page.locator('[data-command-module]')).toHaveCount(32)
 
-          for (const section of MOBILE_SECTION_IDS) {
-            await expect(page.locator(`#${section}`)).toHaveCount(1)
+          // Only the active destination mounts. This block previously asserted
+          // all twenty sections were present at once, which is the behaviour
+          // that made the surface one endless scroll.
+          await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+          for (const section of SECTION_GROUPS.overview) {
+            await expect(page.locator(`#${section}`), section).toHaveCount(1)
           }
+          for (const section of [...SECTION_GROUPS.marketplace, ...SECTION_GROUPS.jurisdiction]) {
+            await expect(page.locator(`#${section}`), section).toHaveCount(0)
+          }
+
+          // Every destination reachable by deep link, rendering its own group and
+          // nothing else. Covers the four sections this spec used to assert on
+          // load: market-intelligence, supply, directories and financing.
+          for (const [destination, sections] of Object.entries(SECTION_GROUPS)) {
+            const destinationResponse = await page.goto(
+              `/dashboard?country=CA&role=exporter&section=${sections[0]}`,
+              { waitUntil: 'domcontentloaded', timeout: 60_000 },
+            )
+            expect(destinationResponse?.status()).toBeLessThan(400)
+            await expect(page.locator(`[data-active-destination="${destination}"]`)).toBeVisible()
+            for (const section of sections) {
+              await expect(page.locator(`#${section}`), `${destination}/${section}`).toHaveCount(1)
+            }
+            const mounted = await page.locator('.hvm2-main > section').count()
+            expect(mounted, destination).toBe(sections.length)
+          }
+
+          await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+          await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
 
           const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll(links => links.map(link => {
             const href = (link as HTMLAnchorElement).href
@@ -367,7 +389,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
           })
 
           expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
-          expect(geometry.sectionCount).toBe(MOBILE_SECTION_IDS.length)
+          // The mounted count is the active destination's group, not all twenty.
+          expect(geometry.sectionCount).toBe(SECTION_GROUPS.overview.length)
           expect(geometry.moduleCount).toBe(32)
           expect(geometry.bottomNav).not.toBeNull()
           report.geometry = geometry

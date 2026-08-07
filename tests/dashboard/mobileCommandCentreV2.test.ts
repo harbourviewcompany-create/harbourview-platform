@@ -16,6 +16,7 @@ import {
   type PrimarySectionId,
   SUPPLY_TABS,
   clampPercent,
+  formatMetricValue,
   confidenceFractionToPercent,
   defaultListingTypeForView,
   matchesQuery,
@@ -255,5 +256,25 @@ describe('Mobile Command Centre contracts', () => {
     expect(financing.searchParams.get('section')).toBe('financing')
     expect(financing.searchParams.get('tool')).toBe('financing-intake')
     expect(SECTION_TO_GROUP.financing).toBe('next-actions')
+  })
+
+  it('formats market metric values from metric_value and metric_unit', () => {
+    // The renderer used to read display_value/value/summary -- fields that do
+    // not exist on market_metrics -- so every populated metric rendered its
+    // "Value under review" fallback.
+    expect(formatMetricValue('3', 'CAD/g')).toBe('3 CAD/g')
+    expect(formatMetricValue(900, 'licensees')).toBe('900 licensees')
+    // Below the 10k compaction threshold, so it stays exact and separated.
+    expect(formatMetricValue('8000', 'kg')).toBe('8,000 kg')
+    expect(formatMetricValue('5100000000', 'USD')).toBe('5.1B USD')
+    expect(formatMetricValue(400000, 'count')).toBe('400K count')
+
+    // Absent or unparseable values still fall back rather than printing NaN.
+    expect(formatMetricValue(null, 'kg')).toBe('Value under review')
+    expect(formatMetricValue('', 'kg')).toBe('Value under review')
+    expect(formatMetricValue(undefined, undefined)).toBe('Value under review')
+
+    // A non-numeric but present value is shown verbatim, not discarded.
+    expect(formatMetricValue('pending audit', '')).toBe('pending audit')
   })
 })

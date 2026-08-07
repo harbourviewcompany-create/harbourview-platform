@@ -263,6 +263,41 @@ export function formatStatus(value: unknown, fallback = 'Review required'): stri
   return typeof value === 'string' && value.trim() ? titleCase(value) : fallback
 }
 
+/**
+ * Render a market metric as a value a person can read.
+ *
+ * `market_metrics` stores the number in `metric_value` and the unit separately in
+ * `metric_unit`. The mobile renderer previously looked for `display_value`,
+ * `value` or `summary` — none of which that table has — so every metric fell
+ * through to its "Value under review" fallback while the real figures sat in the
+ * row. Canada, for instance, had legal_sales_usd = 5100000000 rendering as
+ * "Value under review".
+ *
+ * Large counts are abbreviated because the card is one line on a 320px screen:
+ * 5100000000 USD reads as "5.1B USD", not as eleven digits.
+ */
+export function formatMetricValue(value: unknown, unit: unknown, fallback = 'Value under review'): string {
+  const raw = typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))
+      ? Number(value)
+      : null
+
+  const suffix = typeof unit === 'string' && unit.trim() ? ` ${unit.trim()}` : ''
+
+  if (raw === null) {
+    // Non-numeric but present values are still worth showing verbatim.
+    return typeof value === 'string' && value.trim() ? `${value.trim()}${suffix}` : fallback
+  }
+
+  const magnitude = Math.abs(raw)
+  const formatted = magnitude >= 10_000
+    ? new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(raw)
+    : new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(raw)
+
+  return `${formatted}${suffix}`
+}
+
 /** Clamp values already stored on a 0–100 scale. */
 export function clampPercent(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null
