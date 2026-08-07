@@ -63,6 +63,21 @@
 -- includes PUBLIC because leaving it out lets anon keep EXECUTE through the
 -- pseudo-role.
 
+do $promote_fix$
+begin
+  -- The hv_* foundations are restored by the candidate migration series and are
+  -- not present in every history this file may replay against. Skip cleanly there
+  -- rather than failing the replay; production has them, which is where the fix
+  -- is needed.
+  if to_regtype('public.hv_object_class') is null
+     or to_regtype('public.hv_authority_level') is null
+     or to_regclass('public.hv_import_staging') is null
+     or to_regclass('public.hv_artifacts') is null then
+    raise notice 'hv_* import foundations absent; skipping promote-staging repair';
+    return;
+  end if;
+
+  execute $create$
 create or replace function public.hv_promote_staging_to_artifacts(
   p_batch_size integer,
   p_workspace_id uuid
@@ -72,7 +87,7 @@ language plpgsql
 volatile
 security definer
 set search_path = public
-as $hv_promote_staging_to_artifacts$
+  as $body$
 DECLARE
   v_row          RECORD;
   v_norm         JSONB;
@@ -276,9 +291,14 @@ BEGIN
 
   END LOOP;
 END;
-$hv_promote_staging_to_artifacts$;
+$body$;
+  $create$;
 
-revoke all privileges on function public.hv_promote_staging_to_artifacts(integer, uuid)
-  from public, anon, authenticated;
-grant execute on function public.hv_promote_staging_to_artifacts(integer, uuid)
-  to service_role;
+  execute 'revoke all privileges on function public.hv_promote_staging_to_artifacts(integer, uuid)'
+          ' from public, anon, authenticated';
+  execute 'grant execute on function public.hv_promote_staging_to_artifacts(integer, uuid)'
+          ' to service_role';
+
+  raise notice 'hv_promote_staging_to_artifacts repaired and restricted to service_role';
+end
+$promote_fix$;
