@@ -4292,3 +4292,87 @@ workflow above checks both.
 
 Reconciling the three mis-versioned rows is a separate decision and has not been
 taken here.
+
+---
+
+## 2026-08-07 — Stage 0: the Command Centre marketplace was hiding live inventory
+
+Tyler reported the mobile Command Centre as unusable, with the marketplace
+showing `Cannabis 0 / Wanted 0 / Opportunities 0`. The marketplace is not empty.
+The projection was starving its own tabs.
+
+### Root cause 1 — one shared budget across every section
+
+`getDashboardMarketplaceRows` issued a **single** query across all sections with
+`limit 56`, then bucketed the result client-side into seven views. The source
+view `marketplace_public_listings_v1` sorts by `is_featured desc, created_at
+desc` with no per-section fairness, so whichever sections hold the newest rows
+consume the whole budget.
+
+Replayed against production for Canada (`location_country ilike 'CA' or region =
+'global'`), those 56 rows were:
+
+| section | rows in the 56 |
+| --- | --- |
+| consumables | 26 |
+| packaging | 20 |
+| labs_testing | 4 |
+| equipment | 4 |
+| cannabis_inventory | 1 |
+| services | 1 |
+| wanted_requests | **0** |
+| business_opportunities | **0** |
+| genetics | **0** |
+| processing | **0** |
+
+Consumables and packaging took 46 of 56. Every starved section has rows in the
+database — `wanted_requests` has 16, `business_opportunities` 4, `genetics` 3.
+
+### Root cause 2 — a real section no view could reach
+
+`VIEW_SECTIONS.equipment` listed `processing_equipment`. No row has ever used
+that value. The live section is `processing`, which holds **12 rows, all
+Canadian**. Because unmatched sections fell through to a `['cannabis']` default,
+any processing row that did surface was filed under flower rather than
+equipment.
+
+Verified every section present in the production view is now mapped by exactly
+one view: `business_opportunities, cannabis_inventory, consumables, equipment,
+export, genetics, labs_testing, logistics, packaging, processing,
+professional_services, services, wanted_requests`.
+
+### The fix
+
+One query per view, each with its own `ROWS_PER_VIEW = 8` budget, run in
+parallel and served by the existing 5-minute cache in `getListingsBySections`.
+A busy section can no longer starve a quiet one. `processing` added to the
+equipment view. The unmatched-section fallback is removed as dead — all 13 live
+sections are now mapped.
+
+### Verification
+
+- `tests/dashboard/dashboardMarketplaceRows.test.ts` — 5 new tests covering
+  starvation, per-view budget, `processing` routing to equipment, country
+  pass-through, and empty-bucket omission. All pass.
+- `npm run lint` — 0 errors, 144 warnings (all pre-existing).
+- `npm run typecheck` — clean.
+- `npx vitest run` — 686 passed. The 5 failing files (globe polygon rendering,
+  pending-production-migration-decisions) fail identically on a clean `main`
+  checkout with the change stashed: 681 passed / 1 failed before, 686 passed /
+  1 failed after. No new failures.
+- `npm run build` — success.
+
+### Found and deliberately NOT changed — production data, needs a decision
+
+These are data-hygiene defects in `listings`, not code. Writing to production
+data is out of scope for a read-path fix and is Tyler's call:
+
+- **Country column holds non-ISO2 values.** `North America` (14), `Europe` (1),
+  `EU`, `UK`. The query matches ISO2 only, so these never match a country filter.
+- **`UK` vs `GB`.** 2 listings stored as `UK`; a United Kingdom selection sends
+  `GB` and misses them.
+- **18 listings have a null `location_country`** and so match no country.
+- **`getListingsBySections` silently falls back to an unfiltered query** when a
+  country-scoped query returns zero rows. A Canada view can therefore display
+  German listings with no indication the filter was dropped. That is a product
+  decision, not obviously a bug, but it is currently invisible to the user.
