@@ -394,6 +394,20 @@ test.describe('Command Centre authenticated responsive verification', () => {
               verifiedPages.push(commandPage)
             }
             report.verifiedDesktopPages = verifiedPages
+            const desktopWorkflows = [
+              { url: '/dashboard?country=CA&role=exporter&page=marketplace&section=supply&marketView=cannabis&tool=supply-intake', tool: 'supply-intake' },
+              { url: '/dashboard?country=CA&role=exporter&page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake', tool: 'wanted-intake' },
+              { url: '/dashboard?country=CA&role=exporter&page=trade-calc&section=financing&marketView=cannabis&tool=financing-intake', tool: 'financing-intake' },
+            ] as const
+            for (const workflow of desktopWorkflows) {
+              const workflowResponse = await page.goto(workflow.url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+              expect(workflowResponse?.status()).toBeLessThan(400)
+              await expect(page.locator(`[data-desktop-command-workspace="${workflow.tool}"]`)).toBeVisible()
+              await expect(page.locator(`[data-mobile-command-tool="${workflow.tool}"]`)).toBeVisible()
+              await page.reload({ waitUntil: 'domcontentloaded' })
+              await expect(page.locator(`[data-desktop-command-workspace="${workflow.tool}"]`)).toBeVisible()
+            }
+            report.desktopReloadRestoredWorkflows = desktopWorkflows.map(workflow => workflow.tool)
           }
 
           const geometry = await page.evaluate(() => {

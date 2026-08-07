@@ -34,10 +34,8 @@ The following remain independent routes because they are not product modules:
 
 Everything else is classified in `config/command-centre-routes.mjs` as:
 
-- `redirect-now`: already represented by desktop and mobile command modules;
-- `retain-public`: canonical public/SEO entry surface retained outside the authenticated operating shell;
-- `redirect-now`: legacy or transactional route with verified authenticated Command Centre parity and reload restoration;
-- `intercept-next`: transitional route awaiting a contained workflow (none remain in the current route policy).
+- `redirect-now`: legacy or transactional route with verified desktop/mobile Command Centre parity and reload restoration;
+- `retain-public`: canonical public/SEO entry surface retained outside the authenticated operating shell, including signals, marketplace browse pages and professional projections.
 
 ### Canonical product URL
 
@@ -319,24 +317,22 @@ Sequencing does not reduce scope.
 
 Implemented in this branch:
 
-- canonical module and route policy registry;
-- first set of safe command-centre redirects;
-- public/auth/legal route exceptions;
-- route-registry contract tests;
-- dashboard loading state;
-- dashboard recovery boundary;
-- production architecture and Claude implementation handoff.
+- canonical typed module and route policy registry;
+- demand-driven shared server loader with per-source states and timeouts;
+- registry-driven desktop/mobile module coverage;
+- contained, URL-restored supply, wanted and financing workspaces on both responsive shells;
+- centralized controlled customer-facing copy;
+- authenticated visual and zero-state database verification gates.
 
 Not yet complete:
 
-- shared server loader extraction;
-- registry-driven desktop/mobile navigation;
-- full standalone route retirement;
-- transactional intercepted routes;
-- full preview evidence and production promotion.
+- retirement of retained public/SEO routes before guest parity is proven;
+- complete interception of confidential intake, quote, evidence-upload and remaining legacy transactions;
+- production Supabase migration/Auth activation;
+- production Vercel promotion and alias movement;
+- final operator release authorization.
 
 The branch remains implementation-active and must stay draft until all acceptance gates are satisfied.
-
 
 ## Controlled customer-facing copy contract
 
@@ -369,9 +365,4 @@ Loopback Supabase endpoints are accepted only for a GitHub Actions evidence buil
 
 ## Production release closure
 
-- `lib/dashboard/commandCentreSourcePlan.ts` is the complete page-to-source dependency contract. A route may not execute an unlisted source.
-- `lib/dashboard/buildDashboardCommandSources.ts` is the server-only source-definition boundary and is independently unit tested.
-- `lib/platform/commandCentreCopy.ts` is the canonical customer-facing control-copy contract.
-- Public orientation and SEO routes remain canonical public entry surfaces. Verified authenticated transaction routes redirect into URL-addressable in-shell workflows.
-- Local Supabase is permitted only in GitHub Actions with a numeric workflow run identifier and the complete isolated-build marker set.
-- Database release requirements are controlled by `docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md`.
+The loader, source plan, controlled-copy module, public route policy and three transaction workspaces are implemented and require exact-head evidence before closure. Retained public routes are not retired until guest, SEO, disclaimer and workflow parity pass. Confidential intake, quote, evidence-upload and other legacy transaction paths remain open work unless separately verified. Production migration, Auth activation, Vercel promotion and alias movement remain HOLD pending green gates and explicit operator authorization.

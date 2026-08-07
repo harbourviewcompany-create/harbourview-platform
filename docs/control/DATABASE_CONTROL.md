@@ -443,6 +443,10 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - **Production approval:** HOLD until a separate operator-authorized migration activation.
 
 
-## Production security hardening
+## 2026-08-04 — Production security hardening
 
-The controlling migration and release procedure are defined in `docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md`. Production application is gated on local migration replay, zero-row security assertions, a current backup/PITR checkpoint, leaked-password protection verification, and complete application leakage/authorization evidence.
+- **Migration:** `20260804190000_production_security_hardening.sql`, followed by the forward marketplace conversion repair.
+- **Controlling document:** `docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md`.
+- **Deterministic replay corrections:** the March intelligence-view and marketplace-conversion files contain syntax/dependency corrections required for a zero-state rebuild. They do not authorize or substitute for production forward migrations.
+- **Required verification:** complete local migration replay, zero-row security assertions, a current backup/PITR checkpoint, leaked-password protection verification, and complete application leakage/authorization evidence.
+- **Production approval:** HOLD until a separate operator-authorized migration and Auth activation.

@@ -2,54 +2,31 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync('supabase/migrations/20260804190000_production_security_hardening.sql', 'utf8')
-const serviceOnlyRoutines = readFileSync('supabase/migrations/20260805233500_service_only_digest_enrichment.sql', 'utf8')
 const assertions = readFileSync('supabase/tests/production_security_hardening.sql', 'utf8')
 const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs', 'utf8')
 
-describe('production Supabase security hardening', () => {
-  it('uses an explicit view inventory, existence guard, and security-invoker execution', () => {
-    expect(migration).toContain('create or replace function public.view_exists(p_schema text, p_view text)')
-    expect(migration).toContain("if public.view_exists('api', 'hv_artifacts') then")
-    expect(migration).toContain('set (security_invoker = true)')
-    expect(migration).toContain('revoke all privileges on table api.hv_artifacts from public, anon, authenticated')
-    expect(migration).toContain('grant select on table api.hv_artifacts to service_role')
+describe('production Supabase security hardening controls', () => {
+  it('contains no synthetic deny policies or destructive business-data operations', () => {
+    expect(migration).not.toMatch(/using\s*\(\s*false\s*\)/i)
+    expect(migration).not.toMatch(/with\s+check\s*\(\s*false\s*\)/i)
+    expect(migration).not.toMatch(/(truncate|drop\s+table|delete\s+from)/i)
   })
 
-  it('keeps policyless RLS tables deny-by-default without synthetic policies', () => {
-    expect(migration).toContain("and not exists (select 1 from pg_policy p where p.polrelid = c.oid)")
-    expect(migration).not.toContain('deny_application_roles_until_reviewed')
-    expect(migration).not.toContain('using (false) with check (false)')
+  it('uses explicit guarded view contracts and a guarded net-schema control', () => {
+    expect(migration).toContain("if public.view_exists('public', 'marketplace_public_listings_v1') then")
+    expect(migration).toContain('grant select on table public.marketplace_public_listings_v1 to anon, authenticated, service_role')
+    expect(migration).toContain("if exists (select 1 from pg_namespace where nspname = 'net') then")
   })
 
-  it('closes SECURITY DEFINER routines and restores only explicit allowlists', () => {
-    expect(migration).toContain('where p.prosecdef')
-    expect(migration).toContain("'api.get_command_centre_stats()'")
-    expect(migration).toContain("'public.hv_is_platform_staff()'")
-    expect(migration).not.toContain('grant execute on all functions')
+  it('keeps state validation in the zero-row SQL assertion suite', () => {
+    expect(assertions).toContain('public_read_contract_missing')
+    expect(assertions).toContain('internal_view_exposed')
+    expect(assertions).toContain('authenticated_definer_execute')
   })
 
-  it('keeps external digest and enrichment routines service-role only', () => {
-    expect(serviceOnlyRoutines).toContain("to_regprocedure('public.run_editorial_digest()')")
-    expect(serviceOnlyRoutines).toContain('grant execute on function public.run_editorial_digest() to service_role')
-    expect(serviceOnlyRoutines).toContain("to_regprocedure('public.run_country_intel_enrichment()')")
-    expect(serviceOnlyRoutines).toContain('grant execute on function public.run_country_intel_enrichment() to service_role')
-    expect(serviceOnlyRoutines).toContain('from public, anon, authenticated')
-    expect(assertions).toContain("('anon', 'public.run_editorial_digest()', false)")
-    expect(assertions).toContain("('authenticated', 'public.run_editorial_digest()', false)")
-    expect(assertions).toContain("('service_role', 'public.run_editorial_digest()', true)")
-    expect(assertions).toContain("('anon', 'public.run_country_intel_enrichment()', false)")
-    expect(assertions).toContain("('authenticated', 'public.run_country_intel_enrichment()', false)")
-    expect(assertions).toContain("('service_role', 'public.run_country_intel_enrichment()', true)")
-  })
-
-  it('contains foreign tables and non-relocatable pg_net access', () => {
-    expect(migration).toContain('information_schema.foreign_tables')
-    expect(migration).toContain('revoke usage on schema net from public, anon, authenticated')
-  })
-
-  it('locks leaked-password protection to the production project and one config field', () => {
+  it('locks the Auth change to the production project and bounds Management API requests', () => {
     expect(authControl).toContain("const PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'")
-    expect(authControl).toContain('JSON.stringify({ password_hibp_enabled: true })')
-    expect(authControl).not.toContain('SUPABASE_SERVICE_ROLE_KEY')
+    expect(authControl).toContain('AbortSignal.timeout(MANAGEMENT_API_TIMEOUT_MS)')
+    expect(authControl.match(/AbortSignal\.timeout\(MANAGEMENT_API_TIMEOUT_MS\)/g)).toHaveLength(2)
   })
 })

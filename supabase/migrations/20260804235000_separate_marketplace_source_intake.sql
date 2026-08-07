@@ -159,3 +159,80 @@ comment on table public.marketplace_source_registry is 'Private consumables sour
 comment on table public.marketplace_source_snapshots is 'Private consumables source snapshots. Separate from used/surplus source_snapshots.';
 comment on table public.marketplace_candidates is 'Private marketplace candidates created from controlled source intake.';
 comment on table public.marketplace_candidate_review_events is 'Private review audit for marketplace_candidates.';
+
+-- Copy compatible legacy source rows into the separated consumables registry.
+do $source_intake_repair$
+begin
+  if to_regclass('public.source_registry') is not null
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'source_registry' and column_name = 'source_key'
+    )
+  then
+    insert into public.marketplace_source_registry (
+      id, source_name, source_type, source_url, category_focus, fetch_method,
+      is_active, last_checked_at, created_at, updated_at
+    )
+    select
+      id, name, category, source_url, category, 'manual_url',
+      status <> 'disabled', last_checked_at, created_at, updated_at
+    from public.source_registry
+    on conflict (id) do nothing;
+  end if;
+
+  if to_regclass('public.source_snapshots') is not null
+    and exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'source_snapshots' and column_name = 'snapshot_hash'
+    )
+  then
+    insert into public.marketplace_source_snapshots (
+      id, source_id, captured_url, captured_text, raw_html_hash, captured_at,
+      fetch_status, error_message, created_at
+    )
+    select
+      ss.id, ss.source_id, sr.source_url, ss.raw_payload, ss.snapshot_hash, ss.fetched_at,
+      case when coalesce(ss.http_status, 0) between 200 and 399 then 'success' else 'skipped' end,
+      case when coalesce(ss.http_status, 0) between 200 and 399 then null else 'Migrated from legacy source snapshot.' end,
+      ss.fetched_at
+    from public.source_snapshots ss
+    join public.source_registry sr on sr.id = ss.source_id
+    join public.marketplace_source_registry msr on msr.id = ss.source_id
+    on conflict (id) do nothing;
+  end if;
+end
+$source_intake_repair$;
+
+do $candidate_snapshot_fk$
+declare
+  constraint_record record;
+begin
+  for constraint_record in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.marketplace_candidates'::regclass
+      and contype = 'f'
+      and conkey = array[
+        (select attnum from pg_attribute
+         where attrelid = 'public.marketplace_candidates'::regclass
+           and attname = 'snapshot_id')
+      ]
+  loop
+    execute format('alter table public.marketplace_candidates drop constraint %I', constraint_record.conname);
+  end loop;
+
+  update public.marketplace_candidates candidate
+  set snapshot_id = null
+  where snapshot_id is not null
+    and not exists (
+      select 1 from public.marketplace_source_snapshots snapshot
+      where snapshot.id = candidate.snapshot_id
+    );
+
+  alter table public.marketplace_candidates
+    add constraint marketplace_candidates_snapshot_id_fkey
+    foreign key (snapshot_id)
+    references public.marketplace_source_snapshots(id)
+    on delete set null;
+end
+$candidate_snapshot_fk$;

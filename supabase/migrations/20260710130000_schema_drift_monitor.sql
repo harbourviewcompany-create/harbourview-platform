@@ -14,7 +14,7 @@ ALTER TABLE public.schema_drift_alerts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS schema_drift_alerts_admin_only ON public.schema_drift_alerts;
 CREATE POLICY schema_drift_alerts_admin_only ON public.schema_drift_alerts
   FOR ALL
-  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = auth.uid() AND user_roles.role = 'admin'));
+  USING (EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = (select auth.uid()) AND user_roles.role = 'admin'));
 
 CREATE TABLE IF NOT EXISTS public.schema_drift_allowlist (
   table_name text PRIMARY KEY,

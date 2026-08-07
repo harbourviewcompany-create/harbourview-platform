@@ -1,4 +1,4 @@
--- Deterministic replay-safe countries foundation. Data seeding remains in 20260609000000.
+-- Forward, idempotent reconciliation for production histories that passed the old timestamp.
 create table if not exists public.countries (
   id uuid primary key default gen_random_uuid(),
   country_name text not null,

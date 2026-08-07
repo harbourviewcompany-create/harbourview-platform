@@ -180,7 +180,7 @@ Do not reduce the module universe to fit mobile. Use navigation and progressive 
 
 ### 6. Embed standalone read-only routes
 
-For every route classified `redirect-after-parity`:
+For every route classified `redirect-now`:
 
 1. inspect the source page;
 2. identify live queries, disclaimers, states, CTAs, SEO contract and tests;

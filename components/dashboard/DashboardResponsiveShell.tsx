@@ -27,6 +27,11 @@ const CommandCentre = dynamic(
   },
 )
 
+const DesktopCommandWorkspace = dynamic(
+  () => import('@/components/dashboard/DesktopCommandWorkspace'),
+  { ssr: false },
+)
+
 const MobileCommandCentreRebuild = dynamic(
   () => import('@/components/dashboard/MobileCommandCentreRebuild'),
   {
@@ -49,7 +54,12 @@ export function DashboardResponsiveShellContent({
     >
       {isMobile
         ? <MobileCommandCentreRebuild {...props} />
-        : <CommandCentre {...props} />}
+        : (
+          <>
+            <CommandCentre {...props} />
+            <DesktopCommandWorkspace />
+          </>
+        )}
     </div>
   )
 }

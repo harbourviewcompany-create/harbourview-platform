@@ -1,4 +1,4 @@
--- Deterministic replay-safe form of the historical hardening migration.
+-- Forward, idempotent reconciliation after all marketplace relations exist.
 do $marketplace_exposure$
 begin
   if to_regprocedure('public.smoke_verify_marketplace_inquiry(text,text,text)') is not null then

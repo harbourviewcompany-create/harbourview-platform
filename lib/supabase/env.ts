@@ -67,7 +67,9 @@ function isLocalSupabaseGateEnabled() {
  * - the explicit server or browser local gate is enabled;
  * - the build is explicitly marked as an isolated CI test build;
  * - the target is a loopback host;
- * - the process is not running in a Vercel deployment environment.
+ * - on the server path only, the process is not running in a Vercel
+ *   deployment environment. The browser path cannot read unprefixed Vercel
+ *   variables and relies on the complete NEXT_PUBLIC_ marker set instead.
  *
  * Browser gates require a numeric workflow run id plus literal NEXT_PUBLIC_
  * isolation markers that Next.js can inline at build time. Production builds

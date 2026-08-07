@@ -111,7 +111,6 @@ export default async function DashboardPage({
     roleId,
     page: urlPage,
     userId,
-    userEmail,
     hasOrganization: hasOrg,
   } as const
   const commandData = await loadCommandCentreData(

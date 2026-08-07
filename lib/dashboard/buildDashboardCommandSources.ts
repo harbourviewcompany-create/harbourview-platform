@@ -269,6 +269,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       enabled: enabled('operatorLicenceMatrix'),
       load: async () => getOperatorLicenceMatrix((await loadCannabisOperators()).map(operator => operator.id)),
       fallback: { entitled: false as const },
+      timeoutMs: 12_000,
       sourceLabel: 'Authorized operator licence matrix',
       access: 'operator',
     },

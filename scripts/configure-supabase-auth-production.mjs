@@ -2,6 +2,7 @@
 
 const PROJECT_REF = 'zvxdgdkukjrrwamdpqrg'
 const API_ROOT = 'https://api.supabase.com/v1'
+const MANAGEMENT_API_TIMEOUT_MS = 15_000
 const apply = process.argv.includes('--apply')
 const token = process.env.SUPABASE_ACCESS_TOKEN?.trim()
 const requestedRef = process.env.SUPABASE_PROJECT_REF?.trim()
@@ -21,7 +22,10 @@ const headers = {
 }
 
 async function readConfig() {
-  const response = await fetch(`${API_ROOT}/projects/${PROJECT_REF}/config/auth`, { headers })
+  const response = await fetch(`${API_ROOT}/projects/${PROJECT_REF}/config/auth`, {
+    headers,
+    signal: AbortSignal.timeout(MANAGEMENT_API_TIMEOUT_MS),
+  })
   if (!response.ok) throw new Error(`Auth config read failed: ${response.status} ${await response.text()}`)
   return response.json()
 }
@@ -40,6 +44,7 @@ const response = await fetch(`${API_ROOT}/projects/${PROJECT_REF}/config/auth`, 
   method: 'PATCH',
   headers,
   body: JSON.stringify({ password_hibp_enabled: true }),
+  signal: AbortSignal.timeout(MANAGEMENT_API_TIMEOUT_MS),
 })
 if (!response.ok) throw new Error(`Auth config update failed: ${response.status} ${await response.text()}`)
 

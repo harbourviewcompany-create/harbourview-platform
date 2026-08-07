@@ -156,4 +156,22 @@ describe('loadCommandCentreData', () => {
     expect(bundle.state).toBe('live')
   })
 
+
+  it('reports a live bundle when every source is disabled', async () => {
+    const disabledLoad = vi.fn(async () => ['should-not-load'])
+    const bundle = await loadCommandCentreData(context, {
+      disabled: {
+        enabled: false,
+        load: disabledLoad,
+        fallback: [],
+        sourceLabel: 'Disabled source',
+      },
+    })
+
+    expect(disabledLoad).not.toHaveBeenCalled()
+    expect(bundle.data.disabled).toEqual([])
+    expect(bundle.sources.disabled.requested).toBe(false)
+    expect(bundle.state).toBe('live')
+  })
+
 })
