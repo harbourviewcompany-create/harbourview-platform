@@ -1,0 +1,67 @@
+name: Production Security Hardening
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - supabase/migrations/20260804190000_production_security_hardening.sql
+      - supabase/tests/production_security_hardening.sql
+      - scripts/configure-supabase-auth-production.mjs
+      - tests/supabase/productionSecurityHardening.test.ts
+      - .github/workflows/production-security-hardening.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-security-hardening-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/supabase/productionSecurityHardening.test.ts tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: latest
+      - name: Reset complete migration history locally
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local
+      - name: Assert hardened local database
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -Atf supabase/tests/production_security_hardening.sql | tee production-security-assertions.txt
+          if [ -s production-security-assertions.txt ]; then
+            echo 'Unexpected security assertion rows were returned.'
+            exit 1
+          fi
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-security-hardening-${{ github.run_id }}
+          path: production-security-assertions.txt
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true

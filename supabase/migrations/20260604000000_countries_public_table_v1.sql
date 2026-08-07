@@ -1,45 +1,61 @@
--- =============================================================================
--- countries_add_opportunity_score_v1
--- Adds opportunity_score integer column to public.countries.
---
--- Root cause: hooks/useAllCountries and useCountryBrief selected this column
--- in their PostgREST query; its absence caused a silent 400 error on every
--- call, falling back to fixture data for the globe intel layer,
--- intelligence pages, and country-brief grid.
---
--- The public.countries table and its seed data already exist (migrations
--- create_countries_table @ 20260523155437 and seed_countries_core_markets_v1
--- @ 20260524103625). This migration is purely additive.
--- =============================================================================
+-- Deterministic replay-safe countries foundation. Data seeding remains in 20260609000000.
+create table if not exists public.countries (
+  id uuid primary key default gen_random_uuid(),
+  country_name text not null,
+  country_slug text not null,
+  iso_alpha2 text not null,
+  iso_alpha3 text,
+  region text,
+  subregion text,
+  market_access_status text not null default 'unknown',
+  medical_status text not null default 'unknown',
+  adult_use_status text not null default 'unknown',
+  import_status text not null default 'unknown',
+  export_status text not null default 'unknown',
+  signals_status text not null default 'unknown',
+  opportunity_status text not null default 'unknown',
+  opportunity_score integer not null default 0,
+  regulator_label text,
+  lat double precision,
+  lng double precision,
+  public_summary text,
+  data_completeness text not null default 'stub',
+  last_updated_label text,
+  opportunity_categories text[],
+  trade_roles text[],
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
 alter table public.countries
   add column if not exists opportunity_score integer not null default 0;
 
--- Back-fill from market_access_status
 update public.countries set opportunity_score = case market_access_status::text
-  when 'open'       then 95
-  when 'active'     then 82
-  when 'regulated'  then 64
-  when 'emerging'   then 52
-  when 'limited'    then 36
+  when 'open' then 95
+  when 'active' then 82
+  when 'regulated' then 64
+  when 'emerging' then 52
+  when 'limited' then 36
   when 'restricted' then 22
-  when 'unknown'    then 10
+  when 'unknown' then 10
   else 10
 end
 where opportunity_score = 0;
 
--- Keep in sync on future status changes
 create or replace function public.sync_opportunity_score()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
 begin
   new.opportunity_score := case new.market_access_status::text
-    when 'open'       then 95
-    when 'active'     then 82
-    when 'regulated'  then 64
-    when 'emerging'   then 52
-    when 'limited'    then 36
+    when 'open' then 95
+    when 'active' then 82
+    when 'regulated' then 64
+    when 'emerging' then 52
+    when 'limited' then 36
     when 'restricted' then 22
-    when 'unknown'    then 10
+    when 'unknown' then 10
     else 10
   end;
   return new;

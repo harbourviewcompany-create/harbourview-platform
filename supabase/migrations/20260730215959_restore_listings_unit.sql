@@ -1,0 +1,38 @@
+-- Production already had public.listings.unit when the Harbourview supply
+-- catalog was built, but repository zero-state never recorded its creator.
+-- Restore only that prerequisite column immediately before the first migration
+-- whose view selects it.
+--
+-- 20260730220000 fails without it during zero-state replay, at its seventh
+-- statement:
+--   create or replace view api.supply_catalog_public_v1 as ... l.unit ...
+--   column l.unit does not exist (SQLSTATE 42703)
+--
+-- Restored as its own migration rather than folded into that file's ALTER
+-- TABLE, because `unit` was never part of this change. The production-recorded
+-- equivalent of that ALTER, 20260730211141
+-- add_harbourview_direct_supply_catalog_fields, adds exactly the same seven
+-- columns the repository file adds -- sold_by_harbourview, sku, stock_qty,
+-- lead_time_days, moq, compliance_flags, target_countries -- and does not
+-- mention unit. The very next production migration, 20260730211147
+-- create_supply_catalog_public_view, then selects l.unit. So the column
+-- pre-dates this work in production and simply has no creator anywhere in the
+-- repository; adding it to the ALTER would have made that statement diverge
+-- from its recorded body.
+--
+-- Same shape as the three columns already restored on their own tables for the
+-- same reason: 20260615091139 (marketplace_candidates.discovered_at),
+-- 20260719190928 (marketplace_candidates.price_amount) and 20260728201439
+-- (marketplace_candidates.source_id).
+--
+-- Shape taken from the live table, not guessed: text, nullable, no default,
+-- and no constraint on this project references unit.
+--
+-- Checked across every column the failing view selects from public.listings:
+-- replay builds 47 columns on that table by this point and the view reads 18
+-- of them; unit is the only one missing. The one other repository migration
+-- that reads it, 20260731145108_harden_supply_catalog_public_projection.sql,
+-- runs later and is covered by this restore.
+
+alter table public.listings
+  add column if not exists unit text;

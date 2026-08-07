@@ -2,4 +2,13 @@
 -- File added to satisfy local/remote migration history parity
 -- (see supabase_migrations.schema_migrations for the original
 -- application timestamp). No DDL executed by this file.
+--
+-- Intentionally left a no-op, and this one is genuinely correct as a no-op.
+-- This version is a duplicate registration of
+-- 20260714120000_create_intel_eval_set_stage0.sql, applied roughly six hours
+-- later the same day. Its recorded statement is a plain CREATE TABLE
+-- public.intel_eval_set, which is restored at 20260714120000 because the
+-- consumers at 20260714120100 and 20260714120200 need the table to exist
+-- before them. Replaying the CREATE again here would fail with "relation
+-- already exists", so it stays a no-op rather than being restored twice.
 SELECT 1;

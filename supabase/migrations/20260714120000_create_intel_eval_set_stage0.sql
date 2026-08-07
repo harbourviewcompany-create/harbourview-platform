@@ -1,14 +1,77 @@
+-- Restored 2026-08-05. This file was converted to a "SELECT 1" no-op on
+-- 2026-07-20 because re-running its CREATE TABLE against production failed
+-- with "relation already exists". That reasoning holds for a forward-only
+-- apply against production, but it broke zero-state replay: the two
+-- consumers immediately after this version, 20260714120100
+-- (expose_intel_eval_set_via_api_schema) and 20260714120200
+-- (add_intel_eval_structural_crosscheck), both dereference
+-- public.intel_eval_set, which nothing in the repository then created.
+--
+-- The body below is the production-recorded statement for version
+-- 20260714224152, the duplicate registration of this same migration applied
+-- roughly six hours later the same day. It is restored here, at the earlier
+-- version, because that is where replay needs the table to exist. Its
+-- twenty-one columns are exactly the set the 2026-07-20 stub comment
+-- attributed to this file. 20260714224152 stays a no-op: by the time replay
+-- reaches it the table exists, and its plain CREATE TABLE would fail.
+
 -- Stage 0 of docs/INTELLIGENCE_ARCHITECTURE_SPEC.md: the labeled evaluation set.
--- Reason: the live scorer (score_signal_from_snapshot) is inverted and cannot be
--- trusted as a quality proxy. Every later stage (classifier, promotion) must be
--- validated against human labels BEFORE being wired to anything (spec 6.2, guardrail #2).
+-- Reason: the live scorer (score_signal_from_snapshot) is inverted and cannot be trusted
+-- as a quality proxy. Every later stage (classifier, promotion) must be validated against
+-- human labels BEFORE being wired to anything (spec Section 6.2, guardrail #2).
 -- Additive, isolated, reversible. Rollback: DROP TABLE public.intel_eval_set;
 -- RLS enabled with NO policies => service_role/admin only (deny-by-default per DATABASE_CONTROL.md).
 
--- Converted to a no-op stub on 2026-07-20: re-running the CREATE TABLE
--- below fails ("relation already exists"). Confirmed live via
--- information_schema.columns that public.intel_eval_set already exists
--- (24 columns, this file's 21 plus later additions) -- the real work was
--- already applied to production under the neighboring version
--- 20260714224152 (same filename, applied ~6 hours later that day).
-SELECT 1;
+create table public.intel_eval_set (
+  id                 uuid primary key default gen_random_uuid(),
+  signal_id          text not null unique
+                       references public.signals(id) on delete cascade,
+
+  -- ── Human ground-truth labels (spec Section 6.1 contract) ──
+  quality_label      text check (quality_label in
+                       ('signal','boilerplate','spam','nav','duplicate')),
+  content_type       text check (content_type in
+                       ('regulatory','market','story','research','noise')),
+  impact             text check (impact in ('high','medium','low')),
+  label_notes        text,
+  labeled_by         text,           -- 'human:<id>', mirrors spec 4.2 reviewed_by convention
+  labeled_at         timestamptz,
+
+  -- ── First-pass draft labels (assistant-suggested, kept SEPARATE from human truth) ──
+  -- so precision/recall at Stage 2 can be computed on human-confirmed rows only, and so
+  -- draft-vs-human agreement is measurable. Drafts NEVER count as ground truth.
+  draft_quality_label text check (draft_quality_label in
+                       ('signal','boilerplate','spam','nav','duplicate')),
+  draft_content_type  text check (draft_content_type in
+                       ('regulatory','market','story','research','noise')),
+  draft_impact        text check (draft_impact in ('high','medium','low')),
+  draft_reason        text,
+
+  -- ── Workflow state ──
+  label_status       text not null default 'unlabeled'
+                       check (label_status in
+                       ('unlabeled','drafted','confirmed','corrected','unlabelable')),
+
+  -- ── Sample snapshot (self-contained: signals.score/lang/etc. will change under Stage 2+) ──
+  sample_stratum     text not null,
+  sample_batch       text not null default 'stage0-v1-20260714',
+  score_at_sample    int4,
+  lang_at_sample     text,
+  country_at_sample  text,
+  top_lane_at_sample text,
+
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+alter table public.intel_eval_set enable row level security;
+
+comment on table  public.intel_eval_set is
+  'Stage 0 labeled evaluation set for the intelligence classifier. Human labels are ground truth; draft_* columns are assistant first-pass suggestions and are NOT ground truth. See docs/INTELLIGENCE_ARCHITECTURE_SPEC.md Section 6.2.';
+comment on column public.intel_eval_set.quality_label is 'Human ground-truth: signal|boilerplate|spam|nav|duplicate';
+comment on column public.intel_eval_set.content_type  is 'Human ground-truth: regulatory|market|story|research|noise';
+comment on column public.intel_eval_set.draft_quality_label is 'Assistant first-pass suggestion — never counts as ground truth';
+comment on column public.intel_eval_set.label_status is 'unlabeled -> drafted -> confirmed|corrected; unlabelable = dead/empty source';
+
+create index intel_eval_set_status_idx  on public.intel_eval_set (label_status);
+create index intel_eval_set_stratum_idx on public.intel_eval_set (sample_stratum);

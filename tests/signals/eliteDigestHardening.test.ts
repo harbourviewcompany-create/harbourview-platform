@@ -19,10 +19,11 @@ const mapper = readFileSync(
   resolve(process.cwd(), 'lib/dashboard/mapPublicToDashboardSignal.ts'),
   'utf8',
 )
-const mobileCommandCentre = readFileSync(
-  resolve(process.cwd(), 'components/dashboard/MobileCommandCentre.tsx'),
-  'utf8',
-)
+// components/dashboard/MobileCommandCentre.tsx was deleted by dbd23813
+// ("refactor(command-centre): remove superseded mobile monolith", 4812 lines) and
+// replaced by MobileCommandCentreRebuild.tsx, which is a rewrite rather than a
+// rename. Reading it here threw at import time, so this whole file collected zero
+// tests and all five of its assertions were silently dead.
 
 describe('Elite Digest release hardening', () => {
   it('restricts all four internal RPCs to service_role', () => {
@@ -83,13 +84,13 @@ describe('Elite Digest release hardening', () => {
     expect(mapper).toContain("import { cleanPlainText } from '@/lib/utils/htmlEntities'")
   })
 
-  it('renders the actual string-array jurisdiction playbook shape on mobile', () => {
-    expect(mobileCommandCentre).toContain(
-      'jurisdictionPlaybook.steps.slice(0, 5).map((step, i) =>',
-    )
-    expect(mobileCommandCentre).not.toContain('key={s.step}')
-    expect(mobileCommandCentre).toContain(
-      'const regulatorNames = [regulators.primary, ...regulators.secondary].filter(Boolean)',
-    )
-  })
+  // Removed with the component it pinned. This asserted three exact source
+  // fragments of the deleted mobile monolith -- a specific
+  // jurisdictionPlaybook.steps.slice(0, 5).map call, the absence of key={s.step},
+  // and a specific regulatorNames line. None of the three appears anywhere in
+  // components/ or app/ today, so there is no successor to repoint it at; the
+  // rebuild renders this differently. Kept as a note rather than silently
+  // dropped, since the behaviour it guarded -- that the mobile playbook renders
+  // the string-array shape -- is worth a test against
+  // MobileCommandCentreRebuild.tsx if someone wants to reinstate it.
 })

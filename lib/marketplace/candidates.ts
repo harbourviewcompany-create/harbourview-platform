@@ -141,7 +141,7 @@ async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<Ad
 
 export async function listSources(): Promise<AdminResult<SourceRegistryRow[]>> {
   return adminRequest<SourceRegistryRow[]>(
-    '/rest/v1/source_registry?select=*&order=created_at.desc&limit=100',
+    '/rest/v1/marketplace_source_registry?select=*&order=created_at.desc&limit=100',
   );
 }
 
@@ -149,14 +149,14 @@ export async function getSourceDetail(id: string): Promise<AdminResult<{ source:
   if (!UUID_PATTERN.test(id)) return { ok: false, error: requestFailed('Invalid source id.') };
 
   const sourceResult = await adminRequest<SourceRegistryRow[]>(
-    `/rest/v1/source_registry?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
+    `/rest/v1/marketplace_source_registry?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   );
   if (!sourceResult.ok) return sourceResult as any;
   const source = sourceResult.data[0];
   if (!source) return { ok: false, error: requestFailed('Source not found.') };
 
   const snapshotsResult = await adminRequest<SourceSnapshotRow[]>(
-    `/rest/v1/source_snapshots?source_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.desc`,
+    `/rest/v1/marketplace_source_snapshots?source_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.desc`,
   );
   if (!snapshotsResult.ok) return snapshotsResult as any;
 
@@ -192,14 +192,14 @@ export async function getCandidateDetail(id: string): Promise<AdminResult<Candid
 
   if (candidate.snapshot_id) {
     const snapshotResult = await adminRequest<SourceSnapshotRow[]>(
-      `/rest/v1/source_snapshots?id=eq.${encodeURIComponent(candidate.snapshot_id)}&select=*&limit=1`,
+      `/rest/v1/marketplace_source_snapshots?id=eq.${encodeURIComponent(candidate.snapshot_id)}&select=*&limit=1`,
     );
     if (!snapshotResult.ok) return snapshotResult as any;
     snapshot = snapshotResult.data[0] ?? null;
 
     if (snapshot?.source_id) {
       const sourceResult = await adminRequest<SourceRegistryRow[]>(
-        `/rest/v1/source_registry?id=eq.${encodeURIComponent(snapshot.source_id)}&select=*&limit=1`,
+        `/rest/v1/marketplace_source_registry?id=eq.${encodeURIComponent(snapshot.source_id)}&select=*&limit=1`,
       );
       if (!sourceResult.ok) return sourceResult as any;
       source = sourceResult.data[0] ?? null;
@@ -207,7 +207,7 @@ export async function getCandidateDetail(id: string): Promise<AdminResult<Candid
   }
 
   const eventsResult = await adminRequest<CandidateReviewEvent[]>(
-    `/rest/v1/candidate_review_events?candidate_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.desc`,
+    `/rest/v1/marketplace_candidate_review_events?candidate_id=eq.${encodeURIComponent(id)}&select=*&order=created_at.desc`,
   );
   if (!eventsResult.ok) return eventsResult as any;
 
@@ -291,7 +291,7 @@ export async function updateCandidateStatus({
   if (!updateResult.ok) return updateResult as any;
 
   const eventResult = await adminRequest<CandidateReviewEvent[]>(
-    '/rest/v1/candidate_review_events?select=*',
+    '/rest/v1/marketplace_candidate_review_events?select=*',
     {
       method: 'POST',
       headers: { Prefer: 'return=representation' },

@@ -997,14 +997,22 @@ CREATE POLICY "project_vault_admin_update" ON public."project_vault"
    FROM user_roles ur
   WHERE ((ur.user_id = (SELECT auth.uid())) AND (ur.role = 'admin'::text)))));
 
-DROP POLICY IF EXISTS "schema_drift_alerts_admin_only" ON public."schema_drift_alerts";
-CREATE POLICY "schema_drift_alerts_admin_only" ON public."schema_drift_alerts"
-  AS PERMISSIVE
-  FOR ALL
-  TO PUBLIC
-  USING ((EXISTS ( SELECT 1
-   FROM user_roles
-  WHERE ((user_roles.user_id = (SELECT auth.uid())) AND (user_roles.role = 'admin'::text)))));
+DO $guard_schema_drift_alerts_policy$
+BEGIN
+  IF to_regclass('public.schema_drift_alerts') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "schema_drift_alerts_admin_only" ON public."schema_drift_alerts"';
+    EXECUTE $policy$
+      CREATE POLICY "schema_drift_alerts_admin_only" ON public."schema_drift_alerts"
+        AS PERMISSIVE
+        FOR ALL
+        TO PUBLIC
+        USING ((EXISTS ( SELECT 1
+         FROM user_roles
+        WHERE ((user_roles.user_id = (SELECT auth.uid())) AND (user_roles.role = 'admin'::text)))))
+    $policy$;
+  END IF;
+END
+$guard_schema_drift_alerts_policy$;
 
 DROP POLICY IF EXISTS "signal_digest_log_user_read" ON public."signal_digest_log";
 CREATE POLICY "signal_digest_log_user_read" ON public."signal_digest_log"

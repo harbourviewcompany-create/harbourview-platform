@@ -40,3 +40,8 @@ tmp-test-*.bin
 !.env.example
 .claude/worktrees/
 .sentryclirc
+
+# Supabase CLI scratch written by `supabase start`. Contains a start-secrets
+# directory; must never be committed. The candidate workflow does `git add -A`,
+# so without this it would commit local dev secrets into the repository.
+supabase/.temp/

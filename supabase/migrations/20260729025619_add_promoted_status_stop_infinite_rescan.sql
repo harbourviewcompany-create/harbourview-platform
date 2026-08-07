@@ -1,4 +1,46 @@
--- Fix: processing_status never advanced past 'extracted' after a snapshot was\n-- promoted to signals, so promote_all_extracted_snapshots() (the daily catch-up\n-- cron) re-scanned the entire historical pool of extracted snapshots every run,\n-- forever -- not a shrinking backlog. Harmless (signal_id is a deterministic hash\n-- and the INSERT uses ON CONFLICT DO NOTHING, so no duplicate signals could ever\n-- result) but wasteful, and made "backlog remaining" a meaningless metric.\n--\n-- Also explains why snapshots could sit unpromoted for a while even with\n-- trg_promote_snapshot (AFTER INSERT OR UPDATE OF processing_status) in place:\n-- that trigger only fires on a transition INTO 'extracted'. If signal_candidates\n-- gets populated by a later UPDATE that does not touch processing_status (already\n-- 'extracted'), the trigger never fires, and only the daily cron would ever catch\n-- it -- which is why the fix here matters for both paths, not just the cron one.\n--\n-- Fix: widen the processing_status CHECK constraint to allow a new terminal\n-- 'promoted' value, and have promote_snapshot_to_signals() set it (or 'skipped'/\n-- 'failed' for its early-exit paths) once a snapshot has actually been considered.\n-- Verified end-to-end: ran the daily batch twice after this change -- first run\n-- cleared the full backlog (4,140 snapshots, 1,685 additional signals promoted\n-- beyond what an earlier manual run under the previous code already added),\n-- second run processed exactly 0, confirming re-scanning has stopped.\n--\n-- Applied directly to production via Supabase MCP; committed here per\n-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).\n\nALTER TABLE public.source_snapshots DROP CONSTRAINT source_snapshots_processing_status_check;
+-- Repaired 2026-08-05. The comment block below was committed as one physical
+-- line carrying literal backslash-n escapes instead of real newlines, and the
+-- last thing on that line was this migration's first statement, the
+-- DROP CONSTRAINT. The leading `--` commented it out, so replay went straight
+-- to the ADD CONSTRAINT on the next line and collided with the constraint the
+-- DROP was supposed to have removed:
+--   ERROR: constraint "source_snapshots_processing_status_check" for relation
+--   "source_snapshots" already exists (SQLSTATE 42710)
+--
+-- Fourth and last instance of this defect on this branch, after 20260727105241,
+-- 20260727212340 and 20260728201438. Only the escapes were expanded; both
+-- statements are unchanged and still match the live ledger row exactly:
+--   ALTER TABLE ... DROP/ADD CONSTRAINT   383 chars, md5 5fc1cb510e7dae52b6ba1baa6e9be9d6
+--   promote_snapshot_to_signals          5726 chars, md5 13f508342c5b724d44ffb380bb82322f
+-- The ledger records the DROP and ADD as one statement, which is why the two
+-- together hash as a single 383-character entry.
+
+-- Fix: processing_status never advanced past 'extracted' after a snapshot was
+-- promoted to signals, so promote_all_extracted_snapshots() (the daily catch-up
+-- cron) re-scanned the entire historical pool of extracted snapshots every run,
+-- forever -- not a shrinking backlog. Harmless (signal_id is a deterministic hash
+-- and the INSERT uses ON CONFLICT DO NOTHING, so no duplicate signals could ever
+-- result) but wasteful, and made "backlog remaining" a meaningless metric.
+--
+-- Also explains why snapshots could sit unpromoted for a while even with
+-- trg_promote_snapshot (AFTER INSERT OR UPDATE OF processing_status) in place:
+-- that trigger only fires on a transition INTO 'extracted'. If signal_candidates
+-- gets populated by a later UPDATE that does not touch processing_status (already
+-- 'extracted'), the trigger never fires, and only the daily cron would ever catch
+-- it -- which is why the fix here matters for both paths, not just the cron one.
+--
+-- Fix: widen the processing_status CHECK constraint to allow a new terminal
+-- 'promoted' value, and have promote_snapshot_to_signals() set it (or 'skipped'/
+-- 'failed' for its early-exit paths) once a snapshot has actually been considered.
+-- Verified end-to-end: ran the daily batch twice after this change -- first run
+-- cleared the full backlog (4,140 snapshots, 1,685 additional signals promoted
+-- beyond what an earlier manual run under the previous code already added),
+-- second run processed exactly 0, confirming re-scanning has stopped.
+--
+-- Applied directly to production via Supabase MCP; committed here per
+-- docs/control/CONCURRENT_SESSION_COORDINATION.md (same-turn convention).
+
+ALTER TABLE public.source_snapshots DROP CONSTRAINT source_snapshots_processing_status_check;
 ALTER TABLE public.source_snapshots ADD CONSTRAINT source_snapshots_processing_status_check
   CHECK (processing_status = ANY (ARRAY['pending'::text, 'pending_extraction'::text, 'processing'::text, 'extracted'::text, 'translated'::text, 'promoted'::text, 'failed'::text, 'skipped'::text]));
 

@@ -220,6 +220,10 @@ begin
   delete from public.source_import_rejections
   where source_import_rejections.batch_id = p_batch_id;
 
+  drop table if exists pg_temp.tmp_source_import_upserted;
+  drop table if exists pg_temp.tmp_source_import_valid;
+  drop table if exists pg_temp.tmp_source_import_records;
+
   create temp table tmp_source_import_records on commit drop as
   select
     row_number() over ()::integer as row_index,
@@ -279,7 +283,9 @@ begin
     and country is not null
   order by normalized_url, tier nulls last, row_index;
 
-  create temp table tmp_source_import_upserted on commit drop as
+  create temp table tmp_source_import_upserted (was_inserted boolean not null) on commit drop;
+
+  with upserted as (
   insert into public.source_registry (
     source_name,
     source_type,
@@ -353,7 +359,10 @@ begin
     requires_translation = excluded.requires_translation,
     frequency = excluded.frequency,
     updated_at = now()
-  returning (xmax = 0) as was_inserted;
+  returning (xmax = 0) as was_inserted
+  )
+  insert into tmp_source_import_upserted (was_inserted)
+  select was_inserted from upserted;
 
   select
     count(*) filter (where was_inserted),

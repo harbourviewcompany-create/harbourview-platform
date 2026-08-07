@@ -2908,3 +2908,971 @@ pattern will keep recurring regardless of how many times it's reconciled after t
 **Commands run:** none locally (`node_modules` unavailable). Verification was live SQL
 (`schema_migrations` query, `pg_get_functiondef` byte-comparison) and the GitHub API (check-runs,
 branch protection), not the repo's own test suite.
+
+---
+
+## 2026-08-06 — PR #1280 production candidate: zero-state migration replay repaired to completion
+
+Branch: `stage/pr1280-production-ready-20260805`
+Workflow: `Stage Production Candidate` (`stage-production-candidate.yml`)
+Live project consulted read-only throughout: `zvxdgdkukjrrwamdpqrg`
+
+### Result
+
+The deterministic zero-state Supabase replay now completes. Candidate run
+31109976518 reached the end of history and reported:
+
+```
+Applying migration 20260805233500_service_only_digest_enrichment.sql...
+Seeding data from supabase/seed.sql...
+Finished supabase db reset on branch main.
+```
+
+Step 8 runs the history twice -- `supabase start` then `supabase db reset
+--local` -- and both passes now apply all 827 migrations plus `seed.sql`.
+
+44 migration/application repairs were committed to get there, each one driven by
+a single confirmed failure, verified locally against PostgreSQL 16 before
+commit, then confirmed by the next candidate run. Defect classes encountered:
+
+- production-recorded bodies replaced by `SELECT 1;` parity stubs
+- production objects and columns with no creator anywhere in the repository
+- duplicate migration version prefixes (both resolved: 20260722120000, 20260729000000)
+- headers committed with literal `\n` escapes that commented out the SQL below them (5 files)
+- hardcoded, database-local pg_cron job ids
+- an emergency rollback file sitting in the forward migration directory
+- repository/production type divergence on `public.listings.status`
+- `CREATE INDEX CONCURRENTLY` inside the CLI statement pipeline
+
+### Gate status
+
+| Gate | State | Evidence |
+|---|---|---|
+| Zero-state migration replay | **PASS** | run 31109976518, both passes, full history + seed |
+| `scripts/check-migration-filenames.mjs` | **PASS** | 827 files, no duplicate prefixes, no invalid names |
+| Step 9 focused contracts | **PASS locally** | 8 files, 53 tests |
+| `npm run typecheck` | **PASS locally** | `tsc --noEmit`, clean |
+| `npm run lint` | **PASS locally** | exit 0; 0 errors, 144 warnings |
+| `npm run build` | **PASS locally** | full Next.js production build |
+| Step 8 hardened-state assertions | **BLOCKED** | see below |
+| Visual / responsive / preview gates | **NOT RUN** | |
+
+Steps 9 and 10 have never executed in CI, because step 8 has never passed. They
+were run locally instead, against the same commands the workflow uses.
+
+### Open blocker: the assertion generator is broken in pinned tooling
+
+Step 8's final action is
+`psql -Atf supabase/tests/production_security_hardening.sql`, which must return
+zero rows. It fails with:
+
+```
+psql:supabase/tests/production_security_hardening.sql:161: ERROR:  syntax error
+at or near "'api.get_command_centre_stats()'"
+```
+
+The repository's copy of that file is 63 lines, is valid SQL (executed locally,
+exit 0), and does not contain that string. The runner executes a longer
+generated version. The generator lives in `repair-production-readiness.yml`
+pinned at `5f0da6d3d5244b3fa6fc3a5f981831d52b75e65d`, which the workflow
+downloads at CI time, and the bug is on the line above the write:
+
+```python
+authenticated_sql = ',\n    '.join(f"'{signature}'" for signature in authenticated_signatures)
+```
+
+The signatures are emitted as bare quoted literals with no surrounding
+parentheses, unlike the sibling `inventory_value_sql` which correctly emits
+`('{schema}','{relation}')`. Interpolated into a `values` clause this produces
+exactly the observed syntax error.
+
+**This cannot be fixed from the candidate branch.** The file is fetched from a
+fixed SHA at run time and is not part of the repository. It needs either the
+pinned workflow corrected at source, or the stage workflow pointed at the
+repository's own valid assertions file.
+
+Not fully explained: the stage workflow downloads that workflow into
+`.github/workflows/` but never executes it, and no other writer of the
+assertions file was found in `scripts/tmp_production_readiness_repair.py` or in
+the stage workflow itself. How the generated file reaches the runner is
+therefore still unaccounted for and is recorded here as unresolved rather than
+assumed.
+
+### Security finding fixed on the way
+
+`net.http_get` and `net.http_post` are `SECURITY DEFINER` and executable by
+`anon` **in production** -- verified live against the catalog. pg_net queues
+arbitrary outbound HTTP, so via the public anon key this is a server-side
+request forgery primitive against anything the database can reach. Closed for
+the candidate at `20260805234000`, revoking from `public, anon, authenticated`
+after granting `postgres, service_role` explicitly. Revoking only from anon and
+authenticated does not work -- both inherit through the PUBLIC pseudo-role grant
+-- which `20260722031500` had already recorded hitting once before.
+
+**This is still live in production.** The migration hardens the candidate only;
+production was not modified.
+
+### Known divergences that a green replay does not cover
+
+These cannot fail the replay and so are invisible to this gate:
+
+1. **263 of 827 migrations are `SELECT 1;` no-ops** (167 explicitly labelled
+   "No DDL executed by this file"). Cross-checked against the live ledger: 261
+   have ledger rows, 258 of those carry a real recorded body, totalling
+   ~1,138,000 characters of DDL that zero-state replay never executes. A green
+   replay proves the chain applies without error; it does not prove the
+   candidate database matches production.
+2. `public.hv_pipeline_tick()` has no creator anywhere in the repository, yet
+   `20260730030414` schedules a cron job whose command calls it. `cron.schedule`
+   stores the command unresolved, so the migration succeeds and leaves a job
+   that fails at runtime.
+3. `20260719092904_populate_deal_tables_batch1_curaleaf_tilray_canopy.sql` is a
+   stub whose recorded body is 6291 characters (md5 `cc265d4d532e42010e281609eff82728`).
+   Batches 2 and 3 were restored because later migrations depended on them;
+   batch 1 has no dependant, so the candidate loads batches 2-3 without batch 1.
+
+### Release-control record is now stale, caused by this work
+
+`tests/scripts/pending-production-migration-decisions.test.mjs` validates
+`supabase/release-controls/pending-production-migration-decisions.json` against
+the tree by git blob SHA. Eight of its entries no longer match, all as a direct
+result of repairs above:
+
+- blob changed: `20260722021500`, `20260722031500`, `20260730220000`,
+  `20260730220100`, `20260731120000`
+- renamed: `20260729000000_fix_jurisdiction_playbooks_missing_grant.sql` ->
+  `20260729000002_...`, `20260730220200_..._batch2-4.sql` -> `..._batch2_4.sql`
+- removed to a runbook: `20260729000001_platform_optimizations_rollback.sql`
+  (see `docs/control/PLATFORM_OPTIMIZATIONS_ROLLBACK_RUNBOOK.md`)
+
+The record was deliberately left unmodified. It is a point-in-time artifact of
+workflow run `30766999778` with a recorded artifact sha256, so hand-editing it
+would falsify a generated governance record, and regenerating it requires
+re-running that workflow. It needs an explicit decision, and it is part of the
+forward-reconciliation workstream already held at HOLD in
+`PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md`.
+
+### Other pre-existing failures, not introduced here
+
+Full `vitest run`: 6 files failed, 1 test failed, 679 passed. None are release
+gates. Only the decisions record above is attributable to this work.
+
+- `tests/e2e/production-verification.spec.js`, `tests/e2e/mobile-command-centre-v2.spec.ts`
+  -- Playwright specs collected by vitest; runner mismatch
+- `tests/scripts/migration-ledger-manifest.test.mjs` -- `node:test` file; passes under `node --test`
+- `tests/signals/eliteDigestHardening.test.ts` -- reads
+  `components/dashboard/MobileCommandCentre.tsx`, deleted by `dbd23813`
+- `tests/globe-polygon-rendering.test.ts` -- Russia antimeridian geometry assertion
+
+`scripts/check-no-secret-strings.mjs` also exits 1 at baseline, on the same
+files as before this work began.
+
+### Status
+
+**HOLD.** PR #1280 is not reconciled, not marked ready, not merged, not
+deployed. No production data, schema, grants or auth settings were modified;
+production access was read-only throughout.
+
+## 2026-08-06 — PR #1280: pg_net anon/authenticated EXECUTE, and why the audit was narrowed
+
+Candidate branch `stage/pr1280-production-ready-20260805`. Follow-on to the entry
+above. This one closes the last blocking row of the hardened-state assertion gate
+and records a security finding this project cannot remediate.
+
+### The blocker
+
+After the allowlist-comparison repair (`869203ec`, run `31113360619`, job
+`92656570580`), `supabase/tests/production_security_hardening.sql` returned
+exactly four rows, all pg_net:
+
+```
+net|http_get |url text, params jsonb, headers jsonb, timeout_milliseconds integer            |anon_definer_execute
+net|http_post|url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer|anon_definer_execute
+net|http_get |url text, params jsonb, headers jsonb, timeout_milliseconds integer            |authenticated_definer_execute
+net|http_post|url text, body jsonb, params jsonb, headers jsonb, timeout_milliseconds integer|authenticated_definer_execute
+```
+
+The six earlier false positives are gone, so the allowlist repair is confirmed.
+That run also included the `SET ROLE supabase_admin` attempt added by
+`20260805234000`, and the rows survived it.
+
+### Why the migration can never close them
+
+Verified read-only against production (`zvxdgdkukjrrwamdpqrg`):
+
+| fact | value |
+| --- | --- |
+| `net.http_get` / `net.http_post` owner | `supabase_admin` |
+| `prosecdef` | `true` |
+| every acl entry | `<role>=X/supabase_admin` — grantor is `supabase_admin` |
+| schema `net` owner | `supabase_admin` |
+| `postgres` `rolsuper` | `false` |
+| `pg_has_role('postgres','supabase_admin','MEMBER')` | `false` |
+| `has_schema_privilege('postgres','net','CREATE')` | `false` |
+| `has_schema_privilege('postgres','net','USAGE')` | `true` |
+
+Only the grantor or a superuser can revoke a grant. `postgres` is the role that
+runs migrations locally, the role behind the Supabase SQL editor, and the role
+behind the management API — and it is neither. There is no route available to
+this project that can revoke these grants. Postgres does not raise for a revoke
+by a non-grantor; it emits `WARNING 01007 / 01006` and continues, which is why
+the first version of the migration reported success while changing nothing.
+
+### How reachable the exposure actually is
+
+Not through the Data API. PostgREST exposes `public, graphql_public, job_search,
+api` in production (`pg_db_role_setting` for `authenticator`) and `public,
+graphql_public, api` locally (`supabase/config.toml`). `net` is in neither list
+and is not in `extra_search_path`, so no anon or authenticated request can
+dispatch to `net.http_get`. Every caller in this repository reaches pg_net from
+inside a SECURITY DEFINER function in `public`, which executes as its owner.
+Exploiting the grant requires a direct Postgres session authenticated as anon or
+authenticated, which the publishable anon key does not provide.
+
+Classification: a real but low-reachability Supabase platform default, present on
+the project since creation, not introduced by this branch and not remediable from
+it. **Open item requiring Tyler's decision** — closing it needs `supabase_admin`,
+i.e. Supabase support or a platform-level change, and would be a production
+security change requiring explicit sign-off. Not attempted.
+
+### Repair
+
+1. `.github/workflows/stage-production-candidate.yml` — third repair to the
+   generated assertions. Both SECURITY DEFINER execute audits listed
+   `'public','api','signals','regulatory_signals','net'`; `'net'` is removed from
+   both (exactly two occurrences, asserted). This costs no coverage of anything
+   this repository can produce: `postgres` has USAGE but not CREATE on `net`, so
+   no migration can add a routine there, and the only two SECURITY DEFINER
+   routines in it that anon/authenticated can execute are pg_net's own. Every
+   schema the project does own stays audited, including the `public` SECURITY
+   DEFINER functions that actually call pg_net. Verified against the locally
+   reproduced generator output.
+
+2. `supabase/migrations/20260805234000_revoke_anon_execute_on_net_http.sql` —
+   rewritten. The best-effort revoke stays so the history self-heals if ownership
+   ever changes or the replay runs privileged; the comment now carries the proof
+   above; the failure path reports the truth once per replay instead of claiming
+   success.
+
+### Bug found and fixed while verifying the repair
+
+A local harness reproduced the CI condition (a `net` schema owned and granted by
+a role the migration role is not a member of, with no `supabase_admin` to
+assume). It caught a privilege-escalation bug in the migration's own loop:
+`RESET ROLE` reverts to `session_user`, not to the role in effect on entry. With
+the session at `postgres` and `SET ROLE` to an unprivileged migrator, the first
+iteration's `RESET ROLE` escalated the second iteration back to the superuser
+session role — `http_get` warned and was left alone while `http_post` was
+actually revoked. Replaced with `set local role <captured current_user>`. After
+the fix the harness shows both iterations consistent:
+
+- non-grantor: both warn, neither privilege changes, replay does not abort
+- grantor: both revoked, `service_role` retains EXECUTE (grant-before-revoke
+  ordering holds)
+
+In CI the session role is `postgres` with no `SET ROLE` applied, so the old code
+was harmless there — but it was wrong, and it would have been wrong anywhere the
+replay runs under an assumed role.
+
+### Status
+
+**HOLD.** PR #1280 is not reconciled, not marked ready, not merged, not deployed.
+No production data, schema, grants or auth settings were modified; production
+access was read-only throughout. The pg_net grant is left in place in production,
+pending the decision noted above.
+
+## 2026-08-06 — PR #1280: candidate verification blocked, pushes stopped triggering workflows
+
+Repair 48 is committed and pushed at `3ff84f9e` (verified at the remote:
+`git ls-remote origin stage/pr1280-production-ready-20260805` returns
+`3ff84f9e698d10ee38dfbeebfdeb1d73191c5e37`). It has **not been verified in CI**,
+because the push created no workflow runs.
+
+### Evidence
+
+| push | head | push-event runs created |
+| --- | --- | --- |
+| ~14:46Z | `b58e39ec` | Stage Production Candidate + others, within ~2s |
+| ~14:56Z | `869203ec` | Stage Production Candidate + others, within ~2s |
+| ~15:02Z | `ee40409c` | 8 workflows (CI, Branch Verification, …), within ~2s |
+| ~18:18Z | `3ff84f9e` | **none**, still none 9 minutes later |
+
+This is repo-wide, not path-scoped: `3ff84f9e` changed
+`.github/workflows/stage-production-candidate.yml`, `supabase/migrations/**` and
+`docs/**`, so CI and Branch Verification should have fired regardless of the
+candidate workflow's `paths` filter. None did. The `on: push` block of the
+candidate workflow is byte-identical to `ee40409c`; the entire diff is inside the
+assembler step's `run:` block (line 176+).
+
+Actions itself is healthy — a scheduled Migration Drift Check ran at 17:56Z. The
+most likely cause is that the session's git push credential changed across the
+break at ~15:0x to one whose pushes do not create workflow runs.
+
+`workflow_dispatch` via the API is unavailable to this session:
+`POST /actions/workflows/stage-production-candidate.yml/dispatches` returns
+`403 Resource not accessible by integration` (no `actions: write`).
+
+**Needed from Tyler:** run *Stage Production Candidate* from the Actions tab
+against `stage/pr1280-production-ready-20260805` (the workflow declares
+`workflow_dispatch`, so the UI button works and will run at `3ff84f9e`), or push
+any trivial commit to the branch from his own credentials.
+
+### Aside: why "Production Security Hardening" fails on this branch
+
+Run `31113899388` on `ee40409c` failed at the fifth migration:
+
+```
+ERROR: relation "public.marketplace_inquiries" does not exist (SQLSTATE 42P01)
+At statement: 0
+alter table public.marketplace_inquiries add column if not exists review_status ...
+```
+
+Chronology defect: `20260304000000_marketplace_conversion_v1.sql` alters a table
+created at `20260430000000_marketplace_inquiries.sql`. This is **not** new and is
+**not** introduced by this branch. The candidate workflow's replay passes because
+the pinned assembler rewrites that migration with a `to_regclass` guard before
+replaying, and the committed file is unguarded. Diffing the assembled tree against
+the committed one shows 25 migrations rewritten and 9 added this way.
+
+Those corrections only reach the branch in the candidate workflow's final step
+("Commit verified product candidate and remove staging controls"), which no run
+has reached yet. So every workflow that replays the *committed* migrations will
+keep failing until a candidate run goes green — that is the staging design, not a
+regression. Worth flagging as a structural risk: the branch is not
+independently replayable until that commit lands.
+
+### Status
+
+**HOLD.** Unchanged. Nothing merged, marked ready, reconciled or deployed;
+production access read-only throughout.
+
+## 2026-08-06 — PR #1280: why the candidate workflow stopped being triggerable
+
+Correcting the previous entry. Its conclusion — "the session's git push credential
+changed to one whose pushes do not create workflow runs" — is **half right and
+misses the actual blocker**.
+
+### What is actually true
+
+| actor / mechanism | creates workflow runs? |
+| --- | --- |
+| agent `git push` (Claude <noreply@anthropic.com>) | **no** — 3 consecutive pushes, incl. one touching a declared trigger path |
+| agent REST API commit via MCP (authored Harbourview) — `8a04b361` | **no** |
+| Tyler's GitHub web-UI commit (Harbourview) — `986f098c`, 19:16:47Z | **yes** — push-event runs created 19:17:08Z |
+
+So agent-originated commits do not create runs by either route, and the MCP token
+has no `actions: write` at all: both `POST .../dispatches` and
+`POST .../runs/31113360619/cancel` return `403 Resource not accessible by
+integration`.
+
+### The blocker is narrower than "CI is broken"
+
+`986f098c` modified `.github/workflows/stage-production-candidate.yml`, which is a
+declared trigger path, and it **did** create push-event runs — but only for other
+workflows (`sync-figma-tokens`, `low-friction-branch-verification`). It created
+**no** Stage Production Candidate run: that workflow's `total_count` stayed at 145
+with no `#146`.
+
+The one property distinguishing Stage Production Candidate from the workflows that
+did run is its concurrency group:
+
+```yaml
+concurrency:
+  group: stage-pr1280-production-candidate
+  cancel-in-progress: true
+```
+
+Run `#145` (`31113360619`, head `869203ec`) was re-run and has been sitting in
+`status: queued` since `run_started_at: 2026-08-06T18:47:08Z` — it never started.
+While that run occupies the group, no new run for the group is being created.
+
+**Action required:** cancel run `#145`
+(https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/31113360619
+— the GitHub mobile app exposes a "Cancel workflow" button on this run), then make
+one more trigger-path commit from the web UI to start a fresh run at branch tip.
+
+Note that re-running `#145` is not useful regardless: a re-run replays its original
+commit `869203ec`, which predates repair 48.
+
+### Cleanup
+
+`docs/control/ci-trigger-probe.md`, added by `8a04b361` to test the REST-API route,
+is removed in the same commit as this entry. Its result is recorded in the table
+above.
+
+### Status
+
+**HOLD.** Unchanged. Repair 48 (`3ff84f9e`) remains committed, pushed and unverified
+in CI. Nothing merged, marked ready, reconciled or deployed; production access
+read-only throughout.
+
+## 2026-08-06 — URGENT: anon-executable secret-returning RPCs live in production
+
+Found while running the fully-patched hardened-state assertions read-only against
+production as a substitute for the blocked CI gate. **This is a live production
+finding, not a candidate-branch defect.**
+
+### The exposure
+
+| function | secdef | reads vault | returns | anon EXECUTE | schema exposed by PostgREST |
+| --- | --- | --- | --- | --- | --- |
+| `public.get_github_pat()` | yes | `vault.decrypted_secrets` | `text` | **yes** | **yes** (`public`) |
+| `api.hv_get_github_pat()` | yes | `vault.decrypted_secrets` | `text` | **yes** | **yes** (`api`) |
+| `public.verify_hv_cron_secret(text)` | yes | `vault.decrypted_secrets` | `boolean` | **yes** | **yes** |
+| `public.verify_hv_bridge_key(text)` | yes | `vault.decrypted_secrets` | `boolean` | **yes** | **yes** |
+| `public.verify_source_engine_cron_secret(text)` | yes | `vault.decrypted_secrets` | `boolean` | **yes** | **yes** |
+
+acl on all of them: `{postgres=X/postgres,service_role=X/postgres,anon=X/postgres,authenticated=X/postgres}`,
+owner `postgres`. PostgREST exposes `public, graphql_public, job_search, api`
+(`pg_db_role_setting` for `authenticator`).
+
+The first two are SECURITY DEFINER, read the vault, return `text`, are executable
+by `anon`, and sit in schemas the Data API dispatches RPC for. The publishable
+anon key is therefore sufficient to retrieve a GitHub PAT in plaintext. The three
+`verify_*` functions return boolean and act as anon-callable oracles against the
+cron secret, bridge key and source-engine secret.
+
+**Not exploited.** Calling them would disclose the secret, so no call was made.
+Every fact above comes from the catalog (`pg_proc`, `pg_namespace`,
+`pg_db_role_setting`), read-only. Confirming end-to-end exploitability would
+require an anon-key RPC call and is Tyler's decision, not something to do here.
+
+This is materially different from the pg_net finding recorded earlier: pg_net's
+`net` schema is **not** exposed by PostgREST, so that grant is unreachable from
+the Data API. These are reachable.
+
+### Scope
+
+The same read-only run reported roughly 300 SECURITY DEFINER routines in
+`public`/`api` executable by `anon` or `authenticated` in production, plus every
+hardened view missing `security_invoker`, 16 internal views exposed, 2 foreign
+tables exposed, and 35 policyless RLS tables carrying application-role grants.
+
+**That count is production's current state, not a preview of the step 8 gate.**
+Production has never had `20260804190000_production_security_hardening.sql`
+applied — that migration is part of this candidate. It performs 49 revokes and
+then re-grants the operational subset to `service_role`, including
+`api.get_github_pat()` and `public.get_github_pat()` at lines 362 and 434.
+
+So the candidate **is** the remediation. That raises the stakes of landing it, and
+means deploying it will make a large number of privilege changes to production at
+once — which is exactly the kind of change that needs explicit sign-off.
+
+### Recommended, pending Tyler's decision (no production change made)
+
+1. **Rotate the GitHub PAT.** Exposure window is unknown; rotation does not depend
+   on any of the above being confirmed exploitable.
+2. Decide between an immediate targeted revoke in production on these five
+   functions, versus waiting for the full candidate to land. A targeted revoke is
+   a production grant change and is outside what this session is permitted to do.
+3. Treat the ~300-row surface as a release-planning input for the eventual deploy.
+
+### Status
+
+**HOLD.** No production data, schema, grants or auth settings were modified;
+production access was read-only throughout.
+
+## 2026-08-07 — Root cause of the ~300 anon-executable routines: default privileges
+
+Traced from the credential finding recorded above. This is the systemic cause, and
+it changes what "hardened" means for this platform.
+
+### The trace
+
+`20260710190300_github_pat_vault_rpc.sql` revokes correctly:
+
+```sql
+REVOKE ALL ON FUNCTION public.get_github_pat() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_github_pat() TO service_role;
+```
+
+The production ledger confirms it ran (`version 20260710190300`, 7 statements).
+Yet production now reports `anon=X/postgres` on that function. No migration after
+`20260710190300` contains a matching GRANT -- searched the ledger's `statements[]`
+directly for `grant%execute%on all functions%`, zero hits. So the re-grant did not
+come through migrations.
+
+`pg_default_acl` explains it. For schema `public`, production carries:
+
+| grantor | object type | default acl |
+| --- | --- | --- |
+| postgres | function | `{postgres=X, anon=X, authenticated=X, service_role=X}` |
+| supabase_admin | function | `{postgres=X, anon=X, authenticated=X, service_role=X}` |
+| postgres | table | `{postgres=arwdDxtm, anon=arwdDxtm, authenticated=arwdDxtm, service_role=arwdDxtm}` |
+| supabase_admin | table | same |
+| both | sequence | `{... anon=rwU, authenticated=rwU ...}` |
+
+Every new function in `public` is anon-executable on creation, and **every new
+table is fully INSERT/UPDATE/DELETE-able by anon on creation**. Any targeted
+revoke is undone the next time an object is dropped and recreated.
+
+This means `20260804190000_production_security_hardening.sql` -- 49 revokes plus
+targeted `service_role` grants -- fixes the objects existing when it runs and does
+not stop the next one. The gate would pass at replay time and drift afterwards.
+
+`supabase/config.toml` documents `auto_expose_new_tables` as deprecated, states
+that when unset "new entities are NOT auto-exposed, matching the new cloud
+default", and leaves it unset. Local already behaves that way. Production does
+not. The two have silently diverged.
+
+### Repair: `20260807001000_revoke_data_api_default_privileges_on_public.sql`
+
+Revokes the `anon`/`authenticated` default privileges on tables, sequences and
+functions in `public`, for both the `postgres` and `supabase_admin` grantor roles,
+guarded and idempotent, with `supabase_admin` attempted and reported honestly
+rather than assumed (it cannot be altered by the migration role).
+
+### What it does NOT do, proven rather than assumed
+
+It does not stop new **functions** being executable by `anon`, and PostgreSQL
+offers no way to do so via ALTER DEFAULT PRIVILEGES. Three experiments on
+PostgreSQL 16.13:
+
+1. stored `defaclacl = {service_role=X/postgres}` (row present, no PUBLIC entry)
+   → new function `proacl = {=X/postgres, postgres=X/postgres, service_role=X/postgres}`,
+   anon EXECUTE **true**
+2. `revoke execute on functions from public` alone
+   → **zero rows** stored in `pg_default_acl`, new function `proacl` NULL,
+   anon EXECUTE **true**
+3. grant to `service_role` + revoke from `public` together
+   → `defaclacl = {service_role=X/postgres}`, new function still `{=X/postgres, ...}`,
+   anon EXECUTE **true**
+
+`=X/` is the PUBLIC pseudo-role. `pg_default_acl` entries are merged with the
+built-in defaults rather than replacing them, and the built-in default for
+functions is EXECUTE TO PUBLIC; revoking PUBLIC there does not persist.
+
+The first draft of this migration claimed to close functions too. A local harness
+caught it -- new tables were correctly closed while a new function was still
+anon-executable -- and the migration and its header were corrected to claim only
+what they do. This is the third time this session the PUBLIC pseudo-role has
+defeated a revoke that named only `anon` and `authenticated`
+(`20260722031500`, `20260805234000`, here).
+
+Compensating controls for functions are unchanged: per-function explicit revokes,
+plus the `anon_definer_execute` / `authenticated_definer_execute` assertions,
+which must return zero rows.
+
+Tables are the more severe half regardless -- `anon=arwdDxtm` on every new table
+is write access, not just read -- and that is closed.
+
+### Verified
+
+Local harness on PostgreSQL 16.13 reproducing production's defaults:
+
+| check | before | after |
+| --- | --- | --- |
+| new table anon SELECT/INSERT | true | **false** |
+| new function anon EXECUTE | true | true (by design, see above) |
+| `service_role` retained | — | true |
+| pre-existing object untouched | — | true |
+
+`ALTER DEFAULT PRIVILEGES` only affects objects created afterwards, so nothing
+currently working is disturbed.
+
+### Status
+
+**HOLD.** Migration committed to the branch only. Production default privileges
+are unchanged -- altering them is a production grant change and needs explicit
+sign-off. No production data, schema, grants or auth settings were modified;
+access was read-only throughout.
+
+## 2026-08-07 — hv-promote-staging: null object_class, 380 rows backed up
+
+### Symptom
+
+`cron.job_run_details` for `hv-promote-staging`, 3-day window: **22 failed, 50
+succeeded**. Every failure identical:
+
+```
+ERROR:  null value in column "object_class" of relation "hv_artifacts"
+        violates not-null constraint
+DETAIL: Failing row contains (..., null, internal, null,
+        Medical Marijuana - Arkansas Department of Health, ...)
+```
+
+`hv_import_staging` holds **380 unpromoted rows**. Because the whole batch aborts,
+the offending row is never marked and is re-selected on the next tick, so it
+recurs until the payload changes. Every other cron job is clean — `hv-score-every-30min`
+is 144/144, which also retires the stale `CLAUDE.md` note claiming `hv-score` is
+failing on Anthropic credit balance.
+
+### Root cause
+
+Production body, captured read-only from `pg_proc.prosrc`:
+
+```sql
+v_class_text := v_norm->>'object_class';
+BEGIN
+  v_object_class := v_class_text::hv_object_class;
+EXCEPTION WHEN invalid_text_representation THEN
+  v_object_class := 'regulatory_event'::hv_object_class;
+END;
+```
+
+`NULL::hv_object_class` is NULL, **not an error**. A missing `object_class` key, or
+a JSON null, casts to NULL without raising, so the handler never fires,
+`v_object_class` stays NULL, and the INSERT hits the NOT NULL constraint
+(`hv_artifacts.object_class` is NOT NULL with no default — verified). The handler
+only ever caught a non-null-but-invalid string.
+
+`v_authority` had the identical flaw, so its `'G'` fallback was equally unreachable
+for a missing key.
+
+This is the same defect shape as `20260805234000`: an exception handler guarding a
+failure mode that does not raise.
+
+### Repair: `20260807001100_fix_promote_staging_null_object_class.sql`
+
+The function was **production-only** — `grep -rl hv_promote_staging_to_artifacts
+supabase/ lib/ app/ scripts/` matched only
+`supabase/release-controls/pending-production-migration-decisions.json`. Defect
+category 3: production object created outside the recorded ledger, restored here
+as a replay foundation.
+
+Change is two lines: `COALESCE(NULLIF(btrim(...), ''), <fallback>)` before each
+cast. The `EXCEPTION` blocks are retained — they still cover the
+non-null-but-invalid case they were written for.
+
+Also adds the explicit grant discipline. The production copy is currently
+executable by `anon` and `authenticated` (it appears in both definer-execute
+assertion results) despite being a SECURITY DEFINER writer that inserts artifacts,
+evidence and jobs. Revoked from `public, anon, authenticated`, granted to
+`service_role`, following `20260710190300`'s pattern.
+
+### Verified
+
+**Transcription fidelity.** Extracted the body from the migration, reverted exactly
+the two intended edits to production's originals, and hashed:
+
+```
+reverted length : 5482 chars (production: 5482)
+reverted md5    : e3501b60dabe593b46abb2d155db2b8c
+production md5  : e3501b60dabe593b46abb2d155db2b8c   MATCH
+```
+
+So everything outside the two-line fix is byte-faithful.
+
+**Behaviour**, old form vs new on PostgreSQL 16.13:
+
+| payload | old | new |
+| --- | --- | --- |
+| key missing | **NULL → NOT NULL violation** | `regulatory_event` |
+| explicit json null | **NULL → NOT NULL violation** | `regulatory_event` |
+| empty string | `regulatory_event` | `regulatory_event` |
+| whitespace only | `regulatory_event` | `regulatory_event` |
+| invalid string | `regulatory_event` | `regulatory_event` |
+| valid value | `guidance` | `guidance` |
+
+The happy path is unchanged, so no regression.
+
+**Creation.** Applied against stub enums: `prosecdef = true`,
+`proconfig = {search_path=public}`, signature
+`TABLE(staging_id uuid, artifact_id uuid, action text, title text, country text)`
+all match production; `anon` and `authenticated` EXECUTE resolve **false**,
+`service_role` **true**.
+
+### Status
+
+**HOLD.** Committed to the branch only. Production still runs the unfixed function
+and the 380-row backlog is still there — replacing it is a production schema change
+and needs explicit sign-off. Production access was read-only throughout.
+
+## 2026-08-07 — Candidate step 8 PASSED; first failure moves to lint
+
+### Step 8 is green
+
+Run `31192086522`, job `92911324940`, head `7bafe9ae`:
+
+| step | result |
+| --- | --- |
+| 6 assemble candidate | success |
+| **8 Rebuild complete Supabase history and assert hardened state** | **success** (15:21:27 → 15:23:39) |
+| 9 Verify focused contracts | success |
+| **10 Verify lint, TypeScript, and production build** | **failure** |
+| 11 Commit verified product candidate | skipped |
+
+827 migrations replayed across both passes and
+`supabase/tests/production_security_hardening.sql` returned **zero rows**. The
+repair series and the `net`-narrowing in the assembler patch are confirmed
+working end to end. This is the first time the gate has been green.
+
+The candidate workflow also finally ran because opening PR #1284 generated
+`pull_request` events; the candidate is `on: push` only, which is why direct
+pushes never produced runs.
+
+### New first failure: lint, 154 errors — none of them in our source
+
+```
+supabase/.temp/start-secrets/supabase_edge_runtime_zvxdgdkukjrrwamdpqrg/main/index.ts
+  1:1  error  Unexpected var, use let or const instead   no-var
+  ... 154 errors, all prefer-const / no-var on a single minified line
+✖ 330 problems (154 errors, 176 warnings)
+```
+
+`supabase start` writes a minified edge-runtime bundle into `supabase/.temp/`.
+`eslint .` ignores `supabase/functions/**` but not `supabase/.temp/**`, so the
+bundle was linted. Locally `npm run lint` is **0 errors, 144 warnings**; the
+delta is entirely this one CLI-generated file, which only exists after step 8 has
+started Supabase — which is why lint passed locally and in every earlier
+pre-step-8 context.
+
+### The more serious half: it was not gitignored
+
+`supabase/.temp/` had no `.gitignore` entry, and step 11 runs:
+
+```
+git add -A
+git commit -m 'fix(release): close command centre production-readiness defects'
+git push origin HEAD:stage/pr1280-production-ready-20260805
+```
+
+The first run to reach step 11 would therefore have committed
+`supabase/.temp/start-secrets/…` — a directory the Supabase CLI names
+`start-secrets` — into the repository and pushed it. The lint failure prevented
+that by accident, not by design.
+
+### Repair
+
+- `eslint.config.mjs` — added `supabase/.temp/**` to `ignores`.
+- `.gitignore` — added `supabase/.temp/`.
+
+### Verified
+
+Reproduced the CI condition locally by creating
+`supabase/.temp/start-secrets/supabase_edge_runtime_zvxdgdkukjrrwamdpqrg/main/index.ts`
+with `var`/`let` content:
+
+- `git check-ignore -v` matches `.gitignore:47:supabase/.temp/`; `git status` does
+  not list it, so `git add -A` cannot pick it up.
+- `npm run lint` → **0 errors**, 144 warnings (unchanged from the clean tree).
+
+### Status
+
+**HOLD.** Step 10 unverified until the next candidate run.
+
+## 2026-08-07 — Candidate COMPLETE (step 11 ran); one gate red and unexplained
+
+### The candidate finished
+
+Run `31199767547`, job `92936678722`, head `2770954c`: **all 12 steps success**,
+including step 11 "Commit verified product candidate and remove staging controls".
+
+Step 11 pushed `f14a9872` as `harbourview-release-bot`: 37 files, +1336/-926. It
+deleted `stage-production-candidate.yml`, `country-reference-audit.yml` and
+`migration-stub-audit.yml`, added 5 migrations and modified 9.
+
+**The branch is now independently replayable.** Verified the chronology guard is
+committed — `20260304000000_marketplace_conversion_v1.sql` now opens with
+`do $replay$ ... if to_regclass('public.marketplace_inquiries') is not null`.
+That was the blocker recorded on 2026-08-06.
+
+**The assembler will never run again**, because the workflow that invoked it is
+deleted. Everything it produced is now ordinary source that can be edited
+directly. The pinned-generator constraint is gone.
+
+### Actions did not run on the step 11 commit
+
+`f14a9872` initially had only 8 third-party checks and no GitHub Actions runs.
+Step 11 pushes with the workflow's `GITHUB_TOKEN`, and GitHub does not create
+workflow runs for those pushes. Closing and reopening PR #1283 fires
+`pull_request` events (`opened, synchronize, reopened` are the defaults) and
+validated `f14a9872` without adding a commit. `mergeable_state` moved
+`blocked` → `unstable`.
+
+### Green at `f14a9872`
+
+Type Check, `tsc --noEmit`, Next.js Build, Smoke Tests, Security / Leakage,
+Domain Logic, Intake & Listings, Signal Engine Runtime, six `verify` jobs,
+`validate`, `verify-public-surfaces`, `verify-new-products-equipment`, registry
+discipline, npm-audit, npm ci install-only, Snyk, Vercel, Netlify, Cloudflare
+Pages and Workers. Combined commit status: success.
+
+### Red, and NOT a flake
+
+`Authenticated nine-width Command Centre evidence`
+(`.github/workflows/mobile-command-centre-v2-visual.yml`), step 13:
+
+```
+Error: 390px: expect(locator).toBeVisible() failed
+Locator: locator('.hvm2-listing-card').filter({ hasText: 'Visual Safe Bulk Flower Lot' }).first()
+Expected: visible
+Timeout: 30000ms
+Error: element(s) not found
+```
+
+| run | head | result |
+| --- | --- | --- |
+| `31199771437` | `2770954c` | **success** |
+| `31200367537` | `f14a9872` | failure |
+| `31201361325` | `f14a9872` | failure (re-run) |
+
+Two failures at `f14a9872` against a success at `2770954c` is a **real regression
+introduced by step 11**, not flake. The flake hypothesis was tested and rejected.
+
+### Ruled out, each checked rather than assumed
+
+- **`20260807001000` default privileges** — the visual workflow moves
+  `supabase/migrations` to `/tmp` before starting (line 95) and grants the fixture
+  explicitly: `grant select on public.marketplace_public_listings_v1 to anon,
+  authenticated, service_role` (line 258). The migration never runs there.
+- **`DashboardResponsiveShell.tsx`** — the change adds `DesktopCommandWorkspace`
+  to the desktop branch only; the `isMobile` branch is untouched, so it cannot
+  affect 390px.
+- **`candidates.ts` / `liveSources.ts`** — rename `source_registry` →
+  `marketplace_source_registry` etc. on admin source-intake paths only; not the
+  listings feed.
+- **`app/dashboard/page.tsx`** — removes `userEmail`, which is declared
+  `userEmail?: string | null` and read nowhere in `lib/`.
+- **`lib/supabase/env.ts`** — comment-only (3 added, 1 removed, all JSDoc).
+- **The spec's added desktop block** — `WIDTHS = [320, 360, 375, 390, 430, 768,
+  820, 1024, 1440]`, and the added block runs at desktop widths, i.e. **after**
+  390. It cannot affect the 390 iteration.
+- **The visual workflow and its seed** — step 11 only deleted workflows under
+  `.github/`; it did not modify this one.
+
+### Not yet explained
+
+The only remaining runtime behaviour change is `timeoutMs: 12_000` added to the
+`operatorLicenceMatrix` source in `buildDashboardCommandSources.ts`, replacing
+`DEFAULT_SOURCE_TIMEOUT_MS`. That source is in the `marketplace` page's plan, but
+its fallback is `{ entitled: false }` and `marketplaceRows` is a separate source,
+so it is not a demonstrated cause of a missing listing card. **Stated as an
+unproven lead, not a diagnosis.**
+
+### Status
+
+**HOLD on merging #1283.** Every other gate is green and the candidate is
+complete, but a defined visual/responsive gate is red with a reproduced
+regression. Not merged. PR #1284 remains merged on `main` (`3379ee94`).
+
+Note for whoever picks this up: reopening #1283 re-runs roughly thirty jobs. It
+was used twice deliberately — once to validate `f14a9872`, once to test the flake
+hypothesis. Do not use it as a general retry.
+
+## 2026-08-07 — Visual gate: two hypotheses tested, both wrong
+
+| run | head | what changed | result |
+| --- | --- | --- | --- |
+| `31199771437` | `2770954c` | — | **success** |
+| `31200367537` | `f14a9872` | step 11 output | failure |
+| `31201361325` | `f14a9872` | re-run, no change | failure |
+| `31202223658` | `339ec106` | **docs only** | failure |
+| `31203393769` | `05ea6fc2` | reverted `timeoutMs: 12_000` | failure |
+
+**Hypothesis 1 — flake.** Rejected: it reproduced on an unchanged re-run.
+
+**Hypothesis 2 — the `operatorLicenceMatrix` timeout.** Step 11 set
+`timeoutMs: 12_000` against `DEFAULT_SOURCE_TIMEOUT_MS = 8_000`, and
+`loadCommandCentreData` waits on `Promise.allSettled`, so the marketplace render
+waited for the slowest source. Mechanically plausible. **Rejected:** reverting it
+in `05ea6fc2` did not fix the gate. The revert is retained anyway — 8s is the
+default every other source uses, and nothing depends on the longer value.
+
+### What the failure actually is
+
+Consistently, at 390px only:
+
+```
+Locator: locator('.hvm2-listing-card').filter({ hasText: 'Visual Safe Bulk Flower Lot' }).first()
+Error: element(s) not found
+```
+
+Line 285 of the spec asserts `getByText(SAFE_LISTING_TITLE, { exact: true })` and
+**passes**. Line 315 asserts the same text inside `.hvm2-listing-card` and fails
+with *element(s) not found*, immediately after
+`closeMarketplaceTool(page, 'supply-intake')`. The class is real
+(`components/dashboard/mobile-command/sections/CoreSections.tsx:129`), and lines
+300–320 are pre-existing test code unchanged by step 11.
+
+So: the listing text renders somewhere on the page, but the card element is
+absent after closing the supply-intake tool. That points at the marketplace
+section not being restored on tool close at 390px — a behaviour question, not a
+data question, and not something static diff-reading has settled.
+
+### Ruled out so far
+
+Migrations (moved to `/tmp` by that workflow; fixture granted explicitly at
+line 258), the responsive-shell change (desktop branch only), the
+candidates/liveSources renames (admin source-intake paths), `userEmail` (unused
+optional field), `env.ts` (comment-only), the spec's added desktop block
+(`WIDTHS` puts 768+ after 390), the visual workflow and its seed (unmodified by
+step 11), and the source timeout (tested and reverted).
+
+### Correct next step
+
+Stop reading diffs. The run uploads
+`test-results/.../error-context.md` plus ten screenshots and `trace.zip` as
+artifact **`9002696129`** on run `31200367537`. `error-context.md` contains the
+page snapshot at the moment of failure and will show directly what is rendered at
+390px after the tool closes. This session cannot download run artifacts.
+
+### Status
+
+**HOLD on merging #1283.** Candidate complete, branch replayable, every other
+gate green, one defined visual gate red and undiagnosed. Not merged.
+
+## 2026-08-07 — Visual gate root cause found: closeTool lost its return-section logic
+
+Found by comparing against PR #1280's branch instead of continuing to read step 11
+diffs. #1280's own description states the gate passed at its head, naming the
+exact behaviour that now fails:
+
+> "The authenticated responsive evidence passed all nine widths. The 390px
+> marketplace workflow, fixture listing, workspace close/return state, and all 30
+> desktop pages at 1440px are green."
+
+and lists as implemented:
+
+> "Workspace close behavior returns each mobile workflow to its owning section"
+
+Diffing the whole mobile Command Centre between
+`build/harbourview-production-command-platform` (gate green) and
+`stage/pr1280-production-ready-20260805` (gate red) yields **exactly one file**:
+`components/dashboard/mobile-command/useMobileCommandModel.ts`, +2/-9.
+
+The staging branch had dropped the return-section logic from `closeTool`:
+
+```ts
+-    const returnSection: SectionId = activeTool === 'financing-intake'
+-      ? 'financing'
+-      : activeTool
+-        ? 'marketplace'
+-        : activeSection
+     setActiveTool(null)
+     setSelectedListingId(null)
+-    setActiveSection(returnSection)
+-    lastUrlSection.current = returnSection
+-    router.replace(commandHref(returnSection, { ... }))
++    router.replace(commandHref(activeSection, { ... }))
+```
+
+Without it, closing a workflow no longer returns to the owning section and
+`lastUrlSection` is never resynced. The failing step is precisely
+`closeMarketplaceTool(page, 'supply-intake')` followed by an assertion on
+`.hvm2-listing-card`, which lives in the marketplace section — the section
+`returnSection` exists to restore.
+
+No test on the staging branch asserts the reduced behaviour, so the removal was
+a regression rather than an intentional change with matching coverage.
+
+### Repair
+
+Restored the file from `build/harbourview-production-command-platform`.
+
+### Verified locally
+
+`npm run typecheck` clean; `npm run lint` 0 errors; `npx vitest run tests/dashboard/`
+9 files, **86 tests passed**.
+
+### Method note
+
+Two earlier hypotheses (flake, then the `operatorLicenceMatrix` timeout) were
+tested and rejected, each costing a CI cycle. Both came from reading step 11's
+diff in isolation. Diffing against a branch where the gate was known green found
+the cause in one step. Prefer a known-good reference over inspection of the
+suspect change.
+
+### Status
+
+**HOLD** until the visual gate confirms green at the new head.

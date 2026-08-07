@@ -7,17 +7,89 @@
 -- stats get computed instead via ~8 separate inline round-trip
 -- queries later in that file.
 --
--- This creates the real function, replicating the inline TS logic's
--- exact semantics (including its null-handling for source health:
--- `!s.is_active` counts both false AND null as inactive; a null
--- last_checked_at counts as stale). All counts cast to int4 so
--- PostgREST/JSON serializes them as numbers, not bigint strings —
--- matching the CommandCentreStats TS interface's `number` fields.
---
--- Exposed the same way as every other fix this session: real logic
--- in public, thin security-definer wrapper in api (the only schema
--- PostgREST exposes — see lib/supabase/env.ts).
+-- Production already had public.signals_quality and
+-- public.admin_dashboard_counts out of band before this migration. Zero-state
+-- replay restores their original contracts only when absent; later dated
+-- migrations remain the owners of subsequent signal-quality refinements.
 -- ============================================================
+
+do $restore_initial_signals_quality$
+begin
+  if not exists (
+    select 1
+    from information_schema.views
+    where table_schema = 'public'
+      and table_name = 'signals_quality'
+  ) then
+    execute $view$
+      create view public.signals_quality as
+      select
+        id,
+        date,
+        cat,
+        pri,
+        score,
+        headline,
+        summary,
+        source,
+        url,
+        verification,
+        tier,
+        lang,
+        company,
+        country,
+        in_network,
+        lane_r,
+        lane_e,
+        lane_t,
+        top_lane,
+        query_pack,
+        commercial_impact,
+        reviewed,
+        action,
+        created_at,
+        embedding_1024,
+        embedding_model,
+        embedded_at
+      from public.signals
+      where cat <> 'SOURCE_ENGINE'
+         or (cat = 'SOURCE_ENGINE' and reviewed = true and score >= 50)
+    $view$;
+  end if;
+end
+$restore_initial_signals_quality$;
+
+do $restore_admin_dashboard_counts$
+begin
+  if not exists (
+    select 1
+    from information_schema.views
+    where table_schema = 'public'
+      and table_name = 'admin_dashboard_counts'
+  ) then
+    execute $view$
+      create view public.admin_dashboard_counts
+      with (security_invoker = true)
+      as
+      select
+        (select count(*) from public.listings
+          where status::text = 'pending_review') as pending_listings,
+        (select count(*) from public.buyer_requests
+          where status::text = 'pending_review') as pending_buyer_requests,
+        (select count(*) from public.marketplace_inquiries
+          where review_status = 'received') as new_inquiries,
+        (select count(*) from public.matches
+          where status::text = 'proposed') as pending_matches,
+        (select count(*) from public.disclosure_requests
+          where status::text = 'requested') as pending_disclosures
+    $view$;
+
+    revoke all on table public.admin_dashboard_counts
+      from public, anon, authenticated;
+    grant select on table public.admin_dashboard_counts to service_role;
+  end if;
+end
+$restore_admin_dashboard_counts$;
 
 create or replace function public.get_command_centre_stats()
 returns table (
@@ -51,7 +123,7 @@ as $$
     (select count(*) from public.signals_quality where upper(pri) = 'HIGH')::int,
     (select count(*) from public.signals_quality where upper(pri) = 'MONITOR')::int,
     (select count(distinct country) from public.signals_quality where country is not null)::int,
-    (select count(*) from public.listings where status = 'approved'::public.listing_status)::int,
+    (select count(*) from public.listings where status::text = 'approved')::int,
     (select count(distinct category) from public.listings)::int,
     (select count(distinct location_country) from public.listings where location_country is not null)::int,
     (select count(*) from public.source_registry where is_active is true)::int,

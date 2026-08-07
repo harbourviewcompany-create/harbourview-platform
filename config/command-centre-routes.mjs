@@ -1,0 +1,77 @@
+export const COMMAND_CENTRE_MODULES = [
+  { id: 'briefing', label: 'Briefing Room', desktopPage: 'briefing', mobileSection: 'overview', criticality: 'launch-critical' },
+  { id: 'digest', label: 'Daily Digest', desktopPage: 'digest', mobileSection: 'personal-briefing', criticality: 'launch-critical' },
+  { id: 'marketplace', label: 'Marketplace', desktopPage: 'marketplace', mobileSection: 'marketplace', criticality: 'launch-critical' },
+  { id: 'supply', label: 'Supply', desktopPage: 'marketplace', mobileSection: 'supply', criticality: 'launch-critical' },
+  { id: 'signals', label: 'Intelligence Signals', desktopPage: 'signals', mobileSection: 'weekly-signals', criticality: 'launch-critical' },
+  { id: 'watchlist', label: 'Watchlist', desktopPage: 'watchlist', mobileSection: 'weekly-signals', criticality: 'launch-critical' },
+  { id: 'market-intelligence', label: 'Market Intelligence', desktopPage: 'prices', mobileSection: 'market-intelligence', criticality: 'launch-critical' },
+  { id: 'access-pathway', label: 'Access Pathway', desktopPage: 'access-pathway', mobileSection: 'jurisdiction', criticality: 'launch-critical' },
+  { id: 'regulatory', label: 'Regulatory Watch', desktopPage: 'regulatory', mobileSection: 'jurisdiction', criticality: 'launch-critical' },
+  { id: 'local-intel', label: 'Local Intelligence', desktopPage: 'local-intel', mobileSection: 'jurisdiction', criticality: 'launch-critical' },
+  { id: 'countries', label: 'Countries', desktopPage: 'countries', mobileSection: 'jurisdiction', criticality: 'launch-critical' },
+  { id: 'evidence', label: 'Evidence', desktopPage: 'evidence', mobileSection: 'review-gates', criticality: 'launch-critical' },
+  { id: 'education', label: 'Education', desktopPage: 'education', mobileSection: 'education', criticality: 'launch-critical' },
+  { id: 'genetics', label: 'Genetics', desktopPage: 'genetics', mobileSection: 'genetics', criticality: 'launch-critical' },
+  { id: 'clinical', label: 'Clinical', desktopPage: 'clinical', mobileSection: 'clinical', criticality: 'launch-critical' },
+  { id: 'compliance', label: 'Compliance', desktopPage: 'compliance', mobileSection: 'compliance', criticality: 'launch-critical' },
+  { id: 'licences', label: 'Licences', desktopPage: 'licences', mobileSection: 'compliance', criticality: 'launch-critical' },
+  { id: 'directories', label: 'Directories', desktopPage: 'experts', mobileSection: 'directories', criticality: 'launch-critical' },
+  { id: 'talent', label: 'Talent', desktopPage: 'jobs', mobileSection: 'talent', criticality: 'launch-critical' },
+  { id: 'network', label: 'Network', desktopPage: 'experts', mobileSection: 'network', criticality: 'launch-critical' },
+  { id: 'logistics', label: 'Logistics', desktopPage: 'logistics', mobileSection: 'supply', criticality: 'launch-critical' },
+  { id: 'banking', label: 'Banking', desktopPage: 'banking', mobileSection: 'financing', criticality: 'launch-critical' },
+  { id: 'insurance', label: 'Insurance', desktopPage: 'insurance', mobileSection: 'financing', criticality: 'launch-critical' },
+  { id: 'trade-calc', label: 'Trade Calculator', desktopPage: 'trade-calc', mobileSection: 'financing', criticality: 'launch-critical' },
+  { id: 'financing', label: 'Trade Financing', desktopPage: 'banking', mobileSection: 'financing', criticality: 'launch-critical' },
+  { id: 'events', label: 'Events', desktopPage: 'events', mobileSection: 'network', criticality: 'important' },
+  { id: 'assistant', label: 'AI Assistant', desktopPage: 'assistant', mobileSection: 'search', criticality: 'important' },
+  { id: 'documents', label: 'Documents', desktopPage: 'documents', mobileSection: 'review-gates', criticality: 'important' },
+  { id: 'notifications', label: 'Notifications', desktopPage: 'notifications', mobileSection: 'next-actions', criticality: 'important' },
+  { id: 'organization', label: 'Organization', desktopPage: 'organization', mobileSection: 'review-gates', criticality: 'launch-critical' },
+  { id: 'settings', label: 'Settings', desktopPage: 'settings', mobileSection: 'overview', criticality: 'important' },
+  { id: 'kyb', label: 'KYB / Verify', desktopPage: 'kyb', mobileSection: 'review-gates', criticality: 'launch-critical' },
+]
+
+export const COMMAND_CENTRE_ROUTE_POLICY = [
+  { source: '/commercial-intelligence', destination: '/intelligence', mode: 'redirect-now', reason: 'Legacy alias retains the current public intelligence entry until guest command parity is complete.' },
+  { source: '/intelligence/counterparty-intelligence', destination: '/dashboard?page=evidence', mode: 'redirect-now', reason: 'Private counterparty review belongs behind authenticated evidence controls.' },
+
+  { source: '/intelligence', destination: '/dashboard?page=signals', mode: 'retain-public', reason: 'Public intelligence orientation must render in a guest command shell before retirement.' },
+  { source: '/intelligence/country-briefs', destination: '/dashboard?page=countries', mode: 'retain-public', reason: 'Country brief public, SEO, source-status and request-path parity is required.' },
+  { source: '/intelligence/regulatory-pathways', destination: '/dashboard?page=regulatory', mode: 'retain-public', reason: 'Public regulatory orientation and disclaimer parity is required before retirement.' },
+  { source: '/signals', destination: '/dashboard?page=signals', mode: 'retain-public', reason: 'Published and fallback signal origin disclosure must be preserved in guest command mode.' },
+  { source: '/markets', destination: '/dashboard?page=countries', mode: 'retain-public', reason: 'Public country discovery, SEO and request-path parity is required.' },
+  { source: '/compliance', destination: '/dashboard?page=compliance', mode: 'retain-public', reason: 'Public compliance orientation and legal-boundary copy must be embedded first.' },
+  { source: '/professionals', destination: '/dashboard?page=experts', mode: 'retain-public', reason: 'Public professional projection and reviewed-access behavior must be preserved.' },
+  { source: '/reviewed-connections', destination: '/dashboard?page=experts', mode: 'retain-public', reason: 'Public reviewed-connection framing and request workflow must be embedded first.' },
+  { source: '/network', destination: '/dashboard?page=experts', mode: 'retain-public', reason: 'Public network orientation must have guest command parity before retirement.' },
+  { source: '/education', destination: '/dashboard?page=education', mode: 'retain-public', reason: 'Preserve public education disclaimers until every track is embedded with parity.' },
+  { source: '/network/clinical-education', destination: '/dashboard?page=clinical', mode: 'retain-public', reason: 'Clinical disclaimer and request flows must be embedded before retirement.' },
+  { source: '/intelligence/licensing-pathways', destination: '/dashboard?page=licences', mode: 'retain-public', reason: 'Live-data and disclaimer parity required by repository control policy.' },
+  { source: '/intelligence/logistics-trade-routes', destination: '/dashboard?page=logistics', mode: 'retain-public', reason: 'Live-data and route review parity required by repository control policy.' },
+  { source: '/marketplace', destination: '/dashboard?page=marketplace', mode: 'retain-public', reason: 'Public browse and SEO contract must be replaced by a guest command shell before retirement.' },
+  { source: '/marketplace/listings', destination: '/dashboard?page=marketplace', mode: 'retain-public', reason: 'Public-safe listing projection must render in guest command mode first.' },
+  { source: '/marketplace/services', destination: '/dashboard?page=marketplace', mode: 'retain-public', reason: 'Service listing parity required.' },
+  { source: '/marketplace/business-opportunities', destination: '/dashboard?page=marketplace', mode: 'retain-public', reason: 'Confidential opportunity intake must become an in-shell workflow first.' },
+
+  { source: '/marketplace/sell', destination: '/dashboard?page=marketplace&section=supply&marketView=cannabis&tool=supply-intake', mode: 'redirect-now', reason: 'The supply workflow is contained, URL-addressable and reload-restorable in the authenticated Command Centre.' },
+  { source: '/marketplace/wanted', destination: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake', mode: 'redirect-now', reason: 'The wanted workflow is contained, URL-addressable and reload-restorable in the authenticated Command Centre.' },
+  { source: '/marketplace/financing', destination: '/dashboard?page=trade-calc&section=financing&tool=financing-intake', mode: 'redirect-now', reason: 'The financing inquiry is contained, URL-addressable and reload-restorable in the authenticated Command Centre.' },
+  { source: '/intake', destination: '/intake', mode: 'retain-public', reason: 'Confidential intake remains a shareable public entry contract and routes reviewed submissions into controlled internal workflows.' },
+]
+
+export const PUBLIC_ENTRY_EXCEPTIONS = [
+  '/',
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+  '/auth/callback',
+  '/legal/privacy',
+  '/legal/terms',
+  '/accessibility',
+]
+
+export const ACTIVE_COMMAND_CENTRE_REDIRECTS = COMMAND_CENTRE_ROUTE_POLICY
+  .filter(route => route.mode === 'redirect-now')
+  .map(route => ({ source: route.source, destination: route.destination, permanent: false }))

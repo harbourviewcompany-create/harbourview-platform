@@ -1,26 +1,50 @@
--- Covering indexes for the 23 remaining unindexed foreign keys
--- (Supabase performance advisor / Jun 24 audit backlog item).
--- Applied to prod 2026-07-01 via MCP and registered in the ledger.
-CREATE INDEX IF NOT EXISTS idx_coverage_gaps_resolved_by_source ON public.coverage_gaps (resolved_by_source_id);
-CREATE INDEX IF NOT EXISTS idx_dead_letter_tasks_original_task ON public.dead_letter_tasks (original_task_id);
-CREATE INDEX IF NOT EXISTS idx_discovery_documents_fetch_run ON public.discovery_documents (fetch_run_id);
-CREATE INDEX IF NOT EXISTS idx_discovery_sources_source_group ON public.discovery_sources (source_group_id);
-CREATE INDEX IF NOT EXISTS idx_extraction_contradictions_document ON public.extraction_contradictions (document_id);
-CREATE INDEX IF NOT EXISTS idx_hv_entity_mentions_snapshot ON public.hv_entity_mentions (snapshot_id);
-CREATE INDEX IF NOT EXISTS idx_link_observations_source_candidate ON public.link_observations (source_candidate_id);
-CREATE INDEX IF NOT EXISTS idx_link_observations_source ON public.link_observations (source_id);
-CREATE INDEX IF NOT EXISTS idx_network_public_projections_published_by ON public.network_public_projections (published_by);
-CREATE INDEX IF NOT EXISTS idx_network_review_items_created_by ON public.network_review_items (created_by);
-CREATE INDEX IF NOT EXISTS idx_network_review_items_reviewed_by ON public.network_review_items (reviewed_by);
-CREATE INDEX IF NOT EXISTS idx_promotion_decisions_promoted_source ON public.promotion_decisions (promoted_source_id);
-CREATE INDEX IF NOT EXISTS idx_promotion_decisions_review_queue_item ON public.promotion_decisions (review_queue_item_id);
-CREATE INDEX IF NOT EXISTS idx_promotion_decisions_source_candidate ON public.promotion_decisions (source_candidate_id);
-CREATE INDEX IF NOT EXISTS idx_signal_candidates_duplicate_group ON public.signal_candidates (duplicate_group_id);
-CREATE INDEX IF NOT EXISTS idx_signal_candidates_source_document ON public.signal_candidates (source_document_id);
-CREATE INDEX IF NOT EXISTS idx_signal_candidates_source_chunk ON public.signal_candidates (source_chunk_id);
-CREATE INDEX IF NOT EXISTS idx_signal_duplicate_groups_canonical_candidate ON public.signal_duplicate_groups (canonical_signal_candidate_id);
-CREATE INDEX IF NOT EXISTS idx_source_candidates_discovered_from ON public.source_candidates (discovered_from_source_id);
-CREATE INDEX IF NOT EXISTS idx_source_candidates_merged_into ON public.source_candidates (merged_into_source_id);
-CREATE INDEX IF NOT EXISTS idx_source_fetch_jobs_source ON public.source_fetch_jobs (source_id);
-CREATE INDEX IF NOT EXISTS idx_source_fetch_runs_job ON public.source_fetch_runs (job_id);
-CREATE INDEX IF NOT EXISTS idx_source_watchlist_links_watchlist ON public.source_watchlist_links (watchlist_id);
+-- Close any foreign-key index gaps remaining after the July advisor snapshot.
+-- Production contained a static list of 23 relations, including optional
+-- production-only tables. Replay derives the same operation from the schema that
+-- actually exists and creates an index only when the FK column is not already a
+-- leading key of a valid index.
+
+do $cover_remaining_unindexed_foreign_keys$
+declare
+  foreign_key record;
+  index_name text;
+begin
+  for foreign_key in
+    select
+      namespace.nspname as schema_name,
+      relation.relname as table_name,
+      attribute.attname as column_name
+    from pg_constraint constraint_record
+    join pg_class relation
+      on relation.oid = constraint_record.conrelid
+    join pg_namespace namespace
+      on namespace.oid = relation.relnamespace
+    join pg_attribute attribute
+      on attribute.attrelid = constraint_record.conrelid
+     and attribute.attnum = constraint_record.conkey[1]
+    where constraint_record.contype = 'f'
+      and cardinality(constraint_record.conkey) = 1
+      and namespace.nspname in ('public', 'regulatory_signals')
+      and not exists (
+        select 1
+        from pg_index index_record
+        where index_record.indrelid = constraint_record.conrelid
+          and index_record.indisvalid
+          and index_record.indisready
+          and index_record.indnkeyatts > 0
+          and index_record.indkey[0] = constraint_record.conkey[1]
+      )
+    order by namespace.nspname, relation.relname, attribute.attname
+  loop
+    index_name := format('idx_%s_%s', foreign_key.table_name, foreign_key.column_name);
+
+    execute format(
+      'create index if not exists %I on %I.%I (%I)',
+      index_name,
+      foreign_key.schema_name,
+      foreign_key.table_name,
+      foreign_key.column_name
+    );
+  end loop;
+end
+$cover_remaining_unindexed_foreign_keys$;

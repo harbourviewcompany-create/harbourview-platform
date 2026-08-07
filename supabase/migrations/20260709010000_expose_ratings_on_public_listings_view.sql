@@ -41,4 +41,4 @@ select
   average_rating,
   review_count
 from listings l
-where status = 'approved'::listing_status and public_visibility = true and archived_at is null;
+where status::text = 'approved' and public_visibility = true and archived_at is null;

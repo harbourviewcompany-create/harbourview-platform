@@ -147,7 +147,7 @@ describe('Cultivar Passport Network P0 DTO boundaries', () => {
 
 
   it('uses explicit SQL grants and private storage policy instead of broad approved-request evidence access', () => {
-    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260607130000_cultivar_passport_network_p0.sql'), 'utf8')
+    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260621220513_cultivar_passport_network_p0_synfix.sql'), 'utf8')
     expect(migration).toContain('create table genetics_access_grants')
     expect(migration).toContain('create table genetics_claims')
     expect(migration).toContain('genetics_evidence_items_grant_read')

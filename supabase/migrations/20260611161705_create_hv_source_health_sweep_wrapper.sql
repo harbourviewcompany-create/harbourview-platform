@@ -1,5 +1,4 @@
--- create_hv_source_health_sweep_wrapper: calls quarantine check on cron schedule
--- Applied: 2026-06-11; stub created to reconcile supabase migration history
+-- create_hv_source_health_sweep_wrapper: calls quarantine check on optional cron schedule
 
 create or replace function public.hv_source_health_sweep()
 returns bigint
@@ -16,14 +15,30 @@ begin
 end;
 $$;
 
-do $$
+revoke execute on function public.hv_source_health_sweep() from public, anon, authenticated;
+grant execute on function public.hv_source_health_sweep() to service_role;
+
+do $source_health_schedule$
+declare
+  job_exists boolean;
 begin
-  if not exists (select 1 from cron.job where jobname = 'hv-source-health-sweep') then
+  if to_regclass('cron.job') is null
+    or to_regprocedure('cron.schedule(text,text,text)') is null
+  then
+    raise notice 'pg_cron unavailable; hv-source-health-sweep schedule not installed';
+    return;
+  end if;
+
+  execute 'select exists (select 1 from cron.job where jobname = $1)'
+    into job_exists
+    using 'hv-source-health-sweep';
+
+  if not job_exists then
     perform cron.schedule(
       'hv-source-health-sweep',
       '5 * * * *',
       'select public.hv_source_health_sweep();'
     );
   end if;
-end;
-$$;
+end
+$source_health_schedule$;

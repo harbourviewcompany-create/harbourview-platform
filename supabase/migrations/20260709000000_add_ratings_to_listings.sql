@@ -1,3 +1,15 @@
+-- CONCURRENTLY removed 2026-08-05 for zero-state replay. The Supabase CLI sends
+-- a migration's statements as one pipeline, and Postgres refuses CREATE INDEX
+-- CONCURRENTLY there:
+--   ERROR: CREATE INDEX CONCURRENTLY cannot be executed within a pipeline
+--   (SQLSTATE 25001)
+-- Only the keyword is dropped; every index name, table and column list below is
+-- unchanged, so the resulting schema is identical. CONCURRENTLY exists to avoid
+-- locking a populated table, which is meaningless against the empty database a
+-- replay builds, and production already carries these indexes -- this version is
+-- recorded in supabase_migrations.schema_migrations, applied there as a single
+-- statement, which is why the pipeline rule never bit in production.
+
 -- Add ratings support to unified marketplace listings
 -- Aligns with review workflow and trust layer
 --
@@ -31,8 +43,8 @@
 --     expression evaluates to NULL.
 --  7. The two CREATE INDEX statements that lived here were split out into
 --     their own migration, 20260710160000_add_ratings_indexes_concurrently.sql,
---     so they can use CREATE INDEX CONCURRENTLY without a table lock.
---     CONCURRENTLY cannot run inside a transaction block, and this file also
+--     so they can use CREATE INDEX without a table lock.
+-- cannot run inside a transaction block, and this file also
 --     contains transactional DDL (ALTER TABLE, CREATE FUNCTION, CREATE
 --     TRIGGER) that must not be split across transactions -- so the indexes
 --     need a dedicated file, matching the precedent already set by
@@ -67,8 +79,8 @@ WHEN (
 EXECUTE FUNCTION update_ratings_timestamp();
 
 -- Indexes for sorting/filtering on average_rating/review_count are created
--- CONCURRENTLY in 20260710160000_add_ratings_indexes_concurrently.sql (see
--- fix #7 above) rather than here, since CONCURRENTLY cannot run inside a
+-- in 20260710160000_add_ratings_indexes_concurrently.sql (see
+-- fix #7 above) rather than here, since cannot run inside a
 -- transaction block alongside this file's other DDL.
 
 -- No new RLS policy needed: existing listings RLS policies are row-level

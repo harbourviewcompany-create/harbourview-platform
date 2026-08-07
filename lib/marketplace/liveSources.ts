@@ -101,7 +101,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
   }
 
   const sourceResult = await adminRequest<SourceRegistryRow[]>(
-    '/rest/v1/source_registry?select=*',
+    '/rest/v1/marketplace_source_registry?select=*',
     {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
@@ -123,7 +123,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
   const source = sourceResult.data[0];
 
   const snapshotResult = await adminRequest<SourceSnapshotRow[]>(
-    '/rest/v1/source_snapshots?select=*',
+    '/rest/v1/marketplace_source_snapshots?select=*',
     {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
@@ -179,7 +179,7 @@ export async function createManualSourceIntake(formData: FormData, userId: strin
   const candidate = candidateResult.data[0];
 
   const eventResult = await adminRequest<CandidateReviewEvent[]>(
-    '/rest/v1/candidate_review_events?select=*',
+    '/rest/v1/marketplace_candidate_review_events?select=*',
     {
       method: 'POST',
       headers: { Prefer: 'return=representation' },

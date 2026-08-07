@@ -43,7 +43,9 @@
     "intelligence:deep-discovery": "tsx scripts/engine/run-deep-discovery.ts",
     "intelligence:worker": "tsx scripts/engine/start-worker.ts",
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts",
-    "validate:supply-images": "node scripts/validate-supply-images.mjs"
+    "validate:supply-images": "node scripts/validate-supply-images.mjs",
+    "test:command-centre-production": "vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/productionSecurityHardening.test.ts tests/supabase/env.test.ts",
+    "verify:supabase-auth-production": "node scripts/configure-supabase-auth-production.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -86,6 +88,9 @@
     "tsx": "^4.23.1",
     "typescript": "^5.4.5",
     "vitest": "^4.1.10",
-    "wrangler": "^4.115.0"
+    "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "undici": "7.29.0"
   }
 }

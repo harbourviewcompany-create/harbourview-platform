@@ -441,3 +441,12 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - **Rollback/forward-fix:** restore only the explicitly captured prior grants through a new migration. Do not rewrite migration history or delete operator feedback.
 - **Required verification:** migration-version validation; PostgreSQL 17 + pgvector boundary fixture; lint; typecheck; full tests; production build; visibility and security checks; standard CI; Branch Verification.
 - **Production approval:** HOLD until a separate operator-authorized migration activation.
+
+
+## 2026-08-04 — Production security hardening
+
+- **Migration:** `20260804190000_production_security_hardening.sql`, followed by the forward marketplace conversion repair.
+- **Controlling document:** `docs/control/SUPABASE_PRODUCTION_SECURITY_HARDENING.md`.
+- **Deterministic replay corrections:** the March intelligence-view and marketplace-conversion files contain syntax/dependency corrections required for a zero-state rebuild. They do not authorize or substitute for production forward migrations.
+- **Required verification:** complete local migration replay, zero-row security assertions, a current backup/PITR checkpoint, leaked-password protection verification, and complete application leakage/authorization evidence.
+- **Production approval:** HOLD until a separate operator-authorized migration and Auth activation.

@@ -32,6 +32,7 @@ $fn$;
 CREATE OR REPLACE FUNCTION api.get_functions_missing_from_api_schema()
 RETURNS TABLE(function_name text, arg_types text)
 LANGUAGE sql STABLE
+SET search_path = ''
 AS $fn$ SELECT * FROM public.get_functions_missing_from_api_schema() $fn$;
 
 GRANT EXECUTE ON FUNCTION public.get_functions_missing_from_api_schema() TO service_role;
