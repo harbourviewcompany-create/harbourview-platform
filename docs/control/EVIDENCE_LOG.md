@@ -3811,3 +3811,68 @@ page snapshot at the moment of failure and will show directly what is rendered a
 
 **HOLD on merging #1283.** Candidate complete, branch replayable, every other
 gate green, one defined visual gate red and undiagnosed. Not merged.
+
+## 2026-08-07 — Visual gate root cause found: closeTool lost its return-section logic
+
+Found by comparing against PR #1280's branch instead of continuing to read step 11
+diffs. #1280's own description states the gate passed at its head, naming the
+exact behaviour that now fails:
+
+> "The authenticated responsive evidence passed all nine widths. The 390px
+> marketplace workflow, fixture listing, workspace close/return state, and all 30
+> desktop pages at 1440px are green."
+
+and lists as implemented:
+
+> "Workspace close behavior returns each mobile workflow to its owning section"
+
+Diffing the whole mobile Command Centre between
+`build/harbourview-production-command-platform` (gate green) and
+`stage/pr1280-production-ready-20260805` (gate red) yields **exactly one file**:
+`components/dashboard/mobile-command/useMobileCommandModel.ts`, +2/-9.
+
+The staging branch had dropped the return-section logic from `closeTool`:
+
+```ts
+-    const returnSection: SectionId = activeTool === 'financing-intake'
+-      ? 'financing'
+-      : activeTool
+-        ? 'marketplace'
+-        : activeSection
+     setActiveTool(null)
+     setSelectedListingId(null)
+-    setActiveSection(returnSection)
+-    lastUrlSection.current = returnSection
+-    router.replace(commandHref(returnSection, { ... }))
++    router.replace(commandHref(activeSection, { ... }))
+```
+
+Without it, closing a workflow no longer returns to the owning section and
+`lastUrlSection` is never resynced. The failing step is precisely
+`closeMarketplaceTool(page, 'supply-intake')` followed by an assertion on
+`.hvm2-listing-card`, which lives in the marketplace section — the section
+`returnSection` exists to restore.
+
+No test on the staging branch asserts the reduced behaviour, so the removal was
+a regression rather than an intentional change with matching coverage.
+
+### Repair
+
+Restored the file from `build/harbourview-production-command-platform`.
+
+### Verified locally
+
+`npm run typecheck` clean; `npm run lint` 0 errors; `npx vitest run tests/dashboard/`
+9 files, **86 tests passed**.
+
+### Method note
+
+Two earlier hypotheses (flake, then the `operatorLicenceMatrix` timeout) were
+tested and rejected, each costing a CI cycle. Both came from reading step 11's
+diff in isolation. Diffing against a branch where the gate was known green found
+the cause in one step. Prefer a known-good reference over inspection of the
+suspect change.
+
+### Status
+
+**HOLD** until the visual gate confirms green at the new head.

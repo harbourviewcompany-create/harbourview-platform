@@ -358,14 +358,21 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [activeMarketView, commandHref, router])
 
   const closeTool = useCallback(() => {
+    const returnSection: SectionId = activeTool === 'financing-intake'
+      ? 'financing'
+      : activeTool
+        ? 'marketplace'
+        : activeSection
     setActiveTool(null)
     setSelectedListingId(null)
-    router.replace(commandHref(activeSection, {
+    setActiveSection(returnSection)
+    lastUrlSection.current = returnSection
+    router.replace(commandHref(returnSection, {
       marketView: activeMarketView,
       tool: null,
       listing: null,
     }), { scroll: false })
-  }, [activeMarketView, activeSection, commandHref, router])
+  }, [activeMarketView, activeSection, activeTool, commandHref, router])
 
   const viewSubmissions = useCallback(() => {
     setActiveTool(null)
