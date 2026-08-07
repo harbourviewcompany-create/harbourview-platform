@@ -3876,3 +3876,93 @@ suspect change.
 ### Status
 
 **HOLD** until the visual gate confirms green at the new head.
+
+## 2026-08-07 — PR #1283 merged; staged migrations applied to production
+
+### Merge
+
+PR #1283 merged to `main` as `a1aa6a82` (merge commit, not squash, so the SHAs
+referenced throughout this log stay reachable). Head `47cef490`, all checks green
+including `Authenticated nine-width Command Centre evidence`,
+`mergeable_state: clean`.
+
+Verified on `main` after merge: the `closeTool` return-section fix is present, all
+three security migrations are present, and the three staging-control workflows are
+removed.
+
+Pre-existing `main` failures unchanged by the merge — `Migration Drift Check`
+(also failed on `3a85951f` at 15:20Z and 17:56Z), `Post-Merge Verification`,
+`sync-figma-tokens` and `low-friction-branch-verification`. The first is now red
+for a meaningful reason: repo migrations no longer match the production ledger.
+
+### Applied to production, with explicit authorization
+
+| migration | result |
+| --- | --- |
+| `revoke_data_api_execute_on_secret_accessors` | applied |
+| `revoke_data_api_default_privileges_on_public` | applied |
+| `fix_promote_staging_null_object_class` | applied on the second attempt — see below |
+
+**Secret accessors — verified after apply.** All nine now report
+`anon_exec=false, auth_exec=false, service_exec=true`:
+`public.get_github_pat`, `api.get_github_pat`, `api.hv_get_github_pat`,
+`public`/`api`.`verify_hv_cron_secret`, `public`/`api`.`verify_hv_bridge_key`,
+`public.verify_source_engine_cron_secret`, `api.hv_bridge_key_matches`.
+The anon-key path to the GitHub PAT is closed.
+
+**Default privileges — partially applied, as the migration predicted.**
+`pg_default_acl` for schema `public` now reads:
+
+| grantor | object | acl |
+| --- | --- | --- |
+| postgres | table / sequence / function | anon + authenticated **removed** |
+| supabase_admin | table / sequence / function | anon + authenticated **still present** |
+
+Only `supabase_admin` can alter its own default privileges, and this project has
+no route to that role. Migrations and the application run as `postgres`, so
+anything this project creates is now closed; the residual `supabase_admin`
+entries would only matter for objects created by that role.
+
+### A defect production caught that the replay could not
+
+The first apply of `fix_promote_staging_null_object_class` **failed**:
+
+```
+42P13: cannot remove parameter defaults from existing function
+HINT: Use DROP FUNCTION hv_promote_staging_to_artifacts(integer,uuid) first.
+```
+
+The signature had been reconstructed from `pg_get_function_identity_arguments`,
+which **excludes parameter defaults**. Production's actual signature is:
+
+```
+p_batch_size integer DEFAULT 50,
+p_workspace_id uuid DEFAULT 'a85840b4-c522-4cb8-9097-2f6c30a78417'::uuid
+```
+
+(that workspace id matches the one in the original cron failure detail).
+
+This could not have been caught by the zero-state replay: there the function does
+not pre-exist, so `create or replace` would have succeeded and created it
+**without** defaults, silently diverging from production. Production refusing the
+change is the only place it surfaces. Use `pg_get_function_arguments`, not
+`pg_get_function_identity_arguments`, when replaying a function signature.
+
+The failed attempt changed nothing — `md5(prosrc)` was still
+`e3501b60dabe593b46abb2d155db2b8c` afterwards. Re-applied with defaults
+preserved and verified: signature intact, `prosecdef=true`,
+`search_path=public`, both null-derivation fixes present, `anon_exec=false`,
+`service_exec=true`.
+
+### Repo correction
+
+`supabase/migrations/20260807001100_...` on `main` still carries the defaultless
+signature. Corrected on `fix/promote-staging-parameter-defaults` with a header
+note recording the trap. Body fidelity re-verified after the edit: 5482 chars,
+md5 `e3501b60dabe593b46abb2d155db2b8c`.
+
+### Still open
+
+**The GitHub PAT has not been rotated.** Revoking anon EXECUTE closes the
+retrieval path; it does not invalidate a token that may already have been read.
+Rotation remains necessary and is operator-only.

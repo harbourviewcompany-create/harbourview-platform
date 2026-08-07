@@ -53,6 +53,20 @@
 -- (5482 chars, md5 e3501b60dabe593b46abb2d155db2b8c), captured read-only from
 -- `pg_proc.prosrc`.
 --
+-- PARAMETER DEFAULTS
+--
+-- The signature carries `p_batch_size integer default 50` and
+-- `p_workspace_id uuid default 'a85840b4-...'::uuid`. These are NOT optional
+-- decoration: production's copy has them, and `create or replace` without them
+-- fails with
+--   42P13: cannot remove parameter defaults from existing function
+-- The first version of this migration omitted them, because the signature was
+-- reconstructed from `pg_get_function_identity_arguments`, which deliberately
+-- excludes defaults. Use `pg_get_function_arguments` when replaying a function
+-- signature. A zero-state replay cannot catch this -- the function does not
+-- pre-exist there, so it would be created without defaults and silently diverge
+-- from production. Production rejected it, which is the only place it shows up.
+--
 -- GRANTS
 --
 -- The production copy is currently executable by `anon` and `authenticated` -- it
@@ -79,8 +93,8 @@ begin
 
   execute $create$
 create or replace function public.hv_promote_staging_to_artifacts(
-  p_batch_size integer,
-  p_workspace_id uuid
+  p_batch_size integer default 50,
+  p_workspace_id uuid default 'a85840b4-c522-4cb8-9097-2f6c30a78417'::uuid
 )
 returns table(staging_id uuid, artifact_id uuid, action text, title text, country text)
 language plpgsql
