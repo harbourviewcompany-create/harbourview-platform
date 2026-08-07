@@ -191,7 +191,25 @@ begin
   if public.view_exists('public', 'signals_quality') then
     alter view public.signals_quality set (security_invoker = true);
     revoke all privileges on table public.signals_quality from public, anon, authenticated;
-    grant select on table public.signals_quality to service_role;
+    -- `authenticated` is deliberate, and `anon` is deliberately absent.
+    --
+    -- `api.signals_quality` is a security_invoker view over this one (verified:
+    -- pg_rewrite dependency, reloptions security_invoker=true). The Command
+    -- Centre reads it through `createClient()` in lib/supabase/server.ts, which
+    -- pins `db: { schema: 'api' }` via SUPABASE_DB_SCHEMA -- so the effective
+    -- read is api.signals_quality, and security_invoker pushes the privilege
+    -- check down to this view under the caller's own role.
+    --
+    -- Consumers: app/api/dashboard/signals/route.ts and
+    -- app/api/dashboard/digest/route.ts. Both call `supabase.auth.getUser()` and
+    -- return 401 before querying, so the effective role is always
+    -- `authenticated`, never `anon`. Granting service_role only would return
+    -- permission-denied to every signed-in user on both endpoints.
+    --
+    -- The chain terminates safely: this view resolves to public.signals, which
+    -- has RLS enabled with 3 policies and is not touched by this migration, so
+    -- row visibility is still policy-controlled rather than grant-controlled.
+    grant select on table public.signals_quality to authenticated, service_role;
   end if;
   if public.view_exists('public', 'source_domain_type') then
     alter view public.source_domain_type set (security_invoker = true);
