@@ -100,7 +100,6 @@ with internal_views(schema_name, view_name) as (
     ('public','playbook_regulator_drift'),
     ('public','playbook_staleness_queue'),
     ('public','signals_for_digest'),
-    ('public','signals_quality'),
     ('public','source_domain_type'),
     ('public','source_yield_report')
 )
@@ -110,6 +109,39 @@ where to_regclass(format('%I.%I', i.schema_name, i.view_name)) is not null
   and (
     has_table_privilege('anon', format('%I.%I', i.schema_name, i.view_name), 'select,insert,update,delete')
     or has_table_privilege('authenticated', format('%I.%I', i.schema_name, i.view_name), 'select,insert,update,delete')
+  );
+
+-- Authenticated-only projections: readable by a signed-in session, never by anon,
+-- and never writable by either.
+--
+-- public.signals_quality sits here rather than in internal_views because
+-- api.signals_quality is a security_invoker view over it, and the Command Centre
+-- reads that through the cookie-backed client in lib/supabase/server.ts, which
+-- pins db.schema = 'api'. Consumers are app/api/dashboard/signals/route.ts and
+-- app/api/dashboard/digest/route.ts; both 401 before querying, so the effective
+-- role is always authenticated.
+--
+-- This is a tightening, not a loosening. The view previously ran as its owner
+-- (security_invoker unset), which bypassed row-level security on public.signals
+-- altogether. The hardening migration sets security_invoker = true, so an
+-- authenticated reader is now filtered by that table's own policies
+-- (reviewed = true, or score >= 60) instead of seeing every row. anon stays
+-- fully closed, which the assertion below enforces.
+with authenticated_views(schema_name, view_name) as (
+  values
+    ('public','signals_quality')
+)
+select a.schema_name, a.view_name, 'authenticated_view_contract_broken' as defect
+from authenticated_views a
+where to_regclass(format('%I.%I', a.schema_name, a.view_name)) is not null
+  and (
+    -- anon must hold nothing at all
+    has_table_privilege('anon', format('%I.%I', a.schema_name, a.view_name), 'select,insert,update,delete')
+    -- authenticated must retain exactly read access
+    or not has_table_privilege('authenticated', format('%I.%I', a.schema_name, a.view_name), 'select')
+    or has_table_privilege('authenticated', format('%I.%I', a.schema_name, a.view_name), 'insert,update,delete')
+    -- service_role must retain read access for the server-side paths
+    or not has_table_privilege('service_role', format('%I.%I', a.schema_name, a.view_name), 'select')
   );
 
 -- Policyless RLS tables must expose no table privileges to application roles.

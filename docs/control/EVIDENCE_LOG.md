@@ -4146,3 +4146,31 @@ untouched here, so row visibility stays policy-controlled, not grant-controlled.
   SECURITY DEFINER revoke loop. It is a no-op there — `postgres` is not the
   grantor, so Postgres emits `WARNING 01006/01007` and continues without
   aborting the replay.
+
+### Decision recorded 2026-08-07 — `signals_quality` reclassified authenticated-only
+
+CI (`production-security-hardening.yml`, run 31210310556) rejected the grant with
+`public|signals_quality|internal_view_exposed`. The assertion file listed the view
+under `internal_views`, which requires anon **and** authenticated to hold nothing.
+Two fixes were possible and they encode different intent, so this went to Tyler
+rather than being resolved silently:
+
+- **A** — grant `authenticated`, reclassify the view in the assertion.
+- **B** — keep it internal, switch the two routes to the service client.
+
+Tyler chose **A**.
+
+The deciding fact, verified read-only: `public.signals_quality` currently has
+`security_invoker` unset, so it runs as its owner and **bypasses RLS on
+`public.signals` entirely** — today every anon or authenticated reader of that
+view sees every row. `20260804190000` sets `security_invoker = true`, after which
+an authenticated reader is filtered by that table's own policies
+(`reviewed = true`, or `score >= 60`). So A is a net tightening of what a
+signed-in session can see, not a loosening, and it keeps row safety in the
+database rather than resting it on the routes' own `.eq('reviewed', true)` filter
+as B would.
+
+`anon` remains fully closed. The new `authenticated_views` assertion enforces the
+whole contract rather than merely dropping the old check: anon holds nothing,
+authenticated holds exactly SELECT (no insert/update/delete), and service_role
+retains SELECT.
