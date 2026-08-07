@@ -279,8 +279,6 @@ test.describe('Command Centre authenticated responsive verification', () => {
               expect(mounted, destination).toBe(sections.length)
             }
 
-            await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded', timeout: 60_000 })
-            await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
           }
 
           const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll(links => links.map(link => {
@@ -291,6 +289,18 @@ test.describe('Command Centre authenticated responsive verification', () => {
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
+            // Everything below operates on the Marketplace destination, so land
+            // there explicitly. Only that destination's sections are mounted now
+            // — the market tabs simply do not exist while Command is active, and
+            // relying on the page happening to be somewhere useful is what makes
+            // this block sit through locator timeouts instead of failing fast.
+            await page.goto('/dashboard?country=CA&role=exporter&section=marketplace', {
+              waitUntil: 'domcontentloaded',
+              timeout: 60_000,
+            })
+            await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+            await expect(page.locator('[data-active-destination="marketplace"]')).toBeVisible()
+
             const equipmentTab = page.getByRole('tab', { name: /Equipment/ })
             await equipmentTab.click()
             await expectCommandState(page, {
