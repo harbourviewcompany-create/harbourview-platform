@@ -4174,3 +4174,60 @@ as B would.
 whole contract rather than merely dropping the old check: anon holds nothing,
 authenticated holds exactly SELECT (no insert/update/delete), and service_role
 retains SELECT.
+
+---
+
+## 2026-08-07 — `20260804190000` APPLIED to production, verified
+
+Tyler dispatched `apply-production-security-hardening.yml` from `main`. Two runs:
+
+| run | input | outcome |
+| --- | --- | --- |
+| 31214942303 (#1) | `HOLD` (default) | job skipped after 0s — the guard behaving correctly |
+| 31215018893 (#2) | `APPLY_PRODUCTION_MIGRATIONS` | **success** |
+
+Run #1 is worth recording rather than dismissing: a dispatch left on the default
+input produced a skipped job and changed nothing, which is exactly the fail-closed
+behaviour the `if:` condition exists for.
+
+### Verified independently against production, not read off the run status
+
+| check | before | after |
+| --- | --- | --- |
+| `anon` EXECUTE on SECURITY DEFINER routines in `public`/`api`/`signals`/`regulatory_signals` | **137** | **0** |
+| `authenticated` EXECUTE on the same | 138 | **10** |
+| `20260804190000` in the ledger (by version or name) | absent | **present** |
+| `authenticated` reads `api.signals_quality` | n/a | **true** |
+| `authenticated` reads `public.signals_quality` | n/a | **true** |
+| `anon` reads `public.signals_quality` | true | **false** |
+| cron-invoked functions executable by `postgres` | 20/20 | **20/20** |
+
+The 10 routines `authenticated` retains are exactly the audited allowlist — four
+API RPCs the application calls (`get_command_centre_stats`, `get_corridor_stats`,
+`get_source_registry_coverage`, `regulatory_pending_changes_feed`) and six RLS
+policy helpers the policies themselves must evaluate (`current_user_tier`,
+`hv_is_org_member`, `hv_is_platform_staff`, `is_genetics_admin_or_reviewer`,
+`is_hv_staff`, `is_regulatory_tier_admin`). Nothing unaccounted for.
+
+The workflow's own in-run assertion step re-ran
+`supabase/tests/production_security_hardening.sql` against production and the run
+succeeded, so that suite returned zero defect rows against the live database —
+not merely against a zero-state replay.
+
+`hv_import_staging` shows 4 pending rows, which is normal inflow between hourly
+`hv-promote-staging` ticks and confirms ingestion is still running post-change.
+
+### Still open
+
+- **`20260805234000`** remains unapplied and unappliable from this project:
+  `supabase_admin` is the grantor on the `net.http_*` grants. Closing that needs
+  a platform-level change. Not reachable via PostgREST in any case.
+- **GitHub PAT rotation** — unchanged, operator-only.
+- **Ledger versioning** — the three migrations applied via MCP earlier today are
+  still recorded under apply-time versions (`20260807181844`/`181907`/`182104`)
+  rather than `20260807000900`/`001000`/`001100`, so `supabase db push` still
+  regards those three files as pending. This migration was recorded correctly,
+  under `20260804190000`, because the workflow inserts the row explicitly.
+- Duplicate Cloudflare Workers Git integration on account `4a7c450c…`, failing in
+  0s on every PR. Repository/account settings, not code.
+- `ia_signals` stale since Jul 28; 262 `SELECT 1;` stub migrations.
