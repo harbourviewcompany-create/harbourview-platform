@@ -4069,3 +4069,108 @@ unappliable from this project (grantor is `supabase_admin`).
 - 262 `SELECT 1;` no-op stub migrations in the tree.
 - `supabase/release-controls/pending-production-migration-decisions.json` — eight
   entries no longer match its recorded sha256.
+
+---
+
+## 2026-08-07 — Correction and fix: the `signals_quality` blocker is a view chain
+
+Correcting the entry above before acting on it. The blocker is real, but the
+mechanism recorded was wrong, and the wrong mechanism would have produced the
+wrong fix.
+
+### What the previous entry got wrong
+
+It said `app/api/dashboard/signals/route.ts` and
+`app/api/dashboard/digest/route.ts` read `public.signals_quality` directly. They
+do not. `createClient()` in `lib/supabase/server.ts` pins
+`db: { schema: SUPABASE_DB_SCHEMA }`, and `lib/supabase/env.ts:12` sets
+`SUPABASE_DB_SCHEMA = 'api'`. The effective read is **`api.signals_quality`**.
+
+`20260804190000` never names `api.signals_quality`. Read literally, that made the
+migration look safe.
+
+### Why it is still a blocker
+
+Verified against production:
+
+- `api.signals_quality` has `security_invoker = true` (`pg_class.reloptions`).
+- Its only `pg_rewrite` dependency is `public.signals_quality`.
+
+`security_invoker` pushes the privilege check down to the underlying view under
+the *caller's* role. So revoking `authenticated` on `public.signals_quality`
+denies the read through `api.signals_quality` just the same — permission denied
+rather than zero rows. Same outcome, different cause; matching on the schema
+name alone would have missed it in both directions.
+
+### Scope of the pattern
+
+Three `api.*` views are security_invoker over a `public` view this migration
+narrows to `service_role`:
+
+| api view | live consumer |
+| --- | --- |
+| `api.signals_quality` | **yes** — the two Command Centre routes |
+| `api.jurisdiction_cross_table_conflicts` | none |
+| `api.playbook_staleness_queue` | none |
+
+Only the first needs a grant. The other two are internal projections with no
+consumer in `app/`, `lib/` or `components/`; closing them is the intent.
+
+### The fix
+
+`grant select on table public.signals_quality to authenticated, service_role;`
+
+`anon` is deliberately excluded — both routes call `supabase.auth.getUser()` and
+return 401 before querying, so the effective role is always `authenticated`. The
+chain terminates safely at `public.signals`, which has RLS with 3 policies and is
+untouched here, so row visibility stays policy-controlled, not grant-controlled.
+
+### Pre-flight gaps closed since the previous entry
+
+- **Edge Functions.** The earlier RPC sweep covered `app/`, `lib/` and
+  `components/` only. `supabase/functions/` calls nine more RPCs
+  (`apply_airtable_tier`, `apply_editorial_title`, `get_airtable_sync_config`,
+  `get_github_pat`, `hv_bridge_key_matches`,
+  `intel_eval_rows_needing_prediction`, `pool_rows_needing_classification`,
+  `reconcile_airtable_tiers`, `rows_needing_titles`). All nine are on the
+  allowlist at `service_role`, which is the role Edge Functions run as.
+- **RLS-without-policies loop.** 35 relations match in production. RLS with no
+  policy already denies every row, so the revoke converts an empty result into a
+  permission error rather than losing data. Only one,
+  `public.pipeline_manual_review_queue`, is read by app code
+  (`app/api/cron/pipeline-manual-review-notify/route.ts`) and that route uses the
+  service-role key, which the loop never revokes.
+- **`hv_sync` schema** is not in any of this migration's loops; its functions are
+  untouched.
+- **`net` in the revoke loop.** The committed migration still lists `net` in the
+  SECURITY DEFINER revoke loop. It is a no-op there — `postgres` is not the
+  grantor, so Postgres emits `WARNING 01006/01007` and continues without
+  aborting the replay.
+
+### Decision recorded 2026-08-07 — `signals_quality` reclassified authenticated-only
+
+CI (`production-security-hardening.yml`, run 31210310556) rejected the grant with
+`public|signals_quality|internal_view_exposed`. The assertion file listed the view
+under `internal_views`, which requires anon **and** authenticated to hold nothing.
+Two fixes were possible and they encode different intent, so this went to Tyler
+rather than being resolved silently:
+
+- **A** — grant `authenticated`, reclassify the view in the assertion.
+- **B** — keep it internal, switch the two routes to the service client.
+
+Tyler chose **A**.
+
+The deciding fact, verified read-only: `public.signals_quality` currently has
+`security_invoker` unset, so it runs as its owner and **bypasses RLS on
+`public.signals` entirely** — today every anon or authenticated reader of that
+view sees every row. `20260804190000` sets `security_invoker = true`, after which
+an authenticated reader is filtered by that table's own policies
+(`reviewed = true`, or `score >= 60`). So A is a net tightening of what a
+signed-in session can see, not a loosening, and it keeps row safety in the
+database rather than resting it on the routes' own `.eq('reviewed', true)` filter
+as B would.
+
+`anon` remains fully closed. The new `authenticated_views` assertion enforces the
+whole contract rather than merely dropping the old check: anon holds nothing,
+authenticated holds exactly SELECT (no insert/update/delete), and service_role
+retains SELECT.
