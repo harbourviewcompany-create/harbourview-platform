@@ -3650,3 +3650,102 @@ with `var`/`let` content:
 ### Status
 
 **HOLD.** Step 10 unverified until the next candidate run.
+
+## 2026-08-07 — Candidate COMPLETE (step 11 ran); one gate red and unexplained
+
+### The candidate finished
+
+Run `31199767547`, job `92936678722`, head `2770954c`: **all 12 steps success**,
+including step 11 "Commit verified product candidate and remove staging controls".
+
+Step 11 pushed `f14a9872` as `harbourview-release-bot`: 37 files, +1336/-926. It
+deleted `stage-production-candidate.yml`, `country-reference-audit.yml` and
+`migration-stub-audit.yml`, added 5 migrations and modified 9.
+
+**The branch is now independently replayable.** Verified the chronology guard is
+committed — `20260304000000_marketplace_conversion_v1.sql` now opens with
+`do $replay$ ... if to_regclass('public.marketplace_inquiries') is not null`.
+That was the blocker recorded on 2026-08-06.
+
+**The assembler will never run again**, because the workflow that invoked it is
+deleted. Everything it produced is now ordinary source that can be edited
+directly. The pinned-generator constraint is gone.
+
+### Actions did not run on the step 11 commit
+
+`f14a9872` initially had only 8 third-party checks and no GitHub Actions runs.
+Step 11 pushes with the workflow's `GITHUB_TOKEN`, and GitHub does not create
+workflow runs for those pushes. Closing and reopening PR #1283 fires
+`pull_request` events (`opened, synchronize, reopened` are the defaults) and
+validated `f14a9872` without adding a commit. `mergeable_state` moved
+`blocked` → `unstable`.
+
+### Green at `f14a9872`
+
+Type Check, `tsc --noEmit`, Next.js Build, Smoke Tests, Security / Leakage,
+Domain Logic, Intake & Listings, Signal Engine Runtime, six `verify` jobs,
+`validate`, `verify-public-surfaces`, `verify-new-products-equipment`, registry
+discipline, npm-audit, npm ci install-only, Snyk, Vercel, Netlify, Cloudflare
+Pages and Workers. Combined commit status: success.
+
+### Red, and NOT a flake
+
+`Authenticated nine-width Command Centre evidence`
+(`.github/workflows/mobile-command-centre-v2-visual.yml`), step 13:
+
+```
+Error: 390px: expect(locator).toBeVisible() failed
+Locator: locator('.hvm2-listing-card').filter({ hasText: 'Visual Safe Bulk Flower Lot' }).first()
+Expected: visible
+Timeout: 30000ms
+Error: element(s) not found
+```
+
+| run | head | result |
+| --- | --- | --- |
+| `31199771437` | `2770954c` | **success** |
+| `31200367537` | `f14a9872` | failure |
+| `31201361325` | `f14a9872` | failure (re-run) |
+
+Two failures at `f14a9872` against a success at `2770954c` is a **real regression
+introduced by step 11**, not flake. The flake hypothesis was tested and rejected.
+
+### Ruled out, each checked rather than assumed
+
+- **`20260807001000` default privileges** — the visual workflow moves
+  `supabase/migrations` to `/tmp` before starting (line 95) and grants the fixture
+  explicitly: `grant select on public.marketplace_public_listings_v1 to anon,
+  authenticated, service_role` (line 258). The migration never runs there.
+- **`DashboardResponsiveShell.tsx`** — the change adds `DesktopCommandWorkspace`
+  to the desktop branch only; the `isMobile` branch is untouched, so it cannot
+  affect 390px.
+- **`candidates.ts` / `liveSources.ts`** — rename `source_registry` →
+  `marketplace_source_registry` etc. on admin source-intake paths only; not the
+  listings feed.
+- **`app/dashboard/page.tsx`** — removes `userEmail`, which is declared
+  `userEmail?: string | null` and read nowhere in `lib/`.
+- **`lib/supabase/env.ts`** — comment-only (3 added, 1 removed, all JSDoc).
+- **The spec's added desktop block** — `WIDTHS = [320, 360, 375, 390, 430, 768,
+  820, 1024, 1440]`, and the added block runs at desktop widths, i.e. **after**
+  390. It cannot affect the 390 iteration.
+- **The visual workflow and its seed** — step 11 only deleted workflows under
+  `.github/`; it did not modify this one.
+
+### Not yet explained
+
+The only remaining runtime behaviour change is `timeoutMs: 12_000` added to the
+`operatorLicenceMatrix` source in `buildDashboardCommandSources.ts`, replacing
+`DEFAULT_SOURCE_TIMEOUT_MS`. That source is in the `marketplace` page's plan, but
+its fallback is `{ entitled: false }` and `marketplaceRows` is a separate source,
+so it is not a demonstrated cause of a missing listing card. **Stated as an
+unproven lead, not a diagnosis.**
+
+### Status
+
+**HOLD on merging #1283.** Every other gate is green and the candidate is
+complete, but a defined visual/responsive gate is red with a reproduced
+regression. Not merged. PR #1284 remains merged on `main` (`3379ee94`).
+
+Note for whoever picks this up: reopening #1283 re-runs roughly thirty jobs. It
+was used twice deliberately — once to validate `f14a9872`, once to test the flake
+hypothesis. Do not use it as a general retry.
