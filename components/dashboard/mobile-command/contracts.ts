@@ -180,6 +180,53 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   settings: 'overview',
 }
 
+/**
+ * The five bottom-nav destinations. Declared explicitly rather than derived from
+ * PRIMARY_NAV, because that is typed `NavDestination[]` and would widen this to
+ * every SectionId — which silently defeats the exhaustiveness check on
+ * SECTION_GROUPS below.
+ */
+export type PrimarySectionId =
+  | 'overview'
+  | 'marketplace'
+  | 'weekly-signals'
+  | 'next-actions'
+  | 'jurisdiction'
+
+/**
+ * Every section folded under exactly one of the five primary destinations.
+ *
+ * The mobile renderer previously mounted all twenty sections at once in a single
+ * scrolling column, and the bottom nav only called `scrollIntoView` — so the five
+ * "tabs" were anchors into one endless page rather than navigation, and the
+ * fifteen sections with no tab were reached by scrolling past them. The desktop
+ * Command Centre has always switched on `activePage` and rendered one page at a
+ * time; this restores the same model on mobile.
+ *
+ * Order within each group is render order. Reordering or moving a section
+ * between groups is a single edit here — nothing else reads the arrangement.
+ */
+export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
+  overview: ['overview', 'live-status', 'personal-briefing', 'review-gates'],
+  marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
+  'weekly-signals': ['weekly-signals', 'search', 'education'],
+  'next-actions': ['next-actions', 'financing'],
+  jurisdiction: ['jurisdiction', 'compliance', 'clinical', 'genetics', 'network', 'directories', 'talent'],
+}
+
+/**
+ * Reverse lookup so a deep link to any section activates the destination that
+ * owns it. Built from SECTION_GROUPS rather than hand-maintained, so the two
+ * cannot drift.
+ */
+export const SECTION_TO_GROUP: Record<SectionId, PrimarySectionId> = (() => {
+  const lookup = {} as Record<SectionId, PrimarySectionId>
+  for (const [group, sections] of Object.entries(SECTION_GROUPS) as Array<[PrimarySectionId, SectionId[]]>) {
+    for (const section of sections) lookup[section] = group
+  }
+  return lookup
+})()
+
 export const SECTION_IDS = new Set<SectionId>(SECTION_NAV.map(section => section.id))
 export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'wanted-intake',

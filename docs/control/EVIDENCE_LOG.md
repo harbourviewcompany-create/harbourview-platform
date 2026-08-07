@@ -4376,3 +4376,101 @@ data is out of scope for a read-path fix and is Tyler's call:
   country-scoped query returns zero rows. A Canada view can therefore display
   German listings with no indication the filter was dropped. That is a product
   decision, not obviously a bug, but it is currently invisible to the user.
+
+---
+
+## 2026-08-07 — Mobile Command Centre restored to one surface at a time
+
+Tyler: "This scrolling bullshit sucks. I built the command centre the way it was
+for a reason and now it's just piled on shit." He was describing a real
+architectural regression, not a preference.
+
+### What was wrong
+
+`MobileCommandCentreRebuild.tsx` mounted **all twenty sections at once**,
+unconditionally, in a single `<main>`. Verified: zero conditional renders. And
+`navigateToSection` ended in:
+
+```ts
+sectionNodes.current.get(id)?.scrollIntoView({ behavior, block: 'start' })
+```
+
+So the five bottom-nav items were **scroll anchors into one endless page**, not
+navigation. The fifteen sections with no nav entry were reached only by scrolling
+past them. Compliance, quality posture, access pathway, network and trade
+financing all sat in one continuous column, which is exactly why it read as
+piled on — it was, in DOM order.
+
+The desktop renderer never worked this way. `CommandCentre.tsx:11057`:
+
+```ts
+switch (activePage) {
+  case 'briefing':    return <BriefingRoom …/>
+  case 'marketplace': return <MarketplacePage …/>
+  …
+}
+```
+
+One page at a time. The mobile rebuild dropped that model.
+
+### The fix
+
+`SECTION_GROUPS` folds all twenty sections under the five existing destinations,
+and only the active group mounts. Four of the five never reach the DOM.
+
+| destination | sections |
+| --- | --- |
+| Command | overview, live-status, personal-briefing, review-gates |
+| Market | marketplace, supply, market-status, market-intelligence |
+| Intel | weekly-signals, search, education |
+| Actions | next-actions, financing |
+| Context | jurisdiction, compliance, clinical, genetics, network, directories, talent |
+
+`SECTION_TO_GROUP` is derived from `SECTION_GROUPS` rather than hand-maintained,
+so the two cannot drift, and a test asserts the grouping covers all twenty
+exactly once.
+
+Also changed:
+
+- **Section rail scoped to the active destination.** It listed all twenty
+  regardless of location; it now shows only the current group's sections, so it
+  is real sub-navigation.
+- **Bottom nav marks the owning destination**, so a deep link into a folded
+  section lights the correct tab.
+- **`activeSection` is now seeded from `props.initialPage`** instead of
+  defaulting to `overview` and correcting in an effect. Effects do not run during
+  SSR, so with folding the server would have rendered the Command group and
+  swapped on hydration — a visible flash, and the wrong content entirely for a
+  deep link.
+
+### Verification
+
+- `npm run lint` — 0 errors, 144 warnings (all pre-existing).
+- `npm run typecheck` — clean. Caught a real defect on the way: `PrimarySectionId`
+  derived from `PRIMARY_NAV` widened to every `SectionId`, because that constant
+  is typed `NavDestination[]`. That silently defeated the exhaustiveness check on
+  `SECTION_GROUPS`, so the union is now declared explicitly.
+- `npx vitest run` — 689 passed, up from 686. The 5 failing files are the same
+  pre-existing ones (globe polygon rendering,
+  pending-production-migration-decisions) that fail identically on `main`.
+- `npm run build` — compiled successfully.
+
+Tests rewritten rather than deleted: the old
+`renders all 20 sections through the production mobile renderer` asserted the
+defect as a contract. It is replaced by `mounts only the active destination`,
+plus coverage for destination-scoped rail, owning-tab highlighting, and
+cross-group deep links.
+
+### Not addressed here
+
+Still open from the same screenshots, deliberately out of scope for a structural
+change:
+
+- **`Stub` renders as a user-facing value** under "QUALITY POSTURE". It is
+  `jurisdictionPlaybook.confidence_label` coming through raw — a placeholder
+  displayed as content.
+- **Heading collision.** "Regulatory and quality control" and "Compliance
+  command" occupy the same row and overlap, squeezing body copy into a narrow
+  column. Same on "Reviewed commercial network" / "Network command".
+- **The Aurora/Tilray/Canopy paragraph still appears three times** across command
+  brief, access pathway and personal briefing.

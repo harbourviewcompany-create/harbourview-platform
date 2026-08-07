@@ -28,6 +28,9 @@ import {
   type NormalizedListing,
   type SectionId,
   type SubmissionRecord,
+  SECTION_GROUPS,
+  SECTION_TO_GROUP,
+  type PrimarySectionId,
 } from './contracts'
 
 function buildHref(path: string, source: { toString(): string }, changes: Record<string, string | null>) {
@@ -59,7 +62,14 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [activeSection, setActiveSection] = useState<SectionId>('overview')
+  // Seeded from the server-supplied page rather than defaulting to 'overview'
+  // and correcting in an effect. Now that only the active destination's sections
+  // mount, defaulting would render the Command group on the server and swap to
+  // the real one on hydration — a visible flash, and the wrong content entirely
+  // for a deep link that never hydrates.
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    () => PAGE_TO_SECTION[props.initialPage ?? 'briefing'] ?? 'overview',
+  )
   const [activeMarketView, setActiveMarketView] = useState<MarketView>('cannabis')
   const [marketQuery, setMarketQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -427,8 +437,16 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     window.requestAnimationFrame(() => sectionNodes.current.get('marketplace')?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
   }, [searchQuery, selectMarketView])
 
+  // The destination that owns the active section, and the sections it renders.
+  // Only this group is mounted — the other four never reach the DOM, so the page
+  // is one surface rather than a twenty-section scroll.
+  const activeGroup: PrimarySectionId = SECTION_TO_GROUP[activeSection] ?? 'overview'
+  const visibleSections = SECTION_GROUPS[activeGroup]
+
   return {
     activeSection,
+    activeGroup,
+    visibleSections,
     activeMarketView,
     marketQuery,
     searchQuery,

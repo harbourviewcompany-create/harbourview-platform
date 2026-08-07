@@ -8,8 +8,12 @@ import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
   PAGE_TO_SECTION,
+  PRIMARY_NAV,
+  SECTION_GROUPS,
   SECTION_NAV,
   SECTION_TO_DESKTOP_PAGE,
+  SECTION_TO_GROUP,
+  type PrimarySectionId,
   SUPPLY_TABS,
   clampPercent,
   confidenceFractionToPercent,
@@ -72,8 +76,10 @@ function mobileProps(): MobileCommandCentreProps {
   }
 }
 
-function renderMobileCommand() {
-  const markup = renderToStaticMarkup(createElement(MobileCommandCentreRebuild, mobileProps()))
+function renderMobileCommand(overrides: Partial<MobileCommandCentreProps> = {}) {
+  const markup = renderToStaticMarkup(
+    createElement(MobileCommandCentreRebuild, { ...mobileProps(), ...overrides }),
+  )
   return parseHTML(`<!doctype html><html><body>${markup}</body></html>`).document
 }
 
@@ -164,26 +170,68 @@ describe('Mobile Command Centre contracts', () => {
     expect(MOBILE_COMMAND_COPY.financingInquiryDescription).toContain('does not approve credit')
   })
 
-  it('renders all 20 sections through the production mobile renderer', () => {
-    const document = renderMobileCommand()
-    const root = document.querySelector('[data-mobile-command-version="2"]')
-    expect(root).not.toBeNull()
+  it('folds every section under exactly one of the five destinations', () => {
+    const grouped = Object.values(SECTION_GROUPS).flat()
 
-    const sections = [...document.querySelectorAll('.hvm2-main > section')]
-    expect(sections).toHaveLength(SECTION_NAV.length)
+    expect(grouped).toHaveLength(SECTION_NAV.length)
+    expect(new Set(grouped).size).toBe(grouped.length)
+    expect([...grouped].sort()).toEqual(SECTION_NAV.map(section => section.id).sort())
+
+    // Every destination is a real section, and owns itself.
+    for (const destination of PRIMARY_NAV) {
+      expect(SECTION_GROUPS[destination.id as PrimarySectionId]).toBeDefined()
+      expect(SECTION_TO_GROUP[destination.id]).toBe(destination.id)
+    }
 
     for (const section of SECTION_NAV) {
-      expect(document.querySelector(`#${section.id}`), section.id).not.toBeNull()
+      expect(SECTION_TO_GROUP[section.id], section.id).toBeDefined()
+    }
+  })
+
+  it('mounts only the active destination, not all 20 sections', () => {
+    // The renderer used to mount every section at once and treat the bottom nav
+    // as scroll anchors, which is what made the surface one endless page.
+    const document = renderMobileCommand()
+    expect(document.querySelector('[data-mobile-command-version="2"]')).not.toBeNull()
+
+    const rendered = [...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)
+    expect(rendered).toEqual(SECTION_GROUPS.overview)
+    expect(rendered.length).toBeLessThan(SECTION_NAV.length)
+
+    // Sections owned by other destinations must not be in the DOM at all.
+    for (const id of SECTION_GROUPS.jurisdiction) {
+      expect(document.querySelector(`#${id}`), id).toBeNull()
     }
 
     expect(document.querySelector('.hvm2-bottom-nav')).not.toBeNull()
     expect(document.body.textContent).toContain('Operator command centre')
-    expect(document.body.textContent).toContain('Bulk flower lot')
     expect(document.body.textContent).not.toContain('⌘ Modules')
   })
 
+  it('renders the destination that owns the requested page', () => {
+    const document = renderMobileCommand({ initialPage: 'marketplace' })
+
+    const rendered = [...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)
+    expect(rendered).toEqual(SECTION_GROUPS.marketplace)
+    expect(document.body.textContent).toContain('Bulk flower lot')
+
+    // The owning tab is marked current, not merely the section.
+    const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
+    expect(current?.textContent).toContain('Market')
+  })
+
+  it('scopes the section rail to the active destination', () => {
+    const document = renderMobileCommand({ initialPage: 'compliance' })
+
+    const rail = [...document.querySelectorAll('.hvm2-section-rail button')]
+    expect(rail).toHaveLength(SECTION_GROUPS.jurisdiction.length)
+
+    const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
+    expect(current?.textContent).toContain('Context')
+  })
+
   it('renders canonical dashboard hrefs for progressive mobile workflows', () => {
-    const document = renderMobileCommand()
+    const document = renderMobileCommand({ initialPage: 'marketplace' })
     const anchors = [...document.querySelectorAll<HTMLAnchorElement>('.hvm2-root a[href]')]
     expect(anchors.length).toBeGreaterThan(0)
 
@@ -200,8 +248,12 @@ describe('Mobile Command Centre contracts', () => {
     expect(wanted.searchParams.get('tool')).toBe('wanted-intake')
     expect(wanted.searchParams.get('marketView')).toBe('wanted')
 
+    // Cross-destination link: this anchor lives in the Marketplace section but
+    // targets `financing`, which folds under Actions. Deep links across groups
+    // must still resolve to the owning destination.
     const financing = new URL(byText('Request financing')?.getAttribute('href') ?? '', 'https://harbourview.test')
     expect(financing.searchParams.get('section')).toBe('financing')
     expect(financing.searchParams.get('tool')).toBe('financing-intake')
+    expect(SECTION_TO_GROUP.financing).toBe('next-actions')
   })
 })
