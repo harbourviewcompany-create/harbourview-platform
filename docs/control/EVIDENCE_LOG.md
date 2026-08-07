@@ -4231,3 +4231,64 @@ not merely against a zero-state replay.
 - Duplicate Cloudflare Workers Git integration on account `4a7c450c…`, failing in
   0s on every PR. Repository/account settings, not code.
 - `ia_signals` stale since Jul 28; 262 `SELECT 1;` stub migrations.
+
+---
+
+## 2026-08-07 — Applying `20260804190000`: mechanism chosen, and why
+
+Tyler authorized applying the hardening migration. The apply itself is staged
+behind a dispatch rather than executed from the agent session, for a reason worth
+recording.
+
+### Why not through the Supabase MCP
+
+The MCP applies SQL passed as a tool argument. There is no path that reads a
+repository file directly, so applying a 554-line migration that way means the
+agent re-emits every line by hand. A silent transcription slip in a grant
+migration would not surface until something broke in production, and the
+assertion suite would not necessarily catch it — assertions check the intended
+end state, not privileges that were never meant to change. That risk is not
+worth taking when a zero-transcription path exists.
+
+### Why not `supabase-migrate.yml`
+
+That workflow runs `supabase db push --include-all`, which applies the entire
+repository-only pending set. The tree carries ~830 migrations against 802 ledger
+rows, and its release-control allowlist
+(`supabase/release-controls/elite-digest-production-activation.json`) is scoped
+to an older three-migration release. Dispatching it would either fail its own
+manifest gate or reach far beyond this change.
+
+### What was built instead
+
+`.github/workflows/apply-production-security-hardening.yml` — `workflow_dispatch`,
+`production_action` authorization input defaulting to HOLD, main-only, using the
+existing `SUPABASE_DB_PASSWORD` secret. It:
+
+1. refuses if the migration is already in the ledger, by version **or** name;
+2. captures the pre-application anon-executable definer count;
+3. applies the file with `psql -1`, so it is one transaction — all or nothing;
+4. records the ledger row under the repository version `20260804190000`;
+5. re-runs `supabase/tests/production_security_hardening.sql` **against
+   production** and fails if any defect row comes back;
+6. verifies the live paths: `authenticated` can still read `api.signals_quality`
+   and its underlying view, `anon` cannot, all 20 cron-invoked functions remain
+   executable by `postgres`, and reports the post-application anon count.
+
+### Ledger versioning defect found while doing this
+
+`apply_migration` (MCP) records rows under **apply-time** versions, not the
+migration's own. The three migrations applied earlier this session are in the
+ledger as `20260807181844`, `20260807181907`, `20260807182104` with correct
+names, not as `20260807000900/1000/1100`. Consequence: `supabase db push` still
+regards those three repository files as pending, and any manifest built from
+version numbers will disagree with reality.
+
+This also means the earlier verification in this log — checking
+`version = '20260804190000'` — was a weaker test than it read as. Re-checked by
+name: no row named `production_security_hardening` exists, so the conclusion
+stands, but the method was wrong and the by-name check is the sound one. The new
+workflow above checks both.
+
+Reconciling the three mis-versioned rows is a separate decision and has not been
+taken here.
