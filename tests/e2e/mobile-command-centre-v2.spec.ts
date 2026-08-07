@@ -256,22 +256,32 @@ test.describe('Command Centre authenticated responsive verification', () => {
           // Every destination reachable by deep link, rendering its own group and
           // nothing else. Covers the four sections this spec used to assert on
           // load: market-intelligence, supply, directories and financing.
-          for (const [destination, sections] of Object.entries(SECTION_GROUPS)) {
-            const destinationResponse = await page.goto(
-              `/dashboard?country=CA&role=exporter&section=${sections[0]}`,
-              { waitUntil: 'domcontentloaded', timeout: 60_000 },
-            )
-            expect(destinationResponse?.status()).toBeLessThan(400)
-            await expect(page.locator(`[data-active-destination="${destination}"]`)).toBeVisible()
-            for (const section of sections) {
-              await expect(page.locator(`#${section}`), `${destination}/${section}`).toHaveCount(1)
+          //
+          // Scoped to one width deliberately. Folding is width-independent — it is
+          // a render-tree decision, not a layout one — and sweeping all five
+          // destinations at all nine widths adds forty extra navigations to a gate
+          // that already runs for minutes. The surrounding block still proves at
+          // every width that exactly one destination mounts; this proves the other
+          // four are correct. 390 matches the width the marketplace-tab assertions
+          // below already use.
+          if (width === 390) {
+            for (const [destination, sections] of Object.entries(SECTION_GROUPS)) {
+              const destinationResponse = await page.goto(
+                `/dashboard?country=CA&role=exporter&section=${sections[0]}`,
+                { waitUntil: 'domcontentloaded', timeout: 60_000 },
+              )
+              expect(destinationResponse?.status()).toBeLessThan(400)
+              await expect(page.locator(`[data-active-destination="${destination}"]`)).toBeVisible()
+              for (const section of sections) {
+                await expect(page.locator(`#${section}`), `${destination}/${section}`).toHaveCount(1)
+              }
+              const mounted = await page.locator('.hvm2-main > section').count()
+              expect(mounted, destination).toBe(sections.length)
             }
-            const mounted = await page.locator('.hvm2-main > section').count()
-            expect(mounted, destination).toBe(sections.length)
-          }
 
-          await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded', timeout: 60_000 })
-          await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+            await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded', timeout: 60_000 })
+            await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+          }
 
           const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll(links => links.map(link => {
             const href = (link as HTMLAnchorElement).href
