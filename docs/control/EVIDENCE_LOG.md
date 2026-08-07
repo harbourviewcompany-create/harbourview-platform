@@ -3749,3 +3749,65 @@ regression. Not merged. PR #1284 remains merged on `main` (`3379ee94`).
 Note for whoever picks this up: reopening #1283 re-runs roughly thirty jobs. It
 was used twice deliberately — once to validate `f14a9872`, once to test the flake
 hypothesis. Do not use it as a general retry.
+
+## 2026-08-07 — Visual gate: two hypotheses tested, both wrong
+
+| run | head | what changed | result |
+| --- | --- | --- | --- |
+| `31199771437` | `2770954c` | — | **success** |
+| `31200367537` | `f14a9872` | step 11 output | failure |
+| `31201361325` | `f14a9872` | re-run, no change | failure |
+| `31202223658` | `339ec106` | **docs only** | failure |
+| `31203393769` | `05ea6fc2` | reverted `timeoutMs: 12_000` | failure |
+
+**Hypothesis 1 — flake.** Rejected: it reproduced on an unchanged re-run.
+
+**Hypothesis 2 — the `operatorLicenceMatrix` timeout.** Step 11 set
+`timeoutMs: 12_000` against `DEFAULT_SOURCE_TIMEOUT_MS = 8_000`, and
+`loadCommandCentreData` waits on `Promise.allSettled`, so the marketplace render
+waited for the slowest source. Mechanically plausible. **Rejected:** reverting it
+in `05ea6fc2` did not fix the gate. The revert is retained anyway — 8s is the
+default every other source uses, and nothing depends on the longer value.
+
+### What the failure actually is
+
+Consistently, at 390px only:
+
+```
+Locator: locator('.hvm2-listing-card').filter({ hasText: 'Visual Safe Bulk Flower Lot' }).first()
+Error: element(s) not found
+```
+
+Line 285 of the spec asserts `getByText(SAFE_LISTING_TITLE, { exact: true })` and
+**passes**. Line 315 asserts the same text inside `.hvm2-listing-card` and fails
+with *element(s) not found*, immediately after
+`closeMarketplaceTool(page, 'supply-intake')`. The class is real
+(`components/dashboard/mobile-command/sections/CoreSections.tsx:129`), and lines
+300–320 are pre-existing test code unchanged by step 11.
+
+So: the listing text renders somewhere on the page, but the card element is
+absent after closing the supply-intake tool. That points at the marketplace
+section not being restored on tool close at 390px — a behaviour question, not a
+data question, and not something static diff-reading has settled.
+
+### Ruled out so far
+
+Migrations (moved to `/tmp` by that workflow; fixture granted explicitly at
+line 258), the responsive-shell change (desktop branch only), the
+candidates/liveSources renames (admin source-intake paths), `userEmail` (unused
+optional field), `env.ts` (comment-only), the spec's added desktop block
+(`WIDTHS` puts 768+ after 390), the visual workflow and its seed (unmodified by
+step 11), and the source timeout (tested and reverted).
+
+### Correct next step
+
+Stop reading diffs. The run uploads
+`test-results/.../error-context.md` plus ten screenshots and `trace.zip` as
+artifact **`9002696129`** on run `31200367537`. `error-context.md` contains the
+page snapshot at the moment of failure and will show directly what is rendered at
+390px after the tool closes. This session cannot download run artifacts.
+
+### Status
+
+**HOLD on merging #1283.** Candidate complete, branch replayable, every other
+gate green, one defined visual gate red and undiagnosed. Not merged.
