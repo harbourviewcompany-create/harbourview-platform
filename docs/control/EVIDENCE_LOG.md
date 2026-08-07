@@ -3371,3 +3371,108 @@ once — which is exactly the kind of change that needs explicit sign-off.
 
 **HOLD.** No production data, schema, grants or auth settings were modified;
 production access was read-only throughout.
+
+## 2026-08-07 — Root cause of the ~300 anon-executable routines: default privileges
+
+Traced from the credential finding recorded above. This is the systemic cause, and
+it changes what "hardened" means for this platform.
+
+### The trace
+
+`20260710190300_github_pat_vault_rpc.sql` revokes correctly:
+
+```sql
+REVOKE ALL ON FUNCTION public.get_github_pat() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_github_pat() TO service_role;
+```
+
+The production ledger confirms it ran (`version 20260710190300`, 7 statements).
+Yet production now reports `anon=X/postgres` on that function. No migration after
+`20260710190300` contains a matching GRANT -- searched the ledger's `statements[]`
+directly for `grant%execute%on all functions%`, zero hits. So the re-grant did not
+come through migrations.
+
+`pg_default_acl` explains it. For schema `public`, production carries:
+
+| grantor | object type | default acl |
+| --- | --- | --- |
+| postgres | function | `{postgres=X, anon=X, authenticated=X, service_role=X}` |
+| supabase_admin | function | `{postgres=X, anon=X, authenticated=X, service_role=X}` |
+| postgres | table | `{postgres=arwdDxtm, anon=arwdDxtm, authenticated=arwdDxtm, service_role=arwdDxtm}` |
+| supabase_admin | table | same |
+| both | sequence | `{... anon=rwU, authenticated=rwU ...}` |
+
+Every new function in `public` is anon-executable on creation, and **every new
+table is fully INSERT/UPDATE/DELETE-able by anon on creation**. Any targeted
+revoke is undone the next time an object is dropped and recreated.
+
+This means `20260804190000_production_security_hardening.sql` -- 49 revokes plus
+targeted `service_role` grants -- fixes the objects existing when it runs and does
+not stop the next one. The gate would pass at replay time and drift afterwards.
+
+`supabase/config.toml` documents `auto_expose_new_tables` as deprecated, states
+that when unset "new entities are NOT auto-exposed, matching the new cloud
+default", and leaves it unset. Local already behaves that way. Production does
+not. The two have silently diverged.
+
+### Repair: `20260807001000_revoke_data_api_default_privileges_on_public.sql`
+
+Revokes the `anon`/`authenticated` default privileges on tables, sequences and
+functions in `public`, for both the `postgres` and `supabase_admin` grantor roles,
+guarded and idempotent, with `supabase_admin` attempted and reported honestly
+rather than assumed (it cannot be altered by the migration role).
+
+### What it does NOT do, proven rather than assumed
+
+It does not stop new **functions** being executable by `anon`, and PostgreSQL
+offers no way to do so via ALTER DEFAULT PRIVILEGES. Three experiments on
+PostgreSQL 16.13:
+
+1. stored `defaclacl = {service_role=X/postgres}` (row present, no PUBLIC entry)
+   → new function `proacl = {=X/postgres, postgres=X/postgres, service_role=X/postgres}`,
+   anon EXECUTE **true**
+2. `revoke execute on functions from public` alone
+   → **zero rows** stored in `pg_default_acl`, new function `proacl` NULL,
+   anon EXECUTE **true**
+3. grant to `service_role` + revoke from `public` together
+   → `defaclacl = {service_role=X/postgres}`, new function still `{=X/postgres, ...}`,
+   anon EXECUTE **true**
+
+`=X/` is the PUBLIC pseudo-role. `pg_default_acl` entries are merged with the
+built-in defaults rather than replacing them, and the built-in default for
+functions is EXECUTE TO PUBLIC; revoking PUBLIC there does not persist.
+
+The first draft of this migration claimed to close functions too. A local harness
+caught it -- new tables were correctly closed while a new function was still
+anon-executable -- and the migration and its header were corrected to claim only
+what they do. This is the third time this session the PUBLIC pseudo-role has
+defeated a revoke that named only `anon` and `authenticated`
+(`20260722031500`, `20260805234000`, here).
+
+Compensating controls for functions are unchanged: per-function explicit revokes,
+plus the `anon_definer_execute` / `authenticated_definer_execute` assertions,
+which must return zero rows.
+
+Tables are the more severe half regardless -- `anon=arwdDxtm` on every new table
+is write access, not just read -- and that is closed.
+
+### Verified
+
+Local harness on PostgreSQL 16.13 reproducing production's defaults:
+
+| check | before | after |
+| --- | --- | --- |
+| new table anon SELECT/INSERT | true | **false** |
+| new function anon EXECUTE | true | true (by design, see above) |
+| `service_role` retained | — | true |
+| pre-existing object untouched | — | true |
+
+`ALTER DEFAULT PRIVILEGES` only affects objects created afterwards, so nothing
+currently working is disturbed.
+
+### Status
+
+**HOLD.** Migration committed to the branch only. Production default privileges
+are unchanged -- altering them is a production grant change and needs explicit
+sign-off. No production data, schema, grants or auth settings were modified;
+access was read-only throughout.
