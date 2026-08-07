@@ -32,15 +32,30 @@ import { getOperatorLicenceMatrix } from '@/lib/intelligence/operatorIntelligenc
 import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
 import { getListingsBySections, type PublicListing } from '@/lib/server/listingsQuery'
 
+// Section keys as they actually exist in marketplace_public_listings_v1, plus the
+// aspirational ones this project has not started writing yet.
+//
+// `processing` is deliberately in the equipment view. It is a real section with
+// live rows and was previously unreachable: the map only listed
+// `processing_equipment`, which no row has ever used. Because unmatched sections
+// fell through to the `cannabis` bucket, any processing row that did surface was
+// also filed under flower. Verified against the view on 2026-08-07 — every
+// section present in production is mapped by exactly one view below:
+//   business_opportunities, cannabis_inventory, consumables, equipment, export,
+//   genetics, labs_testing, logistics, packaging, processing,
+//   professional_services, services, wanted_requests
 const VIEW_SECTIONS: Record<MarketView, string[]> = {
   cannabis: ['cannabis_inventory', 'export_ready', 'export', 'import_demand', 'genetics', 'flower', 'extract', 'biomass'],
-  equipment: ['cultivation_equipment', 'processing_equipment', 'used_surplus', 'equipment'],
+  equipment: ['cultivation_equipment', 'processing_equipment', 'processing', 'used_surplus', 'equipment'],
   consumables: ['consumables', 'packaging'],
   'new-products': ['new_products', 'new-products'],
   services: ['services', 'professional_services', 'logistics', 'lab_testing', 'labs_testing'],
   opportunities: ['distressed_businesses', 'distressed_inventory', 'business_opportunities', 'qualified_access', 'wanted_requests'],
   wanted: ['wanted_requests', 'wanted'],
 }
+
+// Each view is capped at this many rows in the Command Centre projection.
+const ROWS_PER_VIEW = 8
 
 function safeText(value: string | null | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback
@@ -80,21 +95,35 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
   ]
 }
 
+// One query per view, not one query for everything.
+//
+// This previously issued a single `limit 56` query across every section and
+// bucketed the result client-side. Because the view sorts by
+// `is_featured desc, created_at desc` with no per-section fairness, whichever
+// sections happen to hold the newest rows consume the entire budget and every
+// other tab renders empty while its rows sit in the database.
+//
+// Measured against production for Canada on 2026-08-07, those 56 rows were:
+// consumables 26, packaging 20, labs_testing 4, equipment 4,
+// cannabis_inventory 1, services 1 — and zero for wanted_requests,
+// business_opportunities, genetics and processing, all of which have rows.
+//
+// Querying per view gives each tab its own budget, so a busy section can no
+// longer starve a quiet one. The requests run in parallel and every one of them
+// is served by the 5-minute cache in getListingsBySections.
 async function getDashboardMarketplaceRows(countryIso2?: string | null): Promise<Partial<DashboardMarketplaceRows>> {
-  const allSections = Array.from(new Set(Object.values(VIEW_SECTIONS).flat()))
-  const listings = await getListingsBySections(allSections, countryIso2, 56)
+  const views = Object.entries(VIEW_SECTIONS) as [MarketView, string[]][]
+
+  const populated = await Promise.all(
+    views.map(async ([view, sections]) => {
+      const listings = await getListingsBySections(sections, countryIso2, ROWS_PER_VIEW)
+      return [view, listings.map(mapListingToDashboardRow)] as const
+    }),
+  )
+
   const buckets: Partial<DashboardMarketplaceRows> = {}
-
-  for (const listing of listings) {
-    const matchingViews = (Object.entries(VIEW_SECTIONS) as [MarketView, string[]][])
-      .filter(([, sections]) => sections.includes(listing.marketplace_section))
-      .map(([view]) => view)
-    const views: MarketView[] = matchingViews.length > 0 ? matchingViews : ['cannabis']
-
-    for (const view of views) {
-      if (!buckets[view]) buckets[view] = []
-      if (buckets[view]!.length < 8) buckets[view]!.push(mapListingToDashboardRow(listing))
-    }
+  for (const [view, rows] of populated) {
+    if (rows.length > 0) buckets[view] = rows
   }
 
   return buckets
