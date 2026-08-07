@@ -3966,3 +3966,106 @@ md5 `e3501b60dabe593b46abb2d155db2b8c`.
 **The GitHub PAT has not been rotated.** Revoking anon EXECUTE closes the
 retrieval path; it does not invalidate a token that may already have been read.
 Rotation remains necessary and is operator-only.
+
+---
+
+## 2026-08-07 — Production hardening gap: what is applied vs. what is merged
+
+Read-only verification against `zvxdgdkukjrrwamdpqrg` after #1283/#1284/#1285.
+
+### The gap
+
+Merging #1283 staged ~830 migrations onto `main`. Only **three** were ever
+applied to production:
+
+| version | applied |
+| --- | --- |
+| `20260807000900` revoke Data API execute on secret accessors | yes |
+| `20260807001000` revoke Data API default privileges on `public` | yes |
+| `20260807001100` fix promote-staging null `object_class` | yes |
+| `20260804190000` production security hardening | **no** |
+| `20260805234000` revoke anon execute on `net.http_*` | **no** |
+
+Ledger total 802. `staging_pending` is **0** — the promote-staging fix is
+confirmed working in production; the 380-row backlog drained.
+
+Being merged to `main` does not apply a migration. Nothing in this repository
+auto-applies to production; `supabase-migrate.yml` is `workflow_dispatch` with an
+explicit authorization input.
+
+### Consequence
+
+`20260804190000` carries the broad revoke. Without it, **137 SECURITY DEFINER
+functions remain anon-executable** in production (138 for `authenticated`),
+split `public` 106 / `api` 31. Both schemas are exposed by PostgREST, so these
+are reachable with the publishable anon key — unlike the `net.http_*` grants,
+which are not. `api.get_github_pat()` is **not** among them; `20260807000900`
+closed it.
+
+A large share are trigger functions that fail outside trigger context. The
+genuinely callable remainder still includes writers —
+`api.approve_engine_signal`, `api.bulk_approve_engine_queue`,
+`api.reject_engine_signal`, `api.set_regulatory_tier`, `api.apply_airtable_tier`,
+`public.bulk_load_sources`, `public.hv_trigger_{embed,extract,score,source_pull_runner}`
+— and readers such as `api.get_airtable_sync_config`,
+`public.get_proprietary_datasets`, `public.get_proprietary_strategic_metrics`,
+and `public.get_watchlist_items(p_org_id uuid, …)`, which takes the org id as a
+parameter under SECURITY DEFINER.
+
+### Pre-flight on applying `20260804190000` — one blocker found
+
+The migration revokes every SECURITY DEFINER routine catalog-wide from
+`public, anon, authenticated, service_role`, then re-grants an explicit
+allowlist. Checked before recommending it:
+
+- **App RPC surface — clear.** All 19 `.rpc()` names in `app/`, `lib/`,
+  `components/` are on the allowlist at a role that matches their call site.
+  Service-role-only grants are all reached through a service client.
+  Exception: `ci_jurisdiction_id_for_iso`
+  (`lib/intelligence-engine/graph-writer.ts`) **does not exist in production at
+  all** — a pre-existing broken call, not caused by this migration.
+- **Cron estate — clear.** All 32 `cron.job` rows run as `postgres`, and all 20
+  functions they invoke are owned by `postgres`. The revoke never names
+  `postgres`, so it cannot break them.
+- **RLS-without-policies loop — clear.** `scraper_source_state` and
+  `daily_digest` both have RLS enabled with a policy, so the loop skips them.
+- **Closed views — one live consumer.** Of the sixteen relations the migration
+  narrows to `service_role`, only `public.signals_quality` is read by live code
+  through a non-service client.
+
+**Blocker:** `app/api/dashboard/signals/route.ts` (line ~156) and
+`app/api/dashboard/digest/route.ts` (lines ~210, ~270) both read
+`public.signals_quality` via `createClient()` from `@/lib/supabase/server` — the
+cookie-backed client — after requiring a signed-in user, so the effective role is
+`authenticated`. The migration does:
+
+```sql
+revoke all privileges on table public.signals_quality from public, anon, authenticated;
+grant select on table public.signals_quality to service_role;
+```
+
+Applying it as written would return zero rows to both Command Centre endpoints
+for every logged-in user.
+
+`lib/dashboard/commandCentreLiveData.ts` also reads it via the anon client, but
+that file has **no consumers** — dead code, not a live break.
+`lib/dashboard/dashboardServerData.ts` prefers the service client and falls back
+to anon only if service-client *construction* throws, so it is unaffected in
+production.
+
+### Decision required
+
+Not taken here. The narrow fix would be to add `authenticated` to the
+`signals_quality` grant, since both consumers already gate on a session — but
+that is a deliberate call about what a logged-in user may read, i.e. a
+security-posture change to published behaviour, and belongs to Tyler under
+Rule 3c and Harbourview addendum 1. `20260805234000` remains unapplied and
+unappliable from this project (grantor is `supabase_admin`).
+
+### Still open
+
+- GitHub PAT rotation — operator-only, unchanged.
+- `ia_signals` stale since Jul 28, undiagnosed.
+- 262 `SELECT 1;` no-op stub migrations in the tree.
+- `supabase/release-controls/pending-production-migration-decisions.json` — eight
+  entries no longer match its recorded sha256.
