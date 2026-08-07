@@ -3577,3 +3577,76 @@ all match production; `anon` and `authenticated` EXECUTE resolve **false**,
 **HOLD.** Committed to the branch only. Production still runs the unfixed function
 and the 380-row backlog is still there — replacing it is a production schema change
 and needs explicit sign-off. Production access was read-only throughout.
+
+## 2026-08-07 — Candidate step 8 PASSED; first failure moves to lint
+
+### Step 8 is green
+
+Run `31192086522`, job `92911324940`, head `7bafe9ae`:
+
+| step | result |
+| --- | --- |
+| 6 assemble candidate | success |
+| **8 Rebuild complete Supabase history and assert hardened state** | **success** (15:21:27 → 15:23:39) |
+| 9 Verify focused contracts | success |
+| **10 Verify lint, TypeScript, and production build** | **failure** |
+| 11 Commit verified product candidate | skipped |
+
+827 migrations replayed across both passes and
+`supabase/tests/production_security_hardening.sql` returned **zero rows**. The
+repair series and the `net`-narrowing in the assembler patch are confirmed
+working end to end. This is the first time the gate has been green.
+
+The candidate workflow also finally ran because opening PR #1284 generated
+`pull_request` events; the candidate is `on: push` only, which is why direct
+pushes never produced runs.
+
+### New first failure: lint, 154 errors — none of them in our source
+
+```
+supabase/.temp/start-secrets/supabase_edge_runtime_zvxdgdkukjrrwamdpqrg/main/index.ts
+  1:1  error  Unexpected var, use let or const instead   no-var
+  ... 154 errors, all prefer-const / no-var on a single minified line
+✖ 330 problems (154 errors, 176 warnings)
+```
+
+`supabase start` writes a minified edge-runtime bundle into `supabase/.temp/`.
+`eslint .` ignores `supabase/functions/**` but not `supabase/.temp/**`, so the
+bundle was linted. Locally `npm run lint` is **0 errors, 144 warnings**; the
+delta is entirely this one CLI-generated file, which only exists after step 8 has
+started Supabase — which is why lint passed locally and in every earlier
+pre-step-8 context.
+
+### The more serious half: it was not gitignored
+
+`supabase/.temp/` had no `.gitignore` entry, and step 11 runs:
+
+```
+git add -A
+git commit -m 'fix(release): close command centre production-readiness defects'
+git push origin HEAD:stage/pr1280-production-ready-20260805
+```
+
+The first run to reach step 11 would therefore have committed
+`supabase/.temp/start-secrets/…` — a directory the Supabase CLI names
+`start-secrets` — into the repository and pushed it. The lint failure prevented
+that by accident, not by design.
+
+### Repair
+
+- `eslint.config.mjs` — added `supabase/.temp/**` to `ignores`.
+- `.gitignore` — added `supabase/.temp/`.
+
+### Verified
+
+Reproduced the CI condition locally by creating
+`supabase/.temp/start-secrets/supabase_edge_runtime_zvxdgdkukjrrwamdpqrg/main/index.ts`
+with `var`/`let` content:
+
+- `git check-ignore -v` matches `.gitignore:47:supabase/.temp/`; `git status` does
+  not list it, so `git add -A` cannot pick it up.
+- `npm run lint` → **0 errors**, 144 warnings (unchanged from the clean tree).
+
+### Status
+
+**HOLD.** Step 10 unverified until the next candidate run.

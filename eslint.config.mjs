@@ -14,6 +14,10 @@ const eslintConfig = [
       '.next/**',
       '**/node_modules/**',
       'supabase/functions/**',
+      // `supabase start` writes a minified edge-runtime bundle to
+      // supabase/.temp/start-secrets/.../main/index.ts. It is CLI scratch, not
+      // source, and linting it produced 154 errors that only ever appeared in CI.
+      'supabase/.temp/**',
       '.claude/**',
     ],
   },
