@@ -24,6 +24,8 @@ export type SectionId =
   | 'compliance'
   | 'network'
   | 'financing'
+  | 'regulatory'
+  | 'local-intel'
 
 export type MobileCommandTool =
   | 'wanted-intake'
@@ -115,6 +117,8 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   compliance: { id: 'compliance', label: 'Compliance', icon: '▣' },
   network: { id: 'network', label: 'Network', icon: '⎈' },
   financing: { id: 'financing', label: 'Trade financing', icon: '¤' },
+  regulatory: { id: 'regulatory', label: 'Regulatory watch', icon: '§' },
+  'local-intel': { id: 'local-intel', label: 'Local intelligence', icon: '⌖' },
 }
 
 export const SECTION_NAV: NavDestination[] = Object.values(SECTION_NAV_BY_ID)
@@ -145,6 +149,8 @@ export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   compliance: 'compliance',
   network: 'experts',
   financing: 'trade-calc',
+  regulatory: 'regulatory',
+  'local-intel': 'local-intel',
 }
 
 export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
@@ -226,7 +232,7 @@ export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
   // (`personal-briefing`, which targets the `digest` page) and search across
   // both. Education was here and is not intelligence -- it is reference
   // material, so it sits with the other reference surfaces in Command.
-  'weekly-signals': ['weekly-signals', 'personal-briefing', 'search'],
+  'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
   clinical: ['clinical'],
   'next-actions': ['next-actions', 'financing'],
 }
