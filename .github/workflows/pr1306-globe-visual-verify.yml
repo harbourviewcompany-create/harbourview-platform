@@ -40,7 +40,7 @@ jobs:
           exit 1
       - name: Capture globe evidence
         run: |
-          node <<'NODE'
+          xvfb-run -a node <<'NODE'
           const { chromium } = require('@playwright/test')
           const fs = require('node:fs')
           const path = require('node:path')
@@ -82,18 +82,15 @@ jobs:
             await input.fill(query)
             await page.waitForTimeout(250)
             const option = page.getByRole('option', { name: new RegExp(query, 'i') }).first()
-            if (await option.count()) {
-              await option.click()
-            } else {
-              await input.press('Enter')
-            }
+            if (await option.count()) await option.click()
+            else await input.press('Enter')
             await page.waitForTimeout(1800)
           }
 
           ;(async () => {
             const browser = await chromium.launch({
-              headless: true,
-              args: ['--use-angle=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist'],
+              headless: false,
+              args: ['--use-angle=swiftshader', '--enable-webgl', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'],
             })
             const summary = []
 
@@ -109,13 +106,9 @@ jobs:
               const canvas = page.locator('canvas').first()
               const box = await canvas.boundingBox()
               if (!box) throw new Error('Globe canvas has no bounding box')
-              const startX = box.x + box.width * 0.72
-              const startY = box.y + box.height * 0.53
-              const endX = box.x + box.width * 0.42
-              const endY = box.y + box.height * 0.50
-              await page.mouse.move(startX, startY)
+              await page.mouse.move(box.x + box.width * 0.72, box.y + box.height * 0.53)
               await page.mouse.down()
-              await page.mouse.move(endX, endY, { steps: 18 })
+              await page.mouse.move(box.x + box.width * 0.42, box.y + box.height * 0.50, { steps: 18 })
               await page.mouse.up()
               await page.waitForTimeout(900)
               await page.screenshot({ path: path.join(outDir, `russia-rotated-${viewport.width}x${viewport.height}.png`) })
@@ -123,7 +116,6 @@ jobs:
               await selectMarket(page, 'Russia')
               await page.getByText('Market overview', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
               await page.screenshot({ path: path.join(outDir, `russia-selected-${viewport.width}x${viewport.height}.png`) })
-
               summary.push({ viewport, errors })
               await context.close()
             }
