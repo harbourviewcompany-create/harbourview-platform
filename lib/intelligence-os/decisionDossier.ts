@@ -149,7 +149,7 @@ function mapIaSignal(signal: AutomationSignal, eventId: string): DecisionIntelDo
     affectedMarkets: signal.market ? [signal.market] : [],
     affectedProducts: [],
     whyNow: 'This record is being served from the legacy IA fallback because no canonical Pipeline B dossier was available.',
-    confidence: signal.confidence >= 0 && signal.confidence <= 1 ? signal.confidence : signal.confidence <= 100 ? signal.confidence / 100 : null,
+    confidence: signal.confidence >= 0 && signal.confidence <= 100 ? signal.confidence / 100 : null,
     confidenceRationale: null,
     contradictions: [],
     unknowns: ['Canonical source/evidence lineage is not available for this legacy IA fallback record.'],
@@ -212,9 +212,6 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
       const routed = await loadCanonical(db, routedEventId)
       if (routed) return routed
     }
-    // Canonical ownership exists but the allowlisted dossier did not return a row.
-    // That means the current review/display state suppresses it; legacy fallback
-    // must not override that canonical decision.
     return null
   }
 
