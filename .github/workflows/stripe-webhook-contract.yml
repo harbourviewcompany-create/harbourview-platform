@@ -5,20 +5,27 @@ on:
     branches:
       - main
       - 'agent/stripe-webhook-hardening-*'
+      - 'fix/monetization-lifecycle-hardening-*'
     paths:
       - 'app/api/stripe/**'
       - 'app/admin/(protected)/stripe-health/**'
+      - 'components/stripe/**'
+      - 'lib/billing/**'
       - 'lib/stripe/**'
       - 'lib/admin/navConfig.ts'
       - 'tests/harbourview/stripe-webhook-contract.test.ts'
+      - 'tests/harbourview/monetization-lifecycle-contract.test.ts'
       - '.github/workflows/stripe-webhook-contract.yml'
   pull_request:
     paths:
       - 'app/api/stripe/**'
       - 'app/admin/(protected)/stripe-health/**'
+      - 'components/stripe/**'
+      - 'lib/billing/**'
       - 'lib/stripe/**'
       - 'lib/admin/navConfig.ts'
       - 'tests/harbourview/stripe-webhook-contract.test.ts'
+      - 'tests/harbourview/monetization-lifecycle-contract.test.ts'
       - '.github/workflows/stripe-webhook-contract.yml'
   workflow_dispatch:
 
@@ -38,5 +45,5 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
-      - name: Stripe webhook contract regression
-        run: npx vitest run tests/harbourview/stripe-webhook-contract.test.ts
+      - name: Stripe monetization regressions
+        run: npx vitest run tests/harbourview/stripe-webhook-contract.test.ts tests/harbourview/monetization-lifecycle-contract.test.ts
