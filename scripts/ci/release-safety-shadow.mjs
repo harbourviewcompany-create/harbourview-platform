@@ -42,7 +42,8 @@ if (fs.existsSync(workflowDir)) {
 const report = {
   schemaVersion: 1,
   mode: 'shadow',
-  gitSha: process.env.GITHUB_SHA || null,
+  gitSha: process.env.RELEASE_EVIDENCE_SHA || process.env.GITHUB_SHA || null,
+  workflowSha: process.env.RELEASE_WORKFLOW_SHA || process.env.GITHUB_SHA || null,
   generatedAt: new Date().toISOString(),
   stack: {
     next: pkg.dependencies?.next || null,
