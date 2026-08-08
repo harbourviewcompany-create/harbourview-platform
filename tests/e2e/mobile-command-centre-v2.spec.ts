@@ -84,11 +84,36 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.locator('.hvm2-section-rail')).toHaveCount(0)
   await expect(page.locator('.hvm-op-secondary-nav')).toHaveCount(0)
 
-  const changedHeading = page.getByRole('heading', { name: 'Recent intelligence', exact: true })
-  await expect(changedHeading).toBeAttached()
-  const changedBox = await changedHeading.boundingBox()
-  expect(changedBox).not.toBeNull()
-  expect(changedBox!.y).toBeLessThan(viewportHeight)
+  const intelligenceZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Recent intelligence' })
+  const opportunityZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Commercial opportunities' })
+  const populatedIntelligence = page.getByRole('heading', { name: 'Recent intelligence', exact: true })
+  const populatedOpportunity = page.getByRole('heading', { name: 'Commercial opportunity', exact: true })
+
+  if (await intelligenceZero.count()) {
+    await expect(intelligenceZero).toContainText('No material updates in this context')
+    await expect(intelligenceZero).toBeVisible()
+  } else {
+    await expect(populatedIntelligence).toBeVisible()
+  }
+
+  if (await opportunityZero.count()) {
+    await expect(opportunityZero).toContainText('No matching opportunities currently')
+    await expect(opportunityZero).toBeVisible()
+  } else {
+    await expect(populatedOpportunity).toBeVisible()
+  }
+
+  const nextOperatorSurface = await (await intelligenceZero.count() ? intelligenceZero : populatedIntelligence).boundingBox()
+  expect(nextOperatorSurface).not.toBeNull()
+  expect(nextOperatorSurface!.y).toBeLessThan(viewportHeight)
+
+  const operatingPicture = page.locator('.hvm-op-operating-picture')
+  await expect(operatingPicture).toBeAttached()
+  const operatingPictureBox = await operatingPicture.boundingBox()
+  expect(operatingPictureBox).not.toBeNull()
+  if ((await intelligenceZero.count()) && (await opportunityZero.count()) && viewportHeight >= 812) {
+    expect(operatingPictureBox!.y).toBeLessThan(viewportHeight)
+  }
 
   const noHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)
   expect(noHorizontalOverflow).toBe(true)
@@ -97,7 +122,7 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
 test.describe('Mobile Command operator-first verification', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('verifies approved mobile hierarchy at 320/375/390/430 and captures evidence', async ({ browser }) => {
+  test('verifies approved mobile hierarchy and compact zero-state density at 320/375/390/430 and captures evidence', async ({ browser }) => {
     test.setTimeout(600_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)

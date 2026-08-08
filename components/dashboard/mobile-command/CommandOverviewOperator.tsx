@@ -3,6 +3,7 @@
 import type { MobileCommandCentreProps } from './props'
 import { readString, type NextAction, type NormalizedListing } from './contracts'
 import type { SectionRef } from './SectionUI'
+import './MobileCommandZeroStateDensity.css'
 
 function signalTitle(signal: unknown) {
   return readString(signal, ['title', 'headline', 'title_en'], 'Material intelligence update')
@@ -17,6 +18,27 @@ function signalMeta(signal: unknown) {
     readString(signal, ['market', 'country', 'jurisdiction'], ''),
     readString(signal, ['type', 'cat', 'content_type'], ''),
   ].filter(Boolean).join(' · ')
+}
+
+function CompactZeroState({
+  label,
+  message,
+  onOpen,
+}: {
+  label: string
+  message: string
+  onOpen: () => void
+}) {
+  return (
+    <button type="button" className="hvm-op-compact-zero" onClick={onOpen}>
+      <div>
+        <span className="hvm-op-compact-zero-label">{label}</span>
+        <strong>{message}</strong>
+      </div>
+      <span className="hvm-op-compact-zero-count" aria-hidden="true">0</span>
+      <span className="hvm-op-compact-zero-arrow" aria-hidden="true">→</span>
+    </button>
+  )
 }
 
 export default function CommandOverviewOperator({
@@ -97,16 +119,15 @@ export default function CommandOverviewOperator({
         )}
       </section>
 
-      <section className="hvm-op-group" aria-labelledby="hvm-op-changes-heading">
-        <div className="hvm-op-group-heading">
-          <div>
-            <span className="hvm-op-eyebrow">Latest</span>
-            <h3 id="hvm-op-changes-heading">Recent intelligence</h3>
+      {signalRows.length > 0 ? (
+        <section className="hvm-op-group" aria-labelledby="hvm-op-changes-heading">
+          <div className="hvm-op-group-heading">
+            <div>
+              <span className="hvm-op-eyebrow">Latest</span>
+              <h3 id="hvm-op-changes-heading">Recent intelligence</h3>
+            </div>
+            <button type="button" onClick={onOpenIntel}>View all</button>
           </div>
-          <button type="button" onClick={onOpenIntel}>View all</button>
-        </div>
-
-        {signalRows.length > 0 ? (
           <div className="hvm-op-row-list">
             {signalRows.map((signal, index) => (
               <button key={readString(signal, ['id'], `signal-${index}`)} type="button" className="hvm-op-row" onClick={onOpenIntel}>
@@ -119,24 +140,24 @@ export default function CommandOverviewOperator({
               </button>
             ))}
           </div>
-        ) : (
-          <div className="hvm-op-empty">
-            <strong>No material intelligence loaded</strong>
-            <span>Reviewed intelligence for this jurisdiction-role context will appear here.</span>
-          </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <CompactZeroState
+          label="Recent intelligence"
+          message="No material updates in this context"
+          onOpen={onOpenIntel}
+        />
+      )}
 
-      <section className="hvm-op-group" aria-labelledby="hvm-op-opportunity-heading">
-        <div className="hvm-op-group-heading">
-          <div>
-            <span className="hvm-op-eyebrow">Commercial</span>
-            <h3 id="hvm-op-opportunity-heading">Commercial opportunity</h3>
+      {opportunityRows.length > 0 ? (
+        <section className="hvm-op-group" aria-labelledby="hvm-op-opportunity-heading">
+          <div className="hvm-op-group-heading">
+            <div>
+              <span className="hvm-op-eyebrow">Commercial</span>
+              <h3 id="hvm-op-opportunity-heading">Commercial opportunity</h3>
+            </div>
+            <button type="button" onClick={onOpenOpportunities}>View all</button>
           </div>
-          <button type="button" onClick={onOpenOpportunities}>View all</button>
-        </div>
-
-        {opportunityRows.length > 0 ? (
           <div className="hvm-op-row-list">
             {opportunityRows.map(row => (
               <button key={`${row.view}-${row.id}`} type="button" className="hvm-op-row hvm-op-opportunity-row" onClick={onOpenOpportunities}>
@@ -149,13 +170,14 @@ export default function CommandOverviewOperator({
               </button>
             ))}
           </div>
-        ) : (
-          <div className="hvm-op-empty">
-            <strong>No qualified opportunities loaded</strong>
-            <span>Matching commercial opportunity records will appear here when available.</span>
-          </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <CompactZeroState
+          label="Commercial opportunities"
+          message="No matching opportunities currently"
+          onOpen={onOpenOpportunities}
+        />
+      )}
 
       <section className="hvm-op-operating-picture" aria-labelledby="hvm-op-picture-heading">
         <div className="hvm-op-group-heading">

@@ -1,0 +1,72 @@
+.hvm-op-compact-zero {
+  width: 100%;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--hvm2-border-soft);
+  border-bottom: 1px solid var(--hvm2-border-soft);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.hvm-op-compact-zero > div {
+  min-width: 0;
+}
+
+.hvm-op-compact-zero-label,
+.hvm-op-compact-zero strong {
+  display: block;
+}
+
+.hvm-op-compact-zero-label {
+  color: var(--hvm2-gold);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hvm-op-compact-zero strong {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--hvm2-text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hvm-op-compact-zero-count {
+  min-width: 20px;
+  color: var(--hvm2-muted);
+  font-size: 13px;
+  font-weight: 750;
+  text-align: right;
+}
+
+.hvm-op-compact-zero-arrow {
+  color: var(--hvm2-faint);
+  font-size: 18px;
+}
+
+.hvm-op-compact-zero:focus-visible {
+  outline: 2px solid var(--hvm2-gold-light);
+  outline-offset: 2px;
+}
+
+@media (max-width: 359px) {
+  .hvm-op-compact-zero {
+    min-height: 50px;
+    padding: 6px 0;
+  }
+
+  .hvm-op-compact-zero strong {
+    font-size: 12px;
+  }
+}
