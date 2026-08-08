@@ -143,3 +143,15 @@ Learned from a live session working through `app/intelligence/**` content gaps, 
 **Also surfaced this session, unresolved:** every commit made during this session went directly to `main` with no PR, no QA gate from `AGENTS.md` (lint/typecheck/test/build), and no `docs/control/EVIDENCE_LOG.md` entry -- a violation of Rule 3c's merge/deploy sign-off boundary above, discovered only because this file was read for an unrelated reason (Rule 3a says it should have been read before the first edit). Not corrected retroactively here; needs an explicit decision on whether/how to remediate.
 
 **Also surfaced this session, unrelated but urgent:** live background functions (`hv-score`, `hv-source-pull-runner`) are actively running against this project and `hv-score`'s Anthropic API call is failing with "credit balance is too low." This is likely why `regulatory_signals.signals` is empty despite correct schema -- the auto-population pipeline is live but billing-blocked. Worth checking the Anthropic Console directly.
+
+> **Superseded 2026-08-08 (verified live, read-only).** The billing block, whenever it applied, is not current and the pipeline is not stalled:
+> `public.signals` holds 12,581 rows, 12,540 of them classified, newest `2026-08-08 07:00 UTC`; `regulatory_signals.signals` holds 34 rows, not zero.
+> Treat the paragraph above as history. Re-check live before acting on it -- which is what Rule 3 asks for and what this note is an example of needing.
+
+**Added 2026-08-08 -- read `docs/control/MIGRATION_DRIFT_2026-08-08.md` before diagnosing any "missing table/function/RPC" bug in this repo.** Several defects that look like application bugs -- clinician verification, the admin review queue, the signal feedback loop, the intelligence graph writer -- share one root cause: the code shipped and the schema did not. Checking `supabase_migrations.schema_migrations` first will save hours per incident.
+
+Before concluding anything about migration state, read `AGENTS.md`'s release-control section and `supabase/release-controls/pending-production-migration-decisions.json`. Repository-only migrations are **governed, not forgotten**: that ledger classifies each one (`approved`, `separately_authorized`, `obsolete`, `requiring_forward_reconciliation`, often with `live_equivalent_versions`), and `scripts/check-pending-production-migration-decisions.mjs` enforces a content hash per file -- so editing a pending migration breaks its binding.
+
+Drift is also already measured. `.github/workflows/migration-drift-check.yml` runs on push and hourly, and `scripts/migration-ledger-manifest.mjs` computes both `applied_not_committed` and `committed_not_applied`. The gate fails only on the former. The real gap is that an `approved` migration can sit unapplied indefinitely without escalation.
+
+The first version of this note asserted "68 unapplied migrations" and "there is no automated check for this drift". Both were wrong, and were written before reading the two sources above. The retraction is in the drift document.

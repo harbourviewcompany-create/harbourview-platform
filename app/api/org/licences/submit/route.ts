@@ -82,11 +82,31 @@ export async function POST(req: NextRequest) {
       await supabase.from("workspaces").update({ verification_status: "pending_review" }).eq("id", org_id)
     }
 
-    await supabase.from("hv_admin_review_queue").insert({
+    // This enqueue must not fail silently. `supabase` is schema-pinned to `api`
+    // and `api.hv_admin_review_queue` does not exist in production — the
+    // relation is `public`-only, because 20260708214312 and the review-queue
+    // API-surface migrations have never been applied there. Discarding the
+    // result meant an unmatched licence flipped the org to `pending_review` and
+    // was then never queued for anyone to review, with nothing logged.
+    //
+    // Surfacing it does not fix the missing relation; it stops the compliance
+    // gap from being invisible while that is decided.
+    const { error: queueError } = await supabase.from("hv_admin_review_queue").insert({
       queue_type: "licence_verification", target_entity_type: "licence", target_entity_id: licence.id,
       org_id, priority: "normal", status: "pending",
       notes: "No match found in public regulator registry for this licence number/jurisdiction.",
     })
+    if (queueError) {
+      // No raw licence or org UUIDs: those are non-public operational
+      // identifiers and this line runs in the production log stream. The
+      // jurisdiction plus the error is enough to recognise the failure mode;
+      // the affected row is recoverable from hv_licences by that error and
+      // timestamp without persisting the IDs here.
+      console.error(
+        "[licences/submit] failed to enqueue licence_verification review",
+        { jurisdiction_country: country, error: queueError.message },
+      )
+    }
 
     await supabase.from("audit_events").insert({
       entity_type: "hv_licences", entity_id: licence.id, action: "licence.submitted_for_review",
