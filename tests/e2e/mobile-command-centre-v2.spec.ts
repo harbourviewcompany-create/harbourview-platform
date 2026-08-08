@@ -379,6 +379,21 @@ test.describe('Command Centre authenticated responsive verification', () => {
             report.safeIntroductionListing = SAFE_LISTING_ID
           }
 
+          // Return to the default destination before measuring. The 390px block
+          // above finishes inside the financing workflow, which folds under
+          // Actions -- so the page is legitimately showing Actions' two sections
+          // by the time we get here, while the geometry assertions below are
+          // written against Overview's four. Measuring wherever the sweep
+          // happened to stop made this gate report a product defect (2 sections
+          // instead of 4) that was really just the spec measuring the wrong
+          // destination. Every width now measures the same surface.
+          await page.goto('/dashboard?country=CA&role=exporter', {
+            waitUntil: 'domcontentloaded',
+            timeout: 60_000,
+          })
+          await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+          await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+
           const geometry = await page.evaluate(() => {
             const root = document.documentElement
             const body = document.body
