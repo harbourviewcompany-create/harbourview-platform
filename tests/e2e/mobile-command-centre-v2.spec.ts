@@ -66,8 +66,10 @@ async function assertFiveJobNavigation(page: Page) {
   await expect(nav.getByText('Market', { exact: true })).toBeVisible()
   await expect(nav.getByText('Intel', { exact: true })).toBeVisible()
   await expect(nav.getByText('Actions', { exact: true })).toBeVisible()
-  await expect(nav.getByText('Context', { exact: true })).toBeVisible()
-  await expect(nav.getByText('Clinical', { exact: true })).toHaveCount(0)
+  // Clinical is a destination; Context is not one. See PrimarySectionId in
+  // components/dashboard/mobile-command/contracts.ts for why.
+  await expect(nav.getByText('Clinical', { exact: true })).toBeVisible()
+  await expect(nav.getByText('Context', { exact: true })).toHaveCount(0)
   await expect(nav.locator('[aria-current="page"]')).toContainText('Command')
 }
 

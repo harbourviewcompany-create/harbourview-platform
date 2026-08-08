@@ -116,21 +116,29 @@ beforeEach(() => {
 
 describe('Mobile Command Centre operator architecture', () => {
   it('defines exactly the approved five primary operator jobs', () => {
-    expect(PRIMARY_NAV.map(item => item.label)).toEqual(['Command', 'Market', 'Intel', 'Actions', 'Context'])
-    expect(PRIMARY_NAV.map(item => item.id)).toEqual(['overview', 'marketplace', 'weekly-signals', 'next-actions', 'jurisdiction'])
-    expect(PRIMARY_NAV.some(item => item.id === 'clinical')).toBe(false)
+    expect(PRIMARY_NAV.map(item => item.label)).toEqual(['Command', 'Market', 'Intel', 'Clinical', 'Actions'])
+    expect(PRIMARY_NAV.map(item => item.id)).toEqual(['overview', 'marketplace', 'weekly-signals', 'clinical', 'next-actions'])
+    // Context is not a destination. It names the frame the header already
+    // states, not a job, and the sections that sat under it belong to Command.
+    expect(PRIMARY_NAV.some(item => item.label === 'Context')).toBe(false)
   })
 
-  it('keeps every section mapped exactly once while Clinical remains reachable under Context', () => {
+  it('keeps every section mapped exactly once with Clinical owning its own destination', () => {
     const grouped = Object.values(SECTION_GROUPS).flat()
     const sectionIds = SECTION_NAV.map(section => section.id)
 
     expect(grouped).toHaveLength(sectionIds.length)
     expect(new Set(grouped).size).toBe(grouped.length)
     expect([...grouped].sort()).toEqual([...sectionIds].sort())
-    expect(SECTION_TO_GROUP.clinical).toBe('jurisdiction')
+    expect(SECTION_TO_GROUP.clinical).toBe('clinical')
+    expect(SECTION_GROUPS.clinical).toEqual(['clinical'])
     expect(SECTION_TO_DESKTOP_PAGE.clinical).toBe('clinical')
     expect(PAGE_TO_SECTION.clinical).toBe('clinical')
+
+    // The former Context group, now owned by Command.
+    for (const section of ['jurisdiction', 'compliance', 'genetics', 'network', 'directories', 'talent', 'education'] as const) {
+      expect(SECTION_TO_GROUP[section]).toBe('overview')
+    }
 
     for (const destination of PRIMARY_NAV) {
       expect(SECTION_GROUPS[destination.id as PrimarySectionId]).toBeDefined()
@@ -205,7 +213,7 @@ describe('Mobile Command Centre operator architecture', () => {
     expect([...marketDocument.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['marketplace'])
   })
 
-  it('keeps scoped secondary reachability off Command and available for non-Command jobs', () => {
+  it('keeps scoped secondary reachability off the Command landing and available elsewhere', () => {
     navigation.search.value = 'country=CA&role=exporter&section=marketplace'
     const document = renderMobileCommand({ initialPage: 'marketplace' })
     const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')]
@@ -213,16 +221,39 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(rail).toHaveLength(SECTION_GROUPS.marketplace.length)
     expect(rail.map(button => button.textContent)).toContain('Marketplace control')
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
+
+    // Command owns nine sections now, but its landing is the operator dashboard
+    // and stays chrome-free — a rail here would push the first real content
+    // below the fold, which is what the operator-first work set out to fix.
+    navigation.search.value = 'country=CA&role=exporter&section=overview'
+    const landing = renderMobileCommand({ initialPage: 'briefing' })
+    expect(landing.querySelector('.hvm-op-secondary-nav')).toBeNull()
   })
 
-  it('highlights Context for a Clinical deep link without making Clinical primary navigation', () => {
+  it('lights up Clinical itself for a Clinical deep link', () => {
     navigation.search.value = 'country=CA&role=exporter&section=clinical'
     const document = renderMobileCommand({ initialPage: 'clinical' })
 
     expect([...document.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['clinical'])
     const current = document.querySelector('.hvm-op-bottom-nav button[aria-current="page"]')
-    expect(current?.textContent).toContain('Context')
-    expect([...document.querySelectorAll('.hvm-op-bottom-nav small')].map(node => node.textContent)).not.toContain('Clinical')
+    expect(current?.textContent).toContain('Clinical')
+    expect([...document.querySelectorAll('.hvm-op-bottom-nav small')].map(node => node.textContent)).toContain('Clinical')
+    // Clinical owns one section, so it carries no secondary rail.
+    expect(document.querySelector('.hvm-op-secondary-nav')).toBeNull()
+  })
+
+  it('reaches the reference sections Command now owns, and rails them once committed', () => {
+    navigation.search.value = 'country=CA&role=exporter&section=jurisdiction'
+    const document = renderMobileCommand({ initialPage: 'access-pathway' })
+
+    expect([...document.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['jurisdiction'])
+    const current = document.querySelector('.hvm-op-bottom-nav button[aria-current="page"]')
+    expect(current?.textContent).toContain('Command')
+
+    const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')]
+    expect(rail).toHaveLength(SECTION_GROUPS.overview.length)
+    expect(rail.map(button => button.textContent)).toContain('Compliance')
+    expect(rail.map(button => button.textContent)).toContain('Genetics')
   })
 })
 

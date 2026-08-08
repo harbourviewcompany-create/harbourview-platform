@@ -92,8 +92,8 @@ export const PRIMARY_NAV: NavDestination[] = [
   { id: 'overview', label: 'Command', icon: '◎' },
   { id: 'marketplace', label: 'Market', icon: '⊞' },
   { id: 'weekly-signals', label: 'Intel', icon: '≋' },
+  { id: 'clinical', label: 'Clinical', icon: '⚕' },
   { id: 'next-actions', label: 'Actions', icon: '→' },
-  { id: 'jurisdiction', label: 'Context', icon: '◉' },
 ]
 
 const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
@@ -186,24 +186,48 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   settings: 'overview',
 }
 
-/** The five fixed operator jobs exposed in the primary mobile navigation. */
+/**
+ * The five fixed operator jobs exposed in the primary mobile navigation.
+ *
+ * Clinical is a destination, not a sub-section. It is one of the platform's
+ * most important surfaces and it does not belong filed under a drawer of
+ * reference material — it gets a tab of its own.
+ *
+ * There is deliberately no "Context" destination. Jurisdiction, compliance,
+ * genetics, network, directories, talent and education are all *about* the
+ * operating context the header already states, so a tab collecting them under
+ * that name is naming the frame rather than a job. They sit under Command,
+ * which is the surface that describes where the operator stands. The compact
+ * context switcher in the header (jurisdiction + role) is unaffected — that is
+ * a control, not a destination, and it stays.
+ */
 export type PrimarySectionId =
   | 'overview'
   | 'marketplace'
   | 'weekly-signals'
+  | 'clinical'
   | 'next-actions'
-  | 'jurisdiction'
 
 /**
  * Every section belongs to exactly one operator job. Only the committed section
  * mounts at a time; these groups define ownership and scoped secondary reachability.
  */
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
-  overview: ['overview', 'live-status'],
+  overview: [
+    'overview',
+    'live-status',
+    'jurisdiction',
+    'compliance',
+    'genetics',
+    'network',
+    'directories',
+    'talent',
+    'education',
+  ],
   marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
   'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
+  clinical: ['clinical'],
   'next-actions': ['next-actions', 'review-gates', 'financing'],
-  jurisdiction: ['jurisdiction', 'compliance', 'education', 'directories', 'network', 'talent', 'genetics', 'clinical'],
 }
 
 /** Reverse lookup used by deep links and primary-navigation highlighting. */
