@@ -4754,3 +4754,54 @@ npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
 - This PR's migration is recorded in production as version `20260808112235`
   while the file here is `20260808120000`. The DDL is `create or replace`, so a
   re-apply is harmless, but the recorded history and the filename disagree.
+
+## 2026-08-08 — Migration state review, and a retraction
+
+Opened as "migration drift remediation" (#1303). The diagnosis was substantially
+wrong and has been retracted in `docs/control/MIGRATION_DRIFT_2026-08-08.md`.
+
+**What was claimed and is false:** that no check compares `supabase/migrations`
+to `schema_migrations`; that 68 repository-only migrations represent unnoticed
+neglect; and that five "security revokes" form a safe first tranche.
+
+**What is actually true:** `.github/workflows/migration-drift-check.yml` runs on
+push and hourly, and `scripts/migration-ledger-manifest.mjs` already computes
+`committed_not_applied`. `supabase/release-controls/pending-production-migration-decisions.json`
+classifies the pending set — sampled: `20260722031500` already live as
+`20260722200145`, `20260723180000` obsolete, `20260801150000` and the clinical
+set `separately_authorized`, `20260802152500` `approved`.
+`20260805234000` states in its own header that the migration role cannot revoke
+the `supabase_admin`-owned `net.http_*` grants.
+
+**Cause:** a control document was written from database queries without first
+reading `AGENTS.md`'s release-control section or `supabase/release-controls/`,
+and its conclusions were reported before being verified. Rule 3a.
+
+**Production access:** read-only throughout — `information_schema`,
+`pg_proc`/`pg_namespace`, role grants, `supabase_migrations.schema_migrations`,
+row counts, and `get_advisors`. No writes, no migrations applied.
+
+**Repository changes retained from #1303:**
+`app/api/org/licences/submit/route.ts` no longer discards its
+`hv_admin_review_queue` insert error; the visual gate also runs on push to
+`main`; `CLAUDE.md`'s billing-blocked note is marked superseded
+(`public.signals` 12,581 rows / 12,540 classified, newest 2026-08-08 07:00 UTC;
+`regulatory_signals.signals` 34 rows).
+
+**Reverted:** the edit to `20260801150000`. It changed the git blob SHA away
+from the ledger-bound `e44a7748…` and would have failed
+`scripts/check-pending-production-migration-decisions.mjs`. The file is
+byte-identical to the bound content again; whether to amend and re-bind is left
+as an open decision.
+
+**Verification:**
+
+```text
+npm run typecheck                                             clean
+npx vitest run tests/dashboard tests/platform tests/security  122 passed
+npm run build                                                 success
+node scripts/check-pending-production-migration-decisions.mjs  20260801150000 no longer mismatched
+```
+
+Note: that script reports pre-existing blob mismatches and absent decision files
+for other versions on `main`. Those predate this work and are untouched.
