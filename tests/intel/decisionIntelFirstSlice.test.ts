@@ -37,9 +37,9 @@ describe('Decision Intelligence Stage 0 first slice', () => {
   it('does not infer verified intelligence from legacy review', () => {
     expect(migration).toContain("'migrated_reviewed'")
     expect(migration).toContain("'needs_review'")
-    expect(dossierLoader).toContain('Legacy review never becomes verification')
     expect(dossierLoader).not.toContain("reviewStatus: 'verified'")
     expect(dossierLoader).toContain('lastVerifiedAt: null')
+    expect(complianceCopy).toContain('Legacy reviewed state is not treated as verified intelligence.')
   })
 
   it('keeps exact signal lineage while allowing one snapshot to support multiple signals', () => {
