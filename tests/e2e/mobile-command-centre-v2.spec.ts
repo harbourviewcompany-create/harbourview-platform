@@ -579,7 +579,13 @@ test.describe('Command Centre authenticated responsive verification', () => {
         // errors but not the JSON write, which can still fail on a full disk or
         // a page closed during teardown.
         await writeWidthEvidence(page, width, report).catch(error => {
+          // Mark the report failed too, not just the run. The result was set
+          // just above, so without this the aggregate would carry
+          // `result: 'pass'` for a width whose evidence is missing — the same
+          // contradiction this block exists to prevent, one level up.
           const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
+          report.result = 'fail'
+          report.failure = `evidence write failed: ${diagnostic}`
           failures.push(`${width}px: evidence write failed: ${diagnostic}`)
         })
         aggregate.push(report)
