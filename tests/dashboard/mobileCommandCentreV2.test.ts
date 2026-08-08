@@ -210,7 +210,7 @@ describe('Mobile Command Centre contracts', () => {
       expect(document.querySelector(`.hvm2-main #${id}`), id).toBeNull()
     }
     // Sections owned by other destinations must not be in the DOM at all.
-    for (const id of SECTION_GROUPS.jurisdiction) {
+    for (const id of SECTION_GROUPS.marketplace) {
       expect(document.querySelector(`#${id}`), id).toBeNull()
     }
 
@@ -240,7 +240,7 @@ describe('Mobile Command Centre contracts', () => {
     expect([...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)).toEqual(['genetics'])
 
     const rail = [...document.querySelectorAll('.hvm2-section-rail button')]
-    expect(rail.map(button => button.textContent)).toHaveLength(SECTION_GROUPS.jurisdiction.length)
+    expect(rail.map(button => button.textContent)).toHaveLength(SECTION_GROUPS.overview.length)
     expect(rail.filter(button => button.getAttribute('aria-current') === 'page')).toHaveLength(1)
   })
 
@@ -248,10 +248,10 @@ describe('Mobile Command Centre contracts', () => {
     const document = renderMobileCommand({ initialPage: 'compliance' })
 
     const rail = [...document.querySelectorAll('.hvm2-section-rail button')]
-    expect(rail).toHaveLength(SECTION_GROUPS.jurisdiction.length)
+    expect(rail).toHaveLength(SECTION_GROUPS.overview.length)
 
     const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
-    expect(current?.textContent).toContain('Context')
+    expect(current?.textContent).toContain('Command')
   })
 
   it('renders canonical dashboard hrefs for progressive mobile workflows', () => {
@@ -295,7 +295,7 @@ describe('Mobile Command Centre contracts', () => {
       expect([...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)).toEqual(['genetics'])
 
       const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
-      expect(current?.textContent).toContain('Context')
+      expect(current?.textContent).toContain('Command')
     } finally {
       navigation.search.value = 'country=CA&role=exporter'
     }
