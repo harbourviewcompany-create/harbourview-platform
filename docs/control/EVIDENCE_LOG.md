@@ -4376,3 +4376,93 @@ data is out of scope for a read-path fix and is Tyler's call:
   country-scoped query returns zero rows. A Canada view can therefore display
   German listings with no indication the filter was dropped. That is a product
   decision, not obviously a bug, but it is currently invisible to the user.
+
+## 2026-08-08 — Data-layer column contract fixes (`claude/data-layer-column-fixes`)
+
+### Why
+
+A mechanical sweep compared every literal column name in `app/`, `lib/` and
+`components/` against the live `api`-schema columns PostgREST actually serves
+(113 resolved `.select()` sites, 203 filter/order references). Where a query
+names a column the relation does not expose, PostgREST rejects the request,
+`data` returns null, and the surrounding code treats that identically to "no
+rows" — so populated tables render as empty state with no error surfaced.
+
+Two such defects are fixed here. They were chosen because both are pure read-path
+code changes with no schema or data implications.
+
+### Changed
+
+- **`getEducationTracks`** (`lib/dashboard/dashboardLiveData.ts`) returned `[]`
+  against 5 published tracks. One query carried five names absent from
+  `education_tracks`: `icon`, `level`, `tags` in the select, a filter on
+  `status` (the column is `publication_state`), and an order by `sort_order`.
+  Now selects `id,title,description`, filters `publication_state = 'published'`,
+  and orders by `title`. `icon`/`level`/`tags` stay on the returned type as
+  null/`[]` — the renderer already coalesces them and never reads `tags`, so the
+  contract its consumers depend on is unchanged.
+
+- **`getWantedRequestsCount`** (`lib/dashboard/dashboardServerData.ts`) reported
+  0 unconditionally. It filtered `listing_type = 'wanted'` (no such column) and
+  `status = 'published'` (the enum is `approved`/`pending_review`). Now mirrors
+  `getWantedListings` exactly — `marketplace_section = 'wanted_requests'` and
+  `status = 'approved'` — because the Command Centre renders that list beneath
+  this count, and a divergent filter would make the tab contradict its own rows.
+
+### Verification
+
+- `tests/dashboard/dashboardColumnContracts.test.ts` — new. Records the shipped
+  query against a literal fixture of each relation's real columns and asserts
+  every selected, filtered and ordered name exists. Confirmed to **fail** on the
+  pre-fix code (`expected [...] to include 'icon'`, `... to include
+  'listing_type'`) and pass after, so it is a real guard rather than a
+  restatement of current behaviour.
+- `npx eslint` on changed files — 0 errors, 2 warnings (both pre-existing,
+  unrelated unused imports).
+- `npm run typecheck` — clean.
+- `npx vitest run tests/dashboard/` — 11 files, 93 tests, all pass.
+- `npm run build` — success.
+
+### Found and deliberately NOT changed — needs a decision
+
+- **The signal quality column family is unreachable.** `SIGNAL_QUALITY_SELECT`
+  (`lib/signals/quality.ts:46`) names nine columns —
+  `quality_label,quality_confidence,content_type,impact,title_en,summary_en,lang_detected,is_representative,cluster_rep_id`.
+  All nine exist on `public.signals`; none are exposed on `api.signals`. None
+  except `analysis` exist on `signals_quality` in **either** schema, so the six
+  call sites that query `signals_quality` for them are aimed at the wrong
+  relation independent of schema exposure. Affects
+  `app/api/dashboard/digest/route.ts`, `app/api/dashboard/signals/route.ts`,
+  `app/api/signals/search/route.ts`, `lib/dashboard/dashboardServerData.ts`
+  (two sites) and `lib/intelligence/jurisdictionSynthesis.ts` (two sites).
+  Behind it: 3,745 reviewed rows in `api.signals_quality`, 12,536 signals
+  carrying `quality_confidence`. The curated, quality-ranked tier never runs.
+  Note that in `dashboardServerData.ts:210` the surrounding `try/catch` guards
+  only client construction — the PostgREST error arrives in `{ data, error }`
+  and never throws, so the fallback branch is unreachable.
+- **`admin_dashboard_counts` is not exposed on `api`.** The read fails and a
+  `?? {zeros}` default hides it. Production holds `pending_listings 1`,
+  `pending_buyer_requests 1`, `new_inquiries 8` — eight unactioned inquiries are
+  invisible on the Command Centre.
+- **`source_registry.metadata`** (`lib/intelligence-engine/queue/task-queue.ts:108`)
+  is selected but not exposed on `api`.
+- **Two definitions of "wanted requests" coexist.** The dashboard keys on
+  `marketplace_section = 'wanted_requests'` (8 rows); `app/marketplace/wanted/page.tsx`
+  keys on `category = 'wanted_requests'` (16 rows). This change keeps the
+  dashboard internally consistent but does not reconcile the two — which one is
+  correct is a product decision.
+
+Resolving the first three requires either exposing columns/views on the `api`
+schema (a production schema change, so it needs explicit sign-off under
+CLAUDE.md Rule 3c) or rewriting the queries against what the views already
+carry. Neither was attempted here.
+
+### Sweep limitations
+
+The checker resolves literal string column names and module-level select
+constants only. It does not cover RPCs, embedded resource selects, dynamically
+built column names, or `.or()` filter strings. An earlier revision also
+mis-attributed filters across `Promise.all` boundaries, producing three false
+positives (`cc_watchlist_items.user_id`, `local_subdivisions_intel.status`,
+`signals.alert_date`) that were disproved by reading each site; every finding
+recorded above was confirmed by direct read.

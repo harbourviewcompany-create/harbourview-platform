@@ -10,6 +10,7 @@ import { mapPublicToDashboardSignal } from '@/lib/dashboard/mapPublicToDashboard
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
+  NOT_REJECTED_OR_FILTER,
   resolveConfidence,
   resolveContentType,
   displayHeadline,
@@ -208,15 +209,28 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
+  // Tier 2 of three. `signals`, not `signals_quality`: CURATED_SELECT names
+  // `analysis` plus the nine Pipeline B quality columns, and this query orders
+  // by `quality_confidence`. None of those are columns on `signals_quality` in
+  // either schema, so PostgREST 400'd.
+  //
+  // The `try/catch` below does NOT catch that. It wraps client *construction*;
+  // a column error arrives inside `{ data, error }` and never throws, so
+  // `if (!error && data...)` fell straight through to tier 3, `listIaSignals()`
+  // — 641 `ia_signals` rows standing in for a 3,732-row classified corpus, with
+  // nothing logged either way.
+  //
+  // `NOT_REJECTED_OR_FILTER` carries `signals_quality`'s action gate across.
   try {
     const signalQuery = async () => {
       try {
         const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
         const svc = await createSupabaseServiceClient()
         return svc
-          .from('signals_quality')
+          .from('signals')
           .select(CURATED_SELECT)
           .eq('reviewed', true)
+          .or(NOT_REJECTED_OR_FILTER)
           .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
           .order('quality_confidence', { ascending: false, nullsFirst: false })
           .order('date', { ascending: false, nullsFirst: false })
@@ -225,9 +239,10 @@ export async function fetchDashboardSignals(
         const { createClient } = await import('@/lib/supabase/server')
         const anon = await createClient()
         return anon
-          .from('signals_quality')
+          .from('signals')
           .select(CURATED_SELECT)
           .eq('reviewed', true)
+          .or(NOT_REJECTED_OR_FILTER)
           .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
           .order('quality_confidence', { ascending: false, nullsFirst: false })
           .order('date', { ascending: false, nullsFirst: false })
@@ -664,11 +679,17 @@ export async function getWantedRequestsCount(countryIso2?: string | null): Promi
   try {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
+    // `listings` has no `listing_type` column, and its status enum is
+    // approved/pending_review -- never 'published'. Both filters were rejected,
+    // so this counter reported 0 regardless of the data. The filters below
+    // mirror getWantedListings() exactly, because the Command Centre renders
+    // that list under this count; if the two disagree the tab contradicts the
+    // rows beneath it.
     let q = supabase
       .from('listings')
       .select('id', { count: 'exact', head: true })
-      .eq('listing_type', 'wanted')
-      .eq('status', 'published')
+      .eq('marketplace_section', 'wanted_requests')
+      .eq('status', 'approved')
     if (countryIso2) q = q.eq('location_country', countryIso2.toUpperCase())
     const { count, error } = await q
     if (!error && typeof count === 'number') return count
