@@ -164,7 +164,6 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(text).not.toContain('All Command Centre modules')
     expect(text).not.toContain('32 available')
     expect(document.querySelector('[data-command-module]')).toBeNull()
-    expect(document.querySelector('.hvm-op-secondary-nav')).toBeNull()
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
   })
 
@@ -222,12 +221,16 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(rail.map(button => button.textContent)).toContain('Marketplace control')
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
 
-    // Command owns nine sections now, but its landing is the operator dashboard
-    // and stays chrome-free — a rail here would push the first real content
-    // below the fold, which is what the operator-first work set out to fix.
+    // The Command landing rails too. Without it, the seven reference sections
+    // it owns had one unlabelled way in and were effectively invisible.
     navigation.search.value = 'country=CA&role=exporter&section=overview'
     const landing = renderMobileCommand({ initialPage: 'briefing' })
-    expect(landing.querySelector('.hvm-op-secondary-nav')).toBeNull()
+    const landingRail = [...landing.querySelectorAll('.hvm-op-secondary-nav button')]
+      .map(button => button.textContent)
+    expect(landingRail).toHaveLength(SECTION_GROUPS.overview.length)
+    for (const label of ['Genetics', 'Talent', 'Directories', 'Network', 'Compliance']) {
+      expect(landingRail).toContain(label)
+    }
   })
 
   it('offers a way back to the Command landing from the rail, and hides the rail once there', () => {
@@ -251,7 +254,7 @@ describe('Mobile Command Centre operator architecture', () => {
 
     navigation.search.value = 'country=CA&role=exporter&section=overview'
     const returned = renderMobileCommand({ initialPage: 'briefing' })
-    expect(returned.querySelector('.hvm-op-secondary-nav')).toBeNull()
+    expect(returned.querySelector('.hvm-op-secondary-nav')).not.toBeNull()
     expect([...returned.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['overview'])
   })
 

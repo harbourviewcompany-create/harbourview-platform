@@ -43,14 +43,22 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
-  // The Command landing stays chrome-free: the operator dashboard is the whole
-  // surface, and a rail above it just pushes the first real content below the
-  // fold. Its siblings — jurisdiction, compliance, genetics, network,
-  // directories, talent, education — are reached from "Read operating picture",
-  // and the rail appears once you are in one of them so you can move between
-  // them and back. Keyed off the committed section rather than the group, so
-  // every other destination still gets its rail immediately.
-  const showSecondaryNav = model.groupSections.length > 1 && model.highlightedSection !== 'overview'
+  // Every destination with more than one section shows its rail, including the
+  // Command landing.
+  //
+  // The landing used to suppress it, so genetics, talent, directories, network,
+  // compliance, jurisdiction and education — nine sections in all — had exactly
+  // one way in: a "Read operating picture →" button whose label names none of
+  // them. Reachable in the graph sense, invisible in the product sense. Asked
+  // where genetics and talent had gone, the honest answer was "behind a button
+  // that doesn't say so", which is not a navigation design.
+  //
+  // Suppressing it was right when Command owned two sections — a rail listing
+  // `Command · Operating state` is clutter that buys nothing. It stopped being
+  // right the moment Command became the home for the reference surfaces. One
+  // row of chips is a real cost to the operator dashboard's density; seven
+  // undiscoverable sections is a bigger one.
+  const showSecondaryNav = model.groupSections.length > 1
 
   useEffect(() => {
     if (!contextOpen) return

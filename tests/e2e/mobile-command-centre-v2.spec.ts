@@ -181,7 +181,11 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.getByText('32 available', { exact: true })).toHaveCount(0)
   await expect(page.locator('[data-command-module]')).toHaveCount(0)
   await expect(page.locator('.hvm2-section-rail')).toHaveCount(0)
-  await expect(page.locator('.hvm-op-secondary-nav')).toHaveCount(0)
+  // The Command landing rails: its seven reference sections are otherwise
+  // unreachable except through an unlabelled button.
+  await expect(page.locator('.hvm-op-secondary-nav')).toBeVisible()
+  await expect(page.locator('.hvm-op-secondary-nav').getByText('Genetics', { exact: true })).toBeVisible()
+  await expect(page.locator('.hvm-op-secondary-nav').getByText('Talent', { exact: true })).toBeVisible()
 
   const intelligenceZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Recent intelligence' })
   const opportunityZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Commercial opportunities' })
