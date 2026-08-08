@@ -24,9 +24,18 @@ export default function UpgradeButton({
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceKey, returnPath: '/account' }),
+        body: JSON.stringify({ priceKey }),
       })
       const data = await res.json()
+
+      if (res.status === 409 && data.code === 'EXISTING_SUBSCRIPTION') {
+        const portalRes = await fetch('/api/stripe/portal', { method: 'POST' })
+        const portalData = await portalRes.json()
+        if (!portalRes.ok) throw new Error(portalData.error ?? 'Billing portal failed')
+        window.location.href = portalData.url
+        return
+      }
+
       if (!res.ok) throw new Error(data.error ?? 'Checkout failed')
       window.location.href = data.url
     } catch (e) {

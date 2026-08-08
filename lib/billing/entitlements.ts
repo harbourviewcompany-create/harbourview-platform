@@ -1,11 +1,16 @@
 /**
  * Entitlement helper — single source of truth for feature access.
- * Used in both server components and middleware.
- * Reads from user.app_metadata.subscription_tier (set via Stripe webhook → Supabase).
+ * Used in server components that need subscription-aware feature checks.
+ *
+ * Canonical paid tier names are `intel` and `operator`, matching:
+ * - public.user_profiles.tier
+ * - app_metadata.subscription_tier
+ * - lib/stripe/tier.ts
+ * - proxy.ts subscription gating
  */
 import 'server-only'
 
-export type SubscriptionTier = 'free' | 'starter' | 'professional' | 'enterprise'
+export type SubscriptionTier = 'free' | 'intel' | 'operator'
 
 export interface FeatureAccess {
   granted: boolean
@@ -13,27 +18,41 @@ export interface FeatureAccess {
   currentTier: SubscriptionTier
 }
 
-const TIER_ORDER: SubscriptionTier[] = ['free', 'starter', 'professional', 'enterprise']
+const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
 
-// Feature → minimum tier required
+// Feature → minimum paid tier required.
+// Administrative authorization is role-based elsewhere and intentionally is
+// not represented as a purchasable subscription entitlement here.
 export const FEATURE_TIER_MAP: Record<string, SubscriptionTier> = {
-  signals:                  'starter',
-  intelligence:             'starter',
-  network:                  'starter',
-  vault:                    'starter',
-  opportunities:            'starter',
-  'reviewed-connections':   'starter',
-  watchlist:                'starter',
-  professionals:            'starter',
-  assessments:              'starter',
-  compliance:               'starter',
-  education:                'starter',
-  genetics:                 'professional',
-  'cultivar-passport':      'professional',
-  'institutional-partnerships': 'enterprise',
-  admin:                    'enterprise',
-  'signal-engine-admin':    'enterprise',
+  signals: 'intel',
+  intelligence: 'intel',
+  network: 'intel',
+  vault: 'intel',
+  opportunities: 'intel',
+  'reviewed-connections': 'intel',
+  watchlist: 'intel',
+  professionals: 'intel',
+  assessments: 'intel',
+  compliance: 'intel',
+  education: 'intel',
+  genetics: 'operator',
+  'cultivar-passport': 'operator',
+  'institutional-partnerships': 'operator',
 } as const
+
+export function normalizeSubscriptionTier(tier: unknown): SubscriptionTier {
+  switch (tier) {
+    case 'intel':
+    case 'starter':
+      return 'intel'
+    case 'operator':
+    case 'professional':
+    case 'enterprise':
+      return 'operator'
+    default:
+      return 'free'
+  }
+}
 
 export function getTierLevel(tier: SubscriptionTier | undefined): number {
   return TIER_ORDER.indexOf(tier ?? 'free')
@@ -44,23 +63,15 @@ export function canAccess(
   userTier: SubscriptionTier | undefined
 ): FeatureAccess {
   const requiredTier = FEATURE_TIER_MAP[feature] ?? 'free'
-  const currentTier  = userTier ?? 'free'
-  const granted      = getTierLevel(currentTier) >= getTierLevel(requiredTier)
+  const currentTier = userTier ?? 'free'
+  const granted = getTierLevel(currentTier) >= getTierLevel(requiredTier)
   return { granted, requiredTier, currentTier }
 }
 
-/**
- * Server component helper — reads tier from Supabase user object.
- * Usage:
- *   const user = await getAuthUser()  // your existing auth helper
- *   const access = checkFeatureAccess(user, 'signals')
- *   if (!access.granted) unauthorized()
- */
 export function checkFeatureAccess(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   user: { app_metadata?: Record<string, unknown> } | null,
   feature: string
 ): FeatureAccess {
-  const tier = (user?.app_metadata?.subscription_tier ?? 'free') as SubscriptionTier
+  const tier = normalizeSubscriptionTier(user?.app_metadata?.subscription_tier)
   return canAccess(feature, tier)
 }
