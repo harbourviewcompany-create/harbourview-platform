@@ -134,10 +134,22 @@ async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDos
   return null
 }
 
+async function resolveCanonicalEventId(db: any, signalId: string): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  try {
+    const { data, error } = await db
+      .from('intel_event_route_map')
+      .select('event_id')
+      .eq('signal_id', signalId)
+      .maybeSingle()
+    return !error && data ? text((data as Record<string, unknown>).event_id) : null
+  } catch { /* route-map migration may not be applied on a preview database yet */ }
+  return null
+}
+
 /**
- * Loads the canonical first-slice dossier. The legacy fallback intentionally uses
- * only columns exposed by api.signals, so pre-migration previews remain useful
- * without widening the production API. Legacy review never becomes verification.
+ * Loads the canonical first-slice dossier. The route map first resolves clustered
+ * source observations to one event; the legacy fallback then uses only columns
+ * exposed by api.signals. Legacy review never becomes verification.
  */
 export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
   // The generated Database type intentionally lags additive migrations; keep the
@@ -149,6 +161,12 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
   if (canonical) return canonical
 
   const signalId = eventId.startsWith('event:') ? eventId.slice('event:'.length) : eventId
+  const routedEventId = await resolveCanonicalEventId(db, signalId)
+  if (routedEventId && routedEventId !== eventId) {
+    const routed = await loadCanonical(db, routedEventId)
+    if (routed) return routed
+  }
+
   try {
     const { data, error } = await db
       .from('signals')
