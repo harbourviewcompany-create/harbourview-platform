@@ -25,6 +25,35 @@ alter table public.intel_assessments
 -- migrated_reviewed is a backfill-only state, never a default for future events.
 alter table public.intel_events alter column review_status set default 'needs_review';
 
+-- One source-backed assertion has exactly one canonical event in slice 1. This makes
+-- source-signal -> assertion -> event routing deterministic rather than relying on
+-- arbitrary LIMIT 1 selection if an assertion is accidentally linked twice.
+create unique index if not exists intel_event_assertions_assertion_uq
+  on public.intel_event_assertions(assertion_id);
+
+-- Mutable canonical records must advance their recency timestamp on staff edits.
+-- public.set_updated_at() is the repository-wide trigger function established by the
+-- dashboard-preferences foundation migration and present before this Stage-0 slice.
+drop trigger if exists intel_assertions_updated_at on public.intel_assertions;
+create trigger intel_assertions_updated_at
+before update on public.intel_assertions
+for each row execute function public.set_updated_at();
+
+drop trigger if exists intel_events_updated_at on public.intel_events;
+create trigger intel_events_updated_at
+before update on public.intel_events
+for each row execute function public.set_updated_at();
+
+drop trigger if exists intel_assessments_updated_at on public.intel_assessments;
+create trigger intel_assessments_updated_at
+before update on public.intel_assessments
+for each row execute function public.set_updated_at();
+
+drop trigger if exists intel_recommendations_updated_at on public.intel_recommendations;
+create trigger intel_recommendations_updated_at
+before update on public.intel_recommendations
+for each row execute function public.set_updated_at();
+
 -- Recover canonical jurisdiction identity from Pipeline-B country_iso2 whenever
 -- the canonical jurisdictions registry contains the corresponding identity. The
 -- production registry may be temporarily empty; in that case this is deliberately
@@ -117,9 +146,8 @@ grant select, insert, update, delete on
   to authenticated;
 
 -- Rebuild the dossier projection through displayable event/assessment/recommendation
--- states and displayable assertions only. The explicit event predicate is required
--- because the customer RPC executes as the function owner and therefore cannot rely
--- on product-tier base-table RLS to suppress rejected/superseded events.
+-- states and displayable assertions only. source_count is derived from that same
+-- eligible evidence set so suppression cannot leave a stale corroboration count.
 create or replace view public.intel_event_dossiers
 with (security_invoker = true)
 as
@@ -136,7 +164,12 @@ select
   e.materiality,
   e.consolidation_status,
   e.review_status,
-  e.source_count,
+  count(distinct coalesce(nullif(er.source_url,''), nullif(er.source_label,''), er.id::text))
+    filter (
+      where er.id is not null
+        and er.access_classification = 'intel'
+        and ia.review_status in ('migrated_reviewed','verified')
+    )::integer as source_count,
   a.what_happened,
   a.what_changed,
   a.why_it_matters,
@@ -179,9 +212,8 @@ left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
 where e.review_status in ('migrated_reviewed','verified')
 group by e.id, a.id, r.id;
 
--- The route map is canonical ownership, not a display-state projection. Keeping a
--- suppressed assertion/event mapped is what prevents the compatibility loader from
--- resurrecting a rejected/superseded canonical record through legacy fallback.
+-- The route map is canonical ownership, not a display-state projection. The unique
+-- assertion constraint above guarantees one route per source-backed assertion.
 create or replace view public.intel_event_route_map
 with (security_invoker = true)
 as
