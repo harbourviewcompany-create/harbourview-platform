@@ -114,17 +114,7 @@ function mapLegacySignal(row: Record<string, unknown>, eventId: string): Decisio
   }
 }
 
-/**
- * Loads the canonical first-slice dossier. The legacy fallback keeps preview/main
- * deploys useful before the additive migration is applied; it never upgrades a
- * legacy reviewed signal to verified intelligence.
- */
-export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
-  // The generated Database type intentionally lags additive migrations; keep the
-  // untyped boundary isolated here until types are regenerated after migration.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-
+async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDossier | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     const { data, error } = await db
       .from('intel_event_dossiers')
@@ -133,12 +123,30 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
       .maybeSingle()
     if (!error && data) return mapCanonical(data as Record<string, unknown>)
   } catch { /* migration may not be applied on a preview database yet */ }
+  return null
+}
+
+/**
+ * Loads the canonical first-slice dossier. The legacy fallback keeps preview/main
+ * deploys useful before the additive migration is applied; it never upgrades a
+ * legacy reviewed signal to verified intelligence. A non-representative clustered
+ * signal resolves to its canonical event before falling back, so a feed row cannot
+ * fragment one event back into separate legacy dossiers.
+ */
+export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
+  // The generated Database type intentionally lags additive migrations; keep the
+  // untyped boundary isolated here until types are regenerated after migration.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any
+
+  const canonical = await loadCanonical(db, eventId)
+  if (canonical) return canonical
 
   const signalId = eventId.startsWith('event:') ? eventId.slice('event:'.length) : eventId
   try {
     const { data, error } = await db
       .from('signals')
-      .select('id,date,created_at,reviewed_at,cat,pri,headline,summary,source,url,country,commercial_impact,analysis,quality_confidence,impact,title_en,summary_en,editorial_title,editorial_blurb,snapshot_id,corroborating_count,reviewed,quality_label,content_type,action')
+      .select('id,date,created_at,reviewed_at,cat,pri,headline,summary,source,url,country,commercial_impact,analysis,quality_confidence,impact,title_en,summary_en,editorial_title,editorial_blurb,snapshot_id,cluster_rep_id,corroborating_count,reviewed,quality_label,content_type,action')
       .eq('id', signalId)
       .eq('reviewed', true)
       .maybeSingle()
@@ -147,6 +155,13 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
     if (['spam','boilerplate','nav','duplicate'].includes(String(row.quality_label ?? ''))) return null
     if (['story','research','noise'].includes(String(row.content_type ?? ''))) return null
     if (row.action === 'rejected') return null
+
+    const clusterRepId = text(row.cluster_rep_id)
+    if (clusterRepId && clusterRepId !== signalId) {
+      const clustered = await loadCanonical(db, `event:${clusterRepId}`)
+      if (clustered) return clustered
+    }
+
     return mapLegacySignal(row, eventId)
   } catch {
     return null
