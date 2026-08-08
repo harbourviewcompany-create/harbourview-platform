@@ -4992,4 +4992,34 @@ same scrollbar-less horizontal scroll this change exists to remove. Uniform
 visibility was chosen over density; the cost is recorded here rather than
 denied.
 
+**Sixth defect — the bottom nav, and my own assertion missing it.** Codex on
+`9d30e966`: holding an 8rem floor for main does not make the shell fit. The
+header is ~130px and the bottom nav ~82px with margins, so with the floor the
+shell needs ~340px before the rail contributes anything. Under `overflow:
+hidden`, the surplus is not scrolled — it is clipped. Measured:
+
+```text
+                390x844  320x400  320x320  320x256  320x200
+nav lower edge      836      392      349      349      349
+viewport height     844      400      320      256      200
+                     ok       ok  CLIPPED  CLIPPED  CLIPPED
+toBeVisible()      true     true     true     true     true
+```
+
+At 320x256 the nav sat 93px past the bottom of the screen — a content pane with
+no way to navigate away from it — and the assertion I had just written returned
+`true` for all five. That assertion used `toBeVisible()`, the exact predicate
+this same file documents as not checking viewport intersection. The lesson
+recorded two defects earlier was not applied to the code written to fix them.
+
+No split of ~212px of chrome leaves a usable pane at 256px tall, so the shell
+is the wrong model at that size. Below `max-height: 480px` it becomes an
+ordinary scrolling document: root grows past the viewport, page scrolls as one,
+everything stays reachable. After the change, the nav is reachable at every
+height tested (390x844 through 320x200), and the rail no longer has to compress
+because the document scrolls instead.
+
+The test now scrolls to the nav and asserts `toBeInViewport()`, which separates
+"below the fold, reachable" from "clipped, gone".
+
 **Production access:** none. No database reads or writes in this work.

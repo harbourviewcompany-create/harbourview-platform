@@ -576,3 +576,43 @@
     font-size: 8px;
   }
 }
+
+/*
+ * BELOW THIS HEIGHT, STOP BEING AN APP SHELL
+ * ------------------------------------------
+ * The fixed-viewport model — `height: 100dvh; overflow: hidden`, chrome pinned
+ * top and bottom, one scrolling pane between — needs a minimum budget to work.
+ * The shipped header is ~130px and the bottom nav ~82px with its margins, so
+ * once `.hvm-op-main` holds its 8rem floor the shell needs ~340px before the
+ * rail contributes anything at all. Under that, something has to be pushed out
+ * of the viewport, and `overflow: hidden` means pushed out is *gone*: measured
+ * at 320x256, the bottom nav's lower edge sat at 349px — 93px past the bottom —
+ * leaving the operator with a content pane and no way to navigate away from it.
+ *
+ * Making main smaller does not fix it; at 256px tall there is no split of
+ * ~212px of chrome that leaves a usable pane. The shell is simply the wrong
+ * model at this size, so below 480px it becomes an ordinary scrolling document:
+ * the root grows past the viewport, the page scrolls as one, and every element
+ * stays reachable. This is the WCAG 1.4.10 case — a 1280x1024 desktop at 400%
+ * zoom presents as roughly 320x256.
+ *
+ * `.hvm-op-bottom-nav` is already `position: relative`, so it flows to the end
+ * of the document here rather than needing to be re-pinned.
+ */
+@media (max-height: 480px) {
+  .hvm2-root {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .hvm2-main.hvm-op-main {
+    min-height: 0;
+    overflow-y: visible;
+  }
+
+  .hvm-op-secondary-nav {
+    max-height: none;
+    overflow-y: visible;
+  }
+}

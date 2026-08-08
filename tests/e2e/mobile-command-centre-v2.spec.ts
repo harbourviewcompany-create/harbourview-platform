@@ -369,9 +369,17 @@ test.describe('Mobile Command operator-first verification', () => {
           `the content pane collapsed to ${Math.round(mainBox?.height ?? 0)}px at ${width}x${height} — the rail is not yielding`,
         ).toBe(true)
 
-        // The bottom nav must survive too: losing it strands the operator on
+        // The bottom nav must be *reachable*, not merely present. Asserting
+        // this with toBeVisible() is the same mistake this file documents
+        // above: at 320x256 under a fixed-viewport shell the nav's lower edge
+        // sat 93px below the fold, clipped away by `overflow: hidden`, and
+        // toBeVisible() still returned true. Scrolling to it and then checking
+        // viewport intersection distinguishes "below the fold, reachable" —
+        // which is fine — from "clipped, gone" — which strands the operator on
         // whichever destination they happen to be on.
-        await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
+        const bottomNav = page.locator('.hvm-op-bottom-nav')
+        await bottomNav.scrollIntoViewIfNeeded()
+        await expect(bottomNav).toBeInViewport()
       } finally {
         await context.close()
       }
