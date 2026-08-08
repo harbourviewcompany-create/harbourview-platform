@@ -664,11 +664,17 @@ export async function getWantedRequestsCount(countryIso2?: string | null): Promi
   try {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
+    // `listings` has no `listing_type` column, and its status enum is
+    // approved/pending_review -- never 'published'. Both filters were rejected,
+    // so this counter reported 0 regardless of the data. The filters below
+    // mirror getWantedListings() exactly, because the Command Centre renders
+    // that list under this count; if the two disagree the tab contradicts the
+    // rows beneath it.
     let q = supabase
       .from('listings')
       .select('id', { count: 'exact', head: true })
-      .eq('listing_type', 'wanted')
-      .eq('status', 'published')
+      .eq('marketplace_section', 'wanted_requests')
+      .eq('status', 'approved')
     if (countryIso2) q = q.eq('location_country', countryIso2.toUpperCase())
     const { count, error } = await q
     if (!error && typeof count === 'number') return count
