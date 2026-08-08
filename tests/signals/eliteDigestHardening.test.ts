@@ -68,8 +68,13 @@ describe('Elite Digest release hardening', () => {
     expect(confidence.get('a')).toBe(91)
     expect(confidence.get('b')).toBe(64)
     expect(confidence.has('invalid')).toBe(false)
-    expect(digestRoute).toContain(".from('signals_quality')")
+    // The lookup must target `signals`. `quality_confidence` has never been a
+    // column on `signals_quality` in either schema, so this assertion used to
+    // pin the route to a relation that could only ever 400 -- and the flat
+    // fallback below it made that indistinguishable from "no data".
+    expect(digestRoute).toContain(".from('signals')")
     expect(digestRoute).toContain(".select('id, quality_confidence')")
+    expect(digestRoute).not.toContain(".from('signals_quality')")
     expect(digestRoute).toContain('confidenceBySignalId.get(h.signal_id)')
   })
 
