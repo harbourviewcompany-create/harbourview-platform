@@ -82,7 +82,7 @@ test.describe('Decision Intelligence first slice', () => {
         await expect(page.getByText('Recommended posture', { exact: true })).toBeVisible()
         await expect(page.getByText('What happened', { exact: true })).toBeVisible()
         await expect(page.getByText('Why it matters', { exact: true })).toBeVisible()
-        await expect(page.getByText('Evidence', { exact: true })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Evidence', exact: true })).toBeVisible()
         await expect(page.getByText('Unknowns', { exact: true })).toBeVisible()
         await expect(page.getByText(/Legacy reviewed state is not treated as verified intelligence/)).toBeVisible()
 
@@ -106,7 +106,7 @@ test.describe('Decision Intelligence first slice', () => {
     try {
       const page = await context.newPage()
       await openDossier(page)
-      await expect(page.locator('h1')).toBeVisible()
+      await expect(page.locator('main').getByRole('heading', { level: 1 })).toBeVisible()
       await expect(page.getByText('Commercial implications', { exact: true })).toBeVisible()
       await expect(page.getByText('Regulatory implications', { exact: true })).toBeVisible()
       await expect(page.getByText('Confidence rationale', { exact: true })).toBeVisible()
