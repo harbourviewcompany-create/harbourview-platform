@@ -4613,3 +4613,144 @@ Raw column names such as `export_volume_kg` are now passed through `titleCase`.
 
 The pre-existing fallbacks are kept as the last entry in each key list, so a
 future schema that does supply `display_value` still works.
+
+---
+
+## 2026-08-08 — Signal quality columns exposed on `api` (applied to production)
+
+### Why this was needed
+
+PR #1292 repointed the signal-quality reads from `signals_quality` to `signals`
+and was reported as fixing the curated tier. **It did not.** Those ten columns
+are absent from `api.signals` as well, so the queries moved from one relation
+that lacks them to another that lacks them and went on failing identically. The
+half that would have made it work — exposing the columns on the schema PostgREST
+actually serves — was never written. Recorded plainly because the merged code
+looked correct while failing.
+
+### What was applied
+
+`api.signals_with_quality` — `public.signals` plus `quality_label`,
+`quality_confidence`, `content_type`, `impact`, `title_en`, `summary_en`,
+`lang_detected`, `is_representative`, `cluster_rep_id`, `analysis`.
+
+`api.admin_dashboard_counts` — mirrors the `public` view.
+
+Both `security_invoker = true`, matching every other view in `api`. RLS is
+enabled on `public.signals`, so row visibility still resolves against the calling
+role: this widens which **columns** two already-privileged roles can read, never
+which **rows**.
+
+### The anon decision
+
+`api.signals` is granted to `anon`. Adding the quality columns to it would have
+published internal classifier verdicts and the generated `analysis` payload to
+anonymous callers — a data-exposure change, not a bug fix.
+
+Every consumer of these columns runs as `authenticated` (auth-gated dashboard
+routes on the session client) or `service_role` (cron, synthesis). None runs as
+`anon`. So the columns went on a separate view granted to exactly those two
+roles, and `api.signals` was left untouched.
+
+### Verified against production after apply
+
+```text
+signals_with_quality quality columns present     10
+signals_with_quality grantees                    authenticated, postgres, service_role   (no anon)
+admin_dashboard_counts grantees                  authenticated, postgres, service_role   (no anon)
+api.signals quality columns                      0   (unchanged — no anon widening)
+reviewed and not rejected, visible               3,749
+rows carrying quality_confidence                 12,540
+admin_dashboard_counts                           pending_listings 1, pending_buyer_requests 1,
+                                                 new_inquiries 8, pending_matches 0,
+                                                 pending_disclosures 0
+```
+
+### Code
+
+Nine call sites repointed to `signals_with_quality` across
+`app/api/dashboard/digest/route.ts`, `app/api/dashboard/signals/route.ts`,
+`app/api/signals/search/route.ts`, `lib/dashboard/dashboardServerData.ts` and
+`lib/intelligence/jurisdictionSynthesis.ts`.
+
+Reads that use only base columns — the globe feed, the signal embedder, the
+policy-standards tracker and the logistics page — deliberately stay on
+`api.signals`, which remains the anon-readable projection.
+
+### Verification
+
+```text
+npm run typecheck   clean
+npx vitest run tests/signals tests/dashboard/   228 passed
+npm run build       success
+npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
+```
+
+### Corrections after review
+
+Two of the nine repoints were wrong. Both found by CodeRabbit, both verified
+against production before changing anything.
+
+**`app/api/signals/search/route.ts` — reverted to `signals`.** That route's
+`serviceClient()` deliberately sets no schema override, so PostgREST resolves it
+against `public`. `signals_with_quality` was created in `api` only, so pointing
+it there targeted a relation that does not exist — this repoint introduced a
+regression rather than fixing one. Verified 2026-08-08:
+
+```text
+public.signals              quality columns present : 9 of 9
+public.signals_with_quality                         : relation absent
+api.signals_with_quality    quality columns present : 9 of 9
+api.signals                 quality columns present : 0 of 9
+api.signals_quality         quality columns present : 0 of 9
+public.signals_quality      quality columns present : 0 of 9
+```
+
+`public.signals` carries every column that select names, which is why the
+public-schema path worked before this PR and works again now.
+
+**`lib/dashboard/dashboardServerData.ts` — the unpublished-edition digest
+fallback was missed.** The curated read moved; the fallback below it stayed on
+`signals_quality` while still selecting `DIGEST_SELECT` and ordering by
+`quality_confidence`. On the schema-pinned server client that is
+`api.signals_quality`, which per the table above carries none of them, so the
+query 400'd and the guard returned an empty digest. Every day without a
+published edition rendered a blank Daily Digest and nothing said why. Now on
+`signals_with_quality`, with `NOT_REJECTED_OR_FILTER` carried across to preserve
+the row gate.
+
+The `anon` fallback in `fetchDashboardSignals` was also raised and is
+deliberately unchanged: it selects the same quality columns, so against
+`api.signals` it already 400'd before this PR and against
+`api.signals_with_quality` it is now denied — either way it falls through to
+tier 3, and it has never returned a row for this select. Granting `anon` on the
+new view would widen what an unauthenticated caller can read off
+`public.signals`, which is a security decision for Tyler, not a drift fix.
+
+### Verification after corrections
+
+```text
+npm run typecheck   clean
+npx vitest run tests/signals tests/dashboard   228 passed (18 files)
+npm run build       success
+npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
+```
+
+### Still open
+
+- `source_registry.metadata` is still not exposed on `api`. Its only consumer is
+  a service-role write path that selects it in a `returning` clause, and
+  `api.source_registry` is anon-granted, so it needs the same restricted
+  treatment rather than being bolted onto this migration.
+- The dead `anon` fallback in `fetchDashboardSignals` should be deleted so a
+  missing service key surfaces instead of silently degrading to `ia_signals`.
+  Behaviour change, so not folded into this PR.
+- `supabase/migrations/20260801150000_api_expose_quality_and_routing_columns.sql`
+  is committed but absent from `supabase_migrations.schema_migrations` in
+  production — it has never been applied there. That is why `api.signals` and
+  `api.signals_quality` carry none of the quality columns live, and it is the
+  original cause of this whole thread. CI's isolated Supabase does not use the
+  repo's migrations at all, so neither environment was ever going to catch it.
+- This PR's migration is recorded in production as version `20260808112235`
+  while the file here is `20260808120000`. The DDL is `create or replace`, so a
+  re-apply is harmless, but the recorded history and the filename disagree.

@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
     // 3,732 rows qualified. `NOT_REJECTED_OR_FILTER` preserves the one row gate
     // `signals_quality` applied on top of `reviewed = true`.
     let query = supabase
-      .from('signals')
+      .from('signals_with_quality')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
       .or(NOT_REJECTED_OR_FILTER)

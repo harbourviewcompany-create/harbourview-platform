@@ -112,7 +112,23 @@ function toResult(row: Record<string, unknown>): SignalSearchResult | null {
   }
 }
 
-// ── Keyword fallback, retargeted to public.signals ─────────────────────────────
+// ── Keyword fallback, on public.signals ───────────────────────────────────────
+//
+// This one stays on `signals`, unlike every other read this PR moved.
+//
+// `serviceClient()` above deliberately sets no schema override, so PostgREST
+// resolves it against `public` — the first entry in this project's
+// `pgrst.db_schemas`. `signals_with_quality` was created in the `api` schema
+// only; there is no `public.signals_with_quality`, so pointing this call at it
+// targets a relation that does not exist. Verified on production 2026-08-08:
+//
+//   public.signals              quality columns present : 9 of 9
+//   public.signals_with_quality                         : relation absent
+//   api.signals_with_quality    quality columns present : 9 of 9
+//
+// `public.signals` carries every column this select names, which is why the
+// public-schema path worked before and works now. The `api` view exists for the
+// schema-pinned clients in lib/supabase/server.ts, not for this one.
 async function keywordSearch(
   supabase: ReturnType<typeof serviceClient>,
   query: string,
