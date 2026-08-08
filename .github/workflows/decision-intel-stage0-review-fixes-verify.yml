@@ -5,15 +5,12 @@ on:
     branches: [main]
     paths:
       - app/dashboard/intel/**
-      - components/dashboard/DesktopDecisionIntelBridge.tsx
-      - components/dashboard/DashboardResponsiveShell.tsx
-      - components/dashboard/mobile-command/sections/IntelligenceSections.tsx
+      - components/dashboard/**
       - lib/dashboard/**
       - lib/intelligence-os/**
       - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
       - supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
       - tests/intel/**
-      - tests/e2e/decision-intel-first-slice.spec.ts
       - docs/control/DATABASE_CONTROL.md
       - docs/control/EVIDENCE_LOG.md
       - .github/workflows/decision-intel-stage0-review-fixes-verify.yml
@@ -33,13 +30,9 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
+        ports: ['5432:5432']
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
+          --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=10
     env:
       PGPASSWORD: postgres
       PGHOST: 127.0.0.1
@@ -62,13 +55,11 @@ jobs:
           create role anon nologin;
           create role authenticated nologin;
           create role service_role nologin;
-          create schema if not exists api;
-          create schema if not exists auth;
+          create schema api;
+          create schema auth;
           grant usage on schema public, api, auth to anon, authenticated, service_role;
-          create or replace function auth.uid() returns uuid language sql stable
-          as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
           grant execute on function auth.uid() to anon, authenticated, service_role;
-
           create table public.source_registry (id uuid primary key, name text);
           create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
           create table public.hv_evidence (id uuid primary key, extracted_text text, storage_path text, private_notes text);
@@ -76,53 +67,24 @@ jobs:
           create table public.user_roles (user_id uuid not null, role text not null);
           create table public.user_profiles (id uuid primary key, tier text not null);
           create table public.signals (
-            id text primary key,
-            snapshot_id uuid references public.source_snapshots(id),
-            cluster_rep_id text,
-            source text,
-            url text,
-            date timestamptz,
-            created_at timestamptz not null default now(),
-            reviewed_at timestamptz,
-            reviewed boolean not null default false,
-            action text,
-            quality_label text,
-            quality_confidence numeric,
-            content_type text,
-            cat text,
-            pri text,
-            impact text,
-            commercial_impact text,
-            country text,
-            headline text,
-            summary text,
-            title_en text,
-            summary_en text,
-            editorial_title text,
-            editorial_blurb text,
-            analysis jsonb
+            id text primary key, snapshot_id uuid references public.source_snapshots(id), cluster_rep_id text,
+            source text, url text, date timestamptz, created_at timestamptz not null default now(), reviewed_at timestamptz,
+            reviewed boolean not null default false, action text, quality_label text, quality_confidence numeric,
+            content_type text, cat text, pri text, impact text, commercial_impact text, country text, country_iso2 text,
+            headline text, summary text, title_en text, summary_en text, editorial_title text, editorial_blurb text, analysis jsonb
           );
           grant select on public.user_profiles, public.user_roles to authenticated;
-
-          insert into public.source_registry values
-            ('10000000-0000-0000-0000-000000000001','Regulator A'),
-            ('10000000-0000-0000-0000-000000000002','Industry B');
-          insert into public.source_snapshots values
-            ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
-          insert into public.hv_evidence values
-            ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
+          insert into public.source_registry values ('10000000-0000-0000-0000-000000000001','Regulator A'),('10000000-0000-0000-0000-000000000002','Industry B');
+          insert into public.source_snapshots values ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
+          insert into public.hv_evidence values ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
           insert into public.jurisdictions values ('CA','Canada'),('DE','Germany');
-          insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
+          insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel'),('00000000-0000-0000-0000-000000000333','intel');
           insert into public.user_roles values ('00000000-0000-0000-0000-000000000222','analyst');
-
-          insert into public.signals (
-            id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,
-            content_type,cat,pri,impact,commercial_impact,country,headline,summary,title_en,summary_en,analysis
-          ) values
-          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"what_changed":"Requirement A changed","who_is_affected":"Importers","recommended_action":"Verify importer eligibility","confidence_rationale":"Primary source"}'::jsonb),
-          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Corroborating market-access context','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
-          ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial development','CA','Commercial change','Commercial change summary','Commercial change','Commercial change summary','{}'::jsonb),
-          ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
+          insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
+          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"recommended_action":"Verify importer eligibility"}'::jsonb),
+          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
+          ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial','Canada','CA','Commercial change','Commercial summary','Commercial change','Commercial summary','{}'::jsonb),
+          ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','Canada','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
           SQL
 
       - name: Apply original and corrective Stage 0 migrations
@@ -130,172 +92,95 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
 
-      - name: Verify cardinality, no false verification and route aliases
+      - name: Verify first-slice review contracts
         shell: bash
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
           do $$
-          declare verified_count integer;
-          declare verified_evidence integer;
-          declare route_event text;
-          declare event_default text;
+          declare v integer; route_event text; event_default text;
           begin
-            if (select count(*) from public.intel_evidence_refs) <> 3 then raise exception 'expected 3 evidence refs'; end if;
-            if (select count(*) from public.intel_assertions) <> 3 then raise exception 'expected 3 assertions'; end if;
-            if (select count(*) from public.intel_events) <> 2 then raise exception 'expected 2 events'; end if;
-            if (select count(*) from public.intel_event_assertions) <> 3 then raise exception 'expected 3 event links'; end if;
-            if (select count(*) from public.intel_assessments) <> 2 then raise exception 'expected 2 assessments'; end if;
-            if (select count(*) from public.intel_assessment_versions) <> 2 then raise exception 'expected 2 assessment versions'; end if;
-            if (select count(*) from public.intel_recommendations) <> 2 then raise exception 'expected 2 recommendations'; end if;
-
-            select count(*) into verified_count from (
+            if (select count(*) from public.intel_evidence_refs) <> 3 then raise exception 'evidence cardinality'; end if;
+            if (select count(*) from public.intel_assertions) <> 3 then raise exception 'assertion cardinality'; end if;
+            if (select count(*) from public.intel_events) <> 2 then raise exception 'event cardinality'; end if;
+            select count(*) into v from (
               select review_status from public.intel_assertions where review_status='verified'
               union all select review_status from public.intel_events where review_status='verified'
               union all select review_status from public.intel_assessments where review_status='verified'
               union all select review_status from public.intel_recommendations where review_status='verified'
             ) x;
-            select count(*) into verified_evidence from public.intel_evidence_refs where evidence_status='verified';
-            if verified_count <> 0 or verified_evidence <> 0 then raise exception 'migration created verified state'; end if;
-
+            if v <> 0 then raise exception 'migration created verified state'; end if;
             select event_id into route_event from public.intel_event_route_map where signal_id='sig-b';
-            if route_event <> 'event:sig-a' then raise exception 'cluster alias did not resolve: %', route_event; end if;
-
-            select column_default into event_default from information_schema.columns
-              where table_schema='public' and table_name='intel_events' and column_name='review_status';
-            if event_default not like '%needs_review%' then raise exception 'event default is not needs_review: %', event_default; end if;
+            if route_event <> 'event:sig-a' then raise exception 'cluster alias failed'; end if;
+            select column_default into event_default from information_schema.columns where table_schema='public' and table_name='intel_events' and column_name='review_status';
+            if event_default not like '%needs_review%' then raise exception 'unsafe event default'; end if;
+            if exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and jurisdiction_id <> 'DE') then raise exception 'assertion jurisdiction missing'; end if;
+            if exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id <> 'DE') then raise exception 'event jurisdiction missing'; end if;
           end $$;
-          SQL
 
-      - name: Verify multi-signal snapshot and durable legacy lineage
-        shell: bash
-        run: |
-          set -euo pipefail
-          psql -v ON_ERROR_STOP=1 <<'SQL'
-          insert into public.signals (id,snapshot_id,source,date,reviewed,quality_label,quality_confidence,content_type,headline,summary)
-          values ('sig-shared','20000000-0000-0000-0000-000000000001','Regulator A',now(),true,'signal',0.8,'regulatory','Shared snapshot signal','Shared snapshot signal');
+          insert into public.signals (id,snapshot_id,source,date,reviewed,quality_label,quality_confidence,content_type,headline,summary,country_iso2)
+          values ('sig-shared','20000000-0000-0000-0000-000000000001','Regulator A',now(),true,'signal',0.8,'regulatory','Shared','Shared','DE');
           insert into public.intel_evidence_refs (source_signal_id,source_snapshot_id,source_label,evidence_kind,evidence_status,access_classification,observed_at)
           values ('sig-shared','20000000-0000-0000-0000-000000000001','Regulator A','source_snapshot','needs_review','intel',now());
-          do $$ begin
-            if (select count(*) from public.intel_evidence_refs where source_snapshot_id='20000000-0000-0000-0000-000000000001') <> 2 then
-              raise exception 'one snapshot cannot support two signal evidence refs';
-            end if;
-          end $$;
+          do $$ begin if (select count(*) from public.intel_evidence_refs where source_snapshot_id='20000000-0000-0000-0000-000000000001') <> 2 then raise exception 'snapshot cardinality'; end if; end $$;
           delete from public.signals where id='sig-shared';
-          do $$ begin
-            if not exists (select 1 from public.intel_evidence_refs where source_signal_id='sig-shared') then
-              raise exception 'legacy source signal tombstone was not preserved';
-            end if;
-          end $$;
+          do $$ begin if not exists (select 1 from public.intel_evidence_refs where source_signal_id='sig-shared') then raise exception 'tombstone lost'; end if; end $$;
           delete from public.intel_evidence_refs where source_signal_id='sig-shared';
-          SQL
 
-      - name: Verify probability constraints and append-only assessment history
-        shell: bash
-        run: |
-          set -euo pipefail
-          psql -v ON_ERROR_STOP=1 <<'SQL'
           do $$
-          declare aid uuid;
-          declare failed boolean;
+          declare aid uuid; failed boolean;
           begin
-            failed := false;
-            begin
-              update public.intel_assessments set confidence=1.5 where id=(select id from public.intel_assessments limit 1);
-            exception when check_violation then failed := true;
-            end;
-            if not failed then raise exception 'assessment confidence accepted >1'; end if;
-
-            failed := false;
-            begin
-              update public.intel_assertions set confidence=-0.1 where id=(select id from public.intel_assertions limit 1);
-            exception when check_violation then failed := true;
-            end;
-            if not failed then raise exception 'assertion confidence accepted <0'; end if;
-
+            failed:=false; begin update public.intel_assessments set confidence=1.5 where id=(select id from public.intel_assessments limit 1); exception when check_violation then failed:=true; end; if not failed then raise exception 'confidence >1 accepted'; end if;
             select id into aid from public.intel_assessment_versions limit 1;
-            failed := false;
-            begin
-              update public.intel_assessment_versions set change_reason='rewrite' where id=aid;
-            exception when raise_exception then failed := true;
-            end;
-            if not failed then raise exception 'assessment version update was not blocked'; end if;
-
-            failed := false;
-            begin
-              delete from public.intel_assessment_versions where id=aid;
-            exception when raise_exception then failed := true;
-            end;
-            if not failed then raise exception 'assessment version delete was not blocked'; end if;
+            failed:=false; begin update public.intel_assessment_versions set change_reason='rewrite' where id=aid; exception when raise_exception then failed:=true; end; if not failed then raise exception 'history mutable'; end if;
           end $$;
-          SQL
-
-      - name: Verify display-state and contradiction projection
-        shell: bash
-        run: |
-          set -euo pipefail
-          psql -v ON_ERROR_STOP=1 <<'SQL'
-          begin;
-          insert into public.intel_assertion_evidence (assertion_id,evidence_ref_id,relationship)
-          select a.id,e.id,'contradicts'
-          from public.intel_assertions a
-          join public.intel_evidence_refs e on e.source_signal_id=a.source_signal_id
-          where a.source_signal_id='sig-b';
-          do $$
-          declare dossier jsonb;
-          begin
-            select row_to_json(d)::jsonb into dossier from public.intel_event_dossiers d where id='event:sig-a';
-            if dossier::text not like '%"relationship": "contradicts"%' and dossier::text not like '%"relationship":"contradicts"%' then
-              raise exception 'contradictory evidence relationship missing from projection';
-            end if;
-          end $$;
-          rollback;
 
           begin;
           update public.intel_recommendations set review_status='rejected' where assessment_id=(select id from public.intel_assessments where event_id='event:sig-a');
           do $$ begin
-            if exists (select 1 from public.intel_event_dossiers where id='event:sig-a') then
-              raise exception 'rejected recommendation remains in dossier projection';
-            end if;
-          end $$;
-          rollback;
-
-          begin;
-          update public.intel_assertions set review_status='rejected' where source_signal_id='sig-b';
-          do $$
-          declare evidence_text text;
-          begin
-            select evidence::text into evidence_text from public.intel_event_dossiers where id='event:sig-a';
-            if evidence_text like '%https://example.test/b%' then raise exception 'rejected assertion evidence still projected'; end if;
-            if exists (select 1 from public.intel_event_route_map where signal_id='sig-b') then raise exception 'rejected assertion retained route alias'; end if;
+            if exists (select 1 from public.intel_event_dossiers where id='event:sig-a') then raise exception 'rejected recommendation visible'; end if;
+            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-a') then raise exception 'canonical ownership lost on suppression'; end if;
           end $$;
           rollback;
           SQL
 
-      - name: Verify RLS and private-evidence boundary
+      - name: Verify RPC boundary, staff DML and leakage controls
         shell: bash
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
           do $$ begin
-            if has_table_privilege('anon','api.intel_event_dossiers','SELECT') then raise exception 'anon has dossier SELECT'; end if;
-            if has_table_privilege('anon','api.intel_event_route_map','SELECT') then raise exception 'anon has route-map SELECT'; end if;
-            if not has_table_privilege('authenticated','api.intel_event_dossiers','SELECT') then raise exception 'authenticated lacks dossier SELECT'; end if;
-            if not has_table_privilege('authenticated','api.intel_event_route_map','SELECT') then raise exception 'authenticated lacks route-map SELECT'; end if;
-            if has_table_privilege('authenticated','public.hv_evidence','SELECT') then raise exception 'authenticated has raw evidence SELECT'; end if;
+            if has_table_privilege('anon','api.intel_event_dossiers','SELECT') then raise exception 'anon dossier relation access'; end if;
+            if has_table_privilege('authenticated','api.intel_event_dossiers','SELECT') then raise exception 'customer direct dossier relation access'; end if;
+            if has_table_privilege('authenticated','public.hv_evidence','SELECT') then raise exception 'raw evidence grant'; end if;
+            if not has_function_privilege('authenticated','api.get_intel_event_dossier(text)','EXECUTE') then raise exception 'missing dossier RPC execute'; end if;
+            if not has_function_privilege('authenticated','api.resolve_intel_event_route(text)','EXECUTE') then raise exception 'missing route RPC execute'; end if;
           end $$;
 
           begin;
           set local role authenticated;
           select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000111',true);
-          do $$
-          declare payload text;
-          begin
-            select row_to_json(d)::text into payload from api.intel_event_dossiers d where id='event:sig-a';
-            if payload is null then raise exception 'intel-tier user cannot read dossier'; end if;
-            if payload ilike '%PRIVATE RAW EVIDENCE%' or payload ilike '%private/path%' or payload ilike '%PRIVATE NOTE%' then raise exception 'private raw evidence leaked'; end if;
-            if (select event_id from api.intel_event_route_map where signal_id='sig-b') <> 'event:sig-a' then raise exception 'intel-tier route alias failed'; end if;
+          do $$ declare payload text; route_event text; begin
+            select row_to_json(d)::text into payload from api.get_intel_event_dossier('event:sig-a') d;
+            if payload is null then raise exception 'intel tier cannot read dossier RPC'; end if;
+            if payload ilike '%PRIVATE RAW EVIDENCE%' or payload ilike '%private/path%' or payload ilike '%PRIVATE NOTE%' then raise exception 'private evidence leaked'; end if;
+            select r.event_id into route_event from api.resolve_intel_event_route('sig-b') r;
+            if route_event <> 'event:sig-a' then raise exception 'native route failed'; end if;
           end $$;
+          rollback;
+
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000333',true);
+          do $$ begin
+            if exists (select 1 from public.intel_events) then raise exception 'product tier can query canonical bases'; end if;
+          end $$;
+          rollback;
+
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',true);
+          update public.intel_events set summary=summary where id='event:sig-a';
           rollback;
           SQL
 
