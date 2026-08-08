@@ -34,11 +34,13 @@ The exact slice-1 surfaceability predicate currently yields:
 
 These are planning/backfill counts only. They are not evidence that the migration has been applied.
 
+Production schema reconciliation also verified that `signals.id` and `signals.cluster_rep_id` are `text`, `signals.snapshot_id`, `source_snapshots.id`, `source_registry.id`, and `hv_evidence.id` are `uuid`, and `jurisdictions.jurisdiction_id` is `text`. The first-slice foreign keys therefore match the live schema.
+
 ## RLS model
 
-### Staff-only canonical data
+### Staff-controlled canonical data
 
-The following base objects are writable only to existing platform staff roles (`admin`, `operator`, `analyst`) through `user_roles`:
+The following canonical base objects are writable only to existing platform staff roles (`admin`, `operator`, `analyst`) through `user_roles`:
 
 - `intel_evidence_refs`
 - `intel_assertions`
@@ -49,13 +51,23 @@ The following base objects are writable only to existing platform staff roles (`
 - `intel_assessment_versions`
 - `intel_recommendations`
 
-### Authenticated intelligence product read
+The derived objects required to render an approved dossier also have narrowly scoped SELECT policies for authenticated `user_profiles.tier IN ('intel','operator')`. The migration explicitly grants authenticated SELECT on those RLS-protected relations because production default privileges for tables created by `postgres` do not grant authenticated access automatically.
 
-Existing `user_profiles.tier IN ('intel','operator')` users receive SELECT-only access to approved/migrated derived records required by `intel_event_dossiers`.
+### Data API exposure
 
-`anon` receives no access to the dossier view.
+Production PostgREST exposes the `api` schema, not `public`. The canonical tables remain physically in `public` and are not projected wholesale into `api`.
+
+The only Stage-0 Data API projection is:
+
+- `api.intel_event_dossiers` → security-invoker projection of `public.intel_event_dossiers`
+
+Both views rely on the underlying RLS policies. `anon` is explicitly revoked. Raw evidence bodies are not projected.
+
+### Evidence boundary
 
 Raw evidence remains in the pre-existing stores under their existing boundaries. `intel_evidence_refs` stores pointers plus safe source metadata; it does not copy raw evidence text, storage paths, private notes, OCR output, private Marketplace fields or service credentials.
+
+Each migrated evidence reference now stores the exact `source_signal_id`. Assertion-to-evidence linkage uses that identifier directly. Publisher/URL matching is not used as a fallback because two unrelated legacy signals can share the same publisher or a null URL and would otherwise acquire false provenance.
 
 ## Backfill rules
 
@@ -69,6 +81,8 @@ Backfill source is `public.signals` only when all conditions hold:
 `reviewed=true` maps to `migrated_reviewed`, never `verified`.
 
 Candidate event identity is `event:` + `coalesce(cluster_rep_id,id)`. All cluster members attach assertions to the event. The event remains `consolidation_status='candidate'` until independently reviewed.
+
+`source_count` counts distinct source references using URL first, publisher second, and signal ID only as the final fallback. It is not a raw cluster-row count and must not be described as proof of source independence.
 
 Existing `signals.analysis` is used only where populated. Its recommended action seeds an `investigate` posture rather than `act_now` because the old analysis is not independent verification.
 
@@ -84,11 +98,12 @@ Before merge/deploy:
 
 1. SQL migration parses and applies against a production-shaped database.
 2. Row counts after backfill reconcile to the surfaceability predicate.
-3. No canonical assertion is marked `verified` by migration.
+3. No canonical evidence, assertion, event, assessment or recommendation is marked `verified` by migration.
 4. Every event has at least one event-assertion link.
-5. Every assessment has exactly one event.
-6. Every recommendation has exactly one assessment.
-7. Anonymous access to `intel_event_dossiers` fails.
-8. Intel/operator tier can read allowlisted dossier rows.
-9. Raw `hv_evidence`, storage paths and private notes remain unavailable through dossier projection.
-10. Existing `/signals`, Marketplace, Clinical and Actions regression checks stay green.
+5. Every migrated assertion has exactly one evidence reference for its source signal.
+6. Every assessment has exactly one event.
+7. Every recommendation has exactly one assessment.
+8. Anonymous access to `api.intel_event_dossiers` fails.
+9. Intel/operator tier can read allowlisted dossier rows through the exposed `api` schema.
+10. Raw `hv_evidence`, storage paths and private notes remain unavailable through dossier projection.
+11. Existing `/signals`, Marketplace, Clinical and Actions regression checks stay green.
