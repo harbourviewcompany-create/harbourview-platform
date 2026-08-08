@@ -4805,3 +4805,12 @@ node scripts/check-pending-production-migration-decisions.mjs  20260801150000 no
 
 Note: that script reports pre-existing blob mismatches and absent decision files
 for other versions on `main`. Those predate this work and are untouched.
+
+## 2026-08-08 — PR #1309 — Decision Intelligence Stage 0 first-slice review hardening
+
+- **Scope:** first slice only: `Source/Snapshot → Evidence ref → Assertion → Event → Assessment → Recommendation → authenticated dossier`. No later Decision Intelligence stage started.
+- **Production status:** no PR #1309 Decision Intelligence migration or backfill applied to production; PR remains unmerged during verification.
+- **Prior proof:** `Decision Intel First Slice Verify` run `31276893684` proved the original migration/RLS contract and five required dossier widths before the later review-hardening pass.
+- **Review defects addressed:** multi-signal snapshot lineage, durable source-signal lineage, canonical route aliases, `api.signals`-compatible fallback plus IA fallback, no legacy review-as-verification date, rejected/superseded display filtering, immutable assessment history, contradiction relationship projection, safe event defaults, 0–1 confidence constraints, mobile row layout/posture consistency, return-context preservation, desktop dossier reachability and centralized verification-semantics copy.
+- **Final proof required:** both migrations in order against disposable production-shaped PostgreSQL; zero migration-created `verified`; lineage/cardinality; anon denial; Intel/operator read; raw evidence/Marketplace leakage protection; 320×700, 375×812, 390×844, 430×932 and 1440×1000 dossier evidence; complete current-head workflow matrix green.
+- **Status:** pending final current-head rerun; exact final run IDs/results must be posted on PR #1309 before GO.

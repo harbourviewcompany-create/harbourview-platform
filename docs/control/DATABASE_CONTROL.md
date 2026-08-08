@@ -450,3 +450,15 @@ User asked to investigate why `regulatory_signals.signals` was still empty even 
 - **Deterministic replay corrections:** the March intelligence-view and marketplace-conversion files contain syntax/dependency corrections required for a zero-state rebuild. They do not authorize or substitute for production forward migrations.
 - **Required verification:** complete local migration replay, zero-row security assertions, a current backup/PITR checkpoint, leaked-password protection verification, and complete application leakage/authorization evidence.
 - **Production approval:** HOLD until a separate operator-authorized migration and Auth activation.
+
+## 2026-08-08 — PR #1309 — Decision Intelligence Stage 0 first-slice review hardening
+
+- **Environment:** PR branch plus disposable production-shaped verification only; no production migration/backfill applied.
+- **Migrations:** `20260808190000_decision_intel_stage0_first_slice.sql` and corrective `20260808203000_decision_intel_stage0_review_fixes.sql`.
+- **Canonical ownership:** existing `source_registry`/`source_snapshots`, `hv_evidence`, and `public.jurisdictions` remain authoritative; Stage 0 adds only evidence references, assertions, events, assessments/versions, recommendations and allowlisted dossier/route projections.
+- **RLS/exposure:** raw Stage 0 objects remain staff-controlled; authenticated Intel/operator reads use security-invoker allowlisted views; anon reads are revoked; raw `hv_evidence` and Marketplace-private data remain outside the product projection.
+- **Review hardening:** one snapshot can support multiple signal refs; legacy signal IDs remain durable lineage keys; confidence is constrained to 0–1; new events default to `needs_review`; assessment versions are append-only; rejected/superseded assertions and recommendations are excluded; contradiction relationships are projected; clustered signals resolve to one event.
+- **Backward compatibility:** `public.signals`, Pipeline B and `/signals` remain upstream/existing surfaces. No existing intelligence table is dropped or rewritten.
+- **Rollback/forward-fix:** production remains unapplied. Apply both migrations only after disposable verification; use reviewed forward migrations for post-apply defects.
+- **Required tests:** production-shaped apply/backfill/RLS, zero auto-verified rows, lineage/cardinality, five-width dossier Playwright, leakage/security, full PR workflow matrix.
+- **Approval:** first-slice implementation/review fixes authorized in PR #1309; merge and production activation remain separately gated.
