@@ -217,11 +217,16 @@ export type PrimarySectionId =
  */
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
   overview: [
-    'overview', 'live-status', 'personal-briefing', 'review-gates',
+    'overview', 'live-status', 'review-gates',
     'jurisdiction', 'compliance', 'genetics', 'network', 'directories', 'talent',
+    'education',
   ],
   marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
-  'weekly-signals': ['weekly-signals', 'search', 'education'],
+  // Intel is the intelligence feed: the weekly signals, the daily digest
+  // (`personal-briefing`, which targets the `digest` page) and search across
+  // both. Education was here and is not intelligence -- it is reference
+  // material, so it sits with the other reference surfaces in Command.
+  'weekly-signals': ['weekly-signals', 'personal-briefing', 'search'],
   clinical: ['clinical'],
   'next-actions': ['next-actions', 'financing'],
 }
