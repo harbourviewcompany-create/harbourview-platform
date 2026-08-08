@@ -202,12 +202,14 @@ export interface PublicCounterpartySummary {
 }
 
 export type DecisionRecommendationState = 'act_now' | 'investigate' | 'monitor' | 'no_action';
+export type DecisionEvidenceRelationship = 'supports' | 'contradicts' | 'clarifies' | 'supersedes' | 'background';
 
 export interface DecisionEvidenceSummary {
   sourceLabel: string | null;
   sourceUrl: string | null;
   status: 'needs_review' | 'partially_verified' | 'verified' | 'conflicting' | 'stale' | string;
   observedAt: string | null;
+  relationship: DecisionEvidenceRelationship;
 }
 
 export interface DecisionIntelDossier {
