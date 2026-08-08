@@ -57,6 +57,8 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(hardening).toContain('grant select, insert, update, delete on')
     expect(dossierLoader).toContain("db.rpc('get_intel_event_dossier'")
     expect(dossierLoader).toContain("db.rpc('resolve_intel_event_route'")
+    expect(dossierLoader).not.toContain(".from('intel_event_dossiers')")
+    expect(dossierLoader).not.toContain(".from('intel_event_route_map')")
   })
 
   it('makes assessment history immutable and confidence a probability', () => {
@@ -68,6 +70,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
 
   it('preserves evidence relationships and canonical ownership for suppressed rows', () => {
     expect(hardening).toContain("'relationship', ae.relationship")
+    expect(hardening).toContain("where e.review_status in ('migrated_reviewed','verified')")
     expect(hardening).toContain('create or replace view public.intel_event_route_map')
     expect(hardening).toContain('where ia.source_signal_id is not null')
     expect(dossierLoader).toContain('Canonical ownership exists but the allowlisted dossier did not return a row')
