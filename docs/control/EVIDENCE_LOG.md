@@ -4846,10 +4846,17 @@ box to `page.viewportSize()`.
 Rail height after wrapping — the cost of the change:
 
 ```text
-w=320  149px (3 rows)    w=390  103px (2 rows)
-w=360  149px (3 rows)    w=430  103px (2 rows)
-w=375  103px (2 rows)    w=768   57px (1 row)
+w= 320 height=149px offscreen=[none]     w= 430 height=103px offscreen=[none]
+w= 360 height=149px offscreen=[none]     w= 768 height= 57px offscreen=[none]
+w= 375 height=149px offscreen=[none]     w= 820 height= 57px offscreen=[none]
+w= 390 height=149px offscreen=[none]     w=1024 height= 57px offscreen=[none]
+                                         w=1440 height= 57px offscreen=[none]
 ```
+
+Corrected: an earlier measurement in this entry put 375/390 at two rows. It was
+taken with a chip reading "Education" — the real label is "Education path",
+which is wider and pushes both widths to three rows. The first figures were
+measured against a mock that did not match the component.
 
 No-ops for the other destinations: marketplace owns 4 sections, weekly-signals
 5, next-actions 3, clinical 1 — all already fit.
@@ -4869,15 +4876,46 @@ w=430  NEW css -> PASS
 **Coverage confirmed:** all 22 members of `SectionId` are claimed by exactly one
 entry of `SECTION_GROUPS` (9 + 4 + 5 + 1 + 3 = 22). No orphaned sections.
 
-**Verification:**
+**A second self-inflicted failure, caught by the gate.** The first push of this
+fix broke the gate: the assertion loop was hand-typed and included `'Education'`,
+but `SECTION_NAV` renders that section as **"Education path"**. `getByText(…,
+{ exact: true })` matched nothing, and the failure surfaced as
+`element(s) not found` — not as the layout condition under test. The labels are
+now derived from `SECTION_GROUPS.overview` and `SECTION_NAV` rather than
+retyped, and the rail's button count is asserted against the group length, so a
+locator that matches nothing can no longer read as a pass.
+
+**Verification** (full frontend gate per `AGENTS.md` §2, not the narrowed
+subset used on the previous push):
 
 ```text
-npx tsc --noEmit                                              clean
-npx vitest run tests/dashboard tests/platform tests/security  119 passed (17 files)
-npx eslint <changed files>                                    0 errors
-npx playwright test … --list                                  21 tests
-npm run build                                                 success
+npm run lint       0 errors, 144 warnings (all pre-existing, none in changed files)
+npm run typecheck  clean
+npm run test       exit 0 — 158 passed across 8 files
+npm run build      success
+npx playwright test tests/e2e/mobile-command-centre-v2.spec.ts --list   21 tests
 ```
+
+Note for future runs: `npm run test` is a curated subset (globe-router,
+globe-data, country-role, signal-quality, signal-routing, two public-surface
+suites). It does not include `tests/dashboard`. Those were run separately —
+`npx vitest run tests/dashboard tests/platform tests/security`, 119 passed
+across 17 files — and the full tree via `npx vitest run`: **705 passed, 1
+failed**.
+
+**That one failure is pre-existing, now verified rather than assumed.** Run
+against a clean `origin/main` worktree with no changes from this branch:
+
+```text
+FAIL tests/globe-polygon-rendering.test.ts > keeps generated Natural Earth
+     Russia geometry on a contiguous Asia antimeridian span
+AssertionError: expected 360 to be less than 180   (tests/globe-polygon-rendering.test.ts:173)
+```
+
+Identical assertion and identical value on `main`. Untouched by this work and
+left open. Four `tests/scripts/*.mjs` files also report "No test suite found"
+under `vitest run` on both `main` and this branch — they are node:test files
+picked up by vitest's glob, likewise pre-existing.
 
 **Known-red, not caused here:** `Workers Builds: harbourview-platform` on
 Cloudflare account `4a7c450c…` fails instantly on every PR (start and completion

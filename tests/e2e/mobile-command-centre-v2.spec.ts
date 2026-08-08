@@ -2,6 +2,18 @@ import { expect, test, type Browser, type BrowserContextOptions, type Locator, t
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
+import { SECTION_GROUPS, SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
+
+/**
+ * Derived, not hand-typed. Spelling a label by hand cost this gate a run:
+ * `education` renders as "Education path", and `getByText('Education', {
+ * exact: true })` matched nothing rather than failing on the real condition.
+ */
+const COMMAND_RAIL_LABELS = SECTION_GROUPS.overview.map(id => {
+  const entry = SECTION_NAV.find(section => section.id === id)
+  if (!entry) throw new Error(`SECTION_NAV has no entry for grouped section "${id}"`)
+  return entry.label
+})
 
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
@@ -214,7 +226,8 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   // scroll, and only a viewport-aware assertion can hold that.
   const commandRail = page.locator('.hvm-op-secondary-nav')
   await expect(commandRail).toBeVisible()
-  for (const label of ['Genetics', 'Talent', 'Directories', 'Network', 'Education']) {
+  await expect(commandRail.locator('button')).toHaveCount(COMMAND_RAIL_LABELS.length)
+  for (const label of COMMAND_RAIL_LABELS) {
     await expectHorizontallyOnScreen(page, commandRail.getByText(label, { exact: true }), `Command rail "${label}"`)
   }
 
