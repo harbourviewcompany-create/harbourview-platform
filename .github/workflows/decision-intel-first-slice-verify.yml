@@ -1,0 +1,282 @@
+name: Decision Intel First Slice Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/dashboard/intel/**
+      - components/dashboard/mobile-command/sections/IntelligenceSections.tsx
+      - lib/intelligence-os/**
+      - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
+      - tests/intel/decisionIntelFirstSlice.test.ts
+      - tests/e2e/decision-intel-first-slice.spec.ts
+      - docs/control/INTEL_DECISION_OS_*.md
+      - .github/workflows/decision-intel-first-slice-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: decision-intel-first-slice-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migration-contract:
+    name: Production-shaped migration, lineage and RLS
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare production-shaped Stage 0 dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin;
+          create schema if not exists api;
+          create schema if not exists auth;
+          grant usage on schema public, api, auth to anon, authenticated, service_role;
+
+          create or replace function auth.uid() returns uuid
+          language sql stable
+          as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          grant execute on function auth.uid() to anon, authenticated, service_role;
+
+          create table public.source_registry (
+            id uuid primary key,
+            name text
+          );
+          create table public.source_snapshots (
+            id uuid primary key,
+            source_id uuid references public.source_registry(id),
+            captured_at timestamptz
+          );
+          create table public.hv_evidence (
+            id uuid primary key,
+            extracted_text text,
+            storage_path text,
+            private_notes text
+          );
+          create table public.jurisdictions (
+            jurisdiction_id text primary key,
+            name text
+          );
+          create table public.user_roles (
+            user_id uuid not null,
+            role text not null
+          );
+          create table public.user_profiles (
+            id uuid primary key,
+            tier text not null
+          );
+          create table public.signals (
+            id text primary key,
+            snapshot_id uuid references public.source_snapshots(id),
+            cluster_rep_id text,
+            source text,
+            url text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed_at timestamptz,
+            reviewed boolean not null default false,
+            action text,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            cat text,
+            pri text,
+            impact text,
+            commercial_impact text,
+            country text,
+            headline text,
+            summary text,
+            title_en text,
+            summary_en text,
+            editorial_title text,
+            editorial_blurb text,
+            analysis jsonb
+          );
+
+          grant select on public.user_profiles, public.user_roles to authenticated;
+
+          insert into public.source_registry values
+            ('10000000-0000-0000-0000-000000000001','Regulator A'),
+            ('10000000-0000-0000-0000-000000000002','Industry B');
+          insert into public.source_snapshots values
+            ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
+          insert into public.hv_evidence values
+            ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
+          insert into public.jurisdictions values ('CA','Canada'),('DE','Germany');
+          insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
+
+          insert into public.signals (
+            id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,
+            content_type,cat,pri,impact,commercial_impact,country,headline,summary,title_en,summary_en,analysis
+          ) values
+          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"what_changed":"Requirement A changed","who_is_affected":"Importers","recommended_action":"Verify importer eligibility","confidence_rationale":"Primary source"}'::jsonb),
+          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Corroborating market-access context','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
+          ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial development','CA','Commercial change','Commercial change summary','Commercial change','Commercial change summary','{}'::jsonb),
+          ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
+          SQL
+
+      - name: Apply exact first-slice migration
+        shell: bash
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
+
+      - name: Verify backfill, provenance and cardinality
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            assertions integer;
+            evidence_refs integer;
+            evidence_links integer;
+            events integer;
+            event_links integer;
+            assessments integer;
+            versions integer;
+            recommendations integer;
+            verified integer;
+            cluster_sources integer;
+            orphan_assertions integer;
+          begin
+            select count(*) into assertions from public.intel_assertions;
+            select count(*) into evidence_refs from public.intel_evidence_refs;
+            select count(*) into evidence_links from public.intel_assertion_evidence;
+            select count(*) into events from public.intel_events;
+            select count(*) into event_links from public.intel_event_assertions;
+            select count(*) into assessments from public.intel_assessments;
+            select count(*) into versions from public.intel_assessment_versions;
+            select count(*) into recommendations from public.intel_recommendations;
+            select count(*) into verified from (
+              select review_status from public.intel_assertions where review_status='verified'
+              union all select review_status from public.intel_events where review_status='verified'
+              union all select review_status from public.intel_assessments where review_status='verified'
+              union all select review_status from public.intel_recommendations where review_status='verified'
+            ) v;
+            select source_count into cluster_sources from public.intel_events where id='event:sig-a';
+            select count(*) into orphan_assertions
+            from public.intel_assertions a
+            left join public.intel_assertion_evidence ae on ae.assertion_id=a.id
+            where ae.assertion_id is null;
+
+            if assertions <> 3 then raise exception 'assertions %, expected 3', assertions; end if;
+            if evidence_refs <> 3 then raise exception 'evidence refs %, expected 3', evidence_refs; end if;
+            if evidence_links <> 3 then raise exception 'evidence links %, expected 3', evidence_links; end if;
+            if events <> 2 then raise exception 'events %, expected 2', events; end if;
+            if event_links <> 3 then raise exception 'event links %, expected 3', event_links; end if;
+            if assessments <> 2 or versions <> 2 or recommendations <> 2 then
+              raise exception 'assessment/version/recommendation cardinality %/%/%', assessments, versions, recommendations;
+            end if;
+            if verified <> 0 then raise exception 'migration created % verified objects', verified; end if;
+            if cluster_sources <> 2 then raise exception 'cluster source_count %, expected 2 distinct sources', cluster_sources; end if;
+            if orphan_assertions <> 0 then raise exception '% assertions lack evidence lineage', orphan_assertions; end if;
+          end $$;
+          SQL
+
+      - name: Verify RLS, exposed API projection and private-evidence boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_table_privilege('anon','api.intel_event_dossiers','SELECT') then
+              raise exception 'anon unexpectedly has dossier SELECT';
+            end if;
+            if not has_table_privilege('authenticated','api.intel_event_dossiers','SELECT') then
+              raise exception 'authenticated lacks dossier SELECT';
+            end if;
+            if has_table_privilege('authenticated','public.hv_evidence','SELECT') then
+              raise exception 'authenticated unexpectedly has raw hv_evidence SELECT';
+            end if;
+          end $$;
+
+          begin;
+          set local role authenticated;
+          select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000111',true);
+          do $$
+          declare dossier_count integer;
+          begin
+            select count(*) into dossier_count from api.intel_event_dossiers;
+            if dossier_count <> 2 then raise exception 'intel-tier dossier count %, expected 2', dossier_count; end if;
+          end $$;
+          rollback;
+          SQL
+
+      - name: Unit/control tests
+        run: npx vitest run tests/intel/decisionIntelFirstSlice.test.ts tests/security/command-centre-boundaries.test.ts
+
+  preview-playwright:
+    name: Required-width dossier Playwright evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      HARBOURVIEW_PUBLIC_BASE_URL: https://build-decision-intel-stage0.harbourview-platform.pages.dev
+      PLAYWRIGHT_BASE_URL: https://build-decision-intel-stage0.harbourview-platform.pages.dev
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run dedicated first-slice Playwright suite
+        run: npx playwright test tests/e2e/decision-intel-first-slice.spec.ts --project=chromium
+
+      - name: Upload dossier screenshots and Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: decision-intel-first-slice-${{ github.run_id }}
+          path: |
+            artifacts/decision-intel-first-slice/**
+            playwright-report/**
+            test-results/**
+          if-no-files-found: warn
+          retention-days: 14
