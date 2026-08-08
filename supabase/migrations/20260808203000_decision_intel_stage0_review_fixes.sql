@@ -25,10 +25,46 @@ alter table public.intel_assessments
 -- migrated_reviewed is a backfill-only state, never a default for future events.
 alter table public.intel_events alter column review_status set default 'needs_review';
 
+-- Recover canonical jurisdiction identity from Pipeline-B country_iso2 whenever
+-- the canonical jurisdictions registry contains the corresponding identity. The
+-- production registry may be temporarily empty; in that case this is deliberately
+-- a no-op rather than fabricating jurisdiction rows or weakening the FK.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'signals' and column_name = 'country_iso2'
+  ) then
+    execute $sql$
+      update public.intel_assertions a
+      set jurisdiction_id = j.jurisdiction_id
+      from public.signals s
+      join public.jurisdictions j
+        on upper(j.jurisdiction_id) = upper(nullif(s.country_iso2, ''))
+      where a.source_signal_id = s.id
+        and a.jurisdiction_id is null
+    $sql$;
+
+    update public.intel_events e
+    set jurisdiction_id = x.jurisdiction_id
+    from (
+      select ea.event_id, min(a.jurisdiction_id) as jurisdiction_id
+      from public.intel_event_assertions ea
+      join public.intel_assertions a on a.id = ea.assertion_id
+      where a.jurisdiction_id is not null
+      group by ea.event_id
+      having count(distinct a.jurisdiction_id) = 1
+    ) x
+    where x.event_id = e.id
+      and e.jurisdiction_id is null;
+  end if;
+end $$;
+
 -- Assessment versions are append-only, including for privileged application paths.
 create or replace function public.prevent_intel_assessment_version_mutation()
 returns trigger
 language plpgsql
+set search_path = pg_catalog, public
 as $$
 begin
   raise exception 'intel_assessment_versions is append-only';
@@ -58,32 +94,27 @@ with check (exists (
 grant select, insert on public.intel_assessment_versions to authenticated;
 revoke update, delete on public.intel_assessment_versions from authenticated;
 
--- Product-tier reads never surface rejected/superseded assertions or recommendations.
+-- Canonical base tables are staff objects. Remove the product-tier SELECT policies
+-- from the original migration so Intel/operator customers cannot query canonical
+-- rows directly through an exposed public schema. Staff keep the existing *_staff_all
+-- RLS policies and receive the DML privileges those policies are intended to govern.
+drop policy if exists intel_events_tier_read on public.intel_events;
+drop policy if exists intel_event_assertions_tier_read on public.intel_event_assertions;
+drop policy if exists intel_assertions_tier_read on public.intel_assertions;
 drop policy if exists intel_assertion_evidence_tier_read on public.intel_assertion_evidence;
-create policy intel_assertion_evidence_tier_read on public.intel_assertion_evidence
-for select to authenticated
-using (
-  exists (
-    select 1 from public.intel_assertions ia
-    where ia.id = assertion_id
-      and ia.review_status in ('migrated_reviewed','verified')
-  )
-  and exists (
-    select 1 from public.user_profiles up
-    where up.id = auth.uid() and up.tier in ('intel','operator')
-  )
-);
-
+drop policy if exists intel_evidence_refs_tier_read on public.intel_evidence_refs;
+drop policy if exists intel_assessments_tier_read on public.intel_assessments;
 drop policy if exists intel_recommendations_tier_read on public.intel_recommendations;
-create policy intel_recommendations_tier_read on public.intel_recommendations
-for select to authenticated
-using (
-  review_status in ('needs_review','migrated_reviewed','verified')
-  and exists (
-    select 1 from public.user_profiles up
-    where up.id = auth.uid() and up.tier in ('intel','operator')
-  )
-);
+
+grant select, insert, update, delete on
+  public.intel_evidence_refs,
+  public.intel_assertions,
+  public.intel_assertion_evidence,
+  public.intel_events,
+  public.intel_event_assertions,
+  public.intel_assessments,
+  public.intel_recommendations
+  to authenticated;
 
 -- Rebuild the dossier projection through displayable assertions only and preserve
 -- evidence relationship semantics so contradictory evidence cannot be presented as support.
@@ -145,8 +176,9 @@ left join public.intel_assertion_evidence ae on ae.assertion_id = ia.id
 left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
 group by e.id, a.id, r.id;
 
--- Route aliases allow any clustered source signal to resolve to its canonical event.
--- This is a navigation projection only; it does not create another event identity.
+-- The route map is canonical ownership, not a display-state projection. Keeping a
+-- suppressed assertion/event mapped is what prevents the compatibility loader from
+-- resurrecting a rejected/superseded canonical record through legacy fallback.
 create or replace view public.intel_event_route_map
 with (security_invoker = true)
 as
@@ -154,21 +186,67 @@ select distinct ia.source_signal_id as signal_id, ea.event_id
 from public.intel_event_assertions ea
 join public.intel_assertions ia on ia.id = ea.assertion_id
 join public.intel_events e on e.id = ea.event_id
-where ia.source_signal_id is not null
-  and ia.review_status in ('migrated_reviewed','verified')
-  and e.review_status in ('migrated_reviewed','verified');
+where ia.source_signal_id is not null;
 
-grant select on public.intel_event_route_map to authenticated;
-revoke all on public.intel_event_route_map from anon;
-
-create or replace view api.intel_event_dossiers
-with (security_invoker = true)
-as select * from public.intel_event_dossiers;
-grant select on api.intel_event_dossiers to authenticated;
-revoke all on api.intel_event_dossiers from anon;
+-- Direct relation reads are not the customer execution boundary. Revoke the views
+-- created by the original migration and expose narrowly-scoped SECURITY DEFINER RPCs
+-- that enforce the existing Intel/operator product-tier check before returning only
+-- the allowlisted dossier/route projection. Base-table RLS remains staff-only.
+revoke all on public.intel_event_dossiers from authenticated, anon;
+revoke all on public.intel_event_route_map from authenticated, anon;
+revoke all on api.intel_event_dossiers from authenticated, anon;
 
 create or replace view api.intel_event_route_map
 with (security_invoker = true)
 as select * from public.intel_event_route_map;
-grant select on api.intel_event_route_map to authenticated;
-revoke all on api.intel_event_route_map from anon;
+revoke all on api.intel_event_route_map from authenticated, anon;
+
+create or replace function api.get_intel_event_dossier(p_event_id text)
+returns setof public.intel_event_dossiers
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public, api, auth
+as $$
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.user_profiles up
+    where up.id = auth.uid() and up.tier in ('intel','operator')
+  ) then
+    return;
+  end if;
+
+  return query
+    select d.* from public.intel_event_dossiers d where d.id = p_event_id;
+end;
+$$;
+
+create or replace function api.resolve_intel_event_route(p_signal_id text)
+returns table(event_id text)
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public, api, auth
+as $$
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.user_profiles up
+    where up.id = auth.uid() and up.tier in ('intel','operator')
+  ) then
+    return;
+  end if;
+
+  return query
+    select m.event_id
+    from public.intel_event_route_map m
+    where m.signal_id = p_signal_id
+       or (p_signal_id not like 'rs-%' and m.signal_id = 'rs-' || p_signal_id)
+    order by case when m.signal_id = p_signal_id then 0 else 1 end
+    limit 1;
+end;
+$$;
+
+revoke all on function api.get_intel_event_dossier(text) from public, anon;
+revoke all on function api.resolve_intel_event_route(text) from public, anon;
+grant execute on function api.get_intel_event_dossier(text) to authenticated;
+grant execute on function api.resolve_intel_event_route(text) to authenticated;
