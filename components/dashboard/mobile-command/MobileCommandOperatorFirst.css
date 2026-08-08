@@ -506,6 +506,19 @@
 }
 
 @media (max-width: 359px) {
+  .hvm-op-command {
+    gap: 18px;
+  }
+
+  .hvm-op-row {
+    min-height: 66px;
+    padding: 9px 0;
+  }
+
+  .hvm-op-empty {
+    padding: 10px 0;
+  }
+
   .hvm-op-pulse span {
     font-size: 9px;
   }
