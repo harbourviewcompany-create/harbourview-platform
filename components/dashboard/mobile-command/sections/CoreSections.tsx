@@ -26,7 +26,6 @@ export function OverviewSection({
   publicSummary,
   marketAccessStatus,
   reviewStatus,
-  dataCompleteness,
   firstAction,
   onOpenActions,
 }: {
@@ -36,7 +35,6 @@ export function OverviewSection({
   publicSummary?: string | null
   marketAccessStatus?: string | null
   reviewStatus: string
-  dataCompleteness: string
   firstAction?: NextAction
   onOpenActions: () => void
 }) {
@@ -47,10 +45,17 @@ export function OverviewSection({
           <span>Command brief</span>
           <h2>{countryLabel} operating picture</h2>
           <p>{publicSummary?.trim() || `${countryLabel} is loaded as the active jurisdiction for ${roleLabel}. Live marketplace, intelligence, pathway and education signals are consolidated below.`}</p>
+          {/* `countries.data_completeness` used to render as a third pill here.
+              It is a three-value Postgres enum (stub / seed / partial) that was
+              printed raw, so Germany's brief read "Stub". The label is also
+              inverted against the data it claims to describe: countries marked
+              `stub` average 142 characters of written summary and all carry a
+              published playbook, while 33 of the 50 marked `partial` are
+              boilerplate. It described nothing a reader could act on, so it is
+              no longer shown. No replacement metric is invented in its place. */}
           <div className="hvm2-brief-tags">
             <StatusPill tone="gold">{formatStatus(marketAccessStatus, 'Market access review')}</StatusPill>
             <StatusPill>{reviewStatus}</StatusPill>
-            <StatusPill>{dataCompleteness}</StatusPill>
           </div>
         </article>
         <article className="hvm2-priority-card">

@@ -168,7 +168,20 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const pipelineTotal = pipeline.wanted + pipeline.matched + pipeline.proof_review + pipeline.inquiry + pipeline.deal_room
   const sourceCoverageCount = props.sourceCoverage?.length ?? 0
   const reviewStatus = formatStatus(props.countryIntel?.review_status, 'Pending review')
-  const dataCompleteness = formatStatus(props.countryIntel?.data_completeness, 'Coverage pending')
+  // `countries.data_completeness` was resolved here and handed to three
+  // sections. It is a three-value enum (stub / seed / partial) that was printed
+  // raw and does not describe the data it names -- `stub` countries average 142
+  // characters of written summary and all carry a published playbook, while 33
+  // of the 50 `partial` countries are boilerplate. It is no longer derived at
+  // all, so it cannot reach a customer-facing string by accident.
+
+  // Steps for the active jurisdiction/role access pathway. `template.id` is
+  // prefixed `generic-` when getPublicPathwayTemplate substituted the
+  // country-agnostic role fallback, which is the case for the 169 countries
+  // with no cc_pathway_templates row.
+  const pathwaySteps = props.pathwayData?.steps ?? []
+  const pathwayIsGeneric = (props.pathwayData?.template?.id ?? '').startsWith('generic-')
+  const evidenceDocuments = props.evidenceData?.orgDocs ?? []
 
   const directoryRecords = useMemo<DirectoryRecord[]>(() => {
     const professionals = (props.professionals ?? []).map((item, index) => ({
@@ -475,7 +488,9 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     pipelineTotal,
     sourceCoverageCount,
     reviewStatus,
-    dataCompleteness,
+    pathwaySteps,
+    pathwayIsGeneric,
+    evidenceDocuments,
     directoryRecords,
     geneticsRecords,
     submissions,

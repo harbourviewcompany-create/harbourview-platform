@@ -46,22 +46,39 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
   )
 }
 
-export function ComplianceSection({ sectionRef, regulatoryTier, outlook, dataCompleteness, playbookStatus, marketAccessStatus, pathway, commandHref }: {
+export function ComplianceSection({ sectionRef, regulatoryTier, outlook, playbookSourcing, marketAccessStatus, pathway, commandHref }: {
   sectionRef: SectionRef
   regulatoryTier?: string | null
   outlook?: string | null
-  dataCompleteness: string
-  playbookStatus: string
+  /**
+   * `jurisdiction_playbooks.confidence_label` — sourcing prose describing how
+   * the playbook was corroborated, e.g. "high — consistently corroborated
+   * across …". It averages ~310 characters and runs to 871, so it is rendered
+   * as a note rather than squeezed into a stat value. Resolved by the caller
+   * with the usual `readString` fallback, so an absent field arrives as an
+   * empty string and this section states plainly that none is recorded.
+   */
+  playbookSourcing: string
   marketAccessStatus?: string | null
   pathway?: string | null
   commandHref: CommandHref
 }) {
+  const sourcingNote = playbookSourcing.trim()
+
   return (
     <SectionShell id="compliance" sectionRef={sectionRef} eyebrow="Compliance" title="Regulatory and quality control" description={MOBILE_COMMAND_COPY.complianceDescription} action={<Link className="hvm2-text-link" href={commandHref('compliance')}>Compliance command</Link>}>
+      {/* The middle tile used to be "Quality posture", whose value was
+          `countries.data_completeness` — a raw three-value enum, printed
+          verbatim and inverted against the data it named. Removing it leaves
+          two tiles that still describe something real, and frees the playbook
+          sourcing prose that was crammed underneath it into its own note. */}
       <div className="hvm2-compliance-grid">
         <article><span>Regulatory tier</span><strong>{formatStatus(regulatoryTier)}</strong><p>{outlook || MOBILE_COMMAND_COPY.complianceOutlookFallback}</p></article>
-        <article><span>Quality posture</span><strong>{dataCompleteness}</strong><p>{playbookStatus}</p></article>
         <article><span>Access pathway</span><strong>{formatStatus(marketAccessStatus)}</strong><p>{pathway || MOBILE_COMMAND_COPY.compliancePathwayFallback}</p></article>
+      </div>
+      <div className="hvm2-sourcing-note" data-sourcing={sourcingNote ? 'recorded' : 'absent'}>
+        <strong>{MOBILE_COMMAND_COPY.playbookSourcingTitle}</strong>
+        <p>{sourcingNote || MOBILE_COMMAND_COPY.playbookSourcingAbsent}</p>
       </div>
     </SectionShell>
   )

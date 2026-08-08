@@ -32,6 +32,9 @@ export const COMMAND_CENTRE_COPY = {
     financingInquiryDescription: 'Complete the reviewed financing inquiry without leaving Mobile Command. This creates an inquiry only; it does not approve credit.',
     transactionPipeline: 'Harbourview remains the mediated layer between demand, proof review, qualified matches and controlled deal-room access.',
     reviewDescription: 'Commercial visibility, introductions and sensitive detail remain controlled by evidence, authorization and operator review.',
+    evidenceDocumentsTitle: 'Organization evidence documents',
+    evidenceDocumentsEmpty: 'No evidence documents recorded',
+    evidenceDocumentsEmptyDetail: 'Licences, certificates of analysis, insurance and registration records appear here once submitted and accepted through controlled review. Nothing has been recorded for this organization yet.',
     controlTitle: 'Controlled by default',
     controlDetail: 'No supplier identity, private source evidence, internal review notes or counterparty detail is released from this mobile surface.',
     directoryDescription: 'Directory records remain evidence-aware and mediated rather than exposing an open supplier or counterparty directory.',
@@ -46,10 +49,23 @@ export const COMMAND_CENTRE_COPY = {
     complianceDescription: 'Import/export, licensing, quality and evidence requirements are consolidated for the active market-role combination.',
     complianceOutlookFallback: 'Regulatory outlook requires reviewed source support.',
     compliancePathwayFallback: 'Licence, permit, customs and quality gates remain jurisdiction-specific.',
+    // `jurisdiction_playbooks.confidence_label` is sourcing prose (averaging ~310
+    // characters), not a badge — it records how the playbook was corroborated.
+    playbookSourcingTitle: 'Playbook sourcing',
+    playbookSourcingAbsent: 'No sourcing note has been recorded for this jurisdiction playbook. The note states how the guidance was corroborated and is written during playbook review.',
     networkDescription: 'Professionals, service providers, licensed operators and collaboration projects remain available through controlled Harbourview access paths.',
     financingDescription: 'Financing is reviewed alongside jurisdiction, evidence, counterparty and transaction readiness—not as an instant checkout product.',
     jurisdictionDescription: 'Country status, regulator, access posture and commercial pathway remain tied to the selected role.',
     jurisdictionFallback: 'Regulatory and commercial pathway detail remains subject to controlled evidence review.',
+    pathwayStepsTitle: 'Access pathway',
+    pathwayCuratedNote: 'Country-specific pathway, authored for this jurisdiction and role against reviewed sources.',
+    // cc_pathway_templates holds hand-authored country pathways for 34 of 203
+    // countries. Everywhere else getPublicPathwayTemplate substitutes a generic
+    // role pathway, which must be labelled as such rather than presented as
+    // jurisdiction-specific guidance.
+    pathwayGenericNote: 'Generic role pathway. No country-specific pathway has been authored for this jurisdiction and role, so the steps below are role-level and name no local authority.',
+    pathwayEmpty: 'No access pathway is available for this context',
+    pathwayEmptyDetail: 'A pathway is produced from a jurisdiction and role together. Select a role to load one, or await a reviewed pathway for this jurisdiction.',
     financingWorkflowEyebrow: 'Trade finance command / structured inquiry',
     financingWorkflowTitle: 'Request financing support',
     marketplaceWorkflowClose: 'Close marketplace workflow',
