@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      BASE_URL: https://harbourview-git-fix-russia-globe-hole-definitive-harbourview.vercel.app
+      BASE_URL: https://harbourview-git-fix-russia-globe-hole-definitive-harbourview.vercel.app/?_vercel_share=E6f4jGGr35pMiVCF2RqbX4IruyTIXZpV
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,9 +28,9 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            status="$(curl -L -sS -o /tmp/hv-preview.html -w '%{http_code}' "$BASE_URL/")"
+            status="$(curl -L -sS -o /tmp/hv-preview.html -w '%{http_code}' "$BASE_URL")"
             if [ "$status" = "200" ] && grep -qi "harbourview" /tmp/hv-preview.html; then
-              echo "Preview ready: $BASE_URL"
+              echo "Preview ready"
               exit 0
             fi
             echo "Preview not ready yet (HTTP $status); retry $i/60"
@@ -140,7 +140,7 @@ jobs:
               await page.screenshot({ path: path.join(outDir, `${target.name}-selected-390x844.png`) })
               await context.close()
             }
-            fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify({ baseURL, capturedAt: new Date().toISOString(), summary }, null, 2))
+            fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify({ capturedAt: new Date().toISOString(), summary }, null, 2))
             await browser.close()
           })().catch(err => { console.error(err); process.exit(1) })
           NODE
