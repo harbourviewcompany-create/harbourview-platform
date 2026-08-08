@@ -45,3 +45,7 @@ tmp-test-*.bin
 # directory; must never be committed. The candidate workflow does `git add -A`,
 # so without this it would commit local dev secrets into the repository.
 supabase/.temp/
+
+# Playwright local output — generated, never committed.
+playwright-report/
+test-results/
