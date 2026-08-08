@@ -138,7 +138,7 @@ describe('Mobile Command Centre operator architecture', () => {
     }
   })
 
-  it('renders an operator-first Command without hero, module catalogue or secondary rail', () => {
+  it('renders an operator-first populated Command without hero, module catalogue or secondary rail', () => {
     const document = renderMobileCommand()
     const text = document.body.textContent || ''
 
@@ -160,7 +160,7 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
   })
 
-  it('uses existing action, signal and opportunity data for Command pulse and previews', () => {
+  it('uses existing action, signal and opportunity data for Command pulse and populated previews', () => {
     const document = renderMobileCommand()
     const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
 
@@ -168,6 +168,32 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(document.body.textContent).toContain('Review 1 active inquiry')
     expect(document.body.textContent).toContain('German import requirements updated')
     expect(document.body.textContent).toContain('EU-GMP export requirement')
+    expect(document.querySelectorAll('.hvm-op-compact-zero')).toHaveLength(0)
+  })
+
+  it('compresses only empty intelligence and opportunity categories into tappable zero rows', () => {
+    const document = renderMobileCommand({
+      signals: [] as unknown as MobileCommandCentreProps['signals'],
+      marketplaceRows: {
+        cannabis: [supplyListing],
+        opportunities: [],
+      },
+    })
+    const zeroRows = [...document.querySelectorAll('.hvm-op-compact-zero')]
+    const text = document.body.textContent || ''
+
+    expect(zeroRows).toHaveLength(2)
+    expect(zeroRows.every(row => row.tagName.toLowerCase() === 'button')).toBe(true)
+    expect(text).toContain('Recent intelligence')
+    expect(text).toContain('No material updates in this context')
+    expect(text).toContain('Commercial opportunities')
+    expect(text).toContain('No matching opportunities currently')
+    expect(text).not.toContain('No material intelligence loaded')
+    expect(text).not.toContain('No qualified opportunities loaded')
+    expect(document.querySelector('#hvm-op-changes-heading')).toBeNull()
+    expect(document.querySelector('#hvm-op-opportunity-heading')).toBeNull()
+    expect(document.querySelector('#hvm-op-attention-heading')?.textContent).toBe('Requires attention')
+    expect(document.querySelector('#hvm-op-picture-heading')?.textContent).toBe('Canada')
   })
 
   it('keeps exactly one committed section mounted', () => {
