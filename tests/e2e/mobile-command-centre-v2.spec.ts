@@ -182,7 +182,7 @@ test.describe('Mobile Command operator-first verification', () => {
     }
   })
 
-  test('keeps Clinical reachable under Context without promoting it to primary navigation', async ({ browser }) => {
+  test('lands a Clinical deep link on the Clinical destination itself', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
     const context = await browser.newContext({
@@ -197,10 +197,39 @@ test.describe('Mobile Command operator-first verification', () => {
       const page = await context.newPage()
       await page.goto('/dashboard?country=CA&role=exporter&page=clinical&section=clinical', { waitUntil: 'domcontentloaded' })
       await expect(page.locator('#clinical')).toBeVisible()
-      await expect(page.locator('[data-active-destination="jurisdiction"]')).toBeVisible()
-      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Context')
-      await expect(page.locator('.hvm-op-bottom-nav').getByText('Clinical', { exact: true })).toHaveCount(0)
-      await expect(page.locator('.hvm-op-secondary-nav').getByText('Clinical', { exact: true })).toBeVisible()
+      await expect(page.locator('[data-active-destination="clinical"]')).toBeVisible()
+      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Clinical')
+      // Clinical owns exactly one section, so there is nothing to rail.
+      await expect(page.locator('.hvm-op-secondary-nav')).toHaveCount(0)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('reaches the reference sections Command owns and rails them once committed', async ({ browser }) => {
+    test.setTimeout(180_000)
+    const storageState = await authenticate(browser)
+    const context = await browser.newContext({
+      ...sharedContextOptions(),
+      viewport: { width: 390, height: 844 },
+      storageState,
+      isMobile: true,
+      hasTouch: true,
+    })
+
+    try {
+      const page = await context.newPage()
+      await page.goto('/dashboard?country=CA&role=exporter&page=access-pathway&section=jurisdiction', { waitUntil: 'domcontentloaded' })
+      await expect(page.locator('#jurisdiction')).toBeVisible()
+      // Command owns these now — there is no Context destination to own them.
+      await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Command')
+
+      const rail = page.locator('.hvm-op-secondary-nav')
+      await expect(rail).toBeVisible()
+      await expect(rail.getByText('Compliance', { exact: true })).toBeVisible()
+      await expect(rail.getByText('Genetics', { exact: true })).toBeVisible()
+      await expect(rail.getByText('Clinical', { exact: true })).toHaveCount(0)
     } finally {
       await context.close()
     }
