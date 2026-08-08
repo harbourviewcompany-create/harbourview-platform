@@ -163,25 +163,18 @@ function mapIaSignal(signal: AutomationSignal, eventId: string): DecisionIntelDo
 
 async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDossier | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
-    const { data, error } = await db
-      .from('intel_event_dossiers')
-      .select('*')
-      .eq('id', eventId)
-      .maybeSingle()
-    if (!error && data) return mapCanonical(data as Record<string, unknown>)
-  } catch { /* migration may not be applied on a preview database yet */ }
+    const { data, error } = await db.rpc('get_intel_event_dossier', { p_event_id: eventId })
+    if (!error && Array.isArray(data) && data[0]) return mapCanonical(data[0] as Record<string, unknown>)
+  } catch { /* Stage-0 RPC may not be applied on a preview database yet */ }
   return null
 }
 
 async function resolveCanonicalEventId(db: any, signalId: string): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
-    const { data, error } = await db
-      .from('intel_event_route_map')
-      .select('event_id')
-      .eq('signal_id', signalId)
-      .maybeSingle()
-    return !error && data ? text((data as Record<string, unknown>).event_id) : null
-  } catch { /* route-map migration may not be applied on a preview database yet */ }
+    const { data, error } = await db.rpc('resolve_intel_event_route', { p_signal_id: signalId })
+    if (error || !Array.isArray(data) || !data[0]) return null
+    return text((data[0] as Record<string, unknown>).event_id)
+  } catch { /* Stage-0 RPC may not be applied on a preview database yet */ }
   return null
 }
 
@@ -197,10 +190,11 @@ async function loadIaFallback(signalId: string, eventId: string): Promise<Decisi
 }
 
 /**
- * Loads the canonical first-slice dossier. The route map first resolves clustered
- * source observations to one event; public.signal fallback uses only columns
- * exposed by api.signals. IA fallback is mapped separately and never promoted to
- * canonical/verified state.
+ * Loads the canonical first-slice dossier. The route resolver first resolves native
+ * Pipeline-B ids and regulatory mirror ids to one event. If that canonical event is
+ * deliberately suppressed by review state, the loader returns null rather than
+ * resurrecting it through legacy compatibility. Legacy public.signals and IA fallback
+ * are used only when no canonical ownership exists.
  */
 export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
   // The generated Database type intentionally lags additive migrations; keep the
@@ -213,9 +207,15 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
 
   const signalId = eventId.startsWith('event:') ? eventId.slice('event:'.length) : eventId
   const routedEventId = await resolveCanonicalEventId(db, signalId)
-  if (routedEventId && routedEventId !== eventId) {
-    const routed = await loadCanonical(db, routedEventId)
-    if (routed) return routed
+  if (routedEventId) {
+    if (routedEventId !== eventId) {
+      const routed = await loadCanonical(db, routedEventId)
+      if (routed) return routed
+    }
+    // Canonical ownership exists but the allowlisted dossier did not return a row.
+    // That means the current review/display state suppresses it; legacy fallback
+    // must not override that canonical decision.
+    return null
   }
 
   try {
@@ -233,8 +233,11 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
 
       const clusterRepId = text(row.cluster_rep_id)
       if (clusterRepId && clusterRepId !== signalId) {
-        const clustered = await loadCanonical(db, `event:${clusterRepId}`)
-        if (clustered) return clustered
+        const clusteredRoute = await resolveCanonicalEventId(db, clusterRepId)
+        if (clusteredRoute) {
+          const clustered = await loadCanonical(db, clusteredRoute)
+          return clustered
+        }
       }
       return mapLegacySignal(row, eventId)
     }
