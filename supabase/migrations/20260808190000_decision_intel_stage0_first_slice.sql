@@ -5,6 +5,7 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.intel_evidence_refs (
   id uuid primary key default gen_random_uuid(),
+  source_signal_id text references public.signals(id) on delete set null,
   source_snapshot_id uuid references public.source_snapshots(id) on delete set null,
   hv_evidence_id uuid references public.hv_evidence(id) on delete set null,
   source_registry_id uuid references public.source_registry(id) on delete set null,
@@ -15,9 +16,10 @@ create table if not exists public.intel_evidence_refs (
   access_classification text not null default 'internal' check (access_classification in ('internal','intel')),
   observed_at timestamptz,
   created_at timestamptz not null default now(),
-  check (source_snapshot_id is not null or hv_evidence_id is not null or source_label is not null)
+  check (source_signal_id is not null or source_snapshot_id is not null or hv_evidence_id is not null)
 );
 create unique index if not exists intel_evidence_refs_snapshot_uq on public.intel_evidence_refs(source_snapshot_id) where source_snapshot_id is not null;
+create unique index if not exists intel_evidence_refs_signal_uq on public.intel_evidence_refs(source_signal_id) where source_signal_id is not null;
 
 create table if not exists public.intel_assertions (
   id uuid primary key default gen_random_uuid(),
@@ -117,7 +119,7 @@ create table if not exists public.intel_recommendations (
   updated_at timestamptz not null default now()
 );
 
--- Canonical base objects remain internal/staff-readable. Product users consume the allowlisted view below.
+-- Canonical base objects remain internal/staff-readable. Product users consume the allowlisted projection below.
 alter table public.intel_evidence_refs enable row level security;
 alter table public.intel_assertions enable row level security;
 alter table public.intel_assertion_evidence enable row level security;
@@ -141,8 +143,11 @@ begin
 end $$;
 
 -- Seed a thin evidence reference from the existing acquisition estate. No raw evidence is copied.
-insert into public.intel_evidence_refs (source_snapshot_id, source_registry_id, source_label, source_url, evidence_kind, evidence_status, access_classification, observed_at)
-select distinct
+-- source_signal_id is retained even when there is no snapshot so legacy provenance cannot cross-link
+-- unrelated signals that happen to share a publisher or a null URL.
+insert into public.intel_evidence_refs (source_signal_id, source_snapshot_id, source_registry_id, source_label, source_url, evidence_kind, evidence_status, access_classification, observed_at)
+select
+  s.id,
   s.snapshot_id,
   ss.source_id,
   nullif(s.source,''),
@@ -157,8 +162,7 @@ where s.reviewed = true
   and (s.action is null or s.action <> 'rejected')
   and coalesce(s.quality_label,'') not in ('spam','boilerplate','nav','duplicate')
   and (s.content_type is null or s.content_type not in ('story','research','noise'))
-  and (s.snapshot_id is not null or nullif(s.source,'') is not null)
-on conflict do nothing;
+on conflict (source_signal_id) where source_signal_id is not null do nothing;
 
 -- One migrated assertion per reviewed surfaceable upstream signal. Review != verified.
 insert into public.intel_assertions (assertion_type, statement, source_signal_id, confidence, review_status, valid_from, observed_at)
@@ -180,13 +184,12 @@ on conflict do nothing;
 insert into public.intel_assertion_evidence (assertion_id, evidence_ref_id, relationship)
 select a.id, e.id, 'supports'
 from public.intel_assertions a
-join public.signals s on s.id = a.source_signal_id
-join public.intel_evidence_refs e on
-  (s.snapshot_id is not null and e.source_snapshot_id = s.snapshot_id)
-  or (s.snapshot_id is null and e.source_label = nullif(s.source,'') and e.source_url is not distinct from nullif(s.url,''))
+join public.intel_evidence_refs e on e.source_signal_id = a.source_signal_id
 on conflict do nothing;
 
--- Candidate event identity is deterministic and cluster-aware.
+-- Candidate event identity is deterministic and cluster-aware. source_count counts distinct
+-- source references, not raw rows, so repeated observations from one URL/publisher do not
+-- masquerade as independent corroboration.
 with surfaceable as (
   select s.*, coalesce(nullif(s.cluster_rep_id,''), s.id) as event_seed
   from public.signals s
@@ -194,10 +197,16 @@ with surfaceable as (
     and (s.action is null or s.action <> 'rejected')
     and coalesce(s.quality_label,'') not in ('spam','boilerplate','nav','duplicate')
     and (s.content_type is null or s.content_type not in ('story','research','noise'))
-), ranked as (
-  select *, row_number() over (partition by event_seed order by quality_confidence desc nulls last, date desc nulls last, created_at desc) as rn,
-    count(*) over (partition by event_seed) as source_count_calc
+), source_counts as (
+  select event_seed,
+         count(distinct coalesce(nullif(url,''), nullif(source,''), id)) as source_count_calc
   from surfaceable
+  group by event_seed
+), ranked as (
+  select s.*, sc.source_count_calc,
+         row_number() over (partition by s.event_seed order by s.quality_confidence desc nulls last, s.date desc nulls last, s.created_at desc) as rn
+  from surfaceable s
+  join source_counts sc using (event_seed)
 )
 insert into public.intel_events (id, canonical_signal_id, event_type, headline, summary, jurisdiction_label, occurred_at, detected_at, materiality, source_count)
 select
@@ -235,7 +244,7 @@ select
   nullif(s.commercial_impact,''),
   case when nullif(s.analysis->>'who_is_affected','') is null then '{}'::text[] else array[s.analysis->>'who_is_affected'] end,
   case when nullif(s.country,'') is null then '{}'::text[] else array[s.country] end,
-  case when e.source_count > 1 then e.source_count || ' independent observations are associated with this event candidate.' else 'A reviewed upstream signal triggered this event candidate.' end,
+  case when e.source_count > 1 then e.source_count || ' distinct source references are associated with this event candidate.' else 'A reviewed upstream signal triggered this event candidate.' end,
   case when s.quality_confidence between 0 and 1 then s.quality_confidence else null end,
   nullif(s.analysis->>'confidence_rationale',''),
   case when s.snapshot_id is null then array['Direct source snapshot lineage is not available for the canonical upstream signal.'] else '{}'::text[] end,
@@ -323,9 +332,9 @@ left join public.intel_assertion_evidence ae on ae.assertion_id = ea.assertion_i
 left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
 group by e.id, a.id, r.id;
 
--- Product read is tier-scoped; raw base tables remain staff-only.
--- security_invoker means the view still obeys underlying RLS, so grant tier users
--- SELECT on the specific derived base objects needed by the view, not evidence bodies.
+-- Product read is tier-scoped. security_invoker means the public view still obeys
+-- underlying RLS. Explicit SELECT grants are required because production's postgres
+-- default privileges grant new public tables only to postgres/service_role.
 create policy intel_events_tier_read on public.intel_events for select to authenticated
 using (review_status in ('migrated_reviewed','verified') and exists (select 1 from public.user_profiles up where up.id = auth.uid() and up.tier in ('intel','operator')));
 create policy intel_event_assertions_tier_read on public.intel_event_assertions for select to authenticated
@@ -341,5 +350,16 @@ using (review_status in ('migrated_reviewed','verified') and exists (select 1 fr
 create policy intel_recommendations_tier_read on public.intel_recommendations for select to authenticated
 using (exists (select 1 from public.user_profiles up where up.id = auth.uid() and up.tier in ('intel','operator')));
 
+grant select on public.intel_events, public.intel_event_assertions, public.intel_assertions,
+  public.intel_assertion_evidence, public.intel_evidence_refs, public.intel_assessments,
+  public.intel_recommendations to authenticated;
 grant select on public.intel_event_dossiers to authenticated;
 revoke all on public.intel_event_dossiers from anon;
+
+-- Production Data API exposes only `api`, not `public`. Publish only the allowlisted
+-- dossier projection through the exposed schema; canonical base tables stay unexposed.
+create or replace view api.intel_event_dossiers
+with (security_invoker = true)
+as select * from public.intel_event_dossiers;
+grant select on api.intel_event_dossiers to authenticated;
+revoke all on api.intel_event_dossiers from anon;
