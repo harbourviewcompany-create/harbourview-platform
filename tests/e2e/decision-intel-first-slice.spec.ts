@@ -1,7 +1,10 @@
 import { expect, test, type Browser, type BrowserContextOptions } from '@playwright/test'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+const EVIDENCE_DIR = path.join(process.cwd(), 'artifacts', 'decision-intel-first-slice')
 const VIEWPORTS = [
   { width: 320, height: 700 },
   { width: 375, height: 812 },
@@ -35,6 +38,11 @@ async function authenticate(browser: Browser) {
   }
 }
 
+async function capture(page: import('@playwright/test').Page, name: string) {
+  await fs.mkdir(EVIDENCE_DIR, { recursive: true })
+  await page.screenshot({ path: path.join(EVIDENCE_DIR, name), fullPage: true })
+}
+
 test.describe('Decision Intelligence first slice', () => {
   test('mobile Intel rows drill into evidence-backed dossiers at required widths', async ({ browser }) => {
     const storageState = await authenticate(browser)
@@ -62,6 +70,10 @@ test.describe('Decision Intelligence first slice', () => {
         expect(body).not.toContain('internalReviewNotes')
         expect(body).not.toContain('sourceEvidence')
         expect(body).not.toContain('SUPABASE_SERVICE_ROLE_KEY')
+        expect(body).not.toContain('storage_path')
+        expect(body).not.toContain('privateNotes')
+
+        await capture(page, `${viewport.width}x${viewport.height}-dossier.png`)
       } finally {
         await context.close()
       }
@@ -82,6 +94,7 @@ test.describe('Decision Intelligence first slice', () => {
       await expect(page.getByText('Regulatory implications', { exact: true })).toBeVisible()
       await expect(page.getByText('Confidence rationale', { exact: true })).toBeVisible()
       await expect(page.getByText('Contradictions', { exact: true })).toBeVisible()
+      await capture(page, '1440x1000-dossier.png')
     } finally {
       await context.close()
     }
