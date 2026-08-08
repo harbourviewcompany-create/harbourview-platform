@@ -1,5 +1,5 @@
 import 'server-only'
-import type { DecisionIntelDossier, DecisionRecommendationState } from './types'
+import type { DecisionEvidenceRelationship, DecisionIntelDossier, DecisionRecommendationState } from './types'
 
 function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
@@ -13,8 +13,30 @@ function recommendation(value: unknown): DecisionRecommendationState {
   return value === 'act_now' || value === 'investigate' || value === 'no_action' ? value : 'monitor'
 }
 
+function evidenceRelationship(value: unknown): DecisionEvidenceRelationship {
+  return value === 'contradicts' || value === 'clarifies' || value === 'supersedes' || value === 'background' ? value : 'supports'
+}
+
+function probability(value: unknown): number | null {
+  return typeof value === 'number' && value >= 0 && value <= 1 ? value : null
+}
+
 function mapCanonical(row: Record<string, unknown>): DecisionIntelDossier {
-  const evidence = Array.isArray(row.evidence) ? row.evidence : []
+  const rawEvidence = Array.isArray(row.evidence) ? row.evidence : []
+  const evidence = rawEvidence.map((item) => {
+    const r = item && typeof item === 'object' ? item as Record<string, unknown> : {}
+    return {
+      sourceLabel: text(r.sourceLabel),
+      sourceUrl: text(r.sourceUrl),
+      status: text(r.status) ?? 'needs_review',
+      observedAt: text(r.observedAt),
+      relationship: evidenceRelationship(r.relationship),
+    }
+  })
+  const linkedContradictions = evidence
+    .filter(item => item.relationship === 'contradicts')
+    .map(item => `Contradictory evidence: ${item.sourceLabel ?? item.sourceUrl ?? 'linked source'}`)
+
   return {
     id: String(row.id),
     headline: text(row.headline) ?? 'Intelligence event',
@@ -38,32 +60,20 @@ function mapCanonical(row: Record<string, unknown>): DecisionIntelDossier {
     affectedMarkets: strings(row.affected_markets),
     affectedProducts: strings(row.affected_products),
     whyNow: text(row.why_now),
-    confidence: typeof row.confidence === 'number' ? row.confidence : null,
+    confidence: probability(row.confidence),
     confidenceRationale: text(row.confidence_rationale),
-    contradictions: strings(row.contradictions),
+    contradictions: [...new Set([...strings(row.contradictions), ...linkedContradictions])],
     unknowns: strings(row.unknowns),
     recommendationState: recommendation(row.recommendation_state),
     recommendationReasoning: text(row.recommendation_reasoning) ?? 'Review the evidence before changing an operating decision.',
     actionSummary: text(row.action_summary),
     urgency: row.urgency === 'urgent' || row.urgency === 'high' || row.urgency === 'low' ? row.urgency : 'normal',
-    evidence: evidence.map((item) => {
-      const r = item && typeof item === 'object' ? item as Record<string, unknown> : {}
-      return {
-        sourceLabel: text(r.sourceLabel),
-        sourceUrl: text(r.sourceUrl),
-        status: text(r.status) ?? 'needs_review',
-        observedAt: text(r.observedAt),
-      }
-    }),
+    evidence,
   }
 }
 
 function mapLegacySignal(row: Record<string, unknown>, eventId: string): DecisionIntelDossier {
-  const analysis = row.analysis && typeof row.analysis === 'object' ? row.analysis as Record<string, unknown> : {}
-  const confidence = typeof row.quality_confidence === 'number' && row.quality_confidence >= 0 && row.quality_confidence <= 1
-    ? row.quality_confidence
-    : null
-  const proposedAction = text(analysis.recommended_action)
+  const confidence = probability(row.quality_confidence)
   const impact = text(row.impact) ?? text(row.pri) ?? text(row.commercial_impact)
   const materiality = impact?.toLowerCase() === 'critical' ? 'critical'
     : ['high', 'urgent'].includes(impact?.toLowerCase() ?? '') ? 'high'
@@ -78,38 +88,36 @@ function mapLegacySignal(row: Record<string, unknown>, eventId: string): Decisio
     occurredAt: text(row.date),
     detectedAt: text(row.created_at),
     effectiveAt: null,
-    lastVerifiedAt: text(row.reviewed_at),
+    lastVerifiedAt: null,
     materiality,
     consolidationStatus: 'legacy_fallback',
     reviewStatus: 'migrated_reviewed',
     sourceCount: typeof row.corroborating_count === 'number' ? Math.max(1, row.corroborating_count) : 1,
     whatHappened: text(row.summary_en) ?? text(row.summary) ?? text(row.headline) ?? 'Development under review.',
-    whatChanged: text(analysis.what_changed),
+    whatChanged: null,
     whyItMatters: text(row.commercial_impact),
     commercialImplications: text(row.commercial_impact),
     regulatoryImplications: null,
-    affectedEntities: text(analysis.who_is_affected) ? [text(analysis.who_is_affected)!] : [],
+    affectedEntities: [],
     affectedMarkets: text(row.country) ? [text(row.country)!] : [],
     affectedProducts: [],
     whyNow: 'This item entered the reviewed intelligence feed and requires contextual assessment against current operating conditions.',
     confidence,
-    confidenceRationale: text(analysis.confidence_rationale),
+    confidenceRationale: null,
     contradictions: [],
     unknowns: [
-      'This fallback dossier predates canonical assertion/event backfill; evidence lineage is incomplete until the Stage 0 migration is applied.',
-      ...(row.snapshot_id ? [] : ['No acquisition snapshot is linked to this signal.']),
+      'This fallback dossier predates canonical assertion/event backfill; evidence lineage and analysis fields are intentionally limited to the allowlisted API projection until the Stage 0 migration is applied.',
     ],
-    recommendationState: proposedAction ? 'investigate' : materiality === 'low' ? 'monitor' : 'investigate',
-    recommendationReasoning: proposedAction
-      ? 'An upstream analysis proposes an action, but legacy review does not independently verify the recommendation.'
-      : 'The signal is surfaceable, but verified decision evidence is not yet sufficient for immediate action.',
-    actionSummary: proposedAction,
+    recommendationState: materiality === 'low' ? 'monitor' : 'investigate',
+    recommendationReasoning: 'The signal is surfaceable, but legacy review does not independently verify a decision recommendation.',
+    actionSummary: null,
     urgency: materiality === 'critical' || materiality === 'high' ? 'high' : 'normal',
     evidence: text(row.source) || text(row.url) ? [{
       sourceLabel: text(row.source),
       sourceUrl: text(row.url),
       status: 'needs_review',
       observedAt: text(row.date) ?? text(row.created_at),
+      relationship: 'supports',
     }] : [],
   }
 }
@@ -127,11 +135,9 @@ async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDos
 }
 
 /**
- * Loads the canonical first-slice dossier. The legacy fallback keeps preview/main
- * deploys useful before the additive migration is applied; it never upgrades a
- * legacy reviewed signal to verified intelligence. A non-representative clustered
- * signal resolves to its canonical event before falling back, so a feed row cannot
- * fragment one event back into separate legacy dossiers.
+ * Loads the canonical first-slice dossier. The legacy fallback intentionally uses
+ * only columns exposed by api.signals, so pre-migration previews remain useful
+ * without widening the production API. Legacy review never becomes verification.
  */
 export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
   // The generated Database type intentionally lags additive migrations; keep the
@@ -146,7 +152,7 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
   try {
     const { data, error } = await db
       .from('signals')
-      .select('id,date,created_at,reviewed_at,cat,pri,headline,summary,source,url,country,commercial_impact,analysis,quality_confidence,impact,title_en,summary_en,editorial_title,editorial_blurb,snapshot_id,cluster_rep_id,corroborating_count,reviewed,quality_label,content_type,action')
+      .select('id,date,created_at,reviewed_at,cat,pri,headline,summary,source,url,country,commercial_impact,quality_confidence,impact,title_en,summary_en,editorial_title,editorial_blurb,cluster_rep_id,corroborating_count,reviewed,quality_label,content_type,action')
       .eq('id', signalId)
       .eq('reviewed', true)
       .maybeSingle()
