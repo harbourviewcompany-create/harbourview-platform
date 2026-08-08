@@ -256,7 +256,13 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     actions.push({
       id: 'pathway',
       label: `Validate the ${countryLabel} access pathway`,
-      detail: props.countryIntel?.commercial_pathway_summary?.trim() || 'Confirm licence, import/export, quality and evidence requirements for the selected role.',
+      // Every other action here states what to do in one line. This one used to
+      // substitute `commercial_pathway_summary`, which is market analysis, not
+      // an instruction -- it averages 404 characters and reaches 1,551, so the
+      // card grew into a wall of prose that buried the button under it. The
+      // same summary already renders in full in the Jurisdiction section this
+      // action links to, so nothing is lost by stating the task instead.
+      detail: 'Confirm licence, import/export, quality and evidence requirements for the selected role.',
       href: commandHref('jurisdiction'),
       tone: props.countryIntel?.review_status === 'approved' ? 'ok' : 'neutral',
     })

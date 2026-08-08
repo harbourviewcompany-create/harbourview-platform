@@ -280,6 +280,34 @@ describe('Mobile Command Centre contracts', () => {
     expect(SECTION_TO_GROUP.financing).toBe('next-actions')
   })
 
+  it('keeps action cards to an instruction, never an unbounded database field', () => {
+    // The Canada pathway action substituted `commercial_pathway_summary` as its
+    // detail. That column is market analysis: 404 characters on average across
+    // production, 1,551 at the longest, 122 of 284 countries over 400. Rendered
+    // into a card it buried the card's own button under a wall of prose, and it
+    // duplicated text the Jurisdiction section this action links to already
+    // shows in full.
+    const analysis = 'A'.repeat(1200)
+    // Zero the pipeline and wanted count so the pathway action is first and
+    // therefore the one the priority card renders; otherwise this asserts
+    // against the (already short) wanted-demand action and proves nothing.
+    const document = renderMobileCommand({
+      initialPage: 'briefing',
+      wantedCount: 0,
+      pipeline: { wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 },
+      countryIntel: { commercial_pathway_summary: analysis } as MobileCommandCentreProps['countryIntel'],
+    })
+
+    expect(document.body.textContent).not.toContain(analysis)
+
+    // The Command destination surfaces the same action as its immediate
+    // priority card -- that is where the wall of prose was visible, pushing the
+    // card's own button off the screen.
+    const priority = document.querySelector('.hvm2-priority-card p')
+    expect(priority, 'priority card not rendered').not.toBeNull()
+    expect((priority?.textContent ?? '').length).toBeLessThanOrEqual(160)
+  })
+
   it('formats market metric values from metric_value and metric_unit', () => {
     // The renderer used to read display_value/value/summary -- fields that do
     // not exist on market_metrics -- so every populated metric rendered its
