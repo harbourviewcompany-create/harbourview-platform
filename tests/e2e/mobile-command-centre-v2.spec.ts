@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
@@ -170,6 +170,33 @@ async function assertFiveJobNavigation(page: Page) {
   await expect(nav.locator('[aria-current="page"]')).toContainText('Command')
 }
 
+/**
+ * `toBeVisible()` is not sufficient for anything inside a scroll container. It
+ * checks the bounding box and computed style; it does not check that the box
+ * lies inside the viewport. Measured directly at 320/360/390/430, it returned
+ * true for rail chips sitting up to 400px off the right edge of the screen —
+ * so the assertion that Genetics and Talent were "visible" passed while an
+ * operator could not see them without a horizontal scroll that had no
+ * affordance.
+ *
+ * Horizontal containment only: scrolling the page down to reach content is
+ * normal, scrolling sideways to discover a navigation destination is not.
+ */
+async function expectHorizontallyOnScreen(page: Page, locator: Locator, description: string) {
+  await expect(locator).toBeVisible()
+  const box = await locator.boundingBox()
+  const viewport = page.viewportSize()
+  expect(box, `${description}: element has no bounding box`).not.toBeNull()
+  expect(viewport, `${description}: page has no viewport size`).not.toBeNull()
+  if (!box || !viewport) return
+  const left = Math.round(box.x)
+  const right = Math.round(box.x + box.width)
+  expect(
+    left >= 0 && right <= viewport.width,
+    `${description} is off-screen at ${viewport.width}px wide: left=${left} right=${right}`,
+  ).toBe(true)
+}
+
 async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.locator('.hvm-op-page-title')).toHaveText('Command')
   await expect(page.locator('.hvm-op-context-trigger')).toBeVisible()
@@ -182,10 +209,14 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.locator('[data-command-module]')).toHaveCount(0)
   await expect(page.locator('.hvm2-section-rail')).toHaveCount(0)
   // The Command landing rails: its seven reference sections are otherwise
-  // unreachable except through an unlabelled button.
-  await expect(page.locator('.hvm-op-secondary-nav')).toBeVisible()
-  await expect(page.locator('.hvm-op-secondary-nav').getByText('Genetics', { exact: true })).toBeVisible()
-  await expect(page.locator('.hvm-op-secondary-nav').getByText('Talent', { exact: true })).toBeVisible()
+  // unreachable except through an unlabelled button. Every chip must be on
+  // screen — the rail wraps precisely so none of them hide behind a sideways
+  // scroll, and only a viewport-aware assertion can hold that.
+  const commandRail = page.locator('.hvm-op-secondary-nav')
+  await expect(commandRail).toBeVisible()
+  for (const label of ['Genetics', 'Talent', 'Directories', 'Network', 'Education']) {
+    await expectHorizontallyOnScreen(page, commandRail.getByText(label, { exact: true }), `Command rail "${label}"`)
+  }
 
   const intelligenceZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Recent intelligence' })
   const opportunityZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Commercial opportunities' })
@@ -328,8 +359,9 @@ test.describe('Mobile Command operator-first verification', () => {
 
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
-      await expect(rail.getByText('Compliance', { exact: true })).toBeVisible()
-      await expect(rail.getByText('Genetics', { exact: true })).toBeVisible()
+      await expectHorizontallyOnScreen(page, rail.getByText('Compliance', { exact: true }), 'rail "Compliance"')
+      await expectHorizontallyOnScreen(page, rail.getByText('Genetics', { exact: true }), 'rail "Genetics"')
+      await expectHorizontallyOnScreen(page, rail.getByText('Talent', { exact: true }), 'rail "Talent"')
       await expect(rail.getByText('Clinical', { exact: true })).toHaveCount(0)
     } finally {
       await context.close()

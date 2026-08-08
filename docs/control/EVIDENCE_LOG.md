@@ -4805,3 +4805,85 @@ node scripts/check-pending-production-migration-decisions.mjs  20260801150000 no
 
 Note: that script reports pre-existing blob mismatches and absent decision files
 for other versions on `main`. Those predate this work and are untouched.
+
+---
+
+## 2026-08-08 — Command landing navigation, and a test that passed for the wrong reason
+
+**Reported symptom (Tyler):** "Where's genetics, talent etc?" on mobile.
+
+**Cause:** #1302 moved `jurisdiction`, `compliance`, `genetics`, `network`,
+`directories`, `talent` and `education` into the Command group, then suppressed
+the secondary rail on the Command landing itself
+(`showSecondaryNav = … && model.highlightedSection !== 'overview'`). The only
+entry point left was a button reading "Read operating picture →", which names
+none of them. Self-inflicted in #1302, not an external regression.
+
+**First fix (`4c2fc2f0`):** rail every destination owning more than one section,
+Command landing included. The nine-width gate passed.
+
+**That green was not trustworthy.** `.hvm-op-secondary-nav` was
+`overflow-x: auto` with `scrollbar-width: none`, and the Command group's nine
+chips measure 721px. Measured in Chromium at four phone widths:
+
+```text
+w=320  offscreen: Compliance, Genetics, Network, Directories, Talent, Education
+w=360  offscreen: Genetics, Network, Directories, Talent, Education
+w=390  offscreen: Genetics, Network, Directories, Talent, Education
+w=430  offscreen: Network, Directories, Talent, Education
+```
+
+`toBeVisible()` returned `true` for Genetics, Talent and Education at every one
+of those widths. Playwright's visibility predicate is bounding-box plus computed
+style; it does not test viewport containment, so an element parked 400px past
+the right edge of a scroll container satisfies it. The assertion added in
+#1305 to prove the labels were reachable proved only that they were in the DOM.
+
+**Second fix:** `.hvm-op-secondary-nav` wraps instead of scrolling, and the e2e
+assertions go through `expectHorizontallyOnScreen`, which compares the element's
+box to `page.viewportSize()`.
+
+Rail height after wrapping — the cost of the change:
+
+```text
+w=320  149px (3 rows)    w=390  103px (2 rows)
+w=360  149px (3 rows)    w=430  103px (2 rows)
+w=375  103px (2 rows)    w=768   57px (1 row)
+```
+
+No-ops for the other destinations: marketplace owns 4 sections, weekly-signals
+5, next-actions 3, clinical 1 — all already fit.
+
+**Negative control** — the new assertion run against the pre-fix stylesheet, to
+confirm it is capable of failing:
+
+```text
+w=320  OLD css -> Genetics(right=426), Talent(right=630), Directories(right=574), Network(right=493), Education(right=707)
+w=320  NEW css -> PASS
+w=390  OLD css -> Genetics(right=426), Talent(right=630), Directories(right=574), Network(right=493), Education(right=707)
+w=390  NEW css -> PASS
+w=430  OLD css -> Talent(right=630), Directories(right=574), Network(right=493), Education(right=707)
+w=430  NEW css -> PASS
+```
+
+**Coverage confirmed:** all 22 members of `SectionId` are claimed by exactly one
+entry of `SECTION_GROUPS` (9 + 4 + 5 + 1 + 3 = 22). No orphaned sections.
+
+**Verification:**
+
+```text
+npx tsc --noEmit                                              clean
+npx vitest run tests/dashboard tests/platform tests/security  119 passed (17 files)
+npx eslint <changed files>                                    0 errors
+npx playwright test … --list                                  21 tests
+npm run build                                                 success
+```
+
+**Known-red, not caused here:** `Workers Builds: harbourview-platform` on
+Cloudflare account `4a7c450c…` fails instantly on every PR (start and completion
+timestamps identical — no build runs). The same workflow on account
+`c9bde393…` succeeds on the same commit. A duplicate Git integration is
+attached to the repository; removing it is a Cloudflare dashboard action, not a
+repository change.
+
+**Production access:** none. No database reads or writes in this work.
