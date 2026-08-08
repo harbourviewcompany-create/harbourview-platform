@@ -109,7 +109,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
         {model.groupSections.map(id => {
           const section = SECTION_NAV.find(entry => entry.id === id)
           if (!section) return null
-          const isActive = model.activeSection === section.id
+          const isActive = model.highlightedSection === section.id
           return (
             <button
               key={section.id}

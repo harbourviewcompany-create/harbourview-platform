@@ -27,12 +27,13 @@ import {
 const navigation = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
+  search: { value: 'country=CA&role=exporter' },
 }))
 
 vi.mock('next/navigation', () => ({
   useRouter: () => navigation,
   usePathname: () => '/dashboard',
-  useSearchParams: () => new URLSearchParams('country=CA&role=exporter'),
+  useSearchParams: () => new URLSearchParams(navigation.search.value),
 }))
 
 vi.mock('@/components/marketplace/DynamicMarketplaceIntakeForm', () => ({
@@ -278,6 +279,26 @@ describe('Mobile Command Centre contracts', () => {
     expect(financing.searchParams.get('section')).toBe('financing')
     expect(financing.searchParams.get('tool')).toBe('financing-intake')
     expect(SECTION_TO_GROUP.financing).toBe('next-actions')
+  })
+
+  it('mounts the section the committed URL names, not one held in local state', () => {
+    // Navigation must not mount a section before its data has arrived. `props`
+    // come from the server component and only change when a route commits, so a
+    // section mounted the instant it is tapped renders against the previous
+    // page's data -- Genetics showing "no records" and then filling in. That is
+    // the failure this surface exists to remove, and it must not return as a
+    // flash. Mounting therefore follows the URL, which moves only on commit.
+    navigation.search.value = 'country=CA&role=exporter&section=genetics'
+    try {
+      // initialPage still says briefing; the committed URL must win.
+      const document = renderMobileCommand({ initialPage: 'briefing' })
+      expect([...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)).toEqual(['genetics'])
+
+      const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
+      expect(current?.textContent).toContain('Context')
+    } finally {
+      navigation.search.value = 'country=CA&role=exporter'
+    }
   })
 
   it('keeps action cards to an instruction, never an unbounded database field', () => {
