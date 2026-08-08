@@ -1,4 +1,6 @@
 import 'server-only'
+import { listIaSignals } from '@/lib/intelligence-automation/db'
+import type { AutomationSignal } from '@/lib/intelligence-automation/types'
 import type { DecisionEvidenceRelationship, DecisionIntelDossier, DecisionRecommendationState } from './types'
 
 function text(value: unknown): string | null {
@@ -122,6 +124,43 @@ function mapLegacySignal(row: Record<string, unknown>, eventId: string): Decisio
   }
 }
 
+function mapIaSignal(signal: AutomationSignal, eventId: string): DecisionIntelDossier {
+  const materiality = signal.commercialImpact === 'high' ? 'high' : signal.commercialImpact === 'low' ? 'low' : 'medium'
+  return {
+    id: eventId,
+    headline: signal.title,
+    summary: signal.summary,
+    eventType: signal.type,
+    jurisdictionLabel: signal.market,
+    occurredAt: signal.detectedAt,
+    detectedAt: signal.detectedAt,
+    effectiveAt: null,
+    lastVerifiedAt: null,
+    materiality,
+    consolidationStatus: 'ia_legacy_fallback',
+    reviewStatus: 'needs_review',
+    sourceCount: 1,
+    whatHappened: signal.summary || signal.title,
+    whatChanged: null,
+    whyItMatters: `${signal.commercialImpact} commercial impact in ${signal.market}.`,
+    commercialImplications: `${signal.commercialImpact} commercial impact; canonical evidence-backed assessment has not yet been created for this IA fallback record.`,
+    regulatoryImplications: null,
+    affectedEntities: [],
+    affectedMarkets: signal.market ? [signal.market] : [],
+    affectedProducts: [],
+    whyNow: 'This record is being served from the legacy IA fallback because no canonical Pipeline B dossier was available.',
+    confidence: signal.confidence >= 0 && signal.confidence <= 1 ? signal.confidence : signal.confidence <= 100 ? signal.confidence / 100 : null,
+    confidenceRationale: null,
+    contradictions: [],
+    unknowns: ['Canonical source/evidence lineage is not available for this legacy IA fallback record.'],
+    recommendationState: materiality === 'low' ? 'monitor' : 'investigate',
+    recommendationReasoning: 'Investigate before acting because this record is not backed by the canonical Stage 0 assertion/evidence chain.',
+    actionSummary: null,
+    urgency: materiality === 'high' ? 'high' : 'normal',
+    evidence: signal.sourceName ? [{ sourceLabel: signal.sourceName, sourceUrl: null, status: 'needs_review', observedAt: signal.detectedAt, relationship: 'supports' }] : [],
+  }
+}
+
 async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDossier | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     const { data, error } = await db
@@ -146,10 +185,22 @@ async function resolveCanonicalEventId(db: any, signalId: string): Promise<strin
   return null
 }
 
+async function loadIaFallback(signalId: string, eventId: string): Promise<DecisionIntelDossier | null> {
+  try {
+    const result = await listIaSignals()
+    if (!result.ok || !Array.isArray(result.data)) return null
+    const signal = result.data.find(item => item.id === signalId && item.stage !== 'archived')
+    return signal ? mapIaSignal(signal, eventId) : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Loads the canonical first-slice dossier. The route map first resolves clustered
- * source observations to one event; the legacy fallback then uses only columns
- * exposed by api.signals. Legacy review never becomes verification.
+ * source observations to one event; public.signal fallback uses only columns
+ * exposed by api.signals. IA fallback is mapped separately and never promoted to
+ * canonical/verified state.
  */
 export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
   // The generated Database type intentionally lags additive migrations; keep the
@@ -174,20 +225,20 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
       .eq('id', signalId)
       .eq('reviewed', true)
       .maybeSingle()
-    if (error || !data) return null
-    const row = data as Record<string, unknown>
-    if (['spam','boilerplate','nav','duplicate'].includes(String(row.quality_label ?? ''))) return null
-    if (['story','research','noise'].includes(String(row.content_type ?? ''))) return null
-    if (row.action === 'rejected') return null
+    if (!error && data) {
+      const row = data as Record<string, unknown>
+      if (['spam','boilerplate','nav','duplicate'].includes(String(row.quality_label ?? ''))) return null
+      if (['story','research','noise'].includes(String(row.content_type ?? ''))) return null
+      if (row.action === 'rejected') return null
 
-    const clusterRepId = text(row.cluster_rep_id)
-    if (clusterRepId && clusterRepId !== signalId) {
-      const clustered = await loadCanonical(db, `event:${clusterRepId}`)
-      if (clustered) return clustered
+      const clusterRepId = text(row.cluster_rep_id)
+      if (clusterRepId && clusterRepId !== signalId) {
+        const clustered = await loadCanonical(db, `event:${clusterRepId}`)
+        if (clustered) return clustered
+      }
+      return mapLegacySignal(row, eventId)
     }
+  } catch { /* fall through to IA compatibility */ }
 
-    return mapLegacySignal(row, eventId)
-  } catch {
-    return null
-  }
+  return loadIaFallback(signalId, eventId)
 }
