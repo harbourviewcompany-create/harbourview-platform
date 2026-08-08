@@ -63,6 +63,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { label: 'Monetization', href: '/admin/monetization' },
       { label: 'Reports', href: '/admin/reports' },
       { label: 'Stripe setup', href: '/admin/stripe-setup' },
+      { label: 'Stripe webhook health', href: '/admin/stripe-health' },
     ],
   },
   {
