@@ -180,6 +180,53 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   settings: 'overview',
 }
 
+/**
+ * The five bottom-nav destinations. Declared explicitly rather than derived from
+ * PRIMARY_NAV, because that is typed `NavDestination[]` and would widen this to
+ * every SectionId — which silently defeats the exhaustiveness check on
+ * SECTION_GROUPS below.
+ */
+export type PrimarySectionId =
+  | 'overview'
+  | 'marketplace'
+  | 'weekly-signals'
+  | 'next-actions'
+  | 'jurisdiction'
+
+/**
+ * Every section folded under exactly one of the five primary destinations.
+ *
+ * The mobile renderer previously mounted all twenty sections at once in a single
+ * scrolling column, and the bottom nav only called `scrollIntoView` — so the five
+ * "tabs" were anchors into one endless page rather than navigation, and the
+ * fifteen sections with no tab were reached by scrolling past them. The desktop
+ * Command Centre has always switched on `activePage` and rendered one page at a
+ * time; this restores the same model on mobile.
+ *
+ * Order within each group is render order. Reordering or moving a section
+ * between groups is a single edit here — nothing else reads the arrangement.
+ */
+export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
+  overview: ['overview', 'live-status', 'personal-briefing', 'review-gates'],
+  marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
+  'weekly-signals': ['weekly-signals', 'search', 'education'],
+  'next-actions': ['next-actions', 'financing'],
+  jurisdiction: ['jurisdiction', 'compliance', 'clinical', 'genetics', 'network', 'directories', 'talent'],
+}
+
+/**
+ * Reverse lookup so a deep link to any section activates the destination that
+ * owns it. Built from SECTION_GROUPS rather than hand-maintained, so the two
+ * cannot drift.
+ */
+export const SECTION_TO_GROUP: Record<SectionId, PrimarySectionId> = (() => {
+  const lookup = {} as Record<SectionId, PrimarySectionId>
+  for (const [group, sections] of Object.entries(SECTION_GROUPS) as Array<[PrimarySectionId, SectionId[]]>) {
+    for (const section of sections) lookup[section] = group
+  }
+  return lookup
+})()
+
 export const SECTION_IDS = new Set<SectionId>(SECTION_NAV.map(section => section.id))
 export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'wanted-intake',
@@ -214,6 +261,41 @@ export function titleCase(value: string): string {
 
 export function formatStatus(value: unknown, fallback = 'Review required'): string {
   return typeof value === 'string' && value.trim() ? titleCase(value) : fallback
+}
+
+/**
+ * Render a market metric as a value a person can read.
+ *
+ * `market_metrics` stores the number in `metric_value` and the unit separately in
+ * `metric_unit`. The mobile renderer previously looked for `display_value`,
+ * `value` or `summary` — none of which that table has — so every metric fell
+ * through to its "Value under review" fallback while the real figures sat in the
+ * row. Canada, for instance, had legal_sales_usd = 5100000000 rendering as
+ * "Value under review".
+ *
+ * Large counts are abbreviated because the card is one line on a 320px screen:
+ * 5100000000 USD reads as "5.1B USD", not as eleven digits.
+ */
+export function formatMetricValue(value: unknown, unit: unknown, fallback = 'Value under review'): string {
+  const raw = typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))
+      ? Number(value)
+      : null
+
+  const suffix = typeof unit === 'string' && unit.trim() ? ` ${unit.trim()}` : ''
+
+  if (raw === null) {
+    // Non-numeric but present values are still worth showing verbatim.
+    return typeof value === 'string' && value.trim() ? `${value.trim()}${suffix}` : fallback
+  }
+
+  const magnitude = Math.abs(raw)
+  const formatted = magnitude >= 10_000
+    ? new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(raw)
+    : new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(raw)
+
+  return `${formatted}${suffix}`
 }
 
 /** Clamp values already stored on a 0–100 scale. */

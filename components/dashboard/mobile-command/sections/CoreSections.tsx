@@ -7,8 +7,10 @@ import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
   SUPPLY_TABS,
+  formatMetricValue,
   formatStatus,
   readString,
+  titleCase,
   type MobileCommandTool,
   type NextAction,
   type NormalizedListing,
@@ -24,7 +26,6 @@ export function OverviewSection({
   publicSummary,
   marketAccessStatus,
   reviewStatus,
-  dataCompleteness,
   firstAction,
   onOpenActions,
 }: {
@@ -34,7 +35,6 @@ export function OverviewSection({
   publicSummary?: string | null
   marketAccessStatus?: string | null
   reviewStatus: string
-  dataCompleteness: string
   firstAction?: NextAction
   onOpenActions: () => void
 }) {
@@ -45,10 +45,17 @@ export function OverviewSection({
           <span>Command brief</span>
           <h2>{countryLabel} operating picture</h2>
           <p>{publicSummary?.trim() || `${countryLabel} is loaded as the active jurisdiction for ${roleLabel}. Live marketplace, intelligence, pathway and education signals are consolidated below.`}</p>
+          {/* `countries.data_completeness` used to render as a third pill here.
+              It is a three-value Postgres enum (stub / seed / partial) that was
+              printed raw, so Germany's brief read "Stub". The label is also
+              inverted against the data it claims to describe: countries marked
+              `stub` average 142 characters of written summary and all carry a
+              published playbook, while 33 of the 50 marked `partial` are
+              boilerplate. It described nothing a reader could act on, so it is
+              no longer shown. No replacement metric is invented in its place. */}
           <div className="hvm2-brief-tags">
             <StatusPill tone="gold">{formatStatus(marketAccessStatus, 'Market access review')}</StatusPill>
             <StatusPill>{reviewStatus}</StatusPill>
-            <StatusPill>{dataCompleteness}</StatusPill>
           </div>
         </article>
         <article className="hvm2-priority-card">
@@ -104,18 +111,33 @@ export function MarketIntelligenceSection({
     <SectionShell id="market-intelligence" sectionRef={sectionRef} eyebrow="Market intelligence" title="Metrics and trade flows" description="Country-context market indicators and reviewed trade corridors are presented separately from marketplace listings.">
       {marketMetrics.length > 0 || tradeFlows.length > 0 ? (
         <div className="hvm2-compliance-grid">
+          {/* Field names here must match what dashboardLiveData actually selects.
+              They previously did not: metrics were read from `display_value` /
+              `value` / `summary` and flows from `origin` / `destination` /
+              `product` / `summary`, none of which exist on `market_metrics` or
+              `trade_flows`. Every card therefore rendered its fallback, so six
+              populated Canadian metrics all showed "Value under review" and
+              sixteen distinct corridors rendered as sixteen identical
+              "Reviewed trade flow" cards. */}
           {marketMetrics.map((metric, index) => (
             <article key={`metric-${readString(metric, ['id'], String(index))}`}>
-              <span>{readString(metric, ['category', 'metric_type', 'label'], 'Market metric')}</span>
-              <strong>{readString(metric, ['metric_name', 'name', 'title'], 'Market indicator')}</strong>
-              <p>{readString(metric, ['display_value', 'value', 'summary'], 'Value under review')}</p>
+              <span>{formatStatus(readString(metric, ['data_type', 'category', 'metric_type']), 'Market metric')}</span>
+              <strong>{titleCase(readString(metric, ['metric_name', 'name', 'title'], 'Market indicator'))}</strong>
+              <p>{formatMetricValue(
+                readString(metric, ['metric_value', 'display_value', 'value']),
+                readString(metric, ['metric_unit', 'unit']),
+              )}</p>
             </article>
           ))}
           {tradeFlows.map((flow, index) => (
             <article key={`flow-${readString(flow, ['id'], String(index))}`}>
-              <span>{readString(flow, ['origin', 'source_country'], 'Trade')} → {readString(flow, ['destination', 'destination_country'], 'Market')}</span>
-              <strong>{readString(flow, ['product', 'product_type', 'title'], 'Reviewed trade flow')}</strong>
-              <p>{readString(flow, ['summary', 'status', 'volume'], 'Corridor evidence under review')}</p>
+              <span>{readString(flow, ['origin_iso2', 'origin', 'source_country'], 'Trade')} → {readString(flow, ['destination_iso2', 'destination', 'destination_country'], 'Market')}</span>
+              <strong>{titleCase(readString(flow, ['product_category', 'product', 'product_type'], 'Reviewed trade flow'))}</strong>
+              <p>{[
+                formatStatus(readString(flow, ['legal_status', 'status']), ''),
+                readString(flow, ['flow_direction']) ? `${titleCase(readString(flow, ['flow_direction']))} flow` : '',
+                readString(flow, ['permit_authority']) ? `Permit: ${readString(flow, ['permit_authority'])}` : '',
+              ].filter(Boolean).join(' · ') || 'Corridor evidence under review'}</p>
             </article>
           ))}
         </div>

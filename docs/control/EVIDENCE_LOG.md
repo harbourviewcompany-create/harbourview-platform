@@ -4466,3 +4466,150 @@ mis-attributed filters across `Promise.all` boundaries, producing three false
 positives (`cc_watchlist_items.user_id`, `local_subdivisions_intel.status`,
 `signals.alert_date`) that were disproved by reading each site; every finding
 recorded above was confirmed by direct read.
+---
+
+## 2026-08-07 — Mobile Command Centre restored to one surface at a time
+
+Tyler: "This scrolling bullshit sucks. I built the command centre the way it was
+for a reason and now it's just piled on shit." He was describing a real
+architectural regression, not a preference.
+
+### What was wrong
+
+`MobileCommandCentreRebuild.tsx` mounted **all twenty sections at once**,
+unconditionally, in a single `<main>`. Verified: zero conditional renders. And
+`navigateToSection` ended in:
+
+```ts
+sectionNodes.current.get(id)?.scrollIntoView({ behavior, block: 'start' })
+```
+
+So the five bottom-nav items were **scroll anchors into one endless page**, not
+navigation. The fifteen sections with no nav entry were reached only by scrolling
+past them. Compliance, quality posture, access pathway, network and trade
+financing all sat in one continuous column, which is exactly why it read as
+piled on — it was, in DOM order.
+
+The desktop renderer never worked this way. `CommandCentre.tsx:11057`:
+
+```ts
+switch (activePage) {
+  case 'briefing':    return <BriefingRoom …/>
+  case 'marketplace': return <MarketplacePage …/>
+  …
+}
+```
+
+One page at a time. The mobile rebuild dropped that model.
+
+### The fix
+
+`SECTION_GROUPS` folds all twenty sections under the five existing destinations.
+
+**Superseded within this same PR:** mounting the whole group could not work.
+Sources are resolved per desktop page and a group's sections map to different
+pages, so landing on a destination fetched one page's sources and every sibling
+belonging to another page rendered an empty shell over a populated table --
+eight sections in total. Only the **active section** mounts; the rail carries
+the rest of the group and navigates, so each section arrives with its own data.
+A later commit also stopped mounting the tapped section before its route
+committed, which reintroduced the same empty shell as a brief flash.
+
+| destination | sections |
+| --- | --- |
+| Command | overview, live-status, personal-briefing, review-gates |
+| Market | marketplace, supply, market-status, market-intelligence |
+| Intel | weekly-signals, search, education |
+| Actions | next-actions, financing |
+| Context | jurisdiction, compliance, clinical, genetics, network, directories, talent |
+
+`SECTION_TO_GROUP` is derived from `SECTION_GROUPS` rather than hand-maintained,
+so the two cannot drift, and a test asserts the grouping covers all twenty
+exactly once.
+
+Also changed:
+
+- **Section rail scoped to the active destination.** It listed all twenty
+  regardless of location; it now shows only the current group's sections, so it
+  is real sub-navigation.
+- **Bottom nav marks the owning destination**, so a deep link into a folded
+  section lights the correct tab.
+- **`activeSection` is now seeded from `props.initialPage`** instead of
+  defaulting to `overview` and correcting in an effect. Effects do not run during
+  SSR, so with folding the server would have rendered the Command group and
+  swapped on hydration — a visible flash, and the wrong content entirely for a
+  deep link.
+
+### Verification
+
+- `npm run lint` — 0 errors, 144 warnings (all pre-existing).
+- `npm run typecheck` — clean. Caught a real defect on the way: `PrimarySectionId`
+  derived from `PRIMARY_NAV` widened to every `SectionId`, because that constant
+  is typed `NavDestination[]`. That silently defeated the exhaustiveness check on
+  `SECTION_GROUPS`, so the union is now declared explicitly.
+- `npx vitest run` — 689 passed, up from 686. The 5 failing files are the same
+  pre-existing ones (globe polygon rendering,
+  pending-production-migration-decisions) that fail identically on `main`.
+- `npm run build` — compiled successfully.
+
+Tests rewritten rather than deleted: the old
+`renders all 20 sections through the production mobile renderer` asserted the
+defect as a contract. It is replaced by `mounts only the active destination`,
+plus coverage for destination-scoped rail, owning-tab highlighting, and
+cross-group deep links.
+
+### Not addressed here
+
+Still open from the same screenshots, deliberately out of scope for a structural
+change:
+
+- ~~**`Stub` renders as a user-facing value** under "QUALITY POSTURE".~~
+  **Resolved in this PR.** The value was `countries.data_completeness`, not
+  `jurisdictionPlaybook.confidence_label` as originally recorded here. It is a
+  three-value enum printed raw, and it is inverted: `stub` countries average 142
+  characters of written summary and all carry a published playbook, while 33 of
+  the 50 `partial` countries are boilerplate. It is no longer derived at all.
+- **Heading collision.** "Regulatory and quality control" and "Compliance
+  command" occupy the same row and overlap, squeezing body copy into a narrow
+  column. Same on "Reviewed commercial network" / "Network command".
+- **The Aurora/Tilray/Canopy paragraph still appears three times** across command
+  brief, access pathway and personal briefing.
+
+### Follow-on, same PR — Market intelligence was discarding populated data
+
+Tyler's screenshots of the folded Market destination showed six metrics all
+reading "Value under review" and roughly a dozen identical
+"Reviewed trade flow / Corridor evidence under review" cards. Neither is a data
+problem. Verified against production for Canada:
+
+| metric | stored value | rendered |
+| --- | --- | --- |
+| Average Wholesale Flower Price 2025 | 3 CAD/g | Value under review |
+| export_volume_kg | 8000 kg | Value under review |
+| legal_sales_usd | 5100000000 USD | Value under review |
+| Licensed Producers Active | 900 licensees | Value under review |
+| patient_count | 400000 count | Value under review |
+| store_count | 3800 count | Value under review |
+
+`trade_flows` for Canada: 16 rows, all 16 carrying `product_category`,
+`flow_direction` and `legal_status`, 15 with `permit_authority`.
+
+**Cause: the renderer read field names the query never selects.**
+`dashboardLiveData` selects `metric_name, metric_value, metric_unit, data_type…`
+and `origin_iso2, destination_iso2, flow_direction, product_category,
+legal_status, permit_authority`. `CoreSections.tsx` read metrics from
+`display_value` / `value` / `summary` and flows from `origin` / `destination` /
+`product` / `summary` — **not one of which exists on either table.** Every field
+fell through to its fallback, which is why sixteen distinct corridors rendered as
+sixteen identical cards.
+
+This is the same defect class as the marketplace starvation fixed earlier today:
+code and data disagreeing on names, with fallbacks masking it completely.
+
+Fixed by reading the real columns, adding `formatMetricValue` (value + unit,
+compacted above 10,000 so `5100000000 USD` reads as `5.1B USD`), and composing
+the flow body from `legal_status`, `flow_direction` and `permit_authority`.
+Raw column names such as `export_volume_kg` are now passed through `titleCase`.
+
+The pre-existing fallbacks are kept as the last entry in each key list, so a
+future schema that does supply `display_value` still works.

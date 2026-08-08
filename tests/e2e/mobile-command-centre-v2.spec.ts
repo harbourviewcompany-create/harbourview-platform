@@ -2,7 +2,7 @@ import { expect, test, type Browser, type BrowserContextOptions, type Page } fro
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
-import { SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
+import { SECTION_GROUPS } from '@/components/dashboard/mobile-command/contracts'
 
 const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
@@ -10,7 +10,6 @@ const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
 const SAFE_LISTING_ID = '00000000-0000-4000-8000-000000000127'
 const SAFE_LISTING_TITLE = 'Visual Safe Bulk Flower Lot'
-const MOBILE_SECTION_IDS = SECTION_NAV.map(section => section.id)
 
 const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
@@ -240,16 +239,39 @@ test.describe('Command Centre authenticated responsive verification', () => {
           await expect(page.locator('[data-dashboard-renderer="mobile"]:visible')).toBeVisible()
           await expect(page.locator('.hvm2-bottom-nav')).toBeVisible()
           await expect(page.getByText('Operator command centre', { exact: true })).toBeVisible()
-          await expect(page.locator('#market-intelligence')).toBeVisible()
-          await expect(page.locator('#supply')).toBeVisible()
-          await expect(page.locator('#directories')).toBeVisible()
-          await expect(page.locator('#financing')).toBeVisible()
           await expect(page.getByText('⌘ Modules')).toHaveCount(0)
           await expect(page.locator('[data-command-module]')).toHaveCount(32)
 
-          for (const section of MOBILE_SECTION_IDS) {
-            await expect(page.locator(`#${section}`)).toHaveCount(1)
+          // Exactly one section mounts. This block first asserted all twenty
+          // were present at once (the endless scroll), then a whole destination
+          // group -- which mounted sections whose data the page never fetched,
+          // because sources are resolved per desktop page and a group spans
+          // several. The section on screen is now the one that was requested.
+          await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+          await expect(page.locator('#overview')).toHaveCount(1)
+          for (const section of SECTION_GROUPS.overview.filter(id => id !== 'overview')) {
+            await expect(page.locator(`.hvm2-main #${section}`), section).toHaveCount(0)
           }
+          for (const section of [...SECTION_GROUPS.marketplace, ...SECTION_GROUPS.jurisdiction]) {
+            await expect(page.locator(`#${section}`), section).toHaveCount(0)
+          }
+          // Siblings stay reachable: the rail still lists the whole group.
+          await expect(page.locator('.hvm2-section-rail button')).toHaveCount(SECTION_GROUPS.overview.length)
+
+          // Deliberately NOT sweeping all five destinations here.
+          //
+          // An earlier revision of this spec navigated every destination at this
+          // width and asserted each group's membership. That is the wrong place
+          // for it: the grouping is a pure function of SECTION_GROUPS and is
+          // covered exhaustively by tests/dashboard/mobileCommandCentreV2.test.ts,
+          // which renders each destination directly and runs in milliseconds.
+          // Re-proving it through an authenticated browser sweep added ~40
+          // navigations, and its failures pointed at the harness rather than at
+          // the product.
+          //
+          // What this gate is for is that the real surface renders correctly at
+          // each width, which the block above establishes: the active destination
+          // mounts its own sections and no others.
 
           const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll(links => links.map(link => {
             const href = (link as HTMLAnchorElement).href
@@ -259,6 +281,18 @@ test.describe('Command Centre authenticated responsive verification', () => {
           expect(commandLinkPaths.every(pathname => pathname === '/dashboard')).toBe(true)
 
           if (width === 390) {
+            // Everything below operates on the Marketplace destination, so land
+            // there explicitly. Only that destination's sections are mounted now
+            // — the market tabs simply do not exist while Command is active, and
+            // relying on the page happening to be somewhere useful is what makes
+            // this block sit through locator timeouts instead of failing fast.
+            await page.goto('/dashboard?country=CA&role=exporter&section=marketplace', {
+              waitUntil: 'domcontentloaded',
+              timeout: 60_000,
+            })
+            await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+            await expect(page.locator('[data-active-destination="marketplace"]')).toBeVisible()
+
             const equipmentTab = page.getByRole('tab', { name: /Equipment/ })
             await equipmentTab.click()
             await expectCommandState(page, {
@@ -350,6 +384,21 @@ test.describe('Command Centre authenticated responsive verification', () => {
             report.safeIntroductionListing = SAFE_LISTING_ID
           }
 
+          // Return to the default destination before measuring. The 390px block
+          // above finishes inside the financing workflow, which folds under
+          // Actions -- so the page is legitimately showing Actions' two sections
+          // by the time we get here, while the geometry assertions below are
+          // written against Overview's four. Measuring wherever the sweep
+          // happened to stop made this gate report a product defect (2 sections
+          // instead of 4) that was really just the spec measuring the wrong
+          // destination. Every width now measures the same surface.
+          await page.goto('/dashboard?country=CA&role=exporter', {
+            waitUntil: 'domcontentloaded',
+            timeout: 60_000,
+          })
+          await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+          await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+
           const geometry = await page.evaluate(() => {
             const root = document.documentElement
             const body = document.body
@@ -367,7 +416,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
           })
 
           expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
-          expect(geometry.sectionCount).toBe(MOBILE_SECTION_IDS.length)
+          // One section mounts -- not the group, and not all twenty.
+          expect(geometry.sectionCount).toBe(1)
           expect(geometry.moduleCount).toBe(32)
           expect(geometry.bottomNav).not.toBeNull()
           report.geometry = geometry

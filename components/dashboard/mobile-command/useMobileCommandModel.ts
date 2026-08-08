@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { JOB_LISTINGS } from '../data/jobsBoard'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -28,6 +28,9 @@ import {
   type NormalizedListing,
   type SectionId,
   type SubmissionRecord,
+  SECTION_GROUPS,
+  SECTION_TO_GROUP,
+  type PrimarySectionId,
 } from './contracts'
 
 function buildHref(path: string, source: { toString(): string }, changes: Record<string, string | null>) {
@@ -59,26 +62,32 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [activeSection, setActiveSection] = useState<SectionId>('overview')
+  // Which section is *mounted* is derived from the committed URL further down,
+  // never from local state. `props` are supplied by the server component and
+  // only change when a navigation commits, so mounting a section the instant it
+  // is tapped renders it against the previous page's data -- Genetics would show
+  // its "no records" state, then fill in once the route landed. That is the very
+  // failure this surface exists to remove, so it must not reappear as a flash.
+  //
+  // `pendingSection` is the optimistic target: it lights the nav immediately so
+  // the tap feels answered, while the content stays put until its data arrives.
+  const [pendingSection, setPendingSection] = useState<SectionId | null>(null)
+  const [isNavigating, startNavigation] = useTransition()
   const [activeMarketView, setActiveMarketView] = useState<MarketView>('cannabis')
   const [marketQuery, setMarketQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTool, setActiveTool] = useState<MobileCommandTool | null>(null)
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const sectionNodes = useRef(new Map<SectionId, HTMLElement>())
-  const observerRef = useRef<IntersectionObserver | null>(null)
   const lastUrlSection = useRef<SectionId | null>(null)
 
+  // Still tracked so the section that mounts can be scrolled under the header.
   const sectionRefs = useMemo(() => {
     const refs = new Map<SectionId, (node: HTMLElement | null) => void>()
     for (const section of SECTION_NAV) {
       refs.set(section.id, (node) => {
-        const previous = sectionNodes.current.get(section.id)
-        if (previous && previous !== node) observerRef.current?.unobserve(previous)
-
         if (node) {
           sectionNodes.current.set(section.id, node)
-          observerRef.current?.observe(node)
         } else {
           sectionNodes.current.delete(section.id)
         }
@@ -162,7 +171,20 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const pipelineTotal = pipeline.wanted + pipeline.matched + pipeline.proof_review + pipeline.inquiry + pipeline.deal_room
   const sourceCoverageCount = props.sourceCoverage?.length ?? 0
   const reviewStatus = formatStatus(props.countryIntel?.review_status, 'Pending review')
-  const dataCompleteness = formatStatus(props.countryIntel?.data_completeness, 'Coverage pending')
+  // `countries.data_completeness` was resolved here and handed to three
+  // sections. It is a three-value enum (stub / seed / partial) that was printed
+  // raw and does not describe the data it names -- `stub` countries average 142
+  // characters of written summary and all carry a published playbook, while 33
+  // of the 50 `partial` countries are boilerplate. It is no longer derived at
+  // all, so it cannot reach a customer-facing string by accident.
+
+  // Steps for the active jurisdiction/role access pathway. `template.id` is
+  // prefixed `generic-` when getPublicPathwayTemplate substituted the
+  // country-agnostic role fallback, which is the case for the 169 countries
+  // with no cc_pathway_templates row.
+  const pathwaySteps = props.pathwayData?.steps ?? []
+  const pathwayIsGeneric = (props.pathwayData?.template?.id ?? '').startsWith('generic-')
+  const evidenceDocuments = props.evidenceData?.orgDocs ?? []
 
   const directoryRecords = useMemo<DirectoryRecord[]>(() => {
     const professionals = (props.professionals ?? []).map((item, index) => ({
@@ -237,7 +259,13 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     actions.push({
       id: 'pathway',
       label: `Validate the ${countryLabel} access pathway`,
-      detail: props.countryIntel?.commercial_pathway_summary?.trim() || 'Confirm licence, import/export, quality and evidence requirements for the selected role.',
+      // Every other action here states what to do in one line. This one used to
+      // substitute `commercial_pathway_summary`, which is market analysis, not
+      // an instruction -- it averages 404 characters and reaches 1,551, so the
+      // card grew into a wall of prose that buried the button under it. The
+      // same summary already renders in full in the Jurisdiction section this
+      // action links to, so nothing is lost by stating the task instead.
+      detail: 'Confirm licence, import/export, quality and evidence requirements for the selected role.',
       href: commandHref('jurisdiction'),
       tone: props.countryIntel?.review_status === 'approved' ? 'ok' : 'neutral',
     })
@@ -273,17 +301,23 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       : PAGE_TO_SECTION[props.initialPage ?? 'briefing'] ?? 'overview'
   }, [props.initialPage, searchParams])
 
+  // The committed section: this is what mounts. It moves only when the route
+  // lands, which is also when `props` carry that section's data.
+  const activeSection = resolvedUrlSection
+
+  // What the navigation highlights. Falls forward to the tapped target so the
+  // rail and bottom nav answer the touch rather than waiting for the round trip.
+  // Gated on the transition being in flight, so a settled or abandoned target
+  // cannot leave the nav pointing somewhere the content never went -- and so
+  // this needs no effect to clear it.
+  const highlightedSection = isNavigating && pendingSection ? pendingSection : resolvedUrlSection
+
   useEffect(() => {
     if (lastUrlSection.current === resolvedUrlSection) return
     lastUrlSection.current = resolvedUrlSection
-    setActiveSection(resolvedUrlSection)
-
-    if (resolvedUrlSection !== 'overview') {
-      const timer = window.setTimeout(() => {
-        sectionNodes.current.get(resolvedUrlSection)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' })
-      }, 120)
-      return () => window.clearTimeout(timer)
-    }
+    // One section is on screen, so there is nothing to scroll *to* -- only the
+    // top of the new section to scroll back to.
+    window.scrollTo({ top: 0, behavior: preferredScrollBehavior() })
   }, [resolvedUrlSection])
 
   useEffect(() => {
@@ -295,50 +329,41 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     if (tool === 'wanted-intake') setActiveMarketView('wanted')
   }, [searchParams])
 
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries
-        .filter(entry => entry.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-      if (!visible) return
-
-      const visibleSection = visible.target.id as SectionId
-      setActiveSection(visibleSection)
-      if (lastUrlSection.current !== visibleSection) lastUrlSection.current = null
-    }, { rootMargin: '-28% 0px -58% 0px', threshold: [0.05, 0.2, 0.5] })
-
-    observerRef.current = observer
-    sectionNodes.current.forEach(node => observer.observe(node))
-    return () => {
-      observerRef.current = null
-      observer.disconnect()
-    }
-  }, [])
+  // The scroll-spy that used to live here is gone. It existed to track which of
+  // twenty stacked sections was under the reader and rewrite the active section
+  // from scroll position. With a single section mounted it can only ever report
+  // that same section, re-setting state it already holds and clearing
+  // `lastUrlSection`, which lets the URL effect re-fire and re-scroll. The rail
+  // is now the only thing that changes sections, and it navigates.
 
   const navigateToSection = useCallback((id: SectionId) => {
-    setActiveSection(id)
+    setPendingSection(id)
     setActiveTool(null)
     setSelectedListingId(null)
-    lastUrlSection.current = id
-    router.replace(commandHref(id, {
-      marketView: activeMarketView,
-      tool: null,
-      listing: null,
-    }), { scroll: false })
-    window.requestAnimationFrame(() => sectionNodes.current.get(id)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
+    // Inside a transition so React keeps the current section on screen until the
+    // new route's data has arrived, instead of swapping to a section whose props
+    // have not loaded yet.
+    startNavigation(() => {
+      router.replace(commandHref(id, {
+        marketView: activeMarketView,
+        tool: null,
+        listing: null,
+      }), { scroll: false })
+    })
   }, [activeMarketView, commandHref, router])
 
   const selectMarketView = useCallback((view: MarketView) => {
     setActiveMarketView(view)
     setActiveTool(null)
     setSelectedListingId(null)
-    setActiveSection('marketplace')
-    lastUrlSection.current = 'marketplace'
-    router.replace(commandHref('marketplace', {
-      marketView: view,
-      tool: null,
-      listing: null,
-    }), { scroll: false })
+    setPendingSection('marketplace')
+    startNavigation(() => {
+      router.replace(commandHref('marketplace', {
+        marketView: view,
+        tool: null,
+        listing: null,
+      }), { scroll: false })
+    })
   }, [commandHref, router])
 
   const openTool = useCallback((tool: MobileCommandTool, options: { listing?: NormalizedListing; marketView?: MarketView } = {}) => {
@@ -347,14 +372,14 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     setActiveTool(tool)
     setSelectedListingId(options.listing?.id ?? null)
     setActiveMarketView(nextView)
-    setActiveSection(section)
-    lastUrlSection.current = section
-    router.replace(commandHref(section, {
-      tool,
-      marketView: nextView,
-      listing: options.listing?.id ?? null,
-    }), { scroll: false })
-    window.requestAnimationFrame(() => sectionNodes.current.get(section)?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
+    setPendingSection(section)
+    startNavigation(() => {
+      router.replace(commandHref(section, {
+        tool,
+        marketView: nextView,
+        listing: options.listing?.id ?? null,
+      }), { scroll: false })
+    })
   }, [activeMarketView, commandHref, router])
 
   const closeTool = useCallback(() => {
@@ -365,20 +390,20 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         : activeSection
     setActiveTool(null)
     setSelectedListingId(null)
-    setActiveSection(returnSection)
-    lastUrlSection.current = returnSection
-    router.replace(commandHref(returnSection, {
-      marketView: activeMarketView,
-      tool: null,
-      listing: null,
-    }), { scroll: false })
+    setPendingSection(returnSection)
+    startNavigation(() => {
+      router.replace(commandHref(returnSection, {
+        marketView: activeMarketView,
+        tool: null,
+        listing: null,
+      }), { scroll: false })
+    })
   }, [activeMarketView, activeSection, activeTool, commandHref, router])
 
   const viewSubmissions = useCallback(() => {
     setActiveTool(null)
     setSelectedListingId(null)
-    setActiveSection('market-status')
-    lastUrlSection.current = 'market-status'
+    setPendingSection('market-status')
     router.replace(commandHref('market-status', {
       marketView: activeMarketView,
       tool: null,
@@ -427,8 +452,31 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     window.requestAnimationFrame(() => sectionNodes.current.get('marketplace')?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
   }, [searchQuery, selectMarketView])
 
+  // The destination that owns the active section. `groupSections` is the rail --
+  // the sections you can reach from here. `visibleSections` is what actually
+  // mounts, and it is exactly one.
+  //
+  // Mounting the whole group looked right but could not work: data is fetched
+  // per desktop page, and a group's sections map to different pages. Landing on
+  // a destination loaded one page's sources, so every section in the group that
+  // belonged to another page rendered an empty shell -- Genetics, Clinical,
+  // Network, Directories, Market intelligence, Education, Search,
+  // Personal briefing and Review gates, all against populated tables. Rendering
+  // one section at a time means the section on screen is the one whose data was
+  // actually requested, because the rail navigates rather than scrolls.
+  // The nav highlights the optimistic target; the content follows the committed
+  // one. A tap lights up instantly, the section swaps when its data is there.
+  const activeGroup: PrimarySectionId = SECTION_TO_GROUP[highlightedSection] ?? 'overview'
+  const groupSections = SECTION_GROUPS[activeGroup]
+  const visibleSections: SectionId[] = [activeSection]
+
   return {
     activeSection,
+    highlightedSection,
+    isNavigating,
+    activeGroup,
+    groupSections,
+    visibleSections,
     activeMarketView,
     marketQuery,
     searchQuery,
@@ -463,7 +511,9 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     pipelineTotal,
     sourceCoverageCount,
     reviewStatus,
-    dataCompleteness,
+    pathwaySteps,
+    pathwayIsGeneric,
+    evidenceDocuments,
     directoryRecords,
     geneticsRecords,
     submissions,
