@@ -43,7 +43,14 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
-  const showSecondaryNav = model.activeGroup !== 'overview' && model.groupSections.length > 1
+  // The Command landing stays chrome-free: the operator dashboard is the whole
+  // surface, and a rail above it just pushes the first real content below the
+  // fold. Its siblings — jurisdiction, compliance, genetics, network,
+  // directories, talent, education — are reached from "Read operating picture",
+  // and the rail appears once you are in one of them so you can move between
+  // them and back. Keyed off the committed section rather than the group, so
+  // every other destination still gets its rail immediately.
+  const showSecondaryNav = model.groupSections.length > 1 && model.highlightedSection !== 'overview'
 
   useEffect(() => {
     if (!contextOpen) return

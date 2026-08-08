@@ -97,9 +97,14 @@ export async function POST(req: NextRequest) {
       notes: "No match found in public regulator registry for this licence number/jurisdiction.",
     })
     if (queueError) {
+      // No raw licence or org UUIDs: those are non-public operational
+      // identifiers and this line runs in the production log stream. The
+      // jurisdiction plus the error is enough to recognise the failure mode;
+      // the affected row is recoverable from hv_licences by that error and
+      // timestamp without persisting the IDs here.
       console.error(
         "[licences/submit] failed to enqueue licence_verification review",
-        { licence_id: licence.id, org_id, error: queueError.message },
+        { jurisdiction_country: country, error: queueError.message },
       )
     }
 

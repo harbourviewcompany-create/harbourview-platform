@@ -65,10 +65,21 @@ from *every* schema: `is_verified_clinician`, `clinical_request_verification`,
 | `app/api/signals/feedback/route.ts`, `lib/signals/feedbackScores.ts` | Feedback fails on write and is never read back |
 | `lib/intelligence-engine/graph-writer.ts` | Targets a schema that has never existed |
 
-**One of these is cleared and simply not applied.** `20260802152500_signal_
-feedback_api_rpcs` is classified `approved` in the ledger. It is the shortest
-path from this list to a working feature and needs no new decision — only an
-apply.
+**One of these is cleared, but "cleared" does not mean "apply it".**
+`20260802152500_signal_feedback_api_rpcs` is classified `approved` in the
+ledger. An earlier version of this document called it "a change that needs only
+an apply". That was wrong, and repeated the same error as the retraction above —
+asserting release state without reading the controlling document.
+
+`docs/control/ELITE_DIGEST_RELEASE_CONTROL.md` approves it only as part of an
+exact ordered three-file sequence, and requires the complete pending set plus a
+production preflight to pass before `supabase db push --include-all`.
+`docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md` says not to
+apply it until every manifest gate reads GO. A standalone apply would be an
+unauthorized one-off migration.
+
+So it is the shortest path to a working feature, but the path runs through that
+controlled activation — not through applying one file.
 
 **`api.signals` and `api.signals_quality` are granted SELECT to `anon`:**
 
@@ -95,8 +106,10 @@ release-control decision and is left open below.
 
 ## Open questions for decision
 
-1. **Apply `20260802152500`?** Already `approved`. Unblocks the signal feedback
-   loop end to end. Smallest useful step on this list.
+1. **Run the Elite Digest three-file activation?** That is what actually
+   unblocks the signal feedback loop — `20260802152500` is approved only inside
+   that sequence, behind the manifest gates and preflight described in
+   `ELITE_DIGEST_RELEASE_CONTROL.md`. Not a standalone apply.
 2. **`20260801150000`** — amend to drop the anon-facing view rewrites and re-bind
    the ledger hash, or leave as-is on the strength of its classification?
 3. **The `net.http_*` grant** cannot be closed by a migration. If it is to be
