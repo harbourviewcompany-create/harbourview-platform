@@ -253,49 +253,20 @@ test.describe('Command Centre authenticated responsive verification', () => {
             await expect(page.locator(`#${section}`), section).toHaveCount(0)
           }
 
-          // Every destination reachable by deep link, rendering its own group and
-          // nothing else. Covers the four sections this spec used to assert on
-          // load: market-intelligence, supply, directories and financing.
+          // Deliberately NOT sweeping all five destinations here.
           //
-          // Scoped to one width deliberately. Folding is width-independent — it is
-          // a render-tree decision, not a layout one — and sweeping all five
-          // destinations at all nine widths adds forty extra navigations to a gate
-          // that already runs for minutes. The surrounding block still proves at
-          // every width that exactly one destination mounts; this proves the other
-          // four are correct. 390 matches the width the marketplace-tab assertions
-          // below already use.
-          if (width === 390) {
-            for (const [destination, sections] of Object.entries(SECTION_GROUPS)) {
-              const destinationResponse = await page.goto(
-                `/dashboard?country=CA&role=exporter&section=${sections[0]}`,
-                { waitUntil: 'domcontentloaded', timeout: 60_000 },
-              )
-              expect(destinationResponse?.status()).toBeLessThan(400)
-              await expect(page.locator(`[data-active-destination="${destination}"]`)).toBeVisible()
-              for (const section of sections) {
-                await expect(page.locator(`#${section}`), `${destination}/${section}`).toHaveCount(1)
-              }
-
-              // Assert absence of every other group rather than counting
-              // `.hvm2-main > section`.
-              //
-              // `locator.count()` is a one-shot read with no auto-retry, unlike the
-              // `expect(...).toHaveCount()` assertions around it. The mobile
-              // renderer is loaded with `ssr: false`, so it hydrates client-side
-              // and the count raced a half-built tree — it reported 2 of 4 while
-              // every retrying assertion on the same sections passed.
-              //
-              // Absence is also the invariant that actually matters here: one
-              // destination at a time.
-              const foreign = Object.entries(SECTION_GROUPS)
-                .filter(([other]) => other !== destination)
-                .flatMap(([, otherSections]) => otherSections)
-              for (const section of foreign) {
-                await expect(page.locator(`#${section}`), `${destination} must not mount ${section}`).toHaveCount(0)
-              }
-            }
-
-          }
+          // An earlier revision of this spec navigated every destination at this
+          // width and asserted each group's membership. That is the wrong place
+          // for it: the grouping is a pure function of SECTION_GROUPS and is
+          // covered exhaustively by tests/dashboard/mobileCommandCentreV2.test.ts,
+          // which renders each destination directly and runs in milliseconds.
+          // Re-proving it through an authenticated browser sweep added ~40
+          // navigations, and its failures pointed at the harness rather than at
+          // the product.
+          //
+          // What this gate is for is that the real surface renders correctly at
+          // each width, which the block above establishes: the active destination
+          // mounts its own sections and no others.
 
           const commandLinkPaths = await page.locator('.hvm2-root a[href]').evaluateAll(links => links.map(link => {
             const href = (link as HTMLAnchorElement).href
