@@ -1,13 +1,13 @@
 'use client'
 
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
-import CommandCentreModuleRail from './CommandCentreModuleRail'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
+import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import {
   ClinicalSection,
   ComplianceSection,
@@ -22,7 +22,6 @@ import {
   MarketStatusSection,
   NetworkSection,
   NextActionsSection,
-  OverviewSection,
   PersonalBriefingSection,
   ReviewGatesSection,
   SearchSection,
@@ -33,20 +32,59 @@ import {
   LocalIntelSection,
 } from './mobile-command/Sections'
 import './MobileCommandCentreRebuild.css'
+import './mobile-command/MobileCommandOperatorFirst.css'
 
 export default function MobileCommandCentreRebuild(props: MobileCommandCentreProps) {
   const model = useMobileCommandModel(props)
+  const [contextOpen, setContextOpen] = useState(false)
+  const contextCloseRef = useRef<HTMLButtonElement | null>(null)
+  const contextTriggerRef = useRef<HTMLButtonElement | null>(null)
 
-  // Every section, keyed by id. Only the ids in `model.visibleSections` are
-  // rendered, so four of the five destinations never reach the DOM.
-  //
-  // This file previously mounted all twenty at once and the bottom nav merely
-  // called scrollIntoView, which made the whole command centre one endless
-  // scroll with anchor links instead of five surfaces. The desktop renderer has
-  // always switched on activePage and rendered a single page; this is the same
-  // model.
+  const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
+  const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
+  const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
+  const showSecondaryNav = model.activeGroup !== 'overview' && model.groupSections.length > 1
+
+  useEffect(() => {
+    if (!contextOpen) return
+    contextCloseRef.current?.focus()
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContextOpen(false)
+        window.requestAnimationFrame(() => contextTriggerRef.current?.focus())
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [contextOpen])
+
+  function closeContext() {
+    setContextOpen(false)
+    window.requestAnimationFrame(() => contextTriggerRef.current?.focus())
+  }
+
+  function updateContext(key: 'country' | 'role', value: string) {
+    setContextOpen(false)
+    model.updateContext(key, value)
+  }
+
   const sectionElements: Record<SectionId, ReactNode> = {
-    overview: <OverviewSection sectionRef={model.sectionRef('overview')} countryLabel={model.countryLabel} roleLabel={model.roleLabel} publicSummary={props.countryIntel?.public_summary} marketAccessStatus={props.countryIntel?.market_access_status} reviewStatus={model.reviewStatus} firstAction={model.nextActions[0]} onOpenActions={() => model.navigateToSection('next-actions')} />,
+    overview: (
+      <CommandOverviewOperator
+        sectionRef={model.sectionRef('overview')}
+        countryLabel={model.countryLabel}
+        roleLabel={model.roleLabel}
+        attentionItems={attentionItems}
+        signals={model.signals}
+        opportunities={opportunityRows}
+        operatingPicture={props.countryIntel?.public_summary}
+        onOpenActions={() => model.navigateToSection('next-actions')}
+        onOpenIntel={() => model.navigateToSection('weekly-signals')}
+        onOpenOpportunities={() => model.selectMarketView('opportunities')}
+        onOpenContext={() => model.navigateToSection('jurisdiction')}
+      />
+    ),
     'live-status': <LiveStatusSection sectionRef={model.sectionRef('live-status')} marketplaceCount={model.marketRows.length} wantedCount={props.wantedCount ?? 0} signalCount={model.signals.length} confidence={model.confidence} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} />,
     'market-intelligence': <MarketIntelligenceSection sectionRef={model.sectionRef('market-intelligence')} marketMetrics={props.marketMetrics ?? []} tradeFlows={props.tradeFlows ?? []} />,
     marketplace: <MarketplaceSection sectionRef={model.sectionRef('marketplace')} activeMarketView={model.activeMarketView} marketQuery={model.marketQuery} marketRows={model.marketRows} filteredRows={model.filteredMarketRows} activeTool={model.activeTool} selectedListing={model.selectedListing} onMarketViewChange={model.selectMarketView} onMarketQueryChange={model.setMarketQuery} onOpenTool={model.openTool} onCloseTool={model.closeTool} onViewSubmissions={model.viewSubmissions} commandHref={model.commandHref} />,
@@ -63,11 +101,6 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     talent: <TalentSection sectionRef={model.sectionRef('talent')} records={model.talentRecords} commandHref={model.commandHref} />,
     genetics: <GeneticsSection sectionRef={model.sectionRef('genetics')} records={model.geneticsRecords} commandHref={model.commandHref} />,
     clinical: <ClinicalSection sectionRef={model.sectionRef('clinical')} roleShort={model.roleShort} programStatus={props.countryIntel?.briefing_program_status} medicalStatus={props.countryIntel?.medical_status} patientAccess={props.countryIntel?.briefing_patient_access} physicianAccess={props.countryIntel?.briefing_physician_access} commandHref={model.commandHref} />,
-    // `confidence_label` is not selected by every query that feeds this shell,
-    // so the read stays a `readString` lookup with a fallback. The fallback is
-    // now an empty string: the section itself owns the "none recorded" copy,
-    // which lets it say what the note is and when it gets written rather than
-    // printing a status-shaped placeholder in a prose slot.
     compliance: <ComplianceSection sectionRef={model.sectionRef('compliance')} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} playbookSourcing={readString(props.jurisdictionPlaybook, ['confidence_label', 'status'], '')} marketAccessStatus={props.countryIntel?.market_access_status} pathway={props.countryIntel?.commercial_pathway_summary} commandHref={model.commandHref} />,
     regulatory: <RegulatoryWatchSection sectionRef={model.sectionRef('regulatory')} items={props.watchlistData?.items ?? []} activeRules={(props.watchlistData?.rules ?? []).filter(rule => rule.is_active).length} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} sourceCoverageCount={model.sourceCoverageCount} commandHref={model.commandHref} />,
     'local-intel': <LocalIntelSection sectionRef={model.sectionRef('local-intel')} localIntel={props.localIntel ?? null} countryLabel={model.countryLabel} />,
@@ -75,69 +108,57 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     financing: <FinancingSection sectionRef={model.sectionRef('financing')} countryLabel={model.countryLabel} roleShort={model.roleShort} activeTool={model.activeTool} onOpenTool={model.openTool} onCloseTool={model.closeTool} />,
   }
 
-  const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
-
   return (
     <div className="hvm2-root" data-mobile-command-version="2" data-active-destination={model.activeGroup}>
-      <header className="hvm2-command-header">
-        <div className="hvm2-header-row">
-          <div><span className="hvm2-wordmark">HARBOURVIEW</span><span className="hvm2-command-label">Mobile Command</span></div>
-          <div className="hvm2-live-chip"><i /> Live</div>
+      <header className="hvm-op-header">
+        <div className="hvm-op-header-top">
+          <div className="hvm-op-brand">
+            <span className="hvm-op-wordmark">HARBOURVIEW</span>
+            <h1 className="hvm-op-page-title">{activeDestination?.label ?? 'Command'}</h1>
+          </div>
+          <span className="hvm-op-current-chip">Current</span>
         </div>
-        <div className="hvm2-command-title">
-          <div className="hvm2-country-flag" aria-hidden="true">{flagEmoji(model.countryIso2)}</div>
-          <div><span>{model.countryLabel} · {model.roleShort}</span><h1>Operator command centre</h1></div>
-          <Link href={model.commandHref('overview', { page: 'organization' })} className="hvm2-account-link" aria-label="Open organization in Command Centre">Organization</Link>
-        </div>
-        <div className="hvm2-context-controls" role="group" aria-label="Dashboard context">
-          <label>
-            <span>Jurisdiction</span>
-            <select value={model.currentCountry} onChange={event => model.updateContext('country', event.target.value)}>
-              {ALL_COUNTRIES.map(option => <option key={option.iso2} value={option.iso2}>{option.displayName}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Role</span>
-            <select value={model.currentRole ?? ''} onChange={event => model.updateContext('role', event.target.value)}>
-              {model.roleEntries.map(([id, profile]) => <option key={id} value={id}>{profile.label}</option>)}
-            </select>
-          </label>
-        </div>
+
+        <button
+          ref={contextTriggerRef}
+          type="button"
+          className="hvm-op-context-trigger"
+          aria-haspopup="dialog"
+          aria-expanded={contextOpen}
+          onClick={() => setContextOpen(true)}
+        >
+          <span>{flagEmoji(model.countryIso2)} {model.countryLabel} · {model.roleLabel}</span>
+          <span aria-hidden="true">⌄</span>
+        </button>
       </header>
 
-      {/* Sub-navigation for the active destination only. This listed all twenty
-          sections regardless of where you were, which is most of what made the
-          surface feel piled on. Each chip navigates, so the section it opens
-          arrives with its own data already fetched. */}
-      <nav className="hvm2-section-rail" aria-label={`${activeDestination?.label ?? 'Command'} sections`}>
-        {model.groupSections.map(id => {
-          const section = SECTION_NAV.find(entry => entry.id === id)
-          if (!section) return null
-          const isActive = model.highlightedSection === section.id
-          return (
-            <button
-              key={section.id}
-              type="button"
-              className={isActive ? 'active' : ''}
-              aria-current={isActive ? 'page' : undefined}
-              onClick={() => model.navigateToSection(section.id)}
-            >
-              <span aria-hidden="true">{section.icon}</span>{section.label}
-            </button>
-          )
-        })}
-      </nav>
+      {showSecondaryNav && (
+        <nav className="hvm-op-secondary-nav" aria-label={`${activeDestination?.label ?? 'Command'} sections`}>
+          {model.groupSections.map(id => {
+            const section = SECTION_NAV.find(entry => entry.id === id)
+            if (!section) return null
+            const isActive = model.highlightedSection === section.id
+            return (
+              <button
+                key={section.id}
+                type="button"
+                className={isActive ? 'active' : ''}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => model.navigateToSection(section.id)}
+              >
+                {section.label}
+              </button>
+            )
+          })}
+        </nav>
+      )}
 
-      <CommandCentreModuleRail country={model.currentCountry} role={model.currentRole ?? null} />
-
-      <main className="hvm2-main">
+      <main className="hvm2-main hvm-op-main">
         {model.visibleSections.map(id => <Fragment key={id}>{sectionElements[id]}</Fragment>)}
       </main>
 
-      <nav className="hvm2-bottom-nav" aria-label="Primary mobile command navigation">
+      <nav className="hvm2-bottom-nav hvm-op-bottom-nav" aria-label="Primary mobile command navigation">
         {PRIMARY_NAV.map(item => {
-          // Highlights the destination that owns the active section, so a deep
-          // link into a folded section still lights up the right tab.
           const isActive = model.activeGroup === item.id
           return (
             <button
@@ -152,6 +173,40 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
           )
         })}
       </nav>
+
+      {contextOpen && (
+        <div className="hvm-op-dialog-backdrop" onMouseDown={event => {
+          if (event.target === event.currentTarget) closeContext()
+        }}>
+          <div className="hvm-op-context-dialog" role="dialog" aria-modal="true" aria-labelledby="hvm-op-context-title">
+            <div className="hvm-op-dialog-heading">
+              <div>
+                <span className="hvm-op-eyebrow">Active context</span>
+                <h2 id="hvm-op-context-title">Operating context</h2>
+              </div>
+              <button ref={contextCloseRef} type="button" aria-label="Close context switcher" onClick={closeContext}>×</button>
+            </div>
+
+            <div className="hvm-op-context-form">
+              <label>
+                <span>Jurisdiction</span>
+                <select value={model.currentCountry} onChange={event => updateContext('country', event.target.value)}>
+                  {ALL_COUNTRIES.map(option => <option key={option.iso2} value={option.iso2}>{option.displayName}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Role</span>
+                <select value={model.currentRole ?? ''} onChange={event => updateContext('role', event.target.value)}>
+                  {model.roleEntries.map(([id, profile]) => <option key={id} value={id}>{profile.label}</option>)}
+                </select>
+              </label>
+              <Link href={model.commandHref('overview', { page: 'organization' })} onClick={() => setContextOpen(false)}>
+                <span>Organization</span><span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
