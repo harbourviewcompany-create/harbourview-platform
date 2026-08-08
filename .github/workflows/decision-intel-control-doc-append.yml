@@ -1,0 +1,60 @@
+name: Decision Intel control-doc append
+
+on:
+  push:
+    branches: [build/decision-intel-stage0-first-slice]
+
+permissions:
+  contents: write
+
+jobs:
+  append-control-evidence:
+    runs-on: ubuntu-24.04
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: build/decision-intel-stage0-first-slice
+          fetch-depth: 0
+      - name: Append Stage 0 control evidence once
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='PR #1309 — Decision Intelligence Stage 0 first-slice review hardening'
+          if ! grep -Fq "$marker" docs/control/DATABASE_CONTROL.md; then
+            cat >> docs/control/DATABASE_CONTROL.md <<'EOF'
+
+## 2026-08-08 — PR #1309 — Decision Intelligence Stage 0 first-slice review hardening
+
+- **Environment:** repository branch plus disposable production-shaped PostgreSQL/Supabase verification only. No production migration/backfill applied by PR #1309.
+- **Migrations:** `20260808190000_decision_intel_stage0_first_slice.sql` plus corrective `20260808203000_decision_intel_stage0_review_fixes.sql`.
+- **Canonical objects:** existing `source_registry` and `source_snapshots` remain acquisition authority; `hv_evidence` remains private evidence storage; `public.jurisdictions` remains jurisdiction identity; Stage 0 adds only evidence references, assertions, events, assessments/versions, recommendations and allowlisted dossier/route projections.
+- **RLS/exposure:** raw Stage 0 tables remain staff-controlled. Authenticated Intel/operator product access is through allowlisted security-invoker projections. `anon` dossier/route-map access is revoked. Raw `hv_evidence` and Marketplace-private fields remain outside the product projection.
+- **Review hardening:** one snapshot may support multiple signal evidence refs; legacy `source_signal_id` is retained as a tombstone lineage key after upstream deletion; confidence is constrained to 0–1; new events default to `needs_review`; assessment versions are append-only; rejected/superseded assertions and recommendations do not appear in product dossiers; evidence relationship semantics including `contradicts` are projected; clustered source signals resolve through one canonical event route map.
+- **Backward compatibility:** `public.signals`, Pipeline B and `/signals` remain upstream/existing surfaces. No existing intelligence table is dropped or rewritten.
+- **Rollback/forward fix:** production remains unapplied. Before production activation, both migrations must pass the production-shaped verification gate. If an applied defect is found later, use a reviewed forward migration; do not rewrite the migration ledger.
+- **Verification:** GitHub workflow `Decision Intel Stage 0 Review Fixes Verify` applies both migrations in order and tests multi-signal snapshot lineage, durable legacy refs, probability constraints, event defaults, append-only versions, display-state filtering, contradiction projection, route aliases, anon denial, authenticated Intel-tier reads and raw-evidence leakage. Standard CI, Branch Verification, Type Check, Mobile Command visual and the five-width dossier Playwright gate must also be green on the final head.
+- **Human approval:** implementation/review-fix scope explicitly authorized by Tyler in PR #1309 conversation. Merge and production migration remain separately gated.
+EOF
+          fi
+
+          if ! grep -Fq "$marker" docs/control/EVIDENCE_LOG.md; then
+            cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
+
+## 2026-08-08 — PR #1309 — Decision Intelligence Stage 0 first-slice review hardening
+
+- **Scope:** first-slice only: `Source/Snapshot → Evidence ref → Assertion → Event → Assessment → Recommendation → authenticated dossier`. No Stage 2–8 capability was started.
+- **Production status:** no PR #1309 Decision Intelligence migration/backfill applied to production; PR remains unmerged during verification.
+- **Pre-fix evidence:** Decision Intel First Slice Verify run `31276893684` was green for the original migration and five required dossier widths, but review identified additional first-slice correctness/control defects that required a corrective migration and application fixes before merge.
+- **Review defects addressed:** security-invoker grants confirmed; exact signal lineage retained; multi-signal-per-snapshot schema supported; cluster-member route aliases added; fallback limited to the actual `api.signals` projection with a separate IA compatibility path; legacy review no longer supplies `Last verified`; rejected/superseded assertion/recommendation states filtered; assessment versions made append-only; evidence relationships/contradictions projected; event default changed to `needs_review`; confidence constrained to probability range; mobile rows made block/grid-safe and stopped claiming a posture unless canonical; dashboard return context preserved; desktop gains direct dossier reachability; verification trust copy centralized.
+- **Required final proof:** both migrations applied in order against disposable production-shaped PostgreSQL; zero migration-created `verified` records; event/assertion/evidence and assessment/recommendation cardinality; anon denial; Intel/operator dossier access; private evidence/Marketplace leakage protection; five dossier screenshots at 320×700, 375×812, 390×844, 430×932 and 1440×1000; full current-head PR workflow matrix green.
+- **Evidence status:** pending final current-head workflow rerun. This row records the required proof contract; final run IDs/results are to be posted on PR #1309 before GO.
+EOF
+          fi
+
+          git rm .github/workflows/decision-intel-control-doc-append.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md
+          git commit -m 'docs(control): record decision intel Stage 0 evidence'
+          git push origin HEAD:build/decision-intel-stage0-first-slice
