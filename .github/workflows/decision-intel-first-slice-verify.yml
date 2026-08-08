@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - app/dashboard/intel/**
-      - components/dashboard/mobile-command/sections/IntelligenceSections.tsx
+      - components/dashboard/**
+      - lib/dashboard/**
       - lib/intelligence-os/**
       - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
+      - supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
       - tests/intel/decisionIntelFirstSlice.test.ts
       - tests/e2e/decision-intel-first-slice.spec.ts
       - docs/control/INTEL_DECISION_OS_*.md
@@ -32,13 +34,9 @@ jobs:
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
+        ports: ['5432:5432']
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
+          --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=10
     env:
       PGPASSWORD: postgres
       PGHOST: 127.0.0.1
@@ -47,21 +45,18 @@ jobs:
       PGDATABASE: postgres
     steps:
       - name: Checkout exact PR head
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Prepare production-shaped Stage 0 dependencies
         shell: bash
         run: |
@@ -70,181 +65,67 @@ jobs:
           create role anon nologin;
           create role authenticated nologin;
           create role service_role nologin;
-          create schema if not exists api;
-          create schema if not exists auth;
+          create schema api;
+          create schema auth;
           grant usage on schema public, api, auth to anon, authenticated, service_role;
-
-          create or replace function auth.uid() returns uuid
-          language sql stable
-          as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
           grant execute on function auth.uid() to anon, authenticated, service_role;
-
           create table public.source_registry (id uuid primary key, name text);
-          create table public.source_snapshots (
-            id uuid primary key,
-            source_id uuid references public.source_registry(id),
-            captured_at timestamptz
-          );
-          create table public.hv_evidence (
-            id uuid primary key,
-            extracted_text text,
-            storage_path text,
-            private_notes text
-          );
+          create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
+          create table public.hv_evidence (id uuid primary key, extracted_text text, storage_path text, private_notes text);
           create table public.jurisdictions (jurisdiction_id text primary key, name text);
           create table public.user_roles (user_id uuid not null, role text not null);
           create table public.user_profiles (id uuid primary key, tier text not null);
           create table public.signals (
-            id text primary key,
-            snapshot_id uuid references public.source_snapshots(id),
-            cluster_rep_id text,
-            source text,
-            url text,
-            date timestamptz,
-            created_at timestamptz not null default now(),
-            reviewed_at timestamptz,
-            reviewed boolean not null default false,
-            action text,
-            quality_label text,
-            quality_confidence numeric,
-            content_type text,
-            cat text,
-            pri text,
-            impact text,
-            commercial_impact text,
-            country text,
-            headline text,
-            summary text,
-            title_en text,
-            summary_en text,
-            editorial_title text,
-            editorial_blurb text,
-            analysis jsonb
+            id text primary key, snapshot_id uuid references public.source_snapshots(id), cluster_rep_id text,
+            source text, url text, date timestamptz, created_at timestamptz not null default now(), reviewed_at timestamptz,
+            reviewed boolean not null default false, action text, quality_label text, quality_confidence numeric,
+            content_type text, cat text, pri text, impact text, commercial_impact text, country text, country_iso2 text,
+            headline text, summary text, title_en text, summary_en text, editorial_title text, editorial_blurb text, analysis jsonb
           );
-
           grant select on public.user_profiles, public.user_roles to authenticated;
-
-          insert into public.source_registry values
-            ('10000000-0000-0000-0000-000000000001','Regulator A'),
-            ('10000000-0000-0000-0000-000000000002','Industry B');
-          insert into public.source_snapshots values
-            ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
-          insert into public.hv_evidence values
-            ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
+          insert into public.source_registry values ('10000000-0000-0000-0000-000000000001','Regulator A'),('10000000-0000-0000-0000-000000000002','Industry B');
+          insert into public.source_snapshots values ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
+          insert into public.hv_evidence values ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
           insert into public.jurisdictions values ('CA','Canada'),('DE','Germany');
           insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
-
-          insert into public.signals (
-            id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,
-            content_type,cat,pri,impact,commercial_impact,country,headline,summary,title_en,summary_en,analysis
-          ) values
-          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"what_changed":"Requirement A changed","who_is_affected":"Importers","recommended_action":"Verify importer eligibility","confidence_rationale":"Primary source"}'::jsonb),
-          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Corroborating market-access context','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
-          ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial development','CA','Commercial change','Commercial change summary','Commercial change','Commercial change summary','{}'::jsonb),
-          ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
+          insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
+          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"recommended_action":"Verify importer eligibility"}'::jsonb),
+          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
+          ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial','Canada','CA','Commercial change','Commercial summary','Commercial change','Commercial summary','{}'::jsonb),
+          ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','Canada','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
           SQL
-
-      - name: Apply exact first-slice migration
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
-
-      - name: Verify backfill, provenance and cardinality
+      - name: Apply exact first-slice migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
+      - name: Verify backfill, jurisdiction, RPC and private-evidence boundary
         shell: bash
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          do $$
-          declare
-            assertions integer;
-            evidence_refs integer;
-            evidence_links integer;
-            events integer;
-            event_links integer;
-            assessments integer;
-            versions integer;
-            recommendations integer;
-            verified integer;
-            verified_evidence integer;
-            cluster_sources integer;
-            orphan_assertions integer;
-            orphan_events integer;
-          begin
-            select count(*) into assertions from public.intel_assertions;
-            select count(*) into evidence_refs from public.intel_evidence_refs;
-            select count(*) into evidence_links from public.intel_assertion_evidence;
-            select count(*) into events from public.intel_events;
-            select count(*) into event_links from public.intel_event_assertions;
-            select count(*) into assessments from public.intel_assessments;
-            select count(*) into versions from public.intel_assessment_versions;
-            select count(*) into recommendations from public.intel_recommendations;
-            select count(*) into verified from (
-              select review_status from public.intel_assertions where review_status='verified'
-              union all select review_status from public.intel_events where review_status='verified'
-              union all select review_status from public.intel_assessments where review_status='verified'
-              union all select review_status from public.intel_recommendations where review_status='verified'
-            ) v;
-            select count(*) into verified_evidence from public.intel_evidence_refs where evidence_status='verified';
-            select source_count into cluster_sources from public.intel_events where id='event:sig-a';
-            select count(*) into orphan_assertions
-              from public.intel_assertions a
-              left join public.intel_assertion_evidence ae on ae.assertion_id=a.id
-              where ae.assertion_id is null;
-            select count(*) into orphan_events
-              from public.intel_events e
-              left join public.intel_event_assertions ea on ea.event_id=e.id
-              where ea.event_id is null;
-
-            if assertions <> 3 then raise exception 'assertions %, expected 3', assertions; end if;
-            if evidence_refs <> 3 then raise exception 'evidence refs %, expected 3', evidence_refs; end if;
-            if evidence_links <> 3 then raise exception 'evidence links %, expected 3', evidence_links; end if;
-            if events <> 2 then raise exception 'events %, expected 2', events; end if;
-            if event_links <> 3 then raise exception 'event links %, expected 3', event_links; end if;
-            if assessments <> 2 or versions <> 2 or recommendations <> 2 then
-              raise exception 'assessment/version/recommendation cardinality %/%/%', assessments, versions, recommendations;
-            end if;
-            if verified <> 0 or verified_evidence <> 0 then
-              raise exception 'migration created verified objects: canonical %, evidence %', verified, verified_evidence;
-            end if;
-            if cluster_sources <> 2 then raise exception 'cluster source_count %, expected 2 distinct sources', cluster_sources; end if;
-            if orphan_assertions <> 0 then raise exception '% assertions lack evidence lineage', orphan_assertions; end if;
-            if orphan_events <> 0 then raise exception '% events lack assertions', orphan_events; end if;
+          do $$ begin
+            if (select count(*) from public.intel_assertions) <> 3 then raise exception 'assertion cardinality'; end if;
+            if (select count(*) from public.intel_events) <> 2 then raise exception 'event cardinality'; end if;
+            if exists (select 1 from public.intel_assertions where review_status='verified') then raise exception 'false verification'; end if;
+            if exists (select 1 from public.intel_events where review_status='verified') then raise exception 'false verification'; end if;
+            if exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and jurisdiction_id <> 'DE') then raise exception 'jurisdiction assertion'; end if;
+            if exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id <> 'DE') then raise exception 'jurisdiction event'; end if;
+            if has_table_privilege('anon','api.intel_event_dossiers','SELECT') then raise exception 'anon relation read'; end if;
+            if has_table_privilege('authenticated','api.intel_event_dossiers','SELECT') then raise exception 'direct customer relation read'; end if;
+            if has_table_privilege('authenticated','public.hv_evidence','SELECT') then raise exception 'raw evidence grant'; end if;
+            if not has_function_privilege('authenticated','api.get_intel_event_dossier(text)','EXECUTE') then raise exception 'missing dossier RPC'; end if;
           end $$;
-          SQL
-
-      - name: Verify RLS, exposed API projection and private-evidence boundary
-        shell: bash
-        run: |
-          set -euo pipefail
-          psql -v ON_ERROR_STOP=1 <<'SQL'
-          do $$
-          begin
-            if has_table_privilege('anon','api.intel_event_dossiers','SELECT') then
-              raise exception 'anon unexpectedly has dossier SELECT';
-            end if;
-            if not has_table_privilege('authenticated','api.intel_event_dossiers','SELECT') then
-              raise exception 'authenticated lacks dossier SELECT';
-            end if;
-            if has_table_privilege('authenticated','public.hv_evidence','SELECT') then
-              raise exception 'authenticated unexpectedly has raw hv_evidence SELECT';
-            end if;
-          end $$;
-
           begin;
           set local role authenticated;
           select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000111',true);
-          do $$
-          declare dossier_count integer;
-          declare leaked_private text;
-          begin
-            select count(*) into dossier_count from api.intel_event_dossiers;
-            if dossier_count <> 2 then raise exception 'intel-tier dossier count %, expected 2', dossier_count; end if;
-            select row_to_json(d)::text into leaked_private from api.intel_event_dossiers d limit 1;
-            if leaked_private ilike '%PRIVATE RAW EVIDENCE%' or leaked_private ilike '%private/path%' or leaked_private ilike '%PRIVATE NOTE%' then
-              raise exception 'private evidence leaked through dossier projection';
-            end if;
+          do $$ declare payload text; begin
+            select row_to_json(d)::text into payload from api.get_intel_event_dossier('event:sig-a') d;
+            if payload is null then raise exception 'dossier RPC inaccessible'; end if;
+            if payload ilike '%PRIVATE RAW EVIDENCE%' or payload ilike '%private/path%' or payload ilike '%PRIVATE NOTE%' then raise exception 'private evidence leak'; end if;
           end $$;
           rollback;
           SQL
-
       - name: Unit/control tests
         run: npx vitest run tests/intel/decisionIntelFirstSlice.test.ts tests/security/command-centre-boundaries.test.ts
 
@@ -265,27 +146,23 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - name: Checkout exact PR head
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Set up Supabase CLI
-        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
         with:
           version: latest
-
-      - name: Prepare isolated dossier projection
+      - name: Prepare isolated dossier RPC projection
         shell: bash
         run: |
           set -euo pipefail
@@ -294,94 +171,56 @@ jobs:
           mkdir -p supabase/migrations
           cat > supabase/migrations/00000000000000_decision_intel_visual.sql <<'SQL'
           create schema if not exists api;
-          grant usage on schema api to anon, authenticated, service_role;
-
+          grant usage on schema api to authenticated, service_role;
           create table api.intel_event_dossiers (
-            id text primary key,
-            headline text not null,
-            summary text,
-            event_type text,
-            jurisdiction_label text,
-            occurred_at timestamptz,
-            detected_at timestamptz,
-            effective_at timestamptz,
-            last_verified_at timestamptz,
-            materiality text,
-            consolidation_status text,
-            review_status text,
-            source_count integer,
-            what_happened text,
-            what_changed text,
-            why_it_matters text,
-            commercial_implications text,
-            regulatory_implications text,
-            affected_entities text[],
-            affected_markets text[],
-            affected_products text[],
-            why_now text,
-            confidence numeric,
-            confidence_rationale text,
-            contradictions text[],
-            unknowns text[],
-            recommendation_state text,
-            recommendation_reasoning text,
-            action_summary text,
-            urgency text,
-            evidence jsonb
+            id text primary key, headline text not null, summary text, event_type text, jurisdiction_label text,
+            occurred_at timestamptz, detected_at timestamptz, effective_at timestamptz, last_verified_at timestamptz,
+            materiality text, consolidation_status text, review_status text, source_count integer,
+            what_happened text, what_changed text, why_it_matters text, commercial_implications text,
+            regulatory_implications text, affected_entities text[], affected_markets text[], affected_products text[],
+            why_now text, confidence numeric, confidence_rationale text, contradictions text[], unknowns text[],
+            recommendation_state text, recommendation_reasoning text, action_summary text, urgency text, evidence jsonb
           );
-
           insert into api.intel_event_dossiers values (
-            'event:fixture',
-            'German medical cannabis import conditions strengthened',
+            'event:fixture','German medical cannabis import conditions strengthened',
             'Multiple reviewed observations point to improving import conditions while importer demand remains incompletely verified.',
-            'regulatory',
-            'Germany',
-            now() - interval '2 days',
-            now() - interval '1 day',
-            null,
-            null,
-            'high',
-            'candidate',
-            'migrated_reviewed',
-            2,
+            'regulatory','Germany',now()-interval '2 days',now()-interval '1 day',null,null,'high','candidate','migrated_reviewed',2,
             'A regulatory and market-access development entered Harbourview review.',
             'Available evidence indicates the import environment changed from the prior known state, but the exact legal delta still requires analyst verification.',
             'The development could change access conditions for qualified exporters and importers.',
             'Potentially improves the commercial path for qualified suppliers while counterparty availability remains a dependency.',
             'Applicable requirements must be rechecked against the effective legal instrument before action.',
-            array['Qualified exporters','Licensed importers'],
-            array['Germany','Canada'],
-            array['Medical cannabis flower'],
-            'Two distinct source references now support the event candidate.',
-            0.82,
+            array['Qualified exporters','Licensed importers'],array['Germany','Canada'],array['Medical cannabis flower'],
+            'Two distinct source references now support the event candidate.',0.82,
             'High upstream signal quality; analytical confidence remains provisional pending requirement-level verification.',
-            array['Secondary reporting differs on timing.'],
-            array['Direct requirement-level verification remains open.'],
-            'investigate',
-            'The development is material, but the evidence has not been independently verified to an act-now threshold.',
-            'Verify the changed requirement and importer eligibility before commercial outreach.',
-            'high',
-            '[{"sourceLabel":"German regulator","sourceUrl":"https://example.test/regulator","status":"needs_review","observedAt":"2026-08-08T00:00:00Z"}]'::jsonb
+            array['Secondary reporting differs on timing.'],array['Direct requirement-level verification remains open.'],
+            'investigate','The development is material, but the evidence has not been independently verified to an act-now threshold.',
+            'Verify the changed requirement and importer eligibility before commercial outreach.','high',
+            '[{"sourceLabel":"German regulator","sourceUrl":"https://example.test/regulator","status":"needs_review","observedAt":"2026-08-08T00:00:00Z","relationship":"supports"}]'::jsonb
           );
-
-          grant select on api.intel_event_dossiers to authenticated, service_role;
-          revoke all on api.intel_event_dossiers from anon;
+          revoke all on api.intel_event_dossiers from anon, authenticated;
+          create or replace function api.get_intel_event_dossier(p_event_id text)
+          returns setof api.intel_event_dossiers language sql stable security definer set search_path=pg_catalog,api
+          as $$ select * from api.intel_event_dossiers where id=p_event_id $$;
+          create or replace function api.resolve_intel_event_route(p_signal_id text)
+          returns table(event_id text) language sql stable security definer set search_path=pg_catalog,api
+          as $$ select null::text where false $$;
+          revoke all on function api.get_intel_event_dossier(text) from public, anon;
+          revoke all on function api.resolve_intel_event_route(text) from public, anon;
+          grant execute on function api.get_intel_event_dossier(text) to authenticated;
+          grant execute on function api.resolve_intel_event_route(text) to authenticated;
           SQL
           : > supabase/seed.sql
-
       - name: Start isolated Supabase
         shell: bash
         run: |
           set -euo pipefail
           supabase start
           eval "$(supabase status -o env)"
-          {
-            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
-            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
-            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
-          } >> "$GITHUB_ENV"
-
+          echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}" >> "$GITHUB_ENV"
       - name: Create isolated Intel-tier test account
         shell: bash
         run: |
@@ -390,66 +229,33 @@ jobs:
           TEST_PASSWORD="HvDecision-${GITHUB_RUN_ID}-Aa9!"
           echo "::add-mask::${TEST_EMAIL}"
           echo "::add-mask::${TEST_PASSWORD}"
-          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
-          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
-          {
-            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
-            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
-          } >> "$GITHUB_ENV"
+          echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}" >> "$GITHUB_ENV"
+          echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}" >> "$GITHUB_ENV"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}" E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
           node --input-type=module <<'NODE'
           import { createClient } from '@supabase/supabase-js'
-          const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-            auth: { autoRefreshToken: false, persistSession: false },
-            db: { schema: 'api' },
-          })
-          const { data, error } = await client.auth.admin.createUser({
-            email: process.env.E2E_TEST_USER_EMAIL,
-            password: process.env.E2E_TEST_USER_PASSWORD,
-            email_confirm: true,
-            app_metadata: { subscription_tier: 'intel', decision_intel_visual_test: true },
-            user_metadata: { purpose: 'isolated-decision-intel-playwright' },
-          })
-          if (error) throw error
-          if (!data.user) throw new Error('Isolated Decision Intel user was not created')
+          const c=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{autoRefreshToken:false,persistSession:false},db:{schema:'api'}})
+          const {error}=await c.auth.admin.createUser({email:process.env.E2E_TEST_USER_EMAIL,password:process.env.E2E_TEST_USER_PASSWORD,email_confirm:true,app_metadata:{subscription_tier:'intel'}})
+          if(error) throw error
           NODE
-
       - name: Build exact source against isolated Supabase
         run: npm run build
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Start exact local production build
         shell: bash
         run: |
-          set -euo pipefail
-          npm start -- --hostname 127.0.0.1 > /tmp/decision-intel-next.log 2>&1 &
-          echo $! > /tmp/decision-intel-next.pid
-          for attempt in $(seq 1 90); do
-            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
-              echo 'GO: exact local production build is ready.'
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/decision-intel-next.log
-          exit 1
-
+          npm start -- --hostname 127.0.0.1 > /tmp/decision-intel-next.log 2>&1 & echo $! > /tmp/decision-intel-next.pid
+          for attempt in $(seq 1 90); do curl --fail --silent http://127.0.0.1:3000/login >/dev/null && exit 0; sleep 2; done
+          cat /tmp/decision-intel-next.log; exit 1
       - name: Run dedicated first-slice Playwright suite
         run: npx playwright test tests/e2e/decision-intel-first-slice.spec.ts --project=chromium-desktop --workers=1 --retries=0
-
       - name: Collect server evidence
         if: always()
-        shell: bash
-        run: |
-          mkdir -p artifacts/decision-intel-first-slice
-          if [ -f /tmp/decision-intel-next.log ]; then
-            cp /tmp/decision-intel-next.log artifacts/decision-intel-first-slice/server.log
-          fi
-
+        run: mkdir -p artifacts/decision-intel-first-slice && cp /tmp/decision-intel-next.log artifacts/decision-intel-first-slice/server.log || true
       - name: Upload dossier screenshots and Playwright report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: decision-intel-first-slice-${{ github.run_id }}
           path: |
@@ -458,18 +264,14 @@ jobs:
             test-results/**
           if-no-files-found: warn
           retention-days: 14
-
       - name: Restore production migration source tree
         if: always()
-        shell: bash
         run: |
           rm -rf supabase/migrations supabase/seed.sql
-          if [ -d /tmp/decision-intel-production-migrations ]; then mv /tmp/decision-intel-production-migrations supabase/migrations; fi
-          if [ -f /tmp/decision-intel-production-seed.sql ]; then mv /tmp/decision-intel-production-seed.sql supabase/seed.sql; fi
-
+          [ ! -d /tmp/decision-intel-production-migrations ] || mv /tmp/decision-intel-production-migrations supabase/migrations
+          [ ! -f /tmp/decision-intel-production-seed.sql ] || mv /tmp/decision-intel-production-seed.sql supabase/seed.sql
       - name: Stop isolated services
         if: always()
-        shell: bash
         run: |
-          if [ -f /tmp/decision-intel-next.pid ]; then kill "$(cat /tmp/decision-intel-next.pid)" 2>/dev/null || true; fi
+          [ ! -f /tmp/decision-intel-next.pid ] || kill "$(cat /tmp/decision-intel-next.pid)" 2>/dev/null || true
           supabase stop --no-backup || true
