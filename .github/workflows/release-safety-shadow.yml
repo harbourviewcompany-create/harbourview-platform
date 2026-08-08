@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true
+    env:
+      RELEASE_EVIDENCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      RELEASE_WORKFLOW_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,7 +39,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: release-safety-shadow-${{ github.sha }}
+          name: release-safety-shadow-${{ env.RELEASE_EVIDENCE_SHA }}
           path: artifacts/release-safety/
           retention-days: 30
           if-no-files-found: warn
