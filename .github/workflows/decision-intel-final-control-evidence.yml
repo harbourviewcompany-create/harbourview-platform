@@ -1,0 +1,59 @@
+name: Decision Intel Final Control Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/decision-intel-final-control-evidence.yml
+
+permissions:
+  contents: write
+
+jobs:
+  append-control-evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Append final Decision Intelligence control evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='PR #1309 — final first-slice review boundary correction'
+          if ! grep -Fq "$marker" docs/control/DATABASE_CONTROL.md; then
+            cat >> docs/control/DATABASE_CONTROL.md <<'EOF'
+
+## 2026-08-08 — PR #1309 — final first-slice review boundary correction
+
+- **Supersedes the earlier PR #1309 exposure bullet where inconsistent:** canonical Decision Intelligence base tables remain staff-only through existing `user_roles` RLS. Authenticated product-tier Intel/operator dossier reads no longer depend on customer SELECT privileges over canonical base tables.
+- **Customer execution boundary:** direct authenticated/anon SELECT is revoked from `public.intel_event_dossiers`, `public.intel_event_route_map`, `api.intel_event_dossiers`, and `api.intel_event_route_map`. `api.get_intel_event_dossier(text)` and `api.resolve_intel_event_route(text)` are the narrow `SECURITY DEFINER` product boundary; each explicitly requires `auth.uid()` plus `user_profiles.tier IN ('intel','operator')` and returns only allowlisted dossier/routing fields. Raw `hv_evidence`, private storage paths, private notes and Marketplace-private data are never returned.
+- **Staff DML:** authenticated SQL privileges exist only so the existing staff RLS policies can govern admin/operator/analyst reads and writes. Product-tier users without a qualifying `user_roles` row receive no canonical base rows. `intel_assessment_versions` remains SELECT/INSERT-only for staff and is additionally protected by an update/delete rejection trigger.
+- **Canonical suppression:** the route map is an ownership map independent of display state. If a canonical event exists but its assertion/assessment/recommendation state suppresses the dossier, legacy compatibility must return no dossier rather than resurrecting the upstream signal.
+- **Signal routing:** dashboard rows preserve their native feed IDs. The route RPC resolves exact Pipeline-B IDs first and the `rs-<id>` regulatory mirror alias second, preventing double-prefixing and reviewed-feed 404s.
+- **Jurisdiction identity:** the corrective migration consumes `public.signals.country_iso2` only when it resolves to an existing `public.jurisdictions.jurisdiction_id`; event identity is filled only when linked assertions agree on one canonical jurisdiction. Read-only production inspection on 2026-08-08 confirmed `signals.country_iso2` exists but `public.jurisdictions` currently contains zero rows, so the migration deliberately leaves canonical IDs null rather than inventing registry data.
+- **Production status:** neither Decision Intelligence migration nor backfill has been applied to production. Production activation remains a separate operator decision after merge/readiness evidence.
+EOF
+          fi
+          if ! grep -Fq "$marker" docs/control/EVIDENCE_LOG.md; then
+            cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
+
+## 2026-08-08 — PR #1309 — final first-slice review boundary correction
+
+- **Scope:** Decision Intelligence first slice only. No hypotheses, scenarios, market-access engine, entity-master stage or later Decision Intelligence stage was started.
+- **Late material review defects:** native reviewed-feed ID routing, staff DML privilege/RLS alignment, suppressed-canonical fallback resurrection, customer canonical-base-table exposure, and canonical jurisdiction-ID population were classified **VALID** and corrected before final review closure.
+- **Security correction:** customer dossier/route access now uses tier-gated `SECURITY DEFINER` RPCs; direct customer relation reads are revoked; canonical base-table product-tier policies are removed; staff read/write access remains RLS-gated; raw evidence remains inaccessible through the product boundary.
+- **Suppression correction:** canonical ownership persists even when display state rejects/supersedes an item, and the loader returns null instead of falling back to legacy data when canonical ownership exists but the dossier is suppressed.
+- **Jurisdiction evidence:** read-only production inspection confirmed `public.signals.country_iso2` is present. The canonical `public.jurisdictions` table currently has zero rows, so no production jurisdiction identity can truthfully be assigned yet; the corrective migration fills IDs only when a canonical registry row exists and never fabricates one.
+- **Production status:** no Decision Intelligence DDL or backfill was applied to production during this review pass.
+- **Final proof location:** exact current-head workflow/run IDs, screenshot artifact IDs, review-thread dispositions and final GO/HOLD are recorded on PR #1309 because any static-doc commit necessarily precedes the CI run that verifies that same commit.
+EOF
+          fi
+          git rm .github/workflows/decision-intel-final-control-evidence.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md
+          git commit -m 'docs(control): record final Decision Intel review boundary'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
