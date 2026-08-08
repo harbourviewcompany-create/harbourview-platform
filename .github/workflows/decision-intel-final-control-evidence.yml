@@ -1,32 +1,29 @@
 name: Decision Intel Final Control Evidence
 
-on:
-  pull_request:
-    branches: [main]
-    paths:
-      - .github/workflows/decision-intel-final-control-evidence.yml
+on: push
 
 permissions:
   contents: write
 
 jobs:
   append-control-evidence:
+    if: github.ref_name == 'build/decision-intel-stage0-first-slice'
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout PR head
+      - name: Checkout branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: build/decision-intel-stage0-first-slice
           fetch-depth: 0
-      - name: Append final Decision Intelligence control evidence
+      - name: Append control evidence and remove helper
         shell: bash
         run: |
           set -euo pipefail
-          marker='PR #1309 — final first-slice review boundary correction'
+          marker='PR #1309 - final first-slice review boundary correction'
           if ! grep -Fq "$marker" docs/control/DATABASE_CONTROL.md; then
             cat >> docs/control/DATABASE_CONTROL.md <<'EOF'
 
-## 2026-08-08 — PR #1309 — final first-slice review boundary correction
+## 2026-08-08 - PR #1309 - final first-slice review boundary correction
 
 - **Supersedes the earlier PR #1309 exposure bullet where inconsistent:** canonical Decision Intelligence base tables remain staff-only through existing `user_roles` RLS. Authenticated product-tier Intel/operator dossier reads no longer depend on customer SELECT privileges over canonical base tables.
 - **Customer execution boundary:** direct authenticated/anon SELECT is revoked from `public.intel_event_dossiers`, `public.intel_event_route_map`, `api.intel_event_dossiers`, and `api.intel_event_route_map`. `api.get_intel_event_dossier(text)` and `api.resolve_intel_event_route(text)` are the narrow `SECURITY DEFINER` product boundary; each explicitly requires `auth.uid()` plus `user_profiles.tier IN ('intel','operator')` and returns only allowlisted dossier/routing fields. Raw `hv_evidence`, private storage paths, private notes and Marketplace-private data are never returned.
@@ -40,7 +37,7 @@ EOF
           if ! grep -Fq "$marker" docs/control/EVIDENCE_LOG.md; then
             cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
 
-## 2026-08-08 — PR #1309 — final first-slice review boundary correction
+## 2026-08-08 - PR #1309 - final first-slice review boundary correction
 
 - **Scope:** Decision Intelligence first slice only. No hypotheses, scenarios, market-access engine, entity-master stage or later Decision Intelligence stage was started.
 - **Late material review defects:** native reviewed-feed ID routing, staff DML privilege/RLS alignment, suppressed-canonical fallback resurrection, customer canonical-base-table exposure, and canonical jurisdiction-ID population were classified **VALID** and corrected before final review closure.
@@ -56,4 +53,4 @@ EOF
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md
           git commit -m 'docs(control): record final Decision Intel review boundary'
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin HEAD:build/decision-intel-stage0-first-slice
