@@ -52,6 +52,7 @@ export function mapPublicToDashboardSignal(s: PublicRegulatorySignal): Dashboard
     commercialImpact: s.public_implication,
     sourceLabel:      s.regulator_name || 'Harbourview Intelligence',
     flag:             flagEmoji(s.country_code),
+    decisionIntelEventId: `event:rs-${s.id}`,
     contentType:      'signal',
     corroborationCount: s.corroboration_count,
     translated: s.translated,
