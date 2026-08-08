@@ -35,11 +35,40 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).not.toContain("reviewStatus: 'verified'")
   })
 
+  it('uses exact signal lineage instead of publisher/url joins for legacy evidence', () => {
+    expect(migration).toContain('source_signal_id text references public.signals(id)')
+    expect(migration).toContain('intel_evidence_refs_signal_uq')
+    expect(migration).toContain('join public.intel_evidence_refs e on e.source_signal_id = a.source_signal_id')
+    expect(migration).not.toContain("e.source_label = nullif(s.source,'') and e.source_url is not distinct from nullif(s.url,'')")
+  })
+
+  it('counts distinct source references rather than raw clustered rows', () => {
+    expect(migration).toContain("count(distinct coalesce(nullif(url,''), nullif(source,''), id))")
+    expect(migration).toContain('distinct source references are associated with this event candidate')
+    expect(migration).not.toContain('independent observations are associated with this event candidate')
+  })
+
   it('preserves private evidence boundaries and excludes anonymous dossier access', () => {
     expect(migration).toContain('public.hv_evidence')
     expect(migration).toContain("access_classification = 'intel'")
     expect(migration).toContain('revoke all on public.intel_event_dossiers from anon')
+    expect(migration).toContain('revoke all on api.intel_event_dossiers from anon')
     expect(dossierPage).toContain("requireAuth('signals')")
+  })
+
+  it('publishes only the allowlisted dossier through the production api schema', () => {
+    expect(migration).toContain('create or replace view api.intel_event_dossiers')
+    expect(migration).toContain('as select * from public.intel_event_dossiers')
+    expect(migration).toContain('grant select on api.intel_event_dossiers to authenticated')
+    expect(migration).not.toContain('api.intel_evidence_refs')
+    expect(migration).not.toContain('api.intel_assertions')
+    expect(migration).not.toContain('api.intel_events')
+  })
+
+  it('grants authenticated readers the RLS-protected base relations required by security_invoker', () => {
+    expect(migration).toContain('public.intel_recommendations to authenticated')
+    expect(migration).toContain('create policy intel_events_tier_read')
+    expect(migration).toContain('create policy intel_evidence_refs_tier_read')
   })
 
   it('makes mobile intelligence tappable and exposes a decision dossier', () => {
