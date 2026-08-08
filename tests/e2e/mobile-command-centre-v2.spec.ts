@@ -58,6 +58,28 @@ function isGenericResourceConsoleError(message: string) {
   return message.includes('Failed to load resource: the server responded with a status of')
 }
 
+/**
+ * Collapse a defect list into a few `×N` lines suitable for a CI log.
+ *
+ * The 1440px pass walks every Command Centre page, so a single endpoint that
+ * fails on load shows up ~38 times. Printing all of them buries the signal and
+ * printing none of them (what this gate did before) leaves the log useless.
+ * Deduplicating first means one broken endpoint reads as one line with a count,
+ * which is also what distinguishes "one endpoint, every page" from "many
+ * endpoints, one page" — the two failure shapes need different fixes.
+ */
+function summarizeDefects(label: string, entries: string[], limit = 8) {
+  if (!entries.length) return []
+  const counts = new Map<string, number>()
+  for (const entry of entries) counts.set(entry, (counts.get(entry) ?? 0) + 1)
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  const lines = ranked
+    .slice(0, limit)
+    .map(([entry, count]) => `  ${label}${count > 1 ? ` ×${count}` : ''}: ${entry}`)
+  if (ranked.length > limit) lines.push(`  … ${ranked.length - limit} more distinct ${label}s`)
+  return lines
+}
+
 function isExpectedLocalDegradation(response: FailedResponse) {
   if (!IS_ISOLATED_LOCAL_RUN || response.status >= 500) return false
   return (
@@ -476,8 +498,29 @@ test.describe('Command Centre authenticated responsive verification', () => {
         }
 
         if (pageErrors.length || consoleErrors.length || unexpectedFailedResponses.length) {
+          // Name the defects, don't just count them.
+          //
+          // This used to throw counts alone: "1 unexpected failed responses".
+          // The offending requests were written to the evidence JSON, which
+          // only exists inside the uploaded artifact — so reading a red run
+          // meant downloading and unzipping 30MB before you could learn which
+          // endpoint broke, and the CI log itself said nothing actionable. The
+          // whole point of a gate is that its failure message tells you what to
+          // fix. Everything below is already sanitized (see sanitizeDiagnostic
+          // and sanitizeSearchForEvidence) and the surrounding catch sanitizes
+          // the assembled message again before it reaches the log.
           throw new Error(
-            `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
+            [
+              `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
+              ...summarizeDefects('page error', pageErrors),
+              ...summarizeDefects('console error', consoleErrors),
+              ...summarizeDefects(
+                'failed response',
+                unexpectedFailedResponses.map(
+                  entry => `${entry.status} ${entry.method} ${entry.pathname}${entry.search}`,
+                ),
+              ),
+            ].join('\n'),
           )
         }
         report.result = 'pass'

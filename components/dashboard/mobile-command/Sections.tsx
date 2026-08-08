@@ -12,6 +12,8 @@ export {
   PersonalBriefingSection,
   SearchSection,
   EducationSection,
+  RegulatoryWatchSection,
+  LocalIntelSection,
 } from './sections/IntelligenceSections'
 
 export {

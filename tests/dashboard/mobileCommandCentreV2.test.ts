@@ -88,7 +88,10 @@ function renderMobileCommand(overrides: Partial<MobileCommandCentreProps> = {}) 
 describe('Mobile Command Centre contracts', () => {
   it('defines one exhaustive desktop target for every mobile section', () => {
     const sectionIds = SECTION_NAV.map(section => section.id)
-    expect(sectionIds).toHaveLength(20)
+    // 22 since Regulatory watch and Local intelligence became mobile sections;
+    // both existed only as desktop pages, reachable on mobile by following a
+    // module-rail link out of the shell.
+    expect(sectionIds).toHaveLength(22)
     expect(new Set(sectionIds).size).toBe(sectionIds.length)
     expect(Object.keys(SECTION_TO_DESKTOP_PAGE).sort()).toEqual([...sectionIds].sort())
 
