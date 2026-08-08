@@ -217,7 +217,7 @@ export async function GET(req: NextRequest) {
         // and re-gating it would just return `null` and re-trigger the same
         // fabricated fallback the repoint exists to remove.
         const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
-          .from('signals')
+          .from('signals_with_quality')
           .select('id, quality_confidence')
           .in('id', sourceSignalIds)
 
@@ -284,7 +284,7 @@ export async function GET(req: NextRequest) {
     // clause `signals_quality` applied that `reviewed = true` does not already
     // subsume — see its doc comment for the measured equivalence.
     let query = supabase
-      .from('signals')
+      .from('signals_with_quality')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
       .or(NOT_REJECTED_OR_FILTER)

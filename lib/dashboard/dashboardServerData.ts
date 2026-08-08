@@ -227,7 +227,7 @@ export async function fetchDashboardSignals(
         const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
         const svc = await createSupabaseServiceClient()
         return svc
-          .from('signals')
+          .from('signals_with_quality')
           .select(CURATED_SELECT)
           .eq('reviewed', true)
           .or(NOT_REJECTED_OR_FILTER)
@@ -239,7 +239,7 @@ export async function fetchDashboardSignals(
         const { createClient } = await import('@/lib/supabase/server')
         const anon = await createClient()
         return anon
-          .from('signals')
+          .from('signals_with_quality')
           .select(CURATED_SELECT)
           .eq('reviewed', true)
           .or(NOT_REJECTED_OR_FILTER)
@@ -371,7 +371,7 @@ export async function fetchDailyDigest(
           const { createSupabaseServiceClient } = await import('@/lib/supabase/server')
           const svc = await createSupabaseServiceClient()
           const { data: signalRows } = await svc
-            .from('signals')
+            .from('signals_with_quality')
             .select('id, quality_confidence, reviewed')
             .in('id', signalIds)
           for (const row of signalRows ?? []) {

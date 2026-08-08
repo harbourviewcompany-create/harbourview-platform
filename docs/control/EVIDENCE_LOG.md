@@ -4613,3 +4613,82 @@ Raw column names such as `export_volume_kg` are now passed through `titleCase`.
 
 The pre-existing fallbacks are kept as the last entry in each key list, so a
 future schema that does supply `display_value` still works.
+
+---
+
+## 2026-08-08 — Signal quality columns exposed on `api` (applied to production)
+
+### Why this was needed
+
+PR #1292 repointed the signal-quality reads from `signals_quality` to `signals`
+and was reported as fixing the curated tier. **It did not.** Those ten columns
+are absent from `api.signals` as well, so the queries moved from one relation
+that lacks them to another that lacks them and went on failing identically. The
+half that would have made it work — exposing the columns on the schema PostgREST
+actually serves — was never written. Recorded plainly because the merged code
+looked correct while failing.
+
+### What was applied
+
+`api.signals_with_quality` — `public.signals` plus `quality_label`,
+`quality_confidence`, `content_type`, `impact`, `title_en`, `summary_en`,
+`lang_detected`, `is_representative`, `cluster_rep_id`, `analysis`.
+
+`api.admin_dashboard_counts` — mirrors the `public` view.
+
+Both `security_invoker = true`, matching every other view in `api`. RLS is
+enabled on `public.signals`, so row visibility still resolves against the calling
+role: this widens which **columns** two already-privileged roles can read, never
+which **rows**.
+
+### The anon decision
+
+`api.signals` is granted to `anon`. Adding the quality columns to it would have
+published internal classifier verdicts and the generated `analysis` payload to
+anonymous callers — a data-exposure change, not a bug fix.
+
+Every consumer of these columns runs as `authenticated` (auth-gated dashboard
+routes on the session client) or `service_role` (cron, synthesis). None runs as
+`anon`. So the columns went on a separate view granted to exactly those two
+roles, and `api.signals` was left untouched.
+
+### Verified against production after apply
+
+```
+signals_with_quality quality columns present     10
+signals_with_quality grantees                    authenticated, postgres, service_role   (no anon)
+admin_dashboard_counts grantees                  authenticated, postgres, service_role   (no anon)
+api.signals quality columns                      0   (unchanged — no anon widening)
+reviewed and not rejected, visible               3,749
+rows carrying quality_confidence                 12,540
+admin_dashboard_counts                           pending_listings 1, pending_buyer_requests 1,
+                                                 new_inquiries 8, pending_matches 0,
+                                                 pending_disclosures 0
+```
+
+### Code
+
+Nine call sites repointed to `signals_with_quality` across
+`app/api/dashboard/digest/route.ts`, `app/api/dashboard/signals/route.ts`,
+`app/api/signals/search/route.ts`, `lib/dashboard/dashboardServerData.ts` and
+`lib/intelligence/jurisdictionSynthesis.ts`.
+
+Reads that use only base columns — the globe feed, the signal embedder, the
+policy-standards tracker and the logistics page — deliberately stay on
+`api.signals`, which remains the anon-readable projection.
+
+### Verification
+
+```
+npm run typecheck   clean
+npx vitest run tests/signals tests/dashboard/   228 passed
+npm run build       success
+npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
+```
+
+### Still open
+
+- `source_registry.metadata` is still not exposed on `api`. Its only consumer is
+  a service-role write path that selects it in a `returning` clause, and
+  `api.source_registry` is anon-granted, so it needs the same restricted
+  treatment rather than being bolted onto this migration.

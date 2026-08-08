@@ -121,7 +121,7 @@ async function keywordSearch(
   limit: number,
 ) {
   let q = supabase
-    .from('signals')
+    .from('signals_with_quality')
     .select(`id,date,cat,headline,summary,country,source,url,tier,created_at,reviewed,quality_label,quality_confidence,content_type,impact,title_en,summary_en,lang_detected`)
     .eq('reviewed', true)
     .or(`headline.ilike.%${query}%,summary.ilike.%${query}%,title_en.ilike.%${query}%,summary_en.ilike.%${query}%`)

@@ -70,7 +70,7 @@ async function fetchSignalsForCountry(
 
   // Primary: curated signals table, last 30 days
   const { data: primary } = await svc
-    .from('signals')
+    .from('signals_with_quality')
     .select(SYNTH_SELECT)
     .eq('reviewed', true)
     .gte('date', cutoff)
@@ -83,7 +83,7 @@ async function fetchSignalsForCountry(
 
   // Fallback: any reviewed signals for this country regardless of date
   const { data: fallback } = await svc
-    .from('signals')
+    .from('signals_with_quality')
     .select(SYNTH_SELECT)
     .eq('reviewed', true)
     .ilike('country', countryName)
