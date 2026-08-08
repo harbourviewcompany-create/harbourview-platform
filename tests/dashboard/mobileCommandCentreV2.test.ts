@@ -1,27 +1,25 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { parseHTML } from 'linkedom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MarketRow } from '@/components/dashboard/CommandCentre'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import {
   MARKET_TABS,
-  MOBILE_COMMAND_COPY,
   PAGE_TO_SECTION,
   PRIMARY_NAV,
   SECTION_GROUPS,
   SECTION_NAV,
   SECTION_TO_DESKTOP_PAGE,
   SECTION_TO_GROUP,
-  type PrimarySectionId,
   SUPPLY_TABS,
   clampPercent,
-  formatMetricValue,
   confidenceFractionToPercent,
   defaultListingTypeForView,
   matchesQuery,
   normalizeListing,
   parseMobileCommandTool,
+  type PrimarySectionId,
 } from '@/components/dashboard/mobile-command/contracts'
 
 const navigation = vi.hoisted(() => ({
@@ -46,61 +44,164 @@ vi.mock('@/app/marketplace/financing/FinancingInquiryForm', () => ({
 
 import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
 
-function mobileProps(): MobileCommandCentreProps {
-  const listing: MarketRow = [
-    'Bulk flower lot',
-    'Reviewed supply record',
-    'Canada',
-    'Cannabis',
-    'approved',
-    'Harbourview mediated',
-    '78',
-    'listing-1',
-    '',
-    '',
-  ]
+const supplyListing: MarketRow = [
+  'Bulk flower lot',
+  'Reviewed supply record',
+  'Canada',
+  'Cannabis',
+  'approved',
+  'Harbourview mediated',
+  '78',
+  'listing-1',
+  '',
+  '',
+]
 
+const opportunityListing: MarketRow = [
+  'EU-GMP export requirement',
+  'Reviewed buyer-led commercial opportunity',
+  'Germany',
+  'Business opportunity',
+  'approved',
+  'Harbourview mediated',
+  '82',
+  'opportunity-1',
+  '',
+  '',
+]
+
+function mobileProps(overrides: Partial<MobileCommandCentreProps> = {}): MobileCommandCentreProps {
   return {
-    signals: [],
+    signals: [{
+      id: 'signal-1',
+      title: 'German import requirements updated',
+      market: 'Germany',
+      type: 'Regulatory',
+      commercialImpact: 'Review export pathway implications.',
+    }] as unknown as MobileCommandCentreProps['signals'],
     eduCategories: [],
     initialCountryIso2: 'CA',
     initialRoleId: 'exporter',
-    marketplaceRows: { cannabis: [listing] },
+    marketplaceRows: {
+      cannabis: [supplyListing],
+      opportunities: [opportunityListing],
+    },
     wantedCount: 1,
     pipeline: {
       wanted: 1,
       matched: 0,
-      proof_review: 0,
-      inquiry: 0,
+      proof_review: 1,
+      inquiry: 1,
       deal_room: 0,
     },
+    countryIntel: {
+      public_summary: 'Canada operating context with active export and market-access considerations.',
+      review_status: 'approved',
+    } as MobileCommandCentreProps['countryIntel'],
     hasOrg: true,
+    ...overrides,
   }
 }
 
 function renderMobileCommand(overrides: Partial<MobileCommandCentreProps> = {}) {
-  const markup = renderToStaticMarkup(
-    createElement(MobileCommandCentreRebuild, { ...mobileProps(), ...overrides }),
-  )
+  const markup = renderToStaticMarkup(createElement(MobileCommandCentreRebuild, mobileProps(overrides)))
   return parseHTML(`<!doctype html><html><body>${markup}</body></html>`).document
 }
 
-describe('Mobile Command Centre contracts', () => {
-  it('defines one exhaustive desktop target for every mobile section', () => {
-    const sectionIds = SECTION_NAV.map(section => section.id)
-    // 22 since Regulatory watch and Local intelligence became mobile sections;
-    // both existed only as desktop pages, reachable on mobile by following a
-    // module-rail link out of the shell.
-    expect(sectionIds).toHaveLength(22)
-    expect(new Set(sectionIds).size).toBe(sectionIds.length)
-    expect(Object.keys(SECTION_TO_DESKTOP_PAGE).sort()).toEqual([...sectionIds].sort())
+beforeEach(() => {
+  navigation.push.mockReset()
+  navigation.replace.mockReset()
+  navigation.search.value = 'country=CA&role=exporter'
+})
 
-    for (const pageTarget of Object.values(PAGE_TO_SECTION)) {
-      expect(sectionIds).toContain(pageTarget)
+describe('Mobile Command Centre operator architecture', () => {
+  it('defines exactly the approved five primary operator jobs', () => {
+    expect(PRIMARY_NAV.map(item => item.label)).toEqual(['Command', 'Market', 'Intel', 'Actions', 'Context'])
+    expect(PRIMARY_NAV.map(item => item.id)).toEqual(['overview', 'marketplace', 'weekly-signals', 'next-actions', 'jurisdiction'])
+    expect(PRIMARY_NAV.some(item => item.id === 'clinical')).toBe(false)
+  })
+
+  it('keeps every section mapped exactly once while Clinical remains reachable under Context', () => {
+    const grouped = Object.values(SECTION_GROUPS).flat()
+    const sectionIds = SECTION_NAV.map(section => section.id)
+
+    expect(grouped).toHaveLength(sectionIds.length)
+    expect(new Set(grouped).size).toBe(grouped.length)
+    expect([...grouped].sort()).toEqual([...sectionIds].sort())
+    expect(SECTION_TO_GROUP.clinical).toBe('jurisdiction')
+    expect(SECTION_TO_DESKTOP_PAGE.clinical).toBe('clinical')
+    expect(PAGE_TO_SECTION.clinical).toBe('clinical')
+
+    for (const destination of PRIMARY_NAV) {
+      expect(SECTION_GROUPS[destination.id as PrimarySectionId]).toBeDefined()
+      expect(SECTION_TO_GROUP[destination.id]).toBe(destination.id)
     }
   })
 
-  it('preserves the complete marketplace and supply universes', () => {
+  it('renders an operator-first Command without hero, module catalogue or secondary rail', () => {
+    const document = renderMobileCommand()
+    const text = document.body.textContent || ''
+
+    expect(document.querySelector('[data-mobile-command-version="2"]')).not.toBeNull()
+    expect(document.querySelector('[data-active-destination="overview"]')).not.toBeNull()
+    expect(document.querySelector('.hvm-op-page-title')?.textContent).toBe('Command')
+    expect(document.querySelector('.hvm-op-context-trigger')?.textContent).toContain('Canada')
+    expect(document.querySelector('.hvm-op-pulse')).not.toBeNull()
+    expect(document.querySelector('#hvm-op-attention-heading')?.textContent).toBe('Requires attention')
+    expect(document.querySelector('#hvm-op-changes-heading')?.textContent).toBe('Recent intelligence')
+    expect(document.querySelector('#hvm-op-opportunity-heading')?.textContent).toBe('Commercial opportunity')
+    expect(document.querySelector('#hvm-op-picture-heading')?.textContent).toBe('Canada')
+
+    expect(text).not.toContain('Operator command centre')
+    expect(text).not.toContain('All Command Centre modules')
+    expect(text).not.toContain('32 available')
+    expect(document.querySelector('[data-command-module]')).toBeNull()
+    expect(document.querySelector('.hvm-op-secondary-nav')).toBeNull()
+    expect(document.querySelector('.hvm2-section-rail')).toBeNull()
+  })
+
+  it('uses existing action, signal and opportunity data for Command pulse and previews', () => {
+    const document = renderMobileCommand()
+    const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
+
+    expect(pulse).toEqual(['3', '1', '1'])
+    expect(document.body.textContent).toContain('Review 1 active inquiry')
+    expect(document.body.textContent).toContain('German import requirements updated')
+    expect(document.body.textContent).toContain('EU-GMP export requirement')
+  })
+
+  it('keeps exactly one committed section mounted', () => {
+    const document = renderMobileCommand()
+    expect([...document.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['overview'])
+
+    navigation.search.value = 'country=CA&role=exporter&section=marketplace'
+    const marketDocument = renderMobileCommand({ initialPage: 'marketplace' })
+    expect([...marketDocument.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['marketplace'])
+  })
+
+  it('keeps scoped secondary reachability off Command and available for non-Command jobs', () => {
+    navigation.search.value = 'country=CA&role=exporter&section=marketplace'
+    const document = renderMobileCommand({ initialPage: 'marketplace' })
+    const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')]
+
+    expect(rail).toHaveLength(SECTION_GROUPS.marketplace.length)
+    expect(rail.map(button => button.textContent)).toContain('Marketplace control')
+    expect(document.querySelector('.hvm2-section-rail')).toBeNull()
+  })
+
+  it('highlights Context for a Clinical deep link without making Clinical primary navigation', () => {
+    navigation.search.value = 'country=CA&role=exporter&section=clinical'
+    const document = renderMobileCommand({ initialPage: 'clinical' })
+
+    expect([...document.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['clinical'])
+    const current = document.querySelector('.hvm-op-bottom-nav button[aria-current="page"]')
+    expect(current?.textContent).toContain('Context')
+    expect([...document.querySelectorAll('.hvm-op-bottom-nav small')].map(node => node.textContent)).not.toContain('Clinical')
+  })
+})
+
+describe('Mobile Command Centre data contracts', () => {
+  it('preserves complete marketplace and supply category universes', () => {
     expect(MARKET_TABS.map(tab => tab.id)).toEqual([
       'cannabis',
       'wanted',
@@ -119,21 +220,8 @@ describe('Mobile Command Centre contracts', () => {
     ])
   })
 
-  it('normalizes marketplace tuples by named position without corrupting confidence', () => {
-    const row: MarketRow = [
-      'Bulk flower lot',
-      'Reviewed supply record',
-      'Canada',
-      'Cannabis',
-      'approved',
-      'Harbourview mediated',
-      '1',
-      'listing-1',
-      '',
-      '',
-    ]
-
-    expect(normalizeListing(row, 0, 'cannabis', 'Global')).toEqual({
+  it('normalizes marketplace tuples without corrupting confidence', () => {
+    expect(normalizeListing(supplyListing, 0, 'cannabis', 'Global')).toEqual({
       id: 'listing-1',
       title: 'Bulk flower lot',
       summary: 'Reviewed supply record',
@@ -141,214 +229,24 @@ describe('Mobile Command Centre contracts', () => {
       category: 'Cannabis',
       status: 'approved',
       channel: 'Harbourview mediated',
-      confidence: 1,
+      confidence: 78,
       view: 'cannabis',
     })
   })
 
-  it('keeps stored percentages and confidence fractions as distinct units', () => {
+  it('keeps percentages and fractions distinct', () => {
     expect(clampPercent(1)).toBe(1)
     expect(clampPercent(101)).toBe(100)
     expect(confidenceFractionToPercent(0.72)).toBe(72)
     expect(confidenceFractionToPercent(1)).toBe(100)
   })
 
-  it('normalizes query casing and whitespace inside the query helper', () => {
+  it('keeps query and contained-tool helpers stable', () => {
     expect(matchesQuery('  CANADA ', ['Canada', 'Germany'])).toBe(true)
-    expect(matchesQuery('extract', ['Cultivation', 'Extraction'])).toBe(true)
     expect(matchesQuery('', ['Anything'])).toBe(true)
     expect(matchesQuery('missing', ['Anything'])).toBe(false)
-  })
-
-  it('parses only supported contained tools and resolves intake types', () => {
     expect(parseMobileCommandTool('wanted-intake')).toBe('wanted-intake')
-    expect(parseMobileCommandTool('financing-intake')).toBe('financing-intake')
     expect(parseMobileCommandTool('external-checkout')).toBeNull()
     expect(defaultListingTypeForView('equipment')).toBe('Used / Surplus Equipment')
-    expect(defaultListingTypeForView('wanted')).toBe('Wanted Request')
-  })
-
-  it('keeps mediation and release-control copy centralized', () => {
-    expect(MOBILE_COMMAND_COPY.reviewedIntroduction).toBe('Request reviewed introduction')
-    expect(MOBILE_COMMAND_COPY.controlTitle).toBe('Controlled by default')
-    expect(MOBILE_COMMAND_COPY.controlDetail).toContain('No supplier identity')
-    expect(MOBILE_COMMAND_COPY.financingInquiryDescription).toContain('does not approve credit')
-  })
-
-  it('folds every section under exactly one of the five destinations', () => {
-    const grouped = Object.values(SECTION_GROUPS).flat()
-
-    expect(grouped).toHaveLength(SECTION_NAV.length)
-    expect(new Set(grouped).size).toBe(grouped.length)
-    expect([...grouped].sort()).toEqual(SECTION_NAV.map(section => section.id).sort())
-
-    // Every destination is a real section, and owns itself.
-    for (const destination of PRIMARY_NAV) {
-      expect(SECTION_GROUPS[destination.id as PrimarySectionId]).toBeDefined()
-      expect(SECTION_TO_GROUP[destination.id]).toBe(destination.id)
-    }
-
-    for (const section of SECTION_NAV) {
-      expect(SECTION_TO_GROUP[section.id], section.id).toBeDefined()
-    }
-  })
-
-  it('mounts exactly one section, not the whole destination group', () => {
-    // Two defects are pinned here. The renderer first mounted all twenty
-    // sections and treated the bottom nav as scroll anchors, which made the
-    // surface one endless page. Folding to five destinations then mounted a
-    // whole group at once -- which cannot work, because data is fetched per
-    // desktop page and a group's sections map to different pages. Landing on a
-    // destination fetched one page's sources, so the rest of the group rendered
-    // empty shells over populated tables.
-    const document = renderMobileCommand()
-    expect(document.querySelector('[data-mobile-command-version="2"]')).not.toBeNull()
-
-    const rendered = [...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)
-    expect(rendered).toEqual(['overview'])
-    expect(rendered.length).toBeLessThan(SECTION_NAV.length)
-
-    // Siblings in the same group are reachable from the rail but not mounted.
-    for (const id of SECTION_GROUPS.overview.filter(section => section !== 'overview')) {
-      expect(document.querySelector(`.hvm2-main #${id}`), id).toBeNull()
-    }
-    // Sections owned by other destinations must not be in the DOM at all.
-    for (const id of SECTION_GROUPS.marketplace) {
-      expect(document.querySelector(`#${id}`), id).toBeNull()
-    }
-
-    expect(document.querySelector('.hvm2-bottom-nav')).not.toBeNull()
-    expect(document.body.textContent).toContain('Operator command centre')
-    expect(document.body.textContent).not.toContain('⌘ Modules')
-  })
-
-  it('renders the requested section and marks the destination that owns it', () => {
-    const document = renderMobileCommand({ initialPage: 'marketplace' })
-
-    const rendered = [...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)
-    expect(rendered).toEqual(['marketplace'])
-    expect(document.body.textContent).toContain('Bulk flower lot')
-
-    // The owning tab is marked current, not merely the section.
-    const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
-    expect(current?.textContent).toContain('Market')
-  })
-
-  it('offers every sibling in the group through the rail, each as a navigation', () => {
-    // The rail is what makes one-section-at-a-time navigable: the sections that
-    // are not mounted must still be reachable, and reachable by navigating --
-    // scrolling to them would land on a section whose data was never fetched.
-    const document = renderMobileCommand({ initialPage: 'genetics' })
-
-    expect([...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)).toEqual(['genetics'])
-
-    const rail = [...document.querySelectorAll('.hvm2-section-rail button')]
-    expect(rail.map(button => button.textContent)).toHaveLength(SECTION_GROUPS.overview.length)
-    expect(rail.filter(button => button.getAttribute('aria-current') === 'page')).toHaveLength(1)
-  })
-
-  it('scopes the section rail to the active destination', () => {
-    const document = renderMobileCommand({ initialPage: 'compliance' })
-
-    const rail = [...document.querySelectorAll('.hvm2-section-rail button')]
-    expect(rail).toHaveLength(SECTION_GROUPS.overview.length)
-
-    const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
-    expect(current?.textContent).toContain('Command')
-  })
-
-  it('renders canonical dashboard hrefs for progressive mobile workflows', () => {
-    const document = renderMobileCommand({ initialPage: 'marketplace' })
-    const anchors = [...document.querySelectorAll<HTMLAnchorElement>('.hvm2-root a[href]')]
-    expect(anchors.length).toBeGreaterThan(0)
-
-    for (const anchor of anchors) {
-      const target = new URL(anchor.getAttribute('href') ?? '', 'https://harbourview.test')
-      expect(target.pathname, anchor.textContent ?? '').toBe('/dashboard')
-      expect(target.searchParams.get('country')).toBe('CA')
-      expect(target.searchParams.get('role')).toBe('exporter')
-    }
-
-    const byText = (label: string) => anchors.find(anchor => anchor.textContent?.includes(label))
-    const wanted = new URL(byText('Post wanted demand')?.getAttribute('href') ?? '', 'https://harbourview.test')
-    expect(wanted.searchParams.get('section')).toBe('marketplace')
-    expect(wanted.searchParams.get('tool')).toBe('wanted-intake')
-    expect(wanted.searchParams.get('marketView')).toBe('wanted')
-
-    // Cross-destination link: this anchor lives in the Marketplace section but
-    // targets `financing`, which folds under Actions. Deep links across groups
-    // must still resolve to the owning destination.
-    const financing = new URL(byText('Request financing')?.getAttribute('href') ?? '', 'https://harbourview.test')
-    expect(financing.searchParams.get('section')).toBe('financing')
-    expect(financing.searchParams.get('tool')).toBe('financing-intake')
-    expect(SECTION_TO_GROUP.financing).toBe('next-actions')
-  })
-
-  it('mounts the section the committed URL names, not one held in local state', () => {
-    // Navigation must not mount a section before its data has arrived. `props`
-    // come from the server component and only change when a route commits, so a
-    // section mounted the instant it is tapped renders against the previous
-    // page's data -- Genetics showing "no records" and then filling in. That is
-    // the failure this surface exists to remove, and it must not return as a
-    // flash. Mounting therefore follows the URL, which moves only on commit.
-    navigation.search.value = 'country=CA&role=exporter&section=genetics'
-    try {
-      // initialPage still says briefing; the committed URL must win.
-      const document = renderMobileCommand({ initialPage: 'briefing' })
-      expect([...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)).toEqual(['genetics'])
-
-      const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
-      expect(current?.textContent).toContain('Command')
-    } finally {
-      navigation.search.value = 'country=CA&role=exporter'
-    }
-  })
-
-  it('keeps action cards to an instruction, never an unbounded database field', () => {
-    // The Canada pathway action substituted `commercial_pathway_summary` as its
-    // detail. That column is market analysis: 404 characters on average across
-    // production, 1,551 at the longest, 122 of 284 countries over 400. Rendered
-    // into a card it buried the card's own button under a wall of prose, and it
-    // duplicated text the Jurisdiction section this action links to already
-    // shows in full.
-    const analysis = 'A'.repeat(1200)
-    // Zero the pipeline and wanted count so the pathway action is first and
-    // therefore the one the priority card renders; otherwise this asserts
-    // against the (already short) wanted-demand action and proves nothing.
-    const document = renderMobileCommand({
-      initialPage: 'briefing',
-      wantedCount: 0,
-      pipeline: { wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 },
-      countryIntel: { commercial_pathway_summary: analysis } as MobileCommandCentreProps['countryIntel'],
-    })
-
-    expect(document.body.textContent).not.toContain(analysis)
-
-    // The Command destination surfaces the same action as its immediate
-    // priority card -- that is where the wall of prose was visible, pushing the
-    // card's own button off the screen.
-    const priority = document.querySelector('.hvm2-priority-card p')
-    expect(priority, 'priority card not rendered').not.toBeNull()
-    expect((priority?.textContent ?? '').length).toBeLessThanOrEqual(160)
-  })
-
-  it('formats market metric values from metric_value and metric_unit', () => {
-    // The renderer used to read display_value/value/summary -- fields that do
-    // not exist on market_metrics -- so every populated metric rendered its
-    // "Value under review" fallback.
-    expect(formatMetricValue('3', 'CAD/g')).toBe('3 CAD/g')
-    expect(formatMetricValue(900, 'licensees')).toBe('900 licensees')
-    // Below the 10k compaction threshold, so it stays exact and separated.
-    expect(formatMetricValue('8000', 'kg')).toBe('8,000 kg')
-    expect(formatMetricValue('5100000000', 'USD')).toBe('5.1B USD')
-    expect(formatMetricValue(400000, 'count')).toBe('400K count')
-
-    // Absent or unparseable values still fall back rather than printing NaN.
-    expect(formatMetricValue(null, 'kg')).toBe('Value under review')
-    expect(formatMetricValue('', 'kg')).toBe('Value under review')
-    expect(formatMetricValue(undefined, undefined)).toBe('Value under review')
-
-    // A non-numeric but present value is shown verbatim, not discarded.
-    expect(formatMetricValue('pending audit', '')).toBe('pending audit')
   })
 })

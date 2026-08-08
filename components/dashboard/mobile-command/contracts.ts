@@ -92,13 +92,13 @@ export const PRIMARY_NAV: NavDestination[] = [
   { id: 'overview', label: 'Command', icon: '◎' },
   { id: 'marketplace', label: 'Market', icon: '⊞' },
   { id: 'weekly-signals', label: 'Intel', icon: '≋' },
-  { id: 'clinical', label: 'Clinical', icon: '⚕' },
   { id: 'next-actions', label: 'Actions', icon: '→' },
+  { id: 'jurisdiction', label: 'Context', icon: '◉' },
 ]
 
 const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
-  overview: { id: 'overview', label: 'Command brief', icon: '◎' },
-  'live-status': { id: 'live-status', label: 'Live status', icon: '◷' },
+  overview: { id: 'overview', label: 'Command', icon: '◎' },
+  'live-status': { id: 'live-status', label: 'Operating state', icon: '◷' },
   'market-intelligence': { id: 'market-intelligence', label: 'Market intelligence', icon: '≈' },
   marketplace: { id: 'marketplace', label: 'Marketplace control', icon: '⊞' },
   supply: { id: 'supply', label: 'Supply', icon: '▤' },
@@ -107,7 +107,7 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   'personal-briefing': { id: 'personal-briefing', label: 'Personal briefing', icon: '❑' },
   search: { id: 'search', label: 'Search', icon: '⌕' },
   education: { id: 'education', label: 'Education path', icon: '◇' },
-  jurisdiction: { id: 'jurisdiction', label: 'Jurisdiction context', icon: '◉' },
+  jurisdiction: { id: 'jurisdiction', label: 'Jurisdiction', icon: '◉' },
   'market-status': { id: 'market-status', label: 'Marketplace status', icon: '◫' },
   'review-gates': { id: 'review-gates', label: 'Review gates', icon: '◆' },
   directories: { id: 'directories', label: 'Directories', icon: '⊚' },
@@ -161,8 +161,8 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   watchlist: 'weekly-signals',
   education: 'education',
   'access-pathway': 'jurisdiction',
-  regulatory: 'jurisdiction',
-  'local-intel': 'jurisdiction',
+  regulatory: 'regulatory',
+  'local-intel': 'local-intel',
   countries: 'jurisdiction',
   evidence: 'review-gates',
   prices: 'market-intelligence',
@@ -186,62 +186,27 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   settings: 'overview',
 }
 
-/**
- * The five bottom-nav destinations. Declared explicitly rather than derived from
- * PRIMARY_NAV, because that is typed `NavDestination[]` and would widen this to
- * every SectionId — which silently defeats the exhaustiveness check on
- * SECTION_GROUPS below.
- */
+/** The five fixed operator jobs exposed in the primary mobile navigation. */
 export type PrimarySectionId =
   | 'overview'
   | 'marketplace'
   | 'weekly-signals'
-  | 'clinical'
   | 'next-actions'
+  | 'jurisdiction'
 
 /**
- * Every section folded under exactly one of the five primary destinations.
- *
- * The mobile renderer previously mounted all twenty sections at once in a single
- * scrolling column, and the bottom nav only called `scrollIntoView` — so the five
- * "tabs" were anchors into one endless page rather than navigation, and the
- * fifteen sections with no tab were reached by scrolling past them. The desktop
- * Command Centre has always switched on `activePage` and rendered one page at a
- * time; this restores the same model on mobile.
- *
- * Order within each group is render order. Reordering or moving a section
- * between groups is a single edit here — nothing else reads the arrangement.
- */
-/**
- * Clinical is its own destination rather than a chip inside a grab-bag: it is a
- * primary surface of the product, not context for another one.
- *
- * The "Context" destination is gone. It grouped jurisdiction, compliance,
- * genetics, network, directories and talent under a label that described none of
- * them -- seven unrelated surfaces behind a word that told an operator nothing.
- * Those sections now sit in Command, which is where an operator already starts.
+ * Every section belongs to exactly one operator job. Only the committed section
+ * mounts at a time; these groups define ownership and scoped secondary reachability.
  */
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
-  overview: [
-    'overview', 'live-status', 'review-gates',
-    'jurisdiction', 'compliance', 'genetics', 'network', 'directories', 'talent',
-    'education',
-  ],
+  overview: ['overview', 'live-status'],
   marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
-  // Intel is the intelligence feed: the weekly signals, the daily digest
-  // (`personal-briefing`, which targets the `digest` page) and search across
-  // both. Education was here and is not intelligence -- it is reference
-  // material, so it sits with the other reference surfaces in Command.
   'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
-  clinical: ['clinical'],
-  'next-actions': ['next-actions', 'financing'],
+  'next-actions': ['next-actions', 'review-gates', 'financing'],
+  jurisdiction: ['jurisdiction', 'compliance', 'education', 'directories', 'network', 'talent', 'genetics', 'clinical'],
 }
 
-/**
- * Reverse lookup so a deep link to any section activates the destination that
- * owns it. Built from SECTION_GROUPS rather than hand-maintained, so the two
- * cannot drift.
- */
+/** Reverse lookup used by deep links and primary-navigation highlighting. */
 export const SECTION_TO_GROUP: Record<SectionId, PrimarySectionId> = (() => {
   const lookup = {} as Record<SectionId, PrimarySectionId>
   for (const [group, sections] of Object.entries(SECTION_GROUPS) as Array<[PrimarySectionId, SectionId[]]>) {
@@ -286,19 +251,6 @@ export function formatStatus(value: unknown, fallback = 'Review required'): stri
   return typeof value === 'string' && value.trim() ? titleCase(value) : fallback
 }
 
-/**
- * Render a market metric as a value a person can read.
- *
- * `market_metrics` stores the number in `metric_value` and the unit separately in
- * `metric_unit`. The mobile renderer previously looked for `display_value`,
- * `value` or `summary` — none of which that table has — so every metric fell
- * through to its "Value under review" fallback while the real figures sat in the
- * row. Canada, for instance, had legal_sales_usd = 5100000000 rendering as
- * "Value under review".
- *
- * Large counts are abbreviated because the card is one line on a 320px screen:
- * 5100000000 USD reads as "5.1B USD", not as eleven digits.
- */
 export function formatMetricValue(value: unknown, unit: unknown, fallback = 'Value under review'): string {
   const raw = typeof value === 'number' && Number.isFinite(value)
     ? value
@@ -309,7 +261,6 @@ export function formatMetricValue(value: unknown, unit: unknown, fallback = 'Val
   const suffix = typeof unit === 'string' && unit.trim() ? ` ${unit.trim()}` : ''
 
   if (raw === null) {
-    // Non-numeric but present values are still worth showing verbatim.
     return typeof value === 'string' && value.trim() ? `${value.trim()}${suffix}` : fallback
   }
 
@@ -321,13 +272,11 @@ export function formatMetricValue(value: unknown, unit: unknown, fallback = 'Val
   return `${formatted}${suffix}`
 }
 
-/** Clamp values already stored on a 0–100 scale. */
 export function clampPercent(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
-/** Convert a confidence fraction (0–1) into a percentage. */
 export function confidenceFractionToPercent(value: number | null | undefined): number | null {
   if (value == null || !Number.isFinite(value)) return null
   return clampPercent(value * 100)
