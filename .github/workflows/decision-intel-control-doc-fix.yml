@@ -1,0 +1,61 @@
+name: Decision Intel Control Evidence Append
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/decision-intel-control-doc-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  append:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - name: Append required control entries
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='PR #1309 — Decision Intelligence Stage 0 first-slice review hardening'
+          if ! grep -Fq "$marker" docs/control/DATABASE_CONTROL.md; then
+            cat >> docs/control/DATABASE_CONTROL.md <<'EOF'
+
+## 2026-08-08 — PR #1309 — Decision Intelligence Stage 0 first-slice review hardening
+
+- **Environment:** PR branch plus disposable production-shaped verification only; no production migration/backfill applied.
+- **Migrations:** `20260808190000_decision_intel_stage0_first_slice.sql` and corrective `20260808203000_decision_intel_stage0_review_fixes.sql`.
+- **Canonical ownership:** existing `source_registry`/`source_snapshots`, `hv_evidence`, and `public.jurisdictions` remain authoritative; Stage 0 adds only evidence references, assertions, events, assessments/versions, recommendations and allowlisted dossier/route projections.
+- **RLS/exposure:** raw Stage 0 objects remain staff-controlled; authenticated Intel/operator reads use security-invoker allowlisted views; anon reads are revoked; raw `hv_evidence` and Marketplace-private data remain outside the product projection.
+- **Review hardening:** one snapshot can support multiple signal refs; legacy signal IDs are durable tombstone lineage keys; confidence is constrained to 0–1; new events default `needs_review`; assessment versions are append-only; rejected/superseded assertions and recommendations are excluded; contradiction relationships are projected; clustered signals resolve to one event.
+- **Backward compatibility:** `public.signals`, Pipeline B and `/signals` remain upstream/existing surfaces. No existing intelligence table is dropped or rewritten.
+- **Rollback/forward-fix:** production remains unapplied. Apply both migrations only after disposable verification; use reviewed forward migrations for post-apply defects.
+- **Required tests:** production-shaped apply/backfill/RLS, zero auto-verified rows, lineage/cardinality, five-width dossier Playwright, leakage/security, full PR workflow matrix.
+- **Approval:** first-slice implementation/review fixes authorized in PR #1309; merge and production activation remain separately gated.
+EOF
+          fi
+          if ! grep -Fq "$marker" docs/control/EVIDENCE_LOG.md; then
+            cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
+
+## 2026-08-08 — PR #1309 — Decision Intelligence Stage 0 first-slice review hardening
+
+- **Scope:** first slice only: `Source/Snapshot → Evidence ref → Assertion → Event → Assessment → Recommendation → authenticated dossier`. No later Decision Intelligence stage started.
+- **Production status:** no PR #1309 Decision Intelligence migration or backfill applied to production; PR remains unmerged during verification.
+- **Prior proof:** `Decision Intel First Slice Verify` run `31276893684` proved the original migration/RLS contract and five required dossier widths before the later review-hardening pass.
+- **Review defects addressed:** multi-signal snapshot lineage, durable source-signal tombstones, canonical route aliases, `api.signals`-compatible fallback plus IA fallback, no legacy review-as-verification date, rejected/superseded display filtering, immutable assessment history, contradiction relationship projection, safe event defaults, 0–1 confidence constraints, mobile row layout/posture consistency, return-context preservation, desktop dossier reachability and centralized verification-semantics copy.
+- **Final proof required:** both migrations in order against disposable production-shaped PostgreSQL; zero migration-created `verified`; lineage/cardinality; anon denial; Intel/operator read; raw evidence/Marketplace leakage protection; 320×700, 375×812, 390×844, 430×932 and 1440×1000 dossier evidence; complete current-head workflow matrix green.
+- **Status:** pending final current-head rerun; exact final run IDs/results must be posted on PR #1309 before GO.
+EOF
+          fi
+          git rm .github/workflows/decision-intel-control-doc-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md
+          git commit -m 'docs(control): record Decision Intel Stage 0 evidence'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
