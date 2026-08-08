@@ -167,6 +167,53 @@ jobs:
             cluster_rep_id uuid
           );
 
+          -- api.signals — the relation the Command Centre actually reads.
+          --
+          -- This fixture only had `signals_quality`, so once
+          -- app/api/dashboard/signals and app/api/dashboard/digest repointed to
+          -- `signals` (#1292), both resolved to a relation that does not exist
+          -- here. PostgREST errored, each route returned its own 500, and the
+          -- gate went red on every desktop width from 70dcc289 onward — 1 bad
+          -- response per page load, which the 1440px pass multiplies to ~38
+          -- because it walks every Command Centre page. It reproduced on main.
+          --
+          -- The gate could not say so: it threw counts only. It now prints the
+          -- offending request, which is how this was finally identified as
+          -- `500 GET /api/dashboard/signals?country=Canada&limit=30`.
+          --
+          -- `action` and `analysis` are here because NOT_REJECTED_OR_FILTER
+          -- filters on the first and CURATED_SELECT names the second; the rest
+          -- is SAFE_SELECT / DIGEST_SELECT. Missing either one puts this fixture
+          -- straight back into the same failure, silently.
+          create table if not exists api.signals (
+            id uuid primary key default gen_random_uuid(),
+            headline text not null default '',
+            cat text,
+            top_lane text,
+            pri text,
+            country text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed boolean not null default false,
+            action text,
+            analysis jsonb,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            impact text,
+            title_en text,
+            summary_en text,
+            lang_detected text,
+            is_representative boolean,
+            cluster_rep_id uuid
+          );
+
+          -- Mirrors production, where api.signals_with_quality is a view over
+          -- the same base. Added now so this fixture keeps working when #1294
+          -- repoints these reads again; it costs nothing while unused.
+          create or replace view api.signals_with_quality as
+            select * from api.signals;
+
           create table if not exists api.market_metrics (
             id uuid primary key default gen_random_uuid(),
             country_iso2 text,
