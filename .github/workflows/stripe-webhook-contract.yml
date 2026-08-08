@@ -1,0 +1,42 @@
+name: Stripe webhook contract
+
+on:
+  push:
+    branches:
+      - main
+      - 'agent/stripe-webhook-hardening-*'
+    paths:
+      - 'app/api/stripe/**'
+      - 'app/admin/(protected)/stripe-health/**'
+      - 'lib/stripe/**'
+      - 'lib/admin/navConfig.ts'
+      - 'tests/harbourview/stripe-webhook-contract.test.ts'
+      - '.github/workflows/stripe-webhook-contract.yml'
+  pull_request:
+    paths:
+      - 'app/api/stripe/**'
+      - 'app/admin/(protected)/stripe-health/**'
+      - 'lib/stripe/**'
+      - 'lib/admin/navConfig.ts'
+      - 'tests/harbourview/stripe-webhook-contract.test.ts'
+      - '.github/workflows/stripe-webhook-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Stripe webhook contract regression
+        run: npx vitest run tests/harbourview/stripe-webhook-contract.test.ts
