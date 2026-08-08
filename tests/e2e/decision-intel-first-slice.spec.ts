@@ -28,7 +28,10 @@ async function authenticate(browser: Browser) {
   const context = await browser.newContext({ ...contextOptions(), viewport: { width: 390, height: 844 } })
   try {
     const page = await context.newPage()
-    await page.goto('/login?next=%2Fdashboard', { waitUntil: 'domcontentloaded' })
+    const nextPath = DIRECT_EVENT_ID
+      ? `/dashboard/intel/events/${encodeURIComponent(DIRECT_EVENT_ID)}`
+      : '/dashboard'
+    await page.goto(`/login?next=${encodeURIComponent(nextPath)}`, { waitUntil: 'domcontentloaded' })
     await page.getByLabel('Email address', { exact: true }).fill(email)
     await page.getByLabel('Password', { exact: true }).fill(password)
     await page.locator('form').getByRole('button', { name: 'Sign in', exact: true }).click()
