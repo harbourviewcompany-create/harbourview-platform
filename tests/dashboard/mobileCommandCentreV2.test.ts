@@ -230,6 +230,31 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(landing.querySelector('.hvm-op-secondary-nav')).toBeNull()
   })
 
+  it('offers a way back to the Command landing from the rail, and hides the rail once there', () => {
+    // The rail-visibility condition keys off the committed section, so it also
+    // changes mid-session: open Command's rail from a sibling, return to
+    // Overview, and the rail goes away. Both halves are asserted here.
+    //
+    // Not asserted by clicking: this suite renders with renderToStaticMarkup,
+    // so nothing is hydrated and no handler fires. Covering the real click
+    // needs a hydrated render, which is a change of approach for the whole
+    // file rather than one test. What is checked instead is that the rail
+    // offers the Overview control at all — without it the transition has no
+    // trigger — and that the destination state it leads to carries no rail.
+    navigation.search.value = 'country=CA&role=exporter&section=jurisdiction'
+    const railed = renderMobileCommand({ initialPage: 'access-pathway' })
+    const railLabels = [...railed.querySelectorAll('.hvm-op-secondary-nav button')]
+      .map(button => button.textContent)
+
+    expect(railLabels).toContain('Command')
+    expect(railLabels).toHaveLength(SECTION_GROUPS.overview.length)
+
+    navigation.search.value = 'country=CA&role=exporter&section=overview'
+    const returned = renderMobileCommand({ initialPage: 'briefing' })
+    expect(returned.querySelector('.hvm-op-secondary-nav')).toBeNull()
+    expect([...returned.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['overview'])
+  })
+
   it('lights up Clinical itself for a Clinical deep link', () => {
     navigation.search.value = 'country=CA&role=exporter&section=clinical'
     const document = renderMobileCommand({ initialPage: 'clinical' })

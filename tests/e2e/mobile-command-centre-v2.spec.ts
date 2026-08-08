@@ -28,6 +28,12 @@ function sanitizeDiagnostic(value: string) {
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
     .replace(/sb_[A-Za-z0-9_-]+/g, 'sb_[redacted]')
     .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted-jwt]')
+    // Bare addresses too, not just `?email=`. This suite types
+    // E2E_TEST_USER_EMAIL into the login form, so an application error or a
+    // console message can carry it in a message body where the query-parameter
+    // rule above never sees it — and this output lands in CI logs and in an
+    // artifact retained for 14 days.
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[redacted-email]')
 }
 
 function sanitizeSearchForEvidence(search: string) {
@@ -511,23 +517,17 @@ test.describe('Command Centre authenticated responsive verification', () => {
         expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
         report.geometry = geometry
 
-        if (pageErrors.length || consoleErrors.length || unexpectedFailedResponses.length) {
-          // Name the defects, don't just count them. See summarizeDefects.
-          throw new Error(
-            [
-              `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
-              ...summarizeDefects('page error', pageErrors),
-              ...summarizeDefects('console error', consoleErrors),
-              ...summarizeDefects(
-                'failed response',
-                unexpectedFailedResponses.map(
-                  entry => `${entry.status} ${entry.method} ${entry.pathname}${entry.search}`,
-                ),
-              ),
-            ].join('\n'),
-          )
-        }
-        report.result = 'pass'
+        // Let late events land before judging the width.
+        //
+        // The listeners above keep pushing after this point, and the
+        // `networkidle` wait is abandoned after 10s with the timeout swallowed.
+        // Without this, a slow failed response can arrive between the check
+        // below and the `finally` block — recording `result: 'pass'` in the same
+        // evidence file that lists a non-empty `unexpectedFailedResponses`, and
+        // making the same defect pass on one run and fail on the next.
+        await page.waitForTimeout(500)
+
+        // Defects are judged in `finally`, not here — see the note there.
       } catch (error) {
         const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
         report.result = 'fail'
@@ -539,7 +539,55 @@ test.describe('Command Centre authenticated responsive verification', () => {
         report.expectedResourceConsoleErrors = expectedResourceConsoleErrors
         report.expectedDegradedResponses = expectedDegradedResponses
         report.unexpectedFailedResponses = unexpectedFailedResponses
-        await writeWidthEvidence(page, width, report)
+
+        // Judge the defects here, from the same read that just wrote them into
+        // the report. Evaluating inside `try` could not be made deterministic:
+        // the listeners keep firing, pages are loaded only to
+        // `domcontentloaded`, and a settle delay is a mitigation rather than a
+        // guarantee — a request that errors after the delay still recorded
+        // `result: 'pass'` beside a non-empty `unexpectedFailedResponses` in
+        // the same file. One read for both removes the contradiction outright,
+        // whatever arrives late. An assertion failure from `try` has already
+        // set `result: 'fail'` and is left alone.
+        if (report.result !== 'fail') {
+          const defects = [
+            ...summarizeDefects('page error', pageErrors),
+            ...summarizeDefects('console error', consoleErrors),
+            ...summarizeDefects(
+              'failed response',
+              unexpectedFailedResponses.map(
+                entry => `${entry.status} ${entry.method} ${entry.pathname}${entry.search}`,
+              ),
+            ),
+          ]
+          if (defects.length) {
+            const diagnostic = sanitizeDiagnostic([
+              `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
+              ...defects,
+            ].join('\n'))
+            report.result = 'fail'
+            report.failure = diagnostic
+            failures.push(`${width}px: ${diagnostic}`)
+          } else {
+            report.result = 'pass'
+          }
+        }
+        // Guarded, because an unguarded rejection here escapes `finally`, exits
+        // the width loop, and skips both the summary write and the final
+        // assertion — which would defeat the whole point of collecting every
+        // width before failing. `writeWidthEvidence` catches its own screenshot
+        // errors but not the JSON write, which can still fail on a full disk or
+        // a page closed during teardown.
+        await writeWidthEvidence(page, width, report).catch(error => {
+          // Mark the report failed too, not just the run. The result was set
+          // just above, so without this the aggregate would carry
+          // `result: 'pass'` for a width whose evidence is missing — the same
+          // contradiction this block exists to prevent, one level up.
+          const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
+          report.result = 'fail'
+          report.failure = `evidence write failed: ${diagnostic}`
+          failures.push(`${width}px: evidence write failed: ${diagnostic}`)
+        })
         aggregate.push(report)
         await context.close().catch(() => {})
       }
