@@ -252,7 +252,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
           for (const section of SECTION_GROUPS.overview.filter(id => id !== 'overview')) {
             await expect(page.locator(`.hvm2-main #${section}`), section).toHaveCount(0)
           }
-          for (const section of [...SECTION_GROUPS.marketplace, ...SECTION_GROUPS.jurisdiction]) {
+          for (const section of [...SECTION_GROUPS.marketplace, ...SECTION_GROUPS.clinical]) {
             await expect(page.locator(`#${section}`), section).toHaveCount(0)
           }
           // Siblings stay reachable: the rail still lists the whole group.

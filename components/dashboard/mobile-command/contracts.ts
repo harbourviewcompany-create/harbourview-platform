@@ -90,8 +90,8 @@ export const PRIMARY_NAV: NavDestination[] = [
   { id: 'overview', label: 'Command', icon: '◎' },
   { id: 'marketplace', label: 'Market', icon: '⊞' },
   { id: 'weekly-signals', label: 'Intel', icon: '≋' },
+  { id: 'clinical', label: 'Clinical', icon: '⚕' },
   { id: 'next-actions', label: 'Actions', icon: '→' },
-  { id: 'jurisdiction', label: 'Context', icon: '◉' },
 ]
 
 const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
@@ -190,8 +190,8 @@ export type PrimarySectionId =
   | 'overview'
   | 'marketplace'
   | 'weekly-signals'
+  | 'clinical'
   | 'next-actions'
-  | 'jurisdiction'
 
 /**
  * Every section folded under exactly one of the five primary destinations.
@@ -206,12 +206,24 @@ export type PrimarySectionId =
  * Order within each group is render order. Reordering or moving a section
  * between groups is a single edit here — nothing else reads the arrangement.
  */
+/**
+ * Clinical is its own destination rather than a chip inside a grab-bag: it is a
+ * primary surface of the product, not context for another one.
+ *
+ * The "Context" destination is gone. It grouped jurisdiction, compliance,
+ * genetics, network, directories and talent under a label that described none of
+ * them -- seven unrelated surfaces behind a word that told an operator nothing.
+ * Those sections now sit in Command, which is where an operator already starts.
+ */
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
-  overview: ['overview', 'live-status', 'personal-briefing', 'review-gates'],
+  overview: [
+    'overview', 'live-status', 'personal-briefing', 'review-gates',
+    'jurisdiction', 'compliance', 'genetics', 'network', 'directories', 'talent',
+  ],
   marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
   'weekly-signals': ['weekly-signals', 'search', 'education'],
+  clinical: ['clinical'],
   'next-actions': ['next-actions', 'financing'],
-  jurisdiction: ['jurisdiction', 'compliance', 'clinical', 'genetics', 'network', 'directories', 'talent'],
 }
 
 /**
