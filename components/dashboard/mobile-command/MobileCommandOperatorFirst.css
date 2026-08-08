@@ -1,7 +1,12 @@
 .hvm2-root {
   --hvm-op-inline: 16px;
   --hvm-op-nav-height: 66px;
-  padding-bottom: calc(var(--hvm-op-nav-height) + max(16px, env(safe-area-inset-bottom)) + 20px);
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .hvm-op-sr-only {
@@ -17,6 +22,7 @@
 }
 
 .hvm-op-header {
+  flex: 0 0 auto;
   padding: max(14px, env(safe-area-inset-top)) var(--hvm-op-inline) 10px;
   border-bottom: 1px solid var(--hvm2-border-soft);
   background: rgba(2, 8, 20, 0.96);
@@ -105,8 +111,14 @@
 }
 
 .hvm2-main.hvm-op-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
   gap: 0;
-  padding: 12px var(--hvm-op-inline) 0;
+  padding: 12px var(--hvm-op-inline) 24px;
+  scroll-padding-bottom: 24px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hvm-op-command {
@@ -334,6 +346,7 @@
 }
 
 .hvm-op-secondary-nav {
+  flex: 0 0 auto;
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -365,11 +378,14 @@
 }
 
 .hvm2-bottom-nav.hvm-op-bottom-nav {
-  left: 10px;
-  right: 10px;
-  bottom: max(8px, env(safe-area-inset-bottom));
+  position: relative;
+  flex: 0 0 auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
   width: auto;
   min-height: var(--hvm-op-nav-height);
+  margin: 8px 10px max(8px, env(safe-area-inset-bottom));
   padding: 5px;
   border-radius: 18px;
 }
