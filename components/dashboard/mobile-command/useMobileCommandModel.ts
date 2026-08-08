@@ -76,19 +76,15 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const [activeTool, setActiveTool] = useState<MobileCommandTool | null>(null)
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const sectionNodes = useRef(new Map<SectionId, HTMLElement>())
-  const observerRef = useRef<IntersectionObserver | null>(null)
   const lastUrlSection = useRef<SectionId | null>(null)
 
+  // Still tracked so the section that mounts can be scrolled under the header.
   const sectionRefs = useMemo(() => {
     const refs = new Map<SectionId, (node: HTMLElement | null) => void>()
     for (const section of SECTION_NAV) {
       refs.set(section.id, (node) => {
-        const previous = sectionNodes.current.get(section.id)
-        if (previous && previous !== node) observerRef.current?.unobserve(previous)
-
         if (node) {
           sectionNodes.current.set(section.id, node)
-          observerRef.current?.observe(node)
         } else {
           sectionNodes.current.delete(section.id)
         }
@@ -305,25 +301,12 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     if (tool === 'wanted-intake') setActiveMarketView('wanted')
   }, [searchParams])
 
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries
-        .filter(entry => entry.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-      if (!visible) return
-
-      const visibleSection = visible.target.id as SectionId
-      setActiveSection(visibleSection)
-      if (lastUrlSection.current !== visibleSection) lastUrlSection.current = null
-    }, { rootMargin: '-28% 0px -58% 0px', threshold: [0.05, 0.2, 0.5] })
-
-    observerRef.current = observer
-    sectionNodes.current.forEach(node => observer.observe(node))
-    return () => {
-      observerRef.current = null
-      observer.disconnect()
-    }
-  }, [])
+  // The scroll-spy that used to live here is gone. It existed to track which of
+  // twenty stacked sections was under the reader and rewrite the active section
+  // from scroll position. With a single section mounted it can only ever report
+  // that same section, re-setting state it already holds and clearing
+  // `lastUrlSection`, which lets the URL effect re-fire and re-scroll. The rail
+  // is now the only thing that changes sections, and it navigates.
 
   const navigateToSection = useCallback((id: SectionId) => {
     setActiveSection(id)
@@ -437,15 +420,26 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     window.requestAnimationFrame(() => sectionNodes.current.get('marketplace')?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
   }, [searchQuery, selectMarketView])
 
-  // The destination that owns the active section, and the sections it renders.
-  // Only this group is mounted — the other four never reach the DOM, so the page
-  // is one surface rather than a twenty-section scroll.
+  // The destination that owns the active section. `groupSections` is the rail --
+  // the sections you can reach from here. `visibleSections` is what actually
+  // mounts, and it is exactly one.
+  //
+  // Mounting the whole group looked right but could not work: data is fetched
+  // per desktop page, and a group's sections map to different pages. Landing on
+  // a destination loaded one page's sources, so every section in the group that
+  // belonged to another page rendered an empty shell -- Genetics, Clinical,
+  // Network, Directories, Market intelligence, Education, Search,
+  // Personal briefing and Review gates, all against populated tables. Rendering
+  // one section at a time means the section on screen is the one whose data was
+  // actually requested, because the rail navigates rather than scrolls.
   const activeGroup: PrimarySectionId = SECTION_TO_GROUP[activeSection] ?? 'overview'
-  const visibleSections = SECTION_GROUPS[activeGroup]
+  const groupSections = SECTION_GROUPS[activeGroup]
+  const visibleSections: SectionId[] = [activeSection]
 
   return {
     activeSection,
     activeGroup,
+    groupSections,
     visibleSections,
     activeMarketView,
     marketQuery,

@@ -98,9 +98,10 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
 
       {/* Sub-navigation for the active destination only. This listed all twenty
           sections regardless of where you were, which is most of what made the
-          surface feel piled on. */}
+          surface feel piled on. Each chip navigates, so the section it opens
+          arrives with its own data already fetched. */}
       <nav className="hvm2-section-rail" aria-label={`${activeDestination?.label ?? 'Command'} sections`}>
-        {model.visibleSections.map(id => {
+        {model.groupSections.map(id => {
           const section = SECTION_NAV.find(entry => entry.id === id)
           if (!section) return null
           const isActive = model.activeSection === section.id

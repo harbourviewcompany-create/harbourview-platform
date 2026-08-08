@@ -189,16 +189,25 @@ describe('Mobile Command Centre contracts', () => {
     }
   })
 
-  it('mounts only the active destination, not all 20 sections', () => {
-    // The renderer used to mount every section at once and treat the bottom nav
-    // as scroll anchors, which is what made the surface one endless page.
+  it('mounts exactly one section, not the whole destination group', () => {
+    // Two defects are pinned here. The renderer first mounted all twenty
+    // sections and treated the bottom nav as scroll anchors, which made the
+    // surface one endless page. Folding to five destinations then mounted a
+    // whole group at once -- which cannot work, because data is fetched per
+    // desktop page and a group's sections map to different pages. Landing on a
+    // destination fetched one page's sources, so the rest of the group rendered
+    // empty shells over populated tables.
     const document = renderMobileCommand()
     expect(document.querySelector('[data-mobile-command-version="2"]')).not.toBeNull()
 
     const rendered = [...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)
-    expect(rendered).toEqual(SECTION_GROUPS.overview)
+    expect(rendered).toEqual(['overview'])
     expect(rendered.length).toBeLessThan(SECTION_NAV.length)
 
+    // Siblings in the same group are reachable from the rail but not mounted.
+    for (const id of SECTION_GROUPS.overview.filter(section => section !== 'overview')) {
+      expect(document.querySelector(`.hvm2-main #${id}`), id).toBeNull()
+    }
     // Sections owned by other destinations must not be in the DOM at all.
     for (const id of SECTION_GROUPS.jurisdiction) {
       expect(document.querySelector(`#${id}`), id).toBeNull()
@@ -209,16 +218,29 @@ describe('Mobile Command Centre contracts', () => {
     expect(document.body.textContent).not.toContain('⌘ Modules')
   })
 
-  it('renders the destination that owns the requested page', () => {
+  it('renders the requested section and marks the destination that owns it', () => {
     const document = renderMobileCommand({ initialPage: 'marketplace' })
 
     const rendered = [...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)
-    expect(rendered).toEqual(SECTION_GROUPS.marketplace)
+    expect(rendered).toEqual(['marketplace'])
     expect(document.body.textContent).toContain('Bulk flower lot')
 
     // The owning tab is marked current, not merely the section.
     const current = document.querySelector('.hvm2-bottom-nav button[aria-current="page"]')
     expect(current?.textContent).toContain('Market')
+  })
+
+  it('offers every sibling in the group through the rail, each as a navigation', () => {
+    // The rail is what makes one-section-at-a-time navigable: the sections that
+    // are not mounted must still be reachable, and reachable by navigating --
+    // scrolling to them would land on a section whose data was never fetched.
+    const document = renderMobileCommand({ initialPage: 'genetics' })
+
+    expect([...document.querySelectorAll('.hvm2-main > section')].map(node => node.id)).toEqual(['genetics'])
+
+    const rail = [...document.querySelectorAll('.hvm2-section-rail button')]
+    expect(rail.map(button => button.textContent)).toHaveLength(SECTION_GROUPS.jurisdiction.length)
+    expect(rail.filter(button => button.getAttribute('aria-current') === 'page')).toHaveLength(1)
   })
 
   it('scopes the section rail to the active destination', () => {

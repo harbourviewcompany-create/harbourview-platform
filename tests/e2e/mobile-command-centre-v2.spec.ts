@@ -242,16 +242,21 @@ test.describe('Command Centre authenticated responsive verification', () => {
           await expect(page.getByText('⌘ Modules')).toHaveCount(0)
           await expect(page.locator('[data-command-module]')).toHaveCount(32)
 
-          // Only the active destination mounts. This block previously asserted
-          // all twenty sections were present at once, which is the behaviour
-          // that made the surface one endless scroll.
+          // Exactly one section mounts. This block first asserted all twenty
+          // were present at once (the endless scroll), then a whole destination
+          // group -- which mounted sections whose data the page never fetched,
+          // because sources are resolved per desktop page and a group spans
+          // several. The section on screen is now the one that was requested.
           await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
-          for (const section of SECTION_GROUPS.overview) {
-            await expect(page.locator(`#${section}`), section).toHaveCount(1)
+          await expect(page.locator('#overview')).toHaveCount(1)
+          for (const section of SECTION_GROUPS.overview.filter(id => id !== 'overview')) {
+            await expect(page.locator(`.hvm2-main #${section}`), section).toHaveCount(0)
           }
           for (const section of [...SECTION_GROUPS.marketplace, ...SECTION_GROUPS.jurisdiction]) {
             await expect(page.locator(`#${section}`), section).toHaveCount(0)
           }
+          // Siblings stay reachable: the rail still lists the whole group.
+          await expect(page.locator('.hvm2-section-rail button')).toHaveCount(SECTION_GROUPS.overview.length)
 
           // Deliberately NOT sweeping all five destinations here.
           //
@@ -411,8 +416,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
           })
 
           expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
-          // The mounted count is the active destination's group, not all twenty.
-          expect(geometry.sectionCount).toBe(SECTION_GROUPS.overview.length)
+          // One section mounts -- not the group, and not all twenty.
+          expect(geometry.sectionCount).toBe(1)
           expect(geometry.moduleCount).toBe(32)
           expect(geometry.bottomNav).not.toBeNull()
           report.geometry = geometry
