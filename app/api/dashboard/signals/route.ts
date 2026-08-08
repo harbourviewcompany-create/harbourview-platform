@@ -1,7 +1,7 @@
 /**
  * GET /api/dashboard/signals
  *
- * Live paginated signals for CommandCentre. Reads signals_quality with
+ * Live paginated signals for CommandCentre. Reads `signals` with
  * Pipeline B quality columns; returns DashboardSignal including
  * corroboration, translation, and content-type fields.
  */
@@ -13,6 +13,7 @@ import { flagForMarket } from '@/lib/utils/flagEmoji'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
+  NOT_REJECTED_OR_FILTER,
   resolveConfidence,
   resolveContentType,
   displayHeadline,
@@ -153,10 +154,17 @@ export async function GET(req: NextRequest) {
 
     const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
 
+    // `signals`, not `signals_quality` — the nine quality columns SAFE_SELECT
+    // names, and the `quality_label` / `quality_confidence` this query filters
+    // and orders on, exist only on `signals`. Against `signals_quality` this
+    // 400'd and the route reported `source: 'error'` with zero signals while
+    // 3,732 rows qualified. `NOT_REJECTED_OR_FILTER` preserves the one row gate
+    // `signals_quality` applied on top of `reviewed = true`.
     let query = supabase
-      .from('signals_quality')
+      .from('signals')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
+      .or(NOT_REJECTED_OR_FILTER)
       .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
       .order('quality_confidence', { ascending: false, nullsFirst: false })
       .order('date',         { ascending: false })

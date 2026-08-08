@@ -73,6 +73,37 @@ export const EXCLUDED_QUALITY_LABELS = ['spam', 'boilerplate', 'nav', 'duplicate
  */
 export const QUALITY_LABEL_NOT_IN = `(${EXCLUDED_QUALITY_LABELS.join(',')})`
 
+/**
+ * PostgREST `or=` filter reproducing `public.signals_quality`'s own editorial gate.
+ *
+ * WHY CALLERS NEED THIS
+ * ---------------------
+ * Every read in this module's vocabulary now targets `signals`, not
+ * `signals_quality`, because the nine quality columns above have never existed
+ * on `signals_quality` in either schema — a query naming them 400s, `data`
+ * comes back null, and the caller cannot tell that apart from an empty table.
+ *
+ * `public.signals_quality` is defined as
+ *   (action is null or action <> 'rejected') and (reviewed = true or <score gates>)
+ * so a reader that pins `reviewed = true` and then repoints to `signals` must
+ * carry the action gate across or it silently readmits rejected rows.
+ * Measured on production 2026-08-08: `signals` reviewed = 3,747;
+ * reviewed and not rejected = 3,745 — exactly `signals_quality`'s reviewed
+ * population. The score gates are unreachable under `reviewed = true` and are
+ * therefore deliberately not reproduced (they are the legacy inverted scorer,
+ * spec §2.5).
+ *
+ * Mirrors the view's own `action is null or action <> 'rejected'` rather than a
+ * bare `not.eq.rejected`, because `action` is nullable and SQL's
+ * `NOT (NULL = 'rejected')` evaluates to NULL, not TRUE — a bare `not.eq` would
+ * silently drop every NULL-action row. Measured on production 2026-08-08 there
+ * are currently zero NULL-action rows, so the two forms happen to agree today;
+ * the `or` is kept because it is what the view guarantees and the column can go
+ * back to NULL at any time. Same three-valued-logic trap as
+ * {@link SIGNALS_FEED_CONTENT_TYPE_OR_FILTER}.
+ */
+export const NOT_REJECTED_OR_FILTER = 'action.is.null,action.neq.rejected' as const
+
 export function isSurfaceable(row: SignalQualityRow): boolean {
   const label = typeof row.quality_label === 'string' ? row.quality_label.toLowerCase() : null
   if (label === null) return true
