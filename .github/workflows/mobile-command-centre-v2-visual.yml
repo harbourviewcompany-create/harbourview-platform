@@ -30,6 +30,20 @@ on:
       - tests/supabase/env.test.ts
       - tests/e2e/mobile-command-centre-v2.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
+  # Also run on main, unfiltered.
+  #
+  # The paths filter above is what let #1292 through: it changed only `lib/` and
+  # `app/api/` files, none of which are listed, so this gate never ran against
+  # the PR that broke it. It surfaced two PRs later on unrelated mobile work and
+  # was attributed there twice before anyone found the real cause. A gate that
+  # only ever sees a subset of PRs and never sees the branch it is protecting
+  # cannot tell you who broke it.
+  #
+  # No paths filter here on purpose — the whole point is catching changes the
+  # list does not anticipate. Runs post-merge, so it reports rather than blocks.
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

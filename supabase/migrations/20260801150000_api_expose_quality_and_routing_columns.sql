@@ -91,39 +91,45 @@ create or replace view public.signals_quality as
       or (cat = 'GAZETTE' and score >= 70)
     );
 
--- ── api.signals_quality — the view the dashboard actually reads ──────────────
-
-create or replace view api.signals_quality as
-  select
-    id, date, cat, pri, score, headline, summary, source, url, verification,
-    tier, lang, company, country, in_network, lane_r, lane_e, lane_t, top_lane,
-    query_pack, commercial_impact, reviewed, action, created_at,
-    embedding_1024, embedding_model, embedded_at,
-    -- appended below this line
-    analysis, analysis_generated_at, analysis_backend,
-    quality_label, quality_confidence, content_type, impact, classifier_version,
-    title_en, summary_en, lang_detected,
-    is_representative, cluster_rep_id, corroborating_count,
-    country_iso2, geo_scope, geo_region,
-    role_families, routing_version, routed_at
-  from public.signals_quality;
-
--- ── api.signals ──────────────────────────────────────────────────────────────
-
-create or replace view api.signals as
-  select
-    id, date, cat, pri, score, headline, summary, source, url, verification,
-    tier, lang, company, country, in_network, lane_r, lane_e, lane_t, top_lane,
-    query_pack, commercial_impact, reviewed, action, created_at,
-    embedding_1024, embedding_model, embedded_at, reviewed_by, reviewed_at,
-    editorial_title, editorial_blurb, country_iso2,
-    -- appended below this line
-    quality_label, quality_confidence, content_type, impact, classifier_version,
-    title_en, summary_en, lang_detected,
-    is_representative, cluster_rep_id, corroborating_count,
-    geo_scope, geo_region,
-    role_families, routing_version, routed_at
-  from public.signals;
+-- ── api.signals_quality and api.signals — DELIBERATELY NOT CHANGED ───────────
+--
+-- NEUTRALISED 2026-08-08, BEFORE THIS MIGRATION WAS EVER APPLIED.
+--
+-- This migration has never run against production. It was written on 2026-08-01
+-- and is still absent from `supabase_migrations.schema_migrations`. As drafted,
+-- it did `create or replace view` on BOTH `api.signals_quality` and
+-- `api.signals`, appending the ten Pipeline B classifier columns plus the
+-- generated `analysis` payload to each.
+--
+-- Both of those views are granted SELECT to `anon`. Verified on production
+-- 2026-08-08:
+--
+--   api.signals               anon, authenticated, postgres, service_role
+--   api.signals_quality       anon, authenticated, postgres, service_role
+--   api.signals_with_quality        authenticated, postgres, service_role
+--
+-- So applying this file as written would have published every internal
+-- classifier verdict, confidence score and generated analysis blob to
+-- unauthenticated callers — a data-exposure change, not the drift fix this
+-- migration set out to be. Nothing in the sign-off for this work covered that.
+--
+-- The columns already have a correct home. `api.signals_with_quality`
+-- (20260808120000, applied in production as 20260808112235) carries all ten
+-- over the same base table, is `security_invoker`, and is granted to
+-- `authenticated` and `service_role` only — never `anon`. Every consumer reads
+-- it. There is no caller that needs these columns on an anon-readable view.
+--
+-- The two view definitions are removed rather than rewritten because
+-- `create or replace view` cannot drop columns: had this ever been applied,
+-- reverting it would have required dropping and recreating both views. Leaving
+-- the statements here as a comment keeps the original intent legible without
+-- leaving the exposure loaded in a file that any `supabase db push` would fire.
+--
+-- The routing columns this migration also intended (`role_families`,
+-- `routing_version`, `routed_at`, `geo_scope`, `geo_region`) went unshipped with
+-- them. `lib/signals/routing.ts` reads through the service client, so if it
+-- needs them exposed they belong on the restricted view too — a separate,
+-- deliberate change, not a side effect of this one.
 
 -- ── api.cc_watch_rules — structured subscription fields ──────────────────────
 
@@ -161,7 +167,8 @@ grant select on public.role_families to anon, authenticated;
 -- begin;
 --   drop view if exists api.role_families;
 --   drop view if exists api.cc_watch_rules;      -- then recreate at 8 columns
---   drop view if exists api.signals;             -- then recreate at 32 columns
---   drop view if exists api.signals_quality;     -- then recreate at 27 columns
 --   drop view if exists public.signals_quality;  -- then recreate at 30 columns
 -- commit;
+--
+-- `api.signals` and `api.signals_quality` are no longer touched by this
+-- migration (see the neutralisation note above), so they need no rollback.
