@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
+import { DesktopDecisionIntelBridge } from '@/components/dashboard/DesktopDecisionIntelBridge'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import {
   COMMAND_CENTRE_MODULE_REGISTRY,
@@ -56,6 +57,7 @@ export function DashboardResponsiveShellContent({
         ? <MobileCommandCentreRebuild {...props} />
         : (
           <>
+            <DesktopDecisionIntelBridge signals={props.signals} />
             <CommandCentre {...props} />
             <DesktopCommandWorkspace />
           </>
