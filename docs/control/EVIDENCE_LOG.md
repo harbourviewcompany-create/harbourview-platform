@@ -4415,8 +4415,16 @@ One page at a time. The mobile rebuild dropped that model.
 
 ### The fix
 
-`SECTION_GROUPS` folds all twenty sections under the five existing destinations,
-and only the active group mounts. Four of the five never reach the DOM.
+`SECTION_GROUPS` folds all twenty sections under the five existing destinations.
+
+**Superseded within this same PR:** mounting the whole group could not work.
+Sources are resolved per desktop page and a group's sections map to different
+pages, so landing on a destination fetched one page's sources and every sibling
+belonging to another page rendered an empty shell over a populated table --
+eight sections in total. Only the **active section** mounts; the rail carries
+the rest of the group and navigates, so each section arrives with its own data.
+A later commit also stopped mounting the tapped section before its route
+committed, which reintroduced the same empty shell as a brief flash.
 
 | destination | sections |
 | --- | --- |
@@ -4466,9 +4474,12 @@ cross-group deep links.
 Still open from the same screenshots, deliberately out of scope for a structural
 change:
 
-- **`Stub` renders as a user-facing value** under "QUALITY POSTURE". It is
-  `jurisdictionPlaybook.confidence_label` coming through raw — a placeholder
-  displayed as content.
+- ~~**`Stub` renders as a user-facing value** under "QUALITY POSTURE".~~
+  **Resolved in this PR.** The value was `countries.data_completeness`, not
+  `jurisdictionPlaybook.confidence_label` as originally recorded here. It is a
+  three-value enum printed raw, and it is inverted: `stub` countries average 142
+  characters of written summary and all carry a published playbook, while 33 of
+  the 50 `partial` countries are boilerplate. It is no longer derived at all.
 - **Heading collision.** "Regulatory and quality control" and "Compliance
   command" occupy the same row and overlap, squeezing body copy into a narrow
   column. Same on "Reviewed commercial network" / "Network command".
