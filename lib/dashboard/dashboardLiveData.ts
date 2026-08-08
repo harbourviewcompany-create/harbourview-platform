@@ -1118,22 +1118,30 @@ export type EducationTrack = {
   tags:        string[]
 }
 
+// `education_tracks` carries id, slug, title, description, publication_state,
+// created_at, updated_at -- and nothing else. This query previously asked for
+// icon, level and tags, filtered on `status`, and ordered by `sort_order`:
+// five column names that do not exist on the relation. PostgREST rejects the
+// request, `data` comes back null, and the function returned an empty array
+// against five published tracks. The renderer already degrades gracefully
+// (it already coalesces a missing icon and level) and never reads `tags`, so the shape is
+// preserved here rather than pushed onto every consumer.
 export async function getEducationTracks(): Promise<EducationTrack[]> {
   try {
     const supabase = await createClient()
     const { data } = await supabase
       .from('education_tracks')
-      .select('id,title,description,icon,level,tags')
-      .eq('status', 'published')
-      .order('sort_order', { ascending: true })
+      .select('id,title,description')
+      .eq('publication_state', 'published')
+      .order('title', { ascending: true })
       .limit(12)
     return (data ?? []).map(r => ({
       id:          r.id,
       title:       r.title,
       description: r.description,
-      icon:        r.icon,
-      level:       r.level,
-      tags:        Array.isArray(r.tags) ? r.tags : [],
+      icon:        null,
+      level:       null,
+      tags:        [],
     }))
   } catch { return [] }
 }

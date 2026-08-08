@@ -14,6 +14,7 @@ import { flagForMarket } from '@/lib/utils/flagEmoji'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
+  NOT_REJECTED_OR_FILTER,
   resolveConfidence,
   resolveContentType,
   displayHeadline,
@@ -206,8 +207,17 @@ export async function GET(req: NextRequest) {
       )]
       let confidenceBySignalId = new Map<string, number>()
       if (sourceSignalIds.length > 0) {
+        // `signals`, not `signals_quality`: `quality_confidence` has never been a
+        // column on `signals_quality` in either schema, so this lookup 400'd and
+        // every curated-edition headline fell back to the flat `80` below.
+        //
+        // No `action`/quality gate here, deliberately. This is an id-keyed lookup
+        // for headlines an editor already selected into a published edition — the
+        // only question is "what confidence did Pipeline B measure for this row",
+        // and re-gating it would just return `null` and re-trigger the same
+        // fabricated fallback the repoint exists to remove.
         const { data: sourceConfidenceRows, error: sourceConfidenceError } = await supabase
-          .from('signals_quality')
+          .from('signals')
           .select('id, quality_confidence')
           .in('id', sourceSignalIds)
 
@@ -266,10 +276,18 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // `signals`, not `signals_quality`. SAFE_SELECT names the nine Pipeline B
+    // quality columns and this query orders by `quality_confidence`; none of
+    // them exist on `signals_quality` in either schema, so PostgREST 400'd and
+    // the route returned `source: 'error'` with an empty feed against 3,732
+    // eligible rows. `NOT_REJECTED_OR_FILTER` carries across the one row-gating
+    // clause `signals_quality` applied that `reviewed = true` does not already
+    // subsume — see its doc comment for the measured equivalence.
     let query = supabase
-      .from('signals_quality')
+      .from('signals')
       .select(SAFE_SELECT, { count: 'exact' })
       .eq('reviewed', true)
+      .or(NOT_REJECTED_OR_FILTER)
       .order('created_at', { ascending: false })
       .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
       .order('quality_confidence', { ascending: false, nullsFirst: false })
