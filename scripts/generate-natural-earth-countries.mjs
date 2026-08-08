@@ -21,19 +21,14 @@ function perpendicularDistanceDeg(point, lineStart, lineEnd) {
   const dy = y2 - y1
 
   if (dx === 0 && dy === 0) {
-    const ddx = x - x1
-    const ddy = y - y1
-    return Math.sqrt(ddx * ddx + ddy * ddy)
+    return Math.hypot(x - x1, y - y1)
   }
 
   const t = ((x - x1) * dx + (y - y1) * dy) / (dx * dx + dy * dy)
-  const tClamped = Math.max(0, Math.min(1, t))
-  const projX = x1 + tClamped * dx
-  const projY = y1 + tClamped * dy
-  const ddx = x - projX
-  const ddy = y - projY
-
-  return Math.sqrt(ddx * ddx + ddy * ddy)
+  const clamped = Math.max(0, Math.min(1, t))
+  const projX = x1 + clamped * dx
+  const projY = y1 + clamped * dy
+  return Math.hypot(x - projX, y - projY)
 }
 
 function douglasPeucker(points, tolerance) {
@@ -42,7 +37,6 @@ function douglasPeucker(points, tolerance) {
   const keep = new Array(points.length).fill(false)
   keep[0] = true
   keep[points.length - 1] = true
-
   const stack = [[0, points.length - 1]]
 
   while (stack.length > 0) {
@@ -52,7 +46,6 @@ function douglasPeucker(points, tolerance) {
 
     for (let i = startIndex + 1; i < endIndex; i += 1) {
       const distance = perpendicularDistanceDeg(points[i], points[startIndex], points[endIndex])
-
       if (distance > maxDistance) {
         maxDistance = distance
         maxIndex = i
@@ -73,22 +66,25 @@ function roundCoordinate(value) {
   return Math.round(value * 1000) / 1000
 }
 
-function simplifyRing(points, tolerance) {
+function closeRing(points) {
   if (!Array.isArray(points) || points.length < 3) return null
+  const out = points.map(([lon, lat]) => [roundCoordinate(lon), roundCoordinate(lat)])
+  const first = out[0]
+  const last = out[out.length - 1]
+  if (first[0] !== last[0] || first[1] !== last[1]) out.push([first[0], first[1]])
+  return out.length >= 4 ? out : null
+}
 
-  const cleaned = points.map((point) => [roundCoordinate(point[0]), roundCoordinate(point[1])])
-  const simplified = douglasPeucker(cleaned, tolerance)
+function simplifyRing(points, tolerance) {
+  const closed = closeRing(points)
+  if (!closed) return null
 
-  if (simplified.length < 4) return null
-
-  const first = simplified[0]
-  const last = simplified[simplified.length - 1]
-
-  if (first[0] !== last[0] || first[1] !== last[1]) {
-    simplified.push([first[0], first[1]])
-  }
-
-  return simplified
+  // Douglas-Peucker needs distinct endpoints. Simplify the open path, then
+  // restore closure. This avoids the degenerate first===last baseline.
+  const open = closed.slice(0, -1)
+  const simplifiedOpen = douglasPeucker(open, tolerance)
+  if (simplifiedOpen.length < 3) return null
+  return [...simplifiedOpen, [...simplifiedOpen[0]]]
 }
 
 function ringAreaDeg2(ring) {
@@ -98,17 +94,9 @@ function ringAreaDeg2(ring) {
     const [x2, y2] = ring[i + 1]
     area += x1 * y2 - x2 * y1
   }
-
   return Math.abs(area / 2)
 }
 
-/**
- * Antimeridian ring split — durable fix for Russia / Fiji / NZ / US Alaska tails.
- *
- * Natural Earth 50m sometimes emits outer rings whose consecutive vertices jump
- * across ±180°. Those rings are valid on a sphere but self-intersecting in the
- * planar lon/lat domain earcut uses. Result: empty or inverted plate → ocean void.
- */
 function lonDelta(a, b) {
   let d = b - a
   while (d > 180) d -= 360
@@ -116,23 +104,36 @@ function lonDelta(a, b) {
   return d
 }
 
+/**
+ * Detect a raw GeoJSON edge crossing ±180. Do not use lonDelta here: lonDelta
+ * deliberately normalizes the jump into [-180, 180], which made the previous
+ * `Math.abs(lonDelta(...)) > 180` condition impossible and left Russia's raw
+ * antimeridian edge in the simplifier.
+ */
 function crossesAntimeridian(a, b) {
-  return Math.abs(lonDelta(a[0], b[0])) > 180
+  return Math.abs(b[0] - a[0]) > 180
 }
 
 function interpolateAntimeridianCrossing(a, b) {
   const dLon = lonDelta(a[0], b[0])
-  const targetLon = a[0] + dLon > 0 ? 180 : -180
   const unwrappedB = a[0] + dLon
-  const t = (targetLon - a[0]) / (unwrappedB - a[0] || 1)
+  const targetLon = unwrappedB > a[0] ? 180 : -180
+  const denominator = unwrappedB - a[0]
+  const t = denominator === 0 ? 0 : (targetLon - a[0]) / denominator
   const lat = a[1] + t * (b[1] - a[1])
   return {
-    lat: Math.round(lat * 1000) / 1000,
+    lat: roundCoordinate(lat),
     leaveLon: targetLon,
     enterLon: -targetLon,
   }
 }
 
+/**
+ * Split a raw closed ring into planar-contiguous pieces before simplification.
+ * This is critical for Russia: simplifying a path containing a +180/-180 jump
+ * can create long chords through the mainland, which earcut later interprets
+ * as a real boundary and renders as the long-lived central black void.
+ */
 function splitRingAtAntimeridian(ring) {
   if (!Array.isArray(ring) || ring.length < 4) return [ring]
 
@@ -146,17 +147,12 @@ function splitRingAtAntimeridian(ring) {
   }
   if (pts.length < 3) return [ring]
 
-  let hasCrossing = false
-  for (let i = 0; i < pts.length; i++) {
-    if (crossesAntimeridian(pts[i], pts[(i + 1) % pts.length])) {
-      hasCrossing = true
-      break
-    }
+  if (!pts.some((point, i) => crossesAntimeridian(point, pts[(i + 1) % pts.length]))) {
+    return [ring]
   }
-  if (!hasCrossing) return [ring]
 
   const path = []
-  for (let i = 0; i < pts.length; i++) {
+  for (let i = 0; i < pts.length; i += 1) {
     const a = pts[i]
     const b = pts[(i + 1) % pts.length]
     path.push(a)
@@ -169,83 +165,71 @@ function splitRingAtAntimeridian(ring) {
 
   const runs = []
   let current = [path[0]]
-  for (let i = 1; i < path.length; i++) {
+  for (let i = 1; i < path.length; i += 1) {
     const prev = current[current.length - 1]
     const next = path[i]
     if (crossesAntimeridian(prev, next)) {
-      if (current.length >= 2) runs.push(current)
+      if (current.length >= 3) runs.push(current)
       current = [next]
     } else {
       current.push(next)
     }
   }
-  if (current.length >= 2) runs.push(current)
+  if (current.length >= 3) runs.push(current)
 
-  const closed = []
-  for (const run of runs) {
-    if (run.length < 3) continue
-    const first = run[0]
-    const last = run[run.length - 1]
-    const out = run.map((p) => [p[0], p[1]])
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      out.push([first[0], first[1]])
-    }
-    if (out.length >= 4) closed.push(out)
-  }
-
-  return closed.length > 0 ? closed : [ring]
+  return runs.length > 0 ? runs : [ring]
 }
 
-function splitPolygonAtAntimeridian(polygonRings) {
-  const outer = polygonRings.find((r) => r.kind === 'outer')
-  if (!outer) return [{ rings: polygonRings }]
-
-  const splitOuters = splitRingAtAntimeridian(outer.points)
-  if (splitOuters.length <= 1) return [{ rings: polygonRings }]
-
-  const holes = polygonRings.filter((r) => r.kind === 'hole')
-
-  return splitOuters.map((outerPoints) => {
-    const lons = outerPoints.map((p) => p[0])
-    const minLon = Math.min(...lons)
-    const maxLon = Math.max(...lons)
-    const assignedHoles = holes.filter((hole) => {
-      const meanLon =
-        hole.points.reduce((s, p) => s + p[0], 0) / Math.max(1, hole.points.length)
-      return meanLon >= minLon - 1e-6 && meanLon <= maxLon + 1e-6
-    })
-    return {
-      rings: [{ kind: 'outer', points: outerPoints }, ...assignedHoles],
-    }
-  })
+function meanLongitude(points) {
+  return points.reduce((sum, point) => sum + point[0], 0) / Math.max(1, points.length)
 }
 
 function normalizePolygons(geometry, tolerance) {
   const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
-
   const normalized = []
 
   for (const polygon of polygons) {
-    const rings = []
+    const rawOuter = polygon[0]
+    if (!rawOuter) continue
 
-    polygon.forEach((ring, index) => {
-      const simplified = simplifyRing(ring, tolerance)
-      if (!simplified) return
+    // Split first, simplify second. The old order was the Russia corruption bug.
+    const rawOuterParts = splitRingAtAntimeridian(rawOuter)
+    const simplifiedOuters = rawOuterParts
+      .map((part) => simplifyRing(part, tolerance))
+      .filter(Boolean)
+      .filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)
 
-      if (index === 0 && ringAreaDeg2(simplified) < MIN_POLYGON_AREA_DEG2) return
+    if (simplifiedOuters.length === 0) continue
 
-      rings.push({
-        kind: index === 0 ? 'outer' : 'hole',
-        points: simplified,
+    const holes = polygon
+      .slice(1)
+      .map((ring) => simplifyRing(ring, tolerance))
+      .filter(Boolean)
+
+    if (simplifiedOuters.length === 1) {
+      normalized.push({
+        rings: [
+          { kind: 'outer', points: simplifiedOuters[0] },
+          ...holes.map((points) => ({ kind: 'hole', points })),
+        ],
       })
-    })
+      continue
+    }
 
-    if (!rings.some((ring) => ring.kind === 'outer')) continue
-
-    // Durable antimeridian split: one self-crossing outer → N clean outers
-    const split = splitPolygonAtAntimeridian(rings)
-    for (const part of split) {
-      if (part.rings.some((r) => r.kind === 'outer')) normalized.push(part)
+    for (const outer of simplifiedOuters) {
+      const lons = outer.map((point) => point[0])
+      const minLon = Math.min(...lons)
+      const maxLon = Math.max(...lons)
+      const assignedHoles = holes.filter((hole) => {
+        const meanLon = meanLongitude(hole)
+        return meanLon >= minLon - 1e-6 && meanLon <= maxLon + 1e-6
+      })
+      normalized.push({
+        rings: [
+          { kind: 'outer', points: outer },
+          ...assignedHoles.map((points) => ({ kind: 'hole', points })),
+        ],
+      })
     }
   }
 
@@ -260,17 +244,16 @@ function computeBoundingBox(polygons) {
 
   for (const polygon of polygons) {
     for (const ring of polygon.rings) {
-      for (const point of ring.points) {
-        if (point[0] < minLon) minLon = point[0]
-        if (point[1] < minLat) minLat = point[1]
-        if (point[0] > maxLon) maxLon = point[0]
-        if (point[1] > maxLat) maxLat = point[1]
+      for (const [lon, lat] of ring.points) {
+        minLon = Math.min(minLon, lon)
+        minLat = Math.min(minLat, lat)
+        maxLon = Math.max(maxLon, lon)
+        maxLat = Math.max(maxLat, lat)
       }
     }
   }
 
-  if (!isFinite(minLon)) return [0, 0, 0, 0]
-
+  if (!Number.isFinite(minLon)) return [0, 0, 0, 0]
   return [
     roundCoordinate(minLon),
     roundCoordinate(minLat),
@@ -281,7 +264,6 @@ function computeBoundingBox(polygons) {
 
 function computeCentroid(polygons, fallback) {
   const outer = polygons[0]?.rings.find((ring) => ring.kind === 'outer')
-
   if (!outer || outer.points.length === 0) {
     return [roundCoordinate(fallback[0]), roundCoordinate(fallback[1])]
   }
@@ -289,15 +271,12 @@ function computeCentroid(polygons, fallback) {
   let sumLon = 0
   let sumLat = 0
   let count = 0
-
-  for (const point of outer.points.slice(0, -1)) {
-    sumLon += point[0]
-    sumLat += point[1]
+  for (const [lon, lat] of outer.points.slice(0, -1)) {
+    sumLon += lon
+    sumLat += lat
     count += 1
   }
-
   if (count === 0) return [roundCoordinate(fallback[0]), roundCoordinate(fallback[1])]
-
   return [roundCoordinate(sumLon / count), roundCoordinate(sumLat / count)]
 }
 
@@ -314,33 +293,23 @@ function extractIso3(properties) {
 }
 
 function extractName(properties) {
-  return (
-    properties.NAME_LONG ??
-    properties.NAME ??
-    properties.ADMIN ??
-    properties.FORMAL_EN ??
-    'Unknown'
-  )
+  return properties.NAME_LONG ?? properties.NAME ?? properties.ADMIN ?? properties.FORMAL_EN ?? 'Unknown'
 }
 
 function transformFeature(feature) {
   const properties = feature.properties ?? {}
   const iso2 = extractIso2(properties)
   const iso3 = extractIso3(properties)
-
-  if (!iso2 || !iso3) return null
-  if (SKIP_ISO2.has(iso2)) return null
+  if (!iso2 || !iso3 || SKIP_ISO2.has(iso2)) return null
 
   const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
   if (polygons.length === 0) return null
 
   const labelLon = typeof properties.LABEL_X === 'number' ? properties.LABEL_X : null
   const labelLat = typeof properties.LABEL_Y === 'number' ? properties.LABEL_Y : null
-  const labelFallback = [labelLon ?? 0, labelLat ?? 0]
-  const centroid =
-    labelLon !== null && labelLat !== null
-      ? [roundCoordinate(labelLon), roundCoordinate(labelLat)]
-      : computeCentroid(polygons, labelFallback)
+  const centroid = labelLon !== null && labelLat !== null
+    ? [roundCoordinate(labelLon), roundCoordinate(labelLat)]
+    : computeCentroid(polygons, [labelLon ?? 0, labelLat ?? 0])
 
   return {
     iso2,
@@ -360,32 +329,15 @@ function serializePoints(points) {
 function serializeCountry(country) {
   const polygons = country.polygons
     .map(
-      (polygon) => `      {
-        rings: [
-${polygon.rings
-  .map(
-    (ring) => `          {
-            kind: '${ring.kind}',
-            points: ${serializePoints(ring.points)},
-          },`,
-  )
-  .join('\n')}
-        ],
-      },`,
+      (polygon) => `      {\n        rings: [\n${polygon.rings
+        .map(
+          (ring) => `          {\n            kind: '${ring.kind}',\n            points: ${serializePoints(ring.points)},\n          },`,
+        )
+        .join('\n')}\n        ],\n      },`,
     )
     .join('\n')
 
-  return `    {
-      iso2: '${country.iso2}',
-      iso3: '${country.iso3}',
-      name: ${JSON.stringify(country.name)},
-      centroid: [${country.centroid[0]}, ${country.centroid[1]}],
-      bbox: [${country.bbox[0]}, ${country.bbox[1]}, ${country.bbox[2]}, ${country.bbox[3]}],
-      source: 'natural-earth-admin-0',
-      polygons: [
-${polygons}
-      ],
-    },`
+  return `    {\n      iso2: '${country.iso2}',\n      iso3: '${country.iso3}',\n      name: ${JSON.stringify(country.name)},\n      centroid: [${country.centroid[0]}, ${country.centroid[1]}],\n      bbox: [${country.bbox[0]}, ${country.bbox[1]}, ${country.bbox[2]}, ${country.bbox[3]}],\n      source: 'natural-earth-admin-0',\n      polygons: [\n${polygons}\n      ],\n    },`
 }
 
 async function main() {
@@ -397,40 +349,17 @@ async function main() {
     const country = transformFeature(feature)
     if (country) countries.push(country)
   }
-
   countries.sort((a, b) => a.iso2.localeCompare(b.iso2))
 
-  const body = `import type { HarbourviewCountryGeometryPayload } from '@/lib/globe/geojson-country-types'
-
-// Generated by scripts/generate-natural-earth-countries.mjs.
-// Source: data/globe/source/ne_50m_admin_0_countries.geojson (Natural Earth Admin 0, 1:50m).
-// Do not edit by hand. Re-run the script to regenerate after updating the source data.
-export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
-  provenance: {
-    source: 'Natural Earth Admin 0 Countries',
-    sourceScale: '1:50m',
-    sourceVersion: 'ne_50m_admin_0_countries (vendored)',
-    sourceLicense: 'Public domain',
-    boundaryModel: 'Natural Earth de facto boundaries',
-    generatedAt: '${new Date().toISOString()}',
-    generatedBy: 'scripts/generate-natural-earth-countries.mjs',
-    harbourviewTransformVersion: '1.2.0-natural-earth-50m-antimeridian-split',
-    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; Douglas-Peucker simplified at ${SIMPLIFY_TOLERANCE_DEG}\u00b0 tolerance; coordinates rounded to 3 decimal places; outer rings that cross ±180 are split into contiguous parts (fixes Russia / Fiji plate voids). Source upgraded to 1:50m for higher polygon fidelity.',
-  },
-  countries: [
-${countries.map(serializeCountry).join('\n')}
-  ],
-}
-`
+  const body = `import type { HarbourviewCountryGeometryPayload } from '@/lib/globe/geojson-country-types'\n\n// Generated by scripts/generate-natural-earth-countries.mjs.\n// Source: data/globe/source/ne_50m_admin_0_countries.geojson (Natural Earth Admin 0, 1:50m).\n// Do not edit by hand. Re-run the script to regenerate after updating the source data.\nexport const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {\n  provenance: {\n    source: 'Natural Earth Admin 0 Countries',\n    sourceScale: '1:50m',\n    sourceVersion: 'ne_50m_admin_0_countries (vendored)',\n    sourceLicense: 'Public domain',\n    boundaryModel: 'Natural Earth de facto boundaries',\n    generatedAt: '${new Date().toISOString()}',\n    generatedBy: 'scripts/generate-natural-earth-countries.mjs',\n    harbourviewTransformVersion: '1.3.0-natural-earth-50m-antimeridian-before-simplify',\n    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; antimeridian-crossing outer rings are split before Douglas-Peucker simplification; coordinates rounded to 3 decimal places; source upgraded to 1:50m for higher polygon fidelity.',\n  },\n  countries: [\n${countries.map(serializeCountry).join('\n')}\n  ],\n}\n`
 
   await writeFile(OUTPUT_PATH, body, 'utf8')
 
   const totalPoints = countries.reduce(
-    (accumulator, country) =>
-      accumulator + country.polygons.reduce(
-        (innerAccumulator, polygon) => innerAccumulator + polygon.rings.reduce((c, ring) => c + ring.points.length, 0),
-        0,
-      ),
+    (sum, country) => sum + country.polygons.reduce(
+      (polygonSum, polygon) => polygonSum + polygon.rings.reduce((ringSum, ring) => ringSum + ring.points.length, 0),
+      0,
+    ),
     0,
   )
 
