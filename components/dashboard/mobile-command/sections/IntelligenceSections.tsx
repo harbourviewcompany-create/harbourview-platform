@@ -45,7 +45,7 @@ export function WeeklySignalsSection({ sectionRef, signals }: { sectionRef: Sect
                   <h3>{signal.title}</h3>
                   <p>{whyItMatters}</p>
                   <div className="hvm2-signal-footer">
-                    <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} sources` : `${signal.confidence}% upstream confidence`}</span>
+                    <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} related observations` : `${signal.confidence}% upstream confidence`}</span>
                     <span>{signal.timeAgo}</span>
                     <strong>Open dossier →</strong>
                   </div>
@@ -167,11 +167,6 @@ export function EducationSection({
 type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['items'][number]
 type LocalIntel = NonNullable<MobileCommandCentreProps['localIntel']>
 
-/**
- * Regulatory watch. Reads the org's tracked watchlist items plus the
- * jurisdiction's regulatory posture. Both were previously reachable on mobile
- * only by following a module-rail link out to the desktop page.
- */
 export function RegulatoryWatchSection({
   sectionRef, items, activeRules, regulatoryTier, outlook, sourceCoverageCount, commandHref,
 }: {
@@ -225,10 +220,6 @@ export function RegulatoryWatchSection({
   )
 }
 
-/**
- * Local intelligence: the sub-national picture for the active jurisdiction --
- * who regulates, which subdivisions differ, and what is still unanswered.
- */
 export function LocalIntelSection({
   sectionRef, localIntel, countryLabel,
 }: {
