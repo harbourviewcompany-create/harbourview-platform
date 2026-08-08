@@ -1,0 +1,42 @@
+name: Release Safety Shadow
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-safety-shadow-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shadow:
+    name: Shadow release-safety checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Existing type safety
+        run: npm run typecheck
+      - name: Existing security suite
+        run: npm run test:security
+      - name: Release-safety repository audit
+        run: node scripts/ci/release-safety-shadow.mjs
+      - name: Migration review-boundary audit
+        run: node scripts/ci/verify-migration-review-boundary.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-safety-shadow-${{ github.sha }}
+          path: artifacts/release-safety/
+          retention-days: 30
+          if-no-files-found: warn
