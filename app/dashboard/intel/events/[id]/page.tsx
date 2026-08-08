@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { loadDecisionIntelDossier } from '@/lib/intelligence-os/decisionDossier'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +27,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default async function DecisionIntelEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { supabase } = await requireAuth('signals')
+  await requireAuth('signals')
+  // requireAuth's client intentionally uses Supabase's default schema. Harbourview's
+  // production Data API is exposed through `api`, so use the canonical server client
+  // for dossier reads after the entitlement gate has succeeded.
+  const supabase = await createClient()
   const dossier = await loadDecisionIntelDossier(supabase, decodeURIComponent(id))
   if (!dossier) notFound()
 
