@@ -116,8 +116,10 @@ grant select, insert, update, delete on
   public.intel_recommendations
   to authenticated;
 
--- Rebuild the dossier projection through displayable assertions only and preserve
--- evidence relationship semantics so contradictory evidence cannot be presented as support.
+-- Rebuild the dossier projection through displayable event/assessment/recommendation
+-- states and displayable assertions only. The explicit event predicate is required
+-- because the customer RPC executes as the function owner and therefore cannot rely
+-- on product-tier base-table RLS to suppress rejected/superseded events.
 create or replace view public.intel_event_dossiers
 with (security_invoker = true)
 as
@@ -174,6 +176,7 @@ left join public.intel_event_assertions ea on ea.event_id = e.id
 left join public.intel_assertions ia on ia.id = ea.assertion_id
 left join public.intel_assertion_evidence ae on ae.assertion_id = ia.id
 left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
+where e.review_status in ('migrated_reviewed','verified')
 group by e.id, a.id, r.id;
 
 -- The route map is canonical ownership, not a display-state projection. Keeping a
