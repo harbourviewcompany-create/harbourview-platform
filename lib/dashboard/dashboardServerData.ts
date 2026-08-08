@@ -420,10 +420,26 @@ export async function fetchDailyDigest(
       }
     }
 
+    // The unpublished-edition fallback: no digest edition exists for today, so
+    // the digest is assembled from the signal corpus directly.
+    //
+    // This was left on `signals_quality` while the curated path above moved.
+    // `supabase` here is the schema-pinned server client, so it resolves to
+    // `api.signals_quality`, which carries none of the ten quality columns
+    // DIGEST_SELECT names and none of the two this orders by — verified on
+    // production 2026-08-08, 0 of 9 present on both `api.signals_quality` and
+    // `public.signals_quality`. PostgREST 400s, `error` is set, and the guard
+    // below returns an empty digest. So on every day without a published
+    // edition the Daily Digest was blank, and nothing said why.
+    //
+    // `NOT_REJECTED_OR_FILTER` carries across the one row gate
+    // `signals_quality` applied on top of `reviewed = true`, same as the
+    // curated read above.
     let query = supabase
-      .from('signals_quality')
+      .from('signals_with_quality')
       .select(DIGEST_SELECT)
       .eq('reviewed', true)
+      .or(NOT_REJECTED_OR_FILTER)
       .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
       .order('created_at', { ascending: false })
       .order('quality_confidence', { ascending: false, nullsFirst: false })

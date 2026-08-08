@@ -4654,7 +4654,7 @@ roles, and `api.signals` was left untouched.
 
 ### Verified against production after apply
 
-```
+```text
 signals_with_quality quality columns present     10
 signals_with_quality grantees                    authenticated, postgres, service_role   (no anon)
 admin_dashboard_counts grantees                  authenticated, postgres, service_role   (no anon)
@@ -4679,9 +4679,59 @@ policy-standards tracker and the logistics page — deliberately stay on
 
 ### Verification
 
-```
+```text
 npm run typecheck   clean
 npx vitest run tests/signals tests/dashboard/   228 passed
+npm run build       success
+npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
+```
+
+### Corrections after review
+
+Two of the nine repoints were wrong. Both found by CodeRabbit, both verified
+against production before changing anything.
+
+**`app/api/signals/search/route.ts` — reverted to `signals`.** That route's
+`serviceClient()` deliberately sets no schema override, so PostgREST resolves it
+against `public`. `signals_with_quality` was created in `api` only, so pointing
+it there targeted a relation that does not exist — this repoint introduced a
+regression rather than fixing one. Verified 2026-08-08:
+
+```text
+public.signals              quality columns present : 9 of 9
+public.signals_with_quality                         : relation absent
+api.signals_with_quality    quality columns present : 9 of 9
+api.signals                 quality columns present : 0 of 9
+api.signals_quality         quality columns present : 0 of 9
+public.signals_quality      quality columns present : 0 of 9
+```
+
+`public.signals` carries every column that select names, which is why the
+public-schema path worked before this PR and works again now.
+
+**`lib/dashboard/dashboardServerData.ts` — the unpublished-edition digest
+fallback was missed.** The curated read moved; the fallback below it stayed on
+`signals_quality` while still selecting `DIGEST_SELECT` and ordering by
+`quality_confidence`. On the schema-pinned server client that is
+`api.signals_quality`, which per the table above carries none of them, so the
+query 400'd and the guard returned an empty digest. Every day without a
+published edition rendered a blank Daily Digest and nothing said why. Now on
+`signals_with_quality`, with `NOT_REJECTED_OR_FILTER` carried across to preserve
+the row gate.
+
+The `anon` fallback in `fetchDashboardSignals` was also raised and is
+deliberately unchanged: it selects the same quality columns, so against
+`api.signals` it already 400'd before this PR and against
+`api.signals_with_quality` it is now denied — either way it falls through to
+tier 3, and it has never returned a row for this select. Granting `anon` on the
+new view would widen what an unauthenticated caller can read off
+`public.signals`, which is a security decision for Tyler, not a drift fix.
+
+### Verification after corrections
+
+```text
+npm run typecheck   clean
+npx vitest run tests/signals tests/dashboard   228 passed (18 files)
 npm run build       success
 npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
 ```
@@ -4692,3 +4742,15 @@ npx eslint          0 errors, 2 warnings (both pre-existing unused imports)
   a service-role write path that selects it in a `returning` clause, and
   `api.source_registry` is anon-granted, so it needs the same restricted
   treatment rather than being bolted onto this migration.
+- The dead `anon` fallback in `fetchDashboardSignals` should be deleted so a
+  missing service key surfaces instead of silently degrading to `ia_signals`.
+  Behaviour change, so not folded into this PR.
+- `supabase/migrations/20260801150000_api_expose_quality_and_routing_columns.sql`
+  is committed but absent from `supabase_migrations.schema_migrations` in
+  production — it has never been applied there. That is why `api.signals` and
+  `api.signals_quality` carry none of the quality columns live, and it is the
+  original cause of this whole thread. CI's isolated Supabase does not use the
+  repo's migrations at all, so neither environment was ever going to catch it.
+- This PR's migration is recorded in production as version `20260808112235`
+  while the file here is `20260808120000`. The DDL is `create or replace`, so a
+  re-apply is harmless, but the recorded history and the filename disagree.
