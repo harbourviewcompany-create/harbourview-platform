@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { LEGACY_REVIEW_VERIFICATION_NOTICE } from '@/lib/intelligence-os/complianceCopy'
 import { loadDecisionIntelDossier } from '@/lib/intelligence-os/decisionDossier'
 import { createClient } from '@/lib/supabase/server'
 
@@ -16,6 +17,12 @@ function formatDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+function safeReturnTo(value: string | string[] | undefined) {
+  const candidate = Array.isArray(value) ? value[0] : value
+  if (!candidate || !candidate.startsWith('/dashboard') || candidate.startsWith('//')) return '/dashboard?section=weekly-signals'
+  return candidate
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5">
@@ -25,8 +32,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default async function DecisionIntelEventPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export default async function DecisionIntelEventPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ returnTo?: string | string[] }>
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams])
   await requireAuth('signals')
   // requireAuth's client intentionally uses Supabase's default schema. Harbourview's
   // production Data API is exposed through `api`, so use the canonical server client
@@ -36,11 +49,12 @@ export default async function DecisionIntelEventPage({ params }: { params: Promi
   if (!dossier) notFound()
 
   const confidenceLabel = dossier.confidence == null ? 'Not scored' : `${Math.round(dossier.confidence * 100)}%`
+  const backHref = safeReturnTo(query.returnTo)
 
   return (
     <main className="min-h-screen bg-[#07101b] px-4 pb-16 pt-5 text-[#f4f0e8] sm:px-6 lg:px-10">
       <div className="mx-auto max-w-5xl">
-        <Link href="/dashboard?section=weekly-signals" className="mb-5 inline-flex text-sm text-[#c5a45a] hover:underline">← Back to Intel</Link>
+        <Link href={backHref} className="mb-5 inline-flex text-sm text-[#c5a45a] hover:underline">← Back to Intel</Link>
 
         <header className="mb-6 rounded-3xl border border-white/10 bg-[#0b1725] p-5 sm:p-7">
           <div className="mb-3 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.12em]">
@@ -110,7 +124,7 @@ export default async function DecisionIntelEventPage({ params }: { params: Promi
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <strong className="block text-sm">{item.sourceLabel ?? 'Source evidence'}</strong>
-                        <span className="text-xs text-white/45">{labelState(item.status)} · {formatDate(item.observedAt)}</span>
+                        <span className="text-xs text-white/45">{labelState(item.relationship)} · {labelState(item.status)} · {formatDate(item.observedAt)}</span>
                       </div>
                       {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-[#d7bd7a] hover:underline">Open source ↗</a> : null}
                     </div>
@@ -121,7 +135,7 @@ export default async function DecisionIntelEventPage({ params }: { params: Promi
           </Section>
         </div>
 
-        <p className="mt-6 text-xs leading-5 text-white/35">Event {dossier.id} · consolidation {labelState(dossier.consolidationStatus)}. Legacy reviewed state is not treated as verified intelligence.</p>
+        <p className="mt-6 text-xs leading-5 text-white/35">Event {dossier.id} · consolidation {labelState(dossier.consolidationStatus)}. {LEGACY_REVIEW_VERIFICATION_NOTICE}</p>
       </div>
     </main>
   )
