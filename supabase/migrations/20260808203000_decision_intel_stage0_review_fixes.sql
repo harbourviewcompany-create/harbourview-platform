@@ -145,8 +145,30 @@ left join public.intel_assertion_evidence ae on ae.assertion_id = ia.id
 left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
 group by e.id, a.id, r.id;
 
+-- Route aliases allow any clustered source signal to resolve to its canonical event.
+-- This is a navigation projection only; it does not create another event identity.
+create or replace view public.intel_event_route_map
+with (security_invoker = true)
+as
+select distinct ia.source_signal_id as signal_id, ea.event_id
+from public.intel_event_assertions ea
+join public.intel_assertions ia on ia.id = ea.assertion_id
+join public.intel_events e on e.id = ea.event_id
+where ia.source_signal_id is not null
+  and ia.review_status in ('migrated_reviewed','verified')
+  and e.review_status in ('migrated_reviewed','verified');
+
+grant select on public.intel_event_route_map to authenticated;
+revoke all on public.intel_event_route_map from anon;
+
 create or replace view api.intel_event_dossiers
 with (security_invoker = true)
 as select * from public.intel_event_dossiers;
 grant select on api.intel_event_dossiers to authenticated;
 revoke all on api.intel_event_dossiers from anon;
+
+create or replace view api.intel_event_route_map
+with (security_invoker = true)
+as select * from public.intel_event_route_map;
+grant select on api.intel_event_route_map to authenticated;
+revoke all on api.intel_event_route_map from anon;
