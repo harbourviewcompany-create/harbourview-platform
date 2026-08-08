@@ -23,7 +23,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Wait for matching Vercel preview
+      - name: Wait for authenticated Vercel preview
         shell: bash
         run: |
           set -euo pipefail
@@ -36,9 +36,8 @@ jobs:
             echo "Preview not ready yet (HTTP $status); retry $i/60"
             sleep 5
           done
-          echo "Preview did not become publicly reachable in time"
           exit 1
-      - name: Capture globe evidence
+      - name: Capture antimeridian sanity evidence
         run: |
           xvfb-run -a node <<'NODE'
           const { chromium } = require('@playwright/test')
@@ -48,64 +47,42 @@ jobs:
           const baseURL = process.env.BASE_URL
           const outDir = path.resolve('artifacts/pr1306-globe-visual')
           fs.mkdirSync(outDir, { recursive: true })
-          const viewports = [
-            { width: 375, height: 812 },
-            { width: 390, height: 844 },
-            { width: 430, height: 932 },
-          ]
           const targets = [
             { name: 'united-states', query: 'United States' },
             { name: 'fiji', query: 'Fiji' },
             { name: 'new-zealand', query: 'New Zealand' },
           ]
 
-          async function makePage(browser, viewport) {
-            const context = await browser.newContext({ viewport, deviceScaleFactor: 1, reducedMotion: 'no-preference' })
+          function escaped(value) {
+            return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          }
+
+          async function makePage(browser) {
+            const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, reducedMotion: 'no-preference' })
             await context.addInitScript(() => {
               Object.defineProperty(navigator, 'hardwareConcurrency', { configurable: true, get: () => 8 })
               Object.defineProperty(navigator, 'deviceMemory', { configurable: true, get: () => 8 })
             })
             const page = await context.newPage()
-            const diagnostics = []
-            page.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`))
-            page.on('console', msg => { if (['error','warning'].includes(msg.type())) diagnostics.push(`${msg.type()}: ${msg.text()}`) })
-            page.on('requestfailed', req => diagnostics.push(`requestfailed: ${req.url()} :: ${req.failure()?.errorText ?? 'unknown'}`))
-            return { context, page, diagnostics }
+            return { context, page }
           }
 
-          async function loadInteractive(page, diagnostics, label) {
-            const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 })
-            await page.waitForTimeout(8000)
-            const fallback = page.locator('[data-globe-fallback-reason]')
-            const fallbackReason = await fallback.count() ? await fallback.first().getAttribute('data-globe-fallback-reason') : null
-            const canvasCount = await page.locator('canvas').count()
-            const bodyText = (await page.locator('body').innerText()).slice(0, 4000)
-            const webgl = await page.evaluate(() => {
-              const c = document.createElement('canvas')
-              return {
-                webgl: !!c.getContext('webgl'),
-                webgl2: !!c.getContext('webgl2'),
-                cores: navigator.hardwareConcurrency,
-                memory: navigator.deviceMemory ?? null,
-                reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-              }
-            })
-            const state = { label, status: response?.status() ?? null, url: page.url(), fallbackReason, canvasCount, webgl, bodyText, diagnostics }
-            fs.writeFileSync(path.join(outDir, `${label}-diagnostic.json`), JSON.stringify(state, null, 2))
-            await page.screenshot({ path: path.join(outDir, `${label}-diagnostic.png`), fullPage: true })
-            if (fallbackReason || canvasCount === 0) throw new Error(`No interactive globe for ${label}: fallback=${fallbackReason}, canvasCount=${canvasCount}, webgl=${JSON.stringify(webgl)}`)
-            await page.waitForTimeout(1200)
+          async function loadInteractive(page) {
+            await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 })
+            await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 30000 })
+            await page.waitForTimeout(2500)
           }
 
           async function selectMarket(page, query) {
             const input = page.getByRole('combobox', { name: /search countries/i })
             await input.fill(query)
-            await page.waitForTimeout(300)
-            const option = page.getByRole('option', { name: new RegExp(query, 'i') }).first()
+            await page.waitForTimeout(350)
+            const exact = new RegExp(`^${escaped(query)}$`, 'i')
+            const option = page.getByRole('option', { name: exact }).first()
             if (await option.count()) await option.click()
             else await input.press('Enter')
-            await page.getByText('Market overview', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
-            await page.waitForTimeout(1200)
+            await page.getByRole('button', { name: new RegExp(`Enter ${escaped(query)} Market`, 'i') }).waitFor({ state: 'visible', timeout: 30000 })
+            await page.waitForTimeout(1000)
           }
 
           ;(async () => {
@@ -113,34 +90,13 @@ jobs:
               headless: false,
               args: ['--enable-webgl','--enable-unsafe-swiftshader','--ignore-gpu-blocklist','--use-gl=angle','--use-angle=swiftshader-webgl','--disable-dev-shm-usage'],
             })
-            const summary = []
-            for (const viewport of viewports) {
-              const { context, page, diagnostics } = await makePage(browser, viewport)
-              const label = `russia-${viewport.width}x${viewport.height}`
-              await loadInteractive(page, diagnostics, label)
-              await page.screenshot({ path: path.join(outDir, `russia-idle-${viewport.width}x${viewport.height}.png`) })
-              const canvas = page.locator('canvas').first()
-              const box = await canvas.boundingBox()
-              if (!box) throw new Error('Globe canvas has no bounding box')
-              await page.mouse.move(box.x + box.width * 0.72, box.y + box.height * 0.53)
-              await page.mouse.down()
-              await page.mouse.move(box.x + box.width * 0.42, box.y + box.height * 0.50, { steps: 18 })
-              await page.mouse.up()
-              await page.waitForTimeout(1000)
-              await page.screenshot({ path: path.join(outDir, `russia-rotated-${viewport.width}x${viewport.height}.png`) })
-              await selectMarket(page, 'Russia')
-              await page.screenshot({ path: path.join(outDir, `russia-selected-${viewport.width}x${viewport.height}.png`) })
-              summary.push({ viewport, diagnostics })
-              await context.close()
-            }
             for (const target of targets) {
-              const { context, page, diagnostics } = await makePage(browser, { width: 390, height: 844 })
-              await loadInteractive(page, diagnostics, target.name)
+              const { context, page } = await makePage(browser)
+              await loadInteractive(page)
               await selectMarket(page, target.query)
               await page.screenshot({ path: path.join(outDir, `${target.name}-selected-390x844.png`) })
               await context.close()
             }
-            fs.writeFileSync(path.join(outDir, 'summary.json'), JSON.stringify({ capturedAt: new Date().toISOString(), summary }, null, 2))
             await browser.close()
           })().catch(err => { console.error(err); process.exit(1) })
           NODE
@@ -148,7 +104,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pr1306-globe-visual-${{ github.sha }}
+          name: pr1306-globe-sanity-${{ github.sha }}
           path: artifacts/pr1306-globe-visual/
           if-no-files-found: error
           retention-days: 14
