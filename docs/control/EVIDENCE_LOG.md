@@ -5056,4 +5056,36 @@ assertion pinned the old grouping and were updated; new tests assert Genetics
 and Talent are absent from Command's rail and present in Market's, because a
 section reachable from two destinations is the ambiguity this grouping removes.
 
+**Post-regroup audit — what the regroup could have broken, and one thing it
+exposed.** Checked rather than assumed:
+
+- **Consumers of the grouping.** `SECTION_GROUPS`/`SECTION_TO_GROUP` have
+  exactly one production consumer, `useMobileCommandModel.ts`. No other code
+  branches on which destination owns a section, so the move could not silently
+  change behaviour elsewhere. (Matches in `.claude/worktrees/**` are stale
+  worktree copies, not the working tree.)
+- **Dangling links from the Command landing.** `CommandOverviewOperator.tsx`
+  contains no reference to genetics, talent, directories or network — those
+  render only as sections keyed by id — so the landing has no link into a
+  destination it no longer owns.
+- **The "Read operating picture →" button.** Its prop is named `onOpenContext`,
+  which reads as "open the context switcher"; it is wired to
+  `navigateToSection('jurisdiction')`. Jurisdiction stayed with Command, so the
+  button is still valid after the move. The misleading prop name is noted, not
+  changed.
+- **Stale commentary.** The block above `showSecondaryNav` still described
+  Command as owning the catalogue sections. Corrected.
+
+**The finding worth keeping.** `PRODUCTION_COMMAND_CENTRE_ARCHITECTURE.md`'s
+mobile contract was **width-only** — five widths, no heights — and the gate
+enforcing it is named for its nine *widths*. Both reflow defects Codex found on
+this PR lived in the dimension nobody had specified: a rail that consumed the
+content pane, and a bottom navigation clipped 93px below the fold at 320x256.
+Neither could have failed a width-only contract, which is why they survived
+review until a human read the spec back. The document now specifies short
+viewport heights (320x320 and 320x256, WCAG 1.4.10) alongside the widths, and
+records why the rail wraps instead of scrolling — the previous wording said
+"horizontal section rail", which is what the original implementation was
+faithfully doing.
+
 **Production access:** none. No database reads or writes in this work.

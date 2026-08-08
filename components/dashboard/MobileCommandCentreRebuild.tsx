@@ -46,18 +46,19 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   // Every destination with more than one section shows its rail, including the
   // Command landing.
   //
-  // The landing used to suppress it, so genetics, talent, directories, network,
-  // compliance, jurisdiction and education — nine sections in all — had exactly
-  // one way in: a "Read operating picture →" button whose label names none of
-  // them. Reachable in the graph sense, invisible in the product sense. Asked
-  // where genetics and talent had gone, the honest answer was "behind a button
-  // that doesn't say so", which is not a navigation design.
+  // The landing used to suppress it. At the time Command owned nine sections,
+  // so jurisdiction, compliance, education and the four catalogue surfaces had
+  // exactly one way in: a "Read operating picture →" button that navigates to
+  // jurisdiction alone and names nothing at all. Reachable in the graph sense,
+  // invisible in the product sense. Asked where genetics and talent had gone,
+  // the honest answer was "behind a button that doesn't say so", which is not
+  // a navigation design.
   //
   // Suppressing it was right when Command owned two sections — a rail listing
   // `Command · Operating state` is clutter that buys nothing. It stopped being
-  // right the moment Command became the home for the reference surfaces. One
-  // row of chips is a real cost to the operator dashboard's density; seven
-  // undiscoverable sections is a bigger one.
+  // right the moment Command took on more. The catalogue sections have since
+  // moved to Market, so Command is down to five, but the rail stays: five
+  // sections behind one unlabelled button is the same defect, smaller.
   const showSecondaryNav = model.groupSections.length > 1
 
   useEffect(() => {

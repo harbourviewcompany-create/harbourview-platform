@@ -94,15 +94,38 @@ Required mobile behavior:
 
 - full section registry;
 - persistent five-destination bottom navigation;
-- horizontal section rail or command palette for the complete module universe;
+- a section rail or command palette for the complete module universe, with
+  every entry on screen without a horizontal gesture — the rail wraps rather
+  than scrolling sideways (see below);
 - country and role context controls;
 - safe-area handling;
 - no horizontal overflow at 320, 360, 375, 390 and 430;
+- **no loss of content or navigation at short viewport heights.** The shell is
+  `height: 100dvh; overflow: hidden`, so anything the chrome pushes past the
+  fold is clipped, not scrolled. Both the content pane and the bottom
+  navigation must survive at 320x320 and 320x256 — a 1280x1024 desktop window
+  at 400% zoom enters the mobile renderer at roughly the latter (WCAG 1.4.10
+  reflow);
 - transactional workflows as sheets, drawers or full-height command panels;
 - deterministic loading, empty, partial, error and stale states;
 - reduced-motion support;
 - 44–48px interactive targets;
 - no floating module launcher.
+
+#### Why the rail wraps, and why heights are now specified
+
+This list was width-only until 2026-08-08: five widths, no heights, and a
+verification gate named for its nine *widths*. Both reflow defects found on
+PR #1305 lived in the dimension nobody had specified — a rail that consumed
+the content pane, and a bottom navigation clipped 93px below the fold at
+320x256. Neither could have failed a width-only contract.
+
+"Horizontal section rail" was also taken literally for longer than it should
+have been. A scrolling rail is honest only when its contents nearly fit; the
+Market group is eight sections and 721px wide at phone widths, so a single row
+left five chips off-screen behind a scrollbar that CSS had hidden. Wrapping
+costs vertical space (Market: three rows to 390px; Command and Intel: two) and
+that trade is deliberate.
 
 ### Shared module contract
 
