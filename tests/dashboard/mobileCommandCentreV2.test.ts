@@ -227,16 +227,19 @@ describe('Mobile Command Centre operator architecture', () => {
     const landing = renderMobileCommand({ initialPage: 'briefing' })
     const landingRail = [...landing.querySelectorAll('.hvm-op-secondary-nav button')]
       .map(button => button.textContent)
-    expect(landingRail).toHaveLength(SECTION_GROUPS.overview.length)
-    for (const label of ['Genetics', 'Talent', 'Directories', 'Network', 'Compliance']) {
-      expect(landingRail).toContain(label)
-    }
+    // Derived, not a hand-picked sample: every section Command owns must be
+    // named in the rail. A retyped subset both under-covers and invites the
+    // "Education path"/"Education" mismatch that cost the e2e gate a run.
+    expect(landingRail).toEqual(
+      SECTION_GROUPS.overview.map(id => SECTION_NAV.find(entry => entry.id === id)?.label),
+    )
   })
 
-  it('offers a way back to the Command landing from the rail, and hides the rail once there', () => {
-    // The rail-visibility condition keys off the committed section, so it also
-    // changes mid-session: open Command's rail from a sibling, return to
-    // Overview, and the rail goes away. Both halves are asserted here.
+  it('offers a way back to the Command landing from the rail, and keeps the rail there', () => {
+    // The rail used to disappear on the Command landing, which is what made
+    // Genetics, Talent and the rest unreachable. It now persists across that
+    // transition: open Command's rail from a sibling section, return to
+    // Overview, and the rail is still present. Both halves are asserted here.
     //
     // Not asserted by clicking: this suite renders with renderToStaticMarkup,
     // so nothing is hydrated and no handler fires. Covering the real click

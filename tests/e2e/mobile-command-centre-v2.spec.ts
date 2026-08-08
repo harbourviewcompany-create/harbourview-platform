@@ -338,6 +338,46 @@ test.describe('Mobile Command operator-first verification', () => {
     }
   })
 
+  test('keeps the content pane usable when the viewport is too short for the rail', async ({ browser }) => {
+    test.setTimeout(180_000)
+    const storageState = await authenticate(browser)
+
+    // WCAG 1.4.10 reflow: a 1280x1024 desktop window at 400% zoom presents as
+    // roughly 320x256 CSS pixels, which enters this renderer. The shell is
+    // `height: 100dvh; overflow: hidden`, so if the rail refuses to shrink the
+    // content pane is squeezed to nothing and the dashboard becomes
+    // unreachable. The other assertions in this file all run at 700px or
+    // taller, so none of them exercise this.
+    for (const [width, height] of [[320, 320], [320, 256]] as const) {
+      const context = await browser.newContext({
+        ...sharedContextOptions(),
+        viewport: { width, height },
+        storageState,
+        isMobile: true,
+        hasTouch: true,
+      })
+
+      try {
+        const page = await context.newPage()
+        await page.goto('/dashboard?country=CA&role=exporter&page=briefing&section=overview', { waitUntil: 'domcontentloaded' })
+        await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+
+        const mainBox = await page.locator('.hvm-op-main').boundingBox()
+        expect(mainBox, `no content pane at ${width}x${height}`).not.toBeNull()
+        expect(
+          (mainBox?.height ?? 0) >= 96,
+          `the content pane collapsed to ${Math.round(mainBox?.height ?? 0)}px at ${width}x${height} — the rail is not yielding`,
+        ).toBe(true)
+
+        // The bottom nav must survive too: losing it strands the operator on
+        // whichever destination they happen to be on.
+        await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
   test('lands a Clinical deep link on the Clinical destination itself', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)

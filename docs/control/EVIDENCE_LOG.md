@@ -4836,8 +4836,8 @@ w=430  offscreen: Network, Directories, Talent, Education
 `toBeVisible()` returned `true` for Genetics, Talent and Education at every one
 of those widths. Playwright's visibility predicate is bounding-box plus computed
 style; it does not test viewport containment, so an element parked 400px past
-the right edge of a scroll container satisfies it. The assertion added in
-#1305 to prove the labels were reachable proved only that they were in the DOM.
+the right edge of a scroll container satisfies it. The assertion added in `#1305`
+to prove the labels were reachable proved only that they were in the DOM.
 
 **Second fix:** `.hvm-op-secondary-nav` wraps instead of scrolling, and the e2e
 assertions go through `expectHorizontallyOnScreen`, which compares the element's
@@ -4883,7 +4883,10 @@ but `SECTION_NAV` renders that section as **"Education path"**. `getByText(…,
 `element(s) not found` — not as the layout condition under test. The labels are
 now derived from `SECTION_GROUPS.overview` and `SECTION_NAV` rather than
 retyped, and the rail's button count is asserted against the group length, so a
-locator that matches nothing can no longer read as a pass.
+locator that matches nothing can no longer read as a pass. This applies to both
+suites: `tests/dashboard/mobileCommandCentreV2.test.ts` previously asserted a
+hand-picked five-label subset and now asserts the full derived list, so the unit
+and e2e layers cover the same nine sections.
 
 **Verification** (full frontend gate per `AGENTS.md` §2, not the narrowed
 subset used on the previous push):
@@ -4893,7 +4896,20 @@ npm run lint       0 errors, 144 warnings (all pre-existing, none in changed fil
 npm run typecheck  clean
 npm run test       exit 0 — 158 passed across 8 files
 npm run build      success
-npx playwright test tests/e2e/mobile-command-centre-v2.spec.ts --list   21 tests
+```
+
+`--list` is deliberately not quoted as evidence of a passing run — it only
+discovers specs. The authenticated suite needs a local Supabase stack plus
+seeded credentials and does not run in this environment; the run of record is
+the `Authenticated nine-width Command Centre evidence` gate on this PR, which
+executes it at all nine widths and uploads per-width artifacts. Its verdicts on
+each commit are the honest record, including the two commits where it failed:
+
+```text
+4c2fc2f0  pass  (rail present, but the assertion could not see off-screen chips)
+39c0afec  FAIL  element(s) not found — 'Education' vs the real "Education path"
+13b6b3e2  pass
+4719fdf9  see the gate run linked on this PR
 ```
 
 Note for future runs: `npm run test` is a curated subset (globe-router,
@@ -4933,23 +4949,47 @@ unreachable, not merely cramped. The case that matters is WCAG 1.4.10 reflow: a
 desktop window at 400% zoom enters the `max-width: 767px` renderer at a very
 small effective height.
 
-Measured at 390px wide, main-pane height by viewport height:
+**The first fix for it was insufficient, which Codex then caught too.** A
+`max-height: 30dvh` cap bounds the rail proportionally but reserves nothing for
+main. Re-measured with a representative 130px header — the earlier run used a
+smaller one, which flattered the result:
 
 ```text
-                 844   700   568   480   400   360   320
-uncapped rail    554   410   278   190   110    70    36
-max-height:30dvh 554   410   278   195   139   111    83
+              390x844  390x568  320x400  320x320  320x256  320x200
+max-height    rail 149  rail 149  rail 120  rail  96  rail  77  rail  60
+  only        main 483  main 207  main  68  main  24  main  24  main  24
+flex:0 1 auto rail 149  rail 149  rail  60  rail  17  rail  17  rail  17
+  + 8rem floor main 483  main 207  main 128  main 128  main 128  main 128
 ```
 
-(The header in this harness is smaller than the shipped one, so main bottoms out
-at 36px rather than 0; the mechanism and the monotonic decline are what the
-numbers establish.) The cap is inert at every real phone height and only engages
-below ~480px, where it trades rail rows for a usable content pane.
-`scrollbar-width: none` was dropped at the same time — hiding a scrollbar is
-what let the original off-screen-chip bug go unnoticed, and if the cap engages
-the vertical scrollbar is the only thing announcing it.
+Main still collapsed to 24px at 320x320 and below under the cap alone,
+including the 320x256 that a 1280x1024 desktop at 400% zoom produces. The rail
+is now `flex: 0 1 auto; min-height: 0` and `.hvm-op-main` carries
+`min-height: 8rem`, so the rail yields first and the content pane always
+survives. `scrollbar-width: none` was dropped at the same time — hiding a
+scrollbar is what let the original off-screen-chip bug go unnoticed, and when
+the rail is compressed its vertical scrollbar is the only signal.
 
-The e2e sweep now asserts the content pane survives, so this specific collapse
-cannot return silently.
+A dedicated e2e test now loads the dashboard at 320x320 and 320x256 and asserts
+both the content pane and the bottom nav survive. Every other assertion in the
+file runs at 700px or taller, so none of them reached this.
+
+**Correction — wrapping is not a no-op elsewhere.** An earlier draft of this
+entry claimed the other destinations "already fit". That was asserted without
+measuring and is false. Measured rail heights:
+
+```text
+Command  320-390: 3 rows (148px)   430: 2 rows (102px)   768: 1 row (56px)
+Market   320-430: 2 rows (102px)                         768: 1 row (56px)
+Intel    320-430: 2 rows (102px)                         768: 1 row (56px)
+Actions  every width: 1 row (56px)
+Clinical every width: 1 row (56px)
+```
+
+Market and Intel each give up ~46px on phones. Scoping the wrap to Command
+would spare them but would leave their 4th and 5th chips off-screen behind the
+same scrollbar-less horizontal scroll this change exists to remove. Uniform
+visibility was chosen over density; the cost is recorded here rather than
+denied.
 
 **Production access:** none. No database reads or writes in this work.
