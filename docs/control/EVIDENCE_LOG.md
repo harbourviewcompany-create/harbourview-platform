@@ -5022,4 +5022,38 @@ because the document scrolls instead.
 The test now scrolls to the nav and asserts `toBeInViewport()`, which separates
 "below the fold, reachable" from "clipped, gone".
 
+**Regrouping — Tyler's call after seeing it on a phone.** Everything above
+fixed the *mechanics* of the Command rail while leaving its *contents* wrong.
+Shown the working rail, Tyler's response was that genetics and talent do not
+belong there: "Those should be in market." Genetics, talent, directories and
+network moved from `SECTION_GROUPS.overview` to `SECTION_GROUPS.marketplace`.
+
+The line the split follows: Command answers where the operator stands and
+whether they are permitted to operate (jurisdiction, compliance, education
+path); Market is the catalogue of what and who you transact with, and genetics,
+talent, directories and network are inventory in the same sense listings are.
+
+Coverage is unchanged — 5 + 8 + 5 + 1 + 3 = 22, every `SectionId` owned once.
+
+Re-measured rail heights after the move; the three-row burden travelled with
+the sections rather than disappearing:
+
+```text
+Command  320-430: 2 rows (102px)   768: 1 row      (was 3 rows to 390px)
+Market   320-390: 3 rows (148px)   430: 2 rows     (was 2 rows)
+Intel    320-430: 2 rows (102px)   768: 1 row      unchanged
+Actions  1 row everywhere          Clinical: 1 row unchanged
+```
+
+Net effect on the landing Tyler was looking at: Command drops from 148px of
+rail to 102px. Market rises to 148px.
+
+`COMMAND_RAIL_LABELS` needed no edit — it derives from `SECTION_GROUPS.overview`
+and followed the regroup automatically, which is the whole reason the earlier
+hand-typed list was replaced. A `MARKET_RAIL_LABELS` counterpart was added and
+both now come from one `railLabelsFor` helper. Four unit assertions and one e2e
+assertion pinned the old grouping and were updated; new tests assert Genetics
+and Talent are absent from Command's rail and present in Market's, because a
+section reachable from two destinations is the ambiguity this grouping removes.
+
 **Production access:** none. No database reads or writes in this work.

@@ -9,11 +9,16 @@ import { SECTION_GROUPS, SECTION_NAV } from '@/components/dashboard/mobile-comma
  * `education` renders as "Education path", and `getByText('Education', {
  * exact: true })` matched nothing rather than failing on the real condition.
  */
-const COMMAND_RAIL_LABELS = SECTION_GROUPS.overview.map(id => {
-  const entry = SECTION_NAV.find(section => section.id === id)
-  if (!entry) throw new Error(`SECTION_NAV has no entry for grouped section "${id}"`)
-  return entry.label
-})
+function railLabelsFor(group: keyof typeof SECTION_GROUPS): string[] {
+  return SECTION_GROUPS[group].map(id => {
+    const entry = SECTION_NAV.find(section => section.id === id)
+    if (!entry) throw new Error(`SECTION_NAV has no entry for grouped section "${id}"`)
+    return entry.label
+  })
+}
+
+const COMMAND_RAIL_LABELS = railLabelsFor('overview')
+const MARKET_RAIL_LABELS = railLabelsFor('marketplace')
 
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
@@ -432,9 +437,44 @@ test.describe('Mobile Command operator-first verification', () => {
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
       await expectHorizontallyOnScreen(page, rail.getByText('Compliance', { exact: true }), 'rail "Compliance"')
-      await expectHorizontallyOnScreen(page, rail.getByText('Genetics', { exact: true }), 'rail "Genetics"')
-      await expectHorizontallyOnScreen(page, rail.getByText('Talent', { exact: true }), 'rail "Talent"')
       await expect(rail.getByText('Clinical', { exact: true })).toHaveCount(0)
+      // Genetics and Talent are Market's now. Each section has exactly one home
+      // and one rail that names it; a section appearing under two destinations
+      // is the ambiguity this grouping exists to remove.
+      await expect(rail.getByText('Genetics', { exact: true })).toHaveCount(0)
+      await expect(rail.getByText('Talent', { exact: true })).toHaveCount(0)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('rails the catalogue sections under Market and keeps them on screen', async ({ browser }) => {
+    test.setTimeout(180_000)
+    const storageState = await authenticate(browser)
+    const context = await browser.newContext({
+      ...sharedContextOptions(),
+      viewport: { width: 390, height: 844 },
+      storageState,
+      isMobile: true,
+      hasTouch: true,
+    })
+
+    try {
+      const page = await context.newPage()
+      await page.goto('/dashboard?country=CA&role=exporter&page=genetics&section=genetics', { waitUntil: 'domcontentloaded' })
+      await expect(page.locator('#genetics')).toBeVisible()
+      await expect(page.locator('[data-active-destination="marketplace"]')).toBeVisible()
+      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Market')
+
+      // Market now carries eight sections — the group that motivated wrapping
+      // in the first place moved here, so this is the rail that has to stay
+      // fully on screen.
+      const rail = page.locator('.hvm-op-secondary-nav')
+      await expect(rail).toBeVisible()
+      await expect(rail.locator('button')).toHaveCount(MARKET_RAIL_LABELS.length)
+      for (const label of MARKET_RAIL_LABELS) {
+        await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `Market rail "${label}"`)
+      }
     } finally {
       await context.close()
     }

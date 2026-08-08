@@ -135,9 +135,15 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(SECTION_TO_DESKTOP_PAGE.clinical).toBe('clinical')
     expect(PAGE_TO_SECTION.clinical).toBe('clinical')
 
-    // The former Context group, now owned by Command.
-    for (const section of ['jurisdiction', 'compliance', 'genetics', 'network', 'directories', 'talent', 'education'] as const) {
+    // The former Context group, split by what each section is *for*. Command
+    // answers where the operator stands and whether they may operate;
+    // genetics, talent, directories and network are catalogues of what and who
+    // you transact with, so they belong to Market alongside the listings.
+    for (const section of ['jurisdiction', 'compliance', 'education'] as const) {
       expect(SECTION_TO_GROUP[section]).toBe('overview')
+    }
+    for (const section of ['genetics', 'talent', 'directories', 'network'] as const) {
+      expect(SECTION_TO_GROUP[section]).toBe('marketplace')
     }
 
     for (const destination of PRIMARY_NAV) {
@@ -284,7 +290,26 @@ describe('Mobile Command Centre operator architecture', () => {
     const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')]
     expect(rail).toHaveLength(SECTION_GROUPS.overview.length)
     expect(rail.map(button => button.textContent)).toContain('Compliance')
-    expect(rail.map(button => button.textContent)).toContain('Genetics')
+    // Genetics moved to Market, so Command's rail must no longer offer it —
+    // the whole point of the split is that it is findable in one place.
+    expect(rail.map(button => button.textContent)).not.toContain('Genetics')
+  })
+
+  it('rails the catalogue sections under Market, where they now live', () => {
+    navigation.search.value = 'country=CA&role=exporter&section=genetics'
+    const document = renderMobileCommand({ initialPage: 'genetics' })
+
+    expect([...document.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['genetics'])
+    const current = document.querySelector('.hvm-op-bottom-nav button[aria-current="page"]')
+    expect(current?.textContent).toContain('Market')
+
+    const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')].map(button => button.textContent)
+    expect(rail).toEqual(
+      SECTION_GROUPS.marketplace.map(id => SECTION_NAV.find(entry => entry.id === id)?.label),
+    )
+    for (const label of ['Genetics', 'Talent', 'Directories', 'Network']) {
+      expect(rail).toContain(label)
+    }
   })
 })
 

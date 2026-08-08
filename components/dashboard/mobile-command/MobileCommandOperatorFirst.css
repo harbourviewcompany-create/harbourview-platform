@@ -359,18 +359,20 @@
  * `scrollbar-width: none` there was no affordance saying more existed. A
  * horizontal rail is only honest when its contents nearly fit; nine do not.
  *
- * Wrapping is applied to every destination, not scoped to Command, and it is
- * not free anywhere. Measured rail heights by width:
+ * Wrapping is applied to every destination, not scoped to one, and it is not
+ * free anywhere. Measured rail heights by width:
  *
- *   Command  320-390: 3 rows (148px)   430: 2 rows   768: 1 row
- *   Market   320-430: 2 rows (102px)   768: 1 row
+ *   Command  320-430: 2 rows (102px)   768: 1 row (56px)
+ *   Market   320-390: 3 rows (148px)   430: 2 rows   768: 1 row
  *   Intel    320-430: 2 rows (102px)   768: 1 row
  *   Actions  every width: 1 row        Clinical: 1 row
  *
- * So Market and Intel each give up ~46px on phones. Scoping the wrap to
- * Command would spare them, at the cost of leaving their 4th and 5th chips
- * off-screen behind a scrollbar-less horizontal scroll — the exact defect this
- * change exists to remove. Uniform visibility is worth the density.
+ * Market carries the three-row cost because it owns eight sections: the
+ * catalogue surfaces (genetics, talent, directories, network) sit with the
+ * listings rather than under Command. Scoping the wrap to the largest group
+ * would spare the others, at the cost of leaving their later chips off-screen
+ * behind a scrollbar-less horizontal scroll — the exact defect this change
+ * exists to remove. Uniform visibility is worth the density.
  *
  * SHRINK ORDER IS LOAD-BEARING
  * ----------------------------

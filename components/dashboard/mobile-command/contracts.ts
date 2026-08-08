@@ -193,13 +193,18 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
  * most important surfaces and it does not belong filed under a drawer of
  * reference material — it gets a tab of its own.
  *
- * There is deliberately no "Context" destination. Jurisdiction, compliance,
- * genetics, network, directories, talent and education are all *about* the
- * operating context the header already states, so a tab collecting them under
- * that name is naming the frame rather than a job. They sit under Command,
- * which is the surface that describes where the operator stands. The compact
- * context switcher in the header (jurisdiction + role) is unaffected — that is
- * a control, not a destination, and it stays.
+ * There is deliberately no "Context" destination. Jurisdiction, compliance and
+ * education are all *about* the operating context the header already states, so
+ * a tab collecting them under that name is naming the frame rather than a job.
+ * They sit under Command, which is the surface that describes where the
+ * operator stands. The compact context switcher in the header (jurisdiction +
+ * role) is unaffected — that is a control, not a destination, and it stays.
+ *
+ * Genetics, talent, directories and network sit under Market, not Command.
+ * They are catalogues of what and who you transact with — supply-side
+ * inventory in the same sense as listings are — whereas Command answers where
+ * you stand and whether you are permitted to operate. Tyler's call, 2026-08-08,
+ * after seeing them railed under Command on a phone.
  */
 export type PrimarySectionId =
   | 'overview'
@@ -213,18 +218,17 @@ export type PrimarySectionId =
  * mounts at a time; these groups define ownership and scoped secondary reachability.
  */
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
-  overview: [
-    'overview',
-    'live-status',
-    'jurisdiction',
-    'compliance',
+  overview: ['overview', 'live-status', 'jurisdiction', 'compliance', 'education'],
+  marketplace: [
+    'marketplace',
+    'supply',
+    'market-status',
+    'market-intelligence',
     'genetics',
-    'network',
-    'directories',
     'talent',
-    'education',
+    'directories',
+    'network',
   ],
-  marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
   'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
   clinical: ['clinical'],
   'next-actions': ['next-actions', 'review-gates', 'financing'],
