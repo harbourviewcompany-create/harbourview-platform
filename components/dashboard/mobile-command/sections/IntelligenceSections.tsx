@@ -24,20 +24,37 @@ export function NextActionsSection({ sectionRef, actions }: { sectionRef: Sectio
 
 export function WeeklySignalsSection({ sectionRef, signals }: { sectionRef: SectionRef; signals: Signal[] }) {
   return (
-    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Context / weekly signals" title="Intelligence requiring attention" description="All signals loaded into the current dashboard feed remain visible and reviewable here.">
+    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Scan what changed and why it matters. Open any item for evidence, unknowns and a reasoned decision posture.">
       {signals.length > 0 ? (
-        <div className="hvm2-horizontal-deck" aria-label="Weekly intelligence signals">
-          {signals.map(signal => (
-            <article className="hvm2-signal-card" key={signal.id}>
-              <div className="hvm2-card-topline"><StatusPill>{signal.type}</StatusPill><span>{signal.market}</span></div>
-              <h3>{signal.title}</h3>
-              <p>{signal.analysis?.what_changed || signal.commercialImpact}</p>
-              <div className="hvm2-signal-footer"><span>{signal.confidence}% confidence</span><span>{signal.timeAgo}</span></div>
-              {signal.analysis?.recommended_action && <small>{signal.analysis.recommended_action}</small>}
-            </article>
-          ))}
+        <div className="hvm2-record-stack" aria-label="Decision intelligence events">
+          {signals.map(signal => {
+            const whyItMatters = signal.analysis?.what_changed || signal.commercialImpact
+            const recommendation = signal.analysis?.recommended_action ? 'Investigate' : 'Monitor'
+            return (
+              <Link
+                className="hvm2-signal-card hvm2-intel-event-row"
+                key={signal.id}
+                href={`/dashboard/intel/events/${encodeURIComponent(`event:${signal.id}`)}`}
+                aria-label={`Open intelligence dossier: ${signal.title}`}
+              >
+                <article>
+                  <div className="hvm2-card-topline">
+                    <StatusPill>{recommendation}</StatusPill>
+                    <span>{signal.market || signal.type}</span>
+                  </div>
+                  <h3>{signal.title}</h3>
+                  <p>{whyItMatters}</p>
+                  <div className="hvm2-signal-footer">
+                    <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} sources` : `${signal.confidence}% upstream confidence`}</span>
+                    <span>{signal.timeAgo}</span>
+                    <strong>Open dossier →</strong>
+                  </div>
+                </article>
+              </Link>
+            )
+          })}
         </div>
-      ) : <EmptyState title="No reviewed signals loaded" detail="The intelligence surface is live but no current signals matched this context." />}
+      ) : <EmptyState title="No reviewed intelligence events loaded" detail="The intelligence surface is live but no current reviewed events matched this context." />}
     </SectionShell>
   )
 }
