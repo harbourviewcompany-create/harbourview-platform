@@ -45,3 +45,9 @@ tmp-test-*.bin
 # directory; must never be committed. The candidate workflow does `git add -A`,
 # so without this it would commit local dev secrets into the repository.
 supabase/.temp/
+
+# Playwright local output — generated, never committed.
+# A 517KB report was swept in by `git add -A` on 0687fb10 and pushed the PR
+# diff past the review bots' size limits, costing the PR its review.
+playwright-report/
+test-results/
