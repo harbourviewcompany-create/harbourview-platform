@@ -527,23 +527,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
         // making the same defect pass on one run and fail on the next.
         await page.waitForTimeout(500)
 
-        if (pageErrors.length || consoleErrors.length || unexpectedFailedResponses.length) {
-          // Name the defects, don't just count them. See summarizeDefects.
-          throw new Error(
-            [
-              `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
-              ...summarizeDefects('page error', pageErrors),
-              ...summarizeDefects('console error', consoleErrors),
-              ...summarizeDefects(
-                'failed response',
-                unexpectedFailedResponses.map(
-                  entry => `${entry.status} ${entry.method} ${entry.pathname}${entry.search}`,
-                ),
-              ),
-            ].join('\n'),
-          )
-        }
-        report.result = 'pass'
+        // Defects are judged in `finally`, not here — see the note there.
       } catch (error) {
         const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
         report.result = 'fail'
@@ -555,6 +539,39 @@ test.describe('Command Centre authenticated responsive verification', () => {
         report.expectedResourceConsoleErrors = expectedResourceConsoleErrors
         report.expectedDegradedResponses = expectedDegradedResponses
         report.unexpectedFailedResponses = unexpectedFailedResponses
+
+        // Judge the defects here, from the same read that just wrote them into
+        // the report. Evaluating inside `try` could not be made deterministic:
+        // the listeners keep firing, pages are loaded only to
+        // `domcontentloaded`, and a settle delay is a mitigation rather than a
+        // guarantee — a request that errors after the delay still recorded
+        // `result: 'pass'` beside a non-empty `unexpectedFailedResponses` in
+        // the same file. One read for both removes the contradiction outright,
+        // whatever arrives late. An assertion failure from `try` has already
+        // set `result: 'fail'` and is left alone.
+        if (report.result !== 'fail') {
+          const defects = [
+            ...summarizeDefects('page error', pageErrors),
+            ...summarizeDefects('console error', consoleErrors),
+            ...summarizeDefects(
+              'failed response',
+              unexpectedFailedResponses.map(
+                entry => `${entry.status} ${entry.method} ${entry.pathname}${entry.search}`,
+              ),
+            ),
+          ]
+          if (defects.length) {
+            const diagnostic = sanitizeDiagnostic([
+              `Browser defects detected: ${pageErrors.length} page errors; ${consoleErrors.length} console errors; ${unexpectedFailedResponses.length} unexpected failed responses`,
+              ...defects,
+            ].join('\n'))
+            report.result = 'fail'
+            report.failure = diagnostic
+            failures.push(`${width}px: ${diagnostic}`)
+          } else {
+            report.result = 'pass'
+          }
+        }
         // Guarded, because an unguarded rejection here escapes `finally`, exits
         // the width loop, and skips both the summary write and the final
         // assertion — which would defeat the whole point of collecting every
