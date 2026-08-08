@@ -4924,4 +4924,32 @@ timestamps identical — no build runs). The same workflow on account
 attached to the repository; removing it is a Cloudflare dashboard action, not a
 repository change.
 
+**Third defect, raised by Codex on `13b6b3e2` and confirmed.** Wrapping the
+rail introduced a reflow failure. `.hvm2-root` is `height: 100dvh;
+overflow: hidden`; the header, the rail and the bottom nav are all
+`flex: 0 0 auto`, so `.hvm-op-main` is the only child that absorbs a shrinking
+viewport. Three rail rows drive it toward zero — the dashboard content becomes
+unreachable, not merely cramped. The case that matters is WCAG 1.4.10 reflow: a
+desktop window at 400% zoom enters the `max-width: 767px` renderer at a very
+small effective height.
+
+Measured at 390px wide, main-pane height by viewport height:
+
+```text
+                 844   700   568   480   400   360   320
+uncapped rail    554   410   278   190   110    70    36
+max-height:30dvh 554   410   278   195   139   111    83
+```
+
+(The header in this harness is smaller than the shipped one, so main bottoms out
+at 36px rather than 0; the mechanism and the monotonic decline are what the
+numbers establish.) The cap is inert at every real phone height and only engages
+below ~480px, where it trades rail rows for a usable content pane.
+`scrollbar-width: none` was dropped at the same time — hiding a scrollbar is
+what let the original off-screen-chip bug go unnoticed, and if the cap engages
+the vertical scrollbar is the only thing announcing it.
+
+The e2e sweep now asserts the content pane survives, so this specific collapse
+cannot return silently.
+
 **Production access:** none. No database reads or writes in this work.

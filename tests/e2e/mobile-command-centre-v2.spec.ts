@@ -231,6 +231,17 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
     await expectHorizontallyOnScreen(page, commandRail.getByText(label, { exact: true }), `Command rail "${label}"`)
   }
 
+  // The rail is chrome inside a `height: 100dvh; overflow: hidden` shell, and
+  // `.hvm-op-main` is the only flex child that shrinks. A rail that grows
+  // without bound squeezes the content pane to nothing and makes the dashboard
+  // unreachable rather than merely cramped, so assert the pane survives.
+  const mainBox = await page.locator('.hvm-op-main').boundingBox()
+  expect(mainBox, 'the main content pane has no bounding box').not.toBeNull()
+  expect(
+    (mainBox?.height ?? 0) > 120,
+    `the content pane collapsed to ${Math.round(mainBox?.height ?? 0)}px at ${viewportHeight}px tall — rail chrome is consuming it`,
+  ).toBe(true)
+
   const intelligenceZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Recent intelligence' })
   const opportunityZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Commercial opportunities' })
   const populatedIntelligence = page.getByRole('heading', { name: 'Recent intelligence', exact: true })

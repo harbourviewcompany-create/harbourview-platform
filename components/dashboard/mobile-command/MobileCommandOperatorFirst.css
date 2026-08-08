@@ -352,23 +352,35 @@
  * `scrollbar-width: none` there was no affordance saying more existed. A
  * horizontal rail is only honest when its contents nearly fit; nine do not.
  *
- * Wrapping costs vertical space on the landing (three rows at 320px, two at
- * 390px) and no-ops for the other destinations, whose groups are 3-5 chips and
+ * Wrapping costs vertical space on the landing (three rows to 390px, two at
+ * 430px) and no-ops for the other destinations, whose groups are 3-5 chips and
  * already fit. That trade is worth it on the one surface whose job is telling
  * the operator what is reachable.
+ *
+ * The `max-height` cap is load-bearing, not cosmetic. `.hvm2-root` is
+ * `height: 100dvh; overflow: hidden`, and the header, this rail and the bottom
+ * nav are all `flex: 0 0 auto` — `.hvm-op-main` is the only child that absorbs
+ * a shrinking viewport. Left uncapped, three rail rows drive main toward zero
+ * and the dashboard content becomes unreachable on short mobile-layout
+ * viewports (the case that matters is WCAG 1.4.10 reflow: a desktop window at
+ * 400% zoom enters this renderer at a very small effective height). Capping the
+ * rail bounds the chrome so main always keeps a usable share. Measured at
+ * 390px wide: main is 554/410/278px at viewport heights 844/700/568 with the
+ * cap inert, and 139/111/83px at 400/360/320 where the cap engages.
+ *
+ * No scrollbar hiding here. Hiding the horizontal one is what let the original
+ * off-screen-chip bug go unnoticed; if the cap engages and the rail scrolls
+ * vertically, that scrollbar is the only thing announcing it.
  */
 .hvm-op-secondary-nav {
   flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  max-height: 30dvh;
+  overflow-y: auto;
   padding: 8px var(--hvm-op-inline);
   border-bottom: 1px solid var(--hvm2-border-soft);
-  scrollbar-width: none;
-}
-
-.hvm-op-secondary-nav::-webkit-scrollbar {
-  display: none;
 }
 
 .hvm-op-secondary-nav button {
