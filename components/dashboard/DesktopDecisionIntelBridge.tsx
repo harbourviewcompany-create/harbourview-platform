@@ -5,10 +5,19 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
+function canRouteToDossier(signal: DashboardSignal): boolean {
+  if (signal.decisionIntelEventId) return true
+  const isEditorial = signal.contentType === 'editorial'
+  const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
+  const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
+  return !isEditorial && !isPublishedDigest && !isLegacyStory && Boolean(signal.id)
+}
+
 export function DesktopDecisionIntelBridge({ signals, access }: { signals: DashboardSignal[]; access?: FeatureAccess }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  if (signals.length === 0) return null
+  const dossierSignals = signals.filter(canRouteToDossier)
+  if (dossierSignals.length === 0) return null
 
   const query = searchParams.toString()
   const returnTo = `${pathname}${query ? `?${query}` : ''}`
@@ -24,7 +33,7 @@ export function DesktopDecisionIntelBridge({ signals, access }: { signals: Dashb
         <span className="text-[10px] text-white/45">{canOpenDossiers ? 'Open the full evidence, unknowns and decision posture' : 'Intel access is required to open evidence-backed dossiers'}</span>
       </div>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        {signals.map(signal => {
+        {dossierSignals.map(signal => {
           const eventId = signal.decisionIntelEventId ?? `event:${signal.id}`
           const dossierHref = `/dashboard/intel/events/${encodeURIComponent(eventId)}?returnTo=${encodeURIComponent(returnTo)}`
           const href = canOpenDossiers ? dossierHref : '/account/upgrade'
