@@ -108,6 +108,55 @@ create trigger intel_assessment_versions_immutable
 before update or delete on public.intel_assessment_versions
 for each row execute function public.prevent_intel_assessment_version_mutation();
 
+-- Every mutable assessment edit must atomically append the resulting state to the
+-- immutable version ledger. This trigger runs after the row update (and therefore
+-- after set_updated_at), and any version insert failure rolls the assessment update
+-- back in the same transaction.
+create or replace function public.append_intel_assessment_version_on_update()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
+declare
+  next_version integer;
+begin
+  select coalesce(max(v.version), 0) + 1
+    into next_version
+    from public.intel_assessment_versions v
+    where v.assessment_id = new.id;
+
+  insert into public.intel_assessment_versions (assessment_id, version, snapshot, change_reason)
+  values (
+    new.id,
+    next_version,
+    jsonb_build_object(
+      'what_happened', new.what_happened,
+      'what_changed', new.what_changed,
+      'why_it_matters', new.why_it_matters,
+      'commercial_implications', new.commercial_implications,
+      'regulatory_implications', new.regulatory_implications,
+      'affected_entities', new.affected_entities,
+      'affected_markets', new.affected_markets,
+      'affected_products', new.affected_products,
+      'why_now', new.why_now,
+      'confidence', new.confidence,
+      'confidence_rationale', new.confidence_rationale,
+      'contradictions', new.contradictions,
+      'unknowns', new.unknowns,
+      'review_status', new.review_status,
+      'updated_at', new.updated_at
+    ),
+    'Canonical assessment update'
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists intel_assessments_append_version on public.intel_assessments;
+create trigger intel_assessments_append_version
+after update on public.intel_assessments
+for each row execute function public.append_intel_assessment_version_on_update();
+
 drop policy if exists intel_assessment_versions_staff_all on public.intel_assessment_versions;
 drop policy if exists intel_assessment_versions_staff_select on public.intel_assessment_versions;
 drop policy if exists intel_assessment_versions_staff_insert on public.intel_assessment_versions;
@@ -151,6 +200,9 @@ grant select, insert, update, delete on
 -- Rebuild the dossier projection through displayable event/assessment/recommendation
 -- states and displayable assertions only. source_count is derived from that same
 -- eligible evidence set so suppression cannot leave a stale corroboration count.
+-- The generic review_status is the least-trusted state across the event, assessment
+-- and recommendation layers, so a verified event cannot overstate an unverified
+-- analytical or decision layer.
 create or replace view public.intel_event_dossiers
 with (security_invoker = true)
 as
@@ -166,7 +218,12 @@ select
   e.last_verified_at,
   e.materiality,
   e.consolidation_status,
-  e.review_status,
+  case
+    when e.review_status = 'needs_review' or a.review_status = 'needs_review' or r.review_status = 'needs_review' then 'needs_review'
+    when e.review_status = 'migrated_reviewed' or a.review_status = 'migrated_reviewed' or r.review_status = 'migrated_reviewed' then 'migrated_reviewed'
+    when e.review_status = 'verified' and a.review_status = 'verified' and r.review_status = 'verified' then 'verified'
+    else 'needs_review'
+  end as review_status,
   count(distinct coalesce(nullif(er.source_url,''), nullif(er.source_label,''), er.id::text))
     filter (
       where er.id is not null
@@ -213,10 +270,13 @@ left join public.intel_assertions ia on ia.id = ea.assertion_id
 left join public.intel_assertion_evidence ae on ae.assertion_id = ia.id
 left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
 where e.review_status in ('migrated_reviewed','verified')
+  and e.consolidation_status <> 'superseded'
 group by e.id, a.id, r.id;
 
--- The route map is canonical ownership, not a display-state projection. The unique
--- assertion constraint above guarantees one route per source-backed assertion.
+-- The route map is canonical ownership, not a display-state projection. Superseded
+-- events intentionally retain route ownership so their legacy source signals cannot
+-- fall through and resurrect as legacy dossiers. The dossier projection above hides
+-- the superseded event until a future canonical redirect target is explicitly modeled.
 create or replace view public.intel_event_route_map
 with (security_invoker = true)
 as
