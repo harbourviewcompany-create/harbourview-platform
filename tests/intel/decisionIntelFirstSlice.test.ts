@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync('supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql', 'utf8')
 const hardening = readFileSync('supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql', 'utf8')
+const completion = readFileSync('supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql', 'utf8')
 const intelUi = readFileSync('components/dashboard/mobile-command/sections/IntelligenceSections.tsx', 'utf8')
 const mobileShell = readFileSync('components/dashboard/MobileCommandCentreRebuild.tsx', 'utf8')
 const responsiveShell = readFileSync('components/dashboard/DashboardResponsiveShell.tsx', 'utf8')
@@ -10,6 +11,7 @@ const dashboardPage = readFileSync('app/dashboard/page.tsx', 'utf8')
 const desktopBridge = readFileSync('components/dashboard/DesktopDecisionIntelBridge.tsx', 'utf8')
 const dossierPage = readFileSync('app/dashboard/intel/events/[id]/page.tsx', 'utf8')
 const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'utf8')
+const dashboardRoutes = readFileSync('lib/intelligence-os/dashboardRoutes.ts', 'utf8')
 const dashboardMapper = readFileSync('lib/dashboard/mapPublicToDashboardSignal.ts', 'utf8')
 const dashboardServerData = readFileSync('lib/dashboard/dashboardServerData.ts', 'utf8')
 const complianceCopy = readFileSync('lib/intelligence-os/complianceCopy.ts', 'utf8')
@@ -17,6 +19,7 @@ const controlDoc = readFileSync('docs/control/INTEL_DECISION_OS_EXISTING_TARGET.
 const databaseControl = readFileSync('docs/control/DATABASE_CONTROL.md', 'utf8')
 const firstSliceWorkflow = readFileSync('.github/workflows/decision-intel-first-slice-verify.yml', 'utf8')
 const reviewFixWorkflow = readFileSync('.github/workflows/decision-intel-stage0-review-fixes-verify.yml', 'utf8')
+const completionWorkflow = readFileSync('.github/workflows/decision-intel-completion-hardening-verify.yml', 'utf8')
 
 describe('Decision Intelligence Stage 0 first slice', () => {
   it('keeps the existing acquisition and Pipeline B estate upstream', () => {
@@ -30,9 +33,11 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     for (const table of ['intel_evidence_refs','intel_assertions','intel_assertion_evidence','intel_events','intel_event_assertions','intel_assessments','intel_assessment_versions','intel_recommendations']) {
       expect(migration).toContain(`public.${table}`)
     }
-    expect(hardening).not.toContain('intel_hypotheses')
-    expect(hardening).not.toContain('intel_scenarios')
-    expect(hardening).not.toContain('intel_market_access')
+    for (const source of [hardening, completion]) {
+      expect(source).not.toContain('intel_hypotheses')
+      expect(source).not.toContain('intel_scenarios')
+      expect(source).not.toContain('intel_market_access')
+    }
   })
 
   it('does not infer verified intelligence from legacy review', () => {
@@ -78,6 +83,15 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(controlDoc).toContain('tier-gated `SECURITY DEFINER` RPCs')
   })
 
+  it('separates verification from explicit customer publication', () => {
+    expect(completion).toContain("customer_visibility text not null default 'internal'")
+    expect(completion).toContain("customer_visibility in ('internal','intel')")
+    expect(completion).toContain('public.intel_customer_event_dossiers')
+    expect(completion).toContain("where e.customer_visibility = 'intel'")
+    expect(controlDoc).toContain('Verification and publication are separate controls.')
+    expect(completionWorkflow).toContain('verified internal dossier leaked to customer projection')
+  })
+
   it('makes assessment history immutable and complete from creation onward', () => {
     expect(hardening).toContain('intel_assessment_versions is append-only')
     expect(hardening).toContain('before update or delete on public.intel_assessment_versions')
@@ -89,6 +103,10 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(hardening).toContain('on delete restrict')
     expect(hardening).toContain('confidence >= 0 and confidence <= 1')
     expect(hardening).toContain("alter table public.intel_events alter column review_status set default 'needs_review'")
+    for (const field of ['regulatory_implications','affected_products','contradictions']) {
+      expect(completion).toContain(`'${field}'`)
+      expect(completionWorkflow).toContain(`v1 missing ${field}`)
+    }
   })
 
   it('stamps every transition into verified, including re-verification', () => {
@@ -109,6 +127,16 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain('Canonical ownership exists but the allowlisted dossier did not return a row')
     expect(dossierLoader).toContain('The cluster representative owns a canonical event')
     expect(dossierLoader).toContain('return null')
+  })
+
+  it('propagates upstream withdrawal into a suppressed canonical chain', () => {
+    expect(completion).toContain('suppress_intel_chain_for_withdrawn_signal')
+    expect(completion).toContain("after update of reviewed, action, quality_label, content_type on public.signals")
+    expect(completion).toContain('after delete on public.signals')
+    expect(completion).toContain("set review_status = 'needs_review'")
+    expect(completion).toContain("customer_visibility = 'internal'")
+    expect(completionWorkflow).toContain('withdrawn dossier still customer-visible')
+    expect(completionWorkflow).toContain('withdrawal destroyed canonical ownership')
   })
 
   it('derives dossier trust from the least-reviewed event, assessment, and recommendation layer', () => {
@@ -164,21 +192,33 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(intelUi).toContain("const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'")
     expect(intelUi).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
     expect(intelUi).toContain('const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory')
-    expect(intelUi).toContain("signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)")
     expect(dashboardServerData).toContain('digestDossierEligibleIds')
     expect(dashboardServerData).toContain("!['story','research','noise'].includes(contentType)")
     expect(dashboardServerData).toContain("decisionIntelEventId: h.signal_id && digestDossierEligibleIds.has(h.signal_id) ? `event:${h.signal_id}` : undefined")
-    expect(desktopBridge).toContain('function canRouteToDossier')
-    expect(desktopBridge).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
+    expect(desktopBridge).toContain('return Boolean(signal.decisionIntelEventId)')
+    expect(dashboardRoutes).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
+    expect(dashboardRoutes).toContain("if (signal.sourceLabel === 'Harbourview Daily') return Boolean(signal.decisionIntelEventId)")
     expect(desktopBridge).toContain('signals.filter(canRouteToDossier)')
     expect(intelUi).toContain('href={signal.sourceUrl}')
     expect(intelUi).toContain('Open source →')
+  })
+
+  it('hydrates dossier links from canonical displayability and preserves only valid compatibility paths', () => {
+    expect(dashboardPage).toContain('attachDecisionIntelDashboardRoutes(signals)')
+    expect(dashboardPage).toContain('attachDecisionIntelDashboardRoutes(dailyDigest.signals)')
+    expect(dashboardRoutes).toContain(".rpc('resolve_intel_dashboard_routes'")
+    expect(dashboardRoutes).toContain("decisionIntelEventId: owned.displayable ? owned.event_id : ''")
+    expect(completion).toContain('api.resolve_intel_dashboard_routes')
+    expect(completion).toContain('displayable boolean')
+    expect(completion).toContain('public.intel_customer_event_dossiers')
+    expect(completionWorkflow).toContain('hidden canonical route advertised as displayable')
   })
 
   it('defines the updated-at prerequisite in every production-shaped Stage 0 fixture', () => {
     const prerequisite = 'create function public.set_updated_at() returns trigger'
     expect(firstSliceWorkflow).toContain(prerequisite)
     expect(reviewFixWorkflow).toContain(prerequisite)
+    expect(completionWorkflow).toContain(prerequisite)
   })
 
   it('makes mobile and desktop intelligence reach the dossier without losing dashboard context', () => {
