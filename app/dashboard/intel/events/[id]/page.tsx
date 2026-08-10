@@ -50,6 +50,9 @@ export default async function DecisionIntelEventPage({
 
   const confidenceLabel = dossier.confidence == null ? 'Not scored' : `${Math.round(dossier.confidence * 100)}%`
   const backHref = safeReturnTo(query.returnTo)
+  const jurisdictionHref = dossier.jurisdictionIso2
+    ? `/dashboard?page=countries&country=${encodeURIComponent(dossier.jurisdictionIso2)}`
+    : null
 
   return (
     <main className="min-h-screen bg-[#07101b] px-4 pb-16 pt-5 text-[#f4f0e8] sm:px-6 lg:px-10">
@@ -65,7 +68,14 @@ export default async function DecisionIntelEventPage({
           <h1 className="max-w-4xl text-2xl font-semibold leading-tight sm:text-4xl">{dossier.headline}</h1>
           {dossier.summary ? <p className="mt-4 max-w-4xl text-base leading-7 text-white/70">{dossier.summary}</p> : null}
           <div className="mt-5 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div><span className="block text-white/45">Jurisdiction</span><strong>{dossier.jurisdictionLabel ?? 'Global / unresolved'}</strong></div>
+            <div>
+              <span className="block text-white/45">Jurisdiction</span>
+              {jurisdictionHref ? (
+                <Link href={jurisdictionHref} className="font-semibold text-[#d7bd7a] hover:underline">
+                  {dossier.jurisdictionLabel ?? dossier.jurisdictionIso2}
+                </Link>
+              ) : <strong>{dossier.jurisdictionLabel ?? 'Global / unresolved'}</strong>}
+            </div>
             <div><span className="block text-white/45">Evidence</span><strong>{dossier.sourceCount} source{dossier.sourceCount === 1 ? '' : 's'}</strong></div>
             <div><span className="block text-white/45">Confidence</span><strong>{confidenceLabel}</strong></div>
             <div><span className="block text-white/45">Review state</span><strong>{labelState(dossier.reviewStatus)}</strong></div>
