@@ -54,22 +54,25 @@ create trigger intel_recommendations_updated_at
 before update on public.intel_recommendations
 for each row execute function public.set_updated_at();
 
--- Recover canonical jurisdiction identity from Pipeline-B country_iso2 whenever
--- the canonical jurisdictions registry contains the corresponding identity. The
--- production registry may be temporarily empty; in that case this is deliberately
--- a no-op rather than fabricating jurisdiction rows or weakening the FK.
+-- Recover canonical jurisdiction identity from Pipeline-B country_iso2 through the
+-- repository's authoritative ISO-2 -> jurisdiction cross-reference. Canonical
+-- jurisdiction ids are identity keys such as country_area:DEU, not ISO-2 values.
+-- If the cross-reference or jurisdiction registry has no mapping, leave the FK null
+-- rather than fabricating identity.
 do $$
 begin
   if exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'signals' and column_name = 'country_iso2'
-  ) then
+  ) and to_regclass('public.jurisdiction_crossref') is not null then
     execute $sql$
       update public.intel_assertions a
       set jurisdiction_id = j.jurisdiction_id
       from public.signals s
+      join public.jurisdiction_crossref xref
+        on upper(xref.canonical_iso2) = upper(nullif(s.country_iso2, ''))
       join public.jurisdictions j
-        on upper(j.jurisdiction_id) = upper(nullif(s.country_iso2, ''))
+        on j.jurisdiction_id = xref.jurisdictions_id
       where a.source_signal_id = s.id
         and a.jurisdiction_id is null
     $sql$;
