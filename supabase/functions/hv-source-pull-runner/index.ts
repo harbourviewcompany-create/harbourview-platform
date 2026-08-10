@@ -2,8 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const CRON_CALLER_HEADER = "x-harbourview-cron-caller";
-const EXPECTED_CRON_CALLER = "pg_cron_hv_source_pull_runner";
+const CRON_SECRET = Deno.env.get("HV_SOURCE_PULL_RUNNER_SECRET") ?? "";
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -15,9 +14,10 @@ function json(status: number, body: Record<string, unknown>) {
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json(405, { ok: false, error: "method_not_allowed" });
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(500, { ok: false, error: "missing_env" });
-
-  const caller = req.headers.get(CRON_CALLER_HEADER) ?? "";
-  if (caller !== EXPECTED_CRON_CALLER) return json(403, { ok: false, error: "forbidden" });
+  if (!CRON_SECRET) return json(503, { ok: false, error: "service_not_configured" });
+  if ((req.headers.get("x-harbourview-cron-secret") ?? "") !== CRON_SECRET) {
+    return json(403, { ok: false, error: "forbidden" });
+  }
 
   const url = new URL(req.url);
   const adapter = url.searchParams.get("adapter") ?? "";
