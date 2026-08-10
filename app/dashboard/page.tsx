@@ -151,6 +151,7 @@ export default async function DashboardPage({
   } = commandData.data
 
   const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
+  const decisionIntelAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'signals')
 
   const pathwayData = deriveRequirementStatusesFromIntel(
     mergePathwayData(orgPathway, publicPathway),
@@ -186,6 +187,7 @@ export default async function DashboardPage({
         pathwayData={pathwayData}
         watchlistData={watchlistData}
         watchlistAccess={watchlistAccess}
+        decisionIntelAccess={decisionIntelAccess}
         evidenceData={evidenceData}
         recentEduModules={recentEduModules}
         sourceCoverage={sourceCoverage}
