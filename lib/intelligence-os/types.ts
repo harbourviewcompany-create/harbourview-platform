@@ -218,6 +218,8 @@ export interface DecisionIntelDossier {
   summary: string | null;
   eventType: string;
   jurisdictionLabel: string | null;
+  jurisdictionId: string | null;
+  jurisdictionIso2: string | null;
   occurredAt: string | null;
   detectedAt: string | null;
   effectiveAt: string | null;
