@@ -54,13 +54,14 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(migration).toContain('distinct source references are associated with this event candidate')
   })
 
-  it('keeps customer reads behind gated RPCs while staff RLS retains DML', () => {
+  it('keeps customer reads behind gated RPCs while staff RLS retains controlled DML', () => {
     expect(hardening).toContain('create or replace function api.get_intel_event_dossier')
     expect(hardening).toContain('create or replace function api.resolve_intel_event_route')
     expect(hardening).toContain('security definer')
     expect(hardening).toContain('revoke all on api.intel_event_dossiers from authenticated, anon')
     expect(hardening).toContain('drop policy if exists intel_events_tier_read')
-    expect(hardening).toContain('grant select, insert, update, delete on')
+    expect(hardening).toContain('grant select, insert, update on')
+    expect(hardening).toContain('revoke delete on public.intel_events, public.intel_assessments from authenticated')
     expect(dossierLoader).toContain("db.rpc('get_intel_event_dossier'")
     expect(dossierLoader).toContain("db.rpc('resolve_intel_event_route'")
     expect(dossierLoader).not.toContain(".from('intel_event_dossiers')")
@@ -69,14 +70,23 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(databaseControl).toContain('api.get_intel_event_dossier')
   })
 
-  it('makes assessment history immutable, complete on update, and confidence a probability', () => {
+  it('makes assessment history immutable, complete on update, non-deletable, and confidence a probability', () => {
     expect(hardening).toContain('intel_assessment_versions is append-only')
     expect(hardening).toContain('before update or delete on public.intel_assessment_versions')
     expect(hardening).toContain('append_intel_assessment_version_on_update')
     expect(hardening).toContain('after update on public.intel_assessments')
     expect(hardening).toContain("'Canonical assessment update'")
+    expect(hardening).toContain('prevent_intel_canonical_delete')
+    expect(hardening).toContain('on delete restrict')
     expect(hardening).toContain('confidence >= 0 and confidence <= 1')
     expect(hardening).toContain("alter table public.intel_events alter column review_status set default 'needs_review'")
+  })
+
+  it('stamps event verification transitions and requires verified rows to carry that timestamp', () => {
+    expect(hardening).toContain('stamp_intel_event_verification')
+    expect(hardening).toContain("new.review_status = 'verified'")
+    expect(hardening).toContain('new.last_verified_at := now()')
+    expect(hardening).toContain("review_status <> 'verified' or last_verified_at is not null")
   })
 
   it('preserves evidence relationships, including event-level contradictions, and canonical ownership for suppressed rows', () => {
@@ -103,15 +113,19 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain('loadLegacyPublicSignal')
   })
 
-  it('recovers canonical jurisdiction ids through the ISO-2 cross-reference without fabricating registry rows', () => {
+  it('repairs and consumes canonical jurisdiction crossrefs without fabricating identity', () => {
+    expect(hardening).toContain("to_regclass('public.countries')")
+    expect(hardening).toContain('upper(j.iso_alpha3) = upper(c.iso_alpha3)')
+    expect(hardening).toContain('xref.countries_iso2 = c.iso_alpha2')
+    expect(hardening).toContain('set jurisdictions_id = j.jurisdiction_id')
     expect(hardening).toContain("column_name = 'country_iso2'")
-    expect(hardening).toContain("to_regclass('public.jurisdiction_crossref')")
     expect(hardening).toContain('join public.jurisdiction_crossref xref')
     expect(hardening).toContain("upper(xref.canonical_iso2) = upper(nullif(s.country_iso2, ''))")
     expect(hardening).toContain('j.jurisdiction_id = xref.jurisdictions_id')
     expect(hardening).toContain('count(distinct a.jurisdiction_id) = 1')
-    expect(firstSliceWorkflow).toContain("'country_area:DEU','Germany'")
-    expect(reviewFixWorkflow).toContain("'country_area:CAN','Canada'")
+    expect(reviewFixWorkflow).toContain("insert into public.countries (country_name,iso_alpha2,iso_alpha3)")
+    expect(reviewFixWorkflow).toContain("('CA','CA','Canada')")
+    expect(reviewFixWorkflow).toContain('crossref repair missing')
   })
 
   it('uses only api.signals-compatible columns for the legacy public signal fallback', () => {
@@ -133,9 +147,12 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(desktopBridge).toContain("'/account/upgrade'")
   })
 
-  it('keeps editorial digest rows out of dossier routes while preserving resolvable fallback signal dossiers', () => {
+  it('keeps published/editorial/story digest rows out of synthetic dossier routes while preserving resolvable fallbacks', () => {
     expect(intelUi).toContain("const isEditorial = signal.contentType === 'editorial'")
-    expect(intelUi).toContain("signal.decisionIntelEventId ?? (!isEditorial && signal.id ? `event:${signal.id}` : undefined)")
+    expect(intelUi).toContain("const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'")
+    expect(intelUi).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
+    expect(intelUi).toContain('const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory')
+    expect(intelUi).toContain("signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)")
     expect(intelUi).toContain('href={signal.sourceUrl}')
     expect(intelUi).toContain('Open source →')
   })
