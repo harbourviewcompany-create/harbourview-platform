@@ -2,8 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const HEADER = "x-harbourview-cron-caller";
-const EXPECTED = "pg_cron_hv_private_pipeline_runner";
+const CRON_SECRET = Deno.env.get("HV_PRIVATE_PIPELINE_RUNNER_SECRET") ?? "";
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
@@ -17,7 +16,7 @@ async function callFunction(slug: string, caller: string, params: Record<string,
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-      [HEADER]: caller,
+      "x-harbourview-cron-caller": caller,
     },
   });
   const data = await res.json().catch(() => ({ ok: false, error: "non_json_response" }));
@@ -27,7 +26,10 @@ async function callFunction(slug: string, caller: string, params: Record<string,
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json(405, { ok: false, error: "method_not_allowed" });
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(500, { ok: false, error: "missing_env" });
-  if ((req.headers.get(HEADER) ?? "") !== EXPECTED) return json(403, { ok: false, error: "forbidden" });
+  if (!CRON_SECRET) return json(503, { ok: false, error: "service_not_configured" });
+  if ((req.headers.get("x-harbourview-cron-secret") ?? "") !== CRON_SECRET) {
+    return json(403, { ok: false, error: "forbidden" });
+  }
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dry_run") === "true";
