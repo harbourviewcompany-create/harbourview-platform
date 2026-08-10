@@ -49,7 +49,10 @@ export function WeeklySignalsSection({ sectionRef, signals, access }: { sectionR
           {signals.map(signal => {
             const whyItMatters = signal.analysis?.what_changed || signal.commercialImpact
             const isEditorial = signal.contentType === 'editorial'
-            const dossierEventId = signal.decisionIntelEventId ?? (!isEditorial && signal.id ? `event:${signal.id}` : undefined)
+            const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
+            const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
+            const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory
+            const dossierEventId = signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
             const hasDossier = Boolean(dossierEventId)
             const dossierHref = hasDossier
               ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
@@ -58,7 +61,7 @@ export function WeeklySignalsSection({ sectionRef, signals, access }: { sectionR
             const article = (
               <article>
                 <div className="hvm2-card-topline">
-                  <StatusPill>{hasDossier ? recommendationLabel(signal) : (isEditorial ? 'Editorial' : 'Signal')}</StatusPill>
+                  <StatusPill>{hasDossier ? recommendationLabel(signal) : (isEditorial || isPublishedDigest || isLegacyStory ? 'Editorial' : 'Signal')}</StatusPill>
                   <span>{signal.market || signal.type}</span>
                 </div>
                 <h3>{signal.title}</h3>
