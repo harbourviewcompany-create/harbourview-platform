@@ -1,5 +1,6 @@
 import type { CommandPage, MarketRow, MarketView } from '../CommandCentre'
 import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
+import type { MarketplaceProjectionMedia } from '@/lib/dashboard/marketplaceMediaProjection'
 
 export { MOBILE_COMMAND_COPY }
 
@@ -51,6 +52,7 @@ export type NormalizedListing = {
   channel: string
   confidence: number | null
   view: MarketView
+  media?: MarketplaceProjectionMedia | null
 }
 
 export type DirectoryRecord = {
@@ -123,11 +125,6 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
 
 export const SECTION_NAV: NavDestination[] = Object.values(SECTION_NAV_BY_ID)
 
-/**
- * One canonical target for every module. URLs carry both the desktop page and
- * mobile section, so the same link remains inside the appropriate command
- * surface before and after a responsive breakpoint change.
- */
 export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   overview: 'briefing',
   'live-status': 'briefing',
@@ -186,21 +183,6 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   settings: 'overview',
 }
 
-/**
- * The five fixed operator jobs exposed in the primary mobile navigation.
- *
- * Clinical is a destination, not a sub-section. It is one of the platform's
- * most important surfaces and it does not belong filed under a drawer of
- * reference material — it gets a tab of its own.
- *
- * There is deliberately no "Context" destination. Jurisdiction, compliance,
- * genetics, network, directories, talent and education are all *about* the
- * operating context the header already states, so a tab collecting them under
- * that name is naming the frame rather than a job. They sit under Command,
- * which is the surface that describes where the operator stands. The compact
- * context switcher in the header (jurisdiction + role) is unaffected — that is
- * a control, not a destination, and it stays.
- */
 export type PrimarySectionId =
   | 'overview'
   | 'marketplace'
@@ -208,10 +190,6 @@ export type PrimarySectionId =
   | 'clinical'
   | 'next-actions'
 
-/**
- * Every section belongs to exactly one operator job. Only the committed section
- * mounts at a time; these groups define ownership and scoped secondary reachability.
- */
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
   overview: [
     'overview',
@@ -230,7 +208,6 @@ export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
   'next-actions': ['next-actions', 'review-gates', 'financing'],
 }
 
-/** Reverse lookup used by deep links and primary-navigation highlighting. */
 export const SECTION_TO_GROUP: Record<SectionId, PrimarySectionId> = (() => {
   const lookup = {} as Record<SectionId, PrimarySectionId>
   for (const [group, sections] of Object.entries(SECTION_GROUPS) as Array<[PrimarySectionId, SectionId[]]>) {
@@ -246,8 +223,6 @@ export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'introduction',
   'financing-intake',
 ])
-
-// Customer-facing control copy is versioned in lib/platform/commandCentreCopy.ts.
 
 export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? value as Record<string, unknown> : {}
@@ -337,6 +312,7 @@ export function normalizeListing(
   index: number,
   view: MarketView,
   fallbackJurisdiction: string,
+  media?: MarketplaceProjectionMedia | null,
 ): NormalizedListing {
   const [title, summary, jurisdiction, category, status, channel, confidence, id] = row
 
@@ -350,6 +326,7 @@ export function normalizeListing(
     channel: String(channel || MOBILE_COMMAND_COPY.listingChannel),
     confidence: parseConfidence(confidence),
     view,
+    ...(media ? { media } : {}),
   }
 }
 
