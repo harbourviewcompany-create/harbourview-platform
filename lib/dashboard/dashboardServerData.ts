@@ -491,7 +491,7 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
   ],
   pharmacist: [
     { icon: '💊', title: 'Pharmacists',            desc: 'Dispensing & interaction safety'    },
-    { icon: '📐', title: 'Dosage & Formulations', desc: 'Dosing guidance by condition'       },
+    { icon: '📐', title: 'Dosage Education',       desc: 'Personalised dosing protocols'      },
     { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Regulatory framework'               },
     { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal requirements'        },
     { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing quality'              },
