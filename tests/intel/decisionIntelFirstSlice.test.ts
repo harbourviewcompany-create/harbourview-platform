@@ -69,9 +69,12 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(databaseControl).toContain('api.get_intel_event_dossier')
   })
 
-  it('makes assessment history immutable and confidence a probability', () => {
+  it('makes assessment history immutable, complete on update, and confidence a probability', () => {
     expect(hardening).toContain('intel_assessment_versions is append-only')
     expect(hardening).toContain('before update or delete on public.intel_assessment_versions')
+    expect(hardening).toContain('append_intel_assessment_version_on_update')
+    expect(hardening).toContain('after update on public.intel_assessments')
+    expect(hardening).toContain("'Canonical assessment update'")
     expect(hardening).toContain('confidence >= 0 and confidence <= 1')
     expect(hardening).toContain("alter table public.intel_events alter column review_status set default 'needs_review'")
   })
@@ -79,10 +82,17 @@ describe('Decision Intelligence Stage 0 first slice', () => {
   it('preserves evidence relationships, including event-level contradictions, and canonical ownership for suppressed rows', () => {
     expect(hardening).toContain("case when ea.role = 'contradicting' then 'contradicts' else ae.relationship end")
     expect(hardening).toContain("where e.review_status in ('migrated_reviewed','verified')")
+    expect(hardening).toContain("and e.consolidation_status <> 'superseded'")
     expect(hardening).toContain('create or replace view public.intel_event_route_map')
     expect(hardening).toContain('where ia.source_signal_id is not null')
     expect(dossierLoader).toContain('Canonical ownership exists but the allowlisted dossier did not return a row')
     expect(dossierLoader).toContain('return null')
+  })
+
+  it('derives dossier trust from the least-reviewed event, assessment, and recommendation layer', () => {
+    expect(hardening).toContain("e.review_status = 'needs_review' or a.review_status = 'needs_review' or r.review_status = 'needs_review'")
+    expect(hardening).toContain("e.review_status = 'migrated_reviewed' or a.review_status = 'migrated_reviewed' or r.review_status = 'migrated_reviewed'")
+    expect(hardening).toContain("e.review_status = 'verified' and a.review_status = 'verified' and r.review_status = 'verified'")
   })
 
   it('preserves native reviewed-signal ids and resolves regulatory mirror ids server-side and in legacy fallback', () => {
@@ -123,9 +133,9 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(desktopBridge).toContain("'/account/upgrade'")
   })
 
-  it('does not manufacture dossier routes for editorial digest rows', () => {
-    expect(intelUi).toContain('const hasDossier = Boolean(signal.decisionIntelEventId)')
-    expect(intelUi).not.toContain('signal.decisionIntelEventId ?? `event:${signal.id}`')
+  it('keeps editorial digest rows out of dossier routes while preserving resolvable fallback signal dossiers', () => {
+    expect(intelUi).toContain("const isEditorial = signal.contentType === 'editorial'")
+    expect(intelUi).toContain("signal.decisionIntelEventId ?? (!isEditorial && signal.id ? `event:${signal.id}` : undefined)")
     expect(intelUi).toContain('href={signal.sourceUrl}')
     expect(intelUi).toContain('Open source →')
   })
