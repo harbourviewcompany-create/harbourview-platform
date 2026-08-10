@@ -53,7 +53,7 @@ async function queryPublicImageBatch(itemIds: string[]): Promise<PublicMarketpla
     item_id: `in.(${itemIds.join(',')})`,
     review_status: 'eq.APPROVED_PUBLIC',
     rights_status: 'neq.UNKNOWN',
-    order: 'image_role.asc',
+    order: 'image_role.asc,id.asc',
   });
 
   const rows: PublicMarketplaceImageDTO[] = [];
@@ -96,11 +96,16 @@ export function pickMarketplaceCardImage(images: PublicMarketplaceImageDTO[]) {
     [...images].sort((a, b) => {
       const trustRank = marketplaceImageTrustRank(a) - marketplaceImageTrustRank(b);
       if (trustRank !== 0) return trustRank;
-      return publicMarketplaceImageRoleRank(a.role) - publicMarketplaceImageRoleRank(b.role);
+      const roleRank = publicMarketplaceImageRoleRank(a.role) - publicMarketplaceImageRoleRank(b.role);
+      if (roleRank !== 0) return roleRank;
+      return a.id.localeCompare(b.id);
     })[0] || null
   );
 }
 
 export function sortMarketplaceGalleryImages(images: PublicMarketplaceImageDTO[]) {
-  return [...images].sort((a, b) => galleryMarketplaceImageRoleRank(a.role) - galleryMarketplaceImageRoleRank(b.role));
+  return [...images].sort((a, b) => {
+    const roleRank = galleryMarketplaceImageRoleRank(a.role) - galleryMarketplaceImageRoleRank(b.role);
+    return roleRank !== 0 ? roleRank : a.id.localeCompare(b.id);
+  });
 }
