@@ -34,7 +34,8 @@ function candidateIds(signals: DashboardSignal[]): string[] {
  * Attach dossier routes using the canonical customer-display projection.
  *
  * - owned + displayable canonical route => canonical event id
- * - owned + suppressed canonical route => no dossier link (never fall back to legacy)
+ * - owned + suppressed canonical route => explicit empty sentinel, preventing older
+ *   client surfaces from synthesizing event:<signal-id> and resurrecting a 404 route
  * - unowned first-slice-compatible row => legacy compatibility event:<signal-id>
  * - migration/RPC unavailable => preserve the pre-migration compatibility behavior
  *
@@ -66,7 +67,7 @@ export async function attachDecisionIntelDashboardRoutes(signals: DashboardSigna
       if (owned) {
         return {
           ...signal,
-          decisionIntelEventId: owned.displayable ? owned.event_id : undefined,
+          decisionIntelEventId: owned.displayable ? owned.event_id : '',
         }
       }
 
