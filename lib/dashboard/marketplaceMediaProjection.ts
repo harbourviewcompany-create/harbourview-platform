@@ -1,11 +1,12 @@
 import type { MarketView } from '@/components/dashboard/CommandCentre'
 
-export type MarketplaceMediaKind = 'actual' | 'representative'
+export type MarketplaceMediaKind = 'actual' | 'catalogue' | 'representative'
 
 export type MarketplaceProjectionMedia = {
   src: string
   altText: string
   kind: MarketplaceMediaKind
+  badgeLabel: string | null
   caption: string | null
   fallbackSrc: string
   fallbackAltText: string
@@ -21,6 +22,7 @@ export type DashboardMarketplaceProjection = {
 
 const REPRESENTATIVE_CAPTION = 'Representative category image. Specifications, supplier fit and commercial terms are available upon inquiry.'
 const LOCKED_SUPABASE_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
+const PUBLIC_MARKETPLACE_STORAGE_PREFIX = '/storage/v1/object/public/marketplace-item-public/'
 const HARBOURVIEW_ASSET_HOSTS = new Set(['harbourview.vercel.app', 'harbourview-platform.vercel.app'])
 const LOCAL_ASSET_PREFIXES = ['/marketplace/images/', '/images/consumables/']
 
@@ -62,6 +64,10 @@ const REPRESENTATIVE_MEDIA: Record<MarketView, Pick<MarketplaceProjectionMedia, 
   },
 }
 
+export function marketplaceMediaKey(view: MarketView, listingId: string): string {
+  return `${view}:${listingId}`
+}
+
 export function toRenderableMarketplaceMediaSrc(value: string | null | undefined): string | null {
   const raw = value?.trim()
   if (!raw) return null
@@ -73,7 +79,9 @@ export function toRenderableMarketplaceMediaSrc(value: string | null | undefined
   try {
     const url = new URL(raw)
     if (url.protocol !== 'https:') return null
-    if (url.hostname === LOCKED_SUPABASE_HOST) return url.toString()
+    if (url.hostname === LOCKED_SUPABASE_HOST) {
+      return url.pathname.startsWith(PUBLIC_MARKETPLACE_STORAGE_PREFIX) ? url.toString() : null
+    }
     if (
       HARBOURVIEW_ASSET_HOSTS.has(url.hostname)
       && LOCAL_ASSET_PREFIXES.some(prefix => url.pathname.startsWith(prefix))
@@ -93,6 +101,7 @@ export function getRepresentativeMarketplaceMedia(view: MarketView): Marketplace
     src: representative.src,
     altText: representative.altText,
     kind: 'representative',
+    badgeLabel: 'Representative image',
     caption: representative.caption,
     fallbackSrc: representative.src,
     fallbackAltText: representative.altText,
