@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { matchesRequiredSecret } from '../_shared/harbourview-auth.ts';
 
 const ADZUNA_APP_ID = Deno.env.get('ADZUNA_APP_ID') ?? '';
 const ADZUNA_APP_KEY = Deno.env.get('ADZUNA_APP_KEY') ?? '';
@@ -69,7 +70,7 @@ function scoreJob(title: string, description: string, remote: boolean, distanceK
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
   if (!CRON_SECRET) return json(503, { error: 'service_not_configured' });
-  if ((req.headers.get('x-harbourview-cron-secret') ?? '') !== CRON_SECRET) return json(401, { error: 'unauthorized' });
+  if (!matchesRequiredSecret(CRON_SECRET, req.headers.get('x-harbourview-cron-secret'))) return json(401, { error: 'unauthorized' });
   if (!ADZUNA_APP_ID || !ADZUNA_APP_KEY) return json(503, { error: 'provider_not_configured' });
 
   const url = new URL(req.url);
