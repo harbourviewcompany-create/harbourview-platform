@@ -231,7 +231,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       enabled: enabled('marketplaceRows'),
       load: () => getDashboardMarketplaceProjection(countryIso2),
       fallback: { rows: {}, mediaById: {} },
-      isEmpty: projection => Object.values(projection.rows).every(rows => !rows?.length),
+      isEmpty: projection => Object.keys(projection.rows).length === 0,
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },
