@@ -65,7 +65,17 @@ jobs:
           create table public.source_registry (id uuid primary key, name text);
           create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
           create table public.hv_evidence (id uuid primary key, extracted_text text, storage_path text, private_notes text);
-          create table public.jurisdictions (jurisdiction_id text primary key, name text);
+          create table public.countries (
+            id uuid primary key default gen_random_uuid(),
+            country_name text not null,
+            iso_alpha2 text not null unique,
+            iso_alpha3 text
+          );
+          create table public.jurisdictions (
+            jurisdiction_id text primary key,
+            name text,
+            iso_alpha3 text
+          );
           create table public.jurisdiction_crossref (
             id uuid primary key default gen_random_uuid(),
             countries_iso2 text unique,
@@ -86,10 +96,12 @@ jobs:
           insert into public.source_registry values ('10000000-0000-0000-0000-000000000001','Regulator A'),('10000000-0000-0000-0000-000000000002','Industry B');
           insert into public.source_snapshots values ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
           insert into public.hv_evidence values ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
-          insert into public.jurisdictions values ('country_area:CAN','Canada'),('country_area:DEU','Germany');
-          insert into public.jurisdiction_crossref (countries_iso2,jurisdictions_id,canonical_iso2,canonical_name) values
-            ('CA','country_area:CAN','CA','Canada'),
-            ('DE','country_area:DEU','DE','Germany');
+          insert into public.countries (country_name,iso_alpha2,iso_alpha3) values ('Canada','CA','CAN'),('Germany','DE','DEU');
+          insert into public.jurisdictions values ('country_area:CAN','Canada','CAN'),('country_area:DEU','Germany','DEU');
+          -- Mirror the repository replay: crossrefs start with ISO-2 but no jurisdictions_id.
+          insert into public.jurisdiction_crossref (countries_iso2,canonical_iso2,canonical_name) values
+            ('CA','CA','Canada'),
+            ('DE','DE','Germany');
           insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel'),('00000000-0000-0000-0000-000000000333','intel');
           insert into public.user_roles values ('00000000-0000-0000-0000-000000000222','analyst');
           insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
@@ -126,6 +138,8 @@ jobs:
             if route_event <> 'event:sig-a' then raise exception 'cluster alias failed'; end if;
             select column_default into event_default from information_schema.columns where table_schema='public' and table_name='intel_events' and column_name='review_status';
             if event_default not like '%needs_review%' then raise exception 'unsafe event default'; end if;
+            if not exists (select 1 from public.jurisdiction_crossref where countries_iso2='DE' and jurisdictions_id='country_area:DEU') then raise exception 'crossref repair missing'; end if;
+            if not exists (select 1 from public.jurisdiction_crossref where countries_iso2='CA' and jurisdictions_id='country_area:CAN') then raise exception 'Canada crossref repair missing'; end if;
             if not exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'assertion jurisdiction missing'; end if;
             if not exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'event jurisdiction missing'; end if;
             if not exists (select 1 from public.intel_assertions where source_signal_id='sig-c' and jurisdiction_id='country_area:CAN') then raise exception 'Canada jurisdiction missing'; end if;
@@ -162,6 +176,11 @@ jobs:
           end $$;
           rollback;
 
+          do $$ declare failed boolean; begin
+            failed:=false; begin delete from public.intel_assessments where event_id='event:sig-a'; exception when raise_exception then failed:=true; end; if not failed then raise exception 'assessment delete permitted'; end if;
+            failed:=false; begin delete from public.intel_events where id='event:sig-a'; exception when raise_exception then failed:=true; end; if not failed then raise exception 'event delete permitted'; end if;
+          end $$;
+
           begin;
           update public.intel_event_assertions
           set role='contradicting'
@@ -181,9 +200,10 @@ jobs:
 
           begin;
           update public.intel_events set review_status='verified' where id='event:sig-a';
-          do $$ declare state text; begin
-            select review_status into state from public.intel_event_dossiers where id='event:sig-a';
+          do $$ declare state text; verified_at timestamptz; begin
+            select review_status,last_verified_at into state,verified_at from public.intel_event_dossiers where id='event:sig-a';
             if state <> 'needs_review' then raise exception 'mixed dossier trust overstated: %', state; end if;
+            if verified_at is null then raise exception 'verification transition timestamp missing'; end if;
           end $$;
           rollback;
 
@@ -213,6 +233,8 @@ jobs:
             if has_table_privilege('anon','api.intel_event_dossiers','SELECT') then raise exception 'anon dossier relation access'; end if;
             if has_table_privilege('authenticated','api.intel_event_dossiers','SELECT') then raise exception 'customer direct dossier relation access'; end if;
             if has_table_privilege('authenticated','public.hv_evidence','SELECT') then raise exception 'raw evidence grant'; end if;
+            if has_table_privilege('authenticated','public.intel_events','DELETE') then raise exception 'canonical event delete grant'; end if;
+            if has_table_privilege('authenticated','public.intel_assessments','DELETE') then raise exception 'canonical assessment delete grant'; end if;
             if not has_function_privilege('authenticated','api.get_intel_event_dossier(text)','EXECUTE') then raise exception 'missing dossier RPC execute'; end if;
             if not has_function_privilege('authenticated','api.resolve_intel_event_route(text)','EXECUTE') then raise exception 'missing route RPC execute'; end if;
           end $$;
