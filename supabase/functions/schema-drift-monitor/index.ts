@@ -32,7 +32,26 @@ async function sendAlertEmail(tables: string[], fns: string[]): Promise<void> {
       from: ALERT_EMAIL_FROM,
       to: ALERT_EMAIL_TO,
       subject: `Harbourview: ${tables.length + fns.length} new object(s) not exposed to api schema`,
-      html: `<p>New public-schema table(s) or read-query function(s) detected with no matching exposure in the api schema.</p>${tableHtml}${fnHtml}`,
+      html: `
+        <p>New public-schema table(s) or read-query function(s) detected with no
+        matching exposure in the <code>api</code> schema (the one PostgREST
+        serves). Any page or client calling these via REST/RPC gets 404 right now.</p>
+        ${tableHtml}
+        ${fnHtml}
+        <p><strong>Table fix:</strong> <code>CREATE OR REPLACE VIEW api.NAME AS SELECT * FROM public.NAME;</code>
+        then <code>ALTER VIEW api.NAME SET (security_invoker = true);</code> --
+        without this, RLS on the underlying table is silently bypassed for every
+        caller. This has regressed 6+ times; do not skip it even for a quick fix.
+        Then grant to match existing RLS, then <code>NOTIFY pgrst, 'reload schema';</code>
+        (a ddl_command_end event trigger now auto-applies security_invoker for any
+        api-schema view going forward, but explicit is safer than relying on it.)</p>
+        <p><strong>Function fix:</strong> <code>CREATE OR REPLACE FUNCTION api.NAME(...) LANGUAGE sql STABLE
+        SECURITY INVOKER
+        AS $$ SELECT * FROM public.NAME(...) $$;</code> then
+        <code>GRANT EXECUTE ... TO anon, authenticated;</code> -- SECURITY INVOKER unless
+        you specifically need elevated privilege and have verified the function's own
+        internal checks gate who can actually use it.</p>
+      `,
     }),
   });
 }
