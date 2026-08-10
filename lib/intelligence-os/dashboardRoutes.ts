@@ -3,13 +3,13 @@ import 'server-only'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
-type RouteRow = {
+export type DecisionIntelRouteRow = {
   signal_id: string
   event_id: string
   displayable: boolean
 }
 
-function legacyEligible(signal: DashboardSignal): boolean {
+export function isDecisionIntelLegacyEligible(signal: DashboardSignal): boolean {
   if (signal.contentType === 'editorial') return false
   if (signal.signalContentType === 'story' || signal.signalContentType === 'research') return false
 
@@ -28,6 +28,42 @@ function candidateIds(signals: DashboardSignal[]): string[] {
     if (!signal.id.startsWith('rs-')) ids.add(`rs-${signal.id}`)
   }
   return [...ids]
+}
+
+export function applyDecisionIntelRouteRows(
+  signals: DashboardSignal[],
+  rows: DecisionIntelRouteRow[],
+  canonicalAvailable: boolean,
+): DashboardSignal[] {
+  const ownership = new Map<string, DecisionIntelRouteRow>()
+  for (const row of rows) ownership.set(row.signal_id, row)
+
+  return signals.map(signal => {
+    const direct = ownership.get(signal.id)
+    const mirrored = signal.id.startsWith('rs-') ? undefined : ownership.get(`rs-${signal.id}`)
+    const owned = direct ?? mirrored
+
+    if (owned) {
+      return {
+        ...signal,
+        // Empty string is an intentional suppression sentinel for older client code
+        // that still uses nullish coalescing before legacy synthesis.
+        decisionIntelEventId: owned.displayable ? owned.event_id : '',
+      }
+    }
+
+    // Before Stage-0 activation, or for an unowned legacy/IA row after activation,
+    // preserve only compatibility paths the legacy dossier loader can resolve.
+    if (signal.decisionIntelEventId) return signal
+    if (!isDecisionIntelLegacyEligible(signal)) {
+      return { ...signal, decisionIntelEventId: undefined }
+    }
+
+    return {
+      ...signal,
+      decisionIntelEventId: `event:${signal.id}`,
+    }
+  })
 }
 
 /**
@@ -54,35 +90,12 @@ export async function attachDecisionIntelDashboardRoutes(signals: DashboardSigna
       .rpc('resolve_intel_dashboard_routes', { p_signal_ids: inputs })
 
     if (error) throw error
-
-    const rows = (Array.isArray(data) ? data : []) as RouteRow[]
-    const ownership = new Map<string, RouteRow>()
-    for (const row of rows) ownership.set(row.signal_id, row)
-
-    return signals.map(signal => {
-      const direct = ownership.get(signal.id)
-      const mirrored = signal.id.startsWith('rs-') ? undefined : ownership.get(`rs-${signal.id}`)
-      const owned = direct ?? mirrored
-
-      if (owned) {
-        return {
-          ...signal,
-          decisionIntelEventId: owned.displayable ? owned.event_id : '',
-        }
-      }
-
-      if (signal.decisionIntelEventId) return signal
-      if (!legacyEligible(signal)) return { ...signal, decisionIntelEventId: undefined }
-      return { ...signal, decisionIntelEventId: `event:${signal.id}` }
-    })
+    return applyDecisionIntelRouteRows(
+      signals,
+      (Array.isArray(data) ? data : []) as DecisionIntelRouteRow[],
+      true,
+    )
   } catch {
-    // Before Stage-0 activation there is no canonical route RPC. Preserve only the
-    // compatibility paths the legacy dossier loader can actually resolve.
-    return signals.map(signal => {
-      if (signal.decisionIntelEventId) return signal
-      return legacyEligible(signal)
-        ? { ...signal, decisionIntelEventId: `event:${signal.id}` }
-        : { ...signal, decisionIntelEventId: undefined }
-    })
+    return applyDecisionIntelRouteRows(signals, [], false)
   }
 }
