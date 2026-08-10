@@ -27,7 +27,7 @@ Existing `public.signals` and Pipeline B remain upstream. `/signals`, Marketplac
 
 ## Authenticated intelligence exposure
 
-Raw canonical tables are not anon-readable. Staff roles (`admin`, `operator`, `analyst`) can inspect canonical rows. Authenticated product users receive a deliberately allowlisted `intel_event_dossiers` view containing approved internal intelligence fields only. The view excludes raw snapshot text, storage paths, private evidence bodies, internal analyst notes, Marketplace private/provenance fields and service-role data.
+Raw canonical tables and the underlying dossier/route relations are not the product-user read boundary. Staff roles (`admin`, `operator`, `analyst`) can inspect canonical rows under staff RLS. Authenticated Intel/operator product users consume only the tier-gated `SECURITY DEFINER` RPCs `api.get_intel_event_dossier(text)` and `api.resolve_intel_event_route(text)`, which return the deliberately allowlisted dossier/route projection after checking product entitlement. Direct authenticated product access to the canonical bases and allowlist views is revoked. The returned projection excludes raw snapshot text, storage paths, private evidence bodies, internal analyst notes, Marketplace private/provenance fields and service-role data.
 
 Public `/signals` remains a separate editorial/distribution surface and is not replaced by `/dashboard/intel/events/[id]`.
 
