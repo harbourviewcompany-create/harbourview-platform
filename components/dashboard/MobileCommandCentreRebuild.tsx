@@ -4,6 +4,7 @@ import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
@@ -34,7 +35,9 @@ import {
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 
-export default function MobileCommandCentreRebuild(props: MobileCommandCentreProps) {
+type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
+
+export default function MobileCommandCentreRebuild(props: Props) {
   const model = useMobileCommandModel(props)
   const [contextOpen, setContextOpen] = useState(false)
   const contextCloseRef = useRef<HTMLButtonElement | null>(null)
@@ -43,13 +46,6 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
-  // The Command landing stays chrome-free: the operator dashboard is the whole
-  // surface, and a rail above it just pushes the first real content below the
-  // fold. Its siblings — jurisdiction, compliance, genetics, network,
-  // directories, talent, education — are reached from "Read operating picture",
-  // and the rail appears once you are in one of them so you can move between
-  // them and back. Keyed off the committed section rather than the group, so
-  // every other destination still gets its rail immediately.
   const showSecondaryNav = model.groupSections.length > 1 && model.highlightedSection !== 'overview'
 
   useEffect(() => {
@@ -97,7 +93,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     marketplace: <MarketplaceSection sectionRef={model.sectionRef('marketplace')} activeMarketView={model.activeMarketView} marketQuery={model.marketQuery} marketRows={model.marketRows} filteredRows={model.filteredMarketRows} activeTool={model.activeTool} selectedListing={model.selectedListing} onMarketViewChange={model.selectMarketView} onMarketQueryChange={model.setMarketQuery} onOpenTool={model.openTool} onCloseTool={model.closeTool} onViewSubmissions={model.viewSubmissions} commandHref={model.commandHref} />,
     supply: <SupplySection sectionRef={model.sectionRef('supply')} supplyRows={model.supplyRows} onOpenTool={model.openTool} />,
     'next-actions': <NextActionsSection sectionRef={model.sectionRef('next-actions')} actions={model.nextActions} />,
-    'weekly-signals': <WeeklySignalsSection sectionRef={model.sectionRef('weekly-signals')} signals={model.signals} />,
+    'weekly-signals': <WeeklySignalsSection sectionRef={model.sectionRef('weekly-signals')} signals={model.signals} access={props.decisionIntelAccess} />,
     'personal-briefing': <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} />,
     search: <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} signalResults={model.searchResults.signals} listingResults={model.searchResults.listings} onQueryChange={model.setSearchQuery} onSignalSelect={() => model.navigateToSection('weekly-signals')} onListingSelect={model.selectListingResult} />,
     education: <EducationSection sectionRef={model.sectionRef('education')} roleShort={model.roleShort} tiles={model.educationTiles} commandHref={model.commandHref} />,
