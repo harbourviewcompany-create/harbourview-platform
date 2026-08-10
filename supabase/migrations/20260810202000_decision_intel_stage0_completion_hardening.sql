@@ -1,6 +1,6 @@
 -- Decision Intelligence Stage 0 completion hardening for PR #1309.
 -- First-slice only: publication boundary, upstream withdrawal propagation,
--- dashboard route eligibility, and complete initial assessment history.
+-- dashboard route eligibility, canonical jurisdiction navigation, and complete initial assessment history.
 
 -- Verification and customer publication are separate decisions. Backfilled events were
 -- already customer-surfaceable Pipeline-B signals, so they receive the first-slice
@@ -25,6 +25,82 @@ where customer_visibility = 'internal'
       and coalesce(s.quality_label,'') not in ('spam','boilerplate','nav','duplicate')
       and (s.content_type is null or s.content_type not in ('story','research','noise'))
   );
+
+-- Append stable canonical jurisdiction navigation metadata to the already allowlisted
+-- dossier projection. The ISO-2 value comes only from the authoritative cross-reference
+-- attached to the event's canonical jurisdiction ID; unresolved events remain unlinked.
+create or replace view public.intel_event_dossiers
+with (security_invoker = true)
+as
+select
+  e.id,
+  e.headline,
+  e.summary,
+  e.event_type,
+  e.jurisdiction_label,
+  e.occurred_at,
+  e.detected_at,
+  e.effective_at,
+  e.last_verified_at,
+  e.materiality,
+  e.consolidation_status,
+  case
+    when e.review_status = 'needs_review' or a.review_status = 'needs_review' or r.review_status = 'needs_review' then 'needs_review'
+    when e.review_status = 'migrated_reviewed' or a.review_status = 'migrated_reviewed' or r.review_status = 'migrated_reviewed' then 'migrated_reviewed'
+    when e.review_status = 'verified' and a.review_status = 'verified' and r.review_status = 'verified' then 'verified'
+    else 'needs_review'
+  end as review_status,
+  count(distinct coalesce(nullif(er.source_url,''), nullif(er.source_label,''), er.id::text))
+    filter (
+      where er.id is not null
+        and er.access_classification = 'intel'
+        and ia.review_status in ('migrated_reviewed','verified')
+    )::integer as source_count,
+  a.what_happened,
+  a.what_changed,
+  a.why_it_matters,
+  a.commercial_implications,
+  a.regulatory_implications,
+  a.affected_entities,
+  a.affected_markets,
+  a.affected_products,
+  a.why_now,
+  a.confidence,
+  a.confidence_rationale,
+  a.contradictions,
+  a.unknowns,
+  r.recommendation_state,
+  r.reasoning as recommendation_reasoning,
+  r.action_summary,
+  r.urgency,
+  coalesce(jsonb_agg(distinct jsonb_build_object(
+    'sourceLabel', er.source_label,
+    'sourceUrl', er.source_url,
+    'status', er.evidence_status,
+    'observedAt', er.observed_at,
+    'relationship', case when ea.role = 'contradicting' then 'contradicts' else ae.relationship end
+  )) filter (
+    where er.id is not null
+      and er.access_classification = 'intel'
+      and ia.review_status in ('migrated_reviewed','verified')
+  ), '[]'::jsonb) as evidence,
+  e.jurisdiction_id,
+  max(jx.canonical_iso2) as jurisdiction_iso2
+from public.intel_events e
+join public.intel_assessments a
+  on a.event_id = e.id
+  and a.review_status in ('migrated_reviewed','verified')
+join public.intel_recommendations r
+  on r.assessment_id = a.id
+  and r.review_status in ('needs_review','migrated_reviewed','verified')
+left join public.intel_event_assertions ea on ea.event_id = e.id
+left join public.intel_assertions ia on ia.id = ea.assertion_id
+left join public.intel_assertion_evidence ae on ae.assertion_id = ia.id
+left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
+left join public.jurisdiction_crossref jx on jx.jurisdictions_id = e.jurisdiction_id
+where e.review_status in ('migrated_reviewed','verified')
+  and e.consolidation_status <> 'superseded'
+group by e.id, a.id, r.id;
 
 -- Customer-safe dossiers are an explicit publication projection over the already
 -- allowlisted dossier shape. Verified internal analysis remains internal.
