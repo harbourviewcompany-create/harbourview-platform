@@ -6,8 +6,8 @@ create extension if not exists pgcrypto;
 create table if not exists public.intel_evidence_refs (
   id uuid primary key default gen_random_uuid(),
   source_signal_id text references public.signals(id) on delete set null,
-  source_snapshot_id uuid references public.source_snapshots(id) on delete set null,
-  hv_evidence_id uuid references public.hv_evidence(id) on delete set null,
+  source_snapshot_id uuid references public.source_snapshots(id) on delete restrict,
+  hv_evidence_id uuid references public.hv_evidence(id) on delete restrict,
   source_registry_id uuid references public.source_registry(id) on delete set null,
   source_label text,
   source_url text,
@@ -18,7 +18,8 @@ create table if not exists public.intel_evidence_refs (
   created_at timestamptz not null default now(),
   check (source_signal_id is not null or source_snapshot_id is not null or hv_evidence_id is not null)
 );
-create unique index if not exists intel_evidence_refs_snapshot_uq on public.intel_evidence_refs(source_snapshot_id) where source_snapshot_id is not null;
+-- Snapshot identity is deliberately not unique: one acquisition snapshot may yield
+-- multiple reviewed signals. Signal identity is the one-to-one legacy lineage key.
 create unique index if not exists intel_evidence_refs_signal_uq on public.intel_evidence_refs(source_signal_id) where source_signal_id is not null;
 
 create table if not exists public.intel_assertions (
