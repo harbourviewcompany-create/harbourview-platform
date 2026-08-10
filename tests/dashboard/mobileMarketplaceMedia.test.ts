@@ -6,7 +6,10 @@ import {
   MARKET_TABS,
   type NormalizedListing,
 } from '@/components/dashboard/mobile-command/contracts'
-import { getRepresentativeMarketplaceMedia } from '@/lib/dashboard/marketplaceMediaProjection'
+import {
+  getRepresentativeMarketplaceMedia,
+  toRenderableMarketplaceMediaSrc,
+} from '@/lib/dashboard/marketplaceMediaProjection'
 
 vi.mock('@/components/marketplace/DynamicMarketplaceIntakeForm', () => ({
   DynamicMarketplaceIntakeForm: () => null,
@@ -33,9 +36,10 @@ function listing(overrides: Partial<NormalizedListing> = {}): NormalizedListing 
     confidence: 62,
     view: 'cannabis',
     media: {
-      src: 'https://cdn.example.com/listing-123.webp',
+      src: 'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/listing-123.webp',
       altText: 'Sealed EU-GMP dried flower lot prepared for export',
       kind: 'actual',
+      badgeLabel: null,
       caption: 'Approved listing image.',
       fallbackSrc: '/marketplace/images/product-inventory.webp',
       fallbackAltText: 'Representative cannabis product inventory image',
@@ -65,41 +69,59 @@ function renderMarket(row: NormalizedListing) {
 }
 
 describe('mobile marketplace listing media', () => {
-  it('renders approved listing-specific media directly from the safe projection', () => {
-    const document = renderMarket(listing())
+  it('renders approved real-item evidence without a representative or catalogue qualifier', () => {
+    const row = listing()
+    const document = renderMarket(row)
     const media = document.querySelector('.hvm2-listing-media')
     const image = media?.querySelector('img')
 
     expect(media?.getAttribute('data-media-kind')).toBe('actual')
-    expect(image?.getAttribute('src')).toBe('https://cdn.example.com/listing-123.webp')
+    expect(image?.getAttribute('src')).toBe(row.media?.src)
     expect(image?.getAttribute('alt')).toBe('Sealed EU-GMP dried flower lot prepared for export')
     expect(image?.getAttribute('data-fallback-src')).toBe('/marketplace/images/product-inventory.webp')
     expect(image?.getAttribute('loading')).toBe('lazy')
-    expect(document.body.textContent).not.toContain('Representative image')
+    expect(document.querySelector('.hvm2-listing-media-badge')).toBeNull()
     expect(document.body.textContent).toContain('Approved listing image.')
   })
 
-  it('labels representative media visually without duplicating the label for assistive technology', () => {
+  it('renders manufacturer catalogue provenance as a controlled visible qualifier', () => {
+    const document = renderMarket(listing({
+      media: {
+        ...listing().media!,
+        kind: 'catalogue',
+        badgeLabel: 'Manufacturer catalogue',
+        caption: 'Manufacturer-supplied catalogue image.',
+      },
+    }))
+    const badge = document.querySelector('.hvm2-listing-media-badge')
+
+    expect(document.querySelector('.hvm2-listing-media')?.getAttribute('data-media-kind')).toBe('catalogue')
+    expect(badge?.textContent).toBe('Manufacturer catalogue')
+    expect(badge?.getAttribute('aria-hidden')).toBeNull()
+  })
+
+  it('labels representative media explicitly', () => {
     const representative = getRepresentativeMarketplaceMedia('equipment')
     const document = renderMarket(listing({ view: 'equipment', category: 'Equipment', media: representative }))
     const badge = document.querySelector('.hvm2-listing-media-badge')
 
     expect(document.querySelector('.hvm2-listing-media')?.getAttribute('data-media-kind')).toBe('representative')
     expect(badge?.textContent).toBe('Representative image')
-    expect(badge?.getAttribute('aria-hidden')).toBe('true')
     expect(document.querySelector('.hvm2-listing-media img')?.getAttribute('alt')).toBe(representative.altText)
   })
 
   it('falls back from a broken primary asset to explicit representative media', () => {
     const row = listing()
     expect(resolveListingMediaStage(row, 'primary')).toMatchObject({
-      src: 'https://cdn.example.com/listing-123.webp',
+      src: row.media?.src,
       kind: 'actual',
+      badgeLabel: null,
     })
     expect(resolveListingMediaStage(row, 'fallback')).toEqual({
       src: '/marketplace/images/product-inventory.webp',
       altText: 'Representative cannabis product inventory image',
       kind: 'representative',
+      badgeLabel: 'Representative image',
       caption: 'Representative category image.',
     })
     expect(resolveListingMediaStage(row, 'empty')).toBeNull()
@@ -121,10 +143,23 @@ describe('mobile marketplace listing media', () => {
     for (const tab of MARKET_TABS) {
       const media = getRepresentativeMarketplaceMedia(tab.id)
       expect(media.kind).toBe('representative')
+      expect(media.badgeLabel).toBe('Representative image')
       expect(media.src).toMatch(/^\/marketplace\/images\/.+\.webp$/)
       expect(media.altText.length).toBeGreaterThan(10)
       expect(media.fallbackSrc).toBe(media.src)
     }
+  })
+
+  it('allows only the public marketplace image bucket on the locked Supabase host', () => {
+    expect(toRenderableMarketplaceMediaSrc(
+      'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/item.webp',
+    )).toContain('/storage/v1/object/public/marketplace-item-public/item.webp')
+    expect(toRenderableMarketplaceMediaSrc(
+      'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/sign/marketplace-item-private/original.webp?token=secret',
+    )).toBeNull()
+    expect(toRenderableMarketplaceMediaSrc(
+      'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/other-public-bucket/item.webp',
+    )).toBeNull()
   })
 
   it('keeps private provenance and review fields out of the mobile media contract', () => {
