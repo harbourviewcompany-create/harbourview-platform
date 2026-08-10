@@ -2,6 +2,7 @@
   "name": "harbourview-platform",
   "version": "1.0.0",
   "private": true,
+
   "scripts": {
     "prebuild": "node scripts/generate-natural-earth-countries.mjs",
     "build": "next build",
