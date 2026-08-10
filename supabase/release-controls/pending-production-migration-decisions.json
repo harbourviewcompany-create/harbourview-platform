@@ -2,24 +2,19 @@
   "version": 1,
   "status": "HOLD",
   "snapshot": {
-    "source_commit": "7134bb6cd696779b3429d98272ce1e3cd7e8236c",
-    "source_tree": "c50c393d3b61052886030a16e296f44cf53d75d8",
-    "workflow_run_id": 30766999778,
-    "artifact_id": 8839263343,
-    "artifact_sha256": "0fd8a01b6e85e5da2533dbd67a4a74023fddd17cb860e3f27fa271ee0ced12ee",
-    "repository_migration_files": 784,
-    "repository_unique_versions": 782,
-    "live_versions": 798,
-    "repository_only_versions": 36,
-    "repository_only_files": 37,
-    "live_only_versions": 52,
-    "duplicate_repository_versions": [
-      "20260722120000",
-      "20260729000000"
-    ],
-    "pending_duplicate_versions": [
-      "20260729000000"
-    ],
+    "source_commit": "663ecd21b1e1961a5dba5c0ce4f9f1d55f80ee19",
+    "source_tree": "8ec9c637b47c9e741468cb5e3634384283163ae5",
+    "workflow_run_id": 31440312872,
+    "artifact_id": 9082634796,
+    "artifact_sha256": "530fc65b9b52db7c367a873e14f335fa046a60c2220f8879739c63099117d8c7",
+    "repository_migration_files": 841,
+    "repository_unique_versions": 841,
+    "live_versions": 809,
+    "repository_only_versions": 86,
+    "repository_only_files": 86,
+    "live_only_versions": 54,
+    "duplicate_repository_versions": [],
+    "pending_duplicate_versions": [],
     "invalid_filenames": []
   },
   "classification_definitions": {
@@ -33,7 +28,8 @@
     "live_state_split_across_versions": "Intended state is already live through multiple or differently named applied versions; recover exact sources before retiring this file.",
     "independent_release_not_authorized": "Valid independent release not authorized by Elite Digest; separately activate with its own evidence or explicitly retire.",
     "obsolete_transient_or_superseded": "Must not apply: transient maintenance, no-op parity stub, rollback, or superseded definition.",
-    "elite_digest_approved": "Exact content-bound Elite Digest allowlist entry."
+    "elite_digest_approved": "Exact content-bound Elite Digest allowlist entry.",
+    "fresh_snapshot_requires_disposition": "Fresh repository-versus-live evidence surfaced this repository-only migration after the prior decision baseline; explicit release disposition is required before any production activation."
   },
   "elite_digest_allowlist_unchanged": [
     {
@@ -54,9 +50,297 @@
   ],
   "repository_only_decisions": [
     {
+      "version": "20260430000003",
+      "file": "20260430000003_marketplace_inquiries_conversion_replay.sql",
+      "git_blob_sha": "b5ebae3e219b4c22057b4e92d5c747a2b546ff4e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260528033001",
+      "file": "20260528033001_convert_listings_status_to_listing_status.sql",
+      "git_blob_sha": "ff71fd20510b914855ac9c56143bafc8d372319e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260611103000",
+      "file": "20260611103000_workspace_foundation_replay.sql",
+      "git_blob_sha": "a34cd31474ddf89d979a998558d31b07e714e665",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260611150000",
+      "file": "20260611150000_enable_pg_cron.sql",
+      "git_blob_sha": "5b0ca302029037296a7035ae96f51837d56aadfd",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260613080000",
+      "file": "20260613080000_hv_import_staging_foundation_replay.sql",
+      "git_blob_sha": "55a82986cf4d06de4b5331afed5811b1dd37db4e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260613170000",
+      "file": "20260613170000_canonical_country_reference_repair.sql",
+      "git_blob_sha": "8db40443ad0bd7b9cbf704df3d9b72a00c6f68a4",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260615091139",
+      "file": "20260615091139_restore_marketplace_candidates_discovered_at.sql",
+      "git_blob_sha": "f74b568bfafd978386f1fc0b141ac9c0bbc99d54",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260618210800",
+      "file": "20260618210800_source_snapshots_processing_contract_replay.sql",
+      "git_blob_sha": "94dae97f5466649af699723430fc1de974729bac",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260618210830",
+      "file": "20260618210830_operational_data_flow_foundation_replay.sql",
+      "git_blob_sha": "31a7b9f8954e4ec0b02a7788d2696afcec275024",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260618210840",
+      "file": "20260618210840_public_signals_foundation_replay.sql",
+      "git_blob_sha": "a05b374ad918b1c4b7082df9d68b9881951a9af4",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260618210850",
+      "file": "20260618210850_source_registry_crawl_contract_replay.sql",
+      "git_blob_sha": "e8e864fb2b0d9cd1bae74ca50d538d1c4cf3246e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260618211000",
+      "file": "20260618211000_country_intel_foundation_replay.sql",
+      "git_blob_sha": "f417330f00f465b9fcf5f2af42721bd8543e582a",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260621220515",
+      "file": "20260621220515_restore_audit_events_foundation.sql",
+      "git_blob_sha": "463e8b86346e426b94c6b837b03dd9022e8a59b1",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260622162300",
+      "file": "20260622162300_restore_core_education_modules.sql",
+      "git_blob_sha": "fef077b31a9765cdb7609748f2f16d42ba1f4bc5",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260624032500",
+      "file": "20260624032500_prepare_deep_education_section_replacement.sql",
+      "git_blob_sha": "6441271f75e8138e52e23da4cd9f56bf0b21aa45",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260624171409",
+      "file": "20260624171409_restore_hv_evidence_documents_foundation.sql",
+      "git_blob_sha": "7ec1f7dd1933132a54f78d002479b134f0060751",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260626110922",
+      "file": "20260626110922_reconcile_regulatory_signals_signals_columns.sql",
+      "git_blob_sha": "425b354e0ec3db1041070e0402306d21bf732b66",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260626110923",
+      "file": "20260626110923_restore_api_schema_foundation.sql",
+      "git_blob_sha": "c3872fc238a7e380a9087ed27de8d422d24a7619",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260626110924",
+      "file": "20260626110924_restore_supplier_profiles_foundation.sql",
+      "git_blob_sha": "f4fc4fde908ff489c40a2abbac233cc5634053e1",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260630233906",
+      "file": "20260630233906_marketplace_disclosure_workflow_replay.sql",
+      "git_blob_sha": "6909027bfec427843b66a88755f923e54322b97b",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214306",
+      "file": "20260708214306_restore_status_history_foundation.sql",
+      "git_blob_sha": "6aa499c5db049e40b1ebdd14d8136de122f42001",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214307",
+      "file": "20260708214307_restore_sources_foundation.sql",
+      "git_blob_sha": "aeb57787be560681420ecbc228cea1e28543a4c9",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214309",
+      "file": "20260708214309_restore_project_vault_foundation.sql",
+      "git_blob_sha": "515a85f06af4af43931483493bacb03eb9dfa40e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214310",
+      "file": "20260708214310_restore_project_control_refs_foundation.sql",
+      "git_blob_sha": "6797853a974949bfdd761d7509ffd5634e829133",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214311",
+      "file": "20260708214311_restore_internal_admin_notes_foundation.sql",
+      "git_blob_sha": "6570f97d42d7c4e8165e1ac34a3a396c7414f94e",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214312",
+      "file": "20260708214312_restore_hv_review_decisions_foundation.sql",
+      "git_blob_sha": "0e2d1acf87a35893f583ddf5d9e88d9f30dcaaf4",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214313",
+      "file": "20260708214313_restore_hv_updated_at_function.sql",
+      "git_blob_sha": "c429d6e65980865bcb2f09c9d44766b932065228",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214314",
+      "file": "20260708214314_restore_hv_relations_foundation.sql",
+      "git_blob_sha": "065592d37166311d888ce261694ff4bc8cd7507a",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214315",
+      "file": "20260708214315_restore_hv_evidence_foundation.sql",
+      "git_blob_sha": "84298f9ba645bcbf32c0bd4cb860760d86457852",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214316",
+      "file": "20260708214316_restore_external_sync_inbox_foundation.sql",
+      "git_blob_sha": "e0c0df5b15bd2eb571e7ccd50b8946fe8106dbbc",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260708214317",
+      "file": "20260708214317_restore_counterparty_stubs_foundation.sql",
+      "git_blob_sha": "b36a563d5794975fafaa73aca9e00ab54bee5c29",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260709085216",
+      "file": "20260709085216_restore_sig_extract_jobs_foundation.sql",
+      "git_blob_sha": "0ad3e5b24fed6f987f2762395ed5981e60dd19e3",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260710094129",
+      "file": "20260710094129_restore_hv_public_profile_snapshots_foundation.sql",
+      "git_blob_sha": "edbb00b161afcd73dd3d43070bb8ee618e077541",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260710114720",
+      "file": "20260710114720_restore_countries_live_view_columns.sql",
+      "git_blob_sha": "a171549f1638222e635575f782cc5e4235faff74",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260710235323",
+      "file": "20260710235323_restore_hv_passports_foundation.sql",
+      "git_blob_sha": "91271d7e870af284477e68b94348b85f099db059",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260719190928",
+      "file": "20260719190928_reconcile_marketplace_candidates_price_amount.sql",
+      "git_blob_sha": "df4fa9761e622bea7f686fa0ab81eb4e21581f99",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
       "version": "20260722021500",
       "file": "20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql",
-      "git_blob_sha": "bbde4876a597ccac01dd06a48abeb6f950d3c95f",
+      "git_blob_sha": "fc3cb09f75a743928c256a802f6ab273415ce986",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "exact_live_name_different_version",
       "live_equivalent_versions": [
@@ -114,12 +398,20 @@
     {
       "version": "20260722031500",
       "file": "20260722031500_revoke_anon_authenticated_hv_pipeline_functions.sql",
-      "git_blob_sha": "b36fe365539f32236e71fd2b1a0a45e9be2fceb4",
+      "git_blob_sha": "0a7302c5b746aee9a693250e00e26ad09114dcd6",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "exact_live_name_different_version",
       "live_equivalent_versions": [
         "20260722200145"
       ]
+    },
+    {
+      "version": "20260722120002",
+      "file": "20260722120002_cron_housekeeping_optimization.sql",
+      "git_blob_sha": "269b6909dae60fc4b4fe63ef8528dbf4eed7e006",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
     },
     {
       "version": "20260723180000",
@@ -204,14 +496,12 @@
       ]
     },
     {
-      "version": "20260729000000",
-      "file": "20260729000000_fix_jurisdiction_playbooks_missing_grant.sql",
-      "git_blob_sha": "d4b0e6b79665f48e0736d2458e7c1fe0522a2ba2",
+      "version": "20260728201439",
+      "file": "20260728201439_restore_marketplace_candidates_source_id.sql",
+      "git_blob_sha": "5caaa22d8d42e510e839cc970f0bbe06941482d7",
       "classification": "requiring_forward_reconciliation",
-      "reason_code": "exact_live_name_different_version",
-      "live_equivalent_versions": [
-        "20260729095416"
-      ]
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
     },
     {
       "version": "20260729000000",
@@ -224,11 +514,11 @@
       ]
     },
     {
-      "version": "20260729000001",
-      "file": "20260729000001_platform_optimizations_rollback.sql",
-      "git_blob_sha": "25ba474b84a389bc1c9369249f1c3c798ce95a97",
-      "classification": "obsolete",
-      "reason_code": "obsolete_transient_or_superseded",
+      "version": "20260729000002",
+      "file": "20260729000002_fix_jurisdiction_playbooks_missing_grant.sql",
+      "git_blob_sha": "384138664941eeca6c9e9c61451da1e9bad51e38",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
       "live_equivalent_versions": []
     },
     {
@@ -290,9 +580,17 @@
       "live_equivalent_versions": []
     },
     {
+      "version": "20260730215959",
+      "file": "20260730215959_restore_listings_unit.sql",
+      "git_blob_sha": "be4581be026b3be930be6a3ae86357dd5cd43129",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
       "version": "20260730220000",
       "file": "20260730220000_add_harbourview_supply_catalog.sql",
-      "git_blob_sha": "0d29581a6cc963de0e7aff43734dc3f54d7630b4",
+      "git_blob_sha": "3f93a5621490e04e6803ef16ee6112f935717959",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "live_state_split_across_versions",
       "live_equivalent_versions": [
@@ -302,9 +600,17 @@
       ]
     },
     {
+      "version": "20260730220050",
+      "file": "20260730220050_reconcile_listings_production_columns.sql",
+      "git_blob_sha": "d881f49c620d8872ae523ec80f419b706166cab1",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
       "version": "20260730220100",
       "file": "20260730220100_seed_harbourview_supply_catalog_canada.sql",
-      "git_blob_sha": "4c7f8344b180f60dd0610cc73d38505a27ca23ec",
+      "git_blob_sha": "83ab596cdbd180354a14b7a1f448d284c31a537b",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "exact_live_name_different_version",
       "live_equivalent_versions": [
@@ -313,15 +619,11 @@
     },
     {
       "version": "20260730220200",
-      "file": "20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql",
-      "git_blob_sha": "15d6b7f139aa28a6362800854e4d03e6e445322a",
+      "file": "20260730220200_seed_harbourview_supply_catalog_canada_batch2_4.sql",
+      "git_blob_sha": "c7f376be65244f7c8aa968ff0607970e93781470",
       "classification": "requiring_forward_reconciliation",
-      "reason_code": "live_state_split_across_versions",
-      "live_equivalent_versions": [
-        "20260730211507",
-        "20260730211621",
-        "20260730211756"
-      ]
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
     },
     {
       "version": "20260730221500",
@@ -356,7 +658,7 @@
     {
       "version": "20260731120000",
       "file": "20260731120000_signal_role_family_routing.sql",
-      "git_blob_sha": "9c347578cfbc99ad5d1c2cd2160c34650effbe17",
+      "git_blob_sha": "dffb02115fba8a05e80249d428b1f0916dba6ab5",
       "classification": "separately_authorized",
       "reason_code": "independent_release_not_authorized",
       "live_equivalent_versions": []
@@ -399,6 +701,86 @@
       "git_blob_sha": "f9b1cb7c09a6183f8bd1f080df37be9a619ba4eb",
       "classification": "approved",
       "reason_code": "elite_digest_approved",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260804233000",
+      "file": "20260804233000_marketplace_inquiries_conversion_repair.sql",
+      "git_blob_sha": "671343de69111d9291f49cb5e09fdf7d99771c1a",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260804234000",
+      "file": "20260804234000_marketplace_exposure_forward_repair.sql",
+      "git_blob_sha": "ffacc7157a7d5d73734c2e6dd72a02078d63a541",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260804234500",
+      "file": "20260804234500_backfill_source_registry_category.sql",
+      "git_blob_sha": "923b2eae937e55ea81d438c9950a08c488e0c459",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260804235000",
+      "file": "20260804235000_separate_marketplace_source_intake.sql",
+      "git_blob_sha": "c479829950a44c7a4baa47d5be061e90a86a7461",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260804235500",
+      "file": "20260804235500_fix_source_import_batch_function.sql",
+      "git_blob_sha": "5a87f354d88e8f92b13088a8147516c7c0efe66d",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260805000000",
+      "file": "20260805000000_countries_table_replay_repair.sql",
+      "git_blob_sha": "704a41d724c68fb66a3d1526ff63d9cc2a773c11",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260805233500",
+      "file": "20260805233500_service_only_digest_enrichment.sql",
+      "git_blob_sha": "032a0562dbb33e895c0acec22d3a6d196858608f",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260805234000",
+      "file": "20260805234000_revoke_anon_execute_on_net_http.sql",
+      "git_blob_sha": "cfb3db7c14f426e6efa40ca373b12182b3a69470",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260808120000",
+      "file": "20260808120000_expose_signal_quality_to_api.sql",
+      "git_blob_sha": "c2553e0411be8b6765da0dd6e2378c3273f2dedf",
+      "classification": "requiring_forward_reconciliation",
+      "reason_code": "fresh_snapshot_requires_disposition",
+      "live_equivalent_versions": []
+    },
+    {
+      "version": "20260810222500",
+      "file": "20260810222500_harden_edge_function_cron_auth.sql",
+      "git_blob_sha": "c7174bb141a07431b020ef0c0c57a702ae44bb5a",
+      "classification": "separately_authorized",
+      "reason_code": "independent_release_not_authorized",
       "live_equivalent_versions": []
     }
   ],
@@ -594,11 +976,6 @@
       "name": "gmail_oauth_tokens_and_draft_tracking"
     },
     {
-      "version": "20260731084635",
-      "name": "search_public_signals_stage_d_consistency",
-      "matching_repository_file": "20260731013000_search_public_signals_stage_d_consistency.sql"
-    },
-    {
       "version": "20260731090302",
       "name": "job_search_adzuna_vault_credentials"
     },
@@ -623,6 +1000,18 @@
       "version": "20260802134657",
       "name": "fix_candidate_review_and_pathway_template_grants",
       "matching_repository_file": "20260729020000_fix_candidate_review_and_pathway_template_grants.sql"
+    },
+    {
+      "version": "20260804222954",
+      "name": "name_not_recovered_in_snapshot"
+    },
+    {
+      "version": "20260810220951",
+      "name": "noop_marker_do_not_use"
+    },
+    {
+      "version": "20260810221004",
+      "name": "pr1307_media_rollout_verifier"
     }
   ],
   "environment_verification": {
