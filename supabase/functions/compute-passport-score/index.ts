@@ -5,8 +5,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET")!;
 
-// PostgREST on this project only exposes the `api` schema (not `public`).
-// Without db.schema set, every query below 406'd with PGRST106.
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
 
 const DIMENSIONS = {
@@ -19,10 +17,15 @@ type Dimension = keyof typeof DIMENSIONS;
 type Confidence = "high" | "medium" | "low" | "insufficient_data";
 interface DR { score: number; max_score: number; confidence: Confidence; evidence_count: number; flags: string[]; }
 
-Deno.serve(async (req) => {
+function isAuthorized(req: Request): boolean {
   const callerSecret = req.headers.get("x-operator-secret") ?? "";
+  if (EDGE_OPERATOR_SECRET && callerSecret === EDGE_OPERATOR_SECRET) return true;
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (callerSecret !== EDGE_OPERATOR_SECRET && !authHeader.includes("service_role")) {
+  return Boolean(SUPABASE_SERVICE_KEY) && authHeader === `Bearer ${SUPABASE_SERVICE_KEY}`;
+}
+
+Deno.serve(async (req) => {
+  if (!isAuthorized(req)) {
     return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401 });
   }
   let org_id: string;
