@@ -12,6 +12,8 @@ const VIEWPORTS = [
   { width: 430, height: 932 },
 ] as const
 
+const MARKET_TABS = ['Cannabis', 'Wanted', 'Opportunities', 'Equipment', 'Consumables', 'Services', 'New products'] as const
+
 function contextOptions(): BrowserContextOptions {
   if (!BASE_URL) throw new Error('HARBOURVIEW_PUBLIC_BASE_URL or PLAYWRIGHT_BASE_URL is required')
   return { baseURL: BASE_URL }
@@ -42,28 +44,33 @@ async function authenticate(browser: Browser) {
   }
 }
 
-async function assertHealthyMedia(page: Page) {
+async function assertAllHealthyMedia(page: Page) {
   const cards = page.locator('.hvm2-listing-card')
   await expect(cards.first()).toBeVisible({ timeout: 30_000 })
+  const cardCount = await cards.count()
+  expect(cardCount).toBeGreaterThan(0)
 
-  const firstCard = cards.first()
-  const media = firstCard.locator('.hvm2-listing-media')
-  await expect(media).toBeVisible()
+  for (let index = 0; index < cardCount; index += 1) {
+    const card = cards.nth(index)
+    await card.scrollIntoViewIfNeeded()
+    const media = card.locator('.hvm2-listing-media')
+    await expect(media).toBeVisible()
 
-  const kind = await media.getAttribute('data-media-kind')
-  expect(['actual', 'representative']).toContain(kind)
+    const kind = await media.getAttribute('data-media-kind')
+    expect(['actual', 'representative']).toContain(kind)
 
-  const image = media.locator('img')
-  await expect(image).toBeVisible()
-  await expect.poll(async () => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true)
+    const image = media.locator('img')
+    await expect(image).toBeVisible()
+    await expect.poll(async () => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true)
 
-  const alt = await image.getAttribute('alt')
-  expect(alt?.trim().length ?? 0).toBeGreaterThan(8)
+    const alt = await image.getAttribute('alt')
+    expect(alt?.trim().length ?? 0).toBeGreaterThan(8)
 
-  if (kind === 'representative') {
-    await expect(media.locator('.hvm2-listing-media-badge')).toHaveText('Representative image')
-  } else {
-    await expect(media.locator('.hvm2-listing-media-badge')).toHaveCount(0)
+    if (kind === 'representative') {
+      await expect(media.locator('.hvm2-listing-media-badge')).toHaveText('Representative image')
+    } else {
+      await expect(media.locator('.hvm2-listing-media-badge')).toHaveCount(0)
+    }
   }
 
   const geometry = await page.evaluate(() => ({
@@ -73,10 +80,22 @@ async function assertHealthyMedia(page: Page) {
   expect(geometry.scrollWidth - geometry.clientWidth).toBeLessThanOrEqual(1)
 }
 
+async function verifyEveryLoadedMarketplaceView(page: Page) {
+  for (const tabName of MARKET_TABS) {
+    const tab = page.getByRole('tab', { name: new RegExp(`^${tabName},`) })
+    await expect(tab).toBeVisible()
+    await tab.click()
+    await expect(tab).toHaveAttribute('aria-selected', 'true')
+
+    const cards = page.locator('.hvm2-listing-card')
+    if (await cards.count() > 0) await assertAllHealthyMedia(page)
+  }
+}
+
 test.describe('Mobile Marketplace media production path', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('renders stable listing media at 320x700, 375x812, 390x844 and 430x932 without the retired N+1 route', async ({ browser }) => {
+  test('renders every loaded listing media card at 320x700, 375x812, 390x844 and 430x932 without the retired N+1 route', async ({ browser }) => {
     test.setTimeout(600_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
@@ -112,9 +131,10 @@ test.describe('Mobile Marketplace media production path', () => {
         await expect(page.getByRole('tab', { name: /Cannabis/ })).toHaveAttribute('aria-selected', 'true')
         await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
         await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Market')
-        await assertHealthyMedia(page)
+        await verifyEveryLoadedMarketplaceView(page)
 
         expect(retiredRouteRequests).toEqual([])
+        await page.getByRole('tab', { name: /^Cannabis,/ }).click()
         await page.screenshot({
           path: path.join(evidenceRoot, `${viewport.width}x${viewport.height}-market.png`),
           fullPage: false,
@@ -153,6 +173,7 @@ test.describe('Mobile Marketplace media production path', () => {
       expect(firstTitle.length).toBeGreaterThan(3)
       await search.fill(firstTitle.slice(0, Math.min(18, firstTitle.length)))
       await expect(page.locator('.hvm2-listing-card').first()).toBeVisible()
+      await assertAllHealthyMedia(page)
       await search.fill('')
 
       await page.locator('.hvm2-listing-card .hvm2-inline-cta').first().click()
@@ -167,7 +188,7 @@ test.describe('Mobile Marketplace media production path', () => {
       )
       await expect(page.locator('#supply')).toBeVisible()
       await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Market')
-      await expect(page.locator('.hvm2-listing-media').first()).toBeVisible()
+      await assertAllHealthyMedia(page)
     } finally {
       await context.close()
     }
