@@ -27,7 +27,7 @@ export function DesktopDecisionIntelBridge({ signals, access }: { signals: Dashb
         {signals.map(signal => {
           const eventId = signal.decisionIntelEventId ?? `event:${signal.id}`
           const dossierHref = `/dashboard/intel/events/${encodeURIComponent(eventId)}?returnTo=${encodeURIComponent(returnTo)}`
-          const href = canOpenDossiers ? dossierHref : '/intake'
+          const href = canOpenDossiers ? dossierHref : '/account/upgrade'
           return (
             <Link
               key={signal.id}
