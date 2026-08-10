@@ -28,8 +28,9 @@ describe('public marketplace image query contract', () => {
     }
   })
 
-  it('orders only by fields exposed by the public API view', () => {
-    expect(source).toContain("order: 'image_role.asc'")
+  it('uses an exposed unique id tie-breaker so paginated ordering is deterministic', () => {
+    expect(source).toContain("order: 'image_role.asc,id.asc'")
+    expect(source).toContain('return a.id.localeCompare(b.id)')
     expect(source).not.toContain('created_at.asc')
   })
 
