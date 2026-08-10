@@ -3,7 +3,8 @@ name: Migration Drift Check
 # Detects migrations applied outside the repository and reports repository-only
 # pending migrations. The parser accepts both ASCII and box-drawing table output
 # from Supabase CLI and fails if a nonempty linked-project result parses as zero
-# remote rows.
+# remote rows. Historical apply-time aliases are recognized only when their
+# canonical repository migration remains pinned to the exact Git blob SHA.
 
 on:
   pull_request:
@@ -12,7 +13,9 @@ on:
       - '.github/workflows/migration-drift-check.yml'
       - 'scripts/migration-ledger-manifest.mjs'
       - 'tests/scripts/migration-ledger-manifest.test.mjs'
+      - 'supabase/migrations/**'
       - 'supabase/release-controls/elite-digest-production-activation.json'
+      - 'supabase/release-controls/migration-live-version-equivalences.json'
   push:
     branches: [main]
   schedule:
