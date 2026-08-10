@@ -47,6 +47,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(migration).toContain('join public.intel_evidence_refs e on e.source_signal_id = a.source_signal_id')
     expect(hardening).toContain('drop index if exists public.intel_evidence_refs_snapshot_uq')
     expect(hardening).toContain('drop constraint if exists intel_evidence_refs_source_signal_id_fkey')
+    expect(hardening).toContain('drop constraint if exists intel_assertions_source_signal_id_fkey')
   })
 
   it('counts distinct source references rather than raw clustered rows', () => {
@@ -68,13 +69,15 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).not.toContain(".from('intel_event_route_map')")
     expect(databaseControl).toContain('SECURITY DEFINER RPC')
     expect(databaseControl).toContain('api.get_intel_event_dossier')
+    expect(controlDoc).toContain('tier-gated `SECURITY DEFINER` RPCs')
   })
 
-  it('makes assessment history immutable, complete on update, non-deletable, and confidence a probability', () => {
+  it('makes assessment history immutable and complete from creation onward', () => {
     expect(hardening).toContain('intel_assessment_versions is append-only')
     expect(hardening).toContain('before update or delete on public.intel_assessment_versions')
-    expect(hardening).toContain('append_intel_assessment_version_on_update')
-    expect(hardening).toContain('after update on public.intel_assessments')
+    expect(hardening).toContain('append_intel_assessment_version_on_write')
+    expect(hardening).toContain('after insert or update on public.intel_assessments')
+    expect(hardening).toContain("'Canonical assessment created'")
     expect(hardening).toContain("'Canonical assessment update'")
     expect(hardening).toContain('prevent_intel_canonical_delete')
     expect(hardening).toContain('on delete restrict')
@@ -82,9 +85,11 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(hardening).toContain("alter table public.intel_events alter column review_status set default 'needs_review'")
   })
 
-  it('stamps event verification transitions and requires verified rows to carry that timestamp', () => {
+  it('stamps every transition into verified, including re-verification', () => {
     expect(hardening).toContain('stamp_intel_event_verification')
     expect(hardening).toContain("new.review_status = 'verified'")
+    expect(hardening).toContain("old.review_status is distinct from 'verified'")
+    expect(hardening).toContain('new.last_verified_at is not distinct from old.last_verified_at')
     expect(hardening).toContain('new.last_verified_at := now()')
     expect(hardening).toContain("review_status <> 'verified' or last_verified_at is not null")
   })
@@ -147,12 +152,15 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(desktopBridge).toContain("'/account/upgrade'")
   })
 
-  it('keeps published/editorial/story digest rows out of synthetic dossier routes while preserving resolvable fallbacks', () => {
+  it('keeps editorial, digest, story and research rows out of synthetic dossier routes', () => {
     expect(intelUi).toContain("const isEditorial = signal.contentType === 'editorial'")
     expect(intelUi).toContain("const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'")
     expect(intelUi).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
     expect(intelUi).toContain('const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory')
     expect(intelUi).toContain("signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)")
+    expect(desktopBridge).toContain('function canRouteToDossier')
+    expect(desktopBridge).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
+    expect(desktopBridge).toContain('signals.filter(canRouteToDossier)')
     expect(intelUi).toContain('href={signal.sourceUrl}')
     expect(intelUi).toContain('Open source →')
   })
