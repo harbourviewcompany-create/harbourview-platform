@@ -35,6 +35,15 @@ describe('marketplace media selection', () => {
     expect(selected?.id).toBe('card')
   })
 
+  it('uses id as the deterministic tie-breaker for equal trust and role', () => {
+    const selected = pickMarketplaceCardImage([
+      image({ id: 'z-image', role: 'CARD' }),
+      image({ id: 'a-image', role: 'CARD' }),
+    ])
+
+    expect(selected?.id).toBe('a-image')
+  })
+
   it('falls back to HERO when no CARD image exists within the same trust class', () => {
     const selected = pickMarketplaceCardImage([
       image({ id: 'gallery', role: 'GALLERY' }),
@@ -79,12 +88,36 @@ describe('marketplace media selection', () => {
     expect(selected?.id).toBe('manufacturer-gallery')
   })
 
-  it('projects real item evidence as actual media', () => {
+  it('projects real item evidence as actual media without a provenance badge', () => {
     const media = resolveListingMedia('cannabis', [image({ role: 'CARD' })])
 
     expect(media.kind).toBe('actual')
+    expect(media.badgeLabel).toBeNull()
     expect(media.altText).toBe('Approved listing-specific marketplace photograph')
-    expect(media.src).toContain('zvxdgdkukjrrwamdpqrg.supabase.co')
+    expect(media.src).toContain('/storage/v1/object/public/marketplace-item-public/')
+  })
+
+  it('preserves manufacturer catalogue provenance instead of presenting it as listing evidence', () => {
+    const media = resolveListingMedia('cannabis', [image({
+      role: 'CARD',
+      imageClass: 'MANUFACTURER_CATALOGUE',
+      sourceDisplayLabel: 'Manufacturer catalogue',
+    })])
+
+    expect(media.kind).toBe('catalogue')
+    expect(media.badgeLabel).toBe('Manufacturer catalogue')
+  })
+
+  it('tries each approved URL in priority order until it finds a renderable public source', () => {
+    const media = resolveListingMedia('cannabis', [image({
+      role: 'CARD',
+      thumbnailUrl: 'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/sign/marketplace-item-private/expired.webp?token=secret',
+      publicUrl: 'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/listing-1.webp',
+    })])
+
+    expect(media.kind).toBe('actual')
+    expect(media.src).toContain('/storage/v1/object/public/marketplace-item-public/listing-1.webp')
+    expect(media.src).not.toContain('token=secret')
   })
 
   it('preserves illustrative classification as representative media', () => {
@@ -95,9 +128,11 @@ describe('marketplace media selection', () => {
       publicUrl: 'https://harbourview.vercel.app/marketplace/images/extraction-equipment.webp',
       altText: 'Illustrative extraction equipment',
       caption: 'Illustrative catalogue image — not item evidence',
+      sourceDisplayLabel: 'Harbourview illustrative image',
     })])
 
     expect(media.kind).toBe('representative')
+    expect(media.badgeLabel).toBe('Harbourview illustrative image')
     expect(media.src).toBe('/marketplace/images/extraction-equipment.webp')
     expect(media.caption).toContain('not item evidence')
   })
