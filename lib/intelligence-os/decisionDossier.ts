@@ -1,5 +1,5 @@
 import 'server-only'
-import { listIaSignals } from '@/lib/intelligence-automation/db'
+import { getIaSignalById } from '@/lib/intelligence-automation/db'
 import type { AutomationSignal } from '@/lib/intelligence-automation/types'
 import type { DecisionEvidenceRelationship, DecisionIntelDossier, DecisionRecommendationState } from './types'
 
@@ -180,10 +180,9 @@ async function resolveCanonicalEventId(db: any, signalId: string): Promise<strin
 
 async function loadIaFallback(signalId: string, eventId: string): Promise<DecisionIntelDossier | null> {
   try {
-    const result = await listIaSignals()
-    if (!result.ok || !Array.isArray(result.data)) return null
-    const signal = result.data.find(item => item.id === signalId && item.stage !== 'archived')
-    return signal ? mapIaSignal(signal, eventId) : null
+    const result = await getIaSignalById(signalId)
+    if (!result.ok || !result.data || result.data.stage === 'archived') return null
+    return mapIaSignal(result.data, eventId)
   } catch {
     return null
   }
