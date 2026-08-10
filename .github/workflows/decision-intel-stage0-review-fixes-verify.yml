@@ -138,6 +138,23 @@ jobs:
           end $$;
 
           begin;
+          update public.intel_event_assertions
+          set role='contradicting'
+          where event_id='event:sig-a'
+            and assertion_id=(select id from public.intel_assertions where source_signal_id='sig-b');
+          do $$ begin
+            if not exists (
+              select 1
+              from public.intel_event_dossiers d,
+                   jsonb_array_elements(d.evidence) ev
+              where d.id='event:sig-a'
+                and ev->>'sourceLabel'='Industry B'
+                and ev->>'relationship'='contradicts'
+            ) then raise exception 'event-level contradiction not projected'; end if;
+          end $$;
+          rollback;
+
+          begin;
           update public.intel_recommendations set review_status='rejected' where assessment_id=(select id from public.intel_assessments where event_id='event:sig-a');
           do $$ begin
             if exists (select 1 from public.intel_event_dossiers where id='event:sig-a') then raise exception 'rejected recommendation visible'; end if;
