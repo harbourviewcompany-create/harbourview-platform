@@ -1,7 +1,7 @@
 import 'server-only'
 
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
-import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { createClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export type DecisionIntelRouteRow = {
   signal_id: string
@@ -68,16 +68,18 @@ export function applyDecisionIntelRouteRows(
 /**
  * Attach dossier routes using the canonical customer-display projection.
  *
- * The service-role client is used only after the dashboard has established an
- * authenticated user context. The RPC returns route identity + displayability only;
- * it does not expose raw evidence or private analytical fields.
+ * The privileged lookup is explicitly gated by the authenticated dashboard session.
+ * The service-role RPC returns route identity + displayability only; it never returns
+ * raw evidence or private analytical fields.
  */
-export async function attachDecisionIntelDashboardRoutes(
-  signals: DashboardSignal[],
-  authenticated: boolean,
-): Promise<DashboardSignal[]> {
+export async function attachDecisionIntelDashboardRoutes(signals: DashboardSignal[]): Promise<DashboardSignal[]> {
   if (signals.length === 0) return signals
-  if (!authenticated) {
+
+  try {
+    const session = await createClient()
+    const { data: { user } } = await session.auth.getUser()
+    if (!user) return signals.map(signal => ({ ...signal, decisionIntelEventId: undefined }))
+  } catch {
     return signals.map(signal => ({ ...signal, decisionIntelEventId: undefined }))
   }
 
