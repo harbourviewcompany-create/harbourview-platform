@@ -1,0 +1,52 @@
+name: PR 1325 Migration Snapshot
+
+on:
+  push:
+    branches:
+      - agent/edge-function-production-auth-hardening
+    paths:
+      - '.github/workflows/pr1325-migration-snapshot.yml'
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+      - name: Read live migration ledger
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          mkdir -p artifacts/pr1325-migration-snapshot
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked > artifacts/pr1325-migration-snapshot/remote-migrations.txt
+      - name: Generate repository-versus-live snapshot using canonical tooling
+        run: |
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/pr1325-migration-snapshot/remote-migrations.txt \
+            --local-dir supabase/migrations \
+            --control-file supabase/release-controls/elite-digest-production-activation.json \
+            --json-out artifacts/pr1325-migration-snapshot/manifest.json \
+            --markdown-out artifacts/pr1325-migration-snapshot/manifest.md \
+            --mode drift \
+            --source-sha 663ecd21b1e1961a5dba5c0ce4f9f1d55f80ee19 || true
+      - name: Upload snapshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr1325-migration-snapshot-663ecd21
+          path: artifacts/pr1325-migration-snapshot/
+          if-no-files-found: error
+          retention-days: 14
