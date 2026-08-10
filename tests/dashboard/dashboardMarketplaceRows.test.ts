@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import type { PublicListing } from '@/lib/server/listingsQuery'
+import { marketplaceMediaKey } from '@/lib/dashboard/marketplaceMediaProjection'
 
 const getListingsBySections = vi.fn()
 const getPublicMarketplaceImagesForItems = vi.fn(async () => ({}))
@@ -41,20 +42,29 @@ function listing(section: string, id: string): PublicListing {
   }
 }
 
-function loadProjection(countryIso2: string | null = 'CA') {
+function marketplaceSource(countryIso2: string | null = 'CA') {
   const sources = buildDashboardCommandSources({
     countryIso2,
     roleId: 'exporter',
     userId: null,
     page: 'marketplace',
   })
-  return sources.marketplaceRows.load()
+  return sources.marketplaceRows
+}
+
+function loadProjection(countryIso2: string | null = 'CA') {
+  return marketplaceSource(countryIso2).load()
 }
 
 describe('Command Centre marketplace projection', () => {
   beforeEach(() => {
     getListingsBySections.mockReset()
-    getPublicMarketplaceImagesForItems.mockClear()
+    getPublicMarketplaceImagesForItems.mockReset()
+    getPublicMarketplaceImagesForItems.mockResolvedValue({})
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('queries each view separately so a busy section cannot starve a quiet one', async () => {
@@ -123,8 +133,8 @@ describe('Command Centre marketplace projection', () => {
 
     expect(row).toHaveLength(10)
     expect(row?.[7]).toBe('k1')
-    expect(projection.mediaById.k1).toBeDefined()
-    expect(projection.mediaById.k1.kind).toBe('representative')
+    expect(projection.mediaById[marketplaceMediaKey('cannabis', 'k1')]).toBeDefined()
+    expect(projection.mediaById[marketplaceMediaKey('cannabis', 'k1')].kind).toBe('representative')
   })
 
   it('resolves all loaded listing media through one deduplicated bulk query', async () => {
@@ -139,6 +149,47 @@ describe('Command Centre marketplace projection', () => {
     expect(getPublicMarketplaceImagesForItems).toHaveBeenCalledTimes(1)
     const ids = getPublicMarketplaceImagesForItems.mock.calls[0][0] as string[]
     expect(ids.sort()).toEqual(['c2', 'k2', 'shared'])
+  })
+
+  it('keeps view-specific representative media separate for the same canonical listing id', async () => {
+    getListingsBySections.mockImplementation(async (sections: string[]) =>
+      sections.includes('wanted_requests') ? [listing('wanted_requests', 'shared-demand')] : [],
+    )
+
+    const projection = await loadProjection()
+    const wanted = projection.mediaById[marketplaceMediaKey('wanted', 'shared-demand')]
+    const opportunity = projection.mediaById[marketplaceMediaKey('opportunities', 'shared-demand')]
+
+    expect(wanted).toBeDefined()
+    expect(opportunity).toBeDefined()
+    expect(wanted.altText).toContain('demand')
+    expect(opportunity.altText).toContain('commercial opportunity')
+    expect(wanted.src).not.toBe(opportunity.src)
+  })
+
+  it('returns already-loaded rows when optional image enrichment exceeds its timeout', async () => {
+    vi.useFakeTimers()
+    getListingsBySections.mockImplementation(async (sections: string[]) =>
+      sections.includes('cannabis_inventory') ? [listing('cannabis_inventory', 'slow-media')] : [],
+    )
+    getPublicMarketplaceImagesForItems.mockImplementation(() => new Promise(() => undefined))
+
+    const pending = loadProjection()
+    await vi.advanceTimersByTimeAsync(1_500)
+    const projection = await pending
+
+    expect(projection.rows.cannabis?.[0]?.[7]).toBe('slow-media')
+    expect(projection.mediaById[marketplaceMediaKey('cannabis', 'slow-media')].kind).toBe('representative')
+  })
+
+  it('classifies the wrapped projection as empty only when it has no row buckets', () => {
+    const source = marketplaceSource()
+
+    expect(source.isEmpty?.({ rows: {}, mediaById: {} })).toBe(true)
+    expect(source.isEmpty?.({
+      rows: { cannabis: [['title', 'summary', 'CA', 'Flower', 'Verified', 'Mediated', '80', 'id', '', '']] },
+      mediaById: {},
+    })).toBe(false)
   })
 
   it('omits views that have no rows instead of emitting empty buckets', async () => {
