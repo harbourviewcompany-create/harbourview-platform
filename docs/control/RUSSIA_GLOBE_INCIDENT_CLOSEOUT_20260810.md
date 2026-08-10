@@ -90,9 +90,22 @@ Two branches were created solely to execute one-off production visual verificati
 
 These one-off workflow definitions are verification harnesses only and are not required for runtime, CI, deployment, or regression coverage. Durable regression coverage remains in the normal repository tests introduced by PR #1322.
 
+## Cleanup performed
+
+After preserving the evidence identities above, both temporary one-off workflow files were removed from their verification branches:
+
+- removed `.github/workflows/pr1306-production-russia-visual-oneoff.yml` on `verify/pr1306-production-russia-visual-20260810`; cleanup commit `109644e2a9fbad3c3e25ff060260fc854ba75b09`;
+- removed `.github/workflows/pr1322-production-russia-final-oneoff.yml` on `verify/pr1322-production-russia-final-20260810`; cleanup commit `b5b22382ead575f5af4c086dd65e7340bab90459`.
+
+Post-cleanup comparisons against `main` report **zero changed files** for both temporary verification branches. No unique implementation work was discarded.
+
+The connected GitHub control surface used for this closeout does not expose a delete-ref/delete-branch mutation. The two now-empty verification branch refs therefore remain as inert refs; their one-off workflow definitions have been removed and they contain no file-level delta from their respective reachable repository state. This is a repository-hygiene limitation only and does not affect the incident GO verdict.
+
 ## Change boundary
 
 This closeout is evidence/control cleanup only. It makes no application-code change, no database/schema change, no Vercel deployment change, no production configuration change, and no production write.
+
+The evidence record is staged in PR #1326 rather than merged directly to `main`, because merging would create a new `main` push and can trigger a Vercel production deployment. Leaving the evidence PR unmerged preserves the explicit no-production-change boundary while retaining a durable GitHub record.
 
 ## Incident disposition
 
