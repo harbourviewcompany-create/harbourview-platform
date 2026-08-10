@@ -1,5 +1,6 @@
 import { BufferAttribute, BufferGeometry, ShapeUtils, Vector2 } from 'three'
 import type { HarbourviewCountryGeometry } from './geojson-country-types'
+import { refineLongSphericalTriangles } from './spherical-triangle-refinement'
 
 export interface GlobeExtrusionConfig {
   radius: number
@@ -64,7 +65,7 @@ function douglasPeucker(points: [number, number][], tolerance: number): [number,
     const abLen = Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2)
 
     let maxDist = 0
-    let maxIdx  = start
+    let maxIdx = start
 
     for (let i = start + 1; i < end; i++) {
       const [px, py] = points[i]
@@ -189,8 +190,8 @@ function projectRingVertices(pts: [number, number][], radius: number): number[] 
     const theta = ((lon + 180) * Math.PI) / 180
     out.push(
       -radius * Math.sin(phi) * Math.cos(theta),
-       radius * Math.cos(phi),
-       radius * Math.sin(phi) * Math.sin(theta),
+      radius * Math.cos(phi),
+      radius * Math.sin(phi) * Math.sin(theta),
     )
   }
   return out
@@ -203,7 +204,10 @@ function createTopFanIndices(n: number) {
 }
 
 /**
- * Triangulate the top face of a polygon ring (with holes) onto the sphere.
+ * Triangulate the top face in lon/lat, then conformingly subdivide any Earcut
+ * interior diagonal whose spherical span is too large before projecting the
+ * vertices onto the globe. This keeps the rendered top surface outside the
+ * ocean sphere instead of allowing giant planar chords to cut through it.
  */
 function createTopFaceWithHoles(
   outerRaw: [number, number][],
@@ -218,31 +222,30 @@ function createTopFaceWithHoles(
 
   const v2Outer = outer.map(toV2)
   const v2Holes = holes.map((h) => h.map(toV2))
-
-  const allPoints: [number, number][] = [...outer, ...holes.flat()]
-  const positions = projectRingVertices(allPoints, radius)
+  const boundaryPoints: [number, number][] = [...outer, ...holes.flat()]
   const allV2 = [...v2Outer, ...v2Holes.flat()]
 
-  let indices: number[]
   try {
     const rawTriangles = ShapeUtils.triangulateShape(v2Outer, v2Holes)
-
     const n = allV2.length
     if (rawTriangles.some(([a, b, c]) => a >= n || b >= n || c >= n)) {
       throw new RangeError('earcut index out of range')
     }
 
-    // Push earcut indices as-is. The global Float32 winding pass in
-    // _createCountryBufferGeometryInner is the single source of truth for
-    // outward-facing orientation. Running a separate Float64 winding check here
-    // can double-flip borderline triangles (GPU FMA arithmetic differs from
-    // CPU float64), which is what caused the Russia black-void regression.
-    indices = rawTriangles.flat()
+    const refined = refineLongSphericalTriangles(boundaryPoints, rawTriangles)
+    return {
+      positions: projectRingVertices(refined.points, radius),
+      indices: refined.triangles.flat(),
+    }
   } catch {
-    indices = createTopFanIndices(outer.length)
+    const fallbackTriangles: [number, number, number][] = []
+    for (let i = 1; i < outer.length - 1; i++) fallbackTriangles.push([0, i, i + 1])
+    const refined = refineLongSphericalTriangles(boundaryPoints, fallbackTriangles)
+    return {
+      positions: projectRingVertices(refined.points, radius),
+      indices: refined.triangles.flat(),
+    }
   }
-
-  return { positions, indices }
 }
 
 function createWallIndices(ringCount: number, topBase: number, bottomBase: number, reverse = false): number[] {
