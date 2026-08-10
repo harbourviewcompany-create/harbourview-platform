@@ -163,6 +163,9 @@ begin
 end;
 $$;
 
+revoke all on function public.suppress_intel_chain_for_withdrawn_signal() from public, anon, authenticated;
+grant execute on function public.suppress_intel_chain_for_withdrawn_signal() to service_role;
+
 -- AFTER triggers ensure the public signal transition succeeds first; canonical
 -- suppression then happens in the same transaction.
 drop trigger if exists signals_decision_intel_withdrawal_update on public.signals;
