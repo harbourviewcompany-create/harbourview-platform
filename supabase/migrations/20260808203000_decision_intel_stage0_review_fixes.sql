@@ -192,7 +192,7 @@ select
     'sourceUrl', er.source_url,
     'status', er.evidence_status,
     'observedAt', er.observed_at,
-    'relationship', ae.relationship
+    'relationship', case when ea.role = 'contradicting' then 'contradicts' else ae.relationship end
   )) filter (
     where er.id is not null
       and er.access_classification = 'intel'
