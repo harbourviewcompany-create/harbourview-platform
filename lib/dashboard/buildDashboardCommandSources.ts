@@ -5,6 +5,7 @@ import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { fetchDashboardSignals, fetchDailyDigest, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import {
   getRepresentativeMarketplaceMedia,
+  marketplaceMediaKey,
   toRenderableMarketplaceMediaSrc,
   type DashboardMarketplaceProjection,
   type MarketplaceProjectionMedia,
@@ -54,6 +55,7 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
 }
 
 const ROWS_PER_VIEW = 8
+const MARKETPLACE_MEDIA_TIMEOUT_MS = 1_500
 
 function safeText(value: string | null | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback
@@ -93,6 +95,19 @@ function baseDashboardRow(listing: PublicListing): MarketRow {
   ]
 }
 
+function firstRenderableMarketplaceMediaSrc(selected: PublicMarketplaceImageDTO): string | null {
+  for (const candidate of [
+    selected.thumbnailUrl,
+    selected.publicUrl,
+    selected.heroUrl,
+    selected.galleryUrl,
+  ]) {
+    const src = toRenderableMarketplaceMediaSrc(candidate)
+    if (src) return src
+  }
+  return null
+}
+
 export function resolveListingMedia(
   view: MarketView,
   images: PublicMarketplaceImageDTO[] | undefined,
@@ -101,20 +116,50 @@ export function resolveListingMedia(
   const selected = pickMarketplaceCardImage(images ?? [])
   if (!selected) return fallback
 
-  const src = toRenderableMarketplaceMediaSrc(
-    selected.thumbnailUrl || selected.publicUrl || selected.heroUrl || selected.galleryUrl,
-  )
+  const src = firstRenderableMarketplaceMediaSrc(selected)
   if (!src) return fallback
+
+  const kind: MarketplaceProjectionMedia['kind'] = selected.isIllustrative || selected.imageClass === 'HARBOURVIEW_ILLUSTRATIVE'
+    ? 'representative'
+    : selected.imageClass === 'REAL_ITEM_EVIDENCE'
+      ? 'actual'
+      : 'catalogue'
+  const badgeLabel = kind === 'actual'
+    ? null
+    : kind === 'catalogue'
+      ? selected.sourceDisplayLabel || 'Manufacturer catalogue image'
+      : selected.sourceDisplayLabel || 'Representative image'
 
   return {
     src,
     altText: selected.altText || fallback.altText,
-    kind: selected.isIllustrative ? 'representative' : 'actual',
+    kind,
+    badgeLabel,
     caption: selected.caption,
     fallbackSrc: fallback.src,
     fallbackAltText: fallback.altText,
     fallbackCaption: fallback.fallbackCaption,
   }
+}
+
+async function loadMarketplaceMedia(itemIds: string[]): Promise<Record<string, PublicMarketplaceImageDTO[]>> {
+  if (itemIds.length === 0) return {}
+
+  return new Promise(resolve => {
+    let settled = false
+    const finish = (value: Record<string, PublicMarketplaceImageDTO[]>) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }
+    const timer = setTimeout(() => finish({}), MARKETPLACE_MEDIA_TIMEOUT_MS)
+
+    getPublicMarketplaceImagesForItems(itemIds).then(
+      images => finish(images),
+      () => finish({}),
+    )
+  })
 }
 
 export async function getDashboardMarketplaceProjection(
@@ -130,9 +175,7 @@ export async function getDashboardMarketplaceProjection(
   )
 
   const itemIds = Array.from(new Set(listingsByView.flatMap(([, listings]) => listings.map(listing => listing.id))))
-  const imagesByItem = itemIds.length > 0
-    ? await getPublicMarketplaceImagesForItems(itemIds)
-    : {}
+  const imagesByItem = await loadMarketplaceMedia(itemIds)
 
   const rows: Partial<DashboardMarketplaceRows> = {}
   const mediaById: DashboardMarketplaceProjection['mediaById'] = {}
@@ -141,7 +184,7 @@ export async function getDashboardMarketplaceProjection(
     if (listings.length === 0) continue
     rows[view] = listings.map(baseDashboardRow)
     for (const listing of listings) {
-      mediaById[listing.id] = resolveListingMedia(view, imagesByItem[listing.id])
+      mediaById[marketplaceMediaKey(view, listing.id)] = resolveListingMedia(view, imagesByItem[listing.id])
     }
   }
 
@@ -188,6 +231,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       enabled: enabled('marketplaceRows'),
       load: () => getDashboardMarketplaceProjection(countryIso2),
       fallback: { rows: {}, mediaById: {} },
+      isEmpty: projection => Object.values(projection.rows).every(rows => !rows?.length),
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },
