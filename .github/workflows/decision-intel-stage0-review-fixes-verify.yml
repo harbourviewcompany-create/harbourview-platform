@@ -149,6 +149,20 @@ jobs:
           end $$;
 
           begin;
+          do $$ declare aid uuid; before_count integer; after_count integer; begin
+            select id into aid from public.intel_assessments where event_id='event:sig-a';
+            select count(*) into before_count from public.intel_assessment_versions where assessment_id=aid;
+            update public.intel_assessments set why_it_matters='Updated decision consequence' where id=aid;
+            select count(*) into after_count from public.intel_assessment_versions where assessment_id=aid;
+            if after_count <> before_count + 1 then raise exception 'assessment update did not append version'; end if;
+            if not exists (
+              select 1 from public.intel_assessment_versions
+              where assessment_id=aid and snapshot->>'why_it_matters'='Updated decision consequence'
+            ) then raise exception 'assessment version missing updated snapshot'; end if;
+          end $$;
+          rollback;
+
+          begin;
           update public.intel_event_assertions
           set role='contradicting'
           where event_id='event:sig-a'
@@ -162,6 +176,22 @@ jobs:
                 and ev->>'sourceLabel'='Industry B'
                 and ev->>'relationship'='contradicts'
             ) then raise exception 'event-level contradiction not projected'; end if;
+          end $$;
+          rollback;
+
+          begin;
+          update public.intel_events set review_status='verified' where id='event:sig-a';
+          do $$ declare state text; begin
+            select review_status into state from public.intel_event_dossiers where id='event:sig-a';
+            if state <> 'needs_review' then raise exception 'mixed dossier trust overstated: %', state; end if;
+          end $$;
+          rollback;
+
+          begin;
+          update public.intel_events set consolidation_status='superseded' where id='event:sig-a';
+          do $$ begin
+            if exists (select 1 from public.intel_event_dossiers where id='event:sig-a') then raise exception 'superseded event visible'; end if;
+            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-a') then raise exception 'superseded canonical ownership lost'; end if;
           end $$;
           rollback;
 
@@ -211,6 +241,7 @@ jobs:
           set local role authenticated;
           select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',true);
           update public.intel_events set summary=summary where id='event:sig-a';
+          update public.intel_assessments set why_it_matters=why_it_matters where event_id='event:sig-a';
           rollback;
           SQL
 
