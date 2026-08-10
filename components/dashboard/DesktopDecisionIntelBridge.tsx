@@ -6,11 +6,10 @@ import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
 function canRouteToDossier(signal: DashboardSignal): boolean {
-  if (signal.decisionIntelEventId) return true
-  const isEditorial = signal.contentType === 'editorial'
-  const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
-  const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
-  return !isEditorial && !isPublishedDigest && !isLegacyStory && Boolean(signal.id)
+  // Route eligibility is resolved server-side from canonical ownership + the
+  // customer-display projection. Do not synthesize a route from a signal ID here:
+  // a canonical event may deliberately retain ownership while being suppressed.
+  return Boolean(signal.decisionIntelEventId)
 }
 
 export function DesktopDecisionIntelBridge({ signals, access }: { signals: DashboardSignal[]; access?: FeatureAccess }) {
@@ -34,7 +33,7 @@ export function DesktopDecisionIntelBridge({ signals, access }: { signals: Dashb
       </div>
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         {dossierSignals.map(signal => {
-          const eventId = signal.decisionIntelEventId ?? `event:${signal.id}`
+          const eventId = signal.decisionIntelEventId!
           const dossierHref = `/dashboard/intel/events/${encodeURIComponent(eventId)}?returnTo=${encodeURIComponent(returnTo)}`
           const href = canOpenDossiers ? dossierHref : '/account/upgrade'
           return (
