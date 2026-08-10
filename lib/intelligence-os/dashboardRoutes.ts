@@ -33,7 +33,6 @@ function candidateIds(signals: DashboardSignal[]): string[] {
 export function applyDecisionIntelRouteRows(
   signals: DashboardSignal[],
   rows: DecisionIntelRouteRow[],
-  canonicalAvailable: boolean,
 ): DashboardSignal[] {
   const ownership = new Map<string, DecisionIntelRouteRow>()
   for (const row of rows) ownership.set(row.signal_id, row)
@@ -52,8 +51,8 @@ export function applyDecisionIntelRouteRows(
       }
     }
 
-    // Before Stage-0 activation, or for an unowned legacy/IA row after activation,
-    // preserve only compatibility paths the legacy dossier loader can resolve.
+    // For an unowned legacy/IA row, preserve only compatibility paths the legacy
+    // dossier loader can actually resolve.
     if (signal.decisionIntelEventId) return signal
     if (!isDecisionIntelLegacyEligible(signal)) {
       return { ...signal, decisionIntelEventId: undefined }
@@ -93,9 +92,8 @@ export async function attachDecisionIntelDashboardRoutes(signals: DashboardSigna
     return applyDecisionIntelRouteRows(
       signals,
       (Array.isArray(data) ? data : []) as DecisionIntelRouteRow[],
-      true,
     )
   } catch {
-    return applyDecisionIntelRouteRows(signals, [], false)
+    return applyDecisionIntelRouteRows(signals, [])
   }
 }
