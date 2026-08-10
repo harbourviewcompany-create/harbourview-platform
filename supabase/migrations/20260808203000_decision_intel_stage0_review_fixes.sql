@@ -5,11 +5,13 @@
 -- not snapshot identity, is the one-to-one legacy lineage key in slice 1.
 drop index if exists public.intel_evidence_refs_snapshot_uq;
 
--- Preserve the upstream signal identifier as a durable tombstone key even if the
--- legacy signal is later deleted. The evidence reference remains linked to the
--- canonical assertion through intel_assertion_evidence.
+-- Preserve upstream signal identifiers as durable tombstone keys even if the legacy
+-- signal is later deleted. Evidence and assertion lineage both retain canonical route
+-- ownership for deleted cluster members and regulatory mirror aliases.
 alter table public.intel_evidence_refs
   drop constraint if exists intel_evidence_refs_source_signal_id_fkey;
+alter table public.intel_assertions
+  drop constraint if exists intel_assertions_source_signal_id_fkey;
 
 -- Confidence values are probabilities at the canonical boundary.
 alter table public.intel_assertions
@@ -54,19 +56,22 @@ create trigger intel_recommendations_updated_at
 before update on public.intel_recommendations
 for each row execute function public.set_updated_at();
 
--- Verified event transitions must carry a trustworthy timestamp. Preserve an explicit
--- caller-supplied timestamp; otherwise stamp the transition atomically. A later
--- downgrade preserves the historical last_verified_at value.
+-- Verified event transitions must carry the timestamp of the latest verification.
+-- If a caller supplies a timestamp different from the historical value, preserve it;
+-- otherwise stamp every transition into verified, including re-verification.
 create or replace function public.stamp_intel_event_verification()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, public
 as $$
 begin
-  if new.review_status = 'verified'
-     and (tg_op = 'INSERT' or old.review_status is distinct from 'verified')
-     and new.last_verified_at is null then
-    new.last_verified_at := now();
+  if new.review_status = 'verified' then
+    if tg_op = 'INSERT' then
+      if new.last_verified_at is null then new.last_verified_at := now(); end if;
+    elsif old.review_status is distinct from 'verified'
+      and (new.last_verified_at is null or new.last_verified_at is not distinct from old.last_verified_at) then
+      new.last_verified_at := now();
+    end if;
   end if;
   return new;
 end;
@@ -164,11 +169,10 @@ create trigger intel_assessment_versions_immutable
 before update or delete on public.intel_assessment_versions
 for each row execute function public.prevent_intel_assessment_version_mutation();
 
--- Every mutable assessment edit must atomically append the resulting state to the
--- immutable version ledger. This trigger runs after the row update (and therefore
--- after set_updated_at), and any version insert failure rolls the assessment update
--- back in the same transaction.
-create or replace function public.append_intel_assessment_version_on_update()
+-- Every assessment creation and edit atomically appends the resulting canonical state
+-- to the immutable ledger. The trigger is installed only after the migration backfill,
+-- whose initial versions already exist, so existing rows are not duplicated.
+create or replace function public.append_intel_assessment_version_on_write()
 returns trigger
 language plpgsql
 set search_path = pg_catalog, public
@@ -202,7 +206,7 @@ begin
       'review_status', new.review_status,
       'updated_at', new.updated_at
     ),
-    'Canonical assessment update'
+    case when tg_op = 'INSERT' then 'Canonical assessment created' else 'Canonical assessment update' end
   );
   return new;
 end;
@@ -210,8 +214,8 @@ $$;
 
 drop trigger if exists intel_assessments_append_version on public.intel_assessments;
 create trigger intel_assessments_append_version
-after update on public.intel_assessments
-for each row execute function public.append_intel_assessment_version_on_update();
+after insert or update on public.intel_assessments
+for each row execute function public.append_intel_assessment_version_on_write();
 
 -- Canonical assessments/events are historical decision records. Their lifecycle is
 -- review-state/consolidation-state based, not physical deletion. Prevent parent
