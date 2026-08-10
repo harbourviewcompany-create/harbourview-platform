@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'supabase/functions/_shared/harbourview-auth.ts'
       - 'supabase/functions/job-refresh/**'
       - 'supabase/functions/schema-drift-monitor/**'
       - 'supabase/functions/hv-source-pull-runner/**'
