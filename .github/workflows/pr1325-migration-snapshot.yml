@@ -42,11 +42,22 @@ jobs:
             --markdown-out artifacts/pr1325-migration-snapshot/manifest.md \
             --mode drift \
             --source-sha 663ecd21b1e1961a5dba5c0ce4f9f1d55f80ee19 || true
+      - name: Generate refreshed pending-migration decision
+        run: |
+          node scripts/pr1325-refresh-pending-decisions.mjs \
+            artifacts/pr1325-migration-snapshot/manifest.json \
+            artifacts/pr1325-migration-snapshot/pending-production-migration-decisions.proposed.json
+          cp artifacts/pr1325-migration-snapshot/pending-production-migration-decisions.proposed.json \
+            supabase/release-controls/pending-production-migration-decisions.json
+      - name: Validate refreshed pending-migration decision
+        run: |
+          node scripts/check-pending-production-migration-decisions.mjs \
+            | tee artifacts/pr1325-migration-snapshot/decision-validator.txt
       - name: Upload snapshot evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pr1325-migration-snapshot-663ecd21
+          name: pr1325-migration-decision-663ecd21
           path: artifacts/pr1325-migration-snapshot/
           if-no-files-found: error
           retention-days: 14
