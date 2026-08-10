@@ -12,6 +12,10 @@ on:
       - lib/platform/commandCentreRegistry.ts
       - lib/dashboard/commandCentreDataTypes.ts
       - lib/dashboard/loadCommandCentreData.ts
+      - lib/dashboard/buildDashboardCommandSources.ts
+      - lib/dashboard/marketplaceMediaProjection.ts
+      - lib/marketplace/images/**
+      - supabase/migrations/*marketplace*.sql
       - components/dashboard/CommandCentreDataBoundary.tsx
       - components/dashboard/CommandCentreModuleRail.tsx
       - components/dashboard/CommandCentreModuleRail.css
@@ -25,6 +29,10 @@ on:
       - tests/dashboard/dashboardResponsiveShell.behavior.test.ts
       - tests/dashboard/loadCommandCentreData.test.ts
       - tests/dashboard/commandCentreHealth.test.ts
+      - tests/dashboard/dashboardMarketplaceRows.test.ts
+      - tests/dashboard/mobileMarketplaceMedia.test.ts
+      - tests/marketplace/marketplaceMediaSelection.test.ts
+      - tests/marketplace/publicImageQueryContract.test.ts
       - tests/platform/command-centre-typed-registry.test.ts
       - tests/security/command-centre-boundaries.test.ts
       - tests/supabase/env.test.ts
@@ -83,6 +91,10 @@ jobs:
           tests/dashboard/dashboardResponsiveShell.behavior.test.ts
           tests/dashboard/loadCommandCentreData.test.ts
           tests/dashboard/commandCentreHealth.test.ts
+          tests/dashboard/dashboardMarketplaceRows.test.ts
+          tests/dashboard/mobileMarketplaceMedia.test.ts
+          tests/marketplace/marketplaceMediaSelection.test.ts
+          tests/marketplace/publicImageQueryContract.test.ts
           tests/platform/command-centre-typed-registry.test.ts
           tests/security/command-centre-boundaries.test.ts
           tests/supabase/env.test.ts
