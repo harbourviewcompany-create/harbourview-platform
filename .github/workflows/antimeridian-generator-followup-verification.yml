@@ -1,0 +1,47 @@
+name: Antimeridian Generator Follow-up Verification
+
+on:
+  push:
+    branches:
+      - fix/globe-antimeridian-generator-hardening
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Regenerate Natural Earth data
+        run: node scripts/generate-natural-earth-countries.mjs
+      - name: Verify antimeridian topology
+        run: npx tsx --test tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Verify spherical triangulation
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Verify regenerated geometry stability
+        run: |
+          cp data/globe/natural-earth-countries.ts /tmp/first.ts
+          sleep 1
+          node scripts/generate-natural-earth-countries.mjs
+          python - <<'PY'
+          from pathlib import Path
+          import re, hashlib
+          a = Path('/tmp/first.ts').read_text()
+          b = Path('data/globe/natural-earth-countries.ts').read_text()
+          normalize = lambda s: re.sub(r"generatedAt: '[^']+'", "generatedAt: '<normalized>'", s)
+          an, bn = normalize(a), normalize(b)
+          if an != bn:
+              raise SystemExit('Generated Natural Earth geometry is not deterministic after normalizing generatedAt provenance timestamp')
+          print('normalized_sha256=' + hashlib.sha256(an.encode()).hexdigest())
+          PY
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
