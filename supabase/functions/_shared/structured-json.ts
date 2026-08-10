@@ -54,7 +54,9 @@ export function parseStructuredJson(
   const parsed = JSON.parse(raw) as unknown
   const recordsValue = metadata.records_path ? getPath(parsed, metadata.records_path) : parsed
   const records = Array.isArray(recordsValue) ? recordsValue : [recordsValue]
-  const configuredMax = Number.isFinite(metadata.max_records) ? Math.trunc(metadata.max_records as number) : 100
+  const configuredMax = typeof metadata.max_records === 'number' && Number.isFinite(metadata.max_records)
+    ? Math.trunc(metadata.max_records)
+    : 100
   const maxRecords = Math.max(1, Math.min(configuredMax, 250))
 
   return records
