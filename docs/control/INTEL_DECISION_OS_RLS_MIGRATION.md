@@ -42,7 +42,9 @@ A later read-only production check found zero surfaceable snapshot IDs currently
 
 ### Staff-controlled canonical data
 
-The following canonical base objects are writable only to existing platform staff roles (`admin`, `operator`, `analyst`) through `user_roles`:
+The canonical base objects remain staff-controlled through existing `user_roles` authorization for `admin`, `operator`, and `analyst`. Product subscribers do not receive direct canonical base-table privileges merely because they hold an Intel/operator subscription tier.
+
+The staff-controlled canonical objects are:
 
 - `intel_evidence_refs`
 - `intel_assertions`
@@ -53,20 +55,20 @@ The following canonical base objects are writable only to existing platform staf
 - `intel_assessment_versions`
 - `intel_recommendations`
 
-The derived objects required to render an approved dossier also have narrowly scoped SELECT policies for authenticated `user_profiles.tier IN ('intel','operator')`. The migration explicitly grants authenticated SELECT on those RLS-protected relations because production default privileges for tables created by `postgres` do not grant authenticated access automatically.
-
 Assessment versions are append-only after the corrective migration: authenticated staff may SELECT/INSERT under RLS, while UPDATE/DELETE are revoked and a database trigger rejects mutation even through a more privileged application path.
 
-### Data API exposure
+### Product Data API security boundary
 
-Production PostgREST exposes the `api` schema, not `public`. The canonical tables remain physically in `public` and are not projected wholesale into `api`.
+The customer/product execution boundary is the pair of allowlisted `SECURITY DEFINER` RPCs in the exposed `api` schema:
 
-The Stage-0 Data API exposes only two allowlisted security-invoker projections:
+- `api.get_intel_event_dossier(text)` — returns the allowlisted dossier projection for one canonical event.
+- `api.resolve_intel_event_route(text)` — resolves a displayable upstream signal identifier to its canonical event identifier.
 
-- `api.intel_event_dossiers` → approved dossier projection of `public.intel_event_dossiers`
-- `api.intel_event_route_map` → signal-ID-to-canonical-event routing projection only
+Each RPC performs its own authenticated subscription-entitlement check and permits only `intel` or `operator` tier access. Anonymous callers and free-tier callers are rejected. The functions execute with a fixed safe `search_path` and expose only their declared return columns.
 
-Both views rely on the underlying RLS policies. `anon` is explicitly revoked. Raw evidence bodies are not projected.
+The earlier security-invoker-view design is superseded by this RPC boundary. Product subscribers are not granted direct SELECT on the canonical base tables, `public.intel_event_dossiers`, or `public.intel_event_route_map`; those relations are implementation details behind the RPCs. This prevents customer queries from bypassing the allowlisted dossier projection to obtain lineage IDs, review metadata, or other staff-operational columns.
+
+Raw evidence bodies, storage paths, private notes, Marketplace-private data, and service credentials are not projected by either RPC.
 
 ### Evidence boundary
 
@@ -87,9 +89,9 @@ Backfill source is `public.signals` only when all conditions hold:
 
 `reviewed=true` maps to `migrated_reviewed`, never `verified`.
 
-Candidate event identity is `event:` + `coalesce(cluster_rep_id,id)`. All cluster members attach assertions to the event. The event remains `consolidation_status='candidate'` until independently reviewed. The corrective migration adds `intel_event_route_map` so any displayable cluster-member signal can resolve to that one canonical event rather than fragmenting into a separate legacy dossier.
+Candidate event identity is `event:` + `coalesce(cluster_rep_id,id)`. All cluster members attach assertions to the event. The event remains `consolidation_status='candidate'` until independently reviewed. The corrective migration adds deterministic signal-to-event routing so any displayable cluster-member signal resolves to one canonical event rather than fragmenting into a separate legacy dossier.
 
-`source_count` counts distinct source references using URL first, publisher second, and signal ID only as the final fallback. It is not a raw cluster-row count and must not be described as proof of source independence.
+Displayed source counts are derived from the same eligible, displayable assertion/evidence set used by the dossier. Rejected or superseded assertions therefore cannot remain counted after their evidence is suppressed. Distinct provenance identity uses URL first, publisher second, and signal ID only as the final fallback; the count must not be described as proof of source independence.
 
 Existing `signals.analysis` is used only where populated. Its recommended action seeds an `investigate` posture rather than `act_now` because the old analysis is not independent verification.
 
@@ -122,10 +124,11 @@ Before merge/deploy:
 6. Multiple signal evidence refs can reference the same source snapshot without migration failure.
 7. Every assessment has exactly one event and every recommendation has exactly one assessment.
 8. Assessment versions reject UPDATE and DELETE.
-9. Rejected/superseded assertions and recommendations are absent from product dossiers.
+9. Rejected/superseded assertions and recommendations are absent from product dossiers and their evidence is excluded from displayed source counts.
 10. Contradicting evidence relationships remain distinguishable in the dossier projection.
-11. Anonymous access to `api.intel_event_dossiers` and `api.intel_event_route_map` fails.
-12. Intel/operator tier can read allowlisted dossier rows and route aliases through the exposed `api` schema.
-13. Raw `hv_evidence`, storage paths and private notes remain unavailable through dossier projection.
-14. Existing `/signals`, Marketplace, Clinical and Actions regression checks stay green.
-15. The authenticated dossier passes Playwright at 320×700, 375×812, 390×844, 430×932 and desktop.
+11. Anonymous and free-tier access to the two product RPCs fails.
+12. Intel/operator tier can call the allowlisted dossier and route RPCs.
+13. Product subscribers cannot directly read canonical base tables or bypass the RPC allowlist.
+14. Raw `hv_evidence`, storage paths and private notes remain unavailable through dossier projection.
+15. Existing `/signals`, Marketplace, Clinical and Actions regression checks stay green.
+16. The authenticated dossier passes Playwright at 320×700, 375×812, 390×844, 430×932 and desktop.
