@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { matchesRequiredSecret } from "../_shared/harbourview-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -39,7 +40,7 @@ async function sendAlertEmail(tables: string[], fns: string[]): Promise<void> {
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json(405, { ok: false, error: "method_not_allowed" });
   if (!CRON_SECRET) return json(503, { ok: false, error: "service_not_configured" });
-  if ((req.headers.get("x-harbourview-cron-secret") ?? "") !== CRON_SECRET) return json(401, { ok: false, error: "unauthorized" });
+  if (!matchesRequiredSecret(CRON_SECRET, req.headers.get("x-harbourview-cron-secret"))) return json(401, { ok: false, error: "unauthorized" });
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(503, { ok: false, error: "missing_supabase_env" });
 
   const [{ data: missingTables, error: tableError }, { data: missingFns, error: functionError }] = await Promise.all([
