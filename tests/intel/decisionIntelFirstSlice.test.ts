@@ -4,12 +4,17 @@ import { describe, expect, it } from 'vitest'
 const migration = readFileSync('supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql', 'utf8')
 const hardening = readFileSync('supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql', 'utf8')
 const intelUi = readFileSync('components/dashboard/mobile-command/sections/IntelligenceSections.tsx', 'utf8')
+const mobileShell = readFileSync('components/dashboard/MobileCommandCentreRebuild.tsx', 'utf8')
+const responsiveShell = readFileSync('components/dashboard/DashboardResponsiveShell.tsx', 'utf8')
+const dashboardPage = readFileSync('app/dashboard/page.tsx', 'utf8')
 const desktopBridge = readFileSync('components/dashboard/DesktopDecisionIntelBridge.tsx', 'utf8')
 const dossierPage = readFileSync('app/dashboard/intel/events/[id]/page.tsx', 'utf8')
 const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'utf8')
 const dashboardMapper = readFileSync('lib/dashboard/mapPublicToDashboardSignal.ts', 'utf8')
 const complianceCopy = readFileSync('lib/intelligence-os/complianceCopy.ts', 'utf8')
 const controlDoc = readFileSync('docs/control/INTEL_DECISION_OS_EXISTING_TARGET.md', 'utf8')
+const firstSliceWorkflow = readFileSync('.github/workflows/decision-intel-first-slice-verify.yml', 'utf8')
+const reviewFixWorkflow = readFileSync('.github/workflows/decision-intel-stage0-review-fixes-verify.yml', 'utf8')
 
 describe('Decision Intelligence Stage 0 first slice', () => {
   it('keeps the existing acquisition and Pipeline B estate upstream', () => {
@@ -68,8 +73,8 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(hardening).toContain("alter table public.intel_events alter column review_status set default 'needs_review'")
   })
 
-  it('preserves evidence relationships and canonical ownership for suppressed rows', () => {
-    expect(hardening).toContain("'relationship', ae.relationship")
+  it('preserves evidence relationships, including event-level contradictions, and canonical ownership for suppressed rows', () => {
+    expect(hardening).toContain("case when ea.role = 'contradicting' then 'contradicts' else ae.relationship end")
     expect(hardening).toContain("where e.review_status in ('migrated_reviewed','verified')")
     expect(hardening).toContain('create or replace view public.intel_event_route_map')
     expect(hardening).toContain('where ia.source_signal_id is not null')
@@ -77,10 +82,12 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain('return null')
   })
 
-  it('preserves native reviewed-signal ids and resolves regulatory mirror ids server-side', () => {
+  it('preserves native reviewed-signal ids and resolves regulatory mirror ids server-side and in legacy fallback', () => {
     expect(dashboardMapper).toContain('decisionIntelEventId: `event:${s.id}`')
     expect(dashboardMapper).not.toContain('`event:rs-${s.id}`')
     expect(hardening).toContain("m.signal_id = 'rs-' || p_signal_id")
+    expect(dossierLoader).toContain("[signalId, `rs-${signalId}`]")
+    expect(dossierLoader).toContain('loadLegacyPublicSignal')
   })
 
   it('recovers canonical jurisdiction ids without fabricating registry rows', () => {
@@ -95,6 +102,23 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(fallbackSelect).not.toContain('snapshot_id')
     expect(fallbackSelect).toContain('cluster_rep_id')
     expect(dossierLoader).toContain('loadIaFallback')
+  })
+
+  it('passes the signals entitlement through desktop and mobile dossier entry points', () => {
+    expect(dashboardPage).toContain("checkFeatureAccess({ app_metadata: userAppMetadata }, 'signals')")
+    expect(dashboardPage).toContain('decisionIntelAccess={decisionIntelAccess}')
+    expect(responsiveShell).toContain('access={decisionIntelAccess}')
+    expect(responsiveShell).toContain('decisionIntelAccess={decisionIntelAccess}')
+    expect(mobileShell).toContain('access={props.decisionIntelAccess}')
+    expect(intelUi).toContain("const canOpenDossiers = access?.granted === true")
+    expect(intelUi).toContain("'/account/upgrade'")
+    expect(desktopBridge).toContain("'/account/upgrade'")
+  })
+
+  it('defines the updated-at prerequisite in every production-shaped Stage 0 fixture', () => {
+    const prerequisite = 'create function public.set_updated_at() returns trigger'
+    expect(firstSliceWorkflow).toContain(prerequisite)
+    expect(reviewFixWorkflow).toContain(prerequisite)
   })
 
   it('makes mobile and desktop intelligence reach the dossier without losing dashboard context', () => {
