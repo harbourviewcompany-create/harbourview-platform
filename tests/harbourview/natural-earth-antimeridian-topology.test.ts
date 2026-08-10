@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import test from 'node:test'
+import { test } from 'vitest'
 
 function runGeometryProbe<T>(probe: string): T {
   const source = `
@@ -76,12 +76,20 @@ function runGeometryProbe<T>(probe: string): T {
   `
 
   const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    maxBuffer: 20 * 1024 * 1024,
-  })
+  cwd: process.cwd(),
+  encoding: 'utf8',
+  maxBuffer: 20 * 1024 * 1024,
+  timeout: 30_000,
+})
 
-  assert.equal(result.status, 0, result.stderr || result.stdout)
+const failureContext = [
+  `status=${String(result.status)}`,
+  `signal=${String(result.signal)}`,
+  `error=${result.error ? String(result.error) : 'none'}`,
+  `stderr=${result.stderr || '<empty>'}`,
+  `stdout=${result.stdout || '<empty>'}`,
+].join('\n')
+assert.equal(result.status, 0, failureContext)
   return JSON.parse(result.stdout) as T
 }
 
@@ -140,6 +148,8 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       invalidWindingCount: number
       degenerateTriangleCount: number
       triangleCount: number
+      sourceHoleCount: number
+      generatedHoleCount: number
     }>
   }>(`
     const crossingIso2 = sourceGeoJson.features.filter(sourceCrossesSeam).map(iso2ForFeature).filter(Boolean).sort()
@@ -161,9 +171,20 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       let misplacedHoleCount = 0
       let invalidWindingCount = 0
       let degenerateTriangleCount = 0
-      let triangleCount = 0
+let triangleCount = 0
+const sourcePolygons = feature.geometry?.type === 'Polygon'
+  ? [feature.geometry.coordinates]
+  : feature.geometry?.coordinates ?? []
+const sourceHoleCount = sourcePolygons.reduce(
+  (sum, polygon) => sum + Math.max(0, polygon.length - 1),
+  0,
+)
+const generatedHoleCount = country.polygons.reduce(
+  (sum, polygon) => sum + polygon.rings.filter((ring) => ring.kind === 'hole').length,
+  0,
+)
 
-      for (const polygon of country.polygons) {
+for (const polygon of country.polygons) {
         const outer = polygon.rings.find((ring) => ring.kind === 'outer')
         if (!outer) continue
         if (!pointEqual(outer.points[0], outer.points[outer.points.length - 1])) {
@@ -198,6 +219,8 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
         invalidWindingCount,
         degenerateTriangleCount,
         triangleCount,
+        sourceHoleCount,
+        generatedHoleCount,
       }
     }
 
@@ -218,7 +241,11 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
     assert.equal(geometry.misplacedHoleCount, 0, `${iso2}: hole assigned outside its outer ring`)
     assert.equal(geometry.invalidWindingCount, 0, `${iso2}: invalid or same-direction outer/hole winding`)
     assert.equal(geometry.degenerateTriangleCount, 0, `${iso2}: Earcut emitted degenerate triangles`)
-    assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
+assert.ok(
+  geometry.generatedHoleCount >= geometry.sourceHoleCount,
+  `${iso2}: source holes lost (${geometry.sourceHoleCount} source, ${geometry.generatedHoleCount} generated)`,
+)
+assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
   }
 })
 
