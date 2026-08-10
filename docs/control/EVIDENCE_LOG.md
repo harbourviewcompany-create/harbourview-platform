@@ -4826,3 +4826,31 @@ for other versions on `main`. Those predate this work and are untouched.
 
 **Decision:** Application implementation and exact implementation-head verification are **GO**. Production schema reconciliation, production real-image lifecycle proof, and PR merge remain **HOLD pending explicit owner authorization**. Any evidence-only follow-up commit must preserve the verified implementation unchanged and receive its normal final-head repository checks before merge.
 
+
+## 2026-08-10 — PR #1307 post-#1321 reconciliation and merge-readiness patch
+
+**Evidence ID:** `HV-PR1307-POST-1321-MERGE-READINESS-20260810`
+
+**Reconciliation basis:**
+- `main` baseline: `78efd8bfe6e88ab0ace7bad42f5acb97fbf62c8f` (#1321).
+- PR #1307 was reconciled onto that base before this merge-readiness patch.
+- `20260808190400_restore_harbourview_admin_guard.sql` and `20260808190500_reconcile_marketplace_image_trust_contract.sql` were byte-identical to the canonicalized #1321 source blobs and therefore are no longer part of #1307's effective diff.
+- The historical 2026-08-08 “committed, not applied” evidence above is preserved as a point-in-time record; it is superseded for current release decisions by #1321 canonicalization. This work did not apply or reapply either migration and did not change the migration ledger.
+
+**Merge-readiness patch:**
+- preserves `REAL_ITEM_EVIDENCE` as actual item media, `MANUFACTURER_CATALOGUE` as controlled catalogue provenance, and Harbourview illustrative media as representative;
+- validates preferred image URLs in order and chooses the first browser-renderable approved source;
+- only permits locked-Supabase browser media from `/storage/v1/object/public/marketplace-item-public/`;
+- keys projected media by marketplace view + canonical listing ID;
+- bounds optional media enrichment to 1.5 seconds and falls back without discarding already-loaded rows;
+- orders paginated public media by `image_role.asc,id.asc` and uses ID as the in-memory tie-breaker;
+- classifies `{ rows: {}, mediaById: {} }` as empty by inspecting `projection.rows`;
+- expands the authenticated visual workflow trigger to marketplace implementation/schema paths;
+- adds focused regression coverage for each merge-readiness contract.
+
+**Production boundary:**
+- No Supabase project write, production DDL, migration-ledger change, production image-data write, Vercel production deployment, or production deployment action was performed.
+- One seller-authorized `REAL_ITEM_EVIDENCE` image through private storage → review → approved public derivative/projection → card rendering remains a **post-merge production-activation proof**, not a repository merge gate.
+
+**Verification:**
+- Exact resulting branch-head CI, build, authenticated mobile Playwright and preview status are the authoritative merge gate and are recorded on PR #1307.
