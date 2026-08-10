@@ -25,6 +25,7 @@ export function resolveListingMediaStage(row: NormalizedListing, stage: MediaSta
       src: media.fallbackSrc,
       altText: media.fallbackAltText,
       kind: 'representative' as const,
+      badgeLabel: 'Representative image',
       caption: media.fallbackCaption,
     }
   }
@@ -32,6 +33,7 @@ export function resolveListingMediaStage(row: NormalizedListing, stage: MediaSta
     src: media.src,
     altText: media.altText,
     kind: media.kind,
+    badgeLabel: media.badgeLabel,
     caption: media.caption,
   }
 }
@@ -42,7 +44,7 @@ function ListingCardMedia({ row }: { row: NormalizedListing }) {
 
   useEffect(() => {
     setStage('primary')
-  }, [row.id, mediaSignature])
+  }, [row.id, row.view, mediaSignature])
 
   const media = resolveListingMediaStage(row, stage)
 
@@ -73,7 +75,7 @@ function ListingCardMedia({ row }: { row: NormalizedListing }) {
           setStage('empty')
         }}
       />
-      {media.kind === 'representative' && <span className="hvm2-listing-media-badge" aria-hidden="true">Representative image</span>}
+      {media.badgeLabel && <span className="hvm2-listing-media-badge">{media.badgeLabel}</span>}
       {media.caption && <figcaption>{media.caption}</figcaption>}
     </figure>
   )
