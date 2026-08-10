@@ -242,6 +242,7 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
       const routed = await loadCanonical(db, routedEventId)
       if (routed) return routed
     }
+    // Canonical ownership exists but the allowlisted dossier did not return a row.
     return null
   }
 
