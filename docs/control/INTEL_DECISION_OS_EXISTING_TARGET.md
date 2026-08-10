@@ -27,7 +27,13 @@ Existing `public.signals` and Pipeline B remain upstream. `/signals`, Marketplac
 
 ## Authenticated intelligence exposure
 
-Raw canonical tables and the underlying dossier/route relations are not the product-user read boundary. Staff roles (`admin`, `operator`, `analyst`) can inspect canonical rows under staff RLS. Authenticated Intel/operator product users consume only the tier-gated `SECURITY DEFINER` RPCs `api.get_intel_event_dossier(text)` and `api.resolve_intel_event_route(text)`, which return the deliberately allowlisted dossier/route projection after checking product entitlement. Direct authenticated product access to the canonical bases and allowlist views is revoked. The returned projection excludes raw snapshot text, storage paths, private evidence bodies, internal analyst notes, Marketplace private/provenance fields and service-role data.
+Raw canonical tables and the underlying dossier/route relations are not the product-user read boundary. Staff roles (`admin`, `operator`, `analyst`) can inspect canonical rows under staff RLS. Authenticated Intel/operator product users consume only the tier-gated `SECURITY DEFINER` RPCs `api.get_intel_event_dossier(text)` and `api.resolve_intel_event_route(text)`, which return the deliberately allowlisted dossier/route projection after checking product entitlement. Direct authenticated product access to the canonical bases and allowlist views is revoked.
+
+Verification and publication are separate controls. `intel_events.customer_visibility` defaults to `internal`; only events explicitly classified `intel` are eligible for the customer dossier projection. Marking an event, assessment or recommendation `verified` does not authorize customer exposure. Backfilled records receive `intel` only because their source signals were already reviewed/surfaceable in the authenticated Intel feed at migration time. If an upstream migrated signal is later withdrawn, rejected, unreviewed or reclassified out of the first-slice corpus, the canonical chain is moved back to review and customer visibility is reset to `internal`.
+
+Dashboard dossier links are hydrated server-side through the service-role-only `api.resolve_intel_dashboard_routes(text[])` function. It returns canonical ownership plus a displayable flag derived from the explicit customer dossier projection; it does not return evidence or analytical content. This prevents desktop/mobile surfaces from advertising a canonical dossier after it has been suppressed while retaining legacy/IA compatibility for genuinely unowned pre-migration rows.
+
+The returned customer dossier projection excludes raw snapshot text, storage paths, private evidence bodies, internal analyst notes, Marketplace private/provenance fields and service-role data.
 
 Public `/signals` remains a separate editorial/distribution surface and is not replaced by `/dashboard/intel/events/[id]`.
 
@@ -38,6 +44,10 @@ Legacy `signals.reviewed=true` is an upstream surfaceability gate only. It MUST 
 ## Event consolidation
 
 The first backfill groups surfaceable reviewed signals by `coalesce(cluster_rep_id,id)`. That grouping is an event candidate, not proof that the clustered sources describe a legally identical event. The event records therefore preserve `consolidation_status='candidate'` until reviewed.
+
+## Assessment history
+
+`intel_assessment_versions` is append-only. Version 1 and all subsequent versions preserve the same complete canonical assessment field set, including regulatory implications, affected products and contradictions. Staff updates to `intel_assessments` append a new immutable version atomically.
 
 ## Deprecated-as-canonical concepts
 
