@@ -54,6 +54,62 @@ create trigger intel_recommendations_updated_at
 before update on public.intel_recommendations
 for each row execute function public.set_updated_at();
 
+-- Verified event transitions must carry a trustworthy timestamp. Preserve an explicit
+-- caller-supplied timestamp; otherwise stamp the transition atomically. A later
+-- downgrade preserves the historical last_verified_at value.
+create or replace function public.stamp_intel_event_verification()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
+begin
+  if new.review_status = 'verified'
+     and (tg_op = 'INSERT' or old.review_status is distinct from 'verified')
+     and new.last_verified_at is null then
+    new.last_verified_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists intel_events_verification_stamp on public.intel_events;
+create trigger intel_events_verification_stamp
+before insert or update of review_status on public.intel_events
+for each row execute function public.stamp_intel_event_verification();
+
+alter table public.intel_events
+  drop constraint if exists intel_events_verified_timestamp_chk,
+  add constraint intel_events_verified_timestamp_chk
+    check (review_status <> 'verified' or last_verified_at is not null);
+
+-- The canonical jurisdiction cross-reference foundation historically seeded ISO-2
+-- identities without filling jurisdictions_id. Repair that link first using the
+-- independently canonical ISO-3 identity present on countries + jurisdictions, then
+-- consume jurisdiction_crossref for the Decision Intel backfill. No jurisdiction row
+-- is fabricated when either side lacks a deterministic ISO mapping.
+do $$
+begin
+  if to_regclass('public.jurisdiction_crossref') is not null
+     and to_regclass('public.countries') is not null
+     and exists (
+       select 1 from information_schema.columns
+       where table_schema='public' and table_name='countries' and column_name='iso_alpha3'
+     )
+     and exists (
+       select 1 from information_schema.columns
+       where table_schema='public' and table_name='jurisdictions' and column_name='iso_alpha3'
+     ) then
+    update public.jurisdiction_crossref xref
+    set jurisdictions_id = j.jurisdiction_id
+    from public.countries c
+    join public.jurisdictions j
+      on upper(j.iso_alpha3) = upper(c.iso_alpha3)
+    where xref.jurisdictions_id is null
+      and xref.countries_iso2 = c.iso_alpha2
+      and c.iso_alpha3 is not null;
+  end if;
+end $$;
+
 -- Recover canonical jurisdiction identity from Pipeline-B country_iso2 through the
 -- repository's authoritative ISO-2 -> jurisdiction cross-reference. Canonical
 -- jurisdiction ids are identity keys such as country_area:DEU, not ISO-2 values.
@@ -157,6 +213,34 @@ create trigger intel_assessments_append_version
 after update on public.intel_assessments
 for each row execute function public.append_intel_assessment_version_on_update();
 
+-- Canonical assessments/events are historical decision records. Their lifecycle is
+-- review-state/consolidation-state based, not physical deletion. Prevent parent
+-- deletion so immutable version history can never conflict with a cascade.
+create or replace function public.prevent_intel_canonical_delete()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
+begin
+  raise exception '% is historical Decision Intelligence and cannot be deleted; use review/consolidation state', tg_table_name;
+end;
+$$;
+
+drop trigger if exists intel_assessments_no_delete on public.intel_assessments;
+create trigger intel_assessments_no_delete
+before delete on public.intel_assessments
+for each row execute function public.prevent_intel_canonical_delete();
+
+drop trigger if exists intel_events_no_delete on public.intel_events;
+create trigger intel_events_no_delete
+before delete on public.intel_events
+for each row execute function public.prevent_intel_canonical_delete();
+
+alter table public.intel_assessment_versions
+  drop constraint if exists intel_assessment_versions_assessment_id_fkey,
+  add constraint intel_assessment_versions_assessment_id_fkey
+    foreign key (assessment_id) references public.intel_assessments(id) on delete restrict;
+
 drop policy if exists intel_assessment_versions_staff_all on public.intel_assessment_versions;
 drop policy if exists intel_assessment_versions_staff_select on public.intel_assessment_versions;
 drop policy if exists intel_assessment_versions_staff_insert on public.intel_assessment_versions;
@@ -191,11 +275,15 @@ grant select, insert, update, delete on
   public.intel_evidence_refs,
   public.intel_assertions,
   public.intel_assertion_evidence,
-  public.intel_events,
   public.intel_event_assertions,
-  public.intel_assessments,
   public.intel_recommendations
   to authenticated;
+
+grant select, insert, update on
+  public.intel_events,
+  public.intel_assessments
+  to authenticated;
+revoke delete on public.intel_events, public.intel_assessments from authenticated;
 
 -- Rebuild the dossier projection through displayable event/assessment/recommendation
 -- states and displayable assertions only. source_count is derived from that same
