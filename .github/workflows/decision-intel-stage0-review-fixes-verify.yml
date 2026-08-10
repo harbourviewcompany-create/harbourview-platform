@@ -66,6 +66,13 @@ jobs:
           create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
           create table public.hv_evidence (id uuid primary key, extracted_text text, storage_path text, private_notes text);
           create table public.jurisdictions (jurisdiction_id text primary key, name text);
+          create table public.jurisdiction_crossref (
+            id uuid primary key default gen_random_uuid(),
+            countries_iso2 text unique,
+            jurisdictions_id text unique references public.jurisdictions(jurisdiction_id),
+            canonical_iso2 text not null,
+            canonical_name text not null
+          );
           create table public.user_roles (user_id uuid not null, role text not null);
           create table public.user_profiles (id uuid primary key, tier text not null);
           create table public.signals (
@@ -79,7 +86,10 @@ jobs:
           insert into public.source_registry values ('10000000-0000-0000-0000-000000000001','Regulator A'),('10000000-0000-0000-0000-000000000002','Industry B');
           insert into public.source_snapshots values ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
           insert into public.hv_evidence values ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
-          insert into public.jurisdictions values ('CA','Canada'),('DE','Germany');
+          insert into public.jurisdictions values ('country_area:CAN','Canada'),('country_area:DEU','Germany');
+          insert into public.jurisdiction_crossref (countries_iso2,jurisdictions_id,canonical_iso2,canonical_name) values
+            ('CA','country_area:CAN','CA','Canada'),
+            ('DE','country_area:DEU','DE','Germany');
           insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel'),('00000000-0000-0000-0000-000000000333','intel');
           insert into public.user_roles values ('00000000-0000-0000-0000-000000000222','analyst');
           insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
@@ -116,8 +126,9 @@ jobs:
             if route_event <> 'event:sig-a' then raise exception 'cluster alias failed'; end if;
             select column_default into event_default from information_schema.columns where table_schema='public' and table_name='intel_events' and column_name='review_status';
             if event_default not like '%needs_review%' then raise exception 'unsafe event default'; end if;
-            if exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and jurisdiction_id <> 'DE') then raise exception 'assertion jurisdiction missing'; end if;
-            if exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id <> 'DE') then raise exception 'event jurisdiction missing'; end if;
+            if not exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'assertion jurisdiction missing'; end if;
+            if not exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'event jurisdiction missing'; end if;
+            if not exists (select 1 from public.intel_assertions where source_signal_id='sig-c' and jurisdiction_id='country_area:CAN') then raise exception 'Canada jurisdiction missing'; end if;
           end $$;
 
           insert into public.signals (id,snapshot_id,source,date,reviewed,quality_label,quality_confidence,content_type,headline,summary,country_iso2)
