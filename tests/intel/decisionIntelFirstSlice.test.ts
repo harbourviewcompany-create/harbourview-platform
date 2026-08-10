@@ -13,6 +13,7 @@ const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'ut
 const dashboardMapper = readFileSync('lib/dashboard/mapPublicToDashboardSignal.ts', 'utf8')
 const complianceCopy = readFileSync('lib/intelligence-os/complianceCopy.ts', 'utf8')
 const controlDoc = readFileSync('docs/control/INTEL_DECISION_OS_EXISTING_TARGET.md', 'utf8')
+const databaseControl = readFileSync('docs/control/DATABASE_CONTROL.md', 'utf8')
 const firstSliceWorkflow = readFileSync('.github/workflows/decision-intel-first-slice-verify.yml', 'utf8')
 const reviewFixWorkflow = readFileSync('.github/workflows/decision-intel-stage0-review-fixes-verify.yml', 'utf8')
 
@@ -64,6 +65,8 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain("db.rpc('resolve_intel_event_route'")
     expect(dossierLoader).not.toContain(".from('intel_event_dossiers')")
     expect(dossierLoader).not.toContain(".from('intel_event_route_map')")
+    expect(databaseControl).toContain('SECURITY DEFINER RPC')
+    expect(databaseControl).toContain('api.get_intel_event_dossier')
   })
 
   it('makes assessment history immutable and confidence a probability', () => {
@@ -90,10 +93,15 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain('loadLegacyPublicSignal')
   })
 
-  it('recovers canonical jurisdiction ids without fabricating registry rows', () => {
+  it('recovers canonical jurisdiction ids through the ISO-2 cross-reference without fabricating registry rows', () => {
     expect(hardening).toContain("column_name = 'country_iso2'")
-    expect(hardening).toContain("upper(j.jurisdiction_id) = upper(nullif(s.country_iso2, ''))")
+    expect(hardening).toContain("to_regclass('public.jurisdiction_crossref')")
+    expect(hardening).toContain('join public.jurisdiction_crossref xref')
+    expect(hardening).toContain("upper(xref.canonical_iso2) = upper(nullif(s.country_iso2, ''))")
+    expect(hardening).toContain('j.jurisdiction_id = xref.jurisdictions_id')
     expect(hardening).toContain('count(distinct a.jurisdiction_id) = 1')
+    expect(firstSliceWorkflow).toContain("'country_area:DEU','Germany'")
+    expect(reviewFixWorkflow).toContain("'country_area:CAN','Canada'")
   })
 
   it('uses only api.signals-compatible columns for the legacy public signal fallback', () => {
@@ -113,6 +121,13 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(intelUi).toContain("const canOpenDossiers = access?.granted === true")
     expect(intelUi).toContain("'/account/upgrade'")
     expect(desktopBridge).toContain("'/account/upgrade'")
+  })
+
+  it('does not manufacture dossier routes for editorial digest rows', () => {
+    expect(intelUi).toContain('const hasDossier = Boolean(signal.decisionIntelEventId)')
+    expect(intelUi).not.toContain('signal.decisionIntelEventId ?? `event:${signal.id}`')
+    expect(intelUi).toContain('href={signal.sourceUrl}')
+    expect(intelUi).toContain('Open source →')
   })
 
   it('defines the updated-at prerequisite in every production-shaped Stage 0 fixture', () => {
