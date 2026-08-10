@@ -9,6 +9,7 @@ import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dash
 import { checkFeatureAccess } from '@/lib/billing/entitlements'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
 import { createClient } from '@/lib/supabase/server'
+import { attachDecisionIntelDashboardRoutes } from '@/lib/intelligence-os/dashboardRoutes'
 import type { RoleId } from '@/types/globe-router'
 
 export const metadata: Metadata = {
@@ -152,6 +153,10 @@ export default async function DashboardPage({
 
   const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
   const decisionIntelAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'signals')
+  const [routedSignals, routedDigestSignals] = await Promise.all([
+    attachDecisionIntelDashboardRoutes(signals),
+    attachDecisionIntelDashboardRoutes(dailyDigest.signals),
+  ])
 
   const pathwayData = deriveRequirementStatusesFromIntel(
     mergePathwayData(orgPathway, publicPathway),
@@ -170,8 +175,8 @@ export default async function DashboardPage({
       <DashboardResponsiveShell
         key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
-        signals={signals}
-        digestSignals={dailyDigest.signals}
+        signals={routedSignals}
+        digestSignals={routedDigestSignals}
         digestWindow={dailyDigest.window}
         eduCategories={eduCategories}
         liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
