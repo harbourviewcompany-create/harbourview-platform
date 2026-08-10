@@ -189,6 +189,36 @@ async function loadIaFallback(signalId: string, eventId: string): Promise<Decisi
   }
 }
 
+async function loadLegacyPublicSignal(db: any, signalIds: string[], eventId: string): Promise<DecisionIntelDossier | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  for (const candidateId of signalIds) {
+    try {
+      const { data, error } = await db
+        .from('signals')
+        .select('id,date,created_at,reviewed_at,cat,pri,headline,summary,source,url,country,commercial_impact,quality_confidence,impact,title_en,summary_en,editorial_title,editorial_blurb,cluster_rep_id,corroborating_count,reviewed,quality_label,content_type,action')
+        .eq('id', candidateId)
+        .eq('reviewed', true)
+        .maybeSingle()
+      if (error || !data) continue
+
+      const row = data as Record<string, unknown>
+      if (['spam','boilerplate','nav','duplicate'].includes(String(row.quality_label ?? ''))) return null
+      if (['story','research','noise'].includes(String(row.content_type ?? ''))) return null
+      if (row.action === 'rejected') return null
+
+      const clusterRepId = text(row.cluster_rep_id)
+      if (clusterRepId && clusterRepId !== candidateId) {
+        const clusteredRoute = await resolveCanonicalEventId(db, clusterRepId)
+        if (clusteredRoute) {
+          const clustered = await loadCanonical(db, clusteredRoute)
+          if (clustered) return clustered
+        }
+      }
+      return mapLegacySignal(row, eventId)
+    } catch { /* try the next compatible legacy id */ }
+  }
+  return null
+}
+
 /**
  * Loads the canonical first-slice dossier. The route resolver first resolves native
  * Pipeline-B ids and regulatory mirror ids to one event. If that canonical event is
@@ -215,30 +245,9 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
     return null
   }
 
-  try {
-    const { data, error } = await db
-      .from('signals')
-      .select('id,date,created_at,reviewed_at,cat,pri,headline,summary,source,url,country,commercial_impact,quality_confidence,impact,title_en,summary_en,editorial_title,editorial_blurb,cluster_rep_id,corroborating_count,reviewed,quality_label,content_type,action')
-      .eq('id', signalId)
-      .eq('reviewed', true)
-      .maybeSingle()
-    if (!error && data) {
-      const row = data as Record<string, unknown>
-      if (['spam','boilerplate','nav','duplicate'].includes(String(row.quality_label ?? ''))) return null
-      if (['story','research','noise'].includes(String(row.content_type ?? ''))) return null
-      if (row.action === 'rejected') return null
-
-      const clusterRepId = text(row.cluster_rep_id)
-      if (clusterRepId && clusterRepId !== signalId) {
-        const clusteredRoute = await resolveCanonicalEventId(db, clusterRepId)
-        if (clusteredRoute) {
-          const clustered = await loadCanonical(db, clusteredRoute)
-          return clustered
-        }
-      }
-      return mapLegacySignal(row, eventId)
-    }
-  } catch { /* fall through to IA compatibility */ }
+  const legacyIds = signalId.startsWith('rs-') ? [signalId] : [signalId, `rs-${signalId}`]
+  const legacy = await loadLegacyPublicSignal(db, legacyIds, eventId)
+  if (legacy) return legacy
 
   return loadIaFallback(signalId, eventId)
 }
