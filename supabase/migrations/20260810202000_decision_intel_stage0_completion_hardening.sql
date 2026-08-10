@@ -114,7 +114,8 @@ begin
   end if;
 
   if not v_withdrawn then
-    return coalesce(new, old);
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
   end if;
 
   update public.intel_assertions a
@@ -157,7 +158,8 @@ begin
   )
     and r.review_status in ('migrated_reviewed','verified');
 
-  return coalesce(new, old);
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end;
 $$;
 
