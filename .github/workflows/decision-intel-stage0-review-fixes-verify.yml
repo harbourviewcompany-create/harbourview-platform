@@ -13,6 +13,7 @@ on:
       - tests/intel/**
       - docs/control/DATABASE_CONTROL.md
       - docs/control/EVIDENCE_LOG.md
+      - docs/control/INTEL_DECISION_OS_RLS_MIGRATION.md
       - .github/workflows/decision-intel-stage0-review-fixes-verify.yml
   workflow_dispatch:
 
@@ -59,6 +60,7 @@ jobs:
           create schema auth;
           grant usage on schema public, api, auth to anon, authenticated, service_role;
           create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
           grant execute on function auth.uid() to anon, authenticated, service_role;
           create table public.source_registry (id uuid primary key, name text);
           create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
