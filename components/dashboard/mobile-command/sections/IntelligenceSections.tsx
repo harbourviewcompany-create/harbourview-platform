@@ -48,32 +48,58 @@ export function WeeklySignalsSection({ sectionRef, signals, access }: { sectionR
         <div className="hvm2-record-stack" aria-label="Decision intelligence events" style={{ display: 'grid', gap: 10 }}>
           {signals.map(signal => {
             const whyItMatters = signal.analysis?.what_changed || signal.commercialImpact
-            const eventId = signal.decisionIntelEventId ?? `event:${signal.id}`
-            const dossierHref = `/dashboard/intel/events/${encodeURIComponent(eventId)}?returnTo=${encodeURIComponent(returnTo)}`
-            const href = canOpenDossiers ? dossierHref : '/account/upgrade'
-            return (
-              <Link
-                className="hvm2-signal-card hvm2-intel-event-row"
-                key={signal.id}
-                href={href}
-                aria-label={canOpenDossiers ? `Open intelligence dossier: ${signal.title}` : `Upgrade to Intel to open intelligence dossier: ${signal.title}`}
-                style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
-              >
-                <article>
-                  <div className="hvm2-card-topline">
-                    <StatusPill>{recommendationLabel(signal)}</StatusPill>
-                    <span>{signal.market || signal.type}</span>
-                  </div>
-                  <h3>{signal.title}</h3>
-                  <p>{whyItMatters}</p>
-                  <div className="hvm2-signal-footer">
-                    <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} related observations` : `${signal.confidence}% upstream confidence`}</span>
-                    <span>{signal.timeAgo}</span>
-                    <strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong>
-                  </div>
-                </article>
-              </Link>
+            const hasDossier = Boolean(signal.decisionIntelEventId)
+            const dossierHref = hasDossier
+              ? `/dashboard/intel/events/${encodeURIComponent(signal.decisionIntelEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
+              : null
+
+            const article = (
+              <article>
+                <div className="hvm2-card-topline">
+                  <StatusPill>{hasDossier ? recommendationLabel(signal) : (signal.contentType === 'editorial' ? 'Editorial' : 'Signal')}</StatusPill>
+                  <span>{signal.market || signal.type}</span>
+                </div>
+                <h3>{signal.title}</h3>
+                <p>{whyItMatters}</p>
+                <div className="hvm2-signal-footer">
+                  <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} related observations` : `${signal.confidence}% upstream confidence`}</span>
+                  <span>{signal.timeAgo}</span>
+                  {hasDossier ? <strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong> : signal.sourceUrl ? <strong>Open source →</strong> : null}
+                </div>
+              </article>
             )
+
+            if (dossierHref) {
+              return (
+                <Link
+                  className="hvm2-signal-card hvm2-intel-event-row"
+                  key={signal.id}
+                  href={canOpenDossiers ? dossierHref : '/account/upgrade'}
+                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${signal.title}` : `Upgrade to Intel to open intelligence dossier: ${signal.title}`}
+                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+                >
+                  {article}
+                </Link>
+              )
+            }
+
+            if (signal.sourceUrl) {
+              return (
+                <Link
+                  className="hvm2-signal-card hvm2-intel-event-row"
+                  key={signal.id}
+                  href={signal.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open source: ${signal.title}`}
+                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+                >
+                  {article}
+                </Link>
+              )
+            }
+
+            return <div className="hvm2-signal-card hvm2-intel-event-row" key={signal.id} style={{ display: 'block' }}>{article}</div>
           })}
         </div>
       ) : <EmptyState title="No reviewed intelligence events loaded" detail="The intelligence surface is live but no current reviewed events matched this context." />}
