@@ -224,7 +224,7 @@ jobs:
           SQL
 
   dashboard-route-policy:
-    name: Dashboard displayability policy
+    name: Dashboard displayability and IA compatibility policy
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -241,5 +241,5 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify dashboard route policy
-        run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts
+      - name: Verify dashboard route and IA fallback policy
+        run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts
