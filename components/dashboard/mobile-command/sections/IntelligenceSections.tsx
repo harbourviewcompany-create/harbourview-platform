@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from '../props'
 import { readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
 import { EmptyState, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
@@ -34,11 +35,12 @@ export function NextActionsSection({ sectionRef, actions }: { sectionRef: Sectio
   )
 }
 
-export function WeeklySignalsSection({ sectionRef, signals }: { sectionRef: SectionRef; signals: Signal[] }) {
+export function WeeklySignalsSection({ sectionRef, signals, access }: { sectionRef: SectionRef; signals: Signal[]; access?: FeatureAccess }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const query = searchParams.toString()
   const returnTo = `${pathname}${query ? `?${query}` : ''}`
+  const canOpenDossiers = access?.granted === true
 
   return (
     <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Scan what changed and why it matters. Open any item for evidence, unknowns and a reasoned decision posture.">
@@ -47,13 +49,14 @@ export function WeeklySignalsSection({ sectionRef, signals }: { sectionRef: Sect
           {signals.map(signal => {
             const whyItMatters = signal.analysis?.what_changed || signal.commercialImpact
             const eventId = signal.decisionIntelEventId ?? `event:${signal.id}`
-            const href = `/dashboard/intel/events/${encodeURIComponent(eventId)}?returnTo=${encodeURIComponent(returnTo)}`
+            const dossierHref = `/dashboard/intel/events/${encodeURIComponent(eventId)}?returnTo=${encodeURIComponent(returnTo)}`
+            const href = canOpenDossiers ? dossierHref : '/account/upgrade'
             return (
               <Link
                 className="hvm2-signal-card hvm2-intel-event-row"
                 key={signal.id}
                 href={href}
-                aria-label={`Open intelligence dossier: ${signal.title}`}
+                aria-label={canOpenDossiers ? `Open intelligence dossier: ${signal.title}` : `Upgrade to Intel to open intelligence dossier: ${signal.title}`}
                 style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
               >
                 <article>
@@ -66,7 +69,7 @@ export function WeeklySignalsSection({ sectionRef, signals }: { sectionRef: Sect
                   <div className="hvm2-signal-footer">
                     <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} related observations` : `${signal.confidence}% upstream confidence`}</span>
                     <span>{signal.timeAgo}</span>
-                    <strong>Open dossier →</strong>
+                    <strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong>
                   </div>
                 </article>
               </Link>
