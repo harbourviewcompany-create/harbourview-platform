@@ -122,6 +122,25 @@ describe('public route smoke coverage', () => {
     }
   })
 
+  it('locks /marketplace/wanted as a 200-class public runtime route', () => {
+    const verifier = readRepoFile('scripts/production-runtime-verification.mjs')
+    const proxy = readRepoFile('proxy.ts')
+    const wantedPage = readRepoFile('app/marketplace/wanted/page.tsx')
+
+    expect(verifier).toContain("{ path: '/marketplace/wanted', expected: 'ok' }")
+    expect(wantedPage).toContain('export default async function WantedPage()')
+    expect(proxy).not.toContain("'/marketplace/wanted',")
+    expect(proxy).not.toContain("'/marketplace/wanted/:path*',")
+  })
+
+  it('reports redirect targets when a public runtime route violates its 200 contract', () => {
+    const verifier = readRepoFile('scripts/production-runtime-verification.mjs')
+
+    expect(verifier).toContain("const location = response.headers.get('location') || ''")
+    expect(verifier).toContain('| Route | Result | HTTP | Location | Title | Forbidden hits | Runtime markers |')
+    expect(verifier).toContain('redirects are failures and their `Location` target is reported')
+  })
+
   it('keeps public route files free of private review and source field names', () => {
     const publicRouteFiles = [
       ...marketplaceRoutePages,
