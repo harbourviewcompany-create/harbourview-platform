@@ -29,18 +29,8 @@ on:
       - tests/security/command-centre-boundaries.test.ts
       - tests/supabase/env.test.ts
       - tests/e2e/mobile-command-centre-v2.spec.ts
+      - tests/e2e/mobile-marketplace-media.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
-  # Also run on main, unfiltered.
-  #
-  # The paths filter above is what let #1292 through: it changed only `lib/` and
-  # `app/api/` files, none of which are listed, so this gate never ran against
-  # the PR that broke it. It surfaced two PRs later on unrelated mobile work and
-  # was attributed there twice before anyone found the real cause. A gate that
-  # only ever sees a subset of PRs and never sees the branch it is protecting
-  # cannot tell you who broke it.
-  #
-  # No paths filter here on purpose — the whole point is catching changes the
-  # list does not anticipate. Runs post-merge, so it reports rather than blocks.
   push:
     branches:
       - main
@@ -55,7 +45,7 @@ concurrency:
 
 jobs:
   authenticated-visual:
-    name: Authenticated nine-width Command Centre evidence
+    name: Authenticated Command Centre and marketplace media evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -181,24 +171,6 @@ jobs:
             cluster_rep_id uuid
           );
 
-          -- api.signals — the relation the Command Centre actually reads.
-          --
-          -- This fixture only had `signals_quality`, so once
-          -- app/api/dashboard/signals and app/api/dashboard/digest repointed to
-          -- `signals` (#1292), both resolved to a relation that does not exist
-          -- here. PostgREST errored, each route returned its own 500, and the
-          -- gate went red on every desktop width from 70dcc289 onward — 1 bad
-          -- response per page load, which the 1440px pass multiplies to ~38
-          -- because it walks every Command Centre page. It reproduced on main.
-          --
-          -- The gate could not say so: it threw counts only. It now prints the
-          -- offending request, which is how this was finally identified as
-          -- `500 GET /api/dashboard/signals?country=Canada&limit=30`.
-          --
-          -- `action` and `analysis` are here because NOT_REJECTED_OR_FILTER
-          -- filters on the first and CURATED_SELECT names the second; the rest
-          -- is SAFE_SELECT / DIGEST_SELECT. Missing either one puts this fixture
-          -- straight back into the same failure, silently.
           create table if not exists api.signals (
             id uuid primary key default gen_random_uuid(),
             headline text not null default '',
@@ -222,9 +194,6 @@ jobs:
             cluster_rep_id uuid
           );
 
-          -- Mirrors production, where api.signals_with_quality is a view over
-          -- the same base. Added now so this fixture keeps working when #1294
-          -- repoints these reads again; it costs nothing while unused.
           create or replace view api.signals_with_quality as
             select * from api.signals;
 
@@ -314,6 +283,49 @@ jobs:
             12
           ) on conflict (id) do nothing;
 
+          -- Public image projection fixture. It uses the exact public DTO shape
+          -- and points to an existing first-party asset so the browser verifies
+          -- an image-bearing card without any production data write.
+          create table if not exists api.marketplace_item_images (
+            id uuid primary key,
+            item_id uuid not null,
+            image_class text not null,
+            image_role text not null,
+            source_type text not null,
+            public_url text,
+            thumbnail_url text,
+            hero_url text,
+            gallery_url text,
+            social_url text,
+            alt_text text,
+            caption text,
+            is_illustrative boolean not null default false,
+            review_status text not null,
+            rights_status text not null
+          );
+
+          insert into api.marketplace_item_images (
+            id, item_id, image_class, image_role, source_type,
+            public_url, thumbnail_url, hero_url, gallery_url, social_url,
+            alt_text, caption, is_illustrative, review_status, rights_status
+          ) values (
+            '00000000-0000-4000-8000-000000000128',
+            '00000000-0000-4000-8000-000000000127',
+            'HARBOURVIEW_ILLUSTRATIVE',
+            'CARD',
+            'HARBOURVIEW_CREATED',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            null,
+            'Representative cannabis product inventory image',
+            'Illustrative catalogue image — not item evidence',
+            true,
+            'APPROVED_PUBLIC',
+            'HARBOURVIEW_CREATED'
+          ) on conflict (id) do nothing;
+
           grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
           grant select on all tables in schema api to anon;
           grant select on public.marketplace_public_listings_v1 to anon, authenticated, service_role;
@@ -391,8 +403,14 @@ jobs:
           cat /tmp/mobile-command-next.log
           exit 1
 
-      - name: Run authenticated nine-width visual gate
-        run: npx playwright test tests/e2e/mobile-command-centre-v2.spec.ts --project=chromium-desktop --workers=1 --retries=0
+      - name: Run authenticated Command Centre and marketplace media visual gates
+        run: >-
+          npx playwright test
+          tests/e2e/mobile-command-centre-v2.spec.ts
+          tests/e2e/mobile-marketplace-media.spec.ts
+          --project=chromium-desktop
+          --workers=1
+          --retries=0
 
       - name: Collect local server evidence
         if: always()
@@ -410,6 +428,7 @@ jobs:
           name: command-centre-responsive-${{ github.run_id }}
           path: |
             artifacts/mobile-command-v2/
+            artifacts/mobile-marketplace-media/
             playwright-report/
             test-results/
           if-no-files-found: warn

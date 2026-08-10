@@ -1,6 +1,6 @@
 # Harbourview Evidence Log
 
-Last updated: 2026-08-01
+Last updated: 2026-08-08
 Status: Gate 4 GO (2026-06-25); country/role white-screen defect + MOBILE_CSS class-collision defect fixed and verified 2026-07-07; branch-protection gap on `main` found and open; Intelligence Stage 2 classifier validation partially blocked (LLM provider billing + `hv-classify` schema bug, both open — see 2026-07-19 entry)
 Authority: Canonical evidence log for Harbourview finish-line execution
 
@@ -4805,3 +4805,24 @@ node scripts/check-pending-production-migration-decisions.mjs  20260801150000 no
 
 Note: that script reports pre-existing blob mismatches and absent decision files
 for other versions on `main`. Those predate this work and are untouched.
+
+---
+
+## 2026-08-08 — PR #1307 marketplace media production-completion verification
+
+**Evidence ID:** `HV-PR1307-MARKETPLACE-MEDIA-20260808`
+
+**PR / implementation head:** PR #1307, `fix/mobile-marketplace-listing-images`, exact verified implementation head `67b4395a5dc5f39e516309fb026d95ea57f4d86e`.
+
+**Scope verified:** first-class typed marketplace-media projection with the existing 10-element `MarketRow` contract preserved for shared/desktop consumers; deduplicated bulk public-image query; APPROVED_PUBLIC/known-rights filtering; multiple-image role selection; actual-versus-illustrative semantics; paginated bulk reads without the former aggregate truncation cap; mobile accessibility/fallback behavior; no retired per-card N+1 route; public/private leakage boundaries; authenticated Mobile Command/Market rendering at required mobile widths.
+
+**Exact-head verification evidence:** standalone Type check run `31274718153` PASS; full CI run `31274718161` PASS, including Type Check job `93146433145`, Intake & Listings / `test:public-images` job `93146525070`, Security / Leakage job `93146525079`, Smoke Tests job `93146599242`, and Next.js Build job `93146627917`; Branch Verification run `31274718201` PASS; HAR-39/HAR-40 Public Surfaces run `31274718174` PASS; Supply Imagery Validation run `31274718165` PASS; PR 166 New Products Equipment Verification run `31274718173` PASS; Regulatory Signals Verify run `31274718176` PASS; Project Registry Discipline run `31274765920` PASS.
+
+**Authenticated browser evidence:** Mobile Command Centre V2 Visual run `31274718151`, job `93146374506`, PASS. Exact-source isolated Supabase + disposable authenticated-user production build ran `tests/e2e/mobile-command-centre-v2.spec.ts` and `tests/e2e/mobile-marketplace-media.spec.ts` together: **5/5 Playwright tests passed**. Marketplace evidence was captured at `320x700`, `375x812`, `390x844`, and `430x932`; the suite verified decoded/stable media, representative labeling, zero horizontal overflow, no retired per-card image-route requests, Market tabs/search, reviewed-introduction workflow, Supply behavior and bottom navigation. Artifact: `command-centre-responsive-31274718151`, artifact id `9026719933`. The broader Command Centre suite also passed its nine responsive widths with no failed API responses or request failures.
+
+**External checks / known non-PR blockers:** Snyk and CodeRabbit were green on the exact implementation head. Vercel preview remained blocked by the account build-rate limit rather than an application build failure. The repository Dependency Security Audit still reports the pre-existing transitive `nanoid <3.3.17` high advisory; PR #1307 adds no dependency and does not alter that dependency tree.
+
+**Production-change status:** **NO production DDL was applied and NO production marketplace-image/data write was executed.** Migrations `20260808190400_restore_harbourview_admin_guard.sql` and `20260808190500_reconcile_marketplace_image_trust_contract.sql` remain committed-but-unapplied pending explicit owner authorization. Production currently has no approved real marketplace image row proving the `actual` path; the controlled seller-authorized real-image lifecycle remains a separate explicitly authorized production step.
+
+**Decision:** Application implementation and exact implementation-head verification are **GO**. Production schema reconciliation, production real-image lifecycle proof, and PR merge remain **HOLD pending explicit owner authorization**. Any evidence-only follow-up commit must preserve the verified implementation unchanged and receive its normal final-head repository checks before merge.
+
