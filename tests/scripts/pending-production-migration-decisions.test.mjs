@@ -29,10 +29,21 @@ function clone(value) {
 
 test('current pending migration decision record is internally exact and remains HOLD', () => {
   const result = runValidation({ repositoryRoot })
-  assert.equal(result.repositoryOnlyFiles, 37)
-  assert.equal(result.repositoryOnlyVersions, 36)
-  assert.equal(result.liveOnlyVersions, 52)
+  assert.equal(result.repositoryOnlyFiles, 86)
+  assert.equal(result.repositoryOnlyVersions, 86)
+  assert.equal(result.liveOnlyVersions, 54)
   assert.equal(result.activationStatus, 'HOLD')
+})
+
+test('auth-hardening migration remains separately authorized and content-bound', () => {
+  const record = decision.repository_only_decisions.find(
+    (entry) => entry.version === '20260810222500',
+  )
+  assert.ok(record)
+  assert.equal(record.file, '20260810222500_harden_edge_function_cron_auth.sql')
+  assert.equal(record.git_blob_sha, 'c7174bb141a07431b020ef0c0c57a702ae44bb5a')
+  assert.equal(record.classification, 'separately_authorized')
+  assert.equal(record.reason_code, 'independent_release_not_authorized')
 })
 
 test('rejects an altered Elite Digest allowlist binding', () => {
