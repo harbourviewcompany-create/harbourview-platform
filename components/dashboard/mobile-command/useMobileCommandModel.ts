@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { JOB_LISTINGS } from '../data/jobsBoard'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { marketplaceMediaKey } from '@/lib/dashboard/marketplaceMediaProjection'
 import type { MarketView } from '../CommandCentre'
 import type { MobileCommandCentreProps } from './props'
 import {
@@ -136,7 +137,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
           index,
           tab.id,
           countryLabel,
-          props.marketplaceMediaById?.[listingId] ?? null,
+          props.marketplaceMediaById?.[marketplaceMediaKey(tab.id, listingId)] ?? null,
         )
       })),
     [props.marketplaceRows, props.marketplaceMediaById, countryLabel],
@@ -152,8 +153,8 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   )
 
   const selectedListing = useMemo(
-    () => selectedListingId ? marketRows.find(row => row.id === selectedListingId) ?? null : null,
-    [marketRows, selectedListingId],
+    () => selectedListingId ? marketRows.find(row => row.id === selectedListingId && row.view === activeMarketView) ?? null : null,
+    [activeMarketView, marketRows, selectedListingId],
   )
 
   const signals = props.digestSignals?.length ? props.digestSignals : props.signals
