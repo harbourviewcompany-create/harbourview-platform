@@ -68,18 +68,18 @@ export function applyDecisionIntelRouteRows(
 /**
  * Attach dossier routes using the canonical customer-display projection.
  *
- * - owned + displayable canonical route => canonical event id
- * - owned + suppressed canonical route => explicit empty sentinel, preventing older
- *   client surfaces from synthesizing event:<signal-id> and resurrecting a 404 route
- * - unowned first-slice-compatible row => legacy compatibility event:<signal-id>
- * - migration/RPC unavailable => preserve the pre-migration compatibility behavior
- *
- * The RPC is service-role-only and returns route identity + displayability, never raw
- * evidence or private analytical fields. Customer entitlement remains enforced by the
- * dossier page/RPC; this helper only prevents advertising links that cannot resolve.
+ * The service-role client is used only after the dashboard has established an
+ * authenticated user context. The RPC returns route identity + displayability only;
+ * it does not expose raw evidence or private analytical fields.
  */
-export async function attachDecisionIntelDashboardRoutes(signals: DashboardSignal[]): Promise<DashboardSignal[]> {
+export async function attachDecisionIntelDashboardRoutes(
+  signals: DashboardSignal[],
+  authenticated: boolean,
+): Promise<DashboardSignal[]> {
   if (signals.length === 0) return signals
+  if (!authenticated) {
+    return signals.map(signal => ({ ...signal, decisionIntelEventId: undefined }))
+  }
 
   const inputs = candidateIds(signals)
   try {
@@ -94,6 +94,8 @@ export async function attachDecisionIntelDashboardRoutes(signals: DashboardSigna
       (Array.isArray(data) ? data : []) as DecisionIntelRouteRow[],
     )
   } catch {
+    // Pre-migration/preview compatibility: retain only legacy routes known to be
+    // resolvable by the existing dossier loader.
     return applyDecisionIntelRouteRows(signals, [])
   }
 }
