@@ -103,7 +103,7 @@ jobs:
           insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
           insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
           ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"recommended_action":"Verify importer eligibility"}'::jsonb),
-          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
+          ('sig-b','20000000-0000-0000-0000-000000000001','sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
           ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial','Canada','CA','Commercial change','Commercial summary','Commercial change','Commercial summary','{}'::jsonb),
           ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','Canada','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
           SQL
@@ -118,6 +118,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 <<'SQL'
           do $$ begin
             if (select count(*) from public.intel_assertions) <> 3 then raise exception 'assertion cardinality'; end if;
+            if (select count(*) from public.intel_evidence_refs where source_snapshot_id='20000000-0000-0000-0000-000000000001') <> 2 then raise exception 'shared snapshot cardinality'; end if;
             if (select count(*) from public.intel_events) <> 2 then raise exception 'event cardinality'; end if;
             if exists (select 1 from public.intel_assertions where review_status='verified') then raise exception 'false verification'; end if;
             if exists (select 1 from public.intel_events where review_status='verified') then raise exception 'false verification'; end if;
