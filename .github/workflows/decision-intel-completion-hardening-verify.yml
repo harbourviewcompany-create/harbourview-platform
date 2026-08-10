@@ -157,6 +157,14 @@ jobs:
             if not (snap ? 'regulatory_implications') then raise exception 'v1 missing regulatory_implications'; end if;
             if not (snap ? 'affected_products') then raise exception 'v1 missing affected_products'; end if;
             if not (snap ? 'contradictions') then raise exception 'v1 missing contradictions'; end if;
+
+            if not exists (
+              select 1
+              from public.intel_event_dossiers
+              where id='event:sig-a'
+                and jurisdiction_id='country_area:DEU'
+                and jurisdiction_iso2='DE'
+            ) then raise exception 'canonical jurisdiction navigation metadata missing'; end if;
           end $$;
 
           -- Verification does not authorize publication. Internal verified analysis remains hidden.
@@ -224,7 +232,7 @@ jobs:
           SQL
 
   dashboard-route-policy:
-    name: Dashboard displayability and IA compatibility policy
+    name: Dashboard displayability, IA compatibility and jurisdiction policy
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -241,5 +249,5 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify dashboard route and IA fallback policy
-        run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts
+      - name: Verify dashboard route, IA fallback and jurisdiction policy
+        run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts tests/intel/decisionIntelJurisdictionNavigation.test.ts
