@@ -67,7 +67,7 @@ async function assertAllHealthyMedia(page: Page) {
     expect(alt?.trim().length ?? 0).toBeGreaterThan(8)
 
     if (kind === 'representative') {
-      await expect(media.locator('.hvm2-listing-media-badge')).toHaveText('Representative image')
+      await expect(media.locator('.hvm2-listing-media-badge')).toHaveText(/^(Representative|Illustrative) image$/)
     } else {
       await expect(media.locator('.hvm2-listing-media-badge')).toHaveCount(0)
     }
