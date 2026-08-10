@@ -1,0 +1,107 @@
+.hvm2-listing-card {
+  overflow: hidden;
+}
+
+.hvm2-listing-media {
+  position: relative;
+  width: calc(100% + 28px);
+  margin: -14px -14px 16px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid var(--hvm2-border-soft);
+  background:
+    radial-gradient(circle at 24% 20%, rgba(198, 165, 90, 0.16), transparent 34%),
+    linear-gradient(145deg, rgba(18, 37, 57, 0.98), rgba(4, 13, 24, 0.98));
+}
+
+.hvm2-listing-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 54%, rgba(2, 8, 20, 0.5));
+}
+
+.hvm2-listing-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.hvm2-listing-media-badge {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(226, 198, 121, 0.42);
+  border-radius: 999px;
+  background: rgba(2, 8, 20, 0.78);
+  color: var(--hvm2-gold-light);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.hvm2-listing-media figcaption {
+  position: absolute;
+  z-index: 2;
+  right: 10px;
+  bottom: 9px;
+  left: 10px;
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(245, 241, 232, 0.82);
+  font-size: 9px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hvm2-listing-media-empty {
+  display: grid;
+  place-items: center;
+}
+
+.hvm2-listing-media-empty > div {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  color: var(--hvm2-faint);
+}
+
+.hvm2-listing-media-empty span {
+  font-size: 24px;
+}
+
+.hvm2-listing-media-empty small {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 390px) {
+  .hvm2-listing-media {
+    aspect-ratio: 1.72 / 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hvm2-listing-media img {
+    transition: transform 180ms ease;
+  }
+
+  .hvm2-listing-card:focus-within .hvm2-listing-media img {
+    transform: scale(1.012);
+  }
+}
