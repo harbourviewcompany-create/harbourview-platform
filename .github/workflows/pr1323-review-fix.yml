@@ -24,18 +24,21 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           generator = Path('scripts/generate-natural-earth-countries.mjs')
           text = generator.read_text()
 
-          old = """  const targetSign = Math.sign(signedRingAreaDeg2(runs[0]))
-          return runs.map((candidate) => {
-            const sign = Math.sign(signedRingAreaDeg2(candidate))
-            return targetSign !== 0 && sign !== 0 && sign !== targetSign
-              ? reverseClosedRing(candidate)
-              : candidate
-          })"""
-          new = """  const signedAreas = runs.map((candidate) => signedRingAreaDeg2(candidate))
+          pattern = re.compile(
+              r"  const targetSign = Math\.sign\(signedRingAreaDeg2\(runs\[0\]\)\)\n"
+              r"  return runs\.map\(\(candidate\) => \{\n"
+              r"    const sign = Math\.sign\(signedRingAreaDeg2\(candidate\)\)\n"
+              r"    return targetSign !== 0 && sign !== 0 && sign !== targetSign\n"
+              r"      \? reverseClosedRing\(candidate\)\n"
+              r"      : candidate\n"
+              r"  \}\)"
+          )
+          replacement = """  const signedAreas = runs.map((candidate) => signedRingAreaDeg2(candidate))
           const referenceIndex = signedAreas.reduce(
             (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
             0,
@@ -47,50 +50,57 @@ jobs:
               ? reverseClosedRing(candidate)
               : candidate
           })"""
-          if old not in text:
-              raise SystemExit('winding target block not found')
-          text = text.replace(old, new, 1)
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'winding target replacement count={count}')
 
-          old = """    for (const hole of simplifiedHoles) {
-              const reference = ringReferencePoint(hole)
-              const containingIndex = outputPolygons.findIndex(({ outer }) => pointInRing(reference, outer))
-              if (containingIndex >= 0) {
-                outputPolygons[containingIndex].holes.push(hole)
-              } else if (outputPolygons.length === 1) {
-                outputPolygons[0].holes.push(hole)
-              }
-            }"""
-          new = """    for (const hole of simplifiedHoles) {
-              const candidatePoints = hole.slice(0, -1)
-              const containingIndex = outputPolygons.findIndex(({ outer }) =>
-                candidatePoints.some((point) => pointInRing(point, outer)),
-              )
-              if (containingIndex >= 0) {
-                outputPolygons[containingIndex].holes.push(hole)
-              } else if (outputPolygons.length === 1) {
-                outputPolygons[0].holes.push(hole)
-              } else {
-                console.warn('Natural Earth hole could not be assigned to a split outer fragment', {
-                  reference: ringReferencePoint(hole),
-                  outerCount: outputPolygons.length,
-                })
-              }
-            }"""
-          if old not in text:
-              raise SystemExit('hole assignment block not found')
-          generator.write_text(text.replace(old, new, 1))
+          pattern = re.compile(
+              r"    for \(const hole of simplifiedHoles\) \{\n"
+              r"      const reference = ringReferencePoint\(hole\)\n"
+              r"      const containingIndex = outputPolygons\.findIndex\(\(\{ outer \}\) => pointInRing\(reference, outer\)\)\n"
+              r"      if \(containingIndex >= 0\) \{\n"
+              r"        outputPolygons\[containingIndex\]\.holes\.push\(hole\)\n"
+              r"      \} else if \(outputPolygons\.length === 1\) \{\n"
+              r"        outputPolygons\[0\]\.holes\.push\(hole\)\n"
+              r"      \}\n"
+              r"    \}"
+          )
+          replacement = """    for (const hole of simplifiedHoles) {
+            const candidatePoints = hole.slice(0, -1)
+            const containingIndex = outputPolygons.findIndex(({ outer }) =>
+              candidatePoints.some((point) => pointInRing(point, outer)),
+            )
+            if (containingIndex >= 0) {
+              outputPolygons[containingIndex].holes.push(hole)
+            } else if (outputPolygons.length === 1) {
+              outputPolygons[0].holes.push(hole)
+            } else {
+              console.warn('Natural Earth hole could not be assigned to a split outer fragment', {
+                reference: ringReferencePoint(hole),
+                outerCount: outputPolygons.length,
+              })
+            }
+          }"""
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'hole assignment replacement count={count}')
+          generator.write_text(text)
 
           test_file = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
           text = test_file.read_text()
+          if "import test from 'node:test'" not in text:
+              raise SystemExit('node:test import not found')
           text = text.replace("import test from 'node:test'", "import { test } from 'vitest'", 1)
-          old = """  const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
-            cwd: process.cwd(),
-            encoding: 'utf8',
-            maxBuffer: 20 * 1024 * 1024,
-          })
 
-          assert.equal(result.status, 0, result.stderr || result.stdout)"""
-          new = """  const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
+          pattern = re.compile(
+              r"  const result = spawnSync\(process\.execPath, \['--input-type=module', '--eval', source\], \{\n"
+              r"    cwd: process\.cwd\(\),\n"
+              r"    encoding: 'utf8',\n"
+              r"    maxBuffer: 20 \* 1024 \* 1024,\n"
+              r"  \}\)\n\n"
+              r"  assert\.equal\(result\.status, 0, result\.stderr \|\| result\.stdout\)"
+          )
+          replacement = """  const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
             cwd: process.cwd(),
             encoding: 'utf8',
             maxBuffer: 20 * 1024 * 1024,
@@ -105,61 +115,61 @@ jobs:
             `stdout=${result.stdout || '<empty>'}`,
           ].join('\\n')
           assert.equal(result.status, 0, failureContext)"""
-          if old not in text:
-              raise SystemExit('spawnSync block not found')
-          text = text.replace(old, new, 1)
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'spawnSync replacement count={count}')
 
-          old = """      triangleCount: number
-            }>"""
-          new = """      triangleCount: number
-              sourceHoleCount: number
-              generatedHoleCount: number
-            }>"""
-          if old not in text:
-              raise SystemExit('selected type block not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r"      triangleCount: number\n    \}>",
+              "      triangleCount: number\n      sourceHoleCount: number\n      generatedHoleCount: number\n    }>",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'selected type replacement count={count}')
 
-          old = """      let degenerateTriangleCount = 0
-              let triangleCount = 0
+          text, count = re.subn(
+              r"      let degenerateTriangleCount = 0\n      let triangleCount = 0\n\n      for \(const polygon of country\.polygons\) \{",
+              """      let degenerateTriangleCount = 0
+          let triangleCount = 0
+          const sourcePolygons = feature.geometry?.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry?.coordinates ?? []
+          const sourceHoleCount = sourcePolygons.reduce((sum, polygon) => sum + Math.max(0, polygon.length - 1), 0)
+          const generatedHoleCount = country.polygons.reduce(
+            (sum, polygon) => sum + polygon.rings.filter((ring) => ring.kind === 'hole').length,
+            0,
+          )
 
-              for (const polygon of country.polygons) {"""
-          new = """      let degenerateTriangleCount = 0
-              let triangleCount = 0
-              const sourcePolygons = feature.geometry?.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry?.coordinates ?? []
-              const sourceHoleCount = sourcePolygons.reduce((sum, polygon) => sum + Math.max(0, polygon.length - 1), 0)
-              const generatedHoleCount = country.polygons.reduce(
-                (sum, polygon) => sum + polygon.rings.filter((ring) => ring.kind === 'hole').length,
-                0,
-              )
+          for (const polygon of country.polygons) {""",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'counter insertion replacement count={count}')
 
-              for (const polygon of country.polygons) {"""
-          if old not in text:
-              raise SystemExit('counter insertion point not found')
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r"        degenerateTriangleCount,\n        triangleCount,\n      \}",
+              "        degenerateTriangleCount,\n        triangleCount,\n        sourceHoleCount,\n        generatedHoleCount,\n      }",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'selected output replacement count={count}')
 
-          old = """        degenerateTriangleCount,
-                triangleCount,
-              }"""
-          new = """        degenerateTriangleCount,
-                triangleCount,
-                sourceHoleCount,
-                generatedHoleCount,
-              }"""
-          if old not in text:
-              raise SystemExit('selected output block not found')
-          text = text.replace(old, new, 1)
-
-          old = """    assert.equal(geometry.degenerateTriangleCount, 0, `${iso2}: Earcut emitted degenerate triangles`)
-              assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)"""
-          new = """    assert.equal(geometry.degenerateTriangleCount, 0, `${iso2}: Earcut emitted degenerate triangles`)
-              assert.ok(
-                geometry.generatedHoleCount >= geometry.sourceHoleCount,
-                `${iso2}: source holes lost (${geometry.sourceHoleCount} source, ${geometry.generatedHoleCount} generated)`,
-              )
-              assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)"""
-          if old not in text:
-              raise SystemExit('hole assertion insertion point not found')
-          test_file.write_text(text.replace(old, new, 1))
+          text, count = re.subn(
+              r"    assert\.equal\(geometry\.degenerateTriangleCount, 0, `\$\{iso2\}: Earcut emitted degenerate triangles`\)\n"
+              r"    assert\.ok\(geometry\.triangleCount > 0, `\$\{iso2\}: expected triangulated geometry`\)",
+              """    assert.equal(geometry.degenerateTriangleCount, 0, `${iso2}: Earcut emitted degenerate triangles`)
+          assert.ok(
+            geometry.generatedHoleCount >= geometry.sourceHoleCount,
+            `${iso2}: source holes lost (${geometry.sourceHoleCount} source, ${geometry.generatedHoleCount} generated)`,
+          )
+          assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)""",
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'hole assertion replacement count={count}')
+          test_file.write_text(text)
           PY
       - name: Regenerate Natural Earth data
         run: node scripts/generate-natural-earth-countries.mjs
@@ -193,7 +203,7 @@ jobs:
         run: |
           cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
 
-          | 2026-08-10 | PR #1323 Natural Earth antimeridian generator hardening review-closeout | `node scripts/generate-natural-earth-countries.mjs`; `npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts`; `npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts`; normalized two-run regeneration comparison; `npm run typecheck`; targeted security/leakage Vitest; `npm run build` | PASS: 194 countries / 15,370 points regenerated; topology and spherical regressions pass; no source holes lost in seam-affected regression set; normalized regeneration deterministic; typecheck/security/build pass | PR #1323; workflow `PR 1323 Review Fix` | Current — pre-merge evidence |
+          | 2026-08-10 | PR #1323 Natural Earth antimeridian generator hardening review-closeout | `node scripts/generate-natural-earth-countries.mjs`; `npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts`; `npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts`; normalized two-run regeneration comparison; `npm run typecheck`; targeted security/leakage Vitest; `npm run build` | PASS: regeneration completed; topology and spherical regressions pass; no source holes lost in seam-affected regression set; normalized regeneration deterministic; typecheck/security/build pass | PR #1323; workflow `PR 1323 Review Fix` | Current — pre-merge evidence |
           EOF
       - name: Commit validated review fixes
         env:
@@ -201,6 +211,7 @@ jobs:
         run: |
           git config user.name "Harbourview"
           git config user.email "harbourviewcompany@gmail.com"
+          git restore data/globe/natural-earth-countries.ts
           git add scripts/generate-natural-earth-countries.mjs tests/harbourview/natural-earth-antimeridian-topology.test.ts docs/control/EVIDENCE_LOG.md
           git diff --cached --check
           git commit -m "fix(globe): close PR 1323 review blockers"
