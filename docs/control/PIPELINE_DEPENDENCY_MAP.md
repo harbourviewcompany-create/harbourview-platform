@@ -96,3 +96,36 @@ functions look like they do nothing on alternating runs.
   (7 days / 24h) — see `prune_cron_job_run_details()` / `prune_net_http_
   response()`.
 - `schema-drift-monitor` reduced from every 15 min (24/7) to hourly at `:12`.
+
+## Edge Function caller-auth hardening — 2026-08-10
+
+Read-only production tracing before the remediation branch established these exact caller paths:
+
+| Edge Function | Verified caller | Current cadence | Hardened path in `20260810222500_harden_edge_function_cron_auth.sql` |
+|---|---|---|---|
+| `job-refresh` | `cron.job` 57 (`job-refresh-daily`) | `0 12 * * *` | `cron.job` → `public.invoke_job_refresh()` → Vault `job_refresh_cron_secret` → `x-harbourview-cron-secret` |
+| `schema-drift-monitor` | `cron.job` 24 (`schema-drift-monitor`) | `12 * * * *` | `cron.job` → `public.invoke_schema_drift_monitor()` → Vault `schema_drift_cron_secret` → `x-harbourview-cron-secret` |
+| `hv-source-pull-runner` | `cron.job` 9 (`hv-source-pull-runner-safe-rss`) → `public.hv_trigger_source_pull_runner()` | `*/30 * * * *` | existing trigger is replaced in place and reads Vault `hv_source_pull_runner_secret` |
+| `hv-private-pipeline-runner` | **unresolved** | none found in active `cron.job` or production SQL URL references | source is hardened, but no cron/helper is installed until the caller is identified |
+
+The first three cron schedules keep their existing cadence and job names. The hardening migration changes only their command path and helper implementation; secret values never appear in migration SQL or `cron.job.command`.
+
+### Passport/snapshot call chain
+
+Two application routes currently call `compute-passport-score` with `HARBOURVIEW_EDGE_OPERATOR_SECRET`:
+
+- `/api/admin/verify-org`
+- `/api/org/licences/submit`
+
+`compute-passport-score` then calls `generate-org-snapshot` with the same operator secret. Both Edge Functions retain that valid operator-secret contract. The remediation removes only the unsafe fallback that accepted any Authorization header containing the text `service_role`; an exact service-role bearer remains an optional trusted server path.
+
+### Deployment ordering constraint
+
+1. Provision runtime/Vault secret pairs first.
+2. Deploy `generate-org-snapshot`, then `compute-passport-score`.
+3. Deploy `hv-source-pull-runner` and apply its cron-helper migration atomically.
+4. Deploy/fix `schema-drift-monitor` with its authenticated cron helper.
+5. Deploy canonical `job-refresh` with replacement provider credentials and authenticated cron helper, then revoke the exposed prior provider credential.
+6. Keep `hv-private-pipeline-runner` on HOLD until its caller is identified or it is formally retired.
+
+No production changes are authorized by this document alone.
