@@ -30,6 +30,16 @@ function candidateIds(signals: DashboardSignal[]): string[] {
   return [...ids]
 }
 
+function clearDecisionIntelRoutes(signals: DashboardSignal[]): DashboardSignal[] {
+  return signals.map(signal => ({ ...signal, decisionIntelEventId: undefined }))
+}
+
+function isMissingCompletionRpc(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = 'code' in error ? String((error as { code?: unknown }).code ?? '') : ''
+  return code === 'PGRST202' || code === '42883'
+}
+
 export function applyDecisionIntelRouteRows(
   signals: DashboardSignal[],
   rows: DecisionIntelRouteRow[],
@@ -70,7 +80,8 @@ export function applyDecisionIntelRouteRows(
  *
  * The privileged lookup is explicitly gated by the authenticated dashboard session.
  * The service-role RPC returns route identity + displayability only; it never returns
- * raw evidence or private analytical fields.
+ * raw evidence or private analytical fields. Unexpected lookup failures fail closed;
+ * legacy synthesis is used only when the completion RPC is genuinely not installed.
  */
 export async function attachDecisionIntelDashboardRoutes(signals: DashboardSignal[]): Promise<DashboardSignal[]> {
   if (signals.length === 0) return signals
@@ -78,9 +89,9 @@ export async function attachDecisionIntelDashboardRoutes(signals: DashboardSigna
   try {
     const session = await createClient()
     const { data: { user } } = await session.auth.getUser()
-    if (!user) return signals.map(signal => ({ ...signal, decisionIntelEventId: undefined }))
+    if (!user) return clearDecisionIntelRoutes(signals)
   } catch {
-    return signals.map(signal => ({ ...signal, decisionIntelEventId: undefined }))
+    return clearDecisionIntelRoutes(signals)
   }
 
   const inputs = candidateIds(signals)
@@ -90,14 +101,17 @@ export async function attachDecisionIntelDashboardRoutes(signals: DashboardSigna
       .schema('api')
       .rpc('resolve_intel_dashboard_routes', { p_signal_ids: inputs })
 
-    if (error) throw error
+    if (error) {
+      return isMissingCompletionRpc(error)
+        ? applyDecisionIntelRouteRows(signals, [])
+        : clearDecisionIntelRoutes(signals)
+    }
+
     return applyDecisionIntelRouteRows(
       signals,
       (Array.isArray(data) ? data : []) as DecisionIntelRouteRow[],
     )
   } catch {
-    // Pre-migration/preview compatibility: retain only legacy routes known to be
-    // resolvable by the existing dossier loader.
-    return applyDecisionIntelRouteRows(signals, [])
+    return clearDecisionIntelRoutes(signals)
   }
 }
