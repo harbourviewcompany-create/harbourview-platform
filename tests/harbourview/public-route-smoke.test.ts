@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -139,6 +140,15 @@ describe('public route smoke coverage', () => {
     expect(verifier).toContain("const location = response.headers.get('location') || ''")
     expect(verifier).toContain('| Route | Result | HTTP | Location | Title | Forbidden hits | Runtime markers |')
     expect(verifier).toContain('redirects are failures and their `Location` target is reported')
+  })
+
+  it('keeps the committed-secret scanner precise while preserving literal-secret detection', () => {
+    const output = execFileSync(process.execPath, ['scripts/check-no-secret-strings.mjs', '--self-test'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    })
+
+    expect(output).toContain('GO: secret scanner self-test passed (8 cases).')
   })
 
   it('keeps public route files free of private review and source field names', () => {
