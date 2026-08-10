@@ -211,6 +211,10 @@ async function loadLegacyPublicSignal(db: any, signalIds: string[], eventId: str
         if (clusteredRoute) {
           const clustered = await loadCanonical(db, clusteredRoute)
           if (clustered) return clustered
+          // The cluster representative owns a canonical event, but that event is
+          // intentionally absent from the customer projection. Preserve suppression
+          // instead of resurrecting this member through the legacy fallback.
+          return null
         }
       }
       return mapLegacySignal(row, eventId)
