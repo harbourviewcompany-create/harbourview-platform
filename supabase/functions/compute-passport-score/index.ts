@@ -1,5 +1,6 @@
 // compute-passport-score — Harbourview MVP Phase 2
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isOperatorOrServiceRoleAuthorized } from "../_shared/harbourview-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -18,10 +19,12 @@ type Confidence = "high" | "medium" | "low" | "insufficient_data";
 interface DR { score: number; max_score: number; confidence: Confidence; evidence_count: number; flags: string[]; }
 
 function isAuthorized(req: Request): boolean {
-  const callerSecret = req.headers.get("x-operator-secret") ?? "";
-  if (EDGE_OPERATOR_SECRET && callerSecret === EDGE_OPERATOR_SECRET) return true;
-  const authHeader = req.headers.get("Authorization") ?? "";
-  return Boolean(SUPABASE_SERVICE_KEY) && authHeader === `Bearer ${SUPABASE_SERVICE_KEY}`;
+  return isOperatorOrServiceRoleAuthorized({
+    operatorSecret: EDGE_OPERATOR_SECRET,
+    serviceRoleKey: SUPABASE_SERVICE_KEY,
+    callerSecret: req.headers.get("x-operator-secret"),
+    authorization: req.headers.get("Authorization"),
+  });
 }
 
 Deno.serve(async (req) => {
