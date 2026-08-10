@@ -1,49 +1,55 @@
 # Production database GitHub environment evidence — 2026-08-02
 
-Status: **HOLD — administration-authorized configuration evidence is still required.**
+Status: **HOLD — Administration-authorized configuration evidence remains unavailable.**
 
-## Attempted authorized read
+## Authoritative machine-readable record
 
-GitHub Actions run `30766999778` used the repository-issued workflow token with:
+The activation control now reads:
 
-```yaml
-permissions:
-  actions: read
-  contents: read
-  deployments: read
-```
+`supabase/release-controls/production-database-environment-evidence.json`
 
-It requested:
+That record has an explicit state machine:
+
+- `unverified`: no Administration-authorized export is present; activation remains HOLD.
+- `verified`: a redacted Administration-read export proves every required protection and passes the release-control validator.
+
+The earlier `environment_verification` object embedded in `pending-production-migration-decisions.json` is retained as historical evidence of the original probe. It is no longer the authoritative transition field.
+
+## Current Administration path result
+
+The connected GitHub identity reports repository administrator authority. The available connected GitHub action surface does not expose repository environment or deployment-branch-policy reads, so it cannot produce an Administration-authorized environment export.
+
+The earlier Actions probe used a repository-issued token with `actions: read`, `contents: read`, and `deployments: read` and requested:
 
 ```text
 GET /repos/harbourviewcompany-create/harbourview-platform/environments/production-database
 ```
 
-GitHub returned:
+The response was:
 
 ```text
 HTTP 404 Not Found
 ```
 
-No token, response header, secret value, reviewer identifier or environment payload was logged.
+This remains **inconclusive**. It is not evidence that the environment is absent or correctly configured.
 
-## Interpretation
+## Required verified export
 
-The result is **inconclusive**, not proof that the environment is absent. GitHub's environment administration endpoint requires an administration-authorized repository read; the scoped Actions token cannot prove whether the resource is missing or hidden by insufficient permission. The connected GitHub account has repository administration authority, but the available connector action surface does not expose environment settings.
+A future redacted export must prove all of the following:
 
-## Evidence required for GO
+1. Authorization source is an Administration-read identity or an administrator UI export.
+2. Environment name is exactly `production-database`.
+3. At least one required reviewer is configured.
+4. Reviewer identities are represented only by unique SHA-256 proofs in committed evidence.
+5. `prevent_self_review` is enabled.
+6. Custom deployment branch policies are enabled.
+7. Protected-branches mode is disabled for this environment policy.
+8. The exact permitted branch list is `main` only.
+9. No tag pattern is permitted.
+10. Secret values, tokens, passwords, private keys, credentials, and authorization headers are absent.
 
-An authorized repository administrator must capture a redacted response or settings export proving all of the following:
-
-1. Environment name is exactly `production-database`.
-2. At least one required reviewer is configured.
-3. `prevent_self_review` is enabled, or an explicit operator decision accepts the alternative.
-4. Deployment branch policy uses custom branch policies rather than all branches or protected branches generally.
-5. The exact allowed branch policy is `main` and no tag pattern is accepted.
-6. Environment secrets, if present, are reported by name only; values must never be exported.
-
-Until those facts are proven, production activation remains HOLD even if the migration manifest later returns GO.
+The validator accepts a transition to `verified` only when every requirement is present. It rejects reviewer-free, self-review-enabled, multi-branch, tag-enabled, or credential-bearing exports.
 
 ## No live changes
 
-The probe did not create or modify an environment, approval rule, branch policy, secret, deployment, migration or production row.
+This repair does not create or modify the environment, reviewer rules, branch policies, secrets, deployments, migrations, aliases, or production rows.

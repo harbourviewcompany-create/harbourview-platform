@@ -6,11 +6,16 @@ on:
     paths:
       - '.github/workflows/pending-migration-decision-verification.yml'
       - 'supabase/release-controls/pending-production-migration-decisions.json'
+      - 'supabase/release-controls/pending-production-migration-integrity.json'
+      - 'supabase/release-controls/production-database-environment-evidence.json'
+      - 'supabase/release-controls/evidence/elite-digest-preflight-manifest-30766999778.json'
+      - 'supabase/release-controls/evidence/production-migration-ledger-30766999778.txt'
       - 'scripts/check-pending-production-migration-decisions.mjs'
       - 'tests/scripts/pending-production-migration-decisions.test.mjs'
       - 'docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md'
       - 'docs/control/PRODUCTION_DATABASE_ENVIRONMENT_EVIDENCE_2026-08-02.md'
       - 'docs/control/PENDING_PRODUCTION_MIGRATION_REMEDIATION_EVIDENCE_2026-08-02.md'
+      - 'docs/control/PENDING_PRODUCTION_MIGRATION_CONTROL_REPAIR_2026-08-03.md'
 
 permissions:
   contents: read
@@ -24,21 +29,65 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout exact PR merge graph
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Validate complete decision record and unchanged Elite Digest allowlist
-        run: node scripts/check-pending-production-migration-decisions.mjs
-      - name: Run fail-closed decision tests
-        run: node --test tests/scripts/pending-production-migration-decisions.test.mjs
-      - name: Prove no migration SQL changed in this PR
+
+      - name: Prepare immutable control-base validation worktree
+        env:
+          CONTROL_BASE_SHA: f7a28c0e78b0ce693eded1dd7284731b7c3b3d43
+        run: |
+          set -euo pipefail
+          git cat-file -e "${CONTROL_BASE_SHA}^{commit}"
+          VALIDATION_DIR="${RUNNER_TEMP}/pending-migration-control-validation"
+          git worktree add --detach "$VALIDATION_DIR" "$CONTROL_BASE_SHA"
+          REPAIR_FILES=(
+            '.github/workflows/pending-migration-decision-verification.yml'
+            'docs/control/PENDING_PRODUCTION_MIGRATION_CONTROL_REPAIR_2026-08-03.md'
+            'docs/control/PENDING_PRODUCTION_MIGRATION_REMEDIATION_EVIDENCE_2026-08-02.md'
+            'docs/control/PRODUCTION_DATABASE_ENVIRONMENT_EVIDENCE_2026-08-02.md'
+            'scripts/check-pending-production-migration-decisions.mjs'
+            'supabase/release-controls/evidence/elite-digest-preflight-manifest-30766999778.json'
+            'supabase/release-controls/evidence/production-migration-ledger-30766999778.txt'
+            'supabase/release-controls/pending-production-migration-integrity.json'
+            'supabase/release-controls/production-database-environment-evidence.json'
+            'tests/scripts/pending-production-migration-decisions.test.mjs'
+          )
+          for path in "${REPAIR_FILES[@]}"; do
+            mkdir -p "$VALIDATION_DIR/$(dirname "$path")"
+            cp "$path" "$VALIDATION_DIR/$path"
+          done
+
+      - name: Validate complete evidence-bound decision record and unchanged Elite Digest allowlist
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/pending-migration-control-validation"
+          node scripts/check-pending-production-migration-decisions.mjs
+
+      - name: Run complete fail-closed decision tests
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/pending-migration-control-validation"
+          node --test tests/scripts/pending-production-migration-decisions.test.mjs
+
+      - name: Prove exact current-main commit objects and no migration SQL changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'supabase/migrations/*.sql' | grep -q .; then
-            echo '::error::This release-control remediation must not modify migration SQL.'
+          set -euo pipefail
+          git cat-file -e "${BASE_SHA}^{commit}"
+          git cat-file -e "${HEAD_SHA}^{commit}"
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          printf '%s\n' "$CHANGED_FILES"
+          if printf '%s\n' "$CHANGED_FILES" | grep -E '^supabase/migrations/.*\.sql$' >/dev/null; then
+            echo '::error::This release-control repair must not modify migration SQL.'
             exit 1
           fi
