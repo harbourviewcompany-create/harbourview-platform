@@ -11,6 +11,7 @@ const desktopBridge = readFileSync('components/dashboard/DesktopDecisionIntelBri
 const dossierPage = readFileSync('app/dashboard/intel/events/[id]/page.tsx', 'utf8')
 const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'utf8')
 const dashboardMapper = readFileSync('lib/dashboard/mapPublicToDashboardSignal.ts', 'utf8')
+const dashboardServerData = readFileSync('lib/dashboard/dashboardServerData.ts', 'utf8')
 const complianceCopy = readFileSync('lib/intelligence-os/complianceCopy.ts', 'utf8')
 const controlDoc = readFileSync('docs/control/INTEL_DECISION_OS_EXISTING_TARGET.md', 'utf8')
 const databaseControl = readFileSync('docs/control/DATABASE_CONTROL.md', 'utf8')
@@ -44,10 +45,15 @@ describe('Decision Intelligence Stage 0 first slice', () => {
 
   it('keeps exact signal lineage while allowing one snapshot to support multiple signals', () => {
     expect(migration).toContain('intel_evidence_refs_signal_uq')
+    expect(migration).not.toContain('intel_evidence_refs_snapshot_uq')
     expect(migration).toContain('join public.intel_evidence_refs e on e.source_signal_id = a.source_signal_id')
+    expect(migration).toContain('source_snapshot_id uuid references public.source_snapshots(id) on delete restrict')
+    expect(migration).toContain('hv_evidence_id uuid references public.hv_evidence(id) on delete restrict')
     expect(hardening).toContain('drop index if exists public.intel_evidence_refs_snapshot_uq')
     expect(hardening).toContain('drop constraint if exists intel_evidence_refs_source_signal_id_fkey')
     expect(hardening).toContain('drop constraint if exists intel_assertions_source_signal_id_fkey')
+    expect(firstSliceWorkflow).toContain("('sig-b','20000000-0000-0000-0000-000000000001','sig-a'")
+    expect(firstSliceWorkflow).toContain('shared snapshot cardinality')
   })
 
   it('counts distinct source references rather than raw clustered rows', () => {
@@ -101,6 +107,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(hardening).toContain('create or replace view public.intel_event_route_map')
     expect(hardening).toContain('where ia.source_signal_id is not null')
     expect(dossierLoader).toContain('Canonical ownership exists but the allowlisted dossier did not return a row')
+    expect(dossierLoader).toContain('The cluster representative owns a canonical event')
     expect(dossierLoader).toContain('return null')
   })
 
@@ -152,12 +159,15 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(desktopBridge).toContain("'/account/upgrade'")
   })
 
-  it('keeps editorial, digest, story and research rows out of synthetic dossier routes', () => {
+  it('keeps editorial, digest, story and research rows out of synthetic dossier routes while preserving eligible digest routes', () => {
     expect(intelUi).toContain("const isEditorial = signal.contentType === 'editorial'")
     expect(intelUi).toContain("const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'")
     expect(intelUi).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
     expect(intelUi).toContain('const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory')
     expect(intelUi).toContain("signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)")
+    expect(dashboardServerData).toContain('digestDossierEligibleIds')
+    expect(dashboardServerData).toContain("!['story','research','noise'].includes(contentType)")
+    expect(dashboardServerData).toContain("decisionIntelEventId: h.signal_id && digestDossierEligibleIds.has(h.signal_id) ? `event:${h.signal_id}` : undefined")
     expect(desktopBridge).toContain('function canRouteToDossier')
     expect(desktopBridge).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
     expect(desktopBridge).toContain('signals.filter(canRouteToDossier)')
