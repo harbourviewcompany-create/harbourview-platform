@@ -172,7 +172,12 @@ describe('Harbourview globe polygon rendering stage', () => {
     expect(referenceLongitude).toBeLessThan(120)
     expect(normalizedPolygons.length).toBeGreaterThan(0)
     const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)
-    expect(Math.max(...normalizedLongitudes)).toBeGreaterThanOrEqual(180)
+    // Per-polygon minimum-circular-span normalization keeps dateline fragments
+    // on their own ±180 side rather than shifting valid points beyond 180.
+    // Require coverage on both seam sides so the far-eastern Russia fragment
+    // cannot disappear while the per-polygon span checks still pass.
+    expect(Math.min(...normalizedLongitudes)).toBeLessThan(-170)
+    expect(Math.max(...normalizedLongitudes)).toBeGreaterThan(170)
     for (const polygon of normalizedPolygons) {
       const polygonLongitudes = polygon.outer.map(([lon]) => lon)
       expect(longitudeSpan(polygonLongitudes)).toBeLessThan(180)
