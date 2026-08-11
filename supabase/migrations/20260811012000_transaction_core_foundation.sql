@@ -24,12 +24,25 @@ create or replace function public.hv_transaction_network_key(
   commercial_period text
 )
 returns text
-language sql
+language plpgsql
 immutable
 strict
 set search_path = public
 as $$
-  select concat_ws('|',
+begin
+  if jurisdiction_code like '%|%'
+     or transaction_object like '%|%'
+     or commercial_period like '%|%' then
+    raise exception 'transaction network key inputs cannot contain pipe separators';
+  end if;
+
+  if length(btrim(jurisdiction_code)) = 0
+     or length(btrim(transaction_object)) = 0
+     or length(btrim(commercial_period)) = 0 then
+    raise exception 'transaction network key inputs cannot be empty';
+  end if;
+
+  return concat_ws('|',
     'NETWORK',
     upper(btrim(jurisdiction_code)),
     buyer_account_id::text,
@@ -37,6 +50,7 @@ as $$
     lower(regexp_replace(btrim(transaction_object), '\s+', '-', 'g')),
     upper(regexp_replace(btrim(commercial_period), '\s+', '-', 'g'))
   );
+end;
 $$;
 
 create table public.transaction_networks (
@@ -90,7 +104,8 @@ create table public.transactions (
   updated_at timestamptz not null default now(),
   constraint transactions_currency_chk check (currency is null or currency ~ '^[A-Z]{3}$'),
   constraint transactions_completed_stage_chk check (completed_at is null or stage in ('completed','archived')),
-  constraint transactions_lost_stage_chk check (lost_at is null or stage in ('lost','archived'))
+  constraint transactions_lost_stage_chk check (lost_at is null or stage in ('lost','archived')),
+  constraint transactions_terminal_outcome_chk check (not (completed_at is not null and lost_at is not null))
 );
 create index transactions_network_idx on public.transactions (network_id) where network_id is not null;
 create index transactions_opportunity_idx on public.transactions (opportunity_id) where opportunity_id is not null;
@@ -120,7 +135,8 @@ create table public.transaction_parties (
   created_at timestamptz not null default now(),
   constraint transaction_parties_target_chk check (num_nonnulls(entity_id, economic_account_id, workspace_id) >= 1),
   constraint transaction_parties_validity_chk check (valid_to is null or valid_from is null or valid_to >= valid_from),
-  constraint transaction_parties_specific_visibility_chk check (visibility_scope <> 'specific_party')
+  constraint transaction_parties_specific_visibility_chk check (visibility_scope <> 'specific_party'),
+  constraint transaction_parties_id_transaction_unique unique (id, transaction_id)
 );
 create unique index transaction_parties_identity_uidx
   on public.transaction_parties (
@@ -154,10 +170,12 @@ alter table public.deal_rooms
   add column if not exists transaction_id uuid references public.transactions(id) on delete set null;
 create unique index if not exists deal_rooms_transaction_uidx on public.deal_rooms (transaction_id) where transaction_id is not null;
 
-alter table public.engagements
+-- engagements/commissions exist on the live project but are production-drift tables that are not
+-- defined by the repository migration replay. Guard these bridges so fresh repository replays remain valid.
+alter table if exists public.engagements
   add column if not exists economic_account_id uuid references public.economic_accounts(id) on delete set null,
   add column if not exists transaction_id uuid references public.transactions(id) on delete set null;
-alter table public.commissions
+alter table if exists public.commissions
   add column if not exists transaction_id uuid references public.transactions(id) on delete set null;
 
 create index if not exists opportunities_entity_idx on public.opportunities (entity_id) where entity_id is not null;
@@ -165,9 +183,18 @@ create index if not exists opportunities_economic_account_idx on public.opportun
 create index if not exists opportunities_transaction_network_idx on public.opportunities (transaction_network_id) where transaction_network_id is not null;
 create index if not exists matches_opportunity_idx on public.matches (opportunity_id) where opportunity_id is not null;
 create index if not exists matches_transaction_network_idx on public.matches (transaction_network_id) where transaction_network_id is not null;
-create index if not exists engagements_economic_account_idx on public.engagements (economic_account_id) where economic_account_id is not null;
-create index if not exists engagements_transaction_idx on public.engagements (transaction_id) where transaction_id is not null;
-create index if not exists commissions_transaction_idx on public.commissions (transaction_id) where transaction_id is not null;
+
+do $$
+begin
+  if to_regclass('public.engagements') is not null then
+    execute 'create index if not exists engagements_economic_account_idx on public.engagements (economic_account_id) where economic_account_id is not null';
+    execute 'create index if not exists engagements_transaction_idx on public.engagements (transaction_id) where transaction_id is not null';
+  end if;
+  if to_regclass('public.commissions') is not null then
+    execute 'create index if not exists commissions_transaction_idx on public.commissions (transaction_id) where transaction_id is not null';
+  end if;
+end;
+$$;
 
 comment on table public.transaction_networks is 'Economic grouping/double-counting control. IA graph remains the discovery graph.';
 comment on table public.transactions is 'Canonical Harbourview-facilitated commercial transaction; deal_rooms remain execution/collaboration surfaces.';
