@@ -1,0 +1,54 @@
+name: Temporary PR 1328 Evidence Fix
+
+on:
+  push:
+    branches:
+      - tmp/pr1328-exact-qa-20260811
+    paths:
+      - .github/workflows/tmp-pr1328-evidence-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  evidence-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Update only PR 1328 evidence
+        shell: bash
+        env:
+          TARGET_BRANCH: agent/pr1307-post-merge-media-corrections
+          EXPECTED_HEAD: 504c8c3db00ae00b15e60a1fc1923ad370ae07b0
+          QA_RUN: https://github.com/harbourviewcompany-create/harbourview-platform/actions/runs/31523742623
+        run: |
+          set -euo pipefail
+          git fetch origin "$TARGET_BRANCH" --force
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$EXPECTED_HEAD"
+          git switch --detach "$EXPECTED_HEAD"
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('docs/control/EVIDENCE_LOG.md')
+          text = path.read_text(encoding='utf-8')
+          old = "- **Focused verification:** `npx tsc --noEmit` and `npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts`. Exact resulting PR-head CI/build/security/authenticated Playwright remains the authoritative merge gate."
+          new = "- **Focused verification:** exact implementation head `504c8c3db00ae00b15e60a1fc1923ad370ae07b0` — `npx tsc --noEmit`: **PASS**; `npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts`: **PASS**. Evidence: GitHub Actions run `31523742623` (`Temporary PR 1328 Exact QA`). Exact resulting PR-head CI/build/security/authenticated Playwright remains the authoritative merge gate."
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one focused-verification line, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          git diff --check
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = 'docs/control/EVIDENCE_LOG.md'
+          grep -Fq 'npx tsc --noEmit`: **PASS**' docs/control/EVIDENCE_LOG.md
+          grep -Fq '31523742623' docs/control/EVIDENCE_LOG.md
+          git config user.name 'harbourview-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+          git add docs/control/EVIDENCE_LOG.md
+          git commit -m 'docs(control): record exact PR 1328 QA results'
+          git push --force-with-lease="refs/heads/$TARGET_BRANCH:$EXPECTED_HEAD" origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "Evidence head: $(git rev-parse HEAD)"
