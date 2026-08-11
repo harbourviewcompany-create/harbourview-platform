@@ -166,6 +166,27 @@ test('synthetic antimeridian fragments close on the seam without false mainland 
   )
 })
 
+test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () => {
+  const result = runGeometryProbe<{
+    count: number
+    maxRawLongitudeJump: number
+    closedCount: number
+  }>(`
+    const synthetic = [[180, 60], [-180, 60], [-170, 50], [-170, 40], [180, 40], [180, 60]]
+    const fragments = generator.splitRingAtAntimeridian(synthetic)
+    console.log(JSON.stringify({
+      count: fragments.length,
+      maxRawLongitudeJump: Math.max(...fragments.map(maxRawLongitudeJump)),
+      closedCount: fragments.filter((ring) => pointEqual(ring[0], ring[ring.length - 1])).length,
+    }))
+  `)
+
+  assert.ok(result.count > 0)
+  assert.equal(result.closedCount, result.count)
+  assert.ok(result.maxRawLongitudeJump <= 180, `equivalent seam alias created ${result.maxRawLongitudeJump}° planar edge`)
+  assert.notEqual(result.maxRawLongitudeJump, 360)
+})
+
 test('each synthetic source hole preserves at least one assigned fragment across the antimeridian', () => {
   const result = runGeometryProbe<{
     polygonCount: number
