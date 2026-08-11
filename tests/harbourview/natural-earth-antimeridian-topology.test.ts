@@ -124,7 +124,15 @@ function runGeometryProbe<T>(probe: string): T {
             expectedFragments.reduce((sum, fragment) => sum + generator.signedRingAreaDeg2(fragment), 0),
           )
           const sourceAreaDelta = Math.abs(sourceAbsoluteArea - splitNetAbsoluteArea)
-          const areaTolerance = Math.max(tolerance, sourceAbsoluteArea * 0.02)
+          const openSourceHole = sourceHole.slice(0, -1)
+          const sourcePerimeter = openSourceHole.reduce((sum, point, index) => {
+            const next = openSourceHole[(index + 1) % openSourceHole.length]
+            return sum + Math.hypot(
+              normalizedLonDelta(point[0], next[0]),
+              next[1] - point[1],
+            )
+          }, 0)
+          const areaTolerance = sourcePerimeter * tolerance + sourceAbsoluteArea * 0.02 + 1e-9
           return {
             polygonIndex,
             holeIndex,

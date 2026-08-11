@@ -171,6 +171,8 @@ describe('Harbourview globe polygon rendering stage', () => {
     expect(referenceLongitude).toBeGreaterThan(90)
     expect(referenceLongitude).toBeLessThan(120)
     expect(normalizedPolygons.length).toBeGreaterThan(0)
+    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)
+    expect(Math.max(...normalizedLongitudes)).toBeGreaterThanOrEqual(180)
     for (const polygon of normalizedPolygons) {
       const polygonLongitudes = polygon.outer.map(([lon]) => lon)
       expect(longitudeSpan(polygonLongitudes)).toBeLessThan(180)
