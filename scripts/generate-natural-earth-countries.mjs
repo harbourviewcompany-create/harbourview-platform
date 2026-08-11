@@ -316,7 +316,7 @@ function normalizePolygons(geometry, tolerance) {
         .flatMap((ring) => splitRingAtAntimeridian(ring))
         .map((part) => simplifyRing(part, tolerance))
         .filter(Boolean),
-      ...topologyCutouts,
+      ...topologyCutouts.filter((cutout) => ringAreaDeg2(cutout) >= MIN_POLYGON_AREA_DEG2),
     ]
 
     const outputPolygons = simplifiedOuters.map((outer) => ({
@@ -501,6 +501,7 @@ export {
   pointInRing,
   ringAreaDeg2,
   signedRingAreaDeg2,
+  SIMPLIFY_TOLERANCE_DEG,
   simplifyRing,
   splitRingAtAntimeridian,
   transformFeature,

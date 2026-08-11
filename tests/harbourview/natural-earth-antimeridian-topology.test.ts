@@ -92,11 +92,21 @@ function runGeometryProbe<T>(probe: string): T {
               fragment.slice(0, -1).some((point) => generator.pointInRing(point, generatedHole.points)),
             ),
           ).length
+          const sourceAbsoluteArea = Math.abs(generator.signedRingAreaDeg2(sourceHole))
+          const matchedAbsoluteArea = eligibleFragments
+            .filter((fragment) =>
+              generatedHoles.some((generatedHole) =>
+                fragment.slice(0, -1).some((point) => generator.pointInRing(point, generatedHole.points)),
+              ),
+            )
+            .reduce((sum, fragment) => sum + Math.abs(generator.signedRingAreaDeg2(fragment)), 0)
           return {
             polygonIndex,
             holeIndex,
             eligibleFragmentCount: eligibleFragments.length,
             matchedFragmentCount,
+            sourceAbsoluteArea,
+            matchedAbsoluteArea,
           }
         }),
       )
@@ -231,14 +241,23 @@ test('multi-crossing outer preserves opposite-winding cutout topology', () => {
     let holeCount = 0
     let misplacedHoleCount = 0
     let windingMismatchCount = 0
-    for (const polygon of polygons) {
+    for (const [polygonIndex, polygon] of polygons.entries()) {
       const outer = polygon.rings.find((ring) => ring.kind === 'outer')
       if (!outer) continue
       const outerSign = Math.sign(generator.signedRingAreaDeg2(outer.points))
       for (const hole of polygon.rings.filter((ring) => ring.kind === 'hole')) {
         holeCount += 1
-        if (!hole.points.slice(0, -1).some((point) => generator.pointInRing(point, outer.points))) {
+        const holePoints = hole.points.slice(0, -1)
+        const insideAssignedOuter = holePoints.some((point) => generator.pointInRing(point, outer.points))
+        if (!insideAssignedOuter) {
           misplacedHoleCount += 1
+        } else {
+          const insideOtherOuter = polygons.some((otherPolygon, otherIndex) => {
+            if (otherIndex === polygonIndex) return false
+            const otherOuter = otherPolygon.rings.find((ring) => ring.kind === 'outer')
+            return otherOuter && holePoints.some((point) => generator.pointInRing(point, otherOuter.points))
+          })
+          if (insideOtherOuter) misplacedHoleCount += 1
         }
         if (Math.sign(generator.signedRingAreaDeg2(hole.points)) === outerSign) windingMismatchCount += 1
       }
@@ -288,13 +307,17 @@ test('each synthetic source hole preserves at least one assigned fragment across
     polygonCount: number
     generatedHoleCount: number
     misplacedHoleCount: number
+    tolerance: number
     sourceHoles: Array<{
       polygonIndex: number
       holeIndex: number
       eligibleFragmentCount: number
       matchedFragmentCount: number
+      sourceAbsoluteArea: number
+      matchedAbsoluteArea: number
     }>
   }>(`
+    const tolerance = generator.SIMPLIFY_TOLERANCE_DEG
     const geometry = {
       type: 'Polygon',
       coordinates: [
@@ -303,21 +326,30 @@ test('each synthetic source hole preserves at least one assigned fragment across
         [[172, 53], [172, 48], [176, 48], [176, 53], [172, 53]],
       ],
     }
-    const polygons = generator.normalizePolygons(geometry, 0)
+    const polygons = generator.normalizePolygons(geometry, tolerance)
     const generatedHoles = polygons.flatMap((polygon) => polygon.rings.filter((ring) => ring.kind === 'hole'))
-    const misplacedHoleCount = polygons.reduce((count, polygon) => {
+    const misplacedHoleCount = polygons.reduce((count, polygon, polygonIndex) => {
       const outer = polygon.rings.find((ring) => ring.kind === 'outer')
       if (!outer) return count
-      return count + polygon.rings.filter((ring) => ring.kind === 'hole').filter((hole) =>
-        !hole.points.slice(0, -1).some((point) => generator.pointInRing(point, outer.points)),
-      ).length
+      return count + polygon.rings.filter((ring) => ring.kind === 'hole').filter((hole) => {
+        const holePoints = hole.points.slice(0, -1)
+        const insideAssignedOuter = holePoints.some((point) => generator.pointInRing(point, outer.points))
+        if (!insideAssignedOuter) return true
+        const insideOtherOuter = polygons.some((otherPolygon, otherIndex) => {
+          if (otherIndex === polygonIndex) return false
+          const otherOuter = otherPolygon.rings.find((ring) => ring.kind === 'outer')
+          return otherOuter && holePoints.some((point) => generator.pointInRing(point, otherOuter.points))
+        })
+        return insideOtherOuter
+      }).length
     }, 0)
 
     console.log(JSON.stringify({
       polygonCount: polygons.length,
       generatedHoleCount: generatedHoles.length,
       misplacedHoleCount,
-      sourceHoles: holePreservation([geometry.coordinates], polygons, 0),
+      tolerance,
+      sourceHoles: holePreservation([geometry.coordinates], polygons, tolerance),
     }))
   `)
 
@@ -332,6 +364,11 @@ test('each synthetic source hole preserves at least one assigned fragment across
       sourceHole.eligibleFragmentCount,
       `source hole ${sourceHole.holeIndex} lost an eligible generated fragment`,
     )
+    const areaDelta = Math.abs(sourceHole.sourceAbsoluteArea - sourceHole.matchedAbsoluteArea)
+    assert.ok(
+      areaDelta <= result.tolerance,
+      `source hole ${sourceHole.holeIndex} area mismatch: source=${sourceHole.sourceAbsoluteArea}, matched=${sourceHole.matchedAbsoluteArea}, delta=${areaDelta}, tolerance=${result.tolerance}`,
+    )
   }
 }, 60_000)
 
@@ -339,6 +376,7 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
   const result = runGeometryProbe<{
     crossingIso2: string[]
     affectedIso2: string[]
+    tolerance: number
     selected: Record<string, {
       polygonCount: number
       maxRawLongitudeJump: number
@@ -352,9 +390,12 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
         holeIndex: number
         eligibleFragmentCount: number
         matchedFragmentCount: number
+        sourceAbsoluteArea: number
+        matchedAbsoluteArea: number
       }>
     }>
   }>(`
+    const tolerance = generator.SIMPLIFY_TOLERANCE_DEG
     const crossingIso2 = sourceGeoJson.features.filter(sourceCrossesSeam).map(iso2ForFeature).filter(Boolean).sort()
     const affectedIso2 = sourceGeoJson.features
       .filter((feature) => sourceCrossesSeam(feature) || sourceTouchesSeam(feature))
@@ -378,9 +419,9 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       const sourcePolygons = feature.geometry?.type === 'Polygon'
         ? [feature.geometry.coordinates]
         : feature.geometry?.coordinates ?? []
-      const sourceHoles = holePreservation(sourcePolygons, country.polygons, 0.12)
+      const sourceHoles = holePreservation(sourcePolygons, country.polygons, tolerance)
 
-      for (const polygon of country.polygons) {
+      for (const [polygonIndex, polygon] of country.polygons.entries()) {
         const outer = polygon.rings.find((ring) => ring.kind === 'outer')
         if (!outer) continue
         if (!pointEqual(outer.points[0], outer.points[outer.points.length - 1])) {
@@ -399,7 +440,18 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
           maxSpherical = Math.max(maxSpherical, maxSphericalEdgeDeg(hole.points))
           const holeWinding = Math.sign(generator.signedRingAreaDeg2(hole.points))
           if (holeWinding === 0 || holeWinding === outerWinding) invalidWindingCount += 1
-          if (!generator.pointInRing(ringReferencePoint(hole.points), outer.points)) misplacedHoleCount += 1
+          const holeRef = ringReferencePoint(hole.points)
+          const insideAssignedOuter = generator.pointInRing(holeRef, outer.points)
+          if (!insideAssignedOuter) {
+            misplacedHoleCount += 1
+          } else {
+            const insideOtherOuter = country.polygons.some((otherPolygon, otherIndex) => {
+              if (otherIndex === polygonIndex) return false
+              const otherOuter = otherPolygon.rings.find((ring) => ring.kind === 'outer')
+              return otherOuter && generator.pointInRing(holeRef, otherOuter.points)
+            })
+            if (insideOtherOuter) misplacedHoleCount += 1
+          }
         }
 
         const areas = triangleAreas(polygon)
@@ -419,7 +471,7 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       }
     }
 
-    console.log(JSON.stringify({ crossingIso2, affectedIso2, selected }))
+    console.log(JSON.stringify({ crossingIso2, affectedIso2, tolerance, selected }))
   `)
 
   for (const required of ['RU', 'FJ', 'NZ', 'US']) {
@@ -441,6 +493,11 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
         sourceHole.matchedFragmentCount,
         sourceHole.eligibleFragmentCount,
         `${iso2}: source hole ${sourceHole.polygonIndex}:${sourceHole.holeIndex} lost an eligible generated fragment`,
+      )
+      const areaDelta = Math.abs(sourceHole.sourceAbsoluteArea - sourceHole.matchedAbsoluteArea)
+      assert.ok(
+        areaDelta <= result.tolerance,
+        `${iso2}: source hole ${sourceHole.polygonIndex}:${sourceHole.holeIndex} area mismatch: source=${sourceHole.sourceAbsoluteArea}, matched=${sourceHole.matchedAbsoluteArea}, delta=${areaDelta}, tolerance=${result.tolerance}`,
       )
     }
     assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
