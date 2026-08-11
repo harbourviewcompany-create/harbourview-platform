@@ -10,7 +10,7 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
     sourceVersion: 'ne_50m_admin_0_countries (vendored)',
     sourceLicense: 'Public domain',
     boundaryModel: 'Natural Earth de facto boundaries',
-    generatedAt: '2026-08-11T01:19:14.361Z',
+    generatedAt: '2026-08-11T10:24:16.487Z',
     generatedBy: 'scripts/generate-natural-earth-countries.mjs',
     harbourviewTransformVersion: '1.4.0-natural-earth-50m-antimeridian-seam-closure',
     notes: 'All Natural Earth polygon parts above 0.008 square degrees are retained; antimeridian-crossing outer and hole rings are split before simplification and each planar fragment is closed along ±180 before triangulation; coordinates rounded to 3 decimal places; source upgraded to 1:50m for higher polygon fidelity.',
@@ -8143,6 +8143,24 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
           {
             kind: 'outer',
             points: [[-60.018,8.549],[-59.849,8.249],[-60.719,7.536],[-60.352,7.003],[-61.146,6.695],[-61.129,6.214],[-61.391,5.939],[-60.672,5.164],[-60.628,4.893],[-61.554,4.288],[-62.712,4.018],[-62.857,3.593],[-63.339,3.944],[-64.021,3.929],[-64.789,4.276],[-64.221,3.587],[-64.047,2.502],[-63.389,2.412],[-63.394,2.223],[-65.556,0.688],[-65.645,0.97],[-66.302,0.752],[-66.876,1.223],[-67.211,2.39],[-67.619,2.794],[-67.859,2.794],[-67.311,3.416],[-67.855,4.507],[-67.825,5.27],[-67.482,6.18],[-67.859,6.29],[-69.427,6.124],[-70.129,6.954],[-72.007,7.033],[-72.472,7.524],[-72.39,8.287],[-72.796,9.109],[-73.366,9.194],[-72.69,10.836],[-71.958,11.666],[-71.32,11.862],[-71.957,11.57],[-71.594,10.657],[-72.113,9.816],[-71.687,9.073],[-71.241,9.16],[-71.053,9.706],[-71.494,10.533],[-71.47,10.964],[-70.097,11.52],[-69.805,11.474],[-69.817,11.672],[-70.193,11.625],[-70.287,11.886],[-70.004,12.178],[-69.632,11.48],[-68.828,11.432],[-68.399,11.161],[-68.14,10.493],[-66.247,10.632],[-65.852,10.258],[-65.129,10.07],[-63.732,10.503],[-64.298,10.635],[-61.879,10.741],[-62.914,10.531],[-62.686,10.29],[-62.741,10.056],[-62.55,10.2],[-62.32,9.783],[-62.077,9.975],[-61.736,9.631],[-61.589,9.895],[-60.792,9.361],[-61.247,8.6],[-61.619,8.597],[-61.304,8.41],[-60.167,8.617],[-60.018,8.549]],
+          },
+        ],
+      },
+      ],
+    },
+    {
+      iso2: 'VI',
+      iso3: 'VIR',
+      name: "United States Virgin Islands",
+      centroid: [-64.779, 17.747],
+      bbox: [-64.889, 17.702, -64.58, 17.794],
+      source: 'natural-earth-admin-0',
+      polygons: [
+      {
+        rings: [
+          {
+            kind: 'outer',
+            points: [[-64.766,17.794],[-64.682,17.75],[-64.58,17.75],[-64.686,17.706],[-64.889,17.702],[-64.885,17.772],[-64.766,17.794]],
           },
         ],
       },

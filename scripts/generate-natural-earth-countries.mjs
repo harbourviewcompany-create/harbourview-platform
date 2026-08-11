@@ -477,7 +477,13 @@ function transformFeature(feature) {
   const iso3 = extractIso3(properties)
   if (!iso2 || !iso3 || SKIP_ISO2.has(iso2)) return null
 
-  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  // Preserve the U.S. Virgin Islands when simplification alone drops its
+  // otherwise valid Natural Earth source geometry below the output threshold.
+  // Keep every other country on the established generator path.
+  if (polygons.length === 0 && iso2 === 'VI') {
+    polygons = normalizePolygons(feature.geometry, 0)
+  }
   if (polygons.length === 0) return null
 
   const labelLon = typeof properties.LABEL_X === 'number' ? properties.LABEL_X : null

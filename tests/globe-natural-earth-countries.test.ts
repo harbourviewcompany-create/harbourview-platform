@@ -15,6 +15,7 @@ describe('Natural Earth 50m countries payload', () => {
     const iso2s = new Set(naturalEarthCountriesPayload.countries.map((country) => country.iso2))
 
     expect(iso2s.has('US')).toBe(true)
+    expect(iso2s.has('VI')).toBe(true)
     expect(iso2s.has('CA')).toBe(true)
     expect(iso2s.has('DE')).toBe(true)
     expect(iso2s.has('PT')).toBe(true)
