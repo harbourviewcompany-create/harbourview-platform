@@ -374,7 +374,13 @@ function normalizePolygons(geometry, tolerance) {
         candidatePoints.some((point) => pointInRing(point, outer)),
       )
       if (containingIndex >= 0) {
-        outputPolygons[containingIndex].holes.push(hole)
+        const assignedOuter = outputPolygons[containingIndex].outer
+        const outerSign = Math.sign(signedRingAreaDeg2(assignedOuter))
+        const holeSign = Math.sign(signedRingAreaDeg2(hole))
+        const normalizedHole = outerSign !== 0 && holeSign !== 0 && outerSign === holeSign
+          ? reverseClosedRing(hole)
+          : hole
+        outputPolygons[containingIndex].holes.push(normalizedHole)
         continue
       }
 
