@@ -11,6 +11,7 @@ on:
       - 'tests/globe-polygon-rendering.test.ts'
       - 'data/globe/natural-earth-countries.ts'
       - '.github/workflows/pr1323-final-topology-verification.yml'
+      - '.github/pr1323-final-topology-trigger'
 
 permissions:
   contents: write
