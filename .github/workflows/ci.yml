@@ -10,14 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# ── Shared node_modules cache ────────────────────────────────────────────────
-# All jobs restore from the same cache key. The first job to complete primes it;
-# subsequent jobs hit it. Saves ~60-90s of npm ci per job.
 env:
   NODE_VERSION: '22'
 
 jobs:
-  # ── Install once, cache for all downstream jobs ────────────────────────────
   install:
     name: Install
     runs-on: ubuntu-latest
@@ -33,7 +29,6 @@ jobs:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-  # ── Typecheck ────────────────────────────────────────────────────────────────
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
@@ -50,20 +45,18 @@ jobs:
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run typecheck
 
-  # ── Critical env check (parallel with typecheck, no npm ci needed) ──────────
-  # Runs node directly — no test framework, no build. Fastest possible gate.
   env-check:
     name: Critical Env Secrets
     runs-on: ubuntu-latest
     needs: install
     env:
-      HF_TOKEN_SERVER:                   ${{ secrets.HF_TOKEN_SERVER }}
-      GEMINI_API_KEY:                    ${{ secrets.GEMINI_API_KEY }}
-      HARBOURVIEW_EDGE_OPERATOR_SECRET:  ${{ secrets.HARBOURVIEW_EDGE_OPERATOR_SECRET }}
-      CRON_SECRET:                       ${{ secrets.CRON_SECRET }}
-      SUPABASE_SERVICE_ROLE_KEY:         ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      HF_ENDPOINT_EMBED_BGE_M3:          ${{ secrets.HF_ENDPOINT_EMBED_BGE_M3 }}
-      XAI_API_KEY:                       ${{ secrets.XAI_API_KEY }}
+      HF_TOKEN_SERVER: ${{ secrets.HF_TOKEN_SERVER }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      HARBOURVIEW_EDGE_OPERATOR_SECRET: ${{ secrets.HARBOURVIEW_EDGE_OPERATOR_SECRET }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      HF_ENDPOINT_EMBED_BGE_M3: ${{ secrets.HF_ENDPOINT_EMBED_BGE_M3 }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -76,9 +69,6 @@ jobs:
       - name: Check critical environment variables
         run: node scripts/check-critical-env.mjs
 
-  # ── Security / Leakage ───────────────────────────────────────────────────────
-  # Deduplicated: public-route-smoke.test.ts and public-projection-leakage.test.ts
-  # were each run 2-3x across old security + smoke jobs. Consolidated here.
   security:
     name: Security / Leakage
     runs-on: ubuntu-latest
@@ -93,9 +83,7 @@ jobs:
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      # Public leakage — runs once here, not again in smoke
       - run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts
-      # Used-surplus leakage — publicProjection.test.ts runs once here
       - run: npx vitest run tests/marketplace/publicProjection.test.ts
       - name: Public leakage fuzz
         run: npx vitest run tests/security/public-leakage-fuzz.test.ts
@@ -132,7 +120,6 @@ jobs:
       - name: Natural Earth countries
         run: npx vitest run tests/globe-natural-earth-countries.test.ts
 
-  # ── Domain Logic ─────────────────────────────────────────────────────────────
   domain:
     name: Domain Logic
     runs-on: ubuntu-latest
@@ -154,7 +141,6 @@ jobs:
       - run: npm run test:regulatory-signals-contract
       - run: npm run test:intelligence-os
 
-  # ── Intake & Listings ────────────────────────────────────────────────────────
   intake:
     name: Intake & Listings
     runs-on: ubuntu-latest
@@ -173,7 +159,6 @@ jobs:
       - run: npx vitest run tests/harbourview/unified-listings-dto.test.ts
       - run: npm run test:public-images
 
-  # ── Signal Engine Runtime ────────────────────────────────────────────────────
   signal-engine:
     name: Signal Engine Runtime
     runs-on: ubuntu-latest
@@ -190,7 +175,6 @@ jobs:
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run test:signal-engine-runtime
 
-  # ── Smoke ────────────────────────────────────────────────────────────────────
   smoke:
     name: Smoke Tests
     runs-on: ubuntu-latest
@@ -208,15 +192,14 @@ jobs:
       - run: npm run smoke:marketplace
       - run: npx vitest run tests/marketplace/seedImportSchema.test.ts
 
-  # ── Build ────────────────────────────────────────────────────────────────────
   build:
     name: Next.js Build
     runs-on: ubuntu-latest
     needs: [smoke, env-check]
     env:
-      NEXT_PUBLIC_SUPABASE_URL:      ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      STRIPE_SECRET_KEY:             ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -229,12 +212,16 @@ jobs:
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm run build
 
-  # ── E2E (push to main only) ──────────────────────────────────────────────────
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+      E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -245,10 +232,23 @@ jobs:
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-        env:
-          NEXT_PUBLIC_SUPABASE_URL:      ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          E2E_TEST_USER_EMAIL:           ${{ secrets.E2E_TEST_USER_EMAIL }}
-          E2E_TEST_USER_PASSWORD:        ${{ secrets.E2E_TEST_USER_PASSWORD }}
+      - name: Check optional E2E credentials
+        id: e2e-creds
+        shell: bash
+        run: |
+          if [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] && [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && [ -n "$E2E_TEST_USER_EMAIL" ] && [ -n "$E2E_TEST_USER_PASSWORD" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "GO: optional authenticated E2E credentials are configured."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "SKIP: optional authenticated E2E credentials are not fully configured; repository CI remains green without them."
+          fi
+      - name: Install Playwright Chromium
+        if: steps.e2e-creds.outputs.configured == 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Run authenticated E2E suite
+        if: steps.e2e-creds.outputs.configured == 'true'
+        run: npm run test:e2e
+      - name: Record intentional E2E skip
+        if: steps.e2e-creds.outputs.configured != 'true'
+        run: echo "GO: authenticated E2E skipped because optional credentials are absent or incomplete."

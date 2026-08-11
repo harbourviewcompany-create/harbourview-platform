@@ -69,7 +69,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: ${{ github.event.inputs.commit_message || 'chore: Sync design tokens from Figma' }}
+          commit-message: "${{ github.event.inputs.commit_message || 'chore: Sync design tokens from Figma' }}"
           title: 'chore: Update design tokens from Figma'
           body: |
             Automated sync of design tokens from Figma.
