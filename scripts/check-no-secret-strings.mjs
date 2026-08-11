@@ -65,7 +65,10 @@ const patterns = [
 ];
 
 const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*(?:=|:(?!\?))\s*(.+?)\s*$/i;
-const safeReferenceValue = /^(?:\$\{\{\s*(?:secrets|vars|github|inputs)\.[A-Za-z0-9_.-]+\s*\}\}|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|process\.env\.[A-Z0-9_]+|env\.[A-Z0-9_]+|secrets\.[A-Z0-9_]+|vars\.[A-Z0-9_]+)$/i;
+const plainReferenceValue = /^(?:process\.env|env|secrets|vars)\.[A-Z0-9_.-]+$/i;
+const shellReferenceValue = /^\$\{[A-Z0-9_]+\}$/i;
+const requiredShellReferenceValue = /^\$\{[A-Z0-9_]+:\?[^}]*\}$/i;
+const githubExpressionInner = /^(?:secrets|vars|github|inputs)\.[A-Z0-9_.-]+$/i;
 const safePlaceholderValue = /^(?:<[^>]+>|your_[A-Za-z0-9_-]+|example[A-Za-z0-9_-]*|REPLACE_ME|CHANGEME|1|0|true|false|''|"")$/i;
 
 function normalizeAssignmentValue(rawValue) {
@@ -78,6 +81,19 @@ function normalizeAssignmentValue(rawValue) {
     }
   }
   return value;
+}
+
+function isSafeReferenceValue(value) {
+  if (plainReferenceValue.test(value)) return true;
+  if (shellReferenceValue.test(value)) return true;
+  if (requiredShellReferenceValue.test(value)) return true;
+
+  if (value.startsWith('${{') && value.endsWith('}}')) {
+    const inner = value.slice(3, -2).trim();
+    return githubExpressionInner.test(inner);
+  }
+
+  return false;
 }
 
 function isProbablyText(path) {
@@ -99,7 +115,7 @@ function scanLine(line, source) {
     const value = normalizeAssignmentValue(assignment[1]);
     if (
       value.length >= 8 &&
-      !safeReferenceValue.test(value) &&
+      !isSafeReferenceValue(value) &&
       !safePlaceholderValue.test(value)
     ) {
       findings.push({ source, pattern: 'risky-secret-assignment' });
@@ -107,6 +123,33 @@ function scanLine(line, source) {
   }
   return findings;
 }
+
+function runParserSelfTests() {
+  const safeCases = [
+    'FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}',
+    '# FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}',
+    'SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?required}',
+    'API_KEY=process.env.API_KEY',
+    'TOKEN: vars.DEPLOY_TOKEN',
+  ];
+  const blockedCases = [
+    'API_KEY=literal-secret-value',
+    'TOKEN: literal-token-value',
+    'PASSWORD=${PASSWORD:-fallback-secret}',
+  ];
+
+  for (const line of safeCases) {
+    const risky = scanLine(line, 'self-test').some((finding) => finding.pattern === 'risky-secret-assignment');
+    if (risky) throw new Error(`Secret scanner self-test rejected safe reference: ${line}`);
+  }
+
+  for (const line of blockedCases) {
+    const risky = scanLine(line, 'self-test').some((finding) => finding.pattern === 'risky-secret-assignment');
+    if (!risky) throw new Error(`Secret scanner self-test accepted unsafe assignment: ${line}`);
+  }
+}
+
+runParserSelfTests();
 
 const files = getChangedFiles(base, head);
 const findings = [];
@@ -120,6 +163,7 @@ for (const file of files) {
 console.log('Secret-string scan');
 console.log(`Base: ${base}`);
 console.log(`Head: ${head}`);
+console.log('Parser self-tests: PASS');
 if (files.length === 0) console.log('Changed files: none');
 else {
   console.log('Scanned changed files:');
