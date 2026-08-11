@@ -71,25 +71,55 @@ function runGeometryProbe<T>(probe: string): T {
         return Math.abs((pb.x - pa.x) * (pc.y - pa.y) - (pb.y - pa.y) * (pc.x - pa.x)) / 2
       })
     }
+    const holePreservation = (sourcePolygons, generatedPolygons, tolerance) => {
+      const generatedHoles = generatedPolygons.flatMap((polygon) =>
+        polygon.rings.filter((ring) => ring.kind === 'hole'),
+      )
+
+      return sourcePolygons.flatMap((polygon, polygonIndex) =>
+        polygon.slice(1).map((sourceHole, holeIndex) => {
+          const expectedFragments = generator.splitRingAtAntimeridian(sourceHole)
+            .map((part) => generator.simplifyRing(part, tolerance))
+            .filter(Boolean)
+          const eligibleFragments = expectedFragments.filter((fragment) =>
+            generatedPolygons.some((generatedPolygon) => {
+              const outer = generatedPolygon.rings.find((ring) => ring.kind === 'outer')
+              return outer && fragment.slice(0, -1).some((point) => generator.pointInRing(point, outer.points))
+            }),
+          )
+          const matchedFragmentCount = eligibleFragments.filter((fragment) =>
+            generatedHoles.some((generatedHole) =>
+              fragment.slice(0, -1).some((point) => generator.pointInRing(point, generatedHole.points)),
+            ),
+          ).length
+          return {
+            polygonIndex,
+            holeIndex,
+            eligibleFragmentCount: eligibleFragments.length,
+            matchedFragmentCount,
+          }
+        }),
+      )
+    }
 
     ${probe}
   `
 
   const result = spawnSync(process.execPath, ['--input-type=module', '--eval', source], {
-  cwd: process.cwd(),
-  encoding: 'utf8',
-  maxBuffer: 20 * 1024 * 1024,
-  timeout: 30_000,
-})
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    maxBuffer: 20 * 1024 * 1024,
+    timeout: 30_000,
+  })
 
-const failureContext = [
-  `status=${String(result.status)}`,
-  `signal=${String(result.signal)}`,
-  `error=${result.error ? String(result.error) : 'none'}`,
-  `stderr=${result.stderr || '<empty>'}`,
-  `stdout=${result.stdout || '<empty>'}`,
-].join('\n')
-assert.equal(result.status, 0, failureContext)
+  const failureContext = [
+    `status=${String(result.status)}`,
+    `signal=${String(result.signal)}`,
+    `error=${result.error ? String(result.error) : 'none'}`,
+    `stderr=${result.stderr || '<empty>'}`,
+    `stdout=${result.stdout || '<empty>'}`,
+  ].join('\n')
+  assert.equal(result.status, 0, failureContext)
   return JSON.parse(result.stdout) as T
 }
 
@@ -136,6 +166,58 @@ test('synthetic antimeridian fragments close on the seam without false mainland 
   )
 })
 
+test('each synthetic source hole preserves at least one assigned fragment across the antimeridian', () => {
+  const result = runGeometryProbe<{
+    polygonCount: number
+    generatedHoleCount: number
+    misplacedHoleCount: number
+    sourceHoles: Array<{
+      polygonIndex: number
+      holeIndex: number
+      eligibleFragmentCount: number
+      matchedFragmentCount: number
+    }>
+  }>(`
+    const geometry = {
+      type: 'Polygon',
+      coordinates: [
+        [[170, 60], [-170, 60], [-170, 40], [170, 40], [170, 60]],
+        [[175, 55], [175, 45], [-175, 45], [-175, 55], [175, 55]],
+        [[172, 53], [172, 48], [176, 48], [176, 53], [172, 53]],
+      ],
+    }
+    const polygons = generator.normalizePolygons(geometry, 0)
+    const generatedHoles = polygons.flatMap((polygon) => polygon.rings.filter((ring) => ring.kind === 'hole'))
+    const misplacedHoleCount = polygons.reduce((count, polygon) => {
+      const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+      if (!outer) return count
+      return count + polygon.rings.filter((ring) => ring.kind === 'hole').filter((hole) =>
+        !hole.points.slice(0, -1).some((point) => generator.pointInRing(point, outer.points)),
+      ).length
+    }, 0)
+
+    console.log(JSON.stringify({
+      polygonCount: polygons.length,
+      generatedHoleCount: generatedHoles.length,
+      misplacedHoleCount,
+      sourceHoles: holePreservation([geometry.coordinates], polygons, 0),
+    }))
+  `)
+
+  assert.ok(result.polygonCount >= 2, 'synthetic outer must split across the antimeridian')
+  assert.ok(result.generatedHoleCount >= 3, 'expected seam-split and single-side hole fragments')
+  assert.equal(result.misplacedHoleCount, 0, 'synthetic hole fragment assigned outside its outer')
+  assert.equal(result.sourceHoles.length, 2)
+  for (const sourceHole of result.sourceHoles) {
+    assert.ok(sourceHole.eligibleFragmentCount > 0, `source hole ${sourceHole.holeIndex} has no eligible fragments`)
+    assert.equal(
+      sourceHole.matchedFragmentCount,
+      sourceHole.eligibleFragmentCount,
+      `source hole ${sourceHole.holeIndex} lost an eligible generated fragment`,
+    )
+  }
+})
+
 test('Natural Earth seam-affected countries preserve closure, winding, hole ownership and Earcut validity', () => {
   const result = runGeometryProbe<{
     crossingIso2: string[]
@@ -148,8 +230,12 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       invalidWindingCount: number
       degenerateTriangleCount: number
       triangleCount: number
-      sourceHoleCount: number
-      generatedHoleCount: number
+      sourceHoles: Array<{
+        polygonIndex: number
+        holeIndex: number
+        eligibleFragmentCount: number
+        matchedFragmentCount: number
+      }>
     }>
   }>(`
     const crossingIso2 = sourceGeoJson.features.filter(sourceCrossesSeam).map(iso2ForFeature).filter(Boolean).sort()
@@ -171,20 +257,13 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       let misplacedHoleCount = 0
       let invalidWindingCount = 0
       let degenerateTriangleCount = 0
-let triangleCount = 0
-const sourcePolygons = feature.geometry?.type === 'Polygon'
-  ? [feature.geometry.coordinates]
-  : feature.geometry?.coordinates ?? []
-const sourceHoleCount = sourcePolygons.reduce(
-  (sum, polygon) => sum + Math.max(0, polygon.length - 1),
-  0,
-)
-const generatedHoleCount = country.polygons.reduce(
-  (sum, polygon) => sum + polygon.rings.filter((ring) => ring.kind === 'hole').length,
-  0,
-)
+      let triangleCount = 0
+      const sourcePolygons = feature.geometry?.type === 'Polygon'
+        ? [feature.geometry.coordinates]
+        : feature.geometry?.coordinates ?? []
+      const sourceHoles = holePreservation(sourcePolygons, country.polygons, 0.12)
 
-for (const polygon of country.polygons) {
+      for (const polygon of country.polygons) {
         const outer = polygon.rings.find((ring) => ring.kind === 'outer')
         if (!outer) continue
         if (!pointEqual(outer.points[0], outer.points[outer.points.length - 1])) {
@@ -219,8 +298,7 @@ for (const polygon of country.polygons) {
         invalidWindingCount,
         degenerateTriangleCount,
         triangleCount,
-        sourceHoleCount,
-        generatedHoleCount,
+        sourceHoles,
       }
     }
 
@@ -241,11 +319,14 @@ for (const polygon of country.polygons) {
     assert.equal(geometry.misplacedHoleCount, 0, `${iso2}: hole assigned outside its outer ring`)
     assert.equal(geometry.invalidWindingCount, 0, `${iso2}: invalid or same-direction outer/hole winding`)
     assert.equal(geometry.degenerateTriangleCount, 0, `${iso2}: Earcut emitted degenerate triangles`)
-assert.ok(
-  geometry.generatedHoleCount >= geometry.sourceHoleCount,
-  `${iso2}: source holes lost (${geometry.sourceHoleCount} source, ${geometry.generatedHoleCount} generated)`,
-)
-assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
+    for (const sourceHole of geometry.sourceHoles) {
+      assert.equal(
+        sourceHole.matchedFragmentCount,
+        sourceHole.eligibleFragmentCount,
+        `${iso2}: source hole ${sourceHole.polygonIndex}:${sourceHole.holeIndex} lost an eligible generated fragment`,
+      )
+    }
+    assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
   }
 })
 
