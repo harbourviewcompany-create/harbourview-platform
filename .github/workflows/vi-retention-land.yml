@@ -113,6 +113,6 @@ jobs:
         run: |
           git config user.name 'Harbourview Release Bot'
           git config user.email 'harbourviewcompany@gmail.com'
-          git add scripts/generate-natural-earth-countries.mjs tests/harbourview/natural-earth-small-country-retention.test.ts data/globe/natural-earth-countries.ts .github/workflows/pr1323-small-country-retention-probe.yml
+          git add -A
           git commit -m 'fix(globe): retain source-eligible small countries'
           git push origin HEAD:fix/globe-vi-small-country-retention
