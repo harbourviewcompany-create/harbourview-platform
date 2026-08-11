@@ -4855,3 +4855,22 @@ for other versions on `main`. Those predate this work and are untouched.
 
 **Verification:**
 - Exact resulting branch-head CI, build, authenticated mobile Playwright and preview status are the authoritative merge gate and are recorded on PR #1307.
+
+
+---
+
+## 2026-08-10 — PR #1323 final antimeridian topology closeout
+
+**Evidence ID:** `HV-PR1323-FINAL-TOPOLOGY-20260810`
+
+**Exact verified implementation head:** `b9d62ca56c9cc380a88cfd089ffca09eb9491ce9`; dedicated read-only workflow `PR 1323 Final Topology Verification`, run `31450185534`, job `93652777134`.
+
+**Generator / artifact evidence:** `node scripts/generate-natural-earth-countries.mjs` regenerated **194 countries / 15,370 vertex points**. The checked-in `data/globe/natural-earth-countries.ts` matched one regeneration after normalizing only `generatedAt`. Normalized SHA-256: `4b8c2a287187ab9438006c77ebabc5b02d3ed9f7bb77fb93bd623cf01f4e71f3`. A second independent regeneration produced the same normalized SHA.
+
+**Topology / rendering evidence:** `npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts` → **9/9 PASS**; `npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts` → **4/4 PASS**; `npx vitest run tests/globe-polygon-rendering.test.ts` → **20/20 PASS**. Coverage includes checked-in payload parity, cyclic and differing-latitude ±180 seam aliases, multi-crossing outer cutouts, multi-crossing source-hole islands, minimum-area discarded-fragment hole ownership, independent source-hole area preservation, Natural Earth seam-affected countries, Russia seam closure, spherical triangulation and renderer continuity per generated polygon.
+
+**Repository QA:** `npm run lint` → exit 0, **0 errors / 146 pre-existing warnings**; `npm run typecheck` → PASS; `npm run test` → PASS; targeted public-boundary/security/leakage suite → **13/13 PASS**; `npm run build` → PASS, including prebuild regeneration to the same 194-country / 15,370-point payload.
+
+**Safety / scope:** no production deployment, migration, database write, secret change, or production-system modification was performed.
+
+**Decision:** **GO for the validated repository implementation on the exact verified implementation head.** Evidence-only/review-thread-only follow-up commits must preserve implementation blobs and receive normal final-head repository checks before merge.
