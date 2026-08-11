@@ -159,24 +159,4 @@ test.describe('Mobile Intel institutional visual evidence', () => {
     }
   })
 
-  test('keeps Intel navigation, long German search content and bottom-nav clearance usable at 320/375/430', async ({ page }) => {
-    for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 812 }, { width: 430, height: 932 }]) {
-      await setState(page, searchGermany(), 'Search', viewport.width, viewport.height)
-      await expect(page.locator('.hvm2-intel-search-result').first()).toBeVisible()
-      const navBox = await page.locator('.hvm2-bottom-nav').boundingBox()
-      const mainBox = await page.locator('.hvm-op-main').boundingBox()
-      expect(navBox).not.toBeNull()
-      expect(mainBox).not.toBeNull()
-      expect(mainBox!.y + mainBox!.height).toBeLessThanOrEqual(navBox!.y + 1)
-      const longResult = page.locator('.hvm2-intel-search-result').filter({ hasText: 'Cannabis Social Clubs' })
-      expect(await longResult.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-      await shot(page, `after-responsive-search-${viewport.width}x${viewport.height}.png`)
-    }
-  })
-
-  test('remains horizontally usable with a 200-percent text stress condition', async ({ page }) => {
-    await setState(page, searchGermany(), 'Search', 390, 844, true)
-    await expect(page.locator('.hvm2-intel-search-result').first()).toBeVisible()
-    await shot(page, 'after-accessibility-search-390x844-200pct.png')
-  })
 })

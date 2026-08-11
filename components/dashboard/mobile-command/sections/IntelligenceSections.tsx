@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
 import type { MobileCommandCentreProps } from '../props'
 import { asRecord, readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
@@ -207,7 +208,7 @@ export function SearchSection({ sectionRef, searchQuery, searchRecords, onQueryC
   }
 
   return (
-    <SectionShell id="search" sectionRef={sectionRef} eyebrow="Cross-command search" title="Search authenticated command records" description="Search covers the record types already loaded into this authenticated command session; it does not broaden data access or bypass existing authorization boundaries.">
+    <SectionShell id="search" sectionRef={sectionRef} eyebrow="Cross-command search" title="Search authenticated command records" description={MOBILE_COMMAND_COPY.searchDescription}>
       <label className="hvm2-search-field hvm2-search-field-large">
         <span aria-hidden="true">⌕</span>
         <input value={searchQuery} onChange={event => onQueryChange(event.target.value)} aria-label={label} placeholder={label} />

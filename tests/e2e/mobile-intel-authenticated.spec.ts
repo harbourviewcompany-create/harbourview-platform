@@ -41,6 +41,26 @@ async function authenticate(browser: Browser) {
   }
 }
 
+async function assertMobileIntelLayout(page: Page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+
+  const activeTab = page.locator('.hvm-op-secondary-nav [aria-current="page"]')
+  await expect(activeTab).toBeVisible()
+  const tabGeometry = await activeTab.evaluate(element => {
+    const button = element.getBoundingClientRect()
+    const nav = element.parentElement!.getBoundingClientRect()
+    return { left: button.left, right: button.right, navLeft: nav.left, navRight: nav.right }
+  })
+  expect(tabGeometry.left).toBeGreaterThanOrEqual(tabGeometry.navLeft - 1)
+  expect(tabGeometry.right).toBeLessThanOrEqual(tabGeometry.navRight + 1)
+
+  const bottomNav = await page.locator('.hvm-op-bottom-nav').boundingBox()
+  const main = await page.locator('.hvm-op-main').boundingBox()
+  expect(bottomNav).not.toBeNull()
+  expect(main).not.toBeNull()
+  expect(main!.y + main!.height).toBeLessThanOrEqual(bottomNav!.y + 1)
+}
+
 async function openIntelState(page: Page, section: string, expectedTab: string, file: string) {
   const response = await page.goto(
     `/dashboard?country=CA&role=exporter&page=briefing&section=${encodeURIComponent(section)}`,
@@ -55,7 +75,7 @@ async function openIntelState(page: Page, section: string, expectedTab: string, 
   await expect(page.locator(`#${section}`)).toBeVisible()
   await expect(page.locator('.hvm-op-secondary-nav [aria-current="page"]')).toHaveText(expectedTab)
 
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+  await assertMobileIntelLayout(page)
   await page.screenshot({ path: path.join(evidenceRoot, file), fullPage: false })
 }
 
@@ -89,6 +109,35 @@ test.describe('Mobile Intel authenticated evidence', () => {
       await expect(page.locator('.hvm2-search-results')).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
       await page.screenshot({ path: path.join(evidenceRoot, 'intel-auth-06-search-canada-390x844.png'), fullPage: false })
+
+      for (const viewport of [
+        { width: 320, height: 568 },
+        { width: 375, height: 812 },
+        { width: 390, height: 844 },
+        { width: 430, height: 932 },
+      ]) {
+        await page.setViewportSize(viewport)
+        await openIntelState(page, 'search', 'Search', `intel-auth-responsive-search-${viewport.width}x${viewport.height}.png`)
+        const responsiveInput = page.getByLabel('Search signals, markets, regulations, authorities, operators or actions')
+        await responsiveInput.fill('Canada')
+        await expect(page.locator('.hvm2-search-results')).toBeVisible()
+        await assertMobileIntelLayout(page)
+      }
+
+      await page.setViewportSize({ width: 390, height: 844 })
+      await openIntelState(page, 'search', 'Search', 'intel-auth-accessibility-base-390x844.png')
+      await page.addStyleTag({
+        content: `
+          .hvm2-section-heading h2,.hvm-op-page-title{font-size:200%!important}
+          .hvm2-section-heading p,.hvm2-intel-search-result>strong,.hvm2-intel-search-result>p,.hvm2-intel-search-result>small,.hvm2-search-summary,.hvm2-search-filters button,.hvm-op-secondary-nav button,.hvm-op-context-trigger>span:first-child,.hvm2-bottom-nav small{font-size:200%!important}
+          .hvm2-intel-search-result,.hvm-op-secondary-nav button,.hvm2-search-filters button{min-height:44px;height:auto!important}
+        `,
+      })
+      const largeTextInput = page.getByLabel('Search signals, markets, regulations, authorities, operators or actions')
+      await largeTextInput.fill('Canada')
+      await expect(page.locator('.hvm2-search-results')).toBeVisible()
+      await assertMobileIntelLayout(page)
+      await page.screenshot({ path: path.join(evidenceRoot, 'intel-auth-accessibility-search-390x844-200pct.png'), fullPage: false })
     } finally {
       await context.close()
     }
