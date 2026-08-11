@@ -26,14 +26,24 @@ jobs:
         run: deno test supabase/functions/_shared/structured-json.test.ts
       - name: Type-check source-engine-fetch
         run: deno check --node-modules-dir=auto supabase/functions/source-engine-fetch/index.ts
-      - name: Verify Wave 1 migration control IDs
+      - name: Verify Wave 1 migration control contract
         shell: bash
         run: |
           set -euo pipefail
           migration='supabase/migrations/20260810223000_source_expansion_wave1_structured_authorities.sql'
-          grep -q 'SX-0005' "$migration"
-          grep -q 'SX-0054' "$migration"
-          grep -q 'SX-0056' "$migration"
-          test "$(grep -c "'structured_fetch', true" "$migration")" -eq 4
-          test "$(grep -c "adapter = 'api'" "$migration")" -eq 2
-          test "$(grep -c "'api'," "$migration")" -ge 2
+          grep -q "'audit_source_id', 'SX-0005'" "$migration"
+          grep -q "'audit_source_id', 'SX-0054'" "$migration"
+          grep -q "'audit_source_id', 'SX-0056'" "$migration"
+          grep -q "'records_path'" "$migration"
+          grep -q "'identity_path'" "$migration"
+          grep -q "'structured_fetch', true" "$migration"
+          grep -q "content_type = ARRAY\['research'\]::text\[\]" "$migration"
+          grep -q "Wave 1 source assertion failed: expected 4 active structured API rows" "$migration"
+          if grep -q "last_checked_at = NULL" "$migration"; then
+            echo 'Wave 1 replay must preserve existing source health timestamps.' >&2
+            exit 1
+          fi
+          if grep -q "consecutive_failures = 0" "$migration"; then
+            echo 'Wave 1 replay must preserve existing source failure history.' >&2
+            exit 1
+          fi
