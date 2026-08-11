@@ -140,15 +140,20 @@ function sameSeamLocation(a, b) {
 
 function normalizeEquivalentSeamAliases(points) {
   const normalized = points.map(([lon, lat]) => [lon, lat])
+  let changed = false
+
   for (let index = 1; index < normalized.length; index += 1) {
     if (sameSeamLocation(normalized[index - 1], normalized[index])) {
+      if (normalized[index][0] !== normalized[index - 1][0]) changed = true
       normalized[index][0] = normalized[index - 1][0]
     }
   }
   if (normalized.length >= 2 && sameSeamLocation(normalized[normalized.length - 1], normalized[0])) {
+    if (normalized[normalized.length - 1][0] !== normalized[0][0]) changed = true
     normalized[normalized.length - 1][0] = normalized[0][0]
   }
-  return normalized
+
+  return { points: normalized, changed }
 }
 
 function reverseClosedRing(ring) {
@@ -166,7 +171,7 @@ function reverseClosedRing(ring) {
 function splitRingAtAntimeridian(ring) {
   if (!Array.isArray(ring) || ring.length < 4) return [ring]
 
-  const pts = normalizeEquivalentSeamAliases(ring)
+  const { points: pts, changed: seamAliasesNormalized } = normalizeEquivalentSeamAliases(ring)
   if (pts.length >= 2 && samePoint(pts[0], pts[pts.length - 1])) pts.pop()
   if (pts.length < 3) return [ring]
 
@@ -174,7 +179,9 @@ function splitRingAtAntimeridian(ring) {
   for (let i = 0; i < pts.length; i += 1) {
     if (crossesAntimeridian(pts[i], pts[(i + 1) % pts.length])) crossingIndices.push(i)
   }
-  if (crossingIndices.length === 0) return [closeRing(pts) ?? ring]
+  if (crossingIndices.length === 0) {
+    return seamAliasesNormalized ? [closeRing(pts) ?? ring] : [ring]
+  }
 
   // Start immediately after a crossing so every fragment begins at a synthetic
   // seam-entry point and ends at a seam-leave point on the same ±180 meridian.
