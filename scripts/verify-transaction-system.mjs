@@ -42,7 +42,9 @@ for (const migrationPath of migrationPaths) {
   invariant(fs.existsSync(migrationPath), `Missing migration: ${migrationPath}`);
 }
 
-const sql = migrationPaths.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+const migrationSql = migrationPaths.map((file) => fs.readFileSync(file, "utf8"));
+const sql = migrationSql.join("\n");
+const finalHardeningSql = migrationSql.at(-1) ?? "";
 
 for (const table of rlsTables) {
   invariant(
@@ -107,8 +109,10 @@ invariant(
 invariant(sql.includes("foreign key (party_id, transaction_id)"), "Diligence party/transaction integrity constraint missing");
 invariant(sql.includes("foreign key (specific_party_id, transaction_id)"), "Economics party/transaction integrity constraint missing");
 invariant(sql.includes("visibility_scope = 'transaction_parties'"), "Participant party visibility scope gate missing");
-invariant(!sql.includes("'super_admin'"), "Unrepresentable super_admin role remains in transaction policies");
-invariant(!sql.includes("'compliance_reviewer'"), "Unrepresentable compliance_reviewer role remains in transaction policies");
+invariant(finalHardeningSql.includes("array['admin','operator','analyst']"), "Canonical internal read-role override missing");
+invariant(finalHardeningSql.includes("array['admin','operator']"), "Canonical internal write-role override missing");
+invariant(!finalHardeningSql.includes("'super_admin'"), "Final policy override still advertises unrepresentable super_admin");
+invariant(!finalHardeningSql.includes("'compliance_reviewer'"), "Final policy override still advertises unrepresentable compliance_reviewer");
 invariant(sql.includes("hv_guard_transaction_decision_mutation"), "Finalized decision mutation guard missing");
 invariant(sql.includes("transaction_decisions_audit_update"), "Decision update audit trigger missing");
 invariant(sql.includes("latitude is not null") && sql.includes("longitude is not null"), "Coordinate pair integrity hardening missing");
