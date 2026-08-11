@@ -1,0 +1,51 @@
+name: PR 1323 Small Country Retention Probe
+on:
+  push:
+    branches: [fix/globe-antimeridian-generator-hardening]
+    paths: ['.github/workflows/pr1323-small-country-retention-probe.yml']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Patch source-area retention in working tree only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/generate-natural-earth-countries.mjs')
+          s=p.read_text()
+          old="""    const simplifiedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)\n    const discardedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) < MIN_POLYGON_AREA_DEG2)\n\n    if (simplifiedOuters.length === 0) continue\n"""
+          new="""    let simplifiedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)\n    let discardedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) < MIN_POLYGON_AREA_DEG2)\n\n    // The minimum-area gate is a source-geometry eligibility rule, not a\n    // post-simplification size rule. A small valid island can simplify below\n    // the threshold even though its source outer is eligible. Preserve such a\n    // non-antimeridian outer at full source fidelity instead of deleting the\n    // country from the generated payload.\n    if (simplifiedOuters.length === 0) {\n      const closedSourceOuter = closeRing(rawOuter)\n      const sourceCrossesSeam = closedSourceOuter?.some((point, index) => {\n        const next = closedSourceOuter[index + 1]\n        return next ? crossesAntimeridian(point, next) : false\n      }) ?? false\n      if (\n        closedSourceOuter &&\n        !sourceCrossesSeam &&\n        ringAreaDeg2(closedSourceOuter) >= MIN_POLYGON_AREA_DEG2\n      ) {\n        simplifiedOuters = [closedSourceOuter]\n        discardedOuters = []\n      }\n    }\n\n    if (simplifiedOuters.length === 0) continue\n"""
+          if s.count(old)!=1: raise SystemExit(f'target count={s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Regenerate twice and report universe
+        run: |
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run1.ts
+          node scripts/generate-natural-earth-countries.mjs
+          python - <<'PY'
+          from pathlib import Path
+          import re,hashlib
+          def norm(s): return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", s)
+          a=norm(Path('/tmp/run1.ts').read_text()); b=norm(Path('data/globe/natural-earth-countries.ts').read_text())
+          assert a==b
+          print('normalized_sha256='+hashlib.sha256(b.encode()).hexdigest())
+          print('VI_present='+str("iso2: 'VI'" in b))
+          PY
+      - name: Topology
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe rendering
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Full tests
+        run: npm run test
