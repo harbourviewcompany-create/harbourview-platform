@@ -28,3 +28,9 @@ d4afd82bd13a051f3fd2ad6d7f72dfaa469c5cdba439427f5d99a086777770c2  russia-430x932
 42d5365b94e223f7920bc3417b6c6399333c8cd1e210322cf0b59d7fa68253b0  russia-390x844-rotated.png
 97557f1bb84bf96fb639f57edc54f9fa0b04db7d6d6ba332d0e6f21738165661  russia-430x932-focused.png
 1ad7af175765a696847df149ac87dd5c7f0ee77632875e5ff467d888aec64ed2  russia-430x932-rotated.png
+
+[verification-ref cleanup — PASS]
+# cleanup run 31450370154 / GITHUB_TOKEN Contents: write
+# verify/pr1322-production-russia-final-20260810: GET 200 -> DELETE 204 -> GET 404
+# verify/pr1306-production-russia-visual-20260810: GET 200 -> DELETE 204 -> GET 404
+# final marker: RUSSIA_REF_CLEANUP=FULLY_CLEANED
