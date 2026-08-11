@@ -64,6 +64,7 @@ jobs:
           done
           psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-applied-schema.sql
           psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-economics-constraint-specificity.sql
+          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-review-hardening.sql
 
       - name: Transaction schema RLS double-counting and leakage tests
         run: npx vitest run tests/transactions
