@@ -4854,3 +4854,12 @@ for other versions on `main`. Those predate this work and are untouched.
 
 **Verification:**
 - Exact resulting branch-head CI, build, authenticated mobile Playwright and preview status are the authoritative merge gate and are recorded on PR #1307.
+## 2026-08-10 — PR #1329 native transaction-system implementation evidence
+
+- **Scope:** branch-only additive transaction-system implementation on `feat/native-transaction-system-foundation`; no production deploy, Supabase migration application or workbook import.
+- **Live reconciliation:** read-only connected-Supabase inspection verified legacy `public.entities`, bridge PK types, `user_roles`, active `workspace_members`, and broad legacy `listings`/`buyer_requests` privileges. No DDL/DML was executed against the connected project.
+- **Migration dry run:** dedicated `Transaction System Verification` workflow executes all seven transaction migrations against disposable PostgreSQL 16 seeded with the legacy Signal Engine `entities` table/FK relationship and broad marketplace grants. The fixture verifies in-place identity preservation, all transaction RLS surfaces, nullable bridges, legacy-column public access preservation, bridge-column denial, deterministic key controls, evidence-basis controls, append-only supersession, scenario exclusion and party/transaction integrity.
+- **Regression commands:** `node scripts/verify-transaction-system.mjs`; `npx vitest run tests/transactions`; `npm run test:visibility`; `npm run test:services-public-leakage`; `npm run typecheck`; `npm run build`.
+- **Current evidence state:** implementation evidence entry created before final workflow closure. Passing run IDs, final head SHA and review disposition must be appended before merge-ready GO.
+- **Production boundary:** repository verification does not authorize production migration application, workbook import or deployment.
+
