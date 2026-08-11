@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -33,27 +33,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: feat/native-transaction-system-foundation
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Append required transaction control records
-        run: node scripts/append-transaction-control-docs.mjs
-
-      - name: Commit required transaction control records
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md; then
-            echo 'Required control records already present.'
-          else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add docs/control/DATABASE_CONTROL.md docs/control/EVIDENCE_LOG.md
-            git commit -m 'docs(transactions): record database control and evidence baseline'
-            git push origin HEAD:feat/native-transaction-system-foundation
-          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
