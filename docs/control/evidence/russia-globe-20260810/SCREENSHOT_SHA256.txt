@@ -1,0 +1,36 @@
+# Harbourview Russia globe visual evidence — SHA-256 ledger
+# Incident closeout: 2026-08-10
+
+[broken-baseline — PR #1306 production verification]
+# run 31408538270 / artifact 9070776475 / artifact sha256:a6a2025bed8ef2c1e766d27dbfade94fe962f706d6a7f2af4536087c21cd91d5
+f5a1a04550662ab801c1d00e56f62207dbe24a4121c77108c87c8c121f72f0a2  russia-375x812-focused.png
+d53ad94695b8e9ac786e9fdee903f9cf48a1044905682e1f59fe340cd7a0d629  russia-375x812-rotated.png
+ce6a665329e1f192fe02e74820f4754ee59b64c2bb3e395e5b92c4037eec11c9  russia-390x844-focused.png
+e146575177f73a02e78ff1b15e82b6c9326937741148d0028cefdb3da3080a3f  russia-390x844-rotated.png
+fd6d37ddae24d1e54afaae2265216eeb30908bd2953e504510324e3623625f58  russia-430x932-focused.png
+15540a244b36ddc96531e0e7940234cae07190fbf3285c9a1428d5a02e563c2c  russia-430x932-rotated.png
+
+[verified-premerge — PR #1322]
+# run 31425772532 / artifact 9077223807 / artifact sha256:7360ba79ec5cca8beeb587df78f89c4228d4f6a4ca614145a50525c00cc37d4b
+830b8453cdda29be8ea70610973daf40fb817249f5c99177d401664928e7d4ec  russia-375x812-focused.png
+424f3900595e399f50114558d43f95c5fac69cbb5121c7dd32e60c17f6a6bdad  russia-375x812-rotated.png
+6c5c6f1fb6927a23ad86aa5da332b99f8783baef073765b766b0125c7e0f4d9f  russia-390x844-focused.png
+351c842dd9e0a2e9333caaf3915ff0dcec7f20f648346f8109adb8d65b845955  russia-390x844-rotated.png
+abd02973e9e09c44db02a276df683894d3be49aac30534990e0aa8b437d6b9ff  russia-430x932-focused.png
+d4afd82bd13a051f3fd2ad6d7f72dfaa469c5cdba439427f5d99a086777770c2  russia-430x932-rotated.png
+
+[final-production — PASS]
+# production SHA 4533c9223377eb2e60c0fc8d3be48bd522d15806
+# run 31437155015 / artifact 9081533583 / artifact sha256:713843e97bcf3a132b266ce0628b59b50b051c68a9a5c128607e32105ab0ffc0
+2bab6217be5e5e4fb6d551d4b45c25f602d46162b24bad2aa2ae9c24b8f482b2  russia-375x812-focused.png
+520621fc21ca746962844d6c1fb7db0f8adb5b245e41e5e48d7d91f50d119cc5  russia-375x812-rotated.png
+61b7ef4966b0164f0bd8fe414c53919b40bc1d73a5ea3545ef981bc49deae381  russia-390x844-focused.png
+42d5365b94e223f7920bc3417b6c6399333c8cd1e210322cf0b59d7fa68253b0  russia-390x844-rotated.png
+97557f1bb84bf96fb639f57edc54f9fa0b04db7d6d6ba332d0e6f21738165661  russia-430x932-focused.png
+1ad7af175765a696847df149ac87dd5c7f0ee77632875e5ff467d888aec64ed2  russia-430x932-rotated.png
+
+[verification-ref cleanup — PASS]
+# cleanup run 31450370154 / GITHUB_TOKEN Contents: write
+# verify/pr1322-production-russia-final-20260810: GET 200 -> DELETE 204 -> GET 404
+# verify/pr1306-production-russia-visual-20260810: GET 200 -> DELETE 204 -> GET 404
+# final marker: RUSSIA_REF_CLEANUP=FULLY_CLEANED
