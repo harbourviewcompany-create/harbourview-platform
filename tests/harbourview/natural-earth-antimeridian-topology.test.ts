@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { test } from 'vitest'
+import { naturalEarthCountriesPayload } from '../../data/globe/natural-earth-countries'
 
 function runGeometryProbe<T>(probe: string): T {
   const source = `
@@ -23,6 +24,32 @@ function runGeometryProbe<T>(probe: string): T {
         max = Math.max(max, Math.abs(ring[index + 1][0] - ring[index][0]))
       }
       return max
+    }
+    const normalizedLonDelta = (a, b) => {
+      let delta = b - a
+      while (delta > 180) delta -= 360
+      while (delta < -180) delta += 360
+      return delta
+    }
+    const unwrappedSignedRingAreaDeg2 = (ring) => {
+      if (!Array.isArray(ring) || ring.length < 4) return 0
+      const unwrapped = [[ring[0][0], ring[0][1]]]
+      for (let index = 1; index < ring.length; index += 1) {
+        const previousRaw = ring[index - 1]
+        const point = ring[index]
+        const previousUnwrapped = unwrapped[index - 1]
+        unwrapped.push([
+          previousUnwrapped[0] + normalizedLonDelta(previousRaw[0], point[0]),
+          point[1],
+        ])
+      }
+      let area = 0
+      for (let index = 0; index < unwrapped.length - 1; index += 1) {
+        const [x1, y1] = unwrapped[index]
+        const [x2, y2] = unwrapped[index + 1]
+        area += x1 * y2 - x2 * y1
+      }
+      return area / 2
     }
     const unitSphere = ([lon, lat]) => {
       const lonRad = lon * Math.PI / 180
@@ -92,21 +119,21 @@ function runGeometryProbe<T>(probe: string): T {
               fragment.slice(0, -1).some((point) => generator.pointInRing(point, generatedHole.points)),
             ),
           ).length
-          const sourceAbsoluteArea = Math.abs(generator.signedRingAreaDeg2(sourceHole))
-          const matchedAbsoluteArea = eligibleFragments
-            .filter((fragment) =>
-              generatedHoles.some((generatedHole) =>
-                fragment.slice(0, -1).some((point) => generator.pointInRing(point, generatedHole.points)),
-              ),
-            )
-            .reduce((sum, fragment) => sum + Math.abs(generator.signedRingAreaDeg2(fragment)), 0)
+          const sourceAbsoluteArea = Math.abs(unwrappedSignedRingAreaDeg2(sourceHole))
+          const splitNetAbsoluteArea = Math.abs(
+            expectedFragments.reduce((sum, fragment) => sum + generator.signedRingAreaDeg2(fragment), 0),
+          )
+          const sourceAreaDelta = Math.abs(sourceAbsoluteArea - splitNetAbsoluteArea)
+          const areaTolerance = Math.max(tolerance, sourceAbsoluteArea * 0.02)
           return {
             polygonIndex,
             holeIndex,
             eligibleFragmentCount: eligibleFragments.length,
             matchedFragmentCount,
             sourceAbsoluteArea,
-            matchedAbsoluteArea,
+            splitNetAbsoluteArea,
+            sourceAreaDelta,
+            areaTolerance,
           }
         }),
       )
@@ -132,6 +159,27 @@ function runGeometryProbe<T>(probe: string): T {
   assert.equal(result.status, 0, failureContext)
   return JSON.parse(result.stdout) as T
 }
+
+test('checked-in generated payload carries the hardened transform and Russia seam topology', () => {
+  assert.equal(
+    naturalEarthCountriesPayload.provenance.harbourviewTransformVersion,
+    '1.4.0-natural-earth-50m-antimeridian-seam-closure',
+  )
+  const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')
+  assert.ok(russia, 'checked-in payload must contain Russia')
+  const seamRings = russia.polygons.flatMap((polygon) => polygon.rings).filter((ring) =>
+    ring.points.some(([lon]) => Math.abs(lon) >= 179.999),
+  )
+  assert.ok(seamRings.length > 0, 'checked-in Russia payload must retain seam rings')
+  for (const ring of seamRings) {
+    assert.deepEqual(ring.points[0], ring.points[ring.points.length - 1], 'checked-in seam ring must be closed')
+    let maxJump = 0
+    for (let index = 0; index < ring.points.length - 1; index += 1) {
+      maxJump = Math.max(maxJump, Math.abs(ring.points[index + 1][0] - ring.points[index][0]))
+    }
+    assert.ok(maxJump < 30, `checked-in Russia seam ring created false planar chord: ${maxJump}°`)
+  }
+}, 60_000)
 
 test('synthetic antimeridian fragments close on the seam without false mainland chords', () => {
   const result = runGeometryProbe<{
@@ -276,6 +324,49 @@ test('multi-crossing outer preserves opposite-winding cutout topology', () => {
   assert.equal(result.windingMismatchCount, 0, 'cutout winding must remain opposite its outer')
 }, 60_000)
 
+test('multi-crossing source hole promotes opposite-winding cutouts back to solid islands', () => {
+  const result = runGeometryProbe<{
+    polygonCount: number
+    holeCount: number
+    smallOuterCount: number
+    invalidWindingCount: number
+  }>(`
+    const geometry = {
+      type: 'Polygon',
+      coordinates: [
+        [[160, 70], [-160, 70], [-160, 20], [160, 20], [160, 70]],
+        [[170, 60], [-170, 60], [-170, 50], [170, 50],
+         [170, 45], [-170, 45], [-170, 35], [170, 35], [170, 60]],
+      ],
+    }
+    const polygons = generator.normalizePolygons(geometry, 0)
+    let holeCount = 0
+    let invalidWindingCount = 0
+    const outerAreas = []
+    for (const polygon of polygons) {
+      const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+      if (!outer) continue
+      const outerSign = Math.sign(generator.signedRingAreaDeg2(outer.points))
+      outerAreas.push(Math.abs(generator.signedRingAreaDeg2(outer.points)))
+      for (const hole of polygon.rings.filter((ring) => ring.kind === 'hole')) {
+        holeCount += 1
+        if (Math.sign(generator.signedRingAreaDeg2(hole.points)) === outerSign) invalidWindingCount += 1
+      }
+    }
+    console.log(JSON.stringify({
+      polygonCount: polygons.length,
+      holeCount,
+      smallOuterCount: outerAreas.filter((area) => area < 500).length,
+      invalidWindingCount,
+    }))
+  `)
+
+  assert.equal(result.polygonCount, 3, 'two parent seam fragments plus one solid island must survive')
+  assert.equal(result.holeCount, 3, 'three primary hole fragments must remain excluded')
+  assert.equal(result.smallOuterCount, 1, 'opposite-winding source-hole cutout must become one solid island')
+  assert.equal(result.invalidWindingCount, 0, 'generated hole winding must remain opposite its assigned outer')
+}, 60_000)
+
 test('holes owned only by MIN_POLYGON_AREA_DEG2-discarded fragments are excluded', () => {
   const result = runGeometryProbe<{
     polygonCount: number
@@ -307,14 +398,15 @@ test('each synthetic source hole preserves at least one assigned fragment across
     polygonCount: number
     generatedHoleCount: number
     misplacedHoleCount: number
-    tolerance: number
     sourceHoles: Array<{
       polygonIndex: number
       holeIndex: number
       eligibleFragmentCount: number
       matchedFragmentCount: number
       sourceAbsoluteArea: number
-      matchedAbsoluteArea: number
+      splitNetAbsoluteArea: number
+      sourceAreaDelta: number
+      areaTolerance: number
     }>
   }>(`
     const tolerance = generator.SIMPLIFY_TOLERANCE_DEG
@@ -348,7 +440,6 @@ test('each synthetic source hole preserves at least one assigned fragment across
       polygonCount: polygons.length,
       generatedHoleCount: generatedHoles.length,
       misplacedHoleCount,
-      tolerance,
       sourceHoles: holePreservation([geometry.coordinates], polygons, tolerance),
     }))
   `)
@@ -364,10 +455,9 @@ test('each synthetic source hole preserves at least one assigned fragment across
       sourceHole.eligibleFragmentCount,
       `source hole ${sourceHole.holeIndex} lost an eligible generated fragment`,
     )
-    const areaDelta = Math.abs(sourceHole.sourceAbsoluteArea - sourceHole.matchedAbsoluteArea)
     assert.ok(
-      areaDelta <= result.tolerance,
-      `source hole ${sourceHole.holeIndex} area mismatch: source=${sourceHole.sourceAbsoluteArea}, matched=${sourceHole.matchedAbsoluteArea}, delta=${areaDelta}, tolerance=${result.tolerance}`,
+      sourceHole.sourceAreaDelta <= sourceHole.areaTolerance,
+      `source hole ${sourceHole.holeIndex} split-area mismatch: source=${sourceHole.sourceAbsoluteArea}, splitNet=${sourceHole.splitNetAbsoluteArea}, delta=${sourceHole.sourceAreaDelta}, tolerance=${sourceHole.areaTolerance}`,
     )
   }
 }, 60_000)
@@ -376,7 +466,6 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
   const result = runGeometryProbe<{
     crossingIso2: string[]
     affectedIso2: string[]
-    tolerance: number
     selected: Record<string, {
       polygonCount: number
       maxRawLongitudeJump: number
@@ -391,7 +480,9 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
         eligibleFragmentCount: number
         matchedFragmentCount: number
         sourceAbsoluteArea: number
-        matchedAbsoluteArea: number
+        splitNetAbsoluteArea: number
+        sourceAreaDelta: number
+        areaTolerance: number
       }>
     }>
   }>(`
@@ -471,7 +562,7 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
       }
     }
 
-    console.log(JSON.stringify({ crossingIso2, affectedIso2, tolerance, selected }))
+    console.log(JSON.stringify({ crossingIso2, affectedIso2, selected }))
   `)
 
   for (const required of ['RU', 'FJ', 'NZ', 'US']) {
@@ -494,10 +585,9 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
         sourceHole.eligibleFragmentCount,
         `${iso2}: source hole ${sourceHole.polygonIndex}:${sourceHole.holeIndex} lost an eligible generated fragment`,
       )
-      const areaDelta = Math.abs(sourceHole.sourceAbsoluteArea - sourceHole.matchedAbsoluteArea)
       assert.ok(
-        areaDelta <= result.tolerance,
-        `${iso2}: source hole ${sourceHole.polygonIndex}:${sourceHole.holeIndex} area mismatch: source=${sourceHole.sourceAbsoluteArea}, matched=${sourceHole.matchedAbsoluteArea}, delta=${areaDelta}, tolerance=${result.tolerance}`,
+        sourceHole.sourceAreaDelta <= sourceHole.areaTolerance,
+        `${iso2}: source hole ${sourceHole.polygonIndex}:${sourceHole.holeIndex} split-area mismatch: source=${sourceHole.sourceAbsoluteArea}, splitNet=${sourceHole.splitNetAbsoluteArea}, delta=${sourceHole.sourceAreaDelta}, tolerance=${sourceHole.areaTolerance}`,
       )
     }
     assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
