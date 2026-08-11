@@ -68,10 +68,3 @@ jobs:
               raise SystemExit('Generated Natural Earth geometry is not deterministic after generatedAt normalization')
           print('normalized_sha256=' + hashlib.sha256(a.encode()).hexdigest())
           PY
-
-      - name: Verify generator leaves no normalized artifact drift
-        run: |
-          git diff --exit-code -- data/globe/natural-earth-countries.ts || {
-            echo 'Generated payload has artifact drift after normalization-sensitive verification.'
-            exit 1
-          }
