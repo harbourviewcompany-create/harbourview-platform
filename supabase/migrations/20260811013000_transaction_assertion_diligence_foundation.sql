@@ -97,7 +97,7 @@ create table public.diligence_requirements (
   id uuid primary key default gen_random_uuid(),
   transaction_id uuid not null references public.transactions(id) on delete cascade,
   economic_account_id uuid references public.economic_accounts(id) on delete set null,
-  party_id uuid references public.transaction_parties(id) on delete set null,
+  party_id uuid,
   requirement_type public.hv_diligence_requirement_type not null,
   name text not null,
   description text,
@@ -126,7 +126,11 @@ create table public.diligence_requirements (
   ),
   constraint diligence_validation_status_chk check (
     status not in ('passed','failed') or validated_at is not null
-  )
+  ),
+  constraint diligence_party_transaction_fk foreign key (party_id, transaction_id)
+    references public.transaction_parties(id, transaction_id)
+    on delete no action
+    deferrable initially deferred
 );
 create index diligence_requirements_transaction_idx on public.diligence_requirements (transaction_id, status);
 create index diligence_requirements_account_idx on public.diligence_requirements (economic_account_id) where economic_account_id is not null;
@@ -141,4 +145,4 @@ for each row execute function public.hv_transaction_set_updated_at();
 
 comment on table public.assertions is 'Evidence-backed typed claims about canonical subjects. Verification is independent from transaction probability.';
 comment on table public.evidence_links is 'Generic lineage links that reuse hv_evidence/hv_evidence_documents instead of creating another evidence vault.';
-comment on table public.diligence_requirements is 'Transaction-specific primary-evidence requests and validation contracts.';
+comment on table public.diligence_requirements is 'Transaction-specific primary-evidence requests and validation contracts. Specific-party requirements are FK-bound to a party in the same transaction.';
