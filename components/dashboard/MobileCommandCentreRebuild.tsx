@@ -91,12 +91,26 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
 
   useEffect(() => {
     if (!showSecondaryNav) return
-    const button = secondaryButtonRefs.current.get(model.highlightedSection)
-    if (!button) return
-    const frame = window.requestAnimationFrame(() => {
-      button.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' })
-    })
-    return () => window.cancelAnimationFrame(frame)
+
+    let frame = 0
+    const revealActiveSection = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        secondaryButtonRefs.current
+          .get(model.highlightedSection)
+          ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' })
+      })
+    }
+
+    revealActiveSection()
+    window.addEventListener('resize', revealActiveSection)
+    window.visualViewport?.addEventListener('resize', revealActiveSection)
+
+    return () => {
+      window.removeEventListener('resize', revealActiveSection)
+      window.visualViewport?.removeEventListener('resize', revealActiveSection)
+      window.cancelAnimationFrame(frame)
+    }
   }, [model.highlightedSection, showSecondaryNav])
 
   function closeContext() {
