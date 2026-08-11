@@ -1,0 +1,85 @@
+name: PR 1335 Reconciled Globe Verify
+
+on:
+  push:
+    branches:
+      - fix/pr1323-vi-retention-closeout
+    paths:
+      - '.github/workflows/pr1335-reconciled-globe-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Deterministic VI regeneration proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp data/globe/natural-earth-countries.ts /tmp/committed.ts
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run1.ts
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run2.ts
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          expected = 'd7dafe41037def4569a1277daa6ddce67e76efae1ab5d36865dab0fd7634eb4d'
+          def norm(path):
+              s = Path(path).read_text()
+              return re.sub(r"generatedAt:\s*(['\"])[^'\"]+\1", "generatedAt: '<normalized>'", s)
+          committed = norm('/tmp/committed.ts')
+          run1 = norm('/tmp/run1.ts')
+          run2 = norm('/tmp/run2.ts')
+          assert committed == run1 == run2, 'normalized generated payload drifted'
+          digest = hashlib.sha256(run2.encode()).hexdigest()
+          assert digest == expected, f'normalized SHA mismatch: {digest}'
+          assert "iso2: 'VI'" in run2, 'VI missing from regenerated payload'
+          print('normalized_sha256=' + digest)
+          print('VI_present=true')
+          PY
+      - name: Antimeridian topology
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical regression
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe rendering regression
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Natural Earth payload regression
+        run: npx vitest run tests/globe-natural-earth-countries.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm run test
+      - name: Security and leakage suite
+        run: npm run test:security
+      - name: Production build
+        run: npm run build
+      - name: Post-build deterministic proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/generate-natural-earth-countries.mjs
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          expected = 'd7dafe41037def4569a1277daa6ddce67e76efae1ab5d36865dab0fd7634eb4d'
+          s = Path('data/globe/natural-earth-countries.ts').read_text()
+          normalized = re.sub(r"generatedAt:\s*(['\"])[^'\"]+\1", "generatedAt: '<normalized>'", s)
+          digest = hashlib.sha256(normalized.encode()).hexdigest()
+          assert digest == expected, f'post-build normalized SHA mismatch: {digest}'
+          assert "iso2: 'VI'" in normalized, 'VI missing after build regeneration'
+          print('post_build_normalized_sha256=' + digest)
+          print('VI_present_after_build=true')
+          PY
