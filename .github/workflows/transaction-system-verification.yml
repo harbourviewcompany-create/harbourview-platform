@@ -12,7 +12,24 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: harbourview_transaction_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TRANSACTION_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/harbourview_transaction_test
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,8 +43,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Transaction migration contract
+      - name: Transaction migration static contract
         run: node scripts/verify-transaction-system.mjs
+
+      - name: Execute staged migrations in disposable PostgreSQL
+        run: |
+          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/preexisting-schema.sql
+          for migration in \
+            supabase/migrations/20260811010000_transaction_identity_foundation.sql \
+            supabase/migrations/20260811011000_transaction_product_account_foundation.sql \
+            supabase/migrations/20260811012000_transaction_core_foundation.sql \
+            supabase/migrations/20260811013000_transaction_assertion_diligence_foundation.sql \
+            supabase/migrations/20260811014000_transaction_economics_decisions_foundation.sql \
+            supabase/migrations/20260811015000_transaction_rls_views_import_staging.sql
+          do
+            echo "Applying $migration"
+            psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-applied-schema.sql
 
       - name: Transaction schema RLS double-counting and leakage tests
         run: npx vitest run tests/transactions
@@ -47,6 +80,7 @@ jobs:
       - name: Verification summary
         if: always()
         run: |
-          echo "No Supabase migration was applied."
+          echo "Transaction migrations executed only against the disposable GitHub Actions PostgreSQL service."
+          echo "No Supabase production or development project was mutated."
           echo "No workbook fixture was imported."
           echo "No Vercel or production deployment step exists in this workflow."
