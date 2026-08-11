@@ -42,6 +42,7 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
+| 2026-08-11 | PR #1336 post-merge small-country retention remediation | `node scripts/generate-natural-earth-countries.mjs` x2; CI-gated Natural Earth generator regression; targeted topology/Russia/rendering Vitest; `npm run lint`; `npm run typecheck`; `npm run test`; `npm run test:security`; `npm run build` | PASS — transform `1.6.0-natural-earth-50m-source-retention-alpha2-centroid`; VI retained; duplicate alpha-2 rejection exercised; IO/VC fallback centroids validated inside retained geometry; IOA excluded; Russia geometry unchanged; normalized SHA-256 `afba046e9c469c2e56f597951c49662c3ab6b0042cfbe5e8f46d9c426d53b251` | PR #1336; centroid remediation verification workflow | **Current — GO on verified head** |
 | 2026-08-02 | Elite Digest feedback/HNSW forward repair | Implementation head `732cf15cb4e4b91ddec0934eab7e83929ad65d19`; dedicated run `30755310208`; CI `30755310269`; Branch Verification `30755310228` | Eight ordered/unique Digest migrations; signed current-verdict RPC tests; lint; typecheck; full tests; build; public-boundary/security; PostgreSQL 17 + pgvector invocation; safe no-write production probes | PR #1246; supporting runs `30755310256`, `30755310358`, `30755310416`, `30755310324`, `30755310217`, `30755310242`, `30755310207` | **GO on implementation head — final evidence-only head must remain green** |
 | 2026-05-28 | Pass 1 control-doc creation | GitHub contents API via connected GitHub tool | Created/updated docs only | Commit SHAs to be listed in final Pass 1 report | Legacy |
 | 2026-06-11 | MP-SCHEMA-001 follow-up verification PR opened | `docs/mp-schema-001-verify-20260611` / `docs/control/MP_SCHEMA_001_VERIFICATION_EVIDENCE.md` | Verification requested; exact runner outputs pending | Follow-up PR to be linked after creation | Legacy HOLD |
@@ -4874,3 +4875,11 @@ for other versions on `main`. Those predate this work and are untouched.
 **Safety / scope:** no production deployment, migration, database write, secret change, or production-system modification was performed.
 
 **Decision:** **GO for the validated repository implementation on the exact verified implementation head.** Evidence-only/review-thread-only follow-up commits must preserve implementation blobs and receive normal final-head repository checks before merge.
+
+## 2026-08-11 — PR #1323 post-merge small-country retention remediation
+
+- Feature-level fallback preserves source-eligible countries when normal simplification removes every polygon.
+- Regeneration retained U.S. Virgin Islands (VI), rejected composite IOA/AU routing-key collision, and preserved the pre-remediation Russia generated payload byte-for-byte.
+- Normalized regenerated-output SHA-256: `73e35579a1ee932a3b9bbcbfb71a0370965bd3ecb0f99be1ec3cb0833be7a5e0`.
+- PASS: deterministic two-run regeneration; Natural Earth antimeridian topology; Russia spherical regression; globe polygon rendering; lint; typecheck; full npm test matrix; security/leakage; production build.
+- Temporary PR #1323 verification/diagnostic workflows removed before the remediation commit.
