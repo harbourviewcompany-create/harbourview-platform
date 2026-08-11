@@ -39,12 +39,83 @@ function qualityMeta(s: DashboardSignal): string {
   return parts.length ? ` · ${parts.join(' · ')}` : ''
 }
 
+/** Hours since event from DashboardSignal.timeAgo strings. Mirrors quality.ts bands. */
+function hoursFromTimeAgo(timeAgo: string): number | null {
+  const t = timeAgo.trim()
+  if (t === 'Just now') return 0
+  const h = /^(\d+)h ago$/i.exec(t)
+  if (h) return Number(h[1])
+  const d = /^(\d+)d ago$/i.exec(t)
+  if (d) return Number(d[1]) * 24
+  const w = /^(\d+)w ago$/i.exec(t)
+  if (w) return Number(w[1]) * 24 * 7
+  return null
+}
+
+type FeedFreshness = 'live' | 'recent' | 'stale' | 'unknown'
+
+function inferFeedFreshness(signals: DashboardSignal[]): FeedFreshness {
+  if (signals.length === 0) return 'unknown'
+  let newest = Number.POSITIVE_INFINITY
+  let any = false
+  for (const s of signals) {
+    const hours = hoursFromTimeAgo(s.timeAgo)
+    if (hours === null) continue
+    any = true
+    if (hours < newest) newest = hours
+  }
+  if (!any) return 'unknown'
+  if (newest <= 36) return 'live'
+  if (newest <= 24 * 5) return 'recent'
+  return 'stale'
+}
+
+function FreshnessBadge({ band, isLive }: { band: FeedFreshness; isLive: boolean }) {
+  // Prefer content-derived band; fall back to parent isLive only when unknown.
+  const effective: FeedFreshness =
+    band !== 'unknown' ? band : isLive ? 'live' : 'unknown'
+
+  if (effective === 'live') {
+    return (
+      <span className="flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(93,202,165,0.65)' }}>
+        <PulseDot />
+        <span className="uppercase tracking-[0.1em]">Live</span>
+      </span>
+    )
+  }
+  if (effective === 'recent') {
+    return (
+      <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(198,165,90,0.55)' }}>
+        Recent
+      </span>
+    )
+  }
+  if (effective === 'stale') {
+    return (
+      <span
+        className="text-[9px] uppercase tracking-[0.1em]"
+        style={{ color: 'rgba(224,128,128,0.75)' }}
+        title="Newest signal in this strip is older than 5 days"
+      >
+        Stale
+      </span>
+    )
+  }
+  return (
+    <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(243,240,234,0.2)' }}>
+      Updating
+    </span>
+  )
+}
+
 export interface SignalStripProps {
   signals?: DashboardSignal[]
   isLive?: boolean
 }
 
 export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) {
+  const freshness = inferFeedFreshness(signals)
+
   return (
     <aside
       className="flex flex-col overflow-y-auto px-3.5 py-4"
@@ -63,18 +134,18 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
           >
             Search
           </Link>
-          {isLive ? (
-            <span className="flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(93,202,165,0.65)' }}>
-              <PulseDot />
-              <span className="uppercase tracking-[0.1em]">Live</span>
-            </span>
-          ) : (
-            <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(243,240,234,0.2)' }}>
-              Updating
-            </span>
-          )}
+          <FreshnessBadge band={freshness} isLive={isLive} />
         </div>
       </div>
+
+      {freshness === 'stale' && signals.length > 0 && (
+        <p
+          className="mb-2 text-[9px] leading-snug"
+          style={{ color: 'rgba(224,128,128,0.65)' }}
+        >
+          Feed content is older than 5 days. Ops monitors alert on promotion silence; search the corpus for the latest match.
+        </p>
+      )}
 
       {signals.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-2">
