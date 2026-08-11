@@ -88,7 +88,7 @@ Two branches were created solely to execute one-off production visual verificati
 
 `main...branch` comparison showed the only branch-only file was `.github/workflows/pr1322-production-russia-final-oneoff.yml`. The branch contained no unique application implementation and was based directly on production source SHA `4533c9223377eb2e60c0fc8d3be48bd522d15806`.
 
-These one-off workflow definitions are verification harnesses only and are not required for runtime, CI, deployment, or regression coverage. Durable regression coverage remains in the normal repository tests introduced by PR #1322.
+These one-off workflow definitions were verification harnesses only and are not required for runtime, CI, deployment, or regression coverage. Durable regression coverage remains in the normal repository tests introduced by PR #1322.
 
 ## Cleanup performed
 
@@ -97,16 +97,22 @@ After preserving the evidence identities above, both temporary one-off workflow 
 - removed `.github/workflows/pr1306-production-russia-visual-oneoff.yml` on `verify/pr1306-production-russia-visual-20260810`; cleanup commit `109644e2a9fbad3c3e25ff060260fc854ba75b09`;
 - removed `.github/workflows/pr1322-production-russia-final-oneoff.yml` on `verify/pr1322-production-russia-final-20260810`; cleanup commit `b5b22382ead575f5af4c086dd65e7340bab90459`.
 
-Post-cleanup comparisons against `main` report **zero changed files** for both temporary verification branches. No unique implementation work was discarded.
+Post-cleanup comparisons against `main` reported **zero changed files** for both temporary verification branches. No unique implementation work was discarded.
 
-The connected GitHub control surface used for this closeout does not expose a delete-ref/delete-branch mutation. The two now-empty verification branch refs therefore remain as inert refs; their one-off workflow definitions have been removed and they contain no file-level delta from their respective reachable repository state. This is a repository-hygiene limitation only and does not affect the incident GO verdict.
+The branch refs were then physically deleted by one-off GitHub Actions cleanup run `31450370154` using repository-scoped `GITHUB_TOKEN` permissions with `Contents: write`. The runner recorded:
+
+- `verify/pr1322-production-russia-final-20260810`: pre-delete GET `200`, DELETE `204`, post-delete GET `404`;
+- `verify/pr1306-production-russia-visual-20260810`: pre-delete GET `200`, DELETE `204`, post-delete GET `404`;
+- final marker: `RUSSIA_REF_CLEANUP=FULLY_CLEANED`.
+
+Both exact ref endpoints were independently re-queried after the workflow and returned `404 Not Found`. The temporary verification refs are therefore fully removed; no Russia incident branch-ref hygiene residue remains from those two one-off verification branches.
 
 ## Change boundary
 
 This closeout is evidence/control cleanup only. It makes no application-code change, no database/schema change, no Vercel deployment change, no production configuration change, and no production write.
 
-The evidence record is staged in PR #1326 rather than merged directly to `main`, because merging would create a new `main` push and can trigger a Vercel production deployment. Leaving the evidence PR unmerged preserves the explicit no-production-change boundary while retaining a durable GitHub record.
+The evidence record remains staged in PR #1326 rather than merged directly to `main`, preserving the existing production-change boundary while retaining the durable GitHub evidence record.
 
 ## Incident disposition
 
-**CLOSED / GO — the Russia globe rendering defect is fixed, deployed, and verified live in production.**
+**CLOSED / GO — the Russia globe rendering defect is fixed, deployed, verified live in production, and its two temporary verification refs are fully deleted.**
