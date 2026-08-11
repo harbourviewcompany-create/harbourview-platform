@@ -1,0 +1,44 @@
+name: PR 1340 Active Tab Resize Fix
+
+on:
+  push:
+    branches:
+      - agent/mobile-intel-institutional-remediation
+    paths:
+      - .github/workflows/pr1340-active-tab-resize-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/mobile-intel-institutional-remediation
+          fetch-depth: 0
+      - name: Keep active Intel tab visible across viewport changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('components/dashboard/MobileCommandCentreRebuild.tsx')
+          source = path.read_text()
+          old = '''  useEffect(() => {\n    if (!showSecondaryNav) return\n    const button = secondaryButtonRefs.current.get(model.highlightedSection)\n    if (!button) return\n    const frame = window.requestAnimationFrame(() => {\n      button.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' })\n    })\n    return () => window.cancelAnimationFrame(frame)\n  }, [model.highlightedSection, showSecondaryNav])\n'''
+          new = '''  useEffect(() => {\n    if (!showSecondaryNav) return\n\n    let frame = 0\n    const revealActiveSection = () => {\n      window.cancelAnimationFrame(frame)\n      frame = window.requestAnimationFrame(() => {\n        secondaryButtonRefs.current\n          .get(model.highlightedSection)\n          ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' })\n      })\n    }\n\n    revealActiveSection()\n    window.addEventListener('resize', revealActiveSection)\n    window.visualViewport?.addEventListener('resize', revealActiveSection)\n\n    return () => {\n      window.removeEventListener('resize', revealActiveSection)\n      window.visualViewport?.removeEventListener('resize', revealActiveSection)\n      window.cancelAnimationFrame(frame)\n    }\n  }, [model.highlightedSection, showSecondaryNav])\n'''
+          if old not in source:
+              raise SystemExit('active-tab effect insertion point missing')
+          path.write_text(source.replace(old, new, 1))
+          PY
+
+          rm .github/workflows/pr1340-active-tab-resize-fix.yml
+          git config user.name "Harbourview Review Fix"
+          git config user.email "harbourviewcompany@gmail.com"
+          git add components/dashboard/MobileCommandCentreRebuild.tsx .github/workflows/pr1340-active-tab-resize-fix.yml
+          git diff --cached --check
+          git commit -m "fix(intel): keep active tab visible on resize"
+          git push origin HEAD:agent/mobile-intel-institutional-remediation
