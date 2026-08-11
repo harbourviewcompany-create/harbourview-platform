@@ -30,12 +30,28 @@ jobs:
 
           p = Path('scripts/generate-natural-earth-countries.mjs')
           s = p.read_text()
-          old = """    const simplifiedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)\n    const discardedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) < MIN_POLYGON_AREA_DEG2)\n\n    if (simplifiedOuters.length === 0) continue\n"""
-          new = """    const areaEligibleOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)\n    const sourceEligibleFallback = areaEligibleOuters.length === 0\n      && outerCandidates.length === 1\n      && ringAreaDeg2(rawOuter) >= MIN_POLYGON_AREA_DEG2\n      ? outerCandidates[0]\n      : null\n    const simplifiedOuters = sourceEligibleFallback ? [sourceEligibleFallback] : areaEligibleOuters\n    const discardedOuters = outerCandidates.filter((outer) => !simplifiedOuters.includes(outer))\n\n    if (simplifiedOuters.length === 0) continue\n"""
-          if old not in s and new not in s:
-              raise SystemExit('VI preservation target not found')
+
+          old = """  const normalized = []\n\n  for (const polygon of polygons) {\n"""
+          new = """  const normalized = []\n  let sourceEligibleFallbackOuter = null\n  let sourceEligibleFallbackArea = 0\n\n  for (const polygon of polygons) {\n"""
           if old in s:
               s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('fallback declaration target not found')
+
+          old = """    const {\n      primary: outerCandidates,\n      cutouts: rawTopologyCutouts,\n    } = classifySplitRingFragments(rawOuter, tolerance)\n\n    if (outerCandidates.length === 0) continue\n"""
+          new = """    const {\n      primary: outerCandidates,\n      cutouts: rawTopologyCutouts,\n    } = classifySplitRingFragments(rawOuter, tolerance)\n\n    const sourceOuterArea = ringAreaDeg2(rawOuter)\n    if (polygon.length === 1\n      && outerCandidates.length === 1\n      && sourceOuterArea >= MIN_POLYGON_AREA_DEG2\n      && sourceOuterArea > sourceEligibleFallbackArea) {\n      sourceEligibleFallbackOuter = outerCandidates[0]\n      sourceEligibleFallbackArea = sourceOuterArea\n    }\n\n    if (outerCandidates.length === 0) continue\n"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('fallback candidate target not found')
+
+          old = """  }\n\n  return normalized\n}\n"""
+          new = """  }\n\n  if (normalized.length === 0 && sourceEligibleFallbackOuter) {\n    normalized.push({\n      rings: [{ kind: 'outer', points: sourceEligibleFallbackOuter }],\n    })\n  }\n\n  return normalized\n}\n"""
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('fallback return target not found')
+
           p.write_text(s)
 
           p = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
@@ -82,9 +98,12 @@ jobs:
         run: npm run test:security
       - name: Build
         run: npm run build
-      - name: Commit verified fix and remove temporary harness
+      - name: Commit verified fix and remove temporary harnesses
         run: |
           git rm .github/workflows/pr1323-vi-regression-fix.yml
+          if [ -f .github/workflows/pr1323-final-clean-verify.yml ]; then
+            git rm .github/workflows/pr1323-final-clean-verify.yml
+          fi
           git config user.name 'Harbourview Release Bot'
           git config user.email 'harbourviewcompany@gmail.com'
           git add scripts/generate-natural-earth-countries.mjs data/globe/natural-earth-countries.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts
