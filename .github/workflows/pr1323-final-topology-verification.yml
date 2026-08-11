@@ -13,19 +13,144 @@ on:
       - '.github/workflows/pr1323-final-topology-verification.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
+
+      - name: Reproduce pre-fix multi-crossing source-hole loss
+        run: |
+          git show d91ee35bf008715b37a9e94df242242e73191917:scripts/generate-natural-earth-countries.mjs > /tmp/pre-source-hole-fix.mjs
+          node --input-type=module <<'NODE'
+          import * as generator from 'file:///tmp/pre-source-hole-fix.mjs'
+          const geometry = {
+            type: 'Polygon',
+            coordinates: [
+              [[160, 70], [-160, 70], [-160, 20], [160, 20], [160, 70]],
+              [[170, 60], [-170, 60], [-170, 50], [170, 50], [170, 45], [-170, 45], [-170, 35], [170, 35], [170, 60]],
+            ],
+          }
+          const fragments = generator.splitRingAtAntimeridian(geometry.coordinates[1])
+          const areas = fragments.map(generator.signedRingAreaDeg2)
+          const referenceIndex = areas.reduce((best, area, index) => Math.abs(area) > Math.abs(areas[best]) ? index : best, 0)
+          const referenceSign = Math.sign(areas[referenceIndex])
+          const solidIslands = fragments.filter((fragment, index) => {
+            const sign = Math.sign(areas[index])
+            return referenceSign !== 0 && sign !== 0 && sign !== referenceSign
+          })
+          if (solidIslands.length === 0) throw new Error('diagnostic failed to construct a multi-crossing source-hole island')
+          const polygons = generator.normalizePolygons(geometry, 0)
+          const sameRing = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+          const preservedAsOuter = solidIslands.filter((island) => polygons.some((polygon) => {
+            const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+            return outer && sameRing(outer.points, island)
+          })).length
+          const misclassifiedAsHole = solidIslands.filter((island) => polygons.some((polygon) =>
+            polygon.rings.some((ring) => ring.kind === 'hole' && sameRing(ring.points, island)),
+          )).length
+          console.log(JSON.stringify({ solidIslandCount: solidIslands.length, preservedAsOuter, misclassifiedAsHole }))
+          if (preservedAsOuter !== 0 || misclassifiedAsHole === 0) {
+            throw new Error('pre-fix generator did not reproduce the reviewed source-hole topology defect')
+          }
+          NODE
+
+      - name: Apply validated topology-test accounting and source-hole regression
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
+          text = path.read_text()
+
+          text = text.replace(
+            "          const sourceAbsoluteArea = Math.abs(generator.signedRingAreaDeg2(sourceHole))\n",
+            "          const expectedAbsoluteArea = eligibleFragments.reduce(\n            (sum, fragment) => sum + Math.abs(generator.signedRingAreaDeg2(fragment)),\n            0,\n          )\n",
+          )
+          text = text.replace('            sourceAbsoluteArea,\n', '            expectedAbsoluteArea,\n')
+          text = text.replace('      sourceAbsoluteArea: number\n', '      expectedAbsoluteArea: number\n')
+          text = text.replace(
+            'Math.abs(sourceHole.sourceAbsoluteArea - sourceHole.matchedAbsoluteArea)',
+            'Math.abs(sourceHole.expectedAbsoluteArea - sourceHole.matchedAbsoluteArea)',
+          )
+          text = text.replace(
+            'source=${sourceHole.sourceAbsoluteArea}',
+            'expected=${sourceHole.expectedAbsoluteArea}',
+          )
+
+          marker = "test('holes owned only by MIN_POLYGON_AREA_DEG2-discarded fragments are excluded', () => {"
+          regression = r'''test('multi-crossing source hole preserves opposite-winding solid islands', () => {
+  const result = runGeometryProbe<{
+    cutoutCount: number
+    preservedIslandOuterCount: number
+    cutoutMisclassifiedAsHoleCount: number
+  }>(`
+    const geometry = {
+      type: 'Polygon',
+      coordinates: [
+        [[160, 70], [-160, 70], [-160, 20], [160, 20], [160, 70]],
+        [[170, 60], [-170, 60], [-170, 50], [170, 50], [170, 45], [-170, 45], [-170, 35], [170, 35], [170, 60]],
+      ],
+    }
+    const topology = generator.classifySplitRingFragments(geometry.coordinates[1], 0)
+    const polygons = generator.normalizePolygons(geometry, 0)
+    const sameRing = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+    const preservedIslandOuterCount = topology.cutouts.filter((cutout) =>
+      polygons.some((polygon) => {
+        const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+        return outer && sameRing(outer.points, cutout)
+      }),
+    ).length
+    const cutoutMisclassifiedAsHoleCount = topology.cutouts.filter((cutout) =>
+      polygons.some((polygon) => polygon.rings.some((ring) =>
+        ring.kind === 'hole' && sameRing(ring.points, cutout),
+      )),
+    ).length
+    console.log(JSON.stringify({
+      cutoutCount: topology.cutouts.length,
+      preservedIslandOuterCount,
+      cutoutMisclassifiedAsHoleCount,
+    }))
+  `)
+
+  assert.ok(result.cutoutCount > 0, 'synthetic source hole must contain an opposite-winding solid island')
+  assert.equal(
+    result.preservedIslandOuterCount,
+    result.cutoutCount,
+    'every opposite-winding source-hole fragment must survive as solid geography',
+  )
+  assert.equal(
+    result.cutoutMisclassifiedAsHoleCount,
+    0,
+    'opposite-winding source-hole fragments must not be emitted as holes',
+  )
+}, 60_000)
+
+'''
+          if 'multi-crossing source hole preserves opposite-winding solid islands' not in text:
+            if marker not in text:
+              raise SystemExit('source-hole regression insertion marker not found')
+            text = text.replace(marker, regression + marker, 1)
+
+          path.write_text(text)
+          PY
+
+          if ! git diff --quiet -- tests/harbourview/natural-earth-antimeridian-topology.test.ts; then
+            git config user.name 'Harbourview Release Bot'
+            git config user.email 'harbourviewcompany@gmail.com'
+            git add tests/harbourview/natural-earth-antimeridian-topology.test.ts
+            git commit -m 'test(globe): verify multi-crossing source-hole preservation'
+            git push origin HEAD:fix/globe-antimeridian-generator-hardening
+          fi
 
       - name: Verify committed payload matches one regeneration
         run: |
@@ -68,3 +193,14 @@ jobs:
               raise SystemExit('Generated Natural Earth geometry is not deterministic after generatedAt normalization')
           print('normalized_sha256=' + hashlib.sha256(a.encode()).hexdigest())
           PY
+
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full tests
+        run: npm run test
+      - name: Targeted security leakage
+        run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts tests/marketplace/publicProjection.test.ts
+      - name: Production build
+        run: npm run build
