@@ -16,7 +16,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:16
@@ -69,6 +69,7 @@ jobs:
           psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-applied-schema.sql
           psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-economics-constraint-specificity.sql
           psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-review-hardening.sql
+          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-final-gates.sql
 
       - name: Transaction schema RLS double-counting and leakage tests
         run: npx vitest run tests/transactions
@@ -78,6 +79,12 @@ jobs:
 
       - name: Existing services public leakage regression
         run: npm run test:services-public-leakage
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Full test suite
+        run: npm run test
 
       - name: Typecheck
         run: npm run typecheck
