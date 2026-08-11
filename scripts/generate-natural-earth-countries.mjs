@@ -87,14 +87,18 @@ function simplifyRing(points, tolerance) {
   return [...simplifiedOpen, [...simplifiedOpen[0]]]
 }
 
-function ringAreaDeg2(ring) {
+function signedRingAreaDeg2(ring) {
   let area = 0
   for (let i = 0; i < ring.length - 1; i += 1) {
     const [x1, y1] = ring[i]
     const [x2, y2] = ring[i + 1]
     area += x1 * y2 - x2 * y1
   }
-  return Math.abs(area / 2)
+  return area / 2
+}
+
+function ringAreaDeg2(ring) {
+  return Math.abs(signedRingAreaDeg2(ring))
 }
 
 function lonDelta(a, b) {
@@ -106,9 +110,7 @@ function lonDelta(a, b) {
 
 /**
  * Detect a raw GeoJSON edge crossing ±180. Do not use lonDelta here: lonDelta
- * deliberately normalizes the jump into [-180, 180], which made the previous
- * `Math.abs(lonDelta(...)) > 180` condition impossible and left Russia's raw
- * antimeridian edge in the simplifier.
+ * deliberately normalizes the jump into [-180, 180].
  */
 function crossesAntimeridian(a, b) {
   return Math.abs(b[0] - a[0]) > 180
@@ -128,60 +130,174 @@ function interpolateAntimeridianCrossing(a, b) {
   }
 }
 
+function samePoint(a, b) {
+  return a[0] === b[0] && a[1] === b[1]
+}
+
+function sameSeamLocation(a, b) {
+  return Math.abs(a[0]) === 180 && Math.abs(b[0]) === 180
+}
+
+function normalizeEquivalentSeamAliases(points) {
+  const normalized = points.map(([lon, lat]) => [lon, lat])
+  const isClosed = normalized.length >= 2 && samePoint(normalized[0], normalized[normalized.length - 1])
+  const logicalLength = isClosed ? normalized.length - 1 : normalized.length
+  let changed = false
+
+  for (let index = 1; index < logicalLength; index += 1) {
+    if (sameSeamLocation(normalized[index - 1], normalized[index])) {
+      if (normalized[index][0] !== normalized[index - 1][0]) changed = true
+      normalized[index][0] = normalized[index - 1][0]
+    }
+  }
+
+  if (logicalLength >= 2 && sameSeamLocation(normalized[logicalLength - 1], normalized[0])) {
+    const seamLon = normalized[0][0]
+    for (let index = logicalLength - 1; index > 0; index -= 1) {
+      if (!sameSeamLocation(normalized[index], normalized[(index + 1) % logicalLength])) break
+      if (normalized[index][0] !== seamLon) changed = true
+      normalized[index][0] = seamLon
+    }
+  }
+
+  if (isClosed) {
+    normalized[normalized.length - 1] = [...normalized[0]]
+  }
+
+  return { points: normalized, changed }
+}
+
+function reverseClosedRing(ring) {
+  const open = ring.slice(0, -1).reverse()
+  return [...open, [...open[0]]]
+}
+
 /**
- * Split a raw closed ring into planar-contiguous pieces before simplification.
- * This is critical for Russia: simplifying a path containing a +180/-180 jump
- * can create long chords through the mainland, which earcut later interprets
- * as a real boundary and renders as the long-lived central black void.
+ * Split a closed ring into planar-contiguous polygons at ±180. Every returned
+ * fragment is itself a valid closed ring: its synthetic closing edge runs only
+ * along one antimeridian meridian. This is the key topology invariant that the
+ * previous splitter missed; closing an open fragment directly creates a false
+ * cross-mainland chord which Earcut triangulates as real geometry.
  */
 function splitRingAtAntimeridian(ring) {
   if (!Array.isArray(ring) || ring.length < 4) return [ring]
 
-  const pts = ring.slice()
-  if (
-    pts.length >= 2 &&
-    pts[0][0] === pts[pts.length - 1][0] &&
-    pts[0][1] === pts[pts.length - 1][1]
-  ) {
-    pts.pop()
-  }
+  const { points: pts, changed: seamAliasesNormalized } = normalizeEquivalentSeamAliases(ring)
+  if (pts.length >= 2 && samePoint(pts[0], pts[pts.length - 1])) pts.pop()
   if (pts.length < 3) return [ring]
 
-  if (!pts.some((point, i) => crossesAntimeridian(point, pts[(i + 1) % pts.length]))) {
-    return [ring]
-  }
-
-  const path = []
+  const crossingIndices = []
   for (let i = 0; i < pts.length; i += 1) {
-    const a = pts[i]
-    const b = pts[(i + 1) % pts.length]
-    path.push(a)
-    if (crossesAntimeridian(a, b)) {
-      const { lat, leaveLon, enterLon } = interpolateAntimeridianCrossing(a, b)
-      path.push([leaveLon, lat])
-      path.push([enterLon, lat])
-    }
+    if (crossesAntimeridian(pts[i], pts[(i + 1) % pts.length])) crossingIndices.push(i)
+  }
+  if (crossingIndices.length === 0) {
+    return seamAliasesNormalized ? [closeRing(pts) ?? ring] : [ring]
   }
 
+  // Start immediately after a crossing so every fragment begins at a synthetic
+  // seam-entry point and ends at a seam-leave point on the same ±180 meridian.
+  const firstCrossingIndex = crossingIndices[0]
+  const startIndex = (firstCrossingIndex + 1) % pts.length
+  const firstCrossing = interpolateAntimeridianCrossing(pts[firstCrossingIndex], pts[startIndex])
+  let current = [[firstCrossing.enterLon, firstCrossing.lat], [...pts[startIndex]]]
   const runs = []
-  let current = [path[0]]
-  for (let i = 1; i < path.length; i += 1) {
-    const prev = current[current.length - 1]
-    const next = path[i]
-    if (crossesAntimeridian(prev, next)) {
-      if (current.length >= 3) runs.push(current)
-      current = [next]
-    } else {
-      current.push(next)
+
+  for (let step = 0; step < pts.length; step += 1) {
+    const aIndex = (startIndex + step) % pts.length
+    const bIndex = (aIndex + 1) % pts.length
+    const a = pts[aIndex]
+    const b = pts[bIndex]
+
+    if (!crossesAntimeridian(a, b)) {
+      if (step < pts.length - 1 && !samePoint(current[current.length - 1], b)) current.push([...b])
+      continue
+    }
+
+    const crossing = interpolateAntimeridianCrossing(a, b)
+    const leave = [crossing.leaveLon, crossing.lat]
+    if (!samePoint(current[current.length - 1], leave)) current.push(leave)
+
+    const closed = closeRing(current)
+    if (closed && closed.length >= 4) runs.push(closed)
+
+    if (step < pts.length - 1) {
+      current = [[crossing.enterLon, crossing.lat], [...b]]
     }
   }
-  if (current.length >= 3) runs.push(current)
 
-  return runs.length > 0 ? runs : [ring]
+  if (runs.length === 0) return [ring]
+
+  // With two crossings every output run represents a solid fragment of the
+  // same source ring, so normalize accidental split-orientation differences.
+  // With four or more crossings an opposite-winding run can represent a real
+  // cutout between same-side sections. Preserve those signs so normalizePolygons
+  // can attach the cutout as a hole instead of filling it as another solid outer.
+  if (crossingIndices.length > 2) return runs
+
+  const signedAreas = runs.map((candidate) => signedRingAreaDeg2(candidate))
+  const referenceIndex = signedAreas.reduce(
+    (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
+    0,
+  )
+  const targetSign = Math.sign(signedAreas[referenceIndex])
+  return runs.map((candidate, index) => {
+    const sign = Math.sign(signedAreas[index])
+    return targetSign !== 0 && sign !== 0 && sign !== targetSign
+      ? reverseClosedRing(candidate)
+      : candidate
+  })
 }
 
-function meanLongitude(points) {
-  return points.reduce((sum, point) => sum + point[0], 0) / Math.max(1, points.length)
+function pointOnSegment(point, a, b, epsilon = 1e-9) {
+  const cross = (point[1] - a[1]) * (b[0] - a[0]) - (point[0] - a[0]) * (b[1] - a[1])
+  if (Math.abs(cross) > epsilon) return false
+  const minX = Math.min(a[0], b[0]) - epsilon
+  const maxX = Math.max(a[0], b[0]) + epsilon
+  const minY = Math.min(a[1], b[1]) - epsilon
+  const maxY = Math.max(a[1], b[1]) + epsilon
+  return point[0] >= minX && point[0] <= maxX && point[1] >= minY && point[1] <= maxY
+}
+
+function pointInRing(point, ring) {
+  let inside = false
+  for (let i = 0, j = ring.length - 2; i < ring.length - 1; j = i, i += 1) {
+    const a = ring[j]
+    const b = ring[i]
+    if (pointOnSegment(point, a, b)) return true
+    const intersects = ((b[1] > point[1]) !== (a[1] > point[1])) &&
+      (point[0] < ((a[0] - b[0]) * (point[1] - b[1])) / (a[1] - b[1]) + b[0])
+    if (intersects) inside = !inside
+  }
+  return inside
+}
+
+function ringReferencePoint(ring) {
+  return ring.find(([lon]) => Math.abs(lon) < 179.999) ?? ring[0]
+}
+
+function classifySplitRingFragments(ring, tolerance) {
+  const fragments = splitRingAtAntimeridian(ring)
+    .map((part) => simplifyRing(part, tolerance))
+    .filter(Boolean)
+
+  if (fragments.length === 0) return { primary: [], cutouts: [] }
+
+  const signedAreas = fragments.map((fragment) => signedRingAreaDeg2(fragment))
+  const referenceIndex = signedAreas.reduce(
+    (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
+    0,
+  )
+  const referenceSign = Math.sign(signedAreas[referenceIndex])
+  const primary = []
+  const cutouts = []
+
+  for (let index = 0; index < fragments.length; index += 1) {
+    const sign = Math.sign(signedAreas[index])
+    if (referenceSign !== 0 && sign !== 0 && sign !== referenceSign) cutouts.push(fragments[index])
+    else primary.push(fragments[index])
+  }
+
+  return { primary, cutouts }
 }
 
 function normalizePolygons(geometry, tolerance) {
@@ -192,42 +308,101 @@ function normalizePolygons(geometry, tolerance) {
     const rawOuter = polygon[0]
     if (!rawOuter) continue
 
-    // Split first, simplify second. The old order was the Russia corruption bug.
-    const rawOuterParts = splitRingAtAntimeridian(rawOuter)
-    const simplifiedOuters = rawOuterParts
-      .map((part) => simplifyRing(part, tolerance))
-      .filter(Boolean)
-      .filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)
+    const {
+      primary: outerCandidates,
+      cutouts: rawTopologyCutouts,
+    } = classifySplitRingFragments(rawOuter, tolerance)
+
+    if (outerCandidates.length === 0) continue
+
+    const topologyCutouts = rawTopologyCutouts.filter(
+      (cutout) => ringAreaDeg2(cutout) >= MIN_POLYGON_AREA_DEG2,
+    )
+    const simplifiedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)
+    const discardedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) < MIN_POLYGON_AREA_DEG2)
 
     if (simplifiedOuters.length === 0) continue
 
-    const holes = polygon
-      .slice(1)
-      .map((ring) => simplifyRing(ring, tolerance))
-      .filter(Boolean)
-
-    if (simplifiedOuters.length === 1) {
-      normalized.push({
-        rings: [
-          { kind: 'outer', points: simplifiedOuters[0] },
-          ...holes.map((points) => ({ kind: 'hole', points })),
-        ],
-      })
-      continue
+    const sourceHoleFragments = []
+    const rawSourceHoleIslands = []
+    for (const rawHole of polygon.slice(1)) {
+      const { primary, cutouts } = classifySplitRingFragments(rawHole, tolerance)
+      sourceHoleFragments.push(...primary)
+      rawSourceHoleIslands.push(
+        ...cutouts.filter((cutout) => ringAreaDeg2(cutout) >= MIN_POLYGON_AREA_DEG2),
+      )
     }
 
-    for (const outer of simplifiedOuters) {
-      const lons = outer.map((point) => point[0])
-      const minLon = Math.min(...lons)
-      const maxLon = Math.max(...lons)
-      const assignedHoles = holes.filter((hole) => {
-        const meanLon = meanLongitude(hole)
-        return meanLon >= minLon - 1e-6 && meanLon <= maxLon + 1e-6
-      })
+    const sourceHoleIslands = []
+    for (const island of rawSourceHoleIslands) {
+      const candidatePoints = island.slice(0, -1)
+      const belongsToEligibleOuter = simplifiedOuters.some((outer) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (belongsToEligibleOuter) {
+        sourceHoleIslands.push(island)
+        continue
+      }
+
+      const belongedToDiscardedOuter = discardedOuters.some((outer) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (belongedToDiscardedOuter) continue
+
+      throw new Error(
+        `Natural Earth solid hole cutout could not be assigned to a split outer fragment: ${JSON.stringify({
+          reference: ringReferencePoint(island),
+          outerCount: simplifiedOuters.length,
+          discardedOuterCount: discardedOuters.length,
+        })}`,
+      )
+    }
+
+    const simplifiedHoles = [
+      ...sourceHoleFragments,
+      ...topologyCutouts,
+    ]
+
+    const outputPolygons = [...simplifiedOuters, ...sourceHoleIslands].map((outer) => ({
+      outer,
+      holes: [],
+    }))
+
+    for (const hole of simplifiedHoles) {
+      const candidatePoints = hole.slice(0, -1)
+      const containingIndex = outputPolygons.findIndex(({ outer }) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (containingIndex >= 0) {
+        const assignedOuter = outputPolygons[containingIndex].outer
+        const outerSign = Math.sign(signedRingAreaDeg2(assignedOuter))
+        const holeSign = Math.sign(signedRingAreaDeg2(hole))
+        const normalizedHole = outerSign !== 0 && holeSign !== 0 && outerSign === holeSign
+          ? reverseClosedRing(hole)
+          : hole
+        outputPolygons[containingIndex].holes.push(normalizedHole)
+        continue
+      }
+
+      const belongedToDiscardedOuter = discardedOuters.some((outer) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (belongedToDiscardedOuter) continue
+
+      throw new Error(
+        `Natural Earth hole could not be assigned to a split outer fragment: ${JSON.stringify({
+          reference: ringReferencePoint(hole),
+          outerCount: outputPolygons.length,
+          discardedOuterCount: discardedOuters.length,
+        })}`,
+      )
+    }
+
+    for (const outputPolygon of outputPolygons) {
       normalized.push({
         rings: [
-          { kind: 'outer', points: outer },
-          ...assignedHoles.map((points) => ({ kind: 'hole', points })),
+          { kind: 'outer', points: outputPolygon.outer },
+          ...outputPolygon.holes.map((points) => ({ kind: 'hole', points })),
         ],
       })
     }
@@ -351,7 +526,7 @@ async function main() {
   }
   countries.sort((a, b) => a.iso2.localeCompare(b.iso2))
 
-  const body = `import type { HarbourviewCountryGeometryPayload } from '@/lib/globe/geojson-country-types'\n\n// Generated by scripts/generate-natural-earth-countries.mjs.\n// Source: data/globe/source/ne_50m_admin_0_countries.geojson (Natural Earth Admin 0, 1:50m).\n// Do not edit by hand. Re-run the script to regenerate after updating the source data.\nexport const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {\n  provenance: {\n    source: 'Natural Earth Admin 0 Countries',\n    sourceScale: '1:50m',\n    sourceVersion: 'ne_50m_admin_0_countries (vendored)',\n    sourceLicense: 'Public domain',\n    boundaryModel: 'Natural Earth de facto boundaries',\n    generatedAt: '${new Date().toISOString()}',\n    generatedBy: 'scripts/generate-natural-earth-countries.mjs',\n    harbourviewTransformVersion: '1.3.0-natural-earth-50m-antimeridian-before-simplify',\n    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; antimeridian-crossing outer rings are split before Douglas-Peucker simplification; coordinates rounded to 3 decimal places; source upgraded to 1:50m for higher polygon fidelity.',\n  },\n  countries: [\n${countries.map(serializeCountry).join('\n')}\n  ],\n}\n`
+  const body = `import type { HarbourviewCountryGeometryPayload } from '@/lib/globe/geojson-country-types'\n\n// Generated by scripts/generate-natural-earth-countries.mjs.\n// Source: data/globe/source/ne_50m_admin_0_countries.geojson (Natural Earth Admin 0, 1:50m).\n// Do not edit by hand. Re-run the script to regenerate after updating the source data.\nexport const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {\n  provenance: {\n    source: 'Natural Earth Admin 0 Countries',\n    sourceScale: '1:50m',\n    sourceVersion: 'ne_50m_admin_0_countries (vendored)',\n    sourceLicense: 'Public domain',\n    boundaryModel: 'Natural Earth de facto boundaries',\n    generatedAt: '${new Date().toISOString()}',\n    generatedBy: 'scripts/generate-natural-earth-countries.mjs',\n    harbourviewTransformVersion: '1.4.0-natural-earth-50m-antimeridian-seam-closure',\n    notes: 'All Natural Earth polygon parts above ${MIN_POLYGON_AREA_DEG2} square degrees are retained; antimeridian-crossing outer and hole rings are split before simplification and each planar fragment is closed along ±180 before triangulation; coordinates rounded to 3 decimal places; source upgraded to 1:50m for higher polygon fidelity.',\n  },\n  countries: [\n${countries.map(serializeCountry).join('\n')}\n  ],\n}\n`
 
   await writeFile(OUTPUT_PATH, body, 'utf8')
 
@@ -368,7 +543,25 @@ async function main() {
   console.log(`Total vertex points: ${totalPoints}`)
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+export {
+  classifySplitRingFragments,
+  closeRing,
+  crossesAntimeridian,
+  interpolateAntimeridianCrossing,
+  normalizePolygons,
+  pointInRing,
+  ringAreaDeg2,
+  signedRingAreaDeg2,
+  SIMPLIFY_TOLERANCE_DEG,
+  simplifyRing,
+  splitRingAtAntimeridian,
+  transformFeature,
+}
+
+const invokedAsScript = process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false
+if (invokedAsScript) {
+  main().catch((error) => {
+    console.error(error)
+    process.exit(1)
+  })
+}
