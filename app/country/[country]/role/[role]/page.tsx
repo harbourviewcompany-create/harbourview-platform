@@ -9,9 +9,8 @@ import { resolveCountryRouteParam } from '@/lib/dashboard/countries'
 import type { RoleId } from '@/types/globe-router'
 import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays, getJurisdictionEvidenceStatus } from '@/lib/dashboard/dashboardLiveData'
-import { getListingsBySections } from '@/lib/server/listingsQuery'
-import type { PublicListing } from '@/lib/server/listingsQuery'
-import type { DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
+import { getDashboardMarketplaceProjection } from '@/lib/dashboard/buildDashboardCommandSources'
+import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,72 +95,6 @@ const DEFAULT_EDU = [
   { icon: '🏛️', title: 'GMP Standards', desc: 'Manufacturing compliance' },
   { icon: '📦', title: 'Trade & Access', desc: 'Import/export frameworks' },
 ]
-
-const VIEW_SECTION_MAP: Record<string, MarketView> = {
-  cannabis_inventory: 'cannabis', export_ready: 'cannabis', export: 'cannabis',
-  import_demand: 'cannabis', genetics: 'cannabis', flower: 'cannabis',
-  extract: 'cannabis', biomass: 'cannabis',
-  cultivation_equipment: 'equipment', processing_equipment: 'equipment',
-  used_surplus: 'equipment', equipment: 'equipment',
-  consumables: 'consumables', packaging: 'consumables',
-  new_products: 'new-products', 'new-products': 'new-products',
-  services: 'services', professional_services: 'services',
-  logistics: 'services', lab_testing: 'services', labs_testing: 'services',
-  distressed_businesses: 'opportunities', distressed_inventory: 'opportunities',
-  business_opportunities: 'opportunities', qualified_access: 'opportunities',
-  wanted_requests: 'wanted', wanted: 'wanted',
-}
-
-function mapListingToRow(l: PublicListing): [MarketView, MarketRow] {
-  const view = VIEW_SECTION_MAP[l.marketplace_section] ?? 'cannabis'
-  const st = l.seller_type ?? ''
-  const verified = st === 'verified_seller' || st === 'licensed_operator'
-  const regulatoryReady = Boolean((l.high_level_specs as Record<string, unknown>)?.regulatory_ready)
-
-  const verification = verified ? 'Verified' : 'Pending Review'
-  const accessRoute  = verified ? 'Direct' : 'Mediated'
-
-  // Confidence score for the donut: base score lifted by verification signals.
-  let confidence = 55
-  if (verified)        confidence += 25
-  if (regulatoryReady) confidence += 12
-  if (l.is_featured)   confidence += 5
-  confidence = Math.min(96, confidence)
-
-  const category = [l.category, l.subcategory].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' · ')
-
-  // average_rating/review_count aren't guaranteed to arrive as JSON numbers
-  // (confirmed serialized as a string in some Postgres/PostgREST paths).
-  const averageRating = Number(l.average_rating) || 0
-  const reviewCount = Number(l.review_count) || 0
-
-  return [view, [
-    l.title,
-    l.description || `${l.category} listing`,
-    l.location_country || '',
-    category || l.category,
-    verification,
-    accessRoute,
-    String(confidence),
-    l.id,
-    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
-    reviewCount > 0 ? String(reviewCount) : '',
-  ]]
-}
-
-async function getCountryRoleMarketplaceRows(
-  countryIso2: string | null,
-): Promise<Partial<DashboardMarketplaceRows>> {
-  const allSections = Object.keys(VIEW_SECTION_MAP)
-  const listings = await getListingsBySections(allSections, countryIso2, 56)
-  const buckets: Partial<DashboardMarketplaceRows> = {}
-  for (const l of listings) {
-    const [view, row] = mapListingToRow(l)
-    if (!buckets[view]) buckets[view] = []
-    if (buckets[view]!.length < 8) buckets[view]!.push(row)
-  }
-  return buckets
-}
 
 type Props = {
   params: Promise<{ country: string; role: string }>
@@ -274,7 +207,7 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
     getPipelineCounts(),
     getWantedListings(countryIso2),
     getWantedRequestsCount(countryIso2),
-    getCountryRoleMarketplaceRows(countryIso2),
+    getDashboardMarketplaceProjection(countryIso2),
     getLiveEduTiles(roleId),
     getRecentEduModules(),
     getWatchlistData(userId),
@@ -288,7 +221,7 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
   const pipeline = settledOr(pipelineResult, undefined, 'getPipelineCounts')
   const wantedListings = settledOr(wantedListingsResult, [], 'getWantedListings')
   const wantedCount = settledOr(wantedCountResult, 0, 'getWantedRequestsCount')
-  const marketplaceRows = settledOr(marketplaceRowsResult, {}, 'getCountryRoleMarketplaceRows')
+  const marketplaceProjection = settledOr(marketplaceRowsResult, { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const }, 'getDashboardMarketplaceProjection')
   const liveTiles = settledOr(liveTilesResult, [], 'getLiveEduTiles')
   const recentEduModules = settledOr(recentEduModulesResult, [], 'getRecentEduModules')
   const watchlistData = settledOr(watchlistDataResult, undefined, 'getWatchlistData')
@@ -298,7 +231,13 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
   const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
 
   return (
-    <DashboardResponsiveShell
+    <>
+      {marketplaceProjection.mediaStatus === 'degraded' && (
+        <p role="status" data-marketplace-media-status="degraded" className="sr-only">
+          {MARKETPLACE_MEDIA_COPY.degradedNotice}
+        </p>
+      )}
+      <DashboardResponsiveShell
       key={`${countryIso2}-${roleId ?? dashboard.role.slug}`}
       signals={signals}
       eduCategories={eduCategories}
@@ -307,7 +246,8 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
       initialRoleId={roleId}
       regionLabel={regionLabel}
       wantedCount={wantedCount}
-      marketplaceRows={marketplaceRows}
+      marketplaceRows={marketplaceProjection.rows}
+      marketplaceMediaById={marketplaceProjection.mediaById}
       pipeline={pipeline}
       watchlistData={watchlistData}
       evidenceData={evidenceData}
@@ -334,7 +274,8 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
         commercial_pathway_summary: dashboard.role.priority ?? null,
         review_status:              dashboard.admin.reviewState ?? 'active',
       }}
-    />
+      />
+    </>
   )
 }
 

@@ -4883,3 +4883,11 @@ for other versions on `main`. Those predate this work and are untouched.
 - Normalized regenerated-output SHA-256: `73e35579a1ee932a3b9bbcbfb71a0370965bd3ecb0f99be1ec3cb0833be7a5e0`.
 - PASS: deterministic two-run regeneration; Natural Earth antimeridian topology; Russia spherical regression; globe polygon rendering; lint; typecheck; full npm test matrix; security/leakage; production build.
 - Temporary PR #1323 verification/diagnostic workflows removed before the remediation commit.
+
+## 2026-08-10 — PR #1328 post-merge marketplace-media corrective
+
+- **Scope:** repository-only corrective follow-up for legitimate PR #1307 marketplace-media review findings. No Supabase, migration, seed, production-data, Vercel-production, deployment, secret, or Edge Function mutation.
+- **Controls:** highest-ranked renderable approved image selection; abortable/time-bounded media enrichment; explicit degraded retrieval state; country-role media projection; controlled marketplace trust copy; authenticated trust-contract coverage.
+- **Final-review corrections:** abort sibling image batches when any batch rejects; expose degraded media state on country-role routes; link trust-copy implementation back to `docs/control/MARKETPLACE_MEDIA_COPY.md`; add this canonical evidence-log entry.
+- **Focused verification:** exact implementation head `504c8c3db00ae00b15e60a1fc1923ad370ae07b0` — `npx tsc --noEmit`: **PASS**; `npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts`: **PASS**. Evidence: GitHub Actions run `31523742623` (`Temporary PR 1328 Exact QA`). Exact resulting PR-head CI/build/security/authenticated Playwright remains the authoritative merge gate.
+- **Status:** Current corrective evidence; merge remains gated on exact-head repository checks and requested non-production preview/review evidence.

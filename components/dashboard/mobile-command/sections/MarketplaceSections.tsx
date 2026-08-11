@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import type { MarketView } from '../../CommandCentre'
+import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
@@ -25,7 +26,7 @@ export function resolveListingMediaStage(row: NormalizedListing, stage: MediaSta
       src: media.fallbackSrc,
       altText: media.fallbackAltText,
       kind: 'representative' as const,
-      badgeLabel: 'Representative image',
+      badgeLabel: MARKETPLACE_MEDIA_COPY.representativeBadge,
       caption: media.fallbackCaption,
     }
   }

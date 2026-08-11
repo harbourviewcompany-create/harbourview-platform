@@ -43,7 +43,7 @@ describe('public marketplace image query contract', () => {
     expect(source).toContain('ITEM_ID_BATCH_SIZE = 40')
     expect(source).toContain('PAGE_SIZE = 500')
     expect(source).toContain('const batches = chunks(ids, ITEM_ID_BATCH_SIZE)')
-    expect(source).toContain('Promise.all(batches.map(queryPublicImageBatch))')
+    expect(source).toContain('Promise.all(batches.map(batch => queryPublicImageBatch(batch, signal)))')
     expect(source).toContain('Range: `${rangeStart}-${rangeStart + PAGE_SIZE - 1}`')
     expect(source).toContain('for (let rangeStart = 0; ; rangeStart += PAGE_SIZE)')
     expect(source).toContain('if (page.length < PAGE_SIZE) return rows')
@@ -52,6 +52,8 @@ describe('public marketplace image query contract', () => {
   })
 
   it('fails a paginated batch closed instead of returning partial media coverage', () => {
-    expect(source).toContain('if (page === null) return []')
+    expect(source).toContain("if (page === null) throw new Error('MARKETPLACE_MEDIA_QUERY_FAILED')")
+    expect(source).toContain('signal?: AbortSignal')
+    expect(source).toContain('signal,')
   })
 })
