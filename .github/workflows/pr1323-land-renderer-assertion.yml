@@ -1,0 +1,53 @@
+name: PR 1323 Land Renderer Assertion
+
+on:
+  push:
+    branches:
+      - fix/globe-antimeridian-generator-hardening
+    paths:
+      - '.github/workflows/pr1323-land-renderer-assertion.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  land:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply validated renderer-aligned Russia seam assertion
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/globe-polygon-rendering.test.ts')
+          s = p.read_text()
+          old = """    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)\n    expect(Math.max(...normalizedLongitudes)).toBeGreaterThanOrEqual(180)\n"""
+          new = """    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)\n    // Per-polygon minimum-circular-span normalization keeps dateline fragments\n    // on their own ±180 side rather than shifting valid points beyond 180.\n    // Require coverage on both seam sides so the far-eastern Russia fragment\n    // cannot disappear while the per-polygon span checks still pass.\n    expect(Math.min(...normalizedLongitudes)).toBeLessThan(-170)\n    expect(Math.max(...normalizedLongitudes)).toBeGreaterThan(170)\n"""
+          if s.count(old) != 1:
+              raise SystemExit(f'expected exactly one old assertion, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Verify targeted rendering regression
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Commit fix and self-remove only if branch stayed immutable
+        run: |
+          git fetch origin fix/globe-antimeridian-generator-hardening
+          REMOTE_SHA=$(git rev-parse origin/fix/globe-antimeridian-generator-hardening)
+          if [ "$REMOTE_SHA" != "$GITHUB_SHA" ]; then
+            echo "Branch moved during landing: start=$GITHUB_SHA remote=$REMOTE_SHA"
+            exit 23
+          fi
+          git rm .github/workflows/pr1323-land-renderer-assertion.yml
+          git config user.name 'Harbourview Release Bot'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add tests/globe-polygon-rendering.test.ts
+          git commit -m 'test(globe): align Russia seam coverage with renderer normalization'
+          git push origin HEAD:fix/globe-antimeridian-generator-hardening
