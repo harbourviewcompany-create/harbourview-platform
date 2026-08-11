@@ -21,8 +21,8 @@ create type public.hv_decision_status as enum (
 
 create table public.transaction_economics_entries (
   id uuid primary key default gen_random_uuid(),
-  transaction_id uuid not null references public.transactions(id) on delete cascade,
-  network_id uuid references public.transaction_networks(id) on delete set null,
+  transaction_id uuid not null references public.transactions(id) on delete restrict,
+  network_id uuid references public.transaction_networks(id) on delete restrict,
   metric_type public.hv_economics_metric_type not null,
   basis public.hv_economics_basis not null,
   status public.hv_economics_status not null default 'draft',
@@ -33,20 +33,22 @@ create table public.transaction_economics_entries (
   unit_rate numeric(20,6),
   formula_text text,
   calculation_inputs jsonb not null default '{}'::jsonb,
-  evidence_id uuid references public.hv_evidence(id) on delete set null,
-  assertion_id uuid references public.assertions(id) on delete set null,
-  contract_document_id uuid references public.hv_evidence_documents(id) on delete set null,
+  evidence_id uuid references public.hv_evidence(id) on delete restrict,
+  assertion_id uuid references public.assertions(id) on delete restrict,
+  contract_document_id uuid references public.hv_evidence_documents(id) on delete restrict,
   effective_at timestamptz,
   recognized_at timestamptz,
   scenario_only boolean not null default false,
   recognition_key text not null,
   visibility_scope public.hv_visibility_scope not null default 'platform_only',
-  specific_party_id uuid references public.transaction_parties(id) on delete set null,
+  specific_party_id uuid,
   classification public.hv_classification not null default 'confidential',
   supersedes_entry_id uuid references public.transaction_economics_entries(id) on delete restrict,
-  created_by uuid references auth.users(id) on delete set null,
+  created_by uuid references auth.users(id) on delete restrict,
   created_at timestamptz not null default now(),
-  constraint transaction_economics_amount_chk check (amount is null or amount >= 0),
+  constraint transaction_economics_amount_chk check (
+    amount is null or amount >= 0 or metric_type = 'gross_margin'
+  ),
   constraint transaction_economics_quantity_chk check (quantity is null or quantity >= 0),
   constraint transaction_economics_rate_chk check (unit_rate is null or unit_rate >= 0),
   constraint transaction_economics_currency_chk check (currency is null or currency ~ '^[A-Z]{3}$'),
@@ -54,6 +56,9 @@ create table public.transaction_economics_entries (
   constraint transaction_economics_specific_party_chk check (
     visibility_scope <> 'specific_party' or specific_party_id is not null
   ),
+  constraint transaction_economics_specific_party_transaction_fk foreign key (specific_party_id, transaction_id)
+    references public.transaction_parties(id, transaction_id)
+    on delete restrict,
   constraint transaction_economics_primary_evidence_chk check (
     basis <> 'primary_evidence' or evidence_id is not null or assertion_id is not null
   ),
@@ -61,10 +66,10 @@ create table public.transaction_economics_entries (
     basis <> 'contract' or contract_document_id is not null
   ),
   constraint transaction_economics_transacted_basis_chk check (
-    metric_type <> 'transacted_gtv' or basis in ('primary_evidence','contract','invoice','settlement')
+    metric_type <> 'transacted_gtv' or basis in ('primary_evidence','invoice','settlement')
   ),
   constraint transaction_economics_scenario_chk check (
-    scenario_only = false or basis = 'scenario'
+    (scenario_only and basis = 'scenario') or (not scenario_only and basis <> 'scenario')
   ),
   constraint transaction_economics_supersedes_chk check (supersedes_entry_id is null or supersedes_entry_id <> id)
 );
@@ -84,6 +89,12 @@ declare
   parent_tx uuid;
   parent_key text;
 begin
+  -- Serialize authoritative inserts by recognition event. Without this lock, two concurrent
+  -- first inserts can both observe no current leaf and double-book the same economic event.
+  if new.status = 'validated' and not new.scenario_only then
+    perform pg_advisory_xact_lock(hashtextextended(new.recognition_key, 0));
+  end if;
+
   if new.supersedes_entry_id is not null then
     select transaction_id, recognition_key
       into parent_tx, parent_key
@@ -167,9 +178,16 @@ create table public.transaction_decisions (
 create index transaction_decisions_transaction_idx on public.transaction_decisions (transaction_id, decided_at desc);
 create index transaction_decisions_type_idx on public.transaction_decisions (decision_type, status);
 
-alter table public.commissions
+-- commissions exists on the live project but is production drift, so the bridge is replay-safe.
+alter table if exists public.commissions
   add column if not exists economics_entry_id uuid references public.transaction_economics_entries(id) on delete set null;
-create index if not exists commissions_economics_entry_idx on public.commissions (economics_entry_id) where economics_entry_id is not null;
+do $$
+begin
+  if to_regclass('public.commissions') is not null then
+    execute 'create index if not exists commissions_economics_entry_idx on public.commissions (economics_entry_id) where economics_entry_id is not null';
+  end if;
+end;
+$$;
 
-comment on table public.transaction_economics_entries is 'Append-only economics ledger. Stronger evidence is appended with supersedes_entry_id; GTV and Harbourview revenue remain distinct metrics.';
+comment on table public.transaction_economics_entries is 'Append-only economics ledger. Stronger evidence is appended with supersedes_entry_id; authoritative inserts are serialized by recognition key; GTV and Harbourview revenue remain distinct metrics.';
 comment on table public.transaction_decisions is 'Evidence/economics-aware commercial decisions, separate from hv_review_decisions publication governance.';
