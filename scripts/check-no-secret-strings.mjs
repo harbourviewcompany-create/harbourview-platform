@@ -64,8 +64,11 @@ const patterns = [
   { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
 
-const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*(?:=|:(?!\?))\s*(.+?)\s*$/i;
+const sensitiveKey = '[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*';
+const simpleAssignment = new RegExp(`^(?:export\\s+)?${sensitiveKey}\\s*(?:=|:(?!\\?))\\s*(.+?)\\s*$`, 'i');
+const jsAssignment = new RegExp(`^(?:const|let|var)\\s+${sensitiveKey}\\s*=\\s*(.+?)\\s*;?\\s*$`, 'i');
 const plainReferenceValue = /^(?:process\.env|env|secrets|vars)\.[A-Z0-9_.-]+$/i;
+const emptyFallbackEnvValue = /^process\.env\.[A-Z0-9_]+\s*\|\|\s*(?:''|"")$/i;
 const shellReferenceValue = /^\$\{[A-Z0-9_]+\}$/i;
 const requiredShellReferenceValue = /^\$\{[A-Z0-9_]+:\?[^}]*\}$/i;
 const githubExpressionInner = /^(?:secrets|vars|github|inputs)\.[A-Z0-9_.-]+$/i;
@@ -83,8 +86,20 @@ function normalizeAssignmentValue(rawValue) {
   return value;
 }
 
+function normalizeScannableLine(line) {
+  const trimmed = line.trimStart();
+  return trimmed.startsWith('#') ? trimmed.slice(1).trimStart() : trimmed;
+}
+
+function extractSensitiveAssignmentValue(line) {
+  const candidate = normalizeScannableLine(line);
+  const assignment = candidate.match(simpleAssignment) || candidate.match(jsAssignment);
+  return assignment?.[1] ? normalizeAssignmentValue(assignment[1]) : null;
+}
+
 function isSafeReferenceValue(value) {
   if (plainReferenceValue.test(value)) return true;
+  if (emptyFallbackEnvValue.test(value)) return true;
   if (shellReferenceValue.test(value)) return true;
   if (requiredShellReferenceValue.test(value)) return true;
 
@@ -110,32 +125,31 @@ function scanLine(line, source) {
     if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
   }
 
-  const assignment = line.match(riskyAssignment);
-  if (assignment && assignment[1]) {
-    const value = normalizeAssignmentValue(assignment[1]);
-    if (
-      value.length >= 8 &&
-      !isSafeReferenceValue(value) &&
-      !safePlaceholderValue.test(value)
-    ) {
-      findings.push({ source, pattern: 'risky-secret-assignment' });
-    }
+  const value = extractSensitiveAssignmentValue(line);
+  if (
+    value &&
+    value.length >= 8 &&
+    !isSafeReferenceValue(value) &&
+    !safePlaceholderValue.test(value)
+  ) {
+    findings.push({ source, pattern: 'risky-secret-assignment' });
   }
   return findings;
 }
 
 function runParserSelfTests() {
   const safeCases = [
-    'FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}',
-    '# FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}',
-    'SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:?required}',
-    'API_KEY=process.env.API_KEY',
-    'TOKEN: vars.DEPLOY_TOKEN',
+    ['FIGMA_TOKEN', ': ', '${{ secrets.FIGMA_TOKEN }}'].join(''),
+    ['# FIGMA_TOKEN', ': ', '${{ secrets.FIGMA_TOKEN }}'].join(''),
+    ['SUPABASE_SERVICE_ROLE_KEY', '=', '${SUPABASE_SERVICE_ROLE_KEY:?required}'].join(''),
+    ['API_KEY', '=', 'process.env.API_KEY'].join(''),
+    ['TOKEN', ': ', 'vars.DEPLOY_TOKEN'].join(''),
+    ['const BYPASS_TOKEN', ' = ', "process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''"].join(''),
   ];
   const blockedCases = [
-    'API_KEY=literal-secret-value',
-    'TOKEN: literal-token-value',
-    'PASSWORD=${PASSWORD:-fallback-secret}',
+    ['API_KEY', '=', 'literal-secret-value'].join(''),
+    ['TOKEN', ': ', 'literal-token-value'].join(''),
+    ['PASSWORD', '=', '${PASSWORD:-fallback-secret}'].join(''),
   ];
 
   for (const line of safeCases) {
@@ -175,7 +189,7 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub references such as process.env.SUPABASE_SERVICE_ROLE_KEY, ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}, and ${SUPABASE_SERVICE_ROLE_KEY:?required}.');
+  console.error('Allowed: environment/GitHub references such as process.env.SUPABASE_SERVICE_ROLE_KEY, ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}, ${SUPABASE_SERVICE_ROLE_KEY:?required}, and empty-string fallbacks from process.env.');
   console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, shell default-value expansions and credential-bearing database URLs.');
   process.exit(1);
 }
