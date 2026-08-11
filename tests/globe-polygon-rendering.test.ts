@@ -158,20 +158,23 @@ describe('Harbourview globe polygon rendering stage', () => {
     expect(normalizedLongitudes.every((lon) => Math.abs(lon) >= 170)).toBe(true)
   })
 
-  it('keeps generated Natural Earth Russia geometry on a contiguous Asia antimeridian span', () => {
+  it('keeps every generated Natural Earth Russia polygon on a contiguous antimeridian span', () => {
     const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')
     expect(russia).toBeTruthy()
 
     const referenceLongitude = polygonGeometryInternals.countryMinimumCircularSpanReferenceLongitude(
       russia!,
     )
-    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)
+    const normalizedPolygons = polygonGeometryInternals.normalizePolygonTopology(russia!)
     const geometry = createCountryBufferGeometry(russia!, { geometryMode: 'surface' })
 
     expect(referenceLongitude).toBeGreaterThan(90)
     expect(referenceLongitude).toBeLessThan(120)
-    expect(longitudeSpan(normalizedLongitudes)).toBeLessThan(180)
-    expect(normalizedLongitudes.some((lon) => lon > 180)).toBe(true)
+    expect(normalizedPolygons.length).toBeGreaterThan(0)
+    for (const polygon of normalizedPolygons) {
+      const polygonLongitudes = polygon.outer.map(([lon]) => lon)
+      expect(longitudeSpan(polygonLongitudes)).toBeLessThan(180)
+    }
     expect(geometry.getAttribute('position').count).toBeGreaterThan(100)
     expect(geometry.index?.count).toBeGreaterThan(150)
 
