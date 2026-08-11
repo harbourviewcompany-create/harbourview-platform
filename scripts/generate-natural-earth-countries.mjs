@@ -477,7 +477,14 @@ function transformFeature(feature) {
   const iso3 = extractIso3(properties)
   if (!iso2 || !iso3 || SKIP_ISO2.has(iso2)) return null
 
-  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  // Keep the normal simplified path authoritative. If simplification would
+  // delete an otherwise source-eligible country entirely, retry the same
+  // topology/minimum-area pipeline at source fidelity. This preserves small
+  // countries such as the U.S. Virgin Islands without relaxing the minimum-area
+  // gate for genuinely sub-threshold source geometry or perturbing countries
+  // whose normal simplified output is already non-empty.
+  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  if (polygons.length === 0) polygons = normalizePolygons(feature.geometry, 0)
   if (polygons.length === 0) return null
 
   const labelLon = typeof properties.LABEL_X === 'number' ? properties.LABEL_X : null
