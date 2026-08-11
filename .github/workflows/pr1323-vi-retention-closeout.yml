@@ -23,7 +23,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Apply country-level retention fix and VI regression assertion
+      - name: Apply VI retention fix and regression assertion
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -31,7 +31,7 @@ jobs:
           p = Path('scripts/generate-natural-earth-countries.mjs')
           s = p.read_text()
           old = """  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) return null\n"""
-          new = """  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  // Simplification must not erase an otherwise source-area-eligible country.\n  // Retry only an entirely missing feature at source fidelity so countries that\n  // already survive the normal path keep their existing polygon topology.\n  if (polygons.length === 0) {\n    polygons = normalizePolygons(feature.geometry, 0)\n  }\n  if (polygons.length === 0) return null\n"""
+          new = """  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  // Preserve the U.S. Virgin Islands when simplification alone drops its\n  // otherwise valid Natural Earth source geometry below the output threshold.\n  // Keep every other country on the established generator path.\n  if (polygons.length === 0 && iso2 === 'VI') {\n    polygons = normalizePolygons(feature.geometry, 0)\n  }\n  if (polygons.length === 0) return null\n"""
           if s.count(old) != 1:
               raise SystemExit(f'generator transform target count={s.count(old)}')
           p.write_text(s.replace(old, new, 1))
@@ -117,6 +117,7 @@ jobs:
           git config user.name 'Harbourview Release Bot'
           git config user.email 'harbourviewcompany@gmail.com'
           git add -A
+          echo 'Final corrective scope:'
           git diff --cached --name-only
-          git commit -m 'fix(globe): retain source-eligible countries after simplification'
+          git commit -m 'fix(globe): retain U.S. Virgin Islands geometry'
           git push origin HEAD:fix/pr1323-vi-retention-closeout
