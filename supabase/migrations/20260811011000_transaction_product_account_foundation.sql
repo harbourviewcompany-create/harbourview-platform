@@ -74,7 +74,15 @@ create table public.product_batches (
   updated_at timestamptz not null default now(),
   constraint product_batches_quantity_chk check (quantity is null or quantity >= 0),
   constraint product_batches_validity_chk check (valid_to is null or valid_from is null or valid_to >= valid_from),
-  constraint product_batches_expiry_chk check (expires_at is null or manufactured_at is null or expires_at >= manufactured_at),
+  constraint product_batches_release_after_manufacture_chk check (
+    released_at is null or manufactured_at is null or released_at >= manufactured_at
+  ),
+  constraint product_batches_expiry_after_manufacture_chk check (
+    expires_at is null or manufactured_at is null or expires_at >= manufactured_at
+  ),
+  constraint product_batches_expiry_after_release_chk check (
+    expires_at is null or released_at is null or expires_at >= released_at
+  ),
   unique (product_id, batch_code)
 );
 create index product_batches_batch_code_idx on public.product_batches (batch_code);
@@ -131,21 +139,75 @@ create table public.economic_account_members (
   ),
   constraint economic_account_members_validity_chk check (valid_to is null or valid_from is null or valid_to >= valid_from)
 );
-create unique index economic_account_members_entity_uidx
-  on public.economic_account_members (economic_account_id, entity_id, member_role)
-  where entity_id is not null;
-create unique index economic_account_members_licence_uidx
-  on public.economic_account_members (economic_account_id, operator_licence_id, member_role)
-  where operator_licence_id is not null;
-create unique index economic_account_members_facility_uidx
-  on public.economic_account_members (economic_account_id, facility_id, member_role)
-  where facility_id is not null;
-create unique index economic_account_members_workspace_uidx
-  on public.economic_account_members (economic_account_id, workspace_id, member_role)
-  where workspace_id is not null;
+
 create index economic_account_members_account_idx on public.economic_account_members (economic_account_id);
+create index economic_account_members_entity_idx on public.economic_account_members (entity_id) where entity_id is not null;
+create index economic_account_members_licence_idx on public.economic_account_members (operator_licence_id) where operator_licence_id is not null;
+create index economic_account_members_facility_idx on public.economic_account_members (facility_id) where facility_id is not null;
+create index economic_account_members_workspace_idx on public.economic_account_members (workspace_id) where workspace_id is not null;
+
+create or replace function public.hv_validate_economic_account_membership_period()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+declare
+  target_key text;
+  new_period daterange;
+begin
+  target_key := case
+    when new.entity_id is not null then 'entity:' || new.entity_id::text
+    when new.operator_licence_id is not null then 'licence:' || new.operator_licence_id::text
+    when new.facility_id is not null then 'facility:' || new.facility_id::text
+    when new.workspace_id is not null then 'workspace:' || new.workspace_id::text
+    else null
+  end;
+
+  if target_key is null then
+    raise exception 'economic account membership target is required';
+  end if;
+
+  perform pg_advisory_xact_lock(
+    hashtextextended(new.economic_account_id::text || '|' || new.member_role::text || '|' || target_key, 0)
+  );
+
+  new_period := daterange(
+    coalesce(new.valid_from, '-infinity'::date),
+    coalesce(new.valid_to, 'infinity'::date),
+    '[)'
+  );
+
+  if exists (
+    select 1
+    from public.economic_account_members existing
+    where existing.economic_account_id = new.economic_account_id
+      and existing.member_role = new.member_role
+      and existing.id is distinct from new.id
+      and existing.entity_id is not distinct from new.entity_id
+      and existing.operator_licence_id is not distinct from new.operator_licence_id
+      and existing.facility_id is not distinct from new.facility_id
+      and existing.workspace_id is not distinct from new.workspace_id
+      and daterange(
+        coalesce(existing.valid_from, '-infinity'::date),
+        coalesce(existing.valid_to, 'infinity'::date),
+        '[)'
+      ) && new_period
+  ) then
+    raise exception 'economic account membership period overlaps an existing membership for %', target_key;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger economic_account_members_validate_period
+before insert or update of economic_account_id, entity_id, operator_licence_id, facility_id, workspace_id, member_role, valid_from, valid_to
+on public.economic_account_members
+for each row execute function public.hv_validate_economic_account_membership_period();
 
 -- Existing marketplace records remain snapshots/offers; these are nullable canonical bridges only.
+-- Stage 6 converts the current public table-wide SELECT/INSERT/UPDATE grants to legacy-column allowlists
+-- so these internal bridge identifiers are neither publicly readable nor publicly writable.
 alter table public.listings
   add column if not exists product_id uuid references public.products(id) on delete set null,
   add column if not exists economic_account_id uuid references public.economic_accounts(id) on delete set null;
@@ -163,4 +225,4 @@ create index if not exists buyer_requests_opportunity_idx on public.buyer_reques
 comment on table public.products is 'Canonical product/SKU identity; marketplace listings remain commercial offer snapshots.';
 comment on table public.product_batches is 'Batch-level identity for COA, inventory, testing and compliance evidence.';
 comment on table public.economic_accounts is 'Commercial buying/contracting unit. Never substitutes for workspaces tenancy/security.';
-comment on table public.economic_account_members is 'Temporal consolidation of entities, licences, facilities or workspaces into one economic buying/contracting account.';
+comment on table public.economic_account_members is 'Temporal consolidation of entities, licences, facilities or workspaces into one economic buying/contracting account; non-overlapping periods may rejoin later.';
