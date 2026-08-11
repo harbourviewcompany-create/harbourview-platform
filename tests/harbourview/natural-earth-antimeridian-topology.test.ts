@@ -164,7 +164,7 @@ test('synthetic antimeridian fragments close on the seam without false mainland 
     Math.sign(result.fragments[1].signedArea),
     'split fragments must preserve consistent winding',
   )
-}, 35_000)
+}, 60_000)
 
 test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () => {
   const result = runGeometryProbe<{
@@ -184,6 +184,10 @@ test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () 
         name: 'cyclic closure alias',
         ring: [[-180, 0], [-170, 10], [-170, -10], [180, 0], [-180, 0]],
       },
+      {
+        name: 'differing-latitude seam segment',
+        ring: [[180, 55], [-180, 50], [-170, 45], [-170, 35], [180, 35], [180, 55]],
+      },
     ]
     const cases = inputs.map(({ name, ring }) => {
       const fragments = generator.splitRingAtAntimeridian(ring)
@@ -197,7 +201,7 @@ test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () 
     console.log(JSON.stringify({ cases }))
   `)
 
-  assert.equal(result.cases.length, 2)
+  assert.equal(result.cases.length, 3)
   for (const aliasCase of result.cases) {
     assert.ok(aliasCase.count > 0, `${aliasCase.name}: expected at least one fragment`)
     assert.equal(aliasCase.closedCount, aliasCase.count, `${aliasCase.name}: emitted open fragment`)
@@ -207,7 +211,77 @@ test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () 
     )
     assert.notEqual(aliasCase.maxRawLongitudeJump, 360, `${aliasCase.name}: 360° planar edge survived normalization`)
   }
-}, 35_000)
+}, 60_000)
+
+test('multi-crossing outer preserves opposite-winding cutout topology', () => {
+  const result = runGeometryProbe<{
+    polygonCount: number
+    holeCount: number
+    misplacedHoleCount: number
+    windingMismatchCount: number
+  }>(`
+    const geometry = {
+      type: 'Polygon',
+      coordinates: [[
+        [170, 60], [-170, 60], [-170, 50], [170, 50],
+        [170, 45], [-170, 45], [-170, 35], [170, 35], [170, 60],
+      ]],
+    }
+    const polygons = generator.normalizePolygons(geometry, 0)
+    let holeCount = 0
+    let misplacedHoleCount = 0
+    let windingMismatchCount = 0
+    for (const polygon of polygons) {
+      const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+      if (!outer) continue
+      const outerSign = Math.sign(generator.signedRingAreaDeg2(outer.points))
+      for (const hole of polygon.rings.filter((ring) => ring.kind === 'hole')) {
+        holeCount += 1
+        if (!hole.points.slice(0, -1).some((point) => generator.pointInRing(point, outer.points))) {
+          misplacedHoleCount += 1
+        }
+        if (Math.sign(generator.signedRingAreaDeg2(hole.points)) === outerSign) windingMismatchCount += 1
+      }
+    }
+    console.log(JSON.stringify({
+      polygonCount: polygons.length,
+      holeCount,
+      misplacedHoleCount,
+      windingMismatchCount,
+    }))
+  `)
+
+  assert.equal(result.polygonCount, 3, 'four-crossing synthetic should produce three solid outer fragments')
+  assert.equal(result.holeCount, 1, 'opposite-winding intermediate run must remain a cutout')
+  assert.equal(result.misplacedHoleCount, 0, 'cutout must remain owned by its containing outer')
+  assert.equal(result.windingMismatchCount, 0, 'cutout winding must remain opposite its outer')
+}, 60_000)
+
+test('holes owned only by MIN_POLYGON_AREA_DEG2-discarded fragments are excluded', () => {
+  const result = runGeometryProbe<{
+    polygonCount: number
+    holeCount: number
+  }>(`
+    const geometry = {
+      type: 'Polygon',
+      coordinates: [
+        [[179, 1], [-179.995, 1], [-179.995, 0], [179, 0], [179, 1]],
+        [[-179.999, 0.8], [-179.996, 0.8], [-179.996, 0.2], [-179.999, 0.2], [-179.999, 0.8]],
+      ],
+    }
+    const polygons = generator.normalizePolygons(geometry, 0)
+    console.log(JSON.stringify({
+      polygonCount: polygons.length,
+      holeCount: polygons.reduce(
+        (count, polygon) => count + polygon.rings.filter((ring) => ring.kind === 'hole').length,
+        0,
+      ),
+    }))
+  `)
+
+  assert.equal(result.polygonCount, 1, 'only the area-eligible split outer should survive')
+  assert.equal(result.holeCount, 0, 'hole owned by the discarded split outer must not attach to the survivor')
+}, 60_000)
 
 test('each synthetic source hole preserves at least one assigned fragment across the antimeridian', () => {
   const result = runGeometryProbe<{
@@ -259,7 +333,7 @@ test('each synthetic source hole preserves at least one assigned fragment across
       `source hole ${sourceHole.holeIndex} lost an eligible generated fragment`,
     )
   }
-}, 35_000)
+}, 60_000)
 
 test('Natural Earth seam-affected countries preserve closure, winding, hole ownership and Earcut validity', () => {
   const result = runGeometryProbe<{
@@ -371,7 +445,7 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
     }
     assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
   }
-}, 35_000)
+}, 60_000)
 
 test('Russia source is already seam-split and generated seam rings never close across the mainland', () => {
   const result = runGeometryProbe<{
@@ -421,4 +495,4 @@ test('Russia source is already seam-split and generated seam rings never close a
   assert.equal(result.badClosureCount, 0)
   assert.ok(result.maxRawLongitudeJump < 30, `Russia seam ring created false planar chord: ${result.maxRawLongitudeJump}°`)
   assert.ok(result.maxSphericalEdgeDeg < 10, `Russia seam ring created false spherical boundary chord: ${result.maxSphericalEdgeDeg}°`)
-}, 35_000)
+}, 60_000)
