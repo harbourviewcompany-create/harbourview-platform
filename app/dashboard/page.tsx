@@ -122,7 +122,7 @@ export default async function DashboardPage({
     signals,
     dailyDigest,
     wantedCount,
-    marketplaceRows,
+    marketplaceRows: marketplaceProjection,
     pipeline,
     wantedListings,
     countryIntel,
@@ -178,7 +178,8 @@ export default async function DashboardPage({
         initialRoleId={roleId}
         initialPage={urlPage}
         wantedCount={wantedCount}
-        marketplaceRows={marketplaceRows}
+        marketplaceRows={marketplaceProjection.rows}
+        marketplaceMediaById={marketplaceProjection.mediaById}
         pipeline={pipeline}
         wantedListings={wantedListings}
         countryIntel={countryIntel ?? undefined}

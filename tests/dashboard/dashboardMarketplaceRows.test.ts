@@ -1,13 +1,17 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import type { PublicListing } from '@/lib/server/listingsQuery'
+import { marketplaceMediaKey } from '@/lib/dashboard/marketplaceMediaProjection'
 
-// Only the listings query is mocked. Everything else in
-// buildDashboardCommandSources is left real so the wiring under test is the
-// wiring that ships.
 const getListingsBySections = vi.fn()
+const getPublicMarketplaceImagesForItems = vi.fn(async () => ({}))
 
 vi.mock('@/lib/server/listingsQuery', () => ({
   getListingsBySections: (...args: unknown[]) => getListingsBySections(...args),
+}))
+
+vi.mock('@/lib/marketplace/images/public-query', () => ({
+  getPublicMarketplaceImagesForItems: (...args: unknown[]) => getPublicMarketplaceImagesForItems(...args),
+  pickMarketplaceCardImage: (images: unknown[]) => images[0] ?? null,
 }))
 
 const { buildDashboardCommandSources } = await import('@/lib/dashboard/buildDashboardCommandSources')
@@ -38,25 +42,32 @@ function listing(section: string, id: string): PublicListing {
   }
 }
 
-function loadRows(countryIso2: string | null = 'CA') {
+function marketplaceSource(countryIso2: string | null = 'CA') {
   const sources = buildDashboardCommandSources({
     countryIso2,
     roleId: 'exporter',
     userId: null,
     page: 'marketplace',
   })
-  return sources.marketplaceRows.load()
+  return sources.marketplaceRows
+}
+
+function loadProjection(countryIso2: string | null = 'CA') {
+  return marketplaceSource(countryIso2).load()
 }
 
 describe('Command Centre marketplace projection', () => {
   beforeEach(() => {
     getListingsBySections.mockReset()
+    getPublicMarketplaceImagesForItems.mockReset()
+    getPublicMarketplaceImagesForItems.mockResolvedValue({})
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('queries each view separately so a busy section cannot starve a quiet one', async () => {
-    // Reproduces the production defect: consumables and packaging held the
-    // newest rows and consumed an entire shared budget, leaving wanted,
-    // opportunities and cannabis empty while their rows sat in the database.
     getListingsBySections.mockImplementation(async (sections: string[]) => {
       if (sections.includes('consumables')) {
         return Array.from({ length: 8 }, (_, i) => listing('consumables', `c${i}`))
@@ -66,12 +77,11 @@ describe('Command Centre marketplace projection', () => {
       return []
     })
 
-    const rows = await loadRows()
+    const projection = await loadProjection()
 
-    expect(rows.consumables).toHaveLength(8)
-    // Both of these were 0 before the fix.
-    expect(rows.wanted).toHaveLength(1)
-    expect(rows.cannabis).toHaveLength(1)
+    expect(projection.rows.consumables).toHaveLength(8)
+    expect(projection.rows.wanted).toHaveLength(1)
+    expect(projection.rows.cannabis).toHaveLength(1)
   })
 
   it('caps each view at its own budget rather than a shared one', async () => {
@@ -79,7 +89,7 @@ describe('Command Centre marketplace projection', () => {
       Array.from({ length: limit }, (_, i) => listing('consumables', `c${i}`)),
     )
 
-    await loadRows()
+    await loadProjection()
 
     for (const call of getListingsBySections.mock.calls) {
       expect(call[2]).toBe(8)
@@ -87,18 +97,14 @@ describe('Command Centre marketplace projection', () => {
   })
 
   it('routes the live `processing` section to equipment, not cannabis', async () => {
-    // `processing` is a real section with rows in production. The map only
-    // listed `processing_equipment`, which nothing writes, so these rows were
-    // unreachable — and the unmatched-section fallback would have filed them
-    // under cannabis.
     const equipmentCall = getListingsBySections.mockImplementation(async (sections: string[]) =>
       sections.includes('processing') ? [listing('processing', 'p1')] : [],
     )
 
-    const rows = await loadRows()
+    const projection = await loadProjection()
 
-    expect(rows.equipment).toHaveLength(1)
-    expect(rows.cannabis).toBeUndefined()
+    expect(projection.rows.equipment).toHaveLength(1)
+    expect(projection.rows.cannabis).toBeUndefined()
 
     const sectionsQueriedForEquipment = equipmentCall.mock.calls
       .map(call => call[0] as string[])
@@ -109,7 +115,7 @@ describe('Command Centre marketplace projection', () => {
   it('passes the active country through to every view query', async () => {
     getListingsBySections.mockResolvedValue([])
 
-    await loadRows('DE')
+    await loadProjection('DE')
 
     expect(getListingsBySections).toHaveBeenCalled()
     for (const call of getListingsBySections.mock.calls) {
@@ -117,11 +123,82 @@ describe('Command Centre marketplace projection', () => {
     }
   })
 
+  it('keeps legacy row tuples unchanged while media lives in a separate typed map', async () => {
+    getListingsBySections.mockImplementation(async (sections: string[]) =>
+      sections.includes('cannabis_inventory') ? [listing('cannabis_inventory', 'k1')] : [],
+    )
+
+    const projection = await loadProjection()
+    const row = projection.rows.cannabis?.[0]
+
+    expect(row).toHaveLength(10)
+    expect(row?.[7]).toBe('k1')
+    expect(projection.mediaById[marketplaceMediaKey('cannabis', 'k1')]).toBeDefined()
+    expect(projection.mediaById[marketplaceMediaKey('cannabis', 'k1')].kind).toBe('representative')
+  })
+
+  it('resolves all loaded listing media through one deduplicated bulk query', async () => {
+    getListingsBySections.mockImplementation(async (sections: string[]) => {
+      if (sections.includes('cannabis_inventory')) return [listing('cannabis_inventory', 'shared'), listing('cannabis_inventory', 'k2')]
+      if (sections.includes('consumables')) return [listing('consumables', 'shared'), listing('consumables', 'c2')]
+      return []
+    })
+
+    await loadProjection()
+
+    expect(getPublicMarketplaceImagesForItems).toHaveBeenCalledTimes(1)
+    const ids = getPublicMarketplaceImagesForItems.mock.calls[0][0] as string[]
+    expect(ids.sort()).toEqual(['c2', 'k2', 'shared'])
+  })
+
+  it('keeps view-specific representative media separate for the same canonical listing id', async () => {
+    getListingsBySections.mockImplementation(async (sections: string[]) =>
+      sections.includes('wanted_requests') ? [listing('wanted_requests', 'shared-demand')] : [],
+    )
+
+    const projection = await loadProjection()
+    const wanted = projection.mediaById[marketplaceMediaKey('wanted', 'shared-demand')]
+    const opportunity = projection.mediaById[marketplaceMediaKey('opportunities', 'shared-demand')]
+
+    expect(wanted).toBeDefined()
+    expect(opportunity).toBeDefined()
+    expect(wanted.altText).toContain('demand')
+    expect(opportunity.altText).toContain('commercial opportunity')
+    expect(wanted.src).not.toBe(opportunity.src)
+  })
+
+  it('returns already-loaded rows when optional image enrichment exceeds its timeout', async () => {
+    vi.useFakeTimers()
+    getListingsBySections.mockImplementation(async (sections: string[]) =>
+      sections.includes('cannabis_inventory') ? [listing('cannabis_inventory', 'slow-media')] : [],
+    )
+    getPublicMarketplaceImagesForItems.mockImplementation(() => new Promise(() => undefined))
+
+    const pending = loadProjection()
+    await vi.advanceTimersByTimeAsync(1_500)
+    const projection = await pending
+
+    expect(projection.rows.cannabis?.[0]?.[7]).toBe('slow-media')
+    expect(projection.mediaById[marketplaceMediaKey('cannabis', 'slow-media')].kind).toBe('representative')
+  })
+
+  it('classifies the wrapped projection as empty only when it has no row buckets', () => {
+    const source = marketplaceSource()
+
+    expect(source.isEmpty?.({ rows: {}, mediaById: {} })).toBe(true)
+    expect(source.isEmpty?.({
+      rows: { cannabis: [['title', 'summary', 'CA', 'Flower', 'Verified', 'Mediated', '80', 'id', '', '']] },
+      mediaById: {},
+    })).toBe(false)
+  })
+
   it('omits views that have no rows instead of emitting empty buckets', async () => {
     getListingsBySections.mockResolvedValue([])
 
-    const rows = await loadRows()
+    const projection = await loadProjection()
 
-    expect(Object.keys(rows)).toHaveLength(0)
+    expect(Object.keys(projection.rows)).toHaveLength(0)
+    expect(projection.mediaById).toEqual({})
+    expect(getPublicMarketplaceImagesForItems).not.toHaveBeenCalled()
   })
 })
