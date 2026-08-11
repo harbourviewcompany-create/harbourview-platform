@@ -10,6 +10,7 @@ const migrationFiles = [
   "20260811014000_transaction_economics_decisions_foundation.sql",
   "20260811015000_transaction_rls_views_import_staging.sql",
   "20260811015100_transaction_boundary_hardening.sql",
+  "20260811015200_transaction_review_hardening.sql",
 ] as const;
 
 const migrations = migrationFiles.map((file) =>
@@ -116,7 +117,8 @@ describe("native transaction schema contract", () => {
     ]) {
       expect(allSql).toContain(metric);
     }
-    expect(allSql).toMatch(/transaction_economics_internal_or_shared_read[\s\S]*metric_type not in/i);
+    expect(allSql).toContain("alter policy transaction_economics_internal_or_shared_read");
+    expect(allSql).toContain("security_invoker = false, security_barrier = true");
     expect(allSql).toMatch(/transaction_participant_economics_v1[\s\S]*metric_type not in/i);
   });
 
@@ -124,11 +126,23 @@ describe("native transaction schema contract", () => {
     expect(allSql).toContain("hv_validate_economics_recognition_chain");
     expect(allSql).toContain("transaction_economics_recognition_chain");
     expect(allSql).toContain("pg_advisory_xact_lock");
+    expect(allSql).toContain("recognition_key does not match transaction/network, metric and currency fields");
     expect(allSql).toContain("hv_prevent_economics_mutation");
     expect(allSql).toMatch(/before update or delete on public\.transaction_economics_entries/i);
     expect(allSql).toContain("recognition_key like 'ECON|%'");
     expect(allSql).toContain("double_count_key like 'NETWORK|%'");
     expect(allSql).toContain("basis in ('primary_evidence','invoice','settlement')");
+    expect(allSql).toContain("child.status in ('validated','void')");
+  });
+
+  it("enforces final review hardening controls", () => {
+    expect(allSql).toContain("transaction_economics_authoritative_basis_chk");
+    expect(allSql).toContain("transaction_economics_amount_currency_chk");
+    expect(allSql).toContain("hv_guard_transaction_decision_mutation");
+    expect(allSql).toContain("transaction_decisions_audit_update");
+    expect(allSql).toContain("visibility_scope = 'transaction_parties'");
+    expect(allSql).toContain("latitude is not null");
+    expect(allSql).toContain("longitude is not null");
   });
 
   it("encodes the controlled workbook fixture counts without importing it", () => {
