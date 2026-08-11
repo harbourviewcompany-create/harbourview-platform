@@ -1,0 +1,118 @@
+name: VI Retention Fix Landing
+
+on:
+  push:
+    branches:
+      - tmp/vi-retention-landing-final
+    paths:
+      - '.github/workflows/vi-retention-land.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  land:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: fix/globe-vi-small-country-retention
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply feature-level source-fidelity fallback
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/generate-natural-earth-countries.mjs')
+          s = p.read_text()
+          old = """  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) return null\n"""
+          new = """  // Keep the normal simplified path authoritative. If simplification would\n  // delete an otherwise source-eligible country entirely, retry the same\n  // topology/minimum-area pipeline at source fidelity. This preserves small\n  // countries such as the U.S. Virgin Islands without relaxing the minimum-area\n  // gate for genuinely sub-threshold source geometry or perturbing countries\n  // whose normal simplified output is already non-empty.\n  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) polygons = normalizePolygons(feature.geometry, 0)\n  if (polygons.length === 0) return null\n"""
+          if s.count(old) != 1:
+              raise SystemExit(f'transformFeature target count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Add read-only VI retention regression
+        run: |
+          cat > tests/harbourview/natural-earth-small-country-retention.test.ts <<'EOF'
+          import { spawnSync } from 'node:child_process'
+          import { describe, expect, it } from 'vitest'
+          import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+
+          function runSourceRetentionProbe() {
+            const script = String.raw`
+              import { readFile } from 'node:fs/promises'
+              import { transformFeature } from './scripts/generate-natural-earth-countries.mjs'
+
+              const source = JSON.parse(await readFile('./data/globe/source/ne_50m_admin_0_countries.geojson', 'utf8'))
+              const transformed = source.features.map((feature) => transformFeature(feature)).filter(Boolean)
+              const vi = transformed.find((country) => country.iso2 === 'VI')
+              const tiny = transformFeature({
+                type: 'Feature',
+                properties: { ISO_A2: 'ZZ', ADM0_A3: 'ZZZ', NAME_LONG: 'Synthetic Subthreshold' },
+                geometry: {
+                  type: 'Polygon',
+                  coordinates: [[
+                    [10, 10],
+                    [10.01, 10],
+                    [10.01, 10.01],
+                    [10, 10.01],
+                    [10, 10],
+                  ]],
+                },
+              })
+              console.log(JSON.stringify({
+                viPresent: Boolean(vi),
+                viPolygonCount: vi?.polygons.length ?? 0,
+                tinyDropped: tiny === null,
+              }))
+            `
+            const result = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+              cwd: process.cwd(),
+              encoding: 'utf8',
+              timeout: 30_000,
+            })
+            if (result.status !== 0) {
+              throw new Error(`small-country source probe failed: status=${result.status} signal=${result.signal} error=${String(result.error)} stdout=${result.stdout} stderr=${result.stderr}`)
+            }
+            return JSON.parse(result.stdout.trim()) as {
+              viPresent: boolean
+              viPolygonCount: number
+              tinyDropped: boolean
+            }
+          }
+
+          describe('Natural Earth small-country retention', () => {
+            it('retains source-eligible U.S. Virgin Islands without weakening the source-area floor', () => {
+              const probe = runSourceRetentionProbe()
+              expect(probe.viPresent).toBe(true)
+              expect(probe.viPolygonCount).toBeGreaterThan(0)
+              expect(probe.tinyDropped).toBe(true)
+            }, 60_000)
+
+            it('keeps VI in the checked-in generated payload', () => {
+              const vi = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'VI')
+              expect(vi).toBeTruthy()
+              expect(vi!.polygons.length).toBeGreaterThan(0)
+            })
+          })
+          EOF
+      - name: Remove obsolete mutation-based PR1323 probe
+        run: git rm .github/workflows/pr1323-small-country-retention-probe.yml
+      - name: Regenerate checked-in Natural Earth payload
+        run: node scripts/generate-natural-earth-countries.mjs
+      - name: Landing sanity check
+        run: |
+          grep -q "iso2: 'VI'" data/globe/natural-earth-countries.ts
+          npx vitest run tests/harbourview/natural-earth-small-country-retention.test.ts
+      - name: Commit focused follow-up
+        run: |
+          git config user.name 'Harbourview Release Bot'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add scripts/generate-natural-earth-countries.mjs tests/harbourview/natural-earth-small-country-retention.test.ts data/globe/natural-earth-countries.ts .github/workflows/pr1323-small-country-retention-probe.yml
+          git commit -m 'fix(globe): retain source-eligible small countries'
+          git push origin HEAD:fix/globe-vi-small-country-retention
