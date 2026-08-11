@@ -10,6 +10,26 @@
 -- HV_PRIVATE_PIPELINE_RUNNER_SECRET is intentionally not wired here because the
 -- production caller for hv-private-pipeline-runner is not yet verified.
 
+-- schema-drift-monitor uses the service-role client against the api PostgREST
+-- schema. The api RPCs are SECURITY INVOKER wrappers over private public-schema
+-- SECURITY DEFINER functions, so service_role requires EXECUTE on both layers.
+-- Keep the RPCs unavailable to anon/authenticated and expose only the alert-view
+-- operations the monitor actually performs.
+grant usage on schema api to service_role;
+
+revoke execute on function api.get_tables_missing_from_api_schema() from public, anon, authenticated;
+revoke execute on function api.get_functions_missing_from_api_schema() from public, anon, authenticated;
+grant execute on function api.get_tables_missing_from_api_schema() to service_role;
+grant execute on function api.get_functions_missing_from_api_schema() to service_role;
+
+revoke execute on function public.get_tables_missing_from_api_schema() from public, anon, authenticated;
+revoke execute on function public.get_functions_missing_from_api_schema() from public, anon, authenticated;
+grant execute on function public.get_tables_missing_from_api_schema() to service_role;
+grant execute on function public.get_functions_missing_from_api_schema() to service_role;
+
+revoke all on api.schema_drift_alerts from public, anon, authenticated;
+grant select, insert on api.schema_drift_alerts to service_role;
+
 create or replace function public.invoke_job_refresh()
 returns bigint
 language plpgsql

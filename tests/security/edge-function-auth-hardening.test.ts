@@ -20,6 +20,11 @@ const paths = {
   migration: 'supabase/migrations/20260810222500_harden_edge_function_cron_auth.sql',
 }
 
+// This repository does not currently provide a local migrated-Supabase/pgTAP
+// harness (no supabase start/db reset/test path in package scripts or CI). ACL
+// regression is therefore enforced as a fail-closed migration contract here and
+// complemented by read-only live ACL verification before production release.
+
 describe('production Edge Function authentication hardening', () => {
   it('fails closed for missing/wrong cron secrets and accepts only an exact match', () => {
     expect(matchesRequiredSecret('', '')).toBe(false)
@@ -88,6 +93,50 @@ describe('production Edge Function authentication hardening', () => {
     expect(source).toContain('service_not_configured')
     expect(source).toContain('get_tables_missing_from_api_schema')
     expect(source).toContain('get_functions_missing_from_api_schema')
+  })
+
+  it('grants schema drift RPC execution only to service_role through both PostgREST layers', () => {
+    const sql = read(paths.migration).toLowerCase()
+
+    for (const fn of [
+      'get_tables_missing_from_api_schema',
+      'get_functions_missing_from_api_schema',
+    ]) {
+      for (const schema of ['api', 'public']) {
+        expect(sql).toContain(`revoke execute on function ${schema}.${fn}() from public, anon, authenticated;`)
+        expect(sql).toContain(`grant execute on function ${schema}.${fn}() to service_role;`)
+        expect(sql).not.toMatch(new RegExp(`grant\\s+execute\\s+on\\s+function\\s+${schema}\\.${fn}\\(\\)\\s+to\\s+(?:public|anon|authenticated)\\b`))
+      }
+    }
+
+    expect(sql).toContain('grant usage on schema api to service_role;')
+    expect(sql).not.toMatch(/grant\s+usage\s+on\s+schema\s+api\s+to\s+(?:public|anon|authenticated)\b/)
+
+    // ACL-only repair: do not redefine either existing drift detector in this migration.
+    expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_tables_missing_from_api_schema\s*\(/)
+    expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_functions_missing_from_api_schema\s*\(/)
+  })
+
+  it('limits schema drift alert API access to only SELECT/INSERT for service_role', () => {
+    const sql = read(paths.migration).toLowerCase()
+
+    expect(sql).toContain('revoke all on api.schema_drift_alerts from public, anon, authenticated;')
+    expect(sql).toContain('grant select, insert on api.schema_drift_alerts to service_role;')
+    expect(sql).not.toMatch(/grant\s+all(?:\s+privileges)?\s+on\s+api\.schema_drift_alerts\s+to\s+service_role/)
+    expect(sql).not.toMatch(/grant\s+(?:delete|update|truncate|references|trigger)\b[^;]*api\.schema_drift_alerts[^;]*service_role/)
+    expect(sql).not.toMatch(/grant\s+[^;]*api\.schema_drift_alerts[^;]*\b(?:public|anon|authenticated)\b/)
+  })
+
+  it('does not broaden unrelated API privileges while repairing schema drift access', () => {
+    const sql = read(paths.migration).toLowerCase()
+
+    const schemaGrants = [...sql.matchAll(/grant\s+usage\s+on\s+schema\s+api\s+to\s+([^;]+);/g)]
+      .map((match) => match[1].trim())
+    expect(schemaGrants).toEqual(['service_role'])
+
+    const alertGrants = [...sql.matchAll(/grant\s+([^;]+)\s+on\s+api\.schema_drift_alerts\s+to\s+([^;]+);/g)]
+      .map((match) => ({ privileges: match[1].replace(/\s+/g, ' ').trim(), grantee: match[2].trim() }))
+    expect(alertGrants).toEqual([{ privileges: 'select, insert', grantee: 'service_role' }])
   })
 
   it('removes source-visible static caller strings as authentication for pipeline runners', () => {
