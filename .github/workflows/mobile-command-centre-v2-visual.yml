@@ -38,6 +38,7 @@ on:
       - tests/supabase/env.test.ts
       - tests/e2e/mobile-command-centre-v2.spec.ts
       - tests/e2e/mobile-marketplace-media.spec.ts
+      - tests/e2e/mobile-intel-authenticated.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
   push:
     branches:
@@ -420,6 +421,7 @@ jobs:
           npx playwright test
           tests/e2e/mobile-command-centre-v2.spec.ts
           tests/e2e/mobile-marketplace-media.spec.ts
+          tests/e2e/mobile-intel-authenticated.spec.ts
           --project=chromium-desktop
           --workers=1
           --retries=0
