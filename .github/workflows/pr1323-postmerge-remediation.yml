@@ -1,0 +1,141 @@
+name: PR 1323 Post-Merge Remediation
+
+on:
+  push:
+    branches:
+      - fix/pr1323-postmerge-small-country-retention
+    paths:
+      - '.github/workflows/pr1323-postmerge-remediation.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr1323-postmerge-remediation
+  cancel-in-progress: false
+
+jobs:
+  verify-fix-and-clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Apply feature-level source-area retention fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/generate-natural-earth-countries.mjs')
+          s = p.read_text()
+          old = """  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) return null\n"""
+          new = """  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) {\n    const sourcePolygons = feature.geometry.type === 'Polygon'\n      ? [feature.geometry.coordinates]\n      : feature.geometry.coordinates\n    const hasSourceEligibleOuter = sourcePolygons.some((polygon) => {\n      const rawOuter = closeRing(polygon[0])\n      return rawOuter !== null && ringAreaDeg2(rawOuter) >= MIN_POLYGON_AREA_DEG2\n    })\n    if (hasSourceEligibleOuter) {\n      polygons = normalizePolygons(feature.geometry, 0)\n    }\n  }\n  if (polygons.length === 0) return null\n"""
+          if s.count(old) != 1:
+              raise SystemExit(f'transformFeature target count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+
+      - name: Add regression for source-eligible small countries
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
+          s = p.read_text()
+          marker = "retains source-eligible countries when simplification removes every polygon"
+          if marker not in s:
+              s += """\n\ntest('retains source-eligible countries when simplification removes every polygon', () => {\n  const virginIslands = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'VI')\n  assert.ok(virginIslands, 'regenerated Natural Earth payload must retain source-eligible VI')\n  assert.ok(virginIslands.polygons.length > 0, 'VI must retain renderable polygon geometry')\n}, 60_000)\n"""
+          p.write_text(s)
+          PY
+
+      - name: Regenerate twice and prove Russia immutability
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          text = Path('data/globe/natural-earth-countries.ts').read_text()
+          def block(text, iso2):
+              m = re.search(rf"    \{{\n      iso2: '{iso2}',.*?(?=\n    \{{\n      iso2: '|\n  \],\n\}})", text, re.S)
+              if not m: raise SystemExit(f'{iso2} payload block not found')
+              return m.group(0)
+          Path('/tmp/ru-before.sha').write_text(hashlib.sha256(block(text, 'RU').encode()).hexdigest())
+          PY
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run1.ts
+          node scripts/generate-natural-earth-countries.mjs
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          def norm(s):
+              return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", s)
+          def block(text, iso2):
+              m = re.search(rf"    \{{\n      iso2: '{iso2}',.*?(?=\n    \{{\n      iso2: '|\n  \],\n\}})", text, re.S)
+              if not m: raise SystemExit(f'{iso2} payload block not found')
+              return m.group(0)
+          first_text = Path('/tmp/run1.ts').read_text()
+          second_text = Path('data/globe/natural-earth-countries.ts').read_text()
+          first = norm(first_text)
+          second = norm(second_text)
+          if first != second: raise SystemExit('normalized regenerations differ')
+          if "iso2: 'VI'" not in second_text: raise SystemExit('VI missing after regeneration')
+          ru_before = Path('/tmp/ru-before.sha').read_text().strip()
+          ru_after = hashlib.sha256(block(second_text, 'RU').encode()).hexdigest()
+          if ru_after != ru_before:
+              raise SystemExit(f'Russia payload drifted: before={ru_before} after={ru_after}')
+          sha = hashlib.sha256(second.encode()).hexdigest()
+          Path('/tmp/normalized.sha').write_text(sha)
+          print('normalized_sha256=' + sha)
+          print('ru_payload_sha256=' + ru_after)
+          print('VI_present=True')
+          PY
+
+      - name: Targeted antimeridian topology
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical regression
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe rendering regression
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test matrix
+        run: npm run test
+      - name: Security and leakage
+        run: npm run test:security
+      - name: Production build
+        run: npm run build
+
+      - name: Record evidence and remove temporary workflows
+        run: |
+          SHA=$(cat /tmp/normalized.sha)
+          cat >> docs/control/EVIDENCE_LOG.md <<EOF
+
+## 2026-08-11 — PR #1323 post-merge small-country retention remediation
+
+- Feature-level fallback now preserves a Natural Earth feature when normal simplification removes every polygon despite at least one source outer meeting MIN_POLYGON_AREA_DEG2.
+- Regeneration retained U.S. Virgin Islands (VI) and preserved the pre-remediation Russia generated payload byte-for-byte.
+- Normalized regenerated-output SHA-256: \`${SHA}\`.
+- PASS: deterministic two-run regeneration; Natural Earth antimeridian topology; Russia spherical regression; globe polygon rendering; lint; typecheck; full npm test matrix; security/leakage; production build.
+- Temporary PR #1323 verification workflows removed before the remediation commit.
+EOF
+          rm -f .github/workflows/pr1323-small-country-retention-probe.yml
+          rm -f .github/workflows/pr1323-postmerge-remediation.yml
+
+      - name: Commit verified remediation
+        run: |
+          git config user.name 'Harbourview Verification'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add scripts/generate-natural-earth-countries.mjs \
+                  data/globe/natural-earth-countries.ts \
+                  tests/harbourview/natural-earth-antimeridian-topology.test.ts \
+                  docs/control/EVIDENCE_LOG.md \
+                  .github/workflows/pr1323-small-country-retention-probe.yml \
+                  .github/workflows/pr1323-postmerge-remediation.yml
+          git commit -m 'fix(globe): preserve source-eligible small countries'
+          git push origin HEAD:fix/pr1323-postmerge-small-country-retention
