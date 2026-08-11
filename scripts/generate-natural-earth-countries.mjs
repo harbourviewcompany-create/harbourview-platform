@@ -275,6 +275,31 @@ function ringReferencePoint(ring) {
   return ring.find(([lon]) => Math.abs(lon) < 179.999) ?? ring[0]
 }
 
+function classifySplitRingFragments(ring, tolerance) {
+  const fragments = splitRingAtAntimeridian(ring)
+    .map((part) => simplifyRing(part, tolerance))
+    .filter(Boolean)
+
+  if (fragments.length === 0) return { primary: [], cutouts: [] }
+
+  const signedAreas = fragments.map((fragment) => signedRingAreaDeg2(fragment))
+  const referenceIndex = signedAreas.reduce(
+    (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
+    0,
+  )
+  const referenceSign = Math.sign(signedAreas[referenceIndex])
+  const primary = []
+  const cutouts = []
+
+  for (let index = 0; index < fragments.length; index += 1) {
+    const sign = Math.sign(signedAreas[index])
+    if (referenceSign !== 0 && sign !== 0 && sign !== referenceSign) cutouts.push(fragments[index])
+    else primary.push(fragments[index])
+  }
+
+  return { primary, cutouts }
+}
+
 function normalizePolygons(geometry, tolerance) {
   const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates
   const normalized = []
@@ -283,43 +308,62 @@ function normalizePolygons(geometry, tolerance) {
     const rawOuter = polygon[0]
     if (!rawOuter) continue
 
-    const splitOuters = splitRingAtAntimeridian(rawOuter)
-      .map((part) => simplifyRing(part, tolerance))
-      .filter(Boolean)
+    const {
+      primary: outerCandidates,
+      cutouts: rawTopologyCutouts,
+    } = classifySplitRingFragments(rawOuter, tolerance)
 
-    if (splitOuters.length === 0) continue
+    if (outerCandidates.length === 0) continue
 
-    const signedOuterAreas = splitOuters.map((outer) => signedRingAreaDeg2(outer))
-    const referenceOuterIndex = signedOuterAreas.reduce(
-      (best, area, index) => (Math.abs(area) > Math.abs(signedOuterAreas[best]) ? index : best),
-      0,
+    const topologyCutouts = rawTopologyCutouts.filter(
+      (cutout) => ringAreaDeg2(cutout) >= MIN_POLYGON_AREA_DEG2,
     )
-    const outerSign = Math.sign(signedOuterAreas[referenceOuterIndex])
-    const outerCandidates = []
-    const topologyCutouts = []
-
-    for (let index = 0; index < splitOuters.length; index += 1) {
-      const part = splitOuters[index]
-      const sign = Math.sign(signedOuterAreas[index])
-      if (outerSign !== 0 && sign !== 0 && sign !== outerSign) topologyCutouts.push(part)
-      else outerCandidates.push(part)
-    }
-
     const simplifiedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)
     const discardedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) < MIN_POLYGON_AREA_DEG2)
 
     if (simplifiedOuters.length === 0) continue
 
+    const sourceHoleFragments = []
+    const rawSourceHoleIslands = []
+    for (const rawHole of polygon.slice(1)) {
+      const { primary, cutouts } = classifySplitRingFragments(rawHole, tolerance)
+      sourceHoleFragments.push(...primary)
+      rawSourceHoleIslands.push(
+        ...cutouts.filter((cutout) => ringAreaDeg2(cutout) >= MIN_POLYGON_AREA_DEG2),
+      )
+    }
+
+    const sourceHoleIslands = []
+    for (const island of rawSourceHoleIslands) {
+      const candidatePoints = island.slice(0, -1)
+      const belongsToEligibleOuter = simplifiedOuters.some((outer) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (belongsToEligibleOuter) {
+        sourceHoleIslands.push(island)
+        continue
+      }
+
+      const belongedToDiscardedOuter = discardedOuters.some((outer) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (belongedToDiscardedOuter) continue
+
+      throw new Error(
+        `Natural Earth solid hole cutout could not be assigned to a split outer fragment: ${JSON.stringify({
+          reference: ringReferencePoint(island),
+          outerCount: simplifiedOuters.length,
+          discardedOuterCount: discardedOuters.length,
+        })}`,
+      )
+    }
+
     const simplifiedHoles = [
-      ...polygon
-        .slice(1)
-        .flatMap((ring) => splitRingAtAntimeridian(ring))
-        .map((part) => simplifyRing(part, tolerance))
-        .filter(Boolean),
-      ...topologyCutouts.filter((cutout) => ringAreaDeg2(cutout) >= MIN_POLYGON_AREA_DEG2),
+      ...sourceHoleFragments,
+      ...topologyCutouts,
     ]
 
-    const outputPolygons = simplifiedOuters.map((outer) => ({
+    const outputPolygons = [...simplifiedOuters, ...sourceHoleIslands].map((outer) => ({
       outer,
       holes: [],
     }))
@@ -494,6 +538,7 @@ async function main() {
 }
 
 export {
+  classifySplitRingFragments,
   closeRing,
   crossesAntimeridian,
   interpolateAntimeridianCrossing,
