@@ -167,6 +167,18 @@ function mapIaSignal(signal: AutomationSignal, eventId: string): DecisionIntelDo
   }
 }
 
+function isMissingStage0Rpc(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = 'code' in error ? String((error as { code?: unknown }).code ?? '') : ''
+  return code === 'PGRST202' || code === '42883'
+}
+
+type CanonicalRouteResolution =
+  | { status: 'resolved'; eventId: string }
+  | { status: 'unowned' }
+  | { status: 'missing_rpc' }
+  | { status: 'error' }
+
 async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDossier | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     const { data, error } = await db.rpc('get_intel_event_dossier', { p_event_id: eventId })
@@ -175,13 +187,18 @@ async function loadCanonical(db: any, eventId: string): Promise<DecisionIntelDos
   return null
 }
 
-async function resolveCanonicalEventId(db: any, signalId: string): Promise<string | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+async function resolveCanonicalEventId(db: any, signalId: string): Promise<CanonicalRouteResolution> { // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     const { data, error } = await db.rpc('resolve_intel_event_route', { p_signal_id: signalId })
-    if (error || !Array.isArray(data) || !data[0]) return null
-    return text((data[0] as Record<string, unknown>).event_id)
-  } catch { /* Stage-0 RPC may not be applied on a preview database yet */ }
-  return null
+    if (error) return isMissingStage0Rpc(error) ? { status: 'missing_rpc' } : { status: 'error' }
+    if (!Array.isArray(data) || !data[0]) return { status: 'unowned' }
+    const eventId = text((data[0] as Record<string, unknown>).event_id)
+    return eventId ? { status: 'resolved', eventId } : { status: 'unowned' }
+  } catch {
+    // Unexpected resolver failures must fail closed. Legacy fallback is permitted only
+    // when the Stage-0 RPC is explicitly absent or when canonical ownership is absent.
+    return { status: 'error' }
+  }
 }
 
 async function loadIaFallback(signalId: string, eventId: string): Promise<DecisionIntelDossier | null> {
@@ -213,8 +230,9 @@ async function loadLegacyPublicSignal(db: any, signalIds: string[], eventId: str
       const clusterRepId = text(row.cluster_rep_id)
       if (clusterRepId && clusterRepId !== candidateId) {
         const clusteredRoute = await resolveCanonicalEventId(db, clusterRepId)
-        if (clusteredRoute) {
-          const clustered = await loadCanonical(db, clusteredRoute)
+        if (clusteredRoute.status === 'error') return null
+        if (clusteredRoute.status === 'resolved') {
+          const clustered = await loadCanonical(db, clusteredRoute.eventId)
           if (clustered) return clustered
           // The cluster representative owns a canonical event, but that event is
           // intentionally absent from the customer projection. Preserve suppression
@@ -233,7 +251,7 @@ async function loadLegacyPublicSignal(db: any, signalIds: string[], eventId: str
  * Pipeline-B ids and regulatory mirror ids to one event. If that canonical event is
  * deliberately suppressed by review state, the loader returns null rather than
  * resurrecting it through legacy compatibility. Legacy public.signals and IA fallback
- * are used only when no canonical ownership exists.
+ * are used only when no canonical ownership exists or the Stage-0 route RPC is absent.
  */
 export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
   // The generated Database type intentionally lags additive migrations; keep the
@@ -245,10 +263,11 @@ export async function loadDecisionIntelDossier(supabase: unknown, eventId: strin
   if (canonical) return canonical
 
   const signalId = eventId.startsWith('event:') ? eventId.slice('event:'.length) : eventId
-  const routedEventId = await resolveCanonicalEventId(db, signalId)
-  if (routedEventId) {
-    if (routedEventId !== eventId) {
-      const routed = await loadCanonical(db, routedEventId)
+  const route = await resolveCanonicalEventId(db, signalId)
+  if (route.status === 'error') return null
+  if (route.status === 'resolved') {
+    if (route.eventId !== eventId) {
+      const routed = await loadCanonical(db, route.eventId)
       if (routed) return routed
     }
     // Canonical ownership exists but the allowlisted dossier did not return a row.
