@@ -1,0 +1,96 @@
+name: PR 1340 Review Fixes
+
+on:
+  push:
+    branches:
+      - agent/mobile-intel-institutional-remediation
+    paths:
+      - .github/workflows/pr1340-review-fixes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/mobile-intel-institutional-remediation
+          fetch-depth: 0
+      - name: Apply validated CodeRabbit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          copy_path = Path('lib/platform/commandCentreCopy.ts')
+          copy = copy_path.read_text()
+          needle = "    supplyDescription: 'The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products.',\n"
+          addition = needle + "    searchDescription: 'Search covers only record types already loaded into the authenticated Command Centre session; existing authorization and access boundaries remain unchanged.',\n"
+          if "searchDescription:" not in copy:
+              if needle not in copy:
+                  raise SystemExit('commandCentreCopy insertion point missing')
+              copy = copy.replace(needle, addition, 1)
+          copy_path.write_text(copy)
+
+          intel_path = Path('components/dashboard/mobile-command/sections/IntelligenceSections.tsx')
+          intel = intel_path.read_text()
+          import_needle = "import Link from 'next/link'\n"
+          import_line = "import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'\n"
+          if import_line not in intel:
+              if import_needle not in intel:
+                  raise SystemExit('IntelligenceSections import point missing')
+              intel = intel.replace(import_needle, import_needle + import_line, 1)
+          old_desc = 'description="Search covers the record types already loaded into this authenticated command session; it does not broaden data access or bypass existing authorization boundaries."'
+          new_desc = 'description={MOBILE_COMMAND_COPY.searchDescription}'
+          if old_desc not in intel and new_desc not in intel:
+              raise SystemExit('IntelligenceSections search description missing')
+          intel = intel.replace(old_desc, new_desc, 1)
+          intel_path.write_text(intel)
+
+          auth_path = Path('tests/e2e/mobile-intel-authenticated.spec.ts')
+          auth = auth_path.read_text()
+          helper_anchor = "async function openIntelState(page: Page, section: string, expectedTab: string, file: string) {\n"
+          helper = '''async function assertMobileIntelLayout(page: Page) {\n  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)\n\n  const activeTab = page.locator('.hvm-op-secondary-nav [aria-current="page"]')\n  await expect(activeTab).toBeVisible()\n  const tabGeometry = await activeTab.evaluate(element => {\n    const button = element.getBoundingClientRect()\n    const nav = element.parentElement!.getBoundingClientRect()\n    return { left: button.left, right: button.right, navLeft: nav.left, navRight: nav.right }\n  })\n  expect(tabGeometry.left).toBeGreaterThanOrEqual(tabGeometry.navLeft - 1)\n  expect(tabGeometry.right).toBeLessThanOrEqual(tabGeometry.navRight + 1)\n\n  const bottomNav = await page.locator('.hvm-op-bottom-nav').boundingBox()\n  const main = await page.locator('.hvm-op-main').boundingBox()\n  expect(bottomNav).not.toBeNull()\n  expect(main).not.toBeNull()\n  expect(main!.y + main!.height).toBeLessThanOrEqual(bottomNav!.y + 1)\n}\n\n'''
+          if 'async function assertMobileIntelLayout' not in auth:
+              if helper_anchor not in auth:
+                  raise SystemExit('authenticated helper insertion point missing')
+              auth = auth.replace(helper_anchor, helper + helper_anchor, 1)
+          old_overflow = "  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)\n  await page.screenshot({ path: path.join(evidenceRoot, file), fullPage: false })"
+          new_overflow = "  await assertMobileIntelLayout(page)\n  await page.screenshot({ path: path.join(evidenceRoot, file), fullPage: false })"
+          if old_overflow in auth:
+              auth = auth.replace(old_overflow, new_overflow, 1)
+          insert_before = "    } finally {\n      await context.close()\n    }\n  })\n})\n"
+          responsive = '''\n      for (const viewport of [\n        { width: 320, height: 568 },\n        { width: 375, height: 812 },\n        { width: 390, height: 844 },\n        { width: 430, height: 932 },\n      ]) {\n        await page.setViewportSize(viewport)\n        await openIntelState(page, 'search', 'Search', `intel-auth-responsive-search-${viewport.width}x${viewport.height}.png`)\n        const responsiveInput = page.getByLabel('Search signals, markets, regulations, authorities, operators or actions')\n        await responsiveInput.fill('Canada')\n        await expect(page.locator('.hvm2-search-results')).toBeVisible()\n        await assertMobileIntelLayout(page)\n      }\n\n      await page.setViewportSize({ width: 390, height: 844 })\n      await openIntelState(page, 'search', 'Search', 'intel-auth-accessibility-base-390x844.png')\n      await page.addStyleTag({\n        content: `\n          .hvm2-section-heading h2,.hvm-op-page-title{font-size:200%!important}\n          .hvm2-section-heading p,.hvm2-intel-search-result>strong,.hvm2-intel-search-result>p,.hvm2-intel-search-result>small,.hvm2-search-summary,.hvm2-search-filters button,.hvm-op-secondary-nav button,.hvm-op-context-trigger>span:first-child,.hvm2-bottom-nav small{font-size:200%!important}\n          .hvm2-intel-search-result,.hvm-op-secondary-nav button,.hvm2-search-filters button{min-height:44px;height:auto!important}\n        `,\n      })\n      const largeTextInput = page.getByLabel('Search signals, markets, regulations, authorities, operators or actions')\n      await largeTextInput.fill('Canada')\n      await expect(page.locator('.hvm2-search-results')).toBeVisible()\n      await assertMobileIntelLayout(page)\n      await page.screenshot({ path: path.join(evidenceRoot, 'intel-auth-accessibility-search-390x844-200pct.png'), fullPage: false })\n'''
+          if 'intel-auth-responsive-search-' not in auth:
+              if insert_before not in auth:
+                  raise SystemExit('authenticated responsive insertion point missing')
+              auth = auth.replace(insert_before, responsive + insert_before, 1)
+          auth_path.write_text(auth)
+
+          synthetic_path = Path('tests/e2e/mobile-intel-institutional.spec.ts')
+          synthetic = synthetic_path.read_text()
+          marker = "\n  test('keeps Intel navigation, long German search content and bottom-nav clearance usable at 320/375/430'"
+          if marker in synthetic:
+              start = synthetic.index(marker)
+              end = synthetic.rfind("\n})")
+              if end <= start:
+                  raise SystemExit('synthetic responsive block boundary missing')
+              synthetic = synthetic[:start] + synthetic[end:]
+          synthetic_path.write_text(synthetic)
+          PY
+
+          rm .github/workflows/pr1340-review-fixes.yml
+          git config user.name "Harbourview Review Fix"
+          git config user.email "harbourviewcompany@gmail.com"
+          git add lib/platform/commandCentreCopy.ts \
+            components/dashboard/mobile-command/sections/IntelligenceSections.tsx \
+            tests/e2e/mobile-intel-authenticated.spec.ts \
+            tests/e2e/mobile-intel-institutional.spec.ts \
+            .github/workflows/pr1340-review-fixes.yml
+          git diff --cached --check
+          git commit -m "fix(intel): address final review findings"
+          git push origin HEAD:agent/mobile-intel-institutional-remediation
