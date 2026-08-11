@@ -190,7 +190,7 @@ async function fetchStatsInline(
   // ── Listing counts
   const { count: approvedListings } = await supabase
     .from('listings')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('status', 'approved')
 
   const { data: listingCategories } = await supabase
