@@ -168,23 +168,45 @@ test('synthetic antimeridian fragments close on the seam without false mainland 
 
 test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () => {
   const result = runGeometryProbe<{
-    count: number
-    maxRawLongitudeJump: number
-    closedCount: number
+    cases: Array<{
+      name: string
+      count: number
+      maxRawLongitudeJump: number
+      closedCount: number
+    }>
   }>(`
-    const synthetic = [[180, 60], [-180, 60], [-170, 50], [-170, 40], [180, 40], [180, 60]]
-    const fragments = generator.splitRingAtAntimeridian(synthetic)
-    console.log(JSON.stringify({
-      count: fragments.length,
-      maxRawLongitudeJump: Math.max(...fragments.map(maxRawLongitudeJump)),
-      closedCount: fragments.filter((ring) => pointEqual(ring[0], ring[ring.length - 1])).length,
-    }))
+    const inputs = [
+      {
+        name: 'interior alias',
+        ring: [[180, 60], [-180, 60], [-170, 50], [-170, 40], [180, 40], [180, 60]],
+      },
+      {
+        name: 'cyclic closure alias',
+        ring: [[-180, 0], [-170, 10], [-170, -10], [180, 0], [-180, 0]],
+      },
+    ]
+    const cases = inputs.map(({ name, ring }) => {
+      const fragments = generator.splitRingAtAntimeridian(ring)
+      return {
+        name,
+        count: fragments.length,
+        maxRawLongitudeJump: Math.max(...fragments.map(maxRawLongitudeJump)),
+        closedCount: fragments.filter((fragment) => pointEqual(fragment[0], fragment[fragment.length - 1])).length,
+      }
+    })
+    console.log(JSON.stringify({ cases }))
   `)
 
-  assert.ok(result.count > 0)
-  assert.equal(result.closedCount, result.count)
-  assert.ok(result.maxRawLongitudeJump <= 180, `equivalent seam alias created ${result.maxRawLongitudeJump}° planar edge`)
-  assert.notEqual(result.maxRawLongitudeJump, 360)
+  assert.equal(result.cases.length, 2)
+  for (const aliasCase of result.cases) {
+    assert.ok(aliasCase.count > 0, `${aliasCase.name}: expected at least one fragment`)
+    assert.equal(aliasCase.closedCount, aliasCase.count, `${aliasCase.name}: emitted open fragment`)
+    assert.ok(
+      aliasCase.maxRawLongitudeJump <= 180,
+      `${aliasCase.name}: equivalent seam alias created ${aliasCase.maxRawLongitudeJump}° planar edge`,
+    )
+    assert.notEqual(aliasCase.maxRawLongitudeJump, 360, `${aliasCase.name}: 360° planar edge survived normalization`)
+  }
 })
 
 test('each synthetic source hole preserves at least one assigned fragment across the antimeridian', () => {
