@@ -135,7 +135,7 @@ function samePoint(a, b) {
 }
 
 function sameSeamLocation(a, b) {
-  return a[1] === b[1] && Math.abs(a[0]) === 180 && Math.abs(b[0]) === 180
+  return Math.abs(a[0]) === 180 && Math.abs(b[0]) === 180
 }
 
 function normalizeEquivalentSeamAliases(points) {
@@ -227,9 +227,13 @@ function splitRingAtAntimeridian(ring) {
 
   if (runs.length === 0) return [ring]
 
-  // Earcut is tolerant of either winding direction, but all fragments produced
-  // from one source ring must agree. A reversed fragment can invert hole/surface
-  // semantics in downstream shape construction.
+  // With two crossings every output run represents a solid fragment of the
+  // same source ring, so normalize accidental split-orientation differences.
+  // With four or more crossings an opposite-winding run can represent a real
+  // cutout between same-side sections. Preserve those signs so normalizePolygons
+  // can attach the cutout as a hole instead of filling it as another solid outer.
+  if (crossingIndices.length > 2) return runs
+
   const signedAreas = runs.map((candidate) => signedRingAreaDeg2(candidate))
   const referenceIndex = signedAreas.reduce(
     (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
@@ -279,18 +283,41 @@ function normalizePolygons(geometry, tolerance) {
     const rawOuter = polygon[0]
     if (!rawOuter) continue
 
-    const simplifiedOuters = splitRingAtAntimeridian(rawOuter)
+    const splitOuters = splitRingAtAntimeridian(rawOuter)
       .map((part) => simplifyRing(part, tolerance))
       .filter(Boolean)
-      .filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)
+
+    if (splitOuters.length === 0) continue
+
+    const signedOuterAreas = splitOuters.map((outer) => signedRingAreaDeg2(outer))
+    const referenceOuterIndex = signedOuterAreas.reduce(
+      (best, area, index) => (Math.abs(area) > Math.abs(signedOuterAreas[best]) ? index : best),
+      0,
+    )
+    const outerSign = Math.sign(signedOuterAreas[referenceOuterIndex])
+    const outerCandidates = []
+    const topologyCutouts = []
+
+    for (let index = 0; index < splitOuters.length; index += 1) {
+      const part = splitOuters[index]
+      const sign = Math.sign(signedOuterAreas[index])
+      if (outerSign !== 0 && sign !== 0 && sign !== outerSign) topologyCutouts.push(part)
+      else outerCandidates.push(part)
+    }
+
+    const simplifiedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) >= MIN_POLYGON_AREA_DEG2)
+    const discardedOuters = outerCandidates.filter((outer) => ringAreaDeg2(outer) < MIN_POLYGON_AREA_DEG2)
 
     if (simplifiedOuters.length === 0) continue
 
-    const simplifiedHoles = polygon
-      .slice(1)
-      .flatMap((ring) => splitRingAtAntimeridian(ring))
-      .map((part) => simplifyRing(part, tolerance))
-      .filter(Boolean)
+    const simplifiedHoles = [
+      ...polygon
+        .slice(1)
+        .flatMap((ring) => splitRingAtAntimeridian(ring))
+        .map((part) => simplifyRing(part, tolerance))
+        .filter(Boolean),
+      ...topologyCutouts,
+    ]
 
     const outputPolygons = simplifiedOuters.map((outer) => ({
       outer,
@@ -304,16 +331,21 @@ function normalizePolygons(geometry, tolerance) {
       )
       if (containingIndex >= 0) {
         outputPolygons[containingIndex].holes.push(hole)
-      } else if (outputPolygons.length === 1) {
-        outputPolygons[0].holes.push(hole)
-      } else {
-        throw new Error(
-          `Natural Earth hole could not be assigned to a split outer fragment: ${JSON.stringify({
-            reference: ringReferencePoint(hole),
-            outerCount: outputPolygons.length,
-          })}`,
-        )
+        continue
       }
+
+      const belongedToDiscardedOuter = discardedOuters.some((outer) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (belongedToDiscardedOuter) continue
+
+      throw new Error(
+        `Natural Earth hole could not be assigned to a split outer fragment: ${JSON.stringify({
+          reference: ringReferencePoint(hole),
+          outerCount: outputPolygons.length,
+          discardedOuterCount: discardedOuters.length,
+        })}`,
+      )
     }
 
     for (const outputPolygon of outputPolygons) {
