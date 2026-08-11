@@ -1,0 +1,386 @@
+name: PR 1336 Centroid Finalize
+
+on:
+  push:
+    branches:
+      - fix/pr1323-postmerge-small-country-retention
+    paths:
+      - '.github/workflows/pr1336-centroid-finalize.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr1336-centroid-finalize
+  cancel-in-progress: false
+
+jobs:
+  verify-and-clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Apply fallback-centroid and direct generator regression fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          generator = Path('scripts/generate-natural-earth-countries.mjs')
+          text = generator.read_text()
+
+          old_helpers = """function extractIso2(properties) {
+"""
+          new_helpers = """function pointInBoundingBox(point, bbox) {
+  return point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3]
+}
+
+function pointInGeneratedPolygons(point, polygons) {
+  return polygons.some((polygon) => {
+    const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+    if (!outer || !pointInRing(point, outer.points)) return false
+    return !polygon.rings
+      .filter((ring) => ring.kind === 'hole')
+      .some((hole) => pointInRing(point, hole.points))
+  })
+}
+
+function computeRetainedGeometryCentroid(polygons, bbox, fallback) {
+  const candidate = computeCentroid(polygons, fallback)
+  if (pointInBoundingBox(candidate, bbox) && pointInGeneratedPolygons(candidate, polygons)) return candidate
+
+  const outers = polygons
+    .flatMap((polygon) => polygon.rings.filter((ring) => ring.kind === 'outer'))
+    .sort((a, b) => ringAreaDeg2(b.points) - ringAreaDeg2(a.points))
+  const reference = outers[0] ? ringReferencePoint(outers[0].points) : fallback
+  return [roundCoordinate(reference[0]), roundCoordinate(reference[1])]
+}
+
+function assertUniqueIso2RoutingKeys(countries) {
+  const duplicateIso2 = [...countries.reduce((counts, country) => {
+    counts.set(country.iso2, (counts.get(country.iso2) ?? 0) + 1)
+    return counts
+  }, new Map())]
+    .filter(([, count]) => count > 1)
+    .map(([iso2]) => iso2)
+  if (duplicateIso2.length > 0) {
+    throw new Error(`Natural Earth output contains duplicate alpha-2 routing keys: ${duplicateIso2.join(', ')}`)
+  }
+}
+
+function extractIso2(properties) {
+"""
+          if text.count(old_helpers) != 1:
+              raise SystemExit('generator helper insertion target mismatch')
+          text = text.replace(old_helpers, new_helpers, 1)
+
+          old_transform = """  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  if (polygons.length === 0) {
+    const sourcePolygons = feature.geometry.type === 'Polygon'
+      ? [feature.geometry.coordinates]
+      : feature.geometry.coordinates
+    const hasSourceEligibleOuter = sourcePolygons.some((polygon) => {
+      const rawOuter = closeRing(polygon[0])
+      return rawOuter !== null && ringAreaDeg2(rawOuter) >= MIN_POLYGON_AREA_DEG2
+    })
+    if (hasSourceEligibleOuter) {
+      polygons = normalizePolygons(feature.geometry, 0)
+    }
+  }
+  if (polygons.length === 0) return null
+
+  const labelLon = typeof properties.LABEL_X === 'number' ? properties.LABEL_X : null
+  const labelLat = typeof properties.LABEL_Y === 'number' ? properties.LABEL_Y : null
+  const centroid = labelLon !== null && labelLat !== null
+    ? [roundCoordinate(labelLon), roundCoordinate(labelLat)]
+    : computeCentroid(polygons, [labelLon ?? 0, labelLat ?? 0])
+
+  return {
+    iso2,
+    iso3,
+    name: extractName(properties),
+    centroid,
+    bbox: computeBoundingBox(polygons),
+    polygons,
+    source: 'natural-earth-admin-0',
+  }
+"""
+          new_transform = """  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)
+  let usedSourceRetentionFallback = false
+  if (polygons.length === 0) {
+    const sourcePolygons = feature.geometry.type === 'Polygon'
+      ? [feature.geometry.coordinates]
+      : feature.geometry.coordinates
+    const hasSourceEligibleOuter = sourcePolygons.some((polygon) => {
+      const rawOuter = closeRing(polygon[0])
+      return rawOuter !== null && ringAreaDeg2(rawOuter) >= MIN_POLYGON_AREA_DEG2
+    })
+    if (hasSourceEligibleOuter) {
+      polygons = normalizePolygons(feature.geometry, 0)
+      usedSourceRetentionFallback = polygons.length > 0
+    }
+  }
+  if (polygons.length === 0) return null
+
+  const bbox = computeBoundingBox(polygons)
+  const labelLon = typeof properties.LABEL_X === 'number' ? properties.LABEL_X : null
+  const labelLat = typeof properties.LABEL_Y === 'number' ? properties.LABEL_Y : null
+  const sourceCentroid = labelLon !== null && labelLat !== null
+    ? [roundCoordinate(labelLon), roundCoordinate(labelLat)]
+    : computeCentroid(polygons, [labelLon ?? 0, labelLat ?? 0])
+  const centroid = usedSourceRetentionFallback && (
+    !pointInBoundingBox(sourceCentroid, bbox) || !pointInGeneratedPolygons(sourceCentroid, polygons)
+  )
+    ? computeRetainedGeometryCentroid(polygons, bbox, sourceCentroid)
+    : sourceCentroid
+
+  return {
+    iso2,
+    iso3,
+    name: extractName(properties),
+    centroid,
+    bbox,
+    polygons,
+    source: 'natural-earth-admin-0',
+  }
+"""
+          if text.count(old_transform) != 1:
+              raise SystemExit('generator transform target mismatch')
+          text = text.replace(old_transform, new_transform, 1)
+
+          old_dupes = """  const duplicateIso2 = [...countries.reduce((counts, country) => {
+    counts.set(country.iso2, (counts.get(country.iso2) ?? 0) + 1)
+    return counts
+  }, new Map())]
+    .filter(([, count]) => count > 1)
+    .map(([iso2]) => iso2)
+  if (duplicateIso2.length > 0) {
+    throw new Error(`Natural Earth output contains duplicate alpha-2 routing keys: ${duplicateIso2.join(', ')}`)
+  }
+
+  countries.sort((a, b) => a.iso2.localeCompare(b.iso2))
+"""
+          new_dupes = """  assertUniqueIso2RoutingKeys(countries)
+
+  countries.sort((a, b) => a.iso2.localeCompare(b.iso2))
+"""
+          if text.count(old_dupes) != 1:
+              raise SystemExit('generator duplicate-key target mismatch')
+          text = text.replace(old_dupes, new_dupes, 1)
+
+          old_version = "1.5.0-natural-earth-50m-antimeridian-source-retention-alpha2"
+          new_version = "1.6.0-natural-earth-50m-source-retention-alpha2-centroid"
+          if text.count(old_version) != 1:
+              raise SystemExit(f'generator transform version target count={text.count(old_version)}')
+          text = text.replace(old_version, new_version, 1)
+
+          old_export = """export {
+  classifySplitRingFragments,
+"""
+          new_export = """export {
+  assertUniqueIso2RoutingKeys,
+  classifySplitRingFragments,
+"""
+          if text.count(old_export) != 1:
+              raise SystemExit('generator export target mismatch')
+          text = text.replace(old_export, new_export, 1)
+          generator.write_text(text)
+
+          topology = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
+          text = topology.read_text()
+          if text.count(old_version) != 1:
+              raise SystemExit(f'topology version target count={text.count(old_version)}')
+          topology.write_text(text.replace(old_version, new_version, 1))
+
+          test_path = Path('tests/globe-natural-earth-countries.test.ts')
+          text = test_path.read_text()
+          import_target = "import { describe, expect, it } from 'vitest'\n"
+          if text.count(import_target) != 1:
+              raise SystemExit('Natural Earth test import target mismatch')
+          text = text.replace(import_target, import_target + "import { spawnSync } from 'node:child_process'\n", 1)
+
+          anchor = """  it('includes representative countries spanning continents', () => {
+"""
+          regression = r'''  it('executes source-retention fallback and duplicate alpha-2 rejection through the generator', () => {
+    const probe = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      import { readFile } from 'node:fs/promises'
+      import { resolve } from 'node:path'
+      import { pathToFileURL } from 'node:url'
+
+      const generator = await import(pathToFileURL(resolve('scripts/generate-natural-earth-countries.mjs')).href)
+      const source = JSON.parse(await readFile(resolve('data/globe/source/ne_50m_admin_0_countries.geojson'), 'utf8'))
+      const iso2 = (feature) => String(
+        feature.properties?.ISO_A2_EH ?? feature.properties?.ISO_A2 ?? feature.properties?.WB_A2 ?? ''
+      ).toUpperCase()
+      const feature = (code) => source.features.find((item) => iso2(item) === code)
+      const insideBbox = (point, bbox) => point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3]
+      const insideGeometry = (point, country) => country.polygons.some((polygon) => {
+        const outer = polygon.rings.find((ring) => ring.kind === 'outer')
+        if (!outer || !generator.pointInRing(point, outer.points)) return false
+        return !polygon.rings.filter((ring) => ring.kind === 'hole').some((hole) => generator.pointInRing(point, hole.points))
+      })
+
+      const viFeature = feature('VI')
+      const ioFeature = feature('IO')
+      const vcFeature = feature('VC')
+      if (!viFeature || !ioFeature || !vcFeature) throw new Error('required Natural Earth retention fixture missing')
+
+      const viNormal = generator.normalizePolygons(viFeature.geometry, generator.SIMPLIFY_TOLERANCE_DEG)
+      const viZero = generator.normalizePolygons(viFeature.geometry, 0)
+      const vi = generator.transformFeature(viFeature)
+      const io = generator.transformFeature(ioFeature)
+      const vc = generator.transformFeature(vcFeature)
+
+      let duplicateRejected = false
+      try {
+        generator.assertUniqueIso2RoutingKeys([vi, { ...vi, name: 'Duplicate VI fixture' }])
+      } catch (error) {
+        duplicateRejected = String(error?.message ?? error).includes('duplicate alpha-2 routing keys')
+      }
+
+      console.log(JSON.stringify({
+        viNormalCount: viNormal.length,
+        viZeroCount: viZero.length,
+        viRetained: Boolean(vi),
+        duplicateRejected,
+        ioCentroidInBbox: insideBbox(io.centroid, io.bbox),
+        ioCentroidInGeometry: insideGeometry(io.centroid, io),
+        vcCentroidInBbox: insideBbox(vc.centroid, vc.bbox),
+        vcCentroidInGeometry: insideGeometry(vc.centroid, vc),
+      }))
+    `], { encoding: 'utf8', timeout: 30_000 })
+
+    expect(probe.status, probe.stderr || probe.stdout).toBe(0)
+    const result = JSON.parse(probe.stdout.trim().split('\n').at(-1) ?? '{}')
+    expect(result.viNormalCount).toBe(0)
+    expect(result.viZeroCount).toBeGreaterThan(0)
+    expect(result.viRetained).toBe(true)
+    expect(result.duplicateRejected).toBe(true)
+    expect(result.ioCentroidInBbox).toBe(true)
+    expect(result.ioCentroidInGeometry).toBe(true)
+    expect(result.vcCentroidInBbox).toBe(true)
+    expect(result.vcCentroidInGeometry).toBe(true)
+  }, 35_000)
+
+'''
+          if text.count(anchor) != 1:
+              raise SystemExit('Natural Earth regression anchor mismatch')
+          test_path.write_text(text.replace(anchor, regression + anchor, 1))
+          PY
+
+      - name: Capture Russia payload before regeneration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          text = Path('data/globe/natural-earth-countries.ts').read_text()
+          m = re.search(r"    \{\n      iso2: 'RU',.*?(?=\n    \{\n      iso2: '|\n  \],\n\})", text, re.S)
+          if not m: raise SystemExit('RU block not found')
+          Path('/tmp/ru-before.sha').write_text(hashlib.sha256(m.group(0).encode()).hexdigest())
+          PY
+
+      - name: Regenerate twice and prove invariants
+        run: |
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run1.ts
+          node scripts/generate-natural-earth-countries.mjs
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          def norm(text):
+              return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", text)
+          def block(text, iso2):
+              m = re.search(rf"    \{{\n      iso2: '{iso2}',.*?(?=\n    \{{\n      iso2: '|\n  \],\n\}})", text, re.S)
+              if not m: raise SystemExit(f'{iso2} block not found')
+              return m.group(0)
+          first = Path('/tmp/run1.ts').read_text()
+          second = Path('data/globe/natural-earth-countries.ts').read_text()
+          if norm(first) != norm(second): raise SystemExit('normalized regenerations differ')
+          if "harbourviewTransformVersion: '1.6.0-natural-earth-50m-source-retention-alpha2-centroid'" not in second:
+              raise SystemExit('generated payload missing transform version 1.6.0')
+          if "iso2: 'VI'" not in second: raise SystemExit('VI missing')
+          if "iso3: 'IOA'" in second: raise SystemExit('IOA composite survived')
+          ru_before = Path('/tmp/ru-before.sha').read_text().strip()
+          ru_after = hashlib.sha256(block(second, 'RU').encode()).hexdigest()
+          if ru_after != ru_before: raise SystemExit(f'Russia payload drifted: {ru_before} -> {ru_after}')
+          sha = hashlib.sha256(norm(second).encode()).hexdigest()
+          Path('/tmp/normalized.sha').write_text(sha)
+          print('normalized_sha256=' + sha)
+          print('ru_payload_sha256=' + ru_after)
+          PY
+
+      - name: CI-gated Natural Earth generator regression
+        run: npx vitest run tests/globe-natural-earth-countries.test.ts
+      - name: Antimeridian topology
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical regression
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe rendering regression
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm run test
+      - name: Security and leakage
+        run: npm run test:security
+      - name: Production build
+        run: npm run build
+
+      - name: Reconcile current Build Evidence only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('docs/control/EVIDENCE_LOG.md')
+          text = path.read_text()
+          sha = Path('/tmp/normalized.sha').read_text().strip()
+          row_pattern = re.compile(r"^\| 2026-08-11 \| PR #1336 post-merge small-country retention remediation \|.*$", re.M)
+          matches = row_pattern.findall(text)
+          if len(matches) != 1:
+              raise SystemExit(f'expected one PR #1336 Build Evidence row, found {len(matches)}')
+          new_row = (
+              "| 2026-08-11 | PR #1336 post-merge small-country retention remediation | "
+              "`node scripts/generate-natural-earth-countries.mjs` x2; CI-gated Natural Earth generator regression; targeted topology/Russia/rendering Vitest; `npm run lint`; `npm run typecheck`; `npm run test`; `npm run test:security`; `npm run build` | "
+              f"PASS — transform `1.6.0-natural-earth-50m-source-retention-alpha2-centroid`; VI retained; duplicate alpha-2 rejection exercised; IO/VC fallback centroids validated inside retained geometry; IOA excluded; Russia geometry unchanged; normalized SHA-256 `{sha}` | "
+              "PR #1336; centroid remediation verification workflow | **Current — GO on verified head** |"
+          )
+          text = row_pattern.sub(new_row, text, count=1)
+          # Historical 73e355... evidence is intentionally preserved: it records the earlier verified
+          # pre-centroid-remediation artifact and is not the current Build Evidence row.
+          path.write_text(text)
+          PY
+
+      - name: Remove temporary verifier and prove focused scope
+        run: |
+          rm -f .github/workflows/pr1336-centroid-finalize.yml
+          git fetch origin main
+          ACTUAL=$(git diff --name-only origin/main | sort)
+          printf 'Final diff vs origin/main:\n%s\n' "$ACTUAL"
+          EXPECTED=$(printf '%s\n' \
+            '.github/workflows/pr1323-small-country-retention-probe.yml' \
+            'data/globe/natural-earth-countries.ts' \
+            'docs/control/EVIDENCE_LOG.md' \
+            'scripts/generate-natural-earth-countries.mjs' \
+            'tests/globe-natural-earth-countries.test.ts' \
+            'tests/harbourview/natural-earth-antimeridian-topology.test.ts' | sort)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo 'Final scope differs from expected six files'
+            exit 1
+          fi
+
+      - name: Commit verified focused remediation
+        run: |
+          git config user.name 'Harbourview Verification'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add -A
+          git commit -m 'fix(globe): anchor retained-country centroids'
+          git push origin HEAD:fix/pr1323-postmerge-small-country-retention
