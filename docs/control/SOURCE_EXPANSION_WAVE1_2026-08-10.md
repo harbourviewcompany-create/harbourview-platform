@@ -59,7 +59,7 @@ Wave 1 adds a reusable structured JSON parser. Registry metadata defines:
 - optional `record_url_template`
 - `max_records`
 
-Each API record becomes a stable independent `source_snapshot`. Hash/dedup therefore operates at record level, and the existing `hv-extract → hv_import_staging → hv_artifacts + hv_evidence` chain remains unchanged.
+Each API record becomes a stable independent `source_snapshot`. When `identity_path` is configured, missing or blank identity now fails closed rather than degrading to array position, because array order is not a stable record identity. Hash/dedup therefore operates at record level, and the existing `hv-extract → hv_import_staging → hv_artifacts + hv_evidence` chain remains unchanged.
 
 ## Wave 1 sources
 
@@ -72,6 +72,7 @@ Change:
 - use `/api/v2/studies` instead of treating JSON as HTML;
 - query cannabis/cannabidiol/cannabinoid/marijuana;
 - daily cadence;
+- route as canonical `research` content;
 - one snapshot per `NCTId`;
 - canonical record URL uses `https://clinicaltrials.gov/study/{NCTId}`;
 - source class changes from generic trade/market metadata to scientific registry metadata.
@@ -115,14 +116,14 @@ Wave 1 intentionally does not implement the other P0/P1 records yet. Examples in
 
 ```bash
 deno test supabase/functions/_shared/structured-json.test.ts
-deno check supabase/functions/source-engine-fetch/index.ts
+deno check --node-modules-dir=auto supabase/functions/source-engine-fetch/index.ts
 ```
 
-The workflow also asserts that all three workbook control IDs are present in the migration and that four structured API rows are configured.
+The workflow also asserts the three workbook control IDs and the structured-source metadata contract, verifies SX-0005 uses the permitted `research` routing value, and prevents replay-time resets of source health timestamps/failure history.
 
 ### Migration assertions
 
-The migration fails if it does not produce exactly four active, crawlable, `adapter='api'`, `structured_fetch=true` source rows tied to SX-0005 / SX-0054 / SX-0056.
+The migration fails if it does not produce exactly four active, crawlable, `adapter='api'`, `structured_fetch=true` source rows tied to SX-0005 / SX-0054 / SX-0056. Existing source health history is preserved on updates/replay.
 
 ### Production-safe post-deployment proof
 
