@@ -44,7 +44,11 @@ function renderRecordUrl(template: string | undefined, identity: string | null, 
  *
  * The source registry metadata supplies the record-array path and stable identity/title
  * paths. Each record becomes its own snapshot, which prevents a large API payload from
- * being truncated into one opaque 24 KB page and makes change detection record-level.
+ * being truncated into one opaque page and makes change detection record-level.
+ *
+ * A configured identity_path is a data-integrity contract. If an upstream schema change
+ * removes that identity, fail closed rather than silently falling back to array position:
+ * array indexes are not stable identities and could turn a reorder into false new records.
  */
 export function parseStructuredJson(
   raw: string,
@@ -58,12 +62,18 @@ export function parseStructuredJson(
     ? Math.trunc(metadata.max_records)
     : 100
   const maxRecords = Math.max(1, Math.min(configuredMax, 250))
+  const hasConfiguredIdentity = typeof metadata.identity_path === 'string' && metadata.identity_path.trim().length > 0
 
   return records
     .filter((record) => record != null)
     .slice(0, maxRecords)
     .map((record, index) => {
-      const identity = scalar(getPath(record, metadata.identity_path)) ?? `record-${index + 1}`
+      const configuredIdentity = scalar(getPath(record, metadata.identity_path))
+      if (hasConfiguredIdentity && !configuredIdentity) {
+        throw new Error(`Structured source record ${index + 1} is missing configured identity_path "${metadata.identity_path}"`)
+      }
+
+      const identity = configuredIdentity ?? `record-${index + 1}`
       const title = scalar(getPath(record, metadata.title_path)) ?? identity
       const explicitUrl = scalar(getPath(record, metadata.url_path))
       const capturedUrl = renderRecordUrl(metadata.record_url_template, identity, explicitUrl, fallbackUrl)
