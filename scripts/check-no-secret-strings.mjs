@@ -64,9 +64,21 @@ const patterns = [
   { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
 
-const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*(?:=|:(?!\?))\s*["']?([^"'\s]+)["']?/i;
-const safeAssignmentValue = /^(?:process\.env\.|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
-const safeReferenceAssignment = /^\s*(?:#\s*)?[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\s*(?:=|:)\s*(?:\$\{\{\s*(?:secrets|vars|github|inputs)\.[A-Za-z0-9_.-]+\s*\}\}|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|process\.env\.[A-Z0-9_]+|env\.[A-Z0-9_]+|secrets\.[A-Z0-9_]+|vars\.[A-Z0-9_]+)\s*(?:#.*)?$/i;
+const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*(?:=|:(?!\?))\s*(.+?)\s*$/i;
+const safeReferenceValue = /^(?:\$\{\{\s*(?:secrets|vars|github|inputs)\.[A-Za-z0-9_.-]+\s*\}\}|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|process\.env\.[A-Z0-9_]+|env\.[A-Z0-9_]+|secrets\.[A-Z0-9_]+|vars\.[A-Z0-9_]+)$/i;
+const safePlaceholderValue = /^(?:<[^>]+>|your_[A-Za-z0-9_-]+|example[A-Za-z0-9_-]*|REPLACE_ME|CHANGEME|1|0|true|false|''|"")$/i;
+
+function normalizeAssignmentValue(rawValue) {
+  const value = rawValue.trim();
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
+      return value.slice(1, -1).trim();
+    }
+  }
+  return value;
+}
 
 function isProbablyText(path) {
   if (!existsSync(path)) return false;
@@ -81,15 +93,17 @@ function scanLine(line, source) {
   for (const pattern of patterns) {
     if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
   }
+
   const assignment = line.match(riskyAssignment);
-  if (
-    assignment &&
-    assignment[1] &&
-    assignment[1].length >= 8 &&
-    !safeReferenceAssignment.test(line) &&
-    !safeAssignmentValue.test(assignment[1])
-  ) {
-    findings.push({ source, pattern: 'risky-secret-assignment' });
+  if (assignment && assignment[1]) {
+    const value = normalizeAssignmentValue(assignment[1]);
+    if (
+      value.length >= 8 &&
+      !safeReferenceValue.test(value) &&
+      !safePlaceholderValue.test(value)
+    ) {
+      findings.push({ source, pattern: 'risky-secret-assignment' });
+    }
   }
   return findings;
 }
@@ -117,7 +131,7 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment variable names and environment/GitHub secret references such as process.env.SUPABASE_SERVICE_ROLE_KEY and ${SUPABASE_SERVICE_ROLE_KEY:?required}.');
+  console.error('Allowed: environment/GitHub references such as process.env.SUPABASE_SERVICE_ROLE_KEY, ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}, and ${SUPABASE_SERVICE_ROLE_KEY:?required}.');
   console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, shell default-value expansions and credential-bearing database URLs.');
   process.exit(1);
 }
