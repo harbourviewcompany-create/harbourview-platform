@@ -1,0 +1,121 @@
+name: Temporary PR 1328 Reconciliation
+
+on:
+  push:
+    branches:
+      - tmp/reconcile-pr1328-20260811
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout control branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Rebuild PR 1328 on protected main
+        shell: bash
+        env:
+          TARGET_BRANCH: agent/pr1307-post-merge-media-corrections
+          EXPECTED_HEAD: e076ccd6559f429b892d4bd93eaf5d7b2b134a94
+          EXPECTED_MAIN: 49324a420e349a98794cca366960fc0e739cc492
+          MERGE_BASE: 2c5ed2818a719b75377e5a52d0c6686dda7c2941
+        run: |
+          set -euo pipefail
+
+          git fetch origin main "$TARGET_BRANCH" --force
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$EXPECTED_HEAD"
+
+          git switch --detach "$EXPECTED_MAIN"
+
+          paths=(
+            '.github/workflows/mobile-command-centre-v2-visual.yml'
+            'app/country/[country]/role/[role]/page.tsx'
+            'components/dashboard/mobile-command/sections/MarketplaceSections.tsx'
+            'docs/control/MARKETPLACE_MEDIA_COPY.md'
+            'docs/control/PR1307_POST_MERGE_CORRECTIVE_EVIDENCE.md'
+            'docs/control/PR1307_POST_MERGE_CORRECTIVE_SCOPE.md'
+            'lib/dashboard/buildDashboardCommandSources.ts'
+            'lib/dashboard/marketplaceMediaProjection.ts'
+            'lib/marketplace/images/public-query.ts'
+            'tests/dashboard/marketplaceMediaMergeReadiness.test.ts'
+            'tests/marketplace/publicImageQueryContract.test.ts'
+          )
+
+          git diff --binary "$MERGE_BASE" "$EXPECTED_HEAD" -- "${paths[@]}" > /tmp/pr1328-non-evidence.patch
+          git apply --index --3way /tmp/pr1328-non-evidence.patch
+
+          for path in "${paths[@]}"; do
+            test "$(git rev-parse ":$path")" = "$(git rev-parse "$EXPECTED_HEAD:$path")"
+          done
+
+          export EXPECTED_HEAD MERGE_BASE
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          base = os.environ['MERGE_BASE']
+          head = os.environ['EXPECTED_HEAD']
+          path = 'docs/control/EVIDENCE_LOG.md'
+          diff = subprocess.check_output(
+              ['git', 'diff', '--unified=0', base, head, '--', path],
+              text=True,
+          )
+          additions = []
+          for line in diff.splitlines():
+              if line.startswith('+++') or line.startswith('@@'):
+                  continue
+              if line.startswith('+'):
+                  additions.append(line[1:])
+          marker = '## 2026-08-10 — PR #1328 post-merge marketplace-media corrective'
+          if marker not in additions:
+              raise SystemExit('PR #1328 evidence marker missing from reviewed delta')
+          evidence = Path(path)
+          current = evidence.read_text(encoding='utf-8')
+          if marker in current:
+              raise SystemExit('PR #1328 evidence already present on current main')
+          evidence.write_text(current + '\n'.join(additions) + '\n', encoding='utf-8')
+          PY
+
+          grep -Fq 'PR #1323' docs/control/EVIDENCE_LOG.md
+          grep -Fq '## 2026-08-10 — PR #1328 post-merge marketplace-media corrective' docs/control/EVIDENCE_LOG.md
+          git add docs/control/EVIDENCE_LOG.md
+
+          cat > /tmp/expected-paths <<'EOF'
+          .github/workflows/mobile-command-centre-v2-visual.yml
+          app/country/[country]/role/[role]/page.tsx
+          components/dashboard/mobile-command/sections/MarketplaceSections.tsx
+          docs/control/EVIDENCE_LOG.md
+          docs/control/MARKETPLACE_MEDIA_COPY.md
+          docs/control/PR1307_POST_MERGE_CORRECTIVE_EVIDENCE.md
+          docs/control/PR1307_POST_MERGE_CORRECTIVE_SCOPE.md
+          lib/dashboard/buildDashboardCommandSources.ts
+          lib/dashboard/marketplaceMediaProjection.ts
+          lib/marketplace/images/public-query.ts
+          tests/dashboard/marketplaceMediaMergeReadiness.test.ts
+          tests/marketplace/publicImageQueryContract.test.ts
+          EOF
+          sed -i 's/^          //' /tmp/expected-paths
+          git diff --cached --name-only | sort > /tmp/actual-paths
+          sort -o /tmp/expected-paths /tmp/expected-paths
+          diff -u /tmp/expected-paths /tmp/actual-paths
+          test "$(wc -l < /tmp/actual-paths)" -eq 12
+          git diff --cached --check
+
+          test "$(git rev-parse ':tests/dashboard/marketplaceMediaMergeReadiness.test.ts')" = "$(git rev-parse "$EXPECTED_HEAD:tests/dashboard/marketplaceMediaMergeReadiness.test.ts")"
+
+          git config user.name 'harbourview-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+          git commit -m 'fix(marketplace): reconcile PR 1328 onto current main'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+
+          git push --force-with-lease="refs/heads/$TARGET_BRANCH:$EXPECTED_HEAD" origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "Reconciled head: $(git rev-parse HEAD)"
