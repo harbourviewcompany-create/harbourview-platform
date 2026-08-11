@@ -140,17 +140,28 @@ function sameSeamLocation(a, b) {
 
 function normalizeEquivalentSeamAliases(points) {
   const normalized = points.map(([lon, lat]) => [lon, lat])
+  const isClosed = normalized.length >= 2 && samePoint(normalized[0], normalized[normalized.length - 1])
+  const logicalLength = isClosed ? normalized.length - 1 : normalized.length
   let changed = false
 
-  for (let index = 1; index < normalized.length; index += 1) {
+  for (let index = 1; index < logicalLength; index += 1) {
     if (sameSeamLocation(normalized[index - 1], normalized[index])) {
       if (normalized[index][0] !== normalized[index - 1][0]) changed = true
       normalized[index][0] = normalized[index - 1][0]
     }
   }
-  if (normalized.length >= 2 && sameSeamLocation(normalized[normalized.length - 1], normalized[0])) {
-    if (normalized[normalized.length - 1][0] !== normalized[0][0]) changed = true
-    normalized[normalized.length - 1][0] = normalized[0][0]
+
+  if (logicalLength >= 2 && sameSeamLocation(normalized[logicalLength - 1], normalized[0])) {
+    const seamLon = normalized[0][0]
+    for (let index = logicalLength - 1; index > 0; index -= 1) {
+      if (!sameSeamLocation(normalized[index], normalized[(index + 1) % logicalLength])) break
+      if (normalized[index][0] !== seamLon) changed = true
+      normalized[index][0] = seamLon
+    }
+  }
+
+  if (isClosed) {
+    normalized[normalized.length - 1] = [...normalized[0]]
   }
 
   return { points: normalized, changed }
