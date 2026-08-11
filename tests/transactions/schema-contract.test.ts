@@ -9,6 +9,7 @@ const migrationFiles = [
   "20260811013000_transaction_assertion_diligence_foundation.sql",
   "20260811014000_transaction_economics_decisions_foundation.sql",
   "20260811015000_transaction_rls_views_import_staging.sql",
+  "20260811015100_transaction_boundary_hardening.sql",
 ] as const;
 
 const migrations = migrationFiles.map((file) =>
@@ -47,24 +48,48 @@ const bridgeTables = [
   "commissions",
 ] as const;
 
+const forbiddenExistingTableExpansion = [
+  "commercial_need",
+  "qualification_confidence",
+  "selected_for_transaction",
+] as const;
+
 describe("native transaction schema contract", () => {
   it("creates all canonical tables without destructive migration statements", () => {
     for (const table of canonicalTables) {
-      expect(allSql).toMatch(new RegExp(`create table public\\.${table}\\s*\\(`, "i"));
+      expect(allSql).toMatch(new RegExp(`create table(?: if not exists)? public\\.${table}\\s*\\(`, "i"));
     }
     expect(allSql).not.toMatch(/\bdrop\s+table\b/i);
     expect(allSql).not.toMatch(/\bdrop\s+column\b/i);
     expect(allSql).not.toMatch(/\btruncate\b/i);
   });
 
-  it("uses existing systems as nullable bridges rather than replacements", () => {
+  it("uses existing systems as nullable FK bridges rather than expanding their domain model", () => {
     for (const table of bridgeTables) {
-      expect(allSql).toMatch(new RegExp(`alter table public\\.${table}`, "i"));
+      expect(allSql).toMatch(new RegExp(`alter table(?: if exists)? public\\.${table}`, "i"));
     }
     expect(allSql).toContain("workspaces remain tenancy/security boundaries");
     expect(allSql).not.toMatch(/alter table public\.workspaces\s+add column\s+entity_id/i);
     expect(allSql).not.toMatch(/create table public\.hv_evidence_v2/i);
     expect(allSql).not.toMatch(/create table public\.deal_rooms_v2/i);
+
+    for (const column of forbiddenExistingTableExpansion) {
+      expect(allSql).not.toContain(column);
+    }
+
+    const bridgeColumnDefinitions = [
+      "entity_id uuid references public.entities(id) on delete set null",
+      "facility_id uuid references public.entity_facilities(id) on delete set null",
+      "product_id uuid references public.products(id) on delete set null",
+      "economic_account_id uuid references public.economic_accounts(id) on delete set null",
+      "opportunity_id uuid references public.opportunities(id) on delete set null",
+      "transaction_network_id uuid references public.transaction_networks(id) on delete set null",
+      "transaction_id uuid references public.transactions(id) on delete set null",
+      "economics_entry_id uuid references public.transaction_economics_entries(id) on delete set null",
+    ];
+    for (const definition of bridgeColumnDefinitions) {
+      expect(allSql).toContain(definition);
+    }
   });
 
   it("enables RLS for every canonical table and staging", () => {
@@ -98,10 +123,12 @@ describe("native transaction schema contract", () => {
   it("makes economics append-only and recognition-chain controlled", () => {
     expect(allSql).toContain("hv_validate_economics_recognition_chain");
     expect(allSql).toContain("transaction_economics_recognition_chain");
+    expect(allSql).toContain("pg_advisory_xact_lock");
     expect(allSql).toContain("hv_prevent_economics_mutation");
     expect(allSql).toMatch(/before update or delete on public\.transaction_economics_entries/i);
     expect(allSql).toContain("recognition_key like 'ECON|%'");
     expect(allSql).toContain("double_count_key like 'NETWORK|%'");
+    expect(allSql).toContain("basis in ('primary_evidence','invoice','settlement')");
   });
 
   it("encodes the controlled workbook fixture counts without importing it", () => {

@@ -150,21 +150,17 @@ create index transaction_parties_transaction_idx on public.transaction_parties (
 create index transaction_parties_workspace_idx on public.transaction_parties (workspace_id) where workspace_id is not null;
 create index transaction_parties_account_idx on public.transaction_parties (economic_account_id) where economic_account_id is not null;
 
--- Nullable compatibility bridges only. Existing APIs continue reading existing fields.
+-- Existing-domain compatibility changes are nullable foreign-key bridges only.
+-- Existing APIs continue reading their existing fields.
 alter table public.opportunities
   add column if not exists entity_id uuid references public.entities(id) on delete set null,
   add column if not exists economic_account_id uuid references public.economic_accounts(id) on delete set null,
   add column if not exists trigger_artifact_id uuid references public.hv_artifacts(id) on delete set null,
-  add column if not exists transaction_network_id uuid references public.transaction_networks(id) on delete set null,
-  add column if not exists commercial_need text,
-  add column if not exists qualification_confidence numeric(5,2);
-alter table public.opportunities
-  add constraint opportunities_qualification_confidence_chk check (qualification_confidence is null or qualification_confidence between 0 and 100);
+  add column if not exists transaction_network_id uuid references public.transaction_networks(id) on delete set null;
 
 alter table public.matches
   add column if not exists opportunity_id uuid references public.opportunities(id) on delete set null,
-  add column if not exists transaction_network_id uuid references public.transaction_networks(id) on delete set null,
-  add column if not exists selected_for_transaction boolean not null default false;
+  add column if not exists transaction_network_id uuid references public.transaction_networks(id) on delete set null;
 
 alter table public.deal_rooms
   add column if not exists transaction_id uuid references public.transactions(id) on delete set null;
