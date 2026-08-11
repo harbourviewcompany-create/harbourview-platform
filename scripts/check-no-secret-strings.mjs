@@ -26,7 +26,6 @@ function runGit(gitArgs) {
 
 function getChangedFiles(baseRef, headRef) {
   const ranges = [`${baseRef}...${headRef}`, `${baseRef}..${headRef}`];
-
   for (const range of ranges) {
     try {
       const output = runGit(['diff', '--name-only', '--diff-filter=ACMRTUXB', range]);
@@ -35,13 +34,11 @@ function getChangedFiles(baseRef, headRef) {
       // Try the next range form below.
     }
   }
-
   throw new Error(`Unable to determine changed files for base "${baseRef}" and head "${headRef}".`);
 }
 
 function getAddedLines(baseRef, headRef) {
   const ranges = [`${baseRef}...${headRef}`, `${baseRef}..${headRef}`];
-
   for (const range of ranges) {
     try {
       const output = runGit(['diff', '--unified=0', '--no-ext-diff', range]);
@@ -53,7 +50,6 @@ function getAddedLines(baseRef, headRef) {
       // Try the next range form below.
     }
   }
-
   return [];
 }
 
@@ -69,7 +65,7 @@ const patterns = [
 ];
 
 const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*[:=]\s*["']?([^"'\s]+)["']?/i;
-const safeAssignmentValue = /^(?:process\.env\.|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|\$\{[A-Z0-9_]+(?::[?+\-=][^}]*)?\}|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
+const safeAssignmentValue = /^(?:process\.env\.|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 
 function isProbablyText(path) {
   if (!existsSync(path)) return false;
@@ -115,7 +111,7 @@ if (findings.length > 0) {
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
   console.error('Allowed: environment variable names and environment/GitHub secret references such as process.env.SUPABASE_SERVICE_ROLE_KEY and ${SUPABASE_SERVICE_ROLE_KEY:?required}.');
-  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets and credential-bearing database URLs.');
+  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, shell default-value expansions and credential-bearing database URLs.');
   process.exit(1);
 }
 
