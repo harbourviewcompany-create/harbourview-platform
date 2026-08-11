@@ -64,7 +64,7 @@ const patterns = [
   { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
 
-const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*[:=]\s*["']?([^"'\s]+)["']?/i;
+const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*(?:=|:(?!\?))\s*["']?([^"'\s]+)["']?/i;
 const safeAssignmentValue = /^(?:process\.env\.|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 
 function isProbablyText(path) {
