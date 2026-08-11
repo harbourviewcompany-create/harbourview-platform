@@ -150,67 +150,48 @@ function extractIso2(properties) {
 
   const testPath = 'tests/globe-natural-earth-countries.test.ts'
   let test = readFileSync(testPath, 'utf8')
-  test = replaceOnce(test, "import { describe, expect, it } from 'vitest'\n", "import { describe, expect, it } from 'vitest'\nimport { spawnSync } from 'node:child_process'\n", 'Natural Earth test import')
+  test = replaceOnce(test, "import { describe, expect, it } from 'vitest'\n", "import { describe, expect, it } from 'vitest'\nimport { readFile } from 'node:fs/promises'\n", 'Natural Earth test import')
   const anchor = "  it('includes representative countries spanning continents', () => {\n"
-  const regression = String.raw`  it('executes source-retention fallback and duplicate alpha-2 rejection through the generator', () => {
-    const probe = spawnSync(process.execPath, ['--input-type=module', '-e', \`
-      import { readFile } from 'node:fs/promises'
-      import { resolve } from 'node:path'
-      import { pathToFileURL } from 'node:url'
+  const regression = `  it('executes source-retention fallback and duplicate alpha-2 rejection through the generator', async () => {
+    const generatorUrl = new URL('../scripts/generate-natural-earth-countries.mjs', import.meta.url).href
+    const generator = await import(/* @vite-ignore */ generatorUrl)
+    const source = JSON.parse(await readFile(new URL('../data/globe/source/ne_50m_admin_0_countries.geojson', import.meta.url), 'utf8'))
+    const iso2 = (feature: any) => String(
+      feature.properties?.ISO_A2_EH ?? feature.properties?.ISO_A2 ?? feature.properties?.WB_A2 ?? ''
+    ).toUpperCase()
+    const feature = (code: string) => source.features.find((item: any) => iso2(item) === code)
+    const insideBbox = (point: [number, number], bbox: [number, number, number, number]) =>
+      point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3]
+    const insideGeometry = (point: [number, number], country: any) => country.polygons.some((polygon: any) => {
+      const outer = polygon.rings.find((ring: any) => ring.kind === 'outer')
+      if (!outer || !generator.pointInRing(point, outer.points)) return false
+      return !polygon.rings
+        .filter((ring: any) => ring.kind === 'hole')
+        .some((hole: any) => generator.pointInRing(point, hole.points))
+    })
 
-      const generator = await import(pathToFileURL(resolve('scripts/generate-natural-earth-countries.mjs')).href)
-      const source = JSON.parse(await readFile(resolve('data/globe/source/ne_50m_admin_0_countries.geojson'), 'utf8'))
-      const iso2 = (feature) => String(
-        feature.properties?.ISO_A2_EH ?? feature.properties?.ISO_A2 ?? feature.properties?.WB_A2 ?? ''
-      ).toUpperCase()
-      const feature = (code) => source.features.find((item) => iso2(item) === code)
-      const insideBbox = (point, bbox) => point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3]
-      const insideGeometry = (point, country) => country.polygons.some((polygon) => {
-        const outer = polygon.rings.find((ring) => ring.kind === 'outer')
-        if (!outer || !generator.pointInRing(point, outer.points)) return false
-        return !polygon.rings.filter((ring) => ring.kind === 'hole').some((hole) => generator.pointInRing(point, hole.points))
-      })
+    const viFeature = feature('VI')
+    const ioFeature = feature('IO')
+    const vcFeature = feature('VC')
+    expect(viFeature).toBeTruthy()
+    expect(ioFeature).toBeTruthy()
+    expect(vcFeature).toBeTruthy()
 
-      const viFeature = feature('VI')
-      const ioFeature = feature('IO')
-      const vcFeature = feature('VC')
-      if (!viFeature || !ioFeature || !vcFeature) throw new Error('required Natural Earth retention fixture missing')
+    const viNormal = generator.normalizePolygons(viFeature.geometry, generator.SIMPLIFY_TOLERANCE_DEG)
+    const viZero = generator.normalizePolygons(viFeature.geometry, 0)
+    const vi = generator.transformFeature(viFeature)
+    const io = generator.transformFeature(ioFeature)
+    const vc = generator.transformFeature(vcFeature)
 
-      const viNormal = generator.normalizePolygons(viFeature.geometry, generator.SIMPLIFY_TOLERANCE_DEG)
-      const viZero = generator.normalizePolygons(viFeature.geometry, 0)
-      const vi = generator.transformFeature(viFeature)
-      const io = generator.transformFeature(ioFeature)
-      const vc = generator.transformFeature(vcFeature)
-
-      let duplicateRejected = false
-      try {
-        generator.assertUniqueIso2RoutingKeys([vi, { ...vi, name: 'Duplicate VI fixture' }])
-      } catch (error) {
-        duplicateRejected = String(error?.message ?? error).includes('duplicate alpha-2 routing keys')
-      }
-
-      console.log(JSON.stringify({
-        viNormalCount: viNormal.length,
-        viZeroCount: viZero.length,
-        viRetained: Boolean(vi),
-        duplicateRejected,
-        ioCentroidInBbox: insideBbox(io.centroid, io.bbox),
-        ioCentroidInGeometry: insideGeometry(io.centroid, io),
-        vcCentroidInBbox: insideBbox(vc.centroid, vc.bbox),
-        vcCentroidInGeometry: insideGeometry(vc.centroid, vc),
-      }))
-    \`], { encoding: 'utf8', timeout: 30_000 })
-
-    expect(probe.status, probe.stderr || probe.stdout).toBe(0)
-    const result = JSON.parse(probe.stdout.trim().split('\\n').at(-1) ?? '{}')
-    expect(result.viNormalCount).toBe(0)
-    expect(result.viZeroCount).toBeGreaterThan(0)
-    expect(result.viRetained).toBe(true)
-    expect(result.duplicateRejected).toBe(true)
-    expect(result.ioCentroidInBbox).toBe(true)
-    expect(result.ioCentroidInGeometry).toBe(true)
-    expect(result.vcCentroidInBbox).toBe(true)
-    expect(result.vcCentroidInGeometry).toBe(true)
+    expect(viNormal.length).toBe(0)
+    expect(viZero.length).toBeGreaterThan(0)
+    expect(vi).toBeTruthy()
+    expect(insideBbox(io.centroid, io.bbox)).toBe(true)
+    expect(insideGeometry(io.centroid, io)).toBe(true)
+    expect(insideBbox(vc.centroid, vc.bbox)).toBe(true)
+    expect(insideGeometry(vc.centroid, vc)).toBe(true)
+    expect(() => generator.assertUniqueIso2RoutingKeys([vi, { ...vi, name: 'Duplicate VI fixture' }]))
+      .toThrow(/duplicate alpha-2 routing keys/)
   }, 35_000)
 
 `
