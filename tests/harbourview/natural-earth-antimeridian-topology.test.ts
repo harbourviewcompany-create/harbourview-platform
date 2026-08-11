@@ -651,3 +651,17 @@ test('Russia source is already seam-split and generated seam rings never close a
   assert.ok(result.maxRawLongitudeJump < 30, `Russia seam ring created false planar chord: ${result.maxRawLongitudeJump}°`)
   assert.ok(result.maxSphericalEdgeDeg < 10, `Russia seam ring created false spherical boundary chord: ${result.maxSphericalEdgeDeg}°`)
 }, 60_000)
+
+test('retains source-eligible countries without introducing duplicate alpha-2 routing keys', () => {
+  const virginIslands = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'VI')
+  assert.ok(virginIslands, 'regenerated Natural Earth payload must retain source-eligible VI')
+  assert.ok(virginIslands.polygons.length > 0, 'VI must retain renderable polygon geometry')
+
+  const iso2s = naturalEarthCountriesPayload.countries.map((country) => country.iso2)
+  assert.equal(new Set(iso2s).size, iso2s.length, 'generated country payload must keep alpha-2 routing keys unique')
+  assert.equal(
+    naturalEarthCountriesPayload.countries.some((country) => country.iso3 === 'IOA'),
+    false,
+    'composite Indian Ocean Territories map unit must not alias Australia on AU routing',
+  )
+}, 60_000)

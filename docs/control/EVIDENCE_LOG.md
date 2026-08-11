@@ -4874,3 +4874,11 @@ for other versions on `main`. Those predate this work and are untouched.
 **Safety / scope:** no production deployment, migration, database write, secret change, or production-system modification was performed.
 
 **Decision:** **GO for the validated repository implementation on the exact verified implementation head.** Evidence-only/review-thread-only follow-up commits must preserve implementation blobs and receive normal final-head repository checks before merge.
+
+## 2026-08-11 — PR #1323 post-merge small-country retention remediation
+
+- Feature-level fallback preserves source-eligible countries when normal simplification removes every polygon.
+- Regeneration retained U.S. Virgin Islands (VI), rejected composite IOA/AU routing-key collision, and preserved the pre-remediation Russia generated payload byte-for-byte.
+- Normalized regenerated-output SHA-256: `73e35579a1ee932a3b9bbcbfb71a0370965bd3ecb0f99be1ec3cb0833be7a5e0`.
+- PASS: deterministic two-run regeneration; Natural Earth antimeridian topology; Russia spherical regression; globe polygon rendering; lint; typecheck; full npm test matrix; security/leakage; production build.
+- Temporary PR #1323 verification/diagnostic workflows removed before the remediation commit.
