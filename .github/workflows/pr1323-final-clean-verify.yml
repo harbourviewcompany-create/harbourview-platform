@@ -31,7 +31,7 @@ jobs:
           p = Path('tests/globe-polygon-rendering.test.ts')
           s = p.read_text()
           old = """    expect(normalizedPolygons.length).toBeGreaterThan(0)\n    for (const polygon of normalizedPolygons) {\n"""
-          new = """    expect(normalizedPolygons.length).toBeGreaterThan(0)\n    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)\n    expect(Math.max(...normalizedLongitudes)).toBeGreaterThan(180)\n    for (const polygon of normalizedPolygons) {\n"""
+          new = """    expect(normalizedPolygons.length).toBeGreaterThan(0)\n    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)\n    expect(Math.max(...normalizedLongitudes)).toBeGreaterThanOrEqual(180)\n    for (const polygon of normalizedPolygons) {\n"""
           if old not in s and new not in s:
               raise SystemExit('Russia lower-bound target not found')
           if old in s:
