@@ -66,6 +66,7 @@ const patterns = [
 
 const riskyAssignment = /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\b\s*(?:=|:(?!\?))\s*["']?([^"'\s]+)["']?/i;
 const safeAssignmentValue = /^(?:process\.env\.|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
+const safeReferenceAssignment = /^\s*(?:#\s*)?[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)[A-Z0-9_]*\s*(?:=|:)\s*(?:\$\{\{\s*(?:secrets|vars|github|inputs)\.[A-Za-z0-9_.-]+\s*\}\}|\$\{[A-Z0-9_]+\}|\$\{[A-Z0-9_]+:\?[^}]*\}|process\.env\.[A-Z0-9_]+|env\.[A-Z0-9_]+|secrets\.[A-Z0-9_]+|vars\.[A-Z0-9_]+)\s*(?:#.*)?$/i;
 
 function isProbablyText(path) {
   if (!existsSync(path)) return false;
@@ -81,7 +82,13 @@ function scanLine(line, source) {
     if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
   }
   const assignment = line.match(riskyAssignment);
-  if (assignment && assignment[1] && assignment[1].length >= 8 && !safeAssignmentValue.test(assignment[1])) {
+  if (
+    assignment &&
+    assignment[1] &&
+    assignment[1].length >= 8 &&
+    !safeReferenceAssignment.test(line) &&
+    !safeAssignmentValue.test(assignment[1])
+  ) {
     findings.push({ source, pattern: 'risky-secret-assignment' });
   }
   return findings;
