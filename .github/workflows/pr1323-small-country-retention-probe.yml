@@ -1,10 +1,15 @@
 name: PR 1323 Small Country Retention Probe
+
 on:
   push:
-    branches: [fix/globe-antimeridian-generator-hardening]
-    paths: ['.github/workflows/pr1323-small-country-retention-probe.yml']
+    branches:
+      - fix/globe-antimeridian-generator-hardening
+    paths:
+      - '.github/workflows/pr1323-small-country-retention-probe.yml'
+
 permissions:
   contents: read
+
 jobs:
   probe:
     runs-on: ubuntu-latest
