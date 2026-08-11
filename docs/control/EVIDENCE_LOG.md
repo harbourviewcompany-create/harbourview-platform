@@ -4874,3 +4874,13 @@ for other versions on `main`. Those predate this work and are untouched.
 **Safety / scope:** no production deployment, migration, database write, secret change, or production-system modification was performed.
 
 **Decision:** **GO for the validated repository implementation on the exact verified implementation head.** Evidence-only/review-thread-only follow-up commits must preserve implementation blobs and receive normal final-head repository checks before merge.
+
+
+### PR #1335 — VI retention corrective verification
+
+- Verification run: GitHub Actions `31482886805` on corrective branch derived from PR #1323 merge commit `d5d9eaea90b6d4d8e8d112de4dd9ecec52991007`.
+- Corrective behavior: retain `VI` by source-fidelity retry only when normal simplification would otherwise erase the U.S. Virgin Islands; all other countries remain on the established generator path.
+- Transform version: `1.4.1-natural-earth-50m-antimeridian-seam-closure-vi-retention`; topology provenance assertion updated to require this recipe version.
+- Deterministic regeneration: 195 countries / 15,377 vertex points; `VI` present; normalized SHA-256 `d7dafe41037def4569a1277daa6ddce67e76efae1ab5d36865dab0fd7634eb4d` on repeated regeneration and after build.
+- QA: topology 9/9 PASS; Russia spherical 4/4 PASS; globe rendering 20/20 PASS; Natural Earth payload 15/15 PASS; `npm run lint` PASS (0 errors); `npm run typecheck` PASS; full `npm run test` PASS; `npm run test:security` 113/113 PASS; `npm run build` PASS.
+- Scope: generator + regenerated payload + VI regression assertion + topology provenance assertion + this evidence entry; merged temporary `pr1323-small-country-retention-probe.yml` removed. No production/deployment/Supabase/Vercel change.
