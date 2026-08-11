@@ -1,0 +1,52 @@
+name: Transaction System Verification
+
+on:
+  push:
+    branches:
+      - feat/native-transaction-system-foundation
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Transaction migration contract
+        run: node scripts/verify-transaction-system.mjs
+
+      - name: Transaction schema RLS double-counting and leakage tests
+        run: npx vitest run tests/transactions
+
+      - name: Existing public visibility regression
+        run: npm run test:visibility
+
+      - name: Existing services public leakage regression
+        run: npm run test:services-public-leakage
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Verification summary
+        if: always()
+        run: |
+          echo "No Supabase migration was applied."
+          echo "No workbook fixture was imported."
+          echo "No Vercel or production deployment step exists in this workflow."
