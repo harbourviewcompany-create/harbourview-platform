@@ -18,7 +18,7 @@ jobs:
       - name: Checkout exact PR head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: 9eba1ce61284278ed1c711c4bff3e835b7daf689
+          ref: 104e14779cd73fb5d773f0cea5642e47b14223bc
           fetch-depth: 1
       - name: Set up Node
         uses: actions/setup-node@v4
