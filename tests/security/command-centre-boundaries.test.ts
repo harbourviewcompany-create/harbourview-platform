@@ -21,6 +21,7 @@ const clientFiles = [
   'components/dashboard/mobile-command/useMobileCommandModel.ts',
   'components/dashboard/mobile-command/WorkspacePanels.tsx',
   'components/dashboard/mobile-command/sections/CoreSections.tsx',
+  'components/dashboard/mobile-command/sections/MarketplaceSections.tsx',
   'components/dashboard/mobile-command/sections/DomainSections.tsx',
   'components/dashboard/mobile-command/sections/IntelligenceSections.tsx',
   'components/dashboard/mobile-command/sections/OperationsSections.tsx',
@@ -53,6 +54,7 @@ describe('Command Centre access and leakage boundaries', () => {
       read('components/dashboard/CommandCentreModuleRail.tsx'),
       read('components/dashboard/CommandCentreDataBoundary.tsx'),
       read('components/dashboard/MobileCommandCentreRebuild.tsx'),
+      read('components/dashboard/mobile-command/sections/MarketplaceSections.tsx'),
     ].join('\n')
 
     for (const field of forbiddenPublicFields) {

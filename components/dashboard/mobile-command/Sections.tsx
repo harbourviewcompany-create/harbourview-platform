@@ -2,9 +2,12 @@ export {
   OverviewSection,
   LiveStatusSection,
   MarketIntelligenceSection,
+} from './sections/CoreSections'
+
+export {
   MarketplaceSection,
   SupplySection,
-} from './sections/CoreSections'
+} from './sections/MarketplaceSections'
 
 export {
   NextActionsSection,
