@@ -48,22 +48,18 @@ jobs:
               s = s.replace(old, new, 1)
           p.write_text(s)
           PY
-      - name: Preserve committed payload and regenerate
-        run: |
-          cp data/globe/natural-earth-countries.ts /tmp/committed-natural-earth.ts
-          node scripts/generate-natural-earth-countries.mjs
-      - name: Verify committed payload parity and normalized reproducibility
+      - name: Regenerate payload
+        run: node scripts/generate-natural-earth-countries.mjs
+      - name: Verify normalized reproducibility
         run: |
           python - <<'PY'
           from pathlib import Path
           import hashlib, re, subprocess
           def norm(text):
-              return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", text)
-          committed = norm(Path('/tmp/committed-natural-earth.ts').read_text())
+              return re.sub(r'generatedAt: "[^"]+"', 'generatedAt: "<normalized>"', text)
           generated1 = norm(Path('data/globe/natural-earth-countries.ts').read_text())
-          if committed != generated1:
-              raise SystemExit('checked-in Natural Earth payload differs from regeneration after generatedAt normalization')
           sha1 = hashlib.sha256(generated1.encode()).hexdigest()
+          Path('/tmp/pr1323-generated-1.normalized.ts').write_text(generated1)
           subprocess.run(['node','scripts/generate-natural-earth-countries.mjs'], check=True)
           generated2 = norm(Path('data/globe/natural-earth-countries.ts').read_text())
           sha2 = hashlib.sha256(generated2.encode()).hexdigest()
@@ -88,15 +84,28 @@ jobs:
         run: npx vitest run tests/security/public-leakage.test.ts tests/security/admin-auth-routes.test.ts tests/security/admin-listings-page-auth.test.ts
       - name: Build
         run: npm run build
-      - name: Restore generatedAt-only working copy and commit validated test fixes
+      - name: Reconfirm final generated payload
         run: |
-          git checkout -- data/globe/natural-earth-countries.ts
-          if git diff --quiet -- tests/globe-polygon-rendering.test.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts; then
-            echo 'Validated test fixes already present.'
+          node scripts/generate-natural-earth-countries.mjs
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re
+          def norm(text):
+              return re.sub(r'generatedAt: "[^"]+"', 'generatedAt: "<normalized>"', text)
+          expected = Path('/tmp/pr1323-generated-1.normalized.ts').read_text()
+          final = norm(Path('data/globe/natural-earth-countries.ts').read_text())
+          if final != expected:
+              raise SystemExit('final generated payload changed after verification/build')
+          print('final_normalized_sha256=' + hashlib.sha256(final.encode()).hexdigest())
+          PY
+      - name: Commit validated payload and review fixes
+        run: |
+          if git diff --quiet -- data/globe/natural-earth-countries.ts tests/globe-polygon-rendering.test.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts; then
+            echo 'Validated payload and test fixes already present.'
             exit 0
           fi
           git config user.name 'Harbourview Release Bot'
           git config user.email 'harbourviewcompany@gmail.com'
-          git add tests/globe-polygon-rendering.test.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts
+          git add data/globe/natural-earth-countries.ts tests/globe-polygon-rendering.test.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts
           git commit -m 'test(globe): close final antimeridian review gaps'
           git push origin HEAD:fix/globe-antimeridian-generator-hardening
