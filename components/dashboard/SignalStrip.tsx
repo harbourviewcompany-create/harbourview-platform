@@ -50,20 +50,30 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
       className="flex flex-col overflow-y-auto px-3.5 py-4"
       style={{ borderLeft: '1px solid rgba(198,165,90,0.1)', background: 'rgba(4,9,18,0.6)' }}
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: 'rgba(198,165,90,0.5)' }}>
           Market signals
         </span>
-        {isLive ? (
-          <span className="flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(93,202,165,0.65)' }}>
-            <PulseDot />
-            <span className="uppercase tracking-[0.1em]">Live</span>
-          </span>
-        ) : (
-          <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(243,240,234,0.2)' }}>
-            Updating
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/signals/search"
+            className="text-[9px] uppercase tracking-[0.1em] transition-opacity hover:opacity-80"
+            style={{ color: 'rgba(198,165,90,0.55)' }}
+            title="Semantic search over reviewed signals (Intel / Operator)"
+          >
+            Search
+          </Link>
+          {isLive ? (
+            <span className="flex items-center gap-1.5 text-[9px]" style={{ color: 'rgba(93,202,165,0.65)' }}>
+              <PulseDot />
+              <span className="uppercase tracking-[0.1em]">Live</span>
+            </span>
+          ) : (
+            <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(243,240,234,0.2)' }}>
+              Updating
+            </span>
+          )}
+        </div>
       </div>
 
       {signals.length === 0 ? (
@@ -71,6 +81,9 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
           <p className="text-center text-[10px] leading-relaxed" style={{ color: 'rgba(243,240,234,0.35)' }}>
             No quality-gated signals in this view yet. New items appear after classify + promote.
           </p>
+          <Link href="/dashboard/signals/search" className="text-[10px]" style={{ color: 'rgba(198,165,90,0.55)' }}>
+            Search the corpus →
+          </Link>
           <Link href="/signals" className="text-[10px]" style={{ color: 'rgba(198,165,90,0.45)' }}>
             Browse all signals →
           </Link>
@@ -111,13 +124,22 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
       )}
 
       {signals.length > 0 && (
-        <Link
-          href="/signals"
-          className="mt-3 block text-center text-[10px] transition-opacity hover:opacity-80"
-          style={{ color: 'rgba(198,165,90,0.38)' }}
-        >
-          All signals →
-        </Link>
+        <div className="mt-3 flex flex-col gap-1.5">
+          <Link
+            href="/dashboard/signals/search"
+            className="block text-center text-[10px] transition-opacity hover:opacity-80"
+            style={{ color: 'rgba(198,165,90,0.5)' }}
+          >
+            Search signals →
+          </Link>
+          <Link
+            href="/signals"
+            className="block text-center text-[10px] transition-opacity hover:opacity-80"
+            style={{ color: 'rgba(198,165,90,0.38)' }}
+          >
+            All signals →
+          </Link>
+        </div>
       )}
     </aside>
   )
