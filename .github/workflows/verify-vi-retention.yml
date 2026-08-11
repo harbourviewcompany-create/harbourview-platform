@@ -1,0 +1,117 @@
+name: Verify VI Retention Candidate
+
+on:
+  push:
+    branches:
+      - verify/vi-retention-fix-20260811
+    paths:
+      - '.github/workflows/verify-vi-retention.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: d13d21b426517ebc8d8f381cb1d890b118b396a2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit candidate universe and Russia parity against current-main base
+        run: |
+          git show 49324a420e349a98794cca366960fc0e739cc492:data/globe/natural-earth-countries.ts > /tmp/main-payload.ts
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,re
+          base=Path('/tmp/main-payload.ts').read_text()
+          cand=Path('data/globe/natural-earth-countries.ts').read_text()
+          iso=lambda s:set(re.findall(r"\biso2: '([A-Z]{2})'",s))
+          b=iso(base); c=iso(cand)
+          print('baseline_country_count=',len(b))
+          print('candidate_country_count=',len(c))
+          print('added_iso2=',','.join(sorted(c-b)))
+          print('removed_iso2=',','.join(sorted(b-c)))
+          assert 'VI' not in b, 'baseline unexpectedly already contains VI'
+          assert 'VI' in c, 'candidate payload does not contain VI'
+          assert not (b-c), f'candidate removed countries: {sorted(b-c)}'
+
+          def country_block(s, iso2):
+              marker=f"iso2: '{iso2}'"
+              pos=s.index(marker)
+              start=s.rfind('{',0,pos)
+              depth=0
+              quote=None
+              esc=False
+              for i in range(start,len(s)):
+                  ch=s[i]
+                  if quote:
+                      if esc: esc=False
+                      elif ch=='\\': esc=True
+                      elif ch==quote: quote=None
+                      continue
+                  if ch in "'\"`": quote=ch; continue
+                  if ch=='{': depth+=1
+                  elif ch=='}':
+                      depth-=1
+                      if depth==0: return s[start:i+1]
+              raise RuntimeError(iso2)
+          br=country_block(base,'RU'); cr=country_block(cand,'RU')
+          print('baseline_ru_sha256=',hashlib.sha256(br.encode()).hexdigest())
+          print('candidate_ru_sha256=',hashlib.sha256(cr.encode()).hexdigest())
+          assert br==cr, 'Russia generated country payload changed in VI follow-up'
+          PY
+      - name: Read-only VI regression
+        run: npx vitest run tests/harbourview/natural-earth-small-country-retention.test.ts
+      - name: Regeneration parity and normalized reproducibility
+        run: |
+          cp data/globe/natural-earth-countries.ts /tmp/committed.ts
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run1.ts
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run2.ts
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,re
+          def norm(path):
+              s=Path(path).read_text()
+              return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", s)
+          committed=norm('/tmp/committed.ts'); a=norm('/tmp/run1.ts'); b=norm('/tmp/run2.ts')
+          assert committed==a, 'checked-in payload differs from fresh regeneration after generatedAt normalization'
+          assert a==b, 'two regenerations differ after generatedAt normalization'
+          print('normalized_sha256='+hashlib.sha256(b.encode()).hexdigest())
+          print('VI_present='+str("iso2: 'VI'" in b))
+          print('country_count='+str(len(set(re.findall(r"\biso2: '([A-Z]{2})'",b)))))
+          PY
+      - name: Antimeridian topology
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical regression
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe polygon rendering
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full repository test chain
+        run: npm run test
+      - name: Security and leakage
+        run: npm run test:security
+      - name: Production build
+        run: npm run build
+      - name: Post-build payload parity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          def norm(path): return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", Path(path).read_text())
+          assert norm('data/globe/natural-earth-countries.ts')==norm('/tmp/run2.ts')
+          print('post_build_payload_parity=PASS')
+          PY
