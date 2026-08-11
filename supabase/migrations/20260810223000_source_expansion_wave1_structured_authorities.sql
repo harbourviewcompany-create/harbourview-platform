@@ -21,9 +21,7 @@ SET
   relevance_status = 'active',
   is_active = true,
   crawl_allowed = true,
-  content_type = ARRAY['scientific']::text[],
-  last_checked_at = NULL,
-  consecutive_failures = 0,
+  content_type = ARRAY['research']::text[],
   metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
     'audit_source_id', 'SX-0005',
     'source_class', 'clinical_scientific_registry',
@@ -54,8 +52,6 @@ SET
   is_active = true,
   crawl_allowed = true,
   content_type = ARRAY['regulatory']::text[],
-  last_checked_at = NULL,
-  consecutive_failures = 0,
   metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
     'audit_source_id', 'SX-0056',
     'source_class', 'government_gazette_rulemaking',
@@ -119,8 +115,6 @@ ON CONFLICT (source_url) DO UPDATE SET
   crawl_allowed = EXCLUDED.crawl_allowed,
   content_type = EXCLUDED.content_type,
   metadata = COALESCE(public.source_registry.metadata, '{}'::jsonb) || EXCLUDED.metadata,
-  last_checked_at = NULL,
-  consecutive_failures = 0,
   updated_at = now();
 
 -- SX-0054 child endpoint: FDA RES food recalls captures cannabis/CBD ingestible
@@ -170,8 +164,6 @@ ON CONFLICT (source_url) DO UPDATE SET
   crawl_allowed = EXCLUDED.crawl_allowed,
   content_type = EXCLUDED.content_type,
   metadata = COALESCE(public.source_registry.metadata, '{}'::jsonb) || EXCLUDED.metadata,
-  last_checked_at = NULL,
-  consecutive_failures = 0,
   updated_at = now();
 
 -- Migration-local assertions: fail rather than silently claiming Wave 1 coverage.
