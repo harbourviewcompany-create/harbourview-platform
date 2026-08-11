@@ -1,6 +1,7 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { forbidden, notFound } from 'next/navigation'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { canAccess, normalizeSubscriptionTier } from '@/lib/billing/entitlements'
 import { LEGACY_REVIEW_VERIFICATION_NOTICE } from '@/lib/intelligence-os/complianceCopy'
 import { loadDecisionIntelDossier } from '@/lib/intelligence-os/decisionDossier'
 import { createClient } from '@/lib/supabase/server'
@@ -40,11 +41,20 @@ export default async function DecisionIntelEventPage({
   searchParams: Promise<{ returnTo?: string | string[] }>
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams])
-  await requireAuth('signals')
-  // requireAuth's client intentionally uses Supabase's default schema. Harbourview's
-  // production Data API is exposed through `api`, so use the canonical server client
-  // for dossier reads after the entitlement gate has succeeded.
+  const { user } = await requireAuth()
   const supabase = await createClient()
+
+  // public.user_profiles.tier is the canonical Decision Intel entitlement source used by
+  // both admin membership tooling and the dossier RPC. Do not gate this page from stale
+  // app_metadata.subscription_tier values.
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('tier')
+    .eq('id', user.id)
+    .single()
+  const access = canAccess('signals', normalizeSubscriptionTier(profile?.tier))
+  if (!access.granted) forbidden()
+
   const dossier = await loadDecisionIntelDossier(supabase, decodeURIComponent(id))
   if (!dossier) notFound()
 
