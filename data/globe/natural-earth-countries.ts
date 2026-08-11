@@ -10,9 +10,9 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
     sourceVersion: 'ne_50m_admin_0_countries (vendored)',
     sourceLicense: 'Public domain',
     boundaryModel: 'Natural Earth de facto boundaries',
-    generatedAt: '2026-08-11T12:53:16.346Z',
+    generatedAt: '2026-08-11T13:46:39.240Z',
     generatedBy: 'scripts/generate-natural-earth-countries.mjs',
-    harbourviewTransformVersion: '1.5.0-natural-earth-50m-antimeridian-source-retention-alpha2',
+    harbourviewTransformVersion: '1.6.0-natural-earth-50m-source-retention-alpha2-centroid',
     notes: 'All Natural Earth polygon parts above 0.008 square degrees are retained; antimeridian-crossing outer and hole rings are split before simplification and each planar fragment is closed along ±180 before triangulation; coordinates rounded to 3 decimal places; source upgraded to 1:50m for higher polygon fidelity.',
   },
   countries: [
@@ -82,7 +82,7 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
       iso2: 'AG',
       iso3: 'ATG',
       name: "Antigua and Barbuda",
-      centroid: [-61.791, 17.352],
+      centroid: [-61.766, 17.076],
       bbox: [-61.887, 16.997, -61.686, 17.714],
       source: 'natural-earth-admin-0',
       polygons: [
@@ -4324,7 +4324,7 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
       iso2: 'IO',
       iso3: 'IOT',
       name: "British Indian Ocean Territory",
-      centroid: [71.348, -6.191],
+      centroid: [72.492, -7.377],
       bbox: [72.35, -7.435, 72.499, -7.22],
       source: 'natural-earth-admin-0',
       polygons: [
@@ -8518,7 +8518,7 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
       iso2: 'VC',
       iso3: 'VCT',
       name: "Saint Vincent and the Grenadines",
-      centroid: [-61.336, 13.088],
+      centroid: [-61.192, 13.26],
       bbox: [-61.277, 13.142, -61.124, 13.359],
       source: 'natural-earth-admin-0',
       polygons: [

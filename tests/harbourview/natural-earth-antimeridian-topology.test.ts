@@ -171,7 +171,7 @@ function runGeometryProbe<T>(probe: string): T {
 test('checked-in generated payload carries the hardened transform and Russia seam topology', () => {
   assert.equal(
     naturalEarthCountriesPayload.provenance.harbourviewTransformVersion,
-    '1.5.0-natural-earth-50m-antimeridian-source-retention-alpha2',
+    '1.6.0-natural-earth-50m-source-retention-alpha2-centroid',
   )
   const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')
   assert.ok(russia, 'checked-in payload must contain Russia')
