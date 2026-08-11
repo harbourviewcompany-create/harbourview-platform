@@ -4806,6 +4806,8 @@ node scripts/check-pending-production-migration-decisions.mjs  20260801150000 no
 Note: that script reports pre-existing blob mismatches and absent decision files
 for other versions on `main`. Those predate this work and are untouched.
 
+| Date | Check | Command / source | Result | Link / artifact | Status |
+|---|---|---|---|---|---|
 | 2026-08-10 | PR #1323 Natural Earth antimeridian generator hardening review-closeout | `node scripts/generate-natural-earth-countries.mjs`; `npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts`; `npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts`; normalized two-run regeneration comparison; `npm run typecheck`; targeted security/leakage Vitest; `npm run build` | PASS: regeneration completed; topology and spherical regressions pass; no source holes lost in seam-affected regression set; normalized regeneration deterministic; typecheck/security/build pass | PR #1323; workflow `PR 1323 Review Fix` | Current — pre-merge evidence |
 
 ---

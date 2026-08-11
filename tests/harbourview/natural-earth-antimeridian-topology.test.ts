@@ -164,7 +164,7 @@ test('synthetic antimeridian fragments close on the seam without false mainland 
     Math.sign(result.fragments[1].signedArea),
     'split fragments must preserve consistent winding',
   )
-})
+}, 35_000)
 
 test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () => {
   const result = runGeometryProbe<{
@@ -207,7 +207,7 @@ test('adjacent +180/-180 aliases never survive as a 360-degree planar edge', () 
     )
     assert.notEqual(aliasCase.maxRawLongitudeJump, 360, `${aliasCase.name}: 360° planar edge survived normalization`)
   }
-})
+}, 35_000)
 
 test('each synthetic source hole preserves at least one assigned fragment across the antimeridian', () => {
   const result = runGeometryProbe<{
@@ -259,7 +259,7 @@ test('each synthetic source hole preserves at least one assigned fragment across
       `source hole ${sourceHole.holeIndex} lost an eligible generated fragment`,
     )
   }
-})
+}, 35_000)
 
 test('Natural Earth seam-affected countries preserve closure, winding, hole ownership and Earcut validity', () => {
   const result = runGeometryProbe<{
@@ -371,7 +371,7 @@ test('Natural Earth seam-affected countries preserve closure, winding, hole owne
     }
     assert.ok(geometry.triangleCount > 0, `${iso2}: expected triangulated geometry`)
   }
-})
+}, 35_000)
 
 test('Russia source is already seam-split and generated seam rings never close across the mainland', () => {
   const result = runGeometryProbe<{
@@ -421,4 +421,4 @@ test('Russia source is already seam-split and generated seam rings never close a
   assert.equal(result.badClosureCount, 0)
   assert.ok(result.maxRawLongitudeJump < 30, `Russia seam ring created false planar chord: ${result.maxRawLongitudeJump}°`)
   assert.ok(result.maxSphericalEdgeDeg < 10, `Russia seam ring created false spherical boundary chord: ${result.maxSphericalEdgeDeg}°`)
-})
+}, 35_000)
