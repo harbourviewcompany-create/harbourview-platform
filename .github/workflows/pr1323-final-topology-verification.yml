@@ -14,7 +14,7 @@ on:
       - '.github/workflows/pr1323-final-topology-verification.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -24,36 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
-
-      - name: Apply validated Russia multipart span-test correction
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('tests/globe-polygon-rendering.test.ts')
-          text = path.read_text()
-          old = """  it('keeps generated Natural Earth Russia geometry on a contiguous Asia antimeridian span', () => {\n    const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')\n    expect(russia).toBeTruthy()\n\n    const referenceLongitude = polygonGeometryInternals.countryMinimumCircularSpanReferenceLongitude(\n      russia!,\n    )\n    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)\n    const geometry = createCountryBufferGeometry(russia!, { geometryMode: 'surface' })\n\n    expect(referenceLongitude).toBeGreaterThan(90)\n    expect(referenceLongitude).toBeLessThan(120)\n    expect(longitudeSpan(normalizedLongitudes)).toBeLessThan(180)\n    expect(normalizedLongitudes.some((lon) => lon > 180)).toBe(true)\n    expect(geometry.getAttribute('position').count).toBeGreaterThan(100)\n    expect(geometry.index?.count).toBeGreaterThan(150)\n\n    geometry.dispose()\n  })\n"""
-          new = """  it('keeps each generated Natural Earth Russia polygon on a contiguous antimeridian span', () => {\n    const russia = naturalEarthCountriesPayload.countries.find((country) => country.iso2 === 'RU')\n    expect(russia).toBeTruthy()\n\n    const referenceLongitude = polygonGeometryInternals.countryMinimumCircularSpanReferenceLongitude(\n      russia!,\n    )\n    const normalizedPolygons = polygonGeometryInternals.normalizePolygonTopology(russia!)\n    const normalizedLongitudes = normalizedPolygons.flatMap((polygon) => polygon.outer.map(([lon]) => lon))\n    const perPolygonSpans = normalizedPolygons.map((polygon) =>\n      longitudeSpan(polygon.outer.map(([lon]) => lon)),\n    )\n    const geometry = createCountryBufferGeometry(russia!, { geometryMode: 'surface' })\n\n    expect(referenceLongitude).toBeGreaterThan(90)\n    expect(referenceLongitude).toBeLessThan(120)\n    expect(perPolygonSpans.length).toBeGreaterThan(1)\n    expect(perPolygonSpans.every((span) => span < 180)).toBe(true)\n    expect(normalizedLongitudes.some((lon) => lon > 180)).toBe(true)\n    expect(geometry.getAttribute('position').count).toBeGreaterThan(100)\n    expect(geometry.index?.count).toBeGreaterThan(150)\n\n    geometry.dispose()\n  })\n"""
-          if old in text:
-              path.write_text(text.replace(old, new, 1))
-          elif new not in text:
-              raise SystemExit('Russia renderer-test target block not found')
-          PY
-
-      - name: Commit validated Russia renderer-test correction
-        run: |
-          if ! git diff --quiet -- tests/globe-polygon-rendering.test.ts; then
-            git config user.name 'Harbourview Release Bot'
-            git config user.email 'harbourviewcompany@gmail.com'
-            git add tests/globe-polygon-rendering.test.ts
-            git commit -m 'test(globe): align Russia span invariant with per-polygon runtime'
-            git push origin HEAD:fix/globe-antimeridian-generator-hardening
-          fi
 
       - name: Verify committed payload matches one regeneration
         run: |
