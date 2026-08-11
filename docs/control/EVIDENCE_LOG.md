@@ -4874,3 +4874,12 @@ for other versions on `main`. Those predate this work and are untouched.
 **Safety / scope:** no production deployment, migration, database write, secret change, or production-system modification was performed.
 
 **Decision:** **GO for the validated repository implementation on the exact verified implementation head.** Evidence-only/review-thread-only follow-up commits must preserve implementation blobs and receive normal final-head repository checks before merge.
+
+
+## 2026-08-10 — PR #1328 post-merge marketplace-media corrective
+
+- **Scope:** repository-only corrective follow-up for legitimate PR #1307 marketplace-media review findings. No Supabase, migration, seed, production-data, Vercel-production, deployment, secret, or Edge Function mutation.
+- **Controls:** highest-ranked renderable approved image selection; abortable/time-bounded media enrichment; explicit degraded retrieval state; country-role media projection; controlled marketplace trust copy; authenticated trust-contract coverage.
+- **Final-review corrections:** abort sibling image batches when any batch rejects; expose degraded media state on country-role routes; link trust-copy implementation back to `docs/control/MARKETPLACE_MEDIA_COPY.md`; add this canonical evidence-log entry.
+- **Focused verification:** `npx tsc --noEmit` and `npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts`. Exact resulting PR-head CI/build/security/authenticated Playwright remains the authoritative merge gate.
+- **Status:** Current corrective evidence; merge remains gated on exact-head repository checks and requested non-production preview/review evidence.
