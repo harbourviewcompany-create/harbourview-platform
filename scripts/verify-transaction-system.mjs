@@ -10,6 +10,7 @@ const migrationNames = [
   "20260811014000_transaction_economics_decisions_foundation.sql",
   "20260811015000_transaction_rls_views_import_staging.sql",
   "20260811015100_transaction_boundary_hardening.sql",
+  "20260811015200_transaction_review_hardening.sql",
 ];
 const rlsTables = [
   "entities",
@@ -82,9 +83,13 @@ invariant(sql.includes('"economic_accounts":64'), "Missing 64-account fixture ga
 invariant(sql.includes('"transaction_networks":10'), "Missing 10-network fixture gate");
 invariant(sql.includes("hv_validate_economics_recognition_chain"), "Missing economics recognition chain control");
 invariant(sql.includes("pg_advisory_xact_lock"), "Missing serialized recognition-key insert control");
+invariant(sql.includes("recognition_key does not match transaction/network, metric and currency fields"), "Missing recognition-key field validation");
+invariant(sql.includes("supporting evidence is already represented by current economics entry"), "Missing support-evidence double-counting guard");
 invariant(sql.includes("hv_prevent_economics_mutation"), "Missing append-only economics control");
 invariant(sql.includes("transaction_current_economics_v1"), "Missing current economics view");
+invariant(sql.includes("child.status in ('validated','void')"), "Void successors do not terminate current economics leaves");
 invariant(sql.includes("transaction_participant_economics_v1"), "Missing participant-safe economics view");
+invariant(sql.includes("security_invoker = false, security_barrier = true"), "Participant economics projection is not security-barrier isolated");
 invariant(sql.includes("transaction_lineage_v1"), "Missing evidence/assertion/economics lineage view");
 invariant(/revoke all on table[\s\S]*from anon;/i.test(sql), "Canonical tables are not explicitly revoked from anon");
 invariant(sql.includes("excluded_columns := case relation_name"), "Missing legacy marketplace column allowlist hardening");
@@ -92,7 +97,8 @@ for (const internalBridge of ["product_id", "economic_account_id", "opportunity_
   invariant(sql.includes(`'${internalBridge}'`), `Missing public-boundary exclusion for ${internalBridge}`);
 }
 invariant(sql.includes("harbourview_collected_revenue"), "Harbourview revenue isolation metric set incomplete");
-invariant(sql.includes("metric_type not in"), "Participant Harbourview-revenue exclusion missing");
+invariant(sql.includes("transaction_economics_authoritative_basis_chk"), "Authoritative economics basis/evidence gate missing");
+invariant(sql.includes("transaction_economics_amount_currency_chk"), "Amount/currency integrity gate missing");
 invariant(sql.includes("basis in ('primary_evidence','invoice','settlement')"), "Transacted GTV evidence-basis gate missing");
 invariant(
   sql.includes("(scenario_only and basis = 'scenario') or (not scenario_only and basis <> 'scenario')"),
@@ -100,6 +106,12 @@ invariant(
 );
 invariant(sql.includes("foreign key (party_id, transaction_id)"), "Diligence party/transaction integrity constraint missing");
 invariant(sql.includes("foreign key (specific_party_id, transaction_id)"), "Economics party/transaction integrity constraint missing");
+invariant(sql.includes("visibility_scope = 'transaction_parties'"), "Participant party visibility scope gate missing");
+invariant(!sql.includes("'super_admin'"), "Unrepresentable super_admin role remains in transaction policies");
+invariant(!sql.includes("'compliance_reviewer'"), "Unrepresentable compliance_reviewer role remains in transaction policies");
+invariant(sql.includes("hv_guard_transaction_decision_mutation"), "Finalized decision mutation guard missing");
+invariant(sql.includes("transaction_decisions_audit_update"), "Decision update audit trigger missing");
+invariant(sql.includes("latitude is not null") && sql.includes("longitude is not null"), "Coordinate pair integrity hardening missing");
 
 console.log("Harbourview transaction-system migration verification: PASS");
 console.log(`Migrations: ${migrationNames.length}`);
