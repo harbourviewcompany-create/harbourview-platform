@@ -55,7 +55,8 @@ jobs:
             supabase/migrations/20260811012000_transaction_core_foundation.sql \
             supabase/migrations/20260811013000_transaction_assertion_diligence_foundation.sql \
             supabase/migrations/20260811014000_transaction_economics_decisions_foundation.sql \
-            supabase/migrations/20260811015000_transaction_rls_views_import_staging.sql
+            supabase/migrations/20260811015000_transaction_rls_views_import_staging.sql \
+            supabase/migrations/20260811015100_transaction_boundary_hardening.sql
           do
             echo "Applying $migration"
             psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
