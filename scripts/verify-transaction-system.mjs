@@ -94,7 +94,10 @@ for (const internalBridge of ["product_id", "economic_account_id", "opportunity_
 invariant(sql.includes("harbourview_collected_revenue"), "Harbourview revenue isolation metric set incomplete");
 invariant(sql.includes("metric_type not in"), "Participant Harbourview-revenue exclusion missing");
 invariant(sql.includes("basis in ('primary_evidence','invoice','settlement')"), "Transacted GTV evidence-basis gate missing");
-invariant(sql.includes("scenario_only = (basis = 'scenario')"), "Scenario-only economics invariant missing");
+invariant(
+  sql.includes("(scenario_only and basis = 'scenario') or (not scenario_only and basis <> 'scenario')"),
+  "Scenario-only economics invariant missing",
+);
 invariant(sql.includes("foreign key (party_id, transaction_id)"), "Diligence party/transaction integrity constraint missing");
 invariant(sql.includes("foreign key (specific_party_id, transaction_id)"), "Economics party/transaction integrity constraint missing");
 
