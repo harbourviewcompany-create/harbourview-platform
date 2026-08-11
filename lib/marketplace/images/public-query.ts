@@ -17,6 +17,7 @@ function getAnonKey() {
 async function queryPublicImagePage(
   params: URLSearchParams,
   rangeStart: number,
+  signal?: AbortSignal,
 ): Promise<PublicMarketplaceImageDTO[] | null> {
   const anonKey = getAnonKey();
   if (!anonKey) return [];
@@ -24,6 +25,7 @@ async function queryPublicImagePage(
   try {
     const res = await fetch(`${resolveLockedSupabaseUrl()}/rest/v1/${TARGET_TABLE}?${params.toString()}`, {
       cache: 'no-store',
+      signal,
       headers: {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
@@ -47,7 +49,7 @@ function chunks<T>(values: T[], size: number): T[][] {
   return output;
 }
 
-async function queryPublicImageBatch(itemIds: string[]): Promise<PublicMarketplaceImageDTO[]> {
+async function queryPublicImageBatch(itemIds: string[], signal?: AbortSignal): Promise<PublicMarketplaceImageDTO[]> {
   const params = new URLSearchParams({
     select: PUBLIC_MARKETPLACE_IMAGE_COLUMNS,
     item_id: `in.(${itemIds.join(',')})`,
@@ -58,21 +60,21 @@ async function queryPublicImageBatch(itemIds: string[]): Promise<PublicMarketpla
 
   const rows: PublicMarketplaceImageDTO[] = [];
   for (let rangeStart = 0; ; rangeStart += PAGE_SIZE) {
-    const page = await queryPublicImagePage(params, rangeStart);
-    // Fail the complete batch closed rather than returning a partial image set
-    // that could make later listings appear image-less while earlier ones render.
-    if (page === null) return [];
+    const page = await queryPublicImagePage(params, rangeStart, signal);
+    // Reject the complete batch so callers can distinguish degraded enrichment
+    // from a legitimate listing with no approved image rows.
+    if (page === null) throw new Error('MARKETPLACE_MEDIA_QUERY_FAILED');
     rows.push(...page);
     if (page.length < PAGE_SIZE) return rows;
   }
 }
 
-export async function getPublicMarketplaceImagesForItems(itemIds: string[]): Promise<Record<string, PublicMarketplaceImageDTO[]>> {
+export async function getPublicMarketplaceImagesForItems(itemIds: string[], signal?: AbortSignal): Promise<Record<string, PublicMarketplaceImageDTO[]>> {
   const ids = Array.from(new Set(itemIds.filter(Boolean)));
   if (!ids.length) return {};
 
   const batches = chunks(ids, ITEM_ID_BATCH_SIZE);
-  const batchRows = await Promise.all(batches.map(queryPublicImageBatch));
+  const batchRows = await Promise.all(batches.map(batch => queryPublicImageBatch(batch, signal)));
 
   return batchRows.flat().reduce<Record<string, PublicMarketplaceImageDTO[]>>((acc, image) => {
     acc[image.itemId] = [...(acc[image.itemId] || []), image];

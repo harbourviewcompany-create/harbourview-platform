@@ -18,9 +18,18 @@ export type MarketplaceMediaById = Record<string, MarketplaceProjectionMedia>
 export type DashboardMarketplaceProjection = {
   rows: Partial<Record<MarketView, import('@/components/dashboard/CommandCentre').MarketRow[]>>
   mediaById: MarketplaceMediaById
+  mediaStatus: 'live' | 'degraded'
 }
 
-const REPRESENTATIVE_CAPTION = 'Representative category image. Specifications, supplier fit and commercial terms are available upon inquiry.'
+// Controlled trust/risk copy. Canonical source: docs/control/MARKETPLACE_MEDIA_COPY.md
+export const MARKETPLACE_MEDIA_COPY = Object.freeze({
+  representativeBadge: 'Representative image',
+  catalogueBadge: 'Manufacturer catalogue image',
+  degradedNotice: 'Marketplace images are temporarily degraded; representative images may be shown while approved media is reloaded.',
+  representativeCaption: 'Representative category image. Specifications, supplier fit and commercial terms are available upon inquiry.',
+})
+
+const REPRESENTATIVE_CAPTION = MARKETPLACE_MEDIA_COPY.representativeCaption
 const LOCKED_SUPABASE_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
 const PUBLIC_MARKETPLACE_STORAGE_PREFIX = '/storage/v1/object/public/marketplace-item-public/'
 const HARBOURVIEW_ASSET_HOSTS = new Set(['harbourview.vercel.app', 'harbourview-platform.vercel.app'])
@@ -101,7 +110,7 @@ export function getRepresentativeMarketplaceMedia(view: MarketView): Marketplace
     src: representative.src,
     altText: representative.altText,
     kind: 'representative',
-    badgeLabel: 'Representative image',
+    badgeLabel: MARKETPLACE_MEDIA_COPY.representativeBadge,
     caption: representative.caption,
     fallbackSrc: representative.src,
     fallbackAltText: representative.altText,

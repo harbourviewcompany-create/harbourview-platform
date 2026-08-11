@@ -33,6 +33,8 @@ on:
       - tests/dashboard/mobileMarketplaceMedia.test.ts
       - tests/marketplace/marketplaceMediaSelection.test.ts
       - tests/marketplace/publicImageQueryContract.test.ts
+      - tests/marketplace/marketplaceImageTrustReconciliation.test.ts
+      - tests/dashboard/marketplaceMediaMergeReadiness.test.ts
       - tests/platform/command-centre-typed-registry.test.ts
       - tests/security/command-centre-boundaries.test.ts
       - tests/supabase/env.test.ts
@@ -95,6 +97,8 @@ jobs:
           tests/dashboard/mobileMarketplaceMedia.test.ts
           tests/marketplace/marketplaceMediaSelection.test.ts
           tests/marketplace/publicImageQueryContract.test.ts
+          tests/marketplace/marketplaceImageTrustReconciliation.test.ts
+          tests/dashboard/marketplaceMediaMergeReadiness.test.ts
           tests/platform/command-centre-typed-registry.test.ts
           tests/security/command-centre-boundaries.test.ts
           tests/supabase/env.test.ts
@@ -326,13 +330,13 @@ jobs:
             'HARBOURVIEW_ILLUSTRATIVE',
             'CARD',
             'HARBOURVIEW_CREATED',
-            'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/representative/v2/bulk-flower.png',
-            'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/representative/v2/bulk-flower.png',
-            'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/representative/v2/bulk-flower.png',
-            'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/representative/v2/bulk-flower.png',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
+            'https://harbourview.vercel.app/marketplace/images/product-inventory.webp',
             null,
-            'Representative bulk dried botanical flower inventory in unbranded regulated-market packaging.',
-            'Representative image — not actual inventory.',
+            'Representative cannabis product inventory image',
+            'Illustrative catalogue image — not item evidence',
             true,
             'APPROVED_PUBLIC',
             'HARBOURVIEW_CREATED'

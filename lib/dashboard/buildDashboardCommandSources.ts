@@ -5,6 +5,7 @@ import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { fetchDashboardSignals, fetchDailyDigest, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import {
   getRepresentativeMarketplaceMedia,
+  MARKETPLACE_MEDIA_COPY,
   marketplaceMediaKey,
   toRenderableMarketplaceMediaSrc,
   type DashboardMarketplaceProjection,
@@ -113,7 +114,8 @@ export function resolveListingMedia(
   images: PublicMarketplaceImageDTO[] | undefined,
 ): MarketplaceProjectionMedia {
   const fallback = getRepresentativeMarketplaceMedia(view)
-  const selected = pickMarketplaceCardImage(images ?? [])
+  const renderable = (images ?? []).filter(image => firstRenderableMarketplaceMediaSrc(image) !== null)
+  const selected = pickMarketplaceCardImage(renderable)
   if (!selected) return fallback
 
   const src = firstRenderableMarketplaceMediaSrc(selected)
@@ -127,8 +129,8 @@ export function resolveListingMedia(
   const badgeLabel = kind === 'actual'
     ? null
     : kind === 'catalogue'
-      ? selected.sourceDisplayLabel || 'Manufacturer catalogue image'
-      : selected.sourceDisplayLabel || 'Representative image'
+      ? selected.sourceDisplayLabel || MARKETPLACE_MEDIA_COPY.catalogueBadge
+      : selected.sourceDisplayLabel || MARKETPLACE_MEDIA_COPY.representativeBadge
 
   return {
     src,
@@ -142,22 +144,29 @@ export function resolveListingMedia(
   }
 }
 
-async function loadMarketplaceMedia(itemIds: string[]): Promise<Record<string, PublicMarketplaceImageDTO[]>> {
-  if (itemIds.length === 0) return {}
+async function loadMarketplaceMedia(itemIds: string[]): Promise<{ imagesByItem: Record<string, PublicMarketplaceImageDTO[]>; degraded: boolean }> {
+  if (itemIds.length === 0) return { imagesByItem: {}, degraded: false }
 
+  const controller = new AbortController()
   return new Promise(resolve => {
     let settled = false
-    const finish = (value: Record<string, PublicMarketplaceImageDTO[]>) => {
+    const finish = (imagesByItem: Record<string, PublicMarketplaceImageDTO[]>, degraded: boolean) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      resolve(value)
+      resolve({ imagesByItem, degraded })
     }
-    const timer = setTimeout(() => finish({}), MARKETPLACE_MEDIA_TIMEOUT_MS)
+    const timer = setTimeout(() => {
+      controller.abort()
+      finish({}, true)
+    }, MARKETPLACE_MEDIA_TIMEOUT_MS)
 
-    getPublicMarketplaceImagesForItems(itemIds).then(
-      images => finish(images),
-      () => finish({}),
+    getPublicMarketplaceImagesForItems(itemIds, controller.signal).then(
+      images => finish(images, false),
+      () => {
+        controller.abort()
+        finish({}, true)
+      },
     )
   })
 }
@@ -175,7 +184,7 @@ export async function getDashboardMarketplaceProjection(
   )
 
   const itemIds = Array.from(new Set(listingsByView.flatMap(([, listings]) => listings.map(listing => listing.id))))
-  const imagesByItem = await loadMarketplaceMedia(itemIds)
+  const { imagesByItem, degraded } = await loadMarketplaceMedia(itemIds)
 
   const rows: Partial<DashboardMarketplaceRows> = {}
   const mediaById: DashboardMarketplaceProjection['mediaById'] = {}
@@ -188,7 +197,7 @@ export async function getDashboardMarketplaceProjection(
     }
   }
 
-  return { rows, mediaById }
+  return { rows, mediaById, mediaStatus: degraded ? 'degraded' : 'live' }
 }
 
 type DashboardCommandSourceContext = CommandCentreLoadContext & Readonly<{
@@ -230,8 +239,11 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
     marketplaceRows: {
       enabled: enabled('marketplaceRows'),
       load: () => getDashboardMarketplaceProjection(countryIso2),
-      fallback: { rows: {}, mediaById: {} },
+      fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
       isEmpty: projection => Object.keys(projection.rows).length === 0,
+      classify: projection => Object.keys(projection.rows).length === 0
+        ? 'empty'
+        : projection.mediaStatus === 'degraded' ? 'fallback' : 'live',
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },
