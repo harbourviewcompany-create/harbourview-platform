@@ -13,7 +13,12 @@ const routes = [
   { path: '/intelligence', expected: 'auth-denied' }, // protected: redirects to /login
   { path: '/marketplace', expected: 'ok' },
   { path: '/marketplace/listings', expected: 'ok' },
-  { path: '/marketplace/wanted', expected: 'ok' },
+  {
+    path: '/marketplace/wanted',
+    expected: 'redirect',
+    expectedStatus: 307,
+    expectedLocation: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake',
+  },
   { path: '/marketplace/sell', expected: 'auth-denied' }, // gated in middleware.ts PROTECTED_PREFIXES
   { path: '/markets', expected: 'ok' },
   { path: '/contact', expected: 'ok' },
@@ -86,11 +91,18 @@ async function fetchRoute(route) {
     const redirected = response.status >= 300 && response.status < 400
     const location = response.headers.get('location') || ''
 
-    const statusPass = route.expected === 'auth-denied'
-      ? response.status === 401 || response.status === 403 || redirected || adminDenied
-      : response.status === 200
+    let statusPass = false
+    if (route.expected === 'auth-denied') {
+      statusPass = response.status === 401 || response.status === 403 || redirected || adminDenied
+    } else if (route.expected === 'redirect') {
+      statusPass = response.status === route.expectedStatus && location === route.expectedLocation
+    } else {
+      statusPass = response.status === 200
+    }
 
-    const authPass = route.expected === 'auth-denied' ? (adminDenied || response.status === 401 || response.status === 403 || redirected) : true
+    const authPass = route.expected === 'auth-denied'
+      ? (adminDenied || response.status === 401 || response.status === 403 || redirected)
+      : true
     const noForbidden = forbiddenHits.length === 0
     const noRuntimeErrors = runtimeHits.length === 0
     const pass = Boolean(statusPass && authPass && noForbidden && noRuntimeErrors)
@@ -99,6 +111,8 @@ async function fetchRoute(route) {
       route: route.path,
       url,
       expected: route.expected,
+      expectedStatus: route.expectedStatus ?? null,
+      expectedLocation: route.expectedLocation ?? '',
       startedAt,
       status: response.status,
       redirected,
@@ -116,6 +130,8 @@ async function fetchRoute(route) {
       route: route.path,
       url,
       expected: route.expected,
+      expectedStatus: route.expectedStatus ?? null,
+      expectedLocation: route.expectedLocation ?? '',
       startedAt,
       status: null,
       redirected: false,
@@ -140,9 +156,10 @@ function markdownReport(report) {
   const rows = report.results.map((result) => {
     const status = result.status === null ? 'ERROR' : String(result.status)
     const title = result.title || '(no title)'
+    const location = result.location || '(none)'
     const forbidden = result.forbiddenHits.length ? result.forbiddenHits.join(', ') : 'none'
     const runtime = result.runtimeHits.length ? result.runtimeHits.join(', ') : 'none'
-    return `| \`${result.route}\` | ${result.pass ? 'PASS' : 'FAIL'} | ${status} | ${title.replace(/\|/g, '\\|')} | ${forbidden} | ${runtime} |`
+    return `| \`${result.route}\` | ${result.pass ? 'PASS' : 'FAIL'} | ${status} | ${location.replace(/\|/g, '\\|')} | ${title.replace(/\|/g, '\\|')} | ${forbidden} | ${runtime} |`
   })
 
   return [
@@ -153,13 +170,14 @@ function markdownReport(report) {
     `- Finished: ${report.finishedAt}`,
     `- Overall: ${report.pass ? 'PASS' : 'FAIL'}`,
     '',
-    '| Route | Result | HTTP | Title | Forbidden hits | Runtime markers |',
-    '|---|---:|---:|---|---|---|',
+    '| Route | Result | HTTP | Location | Title | Forbidden hits | Runtime markers |',
+    '|---|---:|---:|---|---|---|---|',
     ...rows,
     '',
     '## Gate rules',
     '',
-    '- Public routes must return HTTP 200.',
+    '- Public `ok` routes must return HTTP 200.',
+    '- Explicit redirect-contract routes must return the configured HTTP status and exact `Location` value.',
     '- Protected routes must return 401, 403, redirect or recognized denial content.',
     '- `/admin` must return 401, 403, redirect or recognized admin-denial content.',
     '- Forbidden leakage strings must be absent from rendered HTML.',
@@ -179,7 +197,7 @@ for (const route of routes) {
   const result = await fetchRoute(route)
   rawResults.push(result)
   await writeFile(join(OUT_DIR, 'html', `${safeName(route.path)}.html`), result.html || '', 'utf8')
-  console.log(`${result.pass ? 'PASS' : 'FAIL'} ${route.path} ${result.status ?? 'ERROR'} ${result.title || ''}`)
+  console.log(`${result.pass ? 'PASS' : 'FAIL'} ${route.path} ${result.status ?? 'ERROR'} ${result.location || result.title || ''}`)
 }
 
 const report = {
