@@ -7,6 +7,7 @@ on:
       - app/dashboard/**
       - components/dashboard/**
       - lib/intelligence-os/**
+      - docs/control/DATABASE_CONTROL.md
       - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
       - supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
       - supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql
@@ -165,6 +166,31 @@ jobs:
                 and jurisdiction_id='country_area:DEU'
                 and jurisdiction_iso2='DE'
             ) then raise exception 'canonical jurisdiction navigation metadata missing'; end if;
+
+            if has_table_privilege('authenticated','public.intel_assessment_versions','INSERT') then
+              raise exception 'authenticated can forge immutable assessment versions';
+            end if;
+            if has_table_privilege('authenticated','public.intel_assessment_versions','UPDATE')
+              or has_table_privilege('authenticated','public.intel_assessment_versions','DELETE') then
+              raise exception 'authenticated can mutate immutable assessment versions';
+            end if;
+          end $$;
+
+          -- Staff assessment edits still append through the controlled trigger even though
+          -- direct version-ledger writes are unavailable.
+          select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',false);
+          set role authenticated;
+          update public.intel_assessments
+          set why_now='Analyst-updated catalyst'
+          where event_id='event:sig-b';
+          reset role;
+          do $$ begin
+            if not exists (
+              select 1 from public.intel_assessment_versions v
+              join public.intel_assessments a on a.id=v.assessment_id
+              where a.event_id='event:sig-b' and v.version=2
+                and v.snapshot->>'why_now'='Analyst-updated catalyst'
+            ) then raise exception 'controlled assessment update did not append immutable version'; end if;
           end $$;
 
           -- Verification does not authorize publication. Internal verified analysis remains hidden.
@@ -191,11 +217,25 @@ jobs:
 
           update public.intel_events set customer_visibility='intel' where id='event:sig-b';
           set role service_role;
-          do $$ declare visible boolean; begin
-            select r.displayable into visible from api.resolve_intel_dashboard_routes(array['sig-b']) r where r.signal_id='sig-b';
+          do $$ declare visible boolean; posture text; begin
+            select r.displayable, r.recommendation_state into visible, posture
+            from api.resolve_intel_dashboard_routes(array['sig-b']) r where r.signal_id='sig-b';
             if visible is distinct from true then raise exception 'published canonical route not displayable'; end if;
+            if posture is null then raise exception 'canonical recommendation posture missing from route hydration'; end if;
           end $$;
           reset role;
+
+          -- A published dossier disappears if every factual assertion is rejected.
+          update public.intel_assertions set review_status='rejected' where source_signal_id='sig-b';
+          do $$ begin
+            if exists (select 1 from public.intel_customer_event_dossiers where id='event:sig-b') then
+              raise exception 'customer dossier survived with no accepted assertions';
+            end if;
+            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-b') then
+              raise exception 'assertion rejection destroyed canonical route ownership';
+            end if;
+          end $$;
+          update public.intel_assertions set review_status='verified' where source_signal_id='sig-b';
 
           -- Withdrawal of a previously visible source suppresses every canonical decision layer.
           update public.intel_assertions set review_status='verified' where source_signal_id='sig-a';
