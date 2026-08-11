@@ -1,0 +1,102 @@
+name: PR 1323 Final Clean Verify
+
+on:
+  push:
+    branches:
+      - fix/globe-antimeridian-generator-hardening
+    paths:
+      - '.github/workflows/pr1323-final-clean-verify.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-verify-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply two validated review fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('tests/globe-polygon-rendering.test.ts')
+          s = p.read_text()
+          old = """    expect(normalizedPolygons.length).toBeGreaterThan(0)\n    for (const polygon of normalizedPolygons) {\n"""
+          new = """    expect(normalizedPolygons.length).toBeGreaterThan(0)\n    const normalizedLongitudes = allNormalizedOuterLongitudes(russia!)\n    expect(Math.max(...normalizedLongitudes)).toBeGreaterThan(180)\n    for (const polygon of normalizedPolygons) {\n"""
+          if old not in s and new not in s:
+              raise SystemExit('Russia lower-bound target not found')
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
+          s = p.read_text()
+          old = """          const sourceAreaDelta = Math.abs(sourceAbsoluteArea - splitNetAbsoluteArea)\n          const areaTolerance = Math.max(tolerance, sourceAbsoluteArea * 0.02)\n"""
+          new = """          const sourceAreaDelta = Math.abs(sourceAbsoluteArea - splitNetAbsoluteArea)\n          const openSourceHole = sourceHole.slice(0, -1)\n          const sourcePerimeter = openSourceHole.reduce((sum, point, index) => {\n            const next = openSourceHole[(index + 1) % openSourceHole.length]\n            return sum + Math.hypot(\n              normalizedLonDelta(point[0], next[0]),\n              next[1] - point[1],\n            )\n          }, 0)\n          const areaTolerance = sourcePerimeter * tolerance + sourceAbsoluteArea * 0.02 + 1e-9\n"""
+          if old not in s and new not in s:
+              raise SystemExit('area tolerance target not found')
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Preserve committed payload and regenerate
+        run: |
+          cp data/globe/natural-earth-countries.ts /tmp/committed-natural-earth.ts
+          node scripts/generate-natural-earth-countries.mjs
+      - name: Verify committed payload parity and normalized reproducibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, re, subprocess
+          def norm(text):
+              return re.sub(r"generatedAt: ['\"][^'\"]+['\"]", "generatedAt: '<normalized>'", text)
+          committed = norm(Path('/tmp/committed-natural-earth.ts').read_text())
+          generated1 = norm(Path('data/globe/natural-earth-countries.ts').read_text())
+          if committed != generated1:
+              raise SystemExit('checked-in Natural Earth payload differs from regeneration after generatedAt normalization')
+          sha1 = hashlib.sha256(generated1.encode()).hexdigest()
+          subprocess.run(['node','scripts/generate-natural-earth-countries.mjs'], check=True)
+          generated2 = norm(Path('data/globe/natural-earth-countries.ts').read_text())
+          sha2 = hashlib.sha256(generated2.encode()).hexdigest()
+          if generated1 != generated2:
+              raise SystemExit('two normalized regenerations differ')
+          print(f'normalized_sha256={sha1}')
+          print(f'second_normalized_sha256={sha2}')
+          PY
+      - name: Topology regression
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical regression
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe polygon rendering regression
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full tests
+        run: npm run test
+      - name: Targeted security and leakage
+        run: npx vitest run tests/security/public-leakage.test.ts tests/security/admin-auth-routes.test.ts tests/security/admin-listings-page-auth.test.ts
+      - name: Build
+        run: npm run build
+      - name: Restore generatedAt-only working copy and commit validated test fixes
+        run: |
+          git checkout -- data/globe/natural-earth-countries.ts
+          if git diff --quiet -- tests/globe-polygon-rendering.test.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts; then
+            echo 'Validated test fixes already present.'
+            exit 0
+          fi
+          git config user.name 'Harbourview Release Bot'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add tests/globe-polygon-rendering.test.ts tests/harbourview/natural-earth-antimeridian-topology.test.ts
+          git commit -m 'test(globe): close final antimeridian review gaps'
+          git push origin HEAD:fix/globe-antimeridian-generator-hardening
