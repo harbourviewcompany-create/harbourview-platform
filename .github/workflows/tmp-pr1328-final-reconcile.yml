@@ -1,0 +1,111 @@
+name: Temporary PR 1328 Final Reconcile
+
+on:
+  push:
+    branches:
+      - tmp/pr1328-exact-qa-20260811
+    paths:
+      - .github/workflows/tmp-pr1328-final-reconcile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout control branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Reconcile PR 1328 onto current main
+        shell: bash
+        env:
+          TARGET_BRANCH: agent/pr1307-post-merge-media-corrections
+          EXPECTED_HEAD: 9eba1ce61284278ed1c711c4bff3e835b7daf689
+          EXPECTED_MAIN: 517c809ace3e455e31a420040048841898fe89c1
+          MERGE_BASE: 49324a420e349a98794cca366960fc0e739cc492
+        run: |
+          set -euo pipefail
+          git fetch origin main "$TARGET_BRANCH" --force
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse "origin/$TARGET_BRANCH")" = "$EXPECTED_HEAD"
+
+          cat > /tmp/pr-paths <<'EOF'
+          .github/workflows/mobile-command-centre-v2-visual.yml
+          app/country/[country]/role/[role]/page.tsx
+          components/dashboard/mobile-command/sections/MarketplaceSections.tsx
+          docs/control/EVIDENCE_LOG.md
+          docs/control/MARKETPLACE_MEDIA_COPY.md
+          docs/control/PR1307_POST_MERGE_CORRECTIVE_EVIDENCE.md
+          docs/control/PR1307_POST_MERGE_CORRECTIVE_SCOPE.md
+          lib/dashboard/buildDashboardCommandSources.ts
+          lib/dashboard/marketplaceMediaProjection.ts
+          lib/marketplace/images/public-query.ts
+          tests/dashboard/marketplaceMediaMergeReadiness.test.ts
+          tests/marketplace/publicImageQueryContract.test.ts
+          EOF
+          sed -i 's/^          //' /tmp/pr-paths
+          sort -o /tmp/pr-paths /tmp/pr-paths
+
+          git diff --name-only "$MERGE_BASE" "$EXPECTED_MAIN" | sort > /tmp/main-paths
+          comm -12 /tmp/pr-paths /tmp/main-paths > /tmp/overlap
+          printf '%s\n' 'docs/control/EVIDENCE_LOG.md' > /tmp/expected-overlap
+          diff -u /tmp/expected-overlap /tmp/overlap
+
+          git switch --detach "$EXPECTED_MAIN"
+
+          paths=(
+            '.github/workflows/mobile-command-centre-v2-visual.yml'
+            'app/country/[country]/role/[role]/page.tsx'
+            'components/dashboard/mobile-command/sections/MarketplaceSections.tsx'
+            'docs/control/MARKETPLACE_MEDIA_COPY.md'
+            'docs/control/PR1307_POST_MERGE_CORRECTIVE_EVIDENCE.md'
+            'docs/control/PR1307_POST_MERGE_CORRECTIVE_SCOPE.md'
+            'lib/dashboard/buildDashboardCommandSources.ts'
+            'lib/dashboard/marketplaceMediaProjection.ts'
+            'lib/marketplace/images/public-query.ts'
+            'tests/dashboard/marketplaceMediaMergeReadiness.test.ts'
+            'tests/marketplace/publicImageQueryContract.test.ts'
+          )
+          git diff --binary "$MERGE_BASE" "$EXPECTED_HEAD" -- "${paths[@]}" > /tmp/pr1328.patch
+          git apply --index --3way /tmp/pr1328.patch
+          for path in "${paths[@]}"; do
+            test "$(git rev-parse ":$path")" = "$(git rev-parse "$EXPECTED_HEAD:$path")"
+          done
+
+          export EXPECTED_HEAD
+          python - <<'PY'
+          import os, subprocess
+          from pathlib import Path
+          path = 'docs/control/EVIDENCE_LOG.md'
+          marker = '## 2026-08-10 — PR #1328 post-merge marketplace-media corrective'
+          old = subprocess.check_output(['git','show',f"{os.environ['EXPECTED_HEAD']}:{path}"], text=True)
+          if marker not in old:
+              raise SystemExit('PR 1328 evidence marker missing from expected head')
+          section = marker + old.split(marker,1)[1]
+          current_path = Path(path)
+          current = current_path.read_text(encoding='utf-8')
+          if marker in current:
+              raise SystemExit('PR 1328 evidence unexpectedly already present on current main')
+          if 'PR #1336 post-merge small-country retention remediation' not in current:
+              raise SystemExit('current-main PR 1336 evidence missing')
+          current_path.write_text(current.rstrip() + '\n\n' + section.strip() + '\n', encoding='utf-8')
+          PY
+          git add docs/control/EVIDENCE_LOG.md
+
+          git diff --cached --name-only | sort > /tmp/actual
+          diff -u /tmp/pr-paths /tmp/actual
+          test "$(wc -l < /tmp/actual)" -eq 12
+          git diff --cached --check
+          grep -Fq '31523742623' docs/control/EVIDENCE_LOG.md
+          grep -Fq 'PR #1336 post-merge small-country retention remediation' docs/control/EVIDENCE_LOG.md
+
+          git config user.name 'harbourview-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+          git commit -m 'fix(marketplace): reconcile PR 1328 onto current main'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_MAIN"
+          git push --force-with-lease="refs/heads/$TARGET_BRANCH:$EXPECTED_HEAD" origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "Final reconciled head: $(git rev-parse HEAD)"
