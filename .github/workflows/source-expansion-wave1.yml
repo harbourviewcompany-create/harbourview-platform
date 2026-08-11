@@ -25,7 +25,7 @@ jobs:
       - name: Test structured JSON record parser
         run: deno test supabase/functions/_shared/structured-json.test.ts
       - name: Type-check source-engine-fetch
-        run: deno check supabase/functions/source-engine-fetch/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/source-engine-fetch/index.ts
       - name: Verify Wave 1 migration control IDs
         shell: bash
         run: |
