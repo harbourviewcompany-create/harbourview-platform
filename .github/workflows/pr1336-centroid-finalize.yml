@@ -8,10 +8,75 @@ on:
       - '.github/workflows/pr1336-centroid-finalize.yml'
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: pr1336-centroid-finalize
+  cancel-in-progress: false
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 75
     steps:
-      - run: echo verifier-ready
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply focused patch
+        run: node scripts/pr1336-centroid-patch.mjs apply
+      - name: Capture Russia baseline
+        run: |
+          node --input-type=module -e "import{readFileSync,writeFileSync}from'node:fs';import{createHash}from'node:crypto';let t=readFileSync('data/globe/natural-earth-countries.ts','utf8');let m=t.match(/    \\{\\n      iso2: 'RU',[\\s\\S]*?(?=\\n    \\{\\n      iso2: '|\\n  \\],\\n\\})/);if(!m)throw Error('RU block missing');writeFileSync('/tmp/ru-before.sha',createHash('sha256').update(m[0]).digest('hex'))"
+      - name: Regenerate twice
+        run: |
+          node scripts/generate-natural-earth-countries.mjs
+          cp data/globe/natural-earth-countries.ts /tmp/run1.ts
+          node scripts/generate-natural-earth-countries.mjs
+      - name: Verify deterministic artifact invariants
+        run: |
+          node --input-type=module -e "import{readFileSync,writeFileSync}from'node:fs';import{createHash}from'node:crypto';let norm=t=>t.replace(/generatedAt: ['\"][^'\"]+['\"]/g,\"generatedAt: '<normalized>'\");let block=(t,c)=>{let r=new RegExp(\"    \\\\{\\\\n      iso2: '\"+c+\"',[\\\\s\\\\S]*?(?=\\\\n    \\\\{\\\\n      iso2: '|\\\\n  \\\\],\\\\n\\\\})\");let m=t.match(r);if(!m)throw Error(c+' block missing');return m[0]};let a=readFileSync('/tmp/run1.ts','utf8'),b=readFileSync('data/globe/natural-earth-countries.ts','utf8');if(norm(a)!==norm(b))throw Error('normalized regenerations differ');if(!b.includes(\"harbourviewTransformVersion: '1.6.0-natural-earth-50m-source-retention-alpha2-centroid'\"))throw Error('version missing');if(!b.includes(\"iso2: 'VI'\"))throw Error('VI missing');if(b.includes(\"iso3: 'IOA'\"))throw Error('IOA survived');let rb=readFileSync('/tmp/ru-before.sha','utf8').trim(),ra=createHash('sha256').update(block(b,'RU')).digest('hex');if(rb!==ra)throw Error('Russia drift '+rb+' -> '+ra);let sha=createHash('sha256').update(norm(b)).digest('hex');writeFileSync('/tmp/normalized.sha',sha);console.log('normalized_sha256='+sha);console.log('ru_payload_sha256='+ra)"
+      - name: Natural Earth CI-gated regression
+        run: npx vitest run tests/globe-natural-earth-countries.test.ts
+      - name: Antimeridian topology
+        run: npx vitest run tests/harbourview/natural-earth-antimeridian-topology.test.ts
+      - name: Russia spherical regression
+        run: npx vitest run tests/harbourview/russia-spherical-triangulation.test.ts
+      - name: Globe rendering regression
+        run: npx vitest run tests/globe-polygon-rendering.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm run test
+      - name: Security leakage
+        run: npm run test:security
+      - name: Production build
+        run: npm run build
+      - name: Update current Build Evidence
+        run: node scripts/pr1336-centroid-patch.mjs evidence
+      - name: Remove temporary helpers
+        run: rm -f .github/workflows/pr1336-centroid-finalize.yml scripts/pr1336-centroid-patch.mjs
+      - name: Prove focused scope
+        run: |
+          git fetch origin main
+          git diff --name-only origin/main | sort | tee /tmp/final-files.txt
+          test "$(wc -l < /tmp/final-files.txt)" -eq 6
+          grep -Fx '.github/workflows/pr1323-small-country-retention-probe.yml' /tmp/final-files.txt
+          grep -Fx 'data/globe/natural-earth-countries.ts' /tmp/final-files.txt
+          grep -Fx 'docs/control/EVIDENCE_LOG.md' /tmp/final-files.txt
+          grep -Fx 'scripts/generate-natural-earth-countries.mjs' /tmp/final-files.txt
+          grep -Fx 'tests/globe-natural-earth-countries.test.ts' /tmp/final-files.txt
+          grep -Fx 'tests/harbourview/natural-earth-antimeridian-topology.test.ts' /tmp/final-files.txt
+      - name: Commit verified remediation
+        run: |
+          git config user.name 'Harbourview Verification'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add -A
+          git commit -m 'fix(globe): anchor retained-country centroids'
+          git push origin HEAD:fix/pr1323-postmerge-small-country-retention
