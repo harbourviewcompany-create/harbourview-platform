@@ -148,10 +148,17 @@ jobs:
           git config user.name 'Harbourview Verification'
           git config user.email 'harbourviewcompany@gmail.com'
           git add -A
-          git diff --cached --name-only
-          COUNT=$(git diff --cached --name-only | wc -l | tr -d ' ')
-          if [ "$COUNT" != "5" ]; then
-            echo "Expected exactly five final changed files relative to workflow checkout, found $COUNT"
+          EXPECTED=$(printf '%s\n' \
+            '.github/workflows/pr1323-small-country-retention-probe.yml' \
+            'data/globe/natural-earth-countries.ts' \
+            'docs/control/EVIDENCE_LOG.md' \
+            'scripts/generate-natural-earth-countries.mjs' \
+            'tests/harbourview/natural-earth-antimeridian-topology.test.ts')
+          ACTUAL=$(git diff --cached --name-only origin/main | sort)
+          echo 'Final tree diff versus origin/main:'
+          printf '%s\n' "$ACTUAL"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo 'Final tree is not the exact five-file remediation scope.'
             exit 1
           fi
           git commit -m 'fix(globe): preserve source-eligible small countries'
