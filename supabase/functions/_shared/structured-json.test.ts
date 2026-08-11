@@ -4,6 +4,17 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+function assertThrows(fn: () => unknown, expectedMessage: string) {
+  try {
+    fn()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    assert(message.includes(expectedMessage), `expected error containing "${expectedMessage}", received "${message}"`)
+    return
+  }
+  throw new Error(`expected function to throw "${expectedMessage}"`)
+}
+
 Deno.test('ClinicalTrials records become stable per-study snapshots', () => {
   const raw = JSON.stringify({
     studies: [
@@ -86,4 +97,16 @@ Deno.test('configured max_records bounds oversized API payloads', () => {
     max_records: 500,
   })
   assert(rows.length === 250, 'hard cap must remain 250 records per source fetch')
+})
+
+Deno.test('configured identity_path fails closed when upstream record identity disappears', () => {
+  const raw = JSON.stringify({ results: [{ title: 'Schema-drifted row with no stable ID' }] })
+  assertThrows(
+    () => parseStructuredJson(raw, 'https://example.test/api', {
+      records_path: 'results',
+      identity_path: 'id',
+      title_path: 'title',
+    }),
+    'missing configured identity_path "id"',
+  )
 })
