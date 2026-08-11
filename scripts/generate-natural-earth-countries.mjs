@@ -196,17 +196,17 @@ function splitRingAtAntimeridian(ring) {
   // from one source ring must agree. A reversed fragment can invert hole/surface
   // semantics in downstream shape construction.
   const signedAreas = runs.map((candidate) => signedRingAreaDeg2(candidate))
-const referenceIndex = signedAreas.reduce(
-  (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
-  0,
-)
-const targetSign = Math.sign(signedAreas[referenceIndex])
-return runs.map((candidate, index) => {
-  const sign = Math.sign(signedAreas[index])
-  return targetSign !== 0 && sign !== 0 && sign !== targetSign
-    ? reverseClosedRing(candidate)
-    : candidate
-})
+  const referenceIndex = signedAreas.reduce(
+    (best, area, index) => (Math.abs(area) > Math.abs(signedAreas[best]) ? index : best),
+    0,
+  )
+  const targetSign = Math.sign(signedAreas[referenceIndex])
+  return runs.map((candidate, index) => {
+    const sign = Math.sign(signedAreas[index])
+    return targetSign !== 0 && sign !== 0 && sign !== targetSign
+      ? reverseClosedRing(candidate)
+      : candidate
+  })
 }
 
 function pointOnSegment(point, a, b, epsilon = 1e-9) {
@@ -263,21 +263,23 @@ function normalizePolygons(geometry, tolerance) {
     }))
 
     for (const hole of simplifiedHoles) {
-  const candidatePoints = hole.slice(0, -1)
-  const containingIndex = outputPolygons.findIndex(({ outer }) =>
-    candidatePoints.some((point) => pointInRing(point, outer)),
-  )
-  if (containingIndex >= 0) {
-    outputPolygons[containingIndex].holes.push(hole)
-  } else if (outputPolygons.length === 1) {
-    outputPolygons[0].holes.push(hole)
-  } else {
-    console.warn('Natural Earth hole could not be assigned to a split outer fragment', {
-      reference: ringReferencePoint(hole),
-      outerCount: outputPolygons.length,
-    })
-  }
-}
+      const candidatePoints = hole.slice(0, -1)
+      const containingIndex = outputPolygons.findIndex(({ outer }) =>
+        candidatePoints.some((point) => pointInRing(point, outer)),
+      )
+      if (containingIndex >= 0) {
+        outputPolygons[containingIndex].holes.push(hole)
+      } else if (outputPolygons.length === 1) {
+        outputPolygons[0].holes.push(hole)
+      } else {
+        throw new Error(
+          `Natural Earth hole could not be assigned to a split outer fragment: ${JSON.stringify({
+            reference: ringReferencePoint(hole),
+            outerCount: outputPolygons.length,
+          })}`,
+        )
+      }
+    }
 
     for (const outputPolygon of outputPolygons) {
       normalized.push({
