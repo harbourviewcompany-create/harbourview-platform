@@ -21,9 +21,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Print canonical/search universe differences
+      - name: Apply exact feature-level fallback and regenerate
         run: |
-          cat > /tmp/country-diagnostic.ts <<'TS'
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/generate-natural-earth-countries.mjs')
+          s = p.read_text()
+          old = """  const polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) return null\n"""
+          new = """  let polygons = normalizePolygons(feature.geometry, SIMPLIFY_TOLERANCE_DEG)\n  if (polygons.length === 0) {\n    const sourcePolygons = feature.geometry.type === 'Polygon'\n      ? [feature.geometry.coordinates]\n      : feature.geometry.coordinates\n    const hasSourceEligibleOuter = sourcePolygons.some((polygon) => {\n      const rawOuter = closeRing(polygon[0])\n      return rawOuter !== null && ringAreaDeg2(rawOuter) >= MIN_POLYGON_AREA_DEG2\n    })\n    if (hasSourceEligibleOuter) {\n      polygons = normalizePolygons(feature.geometry, 0)\n    }\n  }\n  if (polygons.length === 0) return null\n"""
+          if s.count(old) != 1:
+              raise SystemExit(f'transformFeature target count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          node scripts/generate-natural-earth-countries.mjs
+      - name: Print regenerated canonical/search universe differences
+        run: |
+          cat > country-diagnostic.ts <<'TS'
           import { countries } from './lib/dashboard/countries'
           import { countryOptions } from './config/globe/country-role-profiles'
 
@@ -42,7 +55,6 @@ jobs:
             .map((country) => ({ iso2: country.iso2, iso3: country.iso3, slug: country.slug, name: country.displayName }))
           const canonicalIso2s = new Set(countries.map((country) => country.iso2))
           const optionIso2s = new Set(countryOptions.map((country) => country.iso2))
-          const missingIso2s = [...canonicalIso2s].filter((iso2) => !optionIso2s.has(iso2))
           console.log(JSON.stringify({
             countriesLength: countries.length,
             countryOptionsLength: countryOptions.length,
@@ -50,9 +62,8 @@ jobs:
             uniqueOptionIso2Count: optionIso2s.size,
             duplicates,
             missingRows,
-            missingIso2s,
+            missingIso2s: [...canonicalIso2s].filter((iso2) => !optionIso2s.has(iso2)),
           }, null, 2))
           TS
-          cp /tmp/country-diagnostic.ts ./country-diagnostic.ts
           npx tsx country-diagnostic.ts
           rm country-diagnostic.ts
