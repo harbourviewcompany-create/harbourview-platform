@@ -1,0 +1,33 @@
+name: Temporary PR 1328 Exact QA
+
+on:
+  push:
+    branches:
+      - tmp/pr1328-exact-qa-20260811
+    paths:
+      - .github/workflows/tmp-pr1328-exact-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  exact-qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: 504c8c3db00ae00b15e60a1fc1923ad370ae07b0
+          fetch-depth: 1
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Exact TypeScript QA
+        run: npx tsc --noEmit
+      - name: Exact marketplace media QA
+        run: npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts
