@@ -6,6 +6,10 @@ on:
       - feat/native-transaction-system-foundation
   workflow_dispatch:
 
+concurrency:
+  group: transaction-system-verification-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
