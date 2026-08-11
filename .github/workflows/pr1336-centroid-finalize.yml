@@ -80,3 +80,5 @@ jobs:
           git add -A
           git commit -m 'fix(globe): anchor retained-country centroids'
           git push origin HEAD:fix/pr1323-postmerge-small-country-retention
+
+# rerun after replacing the malformed nested node -e regression with direct generator import
