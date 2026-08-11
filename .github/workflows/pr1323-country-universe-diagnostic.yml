@@ -1,0 +1,58 @@
+name: PR 1323 Country Universe Diagnostic
+
+on:
+  push:
+    branches:
+      - fix/pr1323-postmerge-small-country-retention
+    paths:
+      - '.github/workflows/pr1323-country-universe-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Print canonical/search universe differences
+        run: |
+          cat > /tmp/country-diagnostic.ts <<'TS'
+          import { countries } from './lib/dashboard/countries'
+          import { countryOptions } from './config/globe/country-role-profiles'
+
+          const counts = new Map<string, typeof countries>()
+          for (const country of countries) {
+            const list = counts.get(country.iso2) ?? []
+            list.push(country)
+            counts.set(country.iso2, list)
+          }
+          const duplicates = [...counts.entries()]
+            .filter(([, rows]) => rows.length > 1)
+            .map(([iso2, rows]) => ({ iso2, rows: rows.map((row) => ({ slug: row.slug, name: row.displayName, iso3: row.iso3 })) }))
+          const optionKeys = new Set(countryOptions.map((country) => `${country.iso2}|${country.name}`))
+          const missingRows = countries
+            .filter((country) => !optionKeys.has(`${country.iso2}|${country.displayName}`))
+            .map((country) => ({ iso2: country.iso2, iso3: country.iso3, slug: country.slug, name: country.displayName }))
+          const canonicalIso2s = new Set(countries.map((country) => country.iso2))
+          const optionIso2s = new Set(countryOptions.map((country) => country.iso2))
+          const missingIso2s = [...canonicalIso2s].filter((iso2) => !optionIso2s.has(iso2))
+          console.log(JSON.stringify({
+            countriesLength: countries.length,
+            countryOptionsLength: countryOptions.length,
+            uniqueCanonicalIso2Count: canonicalIso2s.size,
+            uniqueOptionIso2Count: optionIso2s.size,
+            duplicates,
+            missingRows,
+            missingIso2s,
+          }, null, 2))
+          TS
+          cp /tmp/country-diagnostic.ts ./country-diagnostic.ts
+          npx tsx country-diagnostic.ts
+          rm country-diagnostic.ts
