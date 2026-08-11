@@ -12,12 +12,14 @@ create or replace function public.hv_transaction_economics_key(
 returns text
 language plpgsql
 immutable
-strict
 set search_path = public
 as $$
 declare
   parent_key text;
 begin
+  if target_transaction is null or target_metric is null or economic_event is null or target_currency is null then
+    raise exception 'economics recognition-key transaction, metric, event and currency are required';
+  end if;
   if economic_event like '%|%' or target_currency like '%|%' then
     raise exception 'economics recognition-key inputs cannot contain pipe separators';
   end if;
