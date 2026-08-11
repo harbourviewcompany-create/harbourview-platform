@@ -130,7 +130,6 @@ create table public.diligence_requirements (
   constraint diligence_party_transaction_fk foreign key (party_id, transaction_id)
     references public.transaction_parties(id, transaction_id)
     on delete no action
-    deferrable initially deferred
 );
 create index diligence_requirements_transaction_idx on public.diligence_requirements (transaction_id, status);
 create index diligence_requirements_account_idx on public.diligence_requirements (economic_account_id) where economic_account_id is not null;
