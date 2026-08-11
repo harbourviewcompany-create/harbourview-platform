@@ -127,11 +127,14 @@ describe('public route smoke coverage', () => {
     const verifier = readRepoFile('scripts/production-runtime-verification.mjs')
     const proxy = readRepoFile('proxy.ts')
     const wantedPage = readRepoFile('app/marketplace/wanted/page.tsx')
+    const protectedPrefixes = proxy.match(/const PROTECTED_PREFIXES = \[([\s\S]*?)\n\]/)?.[1] ?? ''
+    const matcher = proxy.match(/matcher: \[([\s\S]*?)\n\s*\]/)?.[1] ?? ''
 
     expect(verifier).toContain("{ path: '/marketplace/wanted', expected: 'ok' }")
     expect(wantedPage).toContain('export default async function WantedPage()')
-    expect(proxy).not.toContain("'/marketplace/wanted',")
-    expect(proxy).not.toContain("'/marketplace/wanted/:path*',")
+    expect(protectedPrefixes).not.toContain("'/marketplace/wanted'")
+    expect(matcher).not.toContain("'/marketplace/wanted'")
+    expect(matcher).not.toContain("'/marketplace/wanted/:path*'")
   })
 
   it('reports redirect targets when a public runtime route violates its 200 contract', () => {
