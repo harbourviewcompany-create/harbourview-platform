@@ -83,16 +83,17 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(controlDoc).toContain('tier-gated `SECURITY DEFINER` RPCs')
   })
 
-  it('separates verification from explicit customer publication', () => {
+  it('separates verification and publication and requires an accepted factual assertion', () => {
     expect(completion).toContain("customer_visibility text not null default 'internal'")
     expect(completion).toContain("customer_visibility in ('internal','intel')")
     expect(completion).toContain('public.intel_customer_event_dossiers')
     expect(completion).toContain("where e.customer_visibility = 'intel'")
+    expect(completion).toContain("ia.review_status in ('migrated_reviewed','verified')")
     expect(controlDoc).toContain('Verification and publication are separate controls.')
     expect(completionWorkflow).toContain('verified internal dossier leaked to customer projection')
   })
 
-  it('makes assessment history immutable and complete from creation onward', () => {
+  it('makes assessment history immutable, complete and trigger-controlled from creation onward', () => {
     expect(hardening).toContain('intel_assessment_versions is append-only')
     expect(hardening).toContain('before update or delete on public.intel_assessment_versions')
     expect(hardening).toContain('append_intel_assessment_version_on_write')
@@ -103,6 +104,10 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(hardening).toContain('on delete restrict')
     expect(hardening).toContain('confidence >= 0 and confidence <= 1')
     expect(hardening).toContain("alter table public.intel_events alter column review_status set default 'needs_review'")
+    expect(completion).toContain('create or replace function public.append_intel_assessment_version_on_write()')
+    expect(completion).toContain('security definer')
+    expect(completion).toContain('drop policy if exists intel_assessment_versions_staff_insert')
+    expect(completion).toContain('revoke insert, update, delete on public.intel_assessment_versions from authenticated')
     for (const field of ['regulatory_implications','affected_products','contradictions']) {
       expect(completion).toContain(`'${field}'`)
       expect(completionWorkflow).toContain(`v1 missing ${field}`)
@@ -176,9 +181,13 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain('loadIaFallback')
   })
 
-  it('passes the signals entitlement through desktop and mobile dossier entry points', () => {
-    expect(dashboardPage).toContain("checkFeatureAccess({ app_metadata: userAppMetadata }, 'signals')")
+  it('uses user_profiles.tier as the single Decision Intel entitlement authority', () => {
+    expect(dashboardPage).toContain(".from('user_profiles')")
+    expect(dashboardPage).toContain("canAccess('signals', normalizeSubscriptionTier(userProfileTier))")
     expect(dashboardPage).toContain('decisionIntelAccess={decisionIntelAccess}')
+    expect(dossierPage).toContain(".from('user_profiles')")
+    expect(dossierPage).toContain("canAccess('signals', normalizeSubscriptionTier(profile?.tier))")
+    expect(dossierPage).not.toContain("requireAuth('signals')")
     expect(responsiveShell).toContain('access={decisionIntelAccess}')
     expect(responsiveShell).toContain('decisionIntelAccess={decisionIntelAccess}')
     expect(mobileShell).toContain('access={props.decisionIntelAccess}')
@@ -199,17 +208,21 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dashboardRoutes).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
     expect(dashboardRoutes).toContain("if (signal.sourceLabel === 'Harbourview Daily') return Boolean(signal.decisionIntelEventId)")
     expect(desktopBridge).toContain('signals.filter(canRouteToDossier)')
+    expect(responsiveShell).toContain('[...props.signals, ...props.digestSignals]')
     expect(intelUi).toContain('href={signal.sourceUrl}')
     expect(intelUi).toContain('Open source →')
   })
 
-  it('hydrates dossier links from canonical displayability and preserves only valid compatibility paths', () => {
+  it('hydrates dossier links and recommendation posture from canonical displayability while preserving only proven compatibility paths', () => {
     expect(dashboardPage).toContain('attachDecisionIntelDashboardRoutes(signals)')
     expect(dashboardPage).toContain('attachDecisionIntelDashboardRoutes(dailyDigest.signals)')
     expect(dashboardRoutes).toContain(".rpc('resolve_intel_dashboard_routes'")
     expect(dashboardRoutes).toContain("decisionIntelEventId: owned.displayable ? owned.event_id : ''")
+    expect(dashboardRoutes).toContain('decisionRecommendationState')
+    expect(dashboardRoutes).toContain('findCompatibleLegacyIds')
+    expect(dashboardRoutes).toContain('resolverInstalled && !compatibleLegacyIds.has(signal.id)')
     expect(completion).toContain('api.resolve_intel_dashboard_routes')
-    expect(completion).toContain('displayable boolean')
+    expect(completion).toContain('displayable boolean, recommendation_state text')
     expect(completion).toContain('public.intel_customer_event_dossiers')
     expect(completionWorkflow).toContain('hidden canonical route advertised as displayable')
   })
