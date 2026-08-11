@@ -17,4 +17,11 @@ describe('Decision Intelligence IA fallback compatibility', () => {
     expect(dossierLoader).toContain("result.data.stage === 'archived'")
     expect(dossierLoader).toContain('return mapIaSignal(result.data, eventId)')
   })
+
+  it('fails closed on unexpected canonical route-resolution errors', () => {
+    expect(dossierLoader).toContain("code === 'PGRST202' || code === '42883'")
+    expect(dossierLoader).toContain("return isMissingStage0Rpc(error) ? { status: 'missing_rpc' } : { status: 'error' }")
+    expect(dossierLoader).toContain("if (route.status === 'error') return null")
+    expect(dossierLoader).toContain("if (clusteredRoute.status === 'error') return null")
+  })
 })
