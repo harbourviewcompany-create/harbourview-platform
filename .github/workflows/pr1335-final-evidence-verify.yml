@@ -23,18 +23,31 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Bump transform recipe version
+      - name: Bump transform recipe version and provenance assertion
         run: |
           python - <<'PY'
           from pathlib import Path
+          old = "1.4.0-natural-earth-50m-antimeridian-seam-closure"
+          new = "1.4.1-natural-earth-50m-antimeridian-seam-closure-vi-retention"
+
           p = Path('scripts/generate-natural-earth-countries.mjs')
           s = p.read_text()
-          old = "harbourviewTransformVersion: '1.4.0-natural-earth-50m-antimeridian-seam-closure'"
-          new = "harbourviewTransformVersion: '1.4.1-natural-earth-50m-antimeridian-seam-closure-vi-retention'"
-          if s.count(old) == 1:
-              s = s.replace(old, new, 1)
-          elif s.count(new) != 1:
+          old_line = f"harbourviewTransformVersion: '{old}'"
+          new_line = f"harbourviewTransformVersion: '{new}'"
+          if s.count(old_line) == 1:
+              s = s.replace(old_line, new_line, 1)
+          elif s.count(new_line) != 1:
               raise SystemExit('transform version target not found or ambiguous')
+          p.write_text(s)
+
+          p = Path('tests/harbourview/natural-earth-antimeridian-topology.test.ts')
+          s = p.read_text()
+          old_value = f"'{old}'"
+          new_value = f"'{new}'"
+          if s.count(old_value) == 1:
+              s = s.replace(old_value, new_value, 1)
+          elif s.count(new_value) != 1:
+              raise SystemExit('topology provenance assertion target not found or ambiguous')
           p.write_text(s)
           PY
       - name: Deterministic regeneration and VI proof
@@ -97,7 +110,7 @@ jobs:
           log = Path('docs/control/EVIDENCE_LOG.md')
           text = log.read_text()
           if marker not in text:
-              text += f"\n\n### {marker}\n\n- Verification run: GitHub Actions `{os.environ.get('GITHUB_RUN_ID', 'unknown')}` on corrective branch derived from PR #1323 merge commit `d5d9eaea90b6d4d8e8d112de4dd9ecec52991007`.\n- Corrective behavior: retain `VI` by source-fidelity retry only when normal simplification would otherwise erase the U.S. Virgin Islands; all other countries remain on the established generator path.\n- Transform version: `1.4.1-natural-earth-50m-antimeridian-seam-closure-vi-retention`.\n- Deterministic regeneration: 195 countries / 15,377 vertex points; `VI` present; normalized SHA-256 `{sha}` on repeated regeneration and after build.\n- QA: topology 9/9 PASS; Russia spherical 4/4 PASS; globe rendering 20/20 PASS; Natural Earth payload 15/15 PASS; `npm run lint` PASS (0 errors); `npm run typecheck` PASS; full `npm run test` PASS; `npm run test:security` 113/113 PASS; `npm run build` PASS.\n- Scope: generator + regenerated payload + VI regression assertion + this evidence entry; merged temporary `pr1323-small-country-retention-probe.yml` removed. No production/deployment/Supabase/Vercel change.\n"
+              text += f"\n\n### {marker}\n\n- Verification run: GitHub Actions `{os.environ.get('GITHUB_RUN_ID', 'unknown')}` on corrective branch derived from PR #1323 merge commit `d5d9eaea90b6d4d8e8d112de4dd9ecec52991007`.\n- Corrective behavior: retain `VI` by source-fidelity retry only when normal simplification would otherwise erase the U.S. Virgin Islands; all other countries remain on the established generator path.\n- Transform version: `1.4.1-natural-earth-50m-antimeridian-seam-closure-vi-retention`; topology provenance assertion updated to require this recipe version.\n- Deterministic regeneration: 195 countries / 15,377 vertex points; `VI` present; normalized SHA-256 `{sha}` on repeated regeneration and after build.\n- QA: topology 9/9 PASS; Russia spherical 4/4 PASS; globe rendering 20/20 PASS; Natural Earth payload 15/15 PASS; `npm run lint` PASS (0 errors); `npm run typecheck` PASS; full `npm run test` PASS; `npm run test:security` 113/113 PASS; `npm run build` PASS.\n- Scope: generator + regenerated payload + VI regression assertion + topology provenance assertion + this evidence entry; merged temporary `pr1323-small-country-retention-probe.yml` removed. No production/deployment/Supabase/Vercel change.\n"
               log.write_text(text)
           PY
       - name: Restore generatedAt-only churn and commit verified correction
