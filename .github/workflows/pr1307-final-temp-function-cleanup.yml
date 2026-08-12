@@ -24,6 +24,7 @@ jobs:
           set -euo pipefail
           PROJECT=zvxdgdkukjrrwamdpqrg
           for fn in \
+            pr1307-media-rollout-temp \
             pr1307-semantic-media-rollout-temp \
             pr1307-media-finalize-temp \
             pr1307-media-final-asset-transfer-temp \
@@ -35,6 +36,7 @@ jobs:
           done
           LIST="$(supabase functions list --project-ref "$PROJECT")"
           for fn in \
+            pr1307-media-rollout-temp \
             pr1307-semantic-media-rollout-temp \
             pr1307-media-finalize-temp \
             pr1307-media-final-asset-transfer-temp \
