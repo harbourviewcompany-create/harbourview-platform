@@ -191,18 +191,17 @@ export type PrimarySectionId =
   | 'next-actions'
 
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
-  overview: [
-    'overview',
-    'live-status',
-    'jurisdiction',
-    'compliance',
+  overview: ['overview', 'live-status', 'jurisdiction', 'compliance', 'education'],
+  marketplace: [
+    'marketplace',
+    'supply',
+    'market-status',
+    'market-intelligence',
     'genetics',
-    'network',
-    'directories',
     'talent',
-    'education',
+    'directories',
+    'network',
   ],
-  marketplace: ['marketplace', 'supply', 'market-status', 'market-intelligence'],
   'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
   clinical: ['clinical'],
   'next-actions': ['next-actions', 'review-gates', 'financing'],
