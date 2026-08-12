@@ -1,0 +1,152 @@
+name: Reconstruct PR 1344
+
+on:
+  push:
+    branches:
+      - fix/command-centre-standalone-wiring
+    paths:
+      - .github/workflows/reconstruct-pr1344.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: reconstruct-pr1344
+  cancel-in-progress: false
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout reconstruction starter
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/command-centre-standalone-wiring
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Replay unique product scope onto current main shell
+        shell: bash
+        env:
+          SOURCE_SHA: 025874ef1e8cae14df069e68615edeebc296f847
+        run: |
+          set -euo pipefail
+          git fetch origin "$SOURCE_SHA"
+
+          git checkout "$SOURCE_SHA" -- \
+            app/api/dashboard/my-briefings/route.ts \
+            app/api/marketplace/deal-rooms/create/route.ts \
+            app/dashboard/genetics/cultivars/new/CreatePassportForm.tsx \
+            app/dashboard/my-briefings/page.tsx \
+            app/dashboard/signals/search/page.tsx \
+            app/intelligence/watchlists/page.tsx \
+            'app/marketplace/deals/[id]/page.tsx' \
+            app/marketplace/deals/new/page.tsx \
+            app/marketplace/deals/page.tsx \
+            components/dashboard/CommandCentre.css \
+            components/dashboard/CultivarPassportModal.tsx \
+            components/dashboard/DealRoomsPanel.tsx \
+            components/dashboard/ListingDetailModal.tsx \
+            components/dashboard/MyBriefingsPanel.tsx \
+            components/dashboard/pages/DealRoomsPanel.tsx
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('components/dashboard/CommandCentre.tsx')
+          text = path.read_text()
+
+          def once(old: str, new: str, label: str):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
+              text = text.replace(old, new, 1)
+
+          once(
+              "import { ListingDetailModal } from './ListingDetailModal'\n",
+              "import { ListingDetailModal } from './ListingDetailModal'\nimport SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'\nimport { CultivarPassportModal } from '@/components/dashboard/CultivarPassportModal'\nimport { MyBriefingsPanel } from '@/components/dashboard/MyBriefingsPanel'\n",
+              'product imports',
+          )
+
+          once(
+              "  const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)\n",
+              "  const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)\n  const [showMyBriefings, setShowMyBriefings] = useState(false)\n",
+              'briefing state',
+          )
+          once(
+              "  return (\n    <div className=\"cc-page cc-briefing\">\n",
+              "  if (showMyBriefings) {\n    return (\n      <div className=\"cc-page cc-briefing\">\n        <div className=\"cc-mybrief-wrap\">\n          <button type=\"button\" className=\"cc-signals-search-toggle\" style={{ marginBottom: 16 }} onClick={() => setShowMyBriefings(false)}>\n            ← Back to jurisdiction briefing\n          </button>\n          <MyBriefingsPanel onOpenWatchlist={() => onPageChange?.('watchlist')} />\n        </div>\n      </div>\n    )\n  }\n\n  return (\n    <div className=\"cc-page cc-briefing\">\n      <button type=\"button\" className=\"cc-signals-search-toggle\" style={{ position: 'absolute', top: 16, right: 20, zIndex: 5 }} onClick={() => setShowMyBriefings(true)}>\n        ◈ My briefings\n      </button>\n",
+              'briefing panel',
+          )
+
+          once(
+              "  const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)\n",
+              "  const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)\n  const [showSearch, setShowSearch] = useState(false)\n",
+              'signals state',
+          )
+          once(
+              "          <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>\n",
+              "          <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>\n          <button type=\"button\" className=\"cc-signals-search-toggle\" aria-pressed={showSearch} onClick={() => setShowSearch(v => !v)}>\n            {showSearch ? 'Hide semantic search' : '◈ Semantic search'}\n          </button>\n",
+              'signals search toggle',
+          )
+          once(
+              "        <div className=\"cc-filter-bar\">\n",
+              "        {showSearch ? <SignalSemanticSearch /> : null}\n        <div className=\"cc-filter-bar\">\n",
+              'signals search panel',
+          )
+
+          once(
+              "  const [subView, setSubView] = useState<MarketSubView>('browse')\n",
+              "  const [subView, setSubView] = useState<MarketSubView>('browse')\n  const [dealsInitialRoomId, setDealsInitialRoomId] = useState<string | undefined>(undefined)\n  const [dealsOpenNonce, setDealsOpenNonce] = useState(0)\n",
+              'deal state',
+          )
+          once(
+              "          <DealRoomsPanel />\n",
+              "          <DealRoomsPanel key={`${dealsInitialRoomId ?? 'list'}-${dealsOpenNonce}`} initialRoomId={dealsInitialRoomId} />\n",
+              'deal panel deep link',
+          )
+          once(
+              "        <DealRoomsSidebarWidget />\n",
+              "        <DealRoomsSidebarWidget onOpenRoom={(roomId) => { setDealsInitialRoomId(roomId); setDealsOpenNonce(n => n + 1); setSubView('deals') }} />\n",
+              'deal sidebar callback',
+          )
+          once(
+              "        onWatch={() => onPageChange?.('watchlist')}\n",
+              "        onWatch={() => onPageChange?.('watchlist')}\n        onOpenDealRoom={(roomId) => {\n          setSelectedListingId(null)\n          setDealsInitialRoomId(roomId)\n          setDealsOpenNonce(n => n + 1)\n          setSubView('deals')\n        }}\n",
+              'listing deal callback',
+          )
+
+          once(
+              "  const [programModal, setProgramModal] = useState(false)\n",
+              "  const [programModal, setProgramModal] = useState(false)\n  const [passportModal, setPassportModal] = useState(false)\n",
+              'passport state',
+          )
+          once(
+              "        <div className=\"cc-right-section\" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>\n",
+              "        <div className=\"cc-right-section\">\n          <div className=\"cc-right-head\">REGISTER A CULTIVAR</div>\n          <p className=\"cc-right-prose\">Create a Cultivar Passport under your ownership. Starts private; public display requires admin claim review.</p>\n          <button className=\"cc-right-link\" onClick={() => setPassportModal(true)}>Register cultivar →</button>\n        </div>\n        <div className=\"cc-right-section\" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>\n",
+              'passport CTA',
+          )
+          once(
+              "      <GeneticsProgramModal\n        open={programModal}\n        onClose={() => setProgramModal(false)}\n      />\n",
+              "      <GeneticsProgramModal\n        open={programModal}\n        onClose={() => setProgramModal(false)}\n      />\n      <CultivarPassportModal\n        open={passportModal}\n        onClose={() => setPassportModal(false)}\n      />\n",
+              'passport modal render',
+          )
+
+          path.write_text(text)
+          PY
+
+          rm -f .github/workflows/reconstruct-pr1344.yml
+          git diff --check
+          git status --short
+
+      - name: Commit reconstructed exact scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'harbourview-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(command-centre): reconcile standalone wiring with current main'
+          git push origin HEAD:fix/command-centre-standalone-wiring
