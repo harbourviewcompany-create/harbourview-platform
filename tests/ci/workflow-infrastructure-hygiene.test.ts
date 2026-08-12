@@ -11,6 +11,17 @@ const activeYamlLines = (raw: string) =>
     .filter((line) => !line.trimStart().startsWith('#'))
     .join('\n')
 
+function hasCanonicalSyncWorkflowStructure(raw: string) {
+  const active = activeYamlLines(raw)
+  return [
+    /^on:\s*$/m,
+    /^ {2}workflow_dispatch:\s*$/m,
+    /^jobs:\s*$/m,
+    /^ {2}sync-tokens:\s*$/m,
+    /^ {4}runs-on:\s+ubuntu-latest\s*$/m,
+  ].every((pattern) => pattern.test(active))
+}
+
 describe('CI infrastructure hygiene', () => {
   it('keeps PR runs cancellable while allowing running main pushes to finish', () => {
     const ci = read('.github/workflows/ci.yml')
@@ -45,19 +56,26 @@ describe('CI infrastructure hygiene', () => {
 })
 
 describe('Figma token workflow hygiene', () => {
-  it('remains valid, manual-only, and has an executable sync job', () => {
+  it('keeps the manual trigger and sync job at canonical YAML mapping indentation', () => {
     const raw = read('.github/workflows/sync-figma-tokens.yml')
     const active = activeYamlLines(raw)
 
-    expect(active).toMatch(/^\s*workflow_dispatch:\s*$/m)
-    expect(active).not.toMatch(/^\s*push:\s*$/m)
-    expect(active).not.toMatch(/^\s*pull_request:\s*$/m)
-    expect(active).not.toMatch(/^\s*schedule:\s*$/m)
-    expect(active).toMatch(/^\s*sync-tokens:\s*$/m)
-    expect(active).toContain('runs-on: ubuntu-latest')
+    expect(hasCanonicalSyncWorkflowStructure(raw)).toBe(true)
+    expect(active).toMatch(/^ {2}workflow_dispatch:\s*$/m)
+    expect(active).not.toMatch(/^ {2}(?:push|pull_request|schedule):\s*$/m)
+    expect(active).toMatch(/^ {2}sync-tokens:\s*$/m)
+    expect(active).toMatch(/^ {4}runs-on:\s+ubuntu-latest\s*$/m)
     expect(active).toContain(
       'commit-message: "${{ github.event.inputs.commit_message || \'chore: Sync design tokens from Figma\' }}"',
     )
+  })
+
+  it('rejects the malformed mapping indentation that would detach a sync-job field', () => {
+    const raw = read('.github/workflows/sync-figma-tokens.yml')
+    const malformed = raw.replace(/^ {4}runs-on:/m, '     runs-on:')
+
+    expect(malformed).not.toBe(raw)
+    expect(hasCanonicalSyncWorkflowStructure(malformed)).toBe(false)
   })
 
   it('does not require active Figma API credentials in the current execution path', () => {
