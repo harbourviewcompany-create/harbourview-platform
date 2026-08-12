@@ -79,9 +79,9 @@ export function filterAttestedHistoricalRows(rawText, control) {
 function parseArgs(argv) {
   const args = {}
   for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index]
-    if (!token.startsWith('--')) throw new Error(`Unexpected argument: ${token}`)
-    const key = token.slice(2)
+    const arg = argv[index]
+    if (!arg.startsWith('--')) throw new Error(`Unexpected argument: ${arg}`)
+    const key = arg.slice(2)
     const value = argv[index + 1]
     if (!value || value.startsWith('--')) throw new Error(`Missing value for --${key}`)
     args[key] = value
