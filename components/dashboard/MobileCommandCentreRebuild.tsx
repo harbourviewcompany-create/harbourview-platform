@@ -47,7 +47,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
-  const showSecondaryNav = model.groupSections.length > 1 && model.highlightedSection !== 'overview'
+  const showSecondaryNav = model.groupSections.length > 1
 
   const searchRecords = useMemo(() => buildCommandSearchIndex({
     signals: model.signals,

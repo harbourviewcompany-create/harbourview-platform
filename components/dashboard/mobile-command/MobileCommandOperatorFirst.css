@@ -112,7 +112,14 @@
 
 .hvm2-main.hvm-op-main {
   flex: 1 1 auto;
-  min-height: 0;
+  /*
+   * A floor, not zero. This is the other half of the shrink order documented on
+   * .hvm-op-secondary-nav: main refusing to go below 8rem is what forces the
+   * rail to yield instead, so the dashboard content cannot be squeezed out of
+   * existence on a short mobile-layout viewport. Content still scrolls inside
+   * it — the floor bounds the box, it does not bound the content.
+   */
+  min-height: 8rem;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   gap: 0;
@@ -345,18 +352,62 @@
   margin-top: 8px;
 }
 
+/*
+ * Wraps rather than scrolls. Measured at 320/360/390/430: the Command group's
+ * nine chips are 721px wide, so a single scrolling row left Genetics, Network,
+ * Directories, Talent and Education off-screen on every phone — and with
+ * `scrollbar-width: none` there was no affordance saying more existed. A
+ * horizontal rail is only honest when its contents nearly fit; nine do not.
+ *
+ * Wrapping is applied to every destination, not scoped to one, and it is not
+ * free anywhere. Measured rail heights by width:
+ *
+ *   Command  320-430: 2 rows (102px)   768: 1 row (56px)
+ *   Market   320-390: 3 rows (148px)   430: 2 rows   768: 1 row
+ *   Intel    320-430: 2 rows (102px)   768: 1 row
+ *   Actions  every width: 1 row        Clinical: 1 row
+ *
+ * Market carries the three-row cost because it owns eight sections: the
+ * catalogue surfaces (genetics, talent, directories, network) sit with the
+ * listings rather than under Command. Scoping the wrap to the largest group
+ * would spare the others, at the cost of leaving their later chips off-screen
+ * behind a scrollbar-less horizontal scroll — the exact defect this change
+ * exists to remove. Uniform visibility is worth the density.
+ *
+ * SHRINK ORDER IS LOAD-BEARING
+ * ----------------------------
+ * `.hvm2-root` is `height: 100dvh; overflow: hidden`, so its children divide a
+ * fixed budget. If this rail were `flex: 0 0 auto`, `.hvm-op-main` would be the
+ * only child able to absorb a shrinking viewport and the dashboard content
+ * would collapse to nothing — unreachable, not merely cramped. A percentage cap
+ * alone does not fix that: with a 130px header, `max-height: 30dvh` still left
+ * main at 24px by 320x320 and below.
+ *
+ * The rail therefore shrinks (`flex: 0 1 auto` + `min-height: 0`) while main
+ * holds a floor, so the rail yields first and main always stays usable.
+ * Measured with a representative 130px header:
+ *
+ *   390x844 rail 149 / main 483      320x320 rail 17 / main 128
+ *   390x568 rail 149 / main 207      320x256 rail 17 / main 128
+ *   320x400 rail  60 / main 128      320x200 rail 17 / main 128
+ *
+ * The case that matters is WCAG 1.4.10 reflow — a desktop window at 400% zoom
+ * enters this renderer at a very small effective height.
+ *
+ * No scrollbar hiding here. Hiding the horizontal one is what let the original
+ * off-screen-chip bug go unnoticed; when the rail is compressed, its vertical
+ * scrollbar is the only thing announcing there is more.
+ */
 .hvm-op-secondary-nav {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-height: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  overflow-x: auto;
+  max-height: 30dvh;
+  overflow-y: auto;
   padding: 8px var(--hvm-op-inline);
   border-bottom: 1px solid var(--hvm2-border-soft);
-  scrollbar-width: none;
-}
-
-.hvm-op-secondary-nav::-webkit-scrollbar {
-  display: none;
 }
 
 .hvm-op-secondary-nav button {
@@ -525,5 +576,45 @@
 
   .hvm2-bottom-nav.hvm-op-bottom-nav small {
     font-size: 8px;
+  }
+}
+
+/*
+ * BELOW THIS HEIGHT, STOP BEING AN APP SHELL
+ * ------------------------------------------
+ * The fixed-viewport model — `height: 100dvh; overflow: hidden`, chrome pinned
+ * top and bottom, one scrolling pane between — needs a minimum budget to work.
+ * The shipped header is ~130px and the bottom nav ~82px with its margins, so
+ * once `.hvm-op-main` holds its 8rem floor the shell needs ~340px before the
+ * rail contributes anything at all. Under that, something has to be pushed out
+ * of the viewport, and `overflow: hidden` means pushed out is *gone*: measured
+ * at 320x256, the bottom nav's lower edge sat at 349px — 93px past the bottom —
+ * leaving the operator with a content pane and no way to navigate away from it.
+ *
+ * Making main smaller does not fix it; at 256px tall there is no split of
+ * ~212px of chrome that leaves a usable pane. The shell is simply the wrong
+ * model at this size, so below 480px it becomes an ordinary scrolling document:
+ * the root grows past the viewport, the page scrolls as one, and every element
+ * stays reachable. This is the WCAG 1.4.10 case — a 1280x1024 desktop at 400%
+ * zoom presents as roughly 320x256.
+ *
+ * `.hvm-op-bottom-nav` is already `position: relative`, so it flows to the end
+ * of the document here rather than needing to be re-pinned.
+ */
+@media (max-height: 480px) {
+  .hvm2-root {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .hvm2-main.hvm-op-main {
+    min-height: 0;
+    overflow-y: visible;
+  }
+
+  .hvm-op-secondary-nav {
+    max-height: none;
+    overflow-y: visible;
   }
 }

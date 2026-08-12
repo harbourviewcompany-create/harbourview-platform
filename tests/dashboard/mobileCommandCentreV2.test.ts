@@ -135,9 +135,15 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(SECTION_TO_DESKTOP_PAGE.clinical).toBe('clinical')
     expect(PAGE_TO_SECTION.clinical).toBe('clinical')
 
-    // The former Context group, now owned by Command.
-    for (const section of ['jurisdiction', 'compliance', 'genetics', 'network', 'directories', 'talent', 'education'] as const) {
+    // The former Context group, split by what each section is *for*. Command
+    // answers where the operator stands and whether they may operate;
+    // genetics, talent, directories and network are catalogues of what and who
+    // you transact with, so they belong to Market alongside the listings.
+    for (const section of ['jurisdiction', 'compliance', 'education'] as const) {
       expect(SECTION_TO_GROUP[section]).toBe('overview')
+    }
+    for (const section of ['genetics', 'talent', 'directories', 'network'] as const) {
+      expect(SECTION_TO_GROUP[section]).toBe('marketplace')
     }
 
     for (const destination of PRIMARY_NAV) {
@@ -164,7 +170,6 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(text).not.toContain('All Command Centre modules')
     expect(text).not.toContain('32 available')
     expect(document.querySelector('[data-command-module]')).toBeNull()
-    expect(document.querySelector('.hvm-op-secondary-nav')).toBeNull()
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
   })
 
@@ -222,18 +227,25 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(rail.map(button => button.textContent)).toContain('Marketplace control')
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
 
-    // Command owns nine sections now, but its landing is the operator dashboard
-    // and stays chrome-free — a rail here would push the first real content
-    // below the fold, which is what the operator-first work set out to fix.
+    // The Command landing rails too. Without it, the seven reference sections
+    // it owns had one unlabelled way in and were effectively invisible.
     navigation.search.value = 'country=CA&role=exporter&section=overview'
     const landing = renderMobileCommand({ initialPage: 'briefing' })
-    expect(landing.querySelector('.hvm-op-secondary-nav')).toBeNull()
+    const landingRail = [...landing.querySelectorAll('.hvm-op-secondary-nav button')]
+      .map(button => button.textContent)
+    // Derived, not a hand-picked sample: every section Command owns must be
+    // named in the rail. A retyped subset both under-covers and invites the
+    // "Education path"/"Education" mismatch that cost the e2e gate a run.
+    expect(landingRail).toEqual(
+      SECTION_GROUPS.overview.map(id => SECTION_NAV.find(entry => entry.id === id)?.label),
+    )
   })
 
-  it('offers a way back to the Command landing from the rail, and hides the rail once there', () => {
-    // The rail-visibility condition keys off the committed section, so it also
-    // changes mid-session: open Command's rail from a sibling, return to
-    // Overview, and the rail goes away. Both halves are asserted here.
+  it('offers a way back to the Command landing from the rail, and keeps the rail there', () => {
+    // The rail used to disappear on the Command landing, which is what made
+    // Genetics, Talent and the rest unreachable. It now persists across that
+    // transition: open Command's rail from a sibling section, return to
+    // Overview, and the rail is still present. Both halves are asserted here.
     //
     // Not asserted by clicking: this suite renders with renderToStaticMarkup,
     // so nothing is hydrated and no handler fires. Covering the real click
@@ -251,7 +263,7 @@ describe('Mobile Command Centre operator architecture', () => {
 
     navigation.search.value = 'country=CA&role=exporter&section=overview'
     const returned = renderMobileCommand({ initialPage: 'briefing' })
-    expect(returned.querySelector('.hvm-op-secondary-nav')).toBeNull()
+    expect(returned.querySelector('.hvm-op-secondary-nav')).not.toBeNull()
     expect([...returned.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['overview'])
   })
 
@@ -278,7 +290,26 @@ describe('Mobile Command Centre operator architecture', () => {
     const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')]
     expect(rail).toHaveLength(SECTION_GROUPS.overview.length)
     expect(rail.map(button => button.textContent)).toContain('Compliance')
-    expect(rail.map(button => button.textContent)).toContain('Genetics')
+    // Genetics moved to Market, so Command's rail must no longer offer it —
+    // the whole point of the split is that it is findable in one place.
+    expect(rail.map(button => button.textContent)).not.toContain('Genetics')
+  })
+
+  it('rails the catalogue sections under Market, where they now live', () => {
+    navigation.search.value = 'country=CA&role=exporter&section=genetics'
+    const document = renderMobileCommand({ initialPage: 'genetics' })
+
+    expect([...document.querySelectorAll('.hvm-op-main > section')].map(node => node.id)).toEqual(['genetics'])
+    const current = document.querySelector('.hvm-op-bottom-nav button[aria-current="page"]')
+    expect(current?.textContent).toContain('Market')
+
+    const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')].map(button => button.textContent)
+    expect(rail).toEqual(
+      SECTION_GROUPS.marketplace.map(id => SECTION_NAV.find(entry => entry.id === id)?.label),
+    )
+    for (const label of ['Genetics', 'Talent', 'Directories', 'Network']) {
+      expect(rail).toContain(label)
+    }
   })
 })
 

@@ -1,7 +1,24 @@
-import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
+import { SECTION_GROUPS, SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
+
+/**
+ * Derived, not hand-typed. Spelling a label by hand cost this gate a run:
+ * `education` renders as "Education path", and `getByText('Education', {
+ * exact: true })` matched nothing rather than failing on the real condition.
+ */
+function railLabelsFor(group: keyof typeof SECTION_GROUPS): string[] {
+  return SECTION_GROUPS[group].map(id => {
+    const entry = SECTION_NAV.find(section => section.id === id)
+    if (!entry) throw new Error(`SECTION_NAV has no entry for grouped section "${id}"`)
+    return entry.label
+  })
+}
+
+const COMMAND_RAIL_LABELS = railLabelsFor('overview')
+const MARKET_RAIL_LABELS = railLabelsFor('marketplace')
 
 const BASE_URL = process.env.HARBOURVIEW_PUBLIC_BASE_URL || process.env.PLAYWRIGHT_BASE_URL
 const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
@@ -170,6 +187,33 @@ async function assertFiveJobNavigation(page: Page) {
   await expect(nav.locator('[aria-current="page"]')).toContainText('Command')
 }
 
+/**
+ * `toBeVisible()` is not sufficient for anything inside a scroll container. It
+ * checks the bounding box and computed style; it does not check that the box
+ * lies inside the viewport. Measured directly at 320/360/390/430, it returned
+ * true for rail chips sitting up to 400px off the right edge of the screen —
+ * so the assertion that Genetics and Talent were "visible" passed while an
+ * operator could not see them without a horizontal scroll that had no
+ * affordance.
+ *
+ * Horizontal containment only: scrolling the page down to reach content is
+ * normal, scrolling sideways to discover a navigation destination is not.
+ */
+async function expectHorizontallyOnScreen(page: Page, locator: Locator, description: string) {
+  await expect(locator).toBeVisible()
+  const box = await locator.boundingBox()
+  const viewport = page.viewportSize()
+  expect(box, `${description}: element has no bounding box`).not.toBeNull()
+  expect(viewport, `${description}: page has no viewport size`).not.toBeNull()
+  if (!box || !viewport) return
+  const left = Math.round(box.x)
+  const right = Math.round(box.x + box.width)
+  expect(
+    left >= 0 && right <= viewport.width,
+    `${description} is off-screen at ${viewport.width}px wide: left=${left} right=${right}`,
+  ).toBe(true)
+}
+
 async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.locator('.hvm-op-page-title')).toHaveText('Command')
   await expect(page.locator('.hvm-op-context-trigger')).toBeVisible()
@@ -181,7 +225,27 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.getByText('32 available', { exact: true })).toHaveCount(0)
   await expect(page.locator('[data-command-module]')).toHaveCount(0)
   await expect(page.locator('.hvm2-section-rail')).toHaveCount(0)
-  await expect(page.locator('.hvm-op-secondary-nav')).toHaveCount(0)
+  // The Command landing rails: its seven reference sections are otherwise
+  // unreachable except through an unlabelled button. Every chip must be on
+  // screen — the rail wraps precisely so none of them hide behind a sideways
+  // scroll, and only a viewport-aware assertion can hold that.
+  const commandRail = page.locator('.hvm-op-secondary-nav')
+  await expect(commandRail).toBeVisible()
+  await expect(commandRail.locator('button')).toHaveCount(COMMAND_RAIL_LABELS.length)
+  for (const label of COMMAND_RAIL_LABELS) {
+    await expectHorizontallyOnScreen(page, commandRail.getByText(label, { exact: true }), `Command rail "${label}"`)
+  }
+
+  // The rail is chrome inside a `height: 100dvh; overflow: hidden` shell, and
+  // `.hvm-op-main` is the only flex child that shrinks. A rail that grows
+  // without bound squeezes the content pane to nothing and makes the dashboard
+  // unreachable rather than merely cramped, so assert the pane survives.
+  const mainBox = await page.locator('.hvm-op-main').boundingBox()
+  expect(mainBox, 'the main content pane has no bounding box').not.toBeNull()
+  expect(
+    (mainBox?.height ?? 0) > 120,
+    `the content pane collapsed to ${Math.round(mainBox?.height ?? 0)}px at ${viewportHeight}px tall — rail chrome is consuming it`,
+  ).toBe(true)
 
   const intelligenceZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Recent intelligence' })
   const opportunityZero = page.locator('.hvm-op-compact-zero').filter({ hasText: 'Commercial opportunities' })
@@ -279,6 +343,54 @@ test.describe('Mobile Command operator-first verification', () => {
     }
   })
 
+  test('keeps the content pane usable when the viewport is too short for the rail', async ({ browser }) => {
+    test.setTimeout(180_000)
+    const storageState = await authenticate(browser)
+
+    // WCAG 1.4.10 reflow: a 1280x1024 desktop window at 400% zoom presents as
+    // roughly 320x256 CSS pixels, which enters this renderer. The shell is
+    // `height: 100dvh; overflow: hidden`, so if the rail refuses to shrink the
+    // content pane is squeezed to nothing and the dashboard becomes
+    // unreachable. The other assertions in this file all run at 700px or
+    // taller, so none of them exercise this.
+    for (const [width, height] of [[320, 320], [320, 256]] as const) {
+      const context = await browser.newContext({
+        ...sharedContextOptions(),
+        viewport: { width, height },
+        storageState,
+        isMobile: true,
+        hasTouch: true,
+      })
+
+      try {
+        const page = await context.newPage()
+        await page.goto('/dashboard?country=CA&role=exporter&page=briefing&section=overview', { waitUntil: 'domcontentloaded' })
+        await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+
+        const mainBox = await page.locator('.hvm-op-main').boundingBox()
+        expect(mainBox, `no content pane at ${width}x${height}`).not.toBeNull()
+        expect(
+          (mainBox?.height ?? 0) >= 96,
+          `the content pane collapsed to ${Math.round(mainBox?.height ?? 0)}px at ${width}x${height} — the rail is not yielding`,
+        ).toBe(true)
+
+        // The bottom nav must be *reachable*, not merely present. Asserting
+        // this with toBeVisible() is the same mistake this file documents
+        // above: at 320x256 under a fixed-viewport shell the nav's lower edge
+        // sat 93px below the fold, clipped away by `overflow: hidden`, and
+        // toBeVisible() still returned true. Scrolling to it and then checking
+        // viewport intersection distinguishes "below the fold, reachable" —
+        // which is fine — from "clipped, gone" — which strands the operator on
+        // whichever destination they happen to be on.
+        const bottomNav = page.locator('.hvm-op-bottom-nav')
+        await bottomNav.scrollIntoViewIfNeeded()
+        await expect(bottomNav).toBeInViewport()
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
   test('lands a Clinical deep link on the Clinical destination itself', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
@@ -324,9 +436,45 @@ test.describe('Mobile Command operator-first verification', () => {
 
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
-      await expect(rail.getByText('Compliance', { exact: true })).toBeVisible()
-      await expect(rail.getByText('Genetics', { exact: true })).toBeVisible()
+      await expectHorizontallyOnScreen(page, rail.getByText('Compliance', { exact: true }), 'rail "Compliance"')
       await expect(rail.getByText('Clinical', { exact: true })).toHaveCount(0)
+      // Genetics and Talent are Market's now. Each section has exactly one home
+      // and one rail that names it; a section appearing under two destinations
+      // is the ambiguity this grouping exists to remove.
+      await expect(rail.getByText('Genetics', { exact: true })).toHaveCount(0)
+      await expect(rail.getByText('Talent', { exact: true })).toHaveCount(0)
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('rails the catalogue sections under Market and keeps them on screen', async ({ browser }) => {
+    test.setTimeout(180_000)
+    const storageState = await authenticate(browser)
+    const context = await browser.newContext({
+      ...sharedContextOptions(),
+      viewport: { width: 390, height: 844 },
+      storageState,
+      isMobile: true,
+      hasTouch: true,
+    })
+
+    try {
+      const page = await context.newPage()
+      await page.goto('/dashboard?country=CA&role=exporter&page=genetics&section=genetics', { waitUntil: 'domcontentloaded' })
+      await expect(page.locator('#genetics')).toBeVisible()
+      await expect(page.locator('[data-active-destination="marketplace"]')).toBeVisible()
+      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Market')
+
+      // Market now carries eight sections — the group that motivated wrapping
+      // in the first place moved here, so this is the rail that has to stay
+      // fully on screen.
+      const rail = page.locator('.hvm-op-secondary-nav')
+      await expect(rail).toBeVisible()
+      await expect(rail.locator('button')).toHaveCount(MARKET_RAIL_LABELS.length)
+      for (const label of MARKET_RAIL_LABELS) {
+        await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `Market rail "${label}"`)
+      }
     } finally {
       await context.close()
     }
