@@ -1,0 +1,325 @@
+/**
+ * source-discovery-engine v1 (2026-08-11)
+ *
+ * Fills the remaining depth gaps in source_registry: for every viable country
+ * in source_expansion_coverage_queue, it needs up to 7 regulator_class
+ * sources (health_authority, drug_control_authority, official_gazette,
+ * legislature, customs_import_export, procurement, medicine_license_registry).
+ * This function finds the next batch of missing (country, class) pairs,
+ * asks Claude (with the web_search tool) to find the single best official
+ * government URL for each, independently re-verifies that URL is live with
+ * its own fetch() call, and only then inserts it into source_registry.
+ *
+ * FAIL-CLOSED BY DESIGN: if no grounded search provider is configured/working
+ * (ANTHROPIC_API_KEY missing or the API call errors), this function does NOT
+ * fall back to an ungrounded text-completion guess at a government URL. It
+ * logs the failure and returns. Inserting an unverified/hallucinated .gov
+ * domain into a production intelligence pipeline is worse than not
+ * automating this step at all -- see HANDOFF.md 2026-08-11 entry.
+ *
+ * Every inserted row also gets an independent live-fetch check from this
+ * function (not just the LLM's say-so) before it's written.
+ *
+ * Scheduled via pg_cron (see migration/cron entry, 2026-08-11): small batches,
+ * a few times a day, to keep provider spend and gov-site load low.
+ *
+ * Known limitation as of 2026-08-11: ANTHROPIC_API_KEY in the vault is
+ * billing-blocked per hv-classify's 2026-07-21 note. Until that's restored
+ * (or a SEARCH_API_KEY / Tavily-style key is added as a fallback grounded
+ * provider), this job will run, find zero usable candidates, and log that
+ * plainly in source_discovery_jobs -- it will not silently do nothing.
+ */
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const MODEL = "claude-haiku-4-5";
+
+const CLASSES = [
+  "health_authority",
+  "drug_control_authority",
+  "official_gazette",
+  "legislature",
+  "customs_import_export",
+  "procurement",
+  "medicine_license_registry",
+] as const;
+
+// Non-viable entities: no normal public-facing government regulator exists
+// (confirmed via manual research, 2026-08-11 -- see intelligence-pipeline notes).
+const NON_VIABLE_ISO = new Set(["GL", "VA", "NR", "KP", "TV", "EH"]);
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...CORS, "content-type": "application/json" },
+  });
+}
+
+function extractJson(text: string): Record<string, unknown> | null {
+  const cleaned = text.replace(/```json|```/g, "");
+  const m = cleaned.match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[0]);
+  } catch {
+    return null;
+  }
+}
+
+const CLASS_DESCRIPTIONS: Record<string, string> = {
+  health_authority: "the national Ministry of Health (or equivalent) official website",
+  drug_control_authority: "the national narcotics/drug control authority (the body that issues narcotic drug import/export/cultivation authorizations) official website",
+  official_gazette: "the national official gazette / official legal publication portal",
+  legislature: "the national parliament / legislature official website",
+  customs_import_export: "the national customs authority official website",
+  procurement: "the national government procurement / public tenders portal",
+  medicine_license_registry: "the national medicine/pharmaceutical regulatory authority or drug licensing registry official website",
+};
+
+interface Candidate {
+  url: string;
+  official_body_name: string;
+  confidence: number;
+}
+
+async function findCandidate(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
+  if (!ANTHROPIC_API_KEY) return { error: "no_anthropic_api_key" };
+
+  const desc = CLASS_DESCRIPTIONS[cls] ?? cls;
+  const system = `You find official government website URLs for a B2B regulatory-intelligence source registry. You will be asked to find one specific class of official source for one specific country. Use web search to confirm the URL is real and currently live before answering. If you cannot find a confident, verifiable, official (government-owned, not a news article about it) URL, say so.
+Output STRICT JSON only, no prose, no markdown fences:
+{"found": true, "url": "https://...", "official_body_name": "...", "confidence": 0.0-1.0}
+or
+{"found": false, "reason": "..."}`;
+  const user = `Country: ${country}\nSource class needed: ${cls} -- ${desc}\nFind the single best, current, official URL.`;
+
+  let res: Response;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 1024,
+        system,
+        messages: [{ role: "user", content: user }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+      }),
+    });
+  } catch (e) {
+    return { error: `fetch_threw: ${e instanceof Error ? e.message : String(e)}` };
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    return { error: `anthropic_${res.status}: ${bodyText.slice(0, 300)}` };
+  }
+
+  const data = await res.json();
+  const blocks = Array.isArray(data?.content) ? data.content : [];
+  const lastText = [...blocks].reverse().find((b: Record<string, unknown>) => b.type === "text") as
+    | { text?: string }
+    | undefined;
+  if (!lastText?.text) return { error: "no_text_block_in_response" };
+
+  const parsed = extractJson(lastText.text);
+  if (!parsed) return { error: "unparseable_json" };
+  if (parsed.found !== true) return { error: `model_reported_not_found: ${String(parsed.reason ?? "")}`.slice(0, 200) };
+
+  const url = String(parsed.url ?? "").trim();
+  if (!/^https?:\/\//i.test(url)) return { error: "invalid_url_shape" };
+
+  return {
+    candidate: {
+      url,
+      official_body_name: String(parsed.official_body_name ?? "").slice(0, 200),
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+    },
+  };
+}
+
+// Independent verification: this function does its own live check, it does
+// not trust the LLM's claim that a URL is live. Returns the final resolved
+// URL (after redirects) on success.
+async function verifyLive(url: string): Promise<{ ok: boolean; resolvedUrl?: string; error?: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; HarbourviewSourceDiscovery/1.0)" },
+    });
+    clearTimeout(timeout);
+    if (res.status >= 200 && res.status < 400) {
+      return { ok: true, resolvedUrl: res.url || url };
+    }
+    return { ok: false, error: `http_${res.status}` };
+  } catch (e) {
+    clearTimeout(timeout);
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
+
+  const body = await req.json().catch(() => ({}));
+  const batchSize = Math.min(Math.max(Number(body.batchSize ?? 6), 1), 15);
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  const { data: jobRow, error: jobInsertErr } = await supabase
+    .from("source_discovery_jobs")
+    .insert({ status: "running" })
+    .select("id")
+    .single();
+  if (jobInsertErr) return json({ ok: false, error: "job_log_insert_failed", detail: jobInsertErr.message }, 500);
+  const jobId = jobRow.id;
+
+  const errors: string[] = [];
+  let candidatesFound = 0;
+  let candidatesVerified = 0;
+  let sourcesInserted = 0;
+
+  if (!ANTHROPIC_API_KEY) {
+    await supabase
+      .from("source_discovery_jobs")
+      .update({
+        finished_at: new Date().toISOString(),
+        status: "no_provider",
+        provider_used: "none",
+        errors: JSON.stringify(["no_anthropic_api_key_configured_or_billing_blocked"]),
+      })
+      .eq("id", jobId);
+    return json({
+      ok: true,
+      status: "no_provider",
+      message: "ANTHROPIC_API_KEY not set or unusable -- inserted nothing (fail-closed by design). Fix: fund/restore the anthropic_api_key vault secret, or add a fallback grounded search provider.",
+    });
+  }
+
+  // 1. Load queue countries (excluding non-viable) and existing coverage.
+  const { data: queueRows, error: qErr } = await supabase
+    .from("source_expansion_coverage_queue")
+    .select("country, iso")
+    .order("country", { ascending: true });
+  if (qErr) {
+    await supabase.from("source_discovery_jobs").update({ finished_at: new Date().toISOString(), status: "error", errors: JSON.stringify([qErr.message]) }).eq("id", jobId);
+    return json({ ok: false, error: "queue_query_failed", detail: qErr.message }, 500);
+  }
+
+  const { data: existingRows, error: srErr } = await supabase
+    .from("source_registry")
+    .select("iso, regulator_class")
+    .not("regulator_class", "is", null)
+    .neq("regulator_class", "other");
+  if (srErr) {
+    await supabase.from("source_discovery_jobs").update({ finished_at: new Date().toISOString(), status: "error", errors: JSON.stringify([srErr.message]) }).eq("id", jobId);
+    return json({ ok: false, error: "registry_query_failed", detail: srErr.message }, 500);
+  }
+
+  const existing = new Set((existingRows ?? []).map((r) => `${r.iso}|${r.regulator_class}`));
+
+  // 2. Compute the next batch of missing (country, iso, class) pairs.
+  const pairs: { country: string; iso: string; cls: string }[] = [];
+  for (const row of queueRows ?? []) {
+    if (!row.iso || NON_VIABLE_ISO.has(row.iso)) continue;
+    for (const cls of CLASSES) {
+      if (!existing.has(`${row.iso}|${cls}`)) {
+        pairs.push({ country: row.country, iso: row.iso, cls });
+        if (pairs.length >= batchSize) break;
+      }
+    }
+    if (pairs.length >= batchSize) break;
+  }
+
+  // 3. Work the batch.
+  for (const p of pairs) {
+    const { candidate, error } = await findCandidate(p.country, p.cls);
+    if (error) {
+      errors.push(`${p.country}/${p.cls}: ${error}`);
+      continue;
+    }
+    if (!candidate) continue;
+    candidatesFound++;
+
+    const live = await verifyLive(candidate.url);
+    if (!live.ok) {
+      errors.push(`${p.country}/${p.cls}: candidate ${candidate.url} failed live check (${live.error})`);
+      continue;
+    }
+    candidatesVerified++;
+    const finalUrl = live.resolvedUrl ?? candidate.url;
+
+    const { error: insErr } = await supabase.from("source_registry").insert({
+      source_name: `${p.country} ${candidate.official_body_name || p.cls}`.slice(0, 200),
+      source_url: finalUrl,
+      adapter: "html_snapshot",
+      crawl_cadence: "weekly",
+      tier: 2,
+      content_type: ["regulatory"],
+      country: p.country,
+      iso: p.iso,
+      regulator_class: p.cls,
+      relevance_status: "active",
+      notes: `Auto-discovered by source-discovery-engine, verified live (${new Date().toISOString().slice(0, 10)}), model confidence ${candidate.confidence}.`,
+    });
+    if (insErr) {
+      // Likely a source_url unique-constraint conflict -- not a failure worth
+      // surfacing loudly, just means it already existed.
+      errors.push(`${p.country}/${p.cls}: insert skipped/failed (${insErr.message.slice(0, 150)})`);
+      continue;
+    }
+    sourcesInserted++;
+
+    await supabase
+      .from("source_expansion_coverage_queue")
+      .update({
+        notes: `2026-08-11+: ${p.cls} auto-discovered and verified live by source-discovery-engine.`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("iso", p.iso);
+  }
+
+  await supabase
+    .from("source_discovery_jobs")
+    .update({
+      finished_at: new Date().toISOString(),
+      status: "completed",
+      provider_used: "anthropic",
+      pairs_attempted: pairs.length,
+      candidates_found: candidatesFound,
+      candidates_verified_live: candidatesVerified,
+      sources_inserted: sourcesInserted,
+      errors: JSON.stringify(errors),
+      detail: { pairs_requested: pairs.map((p) => `${p.iso}:${p.cls}`) },
+    })
+    .eq("id", jobId);
+
+  return json({
+    ok: true,
+    jobId,
+    pairsAttempted: pairs.length,
+    candidatesFound,
+    candidatesVerified,
+    sourcesInserted,
+    errorCount: errors.length,
+    errors: errors.slice(0, 10),
+  });
+});
