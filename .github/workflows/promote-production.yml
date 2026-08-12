@@ -1,37 +1,111 @@
 name: Promote Production
 
-# Manual, gated production deploy via the Vercel CLI.
-# This project does not auto-deploy main pushes to production; production is
-# shipped via an explicit promote/redeploy. This workflow runs the same gate
-# suite as the controlled preview, then deploys the built output to production.
+# Fully automated, fail-closed production promotion for current main.
+# Every push to main waits for the repository's protected required checks on the
+# exact commit, reruns the release-specific verification suite, confirms that the
+# commit is still current main, deploys that exact SHA to Vercel production, then
+# verifies deployment identity, production runtime/leakage, and migration drift.
+# workflow_dispatch remains available as an emergency/operator fallback.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       ref_name:
-        description: Branch, tag, or SHA to deploy to production. Defaults to main.
+        description: Branch, tag, or SHA to deploy. Defaults to main.
         required: false
         default: main
         type: string
 
+concurrency:
+  group: harbourview-production-promotion
+  cancel-in-progress: true
+
 permissions:
   contents: read
+  checks: read
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+  HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
+  HARBOURVIEW_PRODUCTION_VERIFY_OUT: artifacts/production-runtime-verification
 
 jobs:
   promote-production:
-    name: Verify and deploy to Vercel production
+    name: Verify, deploy, and verify production
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout selected ref
+      - name: Checkout selected release ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref_name || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref_name || github.sha }}
+
+      - name: Resolve exact release SHA
+        id: release
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Release SHA: $SHA"
+
+      - name: Wait for protected required checks on exact SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          required=(
+            "Type Check"
+            "Next.js Build"
+            "Security / Leakage"
+            "Critical Env Secrets"
+            "Compare repository and live migration ledgers"
+          )
+
+          for attempt in $(seq 1 90); do
+            checks=$(curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA/check-runs?per_page=100")
+
+            waiting=0
+            echo "Required-check poll $attempt for $TARGET_SHA"
+            for name in "${required[@]}"; do
+              row=$(jq -c --arg name "$name" '[.check_runs[] | select(.name == $name)] | sort_by(.started_at // .created_at) | last // empty' <<<"$checks")
+              if [ -z "$row" ]; then
+                echo "  WAIT  $name — not created yet"
+                waiting=1
+                continue
+              fi
+
+              status=$(jq -r '.status' <<<"$row")
+              conclusion=$(jq -r '.conclusion // ""' <<<"$row")
+              if [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
+                echo "  PASS  $name"
+              elif [ "$status" = "completed" ]; then
+                echo "::error::$name completed with conclusion '$conclusion' for $TARGET_SHA"
+                exit 1
+              else
+                echo "  WAIT  $name — $status"
+                waiting=1
+              fi
+            done
+
+            if [ "$waiting" -eq 0 ]; then
+              echo "All protected required checks passed for $TARGET_SHA."
+              exit 0
+            fi
+            sleep 20
+          done
+
+          echo "::error::Timed out waiting for protected required checks on $TARGET_SHA"
+          exit 1
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -51,6 +125,9 @@ jobs:
       - name: Public visibility and leakage checks
         run: npm run test:visibility
 
+      - name: Security and leakage regression suite
+        run: npm run test:security
+
       - name: Regulatory signals public leakage
         run: npm run test:regulatory-signals-public-leakage
 
@@ -60,43 +137,180 @@ jobs:
       - name: Public image asset verification
         run: npm run test:public-images
 
-      - name: Trigger Vercel production deployment (git source)
+      - name: Confirm release is still current main
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Manual fallback dispatch: exact selected ref remains authorized for promotion."
+            exit 0
+          fi
+
+          MAIN_SHA=$(curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/git/ref/heads/main" | jq -r '.object.sha')
+
+          if [ "$MAIN_SHA" != "$TARGET_SHA" ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "Release $TARGET_SHA was superseded by current main $MAIN_SHA; skipping stale production deployment."
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Exact release SHA is still current main."
+          fi
+
+      - name: Trigger exact-SHA Vercel production deployment
+        if: steps.freshness.outputs.deploy == 'true'
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
           PROJECT_ID: prj_Zp8HBDstqAAOCN6W7LAElahsq3qS
+          TARGET_SHA: ${{ steps.release.outputs.sha }}
         run: |
           set -euo pipefail
-          REF="${{ inputs.ref_name || 'main' }}"
-          echo "Triggering production deployment of '$REF' (repoId 1214598473)…"
+          echo "Triggering production deployment of exact SHA $TARGET_SHA (repoId 1214598473)…"
+          payload=$(jq -nc \
+            --arg project "$PROJECT_ID" \
+            --arg ref "$TARGET_SHA" \
+            '{name:"harbourview",project:$project,target:"production",gitSource:{type:"github",repoId:1214598473,ref:$ref}}')
           resp=$(curl -sS -w "\nHTTP_STATUS:%{http_code}" -X POST \
             "https://api.vercel.com/v13/deployments?teamId=${TEAM_ID}&forceNew=1" \
             -H "Authorization: Bearer ${VERCEL_TOKEN}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"name\": \"harbourview\",
-              \"project\": \"${PROJECT_ID}\",
-              \"target\": \"production\",
-              \"gitSource\": { \"type\": \"github\", \"repoId\": 1214598473, \"ref\": \"${REF}\" }
-            }")
+            -d "$payload")
           status=$(echo "$resp" | sed -n 's/^HTTP_STATUS://p')
           body=$(echo "$resp" | sed '/^HTTP_STATUS:/d')
-          echo "HTTP $status"
-          echo "$body" | head -c 1200; echo
           if [ "$status" != "200" ] && [ "$status" != "201" ]; then
             echo "::error::Vercel deploy HTTP $status :: $(echo "$body" | tr '\n' ' ' | head -c 900)"
             exit 1
           fi
-          url=$(echo "$body" | python3 -c "import sys,json;print(json.load(sys.stdin).get('url',''))" 2>/dev/null || true)
-          id=$(echo "$body" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))" 2>/dev/null || true)
+          id=$(jq -r '.id // empty' <<<"$body")
+          url=$(jq -r '.url // empty' <<<"$body")
+          if [ -z "$id" ] || [ -z "$url" ]; then
+            echo "::error::Vercel deployment response omitted id or url"
+            exit 1
+          fi
           echo "deployment_id=$id" >> "$GITHUB_OUTPUT"
           echo "deployment_url=$url" >> "$GITHUB_OUTPUT"
           echo "Production deployment created: id=$id url=$url"
 
-      - name: Deployment summary
+      - name: Wait for READY and prove SHA plus production alias
+        if: steps.freshness.outputs.deploy == 'true'
+        id: ready
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TEAM_ID: team_0rK4jTvMLlSufR0ZzX4LCKYi
+          TARGET_SHA: ${{ steps.release.outputs.sha }}
+          DEPLOYMENT_ID: ${{ steps.deploy.outputs.deployment_id }}
         run: |
-          echo "## Vercel production deploy" >> "$GITHUB_STEP_SUMMARY"
-          echo "Ref: ${{ inputs.ref_name || 'main' }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Deployment id: ${{ steps.deploy.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Deployment url: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          mkdir -p artifacts/production-release
+
+          for attempt in $(seq 1 90); do
+            body=$(curl -fsSL \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              "https://api.vercel.com/v13/deployments/${DEPLOYMENT_ID}?teamId=${TEAM_ID}")
+            printf '%s\n' "$body" > artifacts/production-release/vercel-deployment.json
+
+            state=$(jq -r '.readyState // .state // "UNKNOWN"' <<<"$body")
+            deployed_sha=$(jq -r '.meta.githubCommitSha // empty' <<<"$body")
+            alias_ok=$(jq -r '[.alias[]?] | index("harbourview.vercel.app") != null' <<<"$body")
+            echo "Vercel poll $attempt: state=$state sha=${deployed_sha:-unknown} production_alias=$alias_ok"
+
+            case "$state" in
+              ERROR|CANCELED)
+                echo "::error::Vercel deployment entered terminal state $state"
+                exit 1
+                ;;
+              READY)
+                if [ "$deployed_sha" != "$TARGET_SHA" ]; then
+                  echo "::error::READY deployment SHA '$deployed_sha' does not equal release SHA '$TARGET_SHA'"
+                  exit 1
+                fi
+                if [ "$alias_ok" != "true" ]; then
+                  echo "Production alias is not attached yet; waiting."
+                else
+                  echo "ready=true" >> "$GITHUB_OUTPUT"
+                  echo "Vercel READY with exact SHA and harbourview.vercel.app assigned."
+                  exit 0
+                fi
+                ;;
+            esac
+            sleep 10
+          done
+
+          echo "::error::Timed out waiting for Vercel READY + exact SHA + production alias"
+          exit 1
+
+      - name: Production runtime and leakage verification
+        if: steps.freshness.outputs.deploy == 'true'
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: node scripts/production-runtime-verification.mjs
+
+      - name: Install Supabase CLI for read-only post-deploy drift verification
+        if: steps.freshness.outputs.deploy == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Read live migration ledger after deployment
+        if: steps.freshness.outputs.deploy == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/production-release/migration-drift
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked > artifacts/production-release/migration-drift/remote-migrations.txt
+
+      - name: Enforce read-only post-deploy migration drift
+        if: steps.freshness.outputs.deploy == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/filter-attested-historical-migrations.mjs \
+            --remote-list artifacts/production-release/migration-drift/remote-migrations.txt \
+            --attestations supabase/release-controls/historical-remote-migration-attestations.json \
+            --filtered-out artifacts/production-release/migration-drift/remote-migrations-for-drift.txt \
+            --audit-out artifacts/production-release/migration-drift/historical-attestations-audit.json
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/production-release/migration-drift/remote-migrations-for-drift.txt \
+            --local-dir supabase/migrations \
+            --control-file supabase/release-controls/elite-digest-production-activation.json \
+            --json-out artifacts/production-release/migration-drift/manifest.json \
+            --markdown-out artifacts/production-release/migration-drift/manifest.md \
+            --mode drift \
+            --source-sha "${{ steps.release.outputs.sha }}"
+
+      - name: Upload production release evidence
+        if: always() && steps.freshness.outputs.deploy == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release-${{ steps.release.outputs.sha }}
+          path: |
+            artifacts/production-release/
+            artifacts/production-runtime-verification/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Release summary
+        if: always()
+        run: |
+          echo "## Harbourview production promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release SHA: ${{ steps.release.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Automatic push release: ${{ github.event_name == 'push' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Still-current-main gate: ${{ steps.freshness.outputs.deploy || 'not reached' }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.freshness.outputs.deploy }}" = "true" ]; then
+            echo "Deployment id: ${{ steps.deploy.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Deployment url: ${{ steps.deploy.outputs.deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Production alias: https://harbourview.vercel.app" >> "$GITHUB_STEP_SUMMARY"
+            echo "Database writes/migrations: none; post-deploy migration verification is read-only." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Deployment skipped because this SHA was superseded before promotion." >> "$GITHUB_STEP_SUMMARY"
+          fi
