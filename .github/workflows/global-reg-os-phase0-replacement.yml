@@ -14,36 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  materialize-manifest:
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'agent/global-reg-os-phase0-replacement'
-    permissions:
-      contents: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: agent/global-reg-os-phase0-replacement
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Regenerate canonical manifest
-        run: python scripts/global-reg-os/regenerate_manifest.py
-      - name: Commit deterministic manifest only when changed
-        run: |
-          if git diff --quiet -- docs/control/global-regulatory-os/canonical/MANIFEST.json; then
-            echo 'Manifest already deterministic.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/control/global-regulatory-os/canonical/MANIFEST.json
-          git commit -m 'chore(global-reg-os): regenerate canonical manifest'
-          git push origin HEAD:agent/global-reg-os-phase0-replacement
-
   contracts-and-control:
     runs-on: ubuntu-latest
     steps:
