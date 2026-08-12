@@ -211,10 +211,10 @@ function RoomThread({ roomId, onBack }: { roomId: string; onBack: () => void }) 
   )
 }
 
-export function DealRoomsPanel() {
+export function DealRoomsPanel({ initialRoomId = null }: { initialRoomId?: string | null } = {}) {
   const [rooms, setRooms] = useState<Room[] | null>(null)
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null)
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null)
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(initialRoomId)
 
   useEffect(() => {
     let cancelled = false

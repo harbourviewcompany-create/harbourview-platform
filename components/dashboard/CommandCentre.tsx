@@ -18,6 +18,13 @@ import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
+import type { UserTier } from '@/lib/stripe/tier'
+import { TIER_DISPLAY } from '@/lib/stripe/tierDisplay'
+import UpgradeButton from '@/components/stripe/UpgradeButton'
+import ManageBillingButton from '@/components/stripe/ManageBillingButton'
+import SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'
+import { CultivarPassportModal } from '@/components/dashboard/CultivarPassportModal'
+import { MyBriefingsPanel } from '@/components/dashboard/MyBriefingsPanel'
 import { WantedDetailModal } from './WantedDetailModal'
 import { GeneticsRequestModal } from './GeneticsRequestModal'
 import { GeneticsProgramModal } from './GeneticsProgramModal'
@@ -124,6 +131,11 @@ type Props = {
   regionLabel?:     string | null
   initialRoleId?:   string | null
   initialPage?:     CommandPage | null
+  // Subscription tier — fetched server-side (lib/stripe/tier.ts, reads
+  // user_profiles.tier) and passed down because getUserTier() is server-only
+  // and this component tree is 'use client'. Defaults to 'free' if omitted
+  // so existing callers that haven't been updated yet don't break.
+  userTier?:        UserTier
   wantedCount?:     number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
   pipeline?:        PipelineCounts
@@ -207,9 +219,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Industry',
     items: [
-      { id: 'events',  label: 'Events',           icon: '◷' },
-      { id: 'jobs',    label: 'Jobs Board',       icon: '◉' },
-      { id: 'talent',  label: 'Talent',           icon: '◇' },
+      { id: 'events',  label: 'Events',          icon: '◷' },
+      { id: 'jobs',    label: 'Jobs Board',      icon: '◉' },
       { id: 'experts', label: 'Expert Directory', icon: '⊚' },
     ],
   },
@@ -388,6 +399,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   onPageChange?:    (page: CommandPage) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
+  const [showMyBriefings, setShowMyBriefings] = useState(false)
   const [aiBriefing, setAiBriefing] = useState<string | null>(null)
   const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const [aiBriefingError, setAiBriefingError] = useState(false)
@@ -438,6 +450,18 @@ const BriefingRoom = React.memo(function BriefingRoom({
 
   return (
     <div className="cc-page cc-briefing">
+      {showMyBriefings ? (
+        <div className="cc-mybrief-wrap">
+          <button type="button" className="cc-signals-search-toggle" style={{ marginBottom: 16 }} onClick={() => setShowMyBriefings(false)}>
+            ← Back to jurisdiction briefing
+          </button>
+          <MyBriefingsPanel onOpenWatchlist={() => onPageChange?.('watchlist')} />
+        </div>
+      ) : (
+      <>
+      <button type="button" className="cc-signals-search-toggle" style={{ position: 'absolute', top: 16, right: 20, zIndex: 5 }} onClick={() => setShowMyBriefings(true)}>
+        ◈ My briefings
+      </button>
 
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
@@ -692,6 +716,8 @@ const BriefingRoom = React.memo(function BriefingRoom({
           </div>
         )}
       </aside>
+      </>
+      )}
     </div>
   )
 })
@@ -758,6 +784,7 @@ const SignalsPage = React.memo(function SignalsPage({
   const [filterType,    setFilterType]    = useState('all')
   const [currentPage,   setCurrentPage]   = useState(1)
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
   const PAGE_SIZE = 6
 
   // ── Live signal fetch ──────────────────────────────────────────────────────
@@ -947,8 +974,20 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
+          <button
+            type="button"
+            className="cc-signals-search-toggle"
+            aria-pressed={showSearch}
+            onClick={() => setShowSearch(v => !v)}
+          >
+            {showSearch ? '← Back to feed' : '◈ Semantic search'}
+          </button>
         </div>
 
+        {showSearch ? (
+          <SignalSemanticSearch />
+        ) : (
+        <>
         <div className="cc-filter-bar">
           <CustomSelect value={filterType} className="cc-filter-sel" onChange={setFilterType} options={[
             { value: 'all',                    label: 'All Types' },
@@ -1053,6 +1092,8 @@ const SignalsPage = React.memo(function SignalsPage({
             <button className="cc-page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage===totalPages}>›</button>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Right panel ─────────────────────────────────────── */}
@@ -1172,6 +1213,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
   const [regionFilter, setRegionFilter] = useState('all')
   const [sortBy, setSortBy] = useState<'featured' | 'rating'>('featured')
   const [subView, setSubView] = useState<MarketSubView>('browse')
+  const [dealsInitialRoomId, setDealsInitialRoomId] = useState<string | undefined>(undefined)
+  const [dealsOpenNonce, setDealsOpenNonce] = useState(0)
 
   const changeTab = (id: MarketView) => {
     setActiveTab(id)
@@ -1304,7 +1347,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <QuoteRequestForm />
           </div>
         ) : subView === 'deals' ? (
-          <DealRoomsPanel />
+          <DealRoomsPanel key={`${dealsInitialRoomId ?? 'list'}-${dealsOpenNonce}`} initialRoomId={dealsInitialRoomId} />
         ) : subView === 'my-listings' ? (
           <div className="cc-mkt-subview">
             <MyListingsClient submissions={mySubmissions} userEmail={userEmail ?? ''} />
@@ -1454,7 +1497,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <button className="cc-right-link" onClick={() => setSubView('browse')}>View pipeline →</button>
           </div>
         )}
-        <DealRoomsSidebarWidget />
+        <DealRoomsSidebarWidget onOpenRoom={(roomId) => { setDealsInitialRoomId(roomId); setDealsOpenNonce(n => n + 1); setSubView('deals') }} />
         <div className="cc-right-section">
           <div className="cc-right-head">ROUTED INQUIRY</div>
           <p className="cc-right-prose">Submit a quote or sourcing inquiry for Harbourview to review and route to verified suppliers or export partners.</p>
@@ -1554,6 +1597,12 @@ const MarketplacePage = React.memo(function MarketplacePage({
         onClose={() => setSelectedListingId(null)}
         onRequestAccess={() => onPageChange?.('access-pathway')}
         onWatch={() => onPageChange?.('watchlist')}
+        onOpenDealRoom={(roomId) => {
+          setSelectedListingId(null)
+          setDealsInitialRoomId(roomId)
+          setDealsOpenNonce(n => n + 1)
+          setSubView('deals')
+        }}
       />
       <WantedDetailModal
         listing={selectedWanted}
@@ -2608,7 +2657,7 @@ const OrganizationDashboard = React.memo(function OrganizationDashboard({
 
 
 const SettingsPage = React.memo(function SettingsPage({
-  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange, onPageChange,
+  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange, onPageChange, userTier = 'free',
 }: {
   country:          { iso2: string; label: string }
   region:           string
@@ -2618,6 +2667,7 @@ const SettingsPage = React.memo(function SettingsPage({
   onCountryChange?: (iso2: string) => void
   onRoleChange?:    (role: string) => void
   onPageChange?:    (page: CommandPage) => void
+  userTier?:        UserTier
 }) {
   const [watchlistAlerts, setWatchlistAlerts] = useState(true)
   const [signalsAlerts,   setSignalsAlerts]   = useState(true)
@@ -2777,6 +2827,38 @@ const SettingsPage = React.memo(function SettingsPage({
                 <small>Show 3 of 5 levels</small>
               </div>
               <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Subscription & Billing */}
+          <div className="cc-settings-row cc-settings-row--subscription">
+            <div className="cc-settings-row-icon">◈</div>
+            <div className="cc-settings-row-body">
+              <strong>Subscription &amp; Billing</strong>
+              <p>Your current plan, feature access, and billing management.</p>
+            </div>
+            <div className="cc-settings-row-right cc-settings-subscription">
+              <div className="cc-sub-plan-badge">
+                <span className={`cc-status-badge cc-status-badge--${userTier}`}>
+                  {userTier === 'free' ? 'Free' : TIER_DISPLAY[userTier].name}
+                </span>
+                {userTier !== 'free' && <ManageBillingButton />}
+              </div>
+              {userTier !== 'operator' && (
+                <div className="cc-sub-upgrade-row">
+                  {(userTier === 'free' ? ['intel', 'operator'] as const : ['operator'] as const).map(tierKey => (
+                    <div key={tierKey} className="cc-sub-upgrade-card">
+                      <strong>{TIER_DISPLAY[tierKey].name}</strong>
+                      <span className="cc-sub-upgrade-price">{TIER_DISPLAY[tierKey].monthly.label}</span>
+                      <UpgradeButton
+                        priceKey={TIER_DISPLAY[tierKey].monthly.key}
+                        label={`Upgrade to ${TIER_DISPLAY[tierKey].name}`}
+                        className="cc-sub-upgrade-btn"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -5536,6 +5618,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
   const [selectedPassport, setSelectedPassport] = useState<PublicCultivarPassportDTO | null>(null)
   const [requestModal, setRequestModal] = useState<{ open: boolean; profileName?: string }>({ open: false })
   const [programModal, setProgramModal] = useState(false)
+  const [passportModal, setPassportModal] = useState(false)
 
   const isGlobal = country.iso2 === 'GLOBAL'
   const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
@@ -5808,6 +5891,11 @@ const GeneticsPage = React.memo(function GeneticsPage({
           <div className="cc-right-head">GENETICS PROGRAMS</div>
           <p className="cc-right-prose">Breeders, seed companies, and tissue-culture laboratories can submit programs for controlled Harbourview visibility.</p>
           <button className="cc-right-link" onClick={() => setProgramModal(true)}>Submit a program →</button>
+        </div>
+        <div className="cc-right-section">
+          <div className="cc-right-head">REGISTER A CULTIVAR</div>
+          <p className="cc-right-prose">Create a Cultivar Passport under your ownership. Starts private; public display requires admin claim review.</p>
+          <button className="cc-right-link" onClick={() => setPassportModal(true)}>Register cultivar →</button>
         </div>
 
         <div className="cc-right-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -10857,6 +10945,7 @@ export default function CommandCentre({
   initialCountryIso2,
   initialRoleId,
   initialPage,
+  userTier = 'free',
   wantedCount = 0,
   marketplaceRows,
   pipeline,
@@ -11081,7 +11170,7 @@ export default function CommandCentre({
         }
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
-        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />
+        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} userTier={userTier} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'clinical':
@@ -11105,7 +11194,6 @@ export default function CommandCentre({
       case 'logistics':
         return <LogisticsDirectoryPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'jobs':
-      case 'talent':
         return <JobsBoardPage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />
       case 'notifications':
         return <NotificationCentrePage country={country} region={region} role={roleLabel} onPageChange={handlePageChange} />

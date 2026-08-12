@@ -16,7 +16,7 @@ export default function WatchlistsPage() {
       description="Harbourview watchlists let operators monitor commercially relevant themes without turning the public site into a live dossier or open evidence repository. Interactive rule management lives in the authenticated Command Centre."
       boundary="Public pages describe monitoring themes and request paths only. They do not publish private watch records, raw evidence, internal review status, or counterparty dossiers."
       primaryAction={{ label: 'Open Command Centre Watchlist', href: '/dashboard?page=intel' }}
-      secondaryAction={{ label: 'My Briefings', href: '/dashboard/my-briefings', variant: 'secondary' }}
+      secondaryAction={{ label: 'My Briefings', href: '/dashboard?page=briefing', variant: 'secondary' }}
       sections={[
         {
           eyebrow: 'Authenticated rule builder',

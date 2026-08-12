@@ -1,24 +1,12 @@
-// app/dashboard/signals/search/page.tsx
-// Standalone signal-search page. New, additive route -- does not modify any
-// existing page or navigation. Add a link to it from wherever the dashboard
-// nav is safest to extend, separately, once this is verified working.
+import { redirect } from 'next/navigation'
 
-import SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'
-
-export const metadata = {
-  title: 'Search Signals — HarbourView',
-}
-
+/**
+ * Superseded 2026-08-03: this route was a self-described orphan — its own
+ * top comment noted "does not modify any existing page or navigation" and
+ * no link to it was ever added anywhere. SignalSemanticSearch now renders
+ * natively inside Command Centre's Signals section (desktop: toggle button
+ * in SignalsPage; mobile: 'search' SignalSub tab — already wired there).
+ */
 export default function SignalSearchPage() {
-  return (
-    <main style={{ minHeight: '100vh', background: '#0a0a0a' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 16px 8px' }}>
-        <h1 style={{ color: '#f0f0f0', fontSize: 22, margin: 0 }}>Search Signals</h1>
-        <p style={{ color: '#888', fontSize: 14, marginTop: 6 }}>
-          Semantic search over reviewed regulatory signals. Available on Intel and Operator plans.
-        </p>
-      </div>
-      <SignalSemanticSearch />
-    </main>
-  )
+  redirect('/dashboard?page=signals')
 }
