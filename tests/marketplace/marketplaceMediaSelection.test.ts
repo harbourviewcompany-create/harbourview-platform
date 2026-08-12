@@ -152,3 +152,5 @@ describe('marketplace media selection', () => {
     expect(isPublicRenderableMarketplaceImage({ ...base, public_url: null })).toBe(false)
   })
 })
+
+// Post-production semantic media remediation verification trigger.
