@@ -1,18 +1,15 @@
-import type { NextAction } from '@/components/dashboard/mobile-command/contracts'
+import type { NextAction, SectionId } from '@/components/dashboard/mobile-command/contracts'
 import { matchIntelCommercialFollowUps, type BridgeListing, type BridgeSignal } from '@/lib/dashboard/intelCommercialBridge'
 
 /**
  * Turn jurisdiction-matched signal × listing pairs into operator queue items.
  * Role bias prefers commercially relevant listing views (e.g. importer → cannabis/wanted).
- *
- * `commandHref` accepts a plain string section so callers can pass SectionId-typed
- * helpers without contravariance errors (SectionId is a string union).
  */
 export function buildCommercialNextActions(
   signals: BridgeSignal[],
   listings: BridgeListing[],
   countryLabel: string,
-  commandHref: (section: string, changes?: Record<string, string | null>) => string,
+  commandHref: (section: SectionId, changes?: Record<string, string | null>) => string,
   options: { limit?: number; roleId?: string | null } = {},
 ): NextAction[] {
   const followUps = matchIntelCommercialFollowUps(signals, listings, countryLabel, {
