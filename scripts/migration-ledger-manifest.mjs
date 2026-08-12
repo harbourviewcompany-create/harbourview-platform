@@ -8,6 +8,10 @@ import { fileURLToPath } from 'node:url'
 
 const VERSION_RE = /^\d{14}$/
 const GIT_BLOB_SHA_RE = /^[0-9a-f]{40}$/
+const DEFAULT_EQUIVALENCE_FILE = path.join(
+  process.cwd(),
+  'supabase/release-controls/migration-live-version-equivalences.json',
+)
 
 function normalizeCell(value) {
   return value.trim().replace(/^`+|`+$/g, '').trim()
@@ -140,17 +144,150 @@ export function loadReleaseControl(controlPath) {
   return control
 }
 
-export function buildManifest({ repository, remote, control, sourceSha = null }) {
+export function loadLiveVersionEquivalences(equivalencePath, { allowMissing = false } = {}) {
+  if (!fs.existsSync(equivalencePath)) {
+    if (allowMissing) return { version: 1, equivalences: [] }
+    throw new Error(`Migration live-version equivalence file not found: ${equivalencePath}`)
+  }
+
+  const control = JSON.parse(fs.readFileSync(equivalencePath, 'utf8'))
+  const entries = control.equivalences
+
+  if (control.version !== 1) {
+    throw new Error('Migration live-version equivalence manifest version must be 1')
+  }
+  if (!Array.isArray(entries)) {
+    throw new Error('Migration live-version equivalence manifest must define an equivalences array')
+  }
+
+  const liveVersions = new Set()
+  const repositoryVersions = new Set()
+  for (const entry of entries) {
+    if (!VERSION_RE.test(entry.live_version ?? '')) {
+      throw new Error(`Invalid live migration version in equivalence manifest: ${entry.live_version}`)
+    }
+    if (!VERSION_RE.test(entry.repository_version ?? '')) {
+      throw new Error(
+        `Invalid repository migration version in equivalence manifest: ${entry.repository_version}`,
+      )
+    }
+    if (entry.live_version === entry.repository_version) {
+      throw new Error(
+        `Live/repository migration equivalence must map different versions: ${entry.live_version}`,
+      )
+    }
+    if (
+      typeof entry.file !== 'string' ||
+      !entry.file.startsWith(`${entry.repository_version}_`) ||
+      !entry.file.endsWith('.sql')
+    ) {
+      throw new Error(
+        `Equivalence filename does not match repository version ${entry.repository_version}: ${entry.file}`,
+      )
+    }
+    if (typeof entry.git_blob_sha !== 'string' || !GIT_BLOB_SHA_RE.test(entry.git_blob_sha)) {
+      throw new Error(`Equivalence git_blob_sha is required and invalid for ${entry.file}`)
+    }
+    if (liveVersions.has(entry.live_version)) {
+      throw new Error(`Duplicate live migration equivalence: ${entry.live_version}`)
+    }
+    if (repositoryVersions.has(entry.repository_version)) {
+      throw new Error(`Duplicate repository migration equivalence: ${entry.repository_version}`)
+    }
+    liveVersions.add(entry.live_version)
+    repositoryVersions.add(entry.repository_version)
+  }
+
+  return control
+}
+
+function evaluateLiveVersionEquivalences({ repository, remoteSet, equivalences }) {
+  const recognizedLiveVersions = new Set()
+  const recognizedRepositoryVersions = new Set()
+  const historicalAliases = []
+  const equivalenceMismatches = []
+
+  for (const entry of equivalences.equivalences ?? []) {
+    if (!remoteSet.has(entry.live_version)) continue
+
+    const files = repository.filesByVersion[entry.repository_version] ?? []
+    const actualBlobSha = repository.gitBlobShaByFile[entry.file] ?? null
+    const directRepositoryVersionAlsoApplied = remoteSet.has(entry.repository_version)
+    const fileExact =
+      files.length === 1 &&
+      files[0] === entry.file &&
+      actualBlobSha === entry.git_blob_sha
+
+    if (!fileExact || directRepositoryVersionAlsoApplied) {
+      equivalenceMismatches.push({
+        live_version: entry.live_version,
+        repository_version: entry.repository_version,
+        expected_file: entry.file,
+        actual_files: files,
+        expected_git_blob_sha: entry.git_blob_sha,
+        actual_git_blob_sha: actualBlobSha,
+        direct_repository_version_also_applied: directRepositoryVersionAlsoApplied,
+      })
+      continue
+    }
+
+    recognizedLiveVersions.add(entry.live_version)
+    recognizedRepositoryVersions.add(entry.repository_version)
+    historicalAliases.push({
+      live_version: entry.live_version,
+      repository_version: entry.repository_version,
+      file: entry.file,
+      git_blob_sha: entry.git_blob_sha,
+      provenance: entry.provenance ?? null,
+    })
+  }
+
+  return {
+    recognizedLiveVersions,
+    recognizedRepositoryVersions,
+    historicalAliases,
+    equivalenceMismatches,
+  }
+}
+
+export function buildManifest({
+  repository,
+  remote,
+  control,
+  equivalences = { version: 1, equivalences: [] },
+  sourceSha = null,
+}) {
   const localSet = new Set(repository.versions)
   const remoteSet = new Set(remote.remoteVersions)
   const approvedVersions = control.approved_migrations.map((migration) => migration.version)
   const approvedSet = new Set(approvedVersions)
 
-  const appliedNotCommitted = [...remoteSet].filter((version) => !localSet.has(version)).sort()
-  const committedNotApplied = [...localSet].filter((version) => !remoteSet.has(version)).sort()
+  const aliasEvaluation = evaluateLiveVersionEquivalences({
+    repository,
+    remoteSet,
+    equivalences,
+  })
+
+  const appliedNotCommitted = [...remoteSet]
+    .filter(
+      (version) =>
+        !localSet.has(version) && !aliasEvaluation.recognizedLiveVersions.has(version),
+    )
+    .sort()
+
+  const committedNotApplied = [...localSet]
+    .filter(
+      (version) =>
+        !remoteSet.has(version) && !aliasEvaluation.recognizedRepositoryVersions.has(version),
+    )
+    .sort()
+
   const approvedPending = committedNotApplied.filter((version) => approvedSet.has(version))
   const unexpectedPending = committedNotApplied.filter((version) => !approvedSet.has(version))
-  const approvedAlreadyApplied = approvedVersions.filter((version) => remoteSet.has(version))
+  const approvedAlreadyApplied = approvedVersions.filter(
+    (version) =>
+      remoteSet.has(version) || aliasEvaluation.recognizedRepositoryVersions.has(version),
+  )
   const approvedFileMismatches = []
 
   for (const migration of control.approved_migrations) {
@@ -182,6 +319,7 @@ export function buildManifest({ repository, remote, control, sourceSha = null })
   const activationGate = {
     ok:
       appliedNotCommitted.length === 0 &&
+      aliasEvaluation.equivalenceMismatches.length === 0 &&
       unexpectedPending.length === 0 &&
       approvedAlreadyApplied.length === 0 &&
       exactApprovedPending &&
@@ -190,6 +328,7 @@ export function buildManifest({ repository, remote, control, sourceSha = null })
       repository.invalidFiles.length === 0,
     requirements: {
       no_remote_only_versions: appliedNotCommitted.length === 0,
+      live_version_equivalences_exact: aliasEvaluation.equivalenceMismatches.length === 0,
       no_unexpected_pending_versions: unexpectedPending.length === 0,
       all_approved_versions_pending: exactApprovedPending,
       no_approved_version_already_applied: approvedAlreadyApplied.length === 0,
@@ -204,6 +343,7 @@ export function buildManifest({ repository, remote, control, sourceSha = null })
     source_sha: sourceSha,
     release: control.release,
     control_file_version: control.version,
+    equivalence_file_version: equivalences.version ?? null,
     parsed_remote_rows: remote.parsedRows,
     counts: {
       repository_versions: repository.versions.length,
@@ -212,6 +352,8 @@ export function buildManifest({ repository, remote, control, sourceSha = null })
       committed_not_applied: committedNotApplied.length,
       approved_pending: approvedPending.length,
       unexpected_pending: unexpectedPending.length,
+      historical_aliases: aliasEvaluation.historicalAliases.length,
+      equivalence_mismatches: aliasEvaluation.equivalenceMismatches.length,
     },
     approved_migrations: control.approved_migrations,
     applied_not_committed: appliedNotCommitted,
@@ -219,6 +361,8 @@ export function buildManifest({ repository, remote, control, sourceSha = null })
     approved_pending: approvedPending,
     approved_already_applied: approvedAlreadyApplied,
     unexpected_pending: unexpectedPending,
+    historical_live_version_aliases: aliasEvaluation.historicalAliases,
+    live_version_equivalence_mismatches: aliasEvaluation.equivalenceMismatches,
     approved_file_mismatches: approvedFileMismatches,
     duplicate_repository_versions: repository.duplicateVersions,
     pending_duplicate_versions: pendingDuplicateVersions,
@@ -238,6 +382,7 @@ export function renderManifestMarkdown(manifest) {
     `- Mode gate: **${(manifest.execution_gate?.ok ?? manifest.activation_gate.ok) ? 'GO' : 'HOLD'}**`,
     `- Repository versions: ${manifest.counts.repository_versions}`,
     `- Remote versions: ${manifest.counts.remote_versions}`,
+    `- Verified historical aliases: ${manifest.counts.historical_aliases ?? 0}`,
     '',
     '## Approved migration sequence',
     '',
@@ -250,6 +395,28 @@ export function renderManifestMarkdown(manifest) {
         ? 'already applied'
         : 'not pending'
     lines.push(`- \`${migration.file}\` — ${state}`)
+  }
+
+  lines.push('', '## Verified historical live-version aliases', '')
+  if (manifest.historical_live_version_aliases.length === 0) {
+    lines.push('- None')
+  } else {
+    for (const alias of manifest.historical_live_version_aliases) {
+      lines.push(
+        `- \`${alias.live_version}\` → \`${alias.repository_version}\` — \`${alias.file}\` @ \`${alias.git_blob_sha}\``,
+      )
+    }
+  }
+
+  lines.push('', '## Live-version equivalence mismatches', '')
+  if (manifest.live_version_equivalence_mismatches.length === 0) {
+    lines.push('- None')
+  } else {
+    for (const mismatch of manifest.live_version_equivalence_mismatches) {
+      lines.push(
+        `- \`${mismatch.live_version}\` → \`${mismatch.repository_version}\` — expected \`${mismatch.expected_file}\` @ \`${mismatch.expected_git_blob_sha}\`, actual SHA \`${mismatch.actual_git_blob_sha ?? 'missing'}\``,
+      )
+    }
   }
 
   const sections = [
@@ -307,15 +474,22 @@ export function runCli(argv = process.argv.slice(2)) {
   const remote = parseSupabaseMigrationList(fs.readFileSync(args['remote-list'], 'utf8'))
   const repository = readRepositoryMigrations(args['local-dir'])
   const control = loadReleaseControl(args['control-file'])
+  const equivalencePath = args['equivalence-file'] ?? DEFAULT_EQUIVALENCE_FILE
+  const equivalences = loadLiveVersionEquivalences(equivalencePath, {
+    allowMissing: !args['equivalence-file'],
+  })
   const manifest = buildManifest({
     repository,
     remote,
     control,
+    equivalences,
     sourceSha: args['source-sha'] ?? process.env.GITHUB_SHA ?? null,
   })
   manifest.mode = args.mode
+  manifest.equivalence_file = fs.existsSync(equivalencePath) ? equivalencePath : null
 
   const remoteDrift = manifest.applied_not_committed.length > 0
+  const equivalenceDrift = manifest.live_version_equivalence_mismatches.length > 0
   const approvedStillPending = manifest.approved_pending.length > 0
   const unexpectedPending = manifest.unexpected_pending.length > 0
   const approvedFilesExact = manifest.approved_file_mismatches.length === 0
@@ -326,10 +500,11 @@ export function runCli(argv = process.argv.slice(2)) {
   manifest.execution_gate = {
     ok:
       args.mode === 'drift'
-        ? !remoteDrift
+        ? !remoteDrift && !equivalenceDrift
         : args.mode === 'activation-preflight'
           ? manifest.activation_gate.ok
           : !remoteDrift &&
+            !equivalenceDrift &&
             !approvedStillPending &&
             !unexpectedPending &&
             approvedFilesExact &&
@@ -341,9 +516,12 @@ export function runCli(argv = process.argv.slice(2)) {
   writeOutput(args['markdown-out'], renderManifestMarkdown(manifest))
 
   if (args.mode === 'drift') {
-    if (remoteDrift) {
+    if (remoteDrift || equivalenceDrift) {
+      const mismatchLiveVersions = manifest.live_version_equivalence_mismatches.map(
+        (entry) => entry.live_version,
+      )
       throw new Error(
-        `Remote migration drift detected: ${manifest.applied_not_committed.join(', ')}`,
+        `Remote migration drift detected: ${manifest.applied_not_committed.join(', ') || 'none'}; equivalence mismatches: ${mismatchLiveVersions.join(', ') || 'none'}`,
       )
     }
     return manifest
@@ -360,7 +538,7 @@ export function runCli(argv = process.argv.slice(2)) {
 
   if (args.mode === 'activation-postflight' && !manifest.execution_gate.ok) {
     throw new Error(
-      `Postflight ledger verification failed. Approved still pending: ${manifest.approved_pending.join(', ') || 'none'}; approved applied: ${manifest.approved_already_applied.join(', ') || 'none'}; unexpected pending: ${manifest.unexpected_pending.join(', ') || 'none'}; remote-only: ${manifest.applied_not_committed.join(', ') || 'none'}; file mismatches: ${manifest.approved_file_mismatches.length}`,
+      `Postflight ledger verification failed. Approved still pending: ${manifest.approved_pending.join(', ') || 'none'}; approved applied: ${manifest.approved_already_applied.join(', ') || 'none'}; unexpected pending: ${manifest.unexpected_pending.join(', ') || 'none'}; remote-only: ${manifest.applied_not_committed.join(', ') || 'none'}; equivalence mismatches: ${manifest.live_version_equivalence_mismatches.length}; file mismatches: ${manifest.approved_file_mismatches.length}`,
     )
   }
 
@@ -372,7 +550,7 @@ if (isDirectExecution) {
   try {
     const manifest = runCli()
     console.log(
-      `Migration manifest complete: ${manifest.counts.remote_versions} remote, ${manifest.counts.committed_not_applied} pending, gate ${manifest.execution_gate.ok ? 'GO' : 'HOLD'}.`,
+      `Migration manifest complete: ${manifest.counts.remote_versions} remote, ${manifest.counts.committed_not_applied} pending, ${manifest.counts.historical_aliases} historical aliases, gate ${manifest.execution_gate.ok ? 'GO' : 'HOLD'}.`,
     )
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))

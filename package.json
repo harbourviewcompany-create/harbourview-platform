@@ -2,7 +2,9 @@
   "name": "harbourview-platform",
   "version": "1.0.0",
   "private": true,
+
   "scripts": {
+    "prebuild": "node scripts/generate-natural-earth-countries.mjs",
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
@@ -14,7 +16,7 @@
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:listing-quality": "vitest run tests/marketplace/publicProjection.test.ts tests/harbourview/unified-listings-dto.test.ts",
-    "test:public-images": "vitest run tests/harbourview/globe-quality.test.ts",
+    "test:public-images": "vitest run tests/harbourview/globe-quality.test.ts tests/dashboard/mobileMarketplaceMedia.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/marketplace/marketplaceImageTrustReconciliation.test.ts tests/marketplace/publicImageQueryContract.test.ts tests/marketplace/marketplaceMediaSelection.test.ts tests/marketplace/representativeMediaAssignments.test.ts",
     "test:visibility": "vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts",
     "test:services-public-leakage": "vitest run tests/network/public-projection-leakage.test.ts",
     "test:compliance-visibility": "vitest run tests/harbourview/public-route-smoke.test.ts",

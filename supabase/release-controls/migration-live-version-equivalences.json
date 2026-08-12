@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "purpose": "Content-bound equivalence between production apply-time migration versions and the exact canonical repository migration artifacts that produced them. Entries are recognized only while the pinned Git blob SHA matches the local file.",
+  "equivalences": [
+    {
+      "live_version": "20260807181844",
+      "repository_version": "20260807000900",
+      "file": "20260807000900_revoke_data_api_execute_on_secret_accessors.sql",
+      "git_blob_sha": "01ff55e434af1b433c95a795ca03576fd1765d49",
+      "provenance": {
+        "type": "merged_pull_request",
+        "pull_request": 1284,
+        "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e"
+      }
+    },
+    {
+      "live_version": "20260807181907",
+      "repository_version": "20260807001000",
+      "file": "20260807001000_revoke_data_api_default_privileges_on_public.sql",
+      "git_blob_sha": "b235b3118b64335ed994c917db81db1117958e73",
+      "provenance": {
+        "type": "merged_pull_request",
+        "pull_request": 1284,
+        "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e"
+      }
+    },
+    {
+      "live_version": "20260807182104",
+      "repository_version": "20260807001100",
+      "file": "20260807001100_fix_promote_staging_null_object_class.sql",
+      "git_blob_sha": "0527ddb7e6c0f87ff7909070524d3af2af011be7",
+      "provenance": {
+        "type": "merged_pull_request",
+        "pull_request": 1284,
+        "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e"
+      }
+    },
+    {
+      "live_version": "20260808202814",
+      "repository_version": "20260808190400",
+      "file": "20260808190400_restore_harbourview_admin_guard.sql",
+      "git_blob_sha": "f2d1a6ede55443160162d01a2cf9be5379e99122",
+      "provenance": {
+        "type": "pull_request_source",
+        "pull_request": 1307,
+        "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d",
+        "production_apply_evidence": "PR #1307 production migration evidence"
+      }
+    },
+    {
+      "live_version": "20260808203859",
+      "repository_version": "20260808190500",
+      "file": "20260808190500_reconcile_marketplace_image_trust_contract.sql",
+      "git_blob_sha": "b20378b5262345e66d2bc85152e9658b887c310e",
+      "provenance": {
+        "type": "pull_request_source",
+        "pull_request": 1307,
+        "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d",
+        "production_apply_evidence": "PR #1307 production migration evidence"
+      }
+    }
+  ]
+}

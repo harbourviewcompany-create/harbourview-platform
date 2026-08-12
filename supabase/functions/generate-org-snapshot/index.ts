@@ -1,17 +1,23 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isOperatorOrServiceRoleAuthorized } from "../_shared/harbourview-auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET")!;
 
-// PostgREST on this project only exposes the `api` schema (not `public`).
-// Without db.schema set, every query below 406'd with PGRST106.
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
 
+function isAuthorized(req: Request): boolean {
+  return isOperatorOrServiceRoleAuthorized({
+    operatorSecret: EDGE_OPERATOR_SECRET,
+    serviceRoleKey: SUPABASE_SERVICE_KEY,
+    callerSecret: req.headers.get("x-operator-secret"),
+    authorization: req.headers.get("Authorization"),
+  });
+}
+
 Deno.serve(async (req) => {
-  const callerSecret = req.headers.get("x-operator-secret") ?? "";
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (callerSecret !== EDGE_OPERATOR_SECRET && !authHeader.includes("service_role")) {
+  if (!isAuthorized(req)) {
     return new Response(JSON.stringify({ error: "UNAUTHORIZED" }), { status: 401 });
   }
 

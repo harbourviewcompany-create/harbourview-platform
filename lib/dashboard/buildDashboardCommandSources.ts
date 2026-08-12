@@ -4,6 +4,14 @@ import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } fro
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { fetchDashboardSignals, fetchDailyDigest, getWantedRequestsCount } from '@/lib/dashboard/dashboardServerData'
 import {
+  getRepresentativeMarketplaceMedia,
+  MARKETPLACE_MEDIA_COPY,
+  marketplaceMediaKey,
+  toRenderableMarketplaceMediaSrc,
+  type DashboardMarketplaceProjection,
+  type MarketplaceProjectionMedia,
+} from '@/lib/dashboard/marketplaceMediaProjection'
+import {
   getCannabisOperators,
   getCountryEducationOverlays,
   getCountryIntelProfile,
@@ -30,20 +38,13 @@ import { getRequiredCommandCentreSourceKeys, type DashboardCommandSourceKey } fr
 import { getPublicCollaborationProjects, getPublicCultivarPassports, getPublicServiceProviders } from '@/lib/genetics/queries'
 import { getOperatorLicenceMatrix } from '@/lib/intelligence/operatorIntelligence'
 import { getCountryPathwayMatrix } from '@/lib/intelligence/regulatoryPathways'
+import {
+  getPublicMarketplaceImagesForItems,
+  pickMarketplaceCardImage,
+} from '@/lib/marketplace/images/public-query'
+import type { PublicMarketplaceImageDTO } from '@/lib/marketplace/images/dto'
 import { getListingsBySections, type PublicListing } from '@/lib/server/listingsQuery'
 
-// Section keys as they actually exist in marketplace_public_listings_v1, plus the
-// aspirational ones this project has not started writing yet.
-//
-// `processing` is deliberately in the equipment view. It is a real section with
-// live rows and was previously unreachable: the map only listed
-// `processing_equipment`, which no row has ever used. Because unmatched sections
-// fell through to the `cannabis` bucket, any processing row that did surface was
-// also filed under flower. Verified against the view on 2026-08-07 — every
-// section present in production is mapped by exactly one view below:
-//   business_opportunities, cannabis_inventory, consumables, equipment, export,
-//   genetics, labs_testing, logistics, packaging, processing,
-//   professional_services, services, wanted_requests
 const VIEW_SECTIONS: Record<MarketView, string[]> = {
   cannabis: ['cannabis_inventory', 'export_ready', 'export', 'import_demand', 'genetics', 'flower', 'extract', 'biomass'],
   equipment: ['cultivation_equipment', 'processing_equipment', 'processing', 'used_surplus', 'equipment'],
@@ -54,8 +55,8 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
   wanted: ['wanted_requests', 'wanted'],
 }
 
-// Each view is capped at this many rows in the Command Centre projection.
 const ROWS_PER_VIEW = 8
+const MARKETPLACE_MEDIA_TIMEOUT_MS = 1_500
 
 function safeText(value: string | null | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback
@@ -69,7 +70,7 @@ function formatTitle(input: string): string {
     .join(' ')
 }
 
-function mapListingToDashboardRow(listing: PublicListing): MarketRow {
+function baseDashboardRow(listing: PublicListing): MarketRow {
   const categoryLabel = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
   const regionLabel = listing.location_region ?? listing.location_country ?? listing.region
   const sellerType = listing.seller_type ?? ''
@@ -95,38 +96,108 @@ function mapListingToDashboardRow(listing: PublicListing): MarketRow {
   ]
 }
 
-// One query per view, not one query for everything.
-//
-// This previously issued a single `limit 56` query across every section and
-// bucketed the result client-side. Because the view sorts by
-// `is_featured desc, created_at desc` with no per-section fairness, whichever
-// sections happen to hold the newest rows consume the entire budget and every
-// other tab renders empty while its rows sit in the database.
-//
-// Measured against production for Canada on 2026-08-07, those 56 rows were:
-// consumables 26, packaging 20, labs_testing 4, equipment 4,
-// cannabis_inventory 1, services 1 — and zero for wanted_requests,
-// business_opportunities, genetics and processing, all of which have rows.
-//
-// Querying per view gives each tab its own budget, so a busy section can no
-// longer starve a quiet one. The requests run in parallel and every one of them
-// is served by the 5-minute cache in getListingsBySections.
-async function getDashboardMarketplaceRows(countryIso2?: string | null): Promise<Partial<DashboardMarketplaceRows>> {
+function firstRenderableMarketplaceMediaSrc(selected: PublicMarketplaceImageDTO): string | null {
+  for (const candidate of [
+    selected.thumbnailUrl,
+    selected.publicUrl,
+    selected.heroUrl,
+    selected.galleryUrl,
+  ]) {
+    const src = toRenderableMarketplaceMediaSrc(candidate)
+    if (src) return src
+  }
+  return null
+}
+
+export function resolveListingMedia(
+  view: MarketView,
+  images: PublicMarketplaceImageDTO[] | undefined,
+): MarketplaceProjectionMedia {
+  const fallback = getRepresentativeMarketplaceMedia(view)
+  const renderable = (images ?? []).filter(image => firstRenderableMarketplaceMediaSrc(image) !== null)
+  const selected = pickMarketplaceCardImage(renderable)
+  if (!selected) return fallback
+
+  const src = firstRenderableMarketplaceMediaSrc(selected)
+  if (!src) return fallback
+
+  const kind: MarketplaceProjectionMedia['kind'] = selected.isIllustrative || selected.imageClass === 'HARBOURVIEW_ILLUSTRATIVE'
+    ? 'representative'
+    : selected.imageClass === 'REAL_ITEM_EVIDENCE'
+      ? 'actual'
+      : 'catalogue'
+  const badgeLabel = kind === 'actual'
+    ? null
+    : kind === 'catalogue'
+      ? selected.sourceDisplayLabel || MARKETPLACE_MEDIA_COPY.catalogueBadge
+      : selected.sourceDisplayLabel || MARKETPLACE_MEDIA_COPY.representativeBadge
+
+  return {
+    src,
+    altText: selected.altText || fallback.altText,
+    kind,
+    badgeLabel,
+    caption: selected.caption,
+    fallbackSrc: fallback.src,
+    fallbackAltText: fallback.altText,
+    fallbackCaption: fallback.fallbackCaption,
+  }
+}
+
+async function loadMarketplaceMedia(itemIds: string[]): Promise<{ imagesByItem: Record<string, PublicMarketplaceImageDTO[]>; degraded: boolean }> {
+  if (itemIds.length === 0) return { imagesByItem: {}, degraded: false }
+
+  const controller = new AbortController()
+  return new Promise(resolve => {
+    let settled = false
+    const finish = (imagesByItem: Record<string, PublicMarketplaceImageDTO[]>, degraded: boolean) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ imagesByItem, degraded })
+    }
+    const timer = setTimeout(() => {
+      controller.abort()
+      finish({}, true)
+    }, MARKETPLACE_MEDIA_TIMEOUT_MS)
+
+    getPublicMarketplaceImagesForItems(itemIds, controller.signal).then(
+      images => finish(images, false),
+      () => {
+        controller.abort()
+        finish({}, true)
+      },
+    )
+  })
+}
+
+export async function getDashboardMarketplaceProjection(
+  countryIso2?: string | null,
+): Promise<DashboardMarketplaceProjection> {
   const views = Object.entries(VIEW_SECTIONS) as [MarketView, string[]][]
 
-  const populated = await Promise.all(
+  const listingsByView = await Promise.all(
     views.map(async ([view, sections]) => {
       const listings = await getListingsBySections(sections, countryIso2, ROWS_PER_VIEW)
-      return [view, listings.map(mapListingToDashboardRow)] as const
+      return [view, listings] as const
     }),
   )
 
-  const buckets: Partial<DashboardMarketplaceRows> = {}
-  for (const [view, rows] of populated) {
-    if (rows.length > 0) buckets[view] = rows
+  const itemIds = Array.from(new Set(listingsByView.flatMap(([, listings]) => listings.map(listing => listing.id))))
+  const { imagesByItem, degraded } = await loadMarketplaceMedia(itemIds)
+
+  const rows: Partial<DashboardMarketplaceRows> = {}
+  const mediaById: DashboardMarketplaceProjection['mediaById'] = {}
+
+  for (const [view, listings] of listingsByView) {
+    if (listings.length === 0) continue
+    rows[view] = listings.map(baseDashboardRow)
+    for (const listing of listings) {
+      mediaById[marketplaceMediaKey(view, listing.id)] = resolveListingMedia(view, imagesByItem[listing.id])
+    }
   }
 
-  return buckets
+  return { rows, mediaById, mediaStatus: degraded ? 'degraded' : 'live' }
 }
 
 type DashboardCommandSourceContext = CommandCentreLoadContext & Readonly<{
@@ -167,9 +238,13 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
     },
     marketplaceRows: {
       enabled: enabled('marketplaceRows'),
-      load: () => getDashboardMarketplaceRows(countryIso2),
-      fallback: {},
-      sourceLabel: 'Public marketplace projection',
+      load: () => getDashboardMarketplaceProjection(countryIso2),
+      fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
+      isEmpty: projection => Object.keys(projection.rows).length === 0,
+      classify: projection => Object.keys(projection.rows).length === 0
+        ? 'empty'
+        : projection.mediaStatus === 'degraded' ? 'fallback' : 'live',
+      sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },
     pipeline: {

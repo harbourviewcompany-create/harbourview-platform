@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { parseStructuredJson, type StructuredSourceMetadata } from "../_shared/structured-json.ts";
 
 type SourceRow = {
   id: string;
@@ -10,6 +11,13 @@ type SourceRow = {
   language: string | null;
   requires_translation: boolean | null;
   requires_auth: boolean | null;
+  metadata: Record<string, unknown> | null;
+};
+
+type SnapshotCandidate = {
+  captured_url: string;
+  captured_title: string;
+  captured_text: string;
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -18,35 +26,11 @@ const CRON_CALLER_HEADER = "x-harbourview-cron-caller";
 const EXPECTED_CRON_CALLER = "pg_cron_source_engine_fetch";
 const DEV_BYPASS_SECRET = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? "";
 
-// Below this length, a feed item's <description> is treated as a stub (most
-// commonly: Google News teaser feeds with no snippet, or Reddit link posts
-// whose RSS description is just "submitted by /u/x [link] [comments]" with
-// no post body). We attempt one bounded secondary fetch of the item's real
-// link to recover actual article text before falling back to the stub.
 const THIN_TEXT_THRESHOLD = 400;
 const MAX_ENRICH_PER_SOURCE = 6;
 const ENRICH_TIMEOUT_MS = 8000;
-
-// news.google.com/rss/articles/... links are an obfuscated Google redirect,
-// not the publisher URL -- fetching them server-side reliably returns 403
-// (confirmed empirically, not a transient issue). Every enrichment attempt
-// against this host burns up to ENRICH_TIMEOUT_MS for a guaranteed failure,
-// which at MAX_ENRICH_PER_SOURCE=6 can cost ~48s of a source's crawl budget
-// for nothing. Skip it outright and rely on the RSS title/description stub.
 const ENRICHMENT_BLOCKED_HOSTS = ["news.google.com"];
 
-function isEnrichmentBlocked(url: string): boolean {
-  try {
-    return ENRICHMENT_BLOCKED_HOSTS.includes(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-}
-
-// PostgREST on this project only exposes the `api` schema (not `public`).
-// Without db.schema set, this client defaulted to `public`, which is not
-// exposed, causing every query below to fail with PGRST106 and the function
-// to 500 on every invocation (pg_cron silently reported success regardless).
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
   db: { schema: "api" },
@@ -73,6 +57,14 @@ function authorizeCaller(req: Request): Response | null {
     return respond(403, { ok: false, error: "forbidden", reason: "Requires approved scheduler or operator bypass header" });
   }
   return null;
+}
+
+function isEnrichmentBlocked(url: string): boolean {
+  try {
+    return ENRICHMENT_BLOCKED_HOSTS.includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
 }
 
 function decodeEntities(input: string): string {
@@ -102,11 +94,12 @@ function extractAtomLink(entry: string): string {
   return decodeEntities(entry.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i)?.[1] ?? "").trim();
 }
 
-function parseFeed(raw: string, fallbackUrl: string) {
+function parseFeed(raw: string, fallbackUrl: string): SnapshotCandidate[] {
   const items = [...raw.matchAll(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi)]
     .map((m) => ({ kind: "rss_item", block: m[0] }));
   const entries = [...raw.matchAll(/<entry(?:\s[^>]*)?>[\s\S]*?<\/entry>/gi)]
     .map((m) => ({ kind: "atom_entry", block: m[0] }));
+
   return [...items, ...entries].slice(0, 12).map(({ kind, block }) => {
     const title = extractTag(block, "title") || "Untitled feed item";
     const link = kind === "atom_entry" ? extractAtomLink(block) : extractTag(block, "link");
@@ -119,16 +112,39 @@ function parseFeed(raw: string, fallbackUrl: string) {
   });
 }
 
-function parseHtml(raw: string, url: string) {
+function parseHtml(raw: string, url: string): SnapshotCandidate[] {
   const title = stripTags(raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "") || "Untitled source snapshot";
   const meta = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i)?.[1] ?? "";
   const text = stripTags(raw).slice(0, 24000);
-  return [{ captured_url: url, captured_title: title.slice(0, 500), captured_text: [stripTags(meta), text].filter(Boolean).join("\n\n").slice(0, 24000) }];
+  return [{
+    captured_url: url,
+    captured_title: title.slice(0, 500),
+    captured_text: [stripTags(meta), text].filter(Boolean).join("\n\n").slice(0, 24000),
+  }];
 }
 
 function looksLikeFeed(raw: string, contentType: string, adapter: string | null): boolean {
   const a = (adapter ?? "").toLowerCase();
   return a === "rss" || contentType.includes("rss") || contentType.includes("atom") || contentType.includes("xml") || /^\s*<\?xml/i.test(raw) || /<rss[\s>]/i.test(raw) || /<feed[\s>]/i.test(raw);
+}
+
+function looksLikeJson(raw: string, contentType: string, adapter: string | null): boolean {
+  if ((adapter ?? "").toLowerCase() === "api") return true;
+  if (contentType.includes("json")) return true;
+  const trimmed = raw.trimStart();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
+function structuredMetadata(source: SourceRow): StructuredSourceMetadata {
+  const metadata = source.metadata ?? {};
+  return {
+    records_path: typeof metadata.records_path === "string" ? metadata.records_path : undefined,
+    identity_path: typeof metadata.identity_path === "string" ? metadata.identity_path : undefined,
+    title_path: typeof metadata.title_path === "string" ? metadata.title_path : undefined,
+    url_path: typeof metadata.url_path === "string" ? metadata.url_path : undefined,
+    record_url_template: typeof metadata.record_url_template === "string" ? metadata.record_url_template : undefined,
+    max_records: typeof metadata.max_records === "number" ? metadata.max_records : undefined,
+  };
 }
 
 async function sha256(input: string): Promise<string> {
@@ -145,8 +161,8 @@ async function fetchWithTimeout(url: string, timeoutMs = 12000): Promise<Respons
       redirect: "follow",
       signal: controller.signal,
       headers: {
-        "User-Agent": "HarbourviewSourceEngine/2.1 (+official-source-monitoring)",
-        "Accept": "application/rss+xml,application/atom+xml,application/xml,text/xml,text/html,*/*;q=0.5",
+        "User-Agent": "HarbourviewSourceEngine/2.2 (+official-source-monitoring)",
+        "Accept": "application/json,application/rss+xml,application/atom+xml,application/xml,text/xml,text/html,*/*;q=0.5",
       },
     });
   } finally {
@@ -154,11 +170,6 @@ async function fetchWithTimeout(url: string, timeoutMs = 12000): Promise<Respons
   }
 }
 
-// Attempts to recover full article text for a thin feed-item stub by
-// following its real link. Fails silently (returns null) on any error,
-// timeout, non-HTML response, or if the fetched page isn't materially
-// richer than what we already have — callers always keep the original
-// text as a safe fallback.
 async function tryEnrichThinText(url: string, existingLength: number): Promise<string | null> {
   try {
     const res = await fetchWithTimeout(url, ENRICH_TIMEOUT_MS);
@@ -166,16 +177,23 @@ async function tryEnrichThinText(url: string, existingLength: number): Promise<s
     const contentType = res.headers.get("content-type") ?? "";
     if (contentType && !contentType.includes("html") && !contentType.includes("text")) return null;
     const raw = await res.text();
-    const [{ captured_text }] = parseHtml(raw, url);
-    if (!captured_text || captured_text.length <= Math.max(existingLength, THIN_TEXT_THRESHOLD)) return null;
-    return captured_text;
+    const [candidate] = parseHtml(raw, url);
+    const capturedText = candidate?.captured_text ?? "";
+    if (!capturedText || capturedText.length <= Math.max(existingLength, THIN_TEXT_THRESHOLD)) return null;
+    return capturedText;
   } catch {
     return null;
   }
 }
 
 async function alreadyCaptured(sourceId: string, capturedUrl: string, hash: string): Promise<boolean> {
-  const { data, error } = await supabase.from("source_snapshots").select("id").eq("source_id", sourceId).eq("captured_url", capturedUrl).eq("raw_html_hash", hash).limit(1);
+  const { data, error } = await supabase
+    .from("source_snapshots")
+    .select("id")
+    .eq("source_id", sourceId)
+    .eq("captured_url", capturedUrl)
+    .eq("raw_html_hash", hash)
+    .limit(1);
   if (error) throw error;
   return Boolean(data?.length);
 }
@@ -196,11 +214,13 @@ Deno.serve(async (req: Request) => {
   const limit = Math.max(1, Math.min(Number.isFinite(rawLimit) ? rawLimit : 20, 50));
 
   const validAdapters = ["rss", "html_snapshot", "api"];
-  if (adapterParam && !validAdapters.includes(adapterParam)) return respond(400, { ok: false, error: "invalid_adapter", valid: validAdapters });
+  if (adapterParam && !validAdapters.includes(adapterParam)) {
+    return respond(400, { ok: false, error: "invalid_adapter", valid: validAdapters });
+  }
 
   let query = supabase
     .from("source_registry")
-    .select("id,source_name,source_url,adapter,tier,language,requires_translation,requires_auth")
+    .select("id,source_name,source_url,adapter,tier,language,requires_translation,requires_auth,metadata")
     .eq("is_active", true)
     .eq("relevance_status", "active")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
@@ -217,6 +237,7 @@ Deno.serve(async (req: Request) => {
   let skippedDuplicate = 0;
   let failed = 0;
   let enriched = 0;
+  let structuredRecords = 0;
   const results: Record<string, unknown>[] = [];
 
   for (const source of (sources ?? []) as SourceRow[]) {
@@ -232,15 +253,27 @@ Deno.serve(async (req: Request) => {
       if (!response.ok) throw new Error(`http_${response.status}`);
       const raw = await response.text();
       const isFeed = looksLikeFeed(raw, contentType, source.adapter);
-      const candidates = isFeed ? parseFeed(raw, finalUrl) : parseHtml(raw, finalUrl);
+      const isJson = !isFeed && looksLikeJson(raw, contentType, source.adapter);
+      let candidates: SnapshotCandidate[];
+
+      if (isFeed) {
+        candidates = parseFeed(raw, finalUrl);
+      } else if (isJson) {
+        try {
+          candidates = parseStructuredJson(raw, finalUrl, structuredMetadata(source));
+          structuredRecords += candidates.length;
+        } catch (error) {
+          throw new Error(`invalid_json: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } else {
+        candidates = parseHtml(raw, finalUrl);
+      }
+
       let sourceInserted = 0;
       let sourceSkipped = 0;
       let sourceEnriched = 0;
 
       for (const candidate of candidates) {
-        // Feed items are often teaser-only (Google News snippets, Reddit's
-        // "submitted by /u/x [link] [comments]" stub with no post body).
-        // Follow the real link once, bounded, before accepting the stub.
         if (
           isFeed &&
           candidate.captured_text.length < THIN_TEXT_THRESHOLD &&
@@ -256,16 +289,18 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        if (!candidate.captured_text || candidate.captured_text.length < 40) {
+        if (!candidate.captured_text || candidate.captured_text.length < 2) {
           sourceSkipped++;
           continue;
         }
+
         const hash = await sha256(`${candidate.captured_url}\n${candidate.captured_title}\n${candidate.captured_text}`);
         if (await alreadyCaptured(source.id, candidate.captured_url, hash)) {
           skippedDuplicate++;
           sourceSkipped++;
           continue;
         }
+
         if (!dryRun) {
           const wordCount = candidate.captured_text.split(/\s+/).filter(Boolean).length;
           const { error: insertError } = await supabase.from("source_snapshots").insert({
@@ -287,9 +322,23 @@ Deno.serve(async (req: Request) => {
       }
 
       if (!dryRun) {
-        await supabase.from("source_registry").update({ last_checked_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", source.id);
+        await supabase
+          .from("source_registry")
+          .update({ last_checked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq("id", source.id);
       }
-      results.push({ source_id: source.id, source_name: source.source_name, status: "ok", final_url: finalUrl, candidates: candidates.length, inserted: sourceInserted, skipped: sourceSkipped, enriched: sourceEnriched });
+
+      results.push({
+        source_id: source.id,
+        source_name: source.source_name,
+        status: "ok",
+        response_kind: isFeed ? "feed" : isJson ? "json" : "html",
+        final_url: finalUrl,
+        candidates: candidates.length,
+        inserted: sourceInserted,
+        skipped: sourceSkipped,
+        enriched: sourceEnriched,
+      });
     } catch (err) {
       failed++;
       const message = err instanceof Error ? err.message : String(err);
@@ -306,11 +355,27 @@ Deno.serve(async (req: Request) => {
           requires_translation: Boolean(source.requires_translation),
           processing_status: "skipped",
         });
-        await supabase.from("source_registry").update({ last_checked_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", source.id);
+        await supabase
+          .from("source_registry")
+          .update({ last_checked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq("id", source.id);
       }
       results.push({ source_id: source.id, source_name: source.source_name, status: "error", error: message });
     }
   }
 
-  return respond(200, { ok: true, dry_run: dryRun, limit, selected: sources?.length ?? 0, inserted, skipped_duplicate: skippedDuplicate, failed, enriched, results });
+  return respond(200, {
+    ok: true,
+    function: "source-engine-fetch",
+    version: "2.2",
+    dry_run: dryRun,
+    limit,
+    selected: sources?.length ?? 0,
+    inserted,
+    structured_records: structuredRecords,
+    skipped_duplicate: skippedDuplicate,
+    failed,
+    enriched,
+    results,
+  });
 });
