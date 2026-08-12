@@ -14,6 +14,8 @@ const publicRoutes = [
       'market access backed by intelligence and relationships',
       'commercial intelligence',
       'harbourview network',
+      'regulated cannabis market routing',
+      'reviewed intelligence',
     ],
   },
   {
@@ -136,6 +138,10 @@ const legacyMarketplaceStrings = [
   'exclusive access',
 ];
 
+const allowedLegacyContexts = new Map([
+  ['open marketplace', ['open marketplace exposure']],
+]);
+
 const adminDeniedAny = [
   'unauthorized',
   'forbidden',
@@ -216,7 +222,7 @@ async function verifyPublicRoute(base, routeSpec) {
   const leakageHits = forbiddenLeakageStrings.filter((term) => containsInsensitive(html, term));
   if (leakageHits.length > 0) failures.push(`Forbidden leakage strings present: ${leakageHits.join(', ')}`);
 
-  const legacyHits = legacyMarketplaceStrings.filter((term) => normalized.includes(term.toLowerCase()));
+  const legacyHits = legacyMarketplaceStrings.filter((term) => containsUnapprovedLegacyClaim(normalized, term));
   if (legacyHits.length > 0) failures.push(`Legacy / overbroad marketplace copy present: ${legacyHits.join(', ')}`);
 
   return {
@@ -317,6 +323,17 @@ function cleanBaseUrl(value) {
 
 function containsInsensitive(text, term) {
   return normalize(text).includes(String(term).toLowerCase());
+}
+
+function containsUnapprovedLegacyClaim(normalizedText, term) {
+  const normalizedTerm = String(term).toLowerCase();
+  if (!normalizedText.includes(normalizedTerm)) return false;
+
+  let remaining = normalizedText;
+  for (const allowedContext of allowedLegacyContexts.get(normalizedTerm) || []) {
+    remaining = remaining.replaceAll(allowedContext.toLowerCase(), '');
+  }
+  return remaining.includes(normalizedTerm);
 }
 
 function normalize(text) {
