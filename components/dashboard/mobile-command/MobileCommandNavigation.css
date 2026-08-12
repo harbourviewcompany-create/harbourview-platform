@@ -1,0 +1,15 @@
+.hvm2-bottom-nav.hvm-op-bottom-nav {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hvm2-bottom-nav.hvm-op-bottom-nav button {
+  min-width: 44px;
+  min-height: 54px;
+}
+
+.hvm2-bottom-nav.hvm-op-bottom-nav button:focus-visible,
+.hvm-op-secondary-nav button:focus-visible,
+.hvm-op-context-trigger:focus-visible {
+  outline: 2px solid var(--hvm2-gold-light);
+  outline-offset: 2px;
+}
