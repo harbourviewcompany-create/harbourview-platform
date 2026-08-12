@@ -29,98 +29,7 @@ jobs:
       - name: Apply in-scope review findings
         shell: bash
         run: |
-          cat > tests/ci/workflow-infrastructure-hygiene.test.ts <<'EOF'
-          import fs from 'node:fs'
-          import path from 'node:path'
-
-          import { describe, expect, it } from 'vitest'
-
-          const root = process.cwd()
-          const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8')
-          const activeYamlLines = (raw: string) =>
-            raw
-              .split(/\r?\n/)
-              .filter((line) => !line.trimStart().startsWith('#'))
-              .join('\n')
-
-          function hasCanonicalSyncWorkflowStructure(raw: string) {
-            const active = activeYamlLines(raw)
-            return [
-              /^on:\s*$/m,
-              /^ {2}workflow_dispatch:\s*$/m,
-              /^jobs:\s*$/m,
-              /^ {2}sync-tokens:\s*$/m,
-              /^ {4}runs-on:\s+ubuntu-latest\s*$/m,
-            ].every((pattern) => pattern.test(active))
-          }
-
-          describe('CI infrastructure hygiene', () => {
-            it('keeps PR runs cancellable while allowing running main pushes to finish', () => {
-              const ci = read('.github/workflows/ci.yml')
-
-              expect(ci).toContain('group: ci-${{ github.ref }}')
-              expect(ci).toContain("cancel-in-progress: ${{ github.event_name == 'pull_request' }}")
-              expect(ci).not.toContain('cancel-in-progress: true')
-            })
-
-            it('keeps E2E main-push-only, optional-credential-aware, and diagnoses readiness before Playwright', () => {
-              const ci = read('.github/workflows/ci.yml')
-              const e2eStart = ci.indexOf('  e2e:')
-              const e2e = ci.slice(e2eStart)
-
-              expect(e2eStart).toBeGreaterThan(-1)
-              expect(e2e).toContain('needs: build')
-              expect(e2e).toContain("if: github.event_name == 'push' && github.ref == 'refs/heads/main'")
-              expect(e2e).toContain('name: Check optional E2E credentials')
-              expect(e2e).toContain("if: steps.e2e-creds.outputs.configured == 'true'")
-              expect(e2e).toContain("if: steps.e2e-creds.outputs.configured != 'true'")
-
-              const credentialGateIndex = e2e.indexOf('name: Check optional E2E credentials')
-              const readinessIndex = e2e.indexOf('name: Supabase E2E readiness')
-              const playwrightInstallIndex = e2e.indexOf('npx playwright install --with-deps chromium')
-              const e2eRunIndex = e2e.indexOf('npm run test:e2e')
-
-              expect(readinessIndex).toBeGreaterThan(credentialGateIndex)
-              expect(playwrightInstallIndex).toBeGreaterThan(readinessIndex)
-              expect(e2eRunIndex).toBeGreaterThan(playwrightInstallIndex)
-              expect(e2e).toContain('node scripts/check-supabase-e2e-readiness.mjs')
-            })
-          })
-
-          describe('Figma token workflow hygiene', () => {
-            it('keeps the manual trigger and sync job at canonical YAML mapping indentation', () => {
-              const raw = read('.github/workflows/sync-figma-tokens.yml')
-              const active = activeYamlLines(raw)
-
-              expect(hasCanonicalSyncWorkflowStructure(raw)).toBe(true)
-              expect(active).toMatch(/^ {2}workflow_dispatch:\s*$/m)
-              expect(active).not.toMatch(/^ {2}(?:push|pull_request|schedule):\s*$/m)
-              expect(active).toMatch(/^ {2}sync-tokens:\s*$/m)
-              expect(active).toMatch(/^ {4}runs-on:\s+ubuntu-latest\s*$/m)
-              expect(active).toContain(
-                'commit-message: "${{ github.event.inputs.commit_message || \'chore: Sync design tokens from Figma\' }}"',
-              )
-            })
-
-            it('rejects the malformed mapping indentation that would detach a sync-job field', () => {
-              const raw = read('.github/workflows/sync-figma-tokens.yml')
-              const malformed = raw.replace(/^ {4}runs-on:/m, '     runs-on:')
-
-              expect(malformed).not.toBe(raw)
-              expect(hasCanonicalSyncWorkflowStructure(malformed)).toBe(false)
-            })
-
-            it('does not require active Figma API credentials in the current execution path', () => {
-              const raw = read('.github/workflows/sync-figma-tokens.yml')
-              const active = activeYamlLines(raw)
-
-              expect(active).not.toContain('FIGMA_TOKEN:')
-              expect(active).not.toContain('FIGMA_FILE_KEY:')
-              expect(active).not.toContain('scripts/fetch-figma-tokens.js')
-              expect(active).toContain('npm run tokens:generate || npx style-dictionary build --config ./style-dictionary.config.js')
-            })
-          })
-          EOF
+          printf '%s' 'aW1wb3J0IGZzIGZyb20gJ25vZGU6ZnMnCmltcG9ydCBwYXRoIGZyb20gJ25vZGU6cGF0aCcKCmltcG9ydCB7IGRlc2NyaWJlLCBleHBlY3QsIGl0IH0gZnJvbSAndml0ZXN0JwoKY29uc3Qgcm9vdCA9IHByb2Nlc3MuY3dkKCkKY29uc3QgcmVhZCA9IChyZWxhdGl2ZVBhdGg6IHN0cmluZykgPT4gZnMucmVhZEZpbGVTeW5jKHBhdGguam9pbihyb290LCByZWxhdGl2ZVBhdGgpLCAndXRmOCcpCmNvbnN0IGFjdGl2ZVlhbWxMaW5lcyA9IChyYXc6IHN0cmluZykgPT4KICByYXcKICAgIC5zcGxpdCgvXHI/XG4vKQogICAgLmZpbHRlcigobGluZSkgPT4gIWxpbmUudHJpbVN0YXJ0KCkuc3RhcnRzV2l0aCgnIycpKQogICAgLmpvaW4oJ1xuJykKCmZ1bmN0aW9uIGhhc0Nhbm9uaWNhbFN5bmNXb3JrZmxvd1N0cnVjdHVyZShyYXc6IHN0cmluZykgewogIGNvbnN0IGFjdGl2ZSA9IGFjdGl2ZVlhbWxMaW5lcyhyYXcpCiAgcmV0dXJuIFsKICAgIC9eb246XHMqJC9tLAogICAgL14gezJ9d29ya2Zsb3dfZGlzcGF0Y2g6XHMqJC9tLAogICAgL15qb2JzOlxzKiQvbSwKICAgIC9eIHsyfXN5bmMtdG9rZW5zOlxzKiQvbSwKICAgIC9eIHs0fXJ1bnMtb246XHMrdWJ1bnR1LWxhdGVzdFxzKiQvbSwKICBdLmV2ZXJ5KChwYXR0ZXJuKSA9PiBwYXR0ZXJuLnRlc3QoYWN0aXZlKSkKfQoKZGVzY3JpYmUoJ0NJIGluZnJhc3RydWN0dXJlIGh5Z2llbmUnLCAoKSA9PiB7CiAgaXQoJ2tlZXBzIFBSIHJ1bnMgY2FuY2VsbGFibGUgd2hpbGUgYWxsb3dpbmcgcnVubmluZyBtYWluIHB1c2hlcyB0byBmaW5pc2gnLCAoKSA9PiB7CiAgICBjb25zdCBjaSA9IHJlYWQoJy5naXRodWIvd29ya2Zsb3dzL2NpLnltbCcpCgogICAgZXhwZWN0KGNpKS50b0NvbnRhaW4oJ2dyb3VwOiBjaS0ke3sgZ2l0aHViLnJlZiB9fScpCiAgICBleHBlY3QoY2kpLnRvQ29udGFpbigiY2FuY2VsLWluLXByb2dyZXNzOiAke3sgZ2l0aHViLmV2ZW50X25hbWUgPT0gJ3B1bGxfcmVxdWVzdCcgfX0iKQogICAgZXhwZWN0KGNpKS5ub3QudG9Db250YWluKCdjYW5jZWwtaW4tcHJvZ3Jlc3M6IHRydWUnKQogIH0pCgogIGl0KCdrZWVwcyBFMkUgbWFpbi1wdXNoLW9ubHksIG9wdGlvbmFsLWNyZWRlbnRpYWwtYXdhcmUsIGFuZCBkaWFnbm9zZXMgcmVhZGluZXNzIGJlZm9yZSBQbGF5d3JpZ2h0JywgKCkgPT4gewogICAgY29uc3QgY2kgPSByZWFkKCcuZ2l0aHViL3dvcmtmbG93cy9jaS55bWwnKQogICAgY29uc3QgZTJlU3RhcnQgPSBjaS5pbmRleE9mKCcgIGUyZTonKQogICAgY29uc3QgZTJlID0gY2kuc2xpY2UoZTJlU3RhcnQpCgogICAgZXhwZWN0KGUyZVN0YXJ0KS50b0JlR3JlYXRlclRoYW4oLTEpCiAgICBleHBlY3QoZTJlKS50b0NvbnRhaW4oJ25lZWRzOiBidWlsZCcpCiAgICBleHBlY3QoZTJlKS50b0NvbnRhaW4oImlmOiBnaXRodWIuZXZlbnRfbmFtZSA9PSAncHVzaCcgJiYgZ2l0aHViLnJlZiA9PSAncmVmcy9oZWFkcy9tYWluJyIpCiAgICBleHBlY3QoZTJlKS50b0NvbnRhaW4oJ25hbWU6IENoZWNrIG9wdGlvbmFsIEUyRSBjcmVkZW50aWFscycpCiAgICBleHBlY3QoZTJlKS50b0NvbnRhaW4oImlmOiBzdGVwcy5lMmUtY3JlZHMub3V0cHV0cy5jb25maWd1cmVkID09ICd0cnVlJyIpCiAgICBleHBlY3QoZTJlKS50b0NvbnRhaW4oImlmOiBzdGVwcy5lMmUtY3JlZHMub3V0cHV0cy5jb25maWd1cmVkICE9ICd0cnVlJyIpCgogICAgY29uc3QgY3JlZGVudGlhbEdhdGVJbmRleCA9IGUyZS5pbmRleE9mKCduYW1lOiBDaGVjayBvcHRpb25hbCBFMkUgY3JlZGVudGlhbHMnKQogICAgY29uc3QgcmVhZGluZXNzSW5kZXggPSBlMmUuaW5kZXhPZignbmFtZTogU3VwYWJhc2UgRTJFIHJlYWRpbmVzcycpCiAgICBjb25zdCBwbGF5d3JpZ2h0SW5zdGFsbEluZGV4ID0gZTJlLmluZGV4T2YoJ25weCBwbGF5d3JpZ2h0IGluc3RhbGwgLS13aXRoLWRlcHMgY2hyb21pdW0nKQogICAgY29uc3QgZTJlUnVuSW5kZXggPSBlMmUuaW5kZXhPZignbnBtIHJ1biB0ZXN0OmUyZScpCgogICAgZXhwZWN0KHJlYWRpbmVzc0luZGV4KS50b0JlR3JlYXRlclRoYW4oY3JlZGVudGlhbEdhdGVJbmRleCkKICAgIGV4cGVjdChwbGF5d3JpZ2h0SW5zdGFsbEluZGV4KS50b0JlR3JlYXRlclRoYW4ocmVhZGluZXNzSW5kZXgpCiAgICBleHBlY3QoZTJlUnVuSW5kZXgpLnRvQmVHcmVhdGVyVGhhbihwbGF5d3JpZ2h0SW5zdGFsbEluZGV4KQogICAgZXhwZWN0KGUyZSkudG9Db250YWluKCdub2RlIHNjcmlwdHMvY2hlY2stc3VwYWJhc2UtZTJlLXJlYWRpbmVzcy5tanMnKQogIH0pCn0pCgpkZXNjcmliZSgnRmlnbWEgdG9rZW4gd29ya2Zsb3cgaHlnaWVuZScsICgpID0+IHsKICBpdCgna2VlcHMgdGhlIG1hbnVhbCB0cmlnZ2VyIGFuZCBzeW5jIGpvYiBhdCBjYW5vbmljYWwgWUFNTCBtYXBwaW5nIGluZGVudGF0aW9uJywgKCkgPT4gewogICAgY29uc3QgcmF3ID0gcmVhZCgnLmdpdGh1Yi93b3JrZmxvd3Mvc3luYy1maWdtYS10b2tlbnMueW1sJykKICAgIGNvbnN0IGFjdGl2ZSA9IGFjdGl2ZVlhbWxMaW5lcyhyYXcpCgogICAgZXhwZWN0KGhhc0Nhbm9uaWNhbFN5bmNXb3JrZmxvd1N0cnVjdHVyZShyYXcpKS50b0JlKHRydWUpCiAgICBleHBlY3QoYWN0aXZlKS50b01hdGNoKC9eIHsyfXdvcmtmbG93X2Rpc3BhdGNoOlxzKiQvbSkKICAgIGV4cGVjdChhY3RpdmUpLm5vdC50b01hdGNoKC9eIHsyfSg/OnB1c2h8cHVsbF9yZXF1ZXN0fHNjaGVkdWxlKTpccyokL20pCiAgICBleHBlY3QoYWN0aXZlKS50b01hdGNoKC9eIHsyfXN5bmMtdG9rZW5zOlxzKiQvbSkKICAgIGV4cGVjdChhY3RpdmUpLnRvTWF0Y2goL14gezR9cnVucy1vbjpccyt1YnVudHUtbGF0ZXN0XHMqJC9tKQogICAgZXhwZWN0KGFjdGl2ZSkudG9Db250YWluKAogICAgICAnY29tbWl0LW1lc3NhZ2U6ICIke3sgZ2l0aHViLmV2ZW50LmlucHV0cy5jb21taXRfbWVzc2FnZSB8fCBcJ2Nob3JlOiBTeW5jIGRlc2lnbiB0b2tlbnMgZnJvbSBGaWdtYVwnIH19IicsCiAgICApCiAgfSkKCiAgaXQoJ3JlamVjdHMgbWFsZm9ybWVkIG1hcHBpbmcgaW5kZW50YXRpb24gdGhhdCB3b3VsZCBkZXRhY2ggYSBzeW5jLWpvYiBmaWVsZCcsICgpID0+IHsKICAgIGNvbnN0IHJhdyA9IHJlYWQoJy5naXRodWIvd29ya2Zsb3dzL3N5bmMtZmlnbWEtdG9rZW5zLnltbCcpCiAgICBjb25zdCBtYWxmb3JtZWQgPSByYXcucmVwbGFjZSgvXiB7NH1ydW5zLW9uOi9tLCAnICAgICBydW5zLW9uOicpCgogICAgZXhwZWN0KG1hbGZvcm1lZCkubm90LnRvQmUocmF3KQogICAgZXhwZWN0KGhhc0Nhbm9uaWNhbFN5bmNXb3JrZmxvd1N0cnVjdHVyZShtYWxmb3JtZWQpKS50b0JlKGZhbHNlKQogIH0pCgogIGl0KCdkb2VzIG5vdCByZXF1aXJlIGFjdGl2ZSBGaWdtYSBBUEkgY3JlZGVudGlhbHMgaW4gdGhlIGN1cnJlbnQgZXhlY3V0aW9uIHBhdGgnLCAoKSA9PiB7CiAgICBjb25zdCByYXcgPSByZWFkKCcuZ2l0aHViL3dvcmtmbG93cy9zeW5jLWZpZ21hLXRva2Vucy55bWwnKQogICAgY29uc3QgYWN0aXZlID0gYWN0aXZlWWFtbExpbmVzKHJhdykKCiAgICBleHBlY3QoYWN0aXZlKS5ub3QudG9Db250YWluKCdGSUdNQV9UT0tFTjonKQogICAgZXhwZWN0KGFjdGl2ZSkubm90LnRvQ29udGFpbignRklHTUFfRklMRV9LRVk6JykKICAgIGV4cGVjdChhY3RpdmUpLm5vdC50b0NvbnRhaW4oJ3NjcmlwdHMvZmV0Y2gtZmlnbWEtdG9rZW5zLmpzJykKICAgIGV4cGVjdChhY3RpdmUpLnRvQ29udGFpbignbnBtIHJ1biB0b2tlbnM6Z2VuZXJhdGUgfHwgbnB4IHN0eWxlLWRpY3Rpb25hcnkgYnVpbGQgLS1jb25maWcgLi9zdHlsZS1kaWN0aW9uYXJ5LmNvbmZpZy5qcycpCiAgfSkKfSkK' | base64 --decode > tests/ci/workflow-infrastructure-hygiene.test.ts
           python - <<'PY'
           from pathlib import Path
           path = Path('docs/control/EVIDENCE_LOG.md')
@@ -164,9 +73,9 @@ jobs:
           path.write_text(text.replace(old, new, 1))
           PY
           git rm .github/workflows/ci-hygiene-review-closeout.yml
-          mapfile -t changed < <(git diff --name-only origin/main -- . ':!.github/workflows/ci-hygiene-review-closeout.yml' && git diff --name-only --cached origin/main -- . ':!.github/workflows/ci-hygiene-review-closeout.yml')
-          mapfile -t unique_changed < <(printf '%s\n' "${changed[@]}" | sed '/^$/d' | sort -u)
-          printf 'Permanent changed files:\n%s\n' "${unique_changed[*]}"
+          mapfile -t unique_changed < <(git diff --name-only origin/main | sort -u)
+          printf 'Permanent changed files:\n'
+          printf '%s\n' "${unique_changed[@]}"
           expected=(
             '.github/workflows/ci.yml'
             'docs/control/EVIDENCE_LOG.md'
@@ -181,6 +90,6 @@ jobs:
           fi
           git config user.name "Harbourview CI"
           git config user.email "harbourviewcompany@gmail.com"
-          git add tests/ci/workflow-infrastructure-hygiene.test.ts docs/control/EVIDENCE_LOG.md
+          git add tests/ci/workflow-infrastructure-hygiene.test.ts docs/control/EVIDENCE_LOG.md .github/workflows/ci-hygiene-review-closeout.yml
           git commit -m "test: close infrastructure hygiene review findings"
           git push origin HEAD:fix/ci-main-e2e-readiness-hygiene
