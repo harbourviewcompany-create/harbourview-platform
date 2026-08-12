@@ -251,4 +251,5 @@ jobs:
         run: npm run test:e2e
       - name: Record intentional E2E skip
         if: steps.e2e-creds.outputs.configured != 'true'
-        run: echo "GO: authenticated E2E skipped because optional credentials are absent or incomplete."
+        run: |
+          echo "GO: authenticated E2E skipped because optional credentials are absent or incomplete."
