@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.example.invalid/corridor-evaluation.schema.json",
+  "title": "Corridor Evaluation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corridor_id",
+    "corridor_version",
+    "as_of",
+    "input_hash",
+    "origin",
+    "transit",
+    "destination",
+    "product",
+    "purpose",
+    "quantity",
+    "gates",
+    "determination",
+    "review"
+  ],
+  "properties": {
+    "corridor_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "corridor_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "valid_until": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "input_hash": {
+      "type": "string"
+    },
+    "origin": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "transit": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "destination": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "exporter_entity_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "importer_entity_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "product": {
+      "type": "object"
+    },
+    "purpose": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "quantity": {
+      "type": "object"
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "gate_key",
+          "category",
+          "status",
+          "risk_tier",
+          "evidence_ids"
+        ],
+        "properties": {
+          "gate_key": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "not_started",
+              "unknown",
+              "not_applicable",
+              "satisfied",
+              "conditionally_satisfied",
+              "failed",
+              "expired",
+              "review_required"
+            ]
+          },
+          "risk_tier": {
+            "enum": [
+              "low",
+              "moderate",
+              "high",
+              "critical"
+            ]
+          },
+          "conditions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "missing_inputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "determination": {
+      "enum": [
+        "go",
+        "conditional_go",
+        "hold",
+        "insufficient_information",
+        "expired"
+      ]
+    },
+    "blocking_gate_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "specialist_required",
+        "status"
+      ],
+      "properties": {
+        "specialist_required": {
+          "type": "boolean"
+        },
+        "reviewer_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "approved",
+            "approved_with_conditions",
+            "rejected",
+            "changes_requested",
+            "escalated"
+          ]
+        },
+        "approved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

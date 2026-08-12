@@ -1,0 +1,10 @@
+{
+  "canonical_package_version": "1.0.1-harbourview-phase0",
+  "materialization_mode": "normal_reviewable_files",
+  "multipart_base64_used": false,
+  "source_archive_path": "docs/control/global-regulatory-os/source/global-cannabis-regulatory-os-control-pack-v1.0.zip",
+  "source_archive_sha256": "33a1b3de6f295aaeaf61017937a21b364bac7c0600f4038706013cb6b47cd136",
+  "source_manifest_sha256": "e3d4f2303abbb4271e91e27fcadeef1cac37fc7469fb361618f0893218814146",
+  "source_package_name": "global-cannabis-regulatory-os-control-pack",
+  "source_package_version": "1.0.0"
+}
