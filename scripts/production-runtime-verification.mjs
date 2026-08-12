@@ -13,7 +13,12 @@ const routes = [
   { path: '/intelligence', expected: 'auth-denied' },
   { path: '/marketplace', expected: 'ok' },
   { path: '/marketplace/listings', expected: 'ok' },
-  { path: '/marketplace/wanted', expected: 'ok' },
+  {
+    path: '/marketplace/wanted',
+    expected: 'redirect',
+    expectedStatus: 307,
+    expectedLocation: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake',
+  },
   { path: '/marketplace/sell', expected: 'auth-denied' },
   { path: '/markets', expected: 'ok' },
   { path: '/contact', expected: 'ok' },
@@ -72,9 +77,14 @@ async function fetchRoute(route) {
     const redirected = response.status >= 300 && response.status < 400
     const location = response.headers.get('location') || ''
 
-    const statusPass = route.expected === 'auth-denied'
-      ? response.status === 401 || response.status === 403 || redirected || adminDenied
-      : response.status === 200
+    let statusPass = false
+    if (route.expected === 'auth-denied') {
+      statusPass = response.status === 401 || response.status === 403 || redirected || adminDenied
+    } else if (route.expected === 'redirect') {
+      statusPass = response.status === route.expectedStatus && location === route.expectedLocation
+    } else {
+      statusPass = response.status === 200
+    }
 
     const authPass = route.expected === 'auth-denied'
       ? (adminDenied || response.status === 401 || response.status === 403 || redirected)
@@ -82,12 +92,18 @@ async function fetchRoute(route) {
     const pass = Boolean(statusPass && authPass && forbiddenHits.length === 0 && runtimeHits.length === 0)
 
     return {
-      route: route.path, url, expected: route.expected, startedAt, status: response.status,
+      route: route.path, url, expected: route.expected,
+      expectedStatus: route.expectedStatus ?? null,
+      expectedLocation: route.expectedLocation ?? '',
+      startedAt, status: response.status,
       redirected, location, title, bytes: html.length, adminDenied, forbiddenHits, runtimeHits, pass, html,
     }
   } catch (error) {
     return {
-      route: route.path, url, expected: route.expected, startedAt, status: null, redirected: false,
+      route: route.path, url, expected: route.expected,
+      expectedStatus: route.expectedStatus ?? null,
+      expectedLocation: route.expectedLocation ?? '',
+      startedAt, status: null, redirected: false,
       location: '', title: '', bytes: 0, adminDenied: false, forbiddenHits: [],
       runtimeHits: [error instanceof Error ? error.message : String(error)], pass: false, html: '',
     }
@@ -103,7 +119,7 @@ function markdownReport(report) {
   const rows = report.results.map((result) => {
     const status = result.status === null ? 'ERROR' : String(result.status)
     const title = result.title || '(no title)'
-    const location = result.location || '—'
+    const location = result.location || '(none)'
     const forbidden = result.forbiddenHits.length ? result.forbiddenHits.join(', ') : 'none'
     const runtime = result.runtimeHits.length ? result.runtimeHits.join(', ') : 'none'
     return `| \`${result.route}\` | ${result.pass ? 'PASS' : 'FAIL'} | ${status} | ${location.replace(/\|/g, '\\|')} | ${title.replace(/\|/g, '\\|')} | ${forbidden} | ${runtime} |`
@@ -119,7 +135,8 @@ function markdownReport(report) {
     '|---|---:|---:|---|---|---|---|',
     ...rows, '',
     '## Gate rules', '',
-    '- Public routes must return HTTP 200; redirects are failures and their `Location` target is reported.',
+    '- Public `ok` routes must return HTTP 200.',
+    '- Explicit redirect-contract routes must return the configured HTTP status and exact `Location` value.',
     '- Protected routes must return 401, 403, redirect or recognized denial content.',
     '- `/admin` must return 401, 403, redirect or recognized admin-denial content.',
     '- Forbidden leakage strings must be absent from rendered HTML.',

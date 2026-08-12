@@ -94,7 +94,6 @@ export const PRIMARY_NAV: NavDestination[] = [
   { id: 'overview', label: 'Command', icon: '◎' },
   { id: 'marketplace', label: 'Market', icon: '⊞' },
   { id: 'weekly-signals', label: 'Intel', icon: '≋' },
-  { id: 'clinical', label: 'Clinical', icon: '⚕' },
   { id: 'next-actions', label: 'Actions', icon: '→' },
 ]
 
@@ -187,23 +186,28 @@ export type PrimarySectionId =
   | 'overview'
   | 'marketplace'
   | 'weekly-signals'
-  | 'clinical'
   | 'next-actions'
 
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
-  overview: ['overview', 'live-status', 'jurisdiction', 'compliance', 'education'],
+  overview: [
+    'overview',
+    'live-status',
+    'genetics',
+    'talent',
+    'clinical',
+    'compliance',
+    'education',
+    'directories',
+    'network',
+    'jurisdiction',
+  ],
   marketplace: [
     'marketplace',
     'supply',
     'market-status',
     'market-intelligence',
-    'genetics',
-    'talent',
-    'directories',
-    'network',
   ],
   'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
-  clinical: ['clinical'],
   'next-actions': ['next-actions', 'review-gates', 'financing'],
 }
 

@@ -123,26 +123,30 @@ describe('public route smoke coverage', () => {
     }
   })
 
-  it('locks /marketplace/wanted as a 200-class public runtime route', () => {
+  it('locks /marketplace/wanted to its intentional 307 dashboard redirect contract', () => {
     const verifier = readRepoFile('scripts/production-runtime-verification.mjs')
     const proxy = readRepoFile('proxy.ts')
     const wantedPage = readRepoFile('app/marketplace/wanted/page.tsx')
     const protectedPrefixes = proxy.match(/const PROTECTED_PREFIXES = \[([\s\S]*?)\n\]/)?.[1] ?? ''
     const matcher = proxy.match(/matcher: \[([\s\S]*?)\n\s*\]/)?.[1] ?? ''
 
-    expect(verifier).toContain("{ path: '/marketplace/wanted', expected: 'ok' }")
+    expect(verifier).toContain("path: '/marketplace/wanted'")
+    expect(verifier).toContain("expected: 'redirect'")
+    expect(verifier).toContain('expectedStatus: 307')
+    expect(verifier).toContain("expectedLocation: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake'")
     expect(wantedPage).toContain('export default async function WantedPage()')
     expect(protectedPrefixes).not.toContain("'/marketplace/wanted'")
     expect(matcher).not.toContain("'/marketplace/wanted'")
     expect(matcher).not.toContain("'/marketplace/wanted/:path*'")
   })
 
-  it('reports redirect targets when a public runtime route violates its 200 contract', () => {
+  it('reports redirect targets and distinguishes explicit redirect contracts from unexpected redirects', () => {
     const verifier = readRepoFile('scripts/production-runtime-verification.mjs')
 
     expect(verifier).toContain("const location = response.headers.get('location') || ''")
     expect(verifier).toContain('| Route | Result | HTTP | Location | Title | Forbidden hits | Runtime markers |')
-    expect(verifier).toContain('redirects are failures and their `Location` target is reported')
+    expect(verifier).toContain('Explicit redirect-contract routes must return the configured HTTP status and exact `Location` value.')
+    expect(verifier).toContain("statusPass = response.status === route.expectedStatus && location === route.expectedLocation")
   })
 
   it('keeps the committed-secret scanner precise while preserving literal-secret detection', () => {
