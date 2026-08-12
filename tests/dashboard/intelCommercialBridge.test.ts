@@ -35,6 +35,7 @@ describe('matchIntelCommercialFollowUps', () => {
     expect(followUps).toHaveLength(1)
     expect(followUps[0].listingId).toBe('l1')
     expect(followUps[0].reason).toMatch(/jurisdiction/i)
+    expect(followUps[0].score).toBeGreaterThan(0)
   })
 
   it('returns empty when no jurisdiction overlap', () => {
@@ -44,5 +45,41 @@ describe('matchIntelCommercialFollowUps', () => {
       'Germany',
     )
     expect(followUps).toEqual([])
+  })
+
+  it('dedupes by listing and prefers higher score', () => {
+    const followUps = matchIntelCommercialFollowUps(
+      [
+        { id: 's1', title: 'import quota flower', market: 'Germany' },
+        { id: 's2', title: 'unrelated packaging note', market: 'Germany' },
+      ],
+      [
+        {
+          id: 'l1',
+          title: 'flower supply',
+          jurisdiction: 'Germany',
+          category: 'Flower',
+          view: 'cannabis',
+          summary: 'import ready',
+        },
+      ],
+      'Germany',
+      { limit: 4 },
+    )
+    expect(followUps).toHaveLength(1)
+    expect(followUps[0].listingId).toBe('l1')
+  })
+
+  it('boosts importer-preferred views', () => {
+    const followUps = matchIntelCommercialFollowUps(
+      [{ id: 's1', title: 'market access', market: 'Germany' }],
+      [
+        { id: 'svc', title: 'Consulting', jurisdiction: 'Germany', category: 'Services', view: 'services' },
+        { id: 'can', title: 'Flower lot', jurisdiction: 'Germany', category: 'Flower', view: 'cannabis' },
+      ],
+      'Germany',
+      { roleId: 'importer', limit: 2 },
+    )
+    expect(followUps[0].listingId).toBe('can')
   })
 })
