@@ -78,7 +78,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dossierLoader).toContain("db.rpc('resolve_intel_event_route'")
     expect(dossierLoader).not.toContain(".from('intel_event_dossiers')")
     expect(dossierLoader).not.toContain(".from('intel_event_route_map')")
-    expect(databaseControl).toContain('`SECURITY DEFINER` RPCs')
+    expect(databaseControl).toContain('`SECURITY DEFINER` RPC `api.get_intel_event_dossier(text)`')
     expect(databaseControl).toContain('api.get_intel_event_dossier')
     expect(controlDoc).toContain('tier-gated `SECURITY DEFINER` RPCs')
   })
