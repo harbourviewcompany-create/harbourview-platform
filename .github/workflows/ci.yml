@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_VERSION: '22'
@@ -111,6 +111,8 @@ jobs:
         run: npx vitest run tests/supabase/adminDataClient.test.ts
       - name: Supabase env validation
         run: npx vitest run tests/supabase/env.test.ts
+      - name: CI infrastructure hygiene
+        run: npx vitest run tests/ci/supabase-e2e-readiness.test.ts tests/ci/workflow-infrastructure-hygiene.test.ts
       - name: Globe motion preferences
         run: npx vitest run tests/globe-motion-preferences.test.ts
       - name: Used-surplus preview route
@@ -243,6 +245,9 @@ jobs:
             echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "SKIP: optional authenticated E2E credentials are not fully configured; repository CI remains green without them."
           fi
+      - name: Supabase E2E readiness
+        if: steps.e2e-creds.outputs.configured == 'true'
+        run: node scripts/check-supabase-e2e-readiness.mjs
       - name: Install Playwright Chromium
         if: steps.e2e-creds.outputs.configured == 'true'
         run: npx playwright install --with-deps chromium
