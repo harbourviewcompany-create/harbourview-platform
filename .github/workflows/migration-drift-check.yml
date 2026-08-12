@@ -43,7 +43,13 @@ jobs:
 
   check-drift:
     name: Compare repository and live migration ledgers
-    if: github.event_name != 'pull_request'
+    # Previously excluded from pull_request (`if: github.event_name != 'pull_request'`),
+    # which meant this job only ran on push-to-main, hourly schedule, or manual dispatch —
+    # i.e. only AFTER a merge, never as a gate on one. Every PR touching migrations could
+    # merge regardless of live/repo drift, which is how the ledger has required manual
+    # reconciliation multiple times (Jul 18, Jul 27, Aug 12) despite this check existing
+    # and failing the whole time. Now runs on pull_request too, so drift is visible and
+    # blockable before merge, not just logged after the fact.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
