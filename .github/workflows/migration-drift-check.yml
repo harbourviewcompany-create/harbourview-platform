@@ -9,18 +9,25 @@ name: Migration Drift Check
 on:
   pull_request:
     branches: [main]
-    paths:
-      - '.github/workflows/migration-drift-check.yml'
-      - 'scripts/migration-ledger-manifest.mjs'
-      - 'tests/scripts/migration-ledger-manifest.test.mjs'
-      - 'supabase/migrations/**'
-      - 'supabase/release-controls/elite-digest-production-activation.json'
-      - 'supabase/release-controls/migration-live-version-equivalences.json'
+    # NOTE: intentionally NOT path-filtered. 'Compare repository and live
+    # migration ledgers' is a required status check on main (added alongside
+    # this workflow change). GitHub's classic required-status-checks model
+    # blocks a PR forever if a required context never reports at all - it
+    # does not know the difference between "still running" and "correctly
+    # skipped by a path filter". A path filter here would silently brick
+    # every PR that doesn't happen to touch migrations. The job itself stays
+    # cheap to run (read-only `supabase migration list --linked` + local
+    # diff) so running it unconditionally on every PR is the correct
+    # trade-off, not just the safe one.
   push:
     branches: [main]
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch: {}
+
+concurrency:
+  group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -43,7 +50,13 @@ jobs:
 
   check-drift:
     name: Compare repository and live migration ledgers
-    if: github.event_name != 'pull_request'
+    # Previously excluded from pull_request (`if: github.event_name != 'pull_request'`),
+    # which meant this job only ran on push-to-main, hourly schedule, or manual dispatch —
+    # i.e. only AFTER a merge, never as a gate on one. Every PR touching migrations could
+    # merge regardless of live/repo drift, which is how the ledger has required manual
+    # reconciliation multiple times (Jul 18, Jul 27, Aug 12) despite this check existing
+    # and failing the whole time. Now runs on pull_request too, so drift is visible and
+    # blockable before merge, not just logged after the fact.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
