@@ -18,6 +18,20 @@ export type CorpusWatchHit = {
   signalDate: string
   confidence: string | null
   source: 'corpus'
+  /** Higher = more relevant (keyword depth, confidence, jurisdiction focus). */
+  score: number
+  contextual: boolean
+}
+
+export type CorpusWatchResult = {
+  hits: CorpusWatchHit[]
+  scannedAt: string
+  activeRuleCount: number
+  feedSize: number
+  feedFreshness: string
+  feedAgeHours: number | null
+  /** True when rules are active but zero hits in the scanned window. */
+  silent: boolean
 }
 
 export type JurisdictionRegistryStatus = {
@@ -33,23 +47,80 @@ function haystack(parts: Array<string | null | undefined>): string {
   return parts.filter(Boolean).join(' ').toLowerCase()
 }
 
+/** Prefer whole-word match for short needles; substring for multi-word phrases. */
+function keywordMatches(text: string, keyword: string): boolean {
+  const needle = keyword.trim().toLowerCase()
+  if (!needle) return false
+  if (needle.includes(' ') || needle.length >= 5) return text.includes(needle)
+  // Short tokens (e.g. "GMP") — avoid matching inside unrelated words where possible
+  try {
+    return new RegExp(`(?:^|[^a-z0-9])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:$|[^a-z0-9])`, 'i').test(text)
+  } catch {
+    return text.includes(needle)
+  }
+}
+
+function confidenceScore(conf: string | null | undefined): number {
+  const c = (conf ?? '').toLowerCase()
+  if (c === 'high') return 30
+  if (c === 'medium') return 18
+  if (c === 'low') return 8
+  return 10
+}
+
+function recencyScore(signalDate: string): number {
+  try {
+    const ageDays = (Date.now() - new Date(signalDate).getTime()) / 86_400_000
+    if (ageDays < 2) return 20
+    if (ageDays < 7) return 12
+    if (ageDays < 30) return 6
+    return 2
+  } catch {
+    return 0
+  }
+}
+
+function marketMatchesCountry(market: string, countryLabel?: string | null): boolean {
+  if (!countryLabel) return false
+  const a = market.trim().toLowerCase()
+  const b = countryLabel.trim().toLowerCase()
+  if (!a || !b) return false
+  return a === b || a.includes(b) || b.includes(a)
+}
+
 /**
- * Match active org watch rules against the public reviewed signal corpus
- * (up to the feed window — not limited to the Command Centre session slice).
+ * Match active org watch rules against the public reviewed signal corpus.
+ * Optional countryLabel prioritises jurisdiction-relevant hits without dropping others.
  */
 export async function getCorpusWatchHits(
   rules: WatchRuleInput[],
-  limit = 24,
-): Promise<CorpusWatchHit[]> {
+  options: { limit?: number; countryLabel?: string | null } = {},
+): Promise<CorpusWatchResult> {
+  const limit = options.limit ?? 24
+  const countryLabel = options.countryLabel ?? null
+  const scannedAt = new Date().toISOString()
   const active = rules.filter(r => r.is_active && Array.isArray(r.keywords) && r.keywords.length > 0)
-  if (active.length === 0) return []
+
+  const empty = (feedSize = 0, freshness = 'unknown', ageHours: number | null = null): CorpusWatchResult => ({
+    hits: [],
+    scannedAt,
+    activeRuleCount: active.length,
+    feedSize,
+    feedFreshness: freshness,
+    feedAgeHours: ageHours,
+    silent: active.length > 0,
+  })
+
+  if (active.length === 0) {
+    return { ...empty(), silent: false }
+  }
 
   try {
     const feed = await getPublicRegulatorySignalFeed()
     const signals = feed.signals
-    if (!signals.length) return []
+    if (!signals.length) return empty(0, feed.freshness, feed.ageHours)
 
-    const hits: CorpusWatchHit[] = []
+    const scored: CorpusWatchHit[] = []
 
     for (const signal of signals) {
       const text = haystack([
@@ -66,10 +137,7 @@ export async function getCorpusWatchHits(
       const ruleIds: string[] = []
 
       for (const rule of active) {
-        const matched = rule.keywords.filter(kw => {
-          const needle = String(kw).trim().toLowerCase()
-          return needle.length > 0 && text.includes(needle)
-        })
+        const matched = rule.keywords.filter(kw => keywordMatches(text, String(kw)))
         if (matched.length > 0) {
           ruleIds.push(rule.id)
           for (const m of matched) {
@@ -80,23 +148,42 @@ export async function getCorpusWatchHits(
 
       if (matchedKeywords.length === 0) continue
 
-      hits.push({
+      const market = signal.country_name || signal.country_code || 'Global'
+      const contextual = marketMatchesCountry(market, countryLabel)
+      const score =
+        matchedKeywords.length * 15 +
+        confidenceScore(signal.confidence) +
+        recencyScore(signal.signal_date) +
+        (contextual ? 40 : 0)
+
+      scored.push({
         signalId: signal.id,
         title: signal.headline,
-        market: signal.country_name || signal.country_code || 'Global',
+        market,
         matchedKeywords,
         ruleIds,
         signalDate: signal.signal_date,
         confidence: signal.confidence ?? null,
         source: 'corpus',
+        score,
+        contextual,
       })
-
-      if (hits.length >= limit) break
     }
 
-    return hits
+    scored.sort((a, b) => b.score - a.score || b.signalDate.localeCompare(a.signalDate))
+    const hits = scored.slice(0, limit)
+
+    return {
+      hits,
+      scannedAt,
+      activeRuleCount: active.length,
+      feedSize: signals.length,
+      feedFreshness: feed.freshness,
+      feedAgeHours: feed.ageHours,
+      silent: hits.length === 0,
+    }
   } catch {
-    return []
+    return empty()
   }
 }
 
