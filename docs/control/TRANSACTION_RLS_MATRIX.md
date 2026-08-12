@@ -10,16 +10,15 @@ The transaction foundation reuses `user_roles` and `workspace_members` and adds 
 
 No workspace is created merely because an external counterparty exists.
 
-Current internal role families supported by policy predicates:
+Current internal role families supported by the repository's canonical `user_roles` constraint:
 
-- write: `admin`, `operator`, `super_admin`
-- read/review: write roles plus `analyst`, `compliance_reviewer`
-
-This accommodates the current live `admin` role while preserving existing Harbourview staff-role compatibility.
+- write: `admin`, `operator`
+- read/review: write roles plus `analyst`
+- `viewer` receives no transaction-domain internal access by default
 
 ## Access matrix
 
-| Object | anon | authenticated transaction participant | analyst/reviewer | operator/admin |
+| Object | anon | authenticated transaction participant | analyst | operator/admin |
 |---|---|---|---|---|
 | `entities` | none | none | read | full RLS-authorized CRUD |
 | `entity_aliases` | none | none | read | full |
@@ -30,17 +29,18 @@ This accommodates the current live `admin` role while preserving existing Harbou
 | `economic_account_members` | none | none | read | full |
 | `transaction_networks` | none | none | read | full |
 | `transactions` | none | explicit party transaction only | read | full |
-| `transaction_parties` | none | parties on explicit party transaction only | read | full |
-| `assertions` | none | none direct | read | full |
+| `transaction_parties` | none | only rows explicitly marked `transaction_parties` on an accessible transaction | read | full |
+| `assertions` | none | none direct | read | full; finalized rows mutation-guarded |
 | `evidence_links` | none | none direct | read | full |
 | `diligence_requirements` | none | explicit shared/specific-party requirement only | read | full |
-| `transaction_economics_entries` | none | explicit shared/specific-party non-Harbourview metrics only | read | insert + read; mutation blocked by append-only trigger |
-| `transaction_decisions` | none | none direct | read | full |
+| `transaction_economics_entries` | none | none direct | read | insert + read; mutation blocked by append-only trigger |
+| `transaction_participant_economics_v1` | none | explicit shared/specific-party non-Harbourview projection only | readable through internal role/base privileges as applicable | readable |
+| `transaction_decisions` | none | none direct | read | full; finalized rows mutation-guarded |
 | `transaction_import_staging` | none | none | read | full |
 
 ## Harbourview financial isolation
 
-Transaction participants are explicitly denied these metric types through RLS and the participant-safe view:
+Transaction participants are explicitly denied these metric types through the participant-safe view:
 
 - `harbourview_addressable_revenue`
 - `harbourview_accrued_revenue`
@@ -50,9 +50,13 @@ Transaction participants are explicitly denied these metric types through RLS an
 
 Participant access to a transaction does not imply visibility into Harbourview economics.
 
+The participant projection also omits internal transaction-network identifiers, `recognition_key`, evidence/assertion/document identifiers, formula/calculation inputs, classification and creator identity.
+
 ## Evidence isolation
 
 `evidence_links` remains internal. A participant's ability to read a transaction or diligence requirement does not grant direct read access to `hv_evidence` or `hv_evidence_documents`. Existing evidence RLS remains authoritative.
+
+Internal `transaction_lineage_v1` may traverse `evidence_links` from an economics `assertion_id` to supporting `hv_evidence`; this lineage is not the participant projection.
 
 If participant document sharing is implemented later, it must be an explicit projection/share state rather than a generic evidence-link join.
 
@@ -60,15 +64,16 @@ If participant document sharing is implemented later, it must be an explicit pro
 
 All new canonical tables explicitly revoke anonymous table access. No new anonymous SELECT grants are introduced.
 
-The new views use `security_invoker = true`; they do not bypass underlying RLS.
+Internal transaction views use `security_invoker = true` where base-table RLS should remain authoritative. `transaction_participant_economics_v1` deliberately uses owner execution with `security_barrier = true` plus explicit caller-bound transaction and visibility predicates so participants can receive the allowlisted economic projection without direct SELECT on the internal economics base table.
 
-Existing public marketplace/operator/licence policies are not changed by the transaction RLS migration. Public transaction exposure, if added later, must continue Harbourview's allowlisted DTO/projection pattern.
+Existing marketplace bridge columns are excluded from legacy anon/authenticated column grants. Existing public marketplace/operator/licence behavior remains outside the canonical transaction tables.
 
 ## Required regression assertions
 
 1. Anonymous requests cannot enumerate canonical transaction, account, assertion, diligence or economics rows.
 2. Participant in Transaction A cannot infer Transaction B.
-3. Participant-safe economics never exposes Harbourview fee/revenue/margin metrics.
-4. Participant transaction access does not unlock raw evidence.
-5. `workspaces` remains a tenancy boundary rather than a counterparty identity table.
-6. Existing public marketplace leakage tests continue to pass.
+3. Participant party access honors `visibility_scope = 'transaction_parties'` or the specific-party predicate where applicable.
+4. Participant-safe economics never exposes Harbourview fee/revenue/margin metrics, `network_id`, `recognition_key`, evidence lineage or calculation internals.
+5. Participant transaction access does not unlock raw evidence.
+6. `workspaces` remains a tenancy boundary rather than a counterparty identity table.
+7. Existing public marketplace leakage tests continue to pass.
