@@ -46,13 +46,14 @@ async function assertMobileIntelLayout(page: Page) {
 
   const activeTab = page.locator('.hvm-op-secondary-nav [aria-current="page"]')
   await expect(activeTab).toBeVisible()
-  const tabGeometry = await activeTab.evaluate(element => {
-    const button = element.getBoundingClientRect()
-    const nav = element.parentElement!.getBoundingClientRect()
-    return { left: button.left, right: button.right, navLeft: nav.left, navRight: nav.right }
-  })
-  expect(tabGeometry.left).toBeGreaterThanOrEqual(tabGeometry.navLeft - 1)
-  expect(tabGeometry.right).toBeLessThanOrEqual(tabGeometry.navRight + 1)
+  await expect.poll(
+    async () => activeTab.evaluate(element => {
+      const button = element.getBoundingClientRect()
+      const nav = element.parentElement!.getBoundingClientRect()
+      return button.left >= nav.left - 1 && button.right <= nav.right + 1
+    }),
+    { message: 'active Intel tab should settle fully inside the secondary navigation viewport' },
+  ).toBe(true)
 
   const bottomNav = await page.locator('.hvm-op-bottom-nav').boundingBox()
   const main = await page.locator('.hvm-op-main').boundingBox()
