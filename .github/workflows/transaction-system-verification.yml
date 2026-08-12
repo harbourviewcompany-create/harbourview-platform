@@ -51,8 +51,23 @@ jobs:
         run: node scripts/verify-transaction-system.mjs
 
       - name: Execute staged migrations in disposable PostgreSQL
+        shell: bash
         run: |
-          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/preexisting-schema.sql
+          set -o pipefail
+          run_sql() {
+            local sql_file="$1"
+            local log_file
+            log_file="$(mktemp)"
+            echo "Applying ${sql_file}"
+            if ! psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$sql_file" 2>&1 | tee "$log_file"; then
+              echo "::error file=${sql_file}::PostgreSQL verification failed in ${sql_file}. Last output: $(tail -n 12 "$log_file" | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+              rm -f "$log_file"
+              return 1
+            fi
+            rm -f "$log_file"
+          }
+
+          run_sql tests/transactions/fixtures/preexisting-schema.sql
           for migration in \
             supabase/migrations/20260811010000_transaction_identity_foundation.sql \
             supabase/migrations/20260811011000_transaction_product_account_foundation.sql \
@@ -63,13 +78,12 @@ jobs:
             supabase/migrations/20260811015100_transaction_boundary_hardening.sql \
             supabase/migrations/20260811015200_transaction_review_hardening.sql
           do
-            echo "Applying $migration"
-            psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            run_sql "$migration"
           done
-          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-applied-schema.sql
-          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-economics-constraint-specificity.sql
-          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-review-hardening.sql
-          psql "$TRANSACTION_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/transactions/fixtures/verify-final-gates.sql
+          run_sql tests/transactions/fixtures/verify-applied-schema.sql
+          run_sql tests/transactions/fixtures/verify-economics-constraint-specificity.sql
+          run_sql tests/transactions/fixtures/verify-review-hardening.sql
+          run_sql tests/transactions/fixtures/verify-final-gates.sql
 
       - name: Transaction schema RLS double-counting and leakage tests
         run: npx vitest run tests/transactions
