@@ -61,9 +61,10 @@ const routes = [
   {
     path: '/marketplace/wanted',
     okStatuses: [200],
-    titleIncludes: 'Wanted Requests | Harbourview',
-    mustInclude: ['Wanted Requests | Harbourview'],
+    titleIncludes: 'Sign In | Harbourview',
+    mustInclude: ['Sign in to your account'],
     mustNotInclude: ['Active buy-side requests from licensed operators', '/marketplace/wanted-requests'],
+    finalUrlIncludes: '/login?next=%2Fdashboard',
   },
   {
     path: '/signals',
@@ -159,6 +160,10 @@ function evaluateRoute(route, result) {
 
   if (route.titleIncludes && !result.title.includes(route.titleIncludes)) {
     failures.push(`title missing ${JSON.stringify(route.titleIncludes)}; actual=${JSON.stringify(result.title)}`)
+  }
+
+  if (route.finalUrlIncludes && !result.finalUrl.includes(route.finalUrlIncludes)) {
+    failures.push(`final URL missing ${JSON.stringify(route.finalUrlIncludes)}; actual=${JSON.stringify(result.finalUrl)}`)
   }
 
   for (const expected of route.mustInclude) {
