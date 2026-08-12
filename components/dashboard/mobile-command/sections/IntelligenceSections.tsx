@@ -97,7 +97,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
+                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal&apos;s jurisdiction metadata.</small> : null}
                 </div>
                 <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
                 {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
