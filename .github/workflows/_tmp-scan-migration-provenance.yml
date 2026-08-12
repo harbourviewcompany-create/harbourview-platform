@@ -1,0 +1,81 @@
+name: Temporary Migration Provenance Scan
+
+on:
+  push:
+    branches:
+      - fix/postmerge-production-visual-runner-20260812
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/postmerge-production-visual-runner-20260812
+          fetch-depth: 0
+      - name: Fetch all retained refs
+        run: git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+      - name: Build provenance report
+        run: |
+          python - <<'PY'
+          import hashlib, json, subprocess
+          from pathlib import Path
+
+          versions = '''20260727213922 20260728191340 20260728192052 20260729021338 20260729021608 20260729021709 20260729021820 20260729095416 20260729102231 20260729230849 20260729233712 20260730003050 20260730103137 20260730104444 20260730104633 20260730112133 20260730112457 20260730112526 20260730112536 20260730112600 20260730112630 20260730160830 20260730160833 20260730161011 20260730161013 20260730161318 20260730182043 20260730182145 20260730182606 20260730185321 20260730211141 20260730211147 20260730211325 20260730211507 20260730211621 20260730211756 20260730212129 20260730220913 20260730221151 20260730222127 20260730222807 20260730223248 20260730223308 20260731004024 20260731090302 20260731110914 20260801144813 20260802011926 20260802014521 20260802134657 20260812000445 20260812121948'''.split()
+
+          def run(*args):
+              return subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False).stdout
+
+          objects = run('git','rev-list','--all','--objects','--','supabase/migrations').splitlines()
+          report = []
+          for version in versions:
+              exact = []
+              seen = set()
+              for line in objects:
+                  if version not in line:
+                      continue
+                  parts = line.split(' ',1)
+                  if len(parts) != 2:
+                      continue
+                  blob, path = parts
+                  if not path.startswith('supabase/migrations/') or version not in Path(path).name:
+                      continue
+                  key=(blob,path)
+                  if key in seen:
+                      continue
+                  seen.add(key)
+                  sql = subprocess.run(['git','cat-file','blob',blob], stdout=subprocess.PIPE, check=False).stdout
+                  normalized = b'\n'.join(line.rstrip() for line in sql.replace(b'\r\n',b'\n').split(b'\n')).strip()+b'\n'
+                  commits = run('git','log','--all','--diff-filter=A','--format=%H|%aI|%an|%s','--',path).splitlines()
+                  refs = run('git','for-each-ref','--format=%(refname:short)','--contains', commits[-1].split('|',1)[0] if commits else blob, 'refs/remotes/origin').splitlines() if commits else []
+                  exact.append({
+                      'path': path,
+                      'blob': blob,
+                      'sha256': hashlib.sha256(sql).hexdigest(),
+                      'normalized_sha256': hashlib.sha256(normalized).hexdigest(),
+                      'bytes': len(sql),
+                      'introducing_commits': commits[:10],
+                      'containing_refs_sample': refs[:30],
+                  })
+              grep = run('git','grep','-n','-F',version,'origin/main','--','scripts','supabase','docs','.github').splitlines()
+              history_refs = run('git','log','--all','-S'+version,'--format=%H|%aI|%an|%s','--','scripts','supabase','docs','.github').splitlines()
+              report.append({'version':version,'exact_files':exact,'current_main_references':grep[:30],'history_reference_commits':history_refs[:30]})
+
+          Path('artifacts/migration-provenance').mkdir(parents=True, exist_ok=True)
+          Path('artifacts/migration-provenance/report.json').write_text(json.dumps(report, indent=2))
+          with Path('artifacts/migration-provenance/report.tsv').open('w') as f:
+              f.write('version\texact_file_count\tpaths\tnormalized_hashes\tmain_refs\n')
+              for r in report:
+                  f.write(f"{r['version']}\t{len(r['exact_files'])}\t{';'.join(x['path'] for x in r['exact_files'])}\t{';'.join(x['normalized_sha256'] for x in r['exact_files'])}\t{' || '.join(r['current_main_references'])}\n")
+          print(Path('artifacts/migration-provenance/report.tsv').read_text())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: migration-provenance-scan
+          path: artifacts/migration-provenance
+          if-no-files-found: error
