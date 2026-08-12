@@ -1,0 +1,4743 @@
+{
+  "version": 2,
+  "status": "HOLD",
+  "source": {
+    "repository_commit": "7134bb6cd696779b3429d98272ce1e3cd7e8236c",
+    "repository_tree": "c50c393d3b61052886030a16e296f44cf53d75d8",
+    "control_base_commit": "f7a28c0e78b0ce693eded1dd7284731b7c3b3d43",
+    "workflow_run_id": 30766999778,
+    "artifact_id": 8839263343,
+    "artifact_sha256": "0fd8a01b6e85e5da2533dbd67a4a74023fddd17cb860e3f27fa271ee0ced12ee",
+    "artifact_manifest_sha256": "fdd2e346ca49942e6af5676408a1dd8429d4c1e05dc764ae99f12c0d8177f795",
+    "remote_migrations_sha256": "3e8b67c956e82c2b6a8c4f2074e521400aeceffc82424826a317a809a7fe79bc",
+    "source_archive_sha256": "341ecc4e609ee6807b4b08c6eb9dcdd37e76d62cff3f4ab4469fcf0fb438b927",
+    "repository_snapshot_sha256": "b324fc6f7f66ac060edea8ce0054f28f0b8c761d92bcae3b2a6d943f48fc935a",
+    "remote_versions_sha256": "1e81b27b2e46dc59789074e7cfe3768480a2b262f41466208cc3de5e0efac73f"
+  },
+  "evidence_files": {
+    "artifact_manifest": "supabase/release-controls/evidence/elite-digest-preflight-manifest-30766999778.json",
+    "remote_migrations": "supabase/release-controls/evidence/production-migration-ledger-30766999778.txt"
+  },
+  "repository_migrations": [
+    {
+      "version": "20260301000000",
+      "file": "20260301000000_user_roles_admin_gate.sql",
+      "git_blob_sha": "650fc32b545dad253eb43e136fdf106af47a4fdc"
+    },
+    {
+      "version": "20260301001000",
+      "file": "20260301001000_harden_user_roles_grants.sql",
+      "git_blob_sha": "4c69eba30e2ded2874326d8c7abbcd2afbfe8950"
+    },
+    {
+      "version": "20260302000000",
+      "file": "20260302000000_intelligence_globe_v1.sql",
+      "git_blob_sha": "1003ae45a05c32ecd9ae005719be3c67fef3a2ac"
+    },
+    {
+      "version": "20260303000000",
+      "file": "20260303000000_used_surplus_intake_v2.sql",
+      "git_blob_sha": "ff0476543578ecb0c22f97c09046aa868f7d10c5"
+    },
+    {
+      "version": "20260304000000",
+      "file": "20260304000000_marketplace_conversion_v1.sql",
+      "git_blob_sha": "3c2ec0fcb48a5c9af9d4ca8325e431b48d0b318d"
+    },
+    {
+      "version": "20260304001000",
+      "file": "20260304001000_harden_marketplace_supabase_exposure.sql",
+      "git_blob_sha": "7ff0b84ccc6a788efbe2029741368d21fdcc48b9"
+    },
+    {
+      "version": "20260305000000",
+      "file": "20260305000000_live_source_intake_v0_consumables.sql",
+      "git_blob_sha": "e2307bb815ba6a190a417e44af08ef3255b41442"
+    },
+    {
+      "version": "20260306000000",
+      "file": "20260306000000_genetics_routing_operations_v1.sql",
+      "git_blob_sha": "39d4e55916f18863d8edb0ec5460985e482c9061"
+    },
+    {
+      "version": "20260307000000",
+      "file": "20260307000000_genetics_dealflow_v1.sql",
+      "git_blob_sha": "c41311c47c356e3e2d58b6819c1c7a9e5db227fe"
+    },
+    {
+      "version": "20260308000000",
+      "file": "20260308000000_new_products_equipment_intake.sql",
+      "git_blob_sha": "bd244b454fce5964bca6919b7f7b55e12cbabb86"
+    },
+    {
+      "version": "20260309000000",
+      "file": "20260309000000_services_candidate_pipeline.sql",
+      "git_blob_sha": "d45911d93f5013faa79b90100d545434ffdc1be7"
+    },
+    {
+      "version": "20260310000000",
+      "file": "20260310000000_deal_operations_v1.sql",
+      "git_blob_sha": "16573a1d797bab74b7ff44ac4b11756498adf945"
+    },
+    {
+      "version": "20260311000000",
+      "file": "20260311000000_signals_v1.sql",
+      "git_blob_sha": "155ea9abc07bf0b8f6f5e720c06928c68efd3af3"
+    },
+    {
+      "version": "20260312000000",
+      "file": "20260312000000_regulatory_signals_v1.sql",
+      "git_blob_sha": "bd552c1b7d60579e87ee8d80392cb72553e538b2"
+    },
+    {
+      "version": "20260313000000",
+      "file": "20260313000000_relationship_intelligence_v1.sql",
+      "git_blob_sha": "9f19bdd725a008237422c0541481b27291bfba30"
+    },
+    {
+      "version": "20260430000000",
+      "file": "20260430000000_marketplace_inquiries.sql",
+      "git_blob_sha": "dfeb7d89bfbfef3d514546f28a792c7b825688e5"
+    },
+    {
+      "version": "20260430000001",
+      "file": "20260430000001_signal_engine_schema.sql",
+      "git_blob_sha": "42e9cbc0cd34078569f0c6adc1cd2e7b9d8b2063"
+    },
+    {
+      "version": "20260430000002",
+      "file": "20260430000002_signal_engine_rls.sql",
+      "git_blob_sha": "58944c04bdcc8ed44efecb242e4181ece6e14aed"
+    },
+    {
+      "version": "20260501000001",
+      "file": "20260501000001_harden_marketplace_inquiries.sql",
+      "git_blob_sha": "e6af284c350ad23ea07814553b2f7011669b2c72"
+    },
+    {
+      "version": "20260501000002",
+      "file": "20260501000002_set_marketplace_inquiries_updated_at_search_path.sql",
+      "git_blob_sha": "21205e1af0c4da9eed8f3aeeea28a3661224ada7"
+    },
+    {
+      "version": "20260512000001",
+      "file": "20260512000001_network_persistence_v1.sql",
+      "git_blob_sha": "7da6d8d3335a52d2df140d07cd4046f93e07b7a8"
+    },
+    {
+      "version": "20260526000000",
+      "file": "20260526000000_phase1_source_import_recovery.sql",
+      "git_blob_sha": "831cef02bdbb1a822edde766b8bb71ec338e6e69"
+    },
+    {
+      "version": "20260526030100",
+      "file": "20260526030100_phase1_source_import_recovery.sql",
+      "git_blob_sha": "480784d5203c35e480cfd6ec42b7d3c9f6db1c1e"
+    },
+    {
+      "version": "20260528000000",
+      "file": "20260528000000_education_medical_intelligence_v1.sql",
+      "git_blob_sha": "9a0a1d9b8d492b414ea3446b68a9903a8b36abf7"
+    },
+    {
+      "version": "20260528033000",
+      "file": "20260528033000_unified_marketplace_listings.sql",
+      "git_blob_sha": "f4020817a188ecc48a2aef180515fd381782354a"
+    },
+    {
+      "version": "20260531000000",
+      "file": "20260531000000_intelligence_automation_tables.sql",
+      "git_blob_sha": "579ab38835be969753560986205dbc02aea87343"
+    },
+    {
+      "version": "20260601000000",
+      "file": "20260601000000_marketplace_supply_engine.sql",
+      "git_blob_sha": "8e14c2a00358cf91bff0ba15d620a1adb1807c04"
+    },
+    {
+      "version": "20260601000001",
+      "file": "20260601000001_user_dashboard_preferences.sql",
+      "git_blob_sha": "1e851f9c45e8cfd047a35617a7f25dd03b77250a"
+    },
+    {
+      "version": "20260601212212",
+      "file": "20260601212212_implement_is_signal_admin.sql",
+      "git_blob_sha": "29a4ecf7df5cd007716985d4a95e0e0718c46ba3"
+    },
+    {
+      "version": "20260603000000",
+      "file": "20260603000000_harden_signal_engine_security.sql",
+      "git_blob_sha": "427bc2a60fa7fde92f18fd9a9312b987aeb62284"
+    },
+    {
+      "version": "20260604000000",
+      "file": "20260604000000_countries_public_table_v1.sql",
+      "git_blob_sha": "59200a5737e56e7754d4c16d0201bd4dca5aa9a1"
+    },
+    {
+      "version": "20260605000000",
+      "file": "20260605000000_marketplace_image_trust_layer.sql",
+      "git_blob_sha": "ec8973689cb832f383a9ea2a5af67791e84d344d"
+    },
+    {
+      "version": "20260606090000",
+      "file": "20260606090000_hv_integration_schemas.sql",
+      "git_blob_sha": "0062590449419e95a40e95fe246cb35d2a3fa3d8"
+    },
+    {
+      "version": "20260606090100",
+      "file": "20260606090100_hv_integration_tables.sql",
+      "git_blob_sha": "559071213ea9f99461645d527a258cd8490cebfb"
+    },
+    {
+      "version": "20260606090200",
+      "file": "20260606090200_hv_integration_indexes_views.sql",
+      "git_blob_sha": "291b06af379e849ee6d721d03ce7975f7e291f52"
+    },
+    {
+      "version": "20260606090300",
+      "file": "20260606090300_hv_integration_rls_policies.sql",
+      "git_blob_sha": "76d439268d151040c25fbe9168dd6817fb872181"
+    },
+    {
+      "version": "20260606090400",
+      "file": "20260606090400_hv_integration_verification.sql",
+      "git_blob_sha": "cfc0b662780e1fd6dbe9e3f3ee17f149b5cdd30f"
+    },
+    {
+      "version": "20260606210000",
+      "file": "20260606210000_security_harden_anon_functions_and_regulatory_signals_rls.sql",
+      "git_blob_sha": "5d605cc2c538e44f9303f18ff284946d0457708d"
+    },
+    {
+      "version": "20260607000000",
+      "file": "20260607000000_stripe_subscriptions_user_profiles.sql",
+      "git_blob_sha": "cc4b39729a36ca5ce8cd57a9e4ec84dbc62b88c9"
+    },
+    {
+      "version": "20260607130000",
+      "file": "20260607130000_cultivar_passport_network_p0.sql",
+      "git_blob_sha": "d1ebf3dbc21cb61cabeed0ed111a522450defaf5"
+    },
+    {
+      "version": "20260607140000",
+      "file": "20260607140000_cannabis_data_contract_v1_p0_p1.sql",
+      "git_blob_sha": "a1bda2fdd0f2ec3439fea80c57f4e39c75207f6c"
+    },
+    {
+      "version": "20260607230000",
+      "file": "20260607230000_hv_bge_m3_1024_dim_embedding_column_and_search.sql",
+      "git_blob_sha": "2f457ebc19ac8a76c1fc5e1f1ee6d6c6e24f1fbd"
+    },
+    {
+      "version": "20260609000000",
+      "file": "20260609000000_seed_countries_all_191_v1.sql",
+      "git_blob_sha": "64747a31e97babe7f2c9db218cab3957217f6dcc"
+    },
+    {
+      "version": "20260610000000",
+      "file": "20260610000000_llm_rate_limits.sql",
+      "git_blob_sha": "fb2b706328305b177b66ca53c3a4f959d603a617"
+    },
+    {
+      "version": "20260611000000",
+      "file": "20260611000000_health_canada_operator_registry.sql",
+      "git_blob_sha": "d0e867a644a74cc7076a67fb420d52f0cdc945c4"
+    },
+    {
+      "version": "20260611100000",
+      "file": "20260611100000_country_data_identity_global.sql",
+      "git_blob_sha": "d99674d2c34ee1406ac7bd56d38740e25c44c256"
+    },
+    {
+      "version": "20260611103722",
+      "file": "20260611103722_cc_access_pathway_schema.sql",
+      "git_blob_sha": "66521794850c78c8d9ca1e309476f7063d9227f2"
+    },
+    {
+      "version": "20260611130000",
+      "file": "20260611130000_education_intelligence_foundation.sql",
+      "git_blob_sha": "a78ee406732d5e23f0125677be0d7ccf5faf3489"
+    },
+    {
+      "version": "20260611153902",
+      "file": "20260611153902_create_hv_source_pull_trigger.sql",
+      "git_blob_sha": "94969ac40bd3cf7d8230bce2a6879319733242d8"
+    },
+    {
+      "version": "20260611154720",
+      "file": "20260611154720_create_hv_quarantine_repeated_source_failures.sql",
+      "git_blob_sha": "61ba384f82591654ce2833f226aafcb94a953ae9"
+    },
+    {
+      "version": "20260611161237",
+      "file": "20260611161237_cc_watchlist_schema.sql",
+      "git_blob_sha": "9b85ff1f8243933b4d185f5e7fdb1be785506e83"
+    },
+    {
+      "version": "20260611161705",
+      "file": "20260611161705_create_hv_source_health_sweep_wrapper.sql",
+      "git_blob_sha": "7df859ddaffa448a387db62f3c6f4d23f74c8a15"
+    },
+    {
+      "version": "20260612234547",
+      "file": "20260612234547_local_intel_v1.sql",
+      "git_blob_sha": "f98ff649cded2ef3645101882c0d7e05c7dfac3e"
+    },
+    {
+      "version": "20260612234609",
+      "file": "20260612234609_local_intel_v1_seed_us_florida.sql",
+      "git_blob_sha": "4b41bc46ff885381b045811697d3e520601ab553"
+    },
+    {
+      "version": "20260613040315",
+      "file": "20260613040315_fresh_regulatory_sources_engine.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613042540",
+      "file": "20260613042540_revoke_unsafe_execute_grants.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613042623",
+      "file": "20260613042623_revoke_public_execute_grants_security_definer.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613080700",
+      "file": "20260613080700_hv_staging_country_iso_trigger.sql",
+      "git_blob_sha": "9356d674d6be78f8482a8b8ad9a5bd9224ec8657"
+    },
+    {
+      "version": "20260613120244",
+      "file": "20260613120244_harden_project_vault_rls_admin_only.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613120440",
+      "file": "20260613120440_local_intel_v1_remove_us_priority_seed.sql",
+      "git_blob_sha": "a13591f2e2734ac775dca46f25780e03b7135913"
+    },
+    {
+      "version": "20260613172541",
+      "file": "20260613172541_local_intel_v1_batch1_real_authorities.sql",
+      "git_blob_sha": "253fcbd39d033b6991f85c30a04919c03c55e7b2"
+    },
+    {
+      "version": "20260613172801",
+      "file": "20260613172801_local_intel_research_queue_v1.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613210556",
+      "file": "20260613210556_create_cc_jurisdiction_briefings.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613232648",
+      "file": "20260613232648_local_intel_v1_batch2_eastern_africa.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613232747",
+      "file": "20260613232747_local_intel_v1_batch3_eastern_africa_continued.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613232915",
+      "file": "20260613232915_local_intel_v1_batch4_middle_northern_southern_africa.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613233045",
+      "file": "20260613233045_local_intel_v1_batch5_west_africa_caribbean.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260613233220",
+      "file": "20260613233220_local_intel_v1_batch6_caribbean_central_america.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614042755",
+      "file": "20260614042755_local_intel_v1_batch7_south_america_central_east_asia.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614042945",
+      "file": "20260614042945_local_intel_v1_batch8_southeast_south_asia.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614043145",
+      "file": "20260614043145_local_intel_v1_batch9_middle_east_eastern_europe.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614114026",
+      "file": "20260614114026_local_intel_v1_batch10_europe_final_oceania.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614170031",
+      "file": "20260614170031_local_intel_v1_add_confidence_label_to_notes_tables.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614170337",
+      "file": "20260614170337_local_intel_v1_operating_notes_legal_markets.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614170409",
+      "file": "20260614170409_local_intel_v1_operating_notes_prohibition_countries.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260614170435",
+      "file": "20260614170435_local_intel_v1_evidence_coverage_all_countries.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615090146",
+      "file": "20260615090146_local_intel_v1_open_questions_all_countries.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615090949",
+      "file": "20260615090949_local_intel_v1_us_federal_schedule3_and_state_subdivisions.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615091026",
+      "file": "20260615091026_local_intel_v1_canada_provinces_and_health_canada_2025.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615091111",
+      "file": "20260615091111_local_intel_v1_australia_state_subdivisions.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615091140",
+      "file": "20260615091140_marketplace_seller_self_serve.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615195337",
+      "file": "20260615195337_create_github_bridge_scratch.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615195428",
+      "file": "20260615195428_drop_github_bridge_scratch.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615195523",
+      "file": "20260615195523_create_push_staging.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615195852",
+      "file": "20260615195852_local_intel_v1_germany_laender_netherlands_wietexperiment.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615200135",
+      "file": "20260615200135_local_intel_v1_spain_india_subdivisions_fixed.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260615200321",
+      "file": "20260615200321_local_intel_v1_italy_poland_detailed_operating_notes.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616000000",
+      "file": "20260616000000_hv_import_staging_extract_status.sql",
+      "git_blob_sha": "6234c96937eefe3e067612231dddd2a388acaad8"
+    },
+    {
+      "version": "20260616022526",
+      "file": "20260616022526_local_intel_v1_switzerland_cantons.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616022737",
+      "file": "20260616022737_local_intel_v1_zimbabwe_detailed_operating_notes.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616100000",
+      "file": "20260616100000_ia_signal_embeddings.sql",
+      "git_blob_sha": "c8c0b13ba4f8c0c1ab9c844a1f866ba226d7e01b"
+    },
+    {
+      "version": "20260616100648",
+      "file": "20260616100648_intelligence_engine_queue_columns.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616104456",
+      "file": "20260616104456_recreate_github_bridge_scratch.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616120057",
+      "file": "20260616120057_local_intel_v1_data_quality_fix_turkey_and_backfill.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616120148",
+      "file": "20260616120148_local_intel_v1_mexico_correction_and_subdivisions.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616120223",
+      "file": "20260616120223_local_intel_v1_brazil_states_and_association_history.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616200000",
+      "file": "20260616200000_signal_subscriptions.sql",
+      "git_blob_sha": "ab3859200d9464e63e89fd4842ed89cdfc9c239e"
+    },
+    {
+      "version": "20260616221502",
+      "file": "20260616221502_drop_github_bridge_scratch_v2.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616222928",
+      "file": "20260616222928_local_intel_v1_operating_notes_lb_rw_ng_pe_ec.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260616223058",
+      "file": "20260616223058_local_intel_v1_operating_notes_remaining_legal_markets.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260617105019",
+      "file": "20260617105019_local_intel_v1_fix_dm_gy_kn_decrim_contradiction.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260617191632",
+      "file": "20260617191632_signals_embedding_1024.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260617201649",
+      "file": "20260617201649_llm_rate_limits_reapply.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618144144",
+      "file": "20260618144144_security_harden_rls_and_search_path.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618161851",
+      "file": "20260618161851_jurisdiction_briefings.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618163718",
+      "file": "20260618163718_jurisdiction_playbooks.sql",
+      "git_blob_sha": "78c87db33fbd2b6fea983e837289d5bd4d9dfd0f"
+    },
+    {
+      "version": "20260618163726",
+      "file": "20260618163726_hv_professionals.sql",
+      "git_blob_sha": "c37426d154f2af7922dce025c2c8a061e8427072"
+    },
+    {
+      "version": "20260618163737",
+      "file": "20260618163737_deal_rooms.sql",
+      "git_blob_sha": "b627242e3801d0f11b7b5f4f597b65190596a36b"
+    },
+    {
+      "version": "20260618164100",
+      "file": "20260618164100_seed_jurisdiction_playbooks_batch1.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618164151",
+      "file": "20260618164151_seed_jurisdiction_playbooks_batch2.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618164253",
+      "file": "20260618164253_seed_jurisdiction_playbooks_batch3.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618164418",
+      "file": "20260618164418_seed_jurisdiction_playbooks_batch4.sql",
+      "git_blob_sha": "b468a1dbdfe3a2a4e4e1c7e217d444779334da01"
+    },
+    {
+      "version": "20260618190000",
+      "file": "20260618190000_fix_jurisdiction_briefings_write_policy.sql",
+      "git_blob_sha": "75afe658fdbb422451dcce7aa690805c47f8c50a"
+    },
+    {
+      "version": "20260618210641",
+      "file": "20260618210641_maximize_schema_indexes_rls_fixes.sql",
+      "git_blob_sha": "9c2b8e9fec3a187a58ace7bcf6bcea9cf801eca4"
+    },
+    {
+      "version": "20260618210939",
+      "file": "20260618210939_maximize_schema_data_flows.sql",
+      "git_blob_sha": "56ed4892a27d0ddb6471e898126eb985f7b28039"
+    },
+    {
+      "version": "20260618211145",
+      "file": "20260618211145_maximize_schema_automation_views.sql",
+      "git_blob_sha": "ef3d8836316bbe848a2464a05b43831786059d8c"
+    },
+    {
+      "version": "20260619030842",
+      "file": "20260619030842_test_simple_ddl.sql",
+      "git_blob_sha": "d0072fdd066e7f24ad6db59b089d6913227aa98c"
+    },
+    {
+      "version": "20260619030854",
+      "file": "20260619030854_cleanup_test_probe.sql",
+      "git_blob_sha": "217fc4bead70249836798f010c0aed9e20cd0518"
+    },
+    {
+      "version": "20260619030900",
+      "file": "20260619030900_test_drop_policy_only.sql",
+      "git_blob_sha": "039451a68a220d64abae5b5c1a45f7bc85a9f0e8"
+    },
+    {
+      "version": "20260619030924",
+      "file": "20260619030924_recreate_service_write_step1.sql",
+      "git_blob_sha": "2f80b5e50c0b335ad49b6b2ed6950bf78b8b7ae9"
+    },
+    {
+      "version": "20260621000000",
+      "file": "20260621000000_education_cpd_and_drug_interaction.sql",
+      "git_blob_sha": "846179c432272b16f4f2709e58ea5d1f209367fd"
+    },
+    {
+      "version": "20260621220513",
+      "file": "20260621220513_cultivar_passport_network_p0_synfix.sql",
+      "git_blob_sha": "82212b9416eaa9b11e19349d67d8bd3a9d11c4ac"
+    },
+    {
+      "version": "20260621220514",
+      "file": "20260621220514_seed_genetics_cultivar_passports.sql",
+      "git_blob_sha": "d216cddfea2fbfc4bce3d4d2518b504007c788e0"
+    },
+    {
+      "version": "20260621232637",
+      "file": "20260621232637_seed_briefings_europe_a.sql",
+      "git_blob_sha": "27c2bddc492703f5204aa75f94fe79d187e3b62d"
+    },
+    {
+      "version": "20260621232826",
+      "file": "20260621232826_seed_briefings_europe_b.sql",
+      "git_blob_sha": "f0c292c1208bec05033e86e4cdbb4fb2a4b12f0f"
+    },
+    {
+      "version": "20260621233009",
+      "file": "20260621233009_seed_briefings_europe_c.sql",
+      "git_blob_sha": "6b8ba576ec83788cc3cc23b827900b6835d9f78d"
+    },
+    {
+      "version": "20260621233144",
+      "file": "20260621233144_seed_briefings_europe_d.sql",
+      "git_blob_sha": "02addae5c0ed74c5b5cd02f052828b33ce5e0485"
+    },
+    {
+      "version": "20260621233459",
+      "file": "20260621233459_seed_briefings_americas_a.sql",
+      "git_blob_sha": "6c8b7541a08f2429b6adf265de52e4f27e8370ed"
+    },
+    {
+      "version": "20260621233543",
+      "file": "20260621233543_seed_briefings_americas_b.sql",
+      "git_blob_sha": "c445af65f9865db584c0cb38050e7c489516ec18"
+    },
+    {
+      "version": "20260621233640",
+      "file": "20260621233640_seed_briefings_americas_c.sql",
+      "git_blob_sha": "f0824594122205138928902e04a5f8bf9c954d68"
+    },
+    {
+      "version": "20260621233743",
+      "file": "20260621233743_seed_briefings_americas_d.sql",
+      "git_blob_sha": "69f87fcb26e19073dd15cf613775e29ca650b395"
+    },
+    {
+      "version": "20260621233852",
+      "file": "20260621233852_seed_briefings_africa_a.sql",
+      "git_blob_sha": "d801f31d37c409baf9f510b5841183f0765db505"
+    },
+    {
+      "version": "20260621233922",
+      "file": "20260621233922_seed_briefings_africa_b.sql",
+      "git_blob_sha": "d290d56e94468204c2979070fa821cb2b8a8b5a4"
+    },
+    {
+      "version": "20260621234014",
+      "file": "20260621234014_seed_briefings_africa_c.sql",
+      "git_blob_sha": "8cae57d98481c418bd7517a0a64ba1bf4472576f"
+    },
+    {
+      "version": "20260621234103",
+      "file": "20260621234103_seed_briefings_africa_d.sql",
+      "git_blob_sha": "971bbba6a646c69cb8b9af0155679240a8c55fa6"
+    },
+    {
+      "version": "20260621234147",
+      "file": "20260621234147_seed_briefings_africa_e.sql",
+      "git_blob_sha": "4bb9a3158ff07a8b3604b4da7e1a06f80200beaa"
+    },
+    {
+      "version": "20260621234246",
+      "file": "20260621234246_seed_briefings_africa_f.sql",
+      "git_blob_sha": "a5a0bf907c5bfa600aa3b57609aeb0cac26f47ab"
+    },
+    {
+      "version": "20260621234326",
+      "file": "20260621234326_seed_briefings_mideast_a.sql",
+      "git_blob_sha": "bb8db7f4555553c865386728c4af4de550be126d"
+    },
+    {
+      "version": "20260621234426",
+      "file": "20260621234426_seed_briefings_mideast_b.sql",
+      "git_blob_sha": "97322adaaf3c271bf267514d925393b16a6e6027"
+    },
+    {
+      "version": "20260621234541",
+      "file": "20260621234541_seed_briefings_asiapac_a.sql",
+      "git_blob_sha": "71c2092edd786ca9eb24bb7abd2346319af9691f"
+    },
+    {
+      "version": "20260621234632",
+      "file": "20260621234632_seed_briefings_asiapac_b.sql",
+      "git_blob_sha": "cbd5a2c1923142db40e89e4c92e19b94c506e8da"
+    },
+    {
+      "version": "20260621234721",
+      "file": "20260621234721_seed_briefings_asiapac_c.sql",
+      "git_blob_sha": "523ce0c822d88567f06428009ead019801c1709f"
+    },
+    {
+      "version": "20260622000001",
+      "file": "20260622000001_market_metrics_time_series.sql",
+      "git_blob_sha": "b3130ad2a56a29bca981a4ef95afdcf800c23236"
+    },
+    {
+      "version": "20260622000002",
+      "file": "20260622000002_trade_flows_structured.sql",
+      "git_blob_sha": "f8d5923d00987c2766f347a61a22ad78ffdbe108"
+    },
+    {
+      "version": "20260622000003",
+      "file": "20260622000003_operator_entity_graph.sql",
+      "git_blob_sha": "7fc3bc3fb63afb998533a2f4039a31a13e323afa"
+    },
+    {
+      "version": "20260622000004",
+      "file": "20260622000004_jurisdiction_schema_unification.sql",
+      "git_blob_sha": "881b537bbf932c4371dfdb7da1df6cde3b84efd1"
+    },
+    {
+      "version": "20260622000005",
+      "file": "20260622000005_education_tracks_modules_seed.sql",
+      "git_blob_sha": "9edb469d94107c0ff7ef69428c0bbab4f56d8a2d"
+    },
+    {
+      "version": "20260622000006",
+      "file": "20260622000006_stub_countries_classify.sql",
+      "git_blob_sha": "5a472dc9d23d59b3d165aab0c183708569e453aa"
+    },
+    {
+      "version": "20260622000007",
+      "file": "20260622000007_jurisdiction_playbooks_tier1_seed.sql",
+      "git_blob_sha": "6b390be894544d314f30bbdd6dc0325b4ac71d4f"
+    },
+    {
+      "version": "20260622020340",
+      "file": "20260622020340_add_education_module_sections.sql",
+      "git_blob_sha": "ea33fac6ab1356147e5c43d57749277328e6b73b"
+    },
+    {
+      "version": "20260622090000",
+      "file": "20260622090000_intelligence_worker_v2_distributed_safety.sql",
+      "git_blob_sha": "d27b77f1dfb8e6603e117d94f0cf26f5700af7db"
+    },
+    {
+      "version": "20260622091003",
+      "file": "20260622091003_seed_subnational_canada.sql",
+      "git_blob_sha": "b7c9acee8fcf2addd33dd2aa10a738c41f53b8b2"
+    },
+    {
+      "version": "20260622091050",
+      "file": "20260622091050_harden_internal_functions_and_subscriptions.sql",
+      "git_blob_sha": "11793e8284bc6378fad197ef31bf7390a8dba5c3"
+    },
+    {
+      "version": "20260622091118",
+      "file": "20260622091118_seed_subnational_australia.sql",
+      "git_blob_sha": "40725c3f200c63a95c9e47ec4a8cdceb88f75bf0"
+    },
+    {
+      "version": "20260622091242",
+      "file": "20260622091242_seed_subnational_germany_a.sql",
+      "git_blob_sha": "4aabc9cef7a0fdd2ca7ab5139dda25d0cf5e4983"
+    },
+    {
+      "version": "20260622091345",
+      "file": "20260622091345_seed_subnational_germany_b.sql",
+      "git_blob_sha": "8ae67b7565e3ee8fe278b195c4b8f81aa814371a"
+    },
+    {
+      "version": "20260622091458",
+      "file": "20260622091458_seed_territories_and_dependencies.sql",
+      "git_blob_sha": "de36bbf139c45d2d83ede80aa3d9d2ca6ef46211"
+    },
+    {
+      "version": "20260622120000",
+      "file": "20260622120000_security_advisor_fixes_jun22.sql",
+      "git_blob_sha": "7ddd20866d0a3008e14d7c11422a8ce79f6b3561"
+    },
+    {
+      "version": "20260622130000",
+      "file": "20260622130000_add_missing_fk_indexes_jun22.sql",
+      "git_blob_sha": "6ff2d05b17b5f8061aedc621031e4eacf970f358"
+    },
+    {
+      "version": "20260622140519",
+      "file": "20260622140519_revoke_anon_on_internal_ops_views.sql",
+      "git_blob_sha": "0d28a773b56485cba01ace33d5b4f6d7e8de74a9"
+    },
+    {
+      "version": "20260622151411",
+      "file": "20260622151411_fix_security_definer_views_to_invoker.sql",
+      "git_blob_sha": "649ac58a6c02990533538302903badb7e768a0e0"
+    },
+    {
+      "version": "20260622153231",
+      "file": "20260622153231_create_clinical_education_tables.sql",
+      "git_blob_sha": "96d7567960ffedf19a2f82144d7262da17381bef"
+    },
+    {
+      "version": "20260622153559",
+      "file": "20260622153559_gap_a_market_metrics_time_series.sql",
+      "git_blob_sha": "5538f9876ba7251f28309bb103b122d54b1bc3d6"
+    },
+    {
+      "version": "20260622153659",
+      "file": "20260622153659_gap_b_trade_flows_structured.sql",
+      "git_blob_sha": "0baea615375a4784587456d9b4415b490363e31f"
+    },
+    {
+      "version": "20260622153739",
+      "file": "20260622153739_gap_c_operator_entity_graph_ddl.sql",
+      "git_blob_sha": "3727c5b07fa53825fb2ef910e951b45321f80bc9"
+    },
+    {
+      "version": "20260622153821",
+      "file": "20260622153821_gap_c_operator_entity_graph_seed.sql",
+      "git_blob_sha": "7afe0965849926a83d8580fd36115ab175ddb41b"
+    },
+    {
+      "version": "20260622153847",
+      "file": "20260622153847_gap_d_jurisdiction_schema_unification.sql",
+      "git_blob_sha": "e1e87731f9f55bc13e5524e9411ccd0ea6ed636a"
+    },
+    {
+      "version": "20260622154316",
+      "file": "20260622154316_gap_e_education_tables_ddl.sql",
+      "git_blob_sha": "b60e05a477d4cef17c15c7a8382309959ae467ea"
+    },
+    {
+      "version": "20260622154436",
+      "file": "20260622154436_gap_e_education_track1_market_access.sql",
+      "git_blob_sha": "25c04fe42171e4d7b4b28b9ad70faf43eb78ce2c"
+    },
+    {
+      "version": "20260622154819",
+      "file": "20260622154819_gap_e_education_track2_regulatory_compliance.sql",
+      "git_blob_sha": "6631d5208aff4170e78774d23f8764dd09998561"
+    },
+    {
+      "version": "20260622154920",
+      "file": "20260622154920_gap_e_education_track3_country_intel.sql",
+      "git_blob_sha": "6e8c451db89bebac94ce916bd26346a523068f3a"
+    },
+    {
+      "version": "20260622155031",
+      "file": "20260622155031_gap_e_education_track4_clinical_med.sql",
+      "git_blob_sha": "88bcaa26ee45cd1d343a076408ddcf0aa7041f83"
+    },
+    {
+      "version": "20260622155128",
+      "file": "20260622155128_gap_e_education_track5_industry_intel.sql",
+      "git_blob_sha": "dd0fb8ac65aae67b6061e192f508ff629ce8e351"
+    },
+    {
+      "version": "20260622155532",
+      "file": "20260622155532_gap_f_add_seed_enum_value.sql",
+      "git_blob_sha": "543eb5a5e152bac902452c5e3193a97a4aef9f4c"
+    },
+    {
+      "version": "20260622155755",
+      "file": "20260622155755_gap_f_stub_countries_classify.sql",
+      "git_blob_sha": "7283ccc13789d22269b75287f1e017b71d5fa97a"
+    },
+    {
+      "version": "20260622160032",
+      "file": "20260622160032_gap_g_playbook_de.sql",
+      "git_blob_sha": "b03c8239fafec8a3fa3dd83df59dc044ae014352"
+    },
+    {
+      "version": "20260622160057",
+      "file": "20260622160057_gap_g_playbook_au.sql",
+      "git_blob_sha": "959d4e53e6bdbd0adc04271eeaba8d314bc69081"
+    },
+    {
+      "version": "20260622160135",
+      "file": "20260622160135_gap_g_playbook_gb.sql",
+      "git_blob_sha": "edc07f6bec034198a3e442695ba046c771e00259"
+    },
+    {
+      "version": "20260622160303",
+      "file": "20260622160303_gap_g_playbook_ca.sql",
+      "git_blob_sha": "979d519f4db2540aa5dacba35615683f15b1f8d5"
+    },
+    {
+      "version": "20260622160339",
+      "file": "20260622160339_gap_g_playbook_il.sql",
+      "git_blob_sha": "50ac31ce019e619ecf5b90a81d6ea129e9639c1e"
+    },
+    {
+      "version": "20260622160421",
+      "file": "20260622160421_gap_g_playbook_nl.sql",
+      "git_blob_sha": "87bb90093191285c6f105063bb2449e3afbcb6cd"
+    },
+    {
+      "version": "20260622160457",
+      "file": "20260622160457_gap_g_playbook_co.sql",
+      "git_blob_sha": "6d4f79bc0b648e5282fccfaad009b3d62f1c4218"
+    },
+    {
+      "version": "20260622160536",
+      "file": "20260622160536_gap_g_playbook_us.sql",
+      "git_blob_sha": "c7ed8de3db62f0280f1f689d3800ef94d2dc02b4"
+    },
+    {
+      "version": "20260622160611",
+      "file": "20260622160611_gap_g_playbook_uy.sql",
+      "git_blob_sha": "c2c60f450695aa8b0f2d614094c31e86490a1872"
+    },
+    {
+      "version": "20260622160647",
+      "file": "20260622160647_gap_g_playbook_th.sql",
+      "git_blob_sha": "24438eb33d9dce294003be74b9be0f612d8dbca1"
+    },
+    {
+      "version": "20260622160721",
+      "file": "20260622160721_gap_g_playbook_mt.sql",
+      "git_blob_sha": "7732e00a31815f8f0b0a5a304a3b96e0f7f2f01e"
+    },
+    {
+      "version": "20260622160759",
+      "file": "20260622160759_gap_g_playbook_pt.sql",
+      "git_blob_sha": "9ec72214309a40842a50bc5ace508af50dad3e1c"
+    },
+    {
+      "version": "20260622161702",
+      "file": "20260622161702_pr793_migration_drift_guard.sql",
+      "git_blob_sha": "be96e561e923f80ca06624979b1748ca79a5a048"
+    },
+    {
+      "version": "20260622162331",
+      "file": "20260622162331_seed_education_module_sections.sql",
+      "git_blob_sha": "0e1535f18e1004fac29649b3416f41bfd7b71ed5"
+    },
+    {
+      "version": "20260622162900",
+      "file": "20260622162900_register_gap_migration_versions.sql",
+      "git_blob_sha": "dadb33ff03d75c26d0fe251a725220b412227d74"
+    },
+    {
+      "version": "20260622181128",
+      "file": "20260622181128_medical_cannabis_reference_system_init.sql",
+      "git_blob_sha": "e29a225e629d4dd63654e64c7fe2537f74723dc9"
+    },
+    {
+      "version": "20260622181417",
+      "file": "20260622181417_medical_cannabis_relational_schema_v1.sql",
+      "git_blob_sha": "f5239e54d4936e35b9f801d9fe79d18f15d53305"
+    },
+    {
+      "version": "20260623000002",
+      "file": "20260623000002_seed_genetics_collaboration_projects.sql",
+      "git_blob_sha": "35b7ef26e31b9fd9082eeadf757c17d210d9cef8"
+    },
+    {
+      "version": "20260623020935",
+      "file": "20260623020935_clinical_education_readiness_unique_country.sql",
+      "git_blob_sha": "c743f0fc9ac36e573e013e7ccfb4992e888cdf16"
+    },
+    {
+      "version": "20260623021714",
+      "file": "20260623021714_document_public_dto_definer_views.sql",
+      "git_blob_sha": "f8c5504fb0a5b08460429228bb57ea718dfc67dc"
+    },
+    {
+      "version": "20260623021715",
+      "file": "20260623021715_seed_clinical_education.sql",
+      "git_blob_sha": "013ecd4495920899aabbcbf69798531f5eb77bbd"
+    },
+    {
+      "version": "20260623095753",
+      "file": "20260623095753_seed_us_territories.sql",
+      "git_blob_sha": "a67eb4b805b7ddf3ae00445e55a14ebe657e5be7"
+    },
+    {
+      "version": "20260623095846",
+      "file": "20260623095846_seed_french_overseas.sql",
+      "git_blob_sha": "3a7843ed184e6d335f2f5876a4a9c7b1a373bc5a"
+    },
+    {
+      "version": "20260623100137",
+      "file": "20260623100137_seed_content_depth_updates.sql",
+      "git_blob_sha": "8370742169db182dd387b96da99475f9f5317e07"
+    },
+    {
+      "version": "20260623151340",
+      "file": "20260623151340_restore_public_dto_definer_views.sql",
+      "git_blob_sha": "dd65471852850149bb5c3b9a9e5cce626ac7092a"
+    },
+    {
+      "version": "20260623192021",
+      "file": "20260623192021_intelligence_worker_v2_distributed_safety_part2.sql",
+      "git_blob_sha": "8b25da9d2575be76a8982e2775bab7d64eb0fc88"
+    },
+    {
+      "version": "20260623212142",
+      "file": "20260623212142_security_rls_and_function_hardening.sql",
+      "git_blob_sha": "a2059a577cea5be16827e89d6b35b41e274e7f51"
+    },
+    {
+      "version": "20260624032532",
+      "file": "20260624032532_seed_education_sections_01.sql",
+      "git_blob_sha": "e29f030173c9523540f005b08d2b5c04d6958152"
+    },
+    {
+      "version": "20260624032627",
+      "file": "20260624032627_seed_education_sections_02.sql",
+      "git_blob_sha": "1bfdaae45f73215be7b5f891ab7b93d32e049085"
+    },
+    {
+      "version": "20260624032714",
+      "file": "20260624032714_seed_education_sections_03.sql",
+      "git_blob_sha": "831b7c3655de0263b81c827dadd5bafecd46bb41"
+    },
+    {
+      "version": "20260624032813",
+      "file": "20260624032813_seed_education_sections_04.sql",
+      "git_blob_sha": "461dc290890cdff506270b11348d3c4d513f803d"
+    },
+    {
+      "version": "20260624032902",
+      "file": "20260624032902_seed_education_sections_05.sql",
+      "git_blob_sha": "b7df6bf5ada42ab01c30db89d68859ef4244752a"
+    },
+    {
+      "version": "20260624032948",
+      "file": "20260624032948_seed_education_sections_06.sql",
+      "git_blob_sha": "233868b9f0ec6ea9d84a9c4f5e9422d303659eea"
+    },
+    {
+      "version": "20260624033036",
+      "file": "20260624033036_seed_education_sections_07.sql",
+      "git_blob_sha": "cab9e9afb69adb3a98184b59b32359fc4e75a850"
+    },
+    {
+      "version": "20260624122340",
+      "file": "20260624122340_enterprise_and_pi_metrics_rpcs.sql",
+      "git_blob_sha": "b576a6a9563c4495135224efeebfd9be733e91be"
+    },
+    {
+      "version": "20260624170206",
+      "file": "20260624170206_drop_duplicate_unique_constraint_hv_public_feed.sql",
+      "git_blob_sha": "b381e2cf5bd439e2f13b5a05f1252f17a03ed65a"
+    },
+    {
+      "version": "20260624171410",
+      "file": "20260624171410_add_covering_indexes_for_unindexed_foreign_keys.sql",
+      "git_blob_sha": "eca83efbcac5103a2887b6864c43528b606892b7"
+    },
+    {
+      "version": "20260625000000",
+      "file": "20260625000000_stripe_webhook_events_and_subscription_columns.sql",
+      "git_blob_sha": "0b83594aa8dd5f380e773b36f261fc7e84125692"
+    },
+    {
+      "version": "20260625130135",
+      "file": "20260625130135_remote_applied_repair.sql",
+      "git_blob_sha": "3a4e1f2600b4ffb1acf9e3ba92d38d5a1cfb4146"
+    },
+    {
+      "version": "20260625154948",
+      "file": "20260625154948_remote_applied_repair.sql",
+      "git_blob_sha": "55858ebf9fb343c9f2e345b81a1e491ff71107e2"
+    },
+    {
+      "version": "20260625155714",
+      "file": "20260625155714_remote_applied_repair.sql",
+      "git_blob_sha": "4cf38d719fc35b190cc1ee167e92f8414e03eb77"
+    },
+    {
+      "version": "20260625165349",
+      "file": "20260625165349_remote_applied_repair.sql",
+      "git_blob_sha": "cd22a707899ab7cec86701e8746e18552b48aa22"
+    },
+    {
+      "version": "20260625174211",
+      "file": "20260625174211_remote_applied_repair.sql",
+      "git_blob_sha": "68a113a93a7f10305fe35e0b8833541b0da00564"
+    },
+    {
+      "version": "20260625205825",
+      "file": "20260625205825_remote_applied_repair.sql",
+      "git_blob_sha": "8efbb5b745668d253c14f508f1363eb1998b2d5c"
+    },
+    {
+      "version": "20260625205911",
+      "file": "20260625205911_remote_applied_repair.sql",
+      "git_blob_sha": "d8c0e5eb1379407364a93a45bfaf11c39851ec37"
+    },
+    {
+      "version": "20260626102903",
+      "file": "20260626102903_remote_applied_repair.sql",
+      "git_blob_sha": "f1adcf34afe4e47913ecd973090b8267d8b7cd91"
+    },
+    {
+      "version": "20260626110925",
+      "file": "20260626110925_remote_applied_repair.sql",
+      "git_blob_sha": "da64c1857b232337d345e3747990cddd11243a95"
+    },
+    {
+      "version": "20260626115010",
+      "file": "20260626115010_remote_applied_repair.sql",
+      "git_blob_sha": "e24a393d1f5fb43b1532d227a5be7af1105706fe"
+    },
+    {
+      "version": "20260626154522",
+      "file": "20260626154522_remote_applied_repair.sql",
+      "git_blob_sha": "72f26e4a399df41e160629ebb8a939ac4153ed0d"
+    },
+    {
+      "version": "20260626173143",
+      "file": "20260626173143_remote_applied_repair.sql",
+      "git_blob_sha": "21664c66ee88c8393f11ef7aa2988ecd1b587f0f"
+    },
+    {
+      "version": "20260626173208",
+      "file": "20260626173208_remote_applied_repair.sql",
+      "git_blob_sha": "292164814433ef16b89fae6f87e6548e896aa2bb"
+    },
+    {
+      "version": "20260627000000",
+      "file": "20260627000000_regulatory_change_tracking_and_calendar.sql",
+      "git_blob_sha": "5687283b715c0ab8660dd955d8efb4238e2d8500"
+    },
+    {
+      "version": "20260627031317",
+      "file": "20260627031317_remote_applied_repair.sql",
+      "git_blob_sha": "12eb6aef58cf5a0986858fd36f58b6e584331376"
+    },
+    {
+      "version": "20260627033143",
+      "file": "20260627033143_remote_applied_repair.sql",
+      "git_blob_sha": "d241f28c9a58d7f72d03e3e78b36727e3f13492b"
+    },
+    {
+      "version": "20260627124710",
+      "file": "20260627124710_remote_applied_repair.sql",
+      "git_blob_sha": "ee2b162165d7ce23379c7d18bb6120116b4ac22d"
+    },
+    {
+      "version": "20260627131340",
+      "file": "20260627131340_remote_applied_repair.sql",
+      "git_blob_sha": "b9b9ed550f0d6068232ddcd7d0391fdee654789a"
+    },
+    {
+      "version": "20260627131423",
+      "file": "20260627131423_remote_applied_repair.sql",
+      "git_blob_sha": "2d530ea66c54989f754ee63741c9ff858a11a36b"
+    },
+    {
+      "version": "20260627131506",
+      "file": "20260627131506_remote_applied_repair.sql",
+      "git_blob_sha": "6178e5fa41d192f6cb9f38ce3fe435673dd23d89"
+    },
+    {
+      "version": "20260627131545",
+      "file": "20260627131545_remote_applied_repair.sql",
+      "git_blob_sha": "dc8d6d210eea6fb53c99c340454f31e648b3c854"
+    },
+    {
+      "version": "20260627131637",
+      "file": "20260627131637_remote_applied_repair.sql",
+      "git_blob_sha": "09d260dce808923a1f51c734a1fa71a48ff0448b"
+    },
+    {
+      "version": "20260627131716",
+      "file": "20260627131716_remote_applied_repair.sql",
+      "git_blob_sha": "3d1d0a1fac3da6c2a249f3521b61159d7c8f35a1"
+    },
+    {
+      "version": "20260627131801",
+      "file": "20260627131801_remote_applied_repair.sql",
+      "git_blob_sha": "f092a847a549e3004892445f0d3ec34e27533f12"
+    },
+    {
+      "version": "20260628000000",
+      "file": "20260628000000_create_cc_jurisdiction_briefings_schema.sql",
+      "git_blob_sha": "7d793577a72c55a539ec93f9ac6904d4659117bd"
+    },
+    {
+      "version": "20260628000001",
+      "file": "20260628000001_patch_cc_jurisdiction_briefings.sql",
+      "git_blob_sha": "6c48e542ba199a16ce154df6d7a83e8edcd75854"
+    },
+    {
+      "version": "20260628000500",
+      "file": "20260628000500_intelligence_job_queue.sql",
+      "git_blob_sha": "5e5142c11d5f1b1d3b7aa240df9ec8ec3402a2cc"
+    },
+    {
+      "version": "20260628043307",
+      "file": "20260628043307_remote_applied_repair.sql",
+      "git_blob_sha": "d4647b7ea230e78f3a4ba432d66349883b656f23"
+    },
+    {
+      "version": "20260628043343",
+      "file": "20260628043343_remote_applied_repair.sql",
+      "git_blob_sha": "d93ea993ab4e8a6b5ea93a6a8616f4d761a130ab"
+    },
+    {
+      "version": "20260628043422",
+      "file": "20260628043422_remote_applied_repair.sql",
+      "git_blob_sha": "3c1ffe7b053214071d741a0577509d62f147c58e"
+    },
+    {
+      "version": "20260628153000",
+      "file": "20260628153000_seed_australia_country_briefing.sql",
+      "git_blob_sha": "71784804f724b519b33dcf07d171468653c6364f"
+    },
+    {
+      "version": "20260628154000",
+      "file": "20260628154000_fix_ccjb_rls_anon_and_auth_read.sql",
+      "git_blob_sha": "fd7a38253bd8230804590cd3ed3b44d0dd6e57f4"
+    },
+    {
+      "version": "20260628155000",
+      "file": "20260628155000_reconcile_ccjb_rls_final.sql",
+      "git_blob_sha": "626c2417f1bcf458de71cd0486b819860e564936"
+    },
+    {
+      "version": "20260628164054",
+      "file": "20260628164054_remote_applied_repair.sql",
+      "git_blob_sha": "7993716f10dbc5aeb2e4cc5760010e61ff018a47"
+    },
+    {
+      "version": "20260628164104",
+      "file": "20260628164104_remote_applied_repair.sql",
+      "git_blob_sha": "10baa0289ad3b96e7a8788994f6ac7160d83ef6b"
+    },
+    {
+      "version": "20260628214714",
+      "file": "20260628214714_remote_applied_repair.sql",
+      "git_blob_sha": "ff6204294e52e492c0e540c1e82ee61f31f37743"
+    },
+    {
+      "version": "20260628230550",
+      "file": "20260628230550_remote_applied_repair.sql",
+      "git_blob_sha": "a5befd68a4b851a1e3b6d92a3d7111cbf61a2f88"
+    },
+    {
+      "version": "20260629000000",
+      "file": "20260629000000_grant_anon_select_on_core_intel_tables.sql",
+      "git_blob_sha": "1a0d0afe0908db8691a81d5f192988a42c50951b"
+    },
+    {
+      "version": "20260629015142",
+      "file": "20260629015142_remote_applied_repair.sql",
+      "git_blob_sha": "78390d8f00fe2d036c120aafd87d35b8e4c9a303"
+    },
+    {
+      "version": "20260629015153",
+      "file": "20260629015153_remote_applied_repair.sql",
+      "git_blob_sha": "721c62487a3eea3cb23ea3c0e77bf87dd00c9f63"
+    },
+    {
+      "version": "20260629015202",
+      "file": "20260629015202_remote_applied_repair.sql",
+      "git_blob_sha": "ad68d3e210459c67d4617e22186def7c9964c740"
+    },
+    {
+      "version": "20260629015212",
+      "file": "20260629015212_remote_applied_repair.sql",
+      "git_blob_sha": "05f984edca3c0e50841e039cd720b598a243de37"
+    },
+    {
+      "version": "20260629015224",
+      "file": "20260629015224_remote_applied_repair.sql",
+      "git_blob_sha": "e223676e8ab70453b4ed80b5a359210d78da7f1a"
+    },
+    {
+      "version": "20260629015325",
+      "file": "20260629015325_remote_applied_repair.sql",
+      "git_blob_sha": "1d9dd0c508410184e38a94248a65ad8b96327a69"
+    },
+    {
+      "version": "20260629091814",
+      "file": "20260629091814_remote_applied_repair.sql",
+      "git_blob_sha": "b2ec5a2a1302055fac845fc701b8356fa847ba23"
+    },
+    {
+      "version": "20260629202617",
+      "file": "20260629202617_remote_applied_repair.sql",
+      "git_blob_sha": "27411106c8c646403abbb876ef82f2d9f0b3f378"
+    },
+    {
+      "version": "20260629202656",
+      "file": "20260629202656_remote_applied_repair.sql",
+      "git_blob_sha": "96fcdc999b04457cbf8f847e13a3882ed4199aff"
+    },
+    {
+      "version": "20260629202758",
+      "file": "20260629202758_remote_applied_repair.sql",
+      "git_blob_sha": "1f14a840303a1452ffb200452027906e69fd4ea9"
+    },
+    {
+      "version": "20260629202845",
+      "file": "20260629202845_remote_applied_repair.sql",
+      "git_blob_sha": "6cd035788a7f4b575ef43a1f926833d43b53b5b6"
+    },
+    {
+      "version": "20260629210000",
+      "file": "20260629210000_expose_cc_jurisdiction_briefings_api_schema.sql",
+      "git_blob_sha": "10bc231f32d0d2cdaa9e239787e1e7c3bc5eca6b"
+    },
+    {
+      "version": "20260629235346",
+      "file": "20260629235346_remote_applied_repair.sql",
+      "git_blob_sha": "415afdb07b849345cd0e781d0096c2a3faa6a034"
+    },
+    {
+      "version": "20260630084842",
+      "file": "20260630084842_remote_applied_repair.sql",
+      "git_blob_sha": "ce2d5205eb7bd8cfc5e852d0c157dd30854cb28b"
+    },
+    {
+      "version": "20260630084916",
+      "file": "20260630084916_remote_applied_repair.sql",
+      "git_blob_sha": "49949b92c5e19ea7a99ad597399c0b5058caec26"
+    },
+    {
+      "version": "20260630084952",
+      "file": "20260630084952_remote_applied_repair.sql",
+      "git_blob_sha": "cde67a9ae27f1111aedd0aaf5e9b2bdf3c85ae70"
+    },
+    {
+      "version": "20260630085032",
+      "file": "20260630085032_remote_applied_repair.sql",
+      "git_blob_sha": "961dc07419020c4eb221421eebe5cdbb4b9a091a"
+    },
+    {
+      "version": "20260630085119",
+      "file": "20260630085119_remote_applied_repair.sql",
+      "git_blob_sha": "7e7ab8b6fbc70a91f2bb5e50dd8721cac111d5fc"
+    },
+    {
+      "version": "20260630085155",
+      "file": "20260630085155_remote_applied_repair.sql",
+      "git_blob_sha": "ec135bf6da7350d029416707bb6f44fb457c3534"
+    },
+    {
+      "version": "20260630085232",
+      "file": "20260630085232_remote_applied_repair.sql",
+      "git_blob_sha": "8c0622259d9acf691a359129ebf19fe85f76dcb5"
+    },
+    {
+      "version": "20260630085307",
+      "file": "20260630085307_remote_applied_repair.sql",
+      "git_blob_sha": "c3a83d47120b2525f48852101b4a331d13e19420"
+    },
+    {
+      "version": "20260630085351",
+      "file": "20260630085351_remote_applied_repair.sql",
+      "git_blob_sha": "14083da9fe6054fb7ba53bd0cd598e5f163bf296"
+    },
+    {
+      "version": "20260630100731",
+      "file": "20260630100731_remote_applied_repair.sql",
+      "git_blob_sha": "52a1f049676216f67894b790962a58bdd2c4791d"
+    },
+    {
+      "version": "20260630111918",
+      "file": "20260630111918_remote_applied_repair.sql",
+      "git_blob_sha": "7d0da247bf3389e61d26cefa8212b8e759369edc"
+    },
+    {
+      "version": "20260630184809",
+      "file": "20260630184809_remote_applied_repair.sql",
+      "git_blob_sha": "c1857360fdd1893ccaef430ca4dcc7c881894eb1"
+    },
+    {
+      "version": "20260630184845",
+      "file": "20260630184845_remote_applied_repair.sql",
+      "git_blob_sha": "b252c1acf7c3c1d51379c8cad84104e8369b60c7"
+    },
+    {
+      "version": "20260630184924",
+      "file": "20260630184924_remote_applied_repair.sql",
+      "git_blob_sha": "8387a751d1ded0592bf0b7661ca0ca172c24bf28"
+    },
+    {
+      "version": "20260630185000",
+      "file": "20260630185000_remote_applied_repair.sql",
+      "git_blob_sha": "bd8ca4b9d79688801ea1dae441f33711ab6392db"
+    },
+    {
+      "version": "20260630185034",
+      "file": "20260630185034_remote_applied_repair.sql",
+      "git_blob_sha": "7ad2e5dd04c6ee7ea89e45f419500fd7c89ea675"
+    },
+    {
+      "version": "20260630185112",
+      "file": "20260630185112_remote_applied_repair.sql",
+      "git_blob_sha": "d909ae726dee44b4b4b8af1a20378465c54a3eeb"
+    },
+    {
+      "version": "20260630185149",
+      "file": "20260630185149_remote_applied_repair.sql",
+      "git_blob_sha": "d496a0330e39d4e9273d991775df4673e38a7094"
+    },
+    {
+      "version": "20260630185224",
+      "file": "20260630185224_remote_applied_repair.sql",
+      "git_blob_sha": "9359db54db9381f291ab6ba46d5c5f90bd4853fd"
+    },
+    {
+      "version": "20260630233905",
+      "file": "20260630233905_remote_applied_repair.sql",
+      "git_blob_sha": "54ef290c71b6098aa4a48b1d17d9426d79da4cbe"
+    },
+    {
+      "version": "20260630234415",
+      "file": "20260630234415_remote_applied_repair.sql",
+      "git_blob_sha": "a8d600eeef6897014c35aa66fae8bb676690c75d"
+    },
+    {
+      "version": "20260630234506",
+      "file": "20260630234506_remote_applied_repair.sql",
+      "git_blob_sha": "bc2f5910514e2cb76fd52147601765ffa87c1eb1"
+    },
+    {
+      "version": "20260630234545",
+      "file": "20260630234545_remote_applied_repair.sql",
+      "git_blob_sha": "b5b8426760372001e770de1089327d4cea66f27a"
+    },
+    {
+      "version": "20260701001549",
+      "file": "20260701001549_fix_api_schema_views_rls_bypass.sql",
+      "git_blob_sha": "92062670bd7ed4eb30a2514fd56dc32d0b112586"
+    },
+    {
+      "version": "20260701001726",
+      "file": "20260701001726_add_missing_api_schema_views.sql",
+      "git_blob_sha": "b3059b984df7dfd028a2a6b9f4c363eb33938149"
+    },
+    {
+      "version": "20260701111452",
+      "file": "20260701111452_remote_applied_repair.sql",
+      "git_blob_sha": "e5d1f381973bc2747b199c533dbb7d7aa8e2ebcf"
+    },
+    {
+      "version": "20260701180751",
+      "file": "20260701180751_remote_applied_repair.sql",
+      "git_blob_sha": "f4b6f0af598ec5d04018fc3431a04eed7006fed2"
+    },
+    {
+      "version": "20260701185651",
+      "file": "20260701185651_remote_applied_repair.sql",
+      "git_blob_sha": "5b0a6466a05b8949bb0260358b2f9eee07a28f3b"
+    },
+    {
+      "version": "20260701191146",
+      "file": "20260701191146_remote_applied_repair.sql",
+      "git_blob_sha": "7e9267d9b468ac09943172d1ef3e84fd3b29c9c3"
+    },
+    {
+      "version": "20260701191208",
+      "file": "20260701191208_remote_applied_repair.sql",
+      "git_blob_sha": "9f1e87f6c813fdbb5bf3420f4fb3d8363e66e4b4"
+    },
+    {
+      "version": "20260701213000",
+      "file": "20260701213000_pin_search_path_on_flagged_functions.sql",
+      "git_blob_sha": "ea80056eb2d7c113a4c83d64b560cd3d357cce7a"
+    },
+    {
+      "version": "20260701213500",
+      "file": "20260701213500_cover_remaining_unindexed_foreign_keys.sql",
+      "git_blob_sha": "c957dec259f18ab56e2774f5f295a3b988a3be10"
+    },
+    {
+      "version": "20260701230000",
+      "file": "20260701230000_corridor_intelligence_tables_stub.sql",
+      "git_blob_sha": "c53c482495a9c26770ed7a71328c39e6531ec65c"
+    },
+    {
+      "version": "20260702014108",
+      "file": "20260702014108_seed_module2_sections_21.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702033107",
+      "file": "20260702033107_regulatory_product_format_matrix.sql",
+      "git_blob_sha": "ab9db00c34f4d6e600a095750b4f60518a45e913"
+    },
+    {
+      "version": "20260702033323",
+      "file": "20260702033323_seed_product_formats_and_pathways.sql",
+      "git_blob_sha": "555557371c0423cead6350051e0cd2eea02d89a2"
+    },
+    {
+      "version": "20260702033517",
+      "file": "20260702033517_seed_format_rules_priority_six.sql",
+      "git_blob_sha": "6292f976f16fd611b086c4e6ecab6279653533c3"
+    },
+    {
+      "version": "20260702033621",
+      "file": "20260702033621_seed_format_rules_global_batch2.sql",
+      "git_blob_sha": "6861cc179c5dd6b792994dad71bf0249f5e19f21"
+    },
+    {
+      "version": "20260702033716",
+      "file": "20260702033716_seed_pathway_stubs_long_tail.sql",
+      "git_blob_sha": "88c10d562354d46e4b21cbfa540ff63e60c196cb"
+    },
+    {
+      "version": "20260702111005",
+      "file": "20260702111005_remove_marketplace_preview_demo_data.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702122710",
+      "file": "20260702122710_remove_marketplace_preview_demo_data_v2.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702153215",
+      "file": "20260702153215_regulatory_enrichment_schema.sql",
+      "git_blob_sha": "45ff11c7c3f99ab170bcf9008620331238320836"
+    },
+    {
+      "version": "20260702184356",
+      "file": "20260702184356_secure_and_expose_corridor_tables.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702190045",
+      "file": "20260702190045_fix_overbroad_public_rls_policies.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702190056",
+      "file": "20260702190056_add_explicit_rls_to_no_policy_tables.sql",
+      "git_blob_sha": "6bcfcc53c8da54c4a0bc01d0f7ea259b3704bc18"
+    },
+    {
+      "version": "20260702190113",
+      "file": "20260702190113_pin_search_path_reg_functions.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702203328",
+      "file": "20260702203328_reprioritize_never_attempted_sources.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260702213616",
+      "file": "20260702213616_regulatory_enrichment_priority_markets.sql",
+      "git_blob_sha": "073e7f46da7da9348da722ab8fd8241e36046ec7"
+    },
+    {
+      "version": "20260702213646",
+      "file": "20260702213646_wire_regulatory_enrichment_pipeline.sql",
+      "git_blob_sha": "63e476e52e54dd0ec0e8d3399adf218f9e05db64"
+    },
+    {
+      "version": "20260703030351",
+      "file": "20260703030351_fix_safe_to_jsonb_search_path.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260703040000",
+      "file": "20260703040000_international_signal_coverage_fixes_stub.sql",
+      "git_blob_sha": "fb3c830e466b103c3d0d663afdf19e8ad0959764"
+    },
+    {
+      "version": "20260703060000",
+      "file": "20260703060000_url_health_remediation_batch1_stub.sql",
+      "git_blob_sha": "1089f5261fa23713decc4a411424d3d8a2343450"
+    },
+    {
+      "version": "20260703070000",
+      "file": "20260703070000_url_health_remediation_batch2_stub.sql",
+      "git_blob_sha": "31b2804059f60263fa091f65d9fa1954ef0071b9"
+    },
+    {
+      "version": "20260703080000",
+      "file": "20260703080000_url_health_remediation_batch3_stub.sql",
+      "git_blob_sha": "8932e66c4c3b9f6cae01d4fe75eab9a0ca72d298"
+    },
+    {
+      "version": "20260703090000",
+      "file": "20260703090000_url_health_remediation_batch4_stub.sql",
+      "git_blob_sha": "13350b8f241ebeab0f0c93b46b86a20ed2c07f0a"
+    },
+    {
+      "version": "20260703091614",
+      "file": "20260703091614_expand_extraction_keyword_gate_international.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260703100000",
+      "file": "20260703100000_source_health_view_stub.sql",
+      "git_blob_sha": "055e6e4324a93d179fb9bc3fe6e84ee888d2e8f0"
+    },
+    {
+      "version": "20260703103736",
+      "file": "20260703103736_daily_digest_schema.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260703104651",
+      "file": "20260703104651_add_dossier_file_reference_columns.sql",
+      "git_blob_sha": "6bcfcc53c8da54c4a0bc01d0f7ea259b3704bc18"
+    },
+    {
+      "version": "20260703110000",
+      "file": "20260703110000_health_view_bugfix_and_reddit_cluster_stub.sql",
+      "git_blob_sha": "f44a9cbf9d40e4784d0dbeeef877333e18c4d9bc"
+    },
+    {
+      "version": "20260703120000",
+      "file": "20260703120000_url_remediation_batch6_stub.sql",
+      "git_blob_sha": "60fbab462c5618e7aecb6a48fc6c2c9fe39188ca"
+    },
+    {
+      "version": "20260703120639",
+      "file": "20260703120639_seed_module2_sections_22.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260703130000",
+      "file": "20260703130000_url_remediation_batch7_stub.sql",
+      "git_blob_sha": "64487b82b0f9f196a7dceabdca3cbca8ce1a14e8"
+    },
+    {
+      "version": "20260703140000",
+      "file": "20260703140000_url_remediation_batch8_stub.sql",
+      "git_blob_sha": "161562a357668962c412ef54a36daf39f398eebe"
+    },
+    {
+      "version": "20260703150000",
+      "file": "20260703150000_url_remediation_batch9_weedmaps_cluster_stub.sql",
+      "git_blob_sha": "e163b39d937414e35fa3c5dcb4e136f7d99e9795"
+    },
+    {
+      "version": "20260703160000",
+      "file": "20260703160000_url_remediation_batch10_pubmed_norml_stub.sql",
+      "git_blob_sha": "778b5a52c0ed6871016219e9aaeb2311fb953882"
+    },
+    {
+      "version": "20260703170000",
+      "file": "20260703170000_url_remediation_batch11_stub.sql",
+      "git_blob_sha": "68de65dbf2ead44b499af81f760f3e8bd0abe697"
+    },
+    {
+      "version": "20260703180000",
+      "file": "20260703180000_url_remediation_batch12_stub.sql",
+      "git_blob_sha": "edf580f3293bc2447168e21fcb468427cb5cc561"
+    },
+    {
+      "version": "20260703190000",
+      "file": "20260703190000_url_remediation_batch13_stub.sql",
+      "git_blob_sha": "ad68b0ad90ed0595e475a1217f080c914eb617e6"
+    },
+    {
+      "version": "20260703200000",
+      "file": "20260703200000_url_remediation_batch14_stub.sql",
+      "git_blob_sha": "c6e63f7d35d2fb05f394088dd0ab7d4342090084"
+    },
+    {
+      "version": "20260703210000",
+      "file": "20260703210000_url_remediation_batch15_stub.sql",
+      "git_blob_sha": "0e29792a8b60c4d396620ed442a3ced20f55f660"
+    },
+    {
+      "version": "20260703220000",
+      "file": "20260703220000_url_remediation_batch16_final_stub.sql",
+      "git_blob_sha": "a1a946f95140cfb0c0c492c789eb0271e14f3522"
+    },
+    {
+      "version": "20260703230000",
+      "file": "20260703230000_url_remediation_batch17_stub.sql",
+      "git_blob_sha": "e23f314ba22bc993b1c6f6b1745d0540013418e8"
+    },
+    {
+      "version": "20260703240000",
+      "file": "20260703240000_url_remediation_batch18_stub.sql",
+      "git_blob_sha": "afd96a14fd767820c1cb86ed1271498bfba57dca"
+    },
+    {
+      "version": "20260703250000",
+      "file": "20260703250000_url_remediation_batch19_stub.sql",
+      "git_blob_sha": "2535f900c096a1133bf718ea4f3f776f2068888d"
+    },
+    {
+      "version": "20260703260000",
+      "file": "20260703260000_url_remediation_batch20_stub.sql",
+      "git_blob_sha": "a0572f1258a29b38dff92bf827409c2d59722a02"
+    },
+    {
+      "version": "20260703270000",
+      "file": "20260703270000_url_remediation_batch21_stub.sql",
+      "git_blob_sha": "1d8dacb3a023edba7e89f0f50201c8a0eb196c2d"
+    },
+    {
+      "version": "20260703280000",
+      "file": "20260703280000_url_remediation_batch22_stub.sql",
+      "git_blob_sha": "eba35c74b5768dcaaad829b8a3c79c83c8b1e12e"
+    },
+    {
+      "version": "20260703290000",
+      "file": "20260703290000_url_remediation_batch23_stub.sql",
+      "git_blob_sha": "2af69db4d79aea0397f585535ad49669b1c8ad6d"
+    },
+    {
+      "version": "20260703300000",
+      "file": "20260703300000_url_remediation_batch24_stub.sql",
+      "git_blob_sha": "0e5828e22b3e7a7a8b2e22cfeb1c1c76b538697f"
+    },
+    {
+      "version": "20260703310000",
+      "file": "20260703310000_url_remediation_batch25_stub.sql",
+      "git_blob_sha": "5d2973136da97554d15ab729bb8e1d4d237f26be"
+    },
+    {
+      "version": "20260703320000",
+      "file": "20260703320000_url_remediation_batch26_stub.sql",
+      "git_blob_sha": "d273c4d72a92a7ed3dd68f587e2b0ddbeb59d749"
+    },
+    {
+      "version": "20260703330000",
+      "file": "20260703330000_url_remediation_batch27_stub.sql",
+      "git_blob_sha": "9976616c2b47685bc22a8e0b3a21167273cd907d"
+    },
+    {
+      "version": "20260704000000",
+      "file": "20260704000000_ia_source_embeddings.sql",
+      "git_blob_sha": "99c48058ad59aaf87f19f867dbb7ee4fa52b74ba"
+    },
+    {
+      "version": "20260704020617",
+      "file": "20260704020617_run_daily_digest_function.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704083652",
+      "file": "20260704083652_ia_source_embeddings.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704093341",
+      "file": "20260704093341_ia_sources_live_view.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704093401",
+      "file": "20260704093401_sync_ia_market_graph_function.sql",
+      "git_blob_sha": "6bcfcc53c8da54c4a0bc01d0f7ea259b3704bc18"
+    },
+    {
+      "version": "20260704094737",
+      "file": "20260704094737_expose_enqueue_regulatory_enrichment.sql",
+      "git_blob_sha": "64ff3fe5647d1f14396244c9b926c0e45ffe96db"
+    },
+    {
+      "version": "20260704110000",
+      "file": "20260704110000_url_health_remediation_batch4_stub.sql",
+      "git_blob_sha": "870506c1bd27961832114c0ec7165cac114da8fe"
+    },
+    {
+      "version": "20260704120000",
+      "file": "20260704120000_url_health_remediation_batch5_stub.sql",
+      "git_blob_sha": "c345a9dd4c592361a8f0afc9332f45949a500350"
+    },
+    {
+      "version": "20260704130000",
+      "file": "20260704130000_url_health_remediation_batch6_stub.sql",
+      "git_blob_sha": "3bd65a729dba0eef04f160a173b53eb31a826dd1"
+    },
+    {
+      "version": "20260704133107",
+      "file": "20260704133107_counterparty_extraction_and_scoring.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704135057",
+      "file": "20260704135057_fix_unprotected_http_content_cast.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704140000",
+      "file": "20260704140000_url_health_remediation_batch7_stub.sql",
+      "git_blob_sha": "052ace56a8bcbf31ba013ce474ef6c195c753b64"
+    },
+    {
+      "version": "20260704150014",
+      "file": "20260704150014_expose_claim_intelligence_job.sql",
+      "git_blob_sha": "4fd9bb8f7c21d84f166b20a4789ccc7ea7c4998d"
+    },
+    {
+      "version": "20260704151117",
+      "file": "20260704151117_expose_remaining_public_only_rpcs.sql",
+      "git_blob_sha": "2307973223a92e4acadf9957047d9c94298259bd"
+    },
+    {
+      "version": "20260704152020",
+      "file": "20260704152020_add_source_verification_tracking_and_health_view.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704152427",
+      "file": "20260704152427_fix_source_health_view_fetch_status_semantics.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704160603",
+      "file": "20260704160603_get_command_centre_stats.sql",
+      "git_blob_sha": "6fa29c7ecc9bd10d3a993b73d7642b67bd247649"
+    },
+    {
+      "version": "20260704171449",
+      "file": "20260704171449_fix_regulatory_watch_service_role_grants.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704171507",
+      "file": "20260704171507_fix_genetics_public_visibility.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704171518",
+      "file": "20260704171518_expose_signals_quality_and_subscriptions_api_views.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704171636",
+      "file": "20260704171636_close_public_schema_default_acl_leak.sql",
+      "git_blob_sha": "e31a80e873dd9ca2b38f4aabfe4faef3b29edd88"
+    },
+    {
+      "version": "20260704171645",
+      "file": "20260704171645_grant_anon_genetics_profiles_for_rls_planning.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260704171735",
+      "file": "20260704171735_revoke_public_pseudorole_claim_intelligence_job.sql",
+      "git_blob_sha": "b31f00490bacfd4205d755d429333e4b247c4df6"
+    },
+    {
+      "version": "20260704212448",
+      "file": "20260704212448_tiered_access_rls.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705094622",
+      "file": "20260705094622_expose_scraper_source_state_via_api_schema.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705101127",
+      "file": "20260705101127_expose_get_proprietary_datasets_via_api.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705101219",
+      "file": "20260705101219_fix_get_proprietary_datasets_column_name.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705101423",
+      "file": "20260705101423_fix_source_snapshots_missing_columns.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705110051",
+      "file": "20260705110051_tighten_overgranted_permissions.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705110551",
+      "file": "20260705110551_country_intel_enrichment.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705110626",
+      "file": "20260705110626_fix_country_enrichment_signals_column.sql",
+      "git_blob_sha": "283f87f6fe215067cb72bdc76d9ff7fe1ee50fae"
+    },
+    {
+      "version": "20260705125854",
+      "file": "20260705125854_jurisdiction_playbooks_stub_remaining_192.sql",
+      "git_blob_sha": "485678ed2d27f7776579a8169bae5d65bfcf2655"
+    },
+    {
+      "version": "20260705130012",
+      "file": "20260705130012_jurisdiction_playbooks_stub_remaining_192.sql",
+      "git_blob_sha": "68cef87287202bce1651b452add392fdb504358d"
+    },
+    {
+      "version": "20260705130246",
+      "file": "20260705130246_jurisdiction_playbooks_provenance_and_queue.sql",
+      "git_blob_sha": "076c836abc743a43b5818a1f772edda22737c03a"
+    },
+    {
+      "version": "20260705130500",
+      "file": "20260705130500_jurisdiction_playbooks_provenance_and_queue.sql",
+      "git_blob_sha": "076c836abc743a43b5818a1f772edda22737c03a"
+    },
+    {
+      "version": "20260705131000",
+      "file": "20260705131000_jurisdiction_playbooks_batch1_ar_in_ng.sql",
+      "git_blob_sha": "cffa07d3294d41d0eae279a8c92f7a015371941f"
+    },
+    {
+      "version": "20260705140000",
+      "file": "20260705140000_jurisdiction_playbooks_batch2_af_al_dz_ad.sql",
+      "git_blob_sha": "bbf7ca2a1f3192ae43986e15582f0ad5237bf63a"
+    },
+    {
+      "version": "20260705150000",
+      "file": "20260705150000_jurisdiction_playbooks_batch3_ao_ag_am_at.sql",
+      "git_blob_sha": "e00f8c277965c73f345d15c0ba04ec7a678b2169"
+    },
+    {
+      "version": "20260705160000",
+      "file": "20260705160000_jurisdiction_playbooks_batch4_az_bs_bh_bd.sql",
+      "git_blob_sha": "76567e19e0db14a8b2b59e73c3c28ab20521faef"
+    },
+    {
+      "version": "20260705165137",
+      "file": "20260705165137_add_dossier_drive_file_id.sql",
+      "git_blob_sha": "dfe5f9476f551235e9febf65468db63be73f751f"
+    },
+    {
+      "version": "20260705170000",
+      "file": "20260705170000_jurisdiction_playbooks_batch5_bb_by_be_bz.sql",
+      "git_blob_sha": "31d4727db4921aabe1f74fe949538161edeefa96"
+    },
+    {
+      "version": "20260705180000",
+      "file": "20260705180000_jurisdiction_playbooks_batch6_bj_bt_ba.sql",
+      "git_blob_sha": "381fed01e3d5874104fdb91aafa9e04155d1027e"
+    },
+    {
+      "version": "20260705181915",
+      "file": "20260705181915_country_enrichment_add_playbook_source.sql",
+      "git_blob_sha": "80134b669340d816eb882460ea5af13743ad35d7"
+    },
+    {
+      "version": "20260705190000",
+      "file": "20260705190000_jurisdiction_playbooks_batch7_bo_bw_bn_bg.sql",
+      "git_blob_sha": "f5dbb75522b063422ba11beb1cba505c658c558a"
+    },
+    {
+      "version": "20260705194736",
+      "file": "20260705194736_enable_rls_country_intel_backup_20260630.sql",
+      "git_blob_sha": "dc77d8c7720c55816d2abb77ec742844b4ef69be"
+    },
+    {
+      "version": "20260705200000",
+      "file": "20260705200000_jurisdiction_playbooks_batch8_bf_bi_kh_cm.sql",
+      "git_blob_sha": "4ae8b3010620076acf6b0fbd46f71ba310ec3175"
+    },
+    {
+      "version": "20260705210000",
+      "file": "20260705210000_jurisdiction_playbooks_batch9_cv_cf_td_cl.sql",
+      "git_blob_sha": "245202762aa270bb34010fa428a3e61670c9e58e"
+    },
+    {
+      "version": "20260705220000",
+      "file": "20260705220000_jurisdiction_playbooks_batch10_cn_km_cr_ci.sql",
+      "git_blob_sha": "bafcb0e6039818c2510114b47b5b495044ca5670"
+    },
+    {
+      "version": "20260705230000",
+      "file": "20260705230000_jurisdiction_playbooks_batch11_hr_cu_cy_cd.sql",
+      "git_blob_sha": "083cf3c63868d57c6b0c48bda46b2f7f6b8e5c56"
+    },
+    {
+      "version": "20260705233347",
+      "file": "20260705233347_counterparty_profile_enrichment.sql",
+      "git_blob_sha": "7280a350c555f6cc61355c17073434debc3e5c4f"
+    },
+    {
+      "version": "20260705234300",
+      "file": "20260705234300_education_section_generator.sql",
+      "git_blob_sha": "1c0e7d5238d16a4d5a66b32a5e3407086cd333f2"
+    },
+    {
+      "version": "20260706000000",
+      "file": "20260706000000_jurisdiction_playbooks_batch12_dj_dm_do_ec.sql",
+      "git_blob_sha": "be9723b7e1c9ec4d29b1225aed9e387a6fc63615"
+    },
+    {
+      "version": "20260706000439",
+      "file": "20260706000439_education_deep_regen.sql",
+      "git_blob_sha": "4c4cc398eb16b0b36e12d01f43f5d52ecef5b356"
+    },
+    {
+      "version": "20260706010000",
+      "file": "20260706010000_jurisdiction_playbooks_batch13_eg_sv_gq_er.sql",
+      "git_blob_sha": "fa4a36e3e9a1e5e46d0faf250cfb98b5ca15d624"
+    },
+    {
+      "version": "20260706020000",
+      "file": "20260706020000_jurisdiction_playbooks_thailand_staleness_correction.sql",
+      "git_blob_sha": "3252dc232657e5cb213d7947f089d035ea8e4b07"
+    },
+    {
+      "version": "20260706030000",
+      "file": "20260706030000_jurisdiction_playbooks_batch14_ee_sz_et_fk.sql",
+      "git_blob_sha": "0ddd072579ff2dab6d5d867f5268770ed2ab3744"
+    },
+    {
+      "version": "20260706040000",
+      "file": "20260706040000_jurisdiction_playbooks_batch15_dk_fo_fj_fi.sql",
+      "git_blob_sha": "07e8ce5084b14cb8488ad0fe69480559f8a76583"
+    },
+    {
+      "version": "20260706220724",
+      "file": "20260706220724_seed_mainstream_media_source_registry.sql",
+      "git_blob_sha": "6d93a03f7cd4fc367eedbea4ef053c9c698f81cc"
+    },
+    {
+      "version": "20260706221013",
+      "file": "20260706221013_create_editorial_items_table.sql",
+      "git_blob_sha": "c9771e611ef6cf470da34e57f267b364a6a8f316"
+    },
+    {
+      "version": "20260706221146",
+      "file": "20260706221146_add_editorial_headlines_to_daily_digest.sql",
+      "git_blob_sha": "b2259c85d95a7bfceb9d25610d68e9402e243152"
+    },
+    {
+      "version": "20260706221210",
+      "file": "20260706221210_create_run_editorial_digest_function.sql",
+      "git_blob_sha": "ac32550b9b14385a7a9ae1d712721b1c509825ed"
+    },
+    {
+      "version": "20260706221328",
+      "file": "20260706221328_add_source_type_to_extract_candidates.sql",
+      "git_blob_sha": "c50066c57bcda8d6c41db83f8d14257dee6644cb"
+    },
+    {
+      "version": "20260706224253",
+      "file": "20260706224253_add_public_insert_policy_supplier_applications.sql",
+      "git_blob_sha": "93a34f1ae10d258ad799b9e88d768ae108229832"
+    },
+    {
+      "version": "20260706224356",
+      "file": "20260706224356_grant_insert_supplier_applications_public.sql",
+      "git_blob_sha": "fa28d9b901fe6e9d2ce98b0a34b0b8ebabdbc1c7"
+    },
+    {
+      "version": "20260706232524",
+      "file": "20260706232524_revert_unused_supplier_applications_public_access.sql",
+      "git_blob_sha": "8d4a3715536667b2abaccf76253ff8ab3240d4e4"
+    },
+    {
+      "version": "20260707000000",
+      "file": "20260707000000_ia_signals_intel_tier_rls.sql",
+      "git_blob_sha": "f57d1183b0ea8deb7d09e2453391970c699b0703"
+    },
+    {
+      "version": "20260707094500",
+      "file": "20260707094500_signals_digest_step1_coverage_batch17.sql",
+      "git_blob_sha": "2ac6b0e038c6eb2cd65d060937a3a20e870d5601"
+    },
+    {
+      "version": "20260707094631",
+      "file": "20260707094631_run_signal_extraction_provider_fallback_and_circuit_breaker.sql",
+      "git_blob_sha": "0eb787e81bbad99bf72630f65ab147ae738398a1"
+    },
+    {
+      "version": "20260707094647",
+      "file": "20260707094647_platform_health_surface_extraction_outage.sql",
+      "git_blob_sha": "4c1d18de4485e224c05013b0e71bb16d7f0e3c0e"
+    },
+    {
+      "version": "20260707100803",
+      "file": "20260707100803_manual_editorial_items_2026_07_07.sql",
+      "git_blob_sha": "c3e8106f29552eda194d2dd84497fda7bc41cce9"
+    },
+    {
+      "version": "20260707100830",
+      "file": "20260707100830_publish_editorial_digest_2026_07_07.sql",
+      "git_blob_sha": "44e083fc64113326ec43930d64ef7564e7e99937"
+    },
+    {
+      "version": "20260707102235",
+      "file": "20260707102235_manual_editorial_items_emerging_markets.sql",
+      "git_blob_sha": "3bc66a38526be29c31d51abb36ee1987657f1831"
+    },
+    {
+      "version": "20260707102301",
+      "file": "20260707102301_append_emerging_markets_to_digest.sql",
+      "git_blob_sha": "4ae175a632c98859c574d6a428c2e46f796ed8b8"
+    },
+    {
+      "version": "20260707111223",
+      "file": "20260707111223_remove_public_assets_listing_policy.sql",
+      "git_blob_sha": "9aa7e7a6bbda937b6c350c03622fca5aa0e6d5b2"
+    },
+    {
+      "version": "20260707120000",
+      "file": "20260707120000_country_education_overlay.sql",
+      "git_blob_sha": "2d9770730310c8010194f896ea460851f6d15067"
+    },
+    {
+      "version": "20260707185511",
+      "file": "20260707185511_grant_anon_insert_supplier_profiles.sql",
+      "git_blob_sha": "8190b7fe7b4f80d77ccf963aab5e6717dfa1853f"
+    },
+    {
+      "version": "20260707192916",
+      "file": "20260707192916_manual_editorial_items_emerging_markets_batch2.sql",
+      "git_blob_sha": "b14d7dede8a029ee0b4a18d157f611c4167d61f3"
+    },
+    {
+      "version": "20260707192929",
+      "file": "20260707192929_append_emerging_markets_batch2_to_digest.sql",
+      "git_blob_sha": "1a7c9b84aa25b49e8936d5570e4f69348d317317"
+    },
+    {
+      "version": "20260707193633",
+      "file": "20260707193633_backfill_published_at_editorial_headlines.sql",
+      "git_blob_sha": "2a0c29a03b8b3a184764bcbf4da1f3a3e0d541a5"
+    },
+    {
+      "version": "20260707193718",
+      "file": "20260707193718_fix_run_editorial_digest_published_at.sql",
+      "git_blob_sha": "dd980f94fde12ce8ee6d41d7a72e35f2f578d66f"
+    },
+    {
+      "version": "20260707194140",
+      "file": "20260707194140_replace_lesotho_source_industry_to_mainstream.sql",
+      "git_blob_sha": "82d8c6b58984d60e83cd2304fc8b058eda1299b2"
+    },
+    {
+      "version": "20260707200656",
+      "file": "20260707200656_signals_digest_step2_boilerplate_quality_filter.sql",
+      "git_blob_sha": "7c50551b0768770822c825e38fcf3d75d15c31ab"
+    },
+    {
+      "version": "20260707200900",
+      "file": "20260707200900_signals_digest_step2_revert_overbroad_archival.sql",
+      "git_blob_sha": "76c76de4ae28552793fef2444106061581b1e9ee"
+    },
+    {
+      "version": "20260707201228",
+      "file": "20260707201228_signals_digest_step2_wire_boilerplate_filter.sql",
+      "git_blob_sha": "0e46684d44b3147097584624d93d2ab96ba7b2e9"
+    },
+    {
+      "version": "20260707201400",
+      "file": "20260707201400_signals_digest_step4_wire_delivery_log.sql",
+      "git_blob_sha": "32481b0300f1a35ea693c0da080b3e135f7262b1"
+    },
+    {
+      "version": "20260707201456",
+      "file": "20260707201456_signals_digest_step4_delivery_log_idempotent.sql",
+      "git_blob_sha": "26293e6f6751a5c31aee4c94fb724d1180eb8025"
+    },
+    {
+      "version": "20260707201659",
+      "file": "20260707201659_signals_digest_step4_fix_signals_for_digest_stage_filter.sql",
+      "git_blob_sha": "99b3e950ae662a30d73c9a2dd5cd8edf45b77779"
+    },
+    {
+      "version": "20260707201721",
+      "file": "20260707201721_signals_digest_step4_revert_redundant_fanout.sql",
+      "git_blob_sha": "65666e9ad8499aa67f8b7d472f4643eddc881f74"
+    },
+    {
+      "version": "20260708003123",
+      "file": "20260708003123_weekly_wire_policy_archive_and_new_editorials.sql",
+      "git_blob_sha": "879ae5af8fa499120825e3d754ef580d89360056"
+    },
+    {
+      "version": "20260708003136",
+      "file": "20260708003136_publish_weekly_wire_batch.sql",
+      "git_blob_sha": "5f67f960a03fe3bb611b4e0d927eb509986445bc"
+    },
+    {
+      "version": "20260708003526",
+      "file": "20260708003526_add_major_market_editorial_dea_hearing.sql",
+      "git_blob_sha": "ede6b711ec1ea03ee4fc7a1d9576b30e85e1a5cf"
+    },
+    {
+      "version": "20260708003537",
+      "file": "20260708003537_append_dea_hearing_to_digest.sql",
+      "git_blob_sha": "7a1994d439809403d9ef792d1e830d5eea90dd1f"
+    },
+    {
+      "version": "20260708003739",
+      "file": "20260708003739_run_editorial_digest_v2_weekly_wire_policy.sql",
+      "git_blob_sha": "1fb48ae9ed927aedb1337f2be47a640d0459f2f4"
+    },
+    {
+      "version": "20260708011346",
+      "file": "20260708011346_expose_daily_digest_via_api_schema.sql",
+      "git_blob_sha": "249cf5a84da684c0c22243433f7409ba9f1c1952"
+    },
+    {
+      "version": "20260708100000",
+      "file": "20260708100000_switch_embeddings_768_dim.sql",
+      "git_blob_sha": "02eeb7bd171dec7b6a8d86a9b3f1fa80b7a0d241"
+    },
+    {
+      "version": "20260708102117",
+      "file": "20260708102117_grant_public_select_education_content_tables.sql",
+      "git_blob_sha": "5cae3cdde111453a1139885b2d93263adfff5b9e"
+    },
+    {
+      "version": "20260708102159",
+      "file": "20260708102159_grant_public_select_user_roles_self_scoped.sql",
+      "git_blob_sha": "f3775d90cd3a5e75c2b2f523fd468a54fe26bcf6"
+    },
+    {
+      "version": "20260708112000",
+      "file": "20260708112000_enable_realtime_globe_tables.sql",
+      "git_blob_sha": "d34d646a1416ff00b0dca521b5e03b7fa992672c"
+    },
+    {
+      "version": "20260708212112",
+      "file": "20260708212112_fix_mutable_search_path_functions.sql",
+      "git_blob_sha": "a6db573e70550136fa5b68bb650f1ae88c3696fd"
+    },
+    {
+      "version": "20260708214318",
+      "file": "20260708214318_fix_auth_rls_initplan_scalar_subquery_v2.sql",
+      "git_blob_sha": "e71f0aeb1617693bfc2bdaa43c119bd3c1007c5b"
+    },
+    {
+      "version": "20260708214752",
+      "file": "20260708214752_backfill_medical_role_education_audience_tags.sql",
+      "git_blob_sha": "3b5e9863f3d6ca3e34b3fdf29f3cd1b03a9bc618"
+    },
+    {
+      "version": "20260708214926",
+      "file": "20260708214926_backfill_commercial_role_education_audience_tags.sql",
+      "git_blob_sha": "7fa670adef2cb06b10c194981e379c0e5f08e427"
+    },
+    {
+      "version": "20260708215028",
+      "file": "20260708215028_backfill_regulator_policy_education_audience_tag.sql",
+      "git_blob_sha": "6379383675ebeaa70ac3af70e821607877793938"
+    },
+    {
+      "version": "20260708215138",
+      "file": "20260708215138_backfill_exporter_tag_on_crossborder_modules.sql",
+      "git_blob_sha": "5501186613046cc6c37f275d99eefdb39fa7bf74"
+    },
+    {
+      "version": "20260708215711",
+      "file": "20260708215711_grant_anon_insert_buyer_requests_and_listings.sql",
+      "git_blob_sha": "d3430d111ffb6451c0e90d0aaa1f73f107efe899"
+    },
+    {
+      "version": "20260708221926",
+      "file": "20260708221926_backfill_source_url_outlet_editorial_headlines.sql",
+      "git_blob_sha": "12ab5c0ceeba4afce0e7d7b977c4f11c4a9abd0f"
+    },
+    {
+      "version": "20260708221955",
+      "file": "20260708221955_run_editorial_digest_v3_source_attribution.sql",
+      "git_blob_sha": "4ce154291f510bc1af10db573e5b5390415d05c1"
+    },
+    {
+      "version": "20260709000000",
+      "file": "20260709000000_add_ratings_to_listings.sql",
+      "git_blob_sha": "e935dc5001e02acc29ea83bd743bcf851545ca55"
+    },
+    {
+      "version": "20260709010000",
+      "file": "20260709010000_expose_ratings_on_public_listings_view.sql",
+      "git_blob_sha": "b90fce9944fe29e8a493e7c62792723802f1a2a0"
+    },
+    {
+      "version": "20260709024755",
+      "file": "20260709024755_fix_auth_rls_initplan_service_role_policies_v3.sql",
+      "git_blob_sha": "c201934510a366bc81660bfcaa19dc1eb1091e11"
+    },
+    {
+      "version": "20260709031926",
+      "file": "20260709031926_client_error_reports.sql",
+      "git_blob_sha": "8a45bdd6c98926f376915b7a51b6d50985b6a906"
+    },
+    {
+      "version": "20260709032305",
+      "file": "20260709032305_client_error_reports_view_security_invoker.sql",
+      "git_blob_sha": "a66bf6bdb9a25d0a4446c6f261e64b14ebcf991f"
+    },
+    {
+      "version": "20260709085217",
+      "file": "20260709085217_signal_extraction_add_provider_column.sql",
+      "git_blob_sha": "4ab26342c5b55e61f7714173ee0071b8446b665a"
+    },
+    {
+      "version": "20260709085300",
+      "file": "20260709085300_signal_extraction_three_tier_fallback.sql",
+      "git_blob_sha": "998f461a5572f1761bf6de4f75811e08a775cf79"
+    },
+    {
+      "version": "20260709085504",
+      "file": "20260709085504_signal_extraction_fix_gemini_thinking_and_parts.sql",
+      "git_blob_sha": "8cf0476ef961e12ba59b1a4d0449039b7b6aec0e"
+    },
+    {
+      "version": "20260709092127",
+      "file": "20260709092127_fix_security_definer_views_api_schema.sql",
+      "git_blob_sha": "9d93aeadb9de48fbf75a3fb55183ad2874d96c80"
+    },
+    {
+      "version": "20260709092128",
+      "file": "20260709092128_fix_function_search_path_api_schema.sql",
+      "git_blob_sha": "adb937babd2387c37f1ae01cd0d561b5e348d596"
+    },
+    {
+      "version": "20260709092130",
+      "file": "20260709092130_fix_rls_no_policy_backup_table.sql",
+      "git_blob_sha": "097557b17ed181e8230017a78fd88e93f77e9058"
+    },
+    {
+      "version": "20260709110857",
+      "file": "20260709110857_switch_embeddings_768_dim_repair.sql",
+      "git_blob_sha": "0cb6d5bd7dc0d0a890ebe4ccafb271d1f2c37463"
+    },
+    {
+      "version": "20260709165804",
+      "file": "20260709165804_add_ratings_to_listings.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260709165847",
+      "file": "20260709165847_expose_ratings_on_public_listings_view.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260709170348",
+      "file": "20260709170348_country_education_overlay.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260709200035",
+      "file": "20260709200035_create_content_coverage_queue_view.sql",
+      "git_blob_sha": "7603038ad362307cef18693530ff2920e37ce2ad"
+    },
+    {
+      "version": "20260709211746",
+      "file": "20260709211746_extend_platform_health_editorial_pipeline.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260709212150",
+      "file": "20260709212150_replace_google_news_with_direct_feeds.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260709215147",
+      "file": "20260709215147_batch_10_playbooks_metrics_ua_gh_pk_si_v2.sql",
+      "git_blob_sha": "b2faad3b977534e4b917ebf001f0f908f4ebdf30"
+    },
+    {
+      "version": "20260709215701",
+      "file": "20260709215701_grant_select_confirmed_live_tables_missing_read_access.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710022721",
+      "file": "20260710022721_expose_editorial_items_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710081115",
+      "file": "20260710081115_insert_test_snapshot_for_live_test.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710081247",
+      "file": "20260710081247_cleanup_test_snapshot.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710081657",
+      "file": "20260710081657_add_needs_review_stage_editorial_items.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710084232",
+      "file": "20260710084232_batch_10_hardening_overlay_controlref.sql",
+      "git_blob_sha": "3363de5c3b6aeca163fec48f868acfe751dc01e7"
+    },
+    {
+      "version": "20260710093846",
+      "file": "20260710093846_expose_command_centre_and_dashboard_tables_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710094107",
+      "file": "20260710094107_expose_subscriptions_and_webhook_events_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710094130",
+      "file": "20260710094130_expose_deal_room_messages_and_passport_snapshots_via_api.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710111129",
+      "file": "20260710111129_restore_github_bridge_caller_auth.sql",
+      "git_blob_sha": "9935fea8f5c322731a2c61eeb4754cd7ea96bd1c"
+    },
+    {
+      "version": "20260710114637",
+      "file": "20260710114637_add_reviewed_regulatory_tier_to_countries.sql",
+      "git_blob_sha": "d402ae2894148522e07c5998a340f37b985f3e2a"
+    },
+    {
+      "version": "20260710114706",
+      "file": "20260710114706_seed_reviewed_regulatory_tiers_curated_set.sql",
+      "git_blob_sha": "d33803b87b833667c5df855ac0710902de9efbb0"
+    },
+    {
+      "version": "20260710114721",
+      "file": "20260710114721_expose_regulatory_tier_via_api_countries_view.sql",
+      "git_blob_sha": "2a8d093cea4f2715dc1fb2c1cb54b61be1a216d6"
+    },
+    {
+      "version": "20260710120000",
+      "file": "20260710120000_expose_hv_processing_jobs_api_schema.sql",
+      "git_blob_sha": "606732016b52d8aa8b0c9636cf0a51d3ae066321"
+    },
+    {
+      "version": "20260710121500",
+      "file": "20260710121500_expose_hv_artifacts_api_schema.sql",
+      "git_blob_sha": "cd9f02cb5b8c0915ccb776b6bf47f7dffc76fab9"
+    },
+    {
+      "version": "20260710123000",
+      "file": "20260710123000_expose_actively_broken_tables_api_schema.sql",
+      "git_blob_sha": "cb8286ef0358d62f042847b95f27ff774f7c1d27"
+    },
+    {
+      "version": "20260710130000",
+      "file": "20260710130000_schema_drift_monitor.sql",
+      "git_blob_sha": "94dfe90fe7557fb4dca8deac68c46874cfb53f80"
+    },
+    {
+      "version": "20260710140000",
+      "file": "20260710140000_schema_drift_monitor_functions.sql",
+      "git_blob_sha": "8f2218cc93161b2a619181ad7411e477241cb742"
+    },
+    {
+      "version": "20260710150000",
+      "file": "20260710150000_expose_education_sections_and_playbooks.sql",
+      "git_blob_sha": "f4741ecf5c1d4dc2bd2aab57a518c627c4a9a6a1"
+    },
+    {
+      "version": "20260710152222",
+      "file": "20260710152222_fix_security_definer_view_bypass_18_views.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710152711",
+      "file": "20260710152711_grant_select_base_tables_for_invoker_views.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710160000",
+      "file": "20260710160000_create_public_watchlist_collections.sql",
+      "git_blob_sha": "5eca858b9ca896967da74823ca348d754604814c"
+    },
+    {
+      "version": "20260710160001",
+      "file": "20260710160001_client_error_reports_view_security_invoker.sql",
+      "git_blob_sha": "43818418b8ebdfeec7c3b678fc6de83b19a5d9cd"
+    },
+    {
+      "version": "20260710165831",
+      "file": "20260710165831_classify_all_countries_regulatory_tier_from_briefings.sql",
+      "git_blob_sha": "cbdb0352d16d635e72c29a5da2bfe3e457228537"
+    },
+    {
+      "version": "20260710165848",
+      "file": "20260710165848_classify_remaining_8_countries_without_briefings.sql",
+      "git_blob_sha": "b4cae87bf89a1c4f0bb26d8aa39d52b6fc8fd9e3"
+    },
+    {
+      "version": "20260710170100",
+      "file": "20260710170100_jurisdiction_playbooks_batch20b_content.sql",
+      "git_blob_sha": "d7beae2e04ced25c4fe0b1288a5c7cd67f0405a8"
+    },
+    {
+      "version": "20260710170141",
+      "file": "20260710170141_fix_security_definer_view_bypass_18_views.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710170151",
+      "file": "20260710170151_grant_select_base_tables_for_invoker_views.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710171159",
+      "file": "20260710171159_add_cbd_hemp_only_regulatory_tier.sql",
+      "git_blob_sha": "79c12a30b0b819994ee1087ded0533342b998302"
+    },
+    {
+      "version": "20260710171211",
+      "file": "20260710171211_classify_cbd_hemp_only_countries.sql",
+      "git_blob_sha": "d1a84770e1e709efc8d108b8d481ebc37479b52c"
+    },
+    {
+      "version": "20260710190000",
+      "file": "20260710190000_fix_security_definer_view_bypass_18_views.sql",
+      "git_blob_sha": "82fb50d3a183990bd1403915e2980554b0b88503"
+    },
+    {
+      "version": "20260710190100",
+      "file": "20260710190100_grant_select_base_tables_for_invoker_views.sql",
+      "git_blob_sha": "4410c5c8a91f24ce2e9fa8151666f93bff6cf319"
+    },
+    {
+      "version": "20260710190200",
+      "file": "20260710190200_client_error_reports.sql",
+      "git_blob_sha": "70c2ba0be7603bc826c4bab0436dc2a9fc450afc"
+    },
+    {
+      "version": "20260710190300",
+      "file": "20260710190300_github_pat_vault_rpc.sql",
+      "git_blob_sha": "dc2b264f7cfd9d947951d85a04dd14a2a7d4a7dd"
+    },
+    {
+      "version": "20260710190400",
+      "file": "20260710190400_jurisdiction_playbooks_batch20_ua_gh_pk_si.sql",
+      "git_blob_sha": "1a7f8bc6a18eb5c4ffc6db996d9a353e2f19c460"
+    },
+    {
+      "version": "20260710190500",
+      "file": "20260710190500_jurisdiction_playbooks_batch20a_sources.sql",
+      "git_blob_sha": "93a111444f9e6a91e9eea369a8bcd3a349d509e4"
+    },
+    {
+      "version": "20260710190700",
+      "file": "20260710190700_add_ratings_indexes_concurrently.sql",
+      "git_blob_sha": "e452ada33267292b4ebf0f6194f3f0de1a0f84c4"
+    },
+    {
+      "version": "20260710200000",
+      "file": "20260710200000_revoke_excess_grants_content_gated_tables.sql",
+      "git_blob_sha": "76e2368aae012107040aa05a3826eaae66dc94bf"
+    },
+    {
+      "version": "20260710230603",
+      "file": "20260710230603_insert_test_snapshot_fallback_test.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710230656",
+      "file": "20260710230656_cleanup_fallback_test.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260710235324",
+      "file": "20260710235324_batch_10_numeric_to_double_precision_optimization_v2.sql",
+      "git_blob_sha": "06c3082f219c5abe626080fe41078ca179b85649"
+    },
+    {
+      "version": "20260710235525",
+      "file": "20260710235525_batch_10_optimization_controlref_log.sql",
+      "git_blob_sha": "2e9a703c8ff5fe2d92d86b9120630764b4039590"
+    },
+    {
+      "version": "20260711000853",
+      "file": "20260711000853_grant_select_buyer_requests_public_read.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711010336",
+      "file": "20260711010336_expose_marketplace_matching_tables_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711010600",
+      "file": "20260711010600_expose_workspaces_and_hv_passports_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711010651",
+      "file": "20260711010651_expose_hv_facilities_licences_passport_scores_via_api.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711011620",
+      "file": "20260711011620_expose_dossiers_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711011701",
+      "file": "20260711011701_expose_user_dashboard_preferences_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711012305",
+      "file": "20260711012305_expose_hv_claims_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711012348",
+      "file": "20260711012348_expose_clinical_education_tables_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711030217",
+      "file": "20260711030217_batch_11_playbooks_metrics_overlay_tr_mk_na_ke.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260711095614",
+      "file": "20260711095614_tighten_anon_grants_on_org_scoped_views.sql",
+      "git_blob_sha": "148934eebfffbbf6be17100d173903968518f806"
+    },
+    {
+      "version": "20260711095637",
+      "file": "20260711095637_tighten_anon_grant_hv_evidence_documents.sql",
+      "git_blob_sha": "b692ef2ed5710b52e786f676203d4544f4d89a75"
+    },
+    {
+      "version": "20260711100000",
+      "file": "20260711100000_jurisdiction_playbooks_batch21a_sources.sql",
+      "git_blob_sha": "7ec5e5cc41d24e97557445a35e89ef7a20d3c930"
+    },
+    {
+      "version": "20260711100100",
+      "file": "20260711100100_jurisdiction_playbooks_batch21b_content.sql",
+      "git_blob_sha": "ca115ac40fc926f825b5116e171826b847992f42"
+    },
+    {
+      "version": "20260711104709",
+      "file": "20260711104709_ratings_forward_fix_bigint_concurrently_null_default.sql",
+      "git_blob_sha": "7f4bb6976425c9a8cea7dfd9626f9b7df25b2e47"
+    },
+    {
+      "version": "20260711105146",
+      "file": "20260711105146_revoke_excess_grants_content_gated_tables.sql",
+      "git_blob_sha": "76e2368aae012107040aa05a3826eaae66dc94bf"
+    },
+    {
+      "version": "20260711111007",
+      "file": "20260711111007_regulatory_tier_classifier_function.sql",
+      "git_blob_sha": "d086c2d0768cbf971a8b0960dccad477f6b13cc9"
+    },
+    {
+      "version": "20260711111045",
+      "file": "20260711111045_regulatory_tier_provenance_and_staleness.sql",
+      "git_blob_sha": "e60cee2c1b773697ff98ed865c4d394bf451bf20"
+    },
+    {
+      "version": "20260711111103",
+      "file": "20260711111103_regulatory_tier_audit_log.sql",
+      "git_blob_sha": "132ab8e9275db63dd0cd71af4206ea25d26a7e5a"
+    },
+    {
+      "version": "20260711111130",
+      "file": "20260711111130_regulatory_tier_briefing_change_trigger.sql",
+      "git_blob_sha": "fccdc99b53696092383c0d0d95dd8d6340303c6e"
+    },
+    {
+      "version": "20260711111230",
+      "file": "20260711111230_regulatory_tier_agent_controls_and_views.sql",
+      "git_blob_sha": "a1d12b4ef699163e2b493ac067a5c997663636d9"
+    },
+    {
+      "version": "20260711113521",
+      "file": "20260711113521_batch_12_playbooks_metrics_overlay_li_tt_gd_ie.sql",
+      "git_blob_sha": "ca93e90551405024dcd3d81e192baee2be993e9b"
+    },
+    {
+      "version": "20260711160935",
+      "file": "20260711160935_fix_security_definer_view_regression_15_views.sql",
+      "git_blob_sha": "acaa71c06883370ead3829a459d60692d2f2d5b1"
+    },
+    {
+      "version": "20260711163645",
+      "file": "20260711163645_fix_security_definer_regulatory_tier_review_queue.sql",
+      "git_blob_sha": "8bb3636025b76b3db5df678bf8a4940e2b996b18"
+    },
+    {
+      "version": "20260711170000",
+      "file": "20260711170000_fix_regulatory_tier_rpc_missing_authz.sql",
+      "git_blob_sha": "954fd4acd17ad3fee7207383ae1316b482f8c2b0"
+    },
+    {
+      "version": "20260712070059",
+      "file": "20260712070059_fix_regulatory_tier_rpc_missing_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260712070915",
+      "file": "20260712070915_insert_test_snapshot_v3_fallback.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260712070954",
+      "file": "20260712070954_cleanup_v3_fallback_test.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260712130917",
+      "file": "20260712130917_batch_13_playbooks_metrics_overlay_sm_vc_lb_ma.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713055900",
+      "file": "20260713055900_fix_regulatory_tier_rpc_missing_authz_reconcile.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713070000",
+      "file": "20260713070000_country_name_normalization_stub.sql",
+      "git_blob_sha": "bc0d25e039682eb63bb67905d243a5e7c186857c"
+    },
+    {
+      "version": "20260713070355",
+      "file": "20260713070355_enforce_api_view_security_invoker_trigger.sql",
+      "git_blob_sha": "67593461f755f81a012a3e17ffcd3ddcf3a78c54"
+    },
+    {
+      "version": "20260713080000",
+      "file": "20260713080000_signal_quality_gate_relax_and_nav_chrome_fix_stub.sql",
+      "git_blob_sha": "80eafa3cd759337d1607765c172a8af7f08b4562"
+    },
+    {
+      "version": "20260713090000",
+      "file": "20260713090000_signals_reviewer_tracking_stub.sql",
+      "git_blob_sha": "73d1f4755f581dc37c3451f2112fe946c10fc890"
+    },
+    {
+      "version": "20260713111807",
+      "file": "20260713111807_regulatory_tier_airtable_sync_config_rpc.sql",
+      "git_blob_sha": "c0bd07644f20b53f12e5e3251e2c615d45d44a93"
+    },
+    {
+      "version": "20260713120000",
+      "file": "20260713120000_education_review_attribution.sql",
+      "git_blob_sha": "05063163a097ba4a2bdf51a558c1ad6f5d803891"
+    },
+    {
+      "version": "20260713130000",
+      "file": "20260713130000_network_review_producers.sql",
+      "git_blob_sha": "ce56536dd4408a5842ad1de5874fbb4a0e347146"
+    },
+    {
+      "version": "20260713155218",
+      "file": "20260713155218_regulatory_tier_outbound_airtable_push.sql",
+      "git_blob_sha": "a9ae59c9a5f2690bc5f60e01c9f4fa04eb89826f"
+    },
+    {
+      "version": "20260713155432",
+      "file": "20260713155432_regulatory_tier_airtable_writeback_rpc.sql",
+      "git_blob_sha": "98f14bb159ac4b59a5df2b3ea8e38210c0326c2e"
+    },
+    {
+      "version": "20260713212905",
+      "file": "20260713212905_lock_down_get_corridor_stats_grants.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713212924",
+      "file": "20260713212924_lock_down_corridor_stats_revoke_public.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713213101",
+      "file": "20260713213101_digest_llm_fallback_and_manual_review_queue.sql",
+      "git_blob_sha": "b10e915ac8892d937a4af37fadc723e4bfc2b55d"
+    },
+    {
+      "version": "20260713213432",
+      "file": "20260713213432_digest_llm_fallback_and_manual_review_queue.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713213743",
+      "file": "20260713213743_expose_pipeline_manual_review_queue_via_api.sql",
+      "git_blob_sha": "cf1ee86f1b39706d6334935f64b2b54f275db058"
+    },
+    {
+      "version": "20260713213759",
+      "file": "20260713213759_expose_pipeline_manual_review_queue_via_api.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713221048",
+      "file": "20260713221048_signals_feed_gate_source_engine_quality.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713221555",
+      "file": "20260713221555_enrichment_llm_fallback_extension.sql",
+      "git_blob_sha": "6e152e8e807e29332b7c7f0a74fdf5725fba6378"
+    },
+    {
+      "version": "20260713221946",
+      "file": "20260713221946_enrichment_llm_fallback_extension.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260713223057",
+      "file": "20260713223057_fix_stale_regulatory_signals_signals_api_view.sql",
+      "git_blob_sha": "713cce8e0dd753c775df365275cd3d6c5c455328"
+    },
+    {
+      "version": "20260713223137",
+      "file": "20260713223137_fix_stale_regulatory_signals_signals_api_view.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714092852",
+      "file": "20260714092852_regulatory_tier_airtable_pull_reconcile.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714093329",
+      "file": "20260714093329_regulatory_tier_airtable_pull_cron.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714094735",
+      "file": "20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql",
+      "git_blob_sha": "57b6fee53b7fc7d1cf8a7246ee39f8a2a934a2e8"
+    },
+    {
+      "version": "20260714095121",
+      "file": "20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714102733",
+      "file": "20260714102733_correct_wrongly_flipped_source_engine_reviewed.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714105740",
+      "file": "20260714105740_country_name_normalization_alias_and_trigger.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714120000",
+      "file": "20260714120000_create_intel_eval_set_stage0.sql",
+      "git_blob_sha": "9133383b0866e50e55dd01b7a89c056bf6306f75"
+    },
+    {
+      "version": "20260714120100",
+      "file": "20260714120100_expose_intel_eval_set_via_api_schema.sql",
+      "git_blob_sha": "216ade3ecbb05ca9628adfc26f1f715d246d2c26"
+    },
+    {
+      "version": "20260714120200",
+      "file": "20260714120200_add_intel_eval_structural_crosscheck.sql",
+      "git_blob_sha": "64a41c0c7fbffb09ae460cbf98ec74eee5ac9107"
+    },
+    {
+      "version": "20260714120300",
+      "file": "20260714120300_expose_needs_human_in_eval_view.sql",
+      "git_blob_sha": "6b5e014e350ec149cc719ecb6adbc0fb2b6ba2a9"
+    },
+    {
+      "version": "20260714181723",
+      "file": "20260714181723_relax_signal_quality_gate_remove_reviewed_requirement.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714181926",
+      "file": "20260714181926_exclude_top_score_band_nav_chrome_pollution.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714190000",
+      "file": "20260714190000_jurisdiction_playbooks_batch22a_sources.sql",
+      "git_blob_sha": "83dc02845d64646a49fe75bcf7155eba7dc0d672"
+    },
+    {
+      "version": "20260714190100",
+      "file": "20260714190100_jurisdiction_playbooks_batch22b_content.sql",
+      "git_blob_sha": "8b355edf54d1ed2fde1a912ad3ca4897bd59b0e8"
+    },
+    {
+      "version": "20260714192255",
+      "file": "20260714192255_expose_regulatory_pathways_intel_tier.sql",
+      "git_blob_sha": "3119301fce869ec070400c6d3900c063a8e153d5"
+    },
+    {
+      "version": "20260714213221",
+      "file": "20260714213221_dedupe_market_metrics_title_case_collisions.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714213619",
+      "file": "20260714213619_batch_14_playbooks_metrics_overlay_se_lk_ae_zw.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714224152",
+      "file": "20260714224152_create_intel_eval_set_stage0.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714225601",
+      "file": "20260714225601_expose_intel_eval_set_via_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714230853",
+      "file": "20260714230853_add_intel_eval_structural_crosscheck.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260714232829",
+      "file": "20260714232829_add_reviewer_tracking_to_signals.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260715085540",
+      "file": "20260715085540_fix_stale_api_signals_view_missing_reviewer_columns.sql",
+      "git_blob_sha": "58af7a89476c938fed1b9432d585e294a8db33a0"
+    },
+    {
+      "version": "20260715085610",
+      "file": "20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260715120000",
+      "file": "20260715120000_jurisdiction_playbooks_batch23a_sources.sql",
+      "git_blob_sha": "ff3122b16e14af798c0acf08b312dc4ff3ac1544"
+    },
+    {
+      "version": "20260715120100",
+      "file": "20260715120100_jurisdiction_playbooks_batch23b_content.sql",
+      "git_blob_sha": "1f6b8f381c52a3b9f9e5677396bec5c0c706b429"
+    },
+    {
+      "version": "20260715120200",
+      "file": "20260715120200_jurisdiction_playbooks_batch23c_lc_pr_content.sql",
+      "git_blob_sha": "c4c0ff89fd59c68acfb74e5c40d08e3abe483c69"
+    },
+    {
+      "version": "20260715130000",
+      "file": "20260715130000_stage1_add_content_type_to_source_registry.sql",
+      "git_blob_sha": "4fb8eb68ba769e26fbbc2ba2aa3f36dc467b48b7"
+    },
+    {
+      "version": "20260715130100",
+      "file": "20260715130100_stage1_backfill_content_type.sql",
+      "git_blob_sha": "dee396b136a441b154556b8154d04eca0fbbea7f"
+    },
+    {
+      "version": "20260715130200",
+      "file": "20260715130200_stage1_import_marketplace_sources_dormant.sql",
+      "git_blob_sha": "9bab12e0cbf7ccd9bb58f1c366264df04a900d62"
+    },
+    {
+      "version": "20260715150000",
+      "file": "20260715150000_stage2_intel_eval_predictions.sql",
+      "git_blob_sha": "3a8325adf6286de311c01f7eb622a75a68fa7af0"
+    },
+    {
+      "version": "20260715160000",
+      "file": "20260715160000_stage2_api_views_for_classify.sql",
+      "git_blob_sha": "4b8381add871e5e89e98ac7caf2e36bdf0a9ba31"
+    },
+    {
+      "version": "20260715170000",
+      "file": "20260715170000_stage3_classifier_promotion.sql",
+      "git_blob_sha": "6dc1f393d6601bc1f2d6d0ef510c8a26aac30d47"
+    },
+    {
+      "version": "20260716195743",
+      "file": "20260716195743_signals_country_iso_resolution.sql",
+      "git_blob_sha": "78242c36b4e2793a35896daef977da3c2a1a71ae"
+    },
+    {
+      "version": "20260716200328",
+      "file": "20260716200328_add_capital_markets_deal_tracker.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260716200514",
+      "file": "20260716200514_signals_scored_visibility_gate.sql",
+      "git_blob_sha": "a8b603ae1f4c214d6abf352e065afdf7adf0fb01"
+    },
+    {
+      "version": "20260716205005",
+      "file": "20260716205005_extend_quality_gate_to_gazette_category.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260716205117",
+      "file": "20260716205117_add_signal_analysis_layer.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260716205128",
+      "file": "20260716205128_create_hv_signal_analysis_function_stub.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718020048",
+      "file": "20260718020048_stage1_add_content_type_to_source_registry.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718074506",
+      "file": "20260718074506_stage2_intel_eval_predictions.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718075738",
+      "file": "20260718075738_create_signal_analysis_rpc_functions.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718080010",
+      "file": "20260718080010_move_signal_analysis_rpcs_to_api_schema.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718080340",
+      "file": "20260718080340_expose_operator_licences_intel_tier.sql",
+      "git_blob_sha": "238b5e1139cd643254a02722cd40559f7db1ab4a"
+    },
+    {
+      "version": "20260718124230",
+      "file": "20260718124230_add_workspaces_select_policy.sql",
+      "git_blob_sha": "85dbb4676765ff92bf5b42f6efc6b83da735d9dc"
+    },
+    {
+      "version": "20260718135702",
+      "file": "20260718135702_stage3_classifier_promotion.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718184353",
+      "file": "20260718184353_playbook_null_fabricated_timelines.sql",
+      "git_blob_sha": "751fabf5efbcf068113292fffcde8d43d79dcd83"
+    },
+    {
+      "version": "20260718191722",
+      "file": "20260718191722_create_engine_review_queue_api_rpcs.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260718200000",
+      "file": "20260718200000_signal_analysis_layer_and_postgrest_schema_fix_stub.sql",
+      "git_blob_sha": "8462aa235f0d1681e555820da4e1f74ac2e556e0"
+    },
+    {
+      "version": "20260719014123",
+      "file": "20260719014123_expose_regulatory_pending_changes_teaser_feed.sql",
+      "git_blob_sha": "2d6c1a57b879d2b6df22369b60cd5a29e2931445"
+    },
+    {
+      "version": "20260719021217",
+      "file": "20260719021217_add_analysis_columns_to_signals_quality_view.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719022347",
+      "file": "20260719022347_revert_intel_tier_gating.sql",
+      "git_blob_sha": "8ffc41c79b4ece95f5771905dc43aac3a42f88b2"
+    },
+    {
+      "version": "20260719023453",
+      "file": "20260719023453_fix_digest_fallback_blind_to_pg_net_pruning.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719023516",
+      "file": "20260719023516_fix_digest_fallback_blind_to_pg_net_pruning_v2.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719083250",
+      "file": "20260719083250_add_clinical_signoff_gate_to_education_modules.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719083306",
+      "file": "20260719083306_enforce_clinical_signoff_gate_in_rls.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719092425",
+      "file": "20260719092425_create_playbook_staleness_queue.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719092904",
+      "file": "20260719092904_populate_deal_tables_batch1_curaleaf_tilray_canopy.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719140626",
+      "file": "20260719140626_revert_bulk_junk_and_fixture_signals.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719140702",
+      "file": "20260719140702_revert_nav_chrome_junk_signals.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719140826",
+      "file": "20260719140826_stage4_dedup_near_duplicate_signals.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719142245",
+      "file": "20260719142245_clean_duplicated_source_headlines.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719160000",
+      "file": "20260719160000_fix_signals_quality_rejected_action_stub.sql",
+      "git_blob_sha": "2ac9e5e77fd351b72233d2da5378805f0a3ae64c"
+    },
+    {
+      "version": "20260719171320",
+      "file": "20260719171320_fix_digest_fallback_status_code_durability.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719190929",
+      "file": "20260719190929_route_junk_scraped_candidates_to_needs_enrichment.sql",
+      "git_blob_sha": "e3d007611bbc36f757522053bd25cd601c43c251"
+    },
+    {
+      "version": "20260719211255",
+      "file": "20260719211255_add_translation_stage.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719215904",
+      "file": "20260719215904_fix_signals_quality_to_respect_rejected_action.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719230517",
+      "file": "20260719230517_fix_editorial_digest_fallback_status_code_durability.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719231533",
+      "file": "20260719231533_correct_cc_jurisdiction_briefing_namibia_prince_conflation.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719231616",
+      "file": "20260719231616_update_namibia_playbook_july2026_ruling.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719231746",
+      "file": "20260719231746_update_kenya_playbook_rastafari_ruling_and_flag_export_lead.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719231817",
+      "file": "20260719231817_add_kenya_briefing_change_note_rastafari_ruling.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260719232121",
+      "file": "20260719232121_correct_cc_briefings_batch2_tr_vc_gd_full_rewrites.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720000742",
+      "file": "20260720000742_correct_needs_enrichment_to_existing_captured_status.sql",
+      "git_blob_sha": "20575391b2a4621fc223e42c64bbddd57f6e10f4"
+    },
+    {
+      "version": "20260720021121",
+      "file": "20260720021121_reclassify_translated_eval.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720021544",
+      "file": "20260720021544_add_embed_dedup_stage.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720022110",
+      "file": "20260720022110_stage3_promote_dedup_columns.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720022140",
+      "file": "20260720022140_stage3_classify_corpus.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720023051",
+      "file": "20260720023051_stage3_pipeline_crons.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720023832",
+      "file": "20260720023832_stage3_schedule_quality_crons.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720025910",
+      "file": "20260720025910_source_yield_report_view.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720090637",
+      "file": "20260720090637_jurisdiction_playbooks_timeline_positive_check.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720093632",
+      "file": "20260720093632_create_education_content_citations.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720093647",
+      "file": "20260720093647_expose_education_content_citations_via_api.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720101504",
+      "file": "20260720101504_correct_cc_briefings_batch3_ae_lk_li_sm_full_tt_lb_light_ie_flag.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720102441",
+      "file": "20260720102441_create_jurisdiction_cross_table_conflict_check.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720120000",
+      "file": "20260720120000_jurisdiction_playbooks_timeline_positive_check.sql",
+      "git_blob_sha": "dcef55f6b71ec9baaeb1ec007bffe85bb5074ed4"
+    },
+    {
+      "version": "20260720130000",
+      "file": "20260720130000_source_registry_coverage_summary_rpc.sql",
+      "git_blob_sha": "40e7d0aaf77bcbd00e2822b478ab6b6b1358f457"
+    },
+    {
+      "version": "20260720134650",
+      "file": "20260720134650_exclude_competitor_sources.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720135843",
+      "file": "20260720135843_build1_entity_linking.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720184212",
+      "file": "20260720184212_build1_wire_entities_into_tick.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720184821",
+      "file": "20260720184821_build2_legislative_bills.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720185717",
+      "file": "20260720185717_signals_quality_reviewed_bypass.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260720200000",
+      "file": "20260720200000_intel_editorial_pipeline_reconcile.sql",
+      "git_blob_sha": "a0af6ee8d2c7efb137af406302a6416ac1ad629c"
+    },
+    {
+      "version": "20260720210000",
+      "file": "20260720210000_review_queue_selfclean.sql",
+      "git_blob_sha": "3a45eee421b36066c6e6cc3291826ed7020aaa9c"
+    },
+    {
+      "version": "20260721041427",
+      "file": "20260721041427_source_registry_coverage_summary_rpc.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721063000",
+      "file": "20260721063000_fix_signal_review_rpcs_missing_authz.sql",
+      "git_blob_sha": "7ca4f86c1f626bbe489e8a66666eb8c75d8bbdbe"
+    },
+    {
+      "version": "20260721073000",
+      "file": "20260721073000_fix_readonly_review_queue_rpcs_missing_authz.sql",
+      "git_blob_sha": "4a3890110fa28c742b64c1aaba27faecae4802ee"
+    },
+    {
+      "version": "20260721103655",
+      "file": "20260721103655_fix_signal_review_rpcs_missing_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721103919",
+      "file": "20260721103919_allow_service_role_apply_editorial_title.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721105456",
+      "file": "20260721105456_fix_list_engine_review_queue_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721105504",
+      "file": "20260721105504_fix_count_engine_review_queue_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721105549",
+      "file": "20260721105549_fix_list_engine_review_countries_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721105811",
+      "file": "20260721105811_fix_get_signals_pending_analysis_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721105819",
+      "file": "20260721105819_fix_pool_rows_needing_classification_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721105826",
+      "file": "20260721105826_fix_rows_needing_titles_authz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721115037",
+      "file": "20260721115037_sanitize_captured_text_in_signal_extraction.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721115055",
+      "file": "20260721115055_backfill_dedupe_malformed_signal_headlines.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721115255",
+      "file": "20260721115255_backfill_truncated_html_tag_summaries.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260721115402",
+      "file": "20260721115402_fix_intel_eval_scoring_duplicate_grading_v2.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722002926",
+      "file": "20260722002926_fix_jurisdiction_cross_table_conflicts_state_fanout_and_noise_v2.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722003046",
+      "file": "20260722003046_fix_jurisdiction_cross_table_conflicts_content_not_array_length.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722003232",
+      "file": "20260722003232_tighten_jurisdiction_cross_table_conflicts_partial_status_fix.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722003322",
+      "file": "20260722003322_refine_status_says_reform_decrim_plus_authority.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722005051",
+      "file": "20260722005051_create_talent_jobs_and_candidates.sql",
+      "git_blob_sha": "8313cddd006a970f1df9558294ed812c5305276d"
+    },
+    {
+      "version": "20260722005615",
+      "file": "20260722005615_talent_workspace_scoped_rls.sql",
+      "git_blob_sha": "d43f10d490e8b6470b7bc11edfc811e90ed40479"
+    },
+    {
+      "version": "20260722010431",
+      "file": "20260722010431_expose_talent_via_api_schema.sql",
+      "git_blob_sha": "17fc09ac22bec79bf44fd2216c85765d68731b00"
+    },
+    {
+      "version": "20260722010623",
+      "file": "20260722010623_talent_jobs_public_redacted_view.sql",
+      "git_blob_sha": "43f9556133604e809dca6cc46e61edb6af5f5635"
+    },
+    {
+      "version": "20260722020000",
+      "file": "20260722020000_harden_signal_review_rpc_grants_revoke_public.sql",
+      "git_blob_sha": "569a776507facdbad991da5c749df69d16dfe95a"
+    },
+    {
+      "version": "20260722020100",
+      "file": "20260722020100_hv_quality_promote_explicit_confidence_floor.sql",
+      "git_blob_sha": "e96763f839ac3eebb24d4d5898d58bf8d9330d45"
+    },
+    {
+      "version": "20260722021500",
+      "file": "20260722021500_enable_hv_quality_pipeline_and_promote_crons.sql",
+      "git_blob_sha": "bbde4876a597ccac01dd06a48abeb6f950d3c95f"
+    },
+    {
+      "version": "20260722021600",
+      "file": "20260722021600_deprecate_unused_stage3_pipeline_a.sql",
+      "git_blob_sha": "090b5ec626c7623146fce6ee6993ef367d35678a"
+    },
+    {
+      "version": "20260722021700",
+      "file": "20260722021700_fix_rows_needing_titles_pipeline_b.sql",
+      "git_blob_sha": "bea2f782b73215c789693419fb054e1b8544b5ef"
+    },
+    {
+      "version": "20260722022000",
+      "file": "20260722022000_hv_promote_signals_structural_confidence_floor.sql",
+      "git_blob_sha": "84a507d7a895fa4bf60818f009a66d2c658bcccb"
+    },
+    {
+      "version": "20260722022100",
+      "file": "20260722022100_rows_needing_titles_promoted_only.sql",
+      "git_blob_sha": "db597b34e58038b64a461be21b18a012515066cd"
+    },
+    {
+      "version": "20260722030000",
+      "file": "20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql",
+      "git_blob_sha": "5cfbdc8512e8293fe298ab11999e00fe83e12219"
+    },
+    {
+      "version": "20260722031500",
+      "file": "20260722031500_revoke_anon_authenticated_hv_pipeline_functions.sql",
+      "git_blob_sha": "b36fe365539f32236e71fd2b1a0a45e9be2fceb4"
+    },
+    {
+      "version": "20260722094616",
+      "file": "20260722094616_fix_lb_tt_program_status_field_lagged_behind_prose.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722094908",
+      "file": "20260722094908_add_talent_jobs_description.sql",
+      "git_blob_sha": "c465d4f69bcd6b0aadd428bd6200c277cf2f038f"
+    },
+    {
+      "version": "20260722103428",
+      "file": "20260722103428_expose_signals_country_iso2_via_api_view.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115652",
+      "file": "20260722115652_revoke_public_grant_apply_editorial_title.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115702",
+      "file": "20260722115702_revoke_public_grant_approve_engine_signal.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115937",
+      "file": "20260722115937_revoke_public_grant_get_signals_pending_analysis.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115939",
+      "file": "20260722115939_revoke_public_grant_list_engine_review_countries.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115941",
+      "file": "20260722115941_revoke_public_grant_list_engine_review_queue.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115943",
+      "file": "20260722115943_revoke_public_grant_pool_rows_needing_classification.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115944",
+      "file": "20260722115944_revoke_public_grant_reject_engine_signal.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115946",
+      "file": "20260722115946_revoke_public_grant_rows_needing_titles.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722115948",
+      "file": "20260722115948_revoke_public_grant_save_signal_analysis.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722120000",
+      "file": "20260722120000_cron_housekeeping_optimization.sql",
+      "git_blob_sha": "8057cb2f2ad96135ff72469bde0dd69d6e679f62"
+    },
+    {
+      "version": "20260722120000",
+      "file": "20260722120000_revoke_public_grant_bulk_approve_engine_queue_retry.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722120001",
+      "file": "20260722120001_revoke_public_grant_count_engine_review_queue_retry.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722120014",
+      "file": "20260722120014_hv_quality_promote_explicit_confidence_floor.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722120017",
+      "file": "20260722120017_hv_quality_promote_tick_explicit_confidence_call.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722182917",
+      "file": "20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722182921",
+      "file": "20260722182921_deprecate_unused_stage3_pipeline_a.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722183144",
+      "file": "20260722183144_fix_rows_needing_titles_pipeline_b.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722185015",
+      "file": "20260722185015_resolve_quality_crons_by_name.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722185019",
+      "file": "20260722185019_deprecate_pipeline_a_precise_wording.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722185023",
+      "file": "20260722185023_hv_promote_signals_structural_confidence_floor.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722185025",
+      "file": "20260722185025_rows_needing_titles_promoted_only.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722200145",
+      "file": "20260722200145_revoke_anon_authenticated_hv_pipeline_functions.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722200256",
+      "file": "20260722200256_revoke_public_hv_pipeline_functions_actual_fix.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722203608",
+      "file": "20260722203608_lock_down_hv_pipeline_job_tables_rls.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722222809",
+      "file": "20260722222809_correct_cc_briefings_albania_botswana.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722222826",
+      "file": "20260722222826_fix_typo_botswana_briefing.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260722223013",
+      "file": "20260722223013_correct_cc_briefings_ba_fj_fo_kz_mu_sz.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723084446",
+      "file": "20260723084446_baseline_hv_intelligence_pipeline.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723084602",
+      "file": "20260723084602_stage_c_classifier_validation_gate.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723084746",
+      "file": "20260723084746_stage_f_hard_dispatch_ceilings.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723084824",
+      "file": "20260723084824_stage_g_pipeline_health_check.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723085105",
+      "file": "20260723085105_stage_f_daily_dispatch_budget_ceiling.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723090554",
+      "file": "20260723090554_stage_d_daily_digest_preserve_real_type_confidence.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723090942",
+      "file": "20260723090942_stage_d_backfill_todays_digest_type_confidence.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723104818",
+      "file": "20260723104818_refine_status_says_prohibited_self_qualifying_exceptions.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723180000",
+      "file": "20260723180000_revoke_legacy_jurisdiction_briefings_grants.sql",
+      "git_blob_sha": "0f0cb166eae2eb38effafa1da243bbc7d9be2378"
+    },
+    {
+      "version": "20260723183914",
+      "file": "20260723183914_lock_down_21_anon_exposed_public_tables.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723190000",
+      "file": "20260723190000_lock_down_21_anon_exposed_public_tables.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260723211512",
+      "file": "20260723211512_correct_cc_briefings_gh_la_pk.sql",
+      "git_blob_sha": "3c651ac3d78833fd1942c40861e6b9b144fcfcda"
+    },
+    {
+      "version": "20260724000000",
+      "file": "20260724000000_fix_entity_decode_blanking_bug_in_signal_extraction.sql",
+      "git_blob_sha": "4c4efaea91bc7aca3842bc1225b2f5ea8b2dee50"
+    },
+    {
+      "version": "20260724105120",
+      "file": "20260724105120_fix_entity_decode_blanking_bug_in_signal_extraction.sql",
+      "git_blob_sha": "77f2ee211d7c9a7478b0a27eb453b7a901a2d7e7"
+    },
+    {
+      "version": "20260724112649",
+      "file": "20260724112649_extract_conflict_classifiers_and_add_test_suite.sql",
+      "git_blob_sha": "6d0feb2a7bc05884ae0d4fadd1216d2af25a007c"
+    },
+    {
+      "version": "20260724112729",
+      "file": "20260724112729_null_unsourced_own_timeline_estimates.sql",
+      "git_blob_sha": "567ae72e85b9b3c9962e69c49c057edeec2c6da6"
+    },
+    {
+      "version": "20260726003138",
+      "file": "20260726003138_populate_deal_data_batch2_israel_operators.sql",
+      "git_blob_sha": "aea70d53ca6e49f569b2ceed88fd913b151518b5"
+    },
+    {
+      "version": "20260726121827",
+      "file": "20260726121827_populate_deal_data_batch3_australia_operators.sql",
+      "git_blob_sha": "e8049ec3e701c3018364cf683ebfe702431e6066"
+    },
+    {
+      "version": "20260727002735",
+      "file": "20260727002735_revoke_legacy_jurisdiction_briefings_grants.sql",
+      "git_blob_sha": "c82612ee56a210f12c48d82bc9595e07d826925e"
+    },
+    {
+      "version": "20260727105241",
+      "file": "20260727105241_fix_promote_snapshot_orphaned_source_null_id.sql",
+      "git_blob_sha": "b1b6ed517c6d801deae50ae899ffc5e22fc210fa"
+    },
+    {
+      "version": "20260727112118",
+      "file": "20260727112118_revoke_legacy_jurisdiction_briefings_base_table_grants.sql",
+      "git_blob_sha": "73397019c2098ea0d1076810e85fb58a5c37c864"
+    },
+    {
+      "version": "20260727160000",
+      "file": "20260727160000_clinical_control_foundation.sql",
+      "git_blob_sha": "9b7a493bbe5d2060c4fc0c3267f9b64744b9be3d"
+    },
+    {
+      "version": "20260727161000",
+      "file": "20260727161000_clinical_patient_core.sql",
+      "git_blob_sha": "97db4d674bc5651829f0ff564fd7b88820477fe2"
+    },
+    {
+      "version": "20260727162000",
+      "file": "20260727162000_clinical_workflows.sql",
+      "git_blob_sha": "705d9c0d7b8a6bed476edaf0a951f5f75f848fa9"
+    },
+    {
+      "version": "20260727163000",
+      "file": "20260727163000_clinical_api_surface.sql",
+      "git_blob_sha": "04bcea31c4720e63ee13a62ac0e5973c885aafcc"
+    },
+    {
+      "version": "20260727212340",
+      "file": "20260727212340_remove_duplicate_legacy_seed_entities_ia_graph.sql",
+      "git_blob_sha": "73faabeac87b8e598fab4cada556cbc3c09fe700"
+    },
+    {
+      "version": "20260728000000",
+      "file": "20260728000000_professional_service_providers.sql",
+      "git_blob_sha": "cc6b804efc11a48774bd5999226ffb05b0afa15e"
+    },
+    {
+      "version": "20260728010000",
+      "file": "20260728010000_rename_professional_service_providers_table.sql",
+      "git_blob_sha": "e9c1f4428b5eb5dc9182d5ae660259953948f427"
+    },
+    {
+      "version": "20260728020000",
+      "file": "20260728020000_grant_public_view_access_to_approved_listings.sql",
+      "git_blob_sha": "90c7f2c08e5ccb86e3a33c13c85a482af2cb99ee"
+    },
+    {
+      "version": "20260728201438",
+      "file": "20260728201438_fix_promote_snapshot_headline_prefers_captured_title.sql",
+      "git_blob_sha": "e75116889c7991570fd69bbf30f77f8256e7db5a"
+    },
+    {
+      "version": "20260729000000",
+      "file": "20260729000000_fix_jurisdiction_playbooks_missing_grant.sql",
+      "git_blob_sha": "d4b0e6b79665f48e0736d2458e7c1fe0522a2ba2"
+    },
+    {
+      "version": "20260729000000",
+      "file": "20260729000000_platform_optimizations.sql",
+      "git_blob_sha": "1bdbd56c502ce0e23e54a1f9f8c6b5cffb923053"
+    },
+    {
+      "version": "20260729000001",
+      "file": "20260729000001_platform_optimizations_rollback.sql",
+      "git_blob_sha": "25ba474b84a389bc1c9369249f1c3c798ce95a97"
+    },
+    {
+      "version": "20260729010000",
+      "file": "20260729010000_fix_missing_public_read_grants.sql",
+      "git_blob_sha": "a916fa9435d4b49d7331fc935621ff5f95f9c8c1"
+    },
+    {
+      "version": "20260729020000",
+      "file": "20260729020000_fix_candidate_review_and_pathway_template_grants.sql",
+      "git_blob_sha": "c7c915974c4945ee6e4c8031f3d56209a07e1c2a"
+    },
+    {
+      "version": "20260729025619",
+      "file": "20260729025619_add_promoted_status_stop_infinite_rescan.sql",
+      "git_blob_sha": "17c1cdc7ea53356c8b980b3dd542b8a67159987c"
+    },
+    {
+      "version": "20260729130000",
+      "file": "20260729130000_source_registry_metadata_and_api_seeds.sql",
+      "git_blob_sha": "364011a1d63c9aad11b7218787222954e98c9be3"
+    },
+    {
+      "version": "20260730030414",
+      "file": "20260730030414_ship_hv_classify_v1_at_current_recall_enable_quality_pipeline.sql",
+      "git_blob_sha": "0bed9d00c94816ef56cf00bb3e716ec064918318"
+    },
+    {
+      "version": "20260730110000",
+      "file": "20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql",
+      "git_blob_sha": "ca0dcb87efcb08e27602901070e10dade29751f0"
+    },
+    {
+      "version": "20260730123000",
+      "file": "20260730123000_harvest_stamp_classifier_v2_summary_fix.sql",
+      "git_blob_sha": "ec81d9dbafefde1f5ff078743f0ed3994f0dbd51"
+    },
+    {
+      "version": "20260730180000",
+      "file": "20260730180000_search_public_signals_rpc.sql",
+      "git_blob_sha": "d8a028f90cd8c276dccbb7ec2bdb4e3107ee30ae"
+    },
+    {
+      "version": "20260730220000",
+      "file": "20260730220000_add_harbourview_supply_catalog.sql",
+      "git_blob_sha": "0d29581a6cc963de0e7aff43734dc3f54d7630b4"
+    },
+    {
+      "version": "20260730220100",
+      "file": "20260730220100_seed_harbourview_supply_catalog_canada.sql",
+      "git_blob_sha": "4c7f8344b180f60dd0610cc73d38505a27ca23ec"
+    },
+    {
+      "version": "20260730220200",
+      "file": "20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql",
+      "git_blob_sha": "15d6b7f139aa28a6362800854e4d03e6e445322a"
+    },
+    {
+      "version": "20260730221500",
+      "file": "20260730221500_automate_entity_extraction_stop_rescan_ungate.sql",
+      "git_blob_sha": "e45fdc35a1ef01f6a95364a6ab8cb0d56a20ce3f"
+    },
+    {
+      "version": "20260730222000",
+      "file": "20260730222000_entities_dispatch_ungated_and_reaping.sql",
+      "git_blob_sha": "c1df49f1b1ccde64dbe0474df5440900a023b662"
+    },
+    {
+      "version": "20260730222221",
+      "file": "20260730222221_hv_pipeline_alerts_outcome_assertions.sql",
+      "git_blob_sha": "304adb5dccddb39bcacac262d270d3775e593fb9"
+    },
+    {
+      "version": "20260730222314",
+      "file": "20260730222314_hv_alert_tick_record_and_notify.sql",
+      "git_blob_sha": "8b06aa311b42153ee81d5579fc7f0a0b74d9fd88"
+    },
+    {
+      "version": "20260730222508",
+      "file": "20260730222508_stage_d_route_story_research_to_digest.sql",
+      "git_blob_sha": "4140495a4bf0956199e6d7f383070e6ca6e23a06"
+    },
+    {
+      "version": "20260730222849",
+      "file": "20260730222849_add_signal_to_eval_set_learning_loop.sql",
+      "git_blob_sha": "3742a2c83e1137aea6efe6a7ff8a733eb08aea27"
+    },
+    {
+      "version": "20260730230000",
+      "file": "20260730230000_elite_digest_from_pipeline_b.sql",
+      "git_blob_sha": "8084bf6102b7dcd2b7e928b24aa3cea3d8465b45"
+    },
+    {
+      "version": "20260730233000",
+      "file": "20260730233000_intelligence_self_improve_loop.sql",
+      "git_blob_sha": "2237aebb1db8bc094ddac07e6fd26d8fa371890e"
+    },
+    {
+      "version": "20260731013000",
+      "file": "20260731013000_search_public_signals_stage_d_consistency.sql",
+      "git_blob_sha": "a5ed5281df4c5758c79e67adb630a98c736c65b0"
+    },
+    {
+      "version": "20260731090000",
+      "file": "20260731090000_digest_rank_includes_feedback.sql",
+      "git_blob_sha": "578a12aad5c3687f5ddfc7f2a15d97d2914d0d3e"
+    },
+    {
+      "version": "20260731100000",
+      "file": "20260731100000_run_daily_digest_uses_feedback_rank.sql",
+      "git_blob_sha": "97c2647ba423cb37f009e7d135ca00c3881bed5d"
+    },
+    {
+      "version": "20260731110000",
+      "file": "20260731110000_feedback_service_aggregates.sql",
+      "git_blob_sha": "b05dbb6e81030d2edc9d21700dfde1d4a9a87c2c"
+    },
+    {
+      "version": "20260731120000",
+      "file": "20260731120000_signal_role_family_routing.sql",
+      "git_blob_sha": "9c347578cfbc99ad5d1c2cd2160c34650effbe17"
+    },
+    {
+      "version": "20260731130000",
+      "file": "20260731130000_elite_digest_release_hardening.sql",
+      "git_blob_sha": "f163aa82eacb590682b10f139a7710c7e95cbb31"
+    },
+    {
+      "version": "20260731145108",
+      "file": "20260731145108_harden_supply_catalog_public_projection.sql",
+      "git_blob_sha": "3581de8ea4500f8bc58fb0495e5b90546f0241fe"
+    },
+    {
+      "version": "20260801150000",
+      "file": "20260801150000_api_expose_quality_and_routing_columns.sql",
+      "git_blob_sha": "e44a7748aaa2c55309ab14b2474b175d36dacb8d"
+    },
+    {
+      "version": "20260802073000",
+      "file": "20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+      "git_blob_sha": "6b8544df5969f12d72891201d2c82b4406d56c51"
+    },
+    {
+      "version": "20260802080000",
+      "file": "20260802080000_harden_eval_labels_and_alert_delivery.sql",
+      "git_blob_sha": "3672f3a0f838578aefd050fb41d1c97b24871aaf"
+    },
+    {
+      "version": "20260802152500",
+      "file": "20260802152500_signal_feedback_api_rpcs.sql",
+      "git_blob_sha": "512a5c59207fe2ae29fb87e4cceeb6264ab40a34"
+    },
+    {
+      "version": "20260802163000",
+      "file": "20260802163000_elite_digest_rpc_boundary_hardening.sql",
+      "git_blob_sha": "f9b1cb7c09a6183f8bd1f080df37be9a619ba4eb"
+    }
+  ],
+  "remote_versions": [
+    "20260301000000",
+    "20260301001000",
+    "20260302000000",
+    "20260303000000",
+    "20260304000000",
+    "20260304001000",
+    "20260305000000",
+    "20260306000000",
+    "20260307000000",
+    "20260308000000",
+    "20260309000000",
+    "20260310000000",
+    "20260311000000",
+    "20260312000000",
+    "20260313000000",
+    "20260430000000",
+    "20260430000001",
+    "20260430000002",
+    "20260501000001",
+    "20260501000002",
+    "20260512000001",
+    "20260526000000",
+    "20260526030100",
+    "20260528000000",
+    "20260528033000",
+    "20260531000000",
+    "20260601000000",
+    "20260601000001",
+    "20260601212212",
+    "20260603000000",
+    "20260604000000",
+    "20260605000000",
+    "20260606090000",
+    "20260606090100",
+    "20260606090200",
+    "20260606090300",
+    "20260606090400",
+    "20260606210000",
+    "20260607000000",
+    "20260607130000",
+    "20260607140000",
+    "20260607230000",
+    "20260609000000",
+    "20260610000000",
+    "20260611000000",
+    "20260611100000",
+    "20260611103722",
+    "20260611130000",
+    "20260611153902",
+    "20260611154720",
+    "20260611161237",
+    "20260611161705",
+    "20260612234547",
+    "20260612234609",
+    "20260613040315",
+    "20260613042540",
+    "20260613042623",
+    "20260613080700",
+    "20260613120244",
+    "20260613120440",
+    "20260613172541",
+    "20260613172801",
+    "20260613210556",
+    "20260613232648",
+    "20260613232747",
+    "20260613232915",
+    "20260613233045",
+    "20260613233220",
+    "20260614042755",
+    "20260614042945",
+    "20260614043145",
+    "20260614114026",
+    "20260614170031",
+    "20260614170337",
+    "20260614170409",
+    "20260614170435",
+    "20260615090146",
+    "20260615090949",
+    "20260615091026",
+    "20260615091111",
+    "20260615091140",
+    "20260615195337",
+    "20260615195428",
+    "20260615195523",
+    "20260615195852",
+    "20260615200135",
+    "20260615200321",
+    "20260616000000",
+    "20260616022526",
+    "20260616022737",
+    "20260616100000",
+    "20260616100648",
+    "20260616104456",
+    "20260616120057",
+    "20260616120148",
+    "20260616120223",
+    "20260616200000",
+    "20260616221502",
+    "20260616222928",
+    "20260616223058",
+    "20260617105019",
+    "20260617191632",
+    "20260617201649",
+    "20260618144144",
+    "20260618161851",
+    "20260618163718",
+    "20260618163726",
+    "20260618163737",
+    "20260618164100",
+    "20260618164151",
+    "20260618164253",
+    "20260618164418",
+    "20260618190000",
+    "20260618210641",
+    "20260618210939",
+    "20260618211145",
+    "20260619030842",
+    "20260619030854",
+    "20260619030900",
+    "20260619030924",
+    "20260621000000",
+    "20260621220513",
+    "20260621220514",
+    "20260621232637",
+    "20260621232826",
+    "20260621233009",
+    "20260621233144",
+    "20260621233459",
+    "20260621233543",
+    "20260621233640",
+    "20260621233743",
+    "20260621233852",
+    "20260621233922",
+    "20260621234014",
+    "20260621234103",
+    "20260621234147",
+    "20260621234246",
+    "20260621234326",
+    "20260621234426",
+    "20260621234541",
+    "20260621234632",
+    "20260621234721",
+    "20260622000001",
+    "20260622000002",
+    "20260622000003",
+    "20260622000004",
+    "20260622000005",
+    "20260622000006",
+    "20260622000007",
+    "20260622020340",
+    "20260622090000",
+    "20260622091003",
+    "20260622091050",
+    "20260622091118",
+    "20260622091242",
+    "20260622091345",
+    "20260622091458",
+    "20260622120000",
+    "20260622130000",
+    "20260622140519",
+    "20260622151411",
+    "20260622153231",
+    "20260622153559",
+    "20260622153659",
+    "20260622153739",
+    "20260622153821",
+    "20260622153847",
+    "20260622154316",
+    "20260622154436",
+    "20260622154819",
+    "20260622154920",
+    "20260622155031",
+    "20260622155128",
+    "20260622155532",
+    "20260622155755",
+    "20260622160032",
+    "20260622160057",
+    "20260622160135",
+    "20260622160303",
+    "20260622160339",
+    "20260622160421",
+    "20260622160457",
+    "20260622160536",
+    "20260622160611",
+    "20260622160647",
+    "20260622160721",
+    "20260622160759",
+    "20260622161702",
+    "20260622162331",
+    "20260622162900",
+    "20260622181128",
+    "20260622181417",
+    "20260623000002",
+    "20260623020935",
+    "20260623021714",
+    "20260623021715",
+    "20260623095753",
+    "20260623095846",
+    "20260623100137",
+    "20260623151340",
+    "20260623192021",
+    "20260623212142",
+    "20260624032532",
+    "20260624032627",
+    "20260624032714",
+    "20260624032813",
+    "20260624032902",
+    "20260624032948",
+    "20260624033036",
+    "20260624122340",
+    "20260624170206",
+    "20260624171410",
+    "20260625000000",
+    "20260625130135",
+    "20260625154948",
+    "20260625155714",
+    "20260625165349",
+    "20260625174211",
+    "20260625205825",
+    "20260625205911",
+    "20260626102903",
+    "20260626110925",
+    "20260626115010",
+    "20260626154522",
+    "20260626173143",
+    "20260626173208",
+    "20260627000000",
+    "20260627031317",
+    "20260627033143",
+    "20260627124710",
+    "20260627131340",
+    "20260627131423",
+    "20260627131506",
+    "20260627131545",
+    "20260627131637",
+    "20260627131716",
+    "20260627131801",
+    "20260628000000",
+    "20260628000001",
+    "20260628000500",
+    "20260628043307",
+    "20260628043343",
+    "20260628043422",
+    "20260628153000",
+    "20260628154000",
+    "20260628155000",
+    "20260628164054",
+    "20260628164104",
+    "20260628214714",
+    "20260628230550",
+    "20260629000000",
+    "20260629015142",
+    "20260629015153",
+    "20260629015202",
+    "20260629015212",
+    "20260629015224",
+    "20260629015325",
+    "20260629091814",
+    "20260629202617",
+    "20260629202656",
+    "20260629202758",
+    "20260629202845",
+    "20260629210000",
+    "20260629235346",
+    "20260630084842",
+    "20260630084916",
+    "20260630084952",
+    "20260630085032",
+    "20260630085119",
+    "20260630085155",
+    "20260630085232",
+    "20260630085307",
+    "20260630085351",
+    "20260630100731",
+    "20260630111918",
+    "20260630184809",
+    "20260630184845",
+    "20260630184924",
+    "20260630185000",
+    "20260630185034",
+    "20260630185112",
+    "20260630185149",
+    "20260630185224",
+    "20260630233905",
+    "20260630234415",
+    "20260630234506",
+    "20260630234545",
+    "20260701001549",
+    "20260701001726",
+    "20260701111452",
+    "20260701180751",
+    "20260701185651",
+    "20260701191146",
+    "20260701191208",
+    "20260701213000",
+    "20260701213500",
+    "20260701230000",
+    "20260702014108",
+    "20260702033107",
+    "20260702033323",
+    "20260702033517",
+    "20260702033621",
+    "20260702033716",
+    "20260702111005",
+    "20260702122710",
+    "20260702153215",
+    "20260702184356",
+    "20260702190045",
+    "20260702190056",
+    "20260702190113",
+    "20260702203328",
+    "20260702213616",
+    "20260702213646",
+    "20260703030351",
+    "20260703040000",
+    "20260703060000",
+    "20260703070000",
+    "20260703080000",
+    "20260703090000",
+    "20260703091614",
+    "20260703100000",
+    "20260703103736",
+    "20260703104651",
+    "20260703110000",
+    "20260703120000",
+    "20260703120639",
+    "20260703130000",
+    "20260703140000",
+    "20260703150000",
+    "20260703160000",
+    "20260703170000",
+    "20260703180000",
+    "20260703190000",
+    "20260703200000",
+    "20260703210000",
+    "20260703220000",
+    "20260703230000",
+    "20260703240000",
+    "20260703250000",
+    "20260703260000",
+    "20260703270000",
+    "20260703280000",
+    "20260703290000",
+    "20260703300000",
+    "20260703310000",
+    "20260703320000",
+    "20260703330000",
+    "20260704000000",
+    "20260704020617",
+    "20260704083652",
+    "20260704093341",
+    "20260704093401",
+    "20260704094737",
+    "20260704110000",
+    "20260704120000",
+    "20260704130000",
+    "20260704133107",
+    "20260704135057",
+    "20260704140000",
+    "20260704150014",
+    "20260704151117",
+    "20260704152020",
+    "20260704152427",
+    "20260704160603",
+    "20260704171449",
+    "20260704171507",
+    "20260704171518",
+    "20260704171636",
+    "20260704171645",
+    "20260704171735",
+    "20260704212448",
+    "20260705094622",
+    "20260705101127",
+    "20260705101219",
+    "20260705101423",
+    "20260705110051",
+    "20260705110551",
+    "20260705110626",
+    "20260705125854",
+    "20260705130012",
+    "20260705130246",
+    "20260705130500",
+    "20260705131000",
+    "20260705140000",
+    "20260705150000",
+    "20260705160000",
+    "20260705165137",
+    "20260705170000",
+    "20260705180000",
+    "20260705181915",
+    "20260705190000",
+    "20260705194736",
+    "20260705200000",
+    "20260705210000",
+    "20260705220000",
+    "20260705230000",
+    "20260705233347",
+    "20260705234300",
+    "20260706000000",
+    "20260706000439",
+    "20260706010000",
+    "20260706020000",
+    "20260706030000",
+    "20260706040000",
+    "20260706220724",
+    "20260706221013",
+    "20260706221146",
+    "20260706221210",
+    "20260706221328",
+    "20260706224253",
+    "20260706224356",
+    "20260706232524",
+    "20260707000000",
+    "20260707094500",
+    "20260707094631",
+    "20260707094647",
+    "20260707100803",
+    "20260707100830",
+    "20260707102235",
+    "20260707102301",
+    "20260707111223",
+    "20260707120000",
+    "20260707185511",
+    "20260707192916",
+    "20260707192929",
+    "20260707193633",
+    "20260707193718",
+    "20260707194140",
+    "20260707200656",
+    "20260707200900",
+    "20260707201228",
+    "20260707201400",
+    "20260707201456",
+    "20260707201659",
+    "20260707201721",
+    "20260708003123",
+    "20260708003136",
+    "20260708003526",
+    "20260708003537",
+    "20260708003739",
+    "20260708011346",
+    "20260708100000",
+    "20260708102117",
+    "20260708102159",
+    "20260708112000",
+    "20260708212112",
+    "20260708214318",
+    "20260708214752",
+    "20260708214926",
+    "20260708215028",
+    "20260708215138",
+    "20260708215711",
+    "20260708221926",
+    "20260708221955",
+    "20260709000000",
+    "20260709010000",
+    "20260709024755",
+    "20260709031926",
+    "20260709032305",
+    "20260709085217",
+    "20260709085300",
+    "20260709085504",
+    "20260709092127",
+    "20260709092128",
+    "20260709092130",
+    "20260709110857",
+    "20260709165804",
+    "20260709165847",
+    "20260709170348",
+    "20260709200035",
+    "20260709211746",
+    "20260709212150",
+    "20260709215147",
+    "20260709215701",
+    "20260710022721",
+    "20260710081115",
+    "20260710081247",
+    "20260710081657",
+    "20260710084232",
+    "20260710093846",
+    "20260710094107",
+    "20260710094130",
+    "20260710111129",
+    "20260710114637",
+    "20260710114706",
+    "20260710114721",
+    "20260710120000",
+    "20260710121500",
+    "20260710123000",
+    "20260710130000",
+    "20260710140000",
+    "20260710150000",
+    "20260710152222",
+    "20260710152711",
+    "20260710160000",
+    "20260710160001",
+    "20260710165831",
+    "20260710165848",
+    "20260710170100",
+    "20260710170141",
+    "20260710170151",
+    "20260710171159",
+    "20260710171211",
+    "20260710190000",
+    "20260710190100",
+    "20260710190200",
+    "20260710190300",
+    "20260710190400",
+    "20260710190500",
+    "20260710190700",
+    "20260710200000",
+    "20260710230603",
+    "20260710230656",
+    "20260710235324",
+    "20260710235525",
+    "20260711000853",
+    "20260711010336",
+    "20260711010600",
+    "20260711010651",
+    "20260711011620",
+    "20260711011701",
+    "20260711012305",
+    "20260711012348",
+    "20260711030217",
+    "20260711095614",
+    "20260711095637",
+    "20260711100000",
+    "20260711100100",
+    "20260711104709",
+    "20260711105146",
+    "20260711111007",
+    "20260711111045",
+    "20260711111103",
+    "20260711111130",
+    "20260711111230",
+    "20260711113521",
+    "20260711160935",
+    "20260711163645",
+    "20260711170000",
+    "20260712070059",
+    "20260712070915",
+    "20260712070954",
+    "20260712130917",
+    "20260713055900",
+    "20260713070000",
+    "20260713070355",
+    "20260713080000",
+    "20260713090000",
+    "20260713111807",
+    "20260713120000",
+    "20260713130000",
+    "20260713155218",
+    "20260713155432",
+    "20260713212905",
+    "20260713212924",
+    "20260713213101",
+    "20260713213432",
+    "20260713213743",
+    "20260713213759",
+    "20260713221048",
+    "20260713221555",
+    "20260713221946",
+    "20260713223057",
+    "20260713223137",
+    "20260714092852",
+    "20260714093329",
+    "20260714094735",
+    "20260714095121",
+    "20260714102733",
+    "20260714105740",
+    "20260714120000",
+    "20260714120100",
+    "20260714120200",
+    "20260714120300",
+    "20260714181723",
+    "20260714181926",
+    "20260714190000",
+    "20260714190100",
+    "20260714192255",
+    "20260714213221",
+    "20260714213619",
+    "20260714224152",
+    "20260714225601",
+    "20260714230853",
+    "20260714232829",
+    "20260715085540",
+    "20260715085610",
+    "20260715120000",
+    "20260715120100",
+    "20260715120200",
+    "20260715130000",
+    "20260715130100",
+    "20260715130200",
+    "20260715150000",
+    "20260715160000",
+    "20260715170000",
+    "20260716195743",
+    "20260716200328",
+    "20260716200514",
+    "20260716205005",
+    "20260716205117",
+    "20260716205128",
+    "20260718020048",
+    "20260718074506",
+    "20260718075738",
+    "20260718080010",
+    "20260718080340",
+    "20260718124230",
+    "20260718135702",
+    "20260718184353",
+    "20260718191722",
+    "20260718200000",
+    "20260719014123",
+    "20260719021217",
+    "20260719022347",
+    "20260719023453",
+    "20260719023516",
+    "20260719083250",
+    "20260719083306",
+    "20260719092425",
+    "20260719092904",
+    "20260719140626",
+    "20260719140702",
+    "20260719140826",
+    "20260719142245",
+    "20260719160000",
+    "20260719171320",
+    "20260719190929",
+    "20260719211255",
+    "20260719215904",
+    "20260719230517",
+    "20260719231533",
+    "20260719231616",
+    "20260719231746",
+    "20260719231817",
+    "20260719232121",
+    "20260720000742",
+    "20260720021121",
+    "20260720021544",
+    "20260720022110",
+    "20260720022140",
+    "20260720023051",
+    "20260720023832",
+    "20260720025910",
+    "20260720090637",
+    "20260720093632",
+    "20260720093647",
+    "20260720101504",
+    "20260720102441",
+    "20260720120000",
+    "20260720130000",
+    "20260720134650",
+    "20260720135843",
+    "20260720184212",
+    "20260720184821",
+    "20260720185717",
+    "20260720200000",
+    "20260720210000",
+    "20260721041427",
+    "20260721063000",
+    "20260721073000",
+    "20260721103655",
+    "20260721103919",
+    "20260721105456",
+    "20260721105504",
+    "20260721105549",
+    "20260721105811",
+    "20260721105819",
+    "20260721105826",
+    "20260721115037",
+    "20260721115055",
+    "20260721115255",
+    "20260721115402",
+    "20260722002926",
+    "20260722003046",
+    "20260722003232",
+    "20260722003322",
+    "20260722005051",
+    "20260722005615",
+    "20260722010431",
+    "20260722010623",
+    "20260722020000",
+    "20260722020100",
+    "20260722094616",
+    "20260722094908",
+    "20260722103428",
+    "20260722115652",
+    "20260722115702",
+    "20260722115937",
+    "20260722115939",
+    "20260722115941",
+    "20260722115943",
+    "20260722115944",
+    "20260722115946",
+    "20260722115948",
+    "20260722120000",
+    "20260722120001",
+    "20260722120014",
+    "20260722120017",
+    "20260722182917",
+    "20260722182921",
+    "20260722183144",
+    "20260722185015",
+    "20260722185019",
+    "20260722185023",
+    "20260722185025",
+    "20260722200145",
+    "20260722200256",
+    "20260722203608",
+    "20260722222809",
+    "20260722222826",
+    "20260722223013",
+    "20260723084446",
+    "20260723084602",
+    "20260723084746",
+    "20260723084824",
+    "20260723085105",
+    "20260723090554",
+    "20260723090942",
+    "20260723104818",
+    "20260723183914",
+    "20260723190000",
+    "20260723211512",
+    "20260724105120",
+    "20260724112649",
+    "20260724112729",
+    "20260726003138",
+    "20260726121827",
+    "20260727002735",
+    "20260727105241",
+    "20260727112118",
+    "20260727212340",
+    "20260727213922",
+    "20260728191340",
+    "20260728192052",
+    "20260728201438",
+    "20260729021338",
+    "20260729021608",
+    "20260729021709",
+    "20260729021820",
+    "20260729025619",
+    "20260729095416",
+    "20260729102231",
+    "20260729230849",
+    "20260729233712",
+    "20260730003050",
+    "20260730030414",
+    "20260730103137",
+    "20260730104444",
+    "20260730104633",
+    "20260730112133",
+    "20260730112457",
+    "20260730112526",
+    "20260730112536",
+    "20260730112600",
+    "20260730112630",
+    "20260730160830",
+    "20260730160833",
+    "20260730161011",
+    "20260730161013",
+    "20260730161318",
+    "20260730182043",
+    "20260730182145",
+    "20260730182606",
+    "20260730184257",
+    "20260730185321",
+    "20260730211141",
+    "20260730211147",
+    "20260730211325",
+    "20260730211507",
+    "20260730211621",
+    "20260730211756",
+    "20260730212129",
+    "20260730220913",
+    "20260730221151",
+    "20260730222127",
+    "20260730222221",
+    "20260730222314",
+    "20260730222508",
+    "20260730222807",
+    "20260730222849",
+    "20260730223248",
+    "20260730223308",
+    "20260730230000",
+    "20260730233000",
+    "20260731004024",
+    "20260731084635",
+    "20260731090000",
+    "20260731090302",
+    "20260731100000",
+    "20260731110000",
+    "20260731110914",
+    "20260731130000",
+    "20260731145108",
+    "20260801144813",
+    "20260802011926",
+    "20260802014521",
+    "20260802134657"
+  ]
+}

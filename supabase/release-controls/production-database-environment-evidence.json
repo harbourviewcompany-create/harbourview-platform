@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "status": "unverified",
+  "repository": "harbourviewcompany-create/harbourview-platform",
+  "environment_name": "production-database",
+  "authoritative_for_activation": true,
+  "last_probe": {
+    "workflow_run_id": 30766999778,
+    "request_path": "GET /repos/harbourviewcompany-create/harbourview-platform/environments/production-database",
+    "credential_type": "GitHub Actions token",
+    "permissions": [
+      "actions:read",
+      "contents:read",
+      "deployments:read"
+    ],
+    "result": "HTTP 404 Not Found",
+    "interpretation": "inconclusive"
+  },
+  "administration_path": {
+    "connected_identity_admin": true,
+    "connector_environment_endpoint_supported": false,
+    "redacted_export_obtained": false
+  },
+  "verified_export": null,
+  "verified_requirements": {
+    "environment_name": "production-database",
+    "minimum_required_reviewers": 1,
+    "prevent_self_review": true,
+    "deployment_branch_policy": {
+      "custom_branch_policies": true,
+      "protected_branches": false,
+      "allowed_branches": [
+        "main"
+      ],
+      "allowed_tags": []
+    },
+    "secret_values_must_be_absent": true
+  }
+}
