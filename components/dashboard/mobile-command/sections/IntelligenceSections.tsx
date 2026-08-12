@@ -7,6 +7,7 @@ import type { MobileCommandCentreProps } from '../props'
 import { asRecord, readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 import { commandSearchKindCounts, searchCommandRecords, type CommandSearchKind, type CommandSearchRecord } from '../intelSearch'
+import { matchWatchRuleHits, type WatchRuleLike } from '../watchRuleHits'
 
 type Signal = MobileCommandCentreProps['signals'][number]
 type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
@@ -96,7 +97,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal&apos;s jurisdiction metadata.</small> : null}
+                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
                 </div>
                 <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
                 {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
@@ -331,16 +332,23 @@ export function EducationSection({
 }
 
 export function RegulatoryWatchSection({
-  sectionRef, items, activeRules, regulatoryTier, outlook, sourceCoverageCount, commandHref,
+  sectionRef, items, activeRules, rules, signals, regulatoryTier, outlook, sourceCoverageCount, commandHref,
 }: {
   sectionRef: SectionRef
   items: WatchlistItem[]
   activeRules: number
+  rules?: WatchRuleLike[]
+  signals?: Signal[]
   regulatoryTier?: string | null
   outlook?: string | null
   sourceCoverageCount: number
   commandHref: (section: SectionId) => string
 }) {
+  const ruleHits = useMemo(
+    () => matchWatchRuleHits(signals ?? [], rules ?? [], 12),
+    [signals, rules],
+  )
+
   return (
     <SectionShell
       id="regulatory"
@@ -353,6 +361,7 @@ export function RegulatoryWatchSection({
       <div className="hvm2-metric-grid hvm2-regulatory-metrics">
         <Metric label="Tracked items" value={items.length} detail="Under active watch" />
         <Metric label="Watch rules" value={activeRules} detail="Active keyword rules" />
+        <Metric label="Rule hits" value={ruleHits.length} detail="In this session feed" />
         <Metric label="Source coverage" value={sourceCoverageCount} detail="Registered jurisdiction sources" />
       </div>
 
@@ -361,6 +370,37 @@ export function RegulatoryWatchSection({
           {regulatoryTier ? <StatusPill>{regulatoryTier}</StatusPill> : null}
           {outlook ? <p>{outlook}</p> : null}
         </article>
+      ) : null}
+
+      {activeRules > 0 ? (
+        <section aria-labelledby="hvm2-rule-hits" className="hvm2-local-intel-groups">
+          <div className="hvm2-intel-group-heading">
+            <span>Keyword rules</span>
+            <strong id="hvm2-rule-hits">Signals matching your watch</strong>
+            <small>{ruleHits.length} in session</small>
+          </div>
+          {ruleHits.length > 0 ? (
+            <div className="hvm2-intel-record-list" aria-label="Watch rule hits from loaded signals">
+              {ruleHits.map(hit => (
+                <article key={hit.signalId} className="hvm2-intel-record-card">
+                  <div className="hvm2-intel-meta-row">
+                    <span>{hit.market}</span>
+                    {hit.confidence != null ? <span>{hit.confidence}% conf</span> : null}
+                    {hit.timeAgo ? <span>{hit.timeAgo}</span> : null}
+                  </div>
+                  <strong>{hit.title}</strong>
+                  <p>Matched: {hit.matchedKeywords.join(', ')}</p>
+                  <small>Session scope — not a full-corpus watch scan</small>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No matches in this session"
+              detail="Active keyword rules did not hit any signal currently loaded into Command Centre. Silence here is not a guarantee the full corpus is quiet."
+            />
+          )}
+        </section>
       ) : null}
 
       {items.length > 0 ? (
