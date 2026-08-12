@@ -3,13 +3,59 @@ DO $roles$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_context_owner') THEN CREATE ROLE hv_context_owner NOLOGIN NOINHERIT; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_authenticator') THEN CREATE ROLE hv_authenticator NOLOGIN NOINHERIT; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_public_runtime') THEN CREATE ROLE hv_public_runtime NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_tenant_runtime') THEN CREATE ROLE hv_tenant_runtime NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_analyst_runtime') THEN CREATE ROLE hv_analyst_runtime NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_ingestion_runtime') THEN CREATE ROLE hv_ingestion_runtime NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_governance_runtime') THEN CREATE ROLE hv_governance_runtime NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_public_runtime') THEN CREATE ROLE hv_public_runtime NOLOGIN NOINHERIT; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_tenant_runtime') THEN CREATE ROLE hv_tenant_runtime NOLOGIN NOINHERIT; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_analyst_runtime') THEN CREATE ROLE hv_analyst_runtime NOLOGIN NOINHERIT; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_ingestion_runtime') THEN CREATE ROLE hv_ingestion_runtime NOLOGIN NOINHERIT; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_governance_runtime') THEN CREATE ROLE hv_governance_runtime NOLOGIN NOINHERIT; END IF;
 END $roles$;
-ALTER ROLE hv_context_owner NOLOGIN NOINHERIT BYPASSRLS;
+
+-- Existing same-name roles are untrusted input during an upgrade. Reassert the
+-- complete security-sensitive attribute contract instead of relying on CREATE
+-- ROLE defaults that only apply to a clean install.
+ALTER ROLE hv_context_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS;
+ALTER ROLE hv_authenticator NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_public_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_tenant_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_analyst_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_ingestion_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_governance_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+
+DO $role_contract$
+DECLARE
+  role_name name;
+  role_record record;
+BEGIN
+  FOREACH role_name IN ARRAY ARRAY[
+    'hv_authenticator'::name,
+    'hv_public_runtime'::name,
+    'hv_tenant_runtime'::name,
+    'hv_analyst_runtime'::name,
+    'hv_ingestion_runtime'::name,
+    'hv_governance_runtime'::name
+  ] LOOP
+    SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+      INTO STRICT role_record
+      FROM pg_roles
+      WHERE rolname = role_name;
+    IF role_record.rolcanlogin OR role_record.rolinherit OR role_record.rolsuper OR
+       role_record.rolcreatedb OR role_record.rolcreaterole OR role_record.rolreplication OR
+       role_record.rolbypassrls THEN
+      RAISE EXCEPTION 'security role % does not satisfy the fail-closed runtime attribute contract', role_name;
+    END IF;
+  END LOOP;
+
+  SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+    INTO STRICT role_record
+    FROM pg_roles
+    WHERE rolname = 'hv_context_owner';
+  IF role_record.rolcanlogin OR role_record.rolinherit OR role_record.rolsuper OR
+     role_record.rolcreatedb OR role_record.rolcreaterole OR role_record.rolreplication OR
+     NOT role_record.rolbypassrls THEN
+    RAISE EXCEPTION 'hv_context_owner does not satisfy the fail-closed owner attribute contract';
+  END IF;
+END $role_contract$;
+
 GRANT USAGE,CREATE ON SCHEMA app TO hv_context_owner;
 
 GRANT hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime TO hv_authenticator;
@@ -41,7 +87,6 @@ GRANT SELECT,INSERT,UPDATE ON evidence.documents,evidence.document_versions,evid
 GRANT USAGE ON SCHEMA governance,ai,workflow,publication,internal_api TO hv_governance_runtime;
 GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA governance,ai,workflow,publication TO hv_governance_runtime;
 GRANT SELECT ON ALL TABLES IN SCHEMA internal_api TO hv_governance_runtime;
-
 
 REVOKE ALL ON app.trusted_request_context FROM PUBLIC,hv_public_runtime,hv_tenant_runtime,hv_analyst_runtime,hv_ingestion_runtime,hv_governance_runtime;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app FROM PUBLIC;
