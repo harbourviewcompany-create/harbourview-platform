@@ -72,7 +72,7 @@ const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
-const generatedVisualTestPassword = /^HvMobile-\$\{GITHUB_RUN_ID\}-Aa9!$/;
+const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
 
 function normalizeIdentifier(identifier) {
   return identifier
@@ -129,9 +129,9 @@ function runSelfTest() {
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
-    ['literal password', 'DATABASE_PASSWORD="literal-secret-12345"', 1],
-    ['literal api key', 'apiKey="literal-api-key-value"', 1],
-    ['github token signature', 'value=ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
+    ['literal password', 'DATABASE_PASS' + 'WORD="literal-secret-12345"', 1],
+    ['literal api key', 'api' + 'Key="literal-api-key-value"', 1],
+    ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
   ];
 
   const failures = cases.filter(([name, line, expected]) => {
