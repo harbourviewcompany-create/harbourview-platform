@@ -1,6 +1,12 @@
 import 'server-only'
 import { getPublicRegulatorySignalFeed } from '@/lib/regulatory-signals/public'
-import type { WatchRule } from '@/lib/dashboard/dashboardLiveData'
+
+export type WatchRuleInput = {
+  id: string
+  rule_type?: string
+  keywords: string[]
+  is_active: boolean
+}
 
 /** Session-independent match of active keyword rules against the public reviewed feed. */
 export type CorpusWatchHit = {
@@ -32,7 +38,7 @@ function haystack(parts: Array<string | null | undefined>): string {
  * (up to the feed window — not limited to the Command Centre session slice).
  */
 export async function getCorpusWatchHits(
-  rules: WatchRule[],
+  rules: WatchRuleInput[],
   limit = 24,
 ): Promise<CorpusWatchHit[]> {
   const active = rules.filter(r => r.is_active && Array.isArray(r.keywords) && r.keywords.length > 0)
