@@ -19,8 +19,13 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Keyed on the commit rather than the ref for non-PR events: on push and
+  # schedule the old key collapsed to `refs/heads/main`, so with
+  # cancel-in-progress always true a burst of merges cancelled each other's
+  # drift check. Cancellation is now limited to pull requests, where superseding
+  # an earlier run of the same PR is the intended behaviour.
+  group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

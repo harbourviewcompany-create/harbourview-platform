@@ -7,7 +7,17 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Pull-request runs supersede earlier runs for the same PR — that is wanted.
+  #
+  # Push runs must NOT contend with each other. All main pushes previously shared
+  # one group (`ci-refs/heads/main`); GitHub keeps only the newest *pending* run
+  # per group even when cancel-in-progress is false, so a burst of merges left
+  # most commits with no CI verdict at all. On 2026-08-12 four PRs merged within
+  # 20 seconds and three of the resulting runs were cancelled while pending; the
+  # one that did complete failed, and `main` stayed broken and undeployable for
+  # ~2.5 hours. Giving each pushed commit its own group means every commit on
+  # main is verified independently.
+  group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
