@@ -58,6 +58,18 @@
         "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d",
         "production_apply_evidence": "PR #1307 production migration evidence"
       }
+    },
+    {
+      "live_version": "20260812143733",
+      "repository_version": "20260812090000",
+      "file": "20260812090000_structured_tabular_authority_sources.sql",
+      "git_blob_sha": "b6d993f6201135c20442bd8fdbbaa0fc1a3f2c7d",
+      "provenance": {
+        "type": "pull_request_source",
+        "pull_request": 1351,
+        "source_head": "f6300956ccd3ae0d51989ecd36c29594ca1bb1d5",
+        "production_apply_evidence": "live supabase_migrations.schema_migrations version 20260812143733 named structured_tabular_authority_sources"
+      }
     }
   ]
 }
