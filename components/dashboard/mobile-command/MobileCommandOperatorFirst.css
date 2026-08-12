@@ -398,14 +398,30 @@
  * off-screen-chip bug go unnoticed; when the rail is compressed, its vertical
  * scrollbar is the only thing announcing there is more.
  */
+/* Single-row, horizontally scrolling section strip.
+ *
+ * This previously wrapped (`flex-wrap: wrap`) and scrolled vertically inside a
+ * `max-height: 30dvh` box. `.hvm2-root` is a fixed `100dvh` flex column with
+ * `overflow: hidden`, and this element was `flex: 0 1 auto` with `min-height: 0`
+ * — flex-shrink 1 and no min-content floor — so once the header, nav and main
+ * exceeded the viewport the flex algorithm shrank the nav *below its content
+ * height* and `overflow-y` sliced a row through the middle. On the Overview
+ * group, which has 10 sections, that rendered as a half-cut row of tabs with no
+ * indication anything was scrollable.
+ *
+ * Every other layer already assumed a horizontal strip: the active-tab reveal
+ * uses `scrollIntoView({ inline: 'center' })`, and MobileIntelInstitutional.css
+ * applies `scroll-padding-inline`, `overscroll-behavior-x` and a 90deg edge-fade
+ * mask. This rule was the sole outlier, so it now matches them: one row that
+ * cannot be shrunk by the parent, scrolling on the axis the mask fades.
+ */
 .hvm-op-secondary-nav {
-  flex: 0 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  max-height: 30dvh;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 8px var(--hvm-op-inline);
   border-bottom: 1px solid var(--hvm2-border-soft);
 }
