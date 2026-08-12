@@ -1,0 +1,60 @@
+name: CI Hygiene Evidence Patch
+
+on:
+  push:
+    branches:
+      - fix/ci-main-e2e-readiness-hygiene
+    paths:
+      - .github/workflows/ci-hygiene-evidence-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ci-main-e2e-readiness-hygiene
+          fetch-depth: 0
+      - name: Patch exact evidence strings
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/control/EVIDENCE_LOG.md')
+          text = p.read_text()
+          replacements = [
+              (
+                  'migration ledger external gate, with secret-safe output',
+                  'migration ledger external gate, with secret-safe output',
+              ),
+              (
+                  'from `MIGRATION_LEDGER=EXTERNAL_GATE`',
+                  'from `migration_ledger=EXTERNAL_GATE`',
+              ),
+              (
+                  'Branch `fix/ci-main-e2e-readiness-hygiene`; CI Hygiene Reconciled Closeout run `31611087826`',
+                  'Branch `fix/ci-main-e2e-readiness-hygiene`; CI Hygiene Final Closeout run `31613324118` — verification matrix through build PASS; finalizer harness failed after verification',
+              ),
+          ]
+          for old, new in replacements:
+              if old == new:
+                  continue
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one occurrence of {old!r}, found {count}')
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+          git diff --check
+          git diff -- docs/control/EVIDENCE_LOG.md
+      - name: Commit evidence correction
+        shell: bash
+        run: |
+          git config user.name "Harbourview CI"
+          git config user.email "harbourviewcompany@gmail.com"
+          git add docs/control/EVIDENCE_LOG.md
+          git commit -m "docs: correct CI hygiene verification evidence"
+          git push origin HEAD:fix/ci-main-e2e-readiness-hygiene
