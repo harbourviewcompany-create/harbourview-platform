@@ -35,7 +35,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const MODEL = "claude-haiku-4-5";
+const OPENAI_SEARCH_MODEL = "gpt-4o-mini-search-preview";
 
 const CLASSES = [
   "health_authority",
@@ -91,7 +93,7 @@ interface Candidate {
   confidence: number;
 }
 
-async function findCandidate(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
+async function findCandidateAnthropic(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
   if (!ANTHROPIC_API_KEY) return { error: "no_anthropic_api_key" };
 
   const desc = CLASS_DESCRIPTIONS[cls] ?? cls;
@@ -151,6 +153,100 @@ or
   };
 }
 
+// Fallback grounded-search provider. Anthropic and Gemini keys in this
+// project's vault are billing-blocked as of 2026-08-11 (confirmed live);
+// openai_api_key is the one currently-funded key (it already carries all
+// hv-classify traffic). gpt-4o-mini-search-preview has native web search
+// built into Chat Completions -- no separate search-API signup needed,
+// which matters because this function can wire up a code-level fallback
+// but cannot itself create a brand-new third-party account/key.
+async function findCandidateOpenAI(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
+  if (!OPENAI_API_KEY) return { error: "no_openai_api_key" };
+
+  const desc = CLASS_DESCRIPTIONS[cls] ?? cls;
+  const system = `You find official government website URLs for a B2B regulatory-intelligence source registry. Use your web search capability to confirm the URL is real and currently live before answering. If you cannot find a confident, verifiable, official (government-owned, not a news article about it) URL, say so.
+Reply with STRICT JSON only, no prose, no markdown fences, no citations outside the JSON:
+{"found": true, "url": "https://...", "official_body_name": "...", "confidence": 0.0-1.0}
+or
+{"found": false, "reason": "..."}`;
+  const user = `Country: ${country}\nSource class needed: ${cls} -- ${desc}\nFind the single best, current, official URL.`;
+
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: OPENAI_SEARCH_MODEL,
+        web_search_options: {},
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+  } catch (e) {
+    return { error: `fetch_threw: ${e instanceof Error ? e.message : String(e)}` };
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    return { error: `openai_${res.status}: ${bodyText.slice(0, 300)}` };
+  }
+
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) return { error: "no_text_in_openai_response" };
+
+  const parsed = extractJson(text);
+  if (!parsed) return { error: "unparseable_json" };
+  if (parsed.found !== true) return { error: `model_reported_not_found: ${String(parsed.reason ?? "")}`.slice(0, 200) };
+
+  const url = String(parsed.url ?? "").trim();
+  if (!/^https?:\/\//i.test(url)) return { error: "invalid_url_shape" };
+
+  return {
+    candidate: {
+      url,
+      official_body_name: String(parsed.official_body_name ?? "").slice(0, 200),
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+    },
+  };
+}
+
+// Provider-selecting wrapper: tries Anthropic first (best tool-use fit for
+// this task), falls back to OpenAI's grounded search-preview model if
+// Anthropic is unavailable/erroring. Returns which provider actually
+// produced the result (or the last error) so the caller can log it.
+async function findCandidate(
+  country: string,
+  cls: string,
+): Promise<{ candidate?: Candidate; error?: string; provider?: string }> {
+  if (ANTHROPIC_API_KEY) {
+    const a = await findCandidateAnthropic(country, cls);
+    if (a.candidate) return { ...a, provider: "anthropic" };
+    // Only fall through to OpenAI on billing/auth/availability failures,
+    // not on a confident "not found" from the model -- that's a real answer.
+    if (a.error && a.error.startsWith("model_reported_not_found")) {
+      return { ...a, provider: "anthropic" };
+    }
+    if (OPENAI_API_KEY) {
+      const o = await findCandidateOpenAI(country, cls);
+      if (o.candidate) return { ...o, provider: "openai_fallback" };
+      return { error: `anthropic: ${a.error} | openai_fallback: ${o.error}`, provider: "both_failed" };
+    }
+    return { ...a, provider: "anthropic" };
+  }
+  if (OPENAI_API_KEY) {
+    const o = await findCandidateOpenAI(country, cls);
+    return { ...o, provider: "openai_fallback" };
+  }
+  return { error: "no_provider_configured", provider: "none" };
+}
+
 // Independent verification: this function does its own live check, it does
 // not trust the LLM's claim that a URL is live. Returns the final resolved
 // URL (after redirects) on success.
@@ -197,20 +293,20 @@ Deno.serve(async (req: Request) => {
   let candidatesVerified = 0;
   let sourcesInserted = 0;
 
-  if (!ANTHROPIC_API_KEY) {
+  if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY) {
     await supabase
       .from("source_discovery_jobs")
       .update({
         finished_at: new Date().toISOString(),
         status: "no_provider",
         provider_used: "none",
-        errors: JSON.stringify(["no_anthropic_api_key_configured_or_billing_blocked"]),
+        errors: JSON.stringify(["no_grounded_search_provider_configured"]),
       })
       .eq("id", jobId);
     return json({
       ok: true,
       status: "no_provider",
-      message: "ANTHROPIC_API_KEY not set or unusable -- inserted nothing (fail-closed by design). Fix: fund/restore the anthropic_api_key vault secret, or add a fallback grounded search provider.",
+      message: "Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is set -- inserted nothing (fail-closed by design).",
     });
   }
 
@@ -250,10 +346,12 @@ Deno.serve(async (req: Request) => {
   }
 
   // 3. Work the batch.
+  const providersUsed = new Set<string>();
   for (const p of pairs) {
-    const { candidate, error } = await findCandidate(p.country, p.cls);
+    const { candidate, error, provider } = await findCandidate(p.country, p.cls);
+    if (provider) providersUsed.add(provider);
     if (error) {
-      errors.push(`${p.country}/${p.cls}: ${error}`);
+      errors.push(`${p.country}/${p.cls} [${provider ?? "?"}]: ${error}`);
       continue;
     }
     if (!candidate) continue;
@@ -278,7 +376,7 @@ Deno.serve(async (req: Request) => {
       iso: p.iso,
       regulator_class: p.cls,
       relevance_status: "active",
-      notes: `Auto-discovered by source-discovery-engine, verified live (${new Date().toISOString().slice(0, 10)}), model confidence ${candidate.confidence}.`,
+      notes: `Auto-discovered by source-discovery-engine via ${provider}, verified live (${new Date().toISOString().slice(0, 10)}), model confidence ${candidate.confidence}.`,
     });
     if (insErr) {
       // Likely a source_url unique-constraint conflict -- not a failure worth
@@ -302,7 +400,7 @@ Deno.serve(async (req: Request) => {
     .update({
       finished_at: new Date().toISOString(),
       status: "completed",
-      provider_used: "anthropic",
+      provider_used: [...providersUsed].join(",") || "none",
       pairs_attempted: pairs.length,
       candidates_found: candidatesFound,
       candidates_verified_live: candidatesVerified,
