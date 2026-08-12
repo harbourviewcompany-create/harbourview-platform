@@ -9,41 +9,27 @@ const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || ''
 
 const routes = [
   { path: '/', expected: 'ok' },
-  { path: '/signals', expected: 'auth-denied' },      // protected: redirects to /login
-  { path: '/intelligence', expected: 'auth-denied' }, // protected: redirects to /login
+  { path: '/signals', expected: 'auth-denied' },
+  { path: '/intelligence', expected: 'auth-denied' },
   { path: '/marketplace', expected: 'ok' },
   { path: '/marketplace/listings', expected: 'ok' },
   { path: '/marketplace/wanted', expected: 'ok' },
-  { path: '/marketplace/sell', expected: 'auth-denied' }, // gated in middleware.ts PROTECTED_PREFIXES
+  { path: '/marketplace/sell', expected: 'auth-denied' },
   { path: '/markets', expected: 'ok' },
   { path: '/contact', expected: 'ok' },
-  { path: '/intake', expected: 'auth-denied' },       // protected: redirects to /login
+  { path: '/intake', expected: 'auth-denied' },
   { path: '/admin', expected: 'auth-denied' },
 ]
 
 const forbiddenStrings = [
-  'sourceUrl',
-  'sourceName',
-  'sourceEvidence',
-  'provenanceSummary',
-  'verificationStatus',
-  'sellerAuthorizationStatus',
-  'internalReviewNotes',
-  'reviewedBy',
-  'lastReviewedAt',
-  'nextReviewDueAt',
-  'contactEmail',
+  'sourceUrl', 'sourceName', 'sourceEvidence', 'provenanceSummary', 'verificationStatus',
+  'sellerAuthorizationStatus', 'internalReviewNotes', 'reviewedBy', 'lastReviewedAt',
+  'nextReviewDueAt', 'contactEmail',
 ]
 
 const runtimeErrorMarkers = [
-  'Hydration failed',
-  'Application error',
-  'ChunkLoadError',
-  'Minified React error',
-  'Unhandled Runtime Error',
-  'Text content does not match',
-  'ReferenceError',
-  'TypeError',
+  'Hydration failed', 'Application error', 'ChunkLoadError', 'Minified React error',
+  'Unhandled Runtime Error', 'Text content does not match', 'ReferenceError', 'TypeError',
 ]
 
 const adminDeniedMarkers = [
@@ -90,43 +76,20 @@ async function fetchRoute(route) {
       ? response.status === 401 || response.status === 403 || redirected || adminDenied
       : response.status === 200
 
-    const authPass = route.expected === 'auth-denied' ? (adminDenied || response.status === 401 || response.status === 403 || redirected) : true
-    const noForbidden = forbiddenHits.length === 0
-    const noRuntimeErrors = runtimeHits.length === 0
-    const pass = Boolean(statusPass && authPass && noForbidden && noRuntimeErrors)
+    const authPass = route.expected === 'auth-denied'
+      ? (adminDenied || response.status === 401 || response.status === 403 || redirected)
+      : true
+    const pass = Boolean(statusPass && authPass && forbiddenHits.length === 0 && runtimeHits.length === 0)
 
     return {
-      route: route.path,
-      url,
-      expected: route.expected,
-      startedAt,
-      status: response.status,
-      redirected,
-      location,
-      title,
-      bytes: html.length,
-      adminDenied,
-      forbiddenHits,
-      runtimeHits,
-      pass,
-      html,
+      route: route.path, url, expected: route.expected, startedAt, status: response.status,
+      redirected, location, title, bytes: html.length, adminDenied, forbiddenHits, runtimeHits, pass, html,
     }
   } catch (error) {
     return {
-      route: route.path,
-      url,
-      expected: route.expected,
-      startedAt,
-      status: null,
-      redirected: false,
-      location: '',
-      title: '',
-      bytes: 0,
-      adminDenied: false,
-      forbiddenHits: [],
-      runtimeHits: [error instanceof Error ? error.message : String(error)],
-      pass: false,
-      html: '',
+      route: route.path, url, expected: route.expected, startedAt, status: null, redirected: false,
+      location: '', title: '', bytes: 0, adminDenied: false, forbiddenHits: [],
+      runtimeHits: [error instanceof Error ? error.message : String(error)], pass: false, html: '',
     }
   }
 }
@@ -140,31 +103,27 @@ function markdownReport(report) {
   const rows = report.results.map((result) => {
     const status = result.status === null ? 'ERROR' : String(result.status)
     const title = result.title || '(no title)'
+    const location = result.location || '—'
     const forbidden = result.forbiddenHits.length ? result.forbiddenHits.join(', ') : 'none'
     const runtime = result.runtimeHits.length ? result.runtimeHits.join(', ') : 'none'
-    return `| \`${result.route}\` | ${result.pass ? 'PASS' : 'FAIL'} | ${status} | ${title.replace(/\|/g, '\\|')} | ${forbidden} | ${runtime} |`
+    return `| \`${result.route}\` | ${result.pass ? 'PASS' : 'FAIL'} | ${status} | ${location.replace(/\|/g, '\\|')} | ${title.replace(/\|/g, '\\|')} | ${forbidden} | ${runtime} |`
   })
 
   return [
-    '# Harbourview Production Runtime Verification',
-    '',
+    '# Harbourview Production Runtime Verification', '',
     `- Base URL: ${report.baseUrl}`,
     `- Started: ${report.startedAt}`,
     `- Finished: ${report.finishedAt}`,
-    `- Overall: ${report.pass ? 'PASS' : 'FAIL'}`,
-    '',
-    '| Route | Result | HTTP | Title | Forbidden hits | Runtime markers |',
-    '|---|---:|---:|---|---|---|',
-    ...rows,
-    '',
-    '## Gate rules',
-    '',
-    '- Public routes must return HTTP 200.',
+    `- Overall: ${report.pass ? 'PASS' : 'FAIL'}`, '',
+    '| Route | Result | HTTP | Location | Title | Forbidden hits | Runtime markers |',
+    '|---|---:|---:|---|---|---|---|',
+    ...rows, '',
+    '## Gate rules', '',
+    '- Public routes must return HTTP 200; redirects are failures and their `Location` target is reported.',
     '- Protected routes must return 401, 403, redirect or recognized denial content.',
     '- `/admin` must return 401, 403, redirect or recognized admin-denial content.',
     '- Forbidden leakage strings must be absent from rendered HTML.',
-    '- Runtime-error markers must be absent from rendered HTML.',
-    '',
+    '- Runtime-error markers must be absent from rendered HTML.', '',
   ].join('\n')
 }
 
@@ -174,12 +133,12 @@ await mkdir(join(OUT_DIR, 'screenshots'), { recursive: true })
 
 const startedAt = new Date().toISOString()
 const rawResults = []
-
 for (const route of routes) {
   const result = await fetchRoute(route)
   rawResults.push(result)
   await writeFile(join(OUT_DIR, 'html', `${safeName(route.path)}.html`), result.html || '', 'utf8')
-  console.log(`${result.pass ? 'PASS' : 'FAIL'} ${route.path} ${result.status ?? 'ERROR'} ${result.title || ''}`)
+  const redirectSuffix = result.location ? ` -> ${result.location}` : ''
+  console.log(`${result.pass ? 'PASS' : 'FAIL'} ${route.path} ${result.status ?? 'ERROR'}${redirectSuffix} ${result.title || ''}`)
 }
 
 const report = {

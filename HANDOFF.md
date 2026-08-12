@@ -1,7 +1,7 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Jul 23 2026 · Claude (Sonnet 5)
+> Last updated: Aug 11 2026 · Claude (chat)
 
 ---
 
@@ -205,6 +205,16 @@ Branches known to be in-flight as of Jul 1. Status unknown unless noted.
 ## SESSION LOG
 
 > Sessions older than ~2 weeks should be moved to `docs/sessions/YYYY-MM.md`. The log below is kept inline while the project is in rapid iteration.
+
+---
+
+### Session: Aug 11 2026 · Claude (chat)
+
+- Built `source-discovery-engine` (Supabase edge function, `supabase/functions/source-discovery-engine/index.ts`), scheduled via pg_cron (`source_discovery_engine_4x_daily`, 4x/day, batch 8) — automates finding + verifying + inserting the remaining `regulator_class` gaps in `source_registry` for `source_expansion_coverage_queue`. Uses Claude (`claude-haiku-4-5` + `web_search_20250305` tool) to propose a candidate official-government URL, then independently re-verifies it live with its own `fetch()` before inserting -- fails closed (inserts nothing, logs plainly to new `source_discovery_jobs` table) if no grounded provider is available, rather than risk an ungrounded/hallucinated .gov URL.
+- Migration `source_registry_regulator_class_and_discovery_jobs`: added `source_registry.regulator_class` (7-class taxonomy: health_authority, drug_control_authority, official_gazette, legislature, customs_import_export, procurement, medicine_license_registry, other) with index on `(iso, regulator_class)`, and `source_discovery_jobs` job-log table. Backfilled `regulator_class` for the 18 sources manually verified this session.
+- **BLOCKER, confirmed live via test invocation:** `anthropic_api_key` vault secret is billing-blocked ("Your credit balance is too low") -- same block `hv-classify` noted 2026-07-21, still true as of this session. `source-discovery-engine` is fully built, deployed, and scheduled, but will find zero candidates and log `no_provider`/`anthropic_400` until Tyler funds that key (or a fallback grounded search provider, e.g. a Tavily/Bing key, is added and wired in). This is the only remaining blocker -- everything else in the discovery pipeline is production-ready and idle-safe.
+- Also this session (manual, before the automated engine existed): audited `source_registry` coverage against `source_expansion_coverage_queue` via `iso` join (the existing `country`-string join gives false gaps -- USA/UK/Russia/etc. all showed "0" incorrectly). True geographic gap was 13 countries, reconciled 17 stale `existing_candidate_present` rows and 163 stale `unprocessed_global_queue` rows that already had real coverage, and manually verified+added 18 `health_authority`/`drug_control_authority` sources by hand (Iraq, Kuwait, Bahrain, Oman, Qatar, Mongolia, Somalia, Bangladesh, Kyrgyzstan, Tajikistan, South Sudan, Sudan, Russia, Palestine, Yemen, Kosovo, Syria, Kiribati). Remaining non-viable (no real government web presence): Greenland, Holy See, Nauru, North Korea, Tuvalu, Western Sahara.
+- Added 21 Google News RSS sources (tier 3, `adapter=rss`) covering Tyler's personal Google Alert keyword themes, feeding the existing signals pipeline directly instead of living as unread email.
 
 ---
 

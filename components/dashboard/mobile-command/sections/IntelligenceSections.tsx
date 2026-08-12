@@ -1,14 +1,19 @@
 'use client'
 
+import { useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
+import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
 import type { MobileCommandCentreProps } from '../props'
-import { readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
-import { EmptyState, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { asRecord, readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
+import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { commandSearchKindCounts, searchCommandRecords, type CommandSearchKind, type CommandSearchRecord } from '../intelSearch'
 
 type Signal = MobileCommandCentreProps['signals'][number]
 type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
+type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['items'][number]
+type LocalIntel = NonNullable<MobileCommandCentreProps['localIntel']>
 
 function recommendationLabel(signal: Signal) {
   const state = signal.decisionRecommendationState
@@ -17,6 +22,46 @@ function recommendationLabel(signal: Signal) {
   if (state === 'no_action') return 'No action'
   if (state === 'monitor') return 'Monitor'
   return 'Open dossier'
+}
+
+function signalContextMatches(signal: Signal, countryLabel: string) {
+  const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
+  return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
+}
+
+function signalConfidence(signal: Signal) {
+  const raw = asRecord(signal).confidence
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
+  return Math.max(0, Math.min(100, Math.round(raw)))
+}
+
+function signalEvidence(signal: Signal) {
+  const source = readString(signal, ['sourceName', 'source_name', 'sourceLabel', 'source_label'], '')
+  const observed = readString(signal, ['published_at', 'observed_at', 'updated_at', 'timeAgo'], '')
+  return { source, observed }
+}
+
+function signalQualityBits(signal: Signal): string[] {
+  const item = asRecord(signal)
+  const bits: string[] = []
+  const corr = item.corroborationCount ?? item.corroboration_count
+  if (typeof corr === 'number' && corr > 1) bits.push(`${Math.round(corr)} sources`)
+  if (item.translated === true) {
+    const lang = readString(item, ['originalLanguageLabel', 'original_language_label'], '')
+    bits.push(lang ? `via ${lang}` : 'Translated')
+  }
+  return bits
+}
+
+function highlightMatch(value: string, query: string): ReactNode {
+  const trimmed = query.trim()
+  if (!trimmed) return value
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = value.match(new RegExp(escaped, 'i'))
+  if (!match || match.index == null) return value
+  const start = match.index
+  const end = start + match[0].length
+  return <>{value.slice(0, start)}<mark>{value.slice(start, end)}</mark>{value.slice(end)}</>
 }
 
 export function NextActionsSection({ sectionRef, actions }: { sectionRef: SectionRef; actions: NextAction[] }) {
@@ -35,19 +80,30 @@ export function NextActionsSection({ sectionRef, actions }: { sectionRef: Sectio
   )
 }
 
-export function WeeklySignalsSection({ sectionRef, signals, access }: { sectionRef: SectionRef; signals: Signal[]; access?: FeatureAccess }) {
+export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access }: { sectionRef: SectionRef; signals: Signal[]; countryLabel: string; access?: FeatureAccess }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const query = searchParams.toString()
   const returnTo = `${pathname}${query ? `?${query}` : ''}`
   const canOpenDossiers = access?.granted === true
+  const orderedSignals = useMemo(
+    () => signals.map((signal, index) => ({ signal, index, contextual: signalContextMatches(signal, countryLabel) }))
+      .sort((a, b) => Number(b.contextual) - Number(a.contextual) || a.index - b.index),
+    [countryLabel, signals],
+  )
 
   return (
-    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Scan what changed and why it matters. Open any item for evidence, unknowns and a reasoned decision posture.">
-      {signals.length > 0 ? (
-        <div className="hvm2-record-stack" aria-label="Decision intelligence events" style={{ display: 'grid', gap: 10 }}>
-          {signals.map(signal => {
-            const whyItMatters = signal.analysis?.what_changed || signal.commercialImpact
+    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Jurisdiction matches for the active context appear first. Open supported events for evidence, unknowns and a reasoned decision posture.">
+      {orderedSignals.length > 0 ? (
+        <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
+          {orderedSignals.map(({ signal, contextual }) => {
+            const analysis = asRecord(asRecord(signal).analysis)
+            const whatChanged = readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
+            const recommendedAction = readString(analysis, ['recommended_action'], '')
+            const market = readString(signal, ['market', 'jurisdiction', 'country'], 'Global')
+            const confidence = signalConfidence(signal)
+            const evidence = signalEvidence(signal)
+            const quality = signalQualityBits(signal)
             const isEditorial = signal.contentType === 'editorial'
             const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
             const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
@@ -59,60 +115,64 @@ export function WeeklySignalsSection({ sectionRef, signals, access }: { sectionR
               : null
 
             const article = (
-              <article>
+              <article className="hvm2-intel-signal-card">
                 <div className="hvm2-card-topline">
-                  <StatusPill>{hasDossier ? recommendationLabel(signal) : (isEditorial || isPublishedDigest || isLegacyStory ? 'Editorial' : 'Signal')}</StatusPill>
-                  <span>{signal.market || signal.type}</span>
+                  <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
+                  <span>{market}</span>
                 </div>
-                <h3>{signal.title}</h3>
-                <p>{whyItMatters}</p>
-                <div className="hvm2-signal-footer">
-                  <span>{signal.corroborationCount && signal.corroborationCount > 1 ? `${signal.corroborationCount} related observations` : `${signal.confidence}% upstream confidence`}</span>
-                  <span>{signal.timeAgo}</span>
-                  {hasDossier ? <strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong> : signal.sourceUrl ? <strong>Open source →</strong> : null}
+                <div className="hvm2-intel-context-row">
+                  <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
+                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
                 </div>
+                <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
+                {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
+                <div className="hvm2-intel-meta-row">
+                  {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
+                  {quality.map(bit => <span key={bit}>{bit}</span>)}
+                  {evidence.source ? <span>Source {evidence.source}</span> : <span>Source Unknown</span>}
+                  {evidence.observed ? <span>{evidence.observed}</span> : null}
+                </div>
+                {recommendedAction ? <div className="hvm2-intel-action"><span>Action</span><p>{recommendedAction}</p></div> : null}
+                {hasDossier ? <div className="hvm2-signal-footer"><strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong></div> : null}
               </article>
             )
 
+            const key = readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)
             if (dossierHref) {
               return (
                 <Link
                   className="hvm2-signal-card hvm2-intel-event-row"
-                  key={signal.id}
+                  key={key}
                   href={canOpenDossiers ? dossierHref : '/account/upgrade'}
-                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${signal.title}` : `Upgrade to Intel to open intelligence dossier: ${signal.title}`}
+                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${readString(signal, ['title'], 'signal')}` : `Upgrade to Intel to open intelligence dossier: ${readString(signal, ['title'], 'signal')}`}
                   style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
                 >
                   {article}
                 </Link>
               )
             }
-
-            if (signal.sourceUrl) {
-              return (
-                <Link
-                  className="hvm2-signal-card hvm2-intel-event-row"
-                  key={signal.id}
-                  href={signal.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`Open source: ${signal.title}`}
-                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
-                >
-                  {article}
-                </Link>
-              )
-            }
-
-            return <div className="hvm2-signal-card hvm2-intel-event-row" key={signal.id} style={{ display: 'block' }}>{article}</div>
+            return <div className="hvm2-signal-card hvm2-intel-event-row" key={key}>{article}</div>
           })}
         </div>
-      ) : <EmptyState title="No reviewed intelligence events loaded" detail="The intelligence surface is live but no current reviewed events matched this context." />}
+      ) : <EmptyState title="No reviewed signals loaded" detail="The intelligence surface is available, but no current signal records are loaded for review." />}
     </SectionShell>
   )
 }
 
-export function PersonalBriefingSection({ sectionRef, roleShort, countryLabel, narrative, marketplaceCount, signalCount, pipelineTotal, actionCount }: {
+export function PersonalBriefingSection({
+  sectionRef,
+  roleShort,
+  countryLabel,
+  narrative,
+  marketplaceCount,
+  signalCount,
+  pipelineTotal,
+  actionCount,
+  signals,
+  reviewStatus,
+  sourceCoverageCount,
+  nextAction,
+}: {
   sectionRef: SectionRef
   roleShort: string
   countryLabel: string
@@ -121,10 +181,47 @@ export function PersonalBriefingSection({ sectionRef, roleShort, countryLabel, n
   signalCount: number
   pipelineTotal: number
   actionCount: number
+  signals: Signal[]
+  reviewStatus: string
+  sourceCoverageCount: number
+  nextAction?: NextAction
 }) {
+  const contextualSignal = signals.find(signal => signalContextMatches(signal, countryLabel))
+  const signalAnalysis = asRecord(asRecord(contextualSignal).analysis)
+  const whatChanged = contextualSignal ? readString(signalAnalysis, ['what_changed'], readString(contextualSignal, ['title'], '')) : ''
+  const whyItMatters = contextualSignal ? readString(contextualSignal, ['commercialImpact', 'commercial_impact'], '') : ''
+  const recommendedAction = contextualSignal ? readString(signalAnalysis, ['recommended_action'], '') : ''
+
   return (
     <SectionShell id="personal-briefing" sectionRef={sectionRef} eyebrow="Personal briefing" title={`${roleShort} briefing for ${countryLabel}`} description="A deterministic summary of the active jurisdiction, market pipeline, signal feed and next operational decisions.">
-      <article className="hvm2-narrative-card">
+      <div className="hvm2-briefing-decision-grid" aria-label="Briefing decision summary">
+        <article>
+          <span>What changed</span>
+          <strong>{whatChanged || 'Unknown'}</strong>
+          {!whatChanged ? <p>No jurisdiction-matched change is present in the loaded signal feed.</p> : null}
+        </article>
+        <article>
+          <span>Why it matters</span>
+          <strong>{whyItMatters || 'Unknown'}</strong>
+          {!whyItMatters ? <p>No supported commercial-impact statement is loaded for the current matched signal.</p> : null}
+        </article>
+        <article>
+          <span>Evidence state</span>
+          <strong>{reviewStatus || 'Unknown'}</strong>
+          <p>{sourceCoverageCount > 0 ? `${sourceCoverageCount} jurisdiction source${sourceCoverageCount === 1 ? '' : 's'} registered.` : 'Jurisdiction source coverage is Unknown in this session.'}</p>
+        </article>
+        <article>
+          <span>Action</span>
+          <strong>{recommendedAction || nextAction?.label || 'Unknown'}</strong>
+          {nextAction?.detail && !recommendedAction ? <p>{nextAction.detail}</p> : null}
+          {nextAction?.href ? (
+            <p><Link className="hvm2-text-link" href={nextAction.href}>Open action →</Link></p>
+          ) : null}
+        </article>
+      </div>
+
+      <article className="hvm2-narrative-card hvm2-briefing-narrative">
+        <span className="hvm2-intel-kicker">Longer briefing</span>
         <p>{narrative}</p>
         <div className="hvm2-narrative-grid">
           <div><span>Commercial records</span><strong>{marketplaceCount}</strong></div>
@@ -137,52 +234,116 @@ export function PersonalBriefingSection({ sectionRef, roleShort, countryLabel, n
   )
 }
 
-export function SearchSection({ sectionRef, searchQuery, signalResults, listingResults, onQueryChange, onSignalSelect, onListingSelect }: {
+const SEARCH_KIND_LABELS: Record<CommandSearchKind, string> = {
+  signal: 'Signals',
+  marketplace: 'Marketplace',
+  regulatory: 'Regulatory',
+  jurisdiction: 'Jurisdiction / local',
+  directory: 'Directory',
+  genetics: 'Genetics',
+  action: 'Actions',
+  evidence: 'Evidence',
+  talent: 'Talent',
+}
+
+export function SearchSection({ sectionRef, searchQuery, searchRecords, countryLabel, onQueryChange, onNavigate, onListingSelect }: {
   sectionRef: SectionRef
   searchQuery: string
-  signalResults: Signal[]
-  listingResults: NormalizedListing[]
+  searchRecords: CommandSearchRecord[]
+  countryLabel?: string
   onQueryChange: (value: string) => void
-  onSignalSelect: () => void
+  onNavigate: (section: SectionId) => void
   onListingSelect: (row: NormalizedListing) => void
 }) {
-  const label = 'Search markets, products, regulations, operators or actions'
-  const totalResults = signalResults.length + listingResults.length
+  const [activeKind, setActiveKind] = useState<CommandSearchKind | 'all'>('all')
+  const label = 'Search signals, markets, regulations, authorities, operators or actions'
+  const allMatches = useMemo(
+    () => searchCommandRecords(searchRecords, searchQuery, countryLabel),
+    [searchQuery, searchRecords, countryLabel],
+  )
+  const visibleMatches = activeKind === 'all' ? allMatches : allMatches.filter(record => record.kind === activeKind)
+  const corpusCounts = useMemo(() => commandSearchKindCounts(searchRecords), [searchRecords])
+  const availableKinds = useMemo(() => [...corpusCounts.keys()], [corpusCounts])
+  const hasQuery = Boolean(searchQuery.trim())
+
+  function openRecord(record: CommandSearchRecord) {
+    if (record.listing) onListingSelect(record.listing)
+    else onNavigate(record.destination)
+  }
+
   return (
-    <SectionShell id="search" sectionRef={sectionRef} eyebrow="Cross-command search" title="Search intelligence and marketplace records" description="Search operates across every signal and marketplace record already loaded into this authenticated command session.">
+    <SectionShell id="search" sectionRef={sectionRef} eyebrow="Cross-command search" title="Search authenticated command records" description={MOBILE_COMMAND_COPY.searchDescription}>
       <label className="hvm2-search-field hvm2-search-field-large">
         <span aria-hidden="true">⌕</span>
         <input value={searchQuery} onChange={event => onQueryChange(event.target.value)} aria-label={label} placeholder={label} />
       </label>
+
       <div className="hvm2-search-summary" role="status" aria-live="polite" aria-atomic="true">
-        <span>{totalResults} total results</span>
-        <span>{signalResults.length} signals</span>
-        <span>{listingResults.length} marketplace records</span>
+        {hasQuery ? <span>{allMatches.length} matched record{allMatches.length === 1 ? '' : 's'}</span> : <span>Indexed {searchRecords.length} authenticated record{searchRecords.length === 1 ? '' : 's'}</span>}
+        {availableKinds.map(kind => <span key={kind}>{corpusCounts.get(kind) ?? 0} {SEARCH_KIND_LABELS[kind].toLowerCase()}</span>)}
       </div>
-      {searchQuery.trim() && (
+
+      <p className="hvm2-intel-search-scope">
+        Session scope only — does not query the full reviewed corpus.{' '}
+        <Link className="hvm2-text-link" href="/dashboard/signals/search">Search full corpus →</Link>
+      </p>
+
+      {availableKinds.length > 1 ? (
+        <div className="hvm2-search-filters" role="group" aria-label="Search result type">
+          <button type="button" className={activeKind === 'all' ? 'active' : ''} aria-pressed={activeKind === 'all'} onClick={() => setActiveKind('all')}>All</button>
+          {availableKinds.map(kind => (
+            <button key={kind} type="button" className={activeKind === kind ? 'active' : ''} aria-pressed={activeKind === kind} onClick={() => setActiveKind(kind)}>
+              {SEARCH_KIND_LABELS[kind]}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {hasQuery ? (
         <div className="hvm2-search-results">
-          {totalResults > 0 && (
+          {visibleMatches.length > 0 ? (
             <ul aria-label="Command search results">
-              {signalResults.map(signal => (
-                <li key={`signal-${signal.id}`}>
-                  <button type="button" onClick={onSignalSelect}><span>Signal</span><strong>{signal.title}</strong><small>{signal.market}</small></button>
-                </li>
-              ))}
-              {listingResults.map(row => (
-                <li key={`listing-${row.view}-${row.id}`}>
-                  <button type="button" onClick={() => onListingSelect(row)}><span>Marketplace</span><strong>{row.title}</strong><small>{row.category} · {row.jurisdiction}</small></button>
+              {visibleMatches.map(record => (
+                <li key={record.id}>
+                  <button type="button" onClick={() => openRecord(record)} className="hvm2-intel-search-result">
+                    <span className="hvm2-intel-search-kind">{record.kindLabel}</span>
+                    <strong>{highlightMatch(record.title, searchQuery)}</strong>
+                    {record.subtitle ? <p>{highlightMatch(record.subtitle, searchQuery)}</p> : null}
+                    <small>
+                      {[
+                        record.jurisdiction,
+                        record.category,
+                        record.confidence != null ? `${record.confidence}% conf` : null,
+                        record.corroborationCount && record.corroborationCount > 1 ? `${record.corroborationCount} sources` : null,
+                        record.translated && record.originalLanguageLabel ? `via ${record.originalLanguageLabel}` : null,
+                        record.sourceLabel,
+                        record.dateLabel,
+                        record.status,
+                      ].filter(Boolean).join(' · ') || 'Metadata Unknown'}
+                    </small>
+                    <i aria-hidden="true">→</i>
+                  </button>
                 </li>
               ))}
             </ul>
-          )}
-          {totalResults === 0 && <EmptyState title="No command records matched" detail="Try a country, product, regulatory topic or commercial category." />}
+          ) : <EmptyState title="No command records matched" detail="Try a jurisdiction, authority, operator, product, regulatory topic or commercial category already loaded in this session — or open full corpus search." />}
+        </div>
+      ) : (
+        <div className="hvm2-intel-search-prompt">
+          <strong>Search the loaded command corpus</strong>
+          <p>Results appear only after a query. The indexed counts above describe session coverage, not the global signal store.</p>
         </div>
       )}
     </SectionShell>
   )
 }
 
-export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: {
+export function EducationSection({
+  sectionRef,
+  roleShort,
+  tiles,
+  commandHref,
+}: {
   sectionRef: SectionRef
   roleShort: string
   tiles: EducationTile[]
@@ -212,10 +373,9 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
   )
 }
 
-type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['items'][number]
-type LocalIntel = NonNullable<MobileCommandCentreProps['localIntel']>
-
-export function RegulatoryWatchSection({ sectionRef, items, activeRules, regulatoryTier, outlook, sourceCoverageCount, commandHref }: {
+export function RegulatoryWatchSection({
+  sectionRef, items, activeRules, regulatoryTier, outlook, sourceCoverageCount, commandHref,
+}: {
   sectionRef: SectionRef
   items: WatchlistItem[]
   activeRules: number
@@ -225,37 +385,141 @@ export function RegulatoryWatchSection({ sectionRef, items, activeRules, regulat
   commandHref: (section: SectionId) => string
 }) {
   return (
-    <SectionShell id="regulatory" sectionRef={sectionRef} eyebrow="Intel / regulatory watch" title="Regulatory change under watch" description="Items this organization is tracking, and the regulatory posture of the active jurisdiction." action={<Link href={commandHref('jurisdiction')}>Open jurisdiction context</Link>}>
-      <div className="hvm2-metric-grid">
-        <article><span>Tracked items</span><strong>{items.length}</strong><p>Under active watch</p></article>
-        <article><span>Watch rules</span><strong>{activeRules}</strong><p>Active keyword rules</p></article>
-        <article><span>Source coverage</span><strong>{sourceCoverageCount}</strong><p>Registered sources</p></article>
+    <SectionShell
+      id="regulatory"
+      sectionRef={sectionRef}
+      eyebrow="Intel / regulatory watch"
+      title="Regulatory change under watch"
+      description="Tracked regulatory objects, active watch rules and the reviewed posture of the current jurisdiction."
+      action={<Link className="hvm2-text-link" href={commandHref('jurisdiction')}>Open jurisdiction context</Link>}
+    >
+      <div className="hvm2-metric-grid hvm2-regulatory-metrics">
+        <Metric label="Tracked items" value={items.length} detail="Under active watch" />
+        <Metric label="Watch rules" value={activeRules} detail="Active keyword rules" />
+        <Metric label="Source coverage" value={sourceCoverageCount} detail="Registered jurisdiction sources" />
       </div>
-      {regulatoryTier || outlook ? <article className="hvm2-note">{regulatoryTier ? <StatusPill>{regulatoryTier}</StatusPill> : null}{outlook ? <p>{outlook}</p> : null}</article> : null}
+
+      {regulatoryTier || outlook ? (
+        <article className="hvm2-note hvm2-regulatory-posture">
+          {regulatoryTier ? <StatusPill>{regulatoryTier}</StatusPill> : null}
+          {outlook ? <p>{outlook}</p> : null}
+        </article>
+      ) : null}
+
       {items.length > 0 ? (
-        <div className="hvm2-record-stack">
-          {items.slice(0, 8).map(item => (
-            <article key={item.id}><span>{item.jurisdiction ?? 'Global'} · {item.item_type}</span><strong>{item.title}</strong><p>{item.latest_change_note ?? item.subtitle ?? item.next_action ?? 'No change recorded since this item was added to the watch.'}</p></article>
-          ))}
+        <div className="hvm2-intel-record-list" aria-label={`All ${items.length} tracked regulatory items`}>
+          {items.map(item => {
+            const source = readString(item, ['source_name', 'source_label'], '')
+            const date = readString(item, ['updated_at', 'last_changed_at', 'published_at'], '')
+            const status = readString(item, ['status', 'watch_status'], '')
+            const nextAction = readString(item, ['next_action'], '')
+            return (
+              <article key={readString(item, ['id'], `${readString(item, ['jurisdiction'], 'global')}-${readString(item, ['title'], 'watch')}`)} className="hvm2-intel-record-card">
+                <div className="hvm2-intel-meta-row">
+                  <span>{readString(item, ['jurisdiction'], 'Global')}</span>
+                  <span>{readString(item, ['item_type'], 'Regulatory watch')}</span>
+                  {status ? <span>{status}</span> : null}
+                </div>
+                <strong>{readString(item, ['title'], 'Untitled regulatory watch item')}</strong>
+                <p>{readString(item, ['latest_change_note', 'subtitle'], 'No latest-change note is recorded for this watch item.')}</p>
+                {(source || date) ? <small>{[source && `Source ${source}`, date].filter(Boolean).join(' · ')}</small> : <small>Evidence metadata Unknown</small>}
+                {nextAction ? <div className="hvm2-intel-action"><span>Next action</span><p>{nextAction}</p></div> : null}
+              </article>
+            )
+          })}
         </div>
-      ) : <EmptyState title="Nothing on the watch list yet" detail="Regulatory items added to the watch appear here with their latest recorded change. Add one from the desktop watchlist to start tracking." />}
+      ) : (
+        <EmptyState title="Nothing on the watch list yet" detail="Regulatory items added to the watch appear here with their latest recorded change." />
+      )}
     </SectionShell>
   )
 }
 
-export function LocalIntelSection({ sectionRef, localIntel, countryLabel }: { sectionRef: SectionRef; localIntel: LocalIntel | null; countryLabel: string }) {
+export function LocalIntelSection({
+  sectionRef, localIntel, countryLabel,
+}: {
+  sectionRef: SectionRef
+  localIntel: LocalIntel | null
+  countryLabel: string
+}) {
   const coverage = localIntel?.coverageStatus
+  const localNotes = localIntel ? [...localIntel.constraints, ...localIntel.routes] : []
+
   return (
-    <SectionShell id="local-intel" sectionRef={sectionRef} eyebrow="Intel / local intelligence" title={`Sub-national picture for ${countryLabel}`} description="Regulating authorities, subdivision differences and open questions below national level.">
+    <SectionShell
+      id="local-intel"
+      sectionRef={sectionRef}
+      eyebrow="Intel / local intelligence"
+      title={`Jurisdiction intelligence for ${countryLabel}`}
+      description="National authorities, subdivision differences, market-access routes, constraints and unresolved local questions in the reviewed record set."
+    >
       {!localIntel || coverage !== 'available' ? (
-        <EmptyState title={coverage === 'not_applicable' ? 'No sub-national layer for this jurisdiction' : 'Local research pending'} detail={coverage === 'not_applicable' ? `${countryLabel} is regulated at national level only, so there is no subdivision layer to record.` : `Local intelligence for ${countryLabel} has not been researched and reviewed yet. It records the regulating authorities, how subdivisions differ, and what remains unresolved.`} />
+        <EmptyState
+          title={coverage === 'not_applicable' ? 'No sub-national layer for this jurisdiction' : 'Local research pending'}
+          detail={coverage === 'not_applicable'
+            ? `${countryLabel} is recorded as nationally regulated without a subdivision layer in the current reviewed data.`
+            : `Local intelligence for ${countryLabel} has not been researched and reviewed yet.`}
+        />
       ) : (
-        <>
-          {localIntel.authorities?.keyList?.length ? <div className="hvm2-record-stack">{localIntel.authorities.keyList.slice(0, 6).map(a => <article key={`${a.name}-${a.role}`}><span>Authority</span><strong>{a.name}</strong><p>{a.role}</p></article>)}</div> : null}
-          {localIntel.municipalities.length > 0 ? <div className="hvm2-record-stack">{localIntel.municipalities.slice(0, 8).map(m => <article key={m.name}><span>{m.status} activity</span><strong>{m.name}</strong><p>{m.note ?? 'No local note recorded.'}</p></article>)}</div> : null}
-          {[...localIntel.constraints, ...localIntel.routes].length > 0 ? <div className="hvm2-record-stack">{[...localIntel.constraints, ...localIntel.routes].slice(0, 8).map(note => <article key={`${note.label}-${note.text.slice(0, 24)}`}><span>{note.label}</span><strong>{note.icon ?? '◇'} {note.label}</strong><p>{note.text}</p></article>)}</div> : null}
-          {localIntel.openQuestions.length > 0 ? <article className="hvm2-note"><StatusPill>Open questions</StatusPill><ul>{localIntel.openQuestions.slice(0, 6).map(q => <li key={q}>{q}</li>)}</ul></article> : null}
-        </>
+        <div className="hvm2-local-intel-groups">
+          {localIntel.authorities?.keyList?.length ? (
+            <section aria-labelledby="hvm2-local-authorities">
+              <div className="hvm2-intel-group-heading"><span>Authorities</span><strong id="hvm2-local-authorities">Regulating bodies</strong><small>{localIntel.authorities.keyList.length} records</small></div>
+              <div className="hvm2-intel-record-list">
+                {localIntel.authorities.keyList.map(a => (
+                  <article className="hvm2-intel-record-card" key={`${a.name}-${a.role}`}>
+                    <span className="hvm2-intel-record-type">Authority</span>
+                    <strong>{a.name}</strong>
+                    <p>{a.role}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {localIntel.municipalities.length > 0 ? (
+            <section aria-labelledby="hvm2-local-subdivisions">
+              <div className="hvm2-intel-group-heading"><span>Subdivisions</span><strong id="hvm2-local-subdivisions">Local activity</strong><small>{localIntel.municipalities.length} records</small></div>
+              <div className="hvm2-intel-record-list">
+                {localIntel.municipalities.map(m => (
+                  <article className="hvm2-intel-record-card" key={m.name}>
+                    <div className="hvm2-intel-meta-row"><span>Subdivision</span><span>{m.status || 'Status Unknown'}</span></div>
+                    <strong>{m.name}</strong>
+                    <p>{m.note ?? 'Local note Unknown'}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {localNotes.length > 0 ? (
+            <section aria-labelledby="hvm2-local-routes">
+              <div className="hvm2-intel-group-heading"><span>Routes & constraints</span><strong id="hvm2-local-routes">Operating differences</strong><small>{localNotes.length} records</small></div>
+              <div className="hvm2-intel-record-list">
+                {localNotes.map(note => {
+                  const isRoute = localIntel.routes.includes(note)
+                  return (
+                    <article className="hvm2-intel-record-card" key={`${isRoute ? 'route' : 'constraint'}-${note.label}-${note.text.slice(0, 24)}`}>
+                      <span className="hvm2-intel-record-type">{isRoute ? 'Market-access route' : 'Constraint'}</span>
+                      <strong>{note.icon ? `${note.icon} ` : ''}{note.label}</strong>
+                      <p>{note.text}</p>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {localIntel.openQuestions.length > 0 ? (
+            <section aria-labelledby="hvm2-local-questions">
+              <div className="hvm2-intel-group-heading"><span>Unresolved</span><strong id="hvm2-local-questions">Open questions</strong><small>{localIntel.openQuestions.length} records</small></div>
+              <article className="hvm2-note hvm2-open-questions">
+                <StatusPill tone="warn">Open questions</StatusPill>
+                <ul>{localIntel.openQuestions.map(q => <li key={q}>{q}</li>)}</ul>
+              </article>
+            </section>
+          ) : null}
+        </div>
       )}
     </SectionShell>
   )

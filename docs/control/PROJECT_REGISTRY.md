@@ -1,4 +1,4 @@
-Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; Vercel team ID and project ID corrected by operator confirmation 2026-06-23. Scoped residual systems catch-up 2026-07-28 (code-presence only). Phase 2 personal briefings slice started 2026-07-28.  
+Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; Vercel team ID and project ID corrected by operator confirmation 2026-06-23. Scoped residual systems catch-up 2026-07-28 (code-presence only). Phase 2 personal briefings slice started 2026-07-28. Intelligence Productization Board control doc registered 2026-08-10 (docs-only; no production verification claim).  
 Scope: GitHub, Vercel and Supabase assets visible in connected audits, plus the 2026-05-17 verified Vercel connector state recorded in Notion dispatch `DSP-10` / `HAR-16 / HAR-22`.  
 Change policy: This document is a control register. It is not approval to delete, pause, merge, deploy, reconfigure domains, change branch protection, change secrets, modify Supabase, modify runtime code, modify middleware, modify auth, modify dependencies or migrate anything without a separate approved cleanup PR or operator confirmation.
 
@@ -34,6 +34,21 @@ Change policy: This document is a control register. It is not approval to delete
 | Delivery | Existing `signal_subscriptions` + `/api/cron/intelligence-notify` | Cadence/market filters already live; watch-rule-driven personal email is next depth item |
 | Schema | None | No new tables or migrations in this slice |
 
+## Intelligence Productization Board — 2026-08-10 (control doc)
+
+**Status:** Active planning / execution board. **Docs-only.** Does not certify production, RLS, or deployment state. Does not authorize migrations or runtime changes.
+
+| Component | Path | Notes |
+|-----------|------|-------|
+| Execution board | `docs/control/INTELLIGENCE_PRODUCTIZATION_BOARD_2026-08-10.md` | 2-week Tier 1–3 board: wire Pipeline B outputs (quality, translations, clusters, embeddings) into customer-visible Intel, search, Digest; no new modules |
+| Related assessment | `docs/PLATFORM_OPTIMIZATION_REVIEW_2026-07-30.md` | Live Jul-30 gap review (feed wiring, dead scorer, Stage D, freshness) |
+| Quality handoff | `docs/QUALITY_PIPELINE_HANDOFF.md` | Pipeline B architecture debt and product-layer gaps |
+| Public DTO allowlist | `docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md` | Customer-field source of truth for quality/translation/corroboration mapping |
+| Schema / routes | None in this registry slice | Follow-on PRs (PR-A…E on the board) must name affected app/lib paths and update this registry if they add routes or tables |
+| PR introducing board | #1333 | Branch `docs/intelligence-productization-board-2026-08-10` |
+
+**Registry impact of this entry:** control-document registration only. No change to canonical Vercel mapping, Supabase project ref, public routes, or HOLD gates below.
+
 ## Registry catch-up note — 2026-07-07
 
 **Status:** Not a verified update — a scoped flag of what's missing, added while reviewing why the `Enforce registry impact discipline` CI check fails on nearly every current PR (see `HANDOFF.md` session log, Jul 7).
@@ -43,6 +58,8 @@ Change policy: This document is a control register. It is not approval to delete
 **What this note is NOT:** it is not a GO for any of the systems listed above, and it does not supersede or update the "Current Canonical Decisions," "Confirmed Vercel Production Mapping," or "Supabase Control Notes" sections below — those require live re-verification (current production deployment ID, current Supabase RLS per table, current branch-protection required checks) that wasn't performed this pass. Per this document's own Change policy, that re-verification is a separate approved cleanup task, not something to fold into an unrelated PR review/merge session.
 
 **2026-07-28 update:** Residual Phase 0–1 systems (supplier public surface, financing, my-briefings, watchlists) are now registered above under "Residual systems catch-up." Phase 2 personal briefings slice updates the My Briefings row (on-demand LLM synthesis + weekly `jurisdiction_briefings` cards). Broader Command Centre / Digest / HF / ia_* systems remain in the 2026-07-07 HOLD scope until a dedicated full pass.
+
+**2026-08-10 update:** Intelligence Productization Board control doc registered above. Still not a full Command Centre / Digest / HF / ia_* production re-verification.
 
 **Recommended next step:** a dedicated registry-reconciliation pass — list every system live in `main` today, add a row per system with actual verified routes/tables/RLS state, and re-run the full Vercel/Supabase verification block (mirroring the rigor of the original 2026-05-17 pass) rather than patching this document incrementally.
 
