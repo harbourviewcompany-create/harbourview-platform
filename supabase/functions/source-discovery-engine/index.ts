@@ -217,34 +217,115 @@ or
   };
 }
 
-// Provider-selecting wrapper: tries Anthropic first (best tool-use fit for
-// this task), falls back to OpenAI's grounded search-preview model if
-// Anthropic is unavailable/erroring. Returns which provider actually
-// produced the result (or the last error) so the caller can log it.
+// Provider-selecting wrapper. Order: Anthropic (best tool-use fit) -> OpenAI
+// (paid fallback) -> Wikidata (free, no-key fallback, tried whenever the paid
+// providers are absent/erroring -- not just when both keys are missing
+// entirely). This means the pipeline produces real, live-verified results
+// even when every paid key is at $0 balance, which is the actual state of
+// this project's vault as of 2026-08-12.
 async function findCandidate(
   country: string,
   cls: string,
 ): Promise<{ candidate?: Candidate; error?: string; provider?: string }> {
+  const attempts: string[] = [];
+
   if (ANTHROPIC_API_KEY) {
     const a = await findCandidateAnthropic(country, cls);
     if (a.candidate) return { ...a, provider: "anthropic" };
-    // Only fall through to OpenAI on billing/auth/availability failures,
-    // not on a confident "not found" from the model -- that's a real answer.
     if (a.error && a.error.startsWith("model_reported_not_found")) {
       return { ...a, provider: "anthropic" };
     }
-    if (OPENAI_API_KEY) {
-      const o = await findCandidateOpenAI(country, cls);
-      if (o.candidate) return { ...o, provider: "openai_fallback" };
-      return { error: `anthropic: ${a.error} | openai_fallback: ${o.error}`, provider: "both_failed" };
-    }
-    return { ...a, provider: "anthropic" };
+    attempts.push(`anthropic: ${a.error}`);
   }
+
   if (OPENAI_API_KEY) {
     const o = await findCandidateOpenAI(country, cls);
-    return { ...o, provider: "openai_fallback" };
+    if (o.candidate) return { ...o, provider: "openai_fallback" };
+    if (o.error && o.error.startsWith("model_reported_not_found")) {
+      return { ...o, provider: "openai_fallback" };
+    }
+    attempts.push(`openai: ${o.error}`);
   }
-  return { error: "no_provider_configured", provider: "none" };
+
+  // Always try the free path last, regardless of whether paid keys exist --
+  // this is the "works even at $0 spend" guarantee.
+  const w = await findCandidateWikidata(country, cls);
+  if (w.candidate) return { ...w, provider: "wikidata_free" };
+  attempts.push(`wikidata: ${w.error}`);
+
+  return { error: attempts.join(" | ") || "no_provider_configured", provider: "all_failed" };
+}
+
+// Free, no-key, no-billing fallback provider. Wikidata's public API requires
+// no account, no API key, and no payment of any kind -- it's the one path in
+// this function that works regardless of anyone's credit balance. Lower hit
+// rate than a real LLM search (many entities lack an official-website claim,
+// and search-term matching is fuzzier), but it costs nothing and every
+// candidate it returns still goes through the same live verifyLive() check
+// before insertion -- same safety bar as the paid providers.
+const WIKIDATA_SEARCH_PHRASE: Record<string, string> = {
+  health_authority: "Ministry of Health of",
+  drug_control_authority: "narcotics control agency of",
+  official_gazette: "official gazette of",
+  legislature: "parliament of",
+  customs_import_export: "customs authority of",
+  procurement: "public procurement agency of",
+  medicine_license_registry: "medicines regulatory authority of",
+};
+
+async function findCandidateWikidata(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
+  const phrase = WIKIDATA_SEARCH_PHRASE[cls] ?? cls;
+  const query = `${phrase} ${country}`;
+
+  // Full-text search (not the prefix-oriented wbsearchentities autocomplete
+  // endpoint) -- tolerant of label mismatches like our generic "Ministry of
+  // Health of X" query against a real label like "Ministry of Public Health
+  // (X)". Returns Wikidata page titles, which for item pages are QIDs.
+  let searchRes: Response;
+  try {
+    searchRes = await fetch(
+      `https://www.wikidata.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=0&srlimit=3&format=json`,
+      { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } },
+    );
+  } catch (e) {
+    return { error: `wikidata_search_threw: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!searchRes.ok) return { error: `wikidata_search_${searchRes.status}` };
+  const searchData = await searchRes.json();
+  const hits = Array.isArray(searchData?.query?.search) ? searchData.query.search : [];
+  if (hits.length === 0) {
+    return { error: `wikidata_no_search_hits (raw: ${JSON.stringify(searchData).slice(0, 200)})` };
+  }
+
+  // Try each of the top hits until one has an official-website claim.
+  for (const hit of hits) {
+    const qid = hit.title;
+    if (!qid || !/^Q\d+$/.test(qid)) continue;
+    let claimsRes: Response;
+    try {
+      claimsRes = await fetch(
+        `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid}&props=labels|claims&languages=en&format=json`,
+        { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } },
+      );
+    } catch {
+      continue;
+    }
+    if (!claimsRes.ok) continue;
+    const claimsData = await claimsRes.json();
+    const entity = claimsData?.entities?.[qid];
+    const url = entity?.claims?.P856?.[0]?.mainsnak?.datavalue?.value;
+    const label = entity?.labels?.en?.value;
+    if (typeof url === "string" && /^https?:\/\//i.test(url)) {
+      return {
+        candidate: {
+          url,
+          official_body_name: String(label ?? `${country} ${cls}`).slice(0, 200),
+          confidence: 0.55, // heuristic search match, not reasoned -- flagged lower than LLM picks
+        },
+      };
+    }
+  }
+  return { error: "wikidata_no_official_website_claim_on_top_hits" };
 }
 
 // Independent verification: this function does its own live check, it does
@@ -293,22 +374,9 @@ Deno.serve(async (req: Request) => {
   let candidatesVerified = 0;
   let sourcesInserted = 0;
 
-  if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY) {
-    await supabase
-      .from("source_discovery_jobs")
-      .update({
-        finished_at: new Date().toISOString(),
-        status: "no_provider",
-        provider_used: "none",
-        errors: JSON.stringify(["no_grounded_search_provider_configured"]),
-      })
-      .eq("id", jobId);
-    return json({
-      ok: true,
-      status: "no_provider",
-      message: "Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is set -- inserted nothing (fail-closed by design).",
-    });
-  }
+  // Note: there's no "no provider configured" early-exit anymore -- the
+  // Wikidata path in findCandidate() requires no key at all, so this
+  // function always has at least one working, free provider available.
 
   // 1. Load queue countries (excluding non-viable) and existing coverage.
   const { data: queueRows, error: qErr } = await supabase
