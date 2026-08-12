@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises';
-import path from 'node:path';
 
 const runId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const primaryBaseUrl = cleanBaseUrl(process.env.PRIMARY_BASE_URL || 'https://harbourview.vercel.app');
@@ -81,14 +80,13 @@ const publicRoutes = [
       'review',
     ],
   },
+];
+
+const protectedRoutes = [
   {
     route: '/marketplace/wanted',
-    requiredAny: [
-      'wanted',
-      'request',
-      'buyer',
-      'review',
-    ],
+    finalUrlIncludes: '/login?next=%2Fdashboard',
+    requiredAny: ['sign in to your account', 'sign in', 'login'],
   },
 ];
 
@@ -166,6 +164,7 @@ const evidence = {
   includeSecondary,
   bases: bases.map((base) => base.baseUrl),
   publicRoutes: [],
+  protectedRoutes: [],
   adminRoutes: [],
   failures: [],
 };
@@ -174,6 +173,12 @@ for (const base of bases) {
   for (const routeSpec of publicRoutes) {
     const result = await verifyPublicRoute(base, routeSpec);
     evidence.publicRoutes.push(result);
+    if (!result.passed) evidence.failures.push(...result.failures.map((failure) => `${base.label} ${routeSpec.route}: ${failure}`));
+  }
+
+  for (const routeSpec of protectedRoutes) {
+    const result = await verifyProtectedRoute(base, routeSpec);
+    evidence.protectedRoutes.push(result);
     if (!result.passed) evidence.failures.push(...result.failures.map((failure) => `${base.label} ${routeSpec.route}: ${failure}`));
   }
 
@@ -233,6 +238,39 @@ async function verifyPublicRoute(base, routeSpec) {
     status: fetched.status,
     finalUrl: fetched.finalUrl,
     contentLength: html.length,
+    passed: failures.length === 0,
+    failures,
+  };
+}
+
+async function verifyProtectedRoute(base, routeSpec) {
+  const url = buildCacheBustedUrl(base.baseUrl, routeSpec.route);
+  const fetched = await fetchText(url, { redirect: 'follow' });
+  const html = fetched.text || '';
+  const normalized = normalize(html);
+  const failures = [];
+
+  if (!fetched.ok) failures.push(`HTTP fetch failed with status ${fetched.status}`);
+  if (!normalized.includes('harbourview')) failures.push('Missing Harbourview brand text');
+  if (!routeSpec.requiredAny.some((term) => normalized.includes(term.toLowerCase()))) {
+    failures.push(`Missing authenticated-entry copy. Expected one of: ${routeSpec.requiredAny.join(' | ')}`);
+  }
+  if (!fetched.finalUrl.includes(routeSpec.finalUrlIncludes)) {
+    failures.push(`Protected route final URL did not include ${routeSpec.finalUrlIncludes}; actual ${fetched.finalUrl}`);
+  }
+
+  const leakageHits = forbiddenLeakageStrings.filter((term) => containsInsensitive(html, term));
+  if (leakageHits.length > 0) failures.push(`Forbidden leakage strings present: ${leakageHits.join(', ')}`);
+
+  return {
+    baseLabel: base.label,
+    baseUrl: base.baseUrl,
+    route: routeSpec.route,
+    url,
+    status: fetched.status,
+    finalUrl: fetched.finalUrl,
+    contentLength: html.length,
+    protected: fetched.finalUrl.includes(routeSpec.finalUrlIncludes),
     passed: failures.length === 0,
     failures,
   };
@@ -366,6 +404,14 @@ function renderMarkdown(report) {
   lines.push('| --- | --- | ---: | --- | --- |');
   for (const route of report.publicRoutes) {
     lines.push(`| ${route.baseLabel} | \`${route.route}\` | ${route.status} | ${route.passed ? 'PASS' : 'FAIL'} | ${route.url} |`);
+  }
+  lines.push('');
+  lines.push('## Protected route checks');
+  lines.push('');
+  lines.push('| Base | Route | Status | Protected | Result | Final URL |');
+  lines.push('| --- | --- | ---: | --- | --- | --- |');
+  for (const route of report.protectedRoutes) {
+    lines.push(`| ${route.baseLabel} | \`${route.route}\` | ${route.status} | ${route.protected ? 'YES' : 'NO'} | ${route.passed ? 'PASS' : 'FAIL'} | ${route.finalUrl} |`);
   }
   lines.push('');
   lines.push('## Admin denial checks');
