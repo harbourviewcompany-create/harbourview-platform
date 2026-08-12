@@ -709,10 +709,10 @@
       "source_sha256": null
     },
     {
-      "bytes": 1317,
+      "bytes": 2154,
       "origin": "added",
       "path": "tests/sql/simulated_harbourview_prestate.sql",
-      "sha256": "dcb7a81b931edbf77070081c227f5749f1bca87e5bae6052c54a5d1f261c5a54",
+      "sha256": "a4deeb17546d8421ec4ff0b279f246b18eef0daec7f56afee7c7f7767fffd21f",
       "source_sha256": null
     },
     {
