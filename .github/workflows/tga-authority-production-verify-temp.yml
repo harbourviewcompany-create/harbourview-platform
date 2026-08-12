@@ -1,0 +1,226 @@
+name: TGA Authority Production Verify Temp
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tga-authority-production-verify-temp.yml'
+      - 'supabase/functions/source-engine-fetch/**'
+      - 'supabase/functions/_shared/authority-fetch.ts'
+      - 'supabase/functions/_shared/structured-tabular.ts'
+      - 'supabase/functions/_shared/structured-json.ts'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production-authorities:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/tga-authority-representation-20260812'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_REF: zvxdgdkukjrrwamdpqrg
+      SUPABASE_URL: https://zvxdgdkukjrrwamdpqrg.supabase.co
+      HC_SOURCE: 953c29e8-5fee-475f-a6bb-8f7fce0d8592
+      ODC_CULT_SOURCE: 0be94ae5-f906-4076-b0db-65b17490097b
+      ODC_MFG_SOURCE: 988d8335-52d2-47cd-911d-b772574cc1a6
+      TGA_SOURCE: 533390ed-0ae3-47de-93da-6644470328ab
+      EVIDENCE_OUT: artifacts/tga-authority-production-verification.json
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Verify focused source implementation before production deploy
+        run: |
+          set -euo pipefail
+          deno test supabase/functions/_shared/authority-fetch.test.ts
+          deno test supabase/functions/_shared/structured-tabular.test.ts
+          deno test supabase/functions/_shared/structured-json.test.ts
+          deno check --node-modules-dir=auto supabase/functions/source-engine-fetch/index.ts
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      - name: Deploy only source-engine-fetch
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          supabase functions deploy source-engine-fetch --project-ref "$PROJECT_REF"
+
+      - name: Production-safe authority verification
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          mkdir -p artifacts
+          node <<'NODE'
+          const fs = require('fs');
+          const base = process.env.SUPABASE_URL;
+          const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          const ids = {
+            health_canada: process.env.HC_SOURCE,
+            odc_cultivators: process.env.ODC_CULT_SOURCE,
+            odc_manufacturers_importers: process.env.ODC_MFG_SOURCE,
+            tga_products: process.env.TGA_SOURCE,
+          };
+          const startedAt = new Date().toISOString();
+
+          function assert(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          async function invoke(sourceId, dryRun = false) {
+            const url = new URL(`${base}/functions/v1/source-engine-fetch`);
+            url.searchParams.set('limit', '1');
+            url.searchParams.set('source_id', sourceId);
+            if (dryRun) url.searchParams.set('dry_run', 'true');
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: {
+                apikey: service,
+                authorization: `Bearer ${service}`,
+                'content-type': 'application/json',
+                'x-harbourview-cron-caller': 'pg_cron_source_engine_fetch',
+              },
+              body: '{}',
+            });
+            const text = await res.text();
+            let body;
+            try { body = JSON.parse(text); } catch { body = { raw: text }; }
+            assert(res.ok, `source-engine-fetch HTTP ${res.status}: ${text.slice(0, 500)}`);
+            assert(body?.ok === true, `source-engine-fetch returned non-ok: ${text.slice(0, 500)}`);
+            assert(body?.failed === 0, `source-engine-fetch source failure: ${text.slice(0, 1000)}`);
+            return body;
+          }
+
+          async function rest(path, key = service, profile = 'public') {
+            const res = await fetch(`${base}/rest/v1/${path}`, {
+              headers: {
+                apikey: key,
+                authorization: `Bearer ${key}`,
+                'accept-profile': profile,
+              },
+            });
+            const text = await res.text();
+            assert(res.ok, `REST ${profile}/${path} HTTP ${res.status}: ${text.slice(0, 500)}`);
+            return JSON.parse(text || '[]');
+          }
+
+          const dryTga = await invoke(ids.tga_products, true);
+          const dryTgaResult = dryTga.results?.[0] ?? {};
+          assert(dryTga.version === '2.4', `expected source-engine-fetch 2.4, got ${dryTga.version}`);
+          assert(dryTgaResult.status === 'ok', `TGA dry run did not parse: ${JSON.stringify(dryTgaResult)}`);
+          assert(dryTgaResult.response_kind === 'html_table', `TGA response kind ${dryTgaResult.response_kind}`);
+          assert(dryTgaResult.representation_retry === true, 'TGA did not use same-URL browser-compatible representation retry');
+          assert(Number(dryTgaResult.candidates) > 0, `TGA candidate count not plausible: ${dryTgaResult.candidates}`);
+
+          const first = {};
+          const second = {};
+          for (const [name, id] of Object.entries(ids)) first[name] = await invoke(id, false);
+          for (const [name, id] of Object.entries(ids)) second[name] = await invoke(id, false);
+
+          for (const [name, body] of Object.entries(second)) {
+            const result = body.results?.[0] ?? {};
+            assert(result.status === 'ok', `${name} second run not ok`);
+            assert(Number(result.inserted) === 0, `${name} second unchanged run inserted ${result.inserted}`);
+            assert(Number(result.fresh) === 0, `${name} second unchanged run reported fresh ${result.fresh}`);
+          }
+
+          const tgaRows = await rest(`source_snapshots?source_id=eq.${ids.tga_products}&fetch_status=eq.success&select=id,captured_url,captured_title,captured_text,raw_html_hash,captured_at&limit=2500`);
+          assert(tgaRows.length > 0, 'TGA live run produced no successful snapshots');
+          const parsedTga = tgaRows.map(row => ({ ...row, parsed: JSON.parse(row.captured_text) }));
+          const labels = [...new Set(parsedTga.map(row => row.parsed._table_label).filter(Boolean))];
+          assert(labels.length === 5, `expected five TGA category labels, got ${labels.length}: ${labels.join(' | ')}`);
+          for (const row of parsedTga) {
+            assert(row.parsed._table_index !== undefined, `TGA row ${row.id} missing table index`);
+            assert(row.parsed._table_label, `TGA row ${row.id} missing table label`);
+            assert(row.parsed.dosage_form !== undefined, `TGA row ${row.id} missing dosage_form`);
+            assert(row.parsed.active_ingredients !== undefined, `TGA row ${row.id} missing active_ingredients`);
+            assert(row.parsed.qty_per_dosage_unit !== undefined, `TGA row ${row.id} missing qty_per_dosage_unit`);
+            assert(row.parsed.name_of_sponsor !== undefined, `TGA row ${row.id} missing sponsor`);
+          }
+          const tgaUrls = new Set(parsedTga.map(row => row.captured_url));
+          assert(tgaUrls.size === parsedTga.length, `TGA stable identity URLs are not unique: ${tgaUrls.size}/${parsedTga.length}`);
+
+          const configured = await rest(`source_registry?id=in.(${Object.values(ids).join(',')})&select=id,source_name,metadata`);
+          assert(configured.length === 4, `expected four configured sources, got ${configured.length}`);
+          const byId = Object.fromEntries(configured.map(row => [row.id, row]));
+          assert(byId[ids.health_canada].metadata?.export_capability_inference_allowed === false, 'Health Canada export capability inference control missing');
+          for (const id of [ids.odc_cultivators, ids.odc_manufacturers_importers]) {
+            assert(byId[id].metadata?.full_licence_universe === false, `ODC full-universe control missing for ${id}`);
+            assert(byId[id].metadata?.coverage_claim === 'consent_based_public_subset_only', `ODC coverage limitation missing for ${id}`);
+          }
+          const tgaMeta = byId[ids.tga_products].metadata ?? {};
+          assert(tgaMeta.reporting_window_start === '2025-07-01', 'TGA reporting window start changed');
+          assert(tgaMeta.reporting_window_end === '2025-12-31', 'TGA reporting window end changed');
+          assert(tgaMeta.availability_guaranteed === false, 'TGA availability limitation missing');
+
+          const recentRows = [];
+          for (const id of Object.values(ids)) {
+            const rows = await rest(`source_snapshots?source_id=eq.${id}&captured_at=gte.${encodeURIComponent(startedAt)}&fetch_status=eq.success&select=id,source_id,captured_url,raw_html_hash,captured_at&limit=2500`);
+            recentRows.push(...rows);
+          }
+          const pairCounts = new Map();
+          for (const row of recentRows) {
+            const key = `${row.source_id}\n${row.captured_url}\n${row.raw_html_hash}`;
+            pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+          }
+          const duplicatePairs = [...pairCounts.entries()].filter(([, count]) => count > 1);
+          assert(duplicatePairs.length === 0, `new run created duplicate snapshot pairs: ${JSON.stringify(duplicatePairs.slice(0, 5))}`);
+
+          for (const profile of ['public', 'api']) {
+            for (const table of ['source_registry', 'source_snapshots']) {
+              const path = table === 'source_registry'
+                ? `${table}?id=in.(${Object.values(ids).join(',')})&select=*`
+                : `${table}?source_id=in.(${Object.values(ids).join(',')})&select=*&limit=5`;
+              const rows = await rest(path, anon, profile);
+              assert(Array.isArray(rows) && rows.length === 0, `anon leakage from ${profile}.${table}: ${JSON.stringify(rows).slice(0, 500)}`);
+            }
+          }
+
+          const proof = {
+            generated_at: new Date().toISOString(),
+            started_at: startedAt,
+            source_engine_version: dryTga.version,
+            tga_dry_run: dryTgaResult,
+            first_runs: Object.fromEntries(Object.entries(first).map(([k,v]) => [k, v.results?.[0] ?? v])),
+            second_runs: Object.fromEntries(Object.entries(second).map(([k,v]) => [k, v.results?.[0] ?? v])),
+            tga_success_snapshots: parsedTga.length,
+            tga_category_labels: labels,
+            tga_unique_identity_urls: tgaUrls.size,
+            recent_success_snapshots: recentRows.length,
+            new_duplicate_snapshot_pairs: duplicatePairs.length,
+            scope_controls: {
+              health_canada_export_capability_inference_allowed: false,
+              odc_full_licence_universe: false,
+              odc_coverage_claim: 'consent_based_public_subset_only',
+              tga_reporting_window_start: tgaMeta.reporting_window_start,
+              tga_reporting_window_end: tgaMeta.reporting_window_end,
+              tga_availability_guaranteed: tgaMeta.availability_guaranteed,
+            },
+            anon_leakage: 'zero targeted source_registry/source_snapshots rows in public and api schemas',
+            decision: 'GO_SOURCE_INGESTION',
+          };
+          fs.writeFileSync(process.env.EVIDENCE_OUT, JSON.stringify(proof, null, 2));
+          console.log(JSON.stringify(proof, null, 2));
+          NODE
+
+      - name: Upload production verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tga-authority-production-verification-${{ github.event.pull_request.head.sha }}
+          path: artifacts/tga-authority-production-verification.json
+          if-no-files-found: warn
+          retention-days: 30
