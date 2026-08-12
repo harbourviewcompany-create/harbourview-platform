@@ -30,9 +30,11 @@ Date: 2026-08-12
 
 ### Pre-existing database role hardening
 
-`canonical/db/migrations/0013_database_roles_and_grants.sql` now explicitly normalizes the complete security-sensitive attribute contract for `hv_context_owner`, `hv_authenticator`, and all runtime roles. Runtime/authenticator roles are forced to `NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`; `hv_context_owner` is likewise non-login/non-inheriting/non-superuser/non-creation/non-replication while retaining the narrowly required `BYPASSRLS`. The migration immediately re-reads `pg_roles` and fails if the contract is not satisfied.
+`canonical/db/migrations/0001_extensions_and_enums.sql` now normalizes the complete security-sensitive role contract immediately after role creation/existence checks, before any later migration can transfer ownership or grant access to a hostile same-name role. `canonical/db/migrations/0013_database_roles_and_grants.sql` reasserts and revalidates the same contract at the final grants boundary.
 
-The simulated Harbourview upgrade fixture now begins with hostile same-name roles carrying `LOGIN`, `INHERIT`, creation, replication and `BYPASSRLS` attributes, then proves the canonical migration normalizes them while preserving existing Harbourview data.
+Runtime/authenticator roles are forced to `NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`; `hv_context_owner` is likewise non-login/non-inheriting/non-superuser/non-creation/non-replication while retaining only the narrowly required `BYPASSRLS`. Both migration boundaries re-read `pg_roles` and fail if the required attributes are not satisfied.
+
+The simulated Harbourview upgrade fixture begins with hostile same-name roles carrying `LOGIN`, `INHERIT`, creation, replication and `BYPASSRLS` attributes. The upgrade runner applies migration `0001` first, executes `simulated_harbourview_role_bootstrap_assert.sql` before any trusted-context ownership transfer, then applies migrations `0002`–`0013` and performs the final role/data assertions. This proves both early normalization and end-state normalization while preserving existing Harbourview fixture data.
 
 ## Evidence still required on final exact head
 
