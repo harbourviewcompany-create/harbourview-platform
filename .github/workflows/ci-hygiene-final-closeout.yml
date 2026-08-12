@@ -1,0 +1,72 @@
+name: CI Hygiene Final Closeout
+
+on:
+  push:
+    branches:
+      - fix/ci-main-e2e-readiness-hygiene
+    paths:
+      - .github/workflows/ci-hygiene-final-closeout.yml
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-finalize:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ci-main-e2e-readiness-hygiene
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Targeted Supabase readiness tests
+        run: npx vitest run tests/ci/supabase-e2e-readiness.test.ts
+      - name: Workflow infrastructure hygiene tests
+        run: npx vitest run tests/ci/workflow-infrastructure-hygiene.test.ts
+      - name: Secret-string scan
+        run: node scripts/check-no-secret-strings.mjs --base origin/main --head HEAD
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm run test
+      - name: Security leakage suite
+        run: npm run test:security
+      - name: Build
+        run: npm run build
+      - name: Finalize evidence and exact five-file scope
+        shell: bash
+        run: |
+          git restore --source=HEAD -- data/globe/natural-earth-countries.ts
+          python -c "import os; from pathlib import Path; p=Path('docs/control/EVIDENCE_LOG.md'); t=p.read_text(); t=t.replace('MIGRATION_LEDGER=EXTERNAL_GATE','migration_ledger=EXTERNAL_GATE',1); old='CI Hygiene Reconciled Closeout run `31611087826`'; new=f'CI Hygiene Final Closeout run `{os.environ[\"GITHUB_RUN_ID\"]}`'; t=t.replace(old,new,1); p.write_text(t)"
+          git rm .github/workflows/ci-hygiene-review-closeout.yml
+          git rm .github/workflows/ci-hygiene-final-closeout.yml
+          mapfile -t changed < <(git diff --name-only origin/main | sort -u)
+          printf 'Permanent changed files:\n'
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            '.github/workflows/ci.yml'
+            'docs/control/EVIDENCE_LOG.md'
+            'scripts/check-supabase-e2e-readiness.mjs'
+            'tests/ci/supabase-e2e-readiness.test.ts'
+            'tests/ci/workflow-infrastructure-hygiene.test.ts'
+          )
+          mapfile -t expected_sorted < <(printf '%s\n' "${expected[@]}" | sort)
+          if [ "${#changed[@]}" -ne 5 ] || ! diff -u <(printf '%s\n' "${expected_sorted[@]}") <(printf '%s\n' "${changed[@]}"); then
+            echo 'HOLD: permanent diff is not exactly the authorized five files.' >&2
+            exit 1
+          fi
+          git config user.name "Harbourview CI"
+          git config user.email "harbourviewcompany@gmail.com"
+          git add docs/control/EVIDENCE_LOG.md .github/workflows/ci-hygiene-review-closeout.yml .github/workflows/ci-hygiene-final-closeout.yml
+          git commit -m "test: close CI hygiene review findings"
+          git push origin HEAD:fix/ci-main-e2e-readiness-hygiene
