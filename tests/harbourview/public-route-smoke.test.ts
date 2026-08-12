@@ -155,7 +155,7 @@ describe('public route smoke coverage', () => {
       encoding: 'utf8',
     })
 
-    expect(output).toContain('GO: secret scanner self-test passed (8 cases).')
+    expect(output).toMatch(/GO: secret scanner self-test passed \(\d+ cases\)\./)
   })
 
   it('keeps public route files free of private review and source field names', () => {

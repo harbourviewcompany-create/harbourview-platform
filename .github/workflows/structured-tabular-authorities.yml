@@ -1,0 +1,52 @@
+name: Structured Tabular Authorities
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/source-engine-fetch/**'
+      - 'supabase/functions/_shared/structured-json.ts'
+      - 'supabase/functions/_shared/structured-json.test.ts'
+      - 'supabase/functions/_shared/structured-tabular.ts'
+      - 'supabase/functions/_shared/structured-tabular.test.ts'
+      - 'supabase/migrations/20260812090000_structured_tabular_authority_sources.sql'
+      - 'docs/control/STRUCTURED_TABULAR_AUTHORITY_INGESTION_2026-08-12.md'
+      - '.github/workflows/structured-tabular-authorities.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  structured-tabular-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Test structured record parsers
+        run: |
+          deno test supabase/functions/_shared/structured-json.test.ts
+          deno test supabase/functions/_shared/structured-tabular.test.ts
+      - name: Type-check source-engine-fetch
+        run: deno check --node-modules-dir=auto supabase/functions/source-engine-fetch/index.ts
+      - name: Verify authority migration contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration='supabase/migrations/20260812090000_structured_tabular_authority_sources.sql'
+          grep -q "Health Canada — Licensed Cannabis Cultivators" "$migration"
+          grep -q "Australia ODC — Medicinal Cannabis Cultivators" "$migration"
+          grep -q "Australia ODC — Medicinal Cannabis Manufacturers and Importers" "$migration"
+          grep -q "Australia TGA — Medicinal Cannabis SAS/AP Product and Sponsor List" "$migration"
+          grep -q "'structured_format', 'html_table'" "$migration"
+          grep -q "'identity_columns'" "$migration"
+          grep -q "'export_capability_inference_allowed', false" "$migration"
+          grep -q "'full_licence_universe', false" "$migration"
+          grep -q "'availability_guaranteed', false" "$migration"
+          grep -q "expected 4 active tabular sources" "$migration"
+          if grep -Eq "last_checked_at[[:space:]]*=[[:space:]]*NULL|consecutive_failures[[:space:]]*=[[:space:]]*0" "$migration"; then
+            echo 'Migration replay must preserve existing source health history.' >&2
+            exit 1
+          fi

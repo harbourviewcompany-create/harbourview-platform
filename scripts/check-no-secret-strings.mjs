@@ -69,7 +69,7 @@ const patterns = [
 ];
 
 const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
-const safeAssignmentValue = /^(?:process\.env\.|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
+const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = /^HvMobile-\$\{GITHUB_RUN_ID\}-Aa9!$/;
@@ -123,6 +123,9 @@ function runSelfTest() {
   const cases = [
     ['shell secret reference', 'SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}', 0],
     ['github secret expression', 'TOKEN: ${{ secrets.DEPLOY_TOKEN }}', 0],
+    ['node environment secret reference', 'const API_KEY = process.env.API_KEY', 0],
+    ['deno environment secret reference', 'const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', 0],
+    ['deno bypass secret reference', 'const DEV_BYPASS_SECRET = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? ""', 0],
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
