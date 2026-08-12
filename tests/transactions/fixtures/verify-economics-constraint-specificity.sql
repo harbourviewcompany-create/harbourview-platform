@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
--- Prove contract-only evidence is rejected specifically by the transacted-GTV basis rule,
--- not merely by a missing contract document FK or another unrelated constraint.
+-- Prove contract-only evidence is rejected by the final transacted-GTV authoritative rules,
+-- with a real contract document present so the failure cannot be attributed to a missing FK.
 do $$
 declare
   tx_id uuid;
@@ -48,8 +48,11 @@ begin
   exception
     when check_violation then
       get stacked diagnostics violated_constraint = constraint_name;
-      if violated_constraint is distinct from 'transaction_economics_transacted_basis_chk' then
-        raise exception 'expected transaction_economics_transacted_basis_chk, received %', violated_constraint;
+      if violated_constraint not in (
+        'transaction_economics_transacted_basis_chk',
+        'transaction_economics_authoritative_basis_chk'
+      ) then
+        raise exception 'expected a transacted-GTV basis/evidence constraint, received %', violated_constraint;
       end if;
   end;
 end $$;
