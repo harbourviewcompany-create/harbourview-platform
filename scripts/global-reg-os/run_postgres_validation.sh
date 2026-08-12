@@ -22,7 +22,8 @@ trap 'dropdb --if-exists "$clean_db"; dropdb --if-exists "$upgrade_db"' EXIT
 
 run_db "$clean_db"
 createdb "$upgrade_db"
-PGDATABASE="$upgrade_db" psql -v ON_ERROR_STOP=1 -f "$CANONICAL/tests/sql/simulated_harbourview_prestate.sql"\n
+PGDATABASE="$upgrade_db" psql -v ON_ERROR_STOP=1 -f "$CANONICAL/tests/sql/simulated_harbourview_prestate.sql"
+
 bootstrap_migration="$CANONICAL/db/migrations/0001_extensions_and_enums.sql"
 PGDATABASE="$upgrade_db" psql -v ON_ERROR_STOP=1 -f "$bootstrap_migration"
 PGDATABASE="$upgrade_db" psql -v ON_ERROR_STOP=1 -f "$CANONICAL/tests/sql/simulated_harbourview_role_bootstrap_assert.sql"
