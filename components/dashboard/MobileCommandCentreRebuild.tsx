@@ -1,11 +1,12 @@
 'use client'
 
-import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
+import { buildCommandSearchIndex } from './mobile-command/intelSearch'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import {
@@ -33,24 +34,46 @@ import {
 } from './mobile-command/Sections'
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
+import './mobile-command/MobileIntelInstitutional.css'
 
 export default function MobileCommandCentreRebuild(props: MobileCommandCentreProps) {
   const model = useMobileCommandModel(props)
   const [contextOpen, setContextOpen] = useState(false)
   const contextCloseRef = useRef<HTMLButtonElement | null>(null)
   const contextTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const secondaryNavRef = useRef<HTMLElement | null>(null)
+  const secondaryButtonRefs = useRef(new Map<SectionId, HTMLButtonElement>())
 
   const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
-  // The Command landing stays chrome-free: the operator dashboard is the whole
-  // surface, and a rail above it just pushes the first real content below the
-  // fold. Its siblings — jurisdiction, compliance, genetics, network,
-  // directories, talent, education — are reached from "Read operating picture",
-  // and the rail appears once you are in one of them so you can move between
-  // them and back. Keyed off the committed section rather than the group, so
-  // every other destination still gets its rail immediately.
   const showSecondaryNav = model.groupSections.length > 1 && model.highlightedSection !== 'overview'
+
+  const searchRecords = useMemo(() => buildCommandSearchIndex({
+    signals: model.signals,
+    listings: model.marketRows,
+    watchItems: props.watchlistData?.items ?? [],
+    localIntel: props.localIntel ?? null,
+    countryLabel: model.countryLabel,
+    countryIntel: props.countryIntel,
+    directories: model.directoryRecords,
+    genetics: model.geneticsRecords,
+    actions: model.nextActions,
+    evidenceDocuments: model.evidenceDocuments,
+    talent: model.talentRecords,
+  }), [
+    model.signals,
+    model.marketRows,
+    props.watchlistData,
+    props.localIntel,
+    model.countryLabel,
+    props.countryIntel,
+    model.directoryRecords,
+    model.geneticsRecords,
+    model.nextActions,
+    model.evidenceDocuments,
+    model.talentRecords,
+  ])
 
   useEffect(() => {
     if (!contextOpen) return
@@ -65,6 +88,39 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [contextOpen])
+
+  useEffect(() => {
+    if (!showSecondaryNav) return
+
+    let frame = 0
+    const revealActiveSection = () => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        secondaryButtonRefs.current
+          .get(model.highlightedSection)
+          ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' })
+      })
+    }
+
+    revealActiveSection()
+    window.addEventListener('resize', revealActiveSection)
+    window.visualViewport?.addEventListener('resize', revealActiveSection)
+
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(revealActiveSection)
+    const secondaryNav = secondaryNavRef.current
+    const activeButton = secondaryButtonRefs.current.get(model.highlightedSection)
+    if (secondaryNav) resizeObserver?.observe(secondaryNav)
+    if (activeButton) resizeObserver?.observe(activeButton)
+
+    return () => {
+      window.removeEventListener('resize', revealActiveSection)
+      window.visualViewport?.removeEventListener('resize', revealActiveSection)
+      resizeObserver?.disconnect()
+      window.cancelAnimationFrame(frame)
+    }
+  }, [model.highlightedSection, showSecondaryNav])
 
   function closeContext() {
     setContextOpen(false)
@@ -97,9 +153,9 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     marketplace: <MarketplaceSection sectionRef={model.sectionRef('marketplace')} activeMarketView={model.activeMarketView} marketQuery={model.marketQuery} marketRows={model.marketRows} filteredRows={model.filteredMarketRows} activeTool={model.activeTool} selectedListing={model.selectedListing} onMarketViewChange={model.selectMarketView} onMarketQueryChange={model.setMarketQuery} onOpenTool={model.openTool} onCloseTool={model.closeTool} onViewSubmissions={model.viewSubmissions} commandHref={model.commandHref} />,
     supply: <SupplySection sectionRef={model.sectionRef('supply')} supplyRows={model.supplyRows} onOpenTool={model.openTool} />,
     'next-actions': <NextActionsSection sectionRef={model.sectionRef('next-actions')} actions={model.nextActions} />,
-    'weekly-signals': <WeeklySignalsSection sectionRef={model.sectionRef('weekly-signals')} signals={model.signals} />,
-    'personal-briefing': <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} />,
-    search: <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} signalResults={model.searchResults.signals} listingResults={model.searchResults.listings} onQueryChange={model.setSearchQuery} onSignalSelect={() => model.navigateToSection('weekly-signals')} onListingSelect={model.selectListingResult} />,
+    'weekly-signals': <WeeklySignalsSection sectionRef={model.sectionRef('weekly-signals')} signals={model.signals} countryLabel={model.countryLabel} />,
+    'personal-briefing': <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} signals={model.signals} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} nextAction={model.nextActions[0]} />,
+    search: <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} searchRecords={searchRecords} onQueryChange={model.setSearchQuery} onNavigate={model.navigateToSection} onListingSelect={model.selectListingResult} />,
     education: <EducationSection sectionRef={model.sectionRef('education')} roleShort={model.roleShort} tiles={model.educationTiles} commandHref={model.commandHref} />,
     jurisdiction: <JurisdictionSection sectionRef={model.sectionRef('jurisdiction')} countryLabel={model.countryLabel} flag={flagEmoji(model.countryIso2)} region={props.countryIntel?.region} outlook={props.countryIntel?.briefing_regulatory_outlook} pathway={props.countryIntel?.commercial_pathway_summary} importStatus={props.countryIntel?.import_status} exportStatus={props.countryIntel?.export_status} medicalStatus={props.countryIntel?.medical_status} adultUseStatus={props.countryIntel?.adult_use_status} regulator={props.countryIntel?.regulator_label || props.countryIntel?.briefing_regulatory_body} reviewStatus={model.reviewStatus} pathwaySteps={model.pathwaySteps} pathwayIsGeneric={model.pathwayIsGeneric} commandHref={model.commandHref} />,
     'market-status': <MarketStatusSection sectionRef={model.sectionRef('market-status')} wanted={props.wantedCount ?? model.pipeline.wanted} inquiry={model.pipeline.inquiry} proofReview={model.pipeline.proof_review} matched={model.pipeline.matched} dealRoom={model.pipeline.deal_room} submissions={model.submissions} />,
@@ -123,7 +179,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
             <span className="hvm-op-wordmark">HARBOURVIEW</span>
             <h1 className="hvm-op-page-title">{activeDestination?.label ?? 'Command'}</h1>
           </div>
-          <span className="hvm-op-current-chip">Current</span>
+          <span className="hvm-op-current-chip" aria-label="Current command context">Current</span>
         </div>
 
         <button
@@ -140,13 +196,17 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
       </header>
 
       {showSecondaryNav && (
-        <nav className="hvm-op-secondary-nav" aria-label={`${activeDestination?.label ?? 'Command'} sections`}>
+        <nav ref={secondaryNavRef} className="hvm-op-secondary-nav" aria-label={`${activeDestination?.label ?? 'Command'} sections`}>
           {model.groupSections.map(id => {
             const section = SECTION_NAV.find(entry => entry.id === id)
             if (!section) return null
             const isActive = model.highlightedSection === section.id
             return (
               <button
+                ref={node => {
+                  if (node) secondaryButtonRefs.current.set(section.id, node)
+                  else secondaryButtonRefs.current.delete(section.id)
+                }}
                 key={section.id}
                 type="button"
                 className={isActive ? 'active' : ''}

@@ -25,6 +25,7 @@ export const COMMAND_CENTRE_COPY = {
     reviewedIntroduction: 'Request reviewed introduction',
     supplyReview: 'Start controlled supply review',
     supplyDescription: 'The complete loaded supply universe remains visible across cannabis, equipment, consumables, services and new products.',
+    searchDescription: 'Search covers only record types already loaded into the authenticated Command Centre session; existing authorization and access boundaries remain unchanged.',
     supplyEmptyDetail: 'Post a supply submission or wanted requirement for Harbourview review.',
     wantedIntakeDescription: 'Create a buyer-led requirement without leaving Mobile Command. The submission remains review-gated before publication or counterparty routing.',
     supplyIntakeDescription: 'Add product, equipment, consumable, service or opportunity supply directly inside Mobile Command.',
