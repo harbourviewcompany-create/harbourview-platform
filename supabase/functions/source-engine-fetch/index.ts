@@ -453,6 +453,7 @@ Deno.serve(async (req: Request) => {
         status: "ok",
         response_kind: isFeed ? "feed" : isTabular ? sourceTabularFormat : isJson ? "json" : "html",
         final_url: finalUrl,
+        representation_retry: representation.retriedWithBrowserProfile,
         candidates: candidates.length,
         fresh: fresh.length,
         inserted: sourceInserted,
