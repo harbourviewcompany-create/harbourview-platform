@@ -8,6 +8,8 @@ on:
       - 'supabase/functions/_shared/structured-json.test.ts'
       - 'supabase/functions/_shared/structured-tabular.ts'
       - 'supabase/functions/_shared/structured-tabular.test.ts'
+      - 'supabase/functions/_shared/authority-fetch.ts'
+      - 'supabase/functions/_shared/authority-fetch.test.ts'
       - 'supabase/migrations/20260812090000_structured_tabular_authority_sources.sql'
       - 'docs/control/STRUCTURED_TABULAR_AUTHORITY_INGESTION_2026-08-12.md'
       - '.github/workflows/structured-tabular-authorities.yml'
@@ -29,6 +31,7 @@ jobs:
         run: |
           deno test supabase/functions/_shared/structured-json.test.ts
           deno test supabase/functions/_shared/structured-tabular.test.ts
+          deno test supabase/functions/_shared/authority-fetch.test.ts
       - name: Type-check source-engine-fetch
         run: deno check --node-modules-dir=auto supabase/functions/source-engine-fetch/index.ts
       - name: Verify authority migration contract

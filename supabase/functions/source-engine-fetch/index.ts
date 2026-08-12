@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { parseStructuredJson, type StructuredSourceMetadata } from "../_shared/structured-json.ts";
+import { fetchAuthorityRepresentation } from "../_shared/authority-fetch.ts";
 import {
   parseStructuredTabular,
   type StructuredTabularFormat,
@@ -354,13 +355,17 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-      const response = await fetchWithTimeout(source.source_url);
+      const configuredTabularFormat = tabularFormat(source);
+      const representation = await fetchAuthorityRepresentation(source.source_url, {
+        structuredHtmlTable: configuredTabularFormat === "html_table",
+      });
+      const response = representation.response;
       const finalUrl = response.url || source.source_url;
       const contentType = response.headers.get("content-type") ?? "";
       if (!response.ok) throw new Error(`http_${response.status}`);
-      const raw = await response.text();
+      const raw = representation.raw;
       const isFeed = looksLikeFeed(raw, contentType, source.adapter);
-      const sourceTabularFormat = !isFeed ? tabularFormat(source) : null;
+      const sourceTabularFormat = !isFeed ? configuredTabularFormat : null;
       const isTabular = sourceTabularFormat !== null;
       const isJson = !isFeed && !isTabular && looksLikeJson(raw, contentType, source.adapter);
       let candidates: SnapshotCandidate[];
@@ -448,6 +453,7 @@ Deno.serve(async (req: Request) => {
         status: "ok",
         response_kind: isFeed ? "feed" : isTabular ? sourceTabularFormat : isJson ? "json" : "html",
         final_url: finalUrl,
+        representation_retry: representation.retriedWithBrowserProfile,
         candidates: candidates.length,
         fresh: fresh.length,
         inserted: sourceInserted,
