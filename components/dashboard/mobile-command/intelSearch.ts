@@ -33,6 +33,11 @@ export type CommandSearchRecord = {
   destination: SectionId
   searchableText: string
   listing?: NormalizedListing
+  /** Pipeline B quality display (signals only). */
+  translated?: boolean
+  originalLanguageLabel?: string | null
+  corroborationCount?: number
+  confidence?: number | null
 }
 
 type Signal = MobileCommandCentreProps['signals'][number]
@@ -132,13 +137,31 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
   input.signals.forEach((signal, index) => {
     const item = asRecord(signal)
     const analysis = asRecord(item.analysis)
-    const title = readString(item, ['title'], 'Signal')
+    // Prefer explicit English title fields when present; DashboardSignal.title is
+    // already mapped via displayHeadline upstream, but older loaders may still
+    // attach title_en / headline_en alongside a raw headline.
+    const title = readString(
+      item,
+      ['title_en', 'headline_en', 'title', 'headline'],
+      'Signal',
+    )
     const jurisdiction = readString(item, ['market', 'jurisdiction', 'country'], '')
     const category = readString(item, ['type', 'signal_type', 'category'], '')
-    const subtitle = readString(analysis, ['what_changed'], readString(item, ['commercialImpact', 'commercial_impact', 'summary'], ''))
+    const subtitle = readString(analysis, ['what_changed'], readString(item, ['commercialImpact', 'commercial_impact', 'summary', 'summary_en'], ''))
     const sourceLabel = readString(item, ['sourceName', 'source_name', 'sourceLabel', 'source_label'], '')
     const dateLabel = readString(item, ['published_at', 'observed_at', 'updated_at', 'timeAgo'], '')
     const status = readString(item, ['review_status', 'verification_status', 'status'], '')
+    const translated = item.translated === true
+    const originalLanguageLabel = readString(item, ['originalLanguageLabel', 'original_language_label'], '') || null
+    const corroborationRaw = item.corroborationCount ?? item.corroboration_count
+    const corroborationCount = typeof corroborationRaw === 'number' && Number.isFinite(corroborationRaw)
+      ? Math.max(1, Math.round(corroborationRaw))
+      : undefined
+    const confidenceRaw = item.confidence
+    const confidence = typeof confidenceRaw === 'number' && Number.isFinite(confidenceRaw)
+      ? Math.max(0, Math.min(100, Math.round(confidenceRaw)))
+      : null
+
     records.push({
       id: uniqueId('signal', item.id || title, index),
       kind: 'signal',
@@ -151,7 +174,20 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
       ...(dateLabel ? { dateLabel } : {}),
       ...(status ? { status } : {}),
       destination: 'weekly-signals',
-      searchableText: searchable(title, subtitle, jurisdiction, category, sourceLabel, status, readString(analysis, ['recommended_action'], '')),
+      searchableText: searchable(
+        title,
+        subtitle,
+        jurisdiction,
+        category,
+        sourceLabel,
+        status,
+        originalLanguageLabel,
+        readString(analysis, ['recommended_action'], ''),
+      ),
+      translated,
+      originalLanguageLabel,
+      ...(corroborationCount != null ? { corroborationCount } : {}),
+      confidence,
     })
   })
 
@@ -351,27 +387,44 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
   return [...deduped.values()]
 }
 
-function rankRecord(record: CommandSearchRecord, query: string) {
+function rankRecord(record: CommandSearchRecord, query: string, activeCountry?: string) {
   const normalizedQuery = normalized(query)
   if (!normalizedQuery) return 0
   const title = normalized(record.title)
   const jurisdiction = normalized(record.jurisdiction ?? '')
   const category = normalized(record.category ?? '')
-  if (title === normalizedQuery) return 100
-  if (title.startsWith(normalizedQuery)) return 85
-  if (jurisdiction === normalizedQuery) return 75
-  if (category === normalizedQuery) return 65
-  if (title.includes(normalizedQuery)) return 55
-  if (record.searchableText.includes(normalizedQuery)) return 30
-  const tokens = normalizedQuery.split(' ').filter(Boolean)
-  return tokens.length > 1 && tokens.every(token => record.searchableText.includes(token)) ? 20 : -1
+  const active = activeCountry ? normalized(activeCountry) : ''
+
+  let score = -1
+  if (title === normalizedQuery) score = 100
+  else if (title.startsWith(normalizedQuery)) score = 85
+  else if (jurisdiction === normalizedQuery) score = 75
+  else if (category === normalizedQuery) score = 65
+  else if (title.includes(normalizedQuery)) score = 55
+  else if (record.searchableText.includes(normalizedQuery)) score = 30
+  else {
+    const tokens = normalizedQuery.split(' ').filter(Boolean)
+    score = tokens.length > 1 && tokens.every(token => record.searchableText.includes(token)) ? 20 : -1
+  }
+
+  // Active Command Centre jurisdiction: boost true context matches so a
+  // Germany-scoped session is not dominated by weak global string hits.
+  if (score >= 0 && active && jurisdiction && (jurisdiction === active || jurisdiction.includes(active) || active.includes(jurisdiction))) {
+    score += 18
+  }
+
+  return score
 }
 
-export function searchCommandRecords(records: CommandSearchRecord[], query: string) {
+export function searchCommandRecords(
+  records: CommandSearchRecord[],
+  query: string,
+  activeCountry?: string,
+) {
   const normalizedQuery = normalized(query)
   if (!normalizedQuery) return []
   return records
-    .map(record => ({ record, score: rankRecord(record, normalizedQuery) }))
+    .map(record => ({ record, score: rankRecord(record, normalizedQuery, activeCountry) }))
     .filter(item => item.score >= 0)
     .sort((a, b) => b.score - a.score || a.record.title.localeCompare(b.record.title))
     .map(item => item.record)
