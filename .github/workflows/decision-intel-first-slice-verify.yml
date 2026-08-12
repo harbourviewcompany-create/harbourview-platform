@@ -186,6 +186,8 @@ jobs:
           cat > supabase/migrations/00000000000000_decision_intel_visual.sql <<'SQL'
           create schema if not exists api;
           grant usage on schema api to authenticated, service_role;
+          create table public.user_profiles (id uuid primary key references auth.users(id) on delete cascade, tier text not null);
+          grant select on public.user_profiles to authenticated;
           create table api.intel_event_dossiers (
             id text primary key, headline text not null, summary text, event_type text, jurisdiction_label text,
             occurred_at timestamptz, detected_at timestamptz, effective_at timestamptz, last_verified_at timestamptz,
@@ -248,9 +250,11 @@ jobs:
           export E2E_TEST_USER_EMAIL="${TEST_EMAIL}" E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
           node --input-type=module <<'NODE'
           import { createClient } from '@supabase/supabase-js'
-          const c=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{autoRefreshToken:false,persistSession:false},db:{schema:'api'}})
-          const {error}=await c.auth.admin.createUser({email:process.env.E2E_TEST_USER_EMAIL,password:process.env.E2E_TEST_USER_PASSWORD,email_confirm:true,app_metadata:{subscription_tier:'intel'}})
+          const c=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{autoRefreshToken:false,persistSession:false}})
+          const {data,error}=await c.auth.admin.createUser({email:process.env.E2E_TEST_USER_EMAIL,password:process.env.E2E_TEST_USER_PASSWORD,email_confirm:true,app_metadata:{subscription_tier:'intel'}})
           if(error) throw error
+          const {error:profileError}=await c.from('user_profiles').insert({id:data.user.id,tier:'intel'})
+          if(profileError) throw profileError
           NODE
       - name: Build exact source against isolated Supabase
         run: npm run build
