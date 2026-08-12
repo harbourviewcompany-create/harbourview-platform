@@ -230,7 +230,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     // Jurisdiction-matched signal recommendations first — the "so what" from the feed.
     const intelActions = signals
       .filter(signal => signalJurisdictionMatches(signal, countryLabel))
-      .map((signal, index) => {
+      .map((signal, index): NextAction | null => {
         const recommended = signal.analysis?.recommended_action?.trim()
         if (!recommended) return null
         const title = (signal.title ?? 'Signal').trim().slice(0, 72)
@@ -239,7 +239,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
           label: recommended.length > 96 ? `${recommended.slice(0, 93)}…` : recommended,
           detail: `From ${countryLabel} intel: ${title}`,
           href: commandHref('weekly-signals'),
-          tone: 'gold' as const,
+          tone: 'gold',
         }
       })
       .filter((action): action is NextAction => Boolean(action))
