@@ -1,4 +1,6 @@
--- Harbourview-direct supply catalog: Canada starter seed (68 SKUs).
+-- Harbourview-direct supply catalog: Canada starter seed, batch 1 of 2 (20 of 68 SKUs).
+-- The remaining 48 SKUs are in the companion migration
+-- 20260730220200_seed_harbourview_supply_catalog_canada_batch2-4.sql.
 -- NOTE: this data was already inserted directly against the live project
 -- this session via Supabase migration tooling (see PR description for
 -- disclosure). This file exists so repo history matches production data.
