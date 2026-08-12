@@ -35,6 +35,7 @@ import {
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
+import './mobile-command/MobileCommandNavigation.css'
 
 export default function MobileCommandCentreRebuild(props: MobileCommandCentreProps) {
   const model = useMobileCommandModel(props)
@@ -48,6 +49,9 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
   const showSecondaryNav = model.groupSections.length > 1
+  const secondaryNavLabel = model.activeGroup === 'overview'
+    ? 'Command domains and operating controls'
+    : `${activeDestination?.label ?? 'Command'} sections`
 
   const searchRecords = useMemo(() => buildCommandSearchIndex({
     signals: model.signals,
@@ -188,6 +192,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
           className="hvm-op-context-trigger"
           aria-haspopup="dialog"
           aria-expanded={contextOpen}
+          aria-label={`Change operating context. ${model.countryLabel}, ${model.roleLabel}`}
           onClick={() => setContextOpen(true)}
         >
           <span>{flagEmoji(model.countryIso2)} {model.countryLabel} · {model.roleLabel}</span>
@@ -196,7 +201,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
       </header>
 
       {showSecondaryNav && (
-        <nav ref={secondaryNavRef} className="hvm-op-secondary-nav" aria-label={`${activeDestination?.label ?? 'Command'} sections`}>
+        <nav ref={secondaryNavRef} className="hvm-op-secondary-nav" aria-label={secondaryNavLabel}>
           {model.groupSections.map(id => {
             const section = SECTION_NAV.find(entry => entry.id === id)
             if (!section) return null

@@ -173,17 +173,16 @@ async function gotoCommand(page: Page) {
   await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
 }
 
-async function assertFiveJobNavigation(page: Page) {
+async function assertFourModeNavigation(page: Page) {
   const nav = page.locator('.hvm-op-bottom-nav')
   await expect(nav).toBeVisible()
   await expect(nav.getByText('Command', { exact: true })).toBeVisible()
   await expect(nav.getByText('Market', { exact: true })).toBeVisible()
   await expect(nav.getByText('Intel', { exact: true })).toBeVisible()
   await expect(nav.getByText('Actions', { exact: true })).toBeVisible()
-  // Clinical is a destination; Context is not one. See PrimarySectionId in
-  // components/dashboard/mobile-command/contracts.ts for why.
-  await expect(nav.getByText('Clinical', { exact: true })).toBeVisible()
+  await expect(nav.getByText('Clinical', { exact: true })).toHaveCount(0)
   await expect(nav.getByText('Context', { exact: true })).toHaveCount(0)
+  await expect(nav.locator('button')).toHaveCount(4)
   await expect(nav.locator('[aria-current="page"]')).toContainText('Command')
 }
 
@@ -225,10 +224,6 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.getByText('32 available', { exact: true })).toHaveCount(0)
   await expect(page.locator('[data-command-module]')).toHaveCount(0)
   await expect(page.locator('.hvm2-section-rail')).toHaveCount(0)
-  // The Command landing rails: its seven reference sections are otherwise
-  // unreachable except through an unlabelled button. Every chip must be on
-  // screen — the rail wraps precisely so none of them hide behind a sideways
-  // scroll, and only a viewport-aware assertion can hold that.
   const commandRail = page.locator('.hvm-op-secondary-nav')
   await expect(commandRail).toBeVisible()
   await expect(commandRail.locator('button')).toHaveCount(COMMAND_RAIL_LABELS.length)
@@ -236,10 +231,6 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
     await expectHorizontallyOnScreen(page, commandRail.getByText(label, { exact: true }), `Command rail "${label}"`)
   }
 
-  // The rail is chrome inside a `height: 100dvh; overflow: hidden` shell, and
-  // `.hvm-op-main` is the only flex child that shrinks. A rail that grows
-  // without bound squeezes the content pane to nothing and makes the dashboard
-  // unreachable rather than merely cramped, so assert the pane survives.
   const mainBox = await page.locator('.hvm-op-main').boundingBox()
   expect(mainBox, 'the main content pane has no bounding box').not.toBeNull()
   expect(
@@ -302,7 +293,7 @@ test.describe('Mobile Command operator-first verification', () => {
       try {
         const page = await context.newPage()
         await gotoCommand(page)
-        await assertFiveJobNavigation(page)
+        await assertFourModeNavigation(page)
         await assertOperatorFirstCommand(page, viewport.height)
         await page.screenshot({ path: path.join(evidenceRoot, viewport.file), fullPage: false })
       } finally {
@@ -374,14 +365,6 @@ test.describe('Mobile Command operator-first verification', () => {
           `the content pane collapsed to ${Math.round(mainBox?.height ?? 0)}px at ${width}x${height} — the rail is not yielding`,
         ).toBe(true)
 
-        // The bottom nav must be *reachable*, not merely present. Asserting
-        // this with toBeVisible() is the same mistake this file documents
-        // above: at 320x256 under a fixed-viewport shell the nav's lower edge
-        // sat 93px below the fold, clipped away by `overflow: hidden`, and
-        // toBeVisible() still returned true. Scrolling to it and then checking
-        // viewport intersection distinguishes "below the fold, reachable" —
-        // which is fine — from "clipped, gone" — which strands the operator on
-        // whichever destination they happen to be on.
         const bottomNav = page.locator('.hvm-op-bottom-nav')
         await bottomNav.scrollIntoViewIfNeeded()
         await expect(bottomNav).toBeInViewport()
@@ -391,7 +374,7 @@ test.describe('Mobile Command operator-first verification', () => {
     }
   })
 
-  test('lands a Clinical deep link on the Clinical destination itself', async ({ browser }) => {
+  test('preserves a Clinical deep link under the Command destination', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
     const context = await browser.newContext({
@@ -406,16 +389,17 @@ test.describe('Mobile Command operator-first verification', () => {
       const page = await context.newPage()
       await page.goto('/dashboard?country=CA&role=exporter&page=clinical&section=clinical', { waitUntil: 'domcontentloaded' })
       await expect(page.locator('#clinical')).toBeVisible()
-      await expect(page.locator('[data-active-destination="clinical"]')).toBeVisible()
-      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Clinical')
-      // Clinical owns exactly one section, so there is nothing to rail.
-      await expect(page.locator('.hvm-op-secondary-nav')).toHaveCount(0)
+      await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+      await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Command')
+      const rail = page.locator('.hvm-op-secondary-nav')
+      await expect(rail).toBeVisible()
+      await expectHorizontallyOnScreen(page, rail.getByText('Clinical', { exact: true }), 'rail "Clinical"')
     } finally {
       await context.close()
     }
   })
 
-  test('reaches the reference sections Command owns and rails them once committed', async ({ browser }) => {
+  test('reaches the supported operational sections Command owns and rails them once committed', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
     const context = await browser.newContext({
@@ -430,25 +414,20 @@ test.describe('Mobile Command operator-first verification', () => {
       const page = await context.newPage()
       await page.goto('/dashboard?country=CA&role=exporter&page=access-pathway&section=jurisdiction', { waitUntil: 'domcontentloaded' })
       await expect(page.locator('#jurisdiction')).toBeVisible()
-      // Command owns these now — there is no Context destination to own them.
       await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
       await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Command')
 
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
-      await expectHorizontallyOnScreen(page, rail.getByText('Compliance', { exact: true }), 'rail "Compliance"')
-      await expect(rail.getByText('Clinical', { exact: true })).toHaveCount(0)
-      // Genetics and Talent are Market's now. Each section has exactly one home
-      // and one rail that names it; a section appearing under two destinations
-      // is the ambiguity this grouping exists to remove.
-      await expect(rail.getByText('Genetics', { exact: true })).toHaveCount(0)
-      await expect(rail.getByText('Talent', { exact: true })).toHaveCount(0)
+      for (const label of ['Genetics', 'Talent', 'Clinical', 'Compliance', 'Education path', 'Directories', 'Network']) {
+        await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `rail "${label}"`)
+      }
     } finally {
       await context.close()
     }
   })
 
-  test('rails the catalogue sections under Market and keeps them on screen', async ({ browser }) => {
+  test('rails marketplace controls under Market and keeps operational domains out of it', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
     const context = await browser.newContext({
@@ -461,19 +440,19 @@ test.describe('Mobile Command operator-first verification', () => {
 
     try {
       const page = await context.newPage()
-      await page.goto('/dashboard?country=CA&role=exporter&page=genetics&section=genetics', { waitUntil: 'domcontentloaded' })
-      await expect(page.locator('#genetics')).toBeVisible()
+      await page.goto('/dashboard?country=CA&role=exporter&page=marketplace&section=marketplace', { waitUntil: 'domcontentloaded' })
+      await expect(page.locator('#marketplace')).toBeVisible()
       await expect(page.locator('[data-active-destination="marketplace"]')).toBeVisible()
       await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Market')
 
-      // Market now carries eight sections — the group that motivated wrapping
-      // in the first place moved here, so this is the rail that has to stay
-      // fully on screen.
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
       await expect(rail.locator('button')).toHaveCount(MARKET_RAIL_LABELS.length)
       for (const label of MARKET_RAIL_LABELS) {
         await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `Market rail "${label}"`)
+      }
+      for (const label of ['Genetics', 'Talent', 'Clinical', 'Directories', 'Network']) {
+        await expect(rail.getByText(label, { exact: true })).toHaveCount(0)
       }
     } finally {
       await context.close()
@@ -620,7 +599,6 @@ test.describe('Command Centre authenticated responsive verification', () => {
           await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
           await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
 
-          // One section mounts, never the whole group and never all of them.
           const sectionCount = await page.locator('.hvm-op-main > section').count()
           expect(sectionCount).toBe(1)
           report.shell = 'mobile-operator-first'
@@ -631,8 +609,6 @@ test.describe('Command Centre authenticated responsive verification', () => {
           await expect(desktopRoot.locator('.cc-page-title')).toHaveText('Briefing Room')
 
           if (width === 1440) {
-            // Every Command Centre page, because a route that 500s on load is
-            // invisible to a renderer assertion — the page still paints.
             const verifiedPages: string[] = []
             for (const commandPage of COMMAND_CENTRE_PAGE_IDS) {
               const pageResponse = await page.goto(
@@ -665,17 +641,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
         expect(geometry.horizontalOverflow).toBeLessThanOrEqual(1)
         report.geometry = geometry
 
-        // Let late events land before judging the width.
-        //
-        // The listeners above keep pushing after this point, and the
-        // `networkidle` wait is abandoned after 10s with the timeout swallowed.
-        // Without this, a slow failed response can arrive between the check
-        // below and the `finally` block — recording `result: 'pass'` in the same
-        // evidence file that lists a non-empty `unexpectedFailedResponses`, and
-        // making the same defect pass on one run and fail on the next.
         await page.waitForTimeout(500)
-
-        // Defects are judged in `finally`, not here — see the note there.
       } catch (error) {
         const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
         report.result = 'fail'
@@ -688,15 +654,6 @@ test.describe('Command Centre authenticated responsive verification', () => {
         report.expectedDegradedResponses = expectedDegradedResponses
         report.unexpectedFailedResponses = unexpectedFailedResponses
 
-        // Judge the defects here, from the same read that just wrote them into
-        // the report. Evaluating inside `try` could not be made deterministic:
-        // the listeners keep firing, pages are loaded only to
-        // `domcontentloaded`, and a settle delay is a mitigation rather than a
-        // guarantee — a request that errors after the delay still recorded
-        // `result: 'pass'` beside a non-empty `unexpectedFailedResponses` in
-        // the same file. One read for both removes the contradiction outright,
-        // whatever arrives late. An assertion failure from `try` has already
-        // set `result: 'fail'` and is left alone.
         if (report.result !== 'fail') {
           const defects = [
             ...summarizeDefects('page error', pageErrors),
@@ -720,17 +677,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
             report.result = 'pass'
           }
         }
-        // Guarded, because an unguarded rejection here escapes `finally`, exits
-        // the width loop, and skips both the summary write and the final
-        // assertion — which would defeat the whole point of collecting every
-        // width before failing. `writeWidthEvidence` catches its own screenshot
-        // errors but not the JSON write, which can still fail on a full disk or
-        // a page closed during teardown.
         await writeWidthEvidence(page, width, report).catch(error => {
-          // Mark the report failed too, not just the run. The result was set
-          // just above, so without this the aggregate would carry
-          // `result: 'pass'` for a width whose evidence is missing — the same
-          // contradiction this block exists to prevent, one level up.
           const diagnostic = sanitizeDiagnostic(error instanceof Error ? error.message : String(error))
           report.result = 'fail'
           report.failure = `evidence write failed: ${diagnostic}`
@@ -747,8 +694,6 @@ test.describe('Command Centre authenticated responsive verification', () => {
       `${JSON.stringify({ generatedAt: new Date().toISOString(), sourceSha, failures, reports: aggregate }, null, 2)}\n`,
     )
 
-    // Every width is collected before anything fails, so one red width does not
-    // hide the other eight.
     expect(failures, failures.join('\n')).toEqual([])
   })
 })
