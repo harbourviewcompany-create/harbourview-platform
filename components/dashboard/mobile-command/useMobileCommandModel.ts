@@ -33,6 +33,7 @@ import {
   SECTION_TO_GROUP,
   type PrimarySectionId,
 } from './contracts'
+import { buildCommercialNextActions } from '@/lib/dashboard/buildCommercialActions'
 
 function buildHref(path: string, source: { toString(): string }, changes: Record<string, string | null>) {
   const params = new URLSearchParams(source.toString())
@@ -221,6 +222,22 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const nextActions = useMemo<NextAction[]>(() => {
     const actions: NextAction[] = []
+
+    actions.push(...buildCommercialNextActions(
+      signals,
+      marketRows.map(row => ({
+        id: row.id,
+        title: row.title,
+        jurisdiction: row.jurisdiction,
+        category: row.category,
+        view: row.view,
+        summary: row.summary,
+      })),
+      countryLabel,
+      commandHref,
+      4,
+    ))
+
     if (pipeline.inquiry > 0) actions.push({
       id: 'inquiries',
       label: `Review ${pipeline.inquiry} active ${pipeline.inquiry === 1 ? 'inquiry' : 'inquiries'}`,
@@ -264,7 +281,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       tone: 'neutral',
     })
     return actions
-  }, [commandHref, countryLabel, educationTiles.length, pipeline.inquiry, pipeline.proof_review, props.countryIntel, props.hasOrg, props.wantedCount, roleShort])
+  }, [commandHref, countryLabel, educationTiles.length, marketRows, pipeline.inquiry, pipeline.proof_review, props.countryIntel, props.hasOrg, props.wantedCount, roleShort, signals])
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return { signals, listings: marketRows }
