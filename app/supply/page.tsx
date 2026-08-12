@@ -173,6 +173,28 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
           })}
         </div>
 
+        <form action="/supply" method="get" className="mb-8 flex flex-wrap items-center gap-3">
+          {activeCategory !== 'all' ? <input type="hidden" name="category" value={activeCategory} /> : null}
+          <input
+            type="text"
+            name="q"
+            defaultValue={q ?? ''}
+            placeholder="Search products, SKU, or brand"
+            className="w-full max-w-sm rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-sm text-white/80 placeholder:text-white/30 focus:border-gold/40 focus:outline-none"
+          />
+          <button type="submit" className="btn-marketplace px-5 py-2 text-[10px]">
+            Search
+          </button>
+          {q ? (
+            <Link
+              href={activeCategory === 'all' ? '/supply' : `/supply?category=${activeCategory}`}
+              className="text-[11px] text-white/40 transition-colors hover:text-gold"
+            >
+              Clear search
+            </Link>
+          ) : null}
+        </form>
+
         {listings.length === 0 ? (
           <EmptyState
             title="No catalog items match this filter yet."
