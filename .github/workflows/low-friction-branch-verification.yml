@@ -65,7 +65,8 @@ jobs:
 
       - name: Skip changed-file scope for feature PR
         if: steps.changed_file_scope.outputs.control_only != 'true'
-        run: echo "GO: changed-file scope check skipped because this PR is not control-only."
+        run: |
+          echo "GO: changed-file scope check skipped because this PR is not control-only."
 
       - name: Scan for committed secret-looking values
         run: node scripts/check-no-secret-strings.mjs --base "origin/${{ github.base_ref }}" --head HEAD

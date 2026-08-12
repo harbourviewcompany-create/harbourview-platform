@@ -5,20 +5,13 @@ name: Migration Drift Check
 # from Supabase CLI and fails if a nonempty linked-project result parses as zero
 # remote rows. Historical apply-time aliases are recognized only when their
 # canonical repository migration remains pinned to the exact Git blob SHA.
+# A separately pinned historical attestation manifest accounts for the exact
+# pre-existing remote-only cohort without publishing sensitive historical SQL;
+# any new remote-only version remains a hard failure.
 
 on:
   pull_request:
     branches: [main]
-    # NOTE: intentionally NOT path-filtered. 'Compare repository and live
-    # migration ledgers' is a required status check on main (added alongside
-    # this workflow change). GitHub's classic required-status-checks model
-    # blocks a PR forever if a required context never reports at all - it
-    # does not know the difference between "still running" and "correctly
-    # skipped by a path filter". A path filter here would silently brick
-    # every PR that doesn't happen to touch migrations. The job itself stays
-    # cheap to run (read-only `supabase migration list --linked` + local
-    # diff) so running it unconditionally on every PR is the correct
-    # trade-off, not just the safe one.
   push:
     branches: [main]
   schedule:
@@ -46,17 +39,13 @@ jobs:
         with:
           node-version: '22'
       - name: Run parser and fail-closed manifest tests
-        run: node --test tests/scripts/migration-ledger-manifest.test.mjs
+        run: >-
+          node --test
+          tests/scripts/migration-ledger-manifest.test.mjs
+          tests/scripts/historical-migration-attestations.test.mjs
 
   check-drift:
     name: Compare repository and live migration ledgers
-    # Previously excluded from pull_request (`if: github.event_name != 'pull_request'`),
-    # which meant this job only ran on push-to-main, hourly schedule, or manual dispatch —
-    # i.e. only AFTER a merge, never as a gate on one. Every PR touching migrations could
-    # merge regardless of live/repo drift, which is how the ledger has required manual
-    # reconciliation multiple times (Jul 18, Jul 27, Aug 12) despite this check existing
-    # and failing the whole time. Now runs on pull_request too, so drift is visible and
-    # blockable before merge, not just logged after the fact.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -80,12 +69,20 @@ jobs:
           supabase migration list --linked \
             > artifacts/migration-drift/remote-migrations.txt
 
+      - name: Verify historical remote-only attestations
+        run: |
+          node scripts/filter-attested-historical-migrations.mjs \
+            --remote-list artifacts/migration-drift/remote-migrations.txt \
+            --attestations supabase/release-controls/historical-remote-migration-attestations.json \
+            --filtered-out artifacts/migration-drift/remote-migrations-for-drift.txt \
+            --audit-out artifacts/migration-drift/historical-attestations-audit.json
+
       - name: Generate exact drift manifest
         id: manifest
         continue-on-error: true
         run: |
           node scripts/migration-ledger-manifest.mjs \
-            --remote-list artifacts/migration-drift/remote-migrations.txt \
+            --remote-list artifacts/migration-drift/remote-migrations-for-drift.txt \
             --local-dir supabase/migrations \
             --control-file supabase/release-controls/elite-digest-production-activation.json \
             --json-out artifacts/migration-drift/manifest.json \
@@ -96,6 +93,12 @@ jobs:
       - name: Publish manifest summary
         if: always()
         run: |
+          if [ -f artifacts/migration-drift/historical-attestations-audit.json ]; then
+            echo "## Historical remote-only attestation gate" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/migration-drift/historical-attestations-audit.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ -f artifacts/migration-drift/manifest.md ]; then
             cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"
           fi
