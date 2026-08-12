@@ -85,5 +85,37 @@ if [[ "$branch" == "main" && ( "$commit_message" == *"[skip ci]"* || "$commit_me
   exit 0
 fi
 
+# Preview builds only (production already returned above): skip when the commit
+# cannot change build output.
+#
+# On 2026-08-12 the account hit the Vercel free-plan cap
+# ("api-deployments-free-per-day", >100/day). Every push on every branch built a
+# preview, and with the repository carrying 350+ branches under heavy agent
+# churn the budget was exhausted — which then blocks *production* deploys too,
+# the failure mode this project can least afford.
+#
+# Only paths that provably cannot affect `next build` are skipped. Verified
+# before adding: the project has no MDX pipeline, no markdown imports, and no
+# build-time markdown reads, so docs and *.md are inert. Anything unrecognised,
+# an unreadable diff, or a missing parent commit all fall through to building —
+# the default is always to build.
+if changed_files="$(git diff --name-only HEAD^ HEAD 2>/dev/null)" && [[ -n "$changed_files" ]]; then
+  only_inert_paths=1
+  while IFS= read -r changed_file; do
+    [[ -z "$changed_file" ]] && continue
+    case "$changed_file" in
+      docs/*|*.md|.github/*|.claude/*|.vscode/*|LICENSE|CODEOWNERS) ;;
+      *) only_inert_paths=0; break ;;
+    esac
+  done <<< "$changed_files"
+
+  if [[ "$only_inert_paths" == "1" ]]; then
+    echo "Vercel ignore: preview build skipped; commit touches only build-inert paths."
+    echo "changed files:"
+    printf '  %s\n' $changed_files
+    exit 0
+  fi
+fi
+
 echo "Vercel ignore: build allowed for branch '$branch'."
 exit 1
