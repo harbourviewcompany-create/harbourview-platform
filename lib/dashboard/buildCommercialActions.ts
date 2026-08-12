@@ -4,6 +4,9 @@ import { matchIntelCommercialFollowUps, type BridgeListing, type BridgeSignal } 
 /**
  * Turn jurisdiction-matched signal × listing pairs into operator queue items.
  * Role bias prefers commercially relevant listing views (e.g. importer → cannabis/wanted).
+ *
+ * `commandHref` accepts a plain string section so callers can pass SectionId-typed
+ * helpers without contravariance errors (SectionId is a string union).
  */
 export function buildCommercialNextActions(
   signals: BridgeSignal[],
