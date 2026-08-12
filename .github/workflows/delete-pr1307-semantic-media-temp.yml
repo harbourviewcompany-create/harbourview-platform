@@ -1,0 +1,30 @@
+name: Delete PR1307 Semantic Media Temp
+
+on:
+  push:
+    branches:
+      - ops/delete-pr1307-semantic-media-temp
+    paths:
+      - .github/workflows/delete-pr1307-semantic-media-temp.yml
+
+permissions:
+  contents: read
+
+jobs:
+  delete-function:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+      - name: Delete retired function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions delete pr1307-semantic-media-rollout-temp --project-ref zvxdgdkukjrrwamdpqrg
+      - name: Verify absent
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if supabase functions list --project-ref zvxdgdkukjrrwamdpqrg | grep -q 'pr1307-semantic-media-rollout-temp'; then
+            echo 'Function still present' >&2
+            exit 1
+          fi
