@@ -154,3 +154,4 @@ describe('marketplace media selection', () => {
 })
 
 // Post-production semantic media remediation verification trigger.
+// PR1307 final authenticated marketplace visual verification trigger.
