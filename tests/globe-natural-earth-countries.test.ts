@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFile } from 'node:fs/promises'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import { buildFixtureCountryFeatures, lonLatToVector3 } from '@/lib/globe/globe-geometry'
 import { createCountryBufferGeometry, polygonGeometryInternals } from '@/lib/globe/polygon-buffer-geometry'
@@ -11,11 +12,52 @@ describe('Natural Earth 50m countries payload', () => {
     expect(naturalEarthCountriesPayload.countries.length).toBeGreaterThanOrEqual(150)
   })
 
+  it('executes source-retention fallback and duplicate alpha-2 rejection through the generator', async () => {
+    const generatorUrl = new URL('../scripts/generate-natural-earth-countries.mjs', import.meta.url).href
+    const generator = await import(/* @vite-ignore */ generatorUrl)
+    const source = JSON.parse(await readFile(new URL('../data/globe/source/ne_50m_admin_0_countries.geojson', import.meta.url), 'utf8'))
+    const iso2 = (feature: any) => String(
+      feature.properties?.ISO_A2_EH ?? feature.properties?.ISO_A2 ?? feature.properties?.WB_A2 ?? ''
+    ).toUpperCase()
+    const feature = (code: string) => source.features.find((item: any) => iso2(item) === code)
+    const insideBbox = (point: [number, number], bbox: [number, number, number, number]) =>
+      point[0] >= bbox[0] && point[0] <= bbox[2] && point[1] >= bbox[1] && point[1] <= bbox[3]
+    const insideGeometry = (point: [number, number], country: any) => country.polygons.some((polygon: any) => {
+      const outer = polygon.rings.find((ring: any) => ring.kind === 'outer')
+      if (!outer || !generator.pointInRing(point, outer.points)) return false
+      return !polygon.rings
+        .filter((ring: any) => ring.kind === 'hole')
+        .some((hole: any) => generator.pointInRing(point, hole.points))
+    })
+
+    const viFeature = feature('VI')
+    const ioFeature = feature('IO')
+    const vcFeature = feature('VC')
+    expect(viFeature).toBeTruthy()
+    expect(ioFeature).toBeTruthy()
+    expect(vcFeature).toBeTruthy()
+
+    const viNormal = generator.normalizePolygons(viFeature.geometry, generator.SIMPLIFY_TOLERANCE_DEG)
+    const viZero = generator.normalizePolygons(viFeature.geometry, 0)
+    const vi = generator.transformFeature(viFeature)
+    const io = generator.transformFeature(ioFeature)
+    const vc = generator.transformFeature(vcFeature)
+
+    expect(viNormal.length).toBe(0)
+    expect(viZero.length).toBeGreaterThan(0)
+    expect(vi).toBeTruthy()
+    expect(insideBbox(io.centroid, io.bbox)).toBe(true)
+    expect(insideGeometry(io.centroid, io)).toBe(true)
+    expect(insideBbox(vc.centroid, vc.bbox)).toBe(true)
+    expect(insideGeometry(vc.centroid, vc)).toBe(true)
+    expect(() => generator.assertUniqueIso2RoutingKeys([vi, { ...vi, name: 'Duplicate VI fixture' }]))
+      .toThrow(/duplicate alpha-2 routing keys/)
+  }, 35_000)
+
   it('includes representative countries spanning continents', () => {
     const iso2s = new Set(naturalEarthCountriesPayload.countries.map((country) => country.iso2))
 
     expect(iso2s.has('US')).toBe(true)
-    expect(iso2s.has('VI')).toBe(true)
     expect(iso2s.has('CA')).toBe(true)
     expect(iso2s.has('DE')).toBe(true)
     expect(iso2s.has('PT')).toBe(true)
