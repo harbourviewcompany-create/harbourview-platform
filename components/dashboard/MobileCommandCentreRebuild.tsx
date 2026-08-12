@@ -106,9 +106,18 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     window.addEventListener('resize', revealActiveSection)
     window.visualViewport?.addEventListener('resize', revealActiveSection)
 
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(revealActiveSection)
+    const secondaryNav = secondaryNavRef.current
+    const activeButton = secondaryButtonRefs.current.get(model.highlightedSection)
+    if (secondaryNav) resizeObserver?.observe(secondaryNav)
+    if (activeButton) resizeObserver?.observe(activeButton)
+
     return () => {
       window.removeEventListener('resize', revealActiveSection)
       window.visualViewport?.removeEventListener('resize', revealActiveSection)
+      resizeObserver?.disconnect()
       window.cancelAnimationFrame(frame)
     }
   }, [model.highlightedSection, showSecondaryNav])
