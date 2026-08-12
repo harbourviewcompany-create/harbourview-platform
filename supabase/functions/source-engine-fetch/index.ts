@@ -488,7 +488,7 @@ Deno.serve(async (req: Request) => {
   return respond(200, {
     ok: true,
     function: "source-engine-fetch",
-    version: "2.3",
+    version: "2.4",
     dry_run: dryRun,
     limit,
     selected: sources?.length ?? 0,
