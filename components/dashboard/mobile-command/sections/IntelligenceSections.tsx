@@ -30,6 +30,18 @@ function signalEvidence(signal: Signal) {
   return { source, observed }
 }
 
+function signalQualityBits(signal: Signal): string[] {
+  const item = asRecord(signal)
+  const bits: string[] = []
+  const corr = item.corroborationCount ?? item.corroboration_count
+  if (typeof corr === 'number' && corr > 1) bits.push(`${Math.round(corr)} sources`)
+  if (item.translated === true) {
+    const lang = readString(item, ['originalLanguageLabel', 'original_language_label'], '')
+    bits.push(lang ? `via ${lang}` : 'Translated')
+  }
+  return bits
+}
+
 function highlightMatch(value: string, query: string): ReactNode {
   const trimmed = query.trim()
   if (!trimmed) return value
@@ -65,7 +77,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
   )
 
   return (
-    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Context / weekly signals" title="Intelligence requiring attention" description="The complete loaded feed remains reviewable, with direct jurisdiction matches shown before broader-watch items.">
+    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Context / weekly signals" title="Intelligence requiring attention" description="Jurisdiction matches for the active context appear first; broader-watch items remain reviewable below.">
       {orderedSignals.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label="Weekly intelligence signals">
           {orderedSignals.map(({ signal, contextual }) => {
@@ -75,6 +87,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
             const market = readString(signal, ['market', 'jurisdiction', 'country'], 'Global')
             const confidence = signalConfidence(signal)
             const evidence = signalEvidence(signal)
+            const quality = signalQualityBits(signal)
             return (
               <article className="hvm2-signal-card hvm2-intel-signal-card" key={readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)}>
                 <div className="hvm2-card-topline">
@@ -83,12 +96,13 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal&apos;s jurisdiction metadata.</small> : null}
+                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
                 </div>
-                <h3>{readString(signal, ['title'], 'Untitled signal')}</h3>
+                <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
                 {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
                 <div className="hvm2-intel-meta-row">
                   {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
+                  {quality.map(bit => <span key={bit}>{bit}</span>)}
                   {evidence.source ? <span>Source {evidence.source}</span> : <span>Source Unknown</span>}
                   {evidence.observed ? <span>{evidence.observed}</span> : null}
                 </div>
@@ -157,6 +171,9 @@ export function PersonalBriefingSection({
           <span>Action</span>
           <strong>{recommendedAction || nextAction?.label || 'Unknown'}</strong>
           {nextAction?.detail && !recommendedAction ? <p>{nextAction.detail}</p> : null}
+          {nextAction?.href ? (
+            <p><Link className="hvm2-text-link" href={nextAction.href}>Open action →</Link></p>
+          ) : null}
         </article>
       </div>
 
@@ -186,17 +203,21 @@ const SEARCH_KIND_LABELS: Record<CommandSearchKind, string> = {
   talent: 'Talent',
 }
 
-export function SearchSection({ sectionRef, searchQuery, searchRecords, onQueryChange, onNavigate, onListingSelect }: {
+export function SearchSection({ sectionRef, searchQuery, searchRecords, countryLabel, onQueryChange, onNavigate, onListingSelect }: {
   sectionRef: SectionRef
   searchQuery: string
   searchRecords: CommandSearchRecord[]
+  countryLabel?: string
   onQueryChange: (value: string) => void
   onNavigate: (section: SectionId) => void
   onListingSelect: (row: NormalizedListing) => void
 }) {
   const [activeKind, setActiveKind] = useState<CommandSearchKind | 'all'>('all')
   const label = 'Search signals, markets, regulations, authorities, operators or actions'
-  const allMatches = useMemo(() => searchCommandRecords(searchRecords, searchQuery), [searchQuery, searchRecords])
+  const allMatches = useMemo(
+    () => searchCommandRecords(searchRecords, searchQuery, countryLabel),
+    [searchQuery, searchRecords, countryLabel],
+  )
   const visibleMatches = activeKind === 'all' ? allMatches : allMatches.filter(record => record.kind === activeKind)
   const corpusCounts = useMemo(() => commandSearchKindCounts(searchRecords), [searchRecords])
   const availableKinds = useMemo(() => [...corpusCounts.keys()], [corpusCounts])
@@ -218,6 +239,11 @@ export function SearchSection({ sectionRef, searchQuery, searchRecords, onQueryC
         {hasQuery ? <span>{allMatches.length} matched record{allMatches.length === 1 ? '' : 's'}</span> : <span>Indexed {searchRecords.length} authenticated record{searchRecords.length === 1 ? '' : 's'}</span>}
         {availableKinds.map(kind => <span key={kind}>{corpusCounts.get(kind) ?? 0} {SEARCH_KIND_LABELS[kind].toLowerCase()}</span>)}
       </div>
+
+      <p className="hvm2-intel-search-scope">
+        Session scope only — does not query the full reviewed corpus.{' '}
+        <Link className="hvm2-text-link" href="/dashboard/signals/search">Search full corpus →</Link>
+      </p>
 
       {availableKinds.length > 1 ? (
         <div className="hvm2-search-filters" role="group" aria-label="Search result type">
@@ -241,19 +267,28 @@ export function SearchSection({ sectionRef, searchQuery, searchRecords, onQueryC
                     <strong>{highlightMatch(record.title, searchQuery)}</strong>
                     {record.subtitle ? <p>{highlightMatch(record.subtitle, searchQuery)}</p> : null}
                     <small>
-                      {[record.jurisdiction, record.category, record.sourceLabel, record.dateLabel, record.status].filter(Boolean).join(' · ') || 'Metadata Unknown'}
+                      {[
+                        record.jurisdiction,
+                        record.category,
+                        record.confidence != null ? `${record.confidence}% conf` : null,
+                        record.corroborationCount && record.corroborationCount > 1 ? `${record.corroborationCount} sources` : null,
+                        record.translated && record.originalLanguageLabel ? `via ${record.originalLanguageLabel}` : null,
+                        record.sourceLabel,
+                        record.dateLabel,
+                        record.status,
+                      ].filter(Boolean).join(' · ') || 'Metadata Unknown'}
                     </small>
                     <i aria-hidden="true">→</i>
                   </button>
                 </li>
               ))}
             </ul>
-          ) : <EmptyState title="No command records matched" detail="Try a jurisdiction, authority, operator, product, regulatory topic or commercial category already loaded in this session." />}
+          ) : <EmptyState title="No command records matched" detail="Try a jurisdiction, authority, operator, product, regulatory topic or commercial category already loaded in this session — or open full corpus search." />}
         </div>
       ) : (
         <div className="hvm2-intel-search-prompt">
           <strong>Search the loaded command corpus</strong>
-          <p>Results appear only after a query. The indexed counts above describe corpus coverage, not search results.</p>
+          <p>Results appear only after a query. The indexed counts above describe session coverage, not the global signal store.</p>
         </div>
       )}
     </SectionShell>
