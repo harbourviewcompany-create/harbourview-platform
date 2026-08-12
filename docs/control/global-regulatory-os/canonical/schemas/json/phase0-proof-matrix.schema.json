@@ -1,0 +1,81 @@
+{
+  "$id": "https://harbourview.example/schemas/global-reg-os-phase0-proof-matrix.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "operator_decision": {
+      "enum": [
+        "APPROVED",
+        "PENDING",
+        "REJECTED"
+      ]
+    },
+    "technical_decision": {
+      "enum": [
+        "GO",
+        "HOLD"
+      ]
+    },
+    "tickets": {
+      "items": {
+        "properties": {
+          "acceptance_criterion": {
+            "minLength": 10,
+            "type": "string"
+          },
+          "artifact_paths": {
+            "items": {
+              "minLength": 3,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "operator_approval": {
+            "enum": [
+              "pending",
+              "approved",
+              "not_required"
+            ]
+          },
+          "status": {
+            "enum": [
+              "verified"
+            ]
+          },
+          "ticket_id": {
+            "pattern": "^P0-0(0[1-9]|1[0-2])$"
+          },
+          "verification": {
+            "items": {
+              "minLength": 3,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticket_id",
+          "status",
+          "acceptance_criterion",
+          "artifact_paths",
+          "verification"
+        ],
+        "type": "object"
+      },
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "tickets",
+    "technical_decision",
+    "operator_decision"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,96 @@
+{
+  "dimensions": {
+    "cannabinoid": [
+      "thc",
+      "thca",
+      "cbd",
+      "cbda",
+      "cbg",
+      "cbn",
+      "other_declared_cannabinoid"
+    ],
+    "controlled_status": [
+      "prohibited",
+      "controlled",
+      "prescription_only",
+      "licensed_non_prescription",
+      "hemp_threshold",
+      "uncontrolled",
+      "unknown"
+    ],
+    "dosage_and_strength": [
+      "mass_per_unit",
+      "mass_per_volume",
+      "percentage_by_mass",
+      "total_package_content",
+      "serving_size",
+      "daily_dose"
+    ],
+    "intended_use": [
+      "medical",
+      "adult_use",
+      "research",
+      "pharmaceutical",
+      "veterinary",
+      "industrial_hemp",
+      "cosmetic",
+      "food",
+      "export_only",
+      "destruction"
+    ],
+    "material": [
+      "plant_material",
+      "finished_dose",
+      "intermediate",
+      "bulk_extract",
+      "reference_standard",
+      "waste"
+    ],
+    "packaging": [
+      "immediate_container",
+      "child_resistant",
+      "tamper_evident",
+      "unit_dose",
+      "bulk_transport",
+      "labelled_retail"
+    ],
+    "product_form": [
+      "dried_flower",
+      "fresh_flower",
+      "oil",
+      "capsule",
+      "tablet",
+      "oral_solution",
+      "edible",
+      "beverage",
+      "topical",
+      "transdermal",
+      "inhaled_extract",
+      "vape",
+      "suppository",
+      "seed",
+      "clone",
+      "biomass",
+      "active_pharmaceutical_ingredient"
+    ],
+    "substance": [
+      "whole_plant",
+      "flower",
+      "resin",
+      "extract",
+      "isolate",
+      "synthetic_cannabinoid",
+      "biosynthetic_cannabinoid",
+      "hemp_derived_material"
+    ]
+  },
+  "structural_review_archetypes": [
+    "medical_prescription",
+    "adult_use_regulated",
+    "hemp_threshold",
+    "pharmaceutical_cannabinoid",
+    "research_only",
+    "prohibited_market"
+  ],
+  "version": "1.0.0"
+}
