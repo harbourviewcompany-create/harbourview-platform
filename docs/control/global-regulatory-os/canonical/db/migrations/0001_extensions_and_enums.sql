@@ -42,6 +42,53 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hv_governance_runtime') THEN CREATE ROLE hv_governance_runtime NOLOGIN NOINHERIT; END IF;
 END $roles$;
 
+-- Normalize security-sensitive same-name roles before any later migration can
+-- transfer ownership to them or grant them access. This closes the upgrade
+-- window where a hostile pre-existing role could otherwise remain privileged
+-- until the final grants migration.
+ALTER ROLE hv_context_owner NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS;
+ALTER ROLE hv_authenticator NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_public_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_tenant_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_analyst_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_ingestion_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+ALTER ROLE hv_governance_runtime NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+
+DO $role_contract$
+DECLARE
+  role_name name;
+  role_record record;
+BEGIN
+  FOREACH role_name IN ARRAY ARRAY[
+    'hv_authenticator'::name,
+    'hv_public_runtime'::name,
+    'hv_tenant_runtime'::name,
+    'hv_analyst_runtime'::name,
+    'hv_ingestion_runtime'::name,
+    'hv_governance_runtime'::name
+  ] LOOP
+    SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+      INTO STRICT role_record
+      FROM pg_roles
+      WHERE rolname = role_name;
+    IF role_record.rolcanlogin OR role_record.rolinherit OR role_record.rolsuper OR
+       role_record.rolcreatedb OR role_record.rolcreaterole OR role_record.rolreplication OR
+       role_record.rolbypassrls THEN
+      RAISE EXCEPTION 'security role % does not satisfy the fail-closed bootstrap attribute contract', role_name;
+    END IF;
+  END LOOP;
+
+  SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls
+    INTO STRICT role_record
+    FROM pg_roles
+    WHERE rolname = 'hv_context_owner';
+  IF role_record.rolcanlogin OR role_record.rolinherit OR role_record.rolsuper OR
+     role_record.rolcreatedb OR role_record.rolcreaterole OR role_record.rolreplication OR
+     NOT role_record.rolbypassrls THEN
+    RAISE EXCEPTION 'hv_context_owner does not satisfy the fail-closed bootstrap owner attribute contract';
+  END IF;
+END $role_contract$;
+
 COMMENT ON ROLE hv_context_owner IS 'Owns trusted request-context storage and SECURITY DEFINER accessors; never used as a login.';
 COMMENT ON ROLE hv_authenticator IS 'Trusted connection-pool role. It establishes verified identity context, then SET LOCAL ROLE to a NOLOGIN runtime role.';
 COMMIT;
