@@ -10,7 +10,7 @@ type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['ite
 
 /** Regulatory Watch with corpus-level keyword hits + jurisdiction readiness. */
 export function RegulatoryWatchSection({
-  sectionRef, items, activeRules, regulatoryTier, outlook, sourceCoverageCount, commandHref,
+  sectionRef, items, activeRules, regulatoryTier, outlook, sourceCoverageCount, commandHref, countryLabel,
 }: {
   sectionRef: SectionRef
   items: WatchlistItem[]
@@ -19,6 +19,7 @@ export function RegulatoryWatchSection({
   outlook?: string | null
   sourceCoverageCount: number
   commandHref: (section: SectionId) => string
+  countryLabel?: string
 }) {
   return (
     <SectionShell
@@ -42,7 +43,7 @@ export function RegulatoryWatchSection({
         </article>
       ) : null}
 
-      <CorpusWatchPanel />
+      <CorpusWatchPanel countryLabel={countryLabel} />
 
       {items.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label={`All ${items.length} tracked regulatory items`}>
