@@ -59,6 +59,11 @@ function preferredScrollBehavior(): ScrollBehavior {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
 }
 
+function signalJurisdictionMatches(signal: { market?: string }, countryLabel: string) {
+  const market = (signal.market ?? '').trim()
+  return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
+}
+
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -221,6 +226,27 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const nextActions = useMemo<NextAction[]>(() => {
     const actions: NextAction[] = []
+
+    // Jurisdiction-matched signal recommendations first — the "so what" from the feed.
+    const intelActions = signals
+      .filter(signal => signalJurisdictionMatches(signal, countryLabel))
+      .map((signal, index) => {
+        const recommended = signal.analysis?.recommended_action?.trim()
+        if (!recommended) return null
+        const title = (signal.title ?? 'Signal').trim().slice(0, 72)
+        return {
+          id: `intel-${signal.id || index}`,
+          label: recommended.length > 96 ? `${recommended.slice(0, 93)}…` : recommended,
+          detail: `From ${countryLabel} intel: ${title}`,
+          href: commandHref('weekly-signals'),
+          tone: 'gold' as const,
+        }
+      })
+      .filter((action): action is NextAction => Boolean(action))
+      .slice(0, 3)
+
+    actions.push(...intelActions)
+
     if (pipeline.inquiry > 0) actions.push({
       id: 'inquiries',
       label: `Review ${pipeline.inquiry} active ${pipeline.inquiry === 1 ? 'inquiry' : 'inquiries'}`,
@@ -264,7 +290,18 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       tone: 'neutral',
     })
     return actions
-  }, [commandHref, countryLabel, educationTiles.length, pipeline.inquiry, pipeline.proof_review, props.countryIntel, props.hasOrg, props.wantedCount, roleShort])
+  }, [
+    commandHref,
+    countryLabel,
+    educationTiles.length,
+    pipeline.inquiry,
+    pipeline.proof_review,
+    props.countryIntel,
+    props.hasOrg,
+    props.wantedCount,
+    roleShort,
+    signals,
+  ])
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return { signals, listings: marketRows }
