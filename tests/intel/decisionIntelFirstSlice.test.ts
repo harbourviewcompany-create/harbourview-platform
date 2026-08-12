@@ -208,7 +208,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dashboardRoutes).toContain("signal.signalContentType === 'story' || signal.signalContentType === 'research'")
     expect(dashboardRoutes).toContain("if (signal.sourceLabel === 'Harbourview Daily') return Boolean(signal.decisionIntelEventId)")
     expect(desktopBridge).toContain('signals.filter(canRouteToDossier)')
-    expect(responsiveShell).toContain('[...props.signals, ...props.digestSignals]')
+    expect(responsiveShell).toContain('[...props.signals, ...(props.digestSignals ?? [])]')
     expect(intelUi).toContain('href={signal.sourceUrl}')
     expect(intelUi).toContain('Open source →')
   })
