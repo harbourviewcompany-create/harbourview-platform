@@ -1,6 +1,12 @@
 /**
  * Client-safe bridge: jurisdiction-matched signals → marketplace follow-ups.
  * Does not invent listings — only ranks already-loaded Command Centre rows.
+ *
+ * Ranking is deliberate:
+ * 1. Same jurisdiction is required
+ * 2. Topic token overlap strengthens score
+ * 3. Role bias prefers commercially relevant listing views (importer → supply/wanted)
+ * 4. recommended_action on the signal is surfaced in the reason when present
  */
 
 export type BridgeSignal = {
@@ -28,6 +34,19 @@ export type CommercialFollowUp = {
   listingView: string
   jurisdiction: string
   reason: string
+  score: number
+}
+
+/** Role → preferred marketplace views (higher index = lower preference still > 0). */
+const ROLE_VIEW_BIAS: Record<string, string[]> = {
+  importer: ['cannabis', 'wanted', 'extracts', 'services'],
+  exporter: ['wanted', 'cannabis', 'extracts'],
+  cultivator_producer: ['wanted', 'genetics', 'cannabis'],
+  processor_extractor: ['cannabis', 'wanted', 'services'],
+  distributor_wholesaler: ['cannabis', 'wanted', 'services'],
+  investor_operator: ['opportunities', 'wanted', 'cannabis'],
+  retail_operator: ['cannabis', 'wanted'],
+  clinic_healthcare_operator: ['services', 'cannabis'],
 }
 
 function norm(s: string): string {
@@ -43,16 +62,35 @@ function jurisdictionOverlap(signalMarket: string, listingJurisdiction: string):
   return false
 }
 
+function roleViewScore(roleId: string | null | undefined, view: string): number {
+  if (!roleId) return 0
+  const preferred = ROLE_VIEW_BIAS[roleId]
+  if (!preferred) return 0
+  const idx = preferred.indexOf(view)
+  if (idx < 0) return 0
+  return Math.max(0, 24 - idx * 6)
+}
+
+function topicTokens(text: string): string[] {
+  return text
+    .split(/[^a-z0-9]+/)
+    .filter(t => t.length > 4)
+    .filter(t => !['germany', 'canada', 'australia', 'market', 'signal', 'review'].includes(t))
+    .slice(0, 16)
+}
+
 /**
  * Pair jurisdiction-matched signals with marketplace rows in the same market.
- * Optional keyword overlap on title/summary strengthens the reason string.
+ * Returns deduped, score-sorted follow-ups (one row per listing).
  */
 export function matchIntelCommercialFollowUps(
   signals: BridgeSignal[],
   listings: BridgeListing[],
   countryLabel: string,
-  limit = 6,
+  options: { limit?: number; roleId?: string | null } = {},
 ): CommercialFollowUp[] {
+  const limit = options.limit ?? 6
+  const roleId = options.roleId ?? null
   const country = norm(countryLabel)
   const contextualSignals = signals.filter(s => {
     const m = norm(s.market ?? '')
@@ -60,39 +98,52 @@ export function matchIntelCommercialFollowUps(
   })
   if (contextualSignals.length === 0 || listings.length === 0) return []
 
-  const followUps: CommercialFollowUp[] = []
+  const byListing = new Map<string, CommercialFollowUp>()
 
   for (const signal of contextualSignals) {
     const market = signal.market ?? countryLabel
     const signalText = norm(
-      [signal.title, signal.commercialImpact, signal.analysis?.what_changed].filter(Boolean).join(' '),
+      [signal.title, signal.commercialImpact, signal.analysis?.what_changed, signal.analysis?.recommended_action]
+        .filter(Boolean)
+        .join(' '),
     )
+    const tokens = topicTokens(signalText)
+    const recommended = signal.analysis?.recommended_action?.trim()
 
     for (const listing of listings) {
       if (!jurisdictionOverlap(market, listing.jurisdiction || countryLabel)) continue
 
       const listingText = norm([listing.title, listing.summary, listing.category].filter(Boolean).join(' '))
-      let reason = `Same jurisdiction as intel (${market})`
-      // Light keyword intersection for a stronger reason — never required.
-      const tokens = signalText.split(/[^a-z0-9]+/).filter(t => t.length > 4).slice(0, 12)
-      const shared = tokens.filter(t => listingText.includes(t)).slice(0, 3)
-      if (shared.length > 0) {
-        reason = `Jurisdiction match · topic overlap: ${shared.join(', ')}`
-      }
+      const shared = tokens.filter(t => listingText.includes(t)).slice(0, 4)
 
-      followUps.push({
+      let score = 50 // base jurisdiction match
+      score += shared.length * 12
+      score += roleViewScore(roleId, listing.view)
+      if (recommended) score += 8
+
+      const reasonParts: string[] = [`Same jurisdiction as intel (${market})`]
+      if (shared.length > 0) reasonParts.push(`topic: ${shared.join(', ')}`)
+      if (recommended) reasonParts.push(`action: ${recommended.slice(0, 80)}`)
+
+      const candidate: CommercialFollowUp = {
         signalId: signal.id || signal.title || 'signal',
         signalTitle: signal.title || 'Untitled signal',
         listingId: listing.id,
         listingTitle: listing.title,
         listingView: listing.view,
         jurisdiction: listing.jurisdiction || market,
-        reason,
-      })
+        reason: reasonParts.join(' · '),
+        score,
+      }
 
-      if (followUps.length >= limit) return followUps
+      const existing = byListing.get(listing.id)
+      if (!existing || candidate.score > existing.score) {
+        byListing.set(listing.id, candidate)
+      }
     }
   }
 
-  return followUps
+  return [...byListing.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
 }
