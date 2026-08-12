@@ -193,6 +193,7 @@ declare
   seller_account uuid;
   network_id uuid;
   tx_id uuid;
+  assertion_support uuid;
   first_entry uuid;
   replacement_entry uuid;
   recognition text;
@@ -208,15 +209,18 @@ begin
   insert into public.economic_accounts(name,normalized_name,primary_entity_id)
   values ('Seller Account','seller account',seller_entity) returning id into seller_account;
 
-  insert into public.transaction_networks(name,transaction_object_type,double_count_key)
-  values (
-    'Testing Network',
-    'compliance-testing',
-    public.hv_transaction_network_key('US-ME',buyer_account,seller_account,'compliance testing','2026-Q3')
+  insert into public.transaction_networks(
+    name,jurisdiction_code,buyer_economic_account_id,seller_economic_account_id,
+    commercial_period,transaction_object_type,double_count_key
+  ) values (
+    'Testing Network','US-ME',buyer_account,seller_account,'2026-Q3','compliance testing','NETWORK|placeholder'
   ) returning id into network_id;
 
   insert into public.transactions(network_id,economic_account_id,transaction_type,title,currency)
   values (network_id,buyer_account,'testing_service','Buyer testing programme','USD') returning id into tx_id;
+
+  insert into public.assertions(subject_type,subject_id,predicate,value_type,value_numeric,status)
+  values ('transaction',tx_id,'invoice_total','numeric',50000,'verified') returning id into assertion_support;
 
   recognition := public.hv_transaction_economics_key(
     (select double_count_key from public.transaction_networks where id=network_id),
@@ -227,16 +231,16 @@ begin
   );
 
   insert into public.transaction_economics_entries(
-    transaction_id,network_id,metric_type,basis,status,amount,currency,recognition_key
+    transaction_id,network_id,metric_type,basis,status,amount,currency,assertion_id,recognition_key
   ) values (
-    tx_id,network_id,'transacted_gtv','invoice','validated',50000,'USD',recognition
+    tx_id,network_id,'transacted_gtv','invoice','validated',50000,'USD',assertion_support,recognition
   ) returning id into first_entry;
 
   begin
     insert into public.transaction_economics_entries(
-      transaction_id,network_id,metric_type,basis,status,amount,currency,recognition_key
+      transaction_id,network_id,metric_type,basis,status,amount,currency,assertion_id,recognition_key
     ) values (
-      tx_id,network_id,'transacted_gtv','invoice','validated',47500,'USD',recognition
+      tx_id,network_id,'transacted_gtv','invoice','validated',47500,'USD',assertion_support,recognition
     );
   exception when others then
     if position('already has current entry' in sqlerrm) > 0 then
@@ -250,9 +254,9 @@ begin
   end if;
 
   insert into public.transaction_economics_entries(
-    transaction_id,network_id,metric_type,basis,status,amount,currency,recognition_key,supersedes_entry_id
+    transaction_id,network_id,metric_type,basis,status,amount,currency,assertion_id,recognition_key,supersedes_entry_id
   ) values (
-    tx_id,network_id,'transacted_gtv','invoice','validated',47500,'USD',recognition,first_entry
+    tx_id,network_id,'transacted_gtv','invoice','validated',47500,'USD',assertion_support,recognition,first_entry
   ) returning id into replacement_entry;
 
   select amount into current_amount
