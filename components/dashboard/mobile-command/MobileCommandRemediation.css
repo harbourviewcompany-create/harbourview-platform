@@ -1,6 +1,7 @@
 .hvm2-root {
   --hvm2-muted: rgba(245, 241, 232, 0.72);
   --hvm2-faint: rgba(245, 241, 232, 0.52);
+  timeline-scope: --hvm-mobile-scroll;
 }
 
 .hvm-op-current-chip {
@@ -68,10 +69,15 @@
 
 .hvm2-main.hvm-op-main {
   padding-top: 10px;
+  scroll-timeline: --hvm-mobile-scroll block;
 }
 
 .hvm-op-command {
   gap: 17px;
+}
+
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) {
+  display: none;
 }
 
 .hvm-op-pulse button {
@@ -104,11 +110,16 @@
 }
 
 .hvm-op-operating-picture {
+  order: 4;
   padding: 14px 0 0;
   border: 0;
   border-top: 1px solid var(--hvm2-border-soft);
   border-radius: 0;
   background: transparent;
+}
+
+.hvm-op-command > .hvm-op-group:last-of-type {
+  order: 5;
 }
 
 #jurisdiction.hvm2-section {
@@ -133,9 +144,12 @@
   color: var(--hvm2-muted);
 }
 
-.hvm2-jurisdiction-summary {
+#jurisdiction .hvm2-jurisdiction-card {
   padding: 0 0 16px;
+  border: 0;
   border-bottom: 1px solid var(--hvm2-border-soft);
+  border-radius: 0;
+  background: transparent;
 }
 
 .hvm2-jurisdiction-title {
@@ -168,7 +182,7 @@
   font-size: 10px;
 }
 
-.hvm2-jurisdiction-outlook {
+#jurisdiction .hvm2-jurisdiction-card > p {
   margin: 14px 0 0;
   color: var(--hvm2-muted);
   font-size: 12px;
@@ -197,17 +211,26 @@
   font-size: 14px;
 }
 
-.hvm2-pathway-heading {
-  margin-top: 18px;
+#jurisdiction > .hvm2-subhead,
+#jurisdiction .hvm2-subhead {
+  margin: 18px 0 0;
+  font-size: 20px;
 }
 
-.hvm2-pathway-origin-label {
-  display: inline-flex;
-  min-height: 26px;
-  align-items: center;
-  padding: 0 8px;
-  border: 1px solid var(--hvm2-border-soft);
-  border-radius: 999px;
+#jurisdiction .hvm2-pathway-steps > p {
+  margin: 8px 0 0;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(198, 165, 90, 0.46);
+  background: rgba(198, 165, 90, 0.05);
+  color: var(--hvm2-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+#jurisdiction .hvm2-pathway-steps[data-pathway-origin='generic'] > p::before,
+#jurisdiction .hvm2-pathway-steps[data-pathway-origin='curated'] > p::before {
+  display: block;
+  margin-bottom: 4px;
   color: var(--hvm2-gold-light);
   font-size: 9px;
   font-weight: 800;
@@ -215,16 +238,12 @@
   text-transform: uppercase;
 }
 
-.hvm2-pathway-heading .hvm2-subhead {
-  margin: 8px 0 0;
-  font-size: 20px;
+#jurisdiction .hvm2-pathway-steps[data-pathway-origin='generic'] > p::before {
+  content: 'Generic role pathway';
 }
 
-.hvm2-pathway-origin-note {
-  margin: 8px 0 0;
-  color: var(--hvm2-muted);
-  font-size: 11px;
-  line-height: 1.5;
+#jurisdiction .hvm2-pathway-steps[data-pathway-origin='curated'] > p::before {
+  content: 'Country-specific pathway';
 }
 
 #jurisdiction .hvm2-pathway-steps ol {
@@ -246,7 +265,7 @@
   border-bottom: 1px solid var(--hvm2-border-soft);
 }
 
-.hvm2-pathway-step-number {
+#jurisdiction .hvm2-pathway-steps li > span {
   color: var(--hvm2-gold-light);
   font-size: 11px;
   font-weight: 800;
@@ -262,6 +281,35 @@
 
 .hvm2-bottom-nav.hvm-op-bottom-nav {
   margin-top: 6px;
+}
+
+@supports (animation-timeline: scroll()) {
+  .hvm-op-header {
+    animation: hvm-header-compact linear both;
+    animation-timeline: --hvm-mobile-scroll;
+    animation-range: 0 84px;
+  }
+
+  .hvm-op-wordmark {
+    animation: hvm-wordmark-compact linear both;
+    animation-timeline: --hvm-mobile-scroll;
+    animation-range: 0 64px;
+  }
+
+  @keyframes hvm-header-compact {
+    to {
+      padding-bottom: 2px;
+    }
+  }
+
+  @keyframes hvm-wordmark-compact {
+    to {
+      opacity: 0;
+      line-height: 0;
+      font-size: 0;
+      letter-spacing: 0;
+    }
+  }
 }
 
 @media (max-height: 700px) {
