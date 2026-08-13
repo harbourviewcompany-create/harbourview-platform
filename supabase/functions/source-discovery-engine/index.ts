@@ -280,7 +280,15 @@ const WIKIDATA_SEARCH_PHRASE: Record<string, string> = {
   medicine_license_registry: "medicines regulatory authority of",
 };
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function findCandidateWikidata(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
+  // Pace requests -- confirmed live that unpaced calls trip Wikidata's rate
+  // limit (429) partway through a batch of 10 (each pair can make up to 4
+  // Wikidata calls: 1 search + up to 3 entity lookups).
+  await sleep(300);
   const phrase = WIKIDATA_SEARCH_PHRASE[cls] ?? cls;
   const query = `${phrase} ${country}`;
 
@@ -308,6 +316,7 @@ async function findCandidateWikidata(country: string, cls: string): Promise<{ ca
   for (const hit of hits) {
     const qid = hit.title;
     if (!qid || !/^Q\d+$/.test(qid)) continue;
+    await sleep(200);
     let claimsRes: Response;
     try {
       claimsRes = await fetch(
