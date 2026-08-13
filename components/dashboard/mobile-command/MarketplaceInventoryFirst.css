@@ -1,0 +1,187 @@
+.hvm2-market-section {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The Market destination is a browse surface first. Keep the explanatory
+   SectionShell heading available to assistive technology without spending the
+   first viewport on dashboard copy. */
+.hvm2-market-section > .hvm2-section-heading {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.hvm2-market-section .hvm2-market-controls {
+  gap: 8px;
+}
+
+.hvm2-market-section .hvm2-search-field {
+  order: -1;
+  min-height: 44px;
+  border-radius: 14px;
+  background: rgba(7, 17, 31, 0.9);
+}
+
+.hvm2-market-section .hvm2-tab-rail {
+  gap: 6px;
+  padding-bottom: 2px;
+}
+
+.hvm2-market-section .hvm2-tab-rail button {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+}
+
+.hvm2-market-section .hvm2-listing-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hvm2-market-section .hvm2-listing-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 10px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(10, 24, 40, 0.98), rgba(4, 13, 24, 0.98));
+}
+
+/* The first result is the visual anchor. It intentionally occupies the full
+   browse width; subsequent inventory becomes a denser two-column catalogue. */
+.hvm2-market-section .hvm2-listing-card:first-child {
+  grid-column: 1 / -1;
+  padding: 12px;
+  border-color: rgba(198, 165, 90, 0.22);
+}
+
+.hvm2-market-section .hvm2-listing-media {
+  width: calc(100% + 20px);
+  margin: -10px -10px 10px;
+  aspect-ratio: 1 / 1;
+}
+
+.hvm2-market-section .hvm2-listing-card:first-child .hvm2-listing-media {
+  width: calc(100% + 24px);
+  margin: -12px -12px 12px;
+  aspect-ratio: 16 / 10;
+}
+
+.hvm2-market-section .hvm2-card-topline {
+  gap: 6px;
+}
+
+.hvm2-market-section .hvm2-card-topline > span:last-child {
+  font-size: 8px;
+}
+
+.hvm2-market-section .hvm2-listing-card h3 {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.28;
+}
+
+.hvm2-market-section .hvm2-listing-card:first-child h3 {
+  margin-top: 9px;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.hvm2-market-section .hvm2-listing-card > p {
+  display: none;
+}
+
+.hvm2-market-section .hvm2-card-meta {
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.hvm2-market-section .hvm2-card-meta span {
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--hvm2-muted);
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.hvm2-market-section .hvm2-inline-cta {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border: 1px solid rgba(198, 165, 90, 0.25);
+  border-radius: 10px;
+  background: rgba(198, 165, 90, 0.07);
+  color: var(--hvm2-gold-light);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.hvm2-market-section .hvm2-listing-card:not(:first-child) .hvm2-inline-cta {
+  min-height: 34px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.hvm2-market-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hvm2-market-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.hvm2-market-actions a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 40px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--hvm2-text);
+  font-size: 9px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.hvm2-market-actions a span {
+  color: var(--hvm2-gold);
+  font-size: 14px;
+}
+
+.hvm2-market-section .hvm2-workspace-panel:not(:empty) {
+  margin-bottom: 10px;
+}
+
+@media (max-width: 374px) {
+  .hvm2-market-section .hvm2-listing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hvm2-market-section .hvm2-listing-card:first-child {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 430px) {
+  .hvm2-market-section .hvm2-listing-card:first-child .hvm2-listing-media {
+    aspect-ratio: 1.75 / 1;
+  }
+}
