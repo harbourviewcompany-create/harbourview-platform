@@ -1,13 +1,18 @@
+.hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav {
+  display: none;
+}
+
 .hvm2-market-section {
+  display: flex;
+  flex-direction: column;
   padding: 0;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-/* The Market destination is a browse surface first. Keep the explanatory
-   SectionShell heading available to assistive technology without spending the
-   first viewport on dashboard copy. */
+/* Keep the explanatory section heading in the accessibility tree while making
+   the browse controls and inventory the visible Market entry point. */
 .hvm2-market-section > .hvm2-section-heading {
   position: absolute;
   width: 1px;
@@ -20,8 +25,22 @@
   border: 0;
 }
 
-.hvm2-market-section .hvm2-market-controls {
+.hvm2-market-section > .hvm2-market-controls {
+  order: 1;
   gap: 8px;
+}
+
+.hvm2-market-section > .hvm2-workspace {
+  order: 2;
+  margin-top: 10px;
+}
+
+.hvm2-market-section > #hvm2-market-panel {
+  order: 3;
+}
+
+.hvm2-market-section > .hvm2-quick-actions {
+  order: 4;
 }
 
 .hvm2-market-section .hvm2-search-field {
@@ -57,8 +76,7 @@
   background: linear-gradient(145deg, rgba(10, 24, 40, 0.98), rgba(4, 13, 24, 0.98));
 }
 
-/* The first result is the visual anchor. It intentionally occupies the full
-   browse width; subsequent inventory becomes a denser two-column catalogue. */
+/* First result is the visual anchor; later results form a denser catalogue. */
 .hvm2-market-section .hvm2-listing-card:first-child {
   grid-column: 1 / -1;
   padding: 12px;
@@ -133,41 +151,45 @@
   padding-top: 8px;
 }
 
-.hvm2-market-actions {
+/* Existing Market actions remain fully functional but no longer consume the
+   entry viewport. They become compact contextual controls after inventory. */
+.hvm2-market-section > .hvm2-quick-actions {
   display: flex;
   gap: 6px;
-  margin-top: 12px;
+  margin: 12px 0 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.hvm2-market-actions::-webkit-scrollbar {
+.hvm2-market-section > .hvm2-quick-actions::-webkit-scrollbar {
   display: none;
 }
 
-.hvm2-market-actions a {
+.hvm2-market-section > .hvm2-quick-actions a {
   display: inline-flex;
   flex: 0 0 auto;
   min-height: 40px;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 7px;
   padding: 0 10px;
-  border: 1px solid var(--hvm2-border-soft);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.025);
-  color: var(--hvm2-text);
   font-size: 9px;
   font-weight: 750;
-  text-decoration: none;
 }
 
-.hvm2-market-actions a span {
-  color: var(--hvm2-gold);
+.hvm2-market-section > .hvm2-quick-actions a > span {
   font-size: 14px;
 }
 
-.hvm2-market-section .hvm2-workspace-panel:not(:empty) {
-  margin-bottom: 10px;
+.hvm2-market-section > .hvm2-quick-actions a strong {
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.hvm2-market-section > .hvm2-quick-actions a small {
+  display: none;
 }
 
 @media (max-width: 374px) {
