@@ -3,6 +3,19 @@
 **Written:** 2026-07-20 · **Status:** honest self-review for the next agent
 **Read alongside:** `docs/INTELLIGENCE_ARCHITECTURE_SPEC.md` (the target design) and `docs/SOURCE_EXPANSION_PLAN.md` (Stage 6).
 
+> **Status update (2026-07-30):** the classifier gate this doc describes below has been resolved.
+> `hv-classify/openai/v1` (the version validated when this doc was written) measured recall 0.559 —
+> below the ≥0.70 bar in spec Section 6.2, hence the pipeline being shipped in a deliberately paused
+> state. Root cause was found and fixed, not just accepted: `hv-classify`'s prompt builder was
+> emitting the headline twice (once as HEADLINE, again as BODY) whenever extraction failed to find
+> real body text, and the model was correctly reading that literal repetition as boilerplate per its
+> own instructions. Fixing the prompt to say "(no body text extracted)" instead of repeating the
+> headline took recall to 0.903 (precision held at 1.000, same model, same cost) — non-English
+> sources improved most (0.480 → 0.888), since they hit the empty-body path more often. Approved by
+> Tyler 2026-07-30; `classifier_gate_hv_v1` flipped, `hv-quality-pipeline` and `hv-quality-promote`
+> crons enabled. Current state is always visible via `select * from public.hv_pipeline_health();`
+> rather than this doc, which will drift out of date the way it briefly did during this update.
+
 This documents a session that built a working signal-quality pipeline (translate → classify → embed → dedup → promote → entity-link) plus legislative-bill ingestion. **It works and is validated, but it is a fast proof, not production architecture.** Below is what exists, what's wrong with it, and what to do next. Do not treat the current pipeline as the intended end-state.
 
 ---
