@@ -166,6 +166,14 @@ These are dashboard or account actions. Do not attempt code workarounds.
   `4a7c450c9c94195aa9c338f87fb4fb04` fails every build while the canonical
   account `c9bde393b456a8311bb15a6661ebf3c2` succeeds on the same commit. Fix is
   to disconnect the duplicate.
+
+  Proven account-side, not code-side: the same failure occurred on the pull
+  request that introduced *this file*, whose entire diff is two Markdown files.
+  A documentation-only change cannot break a Worker build, and the canonical
+  account built the identical commit successfully. Do not attempt an in-repo
+  workaround, and do not treat a red `Workers Builds` check as evidence about
+  the diff until the duplicate integration is disconnected — every PR carries
+  one, which trains reviewers to ignore a check that could one day be real.
 - **Vercel free-plan cap** (`api-deployments-free-per-day`, >100/day). When
   exhausted it blocks *production* deploys, not only previews.
 - **~350 stale branches.** Deleting them returns HTTP 403 for session tokens.
