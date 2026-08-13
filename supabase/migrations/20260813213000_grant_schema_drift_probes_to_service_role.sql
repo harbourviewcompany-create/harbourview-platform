@@ -1,0 +1,38 @@
+-- Repair schema-drift-monitor, which had been failing hourly with:
+--
+--     {"ok":false,"error":"permission denied for function get_tables_missing_from_api_schema"}
+--
+-- Cause. The edge function's client is configured `db: { schema: "api" }`, so it
+-- calls api.get_tables_missing_from_api_schema(). That wrapper is SECURITY
+-- INVOKER with public on its search_path, so it runs as the caller
+-- (service_role) and reaches public.get_tables_missing_from_api_schema(), which
+-- is SECURITY DEFINER with EXECUTE revoked from everyone --
+-- acl = postgres=X/postgres. service_role could reach the wrapper and not its
+-- target, so every hourly run 500'd.
+--
+-- pg_cron reported those runs as succeeded, because it reports on enqueueing the
+-- request rather than on the response, so the failure was invisible. The job
+-- that exists to detect drift was itself disabled by a permission drift.
+--
+-- Fix. Grant EXECUTE on the two public SECURITY DEFINER probes to service_role
+-- only. Deliberately NOT granted to anon or authenticated: the api wrappers are
+-- SECURITY INVOKER, so an anon or authenticated caller keeps its own identity
+-- through the wrapper and is still refused at the public boundary. That is what
+-- keeps the pre-existing anon grant on the wrappers harmless, and it is why this
+-- is the minimal correct fix rather than relaxing the wrapper to DEFINER --
+-- which would hand anon the ability to enumerate schema drift.
+--
+-- Verified in production immediately after applying, by probing each role:
+--
+--     anon:          DENIED    permission denied for function
+--     authenticated: DENIED    permission denied for function
+--     service_role:  SUCCEEDED rows=94
+--
+-- (94 = tables currently missing from the api schema, the backlog this monitor
+-- was unable to report while broken.)
+--
+-- Applied to production 2026-08-13 and committed forward here so the repository
+-- continues to describe the database. Idempotent: re-granting is a no-op.
+
+grant execute on function public.get_tables_missing_from_api_schema() to service_role;
+grant execute on function public.get_functions_missing_from_api_schema() to service_role;
