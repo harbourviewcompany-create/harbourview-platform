@@ -29,13 +29,15 @@ function CompactZeroState({
   label,
   message,
   onOpen,
+  className,
 }: {
   label: string
   message: string
   onOpen: () => void
+  className?: string
 }) {
   return (
-    <button type="button" className="hvm-op-compact-zero" onClick={onOpen}>
+    <button type="button" className={['hvm-op-compact-zero', className].filter(Boolean).join(' ')} onClick={onOpen}>
       <div>
         <span className="hvm-op-compact-zero-label">{label}</span>
         <strong>{message}</strong>
@@ -93,7 +95,7 @@ export default function CommandOverviewOperator({
           <strong>{attentionItems.length}</strong>
         </button>
         <button type="button" onClick={onOpenIntel}>
-          <span>Context intelligence</span>
+          <span>Recent intelligence</span>
           <strong>{signals?.length ?? 0}</strong>
         </button>
         <button type="button" onClick={onOpenOpportunities}>
@@ -163,7 +165,7 @@ export default function CommandOverviewOperator({
       )}
 
       {opportunityRows.length > 0 ? (
-        <section className="hvm-op-group" aria-labelledby="hvm-op-opportunity-heading">
+        <section className="hvm-op-group hvm-op-commercial-group" aria-labelledby="hvm-op-opportunity-heading">
           <div className="hvm-op-group-heading">
             <div>
               <span className="hvm-op-eyebrow">Commercial</span>
@@ -186,6 +188,7 @@ export default function CommandOverviewOperator({
         </section>
       ) : (
         <CompactZeroState
+          className="hvm-op-commercial-group"
           label="Commercial opportunities"
           message="No matching opportunities currently"
           onOpen={onOpenOpportunities}
