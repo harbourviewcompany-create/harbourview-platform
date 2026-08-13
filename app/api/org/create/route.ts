@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
     )
   }
 
@@ -33,8 +33,6 @@ export async function POST(req: NextRequest) {
     .toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 48)
     + "-" + Math.random().toString(36).slice(2, 7)
   const supabase = await createSupabaseServiceClient()
-  // The current workspace role contract is admin/operator/analyst/viewer.
-  // Organization creation is one-per-active-membership, independent of role.
   const { data: existing } = await supabase.from("workspace_members").select("workspace_id")
     .eq("user_id", user.id).eq("status", "active").maybeSingle()
   if (existing) return NextResponse.json({ error: "USER_ALREADY_HAS_ORG", org_id: existing.workspace_id }, { status: 409 })
