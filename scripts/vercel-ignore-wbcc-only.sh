@@ -80,8 +80,15 @@ if [[ -z "$branch" ]]; then
   exit 0
 fi
 
-if [[ "$branch" == "main" && ( "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ) ]]; then
-  echo "Vercel ignore: main commit message requests skip ('$commit_message'); skip build."
+# Previously only checked on `main`. Broadened to any branch: this is an
+# explicit, opt-in per-commit marker (not a blanket branch skip), so it
+# doesn't touch the "must not block ordinary preview branches" policy above
+# - it just lets a docs/config-only commit on any branch opt out the same
+# way a docs/config-only commit on main already could. Production is still
+# unconditionally protected by the vercel_env check earlier in this script,
+# regardless of commit message.
+if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
+  echo "Vercel ignore: commit message requests skip ('$commit_message') on branch '$branch'; skip build."
   exit 0
 fi
 
