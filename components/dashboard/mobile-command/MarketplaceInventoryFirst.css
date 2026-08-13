@@ -1,6 +1,20 @@
+.hvm2-root[data-active-destination="marketplace"] .hvm-op-header { order: 0; }
+.hvm2-root[data-active-destination="marketplace"] .hvm-op-main { order: 1; }
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav {
-  display: none;
+  order: 2;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px var(--hvm-op-inline);
+  scrollbar-width: thin;
 }
+.hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav button {
+  min-height: 36px;
+  padding: 0 10px;
+}
+.hvm2-root[data-active-destination="marketplace"] .hvm-op-bottom-nav { order: 3; }
 
 .hvm2-market-section {
   display: flex;
@@ -11,8 +25,6 @@
   box-shadow: none;
 }
 
-/* Keep the explanatory section heading in the accessibility tree while making
-   the browse controls and inventory the visible Market entry point. */
 .hvm2-market-section > .hvm2-section-heading {
   position: absolute;
   width: 1px;
@@ -25,23 +37,10 @@
   border: 0;
 }
 
-.hvm2-market-section > .hvm2-market-controls {
-  order: 1;
-  gap: 8px;
-}
-
-.hvm2-market-section > .hvm2-workspace {
-  order: 2;
-  margin-top: 10px;
-}
-
-.hvm2-market-section > #hvm2-market-panel {
-  order: 3;
-}
-
-.hvm2-market-section > .hvm2-quick-actions {
-  order: 4;
-}
+.hvm2-market-section > .hvm2-market-controls { order: 1; gap: 8px; }
+.hvm2-market-section > .hvm2-workspace { order: 2; margin-top: 10px; }
+.hvm2-market-section > #hvm2-market-panel { order: 3; }
+.hvm2-market-section > .hvm2-quick-actions { order: 4; }
 
 .hvm2-market-section .hvm2-search-field {
   order: -1;
@@ -50,11 +49,7 @@
   background: rgba(7, 17, 31, 0.9);
 }
 
-.hvm2-market-section .hvm2-tab-rail {
-  gap: 6px;
-  padding-bottom: 2px;
-}
-
+.hvm2-market-section .hvm2-tab-rail { gap: 6px; padding-bottom: 2px; }
 .hvm2-market-section .hvm2-tab-rail button {
   min-height: 36px;
   padding: 0 10px;
@@ -76,7 +71,6 @@
   background: linear-gradient(145deg, rgba(10, 24, 40, 0.98), rgba(4, 13, 24, 0.98));
 }
 
-/* First result is the visual anchor; later results form a denser catalogue. */
 .hvm2-market-section .hvm2-listing-card:first-child {
   grid-column: 1 / -1;
   padding: 12px;
@@ -95,13 +89,8 @@
   aspect-ratio: 16 / 10;
 }
 
-.hvm2-market-section .hvm2-card-topline {
-  gap: 6px;
-}
-
-.hvm2-market-section .hvm2-card-topline > span:last-child {
-  font-size: 8px;
-}
+.hvm2-market-section .hvm2-card-topline { gap: 6px; }
+.hvm2-market-section .hvm2-card-topline > span:last-child { font-size: 8px; }
 
 .hvm2-market-section .hvm2-listing-card h3 {
   margin: 8px 0 0;
@@ -115,14 +104,8 @@
   line-height: 1.25;
 }
 
-.hvm2-market-section .hvm2-listing-card > p {
-  display: none;
-}
-
-.hvm2-market-section .hvm2-card-meta {
-  gap: 5px;
-  margin-top: 9px;
-}
+.hvm2-market-section .hvm2-listing-card > p { display: none; }
+.hvm2-market-section .hvm2-card-meta { gap: 5px; margin-top: 9px; }
 
 .hvm2-market-section .hvm2-card-meta span {
   padding: 4px 6px;
@@ -151,8 +134,6 @@
   padding-top: 8px;
 }
 
-/* Existing Market actions remain fully functional but no longer consume the
-   entry viewport. They become compact contextual controls after inventory. */
 .hvm2-market-section > .hvm2-quick-actions {
   display: flex;
   gap: 6px;
@@ -160,10 +141,7 @@
   overflow-x: auto;
   scrollbar-width: none;
 }
-
-.hvm2-market-section > .hvm2-quick-actions::-webkit-scrollbar {
-  display: none;
-}
+.hvm2-market-section > .hvm2-quick-actions::-webkit-scrollbar { display: none; }
 
 .hvm2-market-section > .hvm2-quick-actions a {
   display: inline-flex;
@@ -179,31 +157,15 @@
   font-weight: 750;
 }
 
-.hvm2-market-section > .hvm2-quick-actions a > span {
-  font-size: 14px;
-}
-
-.hvm2-market-section > .hvm2-quick-actions a strong {
-  font-size: 9px;
-  line-height: 1.2;
-}
-
-.hvm2-market-section > .hvm2-quick-actions a small {
-  display: none;
-}
+.hvm2-market-section > .hvm2-quick-actions a > span { font-size: 14px; }
+.hvm2-market-section > .hvm2-quick-actions a strong { font-size: 9px; line-height: 1.2; }
+.hvm2-market-section > .hvm2-quick-actions a small { display: none; }
 
 @media (max-width: 374px) {
-  .hvm2-market-section .hvm2-listing-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hvm2-market-section .hvm2-listing-card:first-child {
-    grid-column: auto;
-  }
+  .hvm2-market-section .hvm2-listing-grid { grid-template-columns: 1fr; }
+  .hvm2-market-section .hvm2-listing-card:first-child { grid-column: auto; }
 }
 
 @media (min-width: 430px) {
-  .hvm2-market-section .hvm2-listing-card:first-child .hvm2-listing-media {
-    aspect-ratio: 1.75 / 1;
-  }
+  .hvm2-market-section .hvm2-listing-card:first-child .hvm2-listing-media { aspect-ratio: 1.75 / 1; }
 }
