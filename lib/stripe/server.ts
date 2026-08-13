@@ -1,5 +1,6 @@
 import 'server-only'
 import Stripe from 'stripe'
+export { TIER_DISPLAY } from './tierDisplay'
 
 let _stripe: Stripe | null = null
 
@@ -24,31 +25,6 @@ export const PRICES = {
 } as const
 
 export type PriceKey = keyof typeof PRICES
-
-export const TIER_DISPLAY = {
-  intel: {
-    name: 'Intel Plus',
-    monthly: { label: 'USD $149 / mo', key: 'intel_monthly' as PriceKey },
-    annual:  { label: 'USD $1,490 / yr', key: 'intel_annual' as PriceKey },
-    features: [
-      'Source trail access on every signal',
-      'Contradiction review and confidence context',
-      'Saved watchlists',
-    ],
-  },
-  operator: {
-    name: 'Operator',
-    monthly: { label: 'USD $490 / mo', key: 'operator_monthly' as PriceKey },
-    annual:  { label: 'USD $4,900 / yr', key: 'operator_annual' as PriceKey },
-    features: [
-      'Everything in Intel Plus',
-      'Reviewed counterparty introductions',
-      'Deal room access',
-      'Proof review workflow',
-      'Direct Harbourview analyst access',
-    ],
-  },
-} as const
 
 export async function getOrCreateStripeCustomer(
   userId: string,

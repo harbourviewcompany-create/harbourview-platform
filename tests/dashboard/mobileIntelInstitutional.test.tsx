@@ -152,14 +152,16 @@ describe('Mobile Intel institutional remediation', () => {
     }))
 
     const metrics = [...document.querySelectorAll('.hvm2-regulatory-metrics .hvm2-metric')]
-    expect(metrics).toHaveLength(3)
+    expect(metrics).toHaveLength(4)
     expect(metrics[0]?.querySelector('span')?.textContent).toBe('Tracked items')
     expect(metrics[0]?.querySelector('strong')?.textContent).toBe('9')
     expect(metrics[0]?.querySelector('span')).not.toBe(metrics[0]?.querySelector('strong'))
     expect(metrics[1]?.querySelector('span')?.textContent).toBe('Watch rules')
     expect(metrics[1]?.querySelector('strong')?.textContent).toBe('2')
-    expect(metrics[2]?.querySelector('span')?.textContent).toBe('Source coverage')
-    expect(metrics[2]?.querySelector('strong')?.textContent).toBe('3')
+    expect(metrics[2]?.querySelector('span')?.textContent).toBe('Rule hits')
+    expect(metrics[2]?.querySelector('strong')?.textContent).toBe('0')
+    expect(metrics[3]?.querySelector('span')?.textContent).toBe('Source coverage')
+    expect(metrics[3]?.querySelector('strong')?.textContent).toBe('3')
     expect(document.querySelectorAll('.hvm2-intel-record-list .hvm2-intel-record-card')).toHaveLength(9)
   })
 
