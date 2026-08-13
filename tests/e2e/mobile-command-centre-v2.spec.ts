@@ -2,10 +2,6 @@ import { expect, test, type Browser, type BrowserContextOptions, type Locator, t
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
-import {
-  COMMAND_VISUAL_FIXTURE_IDS,
-  type CommandVisualFixtureId,
-} from '@/lib/dashboard/commandVisualFixtures'
 import { SECTION_GROUPS, SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
 
 /**
@@ -136,6 +132,20 @@ const REQUIRED_EVIDENCE_VIEWPORTS = [
   { width: 390, height: 844 },
   { width: 430, height: 932 },
 ] as const
+
+// Keep the browser runner independent of the server-only fixture resolver.
+// The dashboard proves the query parameter cannot activate outside the isolated
+// CI build; this list only identifies the states the browser must capture.
+const COMMAND_VISUAL_FIXTURE_IDS = [
+  'loaded',
+  'empty',
+  'no-match',
+  'stale',
+  'permission',
+  'error',
+] as const
+
+type CommandVisualFixtureId = typeof COMMAND_VISUAL_FIXTURE_IDS[number]
 
 const COMMAND_STATE_FIXTURES: Array<{
   id: CommandVisualFixtureId
