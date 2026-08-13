@@ -10,7 +10,10 @@ function read(relativePath: string) {
 
 describe('marketplace media post-merge corrective contracts', () => {
   it('consumes the projection by view plus canonical listing id', () => {
-    const model = read('components/dashboard/mobile-command/useMobileCommandModel.ts')
+    const model = [
+      read('components/dashboard/mobile-command/useMobileCommandModel.ts'),
+      read('components/dashboard/mobile-command/useMobileCommandModel.base.ts'),
+    ].join('\n')
     expect(model).toContain("import { marketplaceMediaKey } from '@/lib/dashboard/marketplaceMediaProjection'")
     expect(model).toContain('props.marketplaceMediaById?.[marketplaceMediaKey(tab.id, listingId)]')
     expect(model).toContain('row.id === selectedListingId && row.view === activeMarketView')
