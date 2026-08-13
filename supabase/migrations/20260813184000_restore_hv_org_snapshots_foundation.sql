@@ -1,7 +1,7 @@
 -- Restore the missing organization snapshot relation consumed by the existing
 -- generate-org-snapshot Edge Function. Production currently has no
--- public.hv_org_snapshots or api.hv_org_snapshots relation, while the writer
--- upserts by org_id through an api-schema Supabase client.
+-- public.hv_org_snapshots relation. The writer is updated alongside this
+-- migration to target the public relation directly with the service role.
 --
 -- This migration is intentionally isolated from the commercial-graph work:
 -- snapshots remain a private derived cache owned by the workspace/KYB estate.
@@ -82,36 +82,8 @@ revoke all on table public.hv_org_snapshots from public, anon, authenticated;
 grant select on table public.hv_org_snapshots to authenticated;
 grant all privileges on table public.hv_org_snapshots to service_role;
 
--- generate-org-snapshot uses a Supabase client pinned to db.schema = 'api'.
--- A security-invoker view is therefore required for that existing writer.
-create or replace view api.hv_org_snapshots
-with (security_invoker = true)
-as
-select
-  org_id,
-  legal_name,
-  trade_name,
-  org_type,
-  jurisdiction_country,
-  verification_status,
-  slug,
-  completeness_score,
-  completeness_band,
-  verification_level,
-  export_readiness_band,
-  passport_last_computed_at,
-  active_licence_count,
-  licence_types,
-  facility_count,
-  verified_doc_count,
-  marketplace_listing_count,
-  has_export_licence,
-  has_coa,
-  member_since,
-  updated_at
-from public.hv_org_snapshots;
-
-revoke all on api.hv_org_snapshots from public, anon, authenticated;
-grant select, insert, update, delete on api.hv_org_snapshots to service_role;
+-- No api.hv_org_snapshots projection is created. There is no current reader
+-- requiring it, and the service writer now targets public.hv_org_snapshots
+-- explicitly so the private derived cache does not gain unnecessary API surface.
 
 notify pgrst, 'reload schema';
