@@ -176,6 +176,15 @@ These are dashboard or account actions. Do not attempt code workarounds.
   one, which trains reviewers to ignore a check that could one day be real.
 - **Vercel free-plan cap** (`api-deployments-free-per-day`, >100/day). When
   exhausted it blocks *production* deploys, not only previews.
+
+  `scripts/vercel-ignore-wbcc-only.sh` skips builds for build-inert paths, which
+  slows the burn — but it cannot rescue an already-exhausted account, because
+  the cap is enforced when the deployment is *created*, before the ignore
+  command runs. Observed on one pull request minutes apart, both commits
+  documentation-only: the first reported `Canceled by Ignored Build Step`
+  (the script ran and skipped), the second reported
+  `Resource is limited - try again in 24 hours` (the script never ran).
+  Treat the script as prevention, never as mitigation.
 - **~350 stale branches.** Deleting them returns HTTP 403 for session tokens.
 - **`20260810222500_harden_edge_function_cron_auth.sql`** fails
   `scripts/check-pending-production-migration-decisions.mjs` with a git blob
