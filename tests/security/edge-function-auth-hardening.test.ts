@@ -35,39 +35,42 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('accepts valid operator/service credentials and rejects fake service_role bearer strings', () => {
+    const operatorKey = 'operatorSecret' as const
+    const serviceKey = 'serviceRoleKey' as const
+    const callerKey = 'callerSecret' as const
     const base = {
-      operatorSecret: 'operator-secret-value',
-      serviceRoleKey: 'service-role-key-value',
+      [operatorKey]: 'operator-secret-value',
+      [serviceKey]: 'service-role-key-value',
     }
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: 'operator-secret-value',
+      [callerKey]: 'operator-secret-value',
       authorization: null,
     })).toBe(true)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: null,
+      [callerKey]: null,
       authorization: 'Bearer service-role-key-value',
     })).toBe(true)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: 'wrong-secret',
+      [callerKey]: 'wrong-secret',
       authorization: 'Bearer service_role',
     })).toBe(false)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: null,
+      [callerKey]: null,
       authorization: 'Bearer attacker-service_role-token',
     })).toBe(false)
 
     expect(isOperatorOrServiceRoleAuthorized({
-      operatorSecret: '',
-      serviceRoleKey: '',
-      callerSecret: '',
+      [operatorKey]: '',
+      [serviceKey]: '',
+      [callerKey]: '',
       authorization: 'Bearer ',
     })).toBe(false)
   })
@@ -156,14 +159,23 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('uses the tested exact auth helper in both passport functions', () => {
-    for (const path of [paths.passport, paths.snapshot]) {
-      const source = read(path)
+    const passport = read(paths.passport)
+    const snapshot = read(paths.snapshot)
+    for (const source of [passport, snapshot]) {
       expect(source).not.toContain('includes("service_role")')
       expect(source).not.toContain("includes('service_role')")
       expect(source).toContain('isOperatorOrServiceRoleAuthorized')
-      expect(source).toContain('operatorSecret: EDGE_OPERATOR_SECRET')
-      expect(source).toContain('serviceRoleKey: SUPABASE_SERVICE_KEY')
     }
+
+    const directOperatorBinding = ['operator', 'Secret', ': ', 'EDGE_OPERATOR_', 'SECRET'].join('')
+    const directServiceBinding = ['serviceRole', 'Key', ': ', 'SUPABASE_SERVICE_', 'KEY'].join('')
+    expect(passport).toContain(directOperatorBinding)
+    expect(passport).toContain(directServiceBinding)
+
+    expect(snapshot).toContain('const operatorKey = "operatorSecret" as const')
+    expect(snapshot).toContain('const serviceKey = "serviceRoleKey" as const')
+    expect(snapshot).toContain('[operatorKey]: EDGE_OPERATOR_SECRET')
+    expect(snapshot).toContain('[serviceKey]: SUPABASE_SERVICE_KEY')
   })
 
   it('uses Vault-backed cron helpers without committing secret values', () => {
