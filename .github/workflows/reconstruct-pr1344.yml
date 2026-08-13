@@ -64,6 +64,20 @@ jobs:
                   raise SystemExit(f'{label}: expected exactly one match, found {count}')
               text = text.replace(old, new, 1)
 
+          def once_after(anchor: str, old: str, new: str, label: str):
+              global text
+              anchor_pos = text.find(anchor)
+              if anchor_pos < 0:
+                  raise SystemExit(f'{label}: anchor not found')
+              before = text[:anchor_pos]
+              after = text[anchor_pos:]
+              count = after.count(old)
+              if count < 1:
+                  raise SystemExit(f'{label}: target not found after anchor')
+              pos = after.find(old)
+              after = after[:pos] + new + after[pos + len(old):]
+              text = before + after
+
           once(
               "import { ListingDetailModal } from './ListingDetailModal'\n",
               "import { ListingDetailModal } from './ListingDetailModal'\nimport SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'\nimport { CultivarPassportModal } from '@/components/dashboard/CultivarPassportModal'\nimport { MyBriefingsPanel } from '@/components/dashboard/MyBriefingsPanel'\n",
@@ -123,7 +137,8 @@ jobs:
               "  const [programModal, setProgramModal] = useState(false)\n  const [passportModal, setPassportModal] = useState(false)\n",
               'passport state',
           )
-          once(
+          once_after(
+              "  const [programModal, setProgramModal] = useState(false)\n",
               "        <div className=\"cc-right-section\" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>\n",
               "        <div className=\"cc-right-section\">\n          <div className=\"cc-right-head\">REGISTER A CULTIVAR</div>\n          <p className=\"cc-right-prose\">Create a Cultivar Passport under your ownership. Starts private; public display requires admin claim review.</p>\n          <button className=\"cc-right-link\" onClick={() => setPassportModal(true)}>Register cultivar →</button>\n        </div>\n        <div className=\"cc-right-section\" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>\n",
               'passport CTA',
