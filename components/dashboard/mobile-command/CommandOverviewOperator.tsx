@@ -4,6 +4,7 @@ import type { MobileCommandCentreProps } from './props'
 import { readString, type NextAction, type NormalizedListing } from './contracts'
 import type { SectionRef } from './SectionUI'
 import './MobileCommandZeroStateDensity.css'
+import './MobileCommandRemediation.css'
 
 function signalTitle(signal: unknown) {
   return readString(signal, ['title', 'headline', 'title_en'], 'Material intelligence update')
