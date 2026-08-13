@@ -1,9 +1,9 @@
-name: Reconstruct PR 1344
+name: Reconstruct PR 1344 Repair
 
 on:
   push:
     branches:
-      - fix/command-centre-standalone-wiring
+      - fix/pr1344-reconstruction-repair
     paths:
       - .github/workflows/reconstruct-pr1344.yml
 
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: reconstruct-pr1344
+  group: reconstruct-pr1344-repair
   cancel-in-progress: false
 
 jobs:
@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Checkout reconstruction starter
+      - name: Checkout repair branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: fix/command-centre-standalone-wiring
+          ref: fix/pr1344-reconstruction-repair
           fetch-depth: 0
           persist-credentials: true
 
@@ -148,5 +148,5 @@ jobs:
           git config user.name 'harbourview-release-bot'
           git config user.email 'release-bot@users.noreply.github.com'
           git add -A
-          git commit -m 'fix(command-centre): reconcile standalone wiring with current main'
-          git push origin HEAD:fix/command-centre-standalone-wiring
+          git commit -m 'fix(command-centre): repair PR 1344 reconstruction on current main'
+          git push origin HEAD:fix/pr1344-reconstruction-repair
