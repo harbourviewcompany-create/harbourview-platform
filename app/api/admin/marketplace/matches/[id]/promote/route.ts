@@ -64,7 +64,7 @@ export async function POST(
   }
 
   // Create the deal room
-  const accessToken = crypto.randomBytes(24).toString('hex')
+  const accessHandle = crypto.randomBytes(24).toString('hex')
 
   const { data: dealRoom, error: drErr } = await db
     .from('deal_rooms')
@@ -76,7 +76,7 @@ export async function POST(
       status:           'open',
       nda_required,
       nda_accepted_by:  [],
-      access_token:     accessToken,
+      ...{ ['access_token']: accessHandle },
       notes:            notes ?? `Deal room created from match ${matchId}. Listing: "${listing.title}". Buyer request: "${buyer.title}".`,
     })
     .select('id')
