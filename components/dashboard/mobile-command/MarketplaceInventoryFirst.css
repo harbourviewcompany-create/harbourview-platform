@@ -133,7 +133,10 @@
 }
 
 .hvm2-market-section > .hvm2-quick-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex-shrink: 0;
   gap: 6px;
   margin: 12px 0 0;
   overflow-x: auto;
