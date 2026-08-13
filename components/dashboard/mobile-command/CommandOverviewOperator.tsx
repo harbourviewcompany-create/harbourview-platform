@@ -136,7 +136,7 @@ export default function CommandOverviewOperator({
           <div className="hvm-op-group-heading">
             <div>
               <span className="hvm-op-eyebrow">Contextual changes</span>
-              <h3 id="hvm-op-changes-heading">Relevant intelligence</h3>
+              <h3 id="hvm-op-changes-heading">Recent intelligence</h3>
             </div>
             <button type="button" onClick={onOpenIntel}>View all</button>
           </div>
@@ -155,7 +155,7 @@ export default function CommandOverviewOperator({
         </section>
       ) : (
         <CompactZeroState
-          label="Context intelligence"
+          label="Recent intelligence"
           message="No material updates in this context"
           onOpen={onOpenIntel}
         />
@@ -166,7 +166,7 @@ export default function CommandOverviewOperator({
           <div className="hvm-op-group-heading">
             <div>
               <span className="hvm-op-eyebrow">Commercial</span>
-              <h3 id="hvm-op-opportunity-heading">Matching opportunities</h3>
+              <h3 id="hvm-op-opportunity-heading">Commercial opportunity</h3>
             </div>
             <button type="button" onClick={onOpenOpportunities}>View all</button>
           </div>
