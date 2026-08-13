@@ -3,12 +3,10 @@
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav {
   order: 2;
   flex: 0 0 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   max-height: none;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   padding: 6px var(--hvm-op-inline);
-  scrollbar-width: thin;
 }
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav button {
   min-height: 36px;
