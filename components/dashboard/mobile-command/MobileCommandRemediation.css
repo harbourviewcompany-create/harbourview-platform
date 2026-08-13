@@ -41,7 +41,18 @@
   overflow-y: hidden;
   padding: 7px var(--hvm-op-inline);
   scroll-padding-inline: calc(var(--hvm-op-inline) + 8px);
-  scroll-snap-type: x proximity;
+  /*
+   * Deliberately NOT scroll-snapped. Proximity snapping re-snaps the rail
+   * after a programmatic scrollIntoView, which lands a destination partially
+   * off-screen and defeats the "every destination is reachable" contract in
+   * tests/e2e/mobile-command-centre-v2.spec.ts. Reproduced in Chromium at
+   * 320px: with `scroll-snap-type: x proximity` + `scroll-snap-align: center`
+   * one rail item stayed clipped after scrollIntoViewIfNeeded; with snapping
+   * removed every item resolved fully inside the viewport.
+   *
+   * scroll-padding-inline is kept — it only insets the scroll destination and
+   * does not fight the scroll.
+   */
   scrollbar-width: thin;
   scrollbar-color: rgba(226, 198, 121, 0.42) transparent;
   -webkit-overflow-scrolling: touch;
@@ -60,7 +71,6 @@
   min-height: 44px;
   padding: 0 10px;
   scroll-margin-inline: 8px;
-  scroll-snap-align: center;
   border: 1px solid transparent;
   border-radius: 10px;
 }
