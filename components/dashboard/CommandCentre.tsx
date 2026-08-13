@@ -18,6 +18,9 @@ import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
+import SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'
+import { CultivarPassportModal } from '@/components/dashboard/CultivarPassportModal'
+import { MyBriefingsPanel } from '@/components/dashboard/MyBriefingsPanel'
 import { WantedDetailModal } from './WantedDetailModal'
 import { GeneticsRequestModal } from './GeneticsRequestModal'
 import { GeneticsProgramModal } from './GeneticsProgramModal'
@@ -388,6 +391,7 @@ const BriefingRoom = React.memo(function BriefingRoom({
   onPageChange?:    (page: CommandPage) => void
 }) {
   const [focusedIso2, setFocusedIso2] = useState<string | undefined>(undefined)
+  const [showMyBriefings, setShowMyBriefings] = useState(false)
   const [aiBriefing, setAiBriefing] = useState<string | null>(null)
   const [aiBriefingLoading, setAiBriefingLoading] = useState(false)
   const [aiBriefingError, setAiBriefingError] = useState(false)
@@ -436,8 +440,24 @@ const BriefingRoom = React.memo(function BriefingRoom({
     return () => controller.abort()
   }, [country.label, country.iso2, role, countryIntel])
 
+  if (showMyBriefings) {
+    return (
+      <div className="cc-page cc-briefing">
+        <div className="cc-mybrief-wrap">
+          <button type="button" className="cc-signals-search-toggle" style={{ marginBottom: 16 }} onClick={() => setShowMyBriefings(false)}>
+            ← Back to jurisdiction briefing
+          </button>
+          <MyBriefingsPanel onOpenWatchlist={() => onPageChange?.('watchlist')} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="cc-page cc-briefing">
+      <button type="button" className="cc-signals-search-toggle" style={{ position: 'absolute', top: 16, right: 20, zIndex: 5 }} onClick={() => setShowMyBriefings(true)}>
+        ◈ My briefings
+      </button>
 
       {/* ── Left: Jurisdiction brief ──────────────────────────────── */}
       <aside className="cc-briefing-left">
@@ -758,6 +778,7 @@ const SignalsPage = React.memo(function SignalsPage({
   const [filterType,    setFilterType]    = useState('all')
   const [currentPage,   setCurrentPage]   = useState(1)
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
+  const [showSearch, setShowSearch] = useState(false)
   const PAGE_SIZE = 6
 
   // ── Live signal fetch ──────────────────────────────────────────────────────
@@ -947,8 +968,12 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
+          <button type="button" className="cc-signals-search-toggle" aria-pressed={showSearch} onClick={() => setShowSearch(v => !v)}>
+            {showSearch ? 'Hide semantic search' : '◈ Semantic search'}
+          </button>
         </div>
 
+        {showSearch ? <SignalSemanticSearch /> : null}
         <div className="cc-filter-bar">
           <CustomSelect value={filterType} className="cc-filter-sel" onChange={setFilterType} options={[
             { value: 'all',                    label: 'All Types' },
@@ -1172,6 +1197,8 @@ const MarketplacePage = React.memo(function MarketplacePage({
   const [regionFilter, setRegionFilter] = useState('all')
   const [sortBy, setSortBy] = useState<'featured' | 'rating'>('featured')
   const [subView, setSubView] = useState<MarketSubView>('browse')
+  const [dealsInitialRoomId, setDealsInitialRoomId] = useState<string | undefined>(undefined)
+  const [dealsOpenNonce, setDealsOpenNonce] = useState(0)
 
   const changeTab = (id: MarketView) => {
     setActiveTab(id)
@@ -1304,7 +1331,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <QuoteRequestForm />
           </div>
         ) : subView === 'deals' ? (
-          <DealRoomsPanel />
+          <DealRoomsPanel key={`${dealsInitialRoomId ?? 'list'}-${dealsOpenNonce}`} initialRoomId={dealsInitialRoomId} />
         ) : subView === 'my-listings' ? (
           <div className="cc-mkt-subview">
             <MyListingsClient submissions={mySubmissions} userEmail={userEmail ?? ''} />
@@ -1454,7 +1481,7 @@ const MarketplacePage = React.memo(function MarketplacePage({
             <button className="cc-right-link" onClick={() => setSubView('browse')}>View pipeline →</button>
           </div>
         )}
-        <DealRoomsSidebarWidget />
+        <DealRoomsSidebarWidget onOpenRoom={(roomId) => { setDealsInitialRoomId(roomId); setDealsOpenNonce(n => n + 1); setSubView('deals') }} />
         <div className="cc-right-section">
           <div className="cc-right-head">ROUTED INQUIRY</div>
           <p className="cc-right-prose">Submit a quote or sourcing inquiry for Harbourview to review and route to verified suppliers or export partners.</p>
@@ -1554,6 +1581,12 @@ const MarketplacePage = React.memo(function MarketplacePage({
         onClose={() => setSelectedListingId(null)}
         onRequestAccess={() => onPageChange?.('access-pathway')}
         onWatch={() => onPageChange?.('watchlist')}
+        onOpenDealRoom={(roomId) => {
+          setSelectedListingId(null)
+          setDealsInitialRoomId(roomId)
+          setDealsOpenNonce(n => n + 1)
+          setSubView('deals')
+        }}
       />
       <WantedDetailModal
         listing={selectedWanted}
@@ -5536,6 +5569,7 @@ const GeneticsPage = React.memo(function GeneticsPage({
   const [selectedPassport, setSelectedPassport] = useState<PublicCultivarPassportDTO | null>(null)
   const [requestModal, setRequestModal] = useState<{ open: boolean; profileName?: string }>({ open: false })
   const [programModal, setProgramModal] = useState(false)
+  const [passportModal, setPassportModal] = useState(false)
 
   const isGlobal = country.iso2 === 'GLOBAL'
   const filteredPassports = isGlobal ? cultivarPassports : cultivarPassports.filter(p => p.countryOpportunitiesPublic.some(o => o.countryCode === country.iso2))
@@ -5810,6 +5844,11 @@ const GeneticsPage = React.memo(function GeneticsPage({
           <button className="cc-right-link" onClick={() => setProgramModal(true)}>Submit a program →</button>
         </div>
 
+        <div className="cc-right-section">
+          <div className="cc-right-head">REGISTER A CULTIVAR</div>
+          <p className="cc-right-prose">Create a Cultivar Passport under your ownership. Starts private; public display requires admin claim review.</p>
+          <button className="cc-right-link" onClick={() => setPassportModal(true)}>Register cultivar →</button>
+        </div>
         <div className="cc-right-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button className="cc-nba-btn" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', color: '#10b981', textAlign: 'left', cursor: 'pointer' }}
             onClick={() => onPageChange?.('evidence')}>
@@ -5830,6 +5869,10 @@ const GeneticsPage = React.memo(function GeneticsPage({
       <GeneticsProgramModal
         open={programModal}
         onClose={() => setProgramModal(false)}
+      />
+      <CultivarPassportModal
+        open={passportModal}
+        onClose={() => setPassportModal(false)}
       />
     </div>
   )
