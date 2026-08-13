@@ -77,7 +77,31 @@
 }
 
 .hvm-op-command > .hvm-op-group:has(.hvm-op-empty) {
+  min-height: 42px;
+  padding: 7px 0;
+  border-top: 1px solid var(--hvm2-border-soft);
+  border-bottom: 1px solid var(--hvm2-border-soft);
+}
+
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-group-heading {
+  margin: 0;
+}
+
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-eyebrow,
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-group-heading > button,
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-empty {
   display: none;
+}
+
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) h3 {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) h3::after {
+  content: ' · None';
+  color: var(--hvm2-muted);
+  font-weight: 550;
 }
 
 .hvm-op-pulse button {
