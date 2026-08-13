@@ -164,99 +164,99 @@ to service_role;
 
 -- Internal canonical tables: analysts/reviewers read, operators/admins write.
 create policy entities_internal_read on public.entities for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy entities_internal_write on public.entities for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy entity_aliases_internal_read on public.entity_aliases for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy entity_aliases_internal_write on public.entity_aliases for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy entity_facilities_internal_read on public.entity_facilities for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy entity_facilities_internal_write on public.entity_facilities for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy products_internal_read on public.products for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy products_internal_write on public.products for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy product_batches_internal_read on public.product_batches for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy product_batches_internal_write on public.product_batches for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy economic_accounts_internal_read on public.economic_accounts for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy economic_accounts_internal_write on public.economic_accounts for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy economic_account_members_internal_read on public.economic_account_members for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy economic_account_members_internal_write on public.economic_account_members for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy transaction_networks_internal_read on public.transaction_networks for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy transaction_networks_internal_write on public.transaction_networks for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy assertions_internal_read on public.assertions for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy assertions_internal_write on public.assertions for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy evidence_links_internal_read on public.evidence_links for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy evidence_links_internal_write on public.evidence_links for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy transaction_decisions_internal_read on public.transaction_decisions for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy transaction_decisions_internal_write on public.transaction_decisions for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy transaction_import_internal_read on public.transaction_import_staging for select to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']));
+using ((select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])));
 create policy transaction_import_internal_write on public.transaction_import_staging for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 -- Transaction participants may only read transactions in which an active workspace membership is explicitly a party.
 create policy transactions_internal_or_party_read on public.transactions for select to authenticated
 using (
-  public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])
+  (select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']))
   or public.hv_is_transaction_participant(id)
 );
 create policy transactions_internal_write on public.transactions for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy transaction_parties_internal_or_party_read on public.transaction_parties for select to authenticated
 using (
-  public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])
+  (select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']))
   or public.hv_is_transaction_participant(transaction_id)
 );
 create policy transaction_parties_internal_write on public.transaction_parties for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 create policy diligence_internal_or_shared_read on public.diligence_requirements for select to authenticated
 using (
-  public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])
+  (select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']))
   or (
     public.hv_is_transaction_participant(transaction_id)
     and (
@@ -266,13 +266,13 @@ using (
   )
 );
 create policy diligence_internal_write on public.diligence_requirements for all to authenticated
-using (public.hv_has_transaction_role(array['admin','operator','super_admin']))
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+using ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])))
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 -- Harbourview fee, margin and revenue-recognition metrics are never participant-readable by default.
 create policy transaction_economics_internal_or_shared_read on public.transaction_economics_entries for select to authenticated
 using (
-  public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer'])
+  (select public.hv_has_transaction_role(array['admin','operator','analyst','super_admin','compliance_reviewer']))
   or (
     public.hv_is_transaction_participant(transaction_id)
     and metric_type not in (
@@ -285,7 +285,7 @@ using (
   )
 );
 create policy transaction_economics_internal_insert on public.transaction_economics_entries for insert to authenticated
-with check (public.hv_has_transaction_role(array['admin','operator','super_admin']));
+with check ((select public.hv_has_transaction_role(array['admin','operator','super_admin'])));
 
 -- Current authoritative economics are leaf entries in the immutable supersession chain.
 create view public.transaction_current_economics_v1
