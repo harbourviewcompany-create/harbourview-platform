@@ -14,15 +14,9 @@
   text-align: left;
 }
 
-.hvm-op-compact-zero > div {
-  min-width: 0;
-}
-
+.hvm-op-compact-zero > div { min-width: 0; }
 .hvm-op-compact-zero-label,
-.hvm-op-compact-zero strong {
-  display: block;
-}
-
+.hvm-op-compact-zero strong { display: block; }
 .hvm-op-compact-zero-label {
   color: var(--hvm2-gold);
   font-size: 9px;
@@ -30,7 +24,6 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-
 .hvm-op-compact-zero strong {
   margin-top: 2px;
   overflow: hidden;
@@ -41,7 +34,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .hvm-op-compact-zero-count {
   min-width: 20px;
   color: var(--hvm2-muted);
@@ -49,24 +41,56 @@
   font-weight: 750;
   text-align: right;
 }
+.hvm-op-compact-zero-arrow { color: var(--hvm2-faint); font-size: 18px; }
+.hvm-op-compact-zero:focus-visible { outline: 2px solid var(--hvm2-gold-light); outline-offset: 2px; }
 
-.hvm-op-compact-zero-arrow {
-  color: var(--hvm2-faint);
-  font-size: 18px;
+/*
+ * Cascade-critical mobile Command remediation. The legacy OperatorFirst sheet is
+ * shared by multiple surfaces and can be emitted after feature CSS by Next.js.
+ * These declarations intentionally carry both root scoping and !important so
+ * the operator-facing contract cannot regress to the old wrapping rail/static
+ * CURRENT badge solely because chunk order changes between local and CI builds.
+ */
+.hvm2-root .hvm-op-current-chip { display: none !important; }
+
+.hvm2-root .hvm-op-header {
+  padding: max(10px, env(safe-area-inset-top)) var(--hvm-op-inline) 6px !important;
 }
+.hvm2-root .hvm-op-header-top { min-height: 50px !important; }
+.hvm2-root .hvm-op-wordmark { font-size: 12px !important; letter-spacing: 0.2em !important; }
+.hvm2-root .hvm-op-page-title { margin-top: 2px !important; font-size: 24px !important; }
+.hvm2-root .hvm-op-context-trigger { min-height: 42px !important; margin-top: 5px !important; }
 
-.hvm-op-compact-zero:focus-visible {
-  outline: 2px solid var(--hvm2-gold-light);
-  outline-offset: 2px;
+.hvm2-root .hvm-op-secondary-nav {
+  flex: 0 0 58px !important;
+  min-height: 58px !important;
+  max-height: 58px !important;
+  flex-wrap: nowrap !important;
+  gap: 5px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding: 7px var(--hvm-op-inline) !important;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 198, 121, 0.42) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.hvm2-root .hvm-op-secondary-nav::-webkit-scrollbar { height: 3px; }
+.hvm2-root .hvm-op-secondary-nav::-webkit-scrollbar-thumb { border-radius: 99px; background: rgba(226, 198, 121, 0.42); }
+.hvm2-root .hvm-op-secondary-nav button {
+  flex: 0 0 auto !important;
+  min-height: 44px !important;
+  padding: 0 10px !important;
+  scroll-snap-align: center;
 }
 
 @media (max-width: 359px) {
-  .hvm-op-compact-zero {
-    min-height: 50px;
-    padding: 6px 0;
-  }
+  .hvm-op-compact-zero { min-height: 50px; padding: 6px 0; }
+  .hvm-op-compact-zero strong { font-size: 12px; }
+}
 
-  .hvm-op-compact-zero strong {
-    font-size: 12px;
-  }
+@media (max-height: 700px) {
+  .hvm2-root .hvm-op-wordmark { display: none !important; }
+  .hvm2-root .hvm-op-header-top { min-height: 38px !important; }
+  .hvm2-root .hvm-op-page-title { margin-top: 0 !important; font-size: 22px !important; }
 }
