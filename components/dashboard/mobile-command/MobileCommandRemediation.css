@@ -40,6 +40,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 7px var(--hvm-op-inline);
+  scroll-padding-inline: calc(var(--hvm-op-inline) + 8px);
   scroll-snap-type: x proximity;
   scrollbar-width: thin;
   scrollbar-color: rgba(226, 198, 121, 0.42) transparent;
@@ -58,6 +59,7 @@
 .hvm-op-secondary-nav button {
   min-height: 44px;
   padding: 0 10px;
+  scroll-margin-inline: 8px;
   scroll-snap-align: center;
   border: 1px solid transparent;
   border-radius: 10px;
