@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const promoteRoute = readFileSync('app/api/admin/marketplace/matches/[id]/promote/route.ts', 'utf8')
 const orgCreateRoute = readFileSync('app/api/org/create/route.ts', 'utf8')
+const snapshotWriter = readFileSync('supabase/functions/generate-org-snapshot/index.ts', 'utf8')
 const snapshotMigration = readFileSync(
   'supabase/migrations/20260813184000_restore_hv_org_snapshots_foundation.sql',
   'utf8',
@@ -31,12 +32,21 @@ describe('commercial-graph baseline contract repairs', () => {
     expect(snapshotMigration).toContain('has_coa boolean not null default false')
   })
 
-  it('uses RLS and a security-invoker api view for the existing service writer', () => {
+  it('keeps snapshots RLS-protected without adding an unnecessary api view', () => {
     expect(snapshotMigration).toContain('alter table public.hv_org_snapshots enable row level security')
     expect(snapshotMigration).toContain('using (public.hv_is_org_member(org_id))')
     expect(snapshotMigration).toContain('using (public.hv_is_platform_staff())')
-    expect(snapshotMigration).toContain('create or replace view api.hv_org_snapshots')
-    expect(snapshotMigration).toContain('with (security_invoker = true)')
-    expect(snapshotMigration).toContain('grant select, insert, update, delete on api.hv_org_snapshots to service_role')
+    expect(snapshotMigration).toContain('revoke all on table public.hv_org_snapshots from public, anon, authenticated')
+    expect(snapshotMigration).toContain('grant select on table public.hv_org_snapshots to authenticated')
+    expect(snapshotMigration).toContain('grant all privileges on table public.hv_org_snapshots to service_role')
+    expect(snapshotMigration).not.toContain('create or replace view api.hv_org_snapshots')
+  })
+
+  it('writes snapshots directly to public with the service client while retaining api reads', () => {
+    expect(snapshotWriter).toContain('.schema("public")')
+    expect(snapshotWriter).toContain('.from("hv_org_snapshots")')
+    expect(snapshotWriter).toContain('{ onConflict: "org_id" }')
+    expect(snapshotWriter).toContain('supabase.from("workspaces")')
+    expect(snapshotWriter).toContain('supabase.from("hv_passports")')
   })
 })
