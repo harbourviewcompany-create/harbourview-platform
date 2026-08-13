@@ -141,7 +141,7 @@ export function CreatePassportForm() {
           {isPending ? 'Creating…' : 'Create passport'}
         </button>
         <a
-          href="/dashboard/genetics"
+          href="/dashboard?page=genetics"
           className="rounded-full border border-white/15 px-6 py-2.5 text-sm text-[#F5F1E8]/65 hover:border-white/30"
         >
           Cancel

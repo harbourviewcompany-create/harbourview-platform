@@ -21,14 +21,18 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
-    exclude: [...defaultExclude, '.claude/**'],
+    exclude: [
+      ...defaultExclude,
+      '.claude/**',
+      'tests/e2e/**',
+      'tests/scripts/*.test.mjs',
+      'supabase/functions/**/*.test.ts',
+    ],
     setupFiles: ['./tests/setup.ts'],
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
-      // 'server-only' throws at runtime outside Next.js — alias to a no-op shim
-      // so lib/hf/** and other server-only modules can be tested in Vitest.
       'server-only': path.resolve(__dirname, '__mocks__/server-only.ts'),
     },
   },
