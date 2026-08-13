@@ -7,7 +7,7 @@
 -- INVOKER with public on its search_path, so it runs as the caller
 -- (service_role) and reaches public.get_tables_missing_from_api_schema(), which
 -- is SECURITY DEFINER with EXECUTE revoked from everyone --
--- acl = postgres=X/postgres. service_role could reach the wrapper and not its
+-- whose ACL lists postgres alone. service_role could reach the wrapper but not its
 -- target, so every hourly run 500'd.
 --
 -- pg_cron reported those runs as succeeded, because it reports on enqueueing the
@@ -24,15 +24,15 @@
 --
 -- Verified in production immediately after applying, by probing each role:
 --
---     anon:          DENIED    permission denied for function
---     authenticated: DENIED    permission denied for function
---     service_role:  SUCCEEDED rows=94
+--     role anon           -> DENIED, permission denied for function
+--     role authenticated  -> DENIED, permission denied for function
+--     role service_role   -> SUCCEEDED, 94 rows returned
 --
 -- (94 = tables currently missing from the api schema, the backlog this monitor
 -- was unable to report while broken.)
 --
 -- Applied to production 2026-08-13 and committed forward here so the repository
--- continues to describe the database. Idempotent: re-granting is a no-op.
+-- continues to describe the database. Re-granting is idempotent and a no-op.
 
 grant execute on function public.get_tables_missing_from_api_schema() to service_role;
 grant execute on function public.get_functions_missing_from_api_schema() to service_role;
