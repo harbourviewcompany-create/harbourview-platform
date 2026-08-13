@@ -76,34 +76,6 @@
   gap: 17px;
 }
 
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) {
-  min-height: 42px;
-  padding: 7px 0;
-  border-top: 1px solid var(--hvm2-border-soft);
-  border-bottom: 1px solid var(--hvm2-border-soft);
-}
-
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-group-heading {
-  margin: 0;
-}
-
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-eyebrow,
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-group-heading > button,
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) .hvm-op-empty {
-  display: none;
-}
-
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) h3 {
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.hvm-op-command > .hvm-op-group:has(.hvm-op-empty) h3::after {
-  content: ' · None';
-  color: var(--hvm2-muted);
-  font-weight: 550;
-}
-
 .hvm-op-pulse button {
   min-height: 62px;
   padding: 9px 8px;
@@ -142,7 +114,7 @@
   background: transparent;
 }
 
-.hvm-op-command > .hvm-op-group:last-of-type {
+.hvm-op-command > .hvm-op-commercial-group {
   order: 5;
 }
 
@@ -249,25 +221,6 @@
   color: var(--hvm2-muted);
   font-size: 11px;
   line-height: 1.5;
-}
-
-#jurisdiction .hvm2-pathway-steps[data-pathway-origin='generic'] > p::before,
-#jurisdiction .hvm2-pathway-steps[data-pathway-origin='curated'] > p::before {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--hvm2-gold-light);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-#jurisdiction .hvm2-pathway-steps[data-pathway-origin='generic'] > p::before {
-  content: 'Generic role pathway';
-}
-
-#jurisdiction .hvm2-pathway-steps[data-pathway-origin='curated'] > p::before {
-  content: 'Country-specific pathway';
 }
 
 #jurisdiction .hvm2-pathway-steps ol {
