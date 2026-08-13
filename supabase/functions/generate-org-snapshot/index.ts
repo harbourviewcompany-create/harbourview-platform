@@ -33,6 +33,7 @@ Deno.serve(async (req) => {
   try {
     const snapshot = await buildSnapshot(org_id);
     const { error } = await supabase
+      .schema("public")
       .from("hv_org_snapshots")
       .upsert({ org_id, ...snapshot, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
     if (error) throw new Error(`Snapshot upsert failed: ${error.message}`);
