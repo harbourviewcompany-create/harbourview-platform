@@ -1,11 +1,24 @@
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-header { order: 0; }
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-main { order: 1; }
+/*
+ * Inventory-first ordering: the section rail sits BELOW the inventory content
+ * (order 2) so listings are the first thing on screen. That reordering is this
+ * file's purpose.
+ *
+ * The rail itself stays a single-row horizontal rail. It must not wrap:
+ * tests/e2e/mobile-command-centre-v2.spec.ts asserts, via
+ * assertSingleRowHorizontalRail('Market rail'), that flex-wrap is nowrap and
+ * overflow-x is auto/scroll. An earlier revision of this file set
+ * `flex-wrap: wrap; max-height: none; overflow: visible`, which computes to
+ * wrap/visible and fails both assertions — verified in Chromium at 390px.
+ * Wrapping is not required by the inventory-first hierarchy, only the order is.
+ */
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav {
   order: 2;
   flex: 0 0 auto;
-  flex-wrap: wrap;
-  max-height: none;
-  overflow: visible;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 6px var(--hvm-op-inline);
 }
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav button {
