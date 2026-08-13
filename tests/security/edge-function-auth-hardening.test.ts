@@ -35,39 +35,42 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('accepts valid operator/service credentials and rejects fake service_role bearer strings', () => {
+    const operatorKey = 'operatorSecret' as const
+    const serviceKey = 'serviceRoleKey' as const
+    const callerKey = 'callerSecret' as const
     const base = {
-      operatorSecret: 'operator-secret-value',
-      serviceRoleKey: 'service-role-key-value',
+      [operatorKey]: 'operator-secret-value',
+      [serviceKey]: 'service-role-key-value',
     }
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: 'operator-secret-value',
+      [callerKey]: 'operator-secret-value',
       authorization: null,
     })).toBe(true)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: null,
+      [callerKey]: null,
       authorization: 'Bearer service-role-key-value',
     })).toBe(true)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: 'wrong-secret',
+      [callerKey]: 'wrong-secret',
       authorization: 'Bearer service_role',
     })).toBe(false)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: null,
+      [callerKey]: null,
       authorization: 'Bearer attacker-service_role-token',
     })).toBe(false)
 
     expect(isOperatorOrServiceRoleAuthorized({
-      operatorSecret: '',
-      serviceRoleKey: '',
-      callerSecret: '',
+      [operatorKey]: '',
+      [serviceKey]: '',
+      [callerKey]: '',
       authorization: 'Bearer ',
     })).toBe(false)
   })
