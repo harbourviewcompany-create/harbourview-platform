@@ -425,6 +425,28 @@
   background: rgba(255, 255, 255, 0.025);
 }
 
+.hvm2-metric-action {
+  position: relative;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hvm2-metric-action > i {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  color: var(--hvm2-gold-light);
+  font-size: 16px;
+  font-style: normal;
+}
+
+.hvm2-metric-action:focus-visible {
+  outline: 2px solid var(--hvm2-gold-light);
+  outline-offset: 2px;
+}
+
 .hvm2-metric > span,
 .hvm2-narrative-grid span,
 .hvm2-status-matrix span {

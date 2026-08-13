@@ -5,6 +5,7 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import { resolveCommandVisualFixture } from '@/lib/dashboard/commandVisualFixtures'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
 import { checkFeatureAccess } from '@/lib/billing/entitlements'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
@@ -67,6 +68,7 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
   const urlPage = normalizeCommandPage(firstParam(params.page))
+  const commandVisualFixture = resolveCommandVisualFixture(firstParam(params.command_visual_fixture))
 
   let userId: string | null = null
   let userEmail: string | null = null
@@ -159,28 +161,39 @@ export default async function DashboardPage({
 
   const staticEduCategories = getEduCategoriesForRole(roleId ?? undefined)
   const eduCategories = liveEduTiles.length > 0 ? liveEduTiles : staticEduCategories
+  const commandDataState = commandVisualFixture?.commandDataState ?? commandData.state
+  const commandHasOrg = commandVisualFixture?.hasOrg ?? hasOrg
+  const emptyVisualFixture = commandVisualFixture?.emptyRecords === true
+  const commandSignals = emptyVisualFixture ? [] : signals
+  const commandDigestSignals = emptyVisualFixture ? [] : dailyDigest.signals
+  const commandMarketplaceRows = emptyVisualFixture ? {} : marketplaceProjection.rows
+  const commandMarketplaceMediaById = emptyVisualFixture ? {} : marketplaceProjection.mediaById
+  const commandWantedCount = emptyVisualFixture ? 0 : wantedCount
+  const commandPipeline = emptyVisualFixture
+    ? { wanted: 0, matched: 0, proof_review: 0, inquiry: 0, deal_room: 0 }
+    : pipeline
 
   return (
     <CommandCentreDataBoundary
-      state={commandData.state}
+      state={commandDataState}
       sources={commandData.sources}
       loadedAt={commandData.loadedAt}
     >
       <DashboardResponsiveShell
         key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
-        hasOrg={hasOrg}
-        signals={signals}
-        digestSignals={dailyDigest.signals}
+        hasOrg={commandHasOrg}
+        signals={commandSignals}
+        digestSignals={commandDigestSignals}
         digestWindow={dailyDigest.window}
         eduCategories={eduCategories}
         liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
         initialCountryIso2={countryIso2}
         initialRoleId={roleId}
         initialPage={urlPage}
-        wantedCount={wantedCount}
-        marketplaceRows={marketplaceProjection.rows}
-        marketplaceMediaById={marketplaceProjection.mediaById}
-        pipeline={pipeline}
+        wantedCount={commandWantedCount}
+        marketplaceRows={commandMarketplaceRows}
+        marketplaceMediaById={commandMarketplaceMediaById}
+        pipeline={commandPipeline}
         wantedListings={wantedListings}
         countryIntel={countryIntel ?? undefined}
         localIntel={localIntel ?? undefined}
@@ -205,6 +218,8 @@ export default async function DashboardPage({
         collaborationProjects={collaborationProjects}
         mySubmissions={mySubmissions}
         countryEducationOverlays={countryEducationOverlays}
+        commandDataState={commandDataState}
+        commandLoadedAt={commandData.loadedAt}
       />
     </CommandCentreDataBoundary>
   )

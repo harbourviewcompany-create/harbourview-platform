@@ -11,6 +11,7 @@ import { fetchDashboardSignals, getWantedRequestsCount } from '@/lib/dashboard/d
 import { getPipelineCounts, getWantedListings, getCountryIntelProfile, getLiveEduTiles, getPublicPathwayTemplate, getRecentEduModules, getWatchlistData, getEvidenceData, getSourceCoverage, getLocalIntel, getCountryEducationOverlays, getJurisdictionEvidenceStatus } from '@/lib/dashboard/dashboardLiveData'
 import { getDashboardMarketplaceProjection } from '@/lib/dashboard/buildDashboardCommandSources'
 import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
+import type { CommandCentreDataState } from '@/lib/dashboard/commandCentreDataTypes'
 
 export const dynamic = 'force-dynamic'
 
@@ -229,6 +230,28 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
   const sourceCoverage = settledOr(sourceCoverageResult, undefined, 'getSourceCoverage')
   const localIntel = settledOr(localIntelResult, null, 'getLocalIntel')
   const countryEducationOverlays = settledOr(countryEducationOverlaysResult, [], 'getCountryEducationOverlays')
+  const tier1Failed = [countryIntelProfileResult, pathwayDataResult].some(result => result.status === 'rejected')
+  const tier2Failed = [
+    signalsResult,
+    pipelineResult,
+    wantedListingsResult,
+    wantedCountResult,
+    marketplaceRowsResult,
+    liveTilesResult,
+    recentEduModulesResult,
+    watchlistDataResult,
+    evidenceDataResult,
+    sourceCoverageResult,
+    localIntelResult,
+    countryEducationOverlaysResult,
+  ].some(result => result.status === 'rejected')
+  const commandDataState: CommandCentreDataState = tier1Failed && tier2Failed
+    ? 'error'
+    : tier1Failed || tier2Failed
+      ? 'partial'
+      : marketplaceProjection.mediaStatus === 'degraded'
+        ? 'fallback'
+        : 'live'
 
   return (
     <>
@@ -274,10 +297,11 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
         commercial_pathway_summary: dashboard.role.priority ?? null,
         review_status:              dashboard.admin.reviewState ?? 'active',
       }}
+      commandDataState={commandDataState}
+      commandLoadedAt={new Date().toISOString()}
       />
     </>
   )
 }
-
 
 

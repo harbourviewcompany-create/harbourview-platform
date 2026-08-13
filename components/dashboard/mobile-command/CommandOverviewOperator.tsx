@@ -2,6 +2,7 @@
 
 import type { MobileCommandCentreProps } from './props'
 import { readString, type NextAction, type NormalizedListing } from './contracts'
+import type { CommandCentreDataState } from '@/lib/dashboard/commandCentreDataTypes'
 import type { SectionRef } from './SectionUI'
 import './MobileCommandZeroStateDensity.css'
 import './MobileCommandRemediation.css'
@@ -28,23 +29,92 @@ function signalMeta(signal: unknown, countryLabel: string) {
 function CompactZeroState({
   label,
   message,
+  detail,
+  state,
   onOpen,
   className,
 }: {
   label: string
   message: string
+  detail: string
+  state: 'empty' | 'no-match'
   onOpen: () => void
   className?: string
 }) {
   return (
-    <button type="button" className={['hvm-op-compact-zero', className].filter(Boolean).join(' ')} onClick={onOpen}>
+    <button
+      type="button"
+      className={['hvm-op-compact-zero', className].filter(Boolean).join(' ')}
+      data-command-zero-state={state}
+      aria-label={`${label}: ${message}. ${detail}`}
+      onClick={onOpen}
+    >
       <div>
         <span className="hvm-op-compact-zero-label">{label}</span>
         <strong>{message}</strong>
+        <small>{detail}</small>
       </div>
       <span className="hvm-op-compact-zero-count" aria-hidden="true">0</span>
       <span className="hvm-op-compact-zero-arrow" aria-hidden="true">→</span>
     </button>
+  )
+}
+
+function loadedDate(value: string | null | undefined) {
+  if (!value) return null
+  const match = value.match(/^\d{4}-\d{2}-\d{2}/)
+  return match?.[0] ?? null
+}
+
+export function CommandDataNotice({
+  state,
+  loadedAt,
+  onRetry,
+}: {
+  state: CommandCentreDataState
+  loadedAt?: string | null
+  onRetry: () => void
+}) {
+  if (state === 'live') return null
+
+  const copy: Record<Exclude<CommandCentreDataState, 'live'>, { title: string; detail: string }> = {
+    partial: {
+      title: 'Some Command data is degraded',
+      detail: 'Verified records that loaded are still shown. Check the affected destination before making a decision.',
+    },
+    fallback: {
+      title: 'Showing controlled fallback data',
+      detail: 'A live source is unavailable. Treat counts as provisional until the source is available again.',
+    },
+    empty: {
+      title: 'No records match this context yet',
+      detail: 'The Command surface is available, but the selected jurisdiction and role have no loaded records.',
+    },
+    stale: {
+      title: 'Some Command data may be stale',
+      detail: 'Review timestamps and evidence before treating a change as current.',
+    },
+    error: {
+      title: 'Command data is temporarily unavailable',
+      detail: 'Retry the request. Existing submitted information is not changed by a refresh.',
+    },
+  }
+  const message = copy[state]
+  const date = loadedDate(loadedAt)
+
+  return (
+    <aside
+      className={`hvm-op-data-notice hvm-op-data-notice-${state}`}
+      data-command-data-state={state}
+      role={state === 'error' ? 'alert' : 'status'}
+      aria-live={state === 'error' ? 'assertive' : 'polite'}
+    >
+      <div>
+        <strong>{message.title}</strong>
+        <span>{message.detail}{date ? ` Last loaded ${date}.` : ''}</span>
+      </div>
+      {state === 'error' ? <button type="button" onClick={onRetry}>Retry</button> : null}
+    </aside>
   )
 }
 
@@ -55,10 +125,15 @@ export default function CommandOverviewOperator({
   attentionItems,
   signals,
   opportunities,
+  marketRecordCount,
   operatingPicture,
+  commandDataState,
+  hasOrg,
+  organizationHref,
   onOpenActions,
   onOpenIntel,
   onOpenOpportunities,
+  onOpenOpportunity,
   onOpenContext,
 }: {
   sectionRef: SectionRef
@@ -67,10 +142,15 @@ export default function CommandOverviewOperator({
   attentionItems: NextAction[]
   signals: MobileCommandCentreProps['signals']
   opportunities: NormalizedListing[]
+  marketRecordCount: number
   operatingPicture?: string | null
+  commandDataState: CommandCentreDataState
+  hasOrg: boolean
+  organizationHref: string
   onOpenActions: () => void
   onOpenIntel: () => void
   onOpenOpportunities: () => void
+  onOpenOpportunity: (row: NormalizedListing) => void
   onOpenContext: () => void
 }) {
   const signalRows = [...(signals ?? [])]
@@ -89,16 +169,26 @@ export default function CommandOverviewOperator({
     <section id="overview" ref={sectionRef} className="hvm-op-command" aria-labelledby="hvm-op-command-heading">
       <h2 id="hvm-op-command-heading" className="hvm-op-sr-only">Command operating view</h2>
 
+      {!hasOrg && commandDataState === 'live' ? (
+        <aside className="hvm-op-data-notice hvm-op-data-notice-permission" data-command-data-state="permission" role="status" aria-live="polite">
+          <div>
+            <strong>Organization access is not connected</strong>
+            <span>Private submissions, evidence and reviewed introductions stay unavailable until an organization profile is connected.</span>
+          </div>
+          <a href={organizationHref}>Connect</a>
+        </aside>
+      ) : null}
+
       <div className="hvm-op-pulse" aria-label={`Operating state for ${countryLabel}, ${roleLabel}`}>
-        <button type="button" onClick={onOpenActions}>
+        <button type="button" data-command-action="open-actions" aria-label={`Open ${attentionItems.length} items requiring attention`} onClick={onOpenActions}>
           <span>Attention</span>
           <strong>{attentionItems.length}</strong>
         </button>
-        <button type="button" onClick={onOpenIntel}>
+        <button type="button" data-command-action="open-intel" aria-label={`Open ${signals?.length ?? 0} recent intelligence records`} onClick={onOpenIntel}>
           <span>Recent intelligence</span>
           <strong>{signals?.length ?? 0}</strong>
         </button>
-        <button type="button" onClick={onOpenOpportunities}>
+        <button type="button" data-command-action="open-opportunities" aria-label={`Open ${opportunities.length} commercial opportunities`} onClick={onOpenOpportunities}>
           <span>Opportunities</span>
           <strong>{opportunities.length}</strong>
         </button>
@@ -110,7 +200,7 @@ export default function CommandOverviewOperator({
             <span className="hvm-op-eyebrow">Priority</span>
             <h3 id="hvm-op-attention-heading">Requires attention</h3>
           </div>
-          <button type="button" onClick={onOpenActions}>View all</button>
+          <button type="button" data-command-action="view-all-actions" onClick={onOpenActions}>View all</button>
         </div>
 
         {attentionRows.length > 0 ? (
@@ -141,11 +231,11 @@ export default function CommandOverviewOperator({
               <span className="hvm-op-eyebrow">Contextual changes</span>
               <h3 id="hvm-op-changes-heading">Recent intelligence</h3>
             </div>
-            <button type="button" onClick={onOpenIntel}>View all</button>
+            <button type="button" data-command-action="view-all-intel" onClick={onOpenIntel}>View all</button>
           </div>
           <div className="hvm-op-row-list">
             {signalRows.map((signal, index) => (
-              <button key={readString(signal, ['id'], `signal-${index}`)} type="button" className="hvm-op-row" onClick={onOpenIntel}>
+              <button key={readString(signal, ['id'], `signal-${index}`)} type="button" className="hvm-op-row" aria-label={`Open intelligence feed: ${signalTitle(signal)}`} onClick={onOpenIntel}>
                 <div>
                   <span className="hvm-op-meta">{signalMeta(signal, countryLabel)}</span>
                   <strong>{signalTitle(signal)}</strong>
@@ -160,6 +250,8 @@ export default function CommandOverviewOperator({
         <CompactZeroState
           label="Recent intelligence"
           message="No material updates in this context"
+          detail="No reviewed signal record is loaded for this jurisdiction and role."
+          state="empty"
           onOpen={onOpenIntel}
         />
       )}
@@ -171,11 +263,11 @@ export default function CommandOverviewOperator({
               <span className="hvm-op-eyebrow">Commercial</span>
               <h3 id="hvm-op-opportunity-heading">Commercial opportunity</h3>
             </div>
-            <button type="button" onClick={onOpenOpportunities}>View all</button>
+            <button type="button" data-command-action="view-all-opportunities" onClick={onOpenOpportunities}>View all</button>
           </div>
           <div className="hvm-op-row-list">
             {opportunityRows.map(row => (
-              <button key={`${row.view}-${row.id}`} type="button" className="hvm-op-row hvm-op-opportunity-row" onClick={onOpenOpportunities}>
+              <button key={`${row.view}-${row.id}`} type="button" className="hvm-op-row hvm-op-opportunity-row" aria-label={`Request a reviewed introduction for ${row.title}`} onClick={() => onOpenOpportunity(row)}>
                 <div>
                   <span className="hvm-op-meta">{[row.jurisdiction, row.category].filter(Boolean).join(' · ')}</span>
                   <strong>{row.title}</strong>
@@ -190,7 +282,9 @@ export default function CommandOverviewOperator({
         <CompactZeroState
           className="hvm-op-commercial-group"
           label="Commercial opportunities"
-          message="No matching opportunities currently"
+          message={marketRecordCount > 0 ? 'No matching opportunities currently' : 'No opportunities are available yet'}
+          detail={marketRecordCount > 0 ? `No opportunity record matches the ${countryLabel} context.` : 'The opportunities feed is empty for this context.'}
+          state={marketRecordCount > 0 ? 'no-match' : 'empty'}
           onOpen={onOpenOpportunities}
         />
       )}

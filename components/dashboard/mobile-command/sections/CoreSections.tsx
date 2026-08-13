@@ -60,6 +60,10 @@ export function LiveStatusSection({
   confidence,
   reviewStatus,
   sourceCoverageCount,
+  onOpenMarketplace,
+  onOpenWanted,
+  onOpenIntel,
+  onOpenEvidence,
 }: {
   sectionRef: SectionRef
   marketplaceCount: number
@@ -68,14 +72,18 @@ export function LiveStatusSection({
   confidence: number | null
   reviewStatus: string
   sourceCoverageCount: number
+  onOpenMarketplace?: () => void
+  onOpenWanted?: () => void
+  onOpenIntel?: () => void
+  onOpenEvidence?: () => void
 }) {
   return (
     <SectionShell id="live-status" sectionRef={sectionRef} eyebrow="Metrics / live status" title="Current operating state" description="A compact read on opportunity, demand, evidence and intelligence in the selected jurisdiction-role context.">
       <div className="hvm2-metric-grid">
-        <Metric label="Marketplace records" value={marketplaceCount} detail="Across all active categories" tone="gold" />
-        <Metric label="Wanted demand" value={wantedCount} detail="Approved demand records" />
-        <Metric label="Live intelligence" value={signalCount} detail="Signals in current feed" tone="ok" />
-        <Metric label="Evidence confidence" value={confidence == null ? '—' : `${confidence}%`} detail={`${reviewStatus} · ${sourceCoverageCount} source lanes`} tone={confidence != null && confidence >= 75 ? 'ok' : 'neutral'} />
+        <Metric label="Marketplace records" value={marketplaceCount} detail="Across all active categories" tone="gold" onOpen={onOpenMarketplace} actionLabel="Open Market records" />
+        <Metric label="Wanted demand" value={wantedCount} detail="Approved demand records" onOpen={onOpenWanted} actionLabel="Open wanted demand" />
+        <Metric label="Live intelligence" value={signalCount} detail="Signals in current feed" tone="ok" onOpen={onOpenIntel} actionLabel="Open Intel signals" />
+        <Metric label="Evidence confidence" value={confidence == null ? '—' : `${confidence}%`} detail={`${reviewStatus} · ${sourceCoverageCount} source lanes`} tone={confidence != null && confidence >= 75 ? 'ok' : 'neutral'} onOpen={onOpenEvidence} actionLabel="Open evidence and review gates" />
       </div>
     </SectionShell>
   )

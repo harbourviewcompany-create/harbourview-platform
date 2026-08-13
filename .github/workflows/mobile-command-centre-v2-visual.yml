@@ -11,6 +11,7 @@ on:
       - lib/supabase/env.ts
       - lib/platform/commandCentreRegistry.ts
       - lib/dashboard/commandCentreDataTypes.ts
+      - lib/dashboard/commandVisualFixtures.ts
       - lib/dashboard/loadCommandCentreData.ts
       - lib/dashboard/buildDashboardCommandSources.ts
       - lib/dashboard/marketplaceMediaProjection.ts
@@ -25,7 +26,9 @@ on:
       - components/dashboard/DashboardResponsiveShell.tsx
       - components/dashboard/mobile-command/**
       - components/marketplace/DynamicMarketplaceIntakeForm.tsx
+      - app/api/marketplace/submit/route.ts
       - tests/dashboard/mobileCommandCentreV2.test.ts
+      - tests/dashboard/commandVisualFixtures.test.ts
       - tests/dashboard/dashboardResponsiveShell.behavior.test.ts
       - tests/dashboard/loadCommandCentreData.test.ts
       - tests/dashboard/commandCentreHealth.test.ts
@@ -94,6 +97,7 @@ jobs:
         run: >-
           npx vitest run
           tests/dashboard/mobileCommandCentreV2.test.ts
+          tests/dashboard/commandVisualFixtures.test.ts
           tests/dashboard/dashboardResponsiveShell.behavior.test.ts
           tests/dashboard/loadCommandCentreData.test.ts
           tests/dashboard/commandCentreHealth.test.ts
@@ -242,12 +246,19 @@ jobs:
             id uuid primary key default gen_random_uuid(),
             title_public_draft text,
             marketplace_category text,
+            candidate_type text,
             listing_type text,
             status text,
             created_at timestamptz not null default now(),
             country text,
+            description_internal text,
+            price_raw text,
+            seller_type text,
+            raw_payload jsonb not null default '{}'::jsonb,
+            discovered_at timestamptz,
             submitted_by uuid,
-            submission_source text
+            submission_source text,
+            submission_images text[] not null default '{}'
           );
 
           create table if not exists public.marketplace_public_listings_v1 (
@@ -398,6 +409,11 @@ jobs:
 
           if (error) throw error
           if (!data.user) throw new Error('Isolated mobile command test user was not created')
+          const { error: membershipError } = await client
+            .schema('api')
+            .from('workspace_members')
+            .insert({ user_id: data.user.id, status: 'active' })
+          if (membershipError) throw membershipError
           console.log(`Created isolated visual user ${data.user.id}`)
           NODE
 

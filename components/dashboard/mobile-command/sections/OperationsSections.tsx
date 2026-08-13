@@ -160,14 +160,14 @@ export function DirectoriesSection({ sectionRef, records, commandHref }: { secti
   )
 }
 
-export function TalentSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: TalentRecord[]; commandHref: CommandHref }) {
+export function TalentSection({ sectionRef, records, countryLabel, commandHref }: { sectionRef: SectionRef; records: TalentRecord[]; countryLabel: string; commandHref: CommandHref }) {
   return (
     <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description={MOBILE_COMMAND_COPY.talentDescription} action={<Link className="hvm2-text-link" href={commandHref('talent')}>Jobs command</Link>}>
       {records.length > 0 ? (
         <div className="hvm2-horizontal-deck">
           {records.map(job => <article className="hvm2-directory-card" key={job.id}><span>{JOB_SECTOR_LABELS[job.sector]} · {job.country}</span><h3>{job.title}</h3><p>{job.company} · {job.city}{job.remote ? ' · Remote' : ''}</p><div className="hvm2-card-meta"><span>{JOB_TYPE_LABELS[job.type]}</span>{job.salary && <span>{job.salary}</span>}</div></article>)}
         </div>
-      ) : <EmptyState title="No talent opportunities loaded" detail={MOBILE_COMMAND_COPY.talentEmptyDetail} />}
+      ) : <EmptyState title={`No talent opportunities match ${countryLabel}`} detail={MOBILE_COMMAND_COPY.talentEmptyDetail} />}
     </SectionShell>
   )
 }

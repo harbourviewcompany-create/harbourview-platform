@@ -2,6 +2,10 @@ import { expect, test, type Browser, type BrowserContextOptions, type Locator, t
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
+import {
+  COMMAND_VISUAL_FIXTURE_IDS,
+  type CommandVisualFixtureId,
+} from '@/lib/dashboard/commandVisualFixtures'
 import { SECTION_GROUPS, SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
 
 /**
@@ -133,6 +137,22 @@ const REQUIRED_EVIDENCE_VIEWPORTS = [
   { width: 430, height: 932 },
 ] as const
 
+const COMMAND_STATE_FIXTURES: Array<{
+  id: CommandVisualFixtureId
+  expectedRootState: 'live' | 'empty' | 'stale' | 'error'
+}> = [
+  { id: 'loaded', expectedRootState: 'live' },
+  { id: 'empty', expectedRootState: 'empty' },
+  { id: 'no-match', expectedRootState: 'live' },
+  { id: 'stale', expectedRootState: 'stale' },
+  { id: 'permission', expectedRootState: 'live' },
+  { id: 'error', expectedRootState: 'error' },
+]
+
+if (COMMAND_STATE_FIXTURES.map(fixture => fixture.id).join(',') !== COMMAND_VISUAL_FIXTURE_IDS.join(',')) {
+  throw new Error('Command visual fixture evidence must cover every registered fixture')
+}
+
 function sharedContextOptions(): BrowserContextOptions {
   if (!BASE_URL) throw new Error('HARBOURVIEW_PUBLIC_BASE_URL or PLAYWRIGHT_BASE_URL is required')
   return {
@@ -175,6 +195,27 @@ async function gotoCommand(page: Page) {
   })
   expect(response?.status()).toBeLessThan(400)
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+  await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible()
+  await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+}
+
+function commandFixtureHref(fixture: CommandVisualFixtureId) {
+  const params = new URLSearchParams({
+    country: 'CA',
+    role: 'exporter',
+    section: 'overview',
+    page: 'briefing',
+    command_visual_fixture: fixture,
+  })
+  return `/dashboard?${params.toString()}`
+}
+
+async function gotoCommandFixture(page: Page, fixture: CommandVisualFixtureId) {
+  const response = await page.goto(commandFixtureHref(fixture), {
+    waitUntil: 'domcontentloaded',
+    timeout: 60_000,
+  })
+  expect(response?.status()).toBeLessThan(400)
   await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible()
   await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
 }
@@ -339,6 +380,99 @@ test.describe('Mobile Command operator-first verification', () => {
         await assertFourModeNavigation(page)
         await assertOperatorFirstCommand(page, viewport.height)
         await page.screenshot({ path: path.join(evidenceRoot, viewport.file), fullPage: false })
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('captures every isolated Command data state at 375x812, 390x844 and 430x932', async ({ browser }) => {
+    test.setTimeout(900_000)
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+
+    for (const viewport of REQUIRED_EVIDENCE_VIEWPORTS) {
+      const context = await browser.newContext({
+        ...sharedContextOptions(),
+        viewport,
+        storageState,
+        isMobile: true,
+        hasTouch: true,
+      })
+
+      try {
+        const page = await context.newPage()
+        for (const fixture of COMMAND_STATE_FIXTURES) {
+          await gotoCommandFixture(page, fixture.id)
+          const root = page.locator('[data-mobile-command-version="2"]')
+          await expect(root).toHaveAttribute('data-command-data-state', fixture.expectedRootState)
+          await assertFourModeNavigation(page)
+          await assertSingleRowHorizontalRail(page.locator('.hvm-op-secondary-nav'), `Command ${fixture.id} rail ${viewport.width}x${viewport.height}`)
+
+          if (fixture.id === 'empty') {
+            await expect(page.locator('[data-command-data-state="empty"][role="status"]')).toBeVisible()
+            await expect(page.locator('[data-command-zero-state="empty"]')).toHaveCount(2)
+          }
+          if (fixture.id === 'no-match') {
+            await expect(page.locator('[data-command-zero-state="no-match"]')).toBeVisible()
+          }
+          if (fixture.id === 'stale') {
+            await expect(page.locator('[data-command-data-state="stale"][role="status"]')).toBeVisible()
+            await expect(page.getByText(/Last loaded \d{4}-\d{2}-\d{2}/)).toBeVisible()
+          }
+          if (fixture.id === 'permission') {
+            await expect(page.locator('[data-command-data-state="permission"][role="status"]')).toBeVisible()
+            await expect(page.getByText('Organization access is not connected', { exact: true })).toBeVisible()
+          }
+          if (fixture.id === 'error') {
+            const errorNotice = page.locator('[data-command-data-state="error"][role="alert"]')
+            await expect(errorNotice).toBeVisible()
+            await errorNotice.getByRole('button', { name: 'Retry', exact: true }).click()
+            await expect(errorNotice).toBeVisible()
+          }
+
+          await page.screenshot({
+            path: path.join(evidenceRoot, `${viewport.width}x${viewport.height}-command-${fixture.id}.png`),
+            fullPage: false,
+          })
+        }
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('captures isolated authenticated marketplace submission success at 375x812, 390x844 and 430x932', async ({ browser }) => {
+    test.setTimeout(900_000)
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+
+    for (const viewport of REQUIRED_EVIDENCE_VIEWPORTS) {
+      const context = await browser.newContext({
+        ...sharedContextOptions(),
+        viewport,
+        storageState,
+        isMobile: true,
+        hasTouch: true,
+      })
+
+      try {
+        const page = await context.newPage()
+        await gotoCommandFixture(page, 'loaded')
+        await page.locator('.hvm-op-bottom-nav').getByText('Market', { exact: true }).click()
+        await expect(page.locator('#marketplace')).toBeVisible({ timeout: 20_000 })
+        await page.getByRole('link', { name: /Post wanted demand/ }).click()
+        const workspace = page.locator('[data-mobile-command-tool="wanted-intake"]')
+        await expect(workspace).toBeVisible()
+        await workspace.locator('input[name="title"]').fill(`Isolated visual wanted demand ${viewport.width}x${viewport.height}`)
+        await workspace.locator('textarea[name="message"]').fill('Isolated workflow evidence for the Command mobile success-state contract.')
+        await workspace.locator('select[name="authority_to_submit"]').selectOption({ label: 'Buyer request' })
+        await workspace.getByRole('button', { name: 'Submit for Harbourview review', exact: true }).click()
+        await expect(workspace.getByRole('heading', { name: 'Submission received', exact: true })).toBeVisible({ timeout: 20_000 })
+        await page.screenshot({
+          path: path.join(evidenceRoot, `${viewport.width}x${viewport.height}-command-success.png`),
+          fullPage: false,
+        })
       } finally {
         await context.close()
       }

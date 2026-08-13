@@ -8,7 +8,7 @@ import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
 import { buildCommandSearchIndex } from './mobile-command/intelSearch'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
-import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
+import CommandOverviewOperator, { CommandDataNotice } from './mobile-command/CommandOverviewOperator'
 import {
   ClinicalSection,
   ComplianceSection,
@@ -145,14 +145,19 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
         attentionItems={attentionItems}
         signals={model.signals}
         opportunities={opportunityRows}
+        marketRecordCount={model.marketRows.length}
         operatingPicture={props.countryIntel?.public_summary}
+        commandDataState={model.commandDataState}
+        hasOrg={Boolean(props.hasOrg)}
+        organizationHref={model.commandHref('overview', { page: 'organization' })}
         onOpenActions={() => model.navigateToSection('next-actions')}
         onOpenIntel={() => model.navigateToSection('weekly-signals')}
         onOpenOpportunities={() => model.selectMarketView('opportunities')}
+        onOpenOpportunity={row => model.openTool('introduction', { listing: row })}
         onOpenContext={() => model.navigateToSection('jurisdiction')}
       />
     ),
-    'live-status': <LiveStatusSection sectionRef={model.sectionRef('live-status')} marketplaceCount={model.marketRows.length} wantedCount={props.wantedCount ?? 0} signalCount={model.signals.length} confidence={model.confidence} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} />,
+    'live-status': <LiveStatusSection sectionRef={model.sectionRef('live-status')} marketplaceCount={model.marketRows.length} wantedCount={props.wantedCount ?? 0} signalCount={model.signals.length} confidence={model.confidence} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} onOpenMarketplace={() => model.selectMarketView('cannabis')} onOpenWanted={() => model.selectMarketView('wanted')} onOpenIntel={() => model.navigateToSection('weekly-signals')} onOpenEvidence={() => model.navigateToSection('review-gates')} />,
     'market-intelligence': <MarketIntelligenceSection sectionRef={model.sectionRef('market-intelligence')} marketMetrics={props.marketMetrics ?? []} tradeFlows={props.tradeFlows ?? []} />,
     marketplace: <MarketplaceSection sectionRef={model.sectionRef('marketplace')} activeMarketView={model.activeMarketView} marketQuery={model.marketQuery} marketRows={model.marketRows} filteredRows={model.filteredMarketRows} activeTool={model.activeTool} selectedListing={model.selectedListing} onMarketViewChange={model.selectMarketView} onMarketQueryChange={model.setMarketQuery} onOpenTool={model.openTool} onCloseTool={model.closeTool} onViewSubmissions={model.viewSubmissions} commandHref={model.commandHref} />,
     supply: <SupplySection sectionRef={model.sectionRef('supply')} supplyRows={model.supplyRows} onOpenTool={model.openTool} />,
@@ -165,7 +170,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     'market-status': <MarketStatusSection sectionRef={model.sectionRef('market-status')} wanted={props.wantedCount ?? model.pipeline.wanted} inquiry={model.pipeline.inquiry} proofReview={model.pipeline.proof_review} matched={model.pipeline.matched} dealRoom={model.pipeline.deal_room} submissions={model.submissions} />,
     'review-gates': <ReviewGatesSection sectionRef={model.sectionRef('review-gates')} reviewStatus={model.reviewStatus} approved={props.countryIntel?.review_status === 'approved'} sourceCoverageCount={model.sourceCoverageCount} proofReview={model.pipeline.proof_review} submissionCount={model.submissions.length} evidenceDocuments={model.evidenceDocuments} />,
     directories: <DirectoriesSection sectionRef={model.sectionRef('directories')} records={model.directoryRecords} commandHref={model.commandHref} />,
-    talent: <TalentSection sectionRef={model.sectionRef('talent')} records={model.talentRecords} commandHref={model.commandHref} />,
+    talent: <TalentSection sectionRef={model.sectionRef('talent')} records={model.talentRecords} countryLabel={model.countryLabel} commandHref={model.commandHref} />,
     genetics: <GeneticsSection sectionRef={model.sectionRef('genetics')} records={model.geneticsRecords} commandHref={model.commandHref} />,
     clinical: <ClinicalSection sectionRef={model.sectionRef('clinical')} roleShort={model.roleShort} programStatus={props.countryIntel?.briefing_program_status} medicalStatus={props.countryIntel?.medical_status} patientAccess={props.countryIntel?.briefing_patient_access} physicianAccess={props.countryIntel?.briefing_physician_access} commandHref={model.commandHref} />,
     compliance: <ComplianceSection sectionRef={model.sectionRef('compliance')} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} playbookSourcing={readString(props.jurisdictionPlaybook, ['confidence_label', 'status'], '')} marketAccessStatus={props.countryIntel?.market_access_status} pathway={props.countryIntel?.commercial_pathway_summary} commandHref={model.commandHref} />,
@@ -176,7 +181,7 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
   }
 
   return (
-    <div className="hvm2-root" data-mobile-command-version="2" data-active-destination={model.activeGroup}>
+    <div className="hvm2-root" data-mobile-command-version="2" data-active-destination={model.activeGroup} data-command-data-state={model.commandDataState} data-command-loaded-at={model.commandLoadedAt ?? undefined}>
       <header className="hvm-op-header">
         <div className="hvm-op-header-top">
           <div className="hvm-op-brand">
@@ -199,6 +204,8 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
           <span aria-hidden="true">⌄</span>
         </button>
       </header>
+
+      <CommandDataNotice state={model.commandDataState} loadedAt={model.commandLoadedAt} onRetry={model.refreshCommand} />
 
       {showSecondaryNav && (
         <nav ref={secondaryNavRef} className="hvm-op-secondary-nav" aria-label={secondaryNavLabel}>
@@ -237,6 +244,8 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
               key={item.id}
               type="button"
               className={isActive ? 'active' : ''}
+              data-command-destination={item.id}
+              aria-label={`Open ${item.label}`}
               aria-current={isActive ? 'page' : undefined}
               onClick={() => model.navigateToSection(item.id)}
             >

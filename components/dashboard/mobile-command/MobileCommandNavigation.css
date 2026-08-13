@@ -1,5 +1,27 @@
 .hvm2-bottom-nav.hvm-op-bottom-nav {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  position: fixed !important;
+  z-index: 30;
+  right: 10px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  left: 10px;
+  width: auto;
+  margin: 0;
+}
+
+.hvm2-main.hvm-op-main {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+  scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+
+/* `/dashboard` wraps the mobile shell in CommandCentreDataBoundary. The shell
+ * renders the richer mobile notice with Retry and last-loaded context, so hide
+ * only the duplicate wrapper notice on narrow screens. */
+@media (max-width: 767px) {
+  [data-command-centre-state] > aside[role='status'],
+  [data-command-centre-state] > aside[role='alert'] {
+    display: none;
+  }
 }
 
 .hvm2-bottom-nav.hvm-op-bottom-nav button {

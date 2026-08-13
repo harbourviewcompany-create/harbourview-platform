@@ -34,6 +34,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.hvm-op-compact-zero small {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--hvm2-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .hvm-op-compact-zero-count {
   min-width: 20px;
   color: var(--hvm2-muted);
@@ -43,6 +53,42 @@
 }
 .hvm-op-compact-zero-arrow { color: var(--hvm2-faint); font-size: 18px; }
 .hvm-op-compact-zero:focus-visible { outline: 2px solid var(--hvm2-gold-light); outline-offset: 2px; }
+
+.hvm-op-data-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.hvm-op-data-notice > div { min-width: 0; }
+.hvm-op-data-notice strong,
+.hvm-op-data-notice span { display: block; }
+.hvm-op-data-notice strong { color: var(--hvm2-text); font-size: 12px; line-height: 1.35; }
+.hvm-op-data-notice span { margin-top: 3px; color: var(--hvm2-muted); font-size: 10px; line-height: 1.45; }
+.hvm-op-data-notice button,
+.hvm-op-data-notice a {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid rgba(226, 198, 121, 0.38);
+  border-radius: 10px;
+  background: rgba(198, 165, 90, 0.1);
+  color: var(--hvm2-gold-light);
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.hvm-op-data-notice-error { border-color: rgba(224, 85, 85, 0.4); background: rgba(224, 85, 85, 0.08); }
+.hvm-op-data-notice-stale { border-color: rgba(228, 180, 88, 0.4); background: rgba(228, 180, 88, 0.08); }
+.hvm-op-data-notice-permission { border-color: rgba(226, 198, 121, 0.32); background: rgba(198, 165, 90, 0.07); }
 
 /*
  * Cascade-critical mobile Command remediation. The legacy OperatorFirst sheet is
@@ -82,6 +128,12 @@
   flex: 0 0 auto !important;
   min-height: 44px !important;
   padding: 0 10px !important;
+}
+
+.hvm2-root .hvm-op-data-notice button:focus-visible,
+.hvm2-root .hvm-op-data-notice a:focus-visible {
+  outline: 2px solid var(--hvm2-gold-light);
+  outline-offset: 2px;
 }
 
 @media (max-width: 359px) {

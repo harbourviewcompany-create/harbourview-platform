@@ -226,11 +226,16 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   })), [props.mySubmissions])
 
   const talentRecords = useMemo(() => {
+    // A role match is not a jurisdiction match. The previous fallback mixed
+    // Portugal/Germany jobs into a United States context because `importer` or
+    // `exporter` matched the role token even when the job's country did not.
+    // Command is a context surface, so an empty country result is safer and
+    // more honest than presenting a global catalogue as if it were local.
     const roleTokens = (currentRole ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean)
-    const contextual = JOB_LISTINGS.filter(job =>
-      job.country === countryIso2 || job.roles.some(jobRole => roleTokens.includes(jobRole.toLowerCase())),
+    return JOB_LISTINGS.filter(job =>
+      job.country === countryIso2
+      && (roleTokens.length === 0 || job.roles.some(jobRole => roleTokens.includes(jobRole.toLowerCase()))),
     )
-    return contextual.length > 0 ? contextual : JOB_LISTINGS
   }, [countryIso2, currentRole])
 
   const nextActions = useMemo<NextAction[]>(() => {
@@ -458,6 +463,10 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     window.requestAnimationFrame(() => sectionNodes.current.get('marketplace')?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' }))
   }, [searchQuery, selectMarketView])
 
+  const refreshCommand = useCallback(() => {
+    router.refresh()
+  }, [router])
+
   const activeGroup: PrimarySectionId = SECTION_TO_GROUP[highlightedSection] ?? 'overview'
   const groupSections = SECTION_GROUPS[activeGroup]
   const visibleSections: SectionId[] = [activeSection]
@@ -514,5 +523,8 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     nextActions,
     searchResults,
     selectListingResult,
+    commandDataState: props.commandDataState ?? 'live',
+    commandLoadedAt: props.commandLoadedAt ?? null,
+    refreshCommand,
   }
 }

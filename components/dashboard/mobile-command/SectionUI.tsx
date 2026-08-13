@@ -37,19 +37,37 @@ export function SectionShell({
   )
 }
 
-export function Metric({ label, value, detail, tone = 'neutral' }: {
+export function Metric({ label, value, detail, tone = 'neutral', onOpen, actionLabel }: {
   label: string
   value: React.ReactNode
   detail: string
   tone?: Tone
+  onOpen?: () => void
+  actionLabel?: string
 }) {
-  return (
-    <article className={`hvm2-metric hvm2-tone-${tone}`}>
+  const content = (
+    <>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{detail}</small>
-    </article>
+      {onOpen ? <i aria-hidden="true">→</i> : null}
+    </>
   )
+
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className={`hvm2-metric hvm2-metric-action hvm2-tone-${tone}`}
+        onClick={onOpen}
+        aria-label={actionLabel ?? `${label}: ${String(value)}`}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <article className={`hvm2-metric hvm2-tone-${tone}`}>{content}</article>
 }
 
 export function StatusPill({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: Tone }) {

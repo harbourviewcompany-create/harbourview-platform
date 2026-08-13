@@ -6,7 +6,7 @@ import { APPROPRIATENESS_CLAIMS, CLINICAL_DISCLAIMER } from '@/lib/clinical/type
 
 export const dynamic = 'force-dynamic'
 
-export const RECOMMENDATION_EVIDENCE_VERSION = '2026.08.clinical.1'
+const RECOMMENDATION_EVIDENCE_VERSION = '2026.08.clinical.1'
 
 const BodySchema = z.object({
   patient_id: z.string().uuid(),

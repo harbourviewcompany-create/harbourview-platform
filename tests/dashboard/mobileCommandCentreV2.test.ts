@@ -347,3 +347,72 @@ describe('Mobile Command Centre data contracts', () => {
     expect(defaultListingTypeForView('equipment')).toBe('Used / Surplus Equipment')
   })
 })
+
+describe('Mobile Command P0 actionability states', () => {
+  it('labels Command zero states as empty versus no-match and gives every preview an explicit action name', () => {
+    const document = renderMobileCommand({
+      signals: [] as unknown as MobileCommandCentreProps['signals'],
+      marketplaceRows: {
+        cannabis: [supplyListing],
+        opportunities: [],
+      },
+    })
+
+    expect(document.querySelector('[data-command-zero-state="empty"]')).not.toBeNull()
+    expect(document.querySelector('[data-command-zero-state="no-match"]')).not.toBeNull()
+    expect(document.querySelector('[data-command-action="view-all-actions"]')).not.toBeNull()
+    expect(document.querySelector('[data-command-action="view-all-intel"]')).toBeNull()
+    expect(document.querySelector('[data-command-action="view-all-opportunities"]')).toBeNull()
+    expect(document.querySelector('.hvm-op-compact-zero')?.getAttribute('aria-label')).toContain('No reviewed signal record')
+  })
+
+  it('renders degraded source states with a retry affordance and preserves permission messaging separately', () => {
+    const errorDocument = renderMobileCommand({
+      commandDataState: 'error',
+      commandLoadedAt: '2026-08-13T12:00:00.000Z',
+    })
+    expect(errorDocument.querySelector('.hvm-op-data-notice[data-command-data-state="error"]')).not.toBeNull()
+    expect(errorDocument.querySelector('.hvm-op-data-notice[data-command-data-state="error"]')?.getAttribute('role')).toBe('alert')
+    expect(errorDocument.querySelector('.hvm-op-data-notice[data-command-data-state="error"] button')?.textContent).toBe('Retry')
+    expect(errorDocument.body.textContent).toContain('Last loaded 2026-08-13.')
+
+    const permissionDocument = renderMobileCommand({ hasOrg: false })
+    expect(permissionDocument.querySelector('[data-command-data-state="permission"]')).not.toBeNull()
+    expect(permissionDocument.body.textContent).toContain('Organization access is not connected')
+  })
+
+  it('makes Operating state metrics actionable and scopes Talent to the selected country-role context', () => {
+    navigation.search.value = 'country=CA&role=exporter&section=live-status'
+    const liveStatus = renderMobileCommand({ initialPage: 'briefing' })
+    expect(liveStatus.querySelectorAll('.hvm2-metric-action')).toHaveLength(4)
+    expect(liveStatus.querySelector('.hvm2-metric-action')?.getAttribute('aria-label')).toBe('Open Market records')
+
+    navigation.search.value = 'country=US&role=importer&section=talent'
+    const talent = renderMobileCommand({ initialCountryIso2: 'US', initialRoleId: 'importer', initialPage: 'talent' })
+    const talentSection = talent.querySelector('#talent')
+    expect(talentSection?.textContent).toContain('No talent opportunities match United States')
+    expect(talentSection?.textContent).not.toContain('Portugal')
+    expect(talentSection?.textContent).not.toContain('Germany')
+  })
+
+  it('passes the mobile semantic accessibility smoke checks', () => {
+    const document = renderMobileCommand({
+      commandDataState: 'stale',
+      commandLoadedAt: '2026-08-13T12:00:00.000Z',
+    })
+    const interactive = [...document.querySelectorAll('button, a')]
+    const unnamed = interactive.filter(element => {
+      const label = element.getAttribute('aria-label')?.trim() || element.textContent?.replace(/\s+/g, ' ').trim()
+      return !label
+    })
+    const ids = [...document.querySelectorAll('[id]')].map(element => element.id)
+
+    expect(unnamed).toHaveLength(0)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(document.querySelector('.hvm-op-context-trigger')?.getAttribute('aria-haspopup')).toBe('dialog')
+    expect(document.querySelector('.hvm-op-context-trigger')?.getAttribute('aria-expanded')).toBe('false')
+    expect(document.querySelector('.hvm-op-data-notice[data-command-data-state="stale"]')?.getAttribute('role')).toBe('status')
+    expect(document.querySelectorAll('.hvm-op-bottom-nav button')).toHaveLength(4)
+    expect(document.querySelectorAll('.hvm-op-bottom-nav button[aria-current="page"]')).toHaveLength(1)
+  })
+})
