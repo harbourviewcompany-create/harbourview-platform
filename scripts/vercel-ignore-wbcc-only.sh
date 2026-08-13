@@ -80,9 +80,48 @@ if [[ -z "$branch" ]]; then
   exit 0
 fi
 
-if [[ "$branch" == "main" && ( "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ) ]]; then
-  echo "Vercel ignore: main commit message requests skip ('$commit_message'); skip build."
+# Previously only checked on `main`. Broadened to any branch: this is an
+# explicit, opt-in per-commit marker (not a blanket branch skip), so it
+# doesn't touch the "must not block ordinary preview branches" policy above
+# - it just lets a docs/config-only commit on any branch opt out the same
+# way a docs/config-only commit on main already could. Production is still
+# unconditionally protected by the vercel_env check earlier in this script,
+# regardless of commit message.
+if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
+  echo "Vercel ignore: commit message requests skip ('$commit_message') on branch '$branch'; skip build."
   exit 0
+fi
+
+# Preview builds only (production already returned above): skip when the commit
+# cannot change build output.
+#
+# On 2026-08-12 the account hit the Vercel free-plan cap
+# ("api-deployments-free-per-day", >100/day). Every push on every branch built a
+# preview, and with the repository carrying 350+ branches under heavy agent
+# churn the budget was exhausted — which then blocks *production* deploys too,
+# the failure mode this project can least afford.
+#
+# Only paths that provably cannot affect `next build` are skipped. Verified
+# before adding: the project has no MDX pipeline, no markdown imports, and no
+# build-time markdown reads, so docs and *.md are inert. Anything unrecognised,
+# an unreadable diff, or a missing parent commit all fall through to building —
+# the default is always to build.
+if changed_files="$(git diff --name-only HEAD^ HEAD 2>/dev/null)" && [[ -n "$changed_files" ]]; then
+  only_inert_paths=1
+  while IFS= read -r changed_file; do
+    [[ -z "$changed_file" ]] && continue
+    case "$changed_file" in
+      docs/*|*.md|.github/*|.claude/*|.vscode/*|LICENSE|CODEOWNERS) ;;
+      *) only_inert_paths=0; break ;;
+    esac
+  done <<< "$changed_files"
+
+  if [[ "$only_inert_paths" == "1" ]]; then
+    echo "Vercel ignore: preview build skipped; commit touches only build-inert paths."
+    echo "changed files:"
+    printf '  %s\n' $changed_files
+    exit 0
+  fi
 fi
 
 echo "Vercel ignore: build allowed for branch '$branch'."

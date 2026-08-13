@@ -15,9 +15,10 @@ export {
   PersonalBriefingSection,
   SearchSection,
   EducationSection,
-  RegulatoryWatchSection,
   LocalIntelSection,
 } from './sections/IntelligenceSections'
+
+export { RegulatoryWatchSection } from './sections/RegulatoryWatchWithCorpus'
 
 export {
   JurisdictionSection,

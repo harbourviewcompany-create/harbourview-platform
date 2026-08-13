@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 
 type DealRoom = {
   id: string
@@ -23,7 +22,7 @@ function statusCfg(status: string) {
   return STATUS_CONFIG[status] ?? { label: status, ok: false }
 }
 
-export function DealRoomsPanel() {
+export function DealRoomsPanel({ onOpenRoom }: { onOpenRoom?: (roomId?: string) => void } = {}) {
   const [rooms, setRooms] = useState<DealRoom[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -83,7 +82,7 @@ export function DealRoomsPanel() {
       <div className="cc-right-section">
         <div className="cc-right-head">DEAL ROOMS</div>
         <p className="cc-right-prose">No active deal rooms. Open a deal room from any marketplace listing to start a private negotiation.</p>
-        <Link href="/marketplace/deals" className="cc-right-link">Browse deal rooms →</Link>
+        <button type="button" className="cc-right-link" onClick={() => onOpenRoom?.()}>Browse deal rooms →</button>
       </div>
     )
   }
@@ -96,13 +95,13 @@ export function DealRoomsPanel() {
         const title = room.title.length > 40 ? room.title.slice(0, 40) + '…' : room.title
         const updated = new Date(room.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
         return (
-          <Link key={room.id} href={`/marketplace/deals/${room.id}`} className="cc-req-row" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <button key={room.id} type="button" onClick={() => onOpenRoom?.(room.id)} className="cc-req-row" style={{ textDecoration: 'none', color: 'inherit', background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
             <span className={`cc-req-icon ${cfg.ok ? 'ok' : 'pending'}`}>{cfg.ok ? '◎' : '○'}</span>
             <div>
               <strong>{title}</strong>
               <small>{cfg.label} · {updated}</small>
             </div>
-          </Link>
+          </button>
         )
       })}
       {rooms.length > 4 && (
@@ -110,7 +109,7 @@ export function DealRoomsPanel() {
           +{rooms.length - 4} more room{rooms.length - 4 > 1 ? 's' : ''}
         </p>
       )}
-      <Link href="/marketplace/deals" className="cc-right-link">View all deal rooms →</Link>
+      <button type="button" className="cc-right-link" onClick={() => onOpenRoom?.()}>View all deal rooms →</button>
     </div>
   )
 }

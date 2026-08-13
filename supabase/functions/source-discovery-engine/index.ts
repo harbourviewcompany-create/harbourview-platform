@@ -1,33 +1,40 @@
 /**
- * source-discovery-engine v1 (2026-08-11)
+ * source-discovery-engine v7 (2026-08-13) -- rate-limit pacing fix
  *
  * Fills the remaining depth gaps in source_registry: for every viable country
  * in source_expansion_coverage_queue, it needs up to 7 regulator_class
  * sources (health_authority, drug_control_authority, official_gazette,
  * legislature, customs_import_export, procurement, medicine_license_registry).
  * This function finds the next batch of missing (country, class) pairs,
- * asks Claude (with the web_search tool) to find the single best official
+ * asks a grounded search provider to find the single best official
  * government URL for each, independently re-verifies that URL is live with
  * its own fetch() call, and only then inserts it into source_registry.
  *
- * FAIL-CLOSED BY DESIGN: if no grounded search provider is configured/working
- * (ANTHROPIC_API_KEY missing or the API call errors), this function does NOT
- * fall back to an ungrounded text-completion guess at a government URL. It
- * logs the failure and returns. Inserting an unverified/hallucinated .gov
- * domain into a production intelligence pipeline is worse than not
- * automating this step at all -- see HANDOFF.md 2026-08-11 entry.
+ * FAIL-CLOSED BY DESIGN: this function never falls back to an ungrounded
+ * text-completion guess at a government URL. Every candidate, from every
+ * provider, gets its own live-fetch check from this function (not just the
+ * provider's say-so) before it's written.
  *
- * Every inserted row also gets an independent live-fetch check from this
- * function (not just the LLM's say-so) before it's written.
+ * Provider order: Anthropic (claude-haiku-4-5 + web_search tool) -> OpenAI
+ * (gpt-4o-mini-search-preview, native web search) -> Wikidata (free, no key,
+ * no billing -- public API, full-text search + wbgetentities). As of
+ * 2026-08-12 both paid keys are credit-exhausted (confirmed live), so
+ * Wikidata is the effective primary path; it's kept last in priority so the
+ * higher-quality paid paths are preferred automatically the moment either is
+ * funded, with zero code change needed.
  *
- * Scheduled via pg_cron (see migration/cron entry, 2026-08-11): small batches,
- * a few times a day, to keep provider spend and gov-site load low.
+ * ATTEMPT-TRACKING (added 2026-08-12, source_discovery_attempts table):
+ * without this, the pair-selection step re-picks the same permanently-
+ * failing (country, class) pairs every run forever, since a failure never
+ * removes a pair from the "missing" set. Confirmed live: 5 straight cron
+ * runs barely advanced past Afghanistan before this fix. Selection now
+ * sorts never-attempted pairs first, then oldest-attempted-first, so the
+ * engine provably advances through the full country list and only revisits
+ * old failures on a rotating basis (e.g. in case Wikidata coverage improves,
+ * or paid billing is restored).
  *
- * Known limitation as of 2026-08-11: ANTHROPIC_API_KEY in the vault is
- * billing-blocked per hv-classify's 2026-07-21 note. Until that's restored
- * (or a SEARCH_API_KEY / Tavily-style key is added as a fallback grounded
- * provider), this job will run, find zero usable candidates, and log that
- * plainly in source_discovery_jobs -- it will not silently do nothing.
+ * Scheduled via pg_cron: small batches, a few times a day, to keep gov-site
+ * load low and (for the paid paths, once funded) provider spend low.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -217,34 +224,124 @@ or
   };
 }
 
-// Provider-selecting wrapper: tries Anthropic first (best tool-use fit for
-// this task), falls back to OpenAI's grounded search-preview model if
-// Anthropic is unavailable/erroring. Returns which provider actually
-// produced the result (or the last error) so the caller can log it.
+// Provider-selecting wrapper. Order: Anthropic (best tool-use fit) -> OpenAI
+// (paid fallback) -> Wikidata (free, no-key fallback, tried whenever the paid
+// providers are absent/erroring -- not just when both keys are missing
+// entirely). This means the pipeline produces real, live-verified results
+// even when every paid key is at $0 balance, which is the actual state of
+// this project's vault as of 2026-08-12.
 async function findCandidate(
   country: string,
   cls: string,
 ): Promise<{ candidate?: Candidate; error?: string; provider?: string }> {
+  const attempts: string[] = [];
+
   if (ANTHROPIC_API_KEY) {
     const a = await findCandidateAnthropic(country, cls);
     if (a.candidate) return { ...a, provider: "anthropic" };
-    // Only fall through to OpenAI on billing/auth/availability failures,
-    // not on a confident "not found" from the model -- that's a real answer.
     if (a.error && a.error.startsWith("model_reported_not_found")) {
       return { ...a, provider: "anthropic" };
     }
-    if (OPENAI_API_KEY) {
-      const o = await findCandidateOpenAI(country, cls);
-      if (o.candidate) return { ...o, provider: "openai_fallback" };
-      return { error: `anthropic: ${a.error} | openai_fallback: ${o.error}`, provider: "both_failed" };
-    }
-    return { ...a, provider: "anthropic" };
+    attempts.push(`anthropic: ${a.error}`);
   }
+
   if (OPENAI_API_KEY) {
     const o = await findCandidateOpenAI(country, cls);
-    return { ...o, provider: "openai_fallback" };
+    if (o.candidate) return { ...o, provider: "openai_fallback" };
+    if (o.error && o.error.startsWith("model_reported_not_found")) {
+      return { ...o, provider: "openai_fallback" };
+    }
+    attempts.push(`openai: ${o.error}`);
   }
-  return { error: "no_provider_configured", provider: "none" };
+
+  // Always try the free path last, regardless of whether paid keys exist --
+  // this is the "works even at $0 spend" guarantee.
+  const w = await findCandidateWikidata(country, cls);
+  if (w.candidate) return { ...w, provider: "wikidata_free" };
+  attempts.push(`wikidata: ${w.error}`);
+
+  return { error: attempts.join(" | ") || "no_provider_configured", provider: "all_failed" };
+}
+
+// Free, no-key, no-billing fallback provider. Wikidata's public API requires
+// no account, no API key, and no payment of any kind -- it's the one path in
+// this function that works regardless of anyone's credit balance. Lower hit
+// rate than a real LLM search (many entities lack an official-website claim,
+// and search-term matching is fuzzier), but it costs nothing and every
+// candidate it returns still goes through the same live verifyLive() check
+// before insertion -- same safety bar as the paid providers.
+const WIKIDATA_SEARCH_PHRASE: Record<string, string> = {
+  health_authority: "Ministry of Health of",
+  drug_control_authority: "narcotics control agency of",
+  official_gazette: "official gazette of",
+  legislature: "parliament of",
+  customs_import_export: "customs authority of",
+  procurement: "public procurement agency of",
+  medicine_license_registry: "medicines regulatory authority of",
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function findCandidateWikidata(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
+  // Pace requests -- confirmed live that unpaced calls trip Wikidata's rate
+  // limit (429) partway through a batch of 10 (each pair can make up to 4
+  // Wikidata calls: 1 search + up to 3 entity lookups).
+  await sleep(300);
+  const phrase = WIKIDATA_SEARCH_PHRASE[cls] ?? cls;
+  const query = `${phrase} ${country}`;
+
+  // Full-text search (not the prefix-oriented wbsearchentities autocomplete
+  // endpoint) -- tolerant of label mismatches like our generic "Ministry of
+  // Health of X" query against a real label like "Ministry of Public Health
+  // (X)". Returns Wikidata page titles, which for item pages are QIDs.
+  let searchRes: Response;
+  try {
+    searchRes = await fetch(
+      `https://www.wikidata.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=0&srlimit=3&format=json`,
+      { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } },
+    );
+  } catch (e) {
+    return { error: `wikidata_search_threw: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!searchRes.ok) return { error: `wikidata_search_${searchRes.status}` };
+  const searchData = await searchRes.json();
+  const hits = Array.isArray(searchData?.query?.search) ? searchData.query.search : [];
+  if (hits.length === 0) {
+    return { error: `wikidata_no_search_hits (raw: ${JSON.stringify(searchData).slice(0, 200)})` };
+  }
+
+  // Try each of the top hits until one has an official-website claim.
+  for (const hit of hits) {
+    const qid = hit.title;
+    if (!qid || !/^Q\d+$/.test(qid)) continue;
+    await sleep(200);
+    let claimsRes: Response;
+    try {
+      claimsRes = await fetch(
+        `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${qid}&props=labels|claims&languages=en&format=json`,
+        { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } },
+      );
+    } catch {
+      continue;
+    }
+    if (!claimsRes.ok) continue;
+    const claimsData = await claimsRes.json();
+    const entity = claimsData?.entities?.[qid];
+    const url = entity?.claims?.P856?.[0]?.mainsnak?.datavalue?.value;
+    const label = entity?.labels?.en?.value;
+    if (typeof url === "string" && /^https?:\/\//i.test(url)) {
+      return {
+        candidate: {
+          url,
+          official_body_name: String(label ?? `${country} ${cls}`).slice(0, 200),
+          confidence: 0.55, // heuristic search match, not reasoned -- flagged lower than LLM picks
+        },
+      };
+    }
+  }
+  return { error: "wikidata_no_official_website_claim_on_top_hits" };
 }
 
 // Independent verification: this function does its own live check, it does
@@ -293,22 +390,9 @@ Deno.serve(async (req: Request) => {
   let candidatesVerified = 0;
   let sourcesInserted = 0;
 
-  if (!ANTHROPIC_API_KEY && !OPENAI_API_KEY) {
-    await supabase
-      .from("source_discovery_jobs")
-      .update({
-        finished_at: new Date().toISOString(),
-        status: "no_provider",
-        provider_used: "none",
-        errors: JSON.stringify(["no_grounded_search_provider_configured"]),
-      })
-      .eq("id", jobId);
-    return json({
-      ok: true,
-      status: "no_provider",
-      message: "Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is set -- inserted nothing (fail-closed by design).",
-    });
-  }
+  // Note: there's no "no provider configured" early-exit anymore -- the
+  // Wikidata path in findCandidate() requires no key at all, so this
+  // function always has at least one working, free provider available.
 
   // 1. Load queue countries (excluding non-viable) and existing coverage.
   const { data: queueRows, error: qErr } = await supabase
@@ -332,26 +416,70 @@ Deno.serve(async (req: Request) => {
 
   const existing = new Set((existingRows ?? []).map((r) => `${r.iso}|${r.regulator_class}`));
 
-  // 2. Compute the next batch of missing (country, iso, class) pairs.
-  const pairs: { country: string; iso: string; cls: string }[] = [];
+  // 2a. Load attempt history so we don't re-select the same permanently-
+  // failing pairs every run (confirmed live: without this, the engine
+  // stalled re-trying Afghanistan's unfillable classes for 5 straight runs
+  // instead of advancing through the country list).
+  const { data: attemptRows, error: attErr } = await supabase
+    .from("source_discovery_attempts")
+    .select("iso, regulator_class, last_attempted_at");
+  if (attErr) {
+    await supabase.from("source_discovery_jobs").update({ finished_at: new Date().toISOString(), status: "error", errors: JSON.stringify([attErr.message]) }).eq("id", jobId);
+    return json({ ok: false, error: "attempts_query_failed", detail: attErr.message }, 500);
+  }
+  const lastAttempted = new Map<string, number>();
+  for (const r of attemptRows ?? []) {
+    lastAttempted.set(`${r.iso}|${r.regulator_class}`, r.last_attempted_at ? new Date(r.last_attempted_at).getTime() : 0);
+  }
+
+  // 2b. Build every missing (country, iso, class) candidate, then sort:
+  // never-attempted first, then oldest-attempted-first. This guarantees
+  // forward progress across the full space -- permanent failures (e.g. no
+  // Wikidata entity exists for a class in a given country) get revisited
+  // only after everything else has had a first shot, on a rotating basis,
+  // instead of blocking all progress every single run.
+  const candidates: { country: string; iso: string; cls: string; lastAttempt: number }[] = [];
   for (const row of queueRows ?? []) {
     if (!row.iso || NON_VIABLE_ISO.has(row.iso)) continue;
     for (const cls of CLASSES) {
-      if (!existing.has(`${row.iso}|${cls}`)) {
-        pairs.push({ country: row.country, iso: row.iso, cls });
-        if (pairs.length >= batchSize) break;
-      }
+      if (existing.has(`${row.iso}|${cls}`)) continue;
+      const key = `${row.iso}|${cls}`;
+      candidates.push({ country: row.country, iso: row.iso, cls, lastAttempt: lastAttempted.get(key) ?? 0 });
     }
-    if (pairs.length >= batchSize) break;
   }
+  candidates.sort((a, b) => a.lastAttempt - b.lastAttempt); // 0 (never attempted) sorts first
+  const pairs = candidates.slice(0, batchSize).map((c) => ({ country: c.country, iso: c.iso, cls: c.cls }));
 
   // 3. Work the batch.
   const providersUsed = new Set<string>();
   for (const p of pairs) {
     const { candidate, error, provider } = await findCandidate(p.country, p.cls);
     if (provider) providersUsed.add(provider);
+
+    const recordAttempt = async (succeeded: boolean, errText?: string) => {
+      const { data: prior } = await supabase
+        .from("source_discovery_attempts")
+        .select("attempt_count")
+        .eq("iso", p.iso)
+        .eq("regulator_class", p.cls)
+        .maybeSingle();
+      await supabase.from("source_discovery_attempts").upsert(
+        {
+          iso: p.iso,
+          regulator_class: p.cls,
+          last_attempted_at: new Date().toISOString(),
+          last_provider: provider ?? null,
+          last_succeeded: succeeded,
+          last_error: errText?.slice(0, 300) ?? null,
+          attempt_count: (prior?.attempt_count ?? 0) + 1,
+        },
+        { onConflict: "iso,regulator_class" },
+      );
+    };
+
     if (error) {
       errors.push(`${p.country}/${p.cls} [${provider ?? "?"}]: ${error}`);
+      await recordAttempt(false, error);
       continue;
     }
     if (!candidate) continue;
@@ -359,7 +487,9 @@ Deno.serve(async (req: Request) => {
 
     const live = await verifyLive(candidate.url);
     if (!live.ok) {
-      errors.push(`${p.country}/${p.cls}: candidate ${candidate.url} failed live check (${live.error})`);
+      const errText = `candidate ${candidate.url} failed live check (${live.error})`;
+      errors.push(`${p.country}/${p.cls}: ${errText}`);
+      await recordAttempt(false, errText);
       continue;
     }
     candidatesVerified++;
@@ -382,9 +512,11 @@ Deno.serve(async (req: Request) => {
       // Likely a source_url unique-constraint conflict -- not a failure worth
       // surfacing loudly, just means it already existed.
       errors.push(`${p.country}/${p.cls}: insert skipped/failed (${insErr.message.slice(0, 150)})`);
+      await recordAttempt(false, insErr.message);
       continue;
     }
     sourcesInserted++;
+    await recordAttempt(true);
 
     await supabase
       .from("source_expansion_coverage_queue")
