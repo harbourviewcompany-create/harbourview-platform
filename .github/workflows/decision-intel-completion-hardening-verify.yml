@@ -1,0 +1,293 @@
+name: Decision Intel Completion Hardening Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/dashboard/**
+      - components/dashboard/**
+      - lib/intelligence-os/**
+      - docs/control/DATABASE_CONTROL.md
+      - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
+      - supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
+      - supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql
+      - tests/intel/**
+      - .github/workflows/decision-intel-completion-hardening-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-shaped-contract:
+    name: Publication, withdrawal, routing and history contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare production-shaped prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon nologin;
+          create role authenticated nologin;
+          create role service_role nologin;
+          create schema api;
+          create schema auth;
+          grant usage on schema public, api, auth to anon, authenticated, service_role;
+          create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
+          grant execute on function auth.uid() to anon, authenticated, service_role;
+
+          create table public.source_registry (id uuid primary key, name text);
+          create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
+          create table public.hv_evidence (id uuid primary key, extracted_text text, storage_path text, private_notes text);
+          create table public.countries (
+            id uuid primary key default gen_random_uuid(),
+            country_name text not null,
+            iso_alpha2 text not null unique,
+            iso_alpha3 text
+          );
+          create table public.jurisdictions (
+            jurisdiction_id text primary key,
+            name text,
+            iso_alpha3 text
+          );
+          create table public.jurisdiction_crossref (
+            id uuid primary key default gen_random_uuid(),
+            countries_iso2 text unique,
+            jurisdictions_id text unique references public.jurisdictions(jurisdiction_id),
+            canonical_iso2 text not null,
+            canonical_name text not null
+          );
+          create table public.user_roles (user_id uuid not null, role text not null);
+          create table public.user_profiles (id uuid primary key, tier text not null);
+          create table public.signals (
+            id text primary key,
+            snapshot_id uuid references public.source_snapshots(id),
+            cluster_rep_id text,
+            source text,
+            url text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed_at timestamptz,
+            reviewed boolean not null default false,
+            action text,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            cat text,
+            pri text,
+            impact text,
+            commercial_impact text,
+            country text,
+            country_iso2 text,
+            headline text,
+            summary text,
+            title_en text,
+            summary_en text,
+            editorial_title text,
+            editorial_blurb text,
+            analysis jsonb
+          );
+
+          grant select on public.user_profiles, public.user_roles to authenticated;
+          insert into public.source_registry values ('10000000-0000-0000-0000-000000000001','Regulator A');
+          insert into public.source_snapshots values ('20000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001',now());
+          insert into public.hv_evidence values ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
+          insert into public.countries (country_name,iso_alpha2,iso_alpha3) values ('Germany','DE','DEU');
+          insert into public.jurisdictions values ('country_area:DEU','Germany','DEU');
+          insert into public.jurisdiction_crossref (countries_iso2,canonical_iso2,canonical_name) values ('DE','DE','Germany');
+          insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
+          insert into public.user_roles values ('00000000-0000-0000-0000-000000000222','analyst');
+
+          insert into public.signals (
+            id,snapshot_id,source,url,date,reviewed,action,quality_label,quality_confidence,
+            content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis
+          ) values
+          ('sig-a','20000000-0000-0000-0000-000000000001','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"what_changed":"Requirement changed","who_is_affected":"Importers","confidence_rationale":"Primary regulator","recommended_action":"Verify importer eligibility"}'::jsonb),
+          ('sig-b',null,'Regulator A','https://example.test/b',now(),true,null,'signal',0.88,'market','market','medium','medium','Commercial change','Germany','DE','Market changed','Market summary','Market changed','Market summary','{}'::jsonb);
+          SQL
+
+      - name: Apply complete Stage 0 migration chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql
+
+      - name: Verify completion contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare snap jsonb;
+          begin
+            if not exists (
+              select 1 from public.intel_events where id='event:sig-a' and customer_visibility='intel'
+            ) then raise exception 'backfilled event did not receive explicit customer classification'; end if;
+
+            select v.snapshot into snap
+            from public.intel_assessment_versions v
+            join public.intel_assessments a on a.id=v.assessment_id
+            where a.event_id='event:sig-a' and v.version=1;
+            if not (snap ? 'regulatory_implications') then raise exception 'v1 missing regulatory_implications'; end if;
+            if not (snap ? 'affected_products') then raise exception 'v1 missing affected_products'; end if;
+            if not (snap ? 'contradictions') then raise exception 'v1 missing contradictions'; end if;
+
+            if not exists (
+              select 1
+              from public.intel_event_dossiers
+              where id='event:sig-a'
+                and jurisdiction_id='country_area:DEU'
+                and jurisdiction_iso2='DE'
+            ) then raise exception 'canonical jurisdiction navigation metadata missing'; end if;
+
+            if has_table_privilege('authenticated','public.intel_assessment_versions','INSERT') then
+              raise exception 'authenticated can forge immutable assessment versions';
+            end if;
+            if has_table_privilege('authenticated','public.intel_assessment_versions','UPDATE')
+              or has_table_privilege('authenticated','public.intel_assessment_versions','DELETE') then
+              raise exception 'authenticated can mutate immutable assessment versions';
+            end if;
+          end $$;
+
+          -- Staff assessment edits still append through the controlled trigger even though
+          -- direct version-ledger writes are unavailable.
+          select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',false);
+          set role authenticated;
+          update public.intel_assessments
+          set why_now='Analyst-updated catalyst'
+          where event_id='event:sig-b';
+          reset role;
+          do $$ begin
+            if not exists (
+              select 1 from public.intel_assessment_versions v
+              join public.intel_assessments a on a.id=v.assessment_id
+              where a.event_id='event:sig-b' and v.version=2
+                and v.snapshot->>'why_now'='Analyst-updated catalyst'
+            ) then raise exception 'controlled assessment update did not append immutable version'; end if;
+          end $$;
+
+          -- Verification does not authorize publication. Internal verified analysis remains hidden.
+          update public.intel_assertions set review_status='verified' where source_signal_id='sig-b';
+          update public.intel_events set review_status='verified', customer_visibility='internal' where id='event:sig-b';
+          update public.intel_assessments set review_status='verified' where event_id='event:sig-b';
+          update public.intel_recommendations set review_status='verified' where assessment_id=(select id from public.intel_assessments where event_id='event:sig-b');
+          do $$ begin
+            if exists (select 1 from public.intel_customer_event_dossiers where id='event:sig-b') then
+              raise exception 'verified internal dossier leaked to customer projection';
+            end if;
+            if not exists (select 1 from public.intel_event_dossiers where id='event:sig-b') then
+              raise exception 'base allowlisted dossier unexpectedly absent';
+            end if;
+          end $$;
+
+          -- Server route resolver retains ownership while reporting the hidden state.
+          set role service_role;
+          do $$ declare visible boolean; begin
+            select r.displayable into visible from api.resolve_intel_dashboard_routes(array['sig-b']) r where r.signal_id='sig-b';
+            if visible is distinct from false then raise exception 'hidden canonical route advertised as displayable'; end if;
+          end $$;
+          reset role;
+
+          update public.intel_events set customer_visibility='intel' where id='event:sig-b';
+          set role service_role;
+          do $$ declare visible boolean; posture text; begin
+            select r.displayable, r.recommendation_state into visible, posture
+            from api.resolve_intel_dashboard_routes(array['sig-b']) r where r.signal_id='sig-b';
+            if visible is distinct from true then raise exception 'published canonical route not displayable'; end if;
+            if posture is null then raise exception 'canonical recommendation posture missing from route hydration'; end if;
+          end $$;
+          reset role;
+
+          -- A published dossier disappears if every factual assertion is rejected.
+          update public.intel_assertions set review_status='rejected' where source_signal_id='sig-b';
+          do $$ begin
+            if exists (select 1 from public.intel_customer_event_dossiers where id='event:sig-b') then
+              raise exception 'customer dossier survived with no accepted assertions';
+            end if;
+            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-b') then
+              raise exception 'assertion rejection destroyed canonical route ownership';
+            end if;
+          end $$;
+          update public.intel_assertions set review_status='verified' where source_signal_id='sig-b';
+
+          -- Withdrawal of a previously visible source suppresses every canonical decision layer.
+          update public.intel_assertions set review_status='verified' where source_signal_id='sig-a';
+          update public.intel_events set review_status='verified', customer_visibility='intel' where id='event:sig-a';
+          update public.intel_assessments set review_status='verified' where event_id='event:sig-a';
+          update public.intel_recommendations set review_status='verified' where assessment_id=(select id from public.intel_assessments where event_id='event:sig-a');
+          update public.signals set reviewed=false where id='sig-a';
+
+          do $$ begin
+            if exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and review_status <> 'needs_review') then raise exception 'withdrawn assertion remains displayable'; end if;
+            if exists (select 1 from public.intel_events where id='event:sig-a' and (review_status <> 'needs_review' or customer_visibility <> 'internal')) then raise exception 'withdrawn event remains published'; end if;
+            if exists (select 1 from public.intel_assessments where event_id='event:sig-a' and review_status <> 'needs_review') then raise exception 'withdrawn assessment remains displayable'; end if;
+            if exists (
+              select 1 from public.intel_recommendations r
+              join public.intel_assessments a on a.id=r.assessment_id
+              where a.event_id='event:sig-a' and r.review_status <> 'needs_review'
+            ) then raise exception 'withdrawn recommendation remains displayable'; end if;
+            if exists (select 1 from public.intel_customer_event_dossiers where id='event:sig-a') then raise exception 'withdrawn dossier still customer-visible'; end if;
+            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-a') then raise exception 'withdrawal destroyed canonical ownership'; end if;
+          end $$;
+
+          set role service_role;
+          do $$ declare visible boolean; begin
+            select r.displayable into visible from api.resolve_intel_dashboard_routes(array['sig-a']) r where r.signal_id='sig-a';
+            if visible is distinct from false then raise exception 'withdrawn canonical route advertised as displayable'; end if;
+          end $$;
+          reset role;
+
+          -- Customer roles cannot directly invoke the service-only dashboard resolver.
+          do $$ begin
+            if has_function_privilege('authenticated','api.resolve_intel_dashboard_routes(text[])','EXECUTE') then raise exception 'customer can invoke server route resolver'; end if;
+            if has_table_privilege('authenticated','public.intel_customer_event_dossiers','SELECT') then raise exception 'customer direct customer-dossier view access'; end if;
+          end $$;
+          SQL
+
+  dashboard-route-policy:
+    name: Dashboard displayability, IA compatibility and jurisdiction policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify dashboard route, IA fallback and jurisdiction policy
+        run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts tests/intel/decisionIntelJurisdictionNavigation.test.ts

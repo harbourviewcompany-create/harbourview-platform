@@ -6,9 +6,10 @@ import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
-import { checkFeatureAccess } from '@/lib/billing/entitlements'
+import { canAccess, checkFeatureAccess, normalizeSubscriptionTier } from '@/lib/billing/entitlements'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
 import { createClient } from '@/lib/supabase/server'
+import { attachDecisionIntelDashboardRoutes } from '@/lib/intelligence-os/dashboardRoutes'
 import type { RoleId } from '@/types/globe-router'
 
 export const metadata: Metadata = {
@@ -71,6 +72,7 @@ export default async function DashboardPage({
   let userId: string | null = null
   let userEmail: string | null = null
   let userAppMetadata: Record<string, unknown> | undefined
+  let userProfileTier: unknown = null
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
   let hasOrg = false
@@ -82,21 +84,30 @@ export default async function DashboardPage({
       userId = user.id
       userEmail = user.email ?? null
       userAppMetadata = user.app_metadata
-      const { data: prefs } = await supabase
-        .from('user_dashboard_preferences')
-        .select('country_iso2, role_id')
-        .eq('user_id', user.id)
-        .single()
+
+      const [{ data: prefs }, { data: membership }, { data: profile }] = await Promise.all([
+        supabase
+          .from('user_dashboard_preferences')
+          .select('country_iso2, role_id')
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('workspace_members')
+          .select('workspace_id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .single(),
+        supabase
+          .from('user_profiles')
+          .select('tier')
+          .eq('id', user.id)
+          .single(),
+      ])
+
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
-
-      const { data: membership } = await supabase
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single()
       hasOrg = !!membership
+      userProfileTier = profile?.tier ?? null
     }
   } catch (error) {
     console.error('[command-centre-auth-context]', {
@@ -151,6 +162,13 @@ export default async function DashboardPage({
   } = commandData.data
 
   const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
+  // Decision Intel uses public.user_profiles.tier, matching the dossier RPC and admin
+  // membership tooling. app_metadata is not treated as a second entitlement authority.
+  const decisionIntelAccess = canAccess('signals', normalizeSubscriptionTier(userProfileTier))
+  const [routedSignals, routedDigestSignals] = await Promise.all([
+    attachDecisionIntelDashboardRoutes(signals),
+    attachDecisionIntelDashboardRoutes(dailyDigest.signals),
+  ])
 
   const pathwayData = deriveRequirementStatusesFromIntel(
     mergePathwayData(orgPathway, publicPathway),
@@ -169,8 +187,8 @@ export default async function DashboardPage({
       <DashboardResponsiveShell
         key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
-        signals={signals}
-        digestSignals={dailyDigest.signals}
+        signals={routedSignals}
+        digestSignals={routedDigestSignals}
         digestWindow={dailyDigest.window}
         eduCategories={eduCategories}
         liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
@@ -187,6 +205,7 @@ export default async function DashboardPage({
         pathwayData={pathwayData}
         watchlistData={watchlistData}
         watchlistAccess={watchlistAccess}
+        decisionIntelAccess={decisionIntelAccess}
         evidenceData={evidenceData}
         recentEduModules={recentEduModules}
         sourceCoverage={sourceCoverage}

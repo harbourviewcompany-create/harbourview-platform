@@ -200,3 +200,50 @@ export interface PublicCounterpartySummary {
   capabilities: string[];
   relationshipStatus: CounterpartyRecord['relationshipStatus'];
 }
+
+export type DecisionRecommendationState = 'act_now' | 'investigate' | 'monitor' | 'no_action';
+export type DecisionEvidenceRelationship = 'supports' | 'contradicts' | 'clarifies' | 'supersedes' | 'background';
+
+export interface DecisionEvidenceSummary {
+  sourceLabel: string | null;
+  sourceUrl: string | null;
+  status: 'needs_review' | 'partially_verified' | 'verified' | 'conflicting' | 'stale' | string;
+  observedAt: string | null;
+  relationship: DecisionEvidenceRelationship;
+}
+
+export interface DecisionIntelDossier {
+  id: string;
+  headline: string;
+  summary: string | null;
+  eventType: string;
+  jurisdictionLabel: string | null;
+  jurisdictionId: string | null;
+  jurisdictionIso2: string | null;
+  occurredAt: string | null;
+  detectedAt: string | null;
+  effectiveAt: string | null;
+  lastVerifiedAt: string | null;
+  materiality: 'low' | 'medium' | 'high' | 'critical';
+  consolidationStatus: string;
+  reviewStatus: string;
+  sourceCount: number;
+  whatHappened: string;
+  whatChanged: string | null;
+  whyItMatters: string | null;
+  commercialImplications: string | null;
+  regulatoryImplications: string | null;
+  affectedEntities: string[];
+  affectedMarkets: string[];
+  affectedProducts: string[];
+  whyNow: string | null;
+  confidence: number | null;
+  confidenceRationale: string | null;
+  contradictions: string[];
+  unknowns: string[];
+  recommendationState: DecisionRecommendationState;
+  recommendationReasoning: string;
+  actionSummary: string | null;
+  urgency: 'low' | 'normal' | 'high' | 'urgent';
+  evidence: DecisionEvidenceSummary[];
+}
