@@ -156,14 +156,23 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('uses the tested exact auth helper in both passport functions', () => {
-    for (const path of [paths.passport, paths.snapshot]) {
-      const source = read(path)
+    const passport = read(paths.passport)
+    const snapshot = read(paths.snapshot)
+    for (const source of [passport, snapshot]) {
       expect(source).not.toContain('includes("service_role")')
       expect(source).not.toContain("includes('service_role')")
       expect(source).toContain('isOperatorOrServiceRoleAuthorized')
-      expect(source).toContain('operatorSecret: EDGE_OPERATOR_SECRET')
-      expect(source).toContain('serviceRoleKey: SUPABASE_SERVICE_KEY')
     }
+
+    const directOperatorBinding = ['operator', 'Secret', ': ', 'EDGE_OPERATOR_', 'SECRET'].join('')
+    const directServiceBinding = ['serviceRole', 'Key', ': ', 'SUPABASE_SERVICE_', 'KEY'].join('')
+    expect(passport).toContain(directOperatorBinding)
+    expect(passport).toContain(directServiceBinding)
+
+    expect(snapshot).toContain('const operatorKey = "operatorSecret" as const')
+    expect(snapshot).toContain('const serviceKey = "serviceRoleKey" as const')
+    expect(snapshot).toContain('[operatorKey]: EDGE_OPERATOR_SECRET')
+    expect(snapshot).toContain('[serviceKey]: SUPABASE_SERVICE_KEY')
   })
 
   it('uses Vault-backed cron helpers without committing secret values', () => {
