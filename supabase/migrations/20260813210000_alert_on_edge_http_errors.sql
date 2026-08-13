@@ -144,7 +144,29 @@ as $function$
     from net._http_response
     where created > now() - interval '2 hours'
       and (status_code is null or status_code < 200 or status_code >= 300)
-  ) eh;
+  ) eh
+
+  union all
+  -- Classification is the gate every downstream stage depends on: a signal with a
+  -- null quality_label can never reach quality_label='signal', so it can never be
+  -- promoted, so the feed goes stale. On 2026-08-12 the Anthropic classifier began
+  -- returning 400 "credit balance is too low"; classification silently stopped and
+  -- the first visible symptom was feed_stale two days later, because every stage in
+  -- between reported success.
+  --
+  -- Asserts that ingested signals are actually getting labelled. Ingest is hourly,
+  -- so anything unclassified beyond 6h means the classifier is not keeping up.
+  select 'classification_stalled',
+         case when n > 0 then 'critical' else 'ok' end,
+         n::text,
+         'signals ingested >6h ago with no quality_label; unclassified rows can never promote'
+  from (
+    select count(*) as n
+    from public.signals
+    where quality_label is null
+      and created_at < now() - interval '6 hours'
+      and created_at > now() - interval '7 days'
+  ) cs;
 $function$;
 
 comment on function public.hv_pipeline_alerts() is
