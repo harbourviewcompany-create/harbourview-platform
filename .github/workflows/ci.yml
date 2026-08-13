@@ -94,6 +94,8 @@ jobs:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts
+      - name: Network rate-limit Upstash regression
+        run: npm run test:network-rate-limit
       - run: npx vitest run tests/marketplace/publicProjection.test.ts
       - name: Public leakage fuzz
         run: npx vitest run tests/security/public-leakage-fuzz.test.ts
