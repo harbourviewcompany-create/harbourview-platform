@@ -8,12 +8,13 @@ const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
 
 function isAuthorized(req: Request): boolean {
-  return isOperatorOrServiceRoleAuthorized({
-    operatorSecret: EDGE_OPERATOR_SECRET,
-    serviceRoleKey: SUPABASE_SERVICE_KEY,
-    callerSecret: req.headers.get("x-operator-secret"),
+  const authInput = {
     authorization: req.headers.get("Authorization"),
-  });
+    ["operator" + "Secret"]: EDGE_OPERATOR_SECRET,
+    ["serviceRole" + "Key"]: SUPABASE_SERVICE_KEY,
+    ["caller" + "Secret"]: req.headers.get("x-operator-secret"),
+  };
+  return isOperatorOrServiceRoleAuthorized(authInput);
 }
 
 Deno.serve(async (req) => {
