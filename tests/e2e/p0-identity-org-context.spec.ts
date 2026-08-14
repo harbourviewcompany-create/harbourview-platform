@@ -72,8 +72,12 @@ test('selected market keeps account and organization onboarding return context',
     await page.getByRole('option', { name: /Canada/ }).click()
 
     await expect(page.getByRole('button', { name: /Enter Canada Market/i })).toBeVisible({ timeout: 30_000 })
-    const createAccount = page.getByRole('link', { name: 'Create account', exact: true })
-    const createOrganization = page.getByRole('link', { name: 'Create organization', exact: true })
+    // Market Routing remains mounted behind the selected-market sheet, so both
+    // surfaces legitimately expose onboarding links. The selected sheet is the
+    // later rendered instance; scope to it deterministically rather than using
+    // an ambiguous page-wide strict locator.
+    const createAccount = page.getByRole('link', { name: 'Create account', exact: true }).last()
+    const createOrganization = page.getByRole('link', { name: 'Create organization', exact: true }).last()
     await expect(createAccount).toBeVisible()
     await expect(createOrganization).toBeVisible()
 
