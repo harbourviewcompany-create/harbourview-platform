@@ -82,59 +82,73 @@ async function openIntelState(page: Page, section: string, expectedTab: string, 
 
 const clinicalVisualFixture = {
   state: 'loaded',
-  query: '',
+  query: 'Dravet syndrome',
   message: 'Reviewed evidence records match this clinical question.',
+  synthesis: {
+    recordCount: 1,
+    currentRecordCount: 1,
+    gradedRecordCount: 0,
+    ungradedRecordCount: 1,
+    regulatedDrugRecordCount: 1,
+    generalCannabisRecordCount: 0,
+    evidenceTypes: { 'product-monograph': 1 },
+    hasMaterialConflict: false,
+    lastVerifiedAt: '2026-08-14T13:55:00Z',
+    summary: '1 published source record; 0 clinically graded and 1 ungraded. This count summary does not infer efficacy or comparative superiority.',
+  },
   changes: [{
     id: '00000000-0000-4000-8000-000000000141',
     evidenceRecordId: '00000000-0000-4000-8000-000000000140',
-    eventType: 'updated',
-    title: 'Current Cannabis Regulations medical-document authority verified',
-    summary: 'Current federal medical-document authority is verified; legacy ACMPR-era framing is not treated as current.',
-    materiality: 'high',
+    eventType: 'published',
+    title: 'Regulated cannabinoid medicine indication added to Clinical Evidence V1',
+    summary: 'A Canadian regulated-drug indication record was added with explicit product-monograph provenance and ungraded certainty; it does not generalize to cannabis products or genetics.',
+    materiality: 'medium',
     jurisdiction: ['Canada'],
     professionRelevance: ['doctor', 'nurse_practitioner', 'pharmacist', 'other'],
-    occurredAt: '2026-08-14T12:00:00Z',
-    verifiedAt: '2026-08-14T12:00:00Z',
+    occurredAt: '2026-08-14T13:45:00Z',
+    verifiedAt: '2026-08-14T13:55:00Z',
     primarySource: {
-      title: 'Cannabis Regulations §273',
-      publisher: 'Justice Laws Website',
-      url: 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-273.html',
-      sourceId: 'SOR-2018-144-s273',
+      title: 'EPIDIOLEX Product Monograph',
+      publisher: 'Jazz Pharmaceuticals Research UK Limited',
+      url: 'https://pp.jazzpharma.com/pi/epidiolex.ca.PM-en.pdf',
+      sourceId: 'ca-epidiolex-pm-2024-10-30',
     },
   }],
   records: [{
     id: '00000000-0000-4000-8000-000000000140',
-    slug: 'ca-cannabis-regulations-medical-document-273',
-    title: 'Medical document requirements under Cannabis Regulations §273',
-    summary: 'Primary federal legal requirements for the contents and validity of a medical document used for access to cannabis for medical purposes.',
-    condition: null,
-    conditionAliases: [],
-    population: null,
-    intervention: null,
-    formulation: null,
-    cannabinoid: [],
-    interventionClass: 'general-cannabis',
+    slug: 'ca-epidiolex-dravet-indication',
+    title: 'EPIDIOLEX authorized indication — Dravet syndrome',
+    summary: 'The Canadian product monograph identifies EPIDIOLEX as adjunctive therapy for seizures associated with Dravet syndrome in patients 2 years of age and older. This is regulatory product-indication metadata, not an independent Harbourview efficacy recommendation.',
+    condition: 'Dravet syndrome',
+    conditionAliases: ['DS'],
+    population: 'Patients 2 years of age and older with seizures associated with Dravet syndrome',
+    intervention: 'Cannabidiol (EPIDIOLEX)',
+    formulation: 'Oral solution 100 mg/mL',
+    cannabinoid: ['CBD'],
+    interventionClass: 'regulated-cannabinoid-drug',
     comparator: null,
-    outcome: null,
-    evidenceType: 'regulation',
+    outcome: 'Authorized indication metadata; no comparative conclusion is asserted.',
+    evidenceType: 'product-monograph',
     evidenceStrength: 'ungraded',
-    evidenceStrengthMethod: 'Legal authority; clinical evidence certainty is not applicable.',
-    uncertainty: 'This record describes federal legal requirements and does not establish efficacy, safety or appropriateness for an individual patient.',
+    evidenceStrengthMethod: 'Regulatory indication record; Harbourview Clinical Evidence V1 does not convert authorization into a clinical certainty grade.',
+    uncertainty: 'Product-monograph authorization does not establish comparative superiority or substitute for patient-specific clinical judgment.',
     conflictStatus: 'none',
     jurisdiction: ['Canada'],
     professionRelevance: ['doctor', 'nurse_practitioner', 'pharmacist', 'other'],
     primarySource: {
-      title: 'Cannabis Regulations §273',
-      publisher: 'Justice Laws Website',
-      url: 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-273.html',
-      sourceId: 'SOR-2018-144-s273',
+      title: 'EPIDIOLEX Product Monograph',
+      publisher: 'Jazz Pharmaceuticals Research UK Limited',
+      url: 'https://pp.jazzpharma.com/pi/epidiolex.ca.PM-en.pdf',
+      sourceId: 'ca-epidiolex-pm-2024-10-30',
     },
-    publicationDate: null,
-    effectiveDate: null,
-    verifiedAt: '2026-08-14T12:00:00Z',
+    publicationDate: '2024-10-30',
+    effectiveDate: '2023-11-15',
+    verifiedAt: '2026-08-14T13:55:00Z',
     supersessionState: 'current',
     supersededById: null,
     reviewStatus: 'published',
+    gradingMethodKey: 'harbourview-clinical-evidence-v1',
+    publicationScope: 'source-metadata',
   }],
 }
 
@@ -202,7 +216,7 @@ test.describe('Mobile Intel authenticated evidence', () => {
     }
   })
 
-  test('captures authenticated Clinical evidence-spine UI at the required mobile viewports', async ({ browser }) => {
+  test('captures authenticated Clinical Evidence V1 at the required mobile viewports', async ({ browser }) => {
     test.setTimeout(300_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
@@ -235,7 +249,9 @@ test.describe('Mobile Intel authenticated evidence', () => {
         await expect(page.locator('#clinical')).toBeVisible()
         await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible()
         await expect(page.getByText('Evidence by condition · Canada', { exact: true })).toBeVisible()
-        await expect(page.getByText('Medical document requirements under Cannabis Regulations §273', { exact: true })).toBeVisible()
+        await expect(page.getByText('EPIDIOLEX authorized indication — Dravet syndrome', { exact: true })).toBeVisible()
+        await expect(page.getByText('Evidence set · 1 published source', { exact: true })).toBeVisible()
+        await expect(page.getByText('This is a provenance/count summary only; it does not infer efficacy or comparative superiority.', { exact: true })).toBeVisible()
         await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
         await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Command')
         await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Market')
