@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'
+import type { DashboardMarketplaceRows } from '@/components/dashboard/CommandCentre'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
@@ -18,6 +19,21 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = 'force-dynamic'
+
+const COMMAND_VISUAL_NO_MATCH_MARKETPLACE_ROWS: DashboardMarketplaceRows = {
+  cannabis: [[
+    'Isolated visual non-opportunity record',
+    'CI-only record used to prove the Command no-match opportunity state.',
+    'Canada',
+    'Cannabis',
+    'Reviewed',
+    'Isolated CI fixture',
+    '100',
+    'command-visual-no-match-record',
+    '',
+    '',
+  ]],
+}
 
 const ROLE_ALIASES: Record<string, RoleId> = {
   buyer: 'importer',
@@ -166,7 +182,11 @@ export default async function DashboardPage({
   const emptyVisualFixture = commandVisualFixture?.emptyRecords === true
   const commandSignals = emptyVisualFixture ? [] : signals
   const commandDigestSignals = emptyVisualFixture ? [] : dailyDigest.signals
-  const commandMarketplaceRows = emptyVisualFixture ? {} : marketplaceProjection.rows
+  const commandMarketplaceRows = emptyVisualFixture
+    ? {}
+    : commandVisualFixture?.nonOpportunityMarketRecord
+      ? COMMAND_VISUAL_NO_MATCH_MARKETPLACE_ROWS
+      : marketplaceProjection.rows
   const commandMarketplaceMediaById = emptyVisualFixture ? {} : marketplaceProjection.mediaById
   const commandWantedCount = emptyVisualFixture ? 0 : wantedCount
   const commandPipeline = emptyVisualFixture

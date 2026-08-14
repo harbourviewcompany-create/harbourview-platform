@@ -25,12 +25,13 @@ export type CommandVisualFixture = Readonly<{
   commandDataState: CommandCentreDataState
   hasOrg?: boolean
   emptyRecords?: boolean
+  nonOpportunityMarketRecord?: boolean
 }>
 
 const FIXTURES: Record<CommandVisualFixtureId, CommandVisualFixture> = {
   loaded: { id: 'loaded', commandDataState: 'live' },
   empty: { id: 'empty', commandDataState: 'empty', emptyRecords: true },
-  'no-match': { id: 'no-match', commandDataState: 'live' },
+  'no-match': { id: 'no-match', commandDataState: 'live', nonOpportunityMarketRecord: true },
   stale: { id: 'stale', commandDataState: 'stale' },
   permission: { id: 'permission', commandDataState: 'live', hasOrg: false },
   error: { id: 'error', commandDataState: 'error' },

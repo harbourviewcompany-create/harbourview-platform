@@ -29,7 +29,7 @@ describe('Command visual fixtures', () => {
   it('keeps the empty, no-match, stale, permission, and error contracts distinct', () => {
     expect(resolveCommandVisualFixture('loaded', isolatedEnv)).toMatchObject({ commandDataState: 'live' })
     expect(resolveCommandVisualFixture('empty', isolatedEnv)).toMatchObject({ commandDataState: 'empty', emptyRecords: true })
-    expect(resolveCommandVisualFixture('no-match', isolatedEnv)).toMatchObject({ commandDataState: 'live' })
+    expect(resolveCommandVisualFixture('no-match', isolatedEnv)).toMatchObject({ commandDataState: 'live', nonOpportunityMarketRecord: true })
     expect(resolveCommandVisualFixture('stale', isolatedEnv)).toMatchObject({ commandDataState: 'stale' })
     expect(resolveCommandVisualFixture('permission', isolatedEnv)).toMatchObject({ commandDataState: 'live', hasOrg: false })
     expect(resolveCommandVisualFixture('error', isolatedEnv)).toMatchObject({ commandDataState: 'error' })
