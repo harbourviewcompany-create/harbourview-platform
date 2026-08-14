@@ -47,6 +47,7 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts",
     "validate:supply-images": "node scripts/validate-supply-images.mjs",
     "test:command-centre-production": "vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/productionSecurityHardening.test.ts tests/supabase/env.test.ts",
+    "test:release-closure": "vitest run tests/supabase/hvDedupVectorSearchPath.test.ts tests/supabase/productionSecurityHardening.test.ts && node --test tests/scripts/release-closure-migration-classification.test.mjs && node scripts/check-release-closure-migration-classification.mjs",
     "verify:supabase-auth-production": "node scripts/configure-supabase-auth-production.mjs"
   },
   "dependencies": {
