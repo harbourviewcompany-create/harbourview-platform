@@ -76,20 +76,15 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServiceClient()
-  const { data: existingMember } = await supabase.from('workspace_members')
-    .select('user_id,status')
-    .eq('workspace_id', workspaceId)
+  const { data: workspace } = await supabase.from('workspaces')
+    .select('id,status')
+    .eq('id', workspaceId)
     .eq('status', 'active')
+    .maybeSingle()
+  if (!workspace) return NextResponse.json({ error: 'WORKSPACE_UNAVAILABLE' }, { status: 409 })
 
-  if (existingMember?.length) {
-    const { data: users } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
-    const alreadyMember = users?.users?.some(candidate =>
-      existingMember.some(member => member.user_id === candidate.id)
-      && candidate.email?.trim().toLowerCase() === email,
-    )
-    if (alreadyMember) return NextResponse.json({ error: 'ALREADY_MEMBER' }, { status: 409 })
-  }
-
+  // Do not enumerate auth.users here. Existing-member handling is authoritative
+  // at atomic acceptance time and is independent of auth population size.
   const token = randomBytes(32).toString('hex')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + INVITE_TTL_MS).toISOString()
