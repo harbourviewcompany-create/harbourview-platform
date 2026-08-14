@@ -65,9 +65,9 @@ create policy "Users can update their own dashboard preferences"
     )
   );
 
--- Keep the API projection in lockstep with the base table. The explicit
--- security_invoker option is mandatory because recreating this view without it
--- would bypass the underlying RLS policies through the postgres view owner.
+-- CREATE OR REPLACE VIEW must preserve the ordinal/name contract of existing
+-- columns. Append active_workspace_id after the existing seven columns so this
+-- migration works both fresh and against the already-deployed API view.
 create or replace view api.user_dashboard_preferences
 with (security_invoker = true) as
 select
@@ -76,9 +76,9 @@ select
   country_iso2,
   role_id,
   heatmap_layer,
-  active_workspace_id,
   created_at,
-  updated_at
+  updated_at,
+  active_workspace_id
 from public.user_dashboard_preferences;
 
 grant select, insert, update, delete on api.user_dashboard_preferences to authenticated;
