@@ -8,6 +8,36 @@ Columns: TAL ID | architecture/control docs | implementation files/migrations | 
 
 The pre-runtime matrix intentionally leaves implementation-specific cells `TBD`; this is not a deficiency and must not be misreported as VERIFIED.
 
+## Hardening control registry
+
+- CTL-001 — requirements-to-code-to-test-to-evidence traceability gate.
+- CTL-002 — frozen-scope amendment/change-control gate.
+- CTL-003 — controlled ledger status vocabulary; only `VERIFIED` satisfies verification.
+- CTL-004 — material decision register with stable TDEC IDs.
+- CTL-005 — unresolved assumption/open-decision gate; no silent architectural choice.
+- CTL-006 — deterministic legacy/backfill reconciliation counts and orphan checks.
+- CTL-007 — dark deploy, shadow comparison and controlled canonical cutover sequence.
+- CTL-008 — rollback/recovery classification and checkpoint strategy.
+- CTL-009 — independent subsystem feature flags.
+- CTL-010 — independent kill switches for high-risk Talent capabilities.
+- CTL-011 — SLO/error-budget definition and release evidence.
+- CTL-012 — capacity/cost/cardinality instrumentation.
+- CTL-013 — provider secret lifecycle, scanning, rotation and compromise response.
+- CTL-014 — concurrency/race-condition verification.
+- CTL-015 — idempotency, retry and event-ordering contract.
+- CTL-016 — authorization-aware cache isolation and privacy invalidation.
+- CTL-017 — deterministic cursor pagination under concurrent change.
+- CTL-018 — API/DTO compatibility, versioning and deprecation policy.
+- CTL-019 — ingestible vs searchable vs publishable data-quality gates.
+- CTL-020 — derivative-data privacy/provenance propagation.
+- CTL-021 — human override governance with reason/prior/new state/audit.
+- CTL-022 — backup/restore and disaster-recovery validation.
+- CTL-023 — explicit legacy retirement criteria.
+- CTL-024 — mandatory independent final verification from exact verification SHA.
+- CTL-025 — production-safe verification with no unnecessary PII in evidence/logs.
+
+## Capability traceability groups
+
 | TAL range | Required controlling documents | Minimum acceptance links | Pre-runtime status |
 |---|---|---|---|
 | TAL-001–008 | ENTITY_MODEL, IDENTITY_RESOLUTION, EVIDENCE_PROVENANCE | TAC-002,003,036 | APPROVED |
