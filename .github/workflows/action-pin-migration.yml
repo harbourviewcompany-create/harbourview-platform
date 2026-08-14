@@ -1,0 +1,82 @@
+name: One-off first-party action pin migration
+
+on:
+  push:
+    branches:
+      - ops/production-baseline-20260814
+    paths:
+      - .github/workflows/action-pin-migration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+
+      - name: Replace every checkout/setup-node reference with reviewed immutable pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          import subprocess
+          from pathlib import Path
+
+          replacements = {
+              'checkout': 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+              'setup-node': 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+          }
+          patterns = {
+              name: re.compile(rf'actions/{re.escape(name)}@[A-Za-z0-9._/-]+')
+              for name in replacements
+          }
+          changed = []
+          tracked = subprocess.check_output(['git', 'ls-files', '-z']).split(b'\0')
+          for raw in tracked:
+              if not raw:
+                  continue
+              path = Path(raw.decode())
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              updated = text
+              for name, pattern in patterns.items():
+                  updated = pattern.sub(replacements[name], updated)
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+                  changed.append(str(path))
+          print(f'Updated {len(changed)} tracked files')
+          for path in changed:
+              print(path)
+          PY
+
+          echo 'Final checkout/setup-node inventory:'
+          git grep -n -E 'actions/(checkout|setup-node)@' -- . || true
+          if git grep -n -E 'actions/checkout@(?!3d3c42e5aac5ba805825da76410c181273ba90b1)|actions/setup-node@(?!820762786026740c76f36085b0efc47a31fe5020)' --perl-regexp -- .; then
+            echo 'Unapproved first-party action reference remains.'
+            exit 1
+          fi
+
+      - name: Commit mechanical pin migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo 'All checkout/setup-node references already use approved immutable pins.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'ci: pin checkout and setup-node to Node 24 hosted releases [skip action-pin-migration]'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
