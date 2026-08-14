@@ -7,11 +7,14 @@ on:
     paths:
       - app/dashboard/**
       - app/api/health/command-centre/**
+      - app/api/dashboard/signals/**
       - next.config.mjs
       - lib/supabase/env.ts
       - lib/platform/commandCentreRegistry.ts
       - lib/dashboard/commandCentreDataTypes.ts
       - lib/dashboard/commandVisualFixtures.ts
+      - lib/dashboard/signalPresentation.ts
+      - lib/dashboard/dashboardShared.ts
       - lib/dashboard/loadCommandCentreData.ts
       - lib/dashboard/buildDashboardCommandSources.ts
       - lib/dashboard/marketplaceMediaProjection.ts
@@ -29,6 +32,7 @@ on:
       - app/api/marketplace/submit/route.ts
       - tests/dashboard/mobileCommandCentreV2.test.ts
       - tests/dashboard/commandVisualFixtures.test.ts
+      - tests/dashboard/dailyBriefSignalPresentation.test.tsx
       - tests/dashboard/dashboardResponsiveShell.behavior.test.ts
       - tests/dashboard/loadCommandCentreData.test.ts
       - tests/dashboard/commandCentreHealth.test.ts
@@ -98,6 +102,7 @@ jobs:
           npx vitest run
           tests/dashboard/mobileCommandCentreV2.test.ts
           tests/dashboard/commandVisualFixtures.test.ts
+          tests/dashboard/dailyBriefSignalPresentation.test.tsx
           tests/dashboard/dashboardResponsiveShell.behavior.test.ts
           tests/dashboard/loadCommandCentreData.test.ts
           tests/dashboard/commandCentreHealth.test.ts
@@ -198,6 +203,11 @@ jobs:
           create table if not exists api.signals (
             id uuid primary key default gen_random_uuid(),
             headline text not null default '',
+            summary text,
+            source text,
+            url text,
+            verification text,
+            commercial_impact text,
             cat text,
             top_lane text,
             pri text,
@@ -220,6 +230,73 @@ jobs:
 
           create or replace view api.signals_with_quality as
             select * from api.signals;
+
+          insert into api.signals (
+            id, headline, summary, source, url, verification, commercial_impact,
+            cat, top_lane, pri, country, date, reviewed, action, analysis,
+            quality_label, quality_confidence, content_type, impact, is_representative
+          ) values
+          (
+            '00000000-0000-4000-8000-000000000201',
+            'Curaleaf puts Aurora Cannabis in play with unsolicited takeover proposal',
+            'Curaleaf announced an intended unsolicited offer for Aurora Cannabis at approximately US$272 million; a formal takeover bid had not commenced at latest verification.',
+            'Curaleaf / Aurora Cannabis company disclosures',
+            'https://www.newswire.ca/news-releases/curaleaf-announces-intention-to-launch-take-over-bid-for-aurora-cannabis-to-solidify-its-position-as-the-global-cannabis-industry-leader-866793478.html',
+            'official/corroborated',
+            'A successful combination would consolidate Aurora international medical-cannabis and EU-GMP infrastructure into Curaleaf global platform.',
+            'market', 'market', 'high', 'Canada', '2026-08-11T21:15:00Z', true, '',
+            '{"counterparties":["Curaleaf Holdings","Aurora Cannabis"],"product":"medical cannabis portfolio","market_access":"global medical cannabis","verified_facts":["Formal takeover bid not yet commenced at latest verification"],"inference":["International medical distribution and EU-GMP capacity appear strategically important"],"transaction_stage":"proposed_intended_bid","source_published_at":"2026-08-11","source_urls":["https://private.example/provenance-never-project"]}'::jsonb,
+            'signal', 0.99, 'market', 'high', true
+          ),
+          (
+            '00000000-0000-4000-8000-000000000202',
+            'Health Canada extends cannabis import permits to 12 months and aligns export validity',
+            'Health Canada updated cannabis import/export guidance so import permits may remain valid for up to 12 months instead of six.',
+            'Health Canada',
+            'https://www.canada.ca/en/health-canada/services/drugs-medication/cannabis/industry-licensees-applicants/updates-cannabis-industrial-hemp/red-tape-reduction-initiative-summary-changes-cannabis-publications.html',
+            'official',
+            'Longer permit validity reduces repetitive administration and improves planning flexibility for licensed medical and scientific cannabis trade.',
+            'regulatory', 'regulatory', 'high', 'Canada', '2026-07-22T04:00:00Z', true, '',
+            '{"jurisdiction":"Canada","product":"medical/scientific cannabis","market_access":"international medical/scientific cannabis trade","licence_classes":["standard cultivation","sale for medical purposes"],"verified_facts":["Import permits may be valid for up to 12 months instead of six"],"inference":["Repeat international supply programs should face lower permit-renewal friction"],"source_published_at":"2026-07-22","internalReviewNotes":"must-never-render"}'::jsonb,
+            'signal', 0.98, 'regulatory', 'high', true
+          ),
+          (
+            '00000000-0000-4000-8000-000000000203',
+            'MediPharm advances France, Brazil, New Zealand and Australia medical-cannabis channels',
+            'MediPharm reported a second GMP cannabis-oil purchase order shipped to France, Brazilian ANVISA GMP renewal, New Zealand replenishment orders and a Wildlife launch in Australia.',
+            'MediPharm Labs Q2 2026 disclosure',
+            'https://markets.businessinsider.com/news/stocks/medipharm-labs-reports-positive-q2-2026-net-income-and-second-consecutive-quarter-of-positive-adjusted-ebitda-1036453710',
+            'company-reported',
+            'The update demonstrates active multi-market medical-cannabis commercialization and continued GMP-based access into regulated export markets.',
+            'market', 'market', 'high', 'Canada', '2026-08-13T11:30:00Z', true, '',
+            '{"facility":"MediPharm Canadian GMP production platform","products":["GMP cannabis oils","Wildlife medical cannabis portfolio"],"origin_market":"Canada","destination_markets":["France","Brazil","New Zealand","Australia"],"counterparties":["MediPharm Labs","unnamed French buyer","unnamed New Zealand buyers"],"licences_certifications":["EU-GMP","ANVISA GMP","TGA compliance","Health Canada licences"],"verified_facts":["Second purchase order of GMP cannabis oils shipped to France"],"inference":["MediPharm is converting its certification stack into repeat international demand"],"source_published_at":"2026-08-13T07:30:00-04:00","sourceEvidence":"must-never-render"}'::jsonb,
+            'signal', 0.97, 'market', 'high', true
+          ),
+          (
+            '00000000-0000-4000-8000-000000000204',
+            'New York expands Cannabis Showcase Events for licensed microbusinesses',
+            'Eligible adult-use microbusinesses may serve as the required cultivator and processor for approved Cannabis Showcase Events when their licence authorizes those activities.',
+            'New York State Senate',
+            'https://www.nysenate.gov/legislation/bills/2025/S10113',
+            'official-legislation/corroborated-signing',
+            'Vertically integrated microbusinesses gain a more direct event-sales path with less dependence on separate licensed counterparties.',
+            'regulatory', 'regulatory', 'medium', 'United States', '2026-08-06T04:00:00Z', true, '',
+            '{"jurisdiction":"New York","licence":"adult-use microbusiness with retail, cultivation and processing activities","product":"regulated adult-use cannabis products","market_access":"Cannabis Showcase Events / temporary retail","verified_facts":["The act provides for immediate effect upon enactment"],"inference":["Customer-acquisition and product-testing economics improve for eligible operators"],"image_status":"not_applicable"}'::jsonb,
+            'signal', 0.96, 'regulatory', 'medium', true
+          ),
+          (
+            '00000000-0000-4000-8000-000000000205',
+            'Avicanna introduces QUIX rapid-onset medical-cannabis portfolio',
+            'Avicanna introduced QUIX-powered capsules and soft chews for planned Canadian medical-channel availability beginning in Q3 2026.',
+            'Avicanna Inc.',
+            'https://avicanna.com/avicanna-introduces-quix-rapid-onset-medical-cannabis-portfolio/',
+            'official-company',
+            'Rapid-onset formats push medical-cannabis differentiation toward formulation and delivery technology rather than commodity flower alone.',
+            'market', 'market', 'medium', 'Canada', '2026-07-16T04:00:00Z', true, '',
+            '{"product":"QUIX rapid-onset capsules and soft chews","market_access":"Canadian medical cannabis channels","verified_facts":["Canadian medical-channel availability is planned for Q3 2026"],"inference":["Rapid-onset oral delivery could increase strategic value of formulation IP"],"transaction_stage":"product_announced_planned_launch","image_status":"source_page_contains_image_not_ingested","image_url":null}'::jsonb,
+            'signal', 0.95, 'market', 'medium', true
+          )
+          on conflict (id) do nothing;
 
           create table if not exists api.market_metrics (
             id uuid primary key default gen_random_uuid(),

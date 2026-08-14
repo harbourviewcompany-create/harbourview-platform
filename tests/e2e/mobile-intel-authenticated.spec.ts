@@ -69,9 +69,16 @@ async function assertMobileIntelLayout(page: Page) {
   expect(mainBottomPadding).toBeGreaterThanOrEqual(bottomNav!.height)
 }
 
-async function openIntelState(page: Page, section: string, expectedTab: string, file: string) {
+async function openIntelState(
+  page: Page,
+  section: string,
+  expectedTab: string,
+  file: string,
+  options: { country?: string; expectedText?: string[] } = {},
+) {
+  const country = options.country ?? 'CA'
   const response = await page.goto(
-    `/dashboard?country=CA&role=exporter&page=briefing&section=${encodeURIComponent(section)}`,
+    `/dashboard?country=${encodeURIComponent(country)}&role=exporter&page=briefing&section=${encodeURIComponent(section)}`,
     { waitUntil: 'domcontentloaded', timeout: 60_000 },
   )
   expect(response?.status()).toBeLessThan(400)
@@ -83,6 +90,10 @@ async function openIntelState(page: Page, section: string, expectedTab: string, 
   await expect(page.locator(`#${section}`)).toBeVisible()
   await expect(page.locator('.hvm-op-secondary-nav [aria-current="page"]')).toHaveText(expectedTab)
 
+  for (const text of options.expectedText ?? []) {
+    await expect(page.locator(`#${section}`)).toContainText(text)
+  }
+
   await assertMobileIntelLayout(page)
   await page.screenshot({ path: path.join(evidenceRoot, file), fullPage: false })
 }
@@ -90,7 +101,7 @@ async function openIntelState(page: Page, section: string, expectedTab: string, 
 test.describe('Mobile Intel authenticated evidence', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('captures all six required Intel states from the authenticated isolated production build', async ({ browser }) => {
+  test('captures all required Intel states and Daily Brief cards from the authenticated isolated production build', async ({ browser }) => {
     test.setTimeout(360_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
@@ -104,7 +115,41 @@ test.describe('Mobile Intel authenticated evidence', () => {
 
     try {
       const page = await context.newPage()
-      await openIntelState(page, 'weekly-signals', 'Weekly signals', 'intel-auth-01-weekly-signals-390x844.png')
+
+      // Exact Daily Brief presentation evidence requested for this remediation.
+      await page.setViewportSize({ width: 375, height: 812 })
+      await openIntelState(page, 'weekly-signals', 'Weekly signals', 'daily-brief-weekly-signals-375x812.png', {
+        country: 'CA',
+        expectedText: [
+          'Curaleaf puts Aurora Cannabis in play',
+          'Health Canada extends cannabis import permits',
+          'Source Curaleaf / Aurora Cannabis company disclosures',
+          'Verification official/corroborated',
+        ],
+      })
+
+      await page.setViewportSize({ width: 390, height: 844 })
+      await openIntelState(page, 'weekly-signals', 'Weekly signals', 'daily-brief-weekly-signals-390x844.png', {
+        country: 'US',
+        expectedText: [
+          'New York expands Cannabis Showcase Events',
+          'Source New York State Senate',
+          'Verification official-legislation/corroborated-signing',
+        ],
+      })
+
+      await page.setViewportSize({ width: 430, height: 932 })
+      await openIntelState(page, 'weekly-signals', 'Weekly signals', 'daily-brief-weekly-signals-430x932.png', {
+        country: 'CA',
+        expectedText: [
+          'MediPharm advances France, Brazil, New Zealand and Australia',
+          'Avicanna introduces QUIX rapid-onset',
+          'Source MediPharm Labs Q2 2026 disclosure',
+          'Source Avicanna Inc.',
+        ],
+      })
+
+      await page.setViewportSize({ width: 390, height: 844 })
       await openIntelState(page, 'personal-briefing', 'Personal briefing', 'intel-auth-02-personal-briefing-390x844.png')
       await openIntelState(page, 'regulatory', 'Regulatory watch', 'intel-auth-03-regulatory-watch-390x844.png')
       await openIntelState(page, 'local-intel', 'Local intelligence', 'intel-auth-04-local-intelligence-390x844.png')
