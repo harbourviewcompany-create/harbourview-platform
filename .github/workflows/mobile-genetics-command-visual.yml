@@ -1,0 +1,283 @@
+name: Mobile Genetics Command Visual
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/dashboard/**
+      - lib/genetics/**
+      - lib/platform/commandCentreCopy.ts
+      - components/dashboard/mobile-command/**
+      - tests/e2e/mobile-genetics-command.spec.ts
+      - .github/workflows/mobile-genetics-command-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-genetics-command-visual-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    name: Exact Genetics Command evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SUPABASE_DB_SCHEMA: api
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Genetics schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_mobile_genetics_visual.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+
+          create table api.user_dashboard_preferences (
+            user_id uuid primary key,
+            country_iso2 text,
+            role_id text
+          );
+          create table api.workspace_members (
+            user_id uuid not null,
+            workspace_id uuid not null default gen_random_uuid(),
+            status text not null default 'active'
+          );
+
+          create table api.countries (
+            country_name text, iso_alpha2 text primary key, region text, subregion text,
+            market_access_status text, medical_status text, adult_use_status text,
+            import_status text, export_status text, signals_status text,
+            opportunity_score numeric, data_completeness text, public_summary text,
+            trade_roles text[] default '{}', opportunity_categories text[] default '{}',
+            regulator_label text, last_updated_label text
+          );
+          create table api.country_intel (
+            id uuid primary key default gen_random_uuid(), country_code text,
+            public_summary text, commercial_pathway_summary text, review_status text,
+            regulatory_tier text, last_reviewed_at timestamptz
+          );
+          create table api.cc_jurisdiction_briefings (
+            id uuid primary key default gen_random_uuid(), country_iso2 text,
+            jurisdiction_type text, program_status text, patient_access text,
+            physician_access text, market_dynamics text, regulatory_outlook text,
+            regulatory_body text, confidence_score numeric, last_reviewed_date date
+          );
+
+          create table api.genetics_profiles (
+            id uuid primary key, display_name text not null, organization_name text,
+            primary_role text not null, country_code text, jurisdiction_label text,
+            verification_level text not null, public_summary text, website_url text,
+            contact_visibility text not null, owner_user_id uuid, review_status text not null,
+            created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+          );
+          create table api.cultivar_passports (
+            id uuid primary key, display_name text not null, slug text not null unique,
+            public_summary text not null, breeder_profile_id uuid, rights_holder_profile_id uuid,
+            origin_country_code text, origin_jurisdiction_label text, cultivar_category text not null,
+            cannabis_category text, claim_status text not null, claim_review_status text not null,
+            evidence_score_summary text, verification_summary text, public_disclaimer text not null,
+            owner_user_id uuid, is_public boolean not null default false,
+            created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+          );
+          create table api.cultivar_aliases (
+            id uuid primary key, cultivar_id uuid not null, alias text not null,
+            is_public boolean not null default false, created_at timestamptz not null default now()
+          );
+          create table api.cultivar_country_opportunities (
+            id uuid primary key, cultivar_id uuid not null, country_code text not null,
+            jurisdiction_label text, opportunity_type text not null, status text not null,
+            material_transfer_status text not null, jurisdiction_gate_status text not null,
+            public_note text, private_note text, requires_admin_review boolean not null default true,
+            review_status text not null, created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+          create table api.genetics_evidence_items (
+            id uuid primary key, cultivar_id uuid, profile_id uuid, evidence_type text not null,
+            title text not null, source_label text, source_date date, jurisdiction_label text,
+            visibility text not null, claim_status text not null, review_status text not null,
+            public_summary text, private_notes text, file_path text, file_is_private boolean not null default true,
+            expires_at timestamptz, created_by uuid, created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+          create table api.genetics_collaboration_projects (
+            id uuid primary key, title text not null, slug text not null unique,
+            project_type text not null, visibility text not null, status text not null,
+            linked_cultivar_id uuid, owner_profile_id uuid, country_code text,
+            jurisdiction_label text, public_summary text not null, private_notes text,
+            evidence_needed text, created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+          create table api.genetics_service_providers (
+            id uuid primary key, profile_id uuid not null, service_category text not null,
+            service_summary text not null, country_code text, jurisdiction_label text,
+            verification_level text not null, is_public boolean not null default false,
+            review_status text not null, created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+
+          insert into api.countries values (
+            'Canada','CA','Americas','Northern America','available','medical','legal','allowed','allowed','active',82,'reviewed',
+            'Canada visual Genetics context.',array['exporter'],array['genetics'],'Health Canada','Visual fixture'
+          );
+          insert into api.country_intel (country_code, public_summary, commercial_pathway_summary, review_status, regulatory_tier, last_reviewed_at)
+          values ('CA','Canada visual Genetics context.','Controlled genetics pathways remain evidence-led.','approved','established',now());
+
+          insert into api.genetics_profiles values
+            ('10000000-0000-4000-8000-000000000001','Visual Breeding Co.','Visual Breeding Co.','breeder','CA','Ontario','reviewed','Visual breeder profile.',null,'request_only',null,'approved_public',now(),now()),
+            ('10000000-0000-4000-8000-000000000002','Visual Rights Co.','Visual Rights Co.','rights_holder','CA','Ontario','reviewed','Visual rights holder.',null,'request_only',null,'approved_public',now(),now()),
+            ('10000000-0000-4000-8000-000000000003','Visual Genetics Lab','Visual Genetics Lab','lab_provider','CA','Ontario','reviewed','Visual genetics service provider.',null,'request_only',null,'approved_public',now(),now());
+
+          insert into api.cultivar_passports values (
+            '20000000-0000-4000-8000-000000000001','Visual Alpha','visual-alpha','Public visual cultivar passport used only for isolated UI verification.',
+            '10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000002','CA','Ontario','cannabis','thc_dominant',
+            'admin_reviewed','approved_public','Reviewed public evidence bundle.','Identity reviewed against public evidence.',
+            'Public passport summary only. No plant-material transaction or regulatory clearance is implied.',null,true,now(),now()
+          );
+          insert into api.cultivar_aliases values
+            ('30000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','Alpha One',true,now()),
+            ('30000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001','A1',true,now());
+          insert into api.cultivar_country_opportunities values (
+            '40000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001','DE','Germany','licensing_discussion','open_to_discussion',
+            'discussion_only','review_required','Controlled licensing discussion only.','PRIVATE VISUAL NOTE',true,'approved_public',now(),now()
+          );
+          insert into api.genetics_evidence_items values (
+            '50000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000001',null,'genotype_report','Public genotype summary',
+            'Visual reviewed source',current_date,'Ontario','public_summary','admin_reviewed','approved_public','Public evidence summary.','PRIVATE REVIEW NOTE','private/visual-genetics.pdf',true,null,null,now(),now()
+          );
+          insert into api.genetics_collaboration_projects values (
+            '60000000-0000-4000-8000-000000000001','Visual verification collaboration','visual-verification-collaboration','verification_project','public_summary','open',
+            '20000000-0000-4000-8000-000000000001',null,'CA','Ontario','Public collaboration summary.','PRIVATE VISUAL NOTE',null,now(),now()
+          );
+          insert into api.genetics_service_providers values (
+            '70000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000003','genotyping','Reviewed genotyping service.','CA','Ontario','reviewed',true,'approved_public',now(),now()
+          );
+
+          grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
+          grant select on all tables in schema api to anon;
+          SQL
+          : > supabase/seed.sql
+
+      - name: Start isolated Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create isolated authenticated user
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="mobile-genetics-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvGenetics-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+          const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+          const { error } = await client.auth.admin.createUser({ email: process.env.E2E_TEST_USER_EMAIL, password: process.env.E2E_TEST_USER_PASSWORD, email_confirm: true })
+          if (error) throw error
+          NODE
+
+      - name: Build exact source
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 > /tmp/mobile-genetics-next.log 2>&1 &
+          echo $! > /tmp/mobile-genetics-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/mobile-genetics-next.log
+          exit 1
+
+      - name: Run exact Genetics visual gates
+        run: npx playwright test tests/e2e/mobile-genetics-command.spec.ts --project=chromium-desktop --workers=1 --retries=0
+
+      - name: Collect Genetics evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/mobile-genetics-command
+          if [ -f /tmp/mobile-genetics-next.log ]; then cp /tmp/mobile-genetics-next.log artifacts/mobile-genetics-command/server.log; fi
+
+      - name: Upload Genetics evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mobile-genetics-command-${{ github.run_id }}
+          path: |
+            artifacts/mobile-genetics-command/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore production migrations
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+      - name: Stop isolated services
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/mobile-genetics-next.pid ]; then kill "$(cat /tmp/mobile-genetics-next.pid)" 2>/dev/null || true; fi
+          supabase stop --no-backup || true
