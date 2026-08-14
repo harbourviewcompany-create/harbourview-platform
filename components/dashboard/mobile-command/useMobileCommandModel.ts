@@ -21,9 +21,16 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const [enrichedSignals, setEnrichedSignals] = useState<MobileCommandCentreProps['signals'] | null>(null)
 
   useEffect(() => {
-    const controller = new AbortController()
     setEnrichedSignals(null)
 
+    // An empty Command state is an explicit whole-surface contract: the SSR
+    // payload intentionally contains no loaded records. Rehydrating only the
+    // signal feed here would make the root remain `empty` while intelligence
+    // silently becomes populated, and it breaks the isolated empty-state proof.
+    // Loaded/stale/error states keep the authenticated safe-DTO refresh below.
+    if (model.commandDataState === 'empty') return
+
+    const controller = new AbortController()
     const params = new URLSearchParams({
       country: model.countryLabel,
       limit: '25',
@@ -52,7 +59,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       })
 
     return () => controller.abort()
-  }, [model.countryLabel])
+  }, [model.commandDataState, model.countryLabel])
 
   const effectiveSignals = enrichedSignals ?? model.signals
 
