@@ -18,21 +18,29 @@ export async function resolveActiveWorkspace(userId: string) {
     return { supabase, workspaceId: null as string | null, membership: null, stale: false, error: null }
   }
 
-  const { data: membership, error: membershipError } = await supabase
-    .from('workspace_members')
-    .select('workspace_id,role,status')
-    .eq('workspace_id', requestedWorkspaceId)
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .maybeSingle()
+  const [{ data: membership, error: membershipError }, { data: workspace, error: workspaceError }] = await Promise.all([
+    supabase
+      .from('workspace_members')
+      .select('workspace_id,role,status')
+      .eq('workspace_id', requestedWorkspaceId)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle(),
+    supabase
+      .from('workspaces')
+      .select('id,status')
+      .eq('id', requestedWorkspaceId)
+      .eq('status', 'active')
+      .maybeSingle(),
+  ])
 
-  if (membershipError || !membership) {
+  if (membershipError || workspaceError || !membership || !workspace) {
     return {
       supabase,
       workspaceId: null as string | null,
       membership: null,
       stale: true,
-      error: membershipError?.message ?? null,
+      error: membershipError?.message ?? workspaceError?.message ?? null,
     }
   }
 
