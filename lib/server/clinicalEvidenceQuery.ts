@@ -4,7 +4,11 @@ import type {
   ClinicalEvidenceRecordDTO,
   ClinicalEvidenceSearchResult,
 } from '@/lib/clinical/evidence'
-import { clinicalEvidenceStateMessage, deriveClinicalEvidenceState } from '@/lib/clinical/evidence'
+import {
+  clinicalEvidenceStateMessage,
+  deriveClinicalEvidenceState,
+  synthesizeClinicalEvidence,
+} from '@/lib/clinical/evidence'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -25,6 +29,7 @@ function text(value: unknown): string | null {
 }
 
 function mapEvidence(row: Row): ClinicalEvidenceRecordDTO {
+  const publicationScope = text(row.publication_scope)
   return {
     id: String(row.id),
     slug: String(row.slug),
@@ -58,6 +63,9 @@ function mapEvidence(row: Row): ClinicalEvidenceRecordDTO {
     supersessionState: row.supersession_state as ClinicalEvidenceRecordDTO['supersessionState'],
     supersededById: text(row.superseded_by_id),
     reviewStatus: row.review_status as ClinicalEvidenceRecordDTO['reviewStatus'],
+    sourceRegistryId: text(row.primary_source_registry_id),
+    gradingMethodKey: text(row.grading_method_key),
+    publicationScope: publicationScope === 'clinical-synthesis' ? 'clinical-synthesis' : 'source-metadata',
   }
 }
 
@@ -149,9 +157,23 @@ export async function searchClinicalEvidence(input: {
     const changes = (await rest(`clinical_evidence_change_events?${changeParams}`)).map(mapChange)
 
     const state = deriveClinicalEvidenceState({ query, records, knownConditionMatch })
-    return { state, query, records, changes, message: clinicalEvidenceStateMessage(state) }
+    return {
+      state,
+      query,
+      records,
+      changes,
+      message: clinicalEvidenceStateMessage(state),
+      synthesis: synthesizeClinicalEvidence(records),
+    }
   } catch {
     const state = deriveClinicalEvidenceState({ query, records: [], error: true })
-    return { state, query, records: [], changes: [], message: clinicalEvidenceStateMessage(state) }
+    return {
+      state,
+      query,
+      records: [],
+      changes: [],
+      message: clinicalEvidenceStateMessage(state),
+      synthesis: synthesizeClinicalEvidence([]),
+    }
   }
 }
