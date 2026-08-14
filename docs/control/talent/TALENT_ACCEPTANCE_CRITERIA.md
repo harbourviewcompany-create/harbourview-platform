@@ -1,0 +1,54 @@
+# Talent Acceptance Criteria
+
+`TAC-001`–`TAC-035` preserve the previously approved release scope. `TAC-036`–`TAC-050` harden mechanical verification.
+
+- TAC-001: every scope-ledger capability is implemented or explicitly phase-deferred with preserved foundation; no unexplained omission.
+- TAC-002: canonical person identity is distinct from application/pipeline identity.
+- TAC-003: person/job/organization resolution can be reversed without source-history loss.
+- TAC-004: structured taxonomy terms resolve to immutable/versioned taxonomy releases.
+- TAC-005: material claims expose temporal provenance and conflicts remain explicit.
+- TAC-006: organization verification does not imply recruiter/hiring authority.
+- TAC-007: agency/recruiter access is constrained to active authority/mandate and entitlement.
+- TAC-008: Command and `/talent` converge on canonical job identity.
+- TAC-009: external jobs preserve source snapshot/identity/freshness.
+- TAC-010: duplicate source jobs can map to one job without deleting source records.
+- TAC-011: job requirement versions and material change events are immutable/reproducible.
+- TAC-012: provider use is blocked when configured source rights do not permit the operation.
+- TAC-013: Passport migration does not invent unsupported credential/issuer/licence facts.
+- TAC-014: credentials expose effective lifecycle; expiry/revocation affects eligibility.
+- TAC-015: work authorization remains distinct from professional/regulatory credential.
+- TAC-016: unclaimed/imported profiles never appear user-owned without successful claim.
+- TAC-017: blocked/unrelated employers receive no protected candidate payload or existence leak.
+- TAC-018: progressive disclosure/contact/document access requires current grant/authority.
+- TAC-019: consent revocation and employer blocks affect subsequent actions at execution time.
+- TAC-020: retention/erasure respects legal holds and preserves compatible audit integrity.
+- TAC-021: Find Jobs filters/search execute server-side with cursor pagination.
+- TAC-022: Find Talent authorization/visibility/blocking occurs before ranking/retrieval.
+- TAC-023: semantic retrieval never searches a global unauthorized candidate corpus then filters afterward.
+- TAC-024: matches store policy, requirement, taxonomy, Passport/credential input and factor evidence versions.
+- TAC-025: missing evidence is `unresolved` where appropriate, not invented satisfied/failed.
+- TAC-026: canonical applications enforce ownership, open-job state and duplicate/idempotency policy.
+- TAC-027: application status history is immutable; unavailable historical legacy transitions are not fabricated.
+- TAC-028: documents use private controlled access and access auditing; no public permanent resume URL becomes the canonical storage model.
+- TAC-029: candidate/employer application DTOs cannot cross-leak private notes/evidence/contact data.
+- TAC-030: `JOB_LISTINGS` cannot produce production Command Talent results after cutover.
+- TAC-031: public Talent redaction guarantees survive canonical convergence.
+- TAC-032: generalized Talent cannot directly inherit broad legacy `job_search.*` client reads.
+- TAC-033: exact mobile/desktop accessibility/visual matrix passes.
+- TAC-034: search/API/indexing/application SLOs and performance evidence meet accepted budgets.
+- TAC-035: final independent verification reconciles every ledger row and returns no unexplained critical gap.
+- TAC-036: traceability matrix has implementation files/migrations/API/DTO/RLS/tests/evidence/implementation SHA/verification SHA or approved N/A before `VERIFIED`.
+- TAC-037: no duplicate/missing stable TAL, TAC, CTL identifiers and manifest ID ranges match files.
+- TAC-038: every frozen-scope amendment follows CTL-002 and records impacted IDs/tests/evidence.
+- TAC-039: backfill reconciliation proves source=mapped+unmapped/suppressed/error with duplicate/conflict counts explicitly accounted.
+- TAC-040: identity assurance, credential verification and employer authority combinations are tested independently.
+- TAC-041: privacy changes remain query-time effective despite stale async indexes/caches.
+- TAC-042: search evaluation reports relevance, duplicate, stale, privacy and p50/p95 metrics; privacy violations=0.
+- TAC-043: match invalidation occurs on relevant job/requirement/Passport/credential/taxonomy/privacy/rule changes.
+- TAC-044: race/idempotency tests cover claim, dedup, apply, block/disclosure, match and notification/event ordering.
+- TAC-045: dark deploy/backfill/shadow comparison/read switch/legacy freeze/rollback gates are evidenced.
+- TAC-046: feature flags and independent kill switches can disable affected subsystems without emergency schema mutation.
+- TAC-047: sensitive/derived Talent data is excluded from unsafe shared caches/logs/telemetry and derivatives inherit privacy classification.
+- TAC-048: incident runbooks, secret rotation controls, restore validation and human override audit paths are tested or dry-run evidenced.
+- TAC-049: P1/P2 deferred capabilities retain required P0 keys/boundaries and retirement/activation dependencies.
+- TAC-050: production GO requires independent verifier SHA distinct from implementation evidence and a mechanically consistent control manifest.
