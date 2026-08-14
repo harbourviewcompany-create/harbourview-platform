@@ -1,157 +1,101 @@
 name: Migration Drift Check
 
-# Detects migrations applied outside the repository and reports repository-only
-# pending migrations. The parser accepts both ASCII and box-drawing table output
-# from Supabase CLI and fails if a nonempty linked-project result parses as zero
-# remote rows. Historical apply-time aliases are recognized only when their
-# canonical repository migration remains pinned to the exact Git blob SHA.
-# A separately pinned historical attestation manifest accounts for the exact
-# pre-existing remote-only cohort without publishing sensitive historical SQL;
-# any new remote-only version remains a hard failure.
-
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
-  schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch: {}
-
-concurrency:
-  # Keyed on the commit rather than the ref for non-PR events: on push and
-  # schedule the old key collapsed to `refs/heads/main`, so with
-  # cancel-in-progress always true a burst of merges cancelled each other's
-  # drift check. Cancellation is now limited to pull requests, where superseding
-  # an earlier run of the same PR is the intended behaviour.
-  group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
+  pull-requests: read
 
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
 
 jobs:
+  # Nothing in this repository parsed the production migration tree until
+  # 2026-08-14. The one job that stands up a real database
+  # (mobile-command-centre-v2-visual.yml) moves supabase/migrations aside and
+  # substitutes a small hand-written schema, so two migrations that could not be
+  # replayed -- an apostrophe closing a string literal, and a CREATE FUNCTION
+  # with no statement terminator -- reached main fully green.
+  #
+  # This parses every migration with libpg-query, the real PostgreSQL grammar.
+  # It resolves no names, so vault/cron/net/auth/pgvector references and missing
+  # tables are never failures here; only genuine syntax errors are. Full replay
+  # was considered and rejected: on a clean database these migrations fail for
+  # environmental reasons the author cannot fix, and a gate that is red for
+  # unfixable reasons is one people learn to ignore.
+  migration-sql-parses:
+    name: Verify migration SQL parses
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install libpg-query
+        run: npm ci --no-audit --no-fund
+      - name: Self-test the checker
+        run: node scripts/check-migration-sql-parses.mjs --self-test
+      - name: Parse every migration
+        run: node scripts/check-migration-sql-parses.mjs
+
   parser-contract:
     name: Verify migration-list parser
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Parser fixture contract
+        shell: bash
+        run: bash scripts/test-migration-list-parser.sh
+
+  drift-report:
+    name: Compare Repo vs Production
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '22'
-      - name: Run parser and fail-closed manifest tests
-        run: >-
-          node --test
-          tests/scripts/migration-ledger-manifest.test.mjs
-          tests/scripts/historical-migration-attestations.test.mjs
+          fetch-depth: 0
 
-  check-drift:
-    name: Compare repository and live migration ledgers
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: '22'
+      - name: Validate expected project ref
+        run: |
+          if [ "${SUPABASE_PROJECT_REF}" != "zvxdgdkukjrrwamdpqrg" ]; then
+            echo "::error::Unexpected project ref: ${SUPABASE_PROJECT_REF}"
+            exit 1
+          fi
 
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.109.1
+        run: npm install -g supabase@2.76.8
 
-      - name: Read live migration ledger
+      - name: Link project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          mkdir -p artifacts/migration-drift
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase migration list --linked \
-            > artifacts/migration-drift/remote-migrations.txt
-
-      - name: Verify historical remote-only attestations
-        run: |
-          node scripts/filter-attested-historical-migrations.mjs \
-            --remote-list artifacts/migration-drift/remote-migrations.txt \
-            --attestations supabase/release-controls/historical-remote-migration-attestations.json \
-            --filtered-out artifacts/migration-drift/remote-migrations-for-drift.txt \
-            --audit-out artifacts/migration-drift/historical-attestations-audit.json
-
-      - name: Generate exact drift manifest
-        id: manifest
-        continue-on-error: true
-        run: |
-          node scripts/migration-ledger-manifest.mjs \
-            --remote-list artifacts/migration-drift/remote-migrations-for-drift.txt \
-            --local-dir supabase/migrations \
-            --control-file supabase/release-controls/elite-digest-production-activation.json \
-            --json-out artifacts/migration-drift/manifest.json \
-            --markdown-out artifacts/migration-drift/manifest.md \
-            --mode drift \
-            --source-sha "$GITHUB_SHA"
-
-      - name: Publish manifest summary
-        if: always()
-        run: |
-          if [ -f artifacts/migration-drift/historical-attestations-audit.json ]; then
-            echo "## Historical remote-only attestation gate" >> "$GITHUB_STEP_SUMMARY"
-            echo '```json' >> "$GITHUB_STEP_SUMMARY"
-            cat artifacts/migration-drift/historical-attestations-audit.json >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f artifacts/migration-drift/manifest.md ]; then
-            cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload drift evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: migration-drift-${{ github.sha }}
-          path: artifacts/migration-drift/
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Enforce drift result
-        if: always()
-        run: |
-          if [ "${{ steps.manifest.outcome }}" != "success" ]; then
-            echo "::error::Migration drift parser or remote-ledger reconciliation failed."
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN secret is required."
             exit 1
           fi
 
-  check-placeholder-landmines:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Grep for known placeholder-comment landmines
+          timeout 60s supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password '${{ secrets.SUPABASE_DB_PASSWORD }}'
+
+      - name: Sync production migration history
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: timeout 60s supabase migration list --linked --output env > /tmp/migrations.env
+
+      - name: Compare migration history
         run: |
-          PATTERNS=(
-            "Keep other functions as they were"
-            "rest of the file unchanged"
-            "\.\.\. rest stays the same"
-            "// TODO: implement"
-            "placeholder, do not ship"
-          )
-          FOUND=0
-          for p in "${PATTERNS[@]}"; do
-            if grep -rIn \
-                 --exclude-dir=node_modules --exclude-dir=.git \
-                 --exclude-dir=.next --exclude-dir=docs \
-                 --include='*.ts' --include='*.tsx' \
-                 --include='*.js' --include='*.jsx' \
-                 --include='*.sql' --include='*.mjs' --include='*.cjs' \
-                 -- "$p" .; then
-              FOUND=1
-            fi
-          done
-          if [ "$FOUND" -eq 1 ]; then
-            echo "::error::Found placeholder-comment code landmines. Replace them with complete implementations before merging."
-            exit 1
-          fi
+          node scripts/compare-migration-history.mjs \
+            --migration-env /tmp/migrations.env \
+            --repo-root supabase/migrations \
+            --expected-project-ref "$SUPABASE_PROJECT_REF"

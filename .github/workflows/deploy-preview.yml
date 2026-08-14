@@ -2,52 +2,76 @@ name: Deploy Preview
 
 on:
   workflow_dispatch:
-    inputs:
-      source_branch:
-        description: 'Existing source branch to deploy as preview'
-        required: true
-        type: string
 
 permissions:
-  contents: write
+  contents: read
+  checks: read
 
 jobs:
   deploy-preview:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout source branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve latest branch readiness
+        id: readiness
+        uses: actions/github-script@v7
         with:
-          ref: ${{ inputs.source_branch }}
-          fetch-depth: 0
+          script: |
+            const owner = context.repo.owner
+            const repo = context.repo.repo
+            const { data: branch } = await github.rest.repos.getBranch({
+              owner,
+              repo,
+              branch: context.ref.replace('refs/heads/', ''),
+            })
 
-      - name: Configure git identity
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            const requiredChecks = ['Type check', 'Install Only Verification']
+            // Vercel reports its own automatic deployments as check runs. The
+            // deploy-preview workflow is the only explicit deployment trigger
+            // and must not require a prior Vercel deployment to trigger Vercel.
+            const allowedVercelChecks = new Set(['Vercel', 'Vercel – harbourview'])
+            const { data } = await github.rest.checks.listForRef({
+              owner,
+              repo,
+              ref: branch.commit.sha,
+              per_page: 100,
+            })
 
-      - name: Create deploy-intent preview branch
+            const completed = new Map()
+            for (const run of data.check_runs) {
+              if (run.status === 'completed' && run.conclusion === 'success') {
+                completed.set(run.name, true)
+              }
+            }
+
+            for (const name of requiredChecks) {
+              if (!completed.get(name)) {
+                core.setFailed(`Required check "${name}" is not green on ${branch.commit.sha}`)
+              }
+            }
+
+            const activeVercelChecks = data.check_runs.filter(
+              (run) => run.app?.slug === 'vercel' && !allowedVercelChecks.has(run.name)
+            )
+
+            if (activeVercelChecks.length > 0) {
+              const names = activeVercelChecks.map((run) => run.name).join(', ')
+              core.setFailed(`Unexpected Vercel check runs exist on ${branch.commit.sha}: ${names}`)
+            }
+
+            core.setOutput('head_sha', branch.commit.sha)
+
+      - name: Vercel preview deployment
         env:
-          SOURCE_BRANCH: ${{ inputs.source_branch }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERIFIED_HEAD_SHA: ${{ steps.readiness.outputs.head_sha }}
         run: |
-          SAFE_BRANCH=$(echo "$SOURCE_BRANCH" | tr '/' '-')
-          PREVIEW_BRANCH="preview/${SAFE_BRANCH}"
-
-          echo "Using preview branch: ${PREVIEW_BRANCH}"
-
-          git checkout -B "$PREVIEW_BRANCH"
-
-          git commit --allow-empty -m "[deploy-preview] Trigger Vercel preview for ${SOURCE_BRANCH}"
-
-          git push origin "$PREVIEW_BRANCH" --force
-
-      - name: Output preview trigger result
-        env:
-          SOURCE_BRANCH: ${{ inputs.source_branch }}
-        run: |
-          SAFE_BRANCH=$(echo "$SOURCE_BRANCH" | tr '/' '-')
-          PREVIEW_BRANCH="preview/${SAFE_BRANCH}"
-
-          echo "Preview deployment trigger branch pushed: ${PREVIEW_BRANCH}"
-          echo "This branch matches the Vercel deploy-intent gate configured in scripts/vercel-ignore-wbcc-only.sh"
+          set -euo pipefail
+          echo "Verified branch head: ${VERIFIED_HEAD_SHA}"
+          echo "Vercel Preview Hook must be configured in repository variables."
+          if [ -z "${{ vars.VERCEL_PREVIEW_HOOK_URL }}" ]; then
+            echo "Missing VERCEL_PREVIEW_HOOK_URL repository variable."
+            exit 1
+          fi
+          curl -fsS -X POST "${{ vars.VERCEL_PREVIEW_HOOK_URL }}"
+          echo "Preview deployment triggered."
