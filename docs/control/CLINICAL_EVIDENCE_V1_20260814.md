@@ -7,7 +7,7 @@ Extend the verified Clinical P0 evidence spine with a governed, provenance-beari
 ## Canonical V1 model
 
 - `clinical_condition_terms`: controlled, versioned condition vocabulary with aliases, source system/identifier/version, deprecation and supersession fields.
-- `clinical_evidence_sources`: private normalized source registry with canonical source key, source type, URL, jurisdiction, DOI/PMID/DIN/NOC identifiers, source version/currentness and optional content hash.
+- `clinical_evidence_sources`: private normalized source registry with canonical source key, source type, URL, jurisdiction, DOI/PMID/DIN/NOC identifiers, source version/currentness, supersession and optional content hash.
 - `clinical_evidence_records`: reviewed public projection; extended with normalized source-registry identity, grading-method identity and publication scope.
 - `clinical_condition_evidence_links`: safe published condition-to-evidence relationships.
 - `clinical_evidence_extractions`: private extraction provenance and source locator.
@@ -31,32 +31,34 @@ Regulatory authorization, a product monograph, or a single study is never conver
 
 ## First public condition corpus
 
-The first public records are deliberately narrow regulated-drug indication metadata:
+The first public records are deliberately narrow regulated-drug indication metadata supported by the current Canadian EPIDIOLEX product-monograph source:
 
 1. EPIDIOLEX — Lennox-Gastaut syndrome.
 2. EPIDIOLEX — Dravet syndrome.
 3. EPIDIOLEX — tuberous sclerosis complex.
-4. SATIVEX — multiple sclerosis spasticity.
 
-Every record remains `regulated-cannabinoid-drug`, `product-monograph`, `ungraded`, `source-metadata`. The summaries explicitly avoid independent efficacy conclusions and do not generalize to general cannabis products, marketplace listings, genetics/cultivars, or patient-specific treatment.
+Every public condition record remains `regulated-cannabinoid-drug`, `product-monograph`, `ungraded`, `source-metadata`. The summaries explicitly avoid independent efficacy conclusions and do not generalize to general cannabis products, marketplace listings, genetics/cultivars, or patient-specific treatment.
+
+A historical 2019 SATIVEX multiple-sclerosis-spasticity indication record was initially normalized but is explicitly returned to `under-review` and marked superseded after current-source reconciliation identified Health Canada's newer SATIVEX product monograph dated 2024-12-17. It will not republish until that current monograph's indication text is captured and provenance-reviewed. The current DPD record is retained as the authoritative current product-status/source-supersession record.
 
 ## Staged systematic reviews
 
 Two review-level sources are normalized and staged as private `clinical-synthesis` records:
 
-- PubMed PMID 36417631: systematic review/meta-analysis of adjunctive cannabidiol in Lennox-Gastaut syndrome, Dravet syndrome and tuberous sclerosis complex.
-- PubMed PMID 39502271: systematic review/meta-analysis of cannabinoids for multiple-sclerosis spasticity.
+- PubMed PMID 36417631 / DOI `10.1590/1806-9282.2022D689`: systematic review/meta-analysis of adjunctive cannabidiol in Lennox-Gastaut syndrome, Dravet syndrome and tuberous sclerosis complex.
+- PubMed PMID 39502271 / DOI `10.1177/20552173241282379`: systematic review/meta-analysis of cannabinoids for multiple-sclerosis spasticity.
 
 They remain `under-review` and therefore are excluded by public RLS and deterministic public search until qualified clinical review is recorded.
 
 ## Source map
 
 - EPIDIOLEX Canadian product monograph: `https://pp.jazzpharma.com/pi/epidiolex.ca.PM-en.pdf`
-- Health Canada Drug Product Database EPIDIOLEX DIN 02543079 / NOC 32096.
-- SATIVEX Canadian product monograph: `https://pdf.hres.ca/dpd_pm/00054388.PDF`
-- Health Canada Drug Product Database SATIVEX DIN 02266121.
-- PubMed PMID 36417631 / DOI 10.1016/j.seizure.2022.10.010.
-- PubMed PMID 39502271 / DOI 10.1177/20552173241282379.
+- Health Canada Drug Product Database: EPIDIOLEX DIN `02543079`; current status marketed.
+- Health Canada Notice of Compliance: EPIDIOLEX NOC `32096`, dated 2023-11-15.
+- Health Canada Drug Product Database: SATIVEX DIN `02266121`; current status marketed; current product-monograph date 2024-12-17.
+- Historical SATIVEX product monograph retained only as superseded private provenance: `https://pdf.hres.ca/dpd_pm/00054388.PDF`.
+- PubMed PMID `36417631` / DOI `10.1590/1806-9282.2022D689`.
+- PubMed PMID `39502271` / DOI `10.1177/20552173241282379`.
 
 ## Public/private boundary
 
@@ -71,11 +73,12 @@ The TypeScript synthesis helper reports only counts, evidence-type composition, 
 ## Remaining V1 work
 
 - Qualified clinical review of staged systematic reviews before any graded public synthesis.
+- Capture and provenance review of the current 2024-12-17 SATIVEX product monograph before current indication publication.
 - Expanded controlled condition vocabulary from authoritative sources without silently importing licensing-restricted terminology.
 - Additional condition evidence and source snapshots/content hashes.
 - Reviewer/admin workflow UI for the private governance tables.
 - Contradiction-resolution workflow and explicit public conflict-event publishing.
-- Medication/cannabinoid interaction data, province×profession rules, monitoring/follow-up and structured pharmacovigilance remain separate future contracts and are not activated by this migration.
+- Medication/cannabinoid interaction data, province×profession rules, monitoring/follow-up and structured pharmacovigilance remain separate future contracts and are not activated by these migrations.
 
 ## Release boundary
 
