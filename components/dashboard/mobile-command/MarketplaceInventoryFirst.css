@@ -1,30 +1,24 @@
+/*
+ * Inventory-first ordering for the Market destination.
+ *
+ * The only structural change this file makes to the app chrome is `order`: the
+ * section rail moves below the main content so the listing grid, not the rail,
+ * is what the operator lands on. Everything else here is density work inside
+ * .hvm2-market-section.
+ *
+ * Do NOT add flex-wrap/overflow overrides to .hvm-op-secondary-nav.
+ * MobileCommandOperatorFirst.css sets `flex-wrap: wrap` + `overflow-y: auto`
+ * deliberately -- its own comment records that a single-row horizontal rail is
+ * what caused the original off-screen-chip bug. The Market rail carries four
+ * chips totalling 469px of content, so at a 390px viewport a `nowrap` rail
+ * pushes "Market intelligence" to right=453 and
+ * tests/e2e/mobile-command-centre-v2.spec.ts fails it via
+ * expectHorizontallyOnScreen. Measured in Chromium at 390px: wrap puts every
+ * chip on screen, nowrap fails one. Order is all this file needs to change.
+ */
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-header { order: 0; }
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-main { order: 1; }
-/*
- * Inventory-first ordering: the section rail sits BELOW the inventory content
- * (order 2) so listings are the first thing on screen. That reordering is this
- * file's purpose.
- *
- * The rail itself stays a single-row horizontal rail. It must not wrap:
- * tests/e2e/mobile-command-centre-v2.spec.ts asserts, via
- * assertSingleRowHorizontalRail('Market rail'), that flex-wrap is nowrap and
- * overflow-x is auto/scroll. An earlier revision of this file set
- * `flex-wrap: wrap; max-height: none; overflow: visible`, which computes to
- * wrap/visible and fails both assertions — verified in Chromium at 390px.
- * Wrapping is not required by the inventory-first hierarchy, only the order is.
- */
-.hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav {
-  order: 2;
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 6px var(--hvm-op-inline);
-}
-.hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav button {
-  min-height: 36px;
-  padding: 0 10px;
-}
+.hvm2-root[data-active-destination="marketplace"] .hvm-op-secondary-nav { order: 2; }
 .hvm2-root[data-active-destination="marketplace"] .hvm-op-bottom-nav { order: 3; }
 
 .hvm2-market-section {
@@ -36,6 +30,12 @@
   box-shadow: none;
 }
 
+/*
+ * The section title/description duplicate the header and the rail chip on this
+ * destination, so they are removed visually to get inventory above the fold --
+ * kept in the accessibility tree, since the <h2> is the section's only
+ * programmatic name.
+ */
 .hvm2-market-section > .hvm2-section-heading {
   position: absolute;
   width: 1px;
@@ -48,13 +48,18 @@
   border: 0;
 }
 
+/*
+ * Controls stay above the panel they filter: .hvm2-market-controls holds the
+ * role="tablist" and #hvm2-market-panel is its role="tabpanel", so visual order
+ * has to match DOM order here. Inventory-first is achieved by demoting the
+ * quick-action links below the grid, not by lifting the grid above its own tabs.
+ */
 .hvm2-market-section > .hvm2-market-controls { order: 1; gap: 8px; }
 .hvm2-market-section > .hvm2-workspace { order: 2; margin-top: 10px; }
 .hvm2-market-section > #hvm2-market-panel { order: 3; }
 .hvm2-market-section > .hvm2-quick-actions { order: 4; }
 
 .hvm2-market-section .hvm2-search-field {
-  order: -1;
   min-height: 44px;
   border-radius: 14px;
   background: rgba(7, 17, 31, 0.9);
@@ -62,8 +67,8 @@
 
 .hvm2-market-section .hvm2-tab-rail { gap: 6px; padding-bottom: 2px; }
 .hvm2-market-section .hvm2-tab-rail button {
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 44px;
+  padding: 0 12px;
   border-radius: 10px;
 }
 
@@ -88,6 +93,12 @@
   border-color: rgba(198, 165, 90, 0.22);
 }
 
+/*
+ * Media bleeds to the card edge: width cancels the card's horizontal padding and
+ * the negative margins pull it flush. .hvm2-listing-card in
+ * MarketplaceListingMedia.css already sets overflow:hidden, so the bleed stays
+ * inside the card's border-radius and cannot widen the grid track.
+ */
 .hvm2-market-section .hvm2-listing-media {
   width: calc(100% + 20px);
   margin: -10px -10px 10px;
@@ -101,7 +112,7 @@
 }
 
 .hvm2-market-section .hvm2-card-topline { gap: 6px; }
-.hvm2-market-section .hvm2-card-topline > span:last-child { font-size: 8px; }
+.hvm2-market-section .hvm2-card-topline > span:last-child { font-size: 10px; }
 
 .hvm2-market-section .hvm2-listing-card h3 {
   margin: 8px 0 0;
@@ -115,34 +126,52 @@
   line-height: 1.25;
 }
 
-.hvm2-market-section .hvm2-listing-card > p { display: none; }
+/*
+ * The listing summary carries the compliance detail buyers scan for (batch
+ * records, COA, phytosanitary docs). Clamped to fit the two-column card rather
+ * than hidden, so the substance survives the density pass.
+ */
+.hvm2-market-section .hvm2-listing-card > p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.hvm2-market-section .hvm2-listing-card:first-child > p {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
 .hvm2-market-section .hvm2-card-meta { gap: 5px; margin-top: 9px; }
 
 .hvm2-market-section .hvm2-card-meta span {
-  padding: 4px 6px;
+  padding: 4px 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.035);
   color: var(--hvm2-muted);
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.2;
 }
 
 .hvm2-market-section .hvm2-inline-cta {
   width: 100%;
-  min-height: 38px;
+  min-height: 44px;
   margin-top: 10px;
   border: 1px solid rgba(198, 165, 90, 0.25);
   border-radius: 10px;
   background: rgba(198, 165, 90, 0.07);
   color: var(--hvm2-gold-light);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 850;
 }
 
 .hvm2-market-section .hvm2-listing-card:not(:first-child) .hvm2-inline-cta {
-  min-height: 34px;
   margin-top: auto;
-  padding-top: 8px;
 }
 
 .hvm2-market-section > .hvm2-quick-actions {
@@ -160,19 +189,25 @@
 .hvm2-market-section > .hvm2-quick-actions a {
   display: inline-flex;
   flex: 0 0 auto;
-  min-height: 40px;
+  min-height: 44px;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
   gap: 7px;
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 11px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 750;
 }
 
 .hvm2-market-section > .hvm2-quick-actions a > span { font-size: 14px; }
-.hvm2-market-section > .hvm2-quick-actions a strong { font-size: 9px; line-height: 1.2; }
+.hvm2-market-section > .hvm2-quick-actions a strong { font-size: 11px; line-height: 1.2; }
+
+/*
+ * Sublabels ("Buyer-led requirement" etc.) are dropped in the compact row: the
+ * bold label already names the action. This is the one content removal here --
+ * the listing summary above is clamped instead.
+ */
 .hvm2-market-section > .hvm2-quick-actions a small { display: none; }
 
 @media (max-width: 374px) {
