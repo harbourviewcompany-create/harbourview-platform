@@ -32,8 +32,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServiceClient()
-  const invitationDb = supabase.schema('public')
-  const { data, error } = await invitationDb.from('workspace_invitations')
+  const { data, error } = await supabase.from('workspace_invitations')
     .select('id,workspace_id,email,role,status,created_at,expires_at,accepted_at,accepted_by')
     .eq('workspace_id', workspaceId)
     .order('created_at', { ascending: false })
@@ -77,7 +76,6 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createSupabaseServiceClient()
-  const invitationDb = supabase.schema('public')
   const { data: existingMember } = await supabase.from('workspace_members')
     .select('user_id,status')
     .eq('workspace_id', workspaceId)
@@ -95,7 +93,7 @@ export async function POST(req: NextRequest) {
   const token = randomBytes(32).toString('hex')
   const now = new Date()
   const expiresAt = new Date(now.getTime() + INVITE_TTL_MS).toISOString()
-  const { data: invitation, error } = await invitationDb.from('workspace_invitations').insert({
+  const { data: invitation, error } = await supabase.from('workspace_invitations').insert({
     workspace_id: workspaceId,
     email,
     role,
