@@ -2,6 +2,9 @@
   "name": "harbourview-platform",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "prebuild": "node scripts/generate-natural-earth-countries.mjs",
     "build": "next build",
@@ -9,6 +12,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "verify:runtime": "node scripts/verify-runtime-baseline.mjs",
+    "verify:production-baseline": "npm run verify:runtime && npm run typecheck && npm test && npm run test:security && npm run build",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
     "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
