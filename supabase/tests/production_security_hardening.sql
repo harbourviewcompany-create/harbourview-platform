@@ -148,7 +148,7 @@ where p.prosecdef
   and n.nspname in ('public','api','signals','regulatory_signals')
   and has_function_privilege('anon', p.oid, 'execute');
 
--- Authenticated execution is limited to the exact audited allowlist.
+-- Authenticated execution is limited to the exact policy-aware audited allowlist.
 with authenticated_allowlist(signature) as (
   values
     ('api.get_command_centre_stats()'),
@@ -162,6 +162,7 @@ with authenticated_allowlist(signature) as (
     ('public.hv_is_org_member(uuid)'),
     ('public.hv_is_platform_staff()'),
     ('public.is_genetics_admin_or_reviewer()'),
+    ('public.is_harbourview_admin()'),
     ('public.is_hv_staff()'),
     ('public.current_user_tier()'),
     ('public.is_regulatory_tier_admin()')
