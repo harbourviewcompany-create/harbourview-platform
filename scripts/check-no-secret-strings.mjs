@@ -68,26 +68,6 @@ const patterns = [
   { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
 
-/*
- * Vault secret literals.
- *
- * These are positional function arguments, not `identifier = value`, so the
- * assignment check never sees them, and the secret itself is opaque -- an Adzuna
- * key is bare hex and matches none of the vendor signatures above. A live Adzuna
- * app_id and app_key reached a public repository through that gap on 2026-08-13
- * while this scanner reported GO.
- *
- * `vault.create_secret(secret, name)` takes the secret first;
- * `vault.update_secret(id, secret, ...)` takes it second. A literal in either
- * position is a committed secret. References -- `current_setting(...)`, a
- * subselect, a plpgsql variable -- are unquoted and do not match.
- *
- * Kept out of `patterns` because the captured literal has to be run past the
- * placeholder allowlist: documentation shows the rotation call with a stand-in
- * secret (supabase/functions/hv-repo-reader/index.ts carries
- * `vault.update_secret(..., 'new_token_here')` in a comment), and flagging that
- * would train people to ignore this check.
- */
 const vaultSecretCalls = [
   /\bvault\.create_secret\s*\(\s*'([^']{8,})'/i,
   /\bvault\.update_secret\s*\([^,]+,\s*'([^']{8,})'/i,
@@ -150,11 +130,8 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
 
   if (knownLocalTestPlaceholder.test(value)) return true;
 
-  // Dynamic expressions are references or computations, not committed secret
-  // literals. Examples include body.token, hashToken(token), randomBytes(...),
-  // lower(p_token_hash), and user.email?.trim(). These must not be confused with
-  // a literal assigned to a sensitive identifier. Vendor-token signatures and
-  // vault positional-literal checks still run independently above.
+  // Computed references are not committed secret literals. Vendor-token
+  // signatures and vault positional-literal checks still run independently.
   if (!isBareLiteral(value)) return true;
 
   return value.length < 8;
@@ -214,13 +191,11 @@ function runSelfTest() {
     ['literal token', "const token = 'literal-secret-12345'", 1],
     ['literal bare service role key', 'SUPABASE_SERVICE_ROLE_KEY: real-service-role-key', 1],
     ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
-    // The 2026-08-13 miss: a bare-hex secret as a positional argument.
     ['vault literal secret', "SELECT vault.create_" + "secret('0123456789abcdef0123', 'some_api_key');", 1],
     ['vault literal on update', "SELECT vault.update_" + "secret(v_id, '0123456789abcdef0123', 'some_api_key');", 1],
     ['vault secret from a reference', "SELECT vault.create_secret(current_setting('app.k'), 'some_api_key');", 0],
     ['vault secret from a subselect', 'SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name=$1), v_new)', 0],
     ['vault secret read, not write', "SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'adzuna_app_key'", 0],
-    // The documented rotation example must not be flagged, or the check gets ignored.
     ['vault rotation doc placeholder', "//   SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name='GITHUB_PAT'), 'new_token_here');", 0],
   ];
 
@@ -237,6 +212,11 @@ if (args.get('self-test') === 'true') {
   runSelfTest();
   process.exit(0);
 }
+
+// Every ordinary PR scan proves the scanner still blocks representative literal
+// credentials before evaluating repository changes. This prevents a false-positive
+// repair from silently weakening the real-secret detection contract.
+runSelfTest();
 
 const files = getChangedFiles(base, head);
 const findings = [];
@@ -262,7 +242,7 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, known isolated local-test placeholders, and dynamic token/hash expressions.');
+  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, known isolated local-test placeholders, and computed references.');
   console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, credential-bearing database URLs and vault secret literals.');
   process.exit(1);
 }
