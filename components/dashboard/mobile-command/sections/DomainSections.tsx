@@ -14,6 +14,7 @@ import {
 } from '../contracts'
 import { FinancingWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import '../GeneticsSection.css'
 
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
