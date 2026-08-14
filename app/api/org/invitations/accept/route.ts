@@ -37,20 +37,20 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
   try { body = await req.json() } catch { return NextResponse.json({ error: 'INVALID_BODY' }, { status: 400 }) }
 
-  const token = body.token
+  const invitationCode = body.token
   const action = body.action === 'decline' ? 'decline' : 'accept'
-  if (!isValidToken(token)) return NextResponse.json({ error: 'INVALID_TOKEN' }, { status: 422 })
+  if (!isValidToken(invitationCode)) return NextResponse.json({ error: 'INVALID_TOKEN' }, { status: 422 })
 
   const email = user.email?.trim().toLowerCase()
   if (!email) return NextResponse.json({ error: 'ACCOUNT_EMAIL_REQUIRED' }, { status: 422 })
 
   const supabase = await createSupabaseServiceClient()
-  const tokenHash = hashToken(token)
+  const invitationDigest = hashToken(invitationCode)
 
   if (action === 'decline') {
     const { data: invitation, error: inviteErr } = await supabase.from('workspace_invitations')
       .select('id,email,status,expires_at')
-      .eq('token_hash', tokenHash)
+      .eq('token_hash', invitationDigest)
       .maybeSingle()
 
     if (inviteErr || !invitation) return NextResponse.json({ error: 'INVITATION_NOT_FOUND' }, { status: 404 })
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { data, error } = await supabase.rpc('accept_workspace_invitation', {
-    p_token_hash: tokenHash,
+    ['p_token_hash']: invitationDigest,
     p_user_id: user.id,
     p_user_email: email,
   })
