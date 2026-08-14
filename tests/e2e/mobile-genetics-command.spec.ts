@@ -45,7 +45,7 @@ async function assertGeneticsContract(page: import('@playwright/test').Page) {
   await expect(page.getByText('Public genotype summary', { exact: true })).toBeVisible()
   const germanyOpportunity = page.locator('.hvm2-genetics-opportunity').filter({ hasText: 'Germany' })
   await expect(germanyOpportunity).toBeVisible()
-  await expect(germanyOpportunity.locator('span')).toHaveText('DE · Germany')
+  await expect(germanyOpportunity.getByText('DE · Germany', { exact: true })).toBeVisible()
   await expect(page.getByText('Visual verification collaboration', { exact: true })).toBeVisible()
   await expect(page.getByText('Visual Genetics Lab', { exact: true })).toBeVisible()
   await expect(page.locator('.hvm2-genetics-record[open]')).toHaveCount(1)
