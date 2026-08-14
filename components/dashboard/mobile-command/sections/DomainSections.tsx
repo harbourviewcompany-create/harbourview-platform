@@ -12,6 +12,7 @@ import {
   deriveClinicalSourceState,
   safeClinicalBriefing,
 } from '../clinicalCommandContract'
+import ClinicalEvidenceExplorer from '../ClinicalEvidenceExplorer'
 import { FinancingWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
@@ -51,6 +52,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
   const documentAuthority = CANADA_CLINICAL_AUTHORITIES[1]
   const safetyAuthority = CANADA_CLINICAL_AUTHORITIES[2]
   const pharmacovigilanceAuthority = CANADA_CLINICAL_AUTHORITIES[3]
+  const clinicalHref = commandHref('clinical')
 
   return (
     <SectionShell
@@ -59,7 +61,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       eyebrow="Clinical"
       title="Professional clinical command"
       description="Primary-authority clinical orientation for medical professionals. Evidence and regulatory status stay distinct from product marketing and genetics."
-      action={<Link className="hvm2-text-link" href={commandHref('clinical')}>Verified clinician workspace</Link>}
+      action={<Link className="hvm2-text-link" href={clinicalHref}>Verified clinician workspace</Link>}
     >
       <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' ? 'status' : undefined}>
         <strong>Source state · {formatStatus(sourceState)}</strong>
@@ -79,6 +81,8 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
           <p>{sourceState === 'loaded' ? 'Jurisdiction briefing is present; confirm material decisions against the cited authority and professional regulator.' : CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
         </article>
       </div>
+
+      <ClinicalEvidenceExplorer commandHref={clinicalHref} profession={roleShort || 'All roles'} />
 
       <div className="hvm2-horizontal-deck" aria-label="Clinical actions">
         <article className="hvm2-directory-card">
@@ -118,7 +122,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
           <span>Professional pathway</span>
           <h3>{roleShort || 'All roles'}</h3>
           <p>{safePhysicianAccess || 'No current reviewed profession-specific briefing is available for this context. Confirm requirements with the applicable provincial or territorial professional regulator.'}</p>
-          <Link className="hvm2-text-link" href={commandHref('clinical')}>Clinical workspace →</Link>
+          <Link className="hvm2-text-link" href={clinicalHref}>Clinical workspace →</Link>
         </article>
       </div>
 
