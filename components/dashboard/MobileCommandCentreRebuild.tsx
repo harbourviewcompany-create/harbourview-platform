@@ -9,6 +9,7 @@ import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-c
 import { buildCommandSearchIndex } from './mobile-command/intelSearch'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
+import OrganizationContextControl from './OrganizationContextControl'
 import {
   ClinicalSection,
   ComplianceSection,
@@ -133,6 +134,13 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
 
   function updateContext(key: 'country' | 'role', value: string) {
     setContextOpen(false)
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(key === 'country'
+        ? { country_iso2: value }
+        : { role_id: value || null }),
+    }).catch(() => undefined)
     model.updateContext(key, value)
   }
 
@@ -269,11 +277,13 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
               <label>
                 <span>Role</span>
                 <select value={model.currentRole ?? ''} onChange={event => updateContext('role', event.target.value)}>
+                  <option value="">All roles</option>
                   {model.roleEntries.map(([id, profile]) => <option key={id} value={id}>{profile.label}</option>)}
                 </select>
               </label>
-              <Link href={model.commandHref('overview', { page: 'organization' })} onClick={() => setContextOpen(false)}>
-                <span>Organization</span><span aria-hidden="true">→</span>
+              <OrganizationContextControl onDone={() => setContextOpen(false)} />
+              <Link href="/account" onClick={() => setContextOpen(false)}>
+                <span>Account</span><span aria-hidden="true">→</span>
               </Link>
             </div>
           </div>
