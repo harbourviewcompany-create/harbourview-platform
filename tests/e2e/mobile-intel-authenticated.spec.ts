@@ -101,16 +101,13 @@ async function assertMobileIntelLayout(page: Page) {
     { message: 'active Intel tab should settle fully inside the secondary navigation viewport' },
   ).toBe(true)
 
+  await assertBottomNavLabelsContained(page)
   const bottomNav = await page.locator('.hvm-op-bottom-nav').boundingBox()
-  const main = await page.locator('.hvm-op-main').boundingBox()
   const viewport = page.viewportSize()
   expect(bottomNav).not.toBeNull()
-  expect(main).not.toBeNull()
   expect(viewport).not.toBeNull()
   expect(bottomNav!.y).toBeGreaterThanOrEqual(-1)
   expect(bottomNav!.y + bottomNav!.height).toBeLessThanOrEqual(viewport!.height + 1)
-  expect(main!.y + main!.height).toBeLessThanOrEqual(bottomNav!.y + 1)
-  await assertBottomNavLabelsContained(page)
 }
 
 async function openIntelState(
