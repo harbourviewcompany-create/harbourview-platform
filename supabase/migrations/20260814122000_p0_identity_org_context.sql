@@ -65,6 +65,25 @@ create policy "Users can update their own dashboard preferences"
     )
   );
 
+-- Keep the API projection in lockstep with the base table. The explicit
+-- security_invoker option is mandatory because recreating this view without it
+-- would bypass the underlying RLS policies through the postgres view owner.
+create or replace view api.user_dashboard_preferences
+with (security_invoker = true) as
+select
+  id,
+  user_id,
+  country_iso2,
+  role_id,
+  heatmap_layer,
+  active_workspace_id,
+  created_at,
+  updated_at
+from public.user_dashboard_preferences;
+
+grant select, insert, update, delete on api.user_dashboard_preferences to authenticated;
+grant select, insert, update, delete on api.user_dashboard_preferences to service_role;
+
 -- Invitation transport only. workspace_members remains canonical after acceptance.
 create table if not exists public.workspace_invitations (
   id uuid primary key default gen_random_uuid(),
