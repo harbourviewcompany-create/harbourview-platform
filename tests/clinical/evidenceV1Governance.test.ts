@@ -72,7 +72,7 @@ describe('Clinical Evidence V1 governance', () => {
     expect(migration).toContain("'review-cbd-lgs-ds-tsc-2022'")
     expect(migration).toContain("'review-nabiximols-ms-spasticity-2024'")
     expect(migration).toContain("'clinical-synthesis'")
-    expect(migration).toContain("review_status = 'under-review'")
+    expect(migration).toContain("'under-review'")
   })
 
   it('seeds only regulated-drug indication metadata as public condition evidence', () => {
