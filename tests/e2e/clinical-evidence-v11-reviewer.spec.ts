@@ -25,7 +25,7 @@ test('authenticated Clinical reviewer can inspect governed queues and source pro
   await expect(page.getByText('Freshness queue', { exact: true })).toBeVisible()
   await expect(page.getByText(/Living Systematic Review on Cannabis and Other Plant-Based Treatments for Chronic Pain/i)).toBeVisible()
   await expect(page.getByText(/source identification never implies a clinical conclusion or grade/i)).toBeVisible()
-  await expect(page.getByText('Publication / supersession', { exact: true })).toBeVisible()
+  await expect(page.getByRole('group', { name: /Publication \/ supersession/i })).toBeVisible()
   await page.screenshot({ path: path.join(evidenceRoot, 'clinical-v1-1-reviewer-workbench-1440x1100.png'), fullPage: true })
 
   const sourceId = process.env.E2E_CLINICAL_SOURCE_ID
