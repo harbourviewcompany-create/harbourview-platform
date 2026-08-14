@@ -10,6 +10,7 @@ on:
       - lib/server/clinicalEvidenceOperations.ts
       - lib/admin/navConfig.ts
       - supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql
+      - supabase/migrations/20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
       - tests/clinical/evidenceV11Operations.test.ts
       - tests/e2e/clinical-evidence-v11-reviewer.spec.ts
       - .github/workflows/clinical-evidence-v1-1-verify.yml
@@ -75,6 +76,7 @@ jobs:
             20260814143000_clinical_evidence_v1_production_foundation.sql
             20260814144000_clinical_evidence_v1_audit_immutability.sql
             20260814150000_clinical_evidence_v1_1_operations.sql
+            20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
           )
           for f in "${files[@]}"; do cp "supabase/migrations/${f}" "/tmp/${f}"; done
           mv supabase/migrations /tmp/harbourview-production-migrations
@@ -127,9 +129,9 @@ jobs:
             return r.json()
           }
           const candidates = await get('clinical_evidence_intake_queue?select=id,source_id,intake_status,coverage_status')
-          if (candidates.length !== 4 || candidates.some(x => x.intake_status !== 'snapshot-required' || x.coverage_status !== 'source-identified')) throw new Error('expected four private source-only V1.1 candidates')
-          const candidateSources = await get('clinical_evidence_sources?select=id,source_key&source_key=in.(pubmed-40238954,pubmed-39953210,pubmed-38478773,pubmed-38171632)')
-          if (candidateSources.length !== 4) throw new Error('V1.1 source registry expansion missing')
+          if (candidates.length !== 5 || candidates.some(x => x.intake_status !== 'snapshot-required' || x.coverage_status !== 'source-identified')) throw new Error('expected five private source-only V1.1 candidates')
+          const candidateSources = await get('clinical_evidence_sources?select=id,source_key&source_key=in.(pubmed-40238954,pubmed-39953210,pubmed-38478773,pubmed-38171632,ca-cesamet-hpr-00548375-2026-08-14)')
+          if (candidateSources.length !== 5) throw new Error('V1.1 source registry expansion missing')
           const sourceIds = new Set(candidateSources.map(x => x.id))
           const publicRecords = await get('clinical_evidence_records?select=primary_source_registry_id,review_status&review_status=eq.published', anon)
           if (publicRecords.some(x => sourceIds.has(x.primary_source_registry_id))) throw new Error('unreviewed V1.1 source leaked into published evidence projection')
@@ -161,6 +163,7 @@ jobs:
           } >> "$GITHUB_ENV"
           node --input-type=module <<'NODE'
           import { createClient } from '@supabase/supabase-js'
+          import fs from 'node:fs'
           const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
           const { data, error } = await client.auth.admin.createUser({ email: process.env.E2E_TEST_USER_EMAIL, password: process.env.E2E_TEST_USER_PASSWORD, email_confirm: true })
           if (error || !data.user) throw error || new Error('reviewer user missing')
@@ -168,8 +171,7 @@ jobs:
           if (roleError) throw roleError
           const { data: source, error: sourceError } = await client.from('clinical_evidence_sources').select('id').eq('source_key', 'pubmed-40238954').single()
           if (sourceError || !source) throw sourceError || new Error('source fixture missing')
-          console.log(`E2E_CLINICAL_SOURCE_ID=${source.id}`)
-          await import('node:fs').then(fs => fs.appendFileSync(process.env.GITHUB_ENV, `E2E_CLINICAL_SOURCE_ID=${source.id}\n`))
+          fs.appendFileSync(process.env.GITHUB_ENV, `E2E_CLINICAL_SOURCE_ID=${source.id}\n`)
           NODE
 
       - name: Build exact head
