@@ -14,6 +14,15 @@
   scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom));
 }
 
+/* Marketplace listing CTAs can sit close to the fixed nav when a card is
+ * programmatically brought into view. Give their scroll target a nav-sized
+ * trailing safety zone so focus/scrollIntoView settles the control above the
+ * fixed navigation instead of underneath it. This is scoped to Market so the
+ * accepted Command/Intel viewport composition is unchanged. */
+.hvm2-root[data-active-destination='marketplace'] .hvm2-inline-cta {
+  scroll-margin-block-end: calc(var(--hvm-op-nav-height) + 28px + env(safe-area-inset-bottom));
+}
+
 /* `/dashboard` wraps the mobile shell in CommandCentreDataBoundary. The shell
  * renders the richer mobile notice with Retry and last-loaded context, so hide
  * only the duplicate wrapper notice on narrow screens. */
