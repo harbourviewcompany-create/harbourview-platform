@@ -82,6 +82,7 @@ const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
 const knownLocalTestPlaceholder = /^(?:postgres|local-test-(?:anon|service)-key)$/;
+const requestBodyReference = /^body\.[A-Za-z_][A-Za-z0-9_]*$/;
 
 function normalizeIdentifier(identifier) {
   return identifier
@@ -120,9 +121,11 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
   if (shellVariableReference.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
   if (generatedVisualTestPassword.test(value)) return true;
+  if (requestBodyReference.test(value)) return true;
 
   const directLiteral = unwrapDirectQuotedLiteral(value);
   if (directLiteral !== null) {
+    if (generatedVisualTestPassword.test(directLiteral)) return true;
     if (placeholderSecret.test(directLiteral)) return true;
     if (knownLocalTestPlaceholder.test(directLiteral)) return true;
     return directLiteral.length < 8;
@@ -242,7 +245,7 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, known isolated local-test placeholders, and computed references.');
+  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, known isolated local-test placeholders, generated isolated test credentials, request-body references, and computed references.');
   console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, credential-bearing database URLs and vault secret literals.');
   process.exit(1);
 }
