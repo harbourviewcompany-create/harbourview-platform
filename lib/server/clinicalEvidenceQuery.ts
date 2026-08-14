@@ -9,14 +9,6 @@ import { clinicalEvidenceStateMessage, deriveClinicalEvidenceState } from '@/lib
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-const EVIDENCE_SELECT = [
-  'id','slug','title','summary','condition_label','condition_aliases','population','intervention','formulation',
-  'cannabinoids','intervention_class','comparator','outcome','evidence_type','evidence_strength',
-  'evidence_strength_method','uncertainty','conflict_status','jurisdictions','profession_relevance',
-  'primary_source_title','primary_source_publisher','primary_source_url','primary_source_id',
-  'publication_date','effective_date','verified_at','supersession_state','superseded_by_id','review_status',
-].join(',')
-
 const CHANGE_SELECT = [
   'id','evidence_record_id','event_type','title','summary','materiality','jurisdictions','profession_relevance',
   'occurred_at','verified_at','primary_source_title','primary_source_publisher','primary_source_url','primary_source_id',
@@ -90,22 +82,38 @@ function mapChange(row: Row): ClinicalEvidenceChangeEventDTO {
   }
 }
 
+function headers() {
+  if (!SUPABASE_ANON_KEY) return null
+  return {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  }
+}
+
 async function rest(path: string): Promise<Row[]> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  const authHeaders = headers()
+  if (!SUPABASE_URL || !authHeaders) throw new Error('clinical_evidence_not_configured')
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     next: { revalidate: 300 },
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      Accept: 'application/json',
-    },
+    headers: authHeaders,
   })
   if (!response.ok) throw new Error(`clinical_evidence_query_${response.status}`)
   return response.json()
 }
 
-function normalized(value: string): string {
-  return value.trim().toLowerCase()
+async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
+  const authHeaders = headers()
+  if (!SUPABASE_URL || !authHeaders) throw new Error('clinical_evidence_not_configured')
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    cache: 'no-store',
+    headers: authHeaders,
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`clinical_evidence_rpc_${name}_${response.status}`)
+  return response.json()
 }
 
 export async function searchClinicalEvidence(input: {
@@ -116,53 +124,25 @@ export async function searchClinicalEvidence(input: {
 }): Promise<ClinicalEvidenceSearchResult> {
   const query = input.query?.trim() ?? ''
   const limit = Math.max(1, Math.min(input.limit ?? 20, 50))
-  const jurisdiction = input.jurisdiction?.trim()
+  const jurisdiction = input.jurisdiction?.trim() || null
 
   try {
-    const base = new URLSearchParams({
-      select: EVIDENCE_SELECT,
-      review_status: 'eq.published',
-      order: 'verified_at.desc',
-      limit: String(limit),
-    })
-    if (jurisdiction) base.set('jurisdictions', `cs.{${jurisdiction}}`)
-
     // Profession relevance remains evidence metadata only until the Command role
     // taxonomy is explicitly reconciled with a sourced profession vocabulary.
-    const allRows = await rest(`clinical_evidence_records?${base}`)
-    const allRecords = allRows.map(mapEvidence)
-    const needle = normalized(query)
-    const records = !needle ? allRecords : allRecords.filter(record => {
-      const haystack = [
-        record.condition ?? '',
-        ...record.conditionAliases,
-        record.title,
-        record.summary,
-        record.population ?? '',
-        record.intervention ?? '',
-        record.formulation ?? '',
-        ...record.cannabinoid,
-        record.outcome ?? '',
-      ].join(' ').toLowerCase()
-      return haystack.includes(needle)
+    const evidenceRows = await rpc<Row[]>('search_clinical_evidence_records', {
+      p_query: query,
+      p_jurisdiction: jurisdiction,
+      p_limit: limit,
     })
+    const records = evidenceRows.map(mapEvidence)
 
-    let knownConditionMatch = false
-    if (needle) {
-      const conditionParams = new URLSearchParams({
-        select: 'canonical_name,aliases',
-        review_status: 'eq.published',
-        limit: '100',
-      })
-      const conditionRows = await rest(`clinical_condition_terms?${conditionParams}`)
-      knownConditionMatch = conditionRows.some(row => {
-        const terms = [text(row.canonical_name) ?? '', ...strings(row.aliases)].map(normalized)
-        return terms.some(term => term === needle || term.includes(needle) || needle.includes(term))
-      })
-    }
+    const knownConditionMatch = query
+      ? await rpc<boolean>('clinical_condition_term_known', { p_query: query })
+      : false
 
     const changeParams = new URLSearchParams({
       select: CHANGE_SELECT,
+      review_status: 'eq.published',
       order: 'occurred_at.desc',
       limit: '10',
     })
