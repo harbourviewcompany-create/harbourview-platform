@@ -130,7 +130,7 @@
   "new_release_closure_candidate": {
     "version": "20260814124500",
     "file": "20260814124500_release_closure_security_hardening.sql",
-    "git_blob_sha": "98592f0e835f682bce6d4f2a724fa26f4d7fe367",
+    "git_blob_sha": "649abfa3846b42904f6fc9a4f7e9bd94a534966a",
     "classification": "candidate_pending",
     "production_authorized": false,
     "note": "Created after the 88-version audit baseline; requires explicit production release authorization and is not counted in the baseline 88."
