@@ -40,9 +40,11 @@ describe('production Supabase security hardening controls', () => {
     expect(closureMigration).toContain(
       "'revoke execute on function %I.%I(%s) from public, anon, authenticated'",
     )
-    expect(closureMigration).toContain(
+    expect(closureMigration).not.toContain(
       "'grant execute on function %I.%I(%s) to service_role'",
     )
+    expect(closureMigration).toContain('Existing service_role and')
+    expect(closureMigration).toContain('privileges are deliberately preserved rather than expanded')
 
     for (const signature of [
       'api.get_command_centre_stats()',
@@ -72,13 +74,14 @@ describe('production Supabase security hardening controls', () => {
     }
   })
 
-  it('pins the mutable helper search path and contains non-relocatable pg_net', () => {
+  it('pins the mutable helper search path and contains non-relocatable pg_net without widening backend grants', () => {
     expect(closureMigration).toContain(
       'alter function public.hv_truncate_at_word_boundary(text, integer)',
     )
     expect(closureMigration).toContain('set search_path = pg_catalog, public')
     expect(closureMigration).toContain("where e.extname = 'pg_net'")
     expect(closureMigration).toContain('revoke usage on schema net from public, anon, authenticated')
+    expect(closureMigration).not.toContain('grant usage on schema net to service_role')
   })
 
   it('keeps state validation in the zero-row SQL assertion suite', () => {
