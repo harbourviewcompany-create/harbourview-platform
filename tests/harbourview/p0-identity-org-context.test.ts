@@ -24,16 +24,18 @@ const orgCreateForm = read('app/organization/new/OrganizationCreateForm.tsx')
 const orgJoinForm = read('app/organization/join/OrganizationJoinForm.tsx')
 
 describe('Harbourview P0 identity, organization, membership and operating context', () => {
-  it('extends the canonical preference contract with nullable active workspace and RLS membership validation', () => {
+  it('extends the canonical preference contract with nullable active workspace and RLS membership plus workspace validation', () => {
     expect(migration).toContain('active_workspace_id uuid null references public.workspaces(id) on delete set null')
     expect(migration).toContain('active_workspace_id is null')
     expect(migration).toContain('wm.workspace_id = active_workspace_id')
     expect(migration).toContain("wm.status = 'active'")
+    expect(migration).toContain('join public.workspaces w on w.id = wm.workspace_id')
+    expect(migration).toContain("w.status = 'active'")
     expect(migration).toContain('with (security_invoker = true)')
     expect(migration).toMatch(/updated_at,\s+active_workspace_id\s+from public\.user_dashboard_preferences;/)
   })
 
-  it('keeps invitations private while workspace_members remains canonical after acceptance', () => {
+  it('keeps invitations private and atomically preserves canonical workspace membership roles', () => {
     expect(migration).toContain('create table if not exists public.workspace_invitations')
     expect(migration).toContain('token_hash text not null unique')
     expect(migration).toContain('revoke all on table public.workspace_invitations from public, anon, authenticated')
@@ -41,16 +43,28 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(migration).toContain('create or replace view api.workspace_invitations')
     expect(migration).toContain('revoke all on api.workspace_invitations from public, anon, authenticated')
     expect(migration).toContain('grant select, insert, update, delete on api.workspace_invitations to service_role')
+    expect(migration).toContain('create or replace function api.accept_workspace_invitation')
+    expect(migration).toContain('for update of wi')
+    expect(migration).toContain("existing_membership.status <> 'active'")
+    expect(migration).toContain("'outcome', 'already_member'")
+    expect(migration).toContain("'role', existing_membership.role")
+    expect(migration).toContain("set search_path = ''")
+    expect(migration).toContain('revoke all on function api.accept_workspace_invitation(text, uuid, text) from public, anon, authenticated')
+    expect(migration).toContain('grant execute on function api.accept_workspace_invitation(text, uuid, text) to service_role')
     expect(invite).toContain("createHash('sha256')")
     expect(invite).toContain("randomBytes(32)")
+    expect(invite).not.toContain('listUsers')
+    expect(invite).toContain('independent of auth population size')
     expect(invite).not.toContain("schema('public')")
     expect(inviteAccept).not.toContain("schema('public')")
     expect(orgMe).not.toContain("schema('public')")
     expect(orgMe).toContain('supabase.from("workspace_invitations")')
-    expect(inviteAccept).toContain("from('workspace_members').upsert")
-    expect(inviteAccept).toContain("onConflict: 'workspace_id,user_id'")
+    expect(inviteAccept).toContain("supabase.rpc('accept_workspace_invitation'")
+    expect(inviteAccept).not.toContain("from('workspace_members').upsert")
+    expect(inviteAccept).toContain(".eq('status', 'pending')\n      .select('id')")
     expect(inviteAccept).toContain('INVITATION_EMAIL_MISMATCH')
     expect(inviteAccept).toContain('INVITATION_EXPIRED')
+    expect(inviteAccept).toContain('EXISTING_MEMBERSHIP_INACTIVE')
   })
 
   it('removes the one-organization API assumption and returns deterministic memberships', () => {
@@ -64,18 +78,25 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(orgMe).not.toContain('.eq("user_id", user.id).eq("status", "active").single()')
   })
 
-  it('validates active workspace selection against active membership', () => {
+  it('validates active workspace selection against active membership and active workspace status', () => {
     expect(preferences).toContain('active_workspace_id')
     expect(preferences).toContain(".eq('workspace_id', activeWorkspaceId)")
     expect(preferences).toContain(".eq('user_id', user.id)")
     expect(preferences).toContain(".eq('status', 'active')")
-    expect(preferences).toContain('Active organization membership required.')
+    expect(preferences).toContain(".from('workspaces')")
+    expect(preferences).toContain(".eq('id', activeWorkspaceId)")
+    expect(preferences).toContain('Active organization membership and active workspace required.')
   })
 
-  it('routes organization-scoped operations through the selected operating workspace', () => {
+  it('routes organization-scoped operations only through an active selected operating workspace', () => {
     expect(activeWorkspace).toContain("select('active_workspace_id')")
     expect(activeWorkspace).toContain(".eq('workspace_id', requestedWorkspaceId)")
+    expect(activeWorkspace).toContain(".from('workspaces')")
+    expect(activeWorkspace).toContain(".eq('id', requestedWorkspaceId)")
     expect(activeWorkspace).toContain(".eq('status', 'active')")
+    expect(dashboardPage).toContain(".from('workspaces')")
+    expect(dashboardPage).toContain(".eq('id', activeWorkspaceId)")
+    expect(dashboardPage).toContain('Boolean(membership && workspace)')
     for (const source of [watchRules, watchItems, licenceSubmit]) {
       expect(source).toContain('resolveActiveWorkspace')
       expect(source).not.toContain(".select('workspace_id')\n    .eq('user_id', userId)\n    .limit(1)")
