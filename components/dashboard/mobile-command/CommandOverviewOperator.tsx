@@ -4,6 +4,7 @@ import type { MobileCommandCentreProps } from './props'
 import { readString, type NextAction, type NormalizedListing } from './contracts'
 import type { SectionRef } from './SectionUI'
 import './MobileCommandZeroStateDensity.css'
+import './MobileCommandRemediation.css'
 
 function signalTitle(signal: unknown) {
   return readString(signal, ['title', 'headline', 'title_en'], 'Material intelligence update')
@@ -13,24 +14,30 @@ function signalSummary(signal: unknown) {
   return readString(signal, ['commercialImpact', 'summary', 'summary_en', 'impact', 'analysis'], 'Open the intelligence record for reviewed context and evidence.')
 }
 
-function signalMeta(signal: unknown) {
-  return [
-    readString(signal, ['market', 'country', 'jurisdiction'], ''),
-    readString(signal, ['type', 'cat', 'content_type'], ''),
-  ].filter(Boolean).join(' · ')
+function signalMarket(signal: unknown) {
+  return readString(signal, ['market', 'country', 'jurisdiction'], '')
+}
+
+function signalMeta(signal: unknown, countryLabel: string) {
+  const market = signalMarket(signal)
+  const type = readString(signal, ['type', 'cat', 'content_type'], '')
+  const activeCountryMatch = market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0
+  return [market, type, activeCountryMatch ? 'Active-country match' : 'Broader watch'].filter(Boolean).join(' · ')
 }
 
 function CompactZeroState({
   label,
   message,
   onOpen,
+  className,
 }: {
   label: string
   message: string
   onOpen: () => void
+  className?: string
 }) {
   return (
-    <button type="button" className="hvm-op-compact-zero" onClick={onOpen}>
+    <button type="button" className={['hvm-op-compact-zero', className].filter(Boolean).join(' ')} onClick={onOpen}>
       <div>
         <span className="hvm-op-compact-zero-label">{label}</span>
         <strong>{message}</strong>
@@ -66,7 +73,15 @@ export default function CommandOverviewOperator({
   onOpenOpportunities: () => void
   onOpenContext: () => void
 }) {
-  const signalRows = (signals ?? []).slice(0, 2)
+  const signalRows = [...(signals ?? [])]
+    .map((signal, index) => ({
+      signal,
+      index,
+      activeCountryMatch: signalMarket(signal).localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0,
+    }))
+    .sort((a, b) => Number(b.activeCountryMatch) - Number(a.activeCountryMatch) || a.index - b.index)
+    .slice(0, 2)
+    .map(item => item.signal)
   const opportunityRows = opportunities.slice(0, 2)
   const attentionRows = attentionItems.slice(0, 2)
 
@@ -74,9 +89,9 @@ export default function CommandOverviewOperator({
     <section id="overview" ref={sectionRef} className="hvm-op-command" aria-labelledby="hvm-op-command-heading">
       <h2 id="hvm-op-command-heading" className="hvm-op-sr-only">Command operating view</h2>
 
-      <div className="hvm-op-pulse" aria-label="Current command pulse">
+      <div className="hvm-op-pulse" aria-label={`Operating state for ${countryLabel}, ${roleLabel}`}>
         <button type="button" onClick={onOpenActions}>
-          <span>Requires attention</span>
+          <span>Attention</span>
           <strong>{attentionItems.length}</strong>
         </button>
         <button type="button" onClick={onOpenIntel}>
@@ -123,7 +138,7 @@ export default function CommandOverviewOperator({
         <section className="hvm-op-group" aria-labelledby="hvm-op-changes-heading">
           <div className="hvm-op-group-heading">
             <div>
-              <span className="hvm-op-eyebrow">Latest</span>
+              <span className="hvm-op-eyebrow">Contextual changes</span>
               <h3 id="hvm-op-changes-heading">Recent intelligence</h3>
             </div>
             <button type="button" onClick={onOpenIntel}>View all</button>
@@ -132,7 +147,7 @@ export default function CommandOverviewOperator({
             {signalRows.map((signal, index) => (
               <button key={readString(signal, ['id'], `signal-${index}`)} type="button" className="hvm-op-row" onClick={onOpenIntel}>
                 <div>
-                  {signalMeta(signal) && <span className="hvm-op-meta">{signalMeta(signal)}</span>}
+                  <span className="hvm-op-meta">{signalMeta(signal, countryLabel)}</span>
                   <strong>{signalTitle(signal)}</strong>
                   <small>{signalSummary(signal)}</small>
                 </div>
@@ -150,7 +165,7 @@ export default function CommandOverviewOperator({
       )}
 
       {opportunityRows.length > 0 ? (
-        <section className="hvm-op-group" aria-labelledby="hvm-op-opportunity-heading">
+        <section className="hvm-op-group hvm-op-commercial-group" aria-labelledby="hvm-op-opportunity-heading">
           <div className="hvm-op-group-heading">
             <div>
               <span className="hvm-op-eyebrow">Commercial</span>
@@ -173,6 +188,7 @@ export default function CommandOverviewOperator({
         </section>
       ) : (
         <CompactZeroState
+          className="hvm-op-commercial-group"
           label="Commercial opportunities"
           message="No matching opportunities currently"
           onOpen={onOpenOpportunities}
