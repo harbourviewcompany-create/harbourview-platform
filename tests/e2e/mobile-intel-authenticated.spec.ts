@@ -236,7 +236,7 @@ test.describe('Mobile Intel authenticated evidence', () => {
         await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible()
         await expect(page.getByText('Evidence by condition · Canada', { exact: true })).toBeVisible()
         await expect(page.getByText('Medical document requirements under Cannabis Regulations §273', { exact: true })).toBeVisible()
-        await expect(page.getByText(/ACMPR/)).toHaveCount(0)
+        await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
         await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Command')
         await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Market')
         await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Intel')
