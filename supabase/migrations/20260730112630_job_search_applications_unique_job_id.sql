@@ -1,0 +1,1 @@
+ALTER TABLE job_search.applications ADD CONSTRAINT applications_job_id_key UNIQUE (job_id);
