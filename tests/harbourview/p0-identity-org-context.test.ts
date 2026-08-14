@@ -45,6 +45,8 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(invite).toContain("randomBytes(32)")
     expect(invite).not.toContain("schema('public')")
     expect(inviteAccept).not.toContain("schema('public')")
+    expect(orgMe).not.toContain("schema('public')")
+    expect(orgMe).toContain('supabase.from("workspace_invitations")')
     expect(inviteAccept).toContain("from('workspace_members').upsert")
     expect(inviteAccept).toContain("onConflict: 'workspace_id,user_id'")
     expect(inviteAccept).toContain('INVITATION_EMAIL_MISMATCH')
