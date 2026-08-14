@@ -29,13 +29,14 @@ export async function POST(req: NextRequest) {
   if (!legal_name?.trim()) return NextResponse.json({ error: "legal_name required" }, { status: 422 })
   if (!org_type || !(ORG_TYPES as readonly string[]).includes(org_type)) return NextResponse.json({ error: "invalid org_type" }, { status: 422 })
   if (!jurisdiction_country?.trim() || jurisdiction_country.trim().length !== 2) return NextResponse.json({ error: "jurisdiction_country must be 2-letter ISO code" }, { status: 422 })
+
   const slug = (trade_name?.trim() || legal_name.trim())
     .toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 48)
     + "-" + Math.random().toString(36).slice(2, 7)
   const supabase = await createSupabaseServiceClient()
-  const { data: existing } = await supabase.from("workspace_members").select("workspace_id")
-    .eq("user_id", user.id).eq("status", "active").maybeSingle()
-  if (existing) return NextResponse.json({ error: "USER_ALREADY_HAS_ORG", org_id: existing.workspace_id }, { status: 409 })
+
+  // workspace_members is intentionally many-to-many. A user may create another
+  // organization even when they already belong to one or more workspaces.
   const { data: ws, error: wsErr } = await supabase.from("workspaces").insert({
     name: trade_name?.trim() || legal_name.trim(), slug, legal_name: legal_name.trim(),
     trade_name: trade_name?.trim() || null, org_type,
@@ -47,16 +48,44 @@ export async function POST(req: NextRequest) {
     if (wsErr?.code === "23505") return NextResponse.json({ error: "SLUG_CONFLICT" }, { status: 409 })
     return NextResponse.json({ error: "CREATE_FAILED" }, { status: 500 })
   }
+
+  const now = new Date().toISOString()
   const { error: mErr } = await supabase.from("workspace_members").insert({
     workspace_id: ws.id, user_id: user.id, role: "admin", status: "active",
-    invited_at: new Date().toISOString(), joined_at: new Date().toISOString(),
+    invited_at: now, joined_at: now,
   })
-  if (mErr) { await supabase.from("workspaces").delete().eq("id", ws.id); return NextResponse.json({ error: "MEMBERSHIP_FAILED" }, { status: 500 }) }
-  await supabase.from("hv_passports").insert({ org_id: ws.id, verification_level: "none", completeness_band: "incomplete", recall_exposure_flag: false })
+  if (mErr) {
+    await supabase.from("workspaces").delete().eq("id", ws.id)
+    return NextResponse.json({ error: "MEMBERSHIP_FAILED" }, { status: 500 })
+  }
+
+  await supabase.from("hv_passports").insert({
+    org_id: ws.id,
+    verification_level: "none",
+    completeness_band: "incomplete",
+    recall_exposure_flag: false,
+  })
+
+  // Creating an organization is an explicit choice to operate as it. Persist
+  // that context while preserving nullable active_workspace_id as Personal.
+  await supabase.from("user_dashboard_preferences").upsert({
+    user_id: user.id,
+    active_workspace_id: ws.id,
+    updated_at: now,
+  }, { onConflict: "user_id" })
+
   await supabase.from("audit_events").insert({
     entity_type: "workspace", entity_id: ws.id, action: "org.created",
     actor: user.id, actor_user_id: user.id, actor_org_id: ws.id,
     metadata: { org_type, jurisdiction_country },
   })
-  return NextResponse.json({ data: { org_id: ws.id, slug: ws.slug, name: ws.name } }, { status: 201 })
+
+  return NextResponse.json({
+    data: {
+      org_id: ws.id,
+      slug: ws.slug,
+      name: ws.name,
+      active_workspace_id: ws.id,
+    },
+  }, { status: 201 })
 }
