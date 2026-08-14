@@ -345,7 +345,11 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   }
 
   if (await opportunityZero.count()) {
-    await expect(opportunityZero).toContainText('No matching opportunities currently')
+    const zeroState = await opportunityZero.getAttribute('data-command-zero-state')
+    expect(['empty', 'no-match']).toContain(zeroState)
+    await expect(opportunityZero).toContainText(
+      zeroState === 'no-match' ? 'No matching opportunities currently' : 'No opportunities are available yet',
+    )
     await expect(opportunityZero).toBeVisible()
   } else {
     await expect(populatedOpportunity).toBeVisible()
