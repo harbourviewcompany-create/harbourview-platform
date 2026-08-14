@@ -77,6 +77,19 @@ alter table public.clinical_evidence_publication_versions enable row level secur
 alter table public.clinical_evidence_intake_queue enable row level security;
 alter table public.clinical_evidence_operation_events enable row level security;
 
+-- V1.0 may already have created some review-access policies on these tables.
+-- Reconcile by name so the V1.1 migration is replay-safe across both isolated and
+-- production-history application paths without weakening the intended predicates.
+drop policy if exists clinical_reviewer_credentials_review_read on public.clinical_reviewer_credentials;
+drop policy if exists clinical_reviewer_credentials_admin_write on public.clinical_reviewer_credentials;
+drop policy if exists clinical_source_snapshots_review_read on public.clinical_evidence_source_snapshots;
+drop policy if exists clinical_outcome_links_review_access on public.clinical_evidence_outcome_links;
+drop policy if exists clinical_grade_assessments_review_access on public.clinical_evidence_grade_assessments;
+drop policy if exists clinical_publication_versions_review_read on public.clinical_evidence_publication_versions;
+drop policy if exists clinical_intake_queue_review_access on public.clinical_evidence_intake_queue;
+drop policy if exists clinical_operation_events_review_access on public.clinical_evidence_operation_events;
+drop policy if exists clinical_operation_events_review_insert on public.clinical_evidence_operation_events;
+
 create policy clinical_reviewer_credentials_review_read on public.clinical_reviewer_credentials
   for select to authenticated using (public.clinical_evidence_has_review_role());
 create policy clinical_reviewer_credentials_admin_write on public.clinical_reviewer_credentials
