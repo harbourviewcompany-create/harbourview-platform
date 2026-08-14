@@ -50,7 +50,7 @@ describe('Harbourview P0 identity, organization, membership and operating contex
 
   it('removes the one-organization API assumption and returns deterministic memberships', () => {
     expect(orgCreate).not.toContain('USER_ALREADY_HAS_ORG')
-    expect(orgCreate).toContain('workspace_members').toBeTruthy()
+    expect(orgCreate).toContain('workspace_members')
     expect(orgCreate).toContain('active_workspace_id: ws.id')
     expect(orgMe).toContain('memberships')
     expect(orgMe).toContain('.sort((a, b) =>')
@@ -60,7 +60,7 @@ describe('Harbourview P0 identity, organization, membership and operating contex
   })
 
   it('validates active workspace selection against active membership', () => {
-    expect(preferences).toContain("active_workspace_id")
+    expect(preferences).toContain('active_workspace_id')
     expect(preferences).toContain(".eq('workspace_id', activeWorkspaceId)")
     expect(preferences).toContain(".eq('user_id', user.id)")
     expect(preferences).toContain(".eq('status', 'active')")
@@ -109,7 +109,7 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(orgContext).toContain('Create organization')
     expect(orgContext).toContain('Join organization')
     expect(orgContext).toContain('Your previous organization is no longer available')
-    expect(orgContext).toContain("active_workspace_id: value || null")
+    expect(orgContext).toContain('active_workspace_id: value || null')
     expect(mobileCommand).toContain('<OrganizationContextControl')
   })
 
