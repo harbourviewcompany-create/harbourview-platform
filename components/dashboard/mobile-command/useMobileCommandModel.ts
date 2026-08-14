@@ -34,8 +34,16 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     { limit: 4, roleId: model.currentRole },
   ), [model.commandHref, model.countryLabel, model.currentRole, model.marketRows, model.signals])
 
+  const geneticsRecords = useMemo(() => ({
+    passports: props.cultivarPassports ?? [],
+    serviceProviders: props.serviceProviders ?? [],
+    collaborationProjects: props.collaborationProjects ?? [],
+    sourceMeta: props.geneticsSourceMeta,
+  }), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
+
   return {
     ...model,
+    geneticsRecords,
     nextActions: [...model.nextActions, ...commercialActions],
   }
 }
