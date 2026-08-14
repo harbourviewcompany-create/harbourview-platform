@@ -111,4 +111,27 @@ alter table public.workspace_invitations enable row level security;
 revoke all on table public.workspace_invitations from public, anon, authenticated;
 grant all on table public.workspace_invitations to service_role;
 
+-- The production Data API exposes `api`, not `public`. Keep invitation transport
+-- reachable only to the server-side service role through an invoker view; the
+-- raw token hash is never granted to browser roles.
+create or replace view api.workspace_invitations
+with (security_invoker = true) as
+select
+  id,
+  workspace_id,
+  email,
+  role,
+  token_hash,
+  invited_by,
+  status,
+  created_at,
+  expires_at,
+  accepted_at,
+  accepted_by,
+  updated_at
+from public.workspace_invitations;
+
+revoke all on api.workspace_invitations from public, anon, authenticated;
+grant select, insert, update, delete on api.workspace_invitations to service_role;
+
 commit;
