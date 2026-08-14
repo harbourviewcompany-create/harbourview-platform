@@ -41,6 +41,52 @@ async function authenticate(browser: Browser) {
   }
 }
 
+async function assertBottomNavLabelsContained(page: Page) {
+  const geometry = await page.locator('.hvm-op-bottom-nav button').evaluateAll(buttons =>
+    buttons.map(button => {
+      const buttonRect = button.getBoundingClientRect()
+      const label = button.querySelector('small')
+      const labelRect = label?.getBoundingClientRect() ?? null
+      return {
+        button: {
+          left: buttonRect.left,
+          right: buttonRect.right,
+          top: buttonRect.top,
+          bottom: buttonRect.bottom,
+        },
+        label: labelRect
+          ? {
+              left: labelRect.left,
+              right: labelRect.right,
+              top: labelRect.top,
+              bottom: labelRect.bottom,
+            }
+          : null,
+      }
+    }),
+  )
+
+  expect(geometry).toHaveLength(4)
+  for (const item of geometry) {
+    expect(item.label).not.toBeNull()
+    expect(item.label!.left).toBeGreaterThanOrEqual(item.button.left - 1)
+    expect(item.label!.right).toBeLessThanOrEqual(item.button.right + 1)
+    expect(item.label!.top).toBeGreaterThanOrEqual(item.button.top - 1)
+    expect(item.label!.bottom).toBeLessThanOrEqual(item.button.bottom + 1)
+  }
+
+  for (let index = 0; index < geometry.length - 1; index += 1) {
+    const current = geometry[index].label!
+    const next = geometry[index + 1].label!
+    const overlaps =
+      current.left < next.right - 1 &&
+      current.right > next.left + 1 &&
+      current.top < next.bottom - 1 &&
+      current.bottom > next.top + 1
+    expect(overlaps, `bottom-nav labels ${index} and ${index + 1} should not overlap`).toBe(false)
+  }
+}
+
 async function assertMobileIntelLayout(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
 
@@ -67,6 +113,7 @@ async function assertMobileIntelLayout(page: Page) {
   expect(bottomNav!.y).toBeGreaterThanOrEqual(-1)
   expect(bottomNav!.y + bottomNav!.height).toBeLessThanOrEqual(viewport!.height + 1)
   expect(mainBottomPadding).toBeGreaterThanOrEqual(bottomNav!.height)
+  await assertBottomNavLabelsContained(page)
 }
 
 async function openIntelState(
