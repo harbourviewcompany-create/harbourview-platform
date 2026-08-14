@@ -65,7 +65,7 @@ export async function GET() {
   let invitations: unknown[] = []
   const normalizedEmail = user.email?.trim().toLowerCase()
   if (normalizedEmail) {
-    const { data } = await supabase.from("workspace_invitations")
+    const { data } = await supabase.schema('public').from("workspace_invitations")
       .select("id,workspace_id,email,role,status,created_at,expires_at")
       .eq("email", normalizedEmail)
       .eq("status", "pending")
@@ -81,7 +81,6 @@ export async function GET() {
       stale_active_workspace_id: staleActiveWorkspaceId,
       memberships,
       invitations,
-      // Backward-compatible projection for existing single-org consumers.
       org: activeMembership?.workspace ?? null,
       licences,
     },
