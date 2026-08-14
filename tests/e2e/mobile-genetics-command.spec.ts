@@ -46,7 +46,15 @@ async function assertGeneticsContract(page: import('@playwright/test').Page) {
   const germanyOpportunity = page.locator('.hvm2-genetics-opportunity').filter({ hasText: 'Germany' })
   await expect(germanyOpportunity).toBeVisible()
   await expect(germanyOpportunity.getByText('DE · Germany', { exact: true })).toBeVisible()
-  await expect(page.getByText('Visual verification collaboration', { exact: true })).toBeVisible()
+
+  const linkedCollaboration = page.locator('.hvm2-genetics-project').filter({ hasText: 'Visual verification collaboration' })
+  await expect(linkedCollaboration).toBeVisible()
+  await expect(linkedCollaboration.getByText('Visual verification collaboration', { exact: true })).toBeVisible()
+
+  const networkCollaboration = page.locator('.hvm2-genetics-network-grid article').filter({ hasText: 'Visual verification collaboration' })
+  await expect(networkCollaboration).toBeVisible()
+  await expect(networkCollaboration.getByText('Visual verification collaboration', { exact: true })).toBeVisible()
+
   await expect(page.getByText('Visual Genetics Lab', { exact: true })).toBeVisible()
   await expect(page.locator('.hvm2-genetics-record[open]')).toHaveCount(1)
 
