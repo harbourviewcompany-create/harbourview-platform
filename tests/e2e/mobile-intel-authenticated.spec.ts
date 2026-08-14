@@ -80,6 +80,64 @@ async function openIntelState(page: Page, section: string, expectedTab: string, 
   await page.screenshot({ path: path.join(evidenceRoot, file), fullPage: false })
 }
 
+const clinicalVisualFixture = {
+  state: 'loaded',
+  query: '',
+  message: 'Reviewed evidence records match this clinical question.',
+  changes: [{
+    id: '00000000-0000-4000-8000-000000000141',
+    evidenceRecordId: '00000000-0000-4000-8000-000000000140',
+    eventType: 'updated',
+    title: 'Current Cannabis Regulations medical-document authority verified',
+    summary: 'Current federal medical-document authority is verified; legacy ACMPR-era framing is not treated as current.',
+    materiality: 'high',
+    jurisdiction: ['Canada'],
+    professionRelevance: ['doctor', 'nurse_practitioner', 'pharmacist', 'other'],
+    occurredAt: '2026-08-14T12:00:00Z',
+    verifiedAt: '2026-08-14T12:00:00Z',
+    primarySource: {
+      title: 'Cannabis Regulations §273',
+      publisher: 'Justice Laws Website',
+      url: 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-273.html',
+      sourceId: 'SOR-2018-144-s273',
+    },
+  }],
+  records: [{
+    id: '00000000-0000-4000-8000-000000000140',
+    slug: 'ca-cannabis-regulations-medical-document-273',
+    title: 'Medical document requirements under Cannabis Regulations §273',
+    summary: 'Primary federal legal requirements for the contents and validity of a medical document used for access to cannabis for medical purposes.',
+    condition: null,
+    conditionAliases: [],
+    population: null,
+    intervention: null,
+    formulation: null,
+    cannabinoid: [],
+    interventionClass: 'general-cannabis',
+    comparator: null,
+    outcome: null,
+    evidenceType: 'regulation',
+    evidenceStrength: 'ungraded',
+    evidenceStrengthMethod: 'Legal authority; clinical evidence certainty is not applicable.',
+    uncertainty: 'This record describes federal legal requirements and does not establish efficacy, safety or appropriateness for an individual patient.',
+    conflictStatus: 'none',
+    jurisdiction: ['Canada'],
+    professionRelevance: ['doctor', 'nurse_practitioner', 'pharmacist', 'other'],
+    primarySource: {
+      title: 'Cannabis Regulations §273',
+      publisher: 'Justice Laws Website',
+      url: 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-273.html',
+      sourceId: 'SOR-2018-144-s273',
+    },
+    publicationDate: null,
+    effectiveDate: null,
+    verifiedAt: '2026-08-14T12:00:00Z',
+    supersessionState: 'current',
+    supersededById: null,
+    reviewStatus: 'published',
+  }],
+}
+
 test.describe('Mobile Intel authenticated evidence', () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -141,6 +199,56 @@ test.describe('Mobile Intel authenticated evidence', () => {
       await page.screenshot({ path: path.join(evidenceRoot, 'intel-auth-accessibility-search-390x844-200pct.png'), fullPage: false })
     } finally {
       await context.close()
+    }
+  })
+
+  test('captures authenticated Clinical evidence-spine UI at the required mobile viewports', async ({ browser }) => {
+    test.setTimeout(300_000)
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+
+    for (const viewport of [
+      { width: 375, height: 812 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
+    ] as const) {
+      const context = await browser.newContext({
+        ...sharedContextOptions(),
+        viewport,
+        storageState,
+        isMobile: true,
+        hasTouch: true,
+      })
+
+      try {
+        const page = await context.newPage()
+        await page.route('**/api/clinical/evidence**', route => route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(clinicalVisualFixture),
+        }))
+        const response = await page.goto('/dashboard?country=CA&role=exporter&page=clinical&section=clinical', {
+          waitUntil: 'domcontentloaded',
+          timeout: 60_000,
+        })
+        expect(response?.status()).toBeLessThan(400)
+        await expect(page.locator('#clinical')).toBeVisible()
+        await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible()
+        await expect(page.getByText('Evidence by condition · Canada', { exact: true })).toBeVisible()
+        await expect(page.getByText('Medical document requirements under Cannabis Regulations §273', { exact: true })).toBeVisible()
+        await expect(page.getByText(/ACMPR/)).toHaveCount(0)
+        await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Command')
+        await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Market')
+        await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Intel')
+        await expect(page.locator('.hvm-op-bottom-nav')).toContainText('Actions')
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+        await page.screenshot({
+          path: path.join(evidenceRoot, `clinical-evidence-auth-${viewport.width}x${viewport.height}.png`),
+          fullPage: false,
+        })
+      } finally {
+        await context.close()
+      }
     }
   })
 })
