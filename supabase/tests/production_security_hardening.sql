@@ -176,6 +176,26 @@ where p.prosecdef
   and format('%s.%s(%s)', n.nspname, p.proname, replace(pg_catalog.oidvectortypes(p.proargtypes), ', ', ','))
     not in (select signature from authenticated_allowlist);
 
+-- Every SECURITY DEFINER routine referenced by an RLS policy must remain
+-- executable by authenticated; otherwise the policy errors instead of making
+-- its authorization decision. This is why helpers such as hv_is_org_member,
+-- hv_is_platform_staff, is_genetics_admin_or_reviewer, is_harbourview_admin,
+-- and is_hv_staff are explicit authenticated allowlist entries.
+select distinct
+  n.nspname,
+  p.proname,
+  pg_get_function_identity_arguments(p.oid),
+  'rls_definer_dependency_missing_execute' as defect
+from pg_policy policy
+join pg_depend d
+  on d.classid = 'pg_policy'::regclass
+ and d.objid = policy.oid
+ and d.refclassid = 'pg_proc'::regclass
+join pg_proc p on p.oid = d.refobjid
+join pg_namespace n on n.oid = p.pronamespace
+where p.prosecdef
+  and not has_function_privilege('authenticated', p.oid, 'execute');
+
 -- Mutable-search-path advisor finding must remain closed.
 select p.oid::regprocedure::text as signature, 'mutable_search_path' as defect
 from pg_proc p
