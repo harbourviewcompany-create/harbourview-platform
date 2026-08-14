@@ -63,9 +63,11 @@ begin
 end
 $$;
 
--- Exact authenticated SECURITY DEFINER allowlist already enforced by
--- supabase/tests/production_security_hardening.sql. Missing optional routines
--- are skipped so replay remains safe across environments.
+-- Exact authenticated SECURITY DEFINER allowlist. public.is_harbourview_admin()
+-- is included because Marketplace and Storage RLS policies call it directly;
+-- removing authenticated EXECUTE would make those policies error instead of
+-- evaluating the caller's admin role. Missing optional routines are skipped so
+-- replay remains safe across environments.
 do $$
 declare
   signature text;
@@ -81,6 +83,7 @@ declare
     'public.hv_is_org_member(uuid)',
     'public.hv_is_platform_staff()',
     'public.is_genetics_admin_or_reviewer()',
+    'public.is_harbourview_admin()',
     'public.is_hv_staff()',
     'public.current_user_tier()',
     'public.is_regulatory_tier_admin()'
