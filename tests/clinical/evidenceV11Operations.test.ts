@@ -3,6 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = process.cwd()
+const foundation = fs.readFileSync(path.join(root, 'supabase/migrations/20260814143000_clinical_evidence_v1_production_foundation.sql'), 'utf8')
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql'), 'utf8')
 const actions = fs.readFileSync(path.join(root, 'app/clinical/review/actions.ts'), 'utf8')
 const workbench = fs.readFileSync(path.join(root, 'app/clinical/review/page.tsx'), 'utf8')
@@ -28,7 +29,8 @@ describe('Clinical Evidence V1.1 governed operations', () => {
     expect(actions).toContain("createHash('sha256').update(normalizedExtract, 'utf8').digest('hex')")
     expect(actions).toContain("throw new Error('source_byte_hash_and_size_required')")
     expect(actions).toContain('storage_path: optional(form, \'storage_path\')')
-    expect(migration).toContain("hash_scope in ('source-bytes','normalized-reviewed-extract')")
+    expect(foundation).toContain("hash_scope text not null check (hash_scope in ('source-bytes','normalized-reviewed-extract'))")
+    expect(foundation).toContain("constraint clinical_snapshot_bytes_require_size check (hash_scope <> 'source-bytes' or byte_size is not null)")
   })
 
   it('keeps newly identified synthesis sources private and ungraded', () => {
