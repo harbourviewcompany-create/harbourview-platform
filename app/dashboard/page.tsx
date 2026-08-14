@@ -98,15 +98,23 @@ export default async function DashboardPage({
       activeWorkspaceId = prefs?.active_workspace_id ?? null
 
       if (activeWorkspaceId) {
-        const { data: membership } = await supabase
-          .from('workspace_members')
-          .select('workspace_id')
-          .eq('workspace_id', activeWorkspaceId)
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .maybeSingle()
-        hasOrg = Boolean(membership)
-        if (!membership) activeWorkspaceId = null
+        const [{ data: membership }, { data: workspace }] = await Promise.all([
+          supabase
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('workspace_id', activeWorkspaceId)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .maybeSingle(),
+          supabase
+            .from('workspaces')
+            .select('id,status')
+            .eq('id', activeWorkspaceId)
+            .eq('status', 'active')
+            .maybeSingle(),
+        ])
+        hasOrg = Boolean(membership && workspace)
+        if (!hasOrg) activeWorkspaceId = null
       }
     }
   } catch (error) {
