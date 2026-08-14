@@ -130,3 +130,35 @@ first reading the repository's own release-control conventions, then reporting
 its conclusions before verifying them. `AGENTS.md` and
 `supabase/release-controls/` answer most of what the draft treated as unknown.
 Read those first.
+
+## 2026-08-13 follow-up: closing out the net.http_* question (item 3 above)
+
+Confirmed directly, not just cited: `revoke usage on schema net from anon,
+authenticated` was already present in `20260804190000_production_security_hardening.sql`
+and had already been run in production (workflow run 31215018893, 2026-08-07,
+reported success) before this check. It had no effect then and has none now —
+tried it again live as `postgres` and the `net` schema ACL is unchanged.
+`pg_auth_members` confirms why: `postgres` is not a member of `supabase_admin`,
+which owns the `net` schema, and REVOKE by a non-grantor role with no grant
+option is a silent Postgres no-op, not an error. This matches upstream reports
+(supabase/cli#4246, supabase discussion #39221) of the identical outcome on
+other projects — not something specific to this database.
+
+Practical exposure, checked rather than assumed: `net` is not in
+`pgrst.db_schemas` (`public, graphql_public, job_search, api` — see
+`pg_db_role_setting` for role `authenticator`). PostgREST is the only route
+from the anon/authenticated *keys* into the database; it will not proxy a
+request into a schema it doesn't expose, regardless of the underlying grant.
+Reaching `net.http_get`/`http_post` as anon would require a direct Postgres
+connection authenticated as the `anon` role, which the standard anon-key/
+PostgREST flow never provides.
+
+**Answering item 3 directly: understood and accepted, not pending.** The grant
+is real, the migration's attempt to close it is not fixable from any role
+available to this project, and the residual risk is defense-in-depth rather
+than a live path from the public API. No further action from this angle
+unless Supabase changes what `postgres` is permitted to revoke on
+platform-owned schemas, or offers an official mechanism for it. The dead
+`revoke`/`grant` block in `20260804190000` was left in place with a comment
+explaining this, rather than deleted, so it isn't mistaken for working
+protection or re-investigated from zero by a future pass.
