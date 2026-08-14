@@ -45,6 +45,19 @@
   min-height: 54px;
 }
 
+/* Keep enlarged navigation labels owned by their individual touch target.
+ * Text-only zoom can make a single-word label wider than its quarter-width
+ * column; wrapping inside the button preserves the visible label and prevents
+ * it from painting across adjacent actions without shrinking the 44px target. */
+.hvm2-bottom-nav.hvm-op-bottom-nav button small {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .hvm2-bottom-nav.hvm-op-bottom-nav button:focus-visible,
 .hvm-op-secondary-nav button:focus-visible,
 .hvm-op-context-trigger:focus-visible {
