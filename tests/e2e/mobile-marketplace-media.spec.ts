@@ -93,27 +93,16 @@ async function verifyEveryLoadedMarketplaceView(page: Page) {
 }
 
 async function clickClearOfBottomNav(page: Page, target: Locator) {
-  await target.scrollIntoViewIfNeeded()
+  await target.evaluate((element: HTMLElement) => {
+    element.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' })
+  })
   await expect(target).toBeVisible()
 
-  const main = page.locator('.hvm-op-main')
   const bottomNav = page.locator('.hvm-op-bottom-nav')
-  const initialTarget = await target.boundingBox()
-  const initialNav = await bottomNav.boundingBox()
-  expect(initialTarget).not.toBeNull()
-  expect(initialNav).not.toBeNull()
-
-  const overlap = Math.max(0, initialTarget!.y + initialTarget!.height - initialNav!.y + 12)
-  if (overlap > 0) {
-    await main.evaluate((element, delta) => {
-      element.scrollTop += delta
-    }, overlap)
-  }
-
   await expect.poll(async () => {
     const targetBox = await target.boundingBox()
     const navBox = await bottomNav.boundingBox()
-    return Boolean(targetBox && navBox && targetBox.y + targetBox.height <= navBox.y - 1)
+    return Boolean(targetBox && navBox && targetBox.y >= 0 && targetBox.y + targetBox.height <= navBox.y - 1)
   }, { message: 'reviewed-introduction CTA should be physically clear of the fixed mobile navigation' }).toBe(true)
 
   await target.click()
