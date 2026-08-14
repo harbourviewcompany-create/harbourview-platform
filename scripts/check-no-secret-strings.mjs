@@ -96,11 +96,12 @@ const vaultSecretCalls = [
 const placeholderSecret =
   /^(?:your_|example|replace_me|changeme|placeholder|dummy|redacted|xxx|<|\.\.\.)|_here$|^new_[a-z_]+$/i;
 
-const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
+const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*(.+)$/;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
+const knownLocalTestPlaceholder = /^(?:postgres|local-test-(?:anon|service)-key)$/;
 
 function normalizeIdentifier(identifier) {
   return identifier
@@ -114,13 +115,49 @@ function isSensitiveIdentifier(identifier) {
   return /(?:^|_)(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)(?:_|$)/.test(normalized);
 }
 
-function isAllowedSensitiveAssignment(identifier, value) {
+function stripAssignmentTerminator(value) {
+  return value.trim().replace(/[;,]$/, '').trim();
+}
+
+function unwrapDirectQuotedLiteral(value) {
+  const trimmed = stripAssignmentTerminator(value);
+  if (trimmed.length < 2) return null;
+  const quote = trimmed[0];
+  if ((quote !== '"' && quote !== "'") || trimmed.at(-1) !== quote) return null;
+  return trimmed.slice(1, -1);
+}
+
+function isBareLiteral(value) {
+  const trimmed = stripAssignmentTerminator(value);
+  return /^[A-Za-z0-9_+!@#$%^&*./:-]+$/.test(trimmed);
+}
+
+function isAllowedSensitiveAssignment(identifier, rawValue) {
   if (!isSensitiveIdentifier(identifier)) return true;
+
+  const value = stripAssignmentTerminator(rawValue);
   if (safeAssignmentValue.test(value)) return true;
   if (shellVariableReference.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
   if (generatedVisualTestPassword.test(value)) return true;
-  return false;
+
+  const directLiteral = unwrapDirectQuotedLiteral(value);
+  if (directLiteral !== null) {
+    if (placeholderSecret.test(directLiteral)) return true;
+    if (knownLocalTestPlaceholder.test(directLiteral)) return true;
+    return directLiteral.length < 8;
+  }
+
+  if (knownLocalTestPlaceholder.test(value)) return true;
+
+  // Dynamic expressions are references or computations, not committed secret
+  // literals. Examples include body.token, hashToken(token), randomBytes(...),
+  // lower(p_token_hash), and user.email?.trim(). These must not be confused with
+  // a literal assigned to a sensitive identifier. Vendor-token signatures and
+  // vault positional-literal checks still run independently above.
+  if (!isBareLiteral(value)) return true;
+
+  return value.length < 8;
 }
 
 function isProbablyText(path) {
@@ -148,7 +185,7 @@ function scanLine(line, source) {
   const match = line.match(assignment);
   if (match) {
     const [, identifier, value] = match;
-    if (value && value.length >= 8 && !isAllowedSensitiveAssignment(identifier, value)) {
+    if (value && !isAllowedSensitiveAssignment(identifier, value)) {
       findings.push({ source, pattern: 'risky-secret-assignment' });
     }
   }
@@ -165,8 +202,17 @@ function runSelfTest() {
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
+    ['dynamic request token', 'const token = body.token', 0],
+    ['dynamic token hash', 'const tokenHash = hashToken(token)', 0],
+    ['generated invitation token', "const token = randomBytes(32).toString('hex')", 0],
+    ['sql token comparison', 'where wi.token_hash = lower(p_token_hash)', 0],
+    ['local postgres test password', 'POSTGRES_PASSWORD: postgres', 0],
+    ['local anon test key', 'NEXT_PUBLIC_SUPABASE_ANON_KEY: local-test-anon-key', 0],
+    ['local service test key', 'SUPABASE_SERVICE_ROLE_KEY: local-test-service-key', 0],
     ['literal password', 'DATABASE_PASS' + 'WORD="literal-secret-12345"', 1],
     ['literal api key', 'api' + 'Key="literal-api-key-value"', 1],
+    ['literal token', "const token = 'literal-secret-12345'", 1],
+    ['literal bare service role key', 'SUPABASE_SERVICE_ROLE_KEY: real-service-role-key', 1],
     ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
     // The 2026-08-13 miss: a bare-hex secret as a positional argument.
     ['vault literal secret', "SELECT vault.create_" + "secret('0123456789abcdef0123', 'some_api_key');", 1],
@@ -216,8 +262,8 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, and the isolated GITHUB_RUN_ID-derived visual-test credential.');
-  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets and credential-bearing database URLs.');
+  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, known isolated local-test placeholders, and dynamic token/hash expressions.');
+  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, credential-bearing database URLs and vault secret literals.');
   process.exit(1);
 }
 
