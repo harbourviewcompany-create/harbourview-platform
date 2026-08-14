@@ -73,6 +73,7 @@ export default async function DashboardPage({
   let userAppMetadata: Record<string, unknown> | undefined
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
+  let activeWorkspaceId: string | null = null
   let hasOrg = false
 
   try {
@@ -84,19 +85,24 @@ export default async function DashboardPage({
       userAppMetadata = user.app_metadata
       const { data: prefs } = await supabase
         .from('user_dashboard_preferences')
-        .select('country_iso2, role_id')
+        .select('country_iso2, role_id, active_workspace_id')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
+      activeWorkspaceId = prefs?.active_workspace_id ?? null
 
-      const { data: membership } = await supabase
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single()
-      hasOrg = !!membership
+      if (activeWorkspaceId) {
+        const { data: membership } = await supabase
+          .from('workspace_members')
+          .select('workspace_id')
+          .eq('workspace_id', activeWorkspaceId)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle()
+        hasOrg = Boolean(membership)
+        if (!membership) activeWorkspaceId = null
+      }
     }
   } catch (error) {
     console.error('[command-centre-auth-context]', {
@@ -167,7 +173,7 @@ export default async function DashboardPage({
       loadedAt={commandData.loadedAt}
     >
       <DashboardResponsiveShell
-        key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
+        key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${activeWorkspaceId ?? 'personal'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
         signals={signals}
         digestSignals={dailyDigest.signals}
