@@ -10,6 +10,26 @@ function isValidToken(token: unknown): token is string {
   return typeof token === 'string' && /^[0-9a-f]{64}$/i.test(token)
 }
 
+type AcceptanceResult = {
+  outcome?: string
+  workspace_id?: string
+  role?: string
+}
+
+function acceptanceError(outcome: string) {
+  switch (outcome) {
+    case 'not_found': return ['INVITATION_NOT_FOUND', 404] as const
+    case 'email_mismatch': return ['INVITATION_EMAIL_MISMATCH', 403] as const
+    case 'expired': return ['INVITATION_EXPIRED', 410] as const
+    case 'declined': return ['INVITATION_DECLINED', 409] as const
+    case 'revoked': return ['INVITATION_REVOKED', 409] as const
+    case 'workspace_unavailable': return ['WORKSPACE_UNAVAILABLE', 409] as const
+    case 'existing_membership_inactive': return ['EXISTING_MEMBERSHIP_INACTIVE', 409] as const
+    case 'already_used': return ['INVITATION_ALREADY_USED', 409] as const
+    default: return ['INVITATION_ACCEPT_FAILED', 500] as const
+  }
+}
+
 export async function POST(req: NextRequest) {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 })
@@ -25,96 +45,91 @@ export async function POST(req: NextRequest) {
   if (!email) return NextResponse.json({ error: 'ACCOUNT_EMAIL_REQUIRED' }, { status: 422 })
 
   const supabase = await createSupabaseServiceClient()
-  const { data: invitation, error: inviteErr } = await supabase.from('workspace_invitations')
-    .select('id,workspace_id,email,role,status,invited_by,created_at,expires_at,accepted_at,accepted_by')
-    .eq('token_hash', hashToken(token))
-    .maybeSingle()
-
-  if (inviteErr || !invitation) return NextResponse.json({ error: 'INVITATION_NOT_FOUND' }, { status: 404 })
-  if (invitation.email.trim().toLowerCase() !== email) {
-    return NextResponse.json({ error: 'INVITATION_EMAIL_MISMATCH' }, { status: 403 })
-  }
-
-  const now = new Date()
-  if (new Date(invitation.expires_at).getTime() <= now.getTime() && invitation.status === 'pending') {
-    await supabase.from('workspace_invitations').update({ status: 'expired', updated_at: now.toISOString() }).eq('id', invitation.id)
-    return NextResponse.json({ error: 'INVITATION_EXPIRED' }, { status: 410 })
-  }
+  const tokenHash = hashToken(token)
 
   if (action === 'decline') {
+    const { data: invitation, error: inviteErr } = await supabase.from('workspace_invitations')
+      .select('id,email,status,expires_at')
+      .eq('token_hash', tokenHash)
+      .maybeSingle()
+
+    if (inviteErr || !invitation) return NextResponse.json({ error: 'INVITATION_NOT_FOUND' }, { status: 404 })
+    if (invitation.email.trim().toLowerCase() !== email) {
+      return NextResponse.json({ error: 'INVITATION_EMAIL_MISMATCH' }, { status: 403 })
+    }
+    if (new Date(invitation.expires_at).getTime() <= Date.now() && invitation.status === 'pending') {
+      await supabase.from('workspace_invitations')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
+        .eq('id', invitation.id)
+        .eq('status', 'pending')
+      return NextResponse.json({ error: 'INVITATION_EXPIRED' }, { status: 410 })
+    }
     if (invitation.status !== 'pending') {
       return NextResponse.json({ error: `INVITATION_${invitation.status.toUpperCase()}` }, { status: 409 })
     }
-    await supabase.from('workspace_invitations').update({ status: 'declined', updated_at: now.toISOString() }).eq('id', invitation.id)
+
+    const { data: declined, error: declineErr } = await supabase.from('workspace_invitations')
+      .update({ status: 'declined', updated_at: new Date().toISOString() })
+      .eq('id', invitation.id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+
+    if (declineErr) return NextResponse.json({ error: 'INVITATION_DECLINE_FAILED' }, { status: 500 })
+    if (!declined) return NextResponse.json({ error: 'INVITATION_ALREADY_USED' }, { status: 409 })
     return NextResponse.json({ ok: true, status: 'declined' })
   }
 
-  if (invitation.status === 'accepted') {
-    const { data: existing } = await supabase.from('workspace_members')
-      .select('workspace_id,role,status')
-      .eq('workspace_id', invitation.workspace_id)
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle()
-    if (existing) {
-      return NextResponse.json({ data: { workspace_id: invitation.workspace_id, already_accepted: true } })
-    }
-    return NextResponse.json({ error: 'INVITATION_ALREADY_USED' }, { status: 409 })
+  const { data, error } = await supabase.rpc('accept_workspace_invitation', {
+    p_token_hash: tokenHash,
+    p_user_id: user.id,
+    p_user_email: email,
+  })
+
+  if (error) return NextResponse.json({ error: 'INVITATION_ACCEPT_FAILED' }, { status: 500 })
+  const result = (data ?? {}) as AcceptanceResult
+  const outcome = result.outcome ?? 'failed'
+
+  if (!['accepted', 'already_member', 'already_accepted'].includes(outcome) || !result.workspace_id) {
+    const [code, status] = acceptanceError(outcome)
+    return NextResponse.json({ error: code }, { status })
   }
 
-  if (invitation.status !== 'pending') {
-    return NextResponse.json({ error: `INVITATION_${invitation.status.toUpperCase()}` }, { status: 409 })
-  }
-
-  const joinedAt = now.toISOString()
-  const { error: membershipErr } = await supabase.from('workspace_members').upsert({
-    workspace_id: invitation.workspace_id,
-    user_id: user.id,
-    role: invitation.role,
-    status: 'active',
-    invited_by: invitation.invited_by,
-    invited_at: invitation.created_at,
-    joined_at: joinedAt,
-  }, { onConflict: 'workspace_id,user_id' })
-
-  if (membershipErr) return NextResponse.json({ error: 'MEMBERSHIP_ACCEPT_FAILED' }, { status: 500 })
-
-  const { error: inviteUpdateErr } = await supabase.from('workspace_invitations').update({
-    status: 'accepted',
-    accepted_at: joinedAt,
-    accepted_by: user.id,
-    updated_at: joinedAt,
-  }).eq('id', invitation.id).eq('status', 'pending')
-
-  if (inviteUpdateErr) return NextResponse.json({ error: 'INVITATION_FINALIZE_FAILED' }, { status: 500 })
-
+  const joinedAt = new Date().toISOString()
   await supabase.from('user_dashboard_preferences').upsert({
     user_id: user.id,
-    active_workspace_id: invitation.workspace_id,
+    active_workspace_id: result.workspace_id,
     updated_at: joinedAt,
   }, { onConflict: 'user_id' })
 
   const { data: workspace } = await supabase.from('workspaces')
     .select('id,name,slug,verification_status,status')
-    .eq('id', invitation.workspace_id)
-    .single()
+    .eq('id', result.workspace_id)
+    .eq('status', 'active')
+    .maybeSingle()
 
-  await supabase.from('audit_events').insert({
-    entity_type: 'workspace',
-    entity_id: invitation.workspace_id,
-    action: 'org.invitation.accepted',
-    actor: user.id,
-    actor_user_id: user.id,
-    actor_org_id: invitation.workspace_id,
-    metadata: { invitation_id: invitation.id, role: invitation.role },
-  })
+  if (!workspace) return NextResponse.json({ error: 'WORKSPACE_UNAVAILABLE' }, { status: 409 })
+
+  if (outcome !== 'already_accepted') {
+    await supabase.from('audit_events').insert({
+      entity_type: 'workspace',
+      entity_id: result.workspace_id,
+      action: 'org.invitation.accepted',
+      actor: user.id,
+      actor_user_id: user.id,
+      actor_org_id: result.workspace_id,
+      metadata: { role: result.role ?? null, outcome },
+    })
+  }
 
   return NextResponse.json({
     data: {
-      workspace_id: invitation.workspace_id,
+      workspace_id: result.workspace_id,
       workspace,
-      role: invitation.role,
-      active_workspace_id: invitation.workspace_id,
+      role: result.role ?? null,
+      active_workspace_id: result.workspace_id,
+      already_accepted: outcome === 'already_accepted',
+      already_member: outcome === 'already_member',
     },
   })
 }
