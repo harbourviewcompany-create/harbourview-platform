@@ -33,13 +33,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: cipg
           POSTGRES_DB: postgres
         ports: ['5432:5432']
         options: >-
           --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=10
     env:
-      PGPASSWORD: postgres
+      PGPASSWORD: cipg
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: postgres
@@ -188,6 +188,7 @@ jobs:
           grant usage on schema api to authenticated, service_role;
           create table public.user_profiles (id uuid primary key references auth.users(id) on delete cascade, tier text not null);
           grant select on public.user_profiles to authenticated;
+          grant select, insert, update, delete on public.user_profiles to service_role;
           create table api.intel_event_dossiers (
             id text primary key, headline text not null, summary text, event_type text, jurisdiction_label text,
             occurred_at timestamptz, detected_at timestamptz, effective_at timestamptz, last_verified_at timestamptz,
@@ -242,7 +243,7 @@ jobs:
         run: |
           set -euo pipefail
           TEST_EMAIL="decision-intel-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvDecision-${GITHUB_RUN_ID}-Aa9!"
+          TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
           echo "::add-mask::${TEST_EMAIL}"
           echo "::add-mask::${TEST_PASSWORD}"
           echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}" >> "$GITHUB_ENV"
