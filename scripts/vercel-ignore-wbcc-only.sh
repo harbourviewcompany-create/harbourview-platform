@@ -120,12 +120,26 @@ fi
 # Deliberately placed before the build-inert path check: that check exists to
 # spare the budget on docs-only commits, and with previews off by default there
 # is no budget left to spare. It stays in the file because it still applies to
-# any commit that opts back in with [preview].
-if [[ "$commit_message" == *"[preview]"* ]]; then
-  echo "Vercel ignore: commit message opts in ('[preview]') on branch '$branch'; continue preview build."
+# any commit that opts back in.
+#
+# The marker is read from the SUBJECT LINE ONLY, not the whole message. The
+# first version of this gate substring-matched the entire commit message, and
+# the very commit that introduced it deployed a preview it was supposed to
+# suppress -- because the body explained the feature and therefore contained the
+# marker as prose. Anything that documents, reverts or discusses this mechanism
+# would have opted itself in.
+#
+# Note the asymmetry with [skip ci]/[docs only] above, which still match the
+# whole message. Those fail SAFE: a stray mention skips a build that was going
+# to be free anyway. This one fails OPEN, and an accidental match spends the
+# budget this file exists to protect, so it gets the stricter rule.
+commit_subject="${commit_message%%$'\n'*}"
+
+if [[ "$commit_subject" == *"[preview]"* ]]; then
+  echo "Vercel ignore: subject line opts in ('[preview]') on branch '$branch'; continue preview build."
 else
   echo "Vercel ignore: previews are opt-in; skipping preview build for branch '$branch'."
-  echo "Add [preview] to the commit message to build one. Production deploys are unaffected."
+  echo "Add [preview] to the commit SUBJECT line to build one. Production deploys are unaffected."
   exit 0
 fi
 
