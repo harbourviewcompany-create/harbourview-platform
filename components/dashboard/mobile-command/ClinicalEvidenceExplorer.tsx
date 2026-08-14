@@ -104,12 +104,22 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
             value={query}
             maxLength={160}
             autoComplete="off"
-            placeholder="e.g. neuropathic pain"
+            placeholder="e.g. Dravet syndrome"
             onChange={event => setQuery(event.target.value)}
           />
           <button type="submit" className="hvm2-inline-cta">Search reviewed evidence</button>
         </div>
       </form>
+
+      {!loading && result?.synthesis && result.synthesis.recordCount > 0 && (
+        <div className="hvm2-sourcing-note" data-sourcing={result.synthesis.hasMaterialConflict ? 'conflicted' : 'loaded'} aria-label="Evidence set summary">
+          <strong>Evidence set · {result.synthesis.recordCount} published source{result.synthesis.recordCount === 1 ? '' : 's'}</strong>
+          <p>
+            {result.synthesis.gradedRecordCount} clinically graded · {result.synthesis.ungradedRecordCount} ungraded · {result.synthesis.regulatedDrugRecordCount} regulated-drug · {result.synthesis.generalCannabisRecordCount} general-cannabis.
+          </p>
+          <p>This is a provenance/count summary only; it does not infer efficacy or comparative superiority.</p>
+        </div>
+      )}
 
       {!loading && result && result.changes.length > 0 && (
         <div className="hvm2-horizontal-deck" aria-label="Clinical evidence changes">
