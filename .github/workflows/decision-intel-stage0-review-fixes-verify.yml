@@ -29,13 +29,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: cipg
           POSTGRES_DB: postgres
         ports: ['5432:5432']
         options: >-
           --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=10
     env:
-      PGPASSWORD: postgres
+      PGPASSWORD: cipg
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: postgres
@@ -98,7 +98,6 @@ jobs:
           insert into public.hv_evidence values ('30000000-0000-0000-0000-000000000001','PRIVATE RAW EVIDENCE','private/path','PRIVATE NOTE');
           insert into public.countries (country_name,iso_alpha2,iso_alpha3) values ('Canada','CA','CAN'),('Germany','DE','DEU');
           insert into public.jurisdictions values ('country_area:CAN','Canada','CAN'),('country_area:DEU','Germany','DEU');
-          -- Mirror the repository replay: crossrefs start with ISO-2 but no jurisdictions_id.
           insert into public.jurisdiction_crossref (countries_iso2,canonical_iso2,canonical_name) values
             ('CA','CA','Canada'),
             ('DE','DE','Germany');
