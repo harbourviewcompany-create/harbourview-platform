@@ -11,13 +11,7 @@ function jurisdictionFromCommandHref(commandHref: string): string {
   return raw || 'Canada'
 }
 
-export default function ClinicalEvidenceExplorer({
-  commandHref,
-  profession,
-}: {
-  commandHref: string
-  profession: string
-}) {
+export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
   const jurisdiction = useMemo(() => jurisdictionFromCommandHref(commandHref), [commandHref])
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -28,7 +22,6 @@ export default function ClinicalEvidenceExplorer({
     const controller = new AbortController()
     const params = new URLSearchParams({ jurisdiction, limit: '20' })
     if (submittedQuery) params.set('q', submittedQuery)
-    if (profession && profession.toLowerCase() !== 'all roles') params.set('profession', profession)
 
     setLoading(true)
     fetch(`/api/clinical/evidence?${params}`, { signal: controller.signal, credentials: 'same-origin' })
@@ -46,7 +39,7 @@ export default function ClinicalEvidenceExplorer({
       .finally(() => setLoading(false))
 
     return () => controller.abort()
-  }, [jurisdiction, profession, submittedQuery])
+  }, [jurisdiction, submittedQuery])
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -56,7 +49,7 @@ export default function ClinicalEvidenceExplorer({
   const state = loading ? 'loading' : result?.state ?? 'error'
 
   return (
-    <section aria-labelledby="clinical-evidence-title">
+    <section className="hvm2-clinical-evidence" aria-labelledby="clinical-evidence-title">
       <style jsx global>{`
         @media (max-width: 559px) {
           #clinical .hvm2-section-heading {
@@ -64,6 +57,35 @@ export default function ClinicalEvidenceExplorer({
           }
           #clinical .hvm2-section-heading > .hvm2-text-link {
             margin-top: 8px;
+          }
+          #clinical > .hvm2-sourcing-note {
+            padding: 11px 13px;
+          }
+          #clinical > .hvm2-sourcing-note p {
+            line-height: 1.45;
+          }
+          #clinical .hvm2-clinical-evidence {
+            margin-top: 10px;
+          }
+          #clinical .hvm2-clinical-evidence > .hvm2-sourcing-note {
+            padding: 12px 13px;
+          }
+          #clinical .hvm2-clinical-evidence form {
+            margin-top: 10px;
+          }
+          #clinical .hvm2-clinical-evidence form > label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 11px;
+            font-weight: 700;
+          }
+          #clinical .hvm2-clinical-evidence .hvm2-two-column {
+            grid-template-columns: 1fr;
+          }
+          #clinical .hvm2-clinical-evidence input,
+          #clinical .hvm2-clinical-evidence button {
+            min-height: 44px;
+            width: 100%;
           }
         }
       `}</style>
