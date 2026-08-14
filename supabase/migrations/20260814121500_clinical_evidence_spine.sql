@@ -59,7 +59,7 @@ create table if not exists public.clinical_evidence_records (
   supersession_state text not null default 'current'
     check (supersession_state in ('current', 'superseded', 'partially-superseded')),
   superseded_by_id uuid references public.clinical_evidence_records(id) on delete set null,
-  review_status text not null default 'under_review'
+  review_status text not null default 'under-review'
     check (review_status in ('published', 'under-review')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
