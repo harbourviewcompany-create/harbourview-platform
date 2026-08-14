@@ -1,0 +1,10 @@
+grant select on public.listings to anon, authenticated;
+grant select on public.local_authorities to anon, authenticated;
+grant select on public.local_intel_coverage to anon, authenticated;
+grant select on public.local_open_questions to anon, authenticated;
+grant select on public.local_operating_notes to anon, authenticated;
+grant select on public.local_subdivisions_intel to anon, authenticated;
+grant select on public.operator_countries to anon, authenticated;
+grant select on public.cc_watchlist_notifications to anon;
+grant select on public.subscriptions to anon;
+grant select on public.workspace_members to anon;

@@ -1,0 +1,1 @@
+grant select on public.jurisdiction_playbooks to anon, authenticated;
