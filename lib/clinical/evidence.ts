@@ -67,6 +67,10 @@ export type ClinicalEvidenceRecordDTO = {
   supersessionState: 'current' | 'superseded' | 'partially-superseded'
   supersededById: string | null
   reviewStatus: 'published' | 'under-review'
+  /** Private source-registry identity is represented only as an opaque UUID, never raw extraction/review provenance. */
+  sourceRegistryId?: string | null
+  gradingMethodKey?: string | null
+  publicationScope?: 'source-metadata' | 'clinical-synthesis'
 }
 
 export type ClinicalEvidenceChangeEventDTO = {
@@ -83,12 +87,26 @@ export type ClinicalEvidenceChangeEventDTO = {
   primarySource: ClinicalPrimarySourceDTO
 }
 
+export type ClinicalConditionEvidenceSynthesisDTO = {
+  recordCount: number
+  currentRecordCount: number
+  gradedRecordCount: number
+  ungradedRecordCount: number
+  regulatedDrugRecordCount: number
+  generalCannabisRecordCount: number
+  evidenceTypes: Partial<Record<ClinicalEvidenceType, number>>
+  hasMaterialConflict: boolean
+  lastVerifiedAt: string | null
+  summary: string
+}
+
 export type ClinicalEvidenceSearchResult = {
   state: ClinicalEvidenceState
   query: string
   records: ClinicalEvidenceRecordDTO[]
   changes: ClinicalEvidenceChangeEventDTO[]
   message: string
+  synthesis?: ClinicalConditionEvidenceSynthesisDTO
 }
 
 export function deriveClinicalEvidenceState(input: {
@@ -116,6 +134,44 @@ export function clinicalEvidenceStateMessage(state: ClinicalEvidenceState): stri
     error: 'Clinical evidence could not be loaded. Retry before relying on this workspace.',
   }
   return messages[state]
+}
+
+export function synthesizeClinicalEvidence(records: ClinicalEvidenceRecordDTO[]): ClinicalConditionEvidenceSynthesisDTO {
+  const evidenceTypes: Partial<Record<ClinicalEvidenceType, number>> = {}
+  let gradedRecordCount = 0
+  let regulatedDrugRecordCount = 0
+  let generalCannabisRecordCount = 0
+  let currentRecordCount = 0
+  let hasMaterialConflict = false
+  let lastVerifiedAt: string | null = null
+
+  for (const record of records) {
+    evidenceTypes[record.evidenceType] = (evidenceTypes[record.evidenceType] ?? 0) + 1
+    if (!['ungraded', 'conflicted'].includes(record.evidenceStrength)) gradedRecordCount += 1
+    if (record.interventionClass === 'regulated-cannabinoid-drug') regulatedDrugRecordCount += 1
+    if (record.interventionClass === 'general-cannabis') generalCannabisRecordCount += 1
+    if (record.supersessionState === 'current') currentRecordCount += 1
+    if (record.conflictStatus === 'material-conflict' || record.evidenceStrength === 'conflicted') hasMaterialConflict = true
+    if (!lastVerifiedAt || record.verifiedAt > lastVerifiedAt) lastVerifiedAt = record.verifiedAt
+  }
+
+  const ungradedRecordCount = records.length - gradedRecordCount
+  const summary = records.length === 0
+    ? 'No published evidence records are available for deterministic synthesis.'
+    : `${records.length} published source record${records.length === 1 ? '' : 's'}; ${gradedRecordCount} clinically graded and ${ungradedRecordCount} ungraded. This count summary does not infer efficacy or comparative superiority.`
+
+  return {
+    recordCount: records.length,
+    currentRecordCount,
+    gradedRecordCount,
+    ungradedRecordCount,
+    regulatedDrugRecordCount,
+    generalCannabisRecordCount,
+    evidenceTypes,
+    hasMaterialConflict,
+    lastVerifiedAt,
+    summary,
+  }
 }
 
 export type MedicationCannabinoidInteractionContract = {
