@@ -14,18 +14,34 @@ const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
 
 test('replay excludes duplicate repository aliases only when the canonical live-version file is also present', () => {
-  assert.equal(excludedVersions.has('20260728000000'), true)
-  assert.equal(excludedVersions.has('20260728010000'), true)
-
-  const createAlias = exclusions.find((item) => item.version === '20260728000000')
-  const renameAlias = exclusions.find((item) => item.version === '20260728010000')
-  assert.deepEqual(createAlias.repository_equivalent_versions, ['20260728191340'])
-  assert.deepEqual(renameAlias.repository_equivalent_versions, ['20260728192052'])
+  for (const [aliasVersion, canonicalVersion] of [
+    ['20260728000000', '20260728191340'],
+    ['20260728010000', '20260728192052'],
+    ['20260728020000', '20260729021820'],
+  ]) {
+    assert.equal(excludedVersions.has(aliasVersion), true)
+    const exclusion = exclusions.find((item) => item.version === aliasVersion)
+    assert.ok(exclusion.repository_equivalent_versions.includes(canonicalVersion))
+    assert.ok(migrationFiles.some((file) => file.startsWith(`${canonicalVersion}_`)))
+  }
 })
 
-test('replay retains a repository-only stand-in when its live equivalent has no migration file', () => {
-  assert.equal(excludedVersions.has('20260728020000'), false)
-  assert.equal(migrationFiles.some((file) => file.startsWith('20260729021820_')), false)
+test('planner does not exclude an alias when its canonical live-version file is absent', () => {
+  const synthetic = {
+    repository_only_decisions: [
+      {
+        version: '20990101000000',
+        file: '20990101000000_stand_in.sql',
+        reason_code: 'exact_live_name_different_version',
+        live_equivalent_versions: ['20990101000001'],
+      },
+    ],
+  }
+
+  assert.deepEqual(
+    planReplayExclusions({ decisions: synthetic, migrationFiles: ['20990101000000_stand_in.sql'] }),
+    [],
+  )
 })
 
 test('every exclusion is backed by exact-live-name-different-version control evidence', () => {
