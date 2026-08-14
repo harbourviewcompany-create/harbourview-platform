@@ -190,3 +190,56 @@ These are dashboard or account actions. Do not attempt code workarounds.
   `scripts/check-pending-production-migration-decisions.mjs` with a git blob
   mismatch — a pending migration edited after its content hash was bound. Needs
   a re-hash or a revert.
+
+## 10. The pg_cron estate is production state with no version history
+
+**Verified 2026-08-14.** The scheduled jobs in `cron.job` are live production
+configuration that exists **nowhere in git**. The repository says so itself, in
+`20260720200000_intel_editorial_pipeline_reconcile.sql`:
+
+> the pg_cron jobs are environment state, not created here
+
+So enabling, disabling or rescheduling a job leaves no commit, no diff, no
+author and no reason. There is no way to tell a deliberate change from an
+accident after the fact.
+
+**The run history is not a substitute.** `cron.job_run_details` is pruned daily
+by job `prune-cron-job-run-details` (03:23). A job that has not run recently has
+no rows at all, so you cannot date a change from it either.
+
+**What this cost.** On 2026-08-14, `hv-embed-every-30min` (jobid 13,
+`SELECT public.hv_trigger_embed()`) was found at `active = false`. The embedding
+stage had been dead since 2026-08-11 07:00 and **133 signals** had accumulated
+with no embedding — while `hv-extract` and `hv-score` stayed active, so signals
+kept arriving and the feed looked alive. Nothing was red. It surfaced only
+because someone queried `public.signals` directly.
+
+The disable could not be dated or attributed, which mattered: `INTELLIGENCE_ARCHITECTURE_SPEC.md`
+§10 lists cron cadence versus the Nano disk-I/O budget as an open owner
+decision, and §9 Guardrail 8 exists because cron load degraded this database for
+two hours. Re-enabling therefore required the owner, not an agent's judgement —
+purely because the record was missing.
+
+**Baseline at 2026-08-14, so a future drift is detectable.** Inactive jobs:
+
+| jobid | jobname | note |
+|---|---|---|
+| 13 | `hv-embed-every-30min` | re-enabled 2026-08-14 on owner instruction |
+| 14 | `claude-signal-extraction` | still inactive; provenance unknown |
+| 26 | `airtable-tier-pull` | still inactive; provenance unknown |
+
+**Do this:**
+
+- Before concluding the intelligence pipeline is healthy, check `cron.job.active`
+  — not just whether rows are arriving. A downstream stage can be dead while
+  upstream stages keep the feed looking live.
+- Treat enabling or disabling a job as an owner decision, not a fix, unless it is
+  actively harming the database. There is no record to tell you why it is in the
+  state it is in.
+- Record any change to cron state here, with the date and the reason. This
+  section is the only audit trail that exists.
+
+```sql
+-- the check that would have caught it
+select jobid, jobname, schedule, active from cron.job order by active, jobname;
+```
