@@ -13,7 +13,8 @@ create table if not exists public.clinical_condition_terms (
   review_status text not null default 'under_review'
     check (review_status in ('published', 'under_review', 'retired')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint clinical_condition_source_https check (source_url is null or source_url ~ '^https://')
 );
 
 create table if not exists public.clinical_evidence_records (
@@ -63,10 +64,7 @@ create table if not exists public.clinical_evidence_records (
     check (review_status in ('published', 'under-review')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint clinical_evidence_source_https check (primary_source_url ~ '^https://'),
-  constraint clinical_evidence_no_product_identity check (
-    intervention_class <> 'general-cannabis' or formulation is null or length(formulation) <= 240
-  )
+  constraint clinical_evidence_source_https check (primary_source_url ~ '^https://')
 );
 
 create table if not exists public.clinical_evidence_change_events (
@@ -86,12 +84,14 @@ create table if not exists public.clinical_evidence_change_events (
   primary_source_publisher text not null,
   primary_source_url text not null,
   primary_source_id text,
+  review_status text not null default 'under-review'
+    check (review_status in ('published', 'under-review')),
   created_at timestamptz not null default now(),
   constraint clinical_evidence_change_source_https check (primary_source_url ~ '^https://')
 );
 
 create index if not exists idx_clinical_evidence_condition
-  on public.clinical_evidence_records (condition_label);
+  on public.clinical_evidence_records (lower(condition_label));
 create index if not exists idx_clinical_evidence_verified
   on public.clinical_evidence_records (verified_at desc);
 create index if not exists idx_clinical_evidence_changes_occurred
@@ -118,11 +118,14 @@ drop policy if exists clinical_evidence_change_events_public_read on public.clin
 create policy clinical_evidence_change_events_public_read
   on public.clinical_evidence_change_events for select to anon, authenticated
   using (
-    evidence_record_id is null
-    or exists (
-      select 1 from public.clinical_evidence_records r
-      where r.id = clinical_evidence_change_events.evidence_record_id
-        and r.review_status = 'published'
+    review_status = 'published'
+    and (
+      evidence_record_id is null
+      or exists (
+        select 1 from public.clinical_evidence_records r
+        where r.id = clinical_evidence_change_events.evidence_record_id
+          and r.review_status = 'published'
+      )
     )
   );
 
@@ -132,6 +135,67 @@ grant select on public.clinical_evidence_change_events to anon, authenticated;
 grant all on public.clinical_condition_terms to service_role;
 grant all on public.clinical_evidence_records to service_role;
 grant all on public.clinical_evidence_change_events to service_role;
+
+-- Deterministic server-side search across the complete reviewed evidence set.
+-- SECURITY INVOKER preserves the table RLS boundary for anon/authenticated callers.
+create or replace function public.search_clinical_evidence_records(
+  p_query text default '',
+  p_jurisdiction text default null,
+  p_limit integer default 20
+)
+returns setof public.clinical_evidence_records
+language sql
+stable
+security invoker
+set search_path = public
+as $function$
+  select r.*
+  from public.clinical_evidence_records r
+  where r.review_status = 'published'
+    and (p_jurisdiction is null or p_jurisdiction = any(r.jurisdictions))
+    and (
+      btrim(coalesce(p_query, '')) = ''
+      or lower(coalesce(r.condition_label, '')) like '%' || lower(btrim(p_query)) || '%'
+      or exists (select 1 from unnest(r.condition_aliases) a where lower(a) like '%' || lower(btrim(p_query)) || '%')
+      or lower(r.title) like '%' || lower(btrim(p_query)) || '%'
+      or lower(r.summary) like '%' || lower(btrim(p_query)) || '%'
+      or lower(coalesce(r.population, '')) like '%' || lower(btrim(p_query)) || '%'
+      or lower(coalesce(r.intervention, '')) like '%' || lower(btrim(p_query)) || '%'
+      or lower(coalesce(r.formulation, '')) like '%' || lower(btrim(p_query)) || '%'
+      or exists (select 1 from unnest(r.cannabinoids) c where lower(c) like '%' || lower(btrim(p_query)) || '%')
+      or lower(coalesce(r.outcome, '')) like '%' || lower(btrim(p_query)) || '%'
+    )
+  order by
+    case when r.supersession_state = 'current' then 0 else 1 end,
+    r.verified_at desc,
+    r.id
+  limit least(greatest(coalesce(p_limit, 20), 1), 50);
+$function$;
+
+create or replace function public.clinical_condition_term_known(p_query text)
+returns boolean
+language sql
+stable
+security invoker
+set search_path = public
+as $function$
+  select exists (
+    select 1
+    from public.clinical_condition_terms t
+    where t.review_status = 'published'
+      and btrim(coalesce(p_query, '')) <> ''
+      and (
+        lower(t.canonical_name) = lower(btrim(p_query))
+        or lower(t.canonical_name) like '%' || lower(btrim(p_query)) || '%'
+        or exists (select 1 from unnest(t.aliases) a where lower(a) = lower(btrim(p_query)) or lower(a) like '%' || lower(btrim(p_query)) || '%')
+      )
+  );
+$function$;
+
+revoke all on function public.search_clinical_evidence_records(text, text, integer) from public;
+revoke all on function public.clinical_condition_term_known(text) from public;
+grant execute on function public.search_clinical_evidence_records(text, text, integer) to anon, authenticated, service_role;
+grant execute on function public.clinical_condition_term_known(text) to anon, authenticated, service_role;
 
 -- P0 seed is intentionally limited to current Canadian primary authority and
 -- regulatory/pharmacovigilance guidance. No condition efficacy, drug interaction,
@@ -183,10 +247,13 @@ on conflict (slug) do update set
   summary = excluded.summary,
   evidence_strength_method = excluded.evidence_strength_method,
   uncertainty = excluded.uncertainty,
+  jurisdictions = excluded.jurisdictions,
+  profession_relevance = excluded.profession_relevance,
   primary_source_title = excluded.primary_source_title,
   primary_source_publisher = excluded.primary_source_publisher,
   primary_source_url = excluded.primary_source_url,
   primary_source_id = excluded.primary_source_id,
+  effective_date = excluded.effective_date,
   verified_at = excluded.verified_at,
   supersession_state = excluded.supersession_state,
   review_status = excluded.review_status,
@@ -195,7 +262,7 @@ on conflict (slug) do update set
 insert into public.clinical_evidence_change_events (
   evidence_record_id, event_type, title, summary, materiality, jurisdictions,
   profession_relevance, occurred_at, verified_at, primary_source_title,
-  primary_source_publisher, primary_source_url, primary_source_id
+  primary_source_publisher, primary_source_url, primary_source_id, review_status
 )
 select
   r.id,
@@ -206,7 +273,7 @@ select
   '2026-08-14T12:00:00Z', '2026-08-14T12:00:00Z',
   'Cannabis Regulations §273', 'Justice Laws Website',
   'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-273.html',
-  'SOR-2018-144-s273'
+  'SOR-2018-144-s273', 'published'
 from public.clinical_evidence_records r
 where r.slug = 'ca-cannabis-regulations-medical-document-273'
   and not exists (
@@ -220,3 +287,5 @@ comment on table public.clinical_evidence_records is
   'Public reviewed clinical/regulatory evidence metadata only. Never store patient data, marketplace listing data, cultivar genetics, seller claims or private provenance here.';
 comment on table public.clinical_evidence_change_events is
   'Public reviewed change events for clinical evidence/regulatory records; not a patient event log.';
+comment on function public.search_clinical_evidence_records(text, text, integer) is
+  'RLS-preserving deterministic search over the complete published Clinical evidence set; no marketplace, genetics or patient joins.';
