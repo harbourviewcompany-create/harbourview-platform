@@ -21,7 +21,7 @@
     "test:compliance-visibility": "vitest run tests/harbourview/public-route-smoke.test.ts",
     "test:new-products-equipment-intake": "vitest run tests/marketplace/intakeSafety.test.ts",
     "test:live-source-intake": "vitest run tests/regulatory-sources/watcher.test.ts",
-    "test:regulatory-signals-contract": "vitest run tests/cannabis-data-contract/dto.test.ts tests/clinical/evidenceSpine.test.ts tests/clinical/evidenceSpineStorage.test.ts tests/dashboard/mobileClinicalProfessional.test.ts",
+    "test:regulatory-signals-contract": "vitest run tests/cannabis-data-contract/dto.test.ts tests/clinical/evidenceSpine.test.ts tests/clinical/evidenceSpineStorage.test.ts tests/clinical/evidenceV1Governance.test.ts tests/dashboard/mobileClinicalProfessional.test.ts",
     "test:regulatory-signals-public-leakage": "vitest run tests/network/public-projection-leakage.test.ts",
     "test:signal-engine-runtime": "vitest run tests/llm/providers.test.ts tests/llm/rateLimit.test.ts tests/llm/validation.test.ts",
     "test:used-surplus-public-leakage": "vitest run tests/marketplace/publicProjection.test.ts",
