@@ -31,8 +31,9 @@ end
 $$;
 
 -- SECURITY DEFINER functions must not inherit callable browser access through
--- PUBLIC. Start closed for application roles, preserve service-role execution,
--- then restore only the repository-audited authenticated allowlist below.
+-- PUBLIC. Start closed for application roles, then restore only the
+-- repository-audited authenticated allowlist below. Existing service_role and
+-- owner privileges are deliberately preserved rather than expanded.
 do $$
 declare
   routine record;
@@ -53,21 +54,16 @@ begin
       routine.routine_name,
       routine.identity_arguments
     );
-    execute format(
-      'grant execute on function %I.%I(%s) to service_role',
-      routine.schema_name,
-      routine.routine_name,
-      routine.identity_arguments
-    );
   end loop;
 end
 $$;
 
--- Exact authenticated SECURITY DEFINER allowlist. public.is_harbourview_admin()
--- is included because Marketplace and Storage RLS policies call it directly;
--- removing authenticated EXECUTE would make those policies error instead of
--- evaluating the caller's admin role. Missing optional routines are skipped so
--- replay remains safe across environments.
+-- Exact authenticated SECURITY DEFINER allowlist. These routines are retained
+-- because repository/live policy and application contracts require signed-in
+-- callers to execute them. public.is_harbourview_admin(), for example, is used
+-- directly by Marketplace and Storage RLS policies; removing authenticated
+-- EXECUTE would make those policies error instead of evaluating the caller.
+-- Missing optional routines are skipped so replay remains safe across environments.
 do $$
 declare
   signature text;
@@ -105,9 +101,8 @@ alter function public.hv_truncate_at_word_boundary(text, integer)
 
 -- pg_net is installed in public at the extension level and reports
 -- extrelocatable=false on production. Relocation is therefore not a safe DDL
--- option. Contain its callable `net` routines instead: browser roles do not
--- receive direct asynchronous network primitives; database-owner/service-role
--- routines can still invoke them through their own execution context.
+-- option. Contain its callable `net` routines instead. Existing backend/owner
+-- execution is preserved; browser roles lose direct asynchronous network access.
 do $$
 declare
   routine record;
@@ -115,7 +110,6 @@ begin
   if exists (select 1 from pg_extension where extname = 'pg_net') then
     if exists (select 1 from pg_namespace where nspname = 'net') then
       revoke usage on schema net from public, anon, authenticated;
-      grant usage on schema net to service_role;
     end if;
 
     for routine in
@@ -131,12 +125,6 @@ begin
     loop
       execute format(
         'revoke execute on function %I.%I(%s) from public, anon, authenticated',
-        routine.schema_name,
-        routine.routine_name,
-        routine.identity_arguments
-      );
-      execute format(
-        'grant execute on function %I.%I(%s) to service_role',
         routine.schema_name,
         routine.routine_name,
         routine.identity_arguments
