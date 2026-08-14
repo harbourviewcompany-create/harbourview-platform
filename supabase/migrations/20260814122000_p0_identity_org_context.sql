@@ -157,7 +157,7 @@ as $$
 declare
   invitation record;
   existing_membership record;
-  accepted_at timestamptz := now();
+  v_now timestamptz := now();
   normalized_email text := lower(trim(p_user_email));
 begin
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or normalized_email = '' then
@@ -212,9 +212,9 @@ begin
     return jsonb_build_object('outcome', invitation.status);
   end if;
 
-  if invitation.expires_at <= accepted_at then
+  if invitation.expires_at <= v_now then
     update public.workspace_invitations
-    set status = 'expired', updated_at = accepted_at
+    set status = 'expired', updated_at = v_now
     where id = invitation.id and status = 'pending';
     return jsonb_build_object('outcome', 'expired');
   end if;
@@ -237,9 +237,9 @@ begin
 
     update public.workspace_invitations
     set status = 'accepted',
-        accepted_at = accepted_at,
+        accepted_at = v_now,
         accepted_by = p_user_id,
-        updated_at = accepted_at
+        updated_at = v_now
     where id = invitation.id and status = 'pending';
 
     if not found then
@@ -268,14 +268,14 @@ begin
     'active',
     invitation.invited_by,
     invitation.created_at,
-    accepted_at
+    v_now
   );
 
   update public.workspace_invitations
   set status = 'accepted',
-      accepted_at = accepted_at,
+      accepted_at = v_now,
       accepted_by = p_user_id,
-      updated_at = accepted_at
+      updated_at = v_now
   where id = invitation.id and status = 'pending';
 
   if not found then
