@@ -24,8 +24,13 @@
 -- implicate TGO 93 consumer-packaging or advertising rules the way listing
 -- branded consumer packaging would. No compliance_flags.AU claims added.
 --
--- Already applied directly to the live project this session; this file is
--- the historical record, consistent with the other migrations in this area.
+-- Application provenance:
+-- Earlier PR history stated that this update had already been applied directly
+-- to the live project. The August 14 exact-head migration-drift evidence does
+-- not record version 20260813010000 in the live migration ledger, so this file
+-- must be treated as repository-only pending unless separate evidence proves an
+-- ad-hoc live data update. The update is replay-safe for rows already containing
+-- AU because the predicate excludes them.
 
 update public.listings
 set target_countries = array_append(target_countries, 'AU')
