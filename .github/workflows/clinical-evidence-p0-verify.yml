@@ -69,6 +69,14 @@ jobs:
             mv supabase/seed.sql /tmp/harbourview-production-seed.sql
           fi
           mkdir -p supabase/migrations
+          # The repository's Supabase config exposes `api` alongside `public`.
+          # Production history creates it earlier, but this isolated replay removes
+          # that history intentionally. Bootstrap only the schema required for
+          # PostgREST to become healthy; the Clinical migration remains standalone.
+          cat > supabase/migrations/00000000000000_isolated_api_schema.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+          SQL
           cp /tmp/clinical-evidence-spine.sql supabase/migrations/20260814121500_clinical_evidence_spine.sql
           : > supabase/seed.sql
 
