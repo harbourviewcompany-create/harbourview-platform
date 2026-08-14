@@ -209,8 +209,10 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(dashboardRoutes).toContain("if (signal.sourceLabel === 'Harbourview Daily') return Boolean(signal.decisionIntelEventId)")
     expect(desktopBridge).toContain('signals.filter(canRouteToDossier)')
     expect(responsiveShell).toContain('[...props.signals, ...(props.digestSignals ?? [])]')
-    expect(intelUi).toContain('href={signal.sourceUrl}')
-    expect(intelUi).toContain('Open source →')
+    // Eligible rows open the authenticated dossier; source URLs remain inside the dossier evidence list.
+    expect(intelUi).toContain('/dashboard/intel/events/')
+    expect(intelUi).toContain('Open dossier →')
+    expect(intelUi).not.toContain('href={signal.sourceUrl}')
   })
 
   it('hydrates dossier links and recommendation posture from canonical displayability while preserving only proven compatibility paths', () => {
