@@ -8,12 +8,16 @@ on:
       - supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql
       - supabase/migrations/20260804190000_production_security_hardening.sql
       - supabase/migrations/20260814124500_release_closure_security_hardening.sql
+      - supabase/migrations/20260814143000_fix_hv_dedup_assign_search_path.sql
       - supabase/release-controls/elite-digest-production-activation.json
       - supabase/release-controls/release-closure-migration-classification-20260814.json
+      - supabase/release-controls/pending-production-migration-decisions.json
       - supabase/tests/production_security_hardening.sql
       - scripts/check-release-closure-migration-classification.mjs
+      - scripts/prepare-production-faithful-migration-replay.mjs
       - scripts/configure-supabase-auth-production.mjs
       - tests/scripts/release-closure-migration-classification.test.mjs
+      - tests/scripts/production-faithful-migration-replay.test.mjs
       - tests/sql/hv_dedup_vector_operator_search_path_read_only.sql
       - tests/supabase/hvDedupVectorSearchPath.test.ts
       - tests/supabase/productionSecurityHardening.test.ts
@@ -43,12 +47,16 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Focused release-closure contract suite
-        run: npm run test:release-closure
+        run: |
+          npm run test:release-closure
+          node --test tests/scripts/production-faithful-migration-replay.test.mjs
       - run: npx vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
       - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
         with:
           version: latest
-      - name: Reset complete migration history locally
+      - name: Prepare production-faithful migration replay
+        run: node scripts/prepare-production-faithful-migration-replay.mjs --apply
+      - name: Reset production-faithful migration history locally
         shell: bash
         run: |
           set -euo pipefail
