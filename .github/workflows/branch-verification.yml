@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 jobs:
@@ -18,11 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout head branch for package lock commit
+      - name: Checkout verified ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -30,23 +29,14 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Regenerate package lock diagnostic
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Commit generated package lock diagnostic
-        run: |
-          if git diff --quiet -- package-lock.json; then
-            echo "package-lock.json already current"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "Update package lock for dependency drift [generated]"
-          git push
-
-      - name: Install dependencies
+      - name: Install dependencies from lockfile
         run: npm ci
+
+      - name: Verify production runtime baseline
+        run: npm run verify:runtime
+
+      - name: Assert lockfile remains unchanged
+        run: git diff --exit-code -- package-lock.json
 
       - name: Typecheck
         run: npm run typecheck
@@ -93,8 +83,8 @@ jobs:
       - name: Visibility
         run: npm run test:visibility
 
-      - name: Install Playwright Chromium
-        run: npx -y -p @playwright/test@1.54.0 playwright install --with-deps chromium
+      - name: Install lockfile-matched Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Wait for production deployment to be ready
         env:
@@ -149,19 +139,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Install Playwright Chromium in temporary verifier directory
-        run: |
-          mkdir -p .tmp/contact-visual
-          cd .tmp/contact-visual
-          npm init -y
-          npm install --no-audit --no-fund playwright@1.52.0
-          npx playwright install --with-deps chromium
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Install lockfile-matched Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run contact production visual verification
         env:
