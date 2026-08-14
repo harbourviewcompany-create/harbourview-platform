@@ -57,6 +57,17 @@ export default function ClinicalEvidenceExplorer({
 
   return (
     <section aria-labelledby="clinical-evidence-title">
+      <style jsx global>{`
+        @media (max-width: 559px) {
+          #clinical .hvm2-section-heading {
+            display: block;
+          }
+          #clinical .hvm2-section-heading > .hvm2-text-link {
+            margin-top: 8px;
+          }
+        }
+      `}</style>
+
       <div className="hvm2-sourcing-note" data-sourcing={state} aria-live="polite">
         <strong id="clinical-evidence-title">Evidence by condition · {jurisdiction}</strong>
         <p>{loading ? 'Loading reviewed evidence…' : result?.message}</p>
