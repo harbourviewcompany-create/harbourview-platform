@@ -210,7 +210,7 @@ jobs:
         run: |
           set -euo pipefail
           TEST_EMAIL="mobile-genetics-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvGenetics-${GITHUB_RUN_ID}-Aa9!"
+          TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
           echo "::add-mask::${TEST_EMAIL}"
           echo "::add-mask::${TEST_PASSWORD}"
           export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
