@@ -1,11 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
-    "deploymentEnabled": {
-      "*": false,
-      "main": true,
-      "preview/*": true
-    }
+    "deploymentEnabled": true
   },
   "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh",
   "crons": [
