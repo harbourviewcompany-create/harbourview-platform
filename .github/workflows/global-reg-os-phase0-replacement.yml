@@ -17,7 +17,7 @@ jobs:
   contracts-and-control:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -62,6 +62,6 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Clean install, simulated upgrade and authorization tests
         run: bash scripts/global-reg-os/run_postgres_validation.sh
