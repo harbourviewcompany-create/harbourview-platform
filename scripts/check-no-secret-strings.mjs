@@ -68,6 +68,34 @@ const patterns = [
   { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
 
+/*
+ * Vault secret literals.
+ *
+ * These are positional function arguments, not `identifier = value`, so the
+ * assignment check never sees them, and the secret itself is opaque -- an Adzuna
+ * key is bare hex and matches none of the vendor signatures above. A live Adzuna
+ * app_id and app_key reached a public repository through that gap on 2026-08-13
+ * while this scanner reported GO.
+ *
+ * `vault.create_secret(secret, name)` takes the secret first;
+ * `vault.update_secret(id, secret, ...)` takes it second. A literal in either
+ * position is a committed secret. References -- `current_setting(...)`, a
+ * subselect, a plpgsql variable -- are unquoted and do not match.
+ *
+ * Kept out of `patterns` because the captured literal has to be run past the
+ * placeholder allowlist: documentation shows the rotation call with a stand-in
+ * secret (supabase/functions/hv-repo-reader/index.ts carries
+ * `vault.update_secret(..., 'new_token_here')` in a comment), and flagging that
+ * would train people to ignore this check.
+ */
+const vaultSecretCalls = [
+  /\bvault\.create_secret\s*\(\s*'([^']{8,})'/i,
+  /\bvault\.update_secret\s*\([^,]+,\s*'([^']{8,})'/i,
+];
+
+const placeholderSecret =
+  /^(?:your_|example|replace_me|changeme|placeholder|dummy|redacted|xxx|<|\.\.\.)|_here$|^new_[a-z_]+$/i;
+
 const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
@@ -109,6 +137,14 @@ function scanLine(line, source) {
     if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
   }
 
+  for (const regex of vaultSecretCalls) {
+    const vaultMatch = line.match(regex);
+    if (vaultMatch && !placeholderSecret.test(vaultMatch[1])) {
+      findings.push({ source, pattern: 'vault-secret-literal' });
+      break;
+    }
+  }
+
   const match = line.match(assignment);
   if (match) {
     const [, identifier, value] = match;
@@ -132,6 +168,14 @@ function runSelfTest() {
     ['literal password', 'DATABASE_PASS' + 'WORD="literal-secret-12345"', 1],
     ['literal api key', 'api' + 'Key="literal-api-key-value"', 1],
     ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
+    // The 2026-08-13 miss: a bare-hex secret as a positional argument.
+    ['vault literal secret', "SELECT vault.create_" + "secret('0123456789abcdef0123', 'some_api_key');", 1],
+    ['vault literal on update', "SELECT vault.update_" + "secret(v_id, '0123456789abcdef0123', 'some_api_key');", 1],
+    ['vault secret from a reference', "SELECT vault.create_secret(current_setting('app.k'), 'some_api_key');", 0],
+    ['vault secret from a subselect', 'SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name=$1), v_new)', 0],
+    ['vault secret read, not write', "SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'adzuna_app_key'", 0],
+    // The documented rotation example must not be flagged, or the check gets ignored.
+    ['vault rotation doc placeholder', "//   SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name='GITHUB_PAT'), 'new_token_here');", 0],
   ];
 
   const failures = cases.filter(([name, line, expected]) => {
