@@ -117,7 +117,6 @@ export async function searchClinicalEvidence(input: {
   const query = input.query?.trim() ?? ''
   const limit = Math.max(1, Math.min(input.limit ?? 20, 50))
   const jurisdiction = input.jurisdiction?.trim()
-  const profession = input.profession?.trim()
 
   try {
     const base = new URLSearchParams({
@@ -127,8 +126,9 @@ export async function searchClinicalEvidence(input: {
       limit: String(limit),
     })
     if (jurisdiction) base.set('jurisdictions', `cs.{${jurisdiction}}`)
-    if (profession && normalized(profession) !== 'all roles') base.set('profession_relevance', `cs.{${profession}}`)
 
+    // Profession relevance remains evidence metadata only until the Command role
+    // taxonomy is explicitly reconciled with a sourced profession vocabulary.
     const allRows = await rest(`clinical_evidence_records?${base}`)
     const allRecords = allRows.map(mapEvidence)
     const needle = normalized(query)
@@ -167,7 +167,6 @@ export async function searchClinicalEvidence(input: {
       limit: '10',
     })
     if (jurisdiction) changeParams.set('jurisdictions', `cs.{${jurisdiction}}`)
-    if (profession && normalized(profession) !== 'all roles') changeParams.set('profession_relevance', `cs.{${profession}}`)
     const changes = (await rest(`clinical_evidence_change_events?${changeParams}`)).map(mapChange)
 
     const state = deriveClinicalEvidenceState({ query, records, knownConditionMatch })
