@@ -1,0 +1,196 @@
+name: Clinical Evidence P0 Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/api/clinical/evidence/**
+      - components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx
+      - components/dashboard/mobile-command/clinicalCommandContract.ts
+      - components/dashboard/mobile-command/sections/DomainSections.tsx
+      - lib/clinical/evidence.ts
+      - lib/server/clinicalEvidenceQuery.ts
+      - supabase/migrations/20260814121500_clinical_evidence_spine.sql
+      - tests/clinical/**
+      - tests/dashboard/mobileClinicalProfessional.test.ts
+      - .github/workflows/clinical-evidence-p0-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-evidence-p0-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Replay migration, prove RLS, run focused contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: '1'
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused Clinical contracts
+        run: >-
+          npx vitest run
+          tests/clinical/evidenceSpine.test.ts
+          tests/clinical/evidenceSpineStorage.test.ts
+          tests/dashboard/mobileClinicalProfessional.test.ts
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Clinical migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp supabase/migrations/20260814121500_clinical_evidence_spine.sql /tmp/clinical-evidence-spine.sql
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+          cp /tmp/clinical-evidence-spine.sql supabase/migrations/20260814121500_clinical_evidence_spine.sql
+          : > supabase/seed.sql
+
+      - name: Start isolated Supabase and replay from zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+          eval "$(supabase status -o env)"
+          {
+            echo "CLINICAL_TEST_API_URL=${API_URL}"
+            echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
+            echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove published projection, RPC search and write denial
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const anon = process.env.CLINICAL_TEST_ANON_KEY
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          if (!base || !anon || !service) throw new Error('Local Supabase credentials missing')
+
+          const headers = key => ({
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/json',
+          })
+
+          const published = await fetch(
+            `${base}/rest/v1/clinical_evidence_records?select=slug,review_status,primary_source_url&review_status=eq.published&order=slug.asc`,
+            { headers: headers(anon) },
+          )
+          if (!published.ok) throw new Error(`published projection failed: ${published.status}`)
+          const publishedRows = await published.json()
+          if (publishedRows.length !== 3) throw new Error(`expected 3 published seed records, got ${publishedRows.length}`)
+          if (publishedRows.some(row => row.review_status !== 'published' || !String(row.primary_source_url).startsWith('https://'))) {
+            throw new Error('published projection returned an invalid review state or source URL')
+          }
+
+          const rpc = await fetch(`${base}/rest/v1/rpc/search_clinical_evidence_records`, {
+            method: 'POST',
+            headers: headers(anon),
+            body: JSON.stringify({ p_query: 'medical document', p_jurisdiction: 'Canada', p_limit: 20 }),
+          })
+          if (!rpc.ok) throw new Error(`search RPC failed: ${rpc.status}`)
+          const matches = await rpc.json()
+          if (!matches.some(row => row.slug === 'ca-cannabis-regulations-medical-document-273')) {
+            throw new Error('deterministic search did not return the §273 evidence record')
+          }
+
+          const hiddenSlug = `clinical-private-${Date.now()}`
+          const serviceInsert = await fetch(`${base}/rest/v1/clinical_evidence_records`, {
+            method: 'POST',
+            headers: { ...headers(service), Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              slug: hiddenSlug,
+              title: 'Under review fixture',
+              summary: 'RLS fixture that must never be visible to browser-facing roles.',
+              intervention_class: 'not-applicable',
+              evidence_type: 'other',
+              evidence_strength: 'ungraded',
+              jurisdictions: ['Canada'],
+              profession_relevance: [],
+              primary_source_title: 'Fixture source',
+              primary_source_publisher: 'Harbourview test',
+              primary_source_url: 'https://example.invalid/clinical-fixture',
+              verified_at: new Date().toISOString(),
+              supersession_state: 'current',
+              review_status: 'under-review',
+            }),
+          })
+          if (!serviceInsert.ok) throw new Error(`service fixture insert failed: ${serviceInsert.status}`)
+
+          const hiddenRead = await fetch(
+            `${base}/rest/v1/clinical_evidence_records?select=slug&slug=eq.${encodeURIComponent(hiddenSlug)}`,
+            { headers: headers(anon) },
+          )
+          if (!hiddenRead.ok) throw new Error(`anon hidden-record read failed unexpectedly: ${hiddenRead.status}`)
+          const hiddenRows = await hiddenRead.json()
+          if (hiddenRows.length !== 0) throw new Error('anon could read an under-review Clinical evidence record')
+
+          const deniedWrite = await fetch(`${base}/rest/v1/clinical_evidence_records`, {
+            method: 'POST',
+            headers: { ...headers(anon), Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              slug: `anon-write-${Date.now()}`,
+              title: 'Denied write fixture',
+              summary: 'Must not persist.',
+              intervention_class: 'not-applicable',
+              evidence_type: 'other',
+              evidence_strength: 'ungraded',
+              jurisdictions: ['Canada'],
+              profession_relevance: [],
+              primary_source_title: 'Denied fixture',
+              primary_source_publisher: 'Harbourview test',
+              primary_source_url: 'https://example.invalid/denied',
+              verified_at: new Date().toISOString(),
+              supersession_state: 'current',
+              review_status: 'published',
+            }),
+          })
+          if (deniedWrite.ok) throw new Error('anon write unexpectedly succeeded')
+
+          console.log('GO: Clinical evidence migration replay, published RLS projection, deterministic RPC search and anon write denial verified.')
+          NODE
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup || true
