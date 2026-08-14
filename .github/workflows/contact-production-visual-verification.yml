@@ -28,19 +28,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Install Playwright Chromium in temporary verifier directory
-        run: |
-          mkdir -p .tmp/contact-visual
-          cd .tmp/contact-visual
-          npm init -y
-          npm install --no-audit --no-fund playwright@1.52.0
-          npx playwright install --with-deps chromium
+      - name: Install dependencies from lockfile
+        run: npm ci
+
+      - name: Verify runtime baseline
+        run: npm run verify:runtime
+
+      - name: Install lockfile-matched Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run contact production visual verification
         env:
