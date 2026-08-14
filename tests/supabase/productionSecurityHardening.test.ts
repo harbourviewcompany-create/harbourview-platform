@@ -36,7 +36,7 @@ describe('production Supabase security hardening controls', () => {
     )
   })
 
-  it('starts SECURITY DEFINER browser execution closed and restores only the audited authenticated allowlist', () => {
+  it('starts SECURITY DEFINER browser execution closed and restores only the explicit policy-aware authenticated allowlist', () => {
     expect(closureMigration).toContain(
       "'revoke execute on function %I.%I(%s) from public, anon, authenticated'",
     )
@@ -53,6 +53,7 @@ describe('production Supabase security hardening controls', () => {
       'public.hv_is_org_member(uuid)',
       'public.hv_is_platform_staff()',
       'public.is_genetics_admin_or_reviewer()',
+      'public.is_harbourview_admin()',
       'public.is_hv_staff()',
       'public.current_user_tier()',
       'public.is_regulatory_tier_admin()',
@@ -65,7 +66,6 @@ describe('production Supabase security hardening controls', () => {
       'api.get_signals_pending_analysis(integer,text)',
       'api.request_signal_analysis(text)',
       'api.save_signal_analysis(text,jsonb,text)',
-      'public.is_harbourview_admin()',
       'public.is_service_role_or_signal_analyst()',
     ]) {
       expect(closureMigration).not.toContain(`'${nonAllowlisted}'`)
