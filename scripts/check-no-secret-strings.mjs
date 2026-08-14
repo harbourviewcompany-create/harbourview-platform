@@ -100,6 +100,7 @@ const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
 const githubExpressionAssignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*\$\{\{\s*(?:secrets|vars|github|inputs)\.[^}]+\}\}/i;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
+const shellCommandSubstitution = /^\$\(/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
 const envNameGetter = /\brequired\(\s*['"][A-Z][A-Z0-9_]*['"]\s*\)/;
@@ -116,14 +117,20 @@ function isSensitiveIdentifier(identifier) {
   return /(?:^|_)(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)(?:_|$)/.test(normalized);
 }
 
+function isKnownEphemeralLocalCredential(identifier, value) {
+  return normalizeIdentifier(identifier) === 'POSTGRES_PASSWORD' && value === 'postgres';
+}
+
 function isAllowedSensitiveAssignment(identifier, value, line) {
   if (!isSensitiveIdentifier(identifier)) return true;
   if (githubExpressionAssignment.test(line)) return true;
   if (safeAssignmentValue.test(value)) return true;
   if (shellVariableReference.test(value)) return true;
+  if (shellCommandSubstitution.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
   if (generatedVisualTestPassword.test(value)) return true;
   if (envNameGetter.test(line)) return true;
+  if (isKnownEphemeralLocalCredential(identifier, value)) return true;
   return false;
 }
 
@@ -163,8 +170,12 @@ function scanLine(line, source) {
 }
 
 function runSelfTest() {
+  // Build the negative database-URL fixture in pieces so this scanner does not
+  // flag its own source file while still proving the runtime matcher catches it.
+  const literalDatabaseUrl = ['DB_URL="postgresql://admin:', 'literal-password-123@example.test/postgres"'].join('');
   const cases = [
     ['shell secret reference', 'SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}', 0],
+    ['shell command-derived secret', 'ENCODED_PASSWORD=$(python3 -c "print(1)")', 0],
     ['github secret expression', 'TOKEN: ${{ secrets.DEPLOY_TOKEN }}', 0],
     ['github secret expression with spaces', 'SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}', 0],
     ['node environment secret reference', 'const API_KEY = process.env.API_KEY', 0],
@@ -172,10 +183,11 @@ function runSelfTest() {
     ['deno bypass secret reference', 'const DEV_BYPASS_SECRET = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? ""', 0],
     ['explicit env-name getter', "const oidcToken = required('VERCEL_TRUSTED_OIDC_TOKEN')", 0],
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
+    ['ephemeral local postgres password', 'POSTGRES_PASSWORD: postgres', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
     ['dynamic database url', 'DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"', 0],
-    ['literal database url', 'DB_URL="postgresql://admin:literal-password-123@example.test/postgres"', 1],
+    ['literal database url', literalDatabaseUrl, 1],
     ['literal password', 'DATABASE_PASS' + 'WORD="literal-secret-12345"', 1],
     ['literal api key', 'api' + 'Key="literal-api-key-value"', 1],
     ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
@@ -227,7 +239,7 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub secret references, environment-name getters, PostgreSQL ACL evidence, and the isolated GITHUB_RUN_ID-derived visual-test credential.');
+  console.error('Allowed: environment/GitHub secret references, command-derived secret values, the standard ephemeral local Postgres test password, environment-name getters, PostgreSQL ACL evidence, and the isolated GITHUB_RUN_ID-derived visual-test credential.');
   console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets and literal credential-bearing database URLs.');
   process.exit(1);
 }
