@@ -1,0 +1,78 @@
+name: Production Baseline Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production-baseline:
+    name: Node 22 / TypeScript / Security / Build / Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Restore reviewed dependency graph
+        run: npm ci
+
+      - name: Prove lockfile was not mutated
+        run: git diff --exit-code -- package-lock.json
+
+      - name: Record exact runtime and dependency versions
+        run: |
+          node --version
+          npm --version
+          npm ls next @supabase/supabase-js @playwright/test typescript
+          npx playwright --version
+
+      - name: Assert production runtime floors
+        run: npm run verify:runtime
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Repository test suite
+        run: npm test
+
+      - name: Security and leakage suite
+        run: npm run test:security
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install lockfile-matched Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Launch Chromium with resolved Playwright
+        run: |
+          node --input-type=module <<'EOF'
+          import { chromium } from 'playwright'
+          const browser = await chromium.launch({ headless: true })
+          const page = await browser.newPage()
+          await page.goto('data:text/html,<title>baseline-ok</title><h1>baseline-ok</h1>')
+          if ((await page.title()) !== 'baseline-ok') throw new Error('Chromium launch verification failed')
+          await browser.close()
+          console.log('Chromium launch verification: GO')
+          EOF
