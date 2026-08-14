@@ -6,7 +6,7 @@ import type { RoleId } from '@/types/globe-router'
 
 export type DashboardSignal = {
   id: string
-  slug?: string          // present for editorial signals; undefined for IA/curated
+  slug?: string
   title: string
   type: string
   market: string
@@ -14,35 +14,35 @@ export type DashboardSignal = {
   timeAgo: string
   confidence: number
   commercialImpact: string
-  sourceLabel?: string   // source attribution (regulator name or 'Harbourview Intelligence'); optional — not all signal sources supply it
-  sourceUrl?: string     // link to the original article for editorial content; optional
-  flag?: string          // country flag emoji; optional — not all signal sources supply it
-  // 'signal' (default): trade/regulatory intelligence — confidence bar + category chip.
-  // 'editorial': mainstream-media cannabis news/commentary — no confidence score,
-  // no commercial-impact framing, rendered as a plain headline + why-it-matters card.
+  summary?: string
+  sourceLabel?: string
+  sourceUrl?: string
+  publishedAt?: string
+  verificationStatus?: string
+  jurisdictions?: string[]
+  counterparties?: string[]
+  facilities?: string[]
+  licencesCertifications?: string[]
+  products?: string[]
+  marketAccess?: string[]
+  verifiedFacts?: string[]
+  inferences?: string[]
+  transactionStage?: string
+  image?: { url?: string; status?: string }
+  flag?: string
   contentType?: 'signal' | 'editorial'
-  // LLM-generated synthesis (what changed, who's affected, deadline,
-  // recommended action, confidence rationale) — the analysis layer, not
-  // just a bare headline. Optional: only present once hv-signal-analysis
-  // has processed a given signal; older/unanalyzed signals fall back to
-  // commercialImpact alone.
+  /** Sanitized presentation synthesis only. Raw/private analysis never belongs in this DTO. */
   analysis?: {
     what_changed?: string
     who_is_affected?: string
     deadline?: string | null
     recommended_action?: string
-    confidence_rationale?: string
   }
 
   // ── Quality-brain display fields (Pipeline B) ───────────────────────────────
-  // Computed upstream; optional so older/fixture rows keep working.
-  /** How many independent sources in this feed report the same development. */
   corroborationCount?: number
-  /** True when headline/summary shown are machine-translated. */
   translated?: boolean
-  /** e.g. "Portuguese" when source language was not English. */
   originalLanguageLabel?: string | null
-  /** Classifier route taxonomy: regulatory | market | story | research */
   signalContentType?: string | null
 }
 

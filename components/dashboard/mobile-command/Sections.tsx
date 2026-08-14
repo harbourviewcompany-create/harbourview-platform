@@ -11,13 +11,13 @@ export {
 
 export {
   NextActionsSection,
-  WeeklySignalsSection,
   PersonalBriefingSection,
   SearchSection,
   EducationSection,
   LocalIntelSection,
 } from './sections/IntelligenceSections'
 
+export { WeeklySignalsSection } from './sections/WeeklySignalsSection'
 export { RegulatoryWatchSection } from './sections/RegulatoryWatchWithCorpus'
 
 export {
