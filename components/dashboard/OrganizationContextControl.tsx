@@ -99,14 +99,22 @@ export default function OrganizationContextControl({ onDone }: { onDone?: () => 
   }
 
   if (state === 'loading') {
-    return <div className="rounded-xl border border-white/10 p-3 text-xs text-white/45">Loading organization context…</div>
+    return (
+      <div className="grid gap-2 rounded-xl border border-white/10 p-3">
+        <span className="text-xs font-semibold text-white/60">Organization</span>
+        <span className="text-xs text-white/45">Loading organization context…</span>
+      </div>
+    )
   }
 
   if (state === 'error') {
     return (
-      <button type="button" onClick={() => void load()} className="rounded-xl border border-red-400/20 p-3 text-left text-xs text-red-200">
-        Organization context unavailable. Tap to retry.
-      </button>
+      <div className="grid gap-2 rounded-xl border border-red-400/20 p-3">
+        <span className="text-xs font-semibold text-white/60">Organization</span>
+        <button type="button" onClick={() => void load()} className="text-left text-xs text-red-200">
+          Organization context unavailable. Tap to retry.
+        </button>
+      </div>
     )
   }
 
