@@ -10,9 +10,10 @@ const required = (name) => {
 
 const expectedGitSha = required('EXPECTED_GIT_SHA')
 const expectedDeploymentId = required('EXPECTED_DEPLOYMENT_ID')
+const expectedEnvironment = required('EXPECTED_ENVIRONMENT')
+const expectedProjectId = required('EXPECTED_PROJECT_ID')
 const oidcToken = required('VERCEL_TRUSTED_OIDC_TOKEN')
 const rawDeploymentUrl = required('HARBOURVIEW_DEPLOYMENT_URL')
-const expectedProjectId = process.env.EXPECTED_PROJECT_ID?.trim() || null
 
 if (!/^[0-9a-f]{40}$/i.test(expectedGitSha)) {
   throw new Error(`EXPECTED_GIT_SHA is not a full 40-character Git SHA: ${expectedGitSha}`)
@@ -20,14 +21,20 @@ if (!/^[0-9a-f]{40}$/i.test(expectedGitSha)) {
 if (!/^dpl_[A-Za-z0-9]+$/.test(expectedDeploymentId)) {
   throw new Error(`EXPECTED_DEPLOYMENT_ID is not a Vercel deployment id: ${expectedDeploymentId}`)
 }
+if (!/^prj_[A-Za-z0-9]+$/.test(expectedProjectId)) {
+  throw new Error(`EXPECTED_PROJECT_ID is not a Vercel project id: ${expectedProjectId}`)
+}
+if (!['preview', 'production'].includes(expectedEnvironment)) {
+  throw new Error(`EXPECTED_ENVIRONMENT must be preview or production, got: ${expectedEnvironment}`)
+}
 
 const deploymentUrl = new URL(rawDeploymentUrl)
 if (deploymentUrl.protocol !== 'https:') throw new Error('Deployment URL must use https')
-if (!deploymentUrl.hostname.endsWith('.vercel.app')) {
-  throw new Error(`Deployment URL must be an immutable Vercel hostname: ${deploymentUrl.hostname}`)
+if (!/^harbourview-[a-z0-9]+-harbourview\.vercel\.app$/i.test(deploymentUrl.hostname)) {
+  throw new Error(`Deployment URL is not an immutable Harbourview Vercel deployment hostname: ${deploymentUrl.hostname}`)
 }
 const baseUrl = deploymentUrl.origin
-const headers = { 'x-vercel-trusted-oidc-idp-token': oidcToken }
+const trustedOidcHeader = { 'x-vercel-trusted-oidc-idp-token': oidcToken }
 const artifactDir = path.resolve('production-browser-verification-artifacts')
 const screenshotDir = path.join(artifactDir, 'screenshots')
 const traceDir = path.join(artifactDir, 'traces')
@@ -35,7 +42,7 @@ await mkdir(screenshotDir, { recursive: true })
 await mkdir(traceDir, { recursive: true })
 
 const identityResponse = await fetch(`${baseUrl}/api/release-identity`, {
-  headers,
+  headers: trustedOidcHeader,
   redirect: 'manual',
 })
 if (!identityResponse.ok) {
@@ -46,7 +53,8 @@ const identityFailures = []
 if (identity.gitSha !== expectedGitSha) identityFailures.push(`gitSha expected ${expectedGitSha}, got ${identity.gitSha}`)
 if (identity.deploymentId !== expectedDeploymentId) identityFailures.push(`deploymentId expected ${expectedDeploymentId}, got ${identity.deploymentId}`)
 if (identity.deploymentUrl !== baseUrl) identityFailures.push(`deploymentUrl expected ${baseUrl}, got ${identity.deploymentUrl}`)
-if (expectedProjectId && identity.projectId !== expectedProjectId) identityFailures.push(`projectId expected ${expectedProjectId}, got ${identity.projectId}`)
+if (identity.projectId !== expectedProjectId) identityFailures.push(`projectId expected ${expectedProjectId}, got ${identity.projectId}`)
+if (identity.environment !== expectedEnvironment) identityFailures.push(`environment expected ${expectedEnvironment}, got ${identity.environment}`)
 if (identityFailures.length) throw new Error(`Deployment identity mismatch: ${identityFailures.join('; ')}`)
 
 const forbidden = [
@@ -74,7 +82,20 @@ try {
   for (const viewport of viewports) {
     const context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height },
-      extraHTTPHeaders: headers,
+    })
+    await context.route('**/*', async (route) => {
+      const request = route.request()
+      const requestUrl = new URL(request.url())
+      if (requestUrl.origin === baseUrl) {
+        await route.continue({
+          headers: {
+            ...request.headers(),
+            ...trustedOidcHeader,
+          },
+        })
+        return
+      }
+      await route.continue()
     })
     await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
     const page = await context.newPage()
@@ -124,6 +145,7 @@ const evidence = {
     deploymentId: expectedDeploymentId,
     deploymentUrl: baseUrl,
     projectId: expectedProjectId,
+    environment: expectedEnvironment,
   },
   observed: identity,
   authentication: 'github-actions-oidc-trusted-source',
