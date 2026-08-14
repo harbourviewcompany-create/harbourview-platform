@@ -61,12 +61,14 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       eyebrow="Clinical"
       title="Professional clinical command"
       description="Primary-authority clinical orientation for medical professionals. Evidence and regulatory status stay distinct from product marketing and genetics."
-      action={<Link className="hvm2-text-link" href={clinicalHref}>Verified clinician workspace</Link>}
+      action={<Link className="hvm2-text-link" href={clinicalHref}>Open clinician workspace</Link>}
     >
       <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' ? 'status' : undefined}>
-        <strong>Source state · {formatStatus(sourceState)}</strong>
+        <strong>Jurisdiction briefing · {formatStatus(sourceState)}</strong>
         <p>{CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
       </div>
+
+      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
 
       <div className="hvm2-compliance-grid" aria-label="Clinical command summary">
         <article>
@@ -81,8 +83,6 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
           <p>{sourceState === 'loaded' ? 'Jurisdiction briefing is present; confirm material decisions against the cited authority and professional regulator.' : CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
         </article>
       </div>
-
-      <ClinicalEvidenceExplorer commandHref={clinicalHref} profession={roleShort || 'All roles'} />
 
       <div className="hvm2-horizontal-deck" aria-label="Clinical actions">
         <article className="hvm2-directory-card">
