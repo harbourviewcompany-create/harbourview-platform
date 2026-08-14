@@ -33,9 +33,13 @@
 -- threshold to those k rows -- which is what this body does with
 -- c_neighbours = 25.
 --
--- This body is a verbatim copy of the live production definition, read back
--- from pg_get_functiondef on 2026-07-31, so applying it is a no-op against the
--- current database and a repair against any database CI has already regressed.
+-- RELEASE-CLOSURE SEARCH-PATH REPAIR (2026-08-14)
+-- ------------------------------------------------
+-- pgvector is installed in the `extensions` schema. The prior function-local
+-- `search_path = public` made the unqualified `<=>` operator fail to resolve for
+-- extensions.vector operands (SQLSTATE 42883). Keep the SECURITY DEFINER search
+-- path explicit and narrow, but include `extensions` so the pgvector operator is
+-- available without broadening caller privileges.
 
 create or replace function public.hv_dedup_assign(
   p_tau double precision default 0.90,
@@ -44,7 +48,7 @@ create or replace function public.hv_dedup_assign(
 returns integer
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path to 'pg_catalog', 'public', 'extensions'
 as $function$
 declare
   n int;
@@ -111,6 +115,6 @@ $function$;
 comment on function public.hv_dedup_assign(double precision, integer) is
   'Assigns cluster representatives over signals.embedding_1024. Uses the HNSW index via '
   'ORDER BY <=> LIMIT c_neighbours and applies p_tau to those neighbours -- a WHERE clause on '
-  'the distance cannot use the index and made this function time out at 120s. Supersedes the '
-  'body in 20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql, which predates the HNSW '
-  'change and must not be allowed to apply last.';
+  'the distance cannot use the index and made this function time out at 120s. SECURITY DEFINER '
+  'search_path is pinned to pg_catalog, public, extensions so pgvector operators resolve without '
+  'broad caller privileges. Supersedes the body in 20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql.';
