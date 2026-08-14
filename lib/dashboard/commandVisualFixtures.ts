@@ -25,6 +25,7 @@ export type CommandVisualFixture = Readonly<{
   commandDataState: CommandCentreDataState
   hasOrg?: boolean
   emptyRecords?: boolean
+  /** Guarantees records exist while the opportunity view remains empty. */
   nonOpportunityMarketRecord?: boolean
 }>
 
