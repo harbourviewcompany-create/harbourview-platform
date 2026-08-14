@@ -25,8 +25,7 @@ export async function POST(req: NextRequest) {
   if (!email) return NextResponse.json({ error: 'ACCOUNT_EMAIL_REQUIRED' }, { status: 422 })
 
   const supabase = await createSupabaseServiceClient()
-  const invitationDb = supabase.schema('public')
-  const { data: invitation, error: inviteErr } = await invitationDb.from('workspace_invitations')
+  const { data: invitation, error: inviteErr } = await supabase.from('workspace_invitations')
     .select('id,workspace_id,email,role,status,invited_by,created_at,expires_at,accepted_at,accepted_by')
     .eq('token_hash', hashToken(token))
     .maybeSingle()
@@ -38,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const now = new Date()
   if (new Date(invitation.expires_at).getTime() <= now.getTime() && invitation.status === 'pending') {
-    await invitationDb.from('workspace_invitations').update({ status: 'expired', updated_at: now.toISOString() }).eq('id', invitation.id)
+    await supabase.from('workspace_invitations').update({ status: 'expired', updated_at: now.toISOString() }).eq('id', invitation.id)
     return NextResponse.json({ error: 'INVITATION_EXPIRED' }, { status: 410 })
   }
 
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (invitation.status !== 'pending') {
       return NextResponse.json({ error: `INVITATION_${invitation.status.toUpperCase()}` }, { status: 409 })
     }
-    await invitationDb.from('workspace_invitations').update({ status: 'declined', updated_at: now.toISOString() }).eq('id', invitation.id)
+    await supabase.from('workspace_invitations').update({ status: 'declined', updated_at: now.toISOString() }).eq('id', invitation.id)
     return NextResponse.json({ ok: true, status: 'declined' })
   }
 
@@ -80,7 +79,7 @@ export async function POST(req: NextRequest) {
 
   if (membershipErr) return NextResponse.json({ error: 'MEMBERSHIP_ACCEPT_FAILED' }, { status: 500 })
 
-  const { error: inviteUpdateErr } = await invitationDb.from('workspace_invitations').update({
+  const { error: inviteUpdateErr } = await supabase.from('workspace_invitations').update({
     status: 'accepted',
     accepted_at: joinedAt,
     accepted_by: user.id,
