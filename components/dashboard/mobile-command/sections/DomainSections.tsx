@@ -165,7 +165,7 @@ export function GeneticsSection({ sectionRef, records, commandHref }: { sectionR
             {filteredRecords.map(passport => {
               const origin = originLabel(passport)
               return (
-                <details className="hvm2-genetics-record" key={passport.id} defaultOpen={selectedSlug === passport.slug}>
+                <details className="hvm2-genetics-record" key={passport.id} open={selectedSlug === passport.slug || undefined}>
                   <summary>
                     <span>
                       <small>{labelEnum(passport.cultivarCategory)}{passport.cannabisCategory ? ` · ${labelEnum(passport.cannabisCategory)}` : ''}</small>
