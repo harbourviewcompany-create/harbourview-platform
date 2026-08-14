@@ -106,3 +106,59 @@ export async function loadClinicalOperationsDashboard(): Promise<ClinicalOperati
     metrics,
   }
 }
+
+export type ClinicalSourceInspection = {
+  source: Row
+  snapshots: Row[]
+  extractions: Row[]
+  records: Row[]
+  reviews: Row[]
+  conflicts: Row[]
+  publicationVersions: Row[]
+}
+
+export async function loadClinicalSourceInspection(sourceId: string): Promise<ClinicalSourceInspection> {
+  const supabase = await createSupabaseServiceClient()
+  const sourceResult = await supabase.schema('public').from('clinical_evidence_sources').select('*').eq('id', sourceId).single()
+  if (sourceResult.error || !sourceResult.data) throw new Error('clinical_source_not_found')
+
+  const [snapshotsResult, extractionsResult, recordsResult] = await Promise.all([
+    supabase.schema('public').from('clinical_evidence_source_snapshots').select('*').eq('source_id', sourceId).order('retrieved_at', { ascending: false }),
+    supabase.schema('public').from('clinical_evidence_extractions').select('*').eq('source_id', sourceId).order('extracted_at', { ascending: false }),
+    supabase.schema('public').from('clinical_evidence_records').select('*').eq('primary_source_registry_id', sourceId).order('updated_at', { ascending: false }),
+  ])
+  for (const result of [snapshotsResult, extractionsResult, recordsResult]) {
+    if (result.error) throw new Error(`clinical_source_inspection_failed:${result.error.message}`)
+  }
+
+  const recordIds = (recordsResult.data ?? []).map(row => String((row as Row).id))
+  let reviews: Row[] = []
+  let conflicts: Row[] = []
+  let publicationVersions: Row[] = []
+  if (recordIds.length > 0) {
+    const [reviewsResult, conflictAResult, conflictBResult, versionsResult] = await Promise.all([
+      supabase.schema('public').from('clinical_evidence_reviews').select('*').in('evidence_record_id', recordIds).order('reviewed_at', { ascending: false }),
+      supabase.schema('public').from('clinical_evidence_conflicts').select('*').in('evidence_record_a_id', recordIds).order('created_at', { ascending: false }),
+      supabase.schema('public').from('clinical_evidence_conflicts').select('*').in('evidence_record_b_id', recordIds).order('created_at', { ascending: false }),
+      supabase.schema('public').from('clinical_evidence_publication_versions').select('*').in('evidence_record_id', recordIds).order('recorded_at', { ascending: false }),
+    ])
+    for (const result of [reviewsResult, conflictAResult, conflictBResult, versionsResult]) {
+      if (result.error) throw new Error(`clinical_source_inspection_related_failed:${result.error.message}`)
+    }
+    reviews = (reviewsResult.data ?? []) as Row[]
+    const byId = new Map<string, Row>()
+    for (const row of [...(conflictAResult.data ?? []), ...(conflictBResult.data ?? [])] as Row[]) byId.set(String(row.id), row)
+    conflicts = Array.from(byId.values())
+    publicationVersions = (versionsResult.data ?? []) as Row[]
+  }
+
+  return {
+    source: sourceResult.data as Row,
+    snapshots: (snapshotsResult.data ?? []) as Row[],
+    extractions: (extractionsResult.data ?? []) as Row[],
+    records: (recordsResult.data ?? []) as Row[],
+    reviews,
+    conflicts,
+    publicationVersions,
+  }
+}
