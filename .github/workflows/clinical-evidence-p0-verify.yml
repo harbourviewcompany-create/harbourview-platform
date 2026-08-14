@@ -12,6 +12,7 @@ on:
       - lib/server/clinicalEvidenceQuery.ts
       - supabase/migrations/20260814121500_clinical_evidence_spine.sql
       - supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+      - supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
       - tests/clinical/**
       - tests/dashboard/mobileClinicalProfessional.test.ts
       - .github/workflows/clinical-evidence-p0-verify.yml
@@ -67,6 +68,7 @@ jobs:
           set -euo pipefail
           cp supabase/migrations/20260814121500_clinical_evidence_spine.sql /tmp/clinical-evidence-spine.sql
           cp supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql /tmp/clinical-evidence-v1.sql
+          cp supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql /tmp/clinical-evidence-v1-reconciliation.sql
           mv supabase/migrations /tmp/harbourview-production-migrations
           if [ -f supabase/seed.sql ]; then
             mv supabase/seed.sql /tmp/harbourview-production-seed.sql
@@ -89,6 +91,7 @@ jobs:
           SQL
           cp /tmp/clinical-evidence-spine.sql supabase/migrations/20260814121500_clinical_evidence_spine.sql
           cp /tmp/clinical-evidence-v1.sql supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+          cp /tmp/clinical-evidence-v1-reconciliation.sql supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
           : > supabase/seed.sql
 
       - name: Start isolated Supabase and replay from zero
@@ -126,14 +129,17 @@ jobs:
           )
           if (!published.ok) throw new Error(`published projection failed: ${published.status}`)
           const publishedRows = await published.json()
-          if (publishedRows.length !== 7) throw new Error(`expected 7 published seed records, got ${publishedRows.length}`)
+          if (publishedRows.length !== 6) throw new Error(`expected 6 published seed records, got ${publishedRows.length}`)
           if (publishedRows.some(row => row.review_status !== 'published' || !String(row.primary_source_url).startsWith('https://'))) {
             throw new Error('published projection returned an invalid review state or source URL')
           }
-          const conditionRows = publishedRows.filter(row => String(row.slug).includes('epidiolex') || String(row.slug).includes('sativex-ms'))
-          if (conditionRows.length !== 4) throw new Error(`expected 4 public regulated-drug condition records, got ${conditionRows.length}`)
+          const conditionRows = publishedRows.filter(row => String(row.slug).startsWith('ca-epidiolex-'))
+          if (conditionRows.length !== 3) throw new Error(`expected 3 public current regulated-drug condition records, got ${conditionRows.length}`)
           if (conditionRows.some(row => row.intervention_class !== 'regulated-cannabinoid-drug' || row.evidence_strength !== 'ungraded')) {
             throw new Error('condition corpus crossed regulated-drug boundary or invented a certainty grade')
+          }
+          if (publishedRows.some(row => row.slug === 'ca-sativex-ms-spasticity-indication')) {
+            throw new Error('historical SATIVEX indication projection remained public after current-source reconciliation')
           }
 
           const rpc = await fetch(`${base}/rest/v1/rpc/search_clinical_evidence_records`, {
@@ -159,6 +165,20 @@ jobs:
           if (hiddenSources.ok) {
             const rows = await hiddenSources.json()
             if (rows.length > 0) throw new Error('anon could read private normalized source registry')
+          }
+
+          const sourceRows = await fetch(
+            `${base}/rest/v1/clinical_evidence_sources?select=source_key,doi,currentness,superseded_by_source_id&source_key=in.(pubmed-36417631,ca-sativex-pm-2019-12-11,ca-sativex-dpd-2024-12-17)`,
+            { headers: headers(service) },
+          )
+          if (!sourceRows.ok) throw new Error(`service source reconciliation read failed: ${sourceRows.status}`)
+          const sources = await sourceRows.json()
+          const cbdReview = sources.find(row => row.source_key === 'pubmed-36417631')
+          if (cbdReview?.doi !== '10.1590/1806-9282.2022D689') throw new Error('PMID 36417631 DOI reconciliation missing')
+          const historicalSativex = sources.find(row => row.source_key === 'ca-sativex-pm-2019-12-11')
+          const currentSativex = sources.find(row => row.source_key === 'ca-sativex-dpd-2024-12-17')
+          if (historicalSativex?.currentness !== 'superseded' || !historicalSativex?.superseded_by_source_id || currentSativex?.currentness !== 'current') {
+            throw new Error('SATIVEX source supersession/currentness reconciliation missing')
           }
 
           const hiddenSlug = `clinical-private-${Date.now()}`
@@ -217,7 +237,7 @@ jobs:
           })
           if (deniedWrite.ok) throw new Error('anon write unexpectedly succeeded')
 
-          console.log('GO: Clinical Evidence V1 replay, regulated-drug corpus, private provenance, hidden under-review synthesis, RLS and publication-review gate verified.')
+          console.log('GO: Clinical Evidence V1 replay, current regulated-drug corpus, private provenance, source reconciliation, hidden under-review synthesis, RLS and publication-review gate verified.')
           NODE
 
       - name: Restore repository migration tree
