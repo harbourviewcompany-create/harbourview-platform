@@ -137,8 +137,9 @@ try {
   await browser.close()
 }
 
+const browserHealthy = failures.length === 0 && consoleErrors.length === 0
 const evidence = {
-  status: failures.length === 0 ? 'GO' : 'HOLD',
+  status: browserHealthy ? 'GO' : 'HOLD',
   checkedAt: new Date().toISOString(),
   expected: {
     gitSha: expectedGitSha,
@@ -157,7 +158,7 @@ const evidence = {
 }
 await writeFile(path.join(artifactDir, 'release-evidence.json'), JSON.stringify(evidence, null, 2))
 
-if (failures.length) {
+if (!browserHealthy) {
   console.error(JSON.stringify(evidence, null, 2))
   process.exit(1)
 }
