@@ -6,7 +6,8 @@ import type { CommandCentreDataState } from './commandCentreDataTypes'
  * Visual fixtures are deliberately available only to the isolated CI build used
  * by the Mobile Command Centre visual workflow. They make non-live operator
  * states observable without exposing a query-controlled simulation in a real
- * deployment.
+ * deployment. The browser gate captures every registered state at 375x812,
+ * 390x844, and 430x932 before the mobile Command evidence pass can be accepted.
  */
 export const COMMAND_VISUAL_FIXTURE_IDS = [
   'loaded',
