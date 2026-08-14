@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type BrowserContextOptions, type Page } from '@playwright/test'
+import { expect, test, type Browser, type BrowserContextOptions, type Locator, type Page } from '@playwright/test'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -92,6 +92,33 @@ async function verifyEveryLoadedMarketplaceView(page: Page) {
   }
 }
 
+async function clickClearOfBottomNav(page: Page, target: Locator) {
+  await target.scrollIntoViewIfNeeded()
+  await expect(target).toBeVisible()
+
+  const main = page.locator('.hvm-op-main')
+  const bottomNav = page.locator('.hvm-op-bottom-nav')
+  const initialTarget = await target.boundingBox()
+  const initialNav = await bottomNav.boundingBox()
+  expect(initialTarget).not.toBeNull()
+  expect(initialNav).not.toBeNull()
+
+  const overlap = Math.max(0, initialTarget!.y + initialTarget!.height - initialNav!.y + 12)
+  if (overlap > 0) {
+    await main.evaluate((element, delta) => {
+      element.scrollTop += delta
+    }, overlap)
+  }
+
+  await expect.poll(async () => {
+    const targetBox = await target.boundingBox()
+    const navBox = await bottomNav.boundingBox()
+    return Boolean(targetBox && navBox && targetBox.y + targetBox.height <= navBox.y - 1)
+  }, { message: 'reviewed-introduction CTA should be physically clear of the fixed mobile navigation' }).toBe(true)
+
+  await target.click()
+}
+
 test.describe('Mobile Marketplace media production path', () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -176,7 +203,7 @@ test.describe('Mobile Marketplace media production path', () => {
       await assertAllHealthyMedia(page)
       await search.fill('')
 
-      await page.locator('.hvm2-listing-card .hvm2-inline-cta').first().click()
+      await clickClearOfBottomNav(page, page.locator('.hvm2-listing-card .hvm2-inline-cta').first())
       const introduction = page.locator('[data-mobile-command-tool="introduction"]')
       await expect(introduction).toBeVisible()
       await introduction.getByRole('button', { name: 'Close marketplace workflow' }).click()
