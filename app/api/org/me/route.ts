@@ -65,7 +65,9 @@ export async function GET() {
   let invitations: unknown[] = []
   const normalizedEmail = user.email?.trim().toLowerCase()
   if (normalizedEmail) {
-    const { data } = await supabase.schema('public').from("workspace_invitations")
+    // workspace_invitations is exposed to the service role only through the
+    // api security-invoker view; the production Data API does not expose public.
+    const { data } = await supabase.from("workspace_invitations")
       .select("id,workspace_id,email,role,status,created_at,expires_at")
       .eq("email", normalizedEmail)
       .eq("status", "pending")
