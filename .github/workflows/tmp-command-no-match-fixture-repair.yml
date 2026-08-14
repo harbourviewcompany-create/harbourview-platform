@@ -1,0 +1,85 @@
+name: Temporary Command no-match fixture repair
+
+on:
+  push:
+    branches:
+      - agent/mobile-command-p0-remediation-20260813
+    paths:
+      - .github/workflows/tmp-command-no-match-fixture-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: agent/mobile-command-p0-remediation-20260813
+          fetch-depth: 1
+
+      - name: Make isolated no-match fixture deterministic
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          fixture = Path('lib/dashboard/commandVisualFixtures.ts')
+          source = fixture.read_text()
+          source = source.replace(
+              "  emptyRecords?: boolean\n}>",
+              "  emptyRecords?: boolean\n  nonOpportunityMarketRecord?: boolean\n}>",
+              1,
+          )
+          source = source.replace(
+              "  'no-match': { id: 'no-match', commandDataState: 'live' },",
+              "  'no-match': { id: 'no-match', commandDataState: 'live', nonOpportunityMarketRecord: true },",
+              1,
+          )
+          fixture.write_text(source)
+
+          page = Path('app/dashboard/page.tsx')
+          source = page.read_text()
+          source = source.replace(
+              "import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'\n",
+              "import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'\nimport type { DashboardMarketplaceRows } from '@/components/dashboard/CommandCentre'\n",
+              1,
+          )
+          marker = "const ROLE_ALIASES: Record<string, RoleId> = {\n"
+          if marker not in source:
+              raise SystemExit('ROLE_ALIASES marker missing')
+          fixture_rows = """const COMMAND_VISUAL_NO_MATCH_MARKETPLACE_ROWS: DashboardMarketplaceRows = {\n  cannabis: [[\n    'Isolated visual non-opportunity record',\n    'CI-only record used to prove the Command no-match opportunity state.',\n    'Canada',\n    'Cannabis',\n    'Reviewed',\n    'Isolated CI fixture',\n    '100',\n    'command-visual-no-match-record',\n    '',\n    '',\n  ]],\n}\n\n"""
+          source = source.replace(marker, fixture_rows + marker, 1)
+          old = "  const commandMarketplaceRows = emptyVisualFixture ? {} : marketplaceProjection.rows\n"
+          new = """  const commandMarketplaceRows = emptyVisualFixture\n    ? {}\n    : commandVisualFixture?.nonOpportunityMarketRecord\n      ? COMMAND_VISUAL_NO_MATCH_MARKETPLACE_ROWS\n      : marketplaceProjection.rows\n"""
+          if old not in source:
+              raise SystemExit('commandMarketplaceRows marker missing')
+          source = source.replace(old, new, 1)
+          page.write_text(source)
+
+          test = Path('tests/dashboard/commandVisualFixtures.test.ts')
+          source = test.read_text()
+          old = "    expect(resolveCommandVisualFixture('no-match', isolatedEnv)).toMatchObject({ commandDataState: 'live' })\n"
+          new = "    expect(resolveCommandVisualFixture('no-match', isolatedEnv)).toMatchObject({ commandDataState: 'live', nonOpportunityMarketRecord: true })\n"
+          if old not in source:
+              raise SystemExit('no-match fixture test marker missing')
+          test.write_text(source.replace(old, new, 1))
+          PY
+
+          rm .github/workflows/tmp-command-no-match-fixture-repair.yml
+          git diff --check
+          git diff -- lib/dashboard/commandVisualFixtures.ts app/dashboard/page.tsx tests/dashboard/commandVisualFixtures.test.ts
+
+      - name: Commit focused fixture repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Harbourview CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add lib/dashboard/commandVisualFixtures.ts app/dashboard/page.tsx tests/dashboard/commandVisualFixtures.test.ts .github/workflows/tmp-command-no-match-fixture-repair.yml
+          git diff --cached --check
+          git commit -m 'test(command): make no-match visual fixture deterministic'
+          git push origin HEAD:agent/mobile-command-p0-remediation-20260813
