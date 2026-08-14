@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolveMarketCountryIso2 } from '@/lib/market/marketCode'
 
 export const dynamic = 'force-dynamic'
 
 const ALLOWED_HEATMAP_LAYERS = new Set(['opportunity', 'regulatory', 'activity', 'none'])
 
+/**
+ * The globe sends the market the operator actually selected, which may be a
+ * subdivision (`US-KS`, `CA-ON`) rather than a country. This previously tested
+ * `/^[A-Z]{2}$/` against the raw value, so every subdivision failed, the field
+ * was dropped, and the stored country went null — after which the Command
+ * Centre fell back to rendering Canada for a Kansas selection.
+ *
+ * A subdivision narrows the country, it does not replace it, so resolve to the
+ * parent and store that. `user_dashboard_preferences` has no region column, so
+ * the subdivision itself is not persisted here; it stays in the route's
+ * `region` query parameter for in-session context.
+ */
 function normalizeIso2(value: unknown): string | null | undefined {
   if (value === undefined) return undefined
   if (value === null || value === '') return null
   if (typeof value !== 'string') return undefined
-  const iso2 = value.trim().toUpperCase()
-  return /^[A-Z]{2}$/.test(iso2) ? iso2 : undefined
+  return resolveMarketCountryIso2(value) ?? undefined
 }
 
 function normalizeString(value: unknown): string | null | undefined {

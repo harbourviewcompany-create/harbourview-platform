@@ -10,6 +10,7 @@ interface Props {
   onClose: () => void
   onRequestAccess?: (listingId: string) => void
   onWatch?: (listingId: string) => void
+  onOpenDealRoom?: (roomId: string) => void
 }
 
 function formatTitle(input: string): string {
@@ -26,8 +27,27 @@ function formatPrice(amount: number | null, currency: string, display: string | 
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(amount)
 }
 
-export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatch }: Props) {
+export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatch, onOpenDealRoom }: Props) {
   const detail = useListingDetail(listingId)
+  const [dealRoomState, setDealRoomState] = useState<'idle' | 'creating' | 'error'>('idle')
+
+  async function handleOpenDealRoom(d: ListingDetail) {
+    if (dealRoomState === 'creating') return
+    setDealRoomState('creating')
+    try {
+      const res = await fetch('/api/marketplace/deal-rooms/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: d.id, listingTitle: d.title }),
+      })
+      if (!res.ok) throw new Error('failed')
+      const json = await res.json() as { roomId: string }
+      setDealRoomState('idle')
+      onOpenDealRoom?.(json.roomId)
+    } catch {
+      setDealRoomState('error')
+    }
+  }
   const [watchState, setWatchState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [quoteOpen, setQuoteOpen] = useState(false)
 
@@ -176,6 +196,14 @@ export function ListingDetailModal({ listingId, onClose, onRequestAccess, onWatc
                     style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
                   >
                     {watchState === 'saving' ? 'Watching…' : watchState === 'saved' ? 'Watching ✓' : watchState === 'error' ? 'Retry watch' : 'Watch →'}
+                  </button>
+                  <button
+                    onClick={() => handleOpenDealRoom(d)}
+                    disabled={dealRoomState === 'creating'}
+                    className="flex-1 rounded-xl py-2.5 text-center text-[12px] transition-all disabled:opacity-60"
+                    style={{ border: '1px solid rgba(198,165,90,0.3)', background: 'rgba(198,165,90,0.1)', color: 'var(--hv-champagne-300)' }}
+                  >
+                    {dealRoomState === 'creating' ? 'Opening…' : dealRoomState === 'error' ? 'Retry deal room' : 'Open deal room →'}
                   </button>
                   <button
                     onClick={onClose}

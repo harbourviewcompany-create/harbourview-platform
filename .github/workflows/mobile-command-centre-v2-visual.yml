@@ -51,8 +51,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: mobile-command-centre-v2-visual-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Same fix as ci.yml: on push the old key collapsed to `refs/heads/main`, so
+  # consecutive merges cancelled each other's visual verification. Key non-PR
+  # runs on the commit, and cancel only within a pull request.
+  group: mobile-command-centre-v2-visual-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   authenticated-visual:
