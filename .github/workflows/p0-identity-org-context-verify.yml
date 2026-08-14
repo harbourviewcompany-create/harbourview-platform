@@ -307,14 +307,14 @@ jobs:
           "${PSQL[@]}" -c "begin; select id from public.workspace_invitations where token_hash=repeat('d',64) for update; select pg_sleep(2); update public.workspace_invitations set status='declined',updated_at=now() where token_hash=repeat('d',64) and status='pending'; commit;" >/tmp/p0-decline-race.log 2>&1 &
           DECLINE_PID=$!
           sleep 0.4
-          RACE_OUTCOME=$("${PSQL[@]}" -Atc "set role service_role; select api.accept_workspace_invitation(repeat('d',64),'77777777-7777-4777-8777-777777777777','concurrent@example.test')->>'outcome';")
+          RACE_OUTCOME=$("${PSQL[@]}" -Atq -c "select api.accept_workspace_invitation(repeat('d',64),'77777777-7777-4777-8777-777777777777','concurrent@example.test')->>'outcome';")
           wait "$DECLINE_PID"
           cat /tmp/p0-decline-race.log | tee -a artifacts/p0-identity-org-context/migration-replay.txt
           if [[ "$RACE_OUTCOME" != "declined" ]]; then
             echo "Concurrent decline race produced unexpected acceptance outcome: $RACE_OUTCOME" >&2
             exit 1
           fi
-          RACE_MEMBERS=$("${PSQL[@]}" -Atc "select count(*) from public.workspace_members where workspace_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd' and user_id='77777777-7777-4777-8777-777777777777';")
+          RACE_MEMBERS=$("${PSQL[@]}" -Atq -c "select count(*) from public.workspace_members where workspace_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd' and user_id='77777777-7777-4777-8777-777777777777';")
           if [[ "$RACE_MEMBERS" != "0" ]]; then
             echo "Concurrent decline race created membership" >&2
             exit 1
