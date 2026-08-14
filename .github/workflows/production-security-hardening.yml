@@ -5,9 +5,17 @@ on:
     branches:
       - main
     paths:
+      - supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql
       - supabase/migrations/20260804190000_production_security_hardening.sql
+      - supabase/migrations/20260814124500_release_closure_security_hardening.sql
+      - supabase/release-controls/elite-digest-production-activation.json
+      - supabase/release-controls/release-closure-migration-classification-20260814.json
       - supabase/tests/production_security_hardening.sql
+      - scripts/check-release-closure-migration-classification.mjs
       - scripts/configure-supabase-auth-production.mjs
+      - tests/scripts/release-closure-migration-classification.test.mjs
+      - tests/sql/hv_dedup_vector_operator_search_path_read_only.sql
+      - tests/supabase/hvDedupVectorSearchPath.test.ts
       - tests/supabase/productionSecurityHardening.test.ts
       - .github/workflows/production-security-hardening.yml
   workflow_dispatch:
@@ -34,7 +42,9 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npx vitest run tests/supabase/productionSecurityHardening.test.ts tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
+      - name: Focused release-closure contract suite
+        run: npm run test:release-closure
+      - run: npx vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
       - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
         with:
           version: latest
