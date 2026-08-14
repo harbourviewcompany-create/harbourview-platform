@@ -14,13 +14,20 @@
   scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom));
 }
 
-/* Marketplace listing CTAs can sit close to the fixed nav when a card is
- * programmatically brought into view. Give their scroll target a nav-sized
- * trailing safety zone so focus/scrollIntoView settles the control above the
- * fixed navigation instead of underneath it. This is scoped to Market so the
- * accepted Command/Intel viewport composition is unchanged. */
+/* Marketplace cards carry direct commercial CTAs near the bottom of tall media
+ * records. The fixed nav must not share their physical scroll viewport: reserve
+ * the nav footprint below the Market main pane, then use ordinary content
+ * padding inside that reduced scrollport. This guarantees a focused/scrolled
+ * listing CTA settles above the fixed nav instead of underneath it, while the
+ * Command and Intel viewport composition remains unchanged. */
+.hvm2-root[data-active-destination='marketplace'] .hvm2-main.hvm-op-main {
+  margin-bottom: calc(var(--hvm-op-nav-height) + 18px + env(safe-area-inset-bottom));
+  padding-bottom: 24px !important;
+  scroll-padding-bottom: 24px;
+}
+
 .hvm2-root[data-active-destination='marketplace'] .hvm2-inline-cta {
-  scroll-margin-block-end: calc(var(--hvm-op-nav-height) + 28px + env(safe-area-inset-bottom));
+  scroll-margin-block-end: 24px;
 }
 
 /* `/dashboard` wraps the mobile shell in CommandCentreDataBoundary. The shell
