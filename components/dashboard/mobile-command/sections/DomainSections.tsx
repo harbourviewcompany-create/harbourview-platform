@@ -105,7 +105,7 @@ export function GeneticsSection({ sectionRef, records, commandHref }: { sectionR
       sectionRef={sectionRef}
       eyebrow="Genetics"
       title="Cultivar intelligence"
-      description="Public cultivar passports, evidence summaries and controlled genetics opportunities from Harbourview's reviewed Genetics contracts."
+      description={MOBILE_COMMAND_COPY.geneticsCommandDescription}
     >
       {sourceNotice && (
         <div className={`hvm2-genetics-source-state ${passportMeta?.state === 'error' ? 'hvm2-tone-warn' : ''}`} role="status">
@@ -274,8 +274,8 @@ export function GeneticsSection({ sectionRef, records, commandHref }: { sectionR
       )}
 
       <div className="hvm2-genetics-boundary" role="note">
-        <strong>Public Genetics boundary</strong>
-        <p>This Command section uses the public cultivar-passport, collaboration and service-provider projections. Private evidence, access grants, internal review notes and audit metadata remain outside this surface. The current passport loader is global rather than jurisdiction- or role-filtered, so the selected Command context is not represented as a Genetics filter.</p>
+        <strong>{MOBILE_COMMAND_COPY.geneticsBoundaryTitle}</strong>
+        <p>{MOBILE_COMMAND_COPY.geneticsBoundaryDetail}</p>
       </div>
     </SectionShell>
   )
