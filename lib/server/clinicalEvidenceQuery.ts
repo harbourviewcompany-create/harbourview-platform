@@ -119,7 +119,6 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
 export async function searchClinicalEvidence(input: {
   query?: string
   jurisdiction?: string
-  profession?: string
   limit?: number
 }): Promise<ClinicalEvidenceSearchResult> {
   const query = input.query?.trim() ?? ''
