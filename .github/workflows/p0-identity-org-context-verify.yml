@@ -74,7 +74,7 @@ jobs:
           tests/globe-router/routeState.test.ts
           tests/auth/canonicalRedirect.test.ts
 
-      - name: Replay P0 migration against production-shaped prerequisites
+      - name: Replay P0 migration and blocker regressions
         shell: bash
         run: |
           set -euo pipefail
@@ -128,7 +128,7 @@ jobs:
             on public.user_dashboard_preferences for update to authenticated
             using (auth.uid() = user_id) with check (auth.uid() = user_id);
           grant usage on schema public, api, auth to anon, authenticated, service_role;
-          grant select on public.workspace_members to authenticated;
+          grant select on public.workspaces, public.workspace_members to authenticated;
           grant select, insert, update, delete on public.user_dashboard_preferences to authenticated;
           grant all on public.workspaces, public.workspace_members, public.user_dashboard_preferences to service_role;
           create view api.user_dashboard_preferences
@@ -183,39 +183,143 @@ jobs:
             if not has_table_privilege('service_role', 'api.workspace_invitations', 'SELECT,INSERT,UPDATE,DELETE') then
               raise exception 'service role invitation privileges missing';
             end if;
+            if has_function_privilege('anon', 'api.accept_workspace_invitation(text,uuid,text)', 'EXECUTE') then
+              raise exception 'anon can execute invitation acceptance';
+            end if;
+            if has_function_privilege('authenticated', 'api.accept_workspace_invitation(text,uuid,text)', 'EXECUTE') then
+              raise exception 'authenticated can execute invitation acceptance directly';
+            end if;
+            if not has_function_privilege('service_role', 'api.accept_workspace_invitation(text,uuid,text)', 'EXECUTE') then
+              raise exception 'service role invitation acceptance execute missing';
+            end if;
           end $$;
 
           insert into auth.users(id,email) values
             ('11111111-1111-1111-1111-111111111111','active@example.test'),
-            ('22222222-2222-2222-2222-222222222222','suspended@example.test');
+            ('22222222-2222-2222-2222-222222222222','suspended@example.test'),
+            ('33333333-3333-3333-3333-333333333333','inactive-workspace@example.test'),
+            ('44444444-4444-4444-4444-444444444444','existing@example.test'),
+            ('55555555-5555-4555-8555-555555555555','new@example.test'),
+            ('66666666-6666-4666-8666-666666666666','expired@example.test'),
+            ('77777777-7777-4777-8777-777777777777','concurrent@example.test'),
+            ('88888888-8888-4888-8888-888888888888','inactive-invite@example.test');
+
+          insert into auth.users(id,email)
+          select gen_random_uuid(), 'bulk-' || g || '@example.test'
+          from generate_series(1,1001) g;
+
           insert into public.workspaces(id,name,status) values
-            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','Active Org','active'),
-            ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Suspended Membership Org','active');
+            ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Active Org','active'),
+            ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Suspended Membership Org','active'),
+            ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Inactive Workspace','suspended'),
+            ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','Invitation Org','active');
+
           insert into public.workspace_members(workspace_id,user_id,role,status) values
-            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','admin','active'),
-            ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','22222222-2222-2222-2222-222222222222','viewer','suspended');
+            ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','admin','active'),
+            ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','22222222-2222-2222-2222-222222222222','viewer','suspended'),
+            ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','33333333-3333-3333-3333-333333333333','operator','active'),
+            ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','44444444-4444-4444-4444-444444444444','admin','active');
 
           set role authenticated;
           select set_config('request.jwt.claim.sub','11111111-1111-1111-1111-111111111111',false);
           insert into public.user_dashboard_preferences(user_id,active_workspace_id)
-          values ('11111111-1111-1111-1111-111111111111','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
-
+          values ('11111111-1111-1111-1111-111111111111','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
           reset role;
+
           set role authenticated;
           select set_config('request.jwt.claim.sub','22222222-2222-2222-2222-222222222222',false);
           do $$
           begin
             begin
               insert into public.user_dashboard_preferences(user_id,active_workspace_id)
-              values ('22222222-2222-2222-2222-222222222222','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+              values ('22222222-2222-2222-2222-222222222222','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
               raise exception 'suspended membership unexpectedly accepted';
             exception
               when insufficient_privilege then null;
             end;
           end $$;
           reset role;
-          select 'P0 migration replay, catalog security assertions, active membership acceptance and suspended membership rejection: PASS';
+
+          set role authenticated;
+          select set_config('request.jwt.claim.sub','33333333-3333-3333-3333-333333333333',false);
+          do $$
+          begin
+            begin
+              insert into public.user_dashboard_preferences(user_id,active_workspace_id)
+              values ('33333333-3333-3333-3333-333333333333','cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+              raise exception 'inactive workspace unexpectedly accepted';
+            exception
+              when insufficient_privilege then null;
+            end;
+          end $$;
+          reset role;
+
+          insert into public.workspace_invitations(workspace_id,email,role,token_hash,invited_by,status,expires_at) values
+            ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','existing@example.test','viewer',repeat('a',64),'44444444-4444-4444-4444-444444444444','pending',now()+interval '1 day'),
+            ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','new@example.test','analyst',repeat('b',64),'44444444-4444-4444-4444-444444444444','pending',now()+interval '1 day'),
+            ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','expired@example.test','viewer',repeat('c',64),'44444444-4444-4444-4444-444444444444','pending',now()-interval '1 minute'),
+            ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','inactive-invite@example.test','viewer',repeat('e',64),'33333333-3333-3333-3333-333333333333','pending',now()+interval '1 day');
+
+          do $$
+          declare result jsonb;
+          begin
+            result := api.accept_workspace_invitation(repeat('a',64),'44444444-4444-4444-4444-444444444444','existing@example.test');
+            if result->>'outcome' <> 'already_member' or result->>'role' <> 'admin' then
+              raise exception 'existing member role was not preserved: %', result;
+            end if;
+            if (select role from public.workspace_members where workspace_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd' and user_id='44444444-4444-4444-4444-444444444444') <> 'admin' then
+              raise exception 'existing canonical role was overwritten';
+            end if;
+
+            result := api.accept_workspace_invitation(repeat('a',64),'44444444-4444-4444-4444-444444444444','existing@example.test');
+            if result->>'outcome' <> 'already_accepted' or result->>'role' <> 'admin' then
+              raise exception 'repeat acceptance is not idempotent: %', result;
+            end if;
+
+            result := api.accept_workspace_invitation(repeat('b',64),'55555555-5555-4555-8555-555555555555','new@example.test');
+            if result->>'outcome' <> 'accepted' or result->>'role' <> 'analyst' then
+              raise exception 'new member acceptance failed: %', result;
+            end if;
+            if not exists (select 1 from public.workspace_members where workspace_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd' and user_id='55555555-5555-4555-8555-555555555555' and role='analyst' and status='active') then
+              raise exception 'new canonical membership missing';
+            end if;
+
+            result := api.accept_workspace_invitation(repeat('c',64),'66666666-6666-4666-8666-666666666666','expired@example.test');
+            if result->>'outcome' <> 'expired' then raise exception 'expired invitation accepted: %', result; end if;
+            if exists (select 1 from public.workspace_members where user_id='66666666-6666-4666-8666-666666666666') then
+              raise exception 'expired invitation created membership';
+            end if;
+
+            result := api.accept_workspace_invitation(repeat('e',64),'88888888-8888-4888-8888-888888888888','inactive-invite@example.test');
+            if result->>'outcome' <> 'workspace_unavailable' then raise exception 'inactive workspace invitation accepted: %', result; end if;
+            if exists (select 1 from public.workspace_members where user_id='88888888-8888-4888-8888-888888888888') then
+              raise exception 'inactive workspace invitation created membership';
+            end if;
+          end $$;
+
+          select 'P0 migration replay, active-workspace eligibility, 1000+ user independence, role preservation, repeat acceptance, expiry and inactive-workspace invitation checks: PASS';
           SQL
+
+          # Real concurrent decline-vs-accept race: decline locks the invitation
+          # first, then acceptance must observe the committed declined state and
+          # must not create a workspace_members row.
+          "${PSQL[@]}" -c "insert into public.workspace_invitations(workspace_id,email,role,token_hash,invited_by,status,expires_at) values ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','concurrent@example.test','viewer',repeat('d',64),'44444444-4444-4444-4444-444444444444','pending',now()+interval '1 day');"
+          "${PSQL[@]}" -c "begin; select id from public.workspace_invitations where token_hash=repeat('d',64) for update; select pg_sleep(2); update public.workspace_invitations set status='declined',updated_at=now() where token_hash=repeat('d',64) and status='pending'; commit;" >/tmp/p0-decline-race.log 2>&1 &
+          DECLINE_PID=$!
+          sleep 0.4
+          RACE_OUTCOME=$("${PSQL[@]}" -Atc "set role service_role; select api.accept_workspace_invitation(repeat('d',64),'77777777-7777-4777-8777-777777777777','concurrent@example.test')->>'outcome';")
+          wait "$DECLINE_PID"
+          cat /tmp/p0-decline-race.log | tee -a artifacts/p0-identity-org-context/migration-replay.txt
+          if [[ "$RACE_OUTCOME" != "declined" ]]; then
+            echo "Concurrent decline race produced unexpected acceptance outcome: $RACE_OUTCOME" >&2
+            exit 1
+          fi
+          RACE_MEMBERS=$("${PSQL[@]}" -Atc "select count(*) from public.workspace_members where workspace_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd' and user_id='77777777-7777-4777-8777-777777777777';")
+          if [[ "$RACE_MEMBERS" != "0" ]]; then
+            echo "Concurrent decline race created membership" >&2
+            exit 1
+          fi
+          echo "Concurrent decline-vs-accept atomicity: PASS" | tee -a artifacts/p0-identity-org-context/migration-replay.txt
 
       - name: Production build
         run: npm run build
