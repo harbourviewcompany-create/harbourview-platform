@@ -26,11 +26,20 @@ describe('clinical evidence storage and public boundary', () => {
     expect(query).not.toMatch(/clinical_patients|marketplace|cultivar|genetics/i)
   })
 
-  it('publishes only reviewed records through RLS', () => {
+  it('publishes only reviewed records and change events through RLS', () => {
     expect(migration).toContain('alter table public.clinical_evidence_records enable row level security')
-    expect(migration).toContain("using (review_status = 'published')")
+    expect(migration).toContain('alter table public.clinical_evidence_change_events enable row level security')
+    expect(migration).toContain("review_status = 'published'")
     expect(migration).toContain('grant select on public.clinical_evidence_records to anon, authenticated')
     expect(migration).toContain('grant all on public.clinical_evidence_records to service_role')
+  })
+
+  it('uses a complete RLS-preserving server-side search contract', () => {
+    expect(migration).toContain('function public.search_clinical_evidence_records')
+    expect(migration).toContain('security invoker')
+    expect(migration).toContain('function public.clinical_condition_term_known')
+    expect(query).toContain("rpc<Row[]>('search_clinical_evidence_records'")
+    expect(query).toContain("rpc<boolean>('clinical_condition_term_known'")
   })
 
   it('does not implement profession filtering before role vocabulary reconciliation', () => {
