@@ -13,7 +13,7 @@ create index if not exists idx_user_dashboard_preferences_active_workspace
 -- Preserve the legacy one-organization experience for existing preference rows.
 -- New/explicit null values continue to mean Personal operating mode.
 with single_active_membership as (
-  select user_id, min(workspace_id) as workspace_id
+  select user_id, min(workspace_id::text)::uuid as workspace_id
   from public.workspace_members
   where status = 'active'
   group by user_id
