@@ -208,17 +208,33 @@ by job `prune-cron-job-run-details` (03:23). A job that has not run recently has
 no rows at all, so you cannot date a change from it either.
 
 **What this cost.** On 2026-08-14, `hv-embed-every-30min` (jobid 13,
-`SELECT public.hv_trigger_embed()`) was found at `active = false`. The embedding
-stage had been dead since 2026-08-11 07:00 and **133 signals** had accumulated
-with no embedding — while `hv-extract` and `hv-score` stayed active, so signals
-kept arriving and the feed looked alive. Nothing was red. It surfaced only
-because someone queried `public.signals` directly.
+`SELECT public.hv_trigger_embed()`) was found at `active = false`, with no record
+of when or why. `hv-extract` and `hv-score` stayed active, so signals kept
+arriving and the feed looked alive. Nothing was red.
 
-The disable could not be dated or attributed, which mattered: `INTELLIGENCE_ARCHITECTURE_SPEC.md`
-§10 lists cron cadence versus the Nano disk-I/O budget as an open owner
-decision, and §9 Guardrail 8 exists because cron load degraded this database for
-two hours. Re-enabling therefore required the owner, not an agent's judgement —
-purely because the record was missing.
+The disable could not be dated or attributed, which mattered:
+`INTELLIGENCE_ARCHITECTURE_SPEC.md` §10 lists cron cadence versus the Nano
+disk-I/O budget as an open owner decision, and §9 Guardrail 8 exists because
+cron load degraded this database for two hours. Re-enabling therefore required
+the owner, not an agent's judgement — purely because the record was missing.
+
+**And a second lesson, which is why this paragraph is longer than it looks.**
+The disabled job was initially assumed to be the writer of the stalled
+`public.signals.embedding_1024` column, because 133 signals had accumulated
+unembedded since 2026-08-11 and a disabled embed cron is the obvious culprit.
+**That was wrong.** Re-enabling it returned HTTP 200 with
+`processed: 10, errored: 0` — against `artifact_id` rows at **384 dimensions**,
+via `provider: supabase_onnx`. `signals.embedding_1024` is **1024** dimensions
+and is written by `lib/hf/pipeline/signalEmbedder.ts`, driven by
+`/api/cron/embed-signals` and `/api/cron/embed-artifacts` — **neither of which
+appears in any `vercel.json` cron or workflow.** The one scheduled route,
+`/api/cron/intelligence-embed`, contains zero references to `embedding_1024`.
+
+So there were two unrelated stalls, and the plausible-looking one was not the
+reported one. This is Guardrail 1 in the spec — *verify the consumer/writer
+before changing anything; check which column is actually populated, not which
+function looks responsible.* A job name matching the symptom is not evidence.
+The 1024-dim routing gap remains open and is not fixed by that cron.
 
 **Baseline at 2026-08-14, so a future drift is detectable.** Inactive jobs:
 
