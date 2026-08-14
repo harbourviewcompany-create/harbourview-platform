@@ -11,6 +11,7 @@ on:
       - lib/clinical/evidence.ts
       - lib/server/clinicalEvidenceQuery.ts
       - supabase/migrations/20260814121500_clinical_evidence_spine.sql
+      - supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
       - tests/clinical/**
       - tests/dashboard/mobileClinicalProfessional.test.ts
       - .github/workflows/clinical-evidence-p0-verify.yml
@@ -25,7 +26,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Replay migration, prove RLS, run focused contracts
+    name: Replay migrations, prove RLS/governance, run focused contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -52,6 +53,7 @@ jobs:
           npx vitest run
           tests/clinical/evidenceSpine.test.ts
           tests/clinical/evidenceSpineStorage.test.ts
+          tests/clinical/evidenceV1Governance.test.ts
           tests/dashboard/mobileClinicalProfessional.test.ts
 
       - name: Set up Supabase CLI
@@ -64,20 +66,29 @@ jobs:
         run: |
           set -euo pipefail
           cp supabase/migrations/20260814121500_clinical_evidence_spine.sql /tmp/clinical-evidence-spine.sql
+          cp supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql /tmp/clinical-evidence-v1.sql
           mv supabase/migrations /tmp/harbourview-production-migrations
           if [ -f supabase/seed.sql ]; then
             mv supabase/seed.sql /tmp/harbourview-production-seed.sql
           fi
           mkdir -p supabase/migrations
-          # The repository's Supabase config exposes `api` alongside `public`.
-          # Production history creates it earlier, but this isolated replay removes
-          # that history intentionally. Bootstrap only the schema required for
-          # PostgREST to become healthy; the Clinical migration remains standalone.
-          cat > supabase/migrations/00000000000000_isolated_api_schema.sql <<'SQL'
+          # Production history creates both the `api` schema and user_roles earlier.
+          # This isolated replay intentionally removes that history, so bootstrap only
+          # the dependencies required to exercise the Clinical migrations themselves.
+          cat > supabase/migrations/00000000000000_isolated_clinical_dependencies.sql <<'SQL'
           create schema if not exists api;
           grant usage on schema api to anon, authenticated, service_role;
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          grant select on public.user_roles to authenticated, service_role;
+          grant all on public.user_roles to service_role;
           SQL
           cp /tmp/clinical-evidence-spine.sql supabase/migrations/20260814121500_clinical_evidence_spine.sql
+          cp /tmp/clinical-evidence-v1.sql supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
           : > supabase/seed.sql
 
       - name: Start isolated Supabase and replay from zero
@@ -93,7 +104,7 @@ jobs:
             echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
           } >> "$GITHUB_ENV"
 
-      - name: Prove published projection, RPC search and write denial
+      - name: Prove public projection, private provenance and publication governance
         shell: bash
         run: |
           set -euo pipefail
@@ -110,31 +121,50 @@ jobs:
           })
 
           const published = await fetch(
-            `${base}/rest/v1/clinical_evidence_records?select=slug,review_status,primary_source_url&review_status=eq.published&order=slug.asc`,
+            `${base}/rest/v1/clinical_evidence_records?select=slug,review_status,primary_source_url,intervention_class,evidence_strength&review_status=eq.published&order=slug.asc`,
             { headers: headers(anon) },
           )
           if (!published.ok) throw new Error(`published projection failed: ${published.status}`)
           const publishedRows = await published.json()
-          if (publishedRows.length !== 3) throw new Error(`expected 3 published seed records, got ${publishedRows.length}`)
+          if (publishedRows.length !== 7) throw new Error(`expected 7 published seed records, got ${publishedRows.length}`)
           if (publishedRows.some(row => row.review_status !== 'published' || !String(row.primary_source_url).startsWith('https://'))) {
             throw new Error('published projection returned an invalid review state or source URL')
+          }
+          const conditionRows = publishedRows.filter(row => String(row.slug).includes('epidiolex') || String(row.slug).includes('sativex-ms'))
+          if (conditionRows.length !== 4) throw new Error(`expected 4 public regulated-drug condition records, got ${conditionRows.length}`)
+          if (conditionRows.some(row => row.intervention_class !== 'regulated-cannabinoid-drug' || row.evidence_strength !== 'ungraded')) {
+            throw new Error('condition corpus crossed regulated-drug boundary or invented a certainty grade')
           }
 
           const rpc = await fetch(`${base}/rest/v1/rpc/search_clinical_evidence_records`, {
             method: 'POST',
             headers: headers(anon),
-            body: JSON.stringify({ p_query: 'medical document', p_jurisdiction: 'Canada', p_limit: 20 }),
+            body: JSON.stringify({ p_query: 'Dravet', p_jurisdiction: 'Canada', p_limit: 20 }),
           })
           if (!rpc.ok) throw new Error(`search RPC failed: ${rpc.status}`)
           const matches = await rpc.json()
-          if (!matches.some(row => row.slug === 'ca-cannabis-regulations-medical-document-273')) {
-            throw new Error('deterministic search did not return the §273 evidence record')
+          if (!matches.some(row => row.slug === 'ca-epidiolex-dravet-indication')) {
+            throw new Error('deterministic search did not return the Dravet regulated-drug evidence record')
+          }
+          if (matches.some(row => String(row.slug).startsWith('review-'))) {
+            throw new Error('under-review systematic-review metadata leaked through public search')
+          }
+
+          const hiddenReviews = await fetch(`${base}/rest/v1/clinical_evidence_reviews?select=id&limit=1`, { headers: headers(anon) })
+          if (hiddenReviews.ok) {
+            const rows = await hiddenReviews.json()
+            if (rows.length > 0) throw new Error('anon could read private Clinical review provenance')
+          }
+          const hiddenSources = await fetch(`${base}/rest/v1/clinical_evidence_sources?select=id&limit=1`, { headers: headers(anon) })
+          if (hiddenSources.ok) {
+            const rows = await hiddenSources.json()
+            if (rows.length > 0) throw new Error('anon could read private normalized source registry')
           }
 
           const hiddenSlug = `clinical-private-${Date.now()}`
           const serviceInsert = await fetch(`${base}/rest/v1/clinical_evidence_records`, {
             method: 'POST',
-            headers: { ...headers(service), Prefer: 'return=minimal' },
+            headers: { ...headers(service), Prefer: 'return=representation' },
             body: JSON.stringify({
               slug: hiddenSlug,
               title: 'Under review fixture',
@@ -150,17 +180,20 @@ jobs:
               verified_at: new Date().toISOString(),
               supersession_state: 'current',
               review_status: 'under-review',
+              publication_scope: 'source-metadata',
             }),
           })
           if (!serviceInsert.ok) throw new Error(`service fixture insert failed: ${serviceInsert.status}`)
+          const inserted = await serviceInsert.json()
+          const insertedId = inserted[0]?.id
+          if (!insertedId) throw new Error('service fixture id missing')
 
-          const hiddenRead = await fetch(
-            `${base}/rest/v1/clinical_evidence_records?select=slug&slug=eq.${encodeURIComponent(hiddenSlug)}`,
-            { headers: headers(anon) },
-          )
-          if (!hiddenRead.ok) throw new Error(`anon hidden-record read failed unexpectedly: ${hiddenRead.status}`)
-          const hiddenRows = await hiddenRead.json()
-          if (hiddenRows.length !== 0) throw new Error('anon could read an under-review Clinical evidence record')
+          const publishWithoutReview = await fetch(`${base}/rest/v1/clinical_evidence_records?id=eq.${insertedId}`, {
+            method: 'PATCH',
+            headers: { ...headers(service), Prefer: 'return=minimal' },
+            body: JSON.stringify({ review_status: 'published' }),
+          })
+          if (publishWithoutReview.ok) throw new Error('publication without provenance review unexpectedly succeeded')
 
           const deniedWrite = await fetch(`${base}/rest/v1/clinical_evidence_records`, {
             method: 'POST',
@@ -179,12 +212,12 @@ jobs:
               primary_source_url: 'https://example.invalid/denied',
               verified_at: new Date().toISOString(),
               supersession_state: 'current',
-              review_status: 'published',
+              review_status: 'under-review',
             }),
           })
           if (deniedWrite.ok) throw new Error('anon write unexpectedly succeeded')
 
-          console.log('GO: Clinical evidence migration replay, published RLS projection, deterministic RPC search and anon write denial verified.')
+          console.log('GO: Clinical Evidence V1 replay, regulated-drug corpus, private provenance, hidden under-review synthesis, RLS and publication-review gate verified.')
           NODE
 
       - name: Restore repository migration tree
