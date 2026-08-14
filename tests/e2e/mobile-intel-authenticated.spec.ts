@@ -104,15 +104,12 @@ async function assertMobileIntelLayout(page: Page) {
   const bottomNav = await page.locator('.hvm-op-bottom-nav').boundingBox()
   const main = await page.locator('.hvm-op-main').boundingBox()
   const viewport = page.viewportSize()
-  const mainBottomPadding = await page.locator('.hvm-op-main').evaluate(element =>
-    Number.parseFloat(window.getComputedStyle(element).paddingBottom),
-  )
   expect(bottomNav).not.toBeNull()
   expect(main).not.toBeNull()
   expect(viewport).not.toBeNull()
   expect(bottomNav!.y).toBeGreaterThanOrEqual(-1)
   expect(bottomNav!.y + bottomNav!.height).toBeLessThanOrEqual(viewport!.height + 1)
-  expect(mainBottomPadding).toBeGreaterThanOrEqual(bottomNav!.height)
+  expect(main!.y + main!.height).toBeLessThanOrEqual(bottomNav!.y + 1)
   await assertBottomNavLabelsContained(page)
 }
 
