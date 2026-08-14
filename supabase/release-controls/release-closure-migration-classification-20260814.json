@@ -6,13 +6,20 @@
     "observed_at_utc": "2026-08-14T11:50:24.181Z",
     "repository_pending_versions": 88,
     "approved_pending": 3,
-    "intentionally_deferred": 84,
-    "superseded_retired": 1
+    "intentionally_deferred": 80,
+    "superseded_retired": 5
   },
+  "evidence_sources": [
+    "supabase/release-controls/pending-production-migration-decisions.json",
+    "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md",
+    "supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+    "supabase/release-controls/elite-digest-production-activation.json",
+    "August 14 exact-main migration drift manifest at source SHA 04e306d520d69d746a5099bf778dc253296710a3"
+  ],
   "classification_policy": {
     "approved_pending": "Exact content-bound migration already present in the production release allowlist; approval does not mean it has been applied.",
-    "intentionally_deferred": "Repository-pending migration explicitly excluded from the current controlled production release. It must receive independent release evidence or a later retirement decision before activation.",
-    "superseded_retired": "Repository migration that must not be applied because exact repository evidence proves a later migration supersedes it."
+    "intentionally_deferred": "Repository-pending migration explicitly excluded from the current controlled production release. Historical forward-reconciliation and separate-release decisions remain deferred rather than being reclassified as safe to apply; fresh pending versions with no independent authorization are also deferred.",
+    "superseded_retired": "Repository migration that must not be applied because repository control evidence already classifies it obsolete/superseded. Retirement here is a release disposition; the historical SQL file is retained until a separately reviewed history-preservation/removal change."
   },
   "approved_pending": [
     {
@@ -76,11 +83,8 @@
     "20260722021700",
     "20260722022000",
     "20260722022100",
-    "20260722030000",
     "20260722031500",
     "20260722120002",
-    "20260723180000",
-    "20260724000000",
     "20260727160000",
     "20260727161000",
     "20260727162000",
@@ -95,7 +99,6 @@
     "20260729020000",
     "20260729130000",
     "20260730123000",
-    "20260730180000",
     "20260730215959",
     "20260730220000",
     "20260730220050",
@@ -122,9 +125,29 @@
   ],
   "superseded_retired": [
     {
+      "version": "20260722030000",
+      "file": "20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    },
+    {
+      "version": "20260723180000",
+      "file": "20260723180000_revoke_legacy_jurisdiction_briefings_grants.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    },
+    {
+      "version": "20260724000000",
+      "file": "20260724000000_fix_entity_decode_blanking_bug_in_signal_extraction.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    },
+    {
       "version": "20260730110000",
       "file": "20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql",
       "evidence": "supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql explicitly identifies this as the SUPERSEDED pre-HNSW body"
+    },
+    {
+      "version": "20260730180000",
+      "file": "20260730180000_search_public_signals_rpc.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
     }
   ],
   "new_release_closure_candidate": {
