@@ -7,9 +7,27 @@ set -euo pipefail
 #
 # Harbourview deployment policy:
 #   - Production deployments must always build.
-#   - The canonical Vercel project must build previews for normal PR branches.
+#   - Previews are OFF by default and opt-in per commit via [preview].
 #   - Known duplicate/legacy Harbourview projects must skip non-production builds.
-#   - This script must not block ordinary feature/fix/ops/codex preview branches.
+#
+# The preview default was inverted on 2026-08-14. It previously read "the
+# canonical Vercel project must build previews for normal PR branches", and that
+# is what exhausted the quota: every push to every open PR built a preview, and
+# the free plan allows 100 deployments/day. On 2026-08-13 the cap was hit twice
+# in one day ("api-deployments-free-per-day", >100), and the second time it also
+# blocked #1398, #1367 and #1410 with `Deployment rate limited - retry in 24
+# hours` on pull requests whose own diffs were fine.
+#
+# The failure mode that matters is not a missing preview URL. It is that a
+# spent preview budget blocks PRODUCTION deploys from the same daily pool --
+# exactly the risk the earlier revision of this file set out to avoid, arrived
+# at anyway because the per-commit opt-outs it relied on never fired often
+# enough against sustained agent churn across 350+ branches.
+#
+# So the default is inverted rather than tuned. Production is unconditional.
+# A preview is still available whenever it is actually wanted: put [preview] in
+# the commit message. That keeps the budget for production and for the handful
+# of commits a human genuinely wants to look at before merging.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
 commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-${COMMIT_MESSAGE:-}}}"
@@ -71,13 +89,17 @@ if is_known_duplicate_url "$project_production_url" || is_known_duplicate_url "$
 fi
 
 if [[ -z "$branch" ]]; then
-  if [[ "$project_id" == "$canonical_project_id" ]]; then
-    echo "Vercel ignore: canonical project with unknown branch; continue build."
-    exit 1
+  if [[ "$project_id" != "$canonical_project_id" ]]; then
+    echo "Vercel ignore: branch unknown in non-production context; skip build to avoid uncontrolled duplicate preview deployment."
+    exit 0
   fi
 
-  echo "Vercel ignore: branch unknown in non-production context; skip build to avoid uncontrolled duplicate preview deployment."
-  exit 0
+  # Canonical project with an unknown branch. This used to build
+  # unconditionally, which under the opt-in policy below would have been a hole
+  # straight through it: a preview with no branch name would deploy while every
+  # named branch was being skipped. It now falls through to the same [preview]
+  # gate as everything else.
+  echo "Vercel ignore: canonical project with unknown branch; deferring to the preview opt-in gate."
 fi
 
 # Previously only checked on `main`. Broadened to any branch: this is an
@@ -89,6 +111,21 @@ fi
 # regardless of commit message.
 if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
   echo "Vercel ignore: commit message requests skip ('$commit_message') on branch '$branch'; skip build."
+  exit 0
+fi
+
+# Previews are opt-in. Everything below this point is a preview build, because
+# production returned at the top of the script.
+#
+# Deliberately placed before the build-inert path check: that check exists to
+# spare the budget on docs-only commits, and with previews off by default there
+# is no budget left to spare. It stays in the file because it still applies to
+# any commit that opts back in with [preview].
+if [[ "$commit_message" == *"[preview]"* ]]; then
+  echo "Vercel ignore: commit message opts in ('[preview]') on branch '$branch'; continue preview build."
+else
+  echo "Vercel ignore: previews are opt-in; skipping preview build for branch '$branch'."
+  echo "Add [preview] to the commit message to build one. Production deploys are unaffected."
   exit 0
 fi
 
