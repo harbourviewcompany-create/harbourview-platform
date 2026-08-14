@@ -5,6 +5,11 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import {
+  getActiveEvidenceData,
+  getActiveOrgPathwayProgress,
+  getActiveWatchlistData,
+} from '@/lib/dashboard/activeWorkspaceDashboardData'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
 import { checkFeatureAccess } from '@/lib/billing/entitlements'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
@@ -119,10 +124,25 @@ export default async function DashboardPage({
     userId,
     hasOrganization: hasOrg,
   } as const
-  const commandData = await loadCommandCentreData(
-    loadContext,
-    buildDashboardCommandSources(loadContext),
-  )
+
+  const defaultSources = buildDashboardCommandSources(loadContext)
+  const commandSources = {
+    ...defaultSources,
+    orgPathway: {
+      ...defaultSources.orgPathway,
+      load: () => getActiveOrgPathwayProgress(activeWorkspaceId, countryIso2, roleId),
+    },
+    watchlistData: {
+      ...defaultSources.watchlistData,
+      load: () => getActiveWatchlistData(activeWorkspaceId, userId),
+    },
+    evidenceData: {
+      ...defaultSources.evidenceData,
+      load: () => getActiveEvidenceData(activeWorkspaceId, countryIso2),
+    },
+  }
+
+  const commandData = await loadCommandCentreData(loadContext, commandSources)
 
   const {
     signals,
