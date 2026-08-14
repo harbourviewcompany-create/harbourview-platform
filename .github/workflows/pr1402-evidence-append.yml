@@ -1,0 +1,49 @@
+name: PR 1402 Evidence Append
+
+on:
+  push:
+    branches:
+      - agent/mobile-command-p0-remediation-20260813
+
+permissions:
+  contents: write
+
+jobs:
+  append-evidence:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/mobile-command-p0-remediation-20260813
+          fetch-depth: 0
+      - name: Append PR 1402 evidence and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! grep -Fq 'HV-PR1402-MOBILE-COMMAND-20260814' docs/control/EVIDENCE_LOG.md; then
+            cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
+
+          ## 2026-08-14 — PR #1402 Mobile Command release-verification reconciliation
+
+          **Evidence ID:** `HV-PR1402-MOBILE-COMMAND-20260814`
+
+          **PR / implementation evidence:** PR #1402 `fix(command): gate mobile state evidence`. Original fully verified implementation head `8cc98ce62421b350ceb20d29933a333b665fef41`; Mobile Command Centre V2 Visual run `31802919889` PASS; artifact `command-centre-responsive-31802919889` (artifact id `9220172062`, digest `sha256:d6a72f7a446c8bcf12f456ce998a0c5725a2afa38bb81c5f19adad07ffef46f8`).
+
+          **Verified mobile behavior at implementation head:** 24/24 required Command evidence screenshots at 375×812, 390×844 and 430×932 across loaded, empty, no-match, stale, permission, error/retry and successful submission workflow states; Marketplace media plus normal physical `Request reviewed introduction` interaction; authenticated Intel responsive/search evidence at all three widths. No horizontal clipping, fixed-nav overlap or safe-area regression was observed. The final Marketplace fixed-nav repair is destination-scoped and leaves Command/Intel composition under the normal shell contract.
+
+          **Security / leakage controls:** Command visual fixtures are `server-only` and activate only when `CI=1`, `HARBOURVIEW_LOCAL_TEST_BUILD=1`, `HARBOURVIEW_ALLOW_LOCAL_SUPABASE=1` and `HARBOURVIEW_PUBLIC_BASE_URL` is loopback; production query parameters cannot activate them. Authenticated signal presentation uses an explicit safe DTO projection; raw analysis/provenance/private review fields are not returned.
+
+          **Reconciliation:** On 2026-08-14, old verified head `8cc98ce62421b350ceb20d29933a333b665fef41` was reconciled with then-current `main` `04e306d520d69d746a5099bf778dc253296710a3` through a conflict-free two-parent merge commit. The 11 intervening main commits touched 70 files and had zero filename overlap with PR #1402's 28 changed files; no manual conflict resolution or history rewrite was required.
+
+          **Release boundary:** No production DDL, migration application, production data write, deployment, alias movement or PR merge is included. The successor-head protected checks, full repository QA and Mobile Command V2 visual artifact remain the authoritative final merge gate.
+
+          **Status:** Current — successor-head verification pending at the time this entry is committed.
+          EOF
+          fi
+          git rm .github/workflows/pr1402-evidence-append.yml
+          git config user.name 'Harbourview Release Evidence'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add docs/control/EVIDENCE_LOG.md
+          git commit -m 'docs(control): record PR #1402 release evidence'
+          git push origin HEAD:agent/mobile-command-p0-remediation-20260813
