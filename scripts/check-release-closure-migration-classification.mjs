@@ -9,6 +9,13 @@ import { fileURLToPath } from 'node:url'
 const BASELINE_SOURCE_SHA = '04e306d520d69d746a5099bf778dc253296710a3'
 const CLASSIFICATION_FILE = 'supabase/release-controls/release-closure-migration-classification-20260814.json'
 const RELEASE_CONTROL_FILE = 'supabase/release-controls/elite-digest-production-activation.json'
+const REQUIRED_RETIRED = new Set([
+  '20260722030000',
+  '20260723180000',
+  '20260724000000',
+  '20260730110000',
+  '20260730180000',
+])
 
 function gitBlobSha(filePath) {
   const content = fs.readFileSync(filePath)
@@ -48,7 +55,9 @@ export function validateReleaseClosureClassification({ classification, releaseCo
     errors.push('baseline classification does not sum to repository_pending_versions')
   }
   if (expectedCounts.repository_pending_versions !== 88) errors.push('August 14 baseline must contain exactly 88 pending versions')
-  if (deferred.length !== 84) errors.push('August 14 unresolved set must classify exactly 84 versions as intentionally deferred')
+  if (approved.length !== 3 || deferred.length !== 80 || retired.length !== 5) {
+    errors.push('August 14 evidence-preserving classification must be 3 approved + 80 deferred + 5 retired')
+  }
 
   const canonicalApproved = releaseControl.approved_migrations ?? []
   if (JSON.stringify(approved) !== JSON.stringify(canonicalApproved.map((item) => ({ ...item, evidence: RELEASE_CONTROL_FILE })))) {
@@ -73,11 +82,18 @@ export function validateReleaseClosureClassification({ classification, releaseCo
     else if (gitBlobSha(filePath) !== item.git_blob_sha) errors.push(`approved migration blob mismatch: ${item.file}`)
   }
 
-  if (retired.length !== 1 || retired[0]?.version !== '20260730110000') {
-    errors.push('20260730110000 must be the verified superseded/retired baseline migration')
+  const retiredVersions = new Set(retired.map((item) => item.version))
+  if (retiredVersions.size !== REQUIRED_RETIRED.size || [...REQUIRED_RETIRED].some((version) => !retiredVersions.has(version))) {
+    errors.push('superseded/retired set does not preserve every repository-verified obsolete migration')
   }
-  if (!String(retired[0]?.evidence ?? '').includes('SUPERSEDED pre-HNSW body')) {
+  const dedupRetired = retired.find((item) => item.version === '20260730110000')
+  if (!String(dedupRetired?.evidence ?? '').includes('SUPERSEDED pre-HNSW body')) {
     errors.push('20260730110000 supersession evidence is missing')
+  }
+  for (const item of retired.filter((entry) => entry.version !== '20260730110000')) {
+    if (!String(item.evidence ?? '').includes('Obsolete / must not apply')) {
+      errors.push(`historical obsolete evidence missing for ${item.version}`)
+    }
   }
 
   if (!candidate || candidate.version !== '20260814124500') errors.push('release-closure security migration candidate is missing')
