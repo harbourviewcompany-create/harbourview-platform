@@ -17,7 +17,7 @@
     "August 14 exact-main migration drift manifest at source SHA 04e306d520d69d746a5099bf778dc253296710a3"
   ],
   "classification_policy": {
-    "approved_pending": "Exact content-bound migration already present in the production release allowlist; approval does not mean it has been applied.",
+    "approved_pending": "Historical August 14 audit classification: exact content-bound migration present in the production release allowlist at the baseline observation time. Later application is recorded separately and does not rewrite the baseline.",
     "intentionally_deferred": "Repository-pending migration explicitly excluded from the current controlled production release. Historical forward-reconciliation and separate-release decisions remain deferred rather than being reclassified as safe to apply; fresh pending versions with no independent authorization are also deferred.",
     "superseded_retired": "Repository migration that must not be applied because repository control evidence already classifies it obsolete/superseded. Retirement here is a release disposition; the historical SQL file is retained until a separately reviewed history-preservation/removal change."
   },
@@ -25,7 +25,7 @@
     {
       "version": "20260802073000",
       "file": "20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
-      "git_blob_sha": "a7d5a00960edb2533a8d57c80c35ae77d4606594",
+      "git_blob_sha": "6b8544df5969f12d72891201d2c82b4406d56c51",
       "evidence": "supabase/release-controls/elite-digest-production-activation.json"
     },
     {
@@ -150,10 +150,18 @@
       "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
     }
   ],
+  "current_production_preflight": {
+    "observed_at_utc": "2026-08-14T17:00:00Z",
+    "20260802073000": "applied",
+    "20260802152500": "applied",
+    "20260802163000": "applied",
+    "20260814143000": "applied_forward_vector_search_path_repair",
+    "20260814124500": "not_applied_candidate"
+  },
   "new_release_closure_candidate": {
     "version": "20260814124500",
     "file": "20260814124500_release_closure_security_hardening.sql",
-    "git_blob_sha": "649abfa3846b42904f6fc9a4f7e9bd94a534966a",
+    "git_blob_sha": "b4ae99c3d0014422327e7861667cabd6cc1cb168",
     "classification": "candidate_pending",
     "production_authorized": false,
     "note": "Created after the 88-version audit baseline; requires explicit production release authorization and is not counted in the baseline 88."
