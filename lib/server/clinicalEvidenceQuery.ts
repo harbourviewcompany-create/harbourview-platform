@@ -66,6 +66,9 @@ export async function searchClinicalEvidence(input: { query?: string; jurisdicti
   const limit = Math.max(1, Math.min(input.limit ?? 20, 50))
   const jurisdiction = input.jurisdiction?.trim() || null
   try {
+    // Profession relevance remains evidence metadata only until the Command role taxonomy
+    // is explicitly reconciled with a sourced clinical-profession vocabulary. This query
+    // therefore does not accept or apply profession filtering.
     const evidenceRows = await rpc<Row[]>('search_clinical_evidence_records', { p_query: query, p_jurisdiction: jurisdiction, p_limit: limit })
     const records = evidenceRows.map(mapEvidence)
     const knownConditionMatch = query ? await rpc<boolean>('clinical_condition_term_known', { p_query: query }) : false
