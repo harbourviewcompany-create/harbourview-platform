@@ -132,6 +132,13 @@ jobs:
           # would pass while printing its own failure.
           set -o pipefail
           node scripts/check-approved-migrations-applied.mjs --self-test
+          # DELIBERATELY the raw remote list, not remote-migrations-for-drift.txt.
+          # The filtered file has attested remote-only rows stripped out, and this
+          # check asks the opposite question -- "is this approved version present
+          # in production?" Reading the filtered file would report an approved
+          # version as unapplied the moment it was also attested. The next step
+          # uses the filtered file for the drift manifest; that is correct there
+          # and wrong here, so do not "tidy" these two to match.
           node scripts/check-approved-migrations-applied.mjs \
             --remote-list artifacts/migration-drift/remote-migrations.txt \
             --decisions supabase/release-controls/pending-production-migration-decisions.json \
@@ -157,6 +164,15 @@ jobs:
             echo "## Historical remote-only attestation gate" >> "$GITHUB_STEP_SUMMARY"
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat artifacts/migration-drift/historical-attestations-audit.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # Surfaced in the run summary, not just the step log. An escalation
+          # whose entire purpose is to be noticed is worth nothing if the reason
+          # is buried three clicks deep in a job that also does four other things.
+          if [ -f artifacts/migration-drift/approved-migrations-applied.txt ]; then
+            echo "## Approved migrations applied to production" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/migration-drift/approved-migrations-applied.txt >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -f artifacts/migration-drift/manifest.md ]; then
