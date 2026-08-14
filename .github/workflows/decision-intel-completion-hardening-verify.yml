@@ -27,13 +27,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: cipg
           POSTGRES_DB: postgres
         ports: ['5432:5432']
         options: >-
           --health-cmd="pg_isready -U postgres" --health-interval=5s --health-timeout=5s --health-retries=10
     env:
-      PGPASSWORD: postgres
+      PGPASSWORD: cipg
       PGHOST: 127.0.0.1
       PGPORT: '5432'
       PGUSER: postgres
@@ -176,8 +176,6 @@ jobs:
             end if;
           end $$;
 
-          -- Staff assessment edits still append through the controlled trigger even though
-          -- direct version-ledger writes are unavailable.
           select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000222',false);
           set role authenticated;
           update public.intel_assessments
@@ -193,7 +191,6 @@ jobs:
             ) then raise exception 'controlled assessment update did not append immutable version'; end if;
           end $$;
 
-          -- Verification does not authorize publication. Internal verified analysis remains hidden.
           update public.intel_assertions set review_status='verified' where source_signal_id='sig-b';
           update public.intel_events set review_status='verified', customer_visibility='internal' where id='event:sig-b';
           update public.intel_assessments set review_status='verified' where event_id='event:sig-b';
@@ -207,7 +204,6 @@ jobs:
             end if;
           end $$;
 
-          -- Server route resolver retains ownership while reporting the hidden state.
           set role service_role;
           do $$ declare visible boolean; begin
             select r.displayable into visible from api.resolve_intel_dashboard_routes(array['sig-b']) r where r.signal_id='sig-b';
@@ -225,7 +221,6 @@ jobs:
           end $$;
           reset role;
 
-          -- A published dossier disappears if every factual assertion is rejected.
           update public.intel_assertions set review_status='rejected' where source_signal_id='sig-b';
           do $$ begin
             if exists (select 1 from public.intel_customer_event_dossiers where id='event:sig-b') then
@@ -237,7 +232,6 @@ jobs:
           end $$;
           update public.intel_assertions set review_status='verified' where source_signal_id='sig-b';
 
-          -- Withdrawal of a previously visible source suppresses every canonical decision layer.
           update public.intel_assertions set review_status='verified' where source_signal_id='sig-a';
           update public.intel_events set review_status='verified', customer_visibility='intel' where id='event:sig-a';
           update public.intel_assessments set review_status='verified' where event_id='event:sig-a';
@@ -264,7 +258,6 @@ jobs:
           end $$;
           reset role;
 
-          -- Customer roles cannot directly invoke the service-only dashboard resolver.
           do $$ begin
             if has_function_privilege('authenticated','api.resolve_intel_dashboard_routes(text[])','EXECUTE') then raise exception 'customer can invoke server route resolver'; end if;
             if has_table_privilege('authenticated','public.intel_customer_event_dossiers','SELECT') then raise exception 'customer direct customer-dossier view access'; end if;
