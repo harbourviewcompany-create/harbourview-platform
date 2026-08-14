@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import OrganizationCreateForm from './OrganizationCreateForm'
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function CreateOrganizationPage() {
-  return <OrganizationCreateForm />
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#020814] px-5 py-12 text-white/50">Loading organization setup…</main>}>
+      <OrganizationCreateForm />
+    </Suspense>
+  )
 }
