@@ -56,12 +56,12 @@ export const CANADA_CLINICAL_AUTHORITIES: readonly ClinicalAuthorityRecord[] = [
   {
     id: 'pharmacovigilance',
     label: 'Adverse-reaction reporting',
-    purpose: 'Federal health-professional guidance for reporting suspected adverse reactions.',
+    purpose: 'Current federal health-professional guidance for reporting suspected adverse reactions to cannabis.',
     jurisdiction: 'Canada',
     evidenceType: 'pharmacovigilance-guidance',
     evidenceStrength: 'Primary authority — evidence strength not graded by source',
-    sourceName: 'Health Canada · Information for Health Care Professionals',
-    href: 'https://www.canada.ca/en/health-canada/services/drugs-medication/cannabis/information-medical-practitioners/information-health-care-professionals-cannabis-cannabinoids.html',
+    sourceName: 'Health Canada · Report a side effect to cannabis: Health care professionals',
+    href: 'https://www.canada.ca/en/health-canada/services/drugs-medication/cannabis/recalls-adverse-reactions-reporting/report-side-effects-cannabis-products/health-care-professionals.html',
     verifiedAt: '2026-08-14',
   },
 ] as const
