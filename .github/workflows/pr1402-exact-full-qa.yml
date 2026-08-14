@@ -1,0 +1,44 @@
+name: PR 1402 Exact Full QA
+
+on:
+  push:
+    branches:
+      - verification/pr1402-91865b5-full-qa
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  TARGET_SHA: '91865b5e8d05817932c101d36d93d6b32b1638e2'
+
+jobs:
+  exact-full-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+    steps:
+      - name: Checkout immutable PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+      - name: Assert exact SHA
+        run: test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Full lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Full test suite
+        run: npm run test
+      - name: Production build
+        run: npm run build
