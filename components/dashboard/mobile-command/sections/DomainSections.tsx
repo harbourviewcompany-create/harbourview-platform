@@ -63,12 +63,12 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       description="Primary-authority clinical orientation for medical professionals. Evidence and regulatory status stay distinct from product marketing and genetics."
       action={<Link className="hvm2-text-link" href={clinicalHref}>Open clinician workspace</Link>}
     >
+      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
+
       <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' ? 'status' : undefined}>
         <strong>Jurisdiction briefing · {formatStatus(sourceState)}</strong>
         <p>{CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
       </div>
-
-      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
 
       <div className="hvm2-compliance-grid" aria-label="Clinical command summary">
         <article>
