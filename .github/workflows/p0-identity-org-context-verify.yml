@@ -1,0 +1,103 @@
+name: P0 Identity Organization Context Verify
+
+on:
+  push:
+    branches:
+      - agent/p0-identity-org-context-20260814
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-identity-org-context-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Typecheck tests build and mobile evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID: ${{ github.run_id }}
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: local-test-anon-key
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local-test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: local-test-service-key
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: P0 identity and baseline contract tests
+        run: >-
+          npx vitest run
+          tests/harbourview/p0-identity-org-context.test.ts
+          tests/harbourview/baseline-contract-repairs.test.ts
+          tests/globe-router.test.ts
+          tests/globe-router/routeState.test.ts
+          tests/auth/canonicalRedirect.test.ts
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start built application
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run start > /tmp/harbourview-p0-identity-next.log 2>&1 &
+          echo $! > /tmp/harbourview-p0-identity-next.pid
+          for i in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/harbourview-p0-identity-next.log
+          exit 1
+
+      - name: Capture exact mobile Market Routing evidence
+        run: npx playwright test tests/e2e/p0-identity-org-context.spec.ts --project=chromium --workers=1
+
+      - name: Record exact head
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/p0-identity-org-context
+          git rev-parse HEAD > artifacts/p0-identity-org-context/exact-head.txt
+          git status --short > artifacts/p0-identity-org-context/git-status.txt
+          cp /tmp/harbourview-p0-identity-next.log artifacts/p0-identity-org-context/next.log 2>/dev/null || true
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: p0-identity-org-context-evidence-${{ github.sha }}
+          path: artifacts/p0-identity-org-context/
+          if-no-files-found: warn
+          retention-days: 14
