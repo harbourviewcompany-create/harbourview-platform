@@ -6,6 +6,7 @@ export type ClinicalReviewAuth = {
   user: { id: string; email?: string }
   appRoles: string[]
   qualifiedCredentialIds: string[]
+  canOperateEvidence: boolean
   canVerifyCredentials: boolean
   canPublish: boolean
 }
@@ -36,13 +37,14 @@ export async function requireClinicalReviewAuth(): Promise<ClinicalReviewAuth> {
     .filter(row => (!row.valid_from || row.valid_from <= today) && (!row.valid_until || row.valid_until >= today))
     .map(row => String(row.id))
 
-  const hasReviewRole = appRoles.some(role => REVIEW_ROLES.has(role))
-  if (!hasReviewRole && qualifiedCredentialIds.length === 0) forbidden()
+  const canOperateEvidence = appRoles.some(role => REVIEW_ROLES.has(role))
+  if (!canOperateEvidence && qualifiedCredentialIds.length === 0) forbidden()
 
   return {
     user: { id: user.id, email: user.email ?? undefined },
     appRoles,
     qualifiedCredentialIds,
+    canOperateEvidence,
     canVerifyCredentials: appRoles.some(role => role === 'admin' || role === 'operator'),
     canPublish: appRoles.some(role => role === 'admin' || role === 'operator'),
   }
