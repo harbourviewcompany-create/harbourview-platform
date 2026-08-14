@@ -26,8 +26,21 @@ test('August 14 release-closure classification is complete and content-bound', (
   assert.deepEqual(errors, [])
   assert.equal(classification.baseline.repository_pending_versions, 88)
   assert.equal(classification.approved_pending.length, 3)
-  assert.equal(classification.intentionally_deferred.length, 84)
-  assert.equal(classification.superseded_retired.length, 1)
+  assert.equal(classification.intentionally_deferred.length, 80)
+  assert.equal(classification.superseded_retired.length, 5)
+})
+
+test('repository-verified obsolete migrations are retained in the retired disposition', () => {
+  assert.deepEqual(
+    classification.superseded_retired.map((item) => item.version).sort(),
+    [
+      '20260722030000',
+      '20260723180000',
+      '20260724000000',
+      '20260730110000',
+      '20260730180000',
+    ],
+  )
 })
 
 test('new security hardening migration stays outside the historical 88 and is not production-authorized', () => {
