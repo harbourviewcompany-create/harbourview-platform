@@ -1,3 +1,6 @@
+'use client'
+
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   MOBILE_COMMAND_COPY,
@@ -11,14 +14,94 @@ import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '.
 
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
+const REVIEW_ATTENTION = /draft|submitted|needs evidence|disputed|expired|rejected|pending|not assessed/i
+const REVIEW_POSITIVE = /reviewed|approved|verified|externally verified|admin reviewed/i
+
 export function GeneticsSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: DirectoryRecord[]; commandHref: CommandHref }) {
+  const [query, setQuery] = useState('')
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const filteredRecords = useMemo(() => records.filter(item => {
+    if (!normalizedQuery) return true
+    return [item.kind, item.title, item.subtitle, item.status].some(value => value?.toLocaleLowerCase().includes(normalizedQuery))
+  }), [normalizedQuery, records])
+  const attention = useMemo(() => records.filter(item => REVIEW_ATTENTION.test(formatStatus(item.status))), [records])
+  const reviewedCount = useMemo(() => records.filter(item => REVIEW_POSITIVE.test(formatStatus(item.status))).length, [records])
+
   return (
-    <SectionShell id="genetics" sectionRef={sectionRef} eyebrow="Genetics" title="Cultivar and program intelligence" description={MOBILE_COMMAND_COPY.geneticsDescription} action={<Link className="hvm2-text-link" href={commandHref('genetics')}>Genetics command</Link>}>
-      {records.length > 0 ? (
-        <div className="hvm2-horizontal-deck">
-          {records.map(item => <article className="hvm2-directory-card" key={item.id}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
+    <SectionShell
+      id="genetics"
+      sectionRef={sectionRef}
+      eyebrow="Genetics"
+      title="Cultivar intelligence"
+      description="Evidence-aware cultivar passport records and their current review state."
+    >
+      <div className="hvm2-metric-grid" aria-label="Genetics record status">
+        <Metric label="Passports" value={records.length} detail="Public cultivar passport records loaded" />
+        <Metric label="Reviewed" value={reviewedCount} detail="Records carrying a reviewed or verified state" />
+        <Metric label="Needs attention" value={attention.length} detail="Records with an unresolved review state" />
+      </div>
+
+      {attention.length > 0 && (
+        <div className="hvm2-genetics-block" aria-labelledby="hvm2-genetics-attention">
+          <div className="hvm2-genetics-heading">
+            <div><span>Attention</span><h3 id="hvm2-genetics-attention">Requires attention</h3></div>
+            <span>{attention.length}</span>
+          </div>
+          <div className="hvm2-genetics-list">
+            {attention.slice(0, 3).map(item => (
+              <details className="hvm2-genetics-record hvm2-tone-warn" key={`attention-${item.id}`}>
+                <summary><span><small>{item.kind}</small><strong>{item.title}</strong></span><StatusPill>{formatStatus(item.status)}</StatusPill></summary>
+                <p>{item.subtitle}</p>
+              </details>
+            ))}
+          </div>
         </div>
-      ) : <EmptyState title="No reviewed genetics records loaded" detail={MOBILE_COMMAND_COPY.geneticsEmptyDetail} />}
+      )}
+
+      <div className="hvm2-genetics-block" aria-labelledby="hvm2-genetics-passports">
+        <div className="hvm2-genetics-heading">
+          <div><span>Records</span><h3 id="hvm2-genetics-passports">Cultivar passports</h3></div>
+          <span>{filteredRecords.length}{normalizedQuery ? ` / ${records.length}` : ''}</span>
+        </div>
+        {records.length > 1 && (
+          <label className="hvm2-search-field hvm2-genetics-search">
+            <span aria-hidden="true">⌕</span>
+            <input
+              type="search"
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder="Search cultivar passports"
+              aria-label="Search cultivar passports"
+            />
+          </label>
+        )}
+        {filteredRecords.length > 0 ? (
+          <div className="hvm2-genetics-list">
+            {filteredRecords.map(item => (
+              <details className="hvm2-genetics-record" key={item.id}>
+                <summary>
+                  <span><small>{item.kind}</small><strong>{item.title}</strong></span>
+                  <StatusPill>{formatStatus(item.status)}</StatusPill>
+                </summary>
+                <p>{item.subtitle}</p>
+                <div className="hvm2-genetics-record-footer">
+                  <span>Public passport summary</span>
+                  <Link href={commandHref('genetics')}>Keep Genetics context</Link>
+                </div>
+              </details>
+            ))}
+          </div>
+        ) : records.length > 0 ? (
+          <EmptyState title="No matching cultivar passports" detail="Clear or change the search to return to the complete loaded passport set." />
+        ) : (
+          <EmptyState title="No public cultivar passports loaded" detail={MOBILE_COMMAND_COPY.geneticsEmptyDetail} />
+        )}
+      </div>
+
+      <div className="hvm2-genetics-boundary" role="note">
+        <strong>Current command boundary</strong>
+        <p>Programs, private evidence, access requests and genetics intelligence are not represented here unless they are present in the loaded Command data contract. This surface does not infer them from a cultivar passport.</p>
+      </div>
     </SectionShell>
   )
 }
@@ -67,11 +150,6 @@ export function ComplianceSection({ sectionRef, regulatoryTier, outlook, playboo
 
   return (
     <SectionShell id="compliance" sectionRef={sectionRef} eyebrow="Compliance" title="Regulatory and quality control" description={MOBILE_COMMAND_COPY.complianceDescription} action={<Link className="hvm2-text-link" href={commandHref('compliance')}>Compliance command</Link>}>
-      {/* The middle tile used to be "Quality posture", whose value was
-          `countries.data_completeness` — a raw three-value enum, printed
-          verbatim and inverted against the data it named. Removing it leaves
-          two tiles that still describe something real, and frees the playbook
-          sourcing prose that was crammed underneath it into its own note. */}
       <div className="hvm2-compliance-grid">
         <article><span>Regulatory tier</span><strong>{formatStatus(regulatoryTier)}</strong><p>{outlook || MOBILE_COMMAND_COPY.complianceOutlookFallback}</p></article>
         <article><span>Access pathway</span><strong>{formatStatus(marketAccessStatus)}</strong><p>{pathway || MOBILE_COMMAND_COPY.compliancePathwayFallback}</p></article>
