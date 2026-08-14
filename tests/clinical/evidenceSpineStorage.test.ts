@@ -6,6 +6,7 @@ const root = process.cwd()
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260814121500_clinical_evidence_spine.sql'), 'utf8')
 const explorer = fs.readFileSync(path.join(root, 'components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx'), 'utf8')
 const query = fs.readFileSync(path.join(root, 'lib/server/clinicalEvidenceQuery.ts'), 'utf8')
+const route = fs.readFileSync(path.join(root, 'app/api/clinical/evidence/route.ts'), 'utf8')
 
 describe('clinical evidence storage and public boundary', () => {
   it('requires provenance, verification and supersession metadata', () => {
@@ -42,9 +43,12 @@ describe('clinical evidence storage and public boundary', () => {
     expect(query).toContain("rpc<boolean>('clinical_condition_term_known'")
   })
 
-  it('does not implement profession filtering before role vocabulary reconciliation', () => {
+  it('does not expose profession filtering before role vocabulary reconciliation', () => {
     expect(query).toContain('Profession relevance remains evidence metadata only')
     expect(query).not.toContain('profession_relevance,cs')
+    expect(route).not.toContain('profession:')
+    expect(route).not.toContain("searchParams.get('profession')")
+    expect(explorer).not.toContain("params.set('profession'")
   })
 
   it('exposes accessible search and source links', () => {
