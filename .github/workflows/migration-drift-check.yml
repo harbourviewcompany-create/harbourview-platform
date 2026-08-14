@@ -34,6 +34,36 @@ env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
 
 jobs:
+  # Nothing in this repository parsed the production migration tree until
+  # 2026-08-14. The one job that stands up a real database
+  # (mobile-command-centre-v2-visual.yml) moves supabase/migrations aside and
+  # substitutes a small hand-written schema, so two migrations that could not be
+  # replayed -- an apostrophe closing a string literal, and a CREATE FUNCTION
+  # with no statement terminator -- reached main fully green.
+  #
+  # This parses every migration with libpg-query, the real PostgreSQL grammar.
+  # It resolves no names, so vault/cron/net/auth/pgvector references and missing
+  # tables are never failures here; only genuine syntax errors are. Full replay
+  # was considered and rejected: on a clean database these migrations fail for
+  # environmental reasons the author cannot fix, and a gate that is red for
+  # unfixable reasons is one people learn to ignore.
+  migration-sql-parses:
+    name: Verify migration SQL parses
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install libpg-query
+        run: npm ci --no-audit --no-fund
+      - name: Self-test the checker
+        run: node scripts/check-migration-sql-parses.mjs --self-test
+      - name: Parse every migration
+        run: node scripts/check-migration-sql-parses.mjs
+
   parser-contract:
     name: Verify migration-list parser
     runs-on: ubuntu-latest

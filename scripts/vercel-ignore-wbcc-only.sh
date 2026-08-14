@@ -24,10 +24,22 @@ set -euo pipefail
 # at anyway because the per-commit opt-outs it relied on never fired often
 # enough against sustained agent churn across 350+ branches.
 #
-# So the default is inverted rather than tuned. Production is unconditional.
-# A preview is still available whenever it is actually wanted: put [preview] in
-# the commit message. That keeps the budget for production and for the handful
-# of commits a human genuinely wants to look at before merging.
+# THIS FILE IS NOT WHAT PROTECTS THE QUOTA. That was claimed when the default
+# was inverted, and it is wrong. An ignore command runs INSIDE a deployment that
+# Vercel has already created: exiting 0 skips the build and marks the deployment
+# CANCELED, but the deployment record exists either way. Verified on the very
+# commit this gate suppressed -- 9f0bc053 produced
+# dpl_29B1mowXqMAVTrwRYVubBbL2pmeE, state CANCELED, target null. The daily cap
+# counts deployments created, so an ignored build still spends one. Consistent
+# with that, #1412 was rate-limited minutes AFTER the inversion merged.
+#
+# What actually stops the spend is `git.deploymentEnabled` in vercel.json, which
+# decides whether a push creates a deployment at all. It is now an allowlist:
+# `main` and `preview/*` only. Everything else never reaches this script.
+#
+# So this file is the second layer, not the first. It still earns its place:
+# it protects production from the duplicate/legacy projects, and it governs the
+# branches the allowlist does let through.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
 commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-${COMMIT_MESSAGE:-}}}"
@@ -135,7 +147,13 @@ fi
 # budget this file exists to protect, so it gets the stricter rule.
 commit_subject="${commit_message%%$'\n'*}"
 
-if [[ "$commit_subject" == *"[preview]"* ]]; then
+# A `preview/*` branch is opt-in by its name. vercel.json's deploymentEnabled
+# allowlist only creates deployments for `main` and `preview/*`, so a build that
+# gets here on such a branch was asked for deliberately -- requiring a commit
+# marker as well would be a second lock on the same door.
+if [[ "$branch" == preview/* ]]; then
+  echo "Vercel ignore: branch '$branch' is on the preview allowlist; continue preview build."
+elif [[ "$commit_subject" == *"[preview]"* ]]; then
   echo "Vercel ignore: subject line opts in ('[preview]') on branch '$branch'; continue preview build."
 else
   echo "Vercel ignore: previews are opt-in; skipping preview build for branch '$branch'."
