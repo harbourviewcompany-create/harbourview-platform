@@ -75,16 +75,24 @@ export async function PATCH(req: NextRequest) {
     }
 
     if ('active_workspace_id' in body && activeWorkspaceId) {
-      const { data: membership } = await supabase
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('workspace_id', activeWorkspaceId)
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle()
+      const [{ data: membership }, { data: workspace }] = await Promise.all([
+        supabase
+          .from('workspace_members')
+          .select('workspace_id')
+          .eq('workspace_id', activeWorkspaceId)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle(),
+        supabase
+          .from('workspaces')
+          .select('id,status')
+          .eq('id', activeWorkspaceId)
+          .eq('status', 'active')
+          .maybeSingle(),
+      ])
 
-      if (!membership) {
-        return NextResponse.json({ ok: false, error: 'Active organization membership required.' }, { status: 403 })
+      if (!membership || !workspace) {
+        return NextResponse.json({ ok: false, error: 'Active organization membership and active workspace required.' }, { status: 403 })
       }
     }
 
