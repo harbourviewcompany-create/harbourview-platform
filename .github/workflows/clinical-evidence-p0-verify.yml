@@ -101,6 +101,21 @@ jobs:
           supabase start
           supabase db reset --local --no-seed
           eval "$(supabase status -o env)"
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --show-error --output /tmp/clinical-p0-rest-ready.json --write-out '%{http_code}' \
+              -H "apikey: ${SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_evidence_records?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              break
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              echo "Clinical P0 REST readiness did not reach HTTP 200; last status=${status}"
+              cat /tmp/clinical-p0-rest-ready.json || true
+              exit 1
+            fi
+            sleep 1
+          done
           {
             echo "CLINICAL_TEST_API_URL=${API_URL}"
             echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
