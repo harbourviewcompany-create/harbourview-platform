@@ -18,11 +18,13 @@
 -- below is taken from the live catalog (pg_attribute / pg_get_expr), not
 -- inferred.
 --
--- Every statement is ADD COLUMN IF NOT EXISTS, so columns the repository
--- already builds are skipped untouched -- including their existing types. This
--- migration therefore never rewrites an existing column, and re-running it is a
--- no-op. That matters because it makes the reconciliation independent of
--- exactly which subset of these columns replay already has.
+-- Every added column uses IF NOT EXISTS, so columns the repository already
+-- builds are skipped untouched -- including their existing types. The one
+-- legacy-column removal below is likewise idempotent and is backed by the live
+-- catalog: listing_type does not exist in current production and no recorded
+-- migration statement mentions listings.listing_type. This removes the stale
+-- NOT NULL requirement created only by the repository's older zero-state
+-- creator before supply-catalog seeds run.
 --
 -- Deliberate deviations from the live catalog, both to keep this replay-safe:
 --   * Columns are added nullable even where production marks them NOT NULL.
@@ -55,6 +57,9 @@ begin
     );
   end if;
 end $$;
+
+alter table public.listings
+  drop column if exists listing_type;
 
 alter table public.listings
   add column if not exists category public.marketplace_category,
