@@ -245,7 +245,7 @@ test.describe.serial('authenticated organization onboarding', () => {
       await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 })
       const search = page.getByPlaceholder('Country, U.S. state, or province')
       await search.fill('Mexico')
-      await page.getByRole('option', { name: /Mexico/ }).click()
+      await page.getByRole('option', { name: 'Mexico MX', exact: true }).click()
       const joinOrganization = page.getByRole('link', { name: 'Join organization', exact: true }).first()
       await expect(joinOrganization).toBeVisible()
       await joinOrganization.click()
