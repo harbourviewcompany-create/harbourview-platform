@@ -18,10 +18,12 @@ const globeResolver = read('lib/globe/route-resolver.ts')
 const routingSearch = read('components/globe/CountrySearchOverlay.tsx')
 const marketOverview = read('components/globe/MarketOverviewSheet.tsx')
 const mobileCommand = read('components/dashboard/MobileCommandCentreRebuild.tsx')
+const mobileCommandModel = read('components/dashboard/mobile-command/useMobileCommandModel.ts')
 const dashboardPage = read('app/dashboard/page.tsx')
 const orgContext = read('components/dashboard/OrganizationContextControl.tsx')
 const orgCreateForm = read('app/organization/new/OrganizationCreateForm.tsx')
 const orgJoinForm = read('app/organization/join/OrganizationJoinForm.tsx')
+const shellWrapper = read('components/ShellWrapper.tsx')
 
 describe('Harbourview P0 identity, organization, membership and operating context', () => {
   it('extends the canonical preference contract with nullable active workspace and RLS membership plus workspace validation', () => {
@@ -122,6 +124,9 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(routingSearch).toContain('Sign in')
     expect(routingSearch).toContain('Create account')
     expect(routingSearch).toContain('Create organization')
+    expect(routingSearch).toContain('Join organization')
+    expect(routingSearch).toContain('joinOrgHref')
+    expect(routingSearch).toContain('returnTo=${encodeURIComponent(authReturnHref)}')
     expect(marketOverview).toContain('Create account')
     expect(marketOverview).toContain('Create organization')
     expect(marketOverview).toContain('commandReturn')
@@ -130,19 +135,36 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(orgCreateForm).toContain("fetch('/api/org/create'")
   })
 
+  it('routes the Command organization attention state into explicit create and join onboarding choices', () => {
+    expect(mobileCommandModel).toContain("id: 'organization-create'")
+    expect(mobileCommandModel).toContain("id: 'organization-join'")
+    expect(mobileCommandModel).toContain("href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`")
+    expect(mobileCommandModel).toContain("href: `/organization/join?returnTo=${returnParam}`")
+    expect(mobileCommandModel).toContain("if (!params.has('section')) params.set('section', model.activeSection)")
+  })
+
+  it('keeps organization onboarding out of the public marketing shell', () => {
+    expect(shellWrapper).toContain("'/organization'")
+    expect(shellWrapper).toContain("const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization']")
+  })
+
   it('provides Personal, multi-organization switching, join and stale-context recovery in Command', () => {
     expect(orgContext).toContain('<option value="">Personal</option>')
     expect(orgContext).toContain('Create organization')
     expect(orgContext).toContain('Join organization')
     expect(orgContext).toContain('Your previous organization is no longer available')
     expect(orgContext).toContain('active_workspace_id: value || null')
+    expect(orgContext).toContain('/organization/join?returnTo=')
     expect(mobileCommand).toContain('<OrganizationContextControl')
   })
 
-  it('preserves invitation token return through account creation or sign-in', () => {
+  it('preserves invitation token and Command return context through account creation or sign-in', () => {
     expect(orgJoinForm).toContain('mode=signup&next=')
     expect(orgJoinForm).toContain("fetch('/api/org/invitations/accept'")
     expect(orgJoinForm).toContain('INVITATION_EMAIL_MISMATCH')
     expect(orgJoinForm).toContain('INVITATION_EXPIRED')
+    expect(orgJoinForm).toContain("safeInternalPath(searchParams.get('returnTo'))")
+    expect(orgJoinForm).toContain('router.replace(returnTo)')
+    expect(orgJoinForm).toContain('<Link href={returnTo}')
   })
 })
