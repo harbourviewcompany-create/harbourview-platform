@@ -20,11 +20,12 @@ describe('Education Command contracts', () => {
     expect(moduleMatchesRole(['wholesaler_distributor'], 'distributor_wholesaler')).toBe(true)
   })
 
-  it('never upgrades conflicting or stale evidence to current', () => {
+  it('never upgrades conflicting, stale, or missing review metadata to current', () => {
     expect(educationEvidenceState(['verified_primary_source', 'conflicting_sources'])).toBe('conflicting')
     expect(educationEvidenceState(['verified_primary_source', 'stale_source'])).toBe('stale')
     expect(educationEvidenceState(['review_pending'])).toBe('review_required')
     expect(educationEvidenceState(['verified_primary_source'])).toBe('current')
+    expect(educationEvidenceState([null, undefined, ''])).toBe('unknown')
     expect(educationEvidenceState([])).toBe('unknown')
   })
 
