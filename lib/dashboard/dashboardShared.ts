@@ -3,6 +3,7 @@
 // NO 'server-only' — safe to import from 'use client' components.
 
 import type { RoleId } from '@/types/globe-router'
+import type { DigestDeltaStatus, DigestPriorityDomain } from '@/lib/signals/digestDelta'
 
 export type DashboardSignal = {
   id: string
@@ -38,6 +39,21 @@ export type DashboardSignal = {
     confidence_rationale?: string
   }
 
+  // ── Daily Brief cross-edition delta metadata ──────────────────────────────
+  // Present only on curated Daily Brief signal cards. Optional so older
+  // editions and the live ranked fallback remain backward compatible.
+  eventKey?: string | null
+  priorEventKey?: string | null
+  deltaStatus?: DigestDeltaStatus | null
+  advancementReason?: string | null
+  jurisdiction?: string
+  entities?: string[]
+  priorityDomain?: DigestPriorityDomain
+  verifiedFacts?: string[]
+  inferences?: string[]
+  competitivePositionChange?: boolean
+  competitivePositionDetail?: string | null
+
   // ── Quality-brain display fields (Pipeline B) ───────────────────────────────
   // Computed upstream; optional so older/fixture rows keep working.
   /** How many related source observations in this feed report the same development. */
@@ -59,7 +75,7 @@ export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: strin
   cultivator_producer:        { label: 'Cultivator / Producer',    short: 'Cultivator'  },
   geneticist_breeder:         { label: 'Geneticist / Breeder',     short: 'Geneticist'  },
   processor_extractor:        { label: 'Processor / Extractor',    short: 'Processor'   },
-  lab_qa:                     { label: 'Lab / QA',                 short: 'Lab/QA'      },
+  lab_qa:                     { label: 'Lab / QA',                  short: 'Lab/QA'      },
   importer:                   { label: 'Importer / Buyer',         short: 'Importer'    },
   exporter:                   { label: 'Exporter / Supplier',      short: 'Exporter'    },
   distributor_wholesaler:     { label: 'Distributor / Wholesaler', short: 'Distributor' },
