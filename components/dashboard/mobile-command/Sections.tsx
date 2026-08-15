@@ -14,10 +14,10 @@ export {
   WeeklySignalsSection,
   PersonalBriefingSection,
   SearchSection,
-  EducationSection,
   LocalIntelSection,
 } from './sections/IntelligenceSections'
 
+export { EducationSection } from './sections/EducationCommandSection'
 export { RegulatoryWatchSection } from './sections/RegulatoryWatchWithCorpus'
 
 export {
