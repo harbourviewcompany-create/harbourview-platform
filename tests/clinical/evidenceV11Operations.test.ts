@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = process.cwd()
-const foundation = fs.readFileSync(path.join(root, 'supabase/migrations/20260814143000_clinical_evidence_v1_production_foundation.sql'), 'utf8')
+const foundation = fs.readFileSync(path.join(root, 'supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql'), 'utf8')
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql'), 'utf8')
 const actions = fs.readFileSync(path.join(root, 'app/clinical/review/actions.ts'), 'utf8')
 const workbench = fs.readFileSync(path.join(root, 'app/clinical/review/page.tsx'), 'utf8')
