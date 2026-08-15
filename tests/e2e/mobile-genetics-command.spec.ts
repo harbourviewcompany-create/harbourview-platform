@@ -167,6 +167,29 @@ test.describe('Genetics Command exact visual evidence', () => {
         await expect(page.locator('[data-mobile-command-version="2"]:visible')).toHaveCount(0)
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
         expect(overflow).toBeLessThanOrEqual(1)
+
+        // The mobile half of this spec asserts that the private genetics
+        // fields never reach the DOM; the desktop half asserted nothing about
+        // them at all. Desktop renders a different component tree
+        // (CommandCentre's GeneticsPage, not the mobile DomainSections), so
+        // mobile passing is no evidence at all about desktop -- the redaction
+        // is only proven on the surface that is actually checked.
+        //
+        // Same three strings as assertGeneticsContract, deliberately: a public
+        // projection that leaks private evidence, an internal review note or a
+        // private document path is the failure that matters most here, and it
+        // should be caught on every surface that renders the projection.
+        const bodyText = await page.locator('body').innerText()
+        expect(bodyText).not.toContain('PRIVATE VISUAL NOTE')
+        expect(bodyText).not.toContain('private/visual-genetics.pdf')
+        expect(bodyText).not.toContain('PRIVATE REVIEW NOTE')
+
+        // Guards the negative assertions above from passing vacuously: if the
+        // desktop shell ever renders an empty or wrong page, the three
+        // not.toContain checks would still pass while proving nothing. The
+        // Genetics page title is confirmed present in this view.
+        expect(bodyText).toContain('Genetics')
+
         await page.screenshot({
           path: path.join(evidenceRoot, `${viewport.width}x${viewport.height}-${viewport.label}-genetics.png`),
           fullPage: true,
