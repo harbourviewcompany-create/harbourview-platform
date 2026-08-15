@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
@@ -41,11 +41,11 @@ export default function DealRoomPage() {
   const [error, setError]     = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const svc = createClient(
+  const svc = useMemo(() => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
     { db: { schema: SUPABASE_DB_SCHEMA } },
-  )
+  ), [])
 
   useEffect(() => {
     if (!roomId) return
@@ -97,7 +97,7 @@ export default function DealRoomPage() {
       cancelled = true
       svc.removeChannel(channel)
     }
-  }, [roomId])
+  }, [roomId, svc])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

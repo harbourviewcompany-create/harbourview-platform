@@ -125,7 +125,7 @@ export async function POST(request: Request) {
 }
 
 // ── DELETE /api/signals/subscribe ─────────────────────────────────────────────
-export async function DELETE(request: Request) {
+export async function DELETE() {
   const user = await authedUser()
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

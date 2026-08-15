@@ -174,12 +174,12 @@ const moduleIds = new Set<string>()
 const modulePages = new Set<CommandPage>()
 const routeSources = new Set<string>()
 
-for (const mod of COMMAND_CENTRE_MODULE_REGISTRY) {
-  if (moduleIds.has(mod.id)) {
-    throw new Error(`[command-centre-registry] duplicate module id: ${mod.id}`)
+for (const entry of COMMAND_CENTRE_MODULE_REGISTRY) {
+  if (moduleIds.has(entry.id)) {
+    throw new Error(`[command-centre-registry] duplicate module id: ${entry.id}`)
   }
-  moduleIds.add(mod.id)
-  modulePages.add(mod.desktopPage)
+  moduleIds.add(entry.id)
+  modulePages.add(entry.desktopPage)
 }
 
 for (const route of COMMAND_CENTRE_ROUTE_REGISTRY) {
@@ -201,15 +201,15 @@ export function normalizeCommandPage(raw: string | null | undefined): CommandPag
 
 export function getCommandCentreModule(id: string | null | undefined): CommandCentreModule | null {
   if (!id) return null
-  return COMMAND_CENTRE_MODULE_REGISTRY.find(module => module.id === id) ?? null
+  return COMMAND_CENTRE_MODULE_REGISTRY.find(entry => entry.id === id) ?? null
 }
 
 export function getCommandCentreModulesForPage(page: CommandPage): CommandCentreModule[] {
-  return COMMAND_CENTRE_MODULE_REGISTRY.filter(module => module.desktopPage === page)
+  return COMMAND_CENTRE_MODULE_REGISTRY.filter(entry => entry.desktopPage === page)
 }
 
 export function getCommandCentreModulesForMobileSection(section: SectionId): CommandCentreModule[] {
-  return COMMAND_CENTRE_MODULE_REGISTRY.filter(module => module.mobileSection === section)
+  return COMMAND_CENTRE_MODULE_REGISTRY.filter(entry => entry.mobileSection === section)
 }
 
 export function getMobileSectionForPage(page: CommandPage): SectionId {
@@ -227,14 +227,14 @@ export function buildCommandCentreHref(
     listing?: string | null
   } = {},
 ): string {
-  const mod = getCommandCentreModule(moduleId)
-  if (!mod) throw new Error(`[command-centre-registry] unknown module: ${moduleId}`)
+  const entry = getCommandCentreModule(moduleId)
+  if (!entry) throw new Error(`[command-centre-registry] unknown module: ${moduleId}`)
 
   const params = new URLSearchParams()
   if (context.country) params.set('country', context.country)
   if (context.role) params.set('role', context.role)
-  params.set('page', mod.desktopPage)
-  params.set('section', context.section ?? mod.mobileSection)
+  params.set('page', entry.desktopPage)
+  params.set('section', context.section ?? entry.mobileSection)
   if (context.marketView) params.set('marketView', context.marketView)
   if (context.tool) params.set('tool', context.tool)
   if (context.listing) params.set('listing', context.listing)
@@ -242,14 +242,14 @@ export function buildCommandCentreHref(
 }
 
 export function getCommandCentreReadinessSummary() {
-  const critical = COMMAND_CENTRE_MODULE_REGISTRY.filter(module => module.criticality === 'launch-critical')
+  const critical = COMMAND_CENTRE_MODULE_REGISTRY.filter(entry => entry.criticality === 'launch-critical')
   return Object.freeze({
     totalModules: COMMAND_CENTRE_MODULE_REGISTRY.length,
     launchCriticalModules: critical.length,
     importantModules: COMMAND_CENTRE_MODULE_REGISTRY.length - critical.length,
     uniqueDesktopPages: COMMAND_CENTRE_PAGE_IDS.length,
     configuredDesktopPages: COMMAND_CENTRE_CONFIGURED_PAGE_IDS.length,
-    mobileSections: new Set(COMMAND_CENTRE_MODULE_REGISTRY.map(module => module.mobileSection)).size,
+    mobileSections: new Set(COMMAND_CENTRE_MODULE_REGISTRY.map(entry => entry.mobileSection)).size,
     routePolicies: COMMAND_CENTRE_ROUTE_REGISTRY.length,
   })
 }

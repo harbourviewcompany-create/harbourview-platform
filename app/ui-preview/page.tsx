@@ -4,8 +4,8 @@ import React, { useState } from "react"
 import { 
   Button, Card, CardHeader, CardTitle, CardContent, 
   Input, Badge, Skeleton, Tabs, TabsList, TabsTrigger, TabsContent,
-  Label, Separator, Textarea, Checkbox, Switch, Alert, AlertTitle, AlertDescription,
-  Select, Popover, Tooltip, Avatar, Sheet, SheetHeader, SheetTitle 
+  Label, Textarea, Checkbox, Switch, Alert, AlertTitle, AlertDescription,
+  Select, Popover, Tooltip, Avatar 
 } from "@/components/ui"
 import { Toaster } from "@/components/ui/sonner"
 function toast(msg: string) { console.log(msg) }

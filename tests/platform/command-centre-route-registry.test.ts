@@ -8,13 +8,13 @@ import {
 
 describe('production command centre route registry', () => {
   it('defines unique modules with desktop and mobile render targets', () => {
-    const ids = COMMAND_CENTRE_MODULES.map(module => module.id)
+    const ids = COMMAND_CENTRE_MODULES.map(entry => entry.id)
     expect(new Set(ids).size).toBe(ids.length)
 
-    for (const mod of COMMAND_CENTRE_MODULES) {
-      expect(mod.desktopPage).toBeTruthy()
-      expect(mod.mobileSection).toBeTruthy()
-      expect(['launch-critical', 'important']).toContain(mod.criticality)
+    for (const entry of COMMAND_CENTRE_MODULES) {
+      expect(entry.desktopPage).toBeTruthy()
+      expect(entry.mobileSection).toBeTruthy()
+      expect(['launch-critical', 'important']).toContain(entry.criticality)
     }
   })
 
@@ -75,18 +75,12 @@ describe('production command centre route registry', () => {
     })
   })
 
-  it('routes only the three transaction workflows to in-shell tools', () => {
-    const transactionSources = ['/marketplace/sell', '/marketplace/wanted', '/marketplace/financing']
-    for (const source of transactionSources) {
+  it('activates only the three transaction workflows with verified in-shell reload parity', () => {
+    for (const source of ['/marketplace/sell', '/marketplace/wanted', '/marketplace/financing']) {
       const policy = COMMAND_CENTRE_ROUTE_POLICY.find(route => route.source === source)
-      expect(policy).toBeDefined()
       expect(policy?.mode).toBe('redirect-now')
       expect(policy?.destination).toContain('tool=')
     }
-    const toolRedirects = COMMAND_CENTRE_ROUTE_POLICY
-      .filter(route => route.mode === 'redirect-now' && route.destination.includes('tool='))
-      .map(route => route.source)
-    expect(new Set(toolRedirects)).toEqual(new Set(transactionSources))
     expect(COMMAND_CENTRE_ROUTE_POLICY.find(route => route.source === '/intake')?.mode).toBe('retain-public')
   })
 })

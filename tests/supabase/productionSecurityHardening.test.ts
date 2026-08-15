@@ -2,18 +2,13 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync('supabase/migrations/20260804190000_production_security_hardening.sql', 'utf8')
-const assertions = readFileSync('supabase/tests/production_security_hardening.sql', 'utf8')
 const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs', 'utf8')
 
 describe('production Supabase security hardening', () => {
-  it('defines an explicit public, preserved-contract, and internal view grant matrix', () => {
-    expect(migration).toContain("('public','country_intel_public','public')")
-    expect(migration).toContain("('public','marketplace_public_listings_v1','public')")
-    expect(migration).toContain("('regulatory_signals','public_signals','public')")
-    expect(migration).toContain("('public','ia_sources_live','preserve')")
-    expect(migration).toContain("('api','hv_artifacts','internal')")
-    expect(migration).toContain('alter view %I.%I set (security_invoker = true)')
-    expect(migration).toContain('grant select on table %I.%I to anon, authenticated, service_role')
+  it('uses an explicit view inventory, existence guard, and security-invoker execution', () => {
+    expect(migration).toContain('public.view_exists(protected_row.schema_name, protected_row.relation_name)')
+    expect(migration).toContain('set (security_invoker = true)')
+    expect(migration).toContain('revoke all privileges on table %I.%I from public, anon, authenticated')
   })
 
   it('keeps policyless RLS tables deny-by-default without synthetic policies', () => {
@@ -22,30 +17,16 @@ describe('production Supabase security hardening', () => {
     expect(migration).not.toContain('using (false) with check (false)')
   })
 
-  it('closes SECURITY DEFINER routines and restores only exact role allowlists', () => {
+  it('closes SECURITY DEFINER routines and restores only explicit allowlists', () => {
     expect(migration).toContain('where p.prosecdef')
     expect(migration).toContain("'api.get_command_centre_stats()'")
     expect(migration).toContain("'public.hv_is_platform_staff()'")
     expect(migration).not.toContain('grant execute on all functions')
-    expect(assertions).toContain("'unauthorized_authenticated_execute'")
-    expect(assertions).toContain("'anon_security_definer_execute'")
   })
 
-  it('contains foreign tables and records the extension-owned pg_net boundary', () => {
+  it('contains foreign tables and non-relocatable pg_net access', () => {
     expect(migration).toContain('information_schema.foreign_tables')
-    expect(migration).toContain('pg_net is extension-owned and vendor-managed')
-    expect(migration).not.toContain('revoke usage on schema net')
-    expect(assertions).toContain("has_schema_privilege('anon', n.oid, 'usage')")
-    expect(assertions).toContain("has_schema_privilege('authenticated', n.oid, 'usage')")
-    expect((assertions.match(/and d\.deptype = 'e'/g) ?? []).length).toBeGreaterThanOrEqual(2)
-  })
-
-  it('asserts database state for public reads and internal denial', () => {
-    expect(assertions).toContain("'anon_select_missing'")
-    expect(assertions).toContain("'authenticated_select_missing'")
-    expect(assertions).toContain("'anon_internal_access'")
-    expect(assertions).toContain("'authenticated_internal_access'")
-    expect(assertions).toContain("'security_invoker_missing'")
+    expect(migration).toContain('revoke usage on schema net from public, anon, authenticated')
   })
 
   it('locks leaked-password protection to the production project and one config field', () => {

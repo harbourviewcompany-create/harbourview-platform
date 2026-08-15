@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
@@ -337,6 +336,3 @@ export default async function CountryRoleCommandCenterPage({ params, searchParam
     />
   )
 }
-
-
-

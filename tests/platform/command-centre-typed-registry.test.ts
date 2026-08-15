@@ -12,8 +12,8 @@ import {
 describe('typed Command Centre registry', () => {
   it('exposes the complete 32-module universe without duplicate ids', () => {
     expect(COMMAND_CENTRE_MODULE_REGISTRY).toHaveLength(32)
-    expect(new Set(COMMAND_CENTRE_MODULE_REGISTRY.map(module => module.id)).size).toBe(32)
-    expect(COMMAND_CENTRE_MODULE_REGISTRY.every(module => module.desktopPage && module.mobileSection)).toBe(true)
+    expect(new Set(COMMAND_CENTRE_MODULE_REGISTRY.map(entry => entry.id)).size).toBe(32)
+    expect(COMMAND_CENTRE_MODULE_REGISTRY.every(entry => entry.desktopPage && entry.mobileSection)).toBe(true)
   })
 
   it('parses every supported desktop page and rejects unknown pages', () => {
@@ -47,9 +47,9 @@ describe('typed Command Centre registry', () => {
   })
 
   it('maps every registered module to a deterministic mobile destination', () => {
-    for (const mod of COMMAND_CENTRE_MODULE_REGISTRY) {
-      expect(getMobileSectionForPage(mod.desktopPage)).toBeTruthy()
-      expect(getCommandCentreModule(mod.id)).toEqual(mod)
+    for (const entry of COMMAND_CENTRE_MODULE_REGISTRY) {
+      expect(getMobileSectionForPage(entry.desktopPage)).toBeTruthy()
+      expect(getCommandCentreModule(entry.id)).toEqual(entry)
     }
     expect(getMobileSectionForPage('marketplace')).toBe('marketplace')
     expect(getMobileSectionForPage('experts')).toBe('directories')

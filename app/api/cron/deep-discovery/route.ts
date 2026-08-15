@@ -86,11 +86,6 @@ export async function GET(request: Request) {
     ((recentEntities ?? []) as Array<{ market: string }>).map(r => r.market)
   )
 
-  // Build reverse map: country name → ISO
-  const nameToIso = new Map<string, string>(
-    Object.entries(ISO_TO_NAME).map(([iso, name]) => [name, iso])
-  )
-
   // Eligible = ISOs whose country name has no recent ia_graph_entities row
   const eligible = allIsos.filter(iso => {
     const name = ISO_TO_NAME[iso]
