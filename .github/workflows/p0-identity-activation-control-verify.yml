@@ -1,0 +1,72 @@
+name: P0 Identity Activation Control Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/activate-p0-identity-org-context.yml
+      - .github/workflows/p0-identity-activation-control-verify.yml
+      - scripts/p0-identity-activation-control.mjs
+      - supabase/release-controls/p0-identity-org-context-activation.json
+      - supabase/migrations/20260814122000_p0_identity_org_context.sql
+      - tests/scripts/p0-identity-activation-control.test.mjs
+      - tests/sql/p0_identity_production_preflight_read_only.sql
+      - tests/sql/p0_identity_production_postflight_read_only.sql
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/activate-p0-identity-org-context.yml
+      - scripts/p0-identity-activation-control.mjs
+      - supabase/release-controls/p0-identity-org-context-activation.json
+      - tests/scripts/p0-identity-activation-control.test.mjs
+      - tests/sql/p0_identity_production_preflight_read_only.sql
+      - tests/sql/p0_identity_production_postflight_read_only.sql
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify immutable binding
+        run: node scripts/p0-identity-activation-control.mjs verify --control supabase/release-controls/p0-identity-org-context-activation.json --migration supabase/migrations/20260814122000_p0_identity_org_context.sql
+
+      - name: Run focused activation-control tests
+        run: node --test tests/scripts/p0-identity-activation-control.test.mjs
+
+      - name: Generate and inspect activation stream
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/p0-activation-control
+          node scripts/p0-identity-activation-control.mjs generate \
+            --control supabase/release-controls/p0-identity-org-context-activation.json \
+            --migration supabase/migrations/20260814122000_p0_identity_org_context.sql \
+            --out artifacts/p0-activation-control/activation.sql
+          test "$(grep -c '^INSERT INTO supabase_migrations.schema_migrations$' artifacts/p0-activation-control/activation.sql)" = "1"
+          ! grep -Eiq 'supabase[[:space:]]+db[[:space:]]+push|--include-all' artifacts/p0-activation-control/activation.sql
+          sha256sum supabase/migrations/20260814122000_p0_identity_org_context.sql artifacts/p0-activation-control/activation.sql
+
+      - name: Prove preflight SQL is read-only
+        run: |
+          set -euo pipefail
+          grep -Eiq '^begin transaction read only;' tests/sql/p0_identity_production_preflight_read_only.sql
+          grep -Eiq '^rollback;' tests/sql/p0_identity_production_preflight_read_only.sql
+          ! grep -Eiq '(^|[[:space:]])(insert|update|delete|alter|create|drop|grant|revoke|truncate)[[:space:]]' tests/sql/p0_identity_production_preflight_read_only.sql
+
+      - name: Prove activation workflow cannot broaden migration scope
+        run: |
+          set -euo pipefail
+          ! grep -Eiq 'supabase[[:space:]]+db[[:space:]]+push|--include-all' .github/workflows/activate-p0-identity-org-context.yml
+          grep -Fq 'environment: production-database' .github/workflows/activate-p0-identity-org-context.yml
+          grep -Fq "inputs.production_action == 'APPLY_P0_IDENTITY_ORG_CONTEXT'" .github/workflows/activate-p0-identity-org-context.yml
+          grep -Fq 'workflow_dispatch:' .github/workflows/activate-p0-identity-org-context.yml
