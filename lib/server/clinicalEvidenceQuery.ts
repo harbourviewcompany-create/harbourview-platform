@@ -7,6 +7,7 @@ import {
   type ClinicalEvidenceApiResult,
   type ClinicalFailureCategory,
 } from '@/lib/clinical/runtime'
+import { getExpectedSupabaseHost, isExplicitLocalSupabaseUrl } from '@/lib/supabase/env'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -17,6 +18,16 @@ const CHANGE_SELECT = [
 
 type Row = Record<string, unknown>
 type ErrorPayload = { code?: unknown; message?: unknown; details?: unknown; hint?: unknown }
+
+type ClinicalSupabaseConfig = {
+  url: string
+  headers: {
+    apikey: string
+    Authorization: string
+    Accept: string
+    'Content-Type': string
+  }
+}
 
 class ClinicalEvidenceQueryError extends Error {
   readonly category: ClinicalFailureCategory
@@ -113,13 +124,30 @@ function mapChange(row: Row): ClinicalEvidenceChangeEventDTO {
   }
 }
 
-function headers() {
-  if (!SUPABASE_ANON_KEY) return null
+function clinicalSupabaseConfig(): ClinicalSupabaseConfig {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new ClinicalEvidenceQueryError('clinical_evidence_not_configured', 'configuration')
+  }
+
+  let hostname = ''
+  try {
+    hostname = new URL(SUPABASE_URL).hostname
+  } catch {
+    throw new ClinicalEvidenceQueryError('clinical_evidence_not_configured_invalid_supabase_url', 'configuration')
+  }
+
+  if (hostname !== getExpectedSupabaseHost() && !isExplicitLocalSupabaseUrl(SUPABASE_URL)) {
+    throw new ClinicalEvidenceQueryError('clinical_evidence_environment_mismatch', 'environment-mismatch')
+  }
+
   return {
-    apikey: SUPABASE_ANON_KEY,
-    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
+    url: SUPABASE_URL,
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
   }
 }
 
@@ -144,9 +172,8 @@ async function responseError(response: Response, operation: string): Promise<Cli
 }
 
 async function rest(path: string): Promise<Row[]> {
-  const authHeaders = headers()
-  if (!SUPABASE_URL || !authHeaders) throw new ClinicalEvidenceQueryError('clinical_evidence_not_configured', 'configuration')
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { next: { revalidate: 300 }, headers: authHeaders })
+  const config = clinicalSupabaseConfig()
+  const response = await fetch(`${config.url}/rest/v1/${path}`, { next: { revalidate: 300 }, headers: config.headers })
   if (!response.ok) throw await responseError(response, 'clinical_evidence_query')
   const body = await response.json()
   if (!Array.isArray(body)) throw new ClinicalEvidenceQueryError('clinical_evidence_schema_invalid_rest_result', 'schema')
@@ -154,12 +181,11 @@ async function rest(path: string): Promise<Row[]> {
 }
 
 async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
-  const authHeaders = headers()
-  if (!SUPABASE_URL || !authHeaders) throw new ClinicalEvidenceQueryError('clinical_evidence_not_configured', 'configuration')
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+  const config = clinicalSupabaseConfig()
+  const response = await fetch(`${config.url}/rest/v1/rpc/${name}`, {
     method: 'POST',
     cache: 'no-store',
-    headers: authHeaders,
+    headers: config.headers,
     body: JSON.stringify(body),
   })
   if (!response.ok) throw await responseError(response, `clinical_evidence_rpc_${name}`)
