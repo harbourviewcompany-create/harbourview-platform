@@ -243,6 +243,11 @@ export default async function DashboardPage({
         cultivarPassports={cultivarPassports}
         serviceProviders={serviceProviders}
         collaborationProjects={collaborationProjects}
+        geneticsSourceMeta={{
+          cultivarPassports: commandData.sources.cultivarPassports,
+          serviceProviders: commandData.sources.serviceProviders,
+          collaborationProjects: commandData.sources.collaborationProjects,
+        }}
         mySubmissions={mySubmissions}
         countryEducationOverlays={countryEducationOverlays}
       />

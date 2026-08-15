@@ -51,6 +51,21 @@ export function DashboardResponsiveShellContent({
       data-dashboard-renderer={renderer}
       data-command-centre-renderer={renderer}
       data-command-centre-module-count={COMMAND_CENTRE_MODULE_REGISTRY.length}
+      // Without this the desktop wrapper collapses to zero height. `.cc-app` is
+      // `position:fixed; inset:0`, and DesktopCommandWorkspace returns null
+      // unless `?tool=` is present, so on every desktop page this element has
+      // no in-flow children at all -- it measures 1440x0 while the Command
+      // Centre paints full-screen behind it.
+      //
+      // That matters because this element is the renderer marker the E2E suite
+      // queries, and a zero-area box is indistinguishable from a missing node
+      // to Playwright's `:visible`, to accessibility tooling, and to element
+      // screenshots. Claiming the viewport makes the marker's box agree with
+      // what is actually on screen.
+      //
+      // It cannot move anything: the desktop child is out of flow, and the
+      // mobile child already fills at least the viewport.
+      style={{ minHeight: '100dvh' }}
     >
       {isMobile
         ? <MobileCommandCentreRebuild {...props} />
