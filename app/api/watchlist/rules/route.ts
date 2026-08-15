@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getAuthenticatedUser } from '@/lib/supabase/server'
+import { resolveActiveWorkspace } from '@/lib/hv/active-workspace'
 
 async function resolveOrg(userId: string) {
-  const svc = await createSupabaseServiceClient()
-  const { data } = await svc
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle()
-  return { svc, orgId: data?.workspace_id ?? null }
+  const { supabase, workspaceId, stale, error } = await resolveActiveWorkspace(userId)
+  return { svc: supabase, orgId: workspaceId, stale, error }
 }
 
 export async function GET() {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { svc, orgId } = await resolveOrg(user.id)
-  if (!orgId) return NextResponse.json({ rules: [] })
+  const { svc, orgId, stale, error: contextError } = await resolveOrg(user.id)
+  if (contextError) return NextResponse.json({ error: 'Operating context unavailable' }, { status: 500 })
+  if (!orgId) return NextResponse.json({ rules: [], operating_mode: 'personal', stale_context: stale })
 
   const { data, error } = await svc
     .from('cc_watch_rules')
@@ -27,7 +23,7 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ rules: data ?? [] })
+  return NextResponse.json({ rules: data ?? [], operating_mode: 'organization', workspace_id: orgId })
 }
 
 export async function POST(req: NextRequest) {
@@ -41,8 +37,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'rule_type and keywords are required' }, { status: 400 })
   }
 
-  const { svc, orgId } = await resolveOrg(user.id)
-  if (!orgId) return NextResponse.json({ error: 'No organisation found' }, { status: 403 })
+  const { svc, orgId, stale, error: contextError } = await resolveOrg(user.id)
+  if (contextError) return NextResponse.json({ error: 'Operating context unavailable' }, { status: 500 })
+  if (!orgId) {
+    return NextResponse.json(
+      { error: stale ? 'Selected organization is no longer available' : 'Select an organization before creating organization-scoped watch rules' },
+      { status: 409 },
+    )
+  }
 
   const { data, error } = await svc
     .from('cc_watch_rules')
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ rule: data }, { status: 201 })
+  return NextResponse.json({ rule: data, workspace_id: orgId }, { status: 201 })
 }
 
 export async function DELETE(req: NextRequest) {
@@ -68,8 +70,14 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  const { svc, orgId } = await resolveOrg(user.id)
-  if (!orgId) return NextResponse.json({ error: 'No organisation found' }, { status: 403 })
+  const { svc, orgId, stale, error: contextError } = await resolveOrg(user.id)
+  if (contextError) return NextResponse.json({ error: 'Operating context unavailable' }, { status: 500 })
+  if (!orgId) {
+    return NextResponse.json(
+      { error: stale ? 'Selected organization is no longer available' : 'Select an organization before changing organization-scoped watch rules' },
+      { status: 409 },
+    )
+  }
 
   const { error } = await svc
     .from('cc_watch_rules')
@@ -79,5 +87,5 @@ export async function DELETE(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, workspace_id: orgId })
 }

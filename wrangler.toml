@@ -2,31 +2,89 @@
 # Deploy: wrangler deploy
 # Local dev: wrangler dev
 
-name = "harbourview-platform"
+# MUST match the Worker name in the Cloudflare dashboard. Cloudflare is explicit
+# that a mismatch fails the build outright: "the Worker name in the Cloudflare
+# dashboard must match the `name` in the Wrangler configuration file in the
+# specified root directory, or the build will fail"
+# (developers.cloudflare.com/workers/ci-cd/builds/).
+#
+# The Worker was renamed harbourview-platform -> harbourview in the dashboard on
+# 2026-08-15, so this follows it. Renaming the Worker also moves its workers.dev
+# hostname, which is now harbourview.harbourviewcompany.workers.dev.
+name = "harbourview"
 # scripts/engine/start-worker.ts is the Node.js daemon entrypoint (infinite
 # poll loop) for a persistent host (Docker/ECS/Cloud Run/Fly/Railway) --
 # incompatible with this platform, which has no persistent process.
 # cloudflare-worker.ts exports the scheduled()/fetch() handlers this
-# platform actually invokes; only the "Ingestion run" cron below has a
-# real implementation behind it today (see that file's header comment).
+# platform actually invokes. No cron triggers are declared any more, so
+# scheduled() is currently unreachable and only the /healthz fetch route is
+# live -- see the "Cron triggers: REMOVED" note below for why.
 main = "scripts/engine/cloudflare-worker.ts"
 compatibility_date = "2025-06-28"
 compatibility_flags = ["nodejs_compat"]
 
-# Wrangler bundles the Worker entrypoint. This build gate performs the same
-# strict project-aware TypeScript verification used by CI; it must fail rather
-# than suppress compiler defects with a false-success `|| true` path.
+# Kept ENABLED deliberately. An earlier revision of this file set this to false,
+# reasoning that only /healthz is served so no public hostname was needed. That
+# was written while the build was failing and nothing could deploy, which made it
+# a harmless-looking change. It is not harmless now.
+#
+# The Worker has a live hostname (harbourview.harbourviewcompany.workers.dev, one
+# attached domain, non-zero invocations) and an active deployment. Once the name
+# above lets Workers Builds succeed, `wrangler deploy` starts applying this file
+# for real -- and `workers_dev = false` would tear that hostname down as a side
+# effect of a build fix. Wrong blast radius for the change being made.
+#
+# Must stay above the first [table] -- a top-level key written after one is
+# parsed as a member of that table, not as a root key.
+workers_dev = true
+
+# Wrangler bundles the Worker entrypoint. This runs on a local `wrangler deploy`
+# / `wrangler dev`.
+#
+# It does NOT run in Workers Builds. Cloudflare's own documentation is explicit:
+# "Workers Builds does not honor the configurations set in Custom Builds within
+# your Wrangler configuration file"
+# (developers.cloudflare.com/workers/ci-cd/builds/configuration/). The build
+# command used by the "Workers Builds" check comes from the
+# dashboard, not from here. An earlier version of this comment claimed this was
+# "the same strict verification used by CI" -- it is not, and relying on it as a
+# CI gate would be relying on something that never executes there.
 [build]
 command = "npm run typecheck"
 
-# ── Cron triggers ──────────────────────────────────────────────────────────────
-[triggers]
-crons = [
-  "*/15 * * * *",   # Discovery sweep — every 15 min
-  "*/30 * * * *",   # Ingestion run — every 30 min
-  "0 * * * *",      # Deep discovery — hourly
-  "0 */6 * * *",    # Source health sweep — every 6 hours
-]
+# ── Cron triggers: REMOVED, deliberately ──────────────────────────────────────
+#
+# This Worker previously declared four crons. Three were explicitly NOT
+# IMPLEMENTED (see the table in scripts/engine/cloudflare-worker.ts) and the
+# scheduled() handler logs-and-returns for them. The fourth, "*/30 * * * *"
+# Ingestion run, WAS implemented -- it calls WorkerNode.runOnce().
+#
+# That one is the problem. Verified against production 2026-08-15, not inferred:
+#
+#   live pg_cron job  hv-source-pull-runner-safe-rss   schedule */30 * * * *   active
+#   live pg_cron job  hv-source-health-sweep           schedule 5 * * * *      active
+#
+#   public.source_snapshots  18,706 rows  newest 2026-08-15 03:30:10+00
+#   public.source_registry    1,799 rows  newest 2026-08-15 02:20:11+00
+#
+# WorkerNode writes source_registry, source_snapshots, source_documents and
+# crawl_domain_circuit_state (traced through lib/intelligence-engine/**). Those
+# are the same tables the live Supabase edge-function pipeline is actively
+# writing, on the same 30-minute cadence. Deploying this Worker with its crons
+# intact would run a second ingestion pipeline against the same project --
+# duplicate snapshots, duplicate registry churn, and a second writer competing
+# for the same circuit-breaker state.
+#
+# docs/INTELLIGENCE_ARCHITECTURE_SPEC.md does not mention Cloudflare anywhere;
+# the approved ingestion path is Supabase edge functions driven by pg_cron.
+# Guardrail 10 names this exact situation: "Two independent implementations of
+# the same stage is itself the failure, not a tiebreaker exercise."
+#
+# So the crons are removed rather than left for a future deploy to activate.
+# What remains is the /healthz fetch handler, which reads nothing and writes
+# nothing. If Cloudflare-side ingestion is ever genuinely wanted, it needs to
+# replace the pg_cron path in the spec first -- not run alongside it.
+
 
 # ── Environment variables (set secrets via: wrangler secret put VAR_NAME) ──────
 [vars]
@@ -43,8 +101,8 @@ INTELLIGENCE_WORKER_ID      = "cf-worker-01"
 # pointing at a placeholder id ("__replace_with_your_kv_namespace_id__") that
 # was never swapped for a real namespace. Nothing in cloudflare-worker.ts
 # reads env.RATE_LIMIT_KV — it was declared but never used — and the
-# placeholder id is what was failing "Workers Builds: harbourview-platform"
-# on every PR. Removed rather than faked, since fabricating an id here would
+# placeholder id is what was failing "Workers Builds"
+# on every PR at that time. Removed rather than faked, since fabricating an id here would
 # just move the failure from build-time to first-request-time. If KV-backed
 # rate limiting is needed for this worker later, create a real namespace via
 # `wrangler kv namespace create RATE_LIMIT_KV` and re-add the binding with

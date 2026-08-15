@@ -5,6 +5,11 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import {
+  getActiveEvidenceData,
+  getActiveOrgPathwayProgress,
+  getActiveWatchlistData,
+} from '@/lib/dashboard/activeWorkspaceDashboardData'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
 import { checkFeatureAccess } from '@/lib/billing/entitlements'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
@@ -73,6 +78,7 @@ export default async function DashboardPage({
   let userAppMetadata: Record<string, unknown> | undefined
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
+  let activeWorkspaceId: string | null = null
   let hasOrg = false
 
   try {
@@ -84,19 +90,32 @@ export default async function DashboardPage({
       userAppMetadata = user.app_metadata
       const { data: prefs } = await supabase
         .from('user_dashboard_preferences')
-        .select('country_iso2, role_id')
+        .select('country_iso2, role_id, active_workspace_id')
         .eq('user_id', user.id)
-        .single()
+        .maybeSingle()
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
+      activeWorkspaceId = prefs?.active_workspace_id ?? null
 
-      const { data: membership } = await supabase
-        .from('workspace_members')
-        .select('workspace_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single()
-      hasOrg = !!membership
+      if (activeWorkspaceId) {
+        const [{ data: membership }, { data: workspace }] = await Promise.all([
+          supabase
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('workspace_id', activeWorkspaceId)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .maybeSingle(),
+          supabase
+            .from('workspaces')
+            .select('id,status')
+            .eq('id', activeWorkspaceId)
+            .eq('status', 'active')
+            .maybeSingle(),
+        ])
+        hasOrg = Boolean(membership && workspace)
+        if (!hasOrg) activeWorkspaceId = null
+      }
     }
   } catch (error) {
     console.error('[command-centre-auth-context]', {
@@ -113,10 +132,25 @@ export default async function DashboardPage({
     userId,
     hasOrganization: hasOrg,
   } as const
-  const commandData = await loadCommandCentreData(
-    loadContext,
-    buildDashboardCommandSources(loadContext),
-  )
+
+  const defaultSources = buildDashboardCommandSources(loadContext)
+  const commandSources = {
+    ...defaultSources,
+    orgPathway: {
+      ...defaultSources.orgPathway,
+      load: () => getActiveOrgPathwayProgress(activeWorkspaceId, countryIso2, roleId),
+    },
+    watchlistData: {
+      ...defaultSources.watchlistData,
+      load: () => getActiveWatchlistData(activeWorkspaceId, userId),
+    },
+    evidenceData: {
+      ...defaultSources.evidenceData,
+      load: () => getActiveEvidenceData(activeWorkspaceId, countryIso2),
+    },
+  }
+
+  const commandData = await loadCommandCentreData(loadContext, commandSources)
 
   const {
     signals,
@@ -167,7 +201,7 @@ export default async function DashboardPage({
       loadedAt={commandData.loadedAt}
     >
       <DashboardResponsiveShell
-        key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
+        key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${activeWorkspaceId ?? 'personal'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
         signals={signals}
         digestSignals={dailyDigest.signals}
