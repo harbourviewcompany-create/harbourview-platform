@@ -623,7 +623,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
                   {record.outcome && <><dt>Outcome</dt><dd>{record.outcome}</dd></>}
                   <dt>Currentness</dt><dd>{formatStatus(record.freshnessStatus ?? 'current')} · {formatStatus(record.supersessionState)}</dd>
                   <dt>Jurisdiction</dt><dd>{record.jurisdiction.join(', ') || 'Not encoded'}</dd>
-                  <dt>Profession</dt><dd>{record.professionRelevance.length ? record.professionRelevance.map(formatStatus).join(', ') : 'Not encoded'}</dd>
+                  <dt>Profession</dt><dd>{record.professionRelevance.length ? record.professionRelevance.map(value => formatStatus(value)).join(', ') : 'Not encoded'}</dd>
                   <dt>Verified</dt><dd>{date(record.verifiedAt)}{record.effectiveDate ? ` · effective ${date(record.effectiveDate)}` : ''}</dd>
                 </dl>
                 {record.uncertainty && <p><strong>Uncertainty:</strong> {record.uncertainty}</p>}
