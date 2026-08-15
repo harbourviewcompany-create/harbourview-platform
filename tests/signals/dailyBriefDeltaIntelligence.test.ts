@@ -10,6 +10,10 @@ const historyBackfill = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260815213000_daily_brief_delta_history_backfill.sql'),
   'utf8',
 )
+const lineageHardening = readFileSync(
+  resolve(process.cwd(), 'supabase/migrations/20260815234000_daily_brief_lineage_hardening.sql'),
+  'utf8',
+)
 const dedupMigration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260815190715_daily_brief_event_dedup_hardening.sql'),
   'utf8',
@@ -70,11 +74,43 @@ describe('Daily Brief cross-edition delta intelligence', () => {
     expect(historyBackfill).not.toContain("coalesce(nullif(h.item->>'signal_id', ''),")
   })
 
+  it('consults persistent canonical lineage for every candidate beyond the bounded recent history window', () => {
+    expect(migration).toContain('limit 250')
+    expect(lineageHardening).toContain('create or replace function public._digest_candidate_lineage_context')
+    expect(lineageHardening).toContain("'prior_lineage', public._digest_candidate_lineage_context(t.event_key_hint)")
+    expect(lineageHardening).toContain('from public.digest_event_lineage l')
+    expect(lineageHardening).toContain('or l.root_event_key = p_event_key_hint')
+    expect(lineageHardening).toContain('which may reference an event older than prior_presentations')
+  })
+
+  it('fails closed when material advancement points at a missing or hallucinated prior event', () => {
+    expect(lineageHardening).toContain("when nullif(e->>'prior_event_key','') is null then false")
+    expect(lineageHardening).toContain("where prior_lineage.event_key = nullif(e->>'prior_event_key','')")
+    expect(lineageHardening).toContain('and c.lineage_valid')
+    expect(lineageHardening).toContain("where delta_status='material_advancement' and not lineage_valid")
+  })
+
+  it('allows a valid old-event material advancement when persisted lineage resolves', () => {
+    expect(lineageHardening).toContain("when e->>'delta_status' <> 'material_advancement' then true")
+    expect(lineageHardening).toContain('from public.digest_event_lineage prior_lineage')
+    expect(lineageHardening).toContain('and c.lineage_valid')
+    expect(lineageHardening).toContain("c.delta_status in ('new_event','material_advancement')")
+  })
+
+  it('collapses multiple source articles advancing the same persisted canonical event within an edition', () => {
+    expect(lineageHardening).toContain("when c.delta_status = 'material_advancement' then c.prior_event_key")
+    expect(lineageHardening).toContain('order by c.priority_score desc, c.signal_id')
+    expect(migration).toContain('select * from ranked where event_rn = 1')
+    expect(migration).toContain('on conflict (digest_date, event_key) do nothing')
+  })
+
   it('preserves source evidence instead of deleting or rewriting source signals', () => {
     expect(migration).not.toMatch(/delete\s+from\s+public\.signals/i)
     expect(migration).not.toMatch(/update\s+public\.signals\s+set\s+(headline|summary|source|cluster_rep_id|is_representative)/i)
     expect(historyBackfill).not.toMatch(/delete\s+from\s+public\.signals/i)
     expect(historyBackfill).not.toMatch(/update\s+public\.signals/i)
+    expect(lineageHardening).not.toMatch(/delete\s+from\s+public\.signals/i)
+    expect(lineageHardening).not.toMatch(/update\s+public\.signals/i)
     expect(migration).toContain('update public.signals s set used_in_digest_at = now()')
     expect(migration).toContain('where s.id in (select signal_id from presentation_write)')
   })
@@ -89,6 +125,8 @@ describe('Daily Brief cross-edition delta intelligence', () => {
       expect(migration).toContain(`revoke all on table public.${table} from anon, authenticated;`)
       expect(migration).toContain(`grant all on table public.${table} to service_role;`)
     }
+    expect(lineageHardening).toContain('revoke all on function public._digest_candidate_lineage_context(text) from public, anon, authenticated;')
+    expect(lineageHardening).toContain('grant execute on function public._digest_candidate_lineage_context(text) to service_role;')
   })
 
   it('records the priority domains, fact/inference split and major-operator position flag', () => {
