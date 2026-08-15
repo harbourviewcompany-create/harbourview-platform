@@ -40,10 +40,10 @@ INTELLIGENCE_WORKER_ID = "cf-worker-01"
 # Optional and currently inert while no Cron Trigger exists:
 #   WORKER_BATCH_SIZE
 #
-# Do not add ANTHROPIC_API_KEY, GOOGLE_GENAI_API_KEY, KV, D1, R2, Queues,
-# Durable Objects, or service bindings to this Worker unless a future approved
-# architecture actually consumes them. The full environment contract lives in
-# config/environment-manifest.json.
+# Do not add unrelated AI-provider credentials or Cloudflare data/service
+# bindings to this health Worker merely because the larger Next.js application
+# uses them. The complete classified environment contract lives in
+# config/environment-manifest.json and config/environment-workflow-manifest.json.
 
 [observability]
 enabled = true
