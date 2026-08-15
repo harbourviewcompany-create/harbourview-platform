@@ -34,18 +34,13 @@ export function globeRouterReducer(
         inlineNotice: undefined,
       }
     case 'MARKET_ENTER':
-      // Advance to role selection. This previously jumped straight to
-      // `step: 'routing'` with `selectedRoleId: 'importer'` hardcoded, which
-      // silently routed EVERY visitor — doctors, regulators, investors,
-      // cultivators — into the importer role's destination. The reducer already
-      // had working ROLE_SELECT / ROLE_SEARCH_SELECT cases and a
-      // BACK transition out of `step: 'role'`; the step was simply never
-      // reachable because nothing dispatched into it.
+      // Role is an optional operating-context preference, not an entry gate.
+      // The destination restores a signed-in user's saved role when available;
+      // otherwise role remains null, which Command presents as All roles.
       return {
         ...state,
-        step: 'role',
-        routeStatus: 'idle',
-        selectedRoleId: undefined,
+        step: 'routing',
+        routeStatus: 'resolving',
         selectedIntentId: undefined,
         roleSearchQuery: '',
       }
@@ -92,7 +87,6 @@ export function globeRouterReducer(
     case 'MULTI_MARKET_CONFIRM':
       return { ...state, step: 'market_overview', mode: 'multi_market', inlineNotice: undefined }
     case 'NOT_SURE_COUNTRY':
-      // No country known — route immediately to intake via the fallback path
       return {
         ...state,
         step: 'routing',
@@ -105,7 +99,7 @@ export function globeRouterReducer(
       }
     case 'ROLE_SELECT':
     case 'ROLE_SEARCH_SELECT':
-      // Role selection is the final user action — fire the resolver immediately
+      // Retained for explicit/legacy role-tailoring entry points.
       return {
         ...state,
         step: 'routing',
@@ -116,8 +110,6 @@ export function globeRouterReducer(
       }
     case 'ROLE_SEARCH_QUERY':
       return { ...state, roleSearchQuery: action.query }
-    // INTENT_SELECT and CONTINUE are kept for legacy compatibility but no longer
-    // reachable from the primary flow (intent step removed).
     case 'INTENT_SELECT':
       return { ...state, selectedIntentId: action.intentId, routeStatus: 'idle' }
     case 'CONTINUE':

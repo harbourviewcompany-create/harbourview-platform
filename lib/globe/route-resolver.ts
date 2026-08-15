@@ -5,10 +5,6 @@ import { getCountryByIso2 } from '@/lib/dashboard/countries'
 import { getCountryRoleHref } from '@/lib/roles/country-role-resolver'
 import type { DestinationType, GlobeRouteInput, GlobeRouteResult, IntentProfile, RoleId } from '@/types/globe-router'
 
-// Maps globe role IDs to destination types when no intent is selected.
-// Mirrors the DashboardRole logic in lib/dashboard/globeRouteContext.ts so the
-// resolver and the dashboard shell agree on where commercial vs medical vs
-// regulatory professionals land.
 const medicalRoleIds = new Set<RoleId>([
   'doctor_prescriber',
   'pharmacist',
@@ -54,18 +50,14 @@ const subdivisionParentIso2: Partial<Record<string, string>> = {
 
 function getSubdivisionParentIso2(value?: string): string | null {
   if (!value) return null
-
   const normalized = value.toUpperCase()
   const match = /^([A-Z]{2})-[A-Z0-9]{2,3}$/.exec(normalized)
-
   if (!match) return null
-
   return subdivisionParentIso2[match[1]] ?? null
 }
 
 function getRegionCode(input: GlobeRouteInput): string | undefined {
   if (input.mode === 'multi_market') return undefined
-
   return getSubdivisionParentIso2(input.countryIso2) ? input.countryIso2?.toUpperCase() : undefined
 }
 
@@ -85,7 +77,7 @@ function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPat
 
   if (input.countryIso2) params.set('country', input.countryIso2)
   if (input.countryIso2s?.length) params.set('countries', input.countryIso2s.join(','))
-  if (input.roleId) params.set('role', input.roleId)
+  if (input.roleId && input.roleId !== 'not_sure') params.set('role', input.roleId)
   if (regionCode) params.set('region', regionCode)
   if (input.intentId) params.set('intent', input.intentId)
   if (input.layerId) params.set('layer', input.layerId)
@@ -94,42 +86,31 @@ function appendGlobeQuery(basePath: string, input: GlobeRouteInput, requestedPat
   return `${basePath}?${params.toString()}`
 }
 
-// Resolve education-type destinations to the country dashboard education section.
-// Returns null when no country is available (multi-market / not-sure flows).
 function resolveCountryEducationPath(
   destinationType: DestinationType,
   input: GlobeRouteInput,
 ): string | null {
-  const isEducation =
-    destinationType === 'medical_education' || destinationType === 'regulatory_education'
-
-  if (!isEducation) return null
-  if (!input.countryIso2) return null
+  const isEducation = destinationType === 'medical_education' || destinationType === 'regulatory_education'
+  if (!isEducation || !input.countryIso2) return null
 
   const normalizedCountryIso2 = getSubdivisionParentIso2(input.countryIso2) ?? input.countryIso2
   const country = getCountryByIso2(normalizedCountryIso2)
   if (!country) return null
-
   return `/dashboard/country/${country.slug}/education`
 }
 
-// Resolve intelligence destinations to the country intelligence section when a country
-// is known and the section route exists.
 function resolveCountrySectionPath(
   destinationType: DestinationType,
   section: 'market' | 'signals' | 'opportunities' | 'intelligence' | 'connections',
   input: GlobeRouteInput,
 ): string | null {
-  if (!input.countryIso2) return null
-  if (input.mode === 'multi_market') return null
-
+  if (!input.countryIso2 || input.mode === 'multi_market') return null
   const normalizedCountryIso2 = getSubdivisionParentIso2(input.countryIso2) ?? input.countryIso2
   const country = getCountryByIso2(normalizedCountryIso2)
   if (!country) return null
 
   const sectionAvailable = country.routeAvailability[section as keyof typeof country.routeAvailability]
   if (!sectionAvailable) return null
-
   return `/dashboard/country/${country.slug}/${section}`
 }
 
@@ -145,9 +126,10 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 1. Single-market without intent — land on the canonical country-role dashboard.
-  //    State/province selections are normalized to their parent country for route
-  //    resolution while the original subdivision code is preserved as region context.
+  // Single-market entry is no longer blocked on professional role selection.
+  // Explicit roles retain the canonical country-role route. Missing role goes
+  // straight to Command; signed-in users restore their saved role there and
+  // everyone else operates under the nullable All roles context.
   if (!input.intentId && input.countryIso2) {
     const normalizedCountryIso2 = getSubdivisionParentIso2(input.countryIso2) ?? input.countryIso2
     const country = getCountryByIso2(normalizedCountryIso2)
@@ -162,12 +144,11 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
 
     return {
       status: 'resolved',
-      href: appendGlobeQuery('/market-selection', input),
+      href: appendGlobeQuery('/dashboard', input),
       destinationType,
     }
   }
 
-  // 2. Country-specific education — dynamic route, always available when slug resolves.
   const countryEducationPath = resolveCountryEducationPath(destinationType, input)
   if (countryEducationPath) {
     return {
@@ -177,7 +158,6 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 3. Country-specific signals section.
   if (destinationType === 'signals') {
     const countrySignalsPath = resolveCountrySectionPath(destinationType, 'signals', input)
     if (countrySignalsPath) {
@@ -189,7 +169,6 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 4. Country-specific opportunities section for marketplace intents.
   if (destinationType === 'marketplace_services') {
     const countryOppsPath = resolveCountrySectionPath(destinationType, 'opportunities', input)
     if (countryOppsPath) {
@@ -201,12 +180,10 @@ export function resolveGlobeRoute(input: GlobeRouteInput): GlobeRouteResult {
     }
   }
 
-  // 5. Standard manifest-backed resolution.
   const requestedPath = destinationBasePathMap[destinationType]
 
   if (!routeExists(requestedPath)) {
     const fallbackPath = getRouteFallback(requestedPath)
-
     return {
       status: 'fallback',
       href: appendGlobeQuery(fallbackPath, input, requestedPath),

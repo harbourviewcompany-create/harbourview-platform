@@ -3,6 +3,22 @@
 _Last updated: 2026-06-29_
 _HEAD: `4612f3d` (main)_
 
+Status: **SUPERSEDED — historical record only, not current authority**
+
+> ⚠️ **Do not use this file as current platform-status authority.** It is frozen at
+> 2026-06-29 (`4612f3d`). The live, actively-maintained operating handoff is the
+> repo-root `HANDOFF.md` — read that first; its own "CURRENT STATE" table is the
+> one to trust.
+>
+> This file, `docs/control/SOURCE_OF_TRUTH.md`, and `docs/control/PROJECT_STATE.md`
+> all predate root `HANDOFF.md`'s 2026-08-11 state by 6+ weeks.
+> `docs/control/AGENT_HANDOFF.md` was flagged on this same basis 2026-07-21 (see
+> `docs/control/EVIDENCE_LOG.md`, PR #1112) but this file itself was never updated
+> at that time — this pass closes that gap.
+>
+> Flagged during a docs-review session, 2026-08-15 — see
+> `docs/control/EVIDENCE_LOG.md` for the entry.
+
 ---
 
 ## Platform Status
