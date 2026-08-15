@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
-import { planReplayExclusions } from '../../scripts/prepare-production-faithful-migration-replay.mjs'
+import {
+  planReplayExclusions,
+  planReplayRelocations,
+} from '../../scripts/prepare-production-faithful-migration-replay.mjs'
 
 const root = process.cwd()
 const decisions = JSON.parse(
@@ -12,6 +15,7 @@ const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations')).fi
 
 const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
+const relocations = planReplayRelocations({ migrationFiles })
 
 test('replay excludes duplicate repository aliases only when the canonical live-version file is also present', () => {
   for (const [aliasVersion, canonicalVersion] of [
@@ -57,4 +61,38 @@ test('every exclusion is backed by exact-live-name-different-version control evi
       assert.ok(migrationFiles.some((file) => file.startsWith(`${equivalentVersion}_`)))
     }
   }
+})
+
+test('replay relocates the production-column reconciliation before the first supply view dependency', () => {
+  assert.deepEqual(relocations, [
+    {
+      source: '20260730220050_reconcile_listings_production_columns.sql',
+      destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
+      before: '20260730211147_create_supply_catalog_public_view.sql',
+    },
+  ])
+
+  const source = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260730220050_reconcile_listings_production_columns.sql'),
+    'utf8',
+  )
+  assert.match(source, /production's shape was established entirely outside recorded history/i)
+  assert.match(source, /Every column below is taken from the live catalog/i)
+})
+
+test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {
+  assert.deepEqual(
+    planReplayRelocations({
+      migrationFiles: [
+        '20260730220050_reconcile_listings_production_columns.sql',
+        '20260730211140_replay_reconcile_listings_production_columns.sql',
+        '20260730211147_create_supply_catalog_public_view.sql',
+      ],
+    }),
+    [],
+  )
+  assert.deepEqual(
+    planReplayRelocations({ migrationFiles: ['20260730220050_reconcile_listings_production_columns.sql'] }),
+    [],
+  )
 })
