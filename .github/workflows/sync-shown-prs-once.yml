@@ -1,0 +1,99 @@
+name: Synchronize Shown PRs Once
+
+on:
+  push:
+    branches:
+      - ops/sync-shown-prs-once
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Synchronize target PR branches
+        shell: bash
+        run: |
+          set -u
+          branches=(
+            'agent/p0-org-onboarding-regression-20260815'
+            'release-closure-20260814'
+            'ops/production-baseline-20260814'
+            'docs/close-net-schema-revoke-question-20260813'
+            'agent/clinical-professional-command-20260814'
+            'feature/supply-catalog-au'
+            'fix/command-centre-standalone-wiring-v2'
+            'agent/mobile-command-p0-remediation-20260813'
+            'kimi/rebase-decision-intel-2026-08-12'
+            'kimi/rebase-transactions-2026-08-12'
+          )
+
+          : > /tmp/sync-summary.txt
+          for branch in "${branches[@]}"; do
+            echo "===== $branch =====" | tee -a /tmp/sync-summary.txt
+            git reset --hard
+            git clean -fd
+            git checkout -B sync-work "origin/$branch"
+
+            if [ "$branch" = 'agent/p0-org-onboarding-regression-20260815' ]; then
+              migration='supabase/migrations/20260814122000_p0_identity_org_context.sql'
+              if [ ! -f "$migration" ]; then
+                git show 'origin/agent/p0-identity-org-context-20260814:'"$migration" > "$migration"
+                git add "$migration"
+                git commit -m 'fix(org): restore required P0 identity context migration'
+              fi
+            fi
+
+            if [ "$branch" = 'agent/clinical-professional-command-20260814' ]; then
+              old='supabase/migrations/20260814143000_clinical_evidence_v1_production_foundation.sql'
+              new='supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql'
+              if [ -f "$old" ]; then
+                git mv "$old" "$new"
+                while IFS= read -r -d '' file; do
+                  sed -i 's/20260814143000_clinical_evidence_v1_production_foundation/20260814143500_clinical_evidence_v1_production_foundation/g' "$file"
+                done < <(git grep -lz '20260814143000_clinical_evidence_v1_production_foundation' -- ':!supabase/migrations/20260814143000_clinical_evidence_v1_production_foundation.sql' || true)
+                git add -A
+                git commit -m 'fix(clinical): renumber production foundation migration to unique version'
+              fi
+            fi
+
+            if git merge --no-edit origin/main; then
+              if [ "$branch" = 'kimi/rebase-decision-intel-2026-08-12' ]; then
+                git checkout origin/main -- docs/control/DATABASE_CONTROL.md
+                if ! git diff --quiet; then
+                  git add docs/control/DATABASE_CONTROL.md
+                  git commit -m 'docs(control): preserve current main database control ledger'
+                fi
+              fi
+              git push origin HEAD:"$branch"
+              echo "SYNCED $branch $(git rev-parse HEAD)" | tee -a /tmp/sync-summary.txt
+            else
+              echo "CONFLICT $branch" | tee -a /tmp/sync-summary.txt
+              git diff --name-only --diff-filter=U | sed 's/^/  /' | tee -a /tmp/sync-summary.txt
+              git merge --abort || true
+            fi
+          done
+
+          cat /tmp/sync-summary.txt
+
+      - name: Upload sync summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shown-pr-sync-summary-${{ github.run_id }}
+          path: /tmp/sync-summary.txt
+          if-no-files-found: warn
+          retention-days: 7
