@@ -10,6 +10,32 @@ import {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// The analyze call can fail three different ways, and the only difference the
+// operator would otherwise see is that the row stays in the pending list --
+// identical to the LLM legitimately declining to analyze. Every failure mode is
+// therefore carried back through the redirect and rendered.
+//
+// This matters more than it looks right now: all three LLM providers are out of
+// credit, so `request_signal_analysis` currently fails for every signal. Without
+// this, the button appears to work and silently does nothing.
+function analyzeFailureReason(result: Awaited<ReturnType<typeof analyzeEngineSignal>>): string | null {
+  // Transport/PostgREST layer.
+  if (!result.ok) return result.error.message
+  const payload = result.data
+  // RPC-level rejection.
+  if (payload?.ok === false) return payload.error || 'The analysis RPC reported a failure without a reason.'
+  // Per-signal outcome: the RPC can return ok while the one signal it was asked
+  // about failed, which is exactly the out-of-credit case.
+  const outcome = payload?.results?.[0]
+  if (outcome && outcome.status !== 'analyzed' && outcome.status !== 'dry_run') {
+    return outcome.error || outcome.reason || `Analysis ${outcome.status}.`
+  }
+  if ((payload?.failed ?? 0) > 0 && (payload?.analyzed ?? 0) === 0) {
+    return 'The analysis backend reported the signal as failed.'
+  }
+  return null
+}
+
 async function analyzeAction(formData: FormData) {
   'use server'
   await requireAdminAuth()
@@ -18,8 +44,13 @@ async function analyzeAction(formData: FormData) {
   // timeout) -- see analyzeEngineSignal's own comment. No client JS or
   // polling needed; the browser's native form-pending state covers the
   // wait, same as Approve/Reject on the review queue.
-  await analyzeEngineSignal(id)
-  redirect('/admin/signals/analysis')
+  const result = await analyzeEngineSignal(id)
+  const reason = analyzeFailureReason(result)
+  redirect(
+    reason
+      ? `/admin/signals/analysis?error=${encodeURIComponent(reason.slice(0, 300))}`
+      : '/admin/signals/analysis?analyzed=1',
+  )
 }
 
 function scoreColor(score: number | null) {
@@ -29,8 +60,17 @@ function scoreColor(score: number | null) {
   return 'text-[#F5F1E8]/55'
 }
 
-export default async function SignalAnalysisPage() {
+export default async function SignalAnalysisPage({
+  searchParams,
+}: {
+  // Next.js 15: searchParams is a Promise and must be awaited.
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   await requireAdminAuth()
+
+  const params = await searchParams
+  const analyzeError = typeof params.error === 'string' ? params.error : null
+  const analyzeOk = params.analyzed === '1'
 
   const [pendingResult, recentResult] = await Promise.all([
     listSignalsPendingAnalysis(30),
@@ -52,6 +92,18 @@ export default async function SignalAnalysisPage() {
           the scheduled pass.
         </p>
       </div>
+
+      {analyzeError && (
+        <div className="rounded-2xl border border-red-300/25 bg-[#0B1A2F] p-5" role="alert">
+          <p className="text-sm text-red-200">Analysis did not complete: {analyzeError}</p>
+        </div>
+      )}
+
+      {analyzeOk && (
+        <div className="rounded-2xl border border-emerald-400/25 bg-[#0B1A2F] p-5" role="status">
+          <p className="text-sm text-emerald-200">Analysis completed. It appears under Recently analyzed.</p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3 text-sm">
         <a className="text-[#C6A55A] underline" href="/admin/signals">Summary</a>
