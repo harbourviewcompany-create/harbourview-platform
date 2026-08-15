@@ -224,7 +224,7 @@ test('Clinical Command distinguishes no-match from infrastructure failure', asyn
     await page.getByLabel('Condition, formulation or clinical evidence question').fill('Headache')
     await page.getByRole('button', { name: 'Search evidence', exact: true }).click()
     await expect(page.locator('.hvc-state')).toHaveText('No match')
-    await expect(page.getByText('No reviewed evidence matched this search.', { exact: true })).toBeVisible()
+    await expect(page.locator('.hvc-state-panel').getByText('No reviewed evidence matched this search.', { exact: true })).toBeVisible()
     await page.screenshot({ path: path.join(evidenceRoot, 'clinical-command-no-match-390x844.png'), fullPage: false })
   } finally {
     await context.close()
@@ -270,7 +270,7 @@ test('Clinical Command exposes permission state without masquerading as no evide
     await page.route('**/api/clinical/evidence**', route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify(result('permission')) }))
     await gotoClinical(page)
     await expect(page.locator('.hvc-state')).toHaveText('Restricted')
-    await expect(page.getByText('Clinical evidence is not available to this access context.', { exact: true })).toBeVisible()
+    await expect(page.locator('.hvc-state-panel').getByText('Clinical evidence is not available to this access context.', { exact: true })).toBeVisible()
     await page.screenshot({ path: path.join(evidenceRoot, 'clinical-command-permission-390x844.png'), fullPage: false })
   } finally {
     await context.close()
