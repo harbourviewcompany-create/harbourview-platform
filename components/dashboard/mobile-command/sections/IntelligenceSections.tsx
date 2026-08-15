@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
 import type { MobileCommandCentreProps } from '../props'
 import { asRecord, readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
@@ -13,6 +15,15 @@ type Signal = MobileCommandCentreProps['signals'][number]
 type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
 type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['items'][number]
 type LocalIntel = NonNullable<MobileCommandCentreProps['localIntel']>
+
+function recommendationLabel(signal: Signal) {
+  const state = signal.decisionRecommendationState
+  if (state === 'act_now') return 'Act now'
+  if (state === 'investigate') return 'Investigate'
+  if (state === 'no_action') return 'No action'
+  if (state === 'monitor') return 'Monitor'
+  return 'Open dossier'
+}
 
 function signalContextMatches(signal: Signal, countryLabel: string) {
   const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
@@ -70,7 +81,12 @@ export function NextActionsSection({ sectionRef, actions }: { sectionRef: Sectio
   )
 }
 
-export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { sectionRef: SectionRef; signals: Signal[]; countryLabel: string }) {
+export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access }: { sectionRef: SectionRef; signals: Signal[]; countryLabel: string; access?: FeatureAccess }) {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const query = searchParams.toString()
+  const returnTo = `${pathname}${query ? `?${query}` : ''}`
+  const canOpenDossiers = access?.granted === true
   const orderedSignals = useMemo(
     () => signals.map((signal, index) => ({ signal, index, contextual: signalContextMatches(signal, countryLabel) }))
       .sort((a, b) => Number(b.contextual) - Number(a.contextual) || a.index - b.index),
@@ -78,9 +94,9 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
   )
 
   return (
-    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Context / weekly signals" title="Intelligence requiring attention" description="Jurisdiction matches for the active context appear first; broader-watch items remain reviewable below.">
+    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Jurisdiction matches for the active context appear first. Open supported events for evidence, unknowns and a reasoned decision posture.">
       {orderedSignals.length > 0 ? (
-        <div className="hvm2-intel-record-list" aria-label="Weekly intelligence signals">
+        <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
           {orderedSignals.map(({ signal, contextual }) => {
             const analysis = asRecord(asRecord(signal).analysis)
             const whatChanged = readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
@@ -89,10 +105,20 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
             const confidence = signalConfidence(signal)
             const evidence = signalEvidence(signal)
             const quality = signalQualityBits(signal)
-            return (
-              <article className="hvm2-signal-card hvm2-intel-signal-card" key={readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)}>
+            const isEditorial = signal.contentType === 'editorial'
+            const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
+            const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
+            const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory
+            const dossierEventId = signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
+            const hasDossier = Boolean(dossierEventId)
+            const dossierHref = hasDossier
+              ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
+              : null
+
+            const article = (
+              <article className="hvm2-intel-signal-card">
                 <div className="hvm2-card-topline">
-                  <StatusPill>{readString(signal, ['type'], 'Signal')}</StatusPill>
+                  <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
                   <span>{market}</span>
                 </div>
                 <div className="hvm2-intel-context-row">
@@ -108,8 +134,25 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel }: { se
                   {evidence.observed ? <span>{evidence.observed}</span> : null}
                 </div>
                 {recommendedAction ? <div className="hvm2-intel-action"><span>Action</span><p>{recommendedAction}</p></div> : null}
+                {hasDossier ? <div className="hvm2-signal-footer"><strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong></div> : null}
               </article>
             )
+
+            const key = readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)
+            if (dossierHref) {
+              return (
+                <Link
+                  className="hvm2-signal-card hvm2-intel-event-row"
+                  key={key}
+                  href={canOpenDossiers ? dossierHref : '/account/upgrade'}
+                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${readString(signal, ['title'], 'signal')}` : `Upgrade to Intel to open intelligence dossier: ${readString(signal, ['title'], 'signal')}`}
+                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+                >
+                  {article}
+                </Link>
+              )
+            }
+            return <div className="hvm2-signal-card hvm2-intel-event-row" key={key}>{article}</div>
           })}
         </div>
       ) : <EmptyState title="No reviewed signals loaded" detail="The intelligence surface is available, but no current signal records are loaded for review." />}
