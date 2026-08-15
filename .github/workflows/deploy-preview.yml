@@ -50,4 +50,5 @@ jobs:
           PREVIEW_BRANCH="preview/${SAFE_BRANCH}"
 
           echo "Preview deployment trigger branch pushed: ${PREVIEW_BRANCH}"
-          echo "This branch matches the Vercel deploy-intent gate configured in scripts/vercel-ignore-wbcc-only.sh"
+          echo "preview/* is on the git.deploymentEnabled allowlist in vercel.json, so this push"
+          echo "creates a deployment, and it is opted in by name in scripts/vercel-ignore-wbcc-only.sh."
