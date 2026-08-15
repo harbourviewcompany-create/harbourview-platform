@@ -291,3 +291,61 @@ The 1024-dim routing gap remains open and is not fixed by that cron.
 -- the check that would have caught it
 select jobid, jobname, schedule, active from cron.job order by active, jobname;
 ```
+
+## 10. A gate will fire on the prose that explains it
+
+**Verified 2026-08-15, seven times in one session.** Two of the seven reached
+`main` and turned the whole pull-request queue red.
+
+Several gates here are literal greps over the working tree. They do not
+distinguish a defect from a description of a defect:
+
+| Gate | Matches on | Excludes |
+|---|---|---|
+| `check-placeholder-landmines` | five placeholder phrases | `docs/`, `node_modules`, `.next` |
+| `check-no-secret-strings.mjs` | assignments to sensitive identifiers | — (reads committed `HEAD`) |
+| `check-environment-manifest.mjs` | `secrets.NAME` / env references in workflows | — |
+| `check-project-registry-discipline.mjs` | literal checklist phrases in the PR body | — |
+
+What actually happened, all on the same day:
+
+- A comment in `scripts/reconstruct-stub-migrations.mjs` **quoted two of the
+  five placeholder phrases** while listing which gates the stub migrations
+  slipped past. Merged. `check-placeholder-landmines` went red on `main`.
+- A comment in `.github/workflows/reconstruct-stub-migrations.yml` wrote
+  `secrets.X` inline while explaining that the `secrets` context is
+  unavailable in a step-level `if:`. The manifest checker read `X` as an
+  unclassified variable.
+- Rewording a PR body for style dropped the phrase `no registry change
+  required`, which `check-project-registry-discipline.mjs` greps for verbatim.
+  `Enforce registry impact discipline` went from green to red with **no code
+  change at all**.
+
+**Rules that follow:**
+
+1. **Prose about a grep-based gate belongs under `docs/`.** Every one of these
+   gates excludes `docs/`. A comment in a `.mjs`, `.ts`, `.sql` or workflow
+   file does not have that protection. Describe the rule and link to its
+   implementation; never quote its patterns inline.
+2. **PR-body checklist wording is load-bearing.** It is matched by literal
+   phrase. Add explanation *after* the canonical phrase, never in place of it.
+3. **`check-no-secret-strings.mjs` reads committed `HEAD`, not the working
+   tree.** Running it after editing but before committing reports the *old*
+   result. This produced a commit message in this session that claimed
+   `secret scan GO` on a commit where the scanner exits 1.
+
+**Second-order effect worth expecting.** Fixing one gate can feed another. The
+secret scanner rejects `export SENSITIVE_NAME="${VAR}"` — it unwraps the quotes
+and tests the result as a literal without re-checking its own
+`shellVariableReference` rule, so the *safer quoted form* is the one that fails.
+The workaround (`export TEST_EMAIL TEST_PASSWORD`, exporting names already
+assigned) is correct, but it put two new names on the workflow's environment
+surface and broke `check-environment-manifest.mjs`. Budget for the second gate
+when you satisfy the first.
+
+**Diagnostic shortcut.** If a gate fails on a pull request whose diff cannot
+plausibly affect it — a docs-only or comment-only change — suspect `main`
+rather than the branch. These gates run on pull requests, so a broken `main`
+presents as a broken branch. That is how all three of this session's `main`
+regressions were found: on #1367, which was green before being refreshed and
+showed four failures immediately after, three of which were never its own.
