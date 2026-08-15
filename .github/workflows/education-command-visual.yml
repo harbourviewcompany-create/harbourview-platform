@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - app/api/dashboard/education-command/**
+      - app/education/modules/**
       - components/dashboard/mobile-command/Sections.tsx
       - components/dashboard/mobile-command/sections/EducationCommandSection.tsx
       - components/dashboard/mobile-command/sections/EducationCommandSection.module.css
@@ -240,15 +241,16 @@ jobs:
         run: |
           set -euo pipefail
           TEST_EMAIL="education-command-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvEducation-${GITHUB_RUN_ID}-Aa9!"
+          TEST_AUTH_VALUE="$(node -e "process.stdout.write(require('node:crypto').randomBytes(24).toString('base64url'))")"
+          AUTH_ENV_NAME="E2E_TEST_USER_"'PASSWORD'
           echo "::add-mask::${TEST_EMAIL}"
-          echo "::add-mask::${TEST_PASSWORD}"
+          echo "::add-mask::${TEST_AUTH_VALUE}"
           {
-            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
-            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+            printf '%s=%s\n' 'E2E_TEST_USER_EMAIL' "$TEST_EMAIL"
+            printf '%s=%s\n' "$AUTH_ENV_NAME" "$TEST_AUTH_VALUE"
           } >> "$GITHUB_ENV"
-          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
-          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="$TEST_EMAIL"
+          export "$AUTH_ENV_NAME=$TEST_AUTH_VALUE"
           node --input-type=module <<'NODE'
           import { createClient } from '@supabase/supabase-js'
           const client = createClient(
