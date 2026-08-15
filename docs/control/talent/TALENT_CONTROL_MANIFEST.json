@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "control_pack_version": "2026-08-14-hardened-v1",
+  "repository": "harbourviewcompany-create/harbourview-platform",
+  "audited_base_sha": "04e306d520d69d746a5099bf778dc253296710a3",
+  "branch": "docs/talent-control-pack-20260814",
+  "capability_ids": {"preserved_min": 1, "preserved_max": 84, "current_min": 1, "current_max": 100, "prefix": "TAL-"},
+  "acceptance_ids": {"preserved_min": 1, "preserved_max": 35, "current_min": 1, "current_max": 50, "prefix": "TAC-"},
+  "control_ids": {"min": 1, "max": 25, "prefix": "CTL-"},
+  "status_vocabulary": ["APPROVED","FOUNDATION_REQUIRED","NOT_STARTED","IN_PROGRESS","IMPLEMENTED_UNVERIFIED","VERIFIED","DEFERRED_P1","DEFERRED_P2","BLOCKED","SUPERSEDED","REJECTED"],
+  "required_files": [
+    "README.md","TALENT_BUILD_CONSTITUTION.md","TALENT_SCOPE_LEDGER.md","TALENT_CURRENT_STATE.md","TALENT_ARCHITECTURE.md","TALENT_ENTITY_MODEL.md","TALENT_LEGACY_COMPATIBILITY.md","TALENT_DEPENDENCY_GRAPH.md","TALENT_TAXONOMY_CONTROL.md","TALENT_IDENTITY_RESOLUTION.md","TALENT_EVIDENCE_PROVENANCE.md","TALENT_EMPLOYER_AUTHORITY.md","TALENT_PRIVACY_CONSENT.md","TALENT_SOURCE_GOVERNANCE.md","TALENT_JOB_REQUISITION_MODEL.md","TALENT_PASSPORT_CREDENTIAL_MODEL.md","TALENT_APPLICATION_DOCUMENT_MODEL.md","TALENT_SEARCH_CONTRACT.md","TALENT_MATCH_ELIGIBILITY.md","TALENT_API_DTO_CONTRACT.md","TALENT_RLS_MATRIX.md","TALENT_TRUST_SAFETY.md","TALENT_RETENTION_DATA_RIGHTS.md","TALENT_ENTITLEMENTS.md","TALENT_I18N_ACCESSIBILITY.md","TALENT_PERFORMANCE_OBSERVABILITY.md","TALENT_TEST_MATRIX.md","TALENT_SEARCH_EVALUATION.md","TALENT_MIGRATION_PLAN.md","TALENT_VISUAL_EVIDENCE_MATRIX.md","TALENT_ACCEPTANCE_CRITERIA.md","TALENT_EVIDENCE_LOG.md","TALENT_RELEASE_CHECKLIST.md","TALENT_TRACEABILITY_MATRIX.md","TALENT_CHANGE_CONTROL.md","TALENT_DECISION_LOG.md","TALENT_OPEN_DECISIONS.md","TALENT_CUTOVER_ROLLBACK.md","TALENT_OPERATIONS_RUNBOOK.md","TALENT_CONTROL_MANIFEST.json"
+  ],
+  "verification_rules": {
+    "no_runtime_changes": true,
+    "scope_ledger_controlling": true,
+    "verified_requires_traceability": true,
+    "independent_verifier_required": true,
+    "privacy_violations_allowed": 0
+  }
+}
