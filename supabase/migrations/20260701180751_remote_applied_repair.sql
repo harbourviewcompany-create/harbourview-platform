@@ -1,18 +1,56 @@
 -- Replay repair for production migration 20260701180751 (corridor_intelligence_tables).
 --
--- The repository previously kept this applied production version as a SELECT 1
--- parity stub. Fresh read-only production migration-ledger evidence proves the
--- original migration created public.get_corridor_stats(text). Fresh live catalog
--- metadata also proves the API wrapper api.get_corridor_stats(text) exists in
--- production, although its creation is not represented by any recorded migration
--- statement. Later July 13 migrations revoke EXECUTE from both signatures, so a
--- zero-state replay must reconstruct both functions before those grants can be
--- replayed faithfully.
+-- Fresh read-only production migration-ledger evidence proves this historical
+-- version created the two corridor tables, their indexes and public
+-- get_corridor_stats(text) in that order. The repository previously reconstructed
+-- the tables only in the later 20260701230000 parity-stub repair, which makes a
+-- zero-state replay fail while PostgreSQL binds the SQL-language function body.
 --
--- The corridor tables themselves are reconstructed separately by
--- 20260701230000_corridor_intelligence_tables_stub.sql; this repair restores only
--- the reproduced missing function contracts. Production is unaffected because
--- version 20260701180751 is already recorded remotely.
+-- Restore the structural prerequisites here at their true historical origin.
+-- Historical seed rows are intentionally not copied because later migrations do
+-- not require them for schema replay and synthesizing production data is outside
+-- this replay-fidelity repair. The later 20260701230000 CREATE IF NOT EXISTS
+-- reconstruction remains harmless idempotent redundancy.
+--
+-- Fresh live catalog metadata also proves the API wrapper
+-- api.get_corridor_stats(text) exists in production, although its creation is not
+-- represented by any recorded migration statement. Later July 13 migrations
+-- revoke EXECUTE from both signatures, so zero-state replay reconstructs both
+-- function contracts here after the required tables exist.
+--
+-- Production is unaffected because version 20260701180751 is already recorded
+-- remotely.
+
+create table if not exists public.corridor_processing_times (
+  id uuid default gen_random_uuid() primary key,
+  corridor_key text not null,
+  permit_type text,
+  days_taken integer not null,
+  submitter_role text,
+  verified boolean default false,
+  submitted_at timestamptz default now(),
+  constraint corridor_processing_times_days_taken_check
+    check (days_taken > 0 and days_taken < 1000)
+);
+
+create index if not exists idx_cpt_key
+  on public.corridor_processing_times (corridor_key);
+
+create table if not exists public.corridor_regulatory_alerts (
+  id uuid default gen_random_uuid() primary key,
+  corridor_key text not null,
+  alert_date date not null,
+  severity text not null,
+  summary text not null,
+  detail text,
+  source text,
+  created_at timestamptz default now(),
+  constraint corridor_regulatory_alerts_severity_check
+    check (severity in ('major', 'minor', 'watch'))
+);
+
+create index if not exists idx_cra_key_date
+  on public.corridor_regulatory_alerts (corridor_key, alert_date desc);
 
 -- Original production-ledger function body.
 CREATE OR REPLACE FUNCTION public.get_corridor_stats(p_key text)
