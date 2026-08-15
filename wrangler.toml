@@ -1,56 +1,50 @@
-# Cloudflare Worker — Harbourview Intelligence Pipeline
-# Deploy: wrangler deploy
-# Local dev: wrangler dev
-
-name = "harbourview-platform"
-# scripts/engine/start-worker.ts is the Node.js daemon entrypoint (infinite
-# poll loop) for a persistent host (Docker/ECS/Cloud Run/Fly/Railway) --
-# incompatible with this platform, which has no persistent process.
-# cloudflare-worker.ts exports the scheduled()/fetch() handlers this
-# platform actually invokes; only the "Ingestion run" cron below has a
-# real implementation behind it today (see that file's header comment).
+# Cloudflare Worker — Harbourview intelligence/health utility
+#
+# This is NOT the Harbourview Next.js web application. Vercel remains the
+# production web target. A future Cloudflare/OpenNext web preview must use a
+# different Worker name and a separate Wrangler configuration.
+#
+# Canonical dashboard Worker name: harbourview
+# Canonical entrypoint: scripts/engine/cloudflare-worker.ts
+# Canonical live HTTP surface: /healthz
+# Canonical ingestion authority: Supabase Edge Functions + pg_cron, NOT this Worker.
+name = "harbourview"
 main = "scripts/engine/cloudflare-worker.ts"
 compatibility_date = "2025-06-28"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
 
-# Wrangler bundles the Worker entrypoint. This build gate performs the same
-# strict project-aware TypeScript verification used by CI; it must fail rather
-# than suppress compiler defects with a false-success `|| true` path.
+# Workers Builds uses the build/deploy commands configured in the Cloudflare
+# dashboard. This [build] command applies to Wrangler-driven local/deploy flows;
+# keep the dashboard build command aligned with `npm run typecheck`.
 [build]
 command = "npm run typecheck"
 
-# ── Cron triggers ──────────────────────────────────────────────────────────────
-[triggers]
-crons = [
-  "*/15 * * * *",   # Discovery sweep — every 15 min
-  "*/30 * * * *",   # Ingestion run — every 30 min
-  "0 * * * *",      # Deep discovery — hourly
-  "0 */6 * * *",    # Source health sweep — every 6 hours
-]
+# No [triggers] block is allowed here. scripts/engine/cloudflare-worker.ts keeps
+# a dormant scheduled() implementation only as a recoverable code path. Adding a
+# Cron Trigger would create a second ingestion writer against the same Supabase
+# tables already written by the production pg_cron pipeline.
 
-# ── Environment variables (set secrets via: wrangler secret put VAR_NAME) ──────
 [vars]
-NODE_ENV                    = "production"
-INTELLIGENCE_WORKER_ID      = "cf-worker-01"
+NODE_ENV = "production"
+INTELLIGENCE_WORKER_ID = "cf-worker-01"
 
-# Secrets (do NOT commit values — set via CLI):
-# wrangler secret put NEXT_PUBLIC_SUPABASE_URL
-# wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-# wrangler secret put ANTHROPIC_API_KEY
-# wrangler secret put GOOGLE_GENAI_API_KEY
+# Runtime dashboard configuration required by /healthz:
+#
+# Settings -> Variables and Secrets -> Variable
+#   NEXT_PUBLIC_SUPABASE_URL
+#
+# Settings -> Variables and Secrets -> Secret
+#   SUPABASE_SERVICE_ROLE_KEY
+#
+# Optional and currently inert while no Cron Trigger exists:
+#   WORKER_BATCH_SIZE
+#
+# Do not add unrelated AI-provider credentials or Cloudflare data/service
+# bindings to this health Worker merely because the larger Next.js application
+# uses them. The complete classified environment contract lives in
+# config/environment-manifest.json and config/environment-workflow-manifest.json.
 
-# NOTE: a [[kv_namespaces]] binding for RATE_LIMIT_KV previously lived here,
-# pointing at a placeholder id ("__replace_with_your_kv_namespace_id__") that
-# was never swapped for a real namespace. Nothing in cloudflare-worker.ts
-# reads env.RATE_LIMIT_KV — it was declared but never used — and the
-# placeholder id is what was failing "Workers Builds: harbourview-platform"
-# on every PR. Removed rather than faked, since fabricating an id here would
-# just move the failure from build-time to first-request-time. If KV-backed
-# rate limiting is needed for this worker later, create a real namespace via
-# `wrangler kv namespace create RATE_LIMIT_KV` and re-add the binding with
-# its actual id — don't restore the placeholder.
-
-# ── Observability ─────────────────────────────────────────────────────────────
 [observability]
 enabled = true
 head_sampling_rate = 1

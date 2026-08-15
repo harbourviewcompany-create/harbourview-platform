@@ -16,11 +16,12 @@ describe('commercial-graph baseline contract repairs', () => {
     expect(promoteRoute).toContain('introduced_at: new Date().toISOString()')
   })
 
-  it('uses the supported workspace membership role', () => {
+  it('uses the supported workspace membership role without reintroducing a single-org constraint', () => {
     expect(orgCreateRoute).not.toContain('role: "owner"')
     expect(orgCreateRoute).not.toContain('.eq("role", "owner")')
     expect(orgCreateRoute).toContain('role: "admin"')
-    expect(orgCreateRoute).toContain('.eq("user_id", user.id).eq("status", "active").maybeSingle()')
+    expect(orgCreateRoute).not.toContain('USER_ALREADY_HAS_ORG')
+    expect(orgCreateRoute).toContain('active_workspace_id: ws.id')
   })
 
   it('restores one private org snapshot per workspace', () => {
