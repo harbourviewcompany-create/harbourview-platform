@@ -2,7 +2,16 @@
 # Deploy: wrangler deploy
 # Local dev: wrangler dev
 
-name = "harbourview-platform"
+# MUST match the Worker name in the Cloudflare dashboard. Cloudflare is explicit
+# that a mismatch fails the build outright: "the Worker name in the Cloudflare
+# dashboard must match the `name` in the Wrangler configuration file in the
+# specified root directory, or the build will fail"
+# (developers.cloudflare.com/workers/ci-cd/builds/).
+#
+# The Worker was renamed harbourview-platform -> harbourview in the dashboard on
+# 2026-08-15, so this follows it. Renaming the Worker also moves its workers.dev
+# hostname, which is now harbourview.harbourviewcompany.workers.dev.
+name = "harbourview"
 # scripts/engine/start-worker.ts is the Node.js daemon entrypoint (infinite
 # poll loop) for a persistent host (Docker/ECS/Cloud Run/Fly/Railway) --
 # incompatible with this platform, which has no persistent process.
@@ -14,11 +23,20 @@ main = "scripts/engine/cloudflare-worker.ts"
 compatibility_date = "2025-06-28"
 compatibility_flags = ["nodejs_compat"]
 
-# Not a public endpoint; only /healthz is served and nothing links to it. Also
-# avoids requiring a configured workers.dev subdomain at deploy time.
+# Kept ENABLED deliberately. An earlier revision of this file set this to false,
+# reasoning that only /healthz is served so no public hostname was needed. That
+# was written while the build was failing and nothing could deploy, which made it
+# a harmless-looking change. It is not harmless now.
+#
+# The Worker has a live hostname (harbourview.harbourviewcompany.workers.dev, one
+# attached domain, non-zero invocations) and an active deployment. Once the name
+# above lets Workers Builds succeed, `wrangler deploy` starts applying this file
+# for real -- and `workers_dev = false` would tear that hostname down as a side
+# effect of a build fix. Wrong blast radius for the change being made.
+#
 # Must stay above the first [table] -- a top-level key written after one is
 # parsed as a member of that table, not as a root key.
-workers_dev = false
+workers_dev = true
 
 # Wrangler bundles the Worker entrypoint. This runs on a local `wrangler deploy`
 # / `wrangler dev`.
@@ -27,7 +45,7 @@ workers_dev = false
 # "Workers Builds does not honor the configurations set in Custom Builds within
 # your Wrangler configuration file"
 # (developers.cloudflare.com/workers/ci-cd/builds/configuration/). The build
-# command used by the "Workers Builds: harbourview-platform" check comes from the
+# command used by the "Workers Builds" check comes from the
 # dashboard, not from here. An earlier version of this comment claimed this was
 # "the same strict verification used by CI" -- it is not, and relying on it as a
 # CI gate would be relying on something that never executes there.
@@ -83,8 +101,8 @@ INTELLIGENCE_WORKER_ID      = "cf-worker-01"
 # pointing at a placeholder id ("__replace_with_your_kv_namespace_id__") that
 # was never swapped for a real namespace. Nothing in cloudflare-worker.ts
 # reads env.RATE_LIMIT_KV — it was declared but never used — and the
-# placeholder id is what was failing "Workers Builds: harbourview-platform"
-# on every PR. Removed rather than faked, since fabricating an id here would
+# placeholder id is what was failing "Workers Builds"
+# on every PR at that time. Removed rather than faked, since fabricating an id here would
 # just move the failure from build-time to first-request-time. If KV-backed
 # rate limiting is needed for this worker later, create a real namespace via
 # `wrangler kv namespace create RATE_LIMIT_KV` and re-add the binding with
