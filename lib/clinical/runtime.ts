@@ -6,6 +6,8 @@ import {
 
 export const CLINICAL_FAILURE_CATEGORIES = [
   'configuration',
+  'environment-mismatch',
+  'missing-route',
   'permission',
   'migration-drift',
   'schema',
@@ -35,7 +37,9 @@ export function classifyClinicalFailure(input: {
   const message = input.message ?? ''
 
   if (/clinical_evidence_not_configured|missing.*supabase|supabase.*not configured/i.test(message)) return 'configuration'
-  if (status === 401 || status === 403) return 'permission'
+  if (/clinical_evidence_environment_mismatch|supabase project mismatch/i.test(message)) return 'environment-mismatch'
+  if (/clinical_evidence_(?:http_404|route_missing)/i.test(message)) return 'missing-route'
+  if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(message)) return 'permission'
   if (
     status === 404
     || ['PGRST202', 'PGRST205', '42P01', '42883'].includes(code)
@@ -64,6 +68,8 @@ export function clinicalEvidenceHttpStatus(result: ClinicalEvidenceApiResult): n
 export function clinicalFailureLabel(category: ClinicalFailureCategory): string {
   const labels: Record<ClinicalFailureCategory, string> = {
     configuration: 'Evidence service not configured',
+    'environment-mismatch': 'Evidence environment mismatch',
+    'missing-route': 'Evidence route unavailable',
     permission: 'Access restricted',
     'migration-drift': 'Evidence schema not activated',
     schema: 'Evidence contract mismatch',
