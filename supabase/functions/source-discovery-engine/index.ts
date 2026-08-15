@@ -1,6 +1,7 @@
 /**
- * source-discovery-engine v9 (2026-08-13) -- wider Wikidata pacing +
- * 429 retry-with-backoff, fixing a regression the v8 speedup caused
+ * source-discovery-engine v10 (2026-08-13) -- back off Wikidata entirely
+ * for the rest of a run after a confirmed sustained rate-limit, instead of
+ * continuing to hit the same wall on every remaining pair
  *
  * Fills the remaining depth gaps in source_registry: for every viable country
  * in source_expansion_coverage_queue, it needs up to 7 regulator_class
@@ -247,7 +248,7 @@ function isBillingError(err: string | undefined): boolean {
 async function findCandidate(
   country: string,
   cls: string,
-  deadProviders: { anthropic: boolean; openai: boolean },
+  deadProviders: { anthropic: boolean; openai: boolean; wikidataRateLimited: boolean },
 ): Promise<{ candidate?: Candidate; error?: string; provider?: string }> {
   const attempts: string[] = [];
 
@@ -277,7 +278,7 @@ async function findCandidate(
 
   // Always try the free path last, regardless of whether paid keys exist --
   // this is the "works even at $0 spend" guarantee.
-  const w = await findCandidateWikidata(country, cls);
+  const w = await findCandidateWikidata(country, cls, deadProviders);
   if (w.candidate) return { ...w, provider: "wikidata_free" };
   attempts.push(`wikidata: ${w.error}`);
 
@@ -305,14 +306,21 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function findCandidateWikidata(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
-  // Pace requests -- confirmed live (twice now) that Wikidata rate-limits
-  // (429) if hit too fast. The first pacing pass (300ms/200ms) was
-  // calibrated with paid-provider round-trip latency naturally spacing
-  // calls out; once the dead-provider-skip optimization removed most of
-  // that latency, the same delays weren't enough and a 429 reappeared.
-  // Widened with real headroom this time rather than tuning to the exact
-  // edge of what passed.
+async function findCandidateWikidata(
+  country: string,
+  cls: string,
+  deadProviders: { wikidataRateLimited: boolean },
+): Promise<{ candidate?: Candidate; error?: string }> {
+  // Confirmed live (three times now, at increasing batch sizes) that
+  // Wikidata rate-limits fast, repeated traffic. Static delays alone don't
+  // scale with batch size -- the right fix is the same pattern already used
+  // for the paid providers: once a 429 survives a retry, stop hitting
+  // Wikidata for the REST of this invocation instead of continuing to burn
+  // through the batch hitting the same wall on every remaining pair. The
+  // next invocation starts fresh.
+  if (deadProviders.wikidataRateLimited) {
+    return { error: "wikidata_skipped (rate-limited earlier this run)" };
+  }
   await sleep(600);
   const phrase = WIKIDATA_SEARCH_PHRASE[cls] ?? cls;
   const query = `${phrase} ${country}`;
@@ -326,10 +334,13 @@ async function findCandidateWikidata(country: string, cls: string): Promise<{ ca
   try {
     searchRes = await fetch(searchUrl, { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } });
     if (searchRes.status === 429) {
-      // One retry with real backoff -- more robust than only relying on a
-      // static pre-request delay being perfectly tuned for every batch size.
       await sleep(2000);
       searchRes = await fetch(searchUrl, { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } });
+      if (searchRes.status === 429) {
+        // Retry also failed -- this is a real, sustained rate limit, not a
+        // one-off blip. Back off entirely for the rest of this run.
+        deadProviders.wikidataRateLimited = true;
+      }
     }
   } catch (e) {
     return { error: `wikidata_search_threw: ${e instanceof Error ? e.message : String(e)}` };
@@ -481,7 +492,7 @@ Deno.serve(async (req: Request) => {
 
   // 3. Work the batch.
   const providersUsed = new Set<string>();
-  const deadProviders = { anthropic: false, openai: false }; // fresh every invocation, never persisted
+  const deadProviders = { anthropic: false, openai: false, wikidataRateLimited: false }; // fresh every invocation, never persisted
   for (const p of pairs) {
     const { candidate, error, provider } = await findCandidate(p.country, p.cls, deadProviders);
     if (provider) providersUsed.add(provider);
