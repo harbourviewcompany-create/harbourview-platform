@@ -65,8 +65,27 @@ const patterns = [
   { name: 'aws-access-key', regex: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: 'slack-token', regex: /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/ },
   { name: 'jwt-looking-token', regex: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/ },
-  { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
+
+/*
+ * Database URLs.
+ *
+ * The risk is a literal password baked into a connection string. A URL assembled
+ * from variables is not that, and flagging it is how a scanner gets ignored:
+ * .github/workflows/supabase-migrate.yml builds
+ *   postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}
+ * one line after masking it with ::add-mask::, and the old pattern matched it
+ * because ${...} contains no colon, at-sign or space.
+ *
+ * So the password segment is captured and checked rather than assumed. A shell
+ * variable, a command substitution or a GitHub expression in that position is
+ * definitionally not a committed secret; anything else still fails.
+ */
+const databaseUrlWithPassword =
+  /\bpostgres(?:ql)?:\/\/[^:\s]+:([^@\s]+)@[^/\s]+\/[^\s'")]+/i;
+
+const nonLiteralValue =
+  /^(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\$\([^)]*\)?|\$\{\{\s*(?:secrets|vars|env|inputs|github)\.[A-Za-z0-9_-]+\s*\}\})$/;
 
 /*
  * Vault secret literals.
@@ -97,12 +116,13 @@ const placeholderSecret =
   /^(?:your_|example|replace_me|changeme|placeholder|dummy|redacted|xxx|<|\.\.\.)|_here$|^new_[a-z_]+$/i;
 
 const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
-const githubExpressionAssignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*\$\{\{\s*(?:secrets|vars|github|inputs)\.[^}]+\}\}/i;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
-const shellCommandSubstitution = /^\$\(/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
+
+// An explicit environment-variable NAME passed to a getter is not a value.
+// ops/production-baseline reads `required('VERCEL_TRUSTED_OIDC_TOKEN')`.
 const envNameGetter = /\brequired\(\s*['"][A-Z][A-Z0-9_]*['"]\s*\)/;
 
 function normalizeIdentifier(identifier) {
@@ -117,20 +137,24 @@ function isSensitiveIdentifier(identifier) {
   return /(?:^|_)(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)(?:_|$)/.test(normalized);
 }
 
+// The standard ephemeral local Postgres password. It is the documented default
+// for a throwaway CI database and is not a credential to anything reachable.
 function isKnownEphemeralLocalCredential(identifier, value) {
   return normalizeIdentifier(identifier) === 'POSTGRES_PASSWORD' && value === 'postgres';
 }
 
 function isAllowedSensitiveAssignment(identifier, value, line) {
   if (!isSensitiveIdentifier(identifier)) return true;
-  if (githubExpressionAssignment.test(line)) return true;
+  if (line !== undefined && envNameGetter.test(line)) return true;
+  if (isKnownEphemeralLocalCredential(identifier, value)) return true;
   if (safeAssignmentValue.test(value)) return true;
   if (shellVariableReference.test(value)) return true;
-  if (shellCommandSubstitution.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
   if (generatedVisualTestPassword.test(value)) return true;
-  if (envNameGetter.test(line)) return true;
-  if (isKnownEphemeralLocalCredential(identifier, value)) return true;
+  // A command substitution computes a value at runtime; there is nothing
+  // committed to leak. supabase-migrate.yml opens one to URL-encode the database
+  // password read from a GitHub secret.
+  if (nonLiteralValue.test(value)) return true;
   return false;
 }
 
@@ -145,10 +169,12 @@ function isProbablyText(path) {
 function scanLine(line, source) {
   const findings = [];
   for (const pattern of patterns) {
-    const patternMatch = line.match(pattern.regex);
-    if (!patternMatch) continue;
-    if (pattern.name === 'database-url-with-password' && /\$/.test(patternMatch[0])) continue;
-    findings.push({ source, pattern: pattern.name });
+    if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
+  }
+
+  const dbUrlMatch = line.match(databaseUrlWithPassword);
+  if (dbUrlMatch && !nonLiteralValue.test(dbUrlMatch[1])) {
+    findings.push({ source, pattern: 'database-url-with-password' });
   }
 
   for (const regex of vaultSecretCalls) {
@@ -170,24 +196,15 @@ function scanLine(line, source) {
 }
 
 function runSelfTest() {
-  // Build the negative database-URL fixture in pieces so this scanner does not
-  // flag its own source file while still proving the runtime matcher catches it.
-  const literalDatabaseUrl = ['DB_URL="postgresql://admin:', 'literal-password-123@example.test/postgres"'].join('');
   const cases = [
     ['shell secret reference', 'SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}', 0],
-    ['shell command-derived secret', 'ENCODED_PASSWORD=$(python3 -c "print(1)")', 0],
     ['github secret expression', 'TOKEN: ${{ secrets.DEPLOY_TOKEN }}', 0],
-    ['github secret expression with spaces', 'SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}', 0],
     ['node environment secret reference', 'const API_KEY = process.env.API_KEY', 0],
     ['deno environment secret reference', 'const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', 0],
     ['deno bypass secret reference', 'const DEV_BYPASS_SECRET = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? ""', 0],
-    ['explicit env-name getter', "const oidcToken = required('VERCEL_TRUSTED_OIDC_TOKEN')", 0],
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
-    ['ephemeral local postgres password', 'POSTGRES_PASSWORD: postgres', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
-    ['dynamic database url', 'DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"', 0],
-    ['literal database url', literalDatabaseUrl, 1],
     ['literal password', 'DATABASE_PASS' + 'WORD="literal-secret-12345"', 1],
     ['literal api key', 'api' + 'Key="literal-api-key-value"', 1],
     ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
@@ -198,7 +215,22 @@ function runSelfTest() {
     ['vault secret from a subselect', 'SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name=$1), v_new)', 0],
     ['vault secret read, not write', "SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'adzuna_app_key'", 0],
     // The documented rotation example must not be flagged, or the check gets ignored.
+    ['github secret expression with spaces', 'SUPABASE_DB_PASS' + 'WORD: ${{ secrets.SUPABASE_DB_PASSWORD }}', 0],
+    ['explicit env-name getter', "const oidcToken = required('VERCEL_TRUSTED_OIDC_TOKEN')", 0],
+    ['ephemeral local postgres password', 'POSTGRES_PASSWORD: postgres', 0],
     ['vault rotation doc placeholder', "//   SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name='GITHUB_PAT'), 'new_token_here');", 0],
+    // Database URLs: a literal password still fails; an interpolated one does not.
+    //
+    // The scheme is split for the same reason 'DATABASE_PASS' + 'WORD' and
+    // 'gh' + 'p_...' are split above: this file is itself a changed file on any
+    // PR that touches it, and a contiguous literal here makes the scanner flag
+    // its own fixture. It did exactly that on the first push of this change.
+    // Concatenation keeps the runtime string matchable while the source is not.
+    ['db url with literal password', 'DB_URL="postgres' + 'ql://postgres:hunter2secret@db.example.com:5432/postgres"', 1],
+    ['db url from shell variables', 'DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"', 0],
+    ['db url from a bare shell variable', 'DB_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:5432/postgres"', 0],
+    ['db url from a github expression', 'DB_URL="postgresql://user:${{ secrets.DB_PASSWORD }}@host:5432/postgres"', 0],
+    ['password from a command substitution', 'ENCODED_PASS' + 'WORD=$(python3 -c "print(1)")', 0],
   ];
 
   const failures = cases.filter(([name, line, expected]) => {
@@ -239,8 +271,8 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub secret references, command-derived secret values, the standard ephemeral local Postgres test password, environment-name getters, PostgreSQL ACL evidence, and the isolated GITHUB_RUN_ID-derived visual-test credential.');
-  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets and literal credential-bearing database URLs.');
+  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, and the isolated GITHUB_RUN_ID-derived visual-test credential.');
+  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets and credential-bearing database URLs.');
   process.exit(1);
 }
 

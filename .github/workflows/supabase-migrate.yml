@@ -199,6 +199,27 @@ jobs:
           # remote-only history. The immediately preceding manifest gate proves
           # that the complete repository-only set is exactly the three approved
           # versions and that their filenames and Git blob SHAs match the control file.
+          #
+          # THAT PROOF NO LONGER HOLDS, AND THIS JOB CAN NO LONGER RUN.
+          #
+          # It was true when written. On 2026-08-14 the repository-only set was
+          # 94 versions, not 3, and 72 of them sorted BEFORE 20260802073000 --
+          # so `--include-all` would target the lot, including 70 classified
+          # `requiring_forward_reconciliation` and 5 classified `obsolete`.
+          #
+          # Nothing bad happens as a result: the preflight manifest gate compares
+          # the pending set against the 3-entry control file, so it HOLDs, and
+          # this job is gated on `needs.preflight.result == 'success'`. The
+          # workflow fails closed. But it also means it is now permanently
+          # unrunnable while that drift exists, and the comment above must not be
+          # read as a live guarantee.
+          #
+          # The three approved versions were applied individually on 2026-08-14
+          # after a read-only preflight, and are recorded in
+          # supabase_migrations.schema_migrations. Before this job is relied on
+          # again it needs an explicit per-file apply driven by the control file
+          # rather than `--include-all`, so that the blast radius is the
+          # allowlist by construction and not by a separate assertion.
           ENCODED_PASSWORD=$(python3 - <<'PY'
           import os
           import urllib.parse
