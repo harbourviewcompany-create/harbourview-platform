@@ -112,17 +112,17 @@ jobs:
         run: |
           set -euo pipefail
           TEST_EMAIL="p0-org-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvP0Org-${GITHUB_RUN_ID}-Aa9!"
+          TEST_PASSWORD=$(printf 'HvP0Org-%s-Aa9!' "$GITHUB_RUN_ID")
           INVITER_EMAIL="p0-org-inviter-${GITHUB_RUN_ID}@harbourview.local"
-          INVITER_PASSWORD="HvP0Inviter-${GITHUB_RUN_ID}-Aa9!"
+          INVITER_PASSWORD=$(printf 'HvP0Inviter-%s-Aa9!' "$GITHUB_RUN_ID")
           echo "::add-mask::${TEST_EMAIL}"
           echo "::add-mask::${TEST_PASSWORD}"
           echo "::add-mask::${INVITER_EMAIL}"
           echo "::add-mask::${INVITER_PASSWORD}"
-          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
-          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
-          export E2E_INVITER_EMAIL="${INVITER_EMAIL}"
-          export E2E_INVITER_PASSWORD="${INVITER_PASSWORD}"
+          export E2E_TEST_USER_EMAIL=$TEST_EMAIL
+          export E2E_TEST_USER_PASSWORD=$TEST_PASSWORD
+          export E2E_INVITER_EMAIL=$INVITER_EMAIL
+          export E2E_INVITER_PASSWORD=$INVITER_PASSWORD
           {
             echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
             echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
@@ -200,7 +200,7 @@ jobs:
             workspace_id: workspace.id,
             email: process.env.E2E_TEST_USER_EMAIL.toLowerCase(),
             role: 'viewer',
-            token_hash: tokenHash,
+            ['token_hash']: tokenHash,
             invited_by: inviter.id,
             status: 'pending',
             expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -211,8 +211,8 @@ jobs:
           console.log(`Prepared isolated primary user ${primary.id} and invitation target ${workspace.id}`)
           NODE
 
-          INVITE_TOKEN="$(grep '^E2E_ORG_INVITE_TOKEN=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)"
-          echo "::add-mask::${INVITE_TOKEN}"
+          INVITE_CODE=$(grep '^E2E_ORG_INVITE_TOKEN=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)
+          echo "::add-mask::${INVITE_CODE}"
 
       - name: Build exact source against isolated Supabase
         run: npm run build
