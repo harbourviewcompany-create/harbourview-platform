@@ -65,9 +65,48 @@ const patterns = [
   { name: 'aws-access-key', regex: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: 'slack-token', regex: /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/ },
   { name: 'jwt-looking-token', regex: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/ },
-  { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
 
+/*
+ * Database URLs.
+ *
+ * The risk is a literal password baked into a connection string. A URL assembled
+ * from variables is not that, and flagging it is how a scanner gets ignored:
+ * .github/workflows/supabase-migrate.yml builds
+ *   postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}
+ * one line after masking it with ::add-mask::, and the old pattern matched it
+ * because ${...} contains no colon, at-sign or space.
+ *
+ * So the password segment is captured and checked rather than assumed. A shell
+ * variable, a command substitution or a GitHub expression in that position is
+ * definitionally not a committed secret; anything else still fails.
+ */
+const databaseUrlWithPassword =
+  /\bpostgres(?:ql)?:\/\/[^:\s]+:([^@\s]+)@[^/\s]+\/[^\s'")]+/i;
+
+const nonLiteralValue =
+  /^(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\$\([^)]*\)?|\$\{\{\s*(?:secrets|vars|env|inputs|github)\.[A-Za-z0-9_-]+\s*\}\})$/;
+
+/*
+ * Vault secret literals.
+ *
+ * These are positional function arguments, not `identifier = value`, so the
+ * assignment check never sees them, and the secret itself is opaque -- an Adzuna
+ * key is bare hex and matches none of the vendor signatures above. A live Adzuna
+ * app_id and app_key reached a public repository through that gap on 2026-08-13
+ * while this scanner reported GO.
+ *
+ * `vault.create_secret(secret, name)` takes the secret first;
+ * `vault.update_secret(id, secret, ...)` takes it second. A literal in either
+ * position is a committed secret. References -- `current_setting(...)`, a
+ * subselect, a plpgsql variable -- are unquoted and do not match.
+ *
+ * Kept out of `patterns` because the captured literal has to be run past the
+ * placeholder allowlist: documentation shows the rotation call with a stand-in
+ * secret (supabase/functions/hv-repo-reader/index.ts carries
+ * `vault.update_secret(..., 'new_token_here')` in a comment), and flagging that
+ * would train people to ignore this check.
+ */
 const vaultSecretCalls = [
   /\bvault\.create_secret\s*\(\s*'([^']{8,})'/i,
   /\bvault\.update_secret\s*\([^,]+,\s*'([^']{8,})'/i,
@@ -122,6 +161,10 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
   if (postgresAclShorthand.test(value)) return true;
   if (generatedVisualTestPassword.test(value)) return true;
   if (requestBodyReference.test(value)) return true;
+  // A command substitution computes a value at runtime; there is nothing
+  // committed to leak. supabase-migrate.yml opens one to URL-encode the database
+  // password read from a GitHub secret.
+  if (nonLiteralValue.test(value)) return true;
 
   const directLiteral = unwrapDirectQuotedLiteral(value);
   if (directLiteral !== null) {
@@ -152,6 +195,11 @@ function scanLine(line, source) {
   const findings = [];
   for (const pattern of patterns) {
     if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
+  }
+
+  const dbUrlMatch = line.match(databaseUrlWithPassword);
+  if (dbUrlMatch && !nonLiteralValue.test(dbUrlMatch[1])) {
+    findings.push({ source, pattern: 'database-url-with-password' });
   }
 
   for (const regex of vaultSecretCalls) {
@@ -200,6 +248,18 @@ function runSelfTest() {
     ['vault secret from a subselect', 'SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name=$1), v_new)', 0],
     ['vault secret read, not write', "SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'adzuna_app_key'", 0],
     ['vault rotation doc placeholder', "//   SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name='GITHUB_PAT'), 'new_token_here');", 0],
+    // Database URLs: a literal password still fails; an interpolated one does not.
+    //
+    // The scheme is split for the same reason 'DATABASE_PASS' + 'WORD' and
+    // 'gh' + 'p_...' are split above: this file is itself a changed file on any
+    // PR that touches it, and a contiguous literal here makes the scanner flag
+    // its own fixture. It did exactly that on the first push of this change.
+    // Concatenation keeps the runtime string matchable while the source is not.
+    ['db url with literal password', 'DB_URL="postgres' + 'ql://postgres:hunter2secret@db.example.com:5432/postgres"', 1],
+    ['db url from shell variables', 'DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"', 0],
+    ['db url from a bare shell variable', 'DB_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:5432/postgres"', 0],
+    ['db url from a github expression', 'DB_URL="postgresql://user:${{ secrets.DB_PASSWORD }}@host:5432/postgres"', 0],
+    ['password from a command substitution', 'ENCODED_PASS' + 'WORD=$(python3 -c "print(1)")', 0],
   ];
 
   const failures = cases.filter(([name, line, expected]) => {
