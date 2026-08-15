@@ -16,6 +16,14 @@ const REQUIRED_RETIRED = new Set([
   '20260730110000',
   '20260730180000',
 ])
+// These three were part of the immutable August 14 pending baseline but current
+// main has since retired their duplicate repository files after preserving the
+// canonical live-version equivalents. Their absence must not rewrite history.
+const RETIRED_ALIAS_VERSIONS = new Set([
+  '20260728000000',
+  '20260728010000',
+  '20260728020000',
+])
 
 function gitBlobSha(filePath) {
   const content = fs.readFileSync(filePath)
@@ -73,7 +81,10 @@ export function validateReleaseClosureClassification({ classification, releaseCo
 
   for (const version of flattened) {
     const files = byVersion.get(version) ?? []
-    if (files.length !== 1) errors.push(`baseline version ${version} must map to exactly one repository migration file`)
+    if (files.length > 1) errors.push(`baseline version ${version} maps to multiple repository migration files`)
+    if (files.length === 0 && !RETIRED_ALIAS_VERSIONS.has(version)) {
+      errors.push(`baseline version ${version} is missing without an approved historical-retirement disposition`)
+    }
   }
 
   for (const item of approved) {
