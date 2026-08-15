@@ -19,9 +19,9 @@ export {
 } from './sections/IntelligenceSections'
 
 export { RegulatoryWatchSection } from './sections/RegulatoryWatchWithCorpus'
+export { JurisdictionSection } from './sections/JurisdictionCommandSection'
 
 export {
-  JurisdictionSection,
   MarketStatusSection,
   ReviewGatesSection,
   DirectoriesSection,
