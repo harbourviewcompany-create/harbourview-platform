@@ -25,8 +25,9 @@ export {
   MarketStatusSection,
   ReviewGatesSection,
   DirectoriesSection,
-  TalentSection,
 } from './sections/OperationsSections'
+
+export { TalentSection } from './sections/TalentSection'
 
 export {
   GeneticsSection,

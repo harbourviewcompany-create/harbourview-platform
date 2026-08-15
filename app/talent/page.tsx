@@ -1,78 +1,51 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 
-export const metadata = {
-  title: 'Talent | Harbourview',
-  description: "Open roles at cannabis operators verified by Harbourview's market-intelligence network.",
-}
-
 export const dynamic = 'force-dynamic'
-
-type PublicJob = {
-  id: string
-  title: string
-  department: string | null
-  location: string | null
-  created_at: string
-  operator_name: string | null
-  operator_verification_status: string | null
-}
 
 export default async function TalentPage() {
   const supabase = await createClient()
-  const { data: jobs, error } = await supabase
-    .from('talent_jobs_public')
-    .select('id, title, department, location, created_at, operator_name, operator_verification_status')
+  const { data, error } = await supabase
+    .from('talent_job_opportunities_public')
+    .select('id,title,department,location_text,employment_type,workplace_type,freshness_state,last_confirmed_at,created_at,workspace_id,employer_name,employer_verification_status')
     .order('created_at', { ascending: false })
+    .limit(48)
+
+  const jobs = data ?? []
 
   return (
-    <main className="max-w-4xl mx-auto px-4 py-12">
-      <p className="text-gold text-xs font-semibold uppercase tracking-wide mb-2">Harbourview Talent</p>
-      <h1 className="text-navy text-3xl font-bold mb-3">
-        Open roles at operators Harbourview has already vetted.
-      </h1>
-      <p className="text-gray-600 mb-10 max-w-2xl">
-        Every posting here comes from a licensed operator in our market-intelligence network. Verified
-        badges reflect Harbourview&apos;s own diligence, not a self-reported claim.
-      </p>
+    <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-6">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Harbourview Talent Intelligence</p>
+          <h1 className="mt-2 text-3xl font-bold text-navy">Open opportunities</h1>
+          <p className="mt-2 max-w-2xl text-sm text-gray-600">Canonical, source-governed roles from Harbourview employers. Search and employer-side Talent discovery are also available inside Command.</p>
+        </div>
+        <Link className="btn-primary" href="/dashboard?section=talent&talentMode=jobs">Open Talent in Command</Link>
+      </div>
 
-      {error && (
-        <p className="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Roles couldn&apos;t be loaded right now. Please try again shortly.
-        </p>
-      )}
+      {error && <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">Talent is temporarily unavailable.</div>}
+      {!error && jobs.length === 0 && <div className="rounded border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">No publishable open roles are available right now.</div>}
 
-      {!error && (!jobs || jobs.length === 0) && (
-        <p className="card p-8 text-center text-gray-500 text-sm">
-          No open roles right now — check back soon.
-        </p>
-      )}
-
-      <div className="space-y-3">
-        {(jobs as PublicJob[] | null ?? []).map((job) => (
-          <Link key={job.id} href={`/talent/${job.id}`} className="card block p-5 hover:border-navy transition">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="grid gap-3">
+        {jobs.map(job => (
+          <article key={job.id} className="card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-navy font-semibold text-lg">{job.title}</h2>
-                  {job.operator_verification_status === 'verified' && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
-                      Verified operator
-                    </span>
-                  )}
-                </div>
-                <p className="text-gray-500 text-sm mt-1">{job.operator_name ?? 'Harbourview network operator'}</p>
+                <h2 className="text-lg font-semibold text-navy"><Link href={`/talent/${job.id}`} className="hover:underline">{job.title}</Link></h2>
+                <p className="mt-1 text-sm text-gray-600">{job.employer_name}{job.location_text ? ` · ${job.location_text}` : ''}</p>
               </div>
+              {job.employer_verification_status === 'verified' && <span className="rounded-full border px-2 py-1 text-xs">Verified employer</span>}
             </div>
-            <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-              {job.location && <span>{job.location}</span>}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
               {job.department && <span>{job.department}</span>}
+              {job.employment_type && <span>· {job.employment_type.replaceAll('_', ' ')}</span>}
+              {job.workplace_type && <span>· {job.workplace_type.replaceAll('_', ' ')}</span>}
+              <span>· {job.freshness_state.replaceAll('_', ' ')}</span>
             </div>
-          </Link>
+          </article>
         ))}
       </div>
     </main>
   )
 }
-
-// ci-trigger-diagnostic: no functional change
