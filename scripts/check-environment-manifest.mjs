@@ -6,7 +6,9 @@ import process from 'node:process'
 
 const root = process.cwd()
 const manifestPath = path.join(root, 'config', 'environment-manifest.json')
+const workflowManifestPath = path.join(root, 'config', 'environment-workflow-manifest.json')
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+const workflowManifest = JSON.parse(fs.readFileSync(workflowManifestPath, 'utf8'))
 
 function flattenManifestEntries(value) {
   if (Array.isArray(value.variables)) return value.variables
@@ -19,7 +21,7 @@ function flattenManifestEntries(value) {
   )
 }
 
-const entries = flattenManifestEntries(manifest)
+const entries = [...flattenManifestEntries(manifest), ...flattenManifestEntries(workflowManifest)]
 const declaredNames = entries.map((entry) => entry.name)
 const declared = new Set(declaredNames)
 const forbiddenPublicPrefixes = manifest.forbiddenPublicPrefixes ?? []
