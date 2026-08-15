@@ -1,0 +1,287 @@
+name: P0 Organization Onboarding Regression Verify
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - app/api/org/**
+      - app/api/dashboard/preferences/**
+      - app/organization/**
+      - components/ShellWrapper.tsx
+      - components/globe/CountrySearchOverlay.tsx
+      - components/globe/MarketOverviewSheet.tsx
+      - components/dashboard/OrganizationContextControl.tsx
+      - components/dashboard/mobile-command/**
+      - tests/harbourview/p0-identity-org-context.test.ts
+      - tests/e2e/p0-identity-org-context.spec.ts
+      - tests/fixtures/p0-org-onboarding-baseline.sql
+      - supabase/migrations/20260814122000_p0_identity_org_context.sql
+      - .github/workflows/p0-org-onboarding-regression-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-org-onboarding-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Typecheck security build real auth and mobile organization evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SUPABASE_DB_SCHEMA: api
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Focused P0 organization contract tests
+        run: >-
+          npx vitest run
+          tests/harbourview/p0-identity-org-context.test.ts
+          tests/harbourview/baseline-contract-repairs.test.ts
+          tests/auth/canonicalRedirect.test.ts
+          tests/dashboard/mobileCommandCentreV2.test.ts
+
+      - name: Security and leakage tests
+        run: npm run test:security
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated P0 schema with the real candidate migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+          cp tests/fixtures/p0-org-onboarding-baseline.sql \
+            supabase/migrations/00000000000000_p0_org_onboarding_baseline.sql
+          cp /tmp/harbourview-production-migrations/20260814122000_p0_identity_org_context.sql \
+            supabase/migrations/20260814122000_p0_identity_org_context.sql
+          : > supabase/seed.sql
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create zero-organization user and pending join invitation
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="p0-org-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvP0Org-${GITHUB_RUN_ID}-Aa9!"
+          INVITER_EMAIL="p0-org-inviter-${GITHUB_RUN_ID}@harbourview.local"
+          INVITER_PASSWORD="HvP0Inviter-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          echo "::add-mask::${INVITER_EMAIL}"
+          echo "::add-mask::${INVITER_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          export E2E_INVITER_EMAIL="${INVITER_EMAIL}"
+          export E2E_INVITER_PASSWORD="${INVITER_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+
+          node --input-type=module <<'NODE'
+          import { createHash, randomBytes } from 'node:crypto'
+          import fs from 'node:fs'
+          import { createClient } from '@supabase/supabase-js'
+
+          const admin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            {
+              auth: { autoRefreshToken: false, persistSession: false },
+              db: { schema: 'api' },
+            },
+          )
+
+          const createUser = async (email, password, purpose) => {
+            const { data, error } = await admin.auth.admin.createUser({
+              email,
+              password,
+              email_confirm: true,
+              app_metadata: { p0_org_onboarding_test: true },
+              user_metadata: { purpose },
+            })
+            if (error) throw error
+            if (!data.user) throw new Error(`Could not create ${purpose} user`)
+            return data.user
+          }
+
+          const primary = await createUser(
+            process.env.E2E_TEST_USER_EMAIL,
+            process.env.E2E_TEST_USER_PASSWORD,
+            'organization-onboarding-primary',
+          )
+          const inviter = await createUser(
+            process.env.E2E_INVITER_EMAIL,
+            process.env.E2E_INVITER_PASSWORD,
+            'organization-onboarding-inviter',
+          )
+
+          const now = new Date().toISOString()
+          const { data: workspace, error: workspaceError } = await admin
+            .from('workspaces')
+            .insert({
+              name: 'Harbourview E2E Join Target',
+              slug: `p0-join-target-${process.env.GITHUB_RUN_ID}`,
+              legal_name: 'Harbourview E2E Join Target',
+              org_type: 'buyer',
+              jurisdiction_country: 'MX',
+              verification_status: 'unverified',
+              is_public: false,
+              settings: {},
+              status: 'active',
+            })
+            .select('id')
+            .single()
+          if (workspaceError || !workspace) throw workspaceError ?? new Error('Join target workspace missing')
+
+          const { error: membershipError } = await admin.from('workspace_members').insert({
+            workspace_id: workspace.id,
+            user_id: inviter.id,
+            role: 'admin',
+            status: 'active',
+            invited_at: now,
+            joined_at: now,
+          })
+          if (membershipError) throw membershipError
+
+          const invitationToken = randomBytes(32).toString('hex')
+          const tokenHash = createHash('sha256').update(invitationToken).digest('hex')
+          const { error: invitationError } = await admin.from('workspace_invitations').insert({
+            workspace_id: workspace.id,
+            email: process.env.E2E_TEST_USER_EMAIL.toLowerCase(),
+            role: 'viewer',
+            token_hash: tokenHash,
+            invited_by: inviter.id,
+            status: 'pending',
+            expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          })
+          if (invitationError) throw invitationError
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `E2E_ORG_INVITE_TOKEN=${invitationToken}\n`)
+          console.log(`Prepared isolated primary user ${primary.id} and invitation target ${workspace.id}`)
+          NODE
+
+          INVITE_TOKEN="$(grep '^E2E_ORG_INVITE_TOKEN=' "$GITHUB_ENV" | tail -1 | cut -d= -f2-)"
+          echo "::add-mask::${INVITE_TOKEN}"
+
+      - name: Build exact source against isolated Supabase
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 > /tmp/p0-org-onboarding-next.log 2>&1 &
+          echo $! > /tmp/p0-org-onboarding-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
+              echo 'GO: exact local production build is ready.'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/p0-org-onboarding-next.log
+          exit 1
+
+      - name: Run real authenticated organization click-through flows
+        run: >-
+          npx playwright test
+          tests/e2e/p0-identity-org-context.spec.ts
+          --project=chromium-desktop
+          --workers=1
+          --retries=0
+
+      - name: Record exact-head evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/p0-identity-org-context
+          git rev-parse HEAD > artifacts/p0-identity-org-context/exact-head.txt
+          git status --short > artifacts/p0-identity-org-context/git-status.txt
+          cp /tmp/p0-org-onboarding-next.log artifacts/p0-identity-org-context/server.log 2>/dev/null || true
+
+      - name: Upload P0 organization evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: p0-org-onboarding-${{ github.run_id }}
+          path: |
+            artifacts/p0-identity-org-context/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore production migration source tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
+      - name: Stop isolated services
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/p0-org-onboarding-next.pid ]; then
+            kill "$(cat /tmp/p0-org-onboarding-next.pid)" 2>/dev/null || true
+          fi
+          supabase stop --no-backup || true
