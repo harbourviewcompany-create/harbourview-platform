@@ -73,7 +73,7 @@ jobs:
             20260814121500_clinical_evidence_spine.sql
             20260814134500_clinical_evidence_v1_governance.sql
             20260814135500_clinical_evidence_v1_source_reconciliation.sql
-            20260814143000_clinical_evidence_v1_production_foundation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
             20260814144000_clinical_evidence_v1_audit_immutability.sql
             20260814150000_clinical_evidence_v1_1_operations.sql
             20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
