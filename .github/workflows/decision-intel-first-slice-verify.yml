@@ -226,6 +226,16 @@ jobs:
           revoke all on function api.resolve_intel_event_route(text) from public, anon;
           grant execute on function api.get_intel_event_dossier(text) to authenticated;
           grant execute on function api.resolve_intel_event_route(text) to authenticated;
+          create or replace function public.get_intel_event_dossier(p_event_id text)
+          returns setof api.intel_event_dossiers language sql stable security definer set search_path=pg_catalog,api,public
+          as $$ select * from api.intel_event_dossiers where id=p_event_id $$;
+          create or replace function public.resolve_intel_event_route(p_signal_id text)
+          returns table(event_id text) language sql stable security definer set search_path=pg_catalog,api,public
+          as $$ select null::text where false $$;
+          revoke all on function public.get_intel_event_dossier(text) from public, anon;
+          revoke all on function public.resolve_intel_event_route(text) from public, anon;
+          grant execute on function public.get_intel_event_dossier(text) to authenticated, service_role;
+          grant execute on function public.resolve_intel_event_route(text) to authenticated, service_role;
           SQL
           : > supabase/seed.sql
       - name: Start isolated Supabase
