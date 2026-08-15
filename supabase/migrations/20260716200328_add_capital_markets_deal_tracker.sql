@@ -1,21 +1,21 @@
--- Restored 2026-08-05 from supabase_migrations.schema_migrations.
+-- Reconstructed from production.
 --
--- This file was committed as a `SELECT 1;` parity stub ("Applied directly to
--- production via Supabase MCP ... No DDL executed by this file"), so zero-state
--- replay never created the deal-tracker layer. The first consumer then failed:
---   20260726003138_populate_deal_data_batch2_israel_operators.sql
---   ERROR: relation "public.deal_ma_transactions" does not exist (SQLSTATE 42P01)
+-- This file previously contained no DDL. It carried a short comment saying it
+-- had been applied directly to production via Supabase MCP and existed only to
+-- satisfy local/remote migration history parity, followed by `SELECT 1;`.
 --
--- The body below is the production-recorded statement for this version,
--- restored verbatim -- 7245 characters, md5 29d66e767b1b7dec686ae6049349bb58,
--- byte-identical to statements[1] of the live ledger row.
+-- That placeholder satisfied the version-number ledger while executing nothing,
+-- so `supabase db reset --local` could not rebuild the schema this migration is
+-- supposed to create. The statements below are the verbatim text production
+-- ran, read back from supabase_migrations.schema_migrations.statements for
+-- version 20260716200328.
 --
--- Replay prerequisites verified: public.cannabis_operators (both FK targets)
--- is created at 20260622000003, and the api schema at 20260626110923, both
--- ahead of this point. None of the eight policy names below is created by any
--- other migration, so the unguarded CREATE POLICY statements are safe as
--- recorded -- the only other `deal_*` policies in the repository belong to the
--- unrelated deal_room/deal_room_messages tables.
+-- Rewriting this file cannot affect production: 20260716200328 is already recorded
+-- in schema_migrations, so `supabase db push` skips it. This is a
+-- repository-only repair of replay fidelity.
+--
+-- Regenerate with: node scripts/reconstruct-stub-migrations.mjs
+
 
 -- ADR #20: Capital markets / deal-tracker layer
 -- Closes competitive gap vs Viridian Capital Advisors (Cannabis Deal Tracker) and

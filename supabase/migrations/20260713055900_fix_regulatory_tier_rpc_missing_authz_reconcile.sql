@@ -1,5 +1,24 @@
--- Applied directly to production via Supabase MCP.
--- File added to satisfy local/remote migration history parity
--- (see supabase_migrations.schema_migrations for the original
--- application timestamp). No DDL executed by this file.
-SELECT 1;
+-- Reconstructed from production.
+--
+-- This file previously contained no DDL. It carried a short comment saying it
+-- had been applied directly to production via Supabase MCP and existed only to
+-- satisfy local/remote migration history parity, followed by `SELECT 1;`.
+--
+-- That placeholder satisfied the version-number ledger while executing nothing,
+-- so `supabase db reset --local` could not rebuild the schema this migration is
+-- supposed to create. The statements below are the verbatim text production
+-- ran, read back from supabase_migrations.schema_migrations.statements for
+-- version 20260713055900.
+--
+-- Rewriting this file cannot affect production: 20260713055900 is already recorded
+-- in schema_migrations, so `supabase db push` skips it. This is a
+-- repository-only repair of replay fidelity.
+--
+-- Regenerate with: node scripts/reconstruct-stub-migrations.mjs
+
+-- No-op reconciliation marker: the actual fix (public.is_regulatory_tier_admin()
+-- guard on api.set_regulatory_tier / api.accept_classifier_tier) was already
+-- applied live as migration 20260712070059_fix_regulatory_tier_rpc_missing_authz.
+-- PR #1032 committed the same SQL to git under a different filename
+-- (20260711170000_...). This entry just records that reconciliation in the ledger.
+select 1;
