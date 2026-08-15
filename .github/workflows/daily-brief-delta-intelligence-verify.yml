@@ -6,6 +6,7 @@ on:
     paths:
       - 'supabase/migrations/20260815204500_daily_brief_delta_intelligence.sql'
       - 'supabase/migrations/20260815213000_daily_brief_delta_history_backfill.sql'
+      - 'supabase/migrations/20260815234000_daily_brief_lineage_hardening.sql'
       - 'lib/signals/digestDelta.ts'
       - 'lib/harbourview/dto/public.ts'
       - 'lib/fixtures/dailyDigest.ts'
