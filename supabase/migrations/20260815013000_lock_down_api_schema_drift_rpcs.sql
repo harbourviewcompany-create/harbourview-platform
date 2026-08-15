@@ -49,17 +49,25 @@
 -- SAFETY
 --
 -- This only revokes. The sole caller is the `schema-drift-monitor` edge
--- function, which uses the service_role client (verified in
--- `supabase/functions/schema-drift-monitor/index.ts`: it constructs its client
--- from SERVICE_ROLE_KEY and calls both RPCs through it). service_role keeps
--- EXECUTE, so the monitor is unaffected.
+-- function, which builds its client from SERVICE_ROLE_KEY and calls both RPCs
+-- through it (verified in `supabase/functions/schema-drift-monitor/index.ts`).
+-- service_role keeps EXECUTE, so the monitor is unaffected.
 --
--- `grant usage on schema api to service_role` is retained from the original
--- statements: it is required for service_role to reach the wrappers at all, and
--- granting schema usage does not by itself expose any object.
+-- The schema-usage grant to service_role is retained from the original
+-- statements: it is required for that role to reach the wrappers at all, and
+-- schema usage alone exposes no object.
 --
--- Idempotent: REVOKE on an already-revoked privilege is a no-op, as is GRANT on
--- one already held.
+-- The public.* revokes look redundant -- those ACLs are already correct in
+-- production. They are kept deliberately: they cost nothing (REVOKE on an
+-- already-revoked privilege is a no-op, as is GRANT on one already held), they
+-- make a fresh replay reach the same state rather than depending on history,
+-- and `tests/security/edge-function-auth-hardening.test.ts` asserts both
+-- schemas explicitly.
+--
+-- NOTE FOR FUTURE EDITORS: that test parses this file with regexes over the
+-- lowercased text and does not skip comments. Do not write a literal GRANT or
+-- REVOKE statement in prose here -- an earlier draft did, and the parser
+-- counted the comment as a real statement.
 
 grant usage on schema api to service_role;
 
