@@ -19,6 +19,10 @@ import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
 import SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'
+import type { UserTier } from '@/lib/stripe/tier'
+import { TIER_DISPLAY } from '@/lib/stripe/tierDisplay'
+import UpgradeButton from '@/components/stripe/UpgradeButton'
+import ManageBillingButton from '@/components/stripe/ManageBillingButton'
 import { CultivarPassportModal } from '@/components/dashboard/CultivarPassportModal'
 import { MyBriefingsPanel } from '@/components/dashboard/MyBriefingsPanel'
 import { WantedDetailModal } from './WantedDetailModal'
@@ -127,6 +131,12 @@ type Props = {
   regionLabel?:     string | null
   initialRoleId?:   string | null
   initialPage?:     CommandPage | null
+  // Subscription tier — fetched server-side (lib/stripe/tier.ts) and passed
+  // down because getUserTier() is server-only and this tree is 'use client'.
+  userTier?:        UserTier
+  // Set when landing via /dashboard?page=signals&search=1 — the redirect
+  // target for the old /dashboard/signals/search route.
+  openSignalsSearch?: boolean
   wantedCount?:     number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
   pipeline?:        PipelineCounts
@@ -764,7 +774,7 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
 const SignalsPage = React.memo(function SignalsPage({
-  country, region, role, signals, watchlistData, onPageChange,
+  country, region, role, signals, watchlistData, onPageChange, initialShowSearch = false,
 }: {
   country: { iso2: string; label: string }
   region:  string
@@ -772,13 +782,14 @@ const SignalsPage = React.memo(function SignalsPage({
   signals: DashboardSignal[]
   watchlistData?: WatchlistData
   onPageChange?: (page: CommandPage) => void
+  initialShowSearch?: boolean
 }) {
   const [filterImpact,  setFilterImpact]  = useState('all')
   const [filterConf,    setFilterConf]    = useState('all')
   const [filterType,    setFilterType]    = useState('all')
   const [currentPage,   setCurrentPage]   = useState(1)
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
-  const [showSearch, setShowSearch] = useState(false)
+  const [showSearch, setShowSearch] = useState(initialShowSearch)
   const PAGE_SIZE = 6
 
   // ── Live signal fetch ──────────────────────────────────────────────────────
@@ -973,7 +984,10 @@ const SignalsPage = React.memo(function SignalsPage({
           </button>
         </div>
 
-        {showSearch ? <SignalSemanticSearch /> : null}
+        {showSearch ? (
+          <SignalSemanticSearch />
+        ) : (
+        <>
         <div className="cc-filter-bar">
           <CustomSelect value={filterType} className="cc-filter-sel" onChange={setFilterType} options={[
             { value: 'all',                    label: 'All Types' },
@@ -1078,6 +1092,8 @@ const SignalsPage = React.memo(function SignalsPage({
             <button className="cc-page-btn" onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} disabled={currentPage===totalPages}>›</button>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* ── Right panel ─────────────────────────────────────── */}
@@ -2641,7 +2657,7 @@ const OrganizationDashboard = React.memo(function OrganizationDashboard({
 
 
 const SettingsPage = React.memo(function SettingsPage({
-  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange, onPageChange,
+  country, region, role, countryOptions, roleOptions, onCountryChange, onRoleChange, onPageChange, userTier = 'free',
 }: {
   country:          { iso2: string; label: string }
   region:           string
@@ -2651,6 +2667,7 @@ const SettingsPage = React.memo(function SettingsPage({
   onCountryChange?: (iso2: string) => void
   onRoleChange?:    (role: string) => void
   onPageChange?:    (page: CommandPage) => void
+  userTier?:        UserTier
 }) {
   const [watchlistAlerts, setWatchlistAlerts] = useState(true)
   const [signalsAlerts,   setSignalsAlerts]   = useState(true)
@@ -2810,6 +2827,38 @@ const SettingsPage = React.memo(function SettingsPage({
                 <small>Show 3 of 5 levels</small>
               </div>
               <span className="cc-settings-chev">›</span>
+            </div>
+          </div>
+
+          {/* Subscription & Billing */}
+          <div className="cc-settings-row cc-settings-row--subscription">
+            <div className="cc-settings-row-icon">◈</div>
+            <div className="cc-settings-row-body">
+              <strong>Subscription &amp; Billing</strong>
+              <p>Your current plan, feature access, and billing management.</p>
+            </div>
+            <div className="cc-settings-row-right cc-settings-subscription">
+              <div className="cc-sub-plan-badge">
+                <span className={`cc-status-badge cc-status-badge--${userTier}`}>
+                  {userTier === 'free' ? 'Free' : TIER_DISPLAY[userTier].name}
+                </span>
+                {userTier !== 'free' && <ManageBillingButton />}
+              </div>
+              {userTier !== 'operator' && (
+                <div className="cc-sub-upgrade-row">
+                  {(userTier === 'free' ? ['intel', 'operator'] as const : ['operator'] as const).map(tierKey => (
+                    <div key={tierKey} className="cc-sub-upgrade-card">
+                      <strong>{TIER_DISPLAY[tierKey].name}</strong>
+                      <span className="cc-sub-upgrade-price">{TIER_DISPLAY[tierKey].monthly.label}</span>
+                      <UpgradeButton
+                        priceKey={TIER_DISPLAY[tierKey].monthly.key}
+                        label={`Upgrade to ${TIER_DISPLAY[tierKey].name}`}
+                        className="cc-sub-upgrade-btn"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -10900,6 +10949,8 @@ export default function CommandCentre({
   initialCountryIso2,
   initialRoleId,
   initialPage,
+  userTier = 'free',
+  openSignalsSearch = false,
   wantedCount = 0,
   marketplaceRows,
   pipeline,
@@ -11117,14 +11168,14 @@ export default function CommandCentre({
       case 'local-intel':
         return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={liveCountryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
       case 'signals':
-        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} />
+        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} initialShowSearch={openSignalsSearch} />
       case 'watchlist':
         if (watchlistAccess && !watchlistAccess.granted) {
           return <WatchlistUpgradeGate access={watchlistAccess} />
         }
         return <WatchlistPage country={country} region={region} role={roleLabel} watchlistData={watchlistData} />
       case 'settings':
-        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} />
+        return <SettingsPage country={country} region={region} role={role} countryOptions={countryOptions} roleOptions={roleOptions} onCountryChange={handleCountryChange} onRoleChange={handleRoleChange} onPageChange={handlePageChange} userTier={userTier} />
       case 'genetics':
         return <GeneticsPage country={country} cultivarPassports={cultivarPassports} serviceProviders={serviceProviders} collaborationProjects={collaborationProjects} onPageChange={handlePageChange} />
       case 'clinical':
