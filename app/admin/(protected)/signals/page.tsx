@@ -36,7 +36,10 @@ export default async function AdminSignalsPage() {
       <div className="rounded-2xl border border-emerald-400/25 bg-[#0B1A2F] p-5">
         <p className="text-sm text-[#F5F1E8]/55">Automated engine pipeline (source_registry → signals, cat=SOURCE_ENGINE) — the actual live crawler feed</p>
         <p className="mt-2 text-3xl font-semibold text-emerald-300">{enginePending ?? '—'} <span className="text-base font-normal text-[#F5F1E8]/55">pending review (score ≥ 50)</span></p>
-        <a className="mt-3 inline-block text-sm text-[#C6A55A] underline" href="/admin/signals/queue">Open engine queue →</a>
+        <div className="mt-3 flex flex-wrap gap-4">
+          <a className="text-sm text-[#C6A55A] underline" href="/admin/signals/queue">Open engine queue →</a>
+          <a className="text-sm text-[#C6A55A] underline" href="/admin/signals/analysis">Signal analysis →</a>
+        </div>
       </div>
       <div className="space-y-3">
         {signals.slice(0, 20).map((signal) => (
