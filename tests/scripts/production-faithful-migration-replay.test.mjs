@@ -76,8 +76,8 @@ test('replay relocates the production-column reconciliation before the first sup
     path.join(root, 'supabase/migrations/20260730220050_reconcile_listings_production_columns.sql'),
     'utf8',
   )
-  assert.match(source, /production's shape was established entirely outside recorded history/i)
-  assert.match(source, /Every column below is taken from the live catalog/i)
+  assert.match(source, /shape was established entirely outside recorded history/i)
+  assert.match(source, /below is taken from the live catalog \(pg_attribute \/ pg_get_expr\), not\s*-- inferred/i)
 })
 
 test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {
