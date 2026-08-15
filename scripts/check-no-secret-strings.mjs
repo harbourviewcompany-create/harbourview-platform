@@ -65,8 +65,27 @@ const patterns = [
   { name: 'aws-access-key', regex: /\bAKIA[0-9A-Z]{16}\b/ },
   { name: 'slack-token', regex: /\bxox[baprs]-[A-Za-z0-9-]{20,}\b/ },
   { name: 'jwt-looking-token', regex: /\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/ },
-  { name: 'database-url-with-password', regex: /\bpostgres(?:ql)?:\/\/[^:\s]+:[^@\s]+@[^/\s]+\/[^\s'\")]+/i },
 ];
+
+/*
+ * Database URLs.
+ *
+ * The risk is a literal password baked into a connection string. A URL assembled
+ * from variables is not that, and flagging it is how a scanner gets ignored:
+ * .github/workflows/supabase-migrate.yml builds
+ *   postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}
+ * one line after masking it with ::add-mask::, and the old pattern matched it
+ * because ${...} contains no colon, at-sign or space.
+ *
+ * So the password segment is captured and checked rather than assumed. A shell
+ * variable, a command substitution or a GitHub expression in that position is
+ * definitionally not a committed secret; anything else still fails.
+ */
+const databaseUrlWithPassword =
+  /\bpostgres(?:ql)?:\/\/[^:\s]+:([^@\s]+)@[^/\s]+\/[^\s'")]+/i;
+
+const nonLiteralValue =
+  /^(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\$\([^)]*\)?|\$\{\{\s*(?:secrets|vars|env|inputs|github)\.[A-Za-z0-9_-]+\s*\}\})$/;
 
 /*
  * Vault secret literals.
@@ -96,11 +115,13 @@ const vaultSecretCalls = [
 const placeholderSecret =
   /^(?:your_|example|replace_me|changeme|placeholder|dummy|redacted|xxx|<|\.\.\.)|_here$|^new_[a-z_]+$/i;
 
-const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*["']?([^"'\s]+)["']?/;
+const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*(.+)$/;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
+const knownLocalTestPlaceholder = /^(?:postgres|local-test-(?:anon|service)-key)$/;
+const requestBodyReference = /^body\.[A-Za-z_][A-Za-z0-9_]*$/;
 
 function normalizeIdentifier(identifier) {
   return identifier
@@ -114,13 +135,52 @@ function isSensitiveIdentifier(identifier) {
   return /(?:^|_)(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)(?:_|$)/.test(normalized);
 }
 
-function isAllowedSensitiveAssignment(identifier, value) {
+function stripAssignmentTerminator(value) {
+  return value.trim().replace(/[;,]$/, '').trim();
+}
+
+function unwrapDirectQuotedLiteral(value) {
+  const trimmed = stripAssignmentTerminator(value);
+  if (trimmed.length < 2) return null;
+  const quote = trimmed[0];
+  if ((quote !== '"' && quote !== "'") || trimmed.at(-1) !== quote) return null;
+  return trimmed.slice(1, -1);
+}
+
+function isBareLiteral(value) {
+  const trimmed = stripAssignmentTerminator(value);
+  return /^[A-Za-z0-9_+!@#$%^&*./:-]+$/.test(trimmed);
+}
+
+function isAllowedSensitiveAssignment(identifier, rawValue) {
   if (!isSensitiveIdentifier(identifier)) return true;
+
+  const value = stripAssignmentTerminator(rawValue);
   if (safeAssignmentValue.test(value)) return true;
   if (shellVariableReference.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
   if (generatedVisualTestPassword.test(value)) return true;
-  return false;
+  if (requestBodyReference.test(value)) return true;
+  // A command substitution computes a value at runtime; there is nothing
+  // committed to leak. supabase-migrate.yml opens one to URL-encode the database
+  // password read from a GitHub secret.
+  if (nonLiteralValue.test(value)) return true;
+
+  const directLiteral = unwrapDirectQuotedLiteral(value);
+  if (directLiteral !== null) {
+    if (generatedVisualTestPassword.test(directLiteral)) return true;
+    if (placeholderSecret.test(directLiteral)) return true;
+    if (knownLocalTestPlaceholder.test(directLiteral)) return true;
+    return directLiteral.length < 8;
+  }
+
+  if (knownLocalTestPlaceholder.test(value)) return true;
+
+  // Computed references are not committed secret literals. Vendor-token
+  // signatures and vault positional-literal checks still run independently.
+  if (!isBareLiteral(value)) return true;
+
+  return value.length < 8;
 }
 
 function isProbablyText(path) {
@@ -137,6 +197,11 @@ function scanLine(line, source) {
     if (pattern.regex.test(line)) findings.push({ source, pattern: pattern.name });
   }
 
+  const dbUrlMatch = line.match(databaseUrlWithPassword);
+  if (dbUrlMatch && !nonLiteralValue.test(dbUrlMatch[1])) {
+    findings.push({ source, pattern: 'database-url-with-password' });
+  }
+
   for (const regex of vaultSecretCalls) {
     const vaultMatch = line.match(regex);
     if (vaultMatch && !placeholderSecret.test(vaultMatch[1])) {
@@ -148,7 +213,7 @@ function scanLine(line, source) {
   const match = line.match(assignment);
   if (match) {
     const [, identifier, value] = match;
-    if (value && value.length >= 8 && !isAllowedSensitiveAssignment(identifier, value)) {
+    if (value && !isAllowedSensitiveAssignment(identifier, value)) {
       findings.push({ source, pattern: 'risky-secret-assignment' });
     }
   }
@@ -165,17 +230,36 @@ function runSelfTest() {
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
+    ['dynamic request token', 'const token = body.token', 0],
+    ['dynamic token hash', 'const tokenHash = hashToken(token)', 0],
+    ['generated invitation token', "const token = randomBytes(32).toString('hex')", 0],
+    ['sql token comparison', 'where wi.token_hash = lower(p_token_hash)', 0],
+    ['local postgres test password', 'POSTGRES_PASSWORD: postgres', 0],
+    ['local anon test key', 'NEXT_PUBLIC_SUPABASE_ANON_KEY: local-test-anon-key', 0],
+    ['local service test key', 'SUPABASE_SERVICE_ROLE_KEY: local-test-service-key', 0],
     ['literal password', 'DATABASE_PASS' + 'WORD="literal-secret-12345"', 1],
     ['literal api key', 'api' + 'Key="literal-api-key-value"', 1],
+    ['literal token', "const token = 'literal-secret-12345'", 1],
+    ['literal bare service role key', 'SUPABASE_SERVICE_ROLE_KEY: real-service-role-key', 1],
     ['github token signature', 'value=' + 'gh' + 'p_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ1234', 1],
-    // The 2026-08-13 miss: a bare-hex secret as a positional argument.
     ['vault literal secret', "SELECT vault.create_" + "secret('0123456789abcdef0123', 'some_api_key');", 1],
     ['vault literal on update', "SELECT vault.update_" + "secret(v_id, '0123456789abcdef0123', 'some_api_key');", 1],
     ['vault secret from a reference', "SELECT vault.create_secret(current_setting('app.k'), 'some_api_key');", 0],
     ['vault secret from a subselect', 'SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name=$1), v_new)', 0],
     ['vault secret read, not write', "SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'adzuna_app_key'", 0],
-    // The documented rotation example must not be flagged, or the check gets ignored.
     ['vault rotation doc placeholder', "//   SELECT vault.update_secret((SELECT id FROM vault.secrets WHERE name='GITHUB_PAT'), 'new_token_here');", 0],
+    // Database URLs: a literal password still fails; an interpolated one does not.
+    //
+    // The scheme is split for the same reason 'DATABASE_PASS' + 'WORD' and
+    // 'gh' + 'p_...' are split above: this file is itself a changed file on any
+    // PR that touches it, and a contiguous literal here makes the scanner flag
+    // its own fixture. It did exactly that on the first push of this change.
+    // Concatenation keeps the runtime string matchable while the source is not.
+    ['db url with literal password', 'DB_URL="postgres' + 'ql://postgres:hunter2secret@db.example.com:5432/postgres"', 1],
+    ['db url from shell variables', 'DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"', 0],
+    ['db url from a bare shell variable', 'DB_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:5432/postgres"', 0],
+    ['db url from a github expression', 'DB_URL="postgresql://user:${{ secrets.DB_PASSWORD }}@host:5432/postgres"', 0],
+    ['password from a command substitution', 'ENCODED_PASS' + 'WORD=$(python3 -c "print(1)")', 0],
   ];
 
   const failures = cases.filter(([name, line, expected]) => {
@@ -191,6 +275,11 @@ if (args.get('self-test') === 'true') {
   runSelfTest();
   process.exit(0);
 }
+
+// Every ordinary PR scan proves the scanner still blocks representative literal
+// credentials before evaluating repository changes. This prevents a false-positive
+// repair from silently weakening the real-secret detection contract.
+runSelfTest();
 
 const files = getChangedFiles(base, head);
 const findings = [];
@@ -216,8 +305,8 @@ if (findings.length > 0) {
   console.error('HOLD: possible committed secret values detected.');
   for (const finding of findings) console.error(`- ${finding.source}: ${finding.pattern}`);
   console.error('');
-  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, and the isolated GITHUB_RUN_ID-derived visual-test credential.');
-  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets and credential-bearing database URLs.');
+  console.error('Allowed: environment/GitHub secret references, PostgreSQL ACL evidence, known isolated local-test placeholders, generated isolated test credentials, request-body references, and computed references.');
+  console.error('Blocked: raw token/key/password values, private keys, JWT-looking secrets, credential-bearing database URLs and vault secret literals.');
   process.exit(1);
 }
 
