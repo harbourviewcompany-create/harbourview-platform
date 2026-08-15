@@ -15,10 +15,18 @@ function fail(message) {
   process.exitCode = 1
 }
 
+function flattenManifestEntries(manifest) {
+  if (Array.isArray(manifest.variables)) return manifest.variables
+  return (manifest.groups ?? []).flatMap((group) =>
+    (group.names ?? []).map((name) => ({ ...group, name })),
+  )
+}
+
 const worker = read('wrangler.toml')
 const preview = read('config/cloudflare/wrangler.web-preview.example.toml')
 const targets = read('docs/control/DEPLOYMENT_TARGETS.md')
 const manifest = JSON.parse(read('config/environment-manifest.json'))
+const entries = flattenManifestEntries(manifest)
 
 if (!/^name\s*=\s*"harbourview"\s*$/m.test(worker)) fail('root wrangler.toml must target Worker name "harbourview"')
 if (!/^main\s*=\s*"scripts\/engine\/cloudflare-worker\.ts"\s*$/m.test(worker)) fail('root wrangler.toml must keep the intelligence/health entrypoint')
@@ -36,8 +44,8 @@ if (!targets.includes('Vercel | Primary production web target')) fail('Vercel pr
 if (!targets.includes('Cloudflare web production GO | **HOLD**')) fail('Cloudflare web production HOLD control is missing')
 if (!targets.includes('Supabase Edge Functions + `pg_cron` remain the production intelligence-ingestion authority')) fail('Supabase ingestion authority is not explicit')
 
-const healthUrl = manifest.variables.find((entry) => entry.name === 'NEXT_PUBLIC_SUPABASE_URL')
-const healthKey = manifest.variables.find((entry) => entry.name === 'SUPABASE_SERVICE_ROLE_KEY')
+const healthUrl = entries.find((entry) => entry.name === 'NEXT_PUBLIC_SUPABASE_URL')
+const healthKey = entries.find((entry) => entry.name === 'SUPABASE_SERVICE_ROLE_KEY')
 if (healthUrl?.cloudflare?.intelligenceHealthWorker !== 'Settings → Variables and Secrets → Variable') fail('health Worker Supabase URL placement is incorrect')
 if (healthKey?.cloudflare?.intelligenceHealthWorker !== 'Settings → Variables and Secrets → Secret') fail('health Worker service-role placement is incorrect')
 
