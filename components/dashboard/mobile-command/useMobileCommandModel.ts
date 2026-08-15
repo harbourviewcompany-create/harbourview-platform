@@ -29,7 +29,6 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   useEffect(() => {
     setEnrichedSignals(null)
-    if (model.commandDataState === 'empty') return
 
     const controller = new AbortController()
     const params = new URLSearchParams({ country: model.countryLabel, limit: '25' })
@@ -53,7 +52,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       })
 
     return () => controller.abort()
-  }, [model.commandDataState, model.countryLabel])
+  }, [model.countryLabel])
 
   const effectiveSignals = enrichedSignals ?? model.signals
 
