@@ -17,16 +17,22 @@ const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
 const relocations = planReplayRelocations({ migrationFiles })
 
-test('replay excludes duplicate repository aliases only when the canonical live-version file is also present', () => {
+test('replay handles duplicate aliases only while their repository files still exist', () => {
   for (const [aliasVersion, canonicalVersion] of [
     ['20260728000000', '20260728191340'],
     ['20260728010000', '20260728192052'],
     ['20260728020000', '20260729021820'],
   ]) {
-    assert.equal(excludedVersions.has(aliasVersion), true)
-    const exclusion = exclusions.find((item) => item.version === aliasVersion)
-    assert.ok(exclusion.repository_equivalent_versions.includes(canonicalVersion))
-    assert.ok(migrationFiles.some((file) => file.startsWith(`${canonicalVersion}_`)))
+    const aliasPresent = migrationFiles.some((file) => file.startsWith(`${aliasVersion}_`))
+    const canonicalPresent = migrationFiles.some((file) => file.startsWith(`${canonicalVersion}_`))
+    assert.equal(canonicalPresent, true)
+    if (aliasPresent) {
+      assert.equal(excludedVersions.has(aliasVersion), true)
+      const exclusion = exclusions.find((item) => item.version === aliasVersion)
+      assert.ok(exclusion.repository_equivalent_versions.includes(canonicalVersion))
+    } else {
+      assert.equal(excludedVersions.has(aliasVersion), false)
+    }
   }
 })
 
