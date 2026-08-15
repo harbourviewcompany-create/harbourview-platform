@@ -1,4 +1,4 @@
--- Must return zero rows after 20260804190000_production_security_hardening.sql.
+-- Must return zero rows after the production security hardening migrations.
 
 -- Every explicitly hardened view must execute with caller privileges.
 with hardened_views(schema_name, view_name) as (
@@ -113,20 +113,6 @@ where to_regclass(format('%I.%I', i.schema_name, i.view_name)) is not null
 
 -- Authenticated-only projections: readable by a signed-in session, never by anon,
 -- and never writable by either.
---
--- public.signals_quality sits here rather than in internal_views because
--- api.signals_quality is a security_invoker view over it, and the Command Centre
--- reads that through the cookie-backed client in lib/supabase/server.ts, which
--- pins db.schema = 'api'. Consumers are app/api/dashboard/signals/route.ts and
--- app/api/dashboard/digest/route.ts; both 401 before querying, so the effective
--- role is always authenticated.
---
--- This is a tightening, not a loosening. The view previously ran as its owner
--- (security_invoker unset), which bypassed row-level security on public.signals
--- altogether. The hardening migration sets security_invoker = true, so an
--- authenticated reader is now filtered by that table's own policies
--- (reviewed = true, or score >= 60) instead of seeing every row. anon stays
--- fully closed, which the assertion below enforces.
 with authenticated_views(schema_name, view_name) as (
   values
     ('public','signals_quality')
@@ -135,12 +121,9 @@ select a.schema_name, a.view_name, 'authenticated_view_contract_broken' as defec
 from authenticated_views a
 where to_regclass(format('%I.%I', a.schema_name, a.view_name)) is not null
   and (
-    -- anon must hold nothing at all
     has_table_privilege('anon', format('%I.%I', a.schema_name, a.view_name), 'select,insert,update,delete')
-    -- authenticated must retain exactly read access
     or not has_table_privilege('authenticated', format('%I.%I', a.schema_name, a.view_name), 'select')
     or has_table_privilege('authenticated', format('%I.%I', a.schema_name, a.view_name), 'insert,update,delete')
-    -- service_role must retain read access for the server-side paths
     or not has_table_privilege('service_role', format('%I.%I', a.schema_name, a.view_name), 'select')
   );
 
@@ -165,7 +148,7 @@ where p.prosecdef
   and n.nspname in ('public','api','signals','regulatory_signals')
   and has_function_privilege('anon', p.oid, 'execute');
 
--- Authenticated execution is limited to the exact audited allowlist.
+-- Authenticated execution is limited to the exact policy-aware audited allowlist.
 with authenticated_allowlist(signature) as (
   values
     ('api.get_command_centre_stats()'),
@@ -179,6 +162,7 @@ with authenticated_allowlist(signature) as (
     ('public.hv_is_org_member(uuid)'),
     ('public.hv_is_platform_staff()'),
     ('public.is_genetics_admin_or_reviewer()'),
+    ('public.is_harbourview_admin()'),
     ('public.is_hv_staff()'),
     ('public.current_user_tier()'),
     ('public.is_regulatory_tier_admin()')
@@ -191,6 +175,55 @@ where p.prosecdef
   and has_function_privilege('authenticated', p.oid, 'execute')
   and format('%s.%s(%s)', n.nspname, p.proname, replace(pg_catalog.oidvectortypes(p.proargtypes), ', ', ','))
     not in (select signature from authenticated_allowlist);
+
+-- Every SECURITY DEFINER routine referenced by an RLS policy must remain
+-- executable by authenticated; otherwise the policy errors instead of making
+-- its authorization decision. This is why helpers such as hv_is_org_member,
+-- hv_is_platform_staff, is_genetics_admin_or_reviewer, is_harbourview_admin,
+-- and is_hv_staff are explicit authenticated allowlist entries.
+select distinct
+  n.nspname,
+  p.proname,
+  pg_get_function_identity_arguments(p.oid),
+  'rls_definer_dependency_missing_execute' as defect
+from pg_policy policy
+join pg_depend d
+  on d.classid = 'pg_policy'::regclass
+ and d.objid = policy.oid
+ and d.refclassid = 'pg_proc'::regclass
+join pg_proc p on p.oid = d.refobjid
+join pg_namespace n on n.oid = p.pronamespace
+where p.prosecdef
+  and not has_function_privilege('authenticated', p.oid, 'execute');
+
+-- Mutable-search-path advisor finding must remain closed.
+select p.oid::regprocedure::text as signature, 'mutable_search_path' as defect
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname = 'hv_truncate_at_word_boundary'
+  and not coalesce(p.proconfig @> array['search_path=pg_catalog, public'], false);
+
+-- pg_net is non-relocatable on production, so direct browser execution is the
+-- enforceable database boundary. Browser roles must not have schema usage or
+-- EXECUTE on any extension-owned routine.
+select 'net' as schema_name, 'browser_schema_usage' as defect
+where exists (select 1 from pg_namespace where nspname = 'net')
+  and (
+    has_schema_privilege('anon', 'net', 'usage')
+    or has_schema_privilege('authenticated', 'net', 'usage')
+  );
+
+select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), 'pg_net_browser_execute' as defect
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+join pg_depend d on d.objid = p.oid and d.deptype = 'e'
+join pg_extension e on e.oid = d.refobjid
+where e.extname = 'pg_net'
+  and (
+    has_function_privilege('anon', p.oid, 'execute')
+    or has_function_privilege('authenticated', p.oid, 'execute')
+  );
 
 -- Foreign integration tables remain backend-only.
 select foreign_table_schema, foreign_table_name, 'foreign_table_exposed' as defect
