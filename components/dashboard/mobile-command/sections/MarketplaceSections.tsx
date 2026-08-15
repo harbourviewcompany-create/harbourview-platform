@@ -15,6 +15,7 @@ import {
 import { MarketplaceWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 import '../MarketplaceListingMedia.css'
+import '../MarketplaceInventoryFirst.css'
 
 type MediaStage = 'primary' | 'fallback' | 'empty'
 

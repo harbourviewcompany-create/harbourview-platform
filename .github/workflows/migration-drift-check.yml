@@ -19,8 +19,13 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Keyed on the commit rather than the ref for non-PR events: on push and
+  # schedule the old key collapsed to `refs/heads/main`, so with
+  # cancel-in-progress always true a burst of merges cancelled each other's
+  # drift check. Cancellation is now limited to pull requests, where superseding
+  # an earlier run of the same PR is the intended behaviour.
+  group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -29,6 +34,36 @@ env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
 
 jobs:
+  # Nothing in this repository parsed the production migration tree until
+  # 2026-08-14. The one job that stands up a real database
+  # (mobile-command-centre-v2-visual.yml) moves supabase/migrations aside and
+  # substitutes a small hand-written schema, so two migrations that could not be
+  # replayed -- an apostrophe closing a string literal, and a CREATE FUNCTION
+  # with no statement terminator -- reached main fully green.
+  #
+  # This parses every migration with libpg-query, the real PostgreSQL grammar.
+  # It resolves no names, so vault/cron/net/auth/pgvector references and missing
+  # tables are never failures here; only genuine syntax errors are. Full replay
+  # was considered and rejected: on a clean database these migrations fail for
+  # environmental reasons the author cannot fix, and a gate that is red for
+  # unfixable reasons is one people learn to ignore.
+  migration-sql-parses:
+    name: Verify migration SQL parses
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install libpg-query
+        run: npm ci --no-audit --no-fund
+      - name: Self-test the checker
+        run: node scripts/check-migration-sql-parses.mjs --self-test
+      - name: Parse every migration
+        run: node scripts/check-migration-sql-parses.mjs
+
   parser-contract:
     name: Verify migration-list parser
     runs-on: ubuntu-latest
@@ -77,6 +112,38 @@ jobs:
             --filtered-out artifacts/migration-drift/remote-migrations-for-drift.txt \
             --audit-out artifacts/migration-drift/historical-attestations-audit.json
 
+      # The drift manifest below fails only on `applied_not_committed`. This is
+      # the reverse direction, narrowed to the one classification where "not
+      # applied" is unambiguously wrong rather than an open question: `approved`
+      # means a human already decided it must be in production.
+      #
+      # Added after three migrations approved on 2026-08-02 were found still
+      # unapplied on 2026-08-14. One of them created the two api-schema RPCs that
+      # app/api/signals/feedback/route.ts and lib/signals/feedbackScores.ts call,
+      # so operator feedback was dead in production for twelve days with nothing
+      # red anywhere. This job already reads the live ledger hourly, so it is the
+      # cheapest place to notice.
+      - name: Escalate approved migrations that are not applied
+        id: approved_applied
+        continue-on-error: true
+        run: |
+          # pipefail is required: the script reports HOLD on stderr and exits 1,
+          # and without it the pipeline would take tee's exit code and this step
+          # would pass while printing its own failure.
+          set -o pipefail
+          node scripts/check-approved-migrations-applied.mjs --self-test
+          # DELIBERATELY the raw remote list, not remote-migrations-for-drift.txt.
+          # The filtered file has attested remote-only rows stripped out, and this
+          # check asks the opposite question -- "is this approved version present
+          # in production?" Reading the filtered file would report an approved
+          # version as unapplied the moment it was also attested. The next step
+          # uses the filtered file for the drift manifest; that is correct there
+          # and wrong here, so do not "tidy" these two to match.
+          node scripts/check-approved-migrations-applied.mjs \
+            --remote-list artifacts/migration-drift/remote-migrations.txt \
+            --decisions supabase/release-controls/pending-production-migration-decisions.json \
+            2>&1 | tee artifacts/migration-drift/approved-migrations-applied.txt
+
       - name: Generate exact drift manifest
         id: manifest
         continue-on-error: true
@@ -99,6 +166,15 @@ jobs:
             cat artifacts/migration-drift/historical-attestations-audit.json >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
+          # Surfaced in the run summary, not just the step log. An escalation
+          # whose entire purpose is to be noticed is worth nothing if the reason
+          # is buried three clicks deep in a job that also does four other things.
+          if [ -f artifacts/migration-drift/approved-migrations-applied.txt ]; then
+            echo "## Approved migrations applied to production" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat artifacts/migration-drift/approved-migrations-applied.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ -f artifacts/migration-drift/manifest.md ]; then
             cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -115,10 +191,16 @@ jobs:
       - name: Enforce drift result
         if: always()
         run: |
+          FAILED=0
           if [ "${{ steps.manifest.outcome }}" != "success" ]; then
             echo "::error::Migration drift parser or remote-ledger reconciliation failed."
-            exit 1
+            FAILED=1
           fi
+          if [ "${{ steps.approved_applied.outcome }}" != "success" ]; then
+            echo "::error::An approved migration is merged but not applied to production. See the step log for the exact versions and how long they have been pending."
+            FAILED=1
+          fi
+          exit "$FAILED"
 
   check-placeholder-landmines:
     runs-on: ubuntu-latest

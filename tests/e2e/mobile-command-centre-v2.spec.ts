@@ -127,6 +127,12 @@ const MOBILE_VIEWPORTS = [
   { width: 430, height: 932, file: '430x932-command.png' },
 ] as const
 
+const REQUIRED_EVIDENCE_VIEWPORTS = [
+  { width: 375, height: 812 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+] as const
+
 function sharedContextOptions(): BrowserContextOptions {
   if (!BASE_URL) throw new Error('HARBOURVIEW_PUBLIC_BASE_URL or PLAYWRIGHT_BASE_URL is required')
   return {
@@ -186,20 +192,54 @@ async function assertFourModeNavigation(page: Page) {
   await expect(nav.locator('[aria-current="page"]')).toContainText('Command')
 }
 
+async function assertSingleRowHorizontalRail(rail: Locator, description: string, requireOverflow = true) {
+  await expect(rail).toBeVisible()
+  const geometry = await rail.evaluate(element => {
+    const railElement = element as HTMLElement
+    const style = getComputedStyle(railElement)
+    const buttonRects = [...railElement.querySelectorAll('button')].map(button => {
+      const rect = (button as HTMLElement).getBoundingClientRect()
+      return { top: rect.top, height: rect.height, width: rect.width }
+    })
+    return {
+      flexWrap: style.flexWrap,
+      overflowX: style.overflowX,
+      clientWidth: railElement.clientWidth,
+      scrollWidth: railElement.scrollWidth,
+      buttonRects,
+    }
+  })
+
+  expect(geometry.flexWrap, `${description}: rail must not wrap`).toBe('nowrap')
+  expect(['auto', 'scroll'], `${description}: rail must be horizontally navigable`).toContain(geometry.overflowX)
+  expect(geometry.buttonRects.length, `${description}: rail has no targets`).toBeGreaterThan(0)
+
+  const rowTop = Math.min(...geometry.buttonRects.map(rect => rect.top))
+  const rowBottom = Math.max(...geometry.buttonRects.map(rect => rect.top))
+  expect(rowBottom - rowTop, `${description}: targets occupy more than one row`).toBeLessThanOrEqual(1)
+
+  for (const [index, rect] of geometry.buttonRects.entries()) {
+    expect(rect.height, `${description}: target ${index + 1} is shorter than 44px`).toBeGreaterThanOrEqual(44)
+    expect(rect.width, `${description}: target ${index + 1} is narrower than 44px`).toBeGreaterThanOrEqual(44)
+  }
+
+  if (requireOverflow) {
+    expect(
+      geometry.scrollWidth,
+      `${description}: expected horizontal overflow but scrollWidth=${geometry.scrollWidth} clientWidth=${geometry.clientWidth}`,
+    ).toBeGreaterThan(geometry.clientWidth)
+  }
+}
+
 /**
- * `toBeVisible()` is not sufficient for anything inside a scroll container. It
- * checks the bounding box and computed style; it does not check that the box
- * lies inside the viewport. Measured directly at 320/360/390/430, it returned
- * true for rail chips sitting up to 400px off the right edge of the screen —
- * so the assertion that Genetics and Talent were "visible" passed while an
- * operator could not see them without a horizontal scroll that had no
- * affordance.
- *
- * Horizontal containment only: scrolling the page down to reach content is
- * normal, scrolling sideways to discover a navigation destination is not.
+ * A scrollable rail must prove that each destination is reachable, not that all
+ * destinations are simultaneously inside the phone viewport. Reveal one target
+ * at a time and then verify full horizontal containment in the viewport.
  */
 async function expectHorizontallyOnScreen(page: Page, locator: Locator, description: string) {
   await expect(locator).toBeVisible()
+  await locator.scrollIntoViewIfNeeded()
+  await expect(locator).toBeInViewport()
   const box = await locator.boundingBox()
   const viewport = page.viewportSize()
   expect(box, `${description}: element has no bounding box`).not.toBeNull()
@@ -209,7 +249,7 @@ async function expectHorizontallyOnScreen(page: Page, locator: Locator, descript
   const right = Math.round(box.x + box.width)
   expect(
     left >= 0 && right <= viewport.width,
-    `${description} is off-screen at ${viewport.width}px wide: left=${left} right=${right}`,
+    `${description} is still clipped after rail scroll at ${viewport.width}px wide: left=${left} right=${right}`,
   ).toBe(true)
 }
 
@@ -218,6 +258,7 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   await expect(page.locator('.hvm-op-context-trigger')).toBeVisible()
   await expect(page.locator('.hvm-op-pulse')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Requires attention', exact: true })).toBeVisible()
+  await expect(page.locator('.hvm-op-current-chip:visible')).toHaveCount(0)
 
   await expect(page.getByText('Operator command centre', { exact: true })).toHaveCount(0)
   await expect(page.getByText('All Command Centre modules', { exact: true })).toHaveCount(0)
@@ -227,9 +268,11 @@ async function assertOperatorFirstCommand(page: Page, viewportHeight: number) {
   const commandRail = page.locator('.hvm-op-secondary-nav')
   await expect(commandRail).toBeVisible()
   await expect(commandRail.locator('button')).toHaveCount(COMMAND_RAIL_LABELS.length)
+  await assertSingleRowHorizontalRail(commandRail, 'Command rail')
   for (const label of COMMAND_RAIL_LABELS) {
     await expectHorizontallyOnScreen(page, commandRail.getByText(label, { exact: true }), `Command rail "${label}"`)
   }
+  await commandRail.evaluate(element => { (element as HTMLElement).scrollLeft = 0 })
 
   const mainBox = await page.locator('.hvm-op-main').boundingBox()
   expect(mainBox, 'the main content pane has no bounding box').not.toBeNull()
@@ -296,6 +339,40 @@ test.describe('Mobile Command operator-first verification', () => {
         await assertFourModeNavigation(page)
         await assertOperatorFirstCommand(page, viewport.height)
         await page.screenshot({ path: path.join(evidenceRoot, viewport.file), fullPage: false })
+      } finally {
+        await context.close()
+      }
+    }
+  })
+
+  test('captures exact Jurisdiction evidence at 375x812, 390x844 and 430x932', async ({ browser }) => {
+    test.setTimeout(420_000)
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+
+    for (const viewport of REQUIRED_EVIDENCE_VIEWPORTS) {
+      const context = await browser.newContext({
+        ...sharedContextOptions(),
+        viewport: { width: viewport.width, height: viewport.height },
+        storageState,
+        isMobile: true,
+        hasTouch: true,
+      })
+
+      try {
+        const page = await context.newPage()
+        const response = await page.goto('/dashboard?country=CA&role=exporter&page=access-pathway&section=jurisdiction', { waitUntil: 'domcontentloaded' })
+        expect(response?.status()).toBeLessThan(400)
+        await expect(page.locator('#jurisdiction')).toBeVisible()
+        await expect(page.locator('[data-active-destination="overview"]')).toBeVisible()
+        await assertFourModeNavigation(page)
+        await expect(page.locator('.hvm-op-current-chip:visible')).toHaveCount(0)
+        const rail = page.locator('.hvm-op-secondary-nav')
+        await assertSingleRowHorizontalRail(rail, `Jurisdiction Command rail ${viewport.width}x${viewport.height}`)
+        await page.screenshot({
+          path: path.join(evidenceRoot, `${viewport.width}x${viewport.height}-jurisdiction.png`),
+          fullPage: false,
+        })
       } finally {
         await context.close()
       }
@@ -393,13 +470,14 @@ test.describe('Mobile Command operator-first verification', () => {
       await expect(page.locator('.hvm-op-bottom-nav [aria-current="page"]')).toContainText('Command')
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
+      await assertSingleRowHorizontalRail(rail, 'Clinical Command rail')
       await expectHorizontallyOnScreen(page, rail.getByText('Clinical', { exact: true }), 'rail "Clinical"')
     } finally {
       await context.close()
     }
   })
 
-  test('reaches the supported operational sections Command owns and rails them once committed', async ({ browser }) => {
+  test('reaches the supported operational sections Command owns and proves a late domain can be scrolled to and activated', async ({ browser }) => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
     const context = await browser.newContext({
@@ -419,9 +497,16 @@ test.describe('Mobile Command operator-first verification', () => {
 
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
+      await assertSingleRowHorizontalRail(rail, 'Command operational-domain rail')
       for (const label of ['Genetics', 'Talent', 'Clinical', 'Compliance', 'Education path', 'Directories', 'Network']) {
         await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `rail "${label}"`)
       }
+
+      const lateDomain = rail.getByText('Network', { exact: true })
+      await lateDomain.scrollIntoViewIfNeeded()
+      await expect(lateDomain).toBeInViewport()
+      await lateDomain.click()
+      await expect(page.locator('#network')).toBeVisible({ timeout: 20_000 })
     } finally {
       await context.close()
     }
@@ -448,6 +533,7 @@ test.describe('Mobile Command operator-first verification', () => {
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
       await expect(rail.locator('button')).toHaveCount(MARKET_RAIL_LABELS.length)
+      await assertSingleRowHorizontalRail(rail, 'Market rail')
       for (const label of MARKET_RAIL_LABELS) {
         await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `Market rail "${label}"`)
       }
