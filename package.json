@@ -86,6 +86,7 @@
     "esbuild": "^0.28.2",
     "eslint": "9.39.5",
     "eslint-config-next": "16.3.0",
+    "libpg-query": "^17.7.4",
     "postcss": "^8.5.26",
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.12",
