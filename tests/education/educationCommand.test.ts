@@ -25,6 +25,7 @@ describe('Education Command contracts', () => {
     expect(educationEvidenceState(['verified_primary_source', 'stale_source'])).toBe('stale')
     expect(educationEvidenceState(['review_pending'])).toBe('review_required')
     expect(educationEvidenceState(['verified_primary_source'])).toBe('current')
+    expect(educationEvidenceState(['VERIFIED_PRIMARY_SOURCE'])).toBe('current')
     expect(educationEvidenceState([null, undefined, ''])).toBe('unknown')
     expect(educationEvidenceState([])).toBe('unknown')
   })
