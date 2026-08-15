@@ -22,13 +22,15 @@
 -- builds are skipped untouched -- including their existing types.
 --
 -- Zero-state replay also carries a legacy listings.listing_type text NOT NULL
--- column from 20260528033000. Fresh production catalog evidence shows that
--- column does not exist in production, while the historical api.listings view
--- still depends on it at this point in replay. Dropping the column here would
--- therefore cascade into unrelated historical API shape. Instead, when that
--- replay-only legacy column exists, relax only its stale NOT NULL constraint so
--- the historical supply seed (which correctly does not populate listing_type)
--- can run. On production this block is a no-op because the column is absent.
+-- column plus listings_listing_type_check from 20260528033000. Fresh production
+-- catalog evidence shows neither the column nor its check exists in production,
+-- while the historical api.listings view still depends on the column at this
+-- point in replay. Dropping the column here would cascade into unrelated
+-- historical API shape. Instead, when the replay-only legacy column exists,
+-- remove only its stale discriminator check and NOT NULL requirement so the
+-- historical supply seed (which correctly does not populate listing_type) can
+-- run. On production these operations are no-ops because the column/constraint
+-- are absent.
 --
 -- Deliberate deviations from the live catalog, both to keep this replay-safe:
 --   * Columns are added nullable even where production marks them NOT NULL.
@@ -64,6 +66,15 @@ end $$;
 
 do $$
 begin
+  if exists (
+    select 1
+    from pg_catalog.pg_constraint con
+    where con.conrelid = 'public.listings'::regclass
+      and con.conname = 'listings_listing_type_check'
+  ) then
+    alter table public.listings drop constraint listings_listing_type_check;
+  end if;
+
   if exists (
     select 1
     from pg_catalog.pg_attribute a
