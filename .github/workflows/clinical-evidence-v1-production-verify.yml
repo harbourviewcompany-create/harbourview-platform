@@ -9,7 +9,7 @@ on:
       - supabase/migrations/20260814121500_clinical_evidence_spine.sql
       - supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
       - supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
-      - supabase/migrations/20260814143000_clinical_evidence_v1_production_foundation.sql
+      - supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql
       - supabase/migrations/20260814144000_clinical_evidence_v1_audit_immutability.sql
       - tests/clinical/**
       - .github/workflows/clinical-evidence-v1-production-verify.yml
@@ -68,7 +68,7 @@ jobs:
             20260814121500_clinical_evidence_spine.sql
             20260814134500_clinical_evidence_v1_governance.sql
             20260814135500_clinical_evidence_v1_source_reconciliation.sql
-            20260814143000_clinical_evidence_v1_production_foundation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
             20260814144000_clinical_evidence_v1_audit_immutability.sql
           )
           for f in "${CLINICAL_MIGRATIONS[@]}"; do cp "supabase/migrations/${f}" "/tmp/${f}"; done
