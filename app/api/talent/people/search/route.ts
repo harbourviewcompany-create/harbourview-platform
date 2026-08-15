@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, getAuthenticatedUser } from '@/lib/supabase/server'
+import { talentFeatureEnabled } from '@/lib/talent/features'
 import type { TalentCandidateDTO, TalentPeopleSearchResponse } from '@/lib/talent/contracts'
 
 export const dynamic = 'force-dynamic'
@@ -15,10 +16,13 @@ function text(value: unknown, max: number) {
 }
 
 export async function POST(request: Request) {
+  const started = performance.now()
   const user = await getAuthenticatedUser()
-  if (!user) {
-    return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401, headers: { 'Cache-Control': 'no-store' } })
+  if (!user) return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401, headers: { 'Cache-Control': 'no-store' } })
+  if (!(await talentFeatureEnabled('find_talent'))) {
+    return NextResponse.json({ error: 'TALENT_SEARCH_DISABLED' }, { status: 503, headers: { 'Cache-Control': 'no-store' } })
   }
+  const identityDisclosureEnabled = await talentFeatureEnabled('candidate_identity_disclosure')
 
   let body: Record<string, unknown>
   try {
@@ -48,19 +52,20 @@ export async function POST(request: Request) {
     p_cursor_person_id: cursor,
   })
 
+  const duration = performance.now() - started
   if (error) {
     const denied = error.code === '42501' || error.message?.includes('TALENT_SEARCH_FORBIDDEN')
-    console.info('harbourview_talent_people_search_denied_or_failed', { denied, code: error.code ?? 'unknown' })
+    console.info('harbourview_talent_search_executed', { mode: 'people', outcome: denied ? 'denied' : 'error', durationMs: Math.round(duration), code: error.code ?? 'unknown', workspaceId })
     return NextResponse.json(
       { error: denied ? 'TALENT_SEARCH_FORBIDDEN' : 'TALENT_SEARCH_UNAVAILABLE' },
-      { status: denied ? 403 : 503, headers: { 'Cache-Control': 'no-store' } },
+      { status: denied ? 403 : 503, headers: { 'Cache-Control': 'no-store', 'Server-Timing': `talent;dur=${duration.toFixed(1)}` } },
     )
   }
 
   const rows = Array.isArray(data) ? data as Array<Record<string, unknown>> : []
   const candidates: TalentCandidateDTO[] = rows.map(row => ({
     personId: String(row.person_id),
-    displayName: typeof row.display_name === 'string' ? row.display_name : null,
+    displayName: identityDisclosureEnabled && typeof row.display_name === 'string' ? row.display_name : null,
     headline: typeof row.headline === 'string' ? row.headline : null,
     countryIso2: typeof row.country_iso2 === 'string' ? row.country_iso2 : null,
     availabilityState: typeof row.availability_state === 'string' ? row.availability_state : null,
@@ -76,9 +81,10 @@ export async function POST(request: Request) {
     ? candidates[candidates.length - 1]?.personId ?? null
     : null
   const state: TalentPeopleSearchResponse['state'] = candidates.length ? 'loaded' : query || country ? 'no_match' : 'empty'
+  console.info('harbourview_talent_search_executed', { mode: 'people', outcome: state, durationMs: Math.round(duration), resultCount: candidates.length, workspaceId, hasQuery: Boolean(query), country })
 
   return NextResponse.json(
     { data: candidates, nextCursor, state } satisfies TalentPeopleSearchResponse,
-    { headers: { 'Cache-Control': 'no-store, private' } },
+    { headers: { 'Cache-Control': 'no-store, private', 'Server-Timing': `talent;dur=${duration.toFixed(1)}` } },
   )
 }

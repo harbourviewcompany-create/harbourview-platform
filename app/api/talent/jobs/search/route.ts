@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { talentFeatureEnabled } from '@/lib/talent/features'
 import { encodeTalentCursor, decodeTalentCursor, type TalentJobDTO, type TalentJobSearchResponse } from '@/lib/talent/contracts'
 
 export const dynamic = 'force-dynamic'
@@ -18,6 +19,11 @@ function clean(value: string | null, max = 120) {
 }
 
 export async function GET(request: Request) {
+  const started = performance.now()
+  if (!(await talentFeatureEnabled('find_jobs')) || !(await talentFeatureEnabled('canonical_job_reads'))) {
+    return NextResponse.json({ data: [], nextCursor: null, state: 'degraded' } satisfies TalentJobSearchResponse, { status: 503, headers: { 'Cache-Control': 'no-store', 'Server-Timing': `talent;dur=${(performance.now() - started).toFixed(1)}` } })
+  }
+
   const url = new URL(request.url)
   const q = clean(url.searchParams.get('q'), 160)
   const country = clean(url.searchParams.get('country'), 2)?.toUpperCase() ?? null
@@ -44,11 +50,12 @@ export async function GET(request: Request) {
     p_cursor_id: cursor?.id ?? null,
   })
 
+  const duration = performance.now() - started
   if (error) {
-    console.info('harbourview_talent_jobs_search_failed', { code: error.code ?? 'unknown' })
+    console.info('harbourview_talent_search_executed', { mode: 'jobs', outcome: 'error', durationMs: Math.round(duration), code: error.code ?? 'unknown' })
     return NextResponse.json(
       { data: [], nextCursor: null, state: 'degraded' } satisfies TalentJobSearchResponse,
-      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+      { status: 503, headers: { 'Cache-Control': 'no-store', 'Server-Timing': `talent;dur=${duration.toFixed(1)}` } },
     )
   }
 
@@ -88,8 +95,9 @@ export async function GET(request: Request) {
       ? 'no_match'
       : 'empty'
 
+  console.info('harbourview_talent_search_executed', { mode: 'jobs', outcome: state, durationMs: Math.round(duration), resultCount: jobs.length, hasQuery: Boolean(q), country, workplace, verifiedOnly })
   return NextResponse.json(
     { data: jobs, nextCursor, state } satisfies TalentJobSearchResponse,
-    { headers: { 'Cache-Control': 'no-store' } },
+    { headers: { 'Cache-Control': 'no-store', 'Server-Timing': `talent;dur=${duration.toFixed(1)}` } },
   )
 }
