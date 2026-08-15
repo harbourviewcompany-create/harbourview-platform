@@ -8,6 +8,7 @@ const intelUi = readFileSync('components/dashboard/mobile-command/sections/Intel
 const mobileShell = readFileSync('components/dashboard/MobileCommandCentreRebuild.tsx', 'utf8')
 const responsiveShell = readFileSync('components/dashboard/DashboardResponsiveShell.tsx', 'utf8')
 const dashboardPage = readFileSync('app/dashboard/page.tsx', 'utf8')
+const tierHelper = readFileSync('lib/stripe/tier.ts', 'utf8')
 const desktopBridge = readFileSync('components/dashboard/DesktopDecisionIntelBridge.tsx', 'utf8')
 const dossierPage = readFileSync('app/dashboard/intel/events/[id]/page.tsx', 'utf8')
 const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'utf8')
@@ -182,8 +183,10 @@ describe('Decision Intelligence Stage 0 first slice', () => {
   })
 
   it('uses user_profiles.tier as the single Decision Intel entitlement authority', () => {
-    expect(dashboardPage).toContain(".from('user_profiles')")
-    expect(dashboardPage).toContain("canAccess('signals', normalizeSubscriptionTier(userProfileTier))")
+    expect(tierHelper).toContain(".from('user_profiles')")
+    expect(tierHelper).toContain(".select('tier')")
+    expect(dashboardPage).toContain('userTier = await getUserTier()')
+    expect(dashboardPage).toContain("canAccess('signals', normalizeSubscriptionTier(userTier))")
     expect(dashboardPage).toContain('decisionIntelAccess={decisionIntelAccess}')
     expect(dossierPage).toContain(".from('user_profiles')")
     expect(dossierPage).toContain("canAccess('signals', normalizeSubscriptionTier(profile?.tier))")
