@@ -41,26 +41,34 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [model.activeSection, model.currentCountry, model.currentRole, searchParams])
 
   const organizationActions = useMemo(() => {
+    const organizationAction = model.nextActions.find(action => action.id === 'organization')
+    if (!organizationAction) return model.nextActions
+
     const returnParam = encodeURIComponent(commandReturnTo)
-    return model.nextActions.flatMap(action => {
-      if (action.id !== 'organization') return [action]
-      return [
-        {
-          ...action,
-          id: 'organization-create',
-          label: 'Create an organization profile',
-          detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-          href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`,
-        },
-        {
-          ...action,
-          id: 'organization-join',
-          label: 'Join an organization',
-          detail: 'Use an invitation to connect an existing Harbourview organization to your operating context.',
-          href: `/organization/join?returnTo=${returnParam}`,
-        },
-      ]
-    })
+    const onboarding = [
+      {
+        ...organizationAction,
+        id: 'organization-create',
+        label: 'Create an organization profile',
+        detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
+        href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`,
+      },
+      {
+        ...organizationAction,
+        id: 'organization-join',
+        label: 'Join an organization',
+        detail: 'Use an invitation to connect an existing Harbourview organization to your operating context.',
+        href: `/organization/join?returnTo=${returnParam}`,
+      },
+    ]
+
+    // The Command overview renders only the first two attention rows. When no
+    // organization is active, both canonical onboarding choices must therefore
+    // be the visible priority rather than hiding Join behind the full queue.
+    return [
+      ...onboarding,
+      ...model.nextActions.filter(action => action.id !== 'organization'),
+    ]
   }, [commandReturnTo, model.currentCountry, model.nextActions])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
