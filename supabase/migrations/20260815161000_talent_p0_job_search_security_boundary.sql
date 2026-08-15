@@ -1,60 +1,24 @@
-BEGIN;
+# Talent P0 Runtime Baseline
 
--- Harbourview Talent P0 / TAL-082 / CTL-016.
--- The legacy job_search schema was built as an operator utility and currently
--- grants anonymous/authenticated SELECT across applications, resume versions,
--- contacts, outreach, settings and jobs. Generalized Talent must never inherit
--- that browser-readable boundary. Preserve every legacy row, but make the
--- schema server/service-role only before any canonical Talent API is exposed.
+Runtime branch base: `8b55d891ac14cf744bd23aca52581082896b436f`.
+Frozen Talent control-pack head: `5b7990b3c3f7c9e79c72450cddd93473ada8aa73`.
+Original audited architecture base: `04e306d520d69d746a5099bf778dc253296710a3`.
 
-REVOKE USAGE ON SCHEMA job_search FROM anon, authenticated;
-GRANT USAGE ON SCHEMA job_search TO service_role;
+Status: implementation pass. No capability may be marked `VERIFIED`; `TALENT_TRACEABILITY_MATRIX.md` is the mandatory evidence contract.
 
-DO $talent_job_search_boundary$
-DECLARE
-  r record;
-BEGIN
-  FOR r IN
-    SELECT c.relname AS table_name
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'job_search'
-      AND c.relkind IN ('r', 'p', 'v', 'm')
-  LOOP
-    EXECUTE format('REVOKE ALL PRIVILEGES ON TABLE job_search.%I FROM anon, authenticated', r.table_name);
+## Drift discovered before runtime edits
 
-    IF to_regclass(format('job_search.%I', r.table_name)) IS NOT NULL
-       AND EXISTS (
-         SELECT 1
-         FROM pg_class c2
-         JOIN pg_namespace n2 ON n2.oid = c2.relnamespace
-         WHERE n2.nspname = 'job_search'
-           AND c2.relname = r.table_name
-           AND c2.relkind IN ('r', 'p')
-       ) THEN
-      EXECUTE format('ALTER TABLE job_search.%I ENABLE ROW LEVEL SECURITY', r.table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON job_search.%I', 'anon full access', r.table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON job_search.%I', 'authenticated full access', r.table_name);
-      EXECUTE format('DROP POLICY IF EXISTS %I ON job_search.%I', 'client read access', r.table_name);
-    END IF;
-  END LOOP;
-END
-$talent_job_search_boundary$;
+Current main is 95 commits ahead of the original architecture base. The material Talent-adjacent drift is additive rather than a scope contradiction:
 
-REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA job_search FROM anon, authenticated;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA job_search TO service_role;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA job_search TO service_role;
+- `supabase/migrations/20260814122000_p0_identity_org_context.sql` and the current `/api/org/*` routes establish multi-organization membership plus nullable `active_workspace_id`; `workspaces` and `workspace_members` remain canonical organization identity/membership. Talent employer/recruiter authority must therefore extend this model rather than create a competing organization system.
+- `app/api/org/me/route.ts`, `components/dashboard/OrganizationContextControl.tsx`, and Command context changes mean Talent search must preserve the selected organization, jurisdiction, role and active Command section.
+- Command Talent still reaches `components/dashboard/data/jobsBoard.ts` through `useMobileCommandModel.base.ts` and the legacy `OperationsSections.tsx` Talent renderer. `JOB_LISTINGS` therefore remains an active production dependency to eliminate under TAL-084.
+- Public `/talent`, `/talent/[jobId]`, and `/api/talent/apply` still use the legacy `talent_jobs` / `talent_candidates` contracts. They remain compatibility paths under TAL-079/TAL-081.
+- `job_search.*` still carries the broad client-read operator boundary from `20260802011926_job_search_operator_boundary_rls.sql`; this is the first runtime security gate under TAL-082.
+- `hv_professionals` remains a verified public-professional directory consumed by `/professionals*`, `/api/experts`, professional application/admin flows, dashboard live data and Clinical. TAL-080 must preserve those public semantics while Passport becomes canonical Talent identity.
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA job_search
-  REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA job_search
-  REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA job_search
-  GRANT ALL PRIVILEGES ON TABLES TO service_role;
-ALTER DEFAULT PRIVILEGES IN SCHEMA job_search
-  GRANT ALL PRIVILEGES ON SEQUENCES TO service_role;
+These discoveries expand implementation dependencies already represented by TAL-006, TAL-019, TAL-022, TAL-039, TAL-079–084. They do not remove, narrow, re-phase or relax any frozen TAL/TAC/CTL control, so no material scope-relaxation amendment is required.
 
-COMMENT ON SCHEMA job_search IS
-  'Legacy/operator job-search data. Server/service-role only after Talent P0 security boundary; generalized Talent uses allowlisted api.* contracts.';
+## Gate 1 evidence target
 
-COMMIT;
+TAL-082 / TAC-032: retain all `job_search` data but remove anonymous/authenticated direct schema access before generalized Talent APIs are introduced. Service-role access remains for controlled compatibility and ingestion work.

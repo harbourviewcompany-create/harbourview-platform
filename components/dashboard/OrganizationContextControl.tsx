@@ -39,6 +39,7 @@ export default function OrganizationContextControl({ onDone }: { onDone?: () => 
   const [saving, setSaving] = useState(false)
 
   const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+  const encodedReturnTo = encodeURIComponent(returnTo)
 
   async function load() {
     setState('loading')
@@ -90,9 +91,9 @@ export default function OrganizationContextControl({ onDone }: { onDone?: () => 
       <div className="grid gap-2 rounded-xl border border-white/10 p-3">
         <span className="text-xs font-semibold text-white/60">Organization</span>
         <div className="flex flex-wrap gap-2 text-xs">
-          <Link href={`/login?next=${encodeURIComponent(returnTo)}`} className="text-[#d8be76]">Sign in</Link>
-          <Link href={`/login?mode=signup&next=${encodeURIComponent(returnTo)}`} className="text-[#d8be76]">Create account</Link>
-          <Link href={`/organization/new?returnTo=${encodeURIComponent(returnTo)}`} className="text-[#d8be76]">Create organization</Link>
+          <Link href={`/login?next=${encodedReturnTo}`} className="text-[#d8be76]">Sign in</Link>
+          <Link href={`/login?mode=signup&next=${encodedReturnTo}`} className="text-[#d8be76]">Create account</Link>
+          <Link href={`/organization/new?returnTo=${encodedReturnTo}`} className="text-[#d8be76]">Create organization</Link>
         </div>
       </div>
     )
@@ -140,9 +141,9 @@ export default function OrganizationContextControl({ onDone }: { onDone?: () => 
       {stale && <p className="text-xs leading-5 text-amber-200/80">Your previous organization is no longer available. Harbourview has fallen back to Personal mode.</p>}
 
       <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
-        <Link href={`/organization/new?returnTo=${encodeURIComponent(returnTo)}`} className="text-[#d8be76]">Create organization</Link>
-        <Link href="/organization/join" className="text-[#d8be76]">Join organization{invitationCount ? ` (${invitationCount})` : ''}</Link>
-        <Link href="/organization" className="text-[#d8be76]">Manage</Link>
+        <Link href={`/organization/new?returnTo=${encodedReturnTo}`} className="text-[#d8be76]">Create organization</Link>
+        <Link href={`/organization/join?returnTo=${encodedReturnTo}`} className="text-[#d8be76]">Join organization{invitationCount ? ` (${invitationCount})` : ''}</Link>
+        <Link href={`/organization?returnTo=${encodedReturnTo}`} className="text-[#d8be76]">Manage</Link>
       </div>
     </div>
   )

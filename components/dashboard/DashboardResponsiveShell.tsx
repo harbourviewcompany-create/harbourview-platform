@@ -2,11 +2,17 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
+import { DesktopDecisionIntelBridge } from '@/components/dashboard/DesktopDecisionIntelBridge'
+import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import {
   COMMAND_CENTRE_MODULE_REGISTRY,
   normalizeCommandPage,
 } from '@/lib/platform/commandCentreRegistry'
+
+type DashboardResponsiveShellProps = MobileCommandCentreProps & {
+  decisionIntelAccess?: FeatureAccess
+}
 
 function CommandBootShell({ label }: { label: string }) {
   return (
@@ -42,9 +48,18 @@ const MobileCommandCentreRebuild = dynamic(
 
 export function DashboardResponsiveShellContent({
   isMobile,
+  decisionIntelAccess,
   ...props
-}: MobileCommandCentreProps & { isMobile: boolean }) {
+}: DashboardResponsiveShellProps & { isMobile: boolean }) {
   const renderer = isMobile ? 'mobile' : 'desktop'
+  const desktopDossierSignals = useMemo(() => {
+    const byId = new Map<string, (typeof props.signals)[number]>()
+    for (const signal of [...props.signals, ...(props.digestSignals ?? [])]) {
+      const key = `${signal.id}:${signal.decisionIntelEventId ?? ''}`
+      if (!byId.has(key)) byId.set(key, signal)
+    }
+    return [...byId.values()]
+  }, [props.signals, props.digestSignals])
 
   return (
     <div
@@ -68,9 +83,10 @@ export function DashboardResponsiveShellContent({
       style={{ minHeight: '100dvh' }}
     >
       {isMobile
-        ? <MobileCommandCentreRebuild {...props} />
+        ? <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
         : (
           <>
+            <DesktopDecisionIntelBridge signals={desktopDossierSignals} access={decisionIntelAccess} />
             <CommandCentre {...props} />
             <DesktopCommandWorkspace />
           </>
@@ -79,9 +95,9 @@ export function DashboardResponsiveShellContent({
   )
 }
 
-export default function DashboardResponsiveShell(props: MobileCommandCentreProps) {
+export default function DashboardResponsiveShell(props: DashboardResponsiveShellProps) {
   const [isMobile, setIsMobile] = useState<boolean | null>(null)
-  const normalizedProps = useMemo<MobileCommandCentreProps>(() => ({
+  const normalizedProps = useMemo<DashboardResponsiveShellProps>(() => ({
     ...props,
     initialPage: normalizeCommandPage(props.initialPage ?? null),
   }), [props])

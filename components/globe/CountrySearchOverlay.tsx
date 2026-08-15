@@ -48,6 +48,7 @@ export function CountrySearchOverlay({
     ? `/dashboard?country=${encodeURIComponent(selectedCountryForReturn)}&page=briefing&section=overview`
     : '/'
   const createOrgHref = `/organization/new?country=${encodeURIComponent((selectedCountryForReturn ?? '').split('-')[0])}&returnTo=${encodeURIComponent(authReturnHref)}`
+  const joinOrgHref = `/organization/join?returnTo=${encodeURIComponent(authReturnHref)}`
 
   useEffect(() => {
     setHighlightedIndex(0)
@@ -176,7 +177,7 @@ export function CountrySearchOverlay({
             <>
               <span style={{ color: 'rgba(255,255,255,0.36)' }}>Operating account ready</span>
               <Link href={createOrgHref} style={{ color: 'rgba(212,173,58,0.88)', fontWeight: 600 }}>Create organization</Link>
-              <Link href="/organization/join" style={{ color: 'rgba(212,173,58,0.7)', fontWeight: 600 }}>Join organization</Link>
+              <Link href={joinOrgHref} style={{ color: 'rgba(212,173,58,0.7)', fontWeight: 600 }}>Join organization</Link>
             </>
           ) : (
             <>

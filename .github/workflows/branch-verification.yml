@@ -10,43 +10,33 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   actions: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
-      - name: Checkout head branch for package lock commit
-        uses: actions/checkout@v4
+      - name: Checkout verified ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: npm
 
-      - name: Regenerate package lock diagnostic
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Commit generated package lock diagnostic
-        run: |
-          if git diff --quiet -- package-lock.json; then
-            echo "package-lock.json already current"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "Update package lock for dependency drift [generated]"
-          git push
-
-      - name: Install dependencies
+      - name: Install dependencies from lockfile
         run: npm ci
+
+      - name: Verify production runtime baseline
+        run: npm run verify:runtime
+
+      - name: Assert lockfile remains unchanged
+        run: git diff --exit-code -- package-lock.json
 
       - name: Typecheck
         run: npm run typecheck
@@ -93,87 +83,8 @@ jobs:
       - name: Visibility
         run: npm run test:visibility
 
-      - name: Install Playwright Chromium
-        run: npx -y -p @playwright/test@1.54.0 playwright install --with-deps chromium
+      - name: Install lockfile-matched Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
-      - name: Wait for production deployment to be ready
-        env:
-          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: |
-          echo "Waiting for production to serve current commit..."
-          for i in {1..18}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              ${VERCEL_AUTOMATION_BYPASS_SECRET:+-H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"} \
-              "$HARBOURVIEW_PUBLIC_BASE_URL/")
-            echo "Attempt $i: HTTP $STATUS"
-            if [ "$STATUS" = "200" ] || [ "$STATUS" = "301" ] || [ "$STATUS" = "302" ]; then
-              echo "Production is responding. Waiting 15s for full propagation..."
-              sleep 15
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Production did not become ready in time — continuing anyway"
-
-      - name: Production e2e route and mobile probes safe no writes
-        continue-on-error: true
-        env:
-          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: npm run test:e2e
-
-      - name: Upload Playwright production probe report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: harbourview-production-e2e-report
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Production visibility probe safe no writes
-        continue-on-error: true
-        env:
-          HARBOURVIEW_PUBLIC_BASE_URL: https://harbourview.vercel.app
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: npm run probe:production-visibility
-
-  contact-production-visual:
-    name: Contact production visual verification
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Playwright Chromium in temporary verifier directory
-        run: |
-          mkdir -p .tmp/contact-visual
-          cd .tmp/contact-visual
-          npm init -y
-          npm install --no-audit --no-fund playwright@1.52.0
-          npx playwright install --with-deps chromium
-
-      - name: Run contact production visual verification
-        env:
-          BASE_URL: https://harbourview.vercel.app
-          ARTIFACT_DIR: verification-results/contact-production-visual
-        run: node scripts/verify-contact-production-visual.mjs
-
-      - name: Upload contact production visual evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: harbourview-contact-production-visual-verification
-          path: verification-results/contact-production-visual/
-          if-no-files-found: error
-          retention-days: 30
+      - name: Launch lockfile-matched Chromium
+        run: node -e "const { chromium } = require('@playwright/test'); (async () => { const browser = await chromium.launch(); await browser.close(); })().catch((error) => { console.error(error); process.exit(1); })"

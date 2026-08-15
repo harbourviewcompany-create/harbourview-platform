@@ -12,6 +12,7 @@
         "BASE_URL",
         "BEFORE",
         "CONFIRMATION",
+        "DRY_RUN",
         "EXPECTED_COMMIT",
         "HARBOURVIEW_DEPLOYMENT_ID",
         "HARBOURVIEW_EXPECTED_COMMIT",
@@ -35,8 +36,10 @@
         "MIGRATION_VERSION",
         "MOBILE_COMMAND_SOURCE_SHA",
         "NEXT_TELEMETRY_DISABLED",
+        "ONLY",
         "PLAYWRIGHT_BASE_URL",
         "POSTGRES_DB",
+        "POSTGRES_HOST_AUTH_METHOD",
         "PREVIEW_URL",
         "PRIMARY_BASE_URL",
         "PRODUCTION_URL",
@@ -50,6 +53,7 @@
         "SOURCE_IMPORT_INPUT",
         "SOURCE_IMPORT_VERSION",
         "SUPABASE_DB_SCHEMA",
+        "TEST_EMAIL",
         "VERCEL_IMMUTABLE_BASE_URL"
       ],
       "stage": "CI/Deploy only",
@@ -65,9 +69,12 @@
     {
       "id": "workflow-local-secrets",
       "names": [
+        "DATABASE_URL",
         "HV_SIGNAL_VERIFY_TOKEN",
         "HV_SIGNAL_VERIFY_TOKEN_CONFIRM",
-        "POSTGRES_PASSWORD"
+        "POSTGRES_PASSWORD",
+        "SUPABASE_DB_URL",
+        "TEST_PASSWORD"
       ],
       "stage": "CI/Deploy only",
       "sensitivity": "Secret",
