@@ -1,40 +1,38 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import type { MobileCommandCentreProps } from './props'
 import { useMobileCommandModel as useBaseMobileCommandModel } from './useMobileCommandModel.base'
 import { buildCommercialNextActions } from '@/lib/dashboard/buildCommercialActions'
 
+const COMMAND_RETURN_PARAM_KEYS = [
+  'page',
+  'section',
+  'marketView',
+  'tool',
+  'listing',
+  'search',
+  'cultivar',
+] as const
+
 /**
  * Canonical activation wrapper over the current-main Command Centre model.
- * Keeps the already-merged #1358/#1359 session intelligence/action behavior intact,
- * then adds deterministic jurisdiction-matched commercial follow-ups.
- *
- * Authenticated signal presentation is refreshed through the dedicated dashboard
- * DTO route after hydration. That route owns the explicit safe allowlist for
- * source, verification, commercial, counterparty, facility, licence/product and
- * market-access metadata, so raw `signals.analysis` never crosses this client
- * boundary.
+ * Preserves organization onboarding and Genetics behavior, adds the authenticated
+ * safe signal-presentation refresh, then derives jurisdiction-matched commercial follow-ups.
+ * Raw signal analysis/provenance JSON never crosses this client boundary.
  */
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
+  const searchParams = useSearchParams()
   const [enrichedSignals, setEnrichedSignals] = useState<MobileCommandCentreProps['signals'] | null>(null)
 
   useEffect(() => {
     setEnrichedSignals(null)
-
-    // An empty Command state is an explicit whole-surface contract: the SSR
-    // payload intentionally contains no loaded records. Rehydrating only the
-    // signal feed here would make the root remain `empty` while intelligence
-    // silently becomes populated, and it breaks the isolated empty-state proof.
-    // Loaded/stale/error states keep the authenticated safe-DTO refresh below.
     if (model.commandDataState === 'empty') return
 
     const controller = new AbortController()
-    const params = new URLSearchParams({
-      country: model.countryLabel,
-      limit: '25',
-    })
+    const params = new URLSearchParams({ country: model.countryLabel, limit: '25' })
 
     void fetch(`/api/dashboard/signals?${params.toString()}`, {
       method: 'GET',
@@ -45,14 +43,10 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       .then(async response => {
         if (!response.ok) return null
         const payload = await response.json() as { signals?: unknown }
-        return Array.isArray(payload.signals)
-          ? payload.signals as MobileCommandCentreProps['signals']
-          : null
+        return Array.isArray(payload.signals) ? payload.signals as MobileCommandCentreProps['signals'] : null
       })
       .then(signals => {
-        if (!controller.signal.aborted && signals && signals.length > 0) {
-          setEnrichedSignals(signals)
-        }
+        if (!controller.signal.aborted && signals && signals.length > 0) setEnrichedSignals(signals)
       })
       .catch(() => {
         // Preserve the SSR/session payload on network or auth refresh failure.
@@ -62,6 +56,49 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [model.commandDataState, model.countryLabel])
 
   const effectiveSignals = enrichedSignals ?? model.signals
+
+  const commandReturnTo = useMemo(() => {
+    const params = new URLSearchParams()
+    params.set('country', model.currentCountry)
+    if (model.currentRole) params.set('role', model.currentRole)
+
+    for (const key of COMMAND_RETURN_PARAM_KEYS) {
+      const value = searchParams.get(key)
+      if (value) params.set(key, value)
+    }
+
+    if (!params.has('page')) params.set('page', 'briefing')
+    if (!params.has('section')) params.set('section', model.activeSection)
+    return `/dashboard?${params.toString()}`
+  }, [model.activeSection, model.currentCountry, model.currentRole, searchParams])
+
+  const organizationActions = useMemo(() => {
+    const organizationAction = model.nextActions.find(action => action.id === 'organization')
+    if (!organizationAction) return model.nextActions
+
+    const returnParam = encodeURIComponent(commandReturnTo)
+    const onboarding = [
+      {
+        ...organizationAction,
+        id: 'organization-create',
+        label: 'Create an organization profile',
+        detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
+        href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`,
+      },
+      {
+        ...organizationAction,
+        id: 'organization-join',
+        label: 'Join an organization',
+        detail: 'Use an invitation to connect an existing Harbourview organization to your operating context.',
+        href: `/organization/join?returnTo=${returnParam}`,
+      },
+    ]
+
+    return [
+      ...onboarding,
+      ...model.nextActions.filter(action => action.id !== 'organization'),
+    ]
+  }, [commandReturnTo, model.currentCountry, model.nextActions])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
     effectiveSignals.map(signal => ({
@@ -84,9 +121,25 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     { limit: 4, roleId: model.currentRole },
   ), [effectiveSignals, model.commandHref, model.countryLabel, model.currentRole, model.marketRows])
 
+  const geneticsRecords = useMemo(() => Object.assign(
+    (props.cultivarPassports ?? []).map(passport => ({
+      ...passport,
+      kind: 'Cultivar passport',
+      title: passport.displayName,
+      subtitle: passport.publicSummary,
+      status: passport.claimStatus,
+    })),
+    {
+      serviceProviders: props.serviceProviders ?? [],
+      collaborationProjects: props.collaborationProjects ?? [],
+      sourceMeta: props.geneticsSourceMeta,
+    },
+  ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
+
   return {
     ...model,
     signals: effectiveSignals,
-    nextActions: [...model.nextActions, ...commercialActions],
+    geneticsRecords,
+    nextActions: [...organizationActions, ...commercialActions],
   }
 }
