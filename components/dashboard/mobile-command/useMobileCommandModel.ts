@@ -18,8 +18,8 @@ const COMMAND_RETURN_PARAM_KEYS = [
 
 /**
  * Canonical activation wrapper over the current-main Command Centre model.
- * Keeps the already-merged #1358/#1359 session intelligence/action behavior intact,
- * then adds deterministic jurisdiction-matched commercial follow-ups.
+ * Keeps the already-merged session intelligence/action and Genetics behavior intact,
+ * then adds deterministic organization onboarding and jurisdiction-matched commercial follow-ups.
  */
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
@@ -92,8 +92,24 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     { limit: 4, roleId: model.currentRole },
   ), [model.commandHref, model.countryLabel, model.currentRole, model.marketRows, model.signals])
 
+  const geneticsRecords = useMemo(() => Object.assign(
+    (props.cultivarPassports ?? []).map(passport => ({
+      ...passport,
+      kind: 'Cultivar passport',
+      title: passport.displayName,
+      subtitle: passport.publicSummary,
+      status: passport.claimStatus,
+    })),
+    {
+      serviceProviders: props.serviceProviders ?? [],
+      collaborationProjects: props.collaborationProjects ?? [],
+      sourceMeta: props.geneticsSourceMeta,
+    },
+  ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
+
   return {
     ...model,
+    geneticsRecords,
     nextActions: [...organizationActions, ...commercialActions],
   }
 }
