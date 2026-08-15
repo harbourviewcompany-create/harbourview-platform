@@ -27,7 +27,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -38,6 +38,35 @@ jobs:
       - name: Delta-intelligence regression suite
         run: npx vitest run tests/signals/digestDelta.test.ts tests/signals/dailyBriefDeltaIntelligence.test.ts
       - name: Typecheck
+        id: typecheck
+        continue-on-error: true
         run: npm run typecheck
       - name: Public leakage regression
+        id: leakage
+        continue-on-error: true
         run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/network/public-projection-leakage.test.ts
+      - name: Production build
+        id: build
+        continue-on-error: true
+        run: npm run build
+      - name: Enforce verification result
+        if: always()
+        env:
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LEAKAGE_OUTCOME: ${{ steps.leakage.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          failed=0
+          if [ "$TYPECHECK_OUTCOME" != "success" ]; then
+            echo "::error::Typecheck failed."
+            failed=1
+          fi
+          if [ "$LEAKAGE_OUTCOME" != "success" ]; then
+            echo "::error::Public leakage regression failed."
+            failed=1
+          fi
+          if [ "$BUILD_OUTCOME" != "success" ]; then
+            echo "::error::Production build failed."
+            failed=1
+          fi
+          exit "$failed"
