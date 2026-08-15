@@ -1,0 +1,272 @@
+name: Clinical Evidence P0 Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/api/clinical/evidence/**
+      - components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx
+      - components/dashboard/mobile-command/clinicalCommandContract.ts
+      - components/dashboard/mobile-command/sections/DomainSections.tsx
+      - lib/clinical/evidence.ts
+      - lib/server/clinicalEvidenceQuery.ts
+      - supabase/migrations/20260814121500_clinical_evidence_spine.sql
+      - supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+      - supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
+      - tests/clinical/**
+      - tests/dashboard/mobileClinicalProfessional.test.ts
+      - .github/workflows/clinical-evidence-p0-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-evidence-p0-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Replay migrations, prove RLS/governance, run focused contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: '1'
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused Clinical contracts
+        run: >-
+          npx vitest run
+          tests/clinical/evidenceSpine.test.ts
+          tests/clinical/evidenceSpineStorage.test.ts
+          tests/clinical/evidenceV1Governance.test.ts
+          tests/dashboard/mobileClinicalProfessional.test.ts
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Clinical migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp supabase/migrations/20260814121500_clinical_evidence_spine.sql /tmp/clinical-evidence-spine.sql
+          cp supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql /tmp/clinical-evidence-v1.sql
+          cp supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql /tmp/clinical-evidence-v1-reconciliation.sql
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+          # Production history creates both the `api` schema and user_roles earlier.
+          # This isolated replay intentionally removes that history, so bootstrap only
+          # the dependencies required to exercise the Clinical migrations themselves.
+          cat > supabase/migrations/00000000000000_isolated_clinical_dependencies.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          grant select on public.user_roles to authenticated, service_role;
+          grant all on public.user_roles to service_role;
+          SQL
+          cp /tmp/clinical-evidence-spine.sql supabase/migrations/20260814121500_clinical_evidence_spine.sql
+          cp /tmp/clinical-evidence-v1.sql supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+          cp /tmp/clinical-evidence-v1-reconciliation.sql supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
+          : > supabase/seed.sql
+
+      - name: Start isolated Supabase and replay from zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+          eval "$(supabase status -o env)"
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --show-error --output /tmp/clinical-p0-rest-ready.json --write-out '%{http_code}' \
+              -H "apikey: ${SERVICE_ROLE_KEY}" \
+              -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_evidence_records?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              break
+            fi
+            if [ "${attempt}" -eq 30 ]; then
+              echo "Clinical P0 REST readiness did not reach HTTP 200; last status=${status}"
+              cat /tmp/clinical-p0-rest-ready.json || true
+              exit 1
+            fi
+            sleep 1
+          done
+          {
+            echo "CLINICAL_TEST_API_URL=${API_URL}"
+            echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
+            echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove public projection, private provenance and publication governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const anon = process.env.CLINICAL_TEST_ANON_KEY
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          if (!base || !anon || !service) throw new Error('Local Supabase credentials missing')
+
+          const headers = key => ({
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+            'Content-Type': 'application/json',
+          })
+
+          const published = await fetch(
+            `${base}/rest/v1/clinical_evidence_records?select=slug,review_status,primary_source_url,intervention_class,evidence_strength&review_status=eq.published&order=slug.asc`,
+            { headers: headers(anon) },
+          )
+          if (!published.ok) throw new Error(`published projection failed: ${published.status}`)
+          const publishedRows = await published.json()
+          if (publishedRows.length !== 6) throw new Error(`expected 6 published seed records, got ${publishedRows.length}`)
+          if (publishedRows.some(row => row.review_status !== 'published' || !String(row.primary_source_url).startsWith('https://'))) {
+            throw new Error('published projection returned an invalid review state or source URL')
+          }
+          const conditionRows = publishedRows.filter(row => String(row.slug).startsWith('ca-epidiolex-'))
+          if (conditionRows.length !== 3) throw new Error(`expected 3 public current regulated-drug condition records, got ${conditionRows.length}`)
+          if (conditionRows.some(row => row.intervention_class !== 'regulated-cannabinoid-drug' || row.evidence_strength !== 'ungraded')) {
+            throw new Error('condition corpus crossed regulated-drug boundary or invented a certainty grade')
+          }
+          if (publishedRows.some(row => row.slug === 'ca-sativex-ms-spasticity-indication')) {
+            throw new Error('historical SATIVEX indication projection remained public after current-source reconciliation')
+          }
+
+          const rpc = await fetch(`${base}/rest/v1/rpc/search_clinical_evidence_records`, {
+            method: 'POST',
+            headers: headers(anon),
+            body: JSON.stringify({ p_query: 'Dravet', p_jurisdiction: 'Canada', p_limit: 20 }),
+          })
+          if (!rpc.ok) throw new Error(`search RPC failed: ${rpc.status}`)
+          const matches = await rpc.json()
+          if (!matches.some(row => row.slug === 'ca-epidiolex-dravet-indication')) {
+            throw new Error('deterministic search did not return the Dravet regulated-drug evidence record')
+          }
+          if (matches.some(row => String(row.slug).startsWith('review-'))) {
+            throw new Error('under-review systematic-review metadata leaked through public search')
+          }
+
+          const hiddenReviews = await fetch(`${base}/rest/v1/clinical_evidence_reviews?select=id&limit=1`, { headers: headers(anon) })
+          if (hiddenReviews.ok) {
+            const rows = await hiddenReviews.json()
+            if (rows.length > 0) throw new Error('anon could read private Clinical review provenance')
+          }
+          const hiddenSources = await fetch(`${base}/rest/v1/clinical_evidence_sources?select=id&limit=1`, { headers: headers(anon) })
+          if (hiddenSources.ok) {
+            const rows = await hiddenSources.json()
+            if (rows.length > 0) throw new Error('anon could read private normalized source registry')
+          }
+
+          const sourceRows = await fetch(
+            `${base}/rest/v1/clinical_evidence_sources?select=source_key,doi,currentness,superseded_by_source_id&source_key=in.(pubmed-36417631,ca-sativex-pm-2019-12-11,ca-sativex-dpd-2024-12-17)`,
+            { headers: headers(service) },
+          )
+          if (!sourceRows.ok) throw new Error(`service source reconciliation read failed: ${sourceRows.status}`)
+          const sources = await sourceRows.json()
+          const cbdReview = sources.find(row => row.source_key === 'pubmed-36417631')
+          if (cbdReview?.doi !== '10.1590/1806-9282.2022D689') throw new Error('PMID 36417631 DOI reconciliation missing')
+          const historicalSativex = sources.find(row => row.source_key === 'ca-sativex-pm-2019-12-11')
+          const currentSativex = sources.find(row => row.source_key === 'ca-sativex-dpd-2024-12-17')
+          if (historicalSativex?.currentness !== 'superseded' || !historicalSativex?.superseded_by_source_id || currentSativex?.currentness !== 'current') {
+            throw new Error('SATIVEX source supersession/currentness reconciliation missing')
+          }
+
+          const hiddenSlug = `clinical-private-${Date.now()}`
+          const serviceInsert = await fetch(`${base}/rest/v1/clinical_evidence_records`, {
+            method: 'POST',
+            headers: { ...headers(service), Prefer: 'return=representation' },
+            body: JSON.stringify({
+              slug: hiddenSlug,
+              title: 'Under review fixture',
+              summary: 'RLS fixture that must never be visible to browser-facing roles.',
+              intervention_class: 'not-applicable',
+              evidence_type: 'other',
+              evidence_strength: 'ungraded',
+              jurisdictions: ['Canada'],
+              profession_relevance: [],
+              primary_source_title: 'Fixture source',
+              primary_source_publisher: 'Harbourview test',
+              primary_source_url: 'https://example.invalid/clinical-fixture',
+              verified_at: new Date().toISOString(),
+              supersession_state: 'current',
+              review_status: 'under-review',
+              publication_scope: 'source-metadata',
+            }),
+          })
+          if (!serviceInsert.ok) throw new Error(`service fixture insert failed: ${serviceInsert.status}`)
+          const inserted = await serviceInsert.json()
+          const insertedId = inserted[0]?.id
+          if (!insertedId) throw new Error('service fixture id missing')
+
+          const publishWithoutReview = await fetch(`${base}/rest/v1/clinical_evidence_records?id=eq.${insertedId}`, {
+            method: 'PATCH',
+            headers: { ...headers(service), Prefer: 'return=minimal' },
+            body: JSON.stringify({ review_status: 'published' }),
+          })
+          if (publishWithoutReview.ok) throw new Error('publication without provenance review unexpectedly succeeded')
+
+          const deniedWrite = await fetch(`${base}/rest/v1/clinical_evidence_records`, {
+            method: 'POST',
+            headers: { ...headers(anon), Prefer: 'return=minimal' },
+            body: JSON.stringify({
+              slug: `anon-write-${Date.now()}`,
+              title: 'Denied write fixture',
+              summary: 'Must not persist.',
+              intervention_class: 'not-applicable',
+              evidence_type: 'other',
+              evidence_strength: 'ungraded',
+              jurisdictions: ['Canada'],
+              profession_relevance: [],
+              primary_source_title: 'Denied fixture',
+              primary_source_publisher: 'Harbourview test',
+              primary_source_url: 'https://example.invalid/denied',
+              verified_at: new Date().toISOString(),
+              supersession_state: 'current',
+              review_status: 'under-review',
+            }),
+          })
+          if (deniedWrite.ok) throw new Error('anon write unexpectedly succeeded')
+
+          console.log('GO: Clinical Evidence V1 replay, current regulated-drug corpus, private provenance, source reconciliation, hidden under-review synthesis, RLS and publication-review gate verified.')
+          NODE
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup || true
