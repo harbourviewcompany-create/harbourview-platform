@@ -111,9 +111,58 @@ test.describe('Genetics Command exact visual evidence', () => {
       const context = await browser.newContext({ baseURL: BASE_URL, viewport, storageState })
       try {
         const page = await context.newPage()
+
+        // The desktop shell renders entirely client-side (CommandCentre and
+        // DesktopCommandWorkspace are both dynamic with ssr: false), so an
+        // uncaught render error replaces the whole subtree -- including the
+        // [data-dashboard-renderer] wrapper -- and the assertion below reports
+        // a bare "element(s) not found" that names neither the error nor the
+        // page it happened on. Capturing the runtime errors lets the failure
+        // say why rather than only what.
+        const pageErrors: string[] = []
+        const consoleErrors: string[] = []
+        page.on('pageerror', error => pageErrors.push(error.stack ?? error.message))
+        page.on('console', message => {
+          if (message.type() === 'error') consoleErrors.push(message.text())
+        })
+
         const response = await page.goto('/dashboard?country=CA&role=exporter&page=genetics&cultivar=visual-alpha', { waitUntil: 'domcontentloaded' })
         expect(response?.status()).toBeLessThan(400)
         await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {})
+
+        const shell = await page.evaluate(() => ({
+          url: location.href,
+          renderers: Array.from(document.querySelectorAll('[data-dashboard-renderer]'))
+            .map(element => {
+              const rect = element.getBoundingClientRect()
+              return {
+                renderer: element.getAttribute('data-dashboard-renderer'),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+              }
+            }),
+          bootShells: document.querySelectorAll('[aria-busy="true"]').length,
+          bodyText: (document.body.innerText || '').trim().slice(0, 400),
+        }))
+
+        // `:visible` treats a zero-area box the same as a missing node, so both
+        // conditions produce the identical unhelpful message. Separate them.
+        const desktopShell = shell.renderers.find(entry => entry.renderer === 'desktop')
+        if (!desktopShell || desktopShell.width === 0 || desktopShell.height === 0) {
+          throw new Error(
+            (desktopShell
+              ? `Desktop shell rendered but has a zero-area box (${desktopShell.width}x${desktopShell.height})`
+              : 'No [data-dashboard-renderer="desktop"] rendered') +
+            ` at ${viewport.label} (${viewport.width}x${viewport.height}).\n` +
+            `url: ${shell.url}\n` +
+            `renderers found: ${JSON.stringify(shell.renderers)}\n` +
+            `boot shells still mounted: ${shell.bootShells}\n` +
+            `page errors: ${pageErrors.length ? pageErrors.join('\n---\n') : '(none)'}\n` +
+            `console errors: ${consoleErrors.length ? consoleErrors.join('\n---\n') : '(none)'}\n` +
+            `body text: ${shell.bodyText || '(empty)'}`,
+          )
+        }
+
         await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
         await expect(page.locator('[data-mobile-command-version="2"]:visible')).toHaveCount(0)
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
