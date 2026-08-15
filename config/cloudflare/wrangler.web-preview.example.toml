@@ -1,0 +1,28 @@
+# DESIGN TEMPLATE ONLY — not an active deployment configuration.
+#
+# This file defines the reserved Cloudflare/OpenNext web-preview target. It must
+# not replace the root wrangler.toml and must not receive a production custom
+# domain while Vercel remains Harbourview's production web authority.
+#
+# Activation prerequisites are documented in docs/deployment/CLOUDFLARE.md.
+name = "harbourview-platform-web-preview"
+main = ".open-next/worker.js"
+compatibility_date = "2026-08-15"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# Intentionally absent:
+# - [triggers] / Cron Triggers
+# - routes / custom production domains
+# - KV, D1, R2, Queues, Durable Objects, service bindings
+# - committed secrets or runtime variables
+#
+# Build Variables & Secrets and runtime Variables & Secrets are defined by
+# config/environment-manifest.json and docs/deployment/CLOUDFLARE.md.
+
+[observability]
+enabled = true

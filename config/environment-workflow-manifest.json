@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "parentManifest": "config/environment-manifest.json",
+  "scope": "Workflow-local environment variables that are referenced by .github/workflows but are not application/runtime infrastructure variables. Common provider credentials and platform variables remain classified in the parent manifest.",
+  "groups": [
+    {
+      "id": "workflow-local-plain",
+      "names": [
+        "ARTIFACT_DIR",
+        "ASSERTION_FILE",
+        "BASE_SHA",
+        "BASE_URL",
+        "BEFORE",
+        "CONFIRMATION",
+        "EXPECTED_COMMIT",
+        "HARBOURVIEW_DEPLOYMENT_ID",
+        "HARBOURVIEW_EXPECTED_COMMIT",
+        "HARBOURVIEW_EXTRA_API_GET_ROUTES",
+        "HARBOURVIEW_PRODUCTION_PROBE_ATTEMPTS",
+        "HARBOURVIEW_PRODUCTION_PROBE_WAIT_MS",
+        "HARBOURVIEW_PRODUCTION_URL",
+        "HARBOURVIEW_PROTECTED_DOMAINS",
+        "HARBOURVIEW_SCAN_DOMAINS",
+        "HARBOURVIEW_SCAN_FETCH_TIMEOUT_MS",
+        "HARBOURVIEW_SCAN_MAX_DISCOVERED_ROUTES",
+        "HEAD_SHA",
+        "HV_SIGNAL_RUNTIME_VERIFY",
+        "HV_SIGNAL_VERIFY_OUTPUT",
+        "INCLUDE_SECONDARY",
+        "IS_CONFIRMED_MANUAL_DISPATCH",
+        "IS_CONTROLLED_PROBE_BRANCH",
+        "IS_CONTROLLED_SMOKE_BRANCH",
+        "MIGRATION_FILE",
+        "MIGRATION_NAME",
+        "MIGRATION_VERSION",
+        "MOBILE_COMMAND_SOURCE_SHA",
+        "NEXT_TELEMETRY_DISABLED",
+        "PLAYWRIGHT_BASE_URL",
+        "POSTGRES_DB",
+        "PREVIEW_URL",
+        "PRIMARY_BASE_URL",
+        "PRODUCTION_URL",
+        "RELEASE_EVIDENCE_SHA",
+        "RELEASE_WORKFLOW_SHA",
+        "RESOLVED_PROBE_BASE_URL",
+        "RESOLVED_SMOKE_BASE_URL",
+        "SECONDARY_BASE_URL",
+        "SOURCE_BRANCH",
+        "SOURCE_IMPORT_BATCH_SIZE",
+        "SOURCE_IMPORT_INPUT",
+        "SOURCE_IMPORT_VERSION",
+        "SUPABASE_DB_SCHEMA",
+        "VERCEL_IMMUTABLE_BASE_URL"
+      ],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "github-actions/workflow-local",
+      "requirement": "Workflow-local input, derived value, test configuration or artifact path; not a Cloudflare/Vercel runtime environment requirement",
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "CI/build orchestration only; do not copy to Worker runtime unless a future workflow explicitly requires it"
+      }
+    },
+    {
+      "id": "workflow-local-secrets",
+      "names": [
+        "HV_SIGNAL_VERIFY_TOKEN",
+        "HV_SIGNAL_VERIFY_TOKEN_CONFIRM",
+        "POSTGRES_PASSWORD"
+      ],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "github-actions/test-runtime",
+      "requirement": "Workflow-local verification/test secret; not an application production secret contract",
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Keep in CI/test secret store; do not copy to Worker runtime"
+      }
+    }
+  ]
+}

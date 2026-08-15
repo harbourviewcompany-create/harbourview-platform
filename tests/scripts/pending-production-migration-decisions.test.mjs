@@ -29,8 +29,8 @@ function clone(value) {
 
 test('current pending migration decision record is internally exact and remains HOLD', () => {
   const result = runValidation({ repositoryRoot })
-  assert.equal(result.repositoryOnlyFiles, 86)
-  assert.equal(result.repositoryOnlyVersions, 86)
+  assert.equal(result.repositoryOnlyFiles, 83)
+  assert.equal(result.repositoryOnlyVersions, 83)
   assert.equal(result.liveOnlyVersions, 54)
   assert.equal(result.activationStatus, 'HOLD')
 })

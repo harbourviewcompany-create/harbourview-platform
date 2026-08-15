@@ -35,3 +35,8 @@ export {
   NetworkSection,
   FinancingSection,
 } from './sections/DomainSections'
+
+export {
+  SettingsSection,
+  DealRoomsSection,
+} from './sections/AccountSections'

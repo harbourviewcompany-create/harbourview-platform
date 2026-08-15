@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getAuthenticatedUser, createSupabaseServiceClient } from "@/lib/supabase/server"
 import { enforceRateLimit, getClientIp } from "@/lib/network/rateLimit"
 import { notifyLicenceNeedsReview } from "@/lib/hv/orgNotification"
+import { resolveActiveWorkspace } from "@/lib/hv/active-workspace"
 
 const ROUTE_ID = "/api/org/licences/submit"
 
@@ -30,12 +31,13 @@ export async function POST(req: NextRequest) {
   if (!licence_type?.trim()) return NextResponse.json({ error: "licence_type required" }, { status: 422 })
   if (!expires_at) return NextResponse.json({ error: "expires_at required" }, { status: 422 })
 
+  const context = await resolveActiveWorkspace(user.id)
+  if (context.error) return NextResponse.json({ error: "OPERATING_CONTEXT_UNAVAILABLE" }, { status: 500 })
+  if (!context.workspaceId) {
+    return NextResponse.json({ error: context.stale ? "ACTIVE_ORGANIZATION_UNAVAILABLE" : "NO_ACTIVE_ORGANIZATION" }, { status: 409 })
+  }
+  const org_id = context.workspaceId
   const supabase = await createSupabaseServiceClient()
-
-  const { data: membership } = await supabase.from("workspace_members")
-    .select("workspace_id").eq("user_id", user.id).eq("status", "active").single()
-  if (!membership) return NextResponse.json({ error: "NO_ORGANIZATION" }, { status: 409 })
-  const org_id = membership.workspace_id
 
   const country = jurisdiction_country.trim().toUpperCase().slice(0, 2)
   const normalizedNumber = normalizeLicenceNumber(licence_number)
@@ -47,9 +49,6 @@ export async function POST(req: NextRequest) {
   }).select("id").single()
   if (licErr || !licence) return NextResponse.json({ error: "CREATE_FAILED" }, { status: 500 })
 
-  // Auto-verify against the public regulator-scraped registry we already maintain
-  // (operator_licences) — same licence number + jurisdiction + currently active
-  // there is treated as sufficient to skip human review entirely.
   const { data: registryMatches } = await supabase.from("operator_licences")
     .select("licence_number,country_iso2,licence_status")
     .eq("country_iso2", country)
@@ -82,26 +81,12 @@ export async function POST(req: NextRequest) {
       await supabase.from("workspaces").update({ verification_status: "pending_review" }).eq("id", org_id)
     }
 
-    // This enqueue must not fail silently. `supabase` is schema-pinned to `api`
-    // and `api.hv_admin_review_queue` does not exist in production — the
-    // relation is `public`-only, because 20260708214312 and the review-queue
-    // API-surface migrations have never been applied there. Discarding the
-    // result meant an unmatched licence flipped the org to `pending_review` and
-    // was then never queued for anyone to review, with nothing logged.
-    //
-    // Surfacing it does not fix the missing relation; it stops the compliance
-    // gap from being invisible while that is decided.
     const { error: queueError } = await supabase.from("hv_admin_review_queue").insert({
       queue_type: "licence_verification", target_entity_type: "licence", target_entity_id: licence.id,
       org_id, priority: "normal", status: "pending",
       notes: "No match found in public regulator registry for this licence number/jurisdiction.",
     })
     if (queueError) {
-      // No raw licence or org UUIDs: those are non-public operational
-      // identifiers and this line runs in the production log stream. The
-      // jurisdiction plus the error is enough to recognise the failure mode;
-      // the affected row is recoverable from hv_licences by that error and
-      // timestamp without persisting the IDs here.
       console.error(
         "[licences/submit] failed to enqueue licence_verification review",
         { jurisdiction_country: country, error: queueError.message },
@@ -121,14 +106,12 @@ export async function POST(req: NextRequest) {
     }).catch(() => { /* best-effort */ })
   }
 
-  // Recompute the passport score either way — a pending licence still counts
-  // toward completeness/evidence_count even before verification.
   const computeRes = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/compute-passport-score`,
     { method: "POST", headers: { "Content-Type": "application/json", "x-operator-secret": process.env.HARBOURVIEW_EDGE_OPERATOR_SECRET! }, body: JSON.stringify({ org_id }) },
   ).catch(() => null)
 
   return NextResponse.json({
-    data: { licence_id: licence.id, auto_verified: isMatch, passport_recomputed: !!computeRes?.ok },
+    data: { licence_id: licence.id, auto_verified: isMatch, passport_recomputed: !!computeRes?.ok, workspace_id: org_id },
   }, { status: 201 })
 }

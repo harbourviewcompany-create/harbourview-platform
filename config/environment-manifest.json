@@ -1,0 +1,722 @@
+{
+  "schemaVersion": 2,
+  "auditedAt": "2026-08-15",
+  "repository": "harbourviewcompany-create/harbourview-platform",
+  "sourceTreeSha": "ca5982f8fbe6921677ab81c9fe844beb4fecb474",
+  "classificationModel": {
+    "stage": ["Build only", "Runtime only", "Build + Runtime", "CI/Deploy only"],
+    "sensitivity": ["Plain variable", "Secret"],
+    "status": ["live", "platform-provided", "legacy/deprecated", "legacy/dead-code", "reserved"]
+  },
+  "authority": {
+    "productionWeb": "Vercel",
+    "cloudflareIntelligenceHealthWorker": "harbourview",
+    "cloudflareFullWeb": "Reserved separate preview design only; not a production authority",
+    "intelligenceIngestion": "Supabase Edge Functions + pg_cron"
+  },
+  "cloudflareBindings": [
+    {
+      "name": "ASSETS",
+      "type": "Cloudflare binding",
+      "target": "future-next-web-preview",
+      "required": "Required only when the OpenNext web-preview adapter is explicitly activated",
+      "configuration": "assets.directory=.open-next/assets; assets.binding=ASSETS"
+    }
+  ],
+  "dynamicContracts": [
+    {
+      "source": "lib/intelligence-engine/adapters/api-fetcher.ts",
+      "expression": "process.env[metadata.auth_env]",
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "source-specific",
+      "requirement": "Required only for a source_registry record that declares metadata.auth_env",
+      "cloudflare": "Not required by the current Cloudflare health Worker because scheduled ingestion has no triggers. Enumerate all distinct production source_registry.metadata.auth_env names before any Cloudflare ingestion cutover."
+    },
+    {
+      "source": "lib/llm/config.ts",
+      "expression": "process.env[`HARBOURVIEW_LLM_${provider.toUpperCase()}_MODEL`]",
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview-llm",
+      "requirement": "Optional provider-specific model override",
+      "resolvedKnownNames": [
+        "HARBOURVIEW_LLM_ANTHROPIC_MODEL",
+        "HARBOURVIEW_LLM_GEMINI_MODEL",
+        "HARBOURVIEW_LLM_MOONSHOT_MODEL",
+        "HARBOURVIEW_LLM_DEEPSEEK_MODEL"
+      ]
+    }
+  ],
+  "forbiddenPublicPrefixes": ["NEXT_PUBLIC_HF", "NEXT_PUBLIC_HUGGINGFACE"],
+  "groups": [
+    {
+      "id": "supabase-public-url",
+      "names": ["NEXT_PUBLIC_SUPABASE_URL"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "supabase",
+      "requirement": "Required core application and health-worker endpoint",
+      "targets": ["next-app", "cloudflare-intelligence-worker", "ci"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Settings → Variables and Secrets → Variable",
+        "nextWebPreview": "Build Variables & Secrets → Variable AND Settings → Variables and Secrets → Variable"
+      }
+    },
+    {
+      "id": "supabase-browser-keys",
+      "names": ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "supabase",
+      "requirement": "At least one browser-safe key is required; direct legacy consumers still reference NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Build Variables & Secrets → Variable AND Settings → Variables and Secrets → Variable"
+      }
+    },
+    {
+      "id": "supabase-server-url-alias",
+      "names": ["SUPABASE_URL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "supabase",
+      "requirement": "Optional server-side URL alias; current server helpers fall back to NEXT_PUBLIC_SUPABASE_URL",
+      "targets": ["next-app", "worker-daemon"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used; health Worker reads NEXT_PUBLIC_SUPABASE_URL directly",
+        "nextWebPreview": "Optional Settings → Variables and Secrets → Variable"
+      }
+    },
+    {
+      "id": "supabase-service-role",
+      "names": ["SUPABASE_SERVICE_ROLE_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "supabase",
+      "requirement": "Required core server/admin operations and current Cloudflare /healthz query",
+      "targets": ["next-app", "cloudflare-intelligence-worker", "ci", "worker-daemon"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Settings → Variables and Secrets → Secret",
+        "nextWebPreview": "Settings → Variables and Secrets → Secret"
+      }
+    },
+    {
+      "id": "supabase-jwt-secret",
+      "names": ["SUPABASE_JWT_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "supabase",
+      "requirement": "Feature-dependent server authentication helper configuration",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings → Variables and Secrets → Secret when feature path requires it"
+      }
+    },
+    {
+      "id": "site-origins",
+      "names": ["NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_APP_URL"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Required for canonical links and correct billing redirects in a production-equivalent web deployment",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Build Variables & Secrets → Variable AND Settings → Variables and Secrets → Variable"
+      }
+    },
+    {
+      "id": "public-globe-feature-flags",
+      "names": [
+        "NEXT_PUBLIC_HARBOURVIEW_INTERACTIVE_GLOBE",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_COUNTRY_CARDS",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_EXPANDED_MODE",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_BEAM",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_WATER",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_FORCE_FALLBACK",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_REGULATORY_TIERS"
+      ],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional; current code defaults apply when absent",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Build Variables & Secrets → Variable AND Settings → Variables and Secrets → Variable when overriding defaults"
+      }
+    },
+    {
+      "id": "ci-local-supabase-gates",
+      "names": ["GITHUB_ACTIONS", "GITHUB_RUN_ID", "CI", "HARBOURVIEW_LOCAL_TEST_BUILD", "HARBOURVIEW_ALLOW_LOCAL_SUPABASE"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "github/harbourview",
+      "requirement": "CI isolation and local-Supabase safety gate; not production application configuration",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Do not set as production Cloudflare runtime configuration"
+      }
+    },
+    {
+      "id": "ci-public-local-supabase-gates",
+      "names": ["NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID", "NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD", "NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "github/harbourview",
+      "requirement": "CI-only browser markers; forbidden for production activation",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Do not set in production build/runtime"
+      }
+    },
+    {
+      "id": "framework-runtime-markers",
+      "names": ["NODE_ENV", "NEXT_RUNTIME"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "platform/nextjs",
+      "requirement": "Framework/platform provided; NODE_ENV must resolve to production in production runtime",
+      "targets": ["next-app", "cloudflare-intelligence-worker"],
+      "status": "platform-provided",
+      "cloudflare": {
+        "intelligenceHealthWorker": "NODE_ENV is committed in wrangler.toml [vars]; NEXT_RUNTIME not used",
+        "nextWebPreview": "Framework/platform provided"
+      }
+    },
+    {
+      "id": "vercel-runtime-markers",
+      "names": ["VERCEL", "VERCEL_ENV", "VERCEL_PROJECT_PRODUCTION_URL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "vercel",
+      "requirement": "Vercel-provided markers currently referenced by application/config portability paths",
+      "targets": ["next-app", "ci"],
+      "status": "platform-provided",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Do not copy; replace provider-specific assumptions before Cloudflare production parity"
+      }
+    },
+    {
+      "id": "admin-plain-controls",
+      "names": ["HARBOURVIEW_ADMIN_REVIEW_ENABLED"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional feature flag",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable"}
+    },
+    {
+      "id": "operator-secret",
+      "names": ["HARBOURVIEW_EDGE_OPERATOR_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "harbourview/supabase-edge",
+      "requirement": "Required for organization verification flow",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret"}
+    },
+    {
+      "id": "cron-secret",
+      "names": ["CRON_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "harbourview/scheduler",
+      "requirement": "Required by protected /api/cron/* and related scheduled/admin routes",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret if web preview exercises cron endpoints; do not add a Worker Cron Trigger"}
+    },
+    {
+      "id": "internal-globe-controller",
+      "names": ["HARBOURVIEW_INTERNAL_GLOBE_CONTROLLER"],
+      "stage": "Build only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Internal/debug-only client-component reference; not a supported public production feature flag",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not configure for production"}
+    },
+    {
+      "id": "protected-smoke-plain",
+      "names": ["HARBOURVIEW_SMOKE_BASE_URL", "HARBOURVIEW_SMOKE_WRITE", "HARBOURVIEW_SMOKE_CLEANUP", "HARBOURVIEW_ALLOW_PRODUCTION_SMOKE_WRITES", "HARBOURVIEW_SMOKE_MARKER"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional verification controls; write gates remain disabled by default",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable only for an explicitly authorized smoke target"}
+    },
+    {
+      "id": "protected-smoke-secret",
+      "names": ["HARBOURVIEW_SMOKE_ROUTE_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "harbourview",
+      "requirement": "Required only when protected smoke route is used",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret only for authorized smoke verification"}
+    },
+    {
+      "id": "marketplace-feed-overrides",
+      "names": ["HARBOURVIEW_BUSINESS_OPPORTUNITIES_FEED_URL", "HARBOURVIEW_CONSUMABLES_FEED_URL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional HTTPS feed overrides; database-backed fallbacks exist",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Optional Settings → Variables and Secrets → Variable"}
+    },
+    {
+      "id": "marketplace-challenge-token",
+      "names": ["MARKETPLACE_FORM_CHALLENGE_TOKEN"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "harbourview",
+      "requirement": "Intentionally unset until a compatible client challenge is implemented",
+      "targets": ["next-app"],
+      "status": "reserved",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not configure yet"}
+    },
+    {
+      "id": "upstash-url",
+      "names": ["UPSTASH_REDIS_REST_URL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "upstash",
+      "requirement": "Operationally required for distributed production-equivalent rate limiting",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable"}
+    },
+    {
+      "id": "upstash-token",
+      "names": ["UPSTASH_REDIS_REST_TOKEN"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "upstash",
+      "requirement": "Operationally required for distributed production-equivalent rate limiting",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret"}
+    },
+    {
+      "id": "resend-key",
+      "names": ["RESEND_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "resend",
+      "requirement": "Required to send notification/digest email",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret"}
+    },
+    {
+      "id": "resend-routing",
+      "names": ["HARBOURVIEW_TO_EMAIL", "HARBOURVIEW_FROM_EMAIL", "HARBOURVIEW_MARKETPLACE_NOTIFY_EMAIL", "HARBOURVIEW_ORG_NOTIFY_EMAIL", "HARBOURVIEW_PIPELINE_REVIEW_NOTIFY_EMAIL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "resend/harbourview",
+      "requirement": "Notification sender/recipient configuration; feature-specific recipients have fallbacks",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable when email paths are in preview scope"}
+    },
+    {
+      "id": "stripe-secrets",
+      "names": ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "stripe",
+      "requirement": "Required for live billing routes and webhook verification",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when billing is in preview scope"}
+    },
+    {
+      "id": "stripe-live-price-ids",
+      "names": ["STRIPE_PRICE_INTEL_MONTHLY", "STRIPE_PRICE_INTEL_ANNUAL", "STRIPE_PRICE_OPERATOR_MONTHLY", "STRIPE_PRICE_OPERATOR_ANNUAL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "stripe",
+      "requirement": "Required for the corresponding live Harbourview subscription products",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable when billing is in preview scope"}
+    },
+    {
+      "id": "stripe-dead-price-ids",
+      "names": ["STRIPE_PRICE_STARTER_MONTHLY", "STRIPE_PRICE_STARTER_ANNUAL", "STRIPE_PRICE_PRO_MONTHLY", "STRIPE_PRICE_PRO_ANNUAL", "STRIPE_PRICE_ENTERPRISE"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "stripe",
+      "requirement": "Unused legacy billing module only; do not provision for current application",
+      "targets": ["dead-code"],
+      "status": "legacy/dead-code",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not configure"}
+    },
+    {
+      "id": "unified-ai-gateway-plain",
+      "names": ["UNIFIED_AI_GATEWAY_ENABLED", "UNIFIED_AI_GATEWAY_BASE_URL", "UNIFIED_AI_GATEWAY_TIMEOUT_MS", "UNIFIED_AI_GATEWAY_MAX_RETRIES", "UNIFIED_AI_GATEWAY_DEFAULT_PROVIDER", "UNIFIED_AI_GATEWAY_DEFAULT_MODEL", "UNIFIED_AI_GATEWAY_EMBEDDING_MODEL", "HARBOURVIEW_AI_GATEWAY_ALLOWED_ORIGINS", "HARBOURVIEW_MARKETPLACE_AI_ENABLED", "HARBOURVIEW_MARKETPLACE_AI_REVIEW_MODE", "HARBOURVIEW_MARKETPLACE_AI_MAX_INPUT_CHARS"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview-ai",
+      "requirement": "Optional unless the unified gateway/marketplace AI feature is enabled; gateway base URL becomes required when enabled",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable when feature is in preview scope"}
+    },
+    {
+      "id": "unified-ai-gateway-secrets",
+      "names": ["UNIFIED_AI_GATEWAY_API_KEY", "HARBOURVIEW_AI_GATEWAY_SHARED_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "harbourview-ai",
+      "requirement": "Required when corresponding gateway authentication path is enabled",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when feature is in preview scope"}
+    },
+    {
+      "id": "harbourview-llm-plain",
+      "names": ["HARBOURVIEW_LLM_GATEWAY_ENABLED", "HARBOURVIEW_LLM_DEFAULT_PROVIDER", "HARBOURVIEW_LLM_TIMEOUT_MS", "HARBOURVIEW_LLM_RATE_LIMIT_PER_MINUTE", "HARBOURVIEW_LLM_ANTHROPIC_MODEL", "HARBOURVIEW_LLM_GEMINI_MODEL", "HARBOURVIEW_LLM_MOONSHOT_MODEL", "HARBOURVIEW_LLM_DEEPSEEK_MODEL"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview-llm",
+      "requirement": "Optional routing, timeout, rate-limit and model overrides",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable when LLM paths are in preview scope"}
+    },
+    {
+      "id": "anthropic-key",
+      "names": ["ANTHROPIC_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "anthropic",
+      "requirement": "Required when Anthropic-backed paths are enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "openai-key",
+      "names": ["OPENAI_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "openai",
+      "requirement": "Required when OpenAI-backed paths are enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "google-ai-keys",
+      "names": ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "google-ai",
+      "requirement": "Provider/path-dependent; GEMINI_API_KEY is critical for the current intelligence extraction pipeline",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "mistral-key",
+      "names": ["MISTRAL_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "mistral",
+      "requirement": "Required when Mistral-backed paths are enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "perplexity-key",
+      "names": ["PERPLEXITY_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "perplexity",
+      "requirement": "Required when Perplexity-backed paths are enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "xai-key",
+      "names": ["XAI_API_KEY", "HARBOURVIEW_XAI_ROUTE_SECRET"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "xai/harbourview",
+      "requirement": "Both are required when the protected xAI proxy route is enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when xAI route is in preview scope"}
+    },
+    {
+      "id": "moonshot-key",
+      "names": ["MOONSHOT_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "moonshot",
+      "requirement": "Required when Moonshot-backed paths are enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "deepseek-key",
+      "names": ["DEEPSEEK_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "deepseek",
+      "requirement": "Required when DeepSeek-backed paths are enabled",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when provider is in preview scope"}
+    },
+    {
+      "id": "huggingface-token",
+      "names": ["HF_TOKEN_SERVER"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "huggingface",
+      "requirement": "Required by current Hugging Face operations",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret when HF paths are in preview scope"}
+    },
+    {
+      "id": "huggingface-legacy-token",
+      "names": ["HF_TOKEN"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "huggingface",
+      "requirement": "Deprecated alias referenced only in migration comments; canonical runtime code rejects relying on it",
+      "targets": ["legacy"],
+      "status": "legacy/deprecated",
+      "cloudflare": {"intelligenceHealthWorker": "Do not configure", "nextWebPreview": "Do not configure"}
+    },
+    {
+      "id": "huggingface-plain",
+      "names": ["HF_ORG", "HUGGINGFACE_ORG_SLUG", "HF_ENDPOINT_EMBED_BGE_M3", "HF_ENDPOINT_RERANK_BGE_V2_M3", "HF_ENDPOINT_EXTRACT_QWEN3_4B", "HF_ENDPOINT_EXTRACT_QWEN3_30B", "HF_DATASET_SOURCE_CORPUS", "HF_DATASET_EVALS", "HF_DATASET_REVIEWED_FACTS", "HF_DATASET_RELEASE_CANDIDATES"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "huggingface",
+      "requirement": "Optional/defaulted or feature-dependent endpoint/dataset configuration",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable when HF paths are in preview scope"}
+    },
+    {
+      "id": "connected-system-secrets",
+      "names": ["NOTION_TOKEN", "LINEAR_API_KEY", "GOOGLE_SERVICE_ACCOUNT_JSON_B64"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "notion/linear/google-drive",
+      "requirement": "Feature-dependent connected-system credentials",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret only when corresponding feature is in preview scope"}
+    },
+    {
+      "id": "sentry-browser",
+      "names": ["NEXT_PUBLIC_SENTRY_DSN"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "sentry",
+      "requirement": "Optional; enables browser error reporting",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Build Variables & Secrets → Variable AND Settings → Variables and Secrets → Variable"}
+    },
+    {
+      "id": "sentry-server",
+      "names": ["SENTRY_DSN"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "sentry",
+      "requirement": "Optional server DSN override",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Variable"}
+    },
+    {
+      "id": "sentry-build-plain",
+      "names": ["SENTRY_ORG", "SENTRY_PROJECT"],
+      "stage": "Build only",
+      "sensitivity": "Plain variable",
+      "provider": "sentry",
+      "requirement": "Optional; required with auth token for source-map upload",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Build Variables & Secrets → Variable"}
+    },
+    {
+      "id": "sentry-build-secret",
+      "names": ["SENTRY_AUTH_TOKEN"],
+      "stage": "Build only",
+      "sensitivity": "Secret",
+      "provider": "sentry",
+      "requirement": "Optional; required for source-map upload",
+      "targets": ["next-app", "ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Build Variables & Secrets → Secret"}
+    },
+    {
+      "id": "cloudflare-health-worker-plain",
+      "names": ["INTELLIGENCE_WORKER_ID", "WORKER_BATCH_SIZE"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "cloudflare/harbourview",
+      "requirement": "INTELLIGENCE_WORKER_ID is defaulted in wrangler.toml; WORKER_BATCH_SIZE is optional and inert while no Cron Trigger exists",
+      "targets": ["cloudflare-intelligence-worker"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "INTELLIGENCE_WORKER_ID via wrangler.toml [vars]; WORKER_BATCH_SIZE optional runtime Variable", "nextWebPreview": "Not used"}
+    },
+    {
+      "id": "persistent-worker-port",
+      "names": ["PORT"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "container-platform",
+      "requirement": "Optional/defaulted to 8080 for the persistent Node WorkerNode health server; not used by Cloudflare Workers",
+      "targets": ["worker-daemon"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used; Workers do not bind a port", "nextWebPreview": "Not used"}
+    },
+    {
+      "id": "vercel-deploy-ids",
+      "names": ["VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "TEAM_ID", "PROJECT_ID", "DEPLOYMENT_ID", "TARGET_SHA"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "vercel/github",
+      "requirement": "Deployment metadata/workflow-local values used by Vercel release workflows",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not copy to Worker runtime"}
+    },
+    {
+      "id": "vercel-deploy-secrets",
+      "names": ["VERCEL_TOKEN", "VERCEL_AUTOMATION_BYPASS_SECRET", "HV"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "vercel/github",
+      "requirement": "GitHub-hosted Vercel deployment/protection credentials; HV is a legacy alias used by a one-time setup workflow",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not copy to Cloudflare runtime"}
+    },
+    {
+      "id": "supabase-deploy-plain",
+      "names": ["SUPABASE_PROJECT_REF", "PGHOST", "PGPORT", "PGUSER", "PGDATABASE", "RELEASE_CONTROL_FILE"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "supabase/github",
+      "requirement": "Database release/migration workflow configuration",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not copy to Worker runtime"}
+    },
+    {
+      "id": "supabase-deploy-secrets",
+      "names": ["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "PGPASSWORD"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "supabase/github",
+      "requirement": "Database release/migration workflow credentials",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not copy to Worker runtime"}
+    },
+    {
+      "id": "e2e-secrets",
+      "names": ["E2E_TEST_USER_EMAIL", "E2E_TEST_USER_PASSWORD"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "github/e2e",
+      "requirement": "Optional authenticated E2E credentials",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Build/CI only; do not copy to runtime"}
+    },
+    {
+      "id": "harbourview-verification-ci",
+      "names": ["HARBOURVIEW_PUBLIC_BASE_URL", "HARBOURVIEW_PRODUCTION_VERIFY_OUT"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview/github",
+      "requirement": "Production/preview verification target and artifact output path",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Build/CI only; not Worker runtime"}
+    },
+    {
+      "id": "figma-ci-secrets",
+      "names": ["FIGMA_TOKEN", "FIGMA_FILE_KEY"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "figma/github",
+      "requirement": "Optional design-token synchronization tooling",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "GitHub secret only"}
+    },
+    {
+      "id": "github-platform-plain",
+      "names": ["GITHUB_REF", "GITHUB_SHA", "GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_API_URL", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY", "GITHUB_EVENT_PATH", "NODE_VERSION"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "github-actions",
+      "requirement": "GitHub-provided or workflow-local CI context; not application configuration",
+      "targets": ["ci"],
+      "status": "platform-provided",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not copy to Worker runtime"}
+    },
+    {
+      "id": "github-platform-token",
+      "names": ["GITHUB_TOKEN", "GH_TOKEN"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "github-actions",
+      "requirement": "Ephemeral GitHub workflow token/context alias",
+      "targets": ["ci"],
+      "status": "platform-provided",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Do not copy to Worker runtime"}
+    },
+    {
+      "id": "migration-workflow-outcomes",
+      "names": ["MANIFEST_OUTCOME", "SQL_PREFLIGHT_OUTCOME", "DB_PUSH_OUTCOME", "POST_MANIFEST_OUTCOME", "SQL_POSTFLIGHT_OUTCOME", "FEEDBACK_POSTFLIGHT_OUTCOME", "BEFORE_FINGERPRINT"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Plain variable",
+      "provider": "github/supabase-release",
+      "requirement": "Workflow-local post/preflight state passed between release steps",
+      "targets": ["ci"],
+      "status": "live",
+      "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Not Worker runtime"}
+    }
+  ]
+}
