@@ -9,20 +9,30 @@
 --
 -- This migration only configures source_registry. It does not fetch sources,
 -- execute extraction, or publish intelligence during migration execution.
+--
+-- SX-0005 and SX-0056 already exist in production under stable UUIDs, but their
+-- original creation is not reconstructible from the repository's zero-state
+-- migration history. Use idempotent UUID-bound upserts so a fresh replay creates
+-- the same two source identities while an existing production row retains its
+-- health/history fields (last_checked_at, failure state, locks, etc.).
 
 -- SX-0005: replace the existing generic HTML treatment of the ClinicalTrials.gov
 -- v2 endpoint with record-level structured JSON capture.
-UPDATE public.source_registry
-SET
-  source_url = 'https://clinicaltrials.gov/api/v2/studies?query.term=%28cannabis%20OR%20cannabidiol%20OR%20cannabinoid%20OR%20marijuana%29&pageSize=100',
-  source_type = 'scientific',
-  adapter = 'api',
-  crawl_cadence = 'daily',
-  relevance_status = 'active',
-  is_active = true,
-  crawl_allowed = true,
-  content_type = ARRAY['research']::text[],
-  metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+INSERT INTO public.source_registry (
+  id, source_name, source_url, jurisdiction, country, iso, region,
+  is_active, requires_translation, language, adapter, crawl_cadence,
+  relevance_status, tier, requires_auth, source_type, crawl_allowed,
+  content_type, metadata
+)
+VALUES (
+  'f1eba08c-6704-484c-b6c4-d9d6a452e9c3'::uuid,
+  'ClinicalTrials.gov — Cannabis Studies',
+  'https://clinicaltrials.gov/api/v2/studies?query.term=%28cannabis%20OR%20cannabidiol%20OR%20cannabinoid%20OR%20marijuana%29&pageSize=100',
+  'Global', 'USA', 'US', 'Global',
+  true, false, 'en', 'api', 'daily',
+  'active', 1, false, 'scientific', true,
+  ARRAY['research']::text[],
+  jsonb_build_object(
     'audit_source_id', 'SX-0005',
     'source_class', 'clinical_scientific_registry',
     'structured_fetch', true,
@@ -34,25 +44,39 @@ SET
     'event_types', jsonb_build_array('trial_start', 'trial_status_change', 'trial_completion', 'trial_results'),
     'evidence_authority', 'primary_registry',
     'refresh_expectation', 'weekday_daily'
-  ),
-  updated_at = now()
-WHERE id = 'f1eba08c-6704-484c-b6c4-d9d6a452e9c3'::uuid
-  AND source_name = 'ClinicalTrials.gov — Cannabis Studies';
+  )
+)
+ON CONFLICT (id) DO UPDATE SET
+  source_name = EXCLUDED.source_name,
+  source_url = EXCLUDED.source_url,
+  source_type = EXCLUDED.source_type,
+  adapter = EXCLUDED.adapter,
+  crawl_cadence = EXCLUDED.crawl_cadence,
+  relevance_status = EXCLUDED.relevance_status,
+  is_active = EXCLUDED.is_active,
+  crawl_allowed = EXCLUDED.crawl_allowed,
+  content_type = EXCLUDED.content_type,
+  metadata = COALESCE(public.source_registry.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+  updated_at = now();
 
 -- SX-0056: convert the dormant Federal Register HTML search into the JSON API.
 -- FederalRegister.gov is used for monitoring/discovery; downstream legal evidence
 -- should retain the document's official-PDF/govinfo provenance when available.
-UPDATE public.source_registry
-SET
-  source_url = 'https://www.federalregister.gov/api/v1/documents.json?per_page=100&order=newest&conditions%5Bterm%5D=cannabis',
-  source_type = 'government_official',
-  adapter = 'api',
-  crawl_cadence = 'daily',
-  relevance_status = 'active',
-  is_active = true,
-  crawl_allowed = true,
-  content_type = ARRAY['regulatory']::text[],
-  metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+INSERT INTO public.source_registry (
+  id, source_name, source_url, jurisdiction, country, iso, region,
+  is_active, requires_translation, language, adapter, crawl_cadence,
+  relevance_status, tier, requires_auth, source_type, crawl_allowed,
+  content_type, metadata
+)
+VALUES (
+  'ea49c5e6-5bb0-4080-a66e-fe42d1f7034f'::uuid,
+  'Federal Register — Cannabis Rulemaking Pipeline',
+  'https://www.federalregister.gov/api/v1/documents.json?per_page=100&order=newest&conditions%5Bterm%5D=cannabis',
+  NULL, NULL, NULL, 'north_america',
+  true, false, 'en', 'api', 'daily',
+  'active', 2, false, 'government_official', true,
+  ARRAY['regulatory']::text[],
+  jsonb_build_object(
     'audit_source_id', 'SX-0056',
     'source_class', 'government_gazette_rulemaking',
     'structured_fetch', true,
@@ -64,10 +88,20 @@ SET
     'event_types', jsonb_build_array('proposed_rule', 'final_rule', 'notice', 'hearing', 'effective_date_change'),
     'evidence_authority', 'official_information_interface',
     'legal_verification_required', 'govinfo_official_edition'
-  ),
-  updated_at = now()
-WHERE id = 'ea49c5e6-5bb0-4080-a66e-fe42d1f7034f'::uuid
-  AND source_name = 'Federal Register — Cannabis Rulemaking Pipeline';
+  )
+)
+ON CONFLICT (id) DO UPDATE SET
+  source_name = EXCLUDED.source_name,
+  source_url = EXCLUDED.source_url,
+  source_type = EXCLUDED.source_type,
+  adapter = EXCLUDED.adapter,
+  crawl_cadence = EXCLUDED.crawl_cadence,
+  relevance_status = EXCLUDED.relevance_status,
+  is_active = EXCLUDED.is_active,
+  crawl_allowed = EXCLUDED.crawl_allowed,
+  content_type = EXCLUDED.content_type,
+  metadata = COALESCE(public.source_registry.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+  updated_at = now();
 
 -- SX-0054: drug enforcement/recall records from FDA RES via openFDA.
 INSERT INTO public.source_registry (
