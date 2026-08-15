@@ -1,0 +1,107 @@
+name: Talent P0 Branch Verification
+
+on:
+  push:
+    branches:
+      - feat/talent-p0-canonical-runtime
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: talent-p0-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  CI: '1'
+  NODE_VERSION: '22'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  code-verification:
+    name: Talent P0 code, security and build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+    steps:
+      - name: Checkout exact branch SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Talent focused contract tests
+        run: npx vitest run tests/talent/*.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Security and leakage suite
+        run: npm run test:security
+
+      - name: Environment manifest coverage
+        run: npm run check:env-manifest
+
+      - name: Production fixture cutover assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R "from '../data/jobsBoard'\|from './data/jobsBoard'" components/dashboard/mobile-command/sections/TalentSection.tsx; then
+            echo 'FAIL: canonical TalentSection still imports JOB_LISTINGS'
+            exit 1
+          fi
+          if grep -n '/signin' components/dashboard/mobile-command/sections/TalentSection.tsx; then
+            echo 'FAIL: Talent auth action uses a non-canonical signin route'
+            exit 1
+          fi
+          grep -q "export const JOB_LISTINGS: JobListing\[\] = \[\]" components/dashboard/data/jobsBoard.ts
+          grep -q "20260815161000_talent_p0_job_search_security_boundary" docs/control/talent/TALENT_IMPLEMENTATION_EVIDENCE.md
+          echo 'GO: runtime fixture and auth-route cutover assertions passed.'
+
+      - name: Next.js build
+        run: npm run build
+
+  migration-replay:
+    name: Full-history local Supabase replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact branch SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: 2.109.1
+
+      - name: Start repository-local Supabase
+        run: supabase start
+
+      - name: Replay complete migration history and seed
+        run: supabase db reset --local
+
+      - name: Record local status
+        if: always()
+        run: supabase status || true
+
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup || true
