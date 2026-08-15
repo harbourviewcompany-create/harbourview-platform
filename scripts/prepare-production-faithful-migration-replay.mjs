@@ -9,6 +9,19 @@ const DECISIONS_FILE = 'supabase/release-controls/pending-production-migration-d
 const MIGRATIONS_DIR = 'supabase/migrations'
 const EXCLUDED_SUFFIX = '.replay-excluded'
 
+// Repository-only reconciliation migrations can occasionally have a timestamp
+// later than the first historical migration that depends on the production
+// state they reconstruct. Relocate only an explicitly evidenced, production-
+// unapplied reconciliation file for zero-state replay; the checked-in file and
+// production migration ledger remain unchanged.
+const REPLAY_RELOCATIONS = [
+  {
+    source: '20260730220050_reconcile_listings_production_columns.sql',
+    destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
+    before: '20260730211147_create_supply_catalog_public_view.sql',
+  },
+]
+
 function migrationVersion(file) {
   const match = /^(\d{14})_.+\.sql$/.exec(file)
   return match?.[1] ?? null
@@ -49,11 +62,29 @@ export function planReplayExclusions({ decisions, migrationFiles }) {
   return exclusions.sort((a, b) => a.version.localeCompare(b.version))
 }
 
+export function planReplayRelocations({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_RELOCATIONS.filter((item) => {
+    if (!fileSet.has(item.source) || fileSet.has(item.destination) || !fileSet.has(item.before)) return false
+    const sourceVersion = migrationVersion(item.source)
+    const destinationVersion = migrationVersion(item.destination)
+    const beforeVersion = migrationVersion(item.before)
+    return Boolean(
+      sourceVersion &&
+        destinationVersion &&
+        beforeVersion &&
+        sourceVersion > beforeVersion &&
+        destinationVersion < beforeVersion,
+    )
+  })
+}
+
 export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = false } = {}) {
   const decisions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, DECISIONS_FILE), 'utf8'))
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
   const migrationFiles = fs.readdirSync(migrationDirectory).filter((file) => file.endsWith('.sql'))
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
+  const relocations = planReplayRelocations({ migrationFiles })
 
   if (apply) {
     for (const item of exclusions) {
@@ -63,22 +94,37 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (fs.existsSync(destination)) throw new Error(`Replay exclusion destination already exists: ${path.basename(destination)}`)
       fs.renameSync(source, destination)
     }
+    for (const item of relocations) {
+      const source = path.join(migrationDirectory, item.source)
+      const destination = path.join(migrationDirectory, item.destination)
+      if (!fs.existsSync(source)) throw new Error(`Replay relocation source disappeared: ${item.source}`)
+      if (fs.existsSync(destination)) throw new Error(`Replay relocation destination already exists: ${item.destination}`)
+      fs.renameSync(source, destination)
+    }
   }
 
-  return exclusions
+  return { exclusions, relocations }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const exclusions = runReplayPreparation({ apply })
+    const { exclusions, relocations } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
       console.log(`Production-faithful replay: ${apply ? 'excluded' : 'would exclude'} ${exclusions.length} repository-version alias file(s):`)
       for (const item of exclusions) {
         console.log(`- ${item.file} -> live/repository equivalent ${item.repository_equivalent_versions.join(', ')}`)
+      }
+    }
+    if (relocations.length === 0) {
+      console.log('Production-faithful replay: no repository-only reconciliation files require earlier replay ordering.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconciliation file(s):`)
+      for (const item of relocations) {
+        console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
       }
     }
   } catch (error) {
