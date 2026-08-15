@@ -109,7 +109,7 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   'weekly-signals': { id: 'weekly-signals', label: 'Weekly signals', icon: '≋' },
   'personal-briefing': { id: 'personal-briefing', label: 'Personal briefing', icon: '❑' },
   search: { id: 'search', label: 'Search', icon: '⌕' },
-  education: { id: 'education', label: 'Education path', icon: '◇' },
+  education: { id: 'education', label: 'Education', icon: '◇' },
   jurisdiction: { id: 'jurisdiction', label: 'Jurisdiction', icon: '◉' },
   'market-status': { id: 'market-status', label: 'Marketplace status', icon: '◫' },
   'review-gates': { id: 'review-gates', label: 'Review gates', icon: '◆' },
