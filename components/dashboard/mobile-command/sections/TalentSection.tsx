@@ -189,7 +189,7 @@ export function TalentSection({ sectionRef }: Props) {
       </div>
 
       {['degraded','error'].includes(state) && <button className={styles.retry} type="button" onClick={() => setRetryKey(value => value + 1)}>Retry</button>}
-      {state === 'auth' && <Link className={styles.actionLink} href="/signin?next=%2Fdashboard%3Fsection%3Dtalent">Sign in</Link>}
+      {state === 'auth' && <Link className={styles.actionLink} href="/login?next=%2Fdashboard%3Fsection%3Dtalent">Sign in</Link>}
       {state === 'permission' && !workspaceId && <div className={styles.permissionActions}><Link href="/organization/new?next=%2Fdashboard%3Fsection%3Dtalent">Create organization</Link><Link href="/organization/join?next=%2Fdashboard%3Fsection%3Dtalent">Join organization</Link></div>}
 
       {mode === 'jobs' && jobs.length > 0 && (
