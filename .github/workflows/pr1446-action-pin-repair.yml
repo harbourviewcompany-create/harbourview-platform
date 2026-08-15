@@ -1,0 +1,97 @@
+name: PR1446 Exact Action Pin Repair
+
+on:
+  push:
+    branches:
+      - fix/pr1444-corridor-replay-20260815
+    paths:
+      - .github/workflows/pr1446-action-pin-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/pr1444-corridor-replay-20260815
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Replace only stale checkout and setup-node references
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            .github/workflows/clinical-evidence-p0-verify.yml
+            .github/workflows/clinical-evidence-v1-1-verify.yml
+            .github/workflows/clinical-evidence-v1-production-verify.yml
+            .github/workflows/decision-intel-completion-hardening-verify.yml
+            .github/workflows/decision-intel-first-slice-verify.yml
+            .github/workflows/decision-intel-stage0-review-fixes-verify.yml
+            .github/workflows/mobile-genetics-command-visual.yml
+            .github/workflows/p0-identity-org-context-verify.yml
+            .github/workflows/p0-org-onboarding-regression-verify.yml
+            .github/workflows/reconstruct-stub-migrations.yml
+          )
+          python - <<'PY'
+          from pathlib import Path
+          files = [
+              '.github/workflows/clinical-evidence-p0-verify.yml',
+              '.github/workflows/clinical-evidence-v1-1-verify.yml',
+              '.github/workflows/clinical-evidence-v1-production-verify.yml',
+              '.github/workflows/decision-intel-completion-hardening-verify.yml',
+              '.github/workflows/decision-intel-first-slice-verify.yml',
+              '.github/workflows/decision-intel-stage0-review-fixes-verify.yml',
+              '.github/workflows/mobile-genetics-command-visual.yml',
+              '.github/workflows/p0-identity-org-context-verify.yml',
+              '.github/workflows/p0-org-onboarding-regression-verify.yml',
+              '.github/workflows/reconstruct-stub-migrations.yml',
+          ]
+          replacements = {
+              'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683': 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+              'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020': 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+              'actions/checkout@v4': 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+              'actions/setup-node@v4': 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+          }
+          changed = 0
+          for name in files:
+              path = Path(name)
+              before = path.read_text()
+              after = before
+              for old, new in replacements.items():
+                  after = after.replace(old, new)
+              if after != before:
+                  path.write_text(after)
+                  changed += 1
+          if changed != 10:
+              raise SystemExit(f'expected exactly 10 changed workflows, got {changed}')
+          PY
+          node scripts/verify-github-action-pins.mjs
+
+      - name: Commit exact repair and remove helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/pr1446-action-pin-repair.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            .github/workflows/clinical-evidence-p0-verify.yml \
+            .github/workflows/clinical-evidence-v1-1-verify.yml \
+            .github/workflows/clinical-evidence-v1-production-verify.yml \
+            .github/workflows/decision-intel-completion-hardening-verify.yml \
+            .github/workflows/decision-intel-first-slice-verify.yml \
+            .github/workflows/decision-intel-stage0-review-fixes-verify.yml \
+            .github/workflows/mobile-genetics-command-visual.yml \
+            .github/workflows/p0-identity-org-context-verify.yml \
+            .github/workflows/p0-org-onboarding-regression-verify.yml \
+            .github/workflows/reconstruct-stub-migrations.yml \
+            .github/workflows/pr1446-action-pin-repair.yml
+          git diff --cached --check
+          git commit -m "fix(ci): restore approved immutable action pins"
+          git push origin HEAD:fix/pr1444-corridor-replay-20260815
