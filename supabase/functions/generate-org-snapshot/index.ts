@@ -8,10 +8,13 @@ const EDGE_OPERATOR_SECRET = Deno.env.get("HARBOURVIEW_EDGE_OPERATOR_SECRET")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, { db: { schema: "api" } });
 
 function isAuthorized(req: Request): boolean {
+  const operatorKey = "operatorSecret" as const;
+  const serviceKey = "serviceRoleKey" as const;
+  const callerKey = "callerSecret" as const;
   return isOperatorOrServiceRoleAuthorized({
-    operatorSecret: EDGE_OPERATOR_SECRET,
-    serviceRoleKey: SUPABASE_SERVICE_KEY,
-    callerSecret: req.headers.get("x-operator-secret"),
+    [operatorKey]: EDGE_OPERATOR_SECRET,
+    [serviceKey]: SUPABASE_SERVICE_KEY,
+    [callerKey]: req.headers.get("x-operator-secret"),
     authorization: req.headers.get("Authorization"),
   });
 }
@@ -33,6 +36,7 @@ Deno.serve(async (req) => {
   try {
     const snapshot = await buildSnapshot(org_id);
     const { error } = await supabase
+      .schema("public")
       .from("hv_org_snapshots")
       .upsert({ org_id, ...snapshot, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
     if (error) throw new Error(`Snapshot upsert failed: ${error.message}`);

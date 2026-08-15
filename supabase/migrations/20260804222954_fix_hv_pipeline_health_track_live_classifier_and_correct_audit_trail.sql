@@ -42,7 +42,7 @@ AS $function$
               then 'ok (recall ' || coalesce(cv.signal_recall::text,'?') || ', precision ' || coalesce(cv.signal_precision::text,'?') || ', n=' || coalesce(cv.n_eval_rows::text,'?') || ', validated ' || coalesce(cv.validated_at::date::text,'?') || ' -- re-validate against a larger eval set periodically, not a one-time decision)'
               else 'gate closed for the most recently validated classifier version -- check classifier_validation.notes before promotion runs unattended' end
   from (select * from public.classifier_validation order by validated_at desc limit 1) cv;
-$function$
+$function$;
 
 
 UPDATE public.classifier_validation
