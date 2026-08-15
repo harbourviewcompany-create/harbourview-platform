@@ -19,12 +19,16 @@
 -- inferred.
 --
 -- Every added column uses IF NOT EXISTS, so columns the repository already
--- builds are skipped untouched -- including their existing types. The one
--- legacy-column removal below is likewise idempotent and is backed by the live
--- catalog: listing_type does not exist in current production and no recorded
--- migration statement mentions listings.listing_type. This removes the stale
--- NOT NULL requirement created only by the repository's older zero-state
--- creator before supply-catalog seeds run.
+-- builds are skipped untouched -- including their existing types.
+--
+-- Zero-state replay also carries a legacy listings.listing_type text NOT NULL
+-- column from 20260528033000. Fresh production catalog evidence shows that
+-- column does not exist in production, while the historical api.listings view
+-- still depends on it at this point in replay. Dropping the column here would
+-- therefore cascade into unrelated historical API shape. Instead, when that
+-- replay-only legacy column exists, relax only its stale NOT NULL constraint so
+-- the historical supply seed (which correctly does not populate listing_type)
+-- can run. On production this block is a no-op because the column is absent.
 --
 -- Deliberate deviations from the live catalog, both to keep this replay-safe:
 --   * Columns are added nullable even where production marks them NOT NULL.
@@ -58,8 +62,23 @@ begin
   end if;
 end $$;
 
-alter table public.listings
-  drop column if exists listing_type;
+do $$
+begin
+  if exists (
+    select 1
+    from pg_catalog.pg_attribute a
+    join pg_catalog.pg_class c on c.oid = a.attrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'listings'
+      and a.attname = 'listing_type'
+      and a.attnum > 0
+      and not a.attisdropped
+      and a.attnotnull
+  ) then
+    alter table public.listings alter column listing_type drop not null;
+  end if;
+end $$;
 
 alter table public.listings
   add column if not exists category public.marketplace_category,
