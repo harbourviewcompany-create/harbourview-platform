@@ -12,9 +12,12 @@
 //
 //   - `Compare repository and live migration ledgers` compares VERSION NUMBERS.
 //     A placeholder has the right version, so drift reads as clean.
-//   - `check-placeholder-landmines` greps five English phrases
-//     ("// TODO: implement", "rest of the file unchanged", ...). None of them
-//     is the phrase these files use, so it passes.
+//   - `check-placeholder-landmines` greps a fixed list of five English
+//     placeholder phrases, none of which is the phrase these files use, so it
+//     passes. The phrases are deliberately NOT quoted here: that gate greps
+//     every .mjs in the repository, so spelling them out would make this
+//     comment the landmine it is describing. See the PATTERNS array in
+//     .github/workflows/migration-drift-check.yml for the actual list.
 //   - `check-migration-sql-parses.mjs` parses `SELECT 1;` happily.
 //
 // Only a real replay catches it, and `production-security-hardening.yml` --

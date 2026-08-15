@@ -589,6 +589,23 @@ test.describe('Mobile Command operator-first verification', () => {
         const page = await context.newPage()
         const response = await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded' })
         expect(response?.status()).toBeLessThan(400)
+
+        // Wait for the real desktop shell before asserting on the renderer
+        // marker. CommandCentre is dynamic with ssr: false and its `loading`
+        // fallback (CommandBootShell) is an in-flow <main class="min-h-screen">,
+        // so straight after domcontentloaded the marker has height purely
+        // because the boot shell is still mounted. This assertion used to pass
+        // by winning that race -- it resolved against the loading state and
+        // never observed the settled one, where the only child is the
+        // position:fixed .cc-app.
+        //
+        // That mattered: the marker had a zero-area box in the settled state on
+        // every desktop page, and this test could not see it. The Genetics spec
+        // waited for networkidle, did observe it, and reported the bare
+        // "element(s) not found" that led to the fix in
+        // DashboardResponsiveShell. Anchoring on .cc-app makes this test check
+        // the state users actually get.
+        await expect(page.locator('.cc-app')).toBeVisible()
         await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
         await expect(page.locator('[data-mobile-command-version="2"]:visible')).toHaveCount(0)
       } finally {

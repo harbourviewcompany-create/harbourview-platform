@@ -44,13 +44,19 @@ export default async function SupplyProductDetailPage({ params }: PageProps) {
       </PublicHero>
 
       <PublicSection tone="navy">
-        <div className="mb-6 overflow-hidden rounded-sm border border-gold/10 bg-[#071425] shadow-[0_18px_44px_rgba(0,0,0,0.24)]"><div className="aspect-[3/2] max-h-[640px]"><SupplyProductImage slug={listing.slug} title={listing.title} priority /></div></div>
+        <div className="mb-6 overflow-hidden rounded-sm border border-gold/10 bg-[#071425] shadow-[0_18px_44px_rgba(0,0,0,0.24)]">
+          <div className="aspect-[3/2] max-h-[640px]">
+            <SupplyProductImage slug={listing.slug} title={listing.title} priority />
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <PublicCard className="space-y-3 p-7 text-sm leading-7 text-white/62">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold/76">Commercial review</p>
             <p className="text-lg font-semibold text-[#f5f1e8]">{listing.price_display}</p>
             <p>SKU: {listing.sku}</p>
             {listing.unit ? <p>Unit format: {listing.unit}</p> : null}
+            {listing.moq_display ? <p>Minimum order: {listing.moq_display}</p> : null}
+            {listing.lead_time_display ? <p>Lead time: {listing.lead_time_display}</p> : null}
             <p>Availability: {listing.availability_status}</p>
             {listing.target_countries.length > 0 ? (
               <p>Jurisdictions listed for review: {listing.target_countries.join(', ')}</p>

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
 }
 
-type PageProps = { searchParams: Promise<{ category?: string; q?: string }> }
+type PageProps = { searchParams: Promise<{ category?: string; country?: string; q?: string }> }
 
 const FILTER_TABS: Array<{ label: string; value: 'all' | SupplyCategory }> = [
   { label: 'All Products', value: 'all' },
@@ -34,6 +34,27 @@ const FILTER_TABS: Array<{ label: string; value: 'all' | SupplyCategory }> = [
   { label: SUPPLY_CATEGORY_LABELS.labs_testing, value: 'labs_testing' },
 ]
 
+const COUNTRY_TABS = [
+  { label: 'All markets', value: 'all' },
+  { label: 'Canada', value: 'CA' },
+  { label: 'Germany', value: 'DE' },
+  { label: 'Australia', value: 'AU' },
+] as const
+
+type CountryFilter = (typeof COUNTRY_TABS)[number]['value']
+
+function isCountryFilter(value: string | undefined): value is CountryFilter {
+  return value === 'all' || COUNTRY_TABS.some((tab) => tab.value === value)
+}
+
+function buildSupplyHref(params: { category: 'all' | SupplyCategory; country: CountryFilter; q?: string }) {
+  const searchParams = new URLSearchParams()
+  if (params.category !== 'all') searchParams.set('category', params.category)
+  if (params.country !== 'all') searchParams.set('country', params.country)
+  if (params.q?.trim()) searchParams.set('q', params.q.trim())
+  return searchParams.size ? `/supply?${searchParams.toString()}` : '/supply'
+}
+
 function ProductCard({ listing }: { listing: SupplyListing }) {
   const categoryLabel = isSupplyCategory(listing.category)
     ? SUPPLY_CATEGORY_LABELS[listing.category]
@@ -41,7 +62,11 @@ function ProductCard({ listing }: { listing: SupplyListing }) {
 
   return (
     <article className="group flex h-full flex-col rounded-sm border border-gold/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-6 shadow-[0_18px_44px_rgba(0,0,0,0.22)] transition-all duration-200 hover:border-gold/30">
-      <div className="-mx-6 -mt-6 mb-5 overflow-hidden border-b border-gold/10 bg-[#071425]"><div className="aspect-[3/2]"><SupplyProductImage slug={listing.slug} title={listing.title} /></div></div>
+      <div className="-mx-6 -mt-6 mb-5 overflow-hidden border-b border-gold/10 bg-[#071425]">
+        <div className="aspect-[3/2]">
+          <SupplyProductImage slug={listing.slug} title={listing.title} />
+        </div>
+      </div>
       <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light opacity-80 transition-opacity group-hover:opacity-100" />
       <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold/76">
         <span>{categoryLabel}</span>
@@ -63,9 +88,17 @@ function ProductCard({ listing }: { listing: SupplyListing }) {
         </div>
       ) : null}
 
+      {listing.target_countries.length > 0 ? (
+        <p className="mt-4 text-[11px] leading-5 text-white/44">
+          Jurisdictions listed for review: {listing.target_countries.join(', ')}
+        </p>
+      ) : null}
+
       <div className="mt-5 border-t border-white/5 pt-4">
         <p className="text-base font-semibold text-[#f5f1e8]">{listing.price_display}</p>
-        <p className="mt-2 text-[11px] text-white/44">{listing.availability_status}</p>
+        {listing.moq_display ? <p className="mt-2 text-[11px] text-white/44">Minimum order: {listing.moq_display}</p> : null}
+        {listing.lead_time_display ? <p className="mt-1 text-[11px] text-white/44">Lead time: {listing.lead_time_display}</p> : null}
+        <p className="mt-1 text-[11px] text-white/44">{listing.availability_status}</p>
       </div>
 
       <Link href={`/supply/${encodeURIComponent(listing.slug)}`} className="btn-marketplace mt-6 justify-center text-center text-sm">
@@ -76,9 +109,14 @@ function ProductCard({ listing }: { listing: SupplyListing }) {
 }
 
 export default async function SupplyCatalogPage({ searchParams }: PageProps) {
-  const { category, q } = await searchParams
+  const { category, country, q } = await searchParams
   const activeCategory = category && isSupplyCategory(category) ? category : 'all'
-  const listings = await getSupplyCatalog({ category: activeCategory, search: q })
+  const activeCountry: CountryFilter = isCountryFilter(country) ? country : 'all'
+  const listings = await getSupplyCatalog({
+    category: activeCategory,
+    countryIso2: activeCountry === 'all' ? undefined : activeCountry,
+    search: q,
+  })
 
   return (
     <>
@@ -97,10 +135,11 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
       </PublicHero>
 
       <PublicSection tone="dark">
-        <SectionHeader eyebrow="Browse the catalog" title="Filter by category." />
+        <SectionHeader eyebrow="Browse the catalog" title="Filter by category and market." />
 
         <form action="/supply" method="get" className="mb-6 flex flex-col gap-3 sm:flex-row">
           {activeCategory !== 'all' ? <input type="hidden" name="category" value={activeCategory} /> : null}
+          {activeCountry !== 'all' ? <input type="hidden" name="country" value={activeCountry} /> : null}
           <input
             name="q"
             defaultValue={q ?? ''}
@@ -111,18 +150,16 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
           <button type="submit" className="btn-marketplace min-h-12 justify-center px-6 text-sm">Search</button>
         </form>
 
-        <div className="mb-8 flex flex-wrap gap-2">
+        <div className="mb-4 flex flex-wrap gap-2" aria-label="Supply categories">
           {FILTER_TABS.map((tab) => {
             const isActive = tab.value === activeCategory
-            const params = new URLSearchParams()
-            if (tab.value !== 'all') params.set('category', tab.value)
-            if (q?.trim()) params.set('q', q.trim())
-            const href = params.size ? `/supply?${params.toString()}` : '/supply'
+            const href = buildSupplyHref({ category: tab.value, country: activeCountry, q })
 
             return (
               <Link
                 key={tab.value}
                 href={href}
+                aria-current={isActive ? 'page' : undefined}
                 className={
                   isActive
                     ? 'rounded-full border border-gold/40 bg-gold/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold'
@@ -135,9 +172,31 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
           })}
         </div>
 
+        <div className="mb-8 flex flex-wrap gap-2" aria-label="Supply markets">
+          {COUNTRY_TABS.map((tab) => {
+            const isActive = tab.value === activeCountry
+            const href = buildSupplyHref({ category: activeCategory, country: tab.value, q })
+
+            return (
+              <Link
+                key={tab.value}
+                href={href}
+                aria-current={isActive ? 'page' : undefined}
+                className={
+                  isActive
+                    ? 'rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white'
+                    : 'rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/44 transition-colors hover:border-white/25 hover:text-white/70'
+                }
+              >
+                {tab.label}
+              </Link>
+            )
+          })}
+        </div>
+
         {listings.length === 0 ? (
           <EmptyState title="No catalog items match this search." action={{ label: 'View all products', href: '/supply' }}>
-            <p>Try another category or submit a quote request for a reviewed sourcing response.</p>
+            <p>Try another category or market, or submit a quote request for a reviewed sourcing response.</p>
           </EmptyState>
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

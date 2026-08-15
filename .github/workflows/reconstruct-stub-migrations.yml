@@ -121,7 +121,7 @@ jobs:
 
       # `secrets` is NOT an available context in a step-level `if:` -- only in
       # `env:`. So the choice is resolved here into an output, and the steps
-      # below branch on that output. Writing `if: secrets.X == ''` directly
+      # below branch on that output. Testing a secret for emptiness directly
       # silently evaluates to the wrong thing.
       - name: Resolve a database to read from
         id: resolve_db
