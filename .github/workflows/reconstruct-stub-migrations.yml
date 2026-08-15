@@ -1,0 +1,263 @@
+name: Reconstruct Stub Migrations
+
+# Runs scripts/reconstruct-stub-migrations.mjs against production and opens a
+# pull request with the result.
+#
+# WHY THIS EXISTS
+#
+# 167 files in supabase/migrations carry no DDL -- each is a comment plus
+# `SELECT 1;`, added to satisfy version-number parity after the real change was
+# applied directly via Supabase MCP. The repository therefore cannot rebuild
+# production, and `supabase db reset --local` dies at the first migration that
+# depends on schema a placeholder was supposed to create.
+#
+# Recovering them means reading ~2 MB of DDL back out of
+# supabase_migrations.schema_migrations. That is a mechanical job, and it should
+# be mechanical: a script that can be re-run and reviewed, not a person or an
+# agent hand-copying 165 files into a diff nobody can check.
+#
+# It is `workflow_dispatch` only. It never runs on push, never runs on a
+# schedule, and never commits to `main` -- it opens a pull request, so the
+# reconstruction gets the same review as any other migration change.
+#
+# WHY A WORKFLOW RATHER THAN A LOCAL RUN
+#
+# The script needs read access to `supabase_migrations.schema_migrations`.
+# Running it locally means someone handing a database connection string to
+# whoever is doing the work. Running it here means no such credential is
+# transcribed, pasted, or held by an agent.
+#
+# HOW IT REACHES THE DATA WITHOUT A NEW SECRET
+#
+# An earlier revision required `secrets.SUPABASE_DB_URL`, which did not exist
+# and blocked this workflow from ever running. It is no longer required.
+#
+# `secrets.SUPABASE_ACCESS_TOKEN` already exists and is already used by
+# `migration-drift-check.yml`, which links the project and reads the remote
+# ledger on every push. This workflow reuses exactly that path: link, then
+# `supabase db dump` the single `supabase_migrations` schema into a file, load
+# that file into a throwaway local Postgres, and point the reconstruction
+# script at localhost.
+#
+# The benefit is not only that it needs no new secret. Postgres does the array
+# parsing: `schema_migrations.statements` is `text[]`, and hand-parsing a dumped
+# array literal is exactly the kind of silent corruption a migration repair must
+# not risk. Round-tripping through a real Postgres means the statements the
+# script reads are byte-identical to the ones production ran.
+#
+# `SUPABASE_DB_URL` is still honoured if it is set, as a direct-connection
+# fallback -- see the "Resolve a database to read from" step.
+#
+# SAFETY
+#
+# Read-only against the database: the only statement issued is a `select` over
+# schema_migrations. The script refuses to write any migration whose version is
+# absent from that table, which protects the one placeholder that was never
+# applied to production -- filling that one in would turn a repository repair
+# into a real schema change. See the script's own header.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List what would be reconstructed without writing files'
+        type: boolean
+        default: true
+      only:
+        description: 'Optional comma-separated migration versions, e.g. 20260720093632,20260720093647. Leave blank for all.'
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: reconstruct-stub-migrations
+  cancel-in-progress: false
+
+jobs:
+  reconstruct:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    # Throwaway Postgres that the production ledger dump is loaded into. Nothing
+    # here is production; it exists so pg_dump/psql handle the `text[]` parsing
+    # instead of a hand-rolled array parser.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          # trust, not a password. This container is created and destroyed inside
+          # one job, is reachable only from it, and holds a copy of a ledger that
+          # is not secret. Using trust means no credential is committed here at
+          # all -- check-no-secret-strings.mjs rejects a hardcoded one, correctly.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Provides psql, which the script shells out to rather than taking a `pg`
+      # dependency -- Dependabot pull requests in this repository never run
+      # `Next.js Build`, so a new runtime dependency is what its CI is weakest
+      # at catching (AGENT_OPERATING_FACTS.md §2).
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      # `secrets` is NOT an available context in a step-level `if:` -- only in
+      # `env:`. So the choice is resolved here into an output, and the steps
+      # below branch on that output. Writing `if: secrets.X == ''` directly
+      # silently evaluates to the wrong thing.
+      - name: Resolve a database to read from
+        id: resolve_db
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL}" ]; then
+            echo "source: direct SUPABASE_DB_URL (value not printed)"
+            echo "use_direct=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "source: local copy of the dumped production ledger"
+            echo "use_direct=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Preferred path: no new secret. Mirrors migration-drift-check.yml, which
+      # already links and reads the remote ledger with this same token.
+      - name: Dump the production migration ledger via the Supabase CLI
+        if: steps.resolve_db.outputs.use_direct == 'false'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN}" ]; then
+            echo "::error::Neither secrets.SUPABASE_ACCESS_TOKEN nor secrets.SUPABASE_DB_URL is set."
+            echo "SUPABASE_ACCESS_TOKEN is the preferred path and is already used by"
+            echo "migration-drift-check.yml. SUPABASE_DB_URL is only a fallback."
+            exit 1
+          fi
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          # Structure then rows, both scoped to the one schema being read.
+          supabase db dump --linked --schema supabase_migrations -f /tmp/ledger-schema.sql
+          supabase db dump --linked --schema supabase_migrations --data-only -f /tmp/ledger-data.sql
+          echo "schema dump: $(wc -c < /tmp/ledger-schema.sql) bytes"
+          echo "data dump:   $(wc -c < /tmp/ledger-data.sql) bytes"
+
+      - name: Load the ledger into the throwaway Postgres
+        if: steps.resolve_db.outputs.use_direct == 'false'
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/ledger-schema.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/ledger-data.sql
+          rows=$(psql -h 127.0.0.1 -U postgres -d postgres -tAc \
+            "select count(*) from supabase_migrations.schema_migrations;")
+          echo "loaded ${rows} ledger rows"
+          if [ "${rows}" -lt 100 ]; then
+            echo "::error::Only ${rows} rows loaded; expected the full production ledger."
+            echo "Refusing to reconstruct from a partial ledger -- a missing row would"
+            echo "be silently skipped rather than reported."
+            exit 1
+          fi
+
+      - name: Reconstruct
+        id: reconstruct
+        env:
+          DATABASE_URL: ${{ steps.resolve_db.outputs.use_direct == 'true' && secrets.SUPABASE_DB_URL || 'postgresql://postgres@127.0.0.1:5432/postgres' }}
+          ONLY: ${{ inputs.only }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -o pipefail
+          args=()
+          if [ "${DRY_RUN}" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "${ONLY}" ]; then args+=(--only "${ONLY}"); fi
+          node scripts/reconstruct-stub-migrations.mjs "${args[@]}" 2>&1 | tee reconstruct.log
+
+      - name: Verify every migration still parses
+        if: inputs.dry_run == false
+        run: node scripts/check-migration-sql-parses.mjs
+
+      - name: Verify no secrets were reconstructed into the tree
+        if: inputs.dry_run == false
+        run: node scripts/check-no-secret-strings.mjs
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconstruct-stub-migrations-${{ github.run_id }}
+          path: reconstruct.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Open a pull request with the reconstruction
+        if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- supabase/migrations; then
+            echo "No files changed. Nothing to open a pull request for."
+            exit 0
+          fi
+
+          branch="ops/reconstructed-stub-migrations-${{ github.run_id }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add supabase/migrations
+          changed=$(git diff --cached --name-only -- supabase/migrations | wc -l)
+
+          git commit -m "fix(migrations): reconstruct ${changed} placeholder migration(s) from production
+
+          Generated by .github/workflows/reconstruct-stub-migrations.yml, run
+          ${{ github.run_id }}, via scripts/reconstruct-stub-migrations.mjs.
+
+          Each file previously contained no DDL -- a comment plus SELECT 1; --
+          which satisfied the version-number ledger while executing nothing, so
+          the repository could not rebuild production. The statements restored
+          here are the verbatim text production ran, read back from
+          supabase_migrations.schema_migrations.statements.
+
+          Rewriting these files cannot affect production: every version written
+          is already recorded in schema_migrations, so supabase db push skips
+          it. Versions absent from that table are skipped by the script and
+          reported separately -- filling one in would turn a repository repair
+          into a schema change."
+
+          git push -u origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --draft \
+            --title "fix(migrations): reconstruct ${changed} placeholder migration(s) from production" \
+            --body "Generated by \`.github/workflows/reconstruct-stub-migrations.yml\` (run \`${{ github.run_id }}\`).
+
+          Reconstructs placeholder migrations from \`supabase_migrations.schema_migrations.statements\`. **${changed} file(s) changed.**
+
+          Read the script's header for why this is safe: every version written is already applied to production, so \`supabase db push\` skips it. This is a repository-only repair of replay fidelity.
+
+          Verified in the run before this PR was opened:
+          - \`check-migration-sql-parses.mjs\` — every migration parses
+          - \`check-no-secret-strings.mjs\` — no secret-looking values reconstructed into the tree
+
+          The run log is attached to the workflow run as \`reconstruct-stub-migrations-${{ github.run_id }}\`, including any versions skipped for being unapplied.
+
+          Opened as a draft deliberately: a bulk migration rewrite should be read before it is marked ready.
+
+          ---
+          _Generated by [Claude Code](https://claude.ai/code)_"
