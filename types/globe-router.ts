@@ -150,7 +150,10 @@ export type GlobeRouterAction =
   | { type: 'MULTI_MARKET_REMOVE'; countryIso2: string }
   | { type: 'MULTI_MARKET_CONFIRM' }
   | { type: 'NOT_SURE_COUNTRY' }
-  | { type: 'MARKET_ENTER' }
+  // `savedRoleId` short-circuits the role step for a signed-in operator whose
+  // role is already known. Omitted (the anonymous / role-less case) still lands
+  // on the role picker.
+  | { type: 'MARKET_ENTER'; savedRoleId?: RoleId }
   | { type: 'ROLE_SELECT'; roleId: RoleId }
   | { type: 'ROLE_SEARCH_QUERY'; query: string }
   | { type: 'ROLE_SEARCH_SELECT'; roleId: RoleId }

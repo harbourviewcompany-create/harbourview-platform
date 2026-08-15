@@ -41,6 +41,28 @@ export function globeRouterReducer(
       // had working ROLE_SELECT / ROLE_SEARCH_SELECT cases and a
       // BACK transition out of `step: 'role'`; the step was simply never
       // reachable because nothing dispatched into it.
+      //
+      // A signed-in operator who already has a saved role is the one case where
+      // asking again adds nothing: the answer is already on their account and
+      // the Command Centre header is already rendering it. `savedRoleId` skips
+      // straight to routing for exactly that case.
+      //
+      // Note this is NOT a return to the old hardcoded behaviour. The old bug
+      // asserted a role nobody chose; this replays a role this specific user
+      // chose earlier. When `savedRoleId` is absent — every anonymous visitor,
+      // and any account with no stored role — the picker still shows, so the
+      // doctors/regulators/investors case stays fixed.
+      if (action.savedRoleId) {
+        return {
+          ...state,
+          step: 'routing',
+          routeStatus: 'resolving',
+          selectedRoleId: action.savedRoleId,
+          selectedIntentId: undefined,
+          roleSearchQuery: '',
+        }
+      }
+
       return {
         ...state,
         step: 'role',

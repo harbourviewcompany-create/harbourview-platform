@@ -333,6 +333,32 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
+  it('still shows the role picker on MARKET_ENTER when no saved role is supplied', () => {
+    const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'CA-ON' })
+    const afterEnter = globeRouterReducer(afterCountry, { type: 'MARKET_ENTER' })
+
+    // The anonymous / role-less path must keep asking. Regression guard for the
+    // original defect where MARKET_ENTER hardcoded selectedRoleId: 'importer'
+    // and routed doctors, regulators and investors into the importer
+    // destination without ever asking them.
+    expect(afterEnter.step).toBe('role')
+    expect(afterEnter.selectedRoleId).toBeUndefined()
+    expect(afterEnter.routeStatus).toBe('idle')
+  })
+
+  it('skips the role picker on MARKET_ENTER when the operator already has a saved role', () => {
+    const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'CA-ON' })
+    const afterEnter = globeRouterReducer(afterCountry, { type: 'MARKET_ENTER', savedRoleId: 'importer' })
+
+    // A signed-in operator whose role is already on their account should not be
+    // asked again — the Command Centre header is already rendering that role.
+    expect(afterEnter.step).toBe('routing')
+    expect(afterEnter.routeStatus).toBe('resolving')
+    expect(afterEnter.selectedRoleId).toBe('importer')
+    // The subdivision must survive the skip, not collapse to the parent country.
+    expect(afterEnter.selectedCountryIso2).toBe('CA-ON')
+  })
+
   it('returns to the country step on back from market_overview so the camera can fly back to globe', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const afterBack = globeRouterReducer(afterCountry, { type: 'BACK' })

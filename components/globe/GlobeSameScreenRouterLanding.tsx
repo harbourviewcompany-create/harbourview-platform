@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
-import type { GlobeRouterState } from '@/types/globe-router'
+import type { GlobeRouterState, RoleId } from '@/types/globe-router'
 import dynamic from 'next/dynamic'
 
 const GlobeCanvas = dynamic(() => import('./r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })), {
@@ -148,11 +148,30 @@ export function GlobeSameScreenRouterLanding() {
   // returns {preferences: null}, PATCH returns 401) for anonymous visitors,
   // which is most landing-page traffic, so this is safe to fire unconditionally.
   const heatmapLayerRef = useRef<string>('none')
+  // The same response already carries the operator's saved role. It used to be
+  // read for `heatmap_layer` only and discarded, which is why a signed-in
+  // Importer/Buyer was asked "What is your role?" again on every market entry —
+  // the answer was in hand and thrown away. Kept in a ref, not state, because
+  // nothing renders from it; it is read once at MARKET_ENTER.
+  const savedRoleIdRef = useRef<RoleId | undefined>(undefined)
   useEffect(() => {
     fetch('/api/dashboard/preferences')
       .then(r => r.json())
-      .then(d => { heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none' })
-      .catch(() => { heatmapLayerRef.current = 'none' })
+      .then(d => {
+        heatmapLayerRef.current = d?.preferences?.heatmap_layer ?? 'none'
+        // Validate against the real role map rather than trusting the stored
+        // string: a role retired from role-profiles would otherwise skip the
+        // picker and route to a destination that no longer exists.
+        const stored = d?.preferences?.role_id
+        savedRoleIdRef.current =
+          typeof stored === 'string' && stored in roleProfileMap
+            ? (stored as RoleId)
+            : undefined
+      })
+      .catch(() => {
+        heatmapLayerRef.current = 'none'
+        savedRoleIdRef.current = undefined
+      })
   }, [])
 
   useEffect(() => {
@@ -235,7 +254,7 @@ export function GlobeSameScreenRouterLanding() {
         <MarketOverviewSheet
           countryIso2={state.selectedCountryIso2}
           countryName={allCountryAndProvinceOptionMap[state.selectedCountryIso2]?.name ?? state.selectedCountryIso2}
-          onEnter={() => dispatch({ type: 'MARKET_ENTER' })}
+          onEnter={() => dispatch({ type: 'MARKET_ENTER', savedRoleId: savedRoleIdRef.current })}
           onBack={() => dispatch({ type: 'BACK' })}
         />
       ) : null}
