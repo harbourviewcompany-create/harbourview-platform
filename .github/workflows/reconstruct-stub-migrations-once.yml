@@ -44,27 +44,37 @@ jobs:
       - name: Install verification dependencies
         run: npm ci
 
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.109.1
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
-      - name: Dump production migration ledger
+      - name: Read production migration ledger
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: '5432'
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          test -n "${SUPABASE_ACCESS_TOKEN}"
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase db dump --linked --schema supabase_migrations -f /tmp/ledger-schema.sql
-          supabase db dump --linked --schema supabase_migrations --data-only -f /tmp/ledger-data.sql
+          test -n "${PGPASSWORD}"
+          psql -X -v ON_ERROR_STOP=1 -c "\copy (select version, statements, name, created_by, idempotency_key, rollback from supabase_migrations.schema_migrations order by version) to '/tmp/ledger.csv' with (format csv, header true)"
+          test -s /tmp/ledger.csv
 
       - name: Load ledger into throwaway Postgres
         run: |
           set -euo pipefail
-          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/ledger-schema.sql
-          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/ledger-data.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          create schema if not exists supabase_migrations;
+          create table if not exists supabase_migrations.schema_migrations (
+            version text primary key,
+            statements text[],
+            name text,
+            created_by text,
+            idempotency_key text,
+            rollback text[]
+          );
+          \copy supabase_migrations.schema_migrations(version,statements,name,created_by,idempotency_key,rollback) from '/tmp/ledger.csv' with (format csv, header true)
+          SQL
           rows=$(psql -h 127.0.0.1 -U postgres -d postgres -tAc "select count(*) from supabase_migrations.schema_migrations;")
           echo "loaded ${rows} ledger rows"
           test "${rows}" -ge 100
