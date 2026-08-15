@@ -4980,3 +4980,25 @@ Production pre-flight (read-only): retirement predicate matches **0** rows on fi
 **Does not fix delivery.** Two vault secrets are required, an owner action under Rule 3b.
 
 **Decision:** **GO for the repository change.** Production application gated on owner sign-off.
+
+---
+
+**Evidence ID:** `HV-PR1414-DESKTOP-RENDERER-BOX-20260815`
+
+**Scope:** repository-only. Adds `min-height` to the `[data-dashboard-renderer]` wrapper in `components/dashboard/DashboardResponsiveShell.tsx`, plus test instrumentation and assertions. No migration, no schema change, no production action.
+
+**Diagnosis.** PR #1414's new `tests/e2e/mobile-genetics-command.spec.ts` failed its tablet/desktop half with `Locator: [data-dashboard-renderer="desktop"]:visible` / `element(s) not found`, on every run since the spec was written (5 runs, 2026-08-14 to 2026-08-15). The message was misleading: the page was rendering correctly. Instrumentation added to the spec reported `Desktop shell rendered but has a zero-area box (1440x0) at desktop (1440x960)`, `boot shells still mounted: 0`, `page errors: (none)`, and body text containing the full Command Centre navigation and the Genetics page title.
+
+**Cause.** `.cc-app` is `position:fixed; inset:0` (`CommandCentre.css:62`) and `DesktopCommandWorkspace` returns `null` unless `?tool=` is present. The wrapper therefore has no in-flow children on any desktop page and measures `1440x0` while the app paints full-screen behind it. Playwright's `:visible` treats a zero-area box as a missing node, which is why a healthy page reported "not found".
+
+**Not caused by this PR.** `CommandCentre.tsx` and `DashboardResponsiveShell.tsx` were unmodified on the branch; the only desktop-reachable changes were one prop in `app/dashboard/page.tsx` that the desktop path ignores and three added copy keys. Pre-existing, newly exercised.
+
+**Correction to an earlier reading in this session.** It was asserted that `tests/e2e/mobile-command-centre-v2.spec.ts:592` was failing for the same reason. It was not — that workflow is green on `main` and was green on this branch before the fix. It passes because it asserts `:visible` immediately after `domcontentloaded`, while `CommandBootShell` (an in-flow `<main class="min-h-screen">`) is still mounted, and so never observes the settled state. The defect was real and page-independent; that test could not see it. This PR anchors that assertion on `.cc-app` so it checks the settled state.
+
+**Verification.** `tsc --noEmit` clean. `dashboardResponsiveShell.behavior` + `mobileGeneticsCommand` suites pass (8 tests). `mobile-genetics-command-visual` run `31892032443` on `a8dbcfd7` — **first success in 6 runs**. Blast radius checked: `mobile-command-centre-v2-visual` run `31892032424` on the same commit also passed.
+
+**Also closed:** the desktop half asserted nothing about private-field redaction, while the mobile half asserts three private strings never reach the DOM. Desktop renders a different tree (`GeneticsPage`, not `DomainSections`) against the same public projection, so mobile passing was no evidence about desktop. The three checks now run on both surfaces, guarded by a positive assertion so they cannot pass vacuously.
+
+**Known gap, not closed.** Desktop Genetics still has no content contract — mobile asserts twelve properties of the rendered cultivar data, desktop asserts render + redaction + no overflow. Writing the desktop equivalent requires fixture detail not available from this environment (the Actions artifact host is blocked by the network policy).
+
+**Decision:** **GO for the repository change.** No production action; nothing to apply.
