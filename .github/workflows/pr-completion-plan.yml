@@ -23,6 +23,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin '+refs/heads/*:refs/remotes/origin/*'
           branches=(
             'agent/p0-org-onboarding-regression-20260815'
@@ -41,10 +43,14 @@ jobs:
             git checkout -B merge-plan "origin/${branch}" >/dev/null 2>&1
             if git merge --no-commit --no-ff origin/main >/tmp/merge.out 2>&1; then
               echo 'CLEAN'
-              git merge --abort >/dev/null 2>&1 || true
+              git merge --abort >/dev/null 2>&1 || git reset --hard "origin/${branch}" >/dev/null
             else
+              echo 'MERGE OUTPUT:'
+              cat /tmp/merge.out || true
               echo 'CONFLICTS:'
               git diff --name-only --diff-filter=U | sort
+              echo 'STATUS:'
+              git status --short
               git merge --abort >/dev/null 2>&1 || true
             fi
           done
