@@ -453,17 +453,21 @@ const BriefingRoom = React.memo(function BriefingRoom({
     return () => controller.abort()
   }, [country.label, country.iso2, role, countryIntel])
 
-  return (
-    <div className="cc-page cc-briefing">
-      {showMyBriefings ? (
+  if (showMyBriefings) {
+    return (
+      <div className="cc-page cc-briefing">
         <div className="cc-mybrief-wrap">
           <button type="button" className="cc-signals-search-toggle" style={{ marginBottom: 16 }} onClick={() => setShowMyBriefings(false)}>
             ← Back to jurisdiction briefing
           </button>
           <MyBriefingsPanel onOpenWatchlist={() => onPageChange?.('watchlist')} />
         </div>
-      ) : (
-      <>
+      </div>
+    )
+  }
+
+  return (
+    <div className="cc-page cc-briefing">
       <button type="button" className="cc-signals-search-toggle" style={{ position: 'absolute', top: 16, right: 20, zIndex: 5 }} onClick={() => setShowMyBriefings(true)}>
         ◈ My briefings
       </button>
@@ -721,8 +725,6 @@ const BriefingRoom = React.memo(function BriefingRoom({
           </div>
         )}
       </aside>
-      </>
-      )}
     </div>
   )
 })
@@ -5903,7 +5905,6 @@ const GeneticsPage = React.memo(function GeneticsPage({
           <p className="cc-right-prose">Create a Cultivar Passport under your ownership. Starts private; public display requires admin claim review.</p>
           <button className="cc-right-link" onClick={() => setPassportModal(true)}>Register cultivar →</button>
         </div>
-
         <div className="cc-right-section" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button className="cc-nba-btn" style={{ background: 'rgba(16,185,129,.08)', border: '1px solid rgba(16,185,129,.25)', color: '#10b981', textAlign: 'left', cursor: 'pointer' }}
             onClick={() => onPageChange?.('evidence')}>
@@ -5924,6 +5925,10 @@ const GeneticsPage = React.memo(function GeneticsPage({
       <GeneticsProgramModal
         open={programModal}
         onClose={() => setProgramModal(false)}
+      />
+      <CultivarPassportModal
+        open={passportModal}
+        onClose={() => setPassportModal(false)}
       />
     </div>
   )

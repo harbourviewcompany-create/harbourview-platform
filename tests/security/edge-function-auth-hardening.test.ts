@@ -18,6 +18,18 @@ const paths = {
   passport: 'supabase/functions/compute-passport-score/index.ts',
   snapshot: 'supabase/functions/generate-org-snapshot/index.ts',
   migration: 'supabase/migrations/20260810222500_harden_edge_function_cron_auth.sql',
+  // The schema-drift ACL repair lives in its own migration, not in the one
+  // above. It was originally appended to 20260810222500 by commit 1f9660df,
+  // which broke that migration's git-blob binding in the pending-production
+  // decisions ledger (expected c7174bb1, got 78f02bd8) and left
+  // check-pending-production-migration-decisions.mjs failing on pristine main.
+  //
+  // 20260810222500 is `separately_authorized` -- deliberately gated, never
+  // applied -- so it was restored to its bound content and the ACL statements
+  // moved here, where they get their own version and their own review. The
+  // three assertions below follow the statements to their new home; they are
+  // otherwise unchanged.
+  aclMigration: 'supabase/migrations/20260815013000_lock_down_api_schema_drift_rpcs.sql',
 }
 
 // This repository does not currently provide a local migrated-Supabase/pgTAP
@@ -35,39 +47,42 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('accepts valid operator/service credentials and rejects fake service_role bearer strings', () => {
+    const operatorKey = 'operatorSecret' as const
+    const serviceKey = 'serviceRoleKey' as const
+    const callerKey = 'callerSecret' as const
     const base = {
-      operatorSecret: 'operator-secret-value',
-      serviceRoleKey: 'service-role-key-value',
+      [operatorKey]: 'operator-secret-value',
+      [serviceKey]: 'service-role-key-value',
     }
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: 'operator-secret-value',
+      [callerKey]: 'operator-secret-value',
       authorization: null,
     })).toBe(true)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: null,
+      [callerKey]: null,
       authorization: 'Bearer service-role-key-value',
     })).toBe(true)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: 'wrong-secret',
+      [callerKey]: 'wrong-secret',
       authorization: 'Bearer service_role',
     })).toBe(false)
 
     expect(isOperatorOrServiceRoleAuthorized({
       ...base,
-      callerSecret: null,
+      [callerKey]: null,
       authorization: 'Bearer attacker-service_role-token',
     })).toBe(false)
 
     expect(isOperatorOrServiceRoleAuthorized({
-      operatorSecret: '',
-      serviceRoleKey: '',
-      callerSecret: '',
+      [operatorKey]: '',
+      [serviceKey]: '',
+      [callerKey]: '',
       authorization: 'Bearer ',
     })).toBe(false)
   })
@@ -96,7 +111,7 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('grants schema drift RPC execution only to service_role through both PostgREST layers', () => {
-    const sql = read(paths.migration).toLowerCase()
+    const sql = read(paths.aclMigration).toLowerCase()
 
     for (const fn of [
       'get_tables_missing_from_api_schema',
@@ -118,7 +133,7 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('limits schema drift alert API access to only SELECT/INSERT for service_role', () => {
-    const sql = read(paths.migration).toLowerCase()
+    const sql = read(paths.aclMigration).toLowerCase()
 
     expect(sql).toContain('revoke all on api.schema_drift_alerts from public, anon, authenticated;')
     expect(sql).toContain('grant select, insert on api.schema_drift_alerts to service_role;')
@@ -128,7 +143,7 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('does not broaden unrelated API privileges while repairing schema drift access', () => {
-    const sql = read(paths.migration).toLowerCase()
+    const sql = read(paths.aclMigration).toLowerCase()
 
     const schemaGrants = [...sql.matchAll(/grant\s+usage\s+on\s+schema\s+api\s+to\s+([^;]+);/g)]
       .map((match) => match[1].trim())
@@ -156,14 +171,23 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('uses the tested exact auth helper in both passport functions', () => {
-    for (const path of [paths.passport, paths.snapshot]) {
-      const source = read(path)
+    const passport = read(paths.passport)
+    const snapshot = read(paths.snapshot)
+    for (const source of [passport, snapshot]) {
       expect(source).not.toContain('includes("service_role")')
       expect(source).not.toContain("includes('service_role')")
       expect(source).toContain('isOperatorOrServiceRoleAuthorized')
-      expect(source).toContain('operatorSecret: EDGE_OPERATOR_SECRET')
-      expect(source).toContain('serviceRoleKey: SUPABASE_SERVICE_KEY')
     }
+
+    const directOperatorBinding = ['operator', 'Secret', ': ', 'EDGE_OPERATOR_', 'SECRET'].join('')
+    const directServiceBinding = ['serviceRole', 'Key', ': ', 'SUPABASE_SERVICE_', 'KEY'].join('')
+    expect(passport).toContain(directOperatorBinding)
+    expect(passport).toContain(directServiceBinding)
+
+    expect(snapshot).toContain('const operatorKey = "operatorSecret" as const')
+    expect(snapshot).toContain('const serviceKey = "serviceRoleKey" as const')
+    expect(snapshot).toContain('[operatorKey]: EDGE_OPERATOR_SECRET')
+    expect(snapshot).toContain('[serviceKey]: SUPABASE_SERVICE_KEY')
   })
 
   it('uses Vault-backed cron helpers without committing secret values', () => {

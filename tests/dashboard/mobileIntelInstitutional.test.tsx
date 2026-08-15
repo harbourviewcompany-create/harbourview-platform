@@ -158,6 +158,7 @@ describe('Mobile Intel institutional remediation', () => {
     expect(metrics[0]?.querySelector('span')).not.toBe(metrics[0]?.querySelector('strong'))
     expect(metrics[1]?.querySelector('span')?.textContent).toBe('Watch rules')
     expect(metrics[1]?.querySelector('strong')?.textContent).toBe('2')
+    // No signals/rules are passed here, so the watch-rule matcher yields no hits.
     expect(metrics[2]?.querySelector('span')?.textContent).toBe('Rule hits')
     expect(metrics[2]?.querySelector('strong')?.textContent).toBe('0')
     expect(metrics[3]?.querySelector('span')?.textContent).toBe('Source coverage')
