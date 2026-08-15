@@ -4901,6 +4901,32 @@ for other versions on `main`. Those predate this work and are untouched.
 - **Focused verification:** exact implementation head `504c8c3db00ae00b15e60a1fc1923ad370ae07b0` — `npx tsc --noEmit`: **PASS**; `npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts`: **PASS**. Evidence: GitHub Actions run `31523742623` (`Temporary PR 1328 Exact QA`). Exact resulting PR-head CI/build/security/authenticated Playwright remains the authoritative merge gate.
 - **Status:** Current corrective evidence; merge remains gated on exact-head repository checks and requested non-production preview/review evidence.
 
+## 2026-08-14 — PR #1428 classifier dispatch-budget and retry-loop repair
+
+**Evidence ID:** `HV-PR1428-CLASSIFY-BUDGET-20260814`
+
+**Scope:** repository-only migration `supabase/migrations/20260814180000_bound_classify_retries.sql`. Adds two columns and two partial indexes to `public.hv_classify_jobs`; replaces `public.hv_classify_corpus_harvest()` and `public.hv_classify_corpus_dispatch()`. **Not applied to production** — applying requires explicit sign-off per `CLAUDE.md` rule 3c, and merging does not apply it (`AGENT_OPERATING_FACTS.md` §1).
+
+**Diagnosis (read-only against project `zvxdgdkukjrrwamdpqrg`, 2026-08-14):** classification stalled from 2026-08-12. Signals ingested / left unclassified by day — 08-11: 133/0 (0.0%); 08-12: 27/21 (77.8%); 08-13: 44/44 (100.0%); 08-14: 62/57 (91.9%). Every cron job reported `succeeded` throughout.
+
+Two defects:
+
+1. **Unreleased budget reservation.** `hv_classify_corpus_dispatch()` charged `hv_consume_dispatch_budget('classify', p_limit)` before selecting rows and never returned the remainder. At `p_limit=120` from `hv_pipeline_tick()` every 30 minutes this consumes `120 × 48 = 5,760/day` against a `3,000/day` ceiling regardless of work performed. Corroborated by all three metered stages sitting exactly at ceiling: classify `3000/3000`, translate `800/800`, entities `600/600`.
+2. **Unrecorded failures.** `hv_classify_corpus_harvest()` wrote a signal only on HTTP 200 carrying a `classification` object, discarding every other outcome while still marking the job harvested. Backlogged signals therefore requeued without limit: 123 signals, 3,859 `hv_classify_jobs` rows, mean 31.4 dispatches each, maximum 392. Surviving `net._http_response` rows: 169 × HTTP 200 `{"ok":true,"routed":"manual_review","reason":"openai_429"}`, 71 × HTTP 503 `SUPABASE_EDGE_RUNTIME_SERVICE_DEGRADED`.
+
+**Related finding, not fixed here:** `hv-classify`'s ad-hoc `{text}` path returns `routed: "manual_review"` without calling `routeToManualReview`, and cannot, because the dispatcher posts no `signalId`. `public.intel_classify_review_queue` has taken no row since 2026-07-21. `INTELLIGENCE_ARCHITECTURE_SPEC.md` §6.1's "nothing is silently dropped" does not hold for the path Pipeline B uses.
+
+**Verification:** local PostgreSQL 16.13 harness (method per `AGENT_OPERATING_FACTS.md` §7) with shims for `net.http_post`, `net._http_response`, `vault.decrypted_secrets` and `hv_consume_dispatch_budget`. Migration applies clean to a fresh database (exit 0). Seven behavioural cases **PASS**: empty-pool budget consumption 0 across three ticks (was 120/tick); retry termination at 5 attempts with retirement to `intel_classify_review_queue` and budget frozen at 10; outcome recording (`no_classification` × 10); happy path writing all five classification fields; HTTP 503 recorded as `http_503`; resolve-to-retry override reclassifying only the resolved row; ceiling still capping 50 candidates to the 5 remaining budget.
+
+Production pre-flight (read-only): retirement predicate matches **0** rows on first run; dispatch pool 123 → 122; `intel_classify_review_queue` unresolved 58.
+
+`node scripts/check-no-secret-strings.mjs` → **GO**, no committed secret-looking values. `scripts/check-pending-production-migration-decisions.mjs` fails on the pre-existing `20260810222500` blob mismatch recorded in `AGENT_OPERATING_FACTS.md` §9 — unrelated to and unchanged by this diff.
+
+**Safety / scope:** no production DDL, no production write, no migration applied, no secret created or persisted, no deployment. Grants deliberately unchanged — live ACLs are `{postgres=X/postgres}` on both functions and `create or replace function` preserves them; adding `service_role` would have widened privileges against Guardrail 6.
+
+**Out of scope, recorded so it stays visible:** `translate` and `entities` share defect 1 in their own dispatch functions; `hv_classify_jobs` holds 97,443 rows with no retention policy (spec Stage H); nothing alerts on this stall class today.
+
+**Decision:** **GO for the repository migration.** Production application remains gated on explicit owner sign-off.
 ## 2026-08-14 — PR #1423 migration-replay duplicate removal and ledger reconciliation
 
 **Evidence ID:** `HV-PR1423-REPLAY-DUPES-20260814`
