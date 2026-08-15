@@ -9,7 +9,7 @@ import {
 } from '@/lib/clinical/evidence'
 
 const migration = fs.readFileSync(
-  path.join(process.cwd(), 'supabase/migrations/20260814143000_clinical_evidence_v1_production_foundation.sql'),
+  path.join(process.cwd(), 'supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql'),
   'utf8',
 )
 
