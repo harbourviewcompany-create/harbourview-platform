@@ -27,6 +27,8 @@ export type SectionId =
   | 'financing'
   | 'regulatory'
   | 'local-intel'
+  | 'settings'
+  | 'deal-rooms'
 
 export type MobileCommandTool =
   | 'wanted-intake'
@@ -120,6 +122,8 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   financing: { id: 'financing', label: 'Trade financing', icon: '¤' },
   regulatory: { id: 'regulatory', label: 'Regulatory watch', icon: '§' },
   'local-intel': { id: 'local-intel', label: 'Local intelligence', icon: '⌖' },
+  settings: { id: 'settings', label: 'Subscription', icon: '◈' },
+  'deal-rooms': { id: 'deal-rooms', label: 'Deal Rooms', icon: '⌘' },
 }
 
 export const SECTION_NAV: NavDestination[] = Object.values(SECTION_NAV_BY_ID)
@@ -147,6 +151,8 @@ export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   financing: 'trade-calc',
   regulatory: 'regulatory',
   'local-intel': 'local-intel',
+  settings: 'settings',
+  'deal-rooms': 'marketplace',
 }
 
 export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
@@ -179,7 +185,7 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   notifications: 'next-actions',
   kyb: 'review-gates',
   organization: 'overview',
-  settings: 'overview',
+  settings: 'settings',
 }
 
 export type PrimarySectionId =
@@ -200,12 +206,14 @@ export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
     'directories',
     'network',
     'jurisdiction',
+    'settings',
   ],
   marketplace: [
     'marketplace',
     'supply',
     'market-status',
     'market-intelligence',
+    'deal-rooms',
   ],
   'weekly-signals': ['weekly-signals', 'personal-briefing', 'regulatory', 'local-intel', 'search'],
   'next-actions': ['next-actions', 'review-gates', 'financing'],

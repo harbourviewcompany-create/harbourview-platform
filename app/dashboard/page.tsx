@@ -7,6 +7,7 @@ import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardComm
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
 import { checkFeatureAccess } from '@/lib/billing/entitlements'
+import { getUserTier } from '@/lib/stripe/tier'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
 import { createClient } from '@/lib/supabase/server'
 import type { RoleId } from '@/types/globe-router'
@@ -67,6 +68,7 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
   const urlPage = normalizeCommandPage(firstParam(params.page))
+  const openSignalsSearch = firstParam(params.search) === '1'
 
   let userId: string | null = null
   let userEmail: string | null = null
@@ -74,6 +76,7 @@ export default async function DashboardPage({
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
   let hasOrg = false
+  let userTier: Awaited<ReturnType<typeof getUserTier>> = 'free'
 
   try {
     const supabase = await createClient()
@@ -82,6 +85,7 @@ export default async function DashboardPage({
       userId = user.id
       userEmail = user.email ?? null
       userAppMetadata = user.app_metadata
+      userTier = await getUserTier()
       const { data: prefs } = await supabase
         .from('user_dashboard_preferences')
         .select('country_iso2, role_id')
@@ -177,6 +181,8 @@ export default async function DashboardPage({
         initialCountryIso2={countryIso2}
         initialRoleId={roleId}
         initialPage={urlPage}
+        userTier={userTier}
+        openSignalsSearch={openSignalsSearch}
         wantedCount={wantedCount}
         marketplaceRows={marketplaceProjection.rows}
         marketplaceMediaById={marketplaceProjection.mediaById}

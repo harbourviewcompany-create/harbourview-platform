@@ -12,6 +12,7 @@ import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import {
   ClinicalSection,
   ComplianceSection,
+  DealRoomsSection,
   DirectoriesSection,
   EducationSection,
   FinancingSection,
@@ -26,20 +27,29 @@ import {
   PersonalBriefingSection,
   ReviewGatesSection,
   SearchSection,
+  SettingsSection,
   SupplySection,
   TalentSection,
   WeeklySignalsSection,
   RegulatoryWatchSection,
   LocalIntelSection,
 } from './mobile-command/Sections'
+import { MyBriefingsPanel } from './MyBriefingsPanel'
+import SignalSemanticSearch from './SignalSemanticSearch'
+import { CultivarPassportModal } from './CultivarPassportModal'
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
 import './mobile-command/MobileCommandNavigation.css'
+// cc-* classes used by DealRoomsPanel, MyBriefingsPanel, SignalSemanticSearch,
+// and SettingsSection — reused as-is from the desktop shell rather than
+// duplicated; prefixes (cc-*) don't collide with this file's (hvm2-*).
+import './CommandCentre.css'
 
 export default function MobileCommandCentreRebuild(props: MobileCommandCentreProps) {
   const model = useMobileCommandModel(props)
   const [contextOpen, setContextOpen] = useState(false)
+  const [passportModalOpen, setPassportModalOpen] = useState(false)
   const contextCloseRef = useRef<HTMLButtonElement | null>(null)
   const contextTriggerRef = useRef<HTMLButtonElement | null>(null)
   const secondaryNavRef = useRef<HTMLElement | null>(null)
@@ -158,21 +168,52 @@ export default function MobileCommandCentreRebuild(props: MobileCommandCentrePro
     supply: <SupplySection sectionRef={model.sectionRef('supply')} supplyRows={model.supplyRows} onOpenTool={model.openTool} />,
     'next-actions': <NextActionsSection sectionRef={model.sectionRef('next-actions')} actions={model.nextActions} />,
     'weekly-signals': <WeeklySignalsSection sectionRef={model.sectionRef('weekly-signals')} signals={model.signals} countryLabel={model.countryLabel} />,
-    'personal-briefing': <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} signals={model.signals} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} nextAction={model.nextActions[0]} />,
-    search: <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} searchRecords={searchRecords} countryLabel={model.countryLabel} onQueryChange={model.setSearchQuery} onNavigate={model.navigateToSection} onListingSelect={model.selectListingResult} />,
+    'personal-briefing': (
+      <>
+        <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} signals={model.signals} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} nextAction={model.nextActions[0]} />
+        {/* Above is a deterministic quick-glance summary (computed local
+            counts, no LLM). Below is real personal-briefing synthesis. */}
+        <div className="hvm2-section">
+          <MyBriefingsPanel onOpenWatchlist={() => model.navigateToSection('weekly-signals')} />
+        </div>
+      </>
+    ),
+    search: (
+      <>
+        <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} searchRecords={searchRecords} countryLabel={model.countryLabel} onQueryChange={model.setSearchQuery} onNavigate={model.navigateToSection} onListingSelect={model.selectListingResult} />
+        {/* Above is explicitly session-scope only. Below is full-corpus
+            search, so the /dashboard/signals/search redirect target
+            actually delivers what its own link text promises. */}
+        <div className="hvm2-section">
+          <SignalSemanticSearch />
+        </div>
+      </>
+    ),
     education: <EducationSection sectionRef={model.sectionRef('education')} roleShort={model.roleShort} tiles={model.educationTiles} commandHref={model.commandHref} />,
     jurisdiction: <JurisdictionSection sectionRef={model.sectionRef('jurisdiction')} countryLabel={model.countryLabel} flag={flagEmoji(model.countryIso2)} region={props.countryIntel?.region} outlook={props.countryIntel?.briefing_regulatory_outlook} pathway={props.countryIntel?.commercial_pathway_summary} importStatus={props.countryIntel?.import_status} exportStatus={props.countryIntel?.export_status} medicalStatus={props.countryIntel?.medical_status} adultUseStatus={props.countryIntel?.adult_use_status} regulator={props.countryIntel?.regulator_label || props.countryIntel?.briefing_regulatory_body} reviewStatus={model.reviewStatus} pathwaySteps={model.pathwaySteps} pathwayIsGeneric={model.pathwayIsGeneric} commandHref={model.commandHref} />,
     'market-status': <MarketStatusSection sectionRef={model.sectionRef('market-status')} wanted={props.wantedCount ?? model.pipeline.wanted} inquiry={model.pipeline.inquiry} proofReview={model.pipeline.proof_review} matched={model.pipeline.matched} dealRoom={model.pipeline.deal_room} submissions={model.submissions} />,
     'review-gates': <ReviewGatesSection sectionRef={model.sectionRef('review-gates')} reviewStatus={model.reviewStatus} approved={props.countryIntel?.review_status === 'approved'} sourceCoverageCount={model.sourceCoverageCount} proofReview={model.pipeline.proof_review} submissionCount={model.submissions.length} evidenceDocuments={model.evidenceDocuments} />,
     directories: <DirectoriesSection sectionRef={model.sectionRef('directories')} records={model.directoryRecords} commandHref={model.commandHref} />,
     talent: <TalentSection sectionRef={model.sectionRef('talent')} records={model.talentRecords} commandHref={model.commandHref} />,
-    genetics: <GeneticsSection sectionRef={model.sectionRef('genetics')} records={model.geneticsRecords} commandHref={model.commandHref} />,
+    genetics: (
+      <>
+        <GeneticsSection sectionRef={model.sectionRef('genetics')} records={model.geneticsRecords} commandHref={model.commandHref} />
+        <div className="hvm2-section">
+          <button type="button" className="cc-sub-upgrade-btn" onClick={() => setPassportModalOpen(true)}>
+            Register cultivar →
+          </button>
+        </div>
+        <CultivarPassportModal open={passportModalOpen} onClose={() => setPassportModalOpen(false)} />
+      </>
+    ),
     clinical: <ClinicalSection sectionRef={model.sectionRef('clinical')} roleShort={model.roleShort} programStatus={props.countryIntel?.briefing_program_status} medicalStatus={props.countryIntel?.medical_status} patientAccess={props.countryIntel?.briefing_patient_access} physicianAccess={props.countryIntel?.briefing_physician_access} commandHref={model.commandHref} />,
     compliance: <ComplianceSection sectionRef={model.sectionRef('compliance')} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} playbookSourcing={readString(props.jurisdictionPlaybook, ['confidence_label', 'status'], '')} marketAccessStatus={props.countryIntel?.market_access_status} pathway={props.countryIntel?.commercial_pathway_summary} commandHref={model.commandHref} />,
     regulatory: <RegulatoryWatchSection sectionRef={model.sectionRef('regulatory')} items={props.watchlistData?.items ?? []} activeRules={(props.watchlistData?.rules ?? []).filter(rule => rule.is_active).length} rules={props.watchlistData?.rules ?? []} signals={model.signals} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} sourceCoverageCount={model.sourceCoverageCount} commandHref={model.commandHref} />,
     'local-intel': <LocalIntelSection sectionRef={model.sectionRef('local-intel')} localIntel={props.localIntel ?? null} countryLabel={model.countryLabel} />,
     network: <NetworkSection sectionRef={model.sectionRef('network')} professionalCount={props.professionals?.length ?? 0} providerCount={props.serviceProviders?.length ?? 0} operatorCount={props.cannabisOperators?.length ?? 0} collaborationCount={props.collaborationProjects?.length ?? 0} commandHref={model.commandHref} />,
     financing: <FinancingSection sectionRef={model.sectionRef('financing')} countryLabel={model.countryLabel} roleShort={model.roleShort} activeTool={model.activeTool} onOpenTool={model.openTool} onCloseTool={model.closeTool} />,
+    settings: <SettingsSection sectionRef={model.sectionRef('settings')} userTier={props.userTier} />,
+    'deal-rooms': <DealRoomsSection sectionRef={model.sectionRef('deal-rooms')} />,
   }
 
   return (
