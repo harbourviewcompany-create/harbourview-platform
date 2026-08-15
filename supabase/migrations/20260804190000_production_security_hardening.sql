@@ -293,6 +293,33 @@ end
 $$;
 
 -- Remove direct access to asynchronous network internals from browser roles.
+--
+-- CORRECTION (2026-08-13): this block is DEAD CODE and has been since it was
+-- first applied on 2026-08-07 (workflow run 31215018893, reported SUCCESS).
+-- The `net` schema, like the pg_net extension that owns it, belongs to
+-- supabase_admin -- a role the `postgres` role this migration runs as is NOT
+-- a member of (confirmed via pg_auth_members) and does not have grant option
+-- on. REVOKE by a role that isn't the grantor and holds no grant option is a
+-- silent no-op in Postgres, not an error, which is why this "succeeded" while
+-- doing nothing: production's `net` schema ACL still shows
+-- anon=U/supabase_admin and authenticated=U/supabase_admin right now.
+-- Confirmed this is a known, unresolved Supabase platform limitation, not
+-- specific to this project: supabase/cli#4246 and supabase discussion #39221
+-- report the identical "WARNING: no privileges could be revoked for net"
+-- outcome. There is no SQL role available to a project that can close this;
+-- it would need Supabase's own supabase_admin role or platform-level support.
+--
+-- The residual risk this leaves is real but narrow, not open: `net` is not
+-- in pgrst.db_schemas (currently `public, graphql_public, job_search, api` --
+-- see pg_db_role_setting for role authenticator), so PostgREST -- the only
+-- way the anon/authenticated roles are reachable from outside the database --
+-- never routes a request to net.http_get/http_post regardless of this grant.
+-- Exploiting it would require a direct Postgres connection authenticated as
+-- anon, which the standard anon-key/PostgREST flow does not provide. Left in
+-- place (harmless) as an accurate record rather than deleted, so a future
+-- pass doesn't spend time re-discovering this from scratch. If Supabase ever
+-- exposes a way to actually close it, this block is exactly where that fix
+-- belongs.
 do $$
 begin
   if exists (select 1 from pg_namespace where nspname = 'net') then
