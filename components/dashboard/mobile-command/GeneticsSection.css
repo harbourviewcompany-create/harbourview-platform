@@ -1,0 +1,275 @@
+.hvm2-genetics-source-state,
+.hvm2-genetics-boundary {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.hvm2-genetics-source-state strong,
+.hvm2-genetics-boundary strong {
+  color: var(--hvm2-text);
+  font-size: 11px;
+}
+
+.hvm2-genetics-source-state p,
+.hvm2-genetics-boundary p {
+  margin: 5px 0 0;
+  color: var(--hvm2-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.hvm2-genetics-source-state a {
+  display: inline-flex;
+  margin-top: 8px;
+  color: var(--hvm2-gold-light);
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.hvm2-genetics-block {
+  margin-top: 18px;
+}
+
+.hvm2-genetics-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.hvm2-genetics-heading > div > span,
+.hvm2-genetics-record summary small,
+.hvm2-genetics-evidence > span,
+.hvm2-genetics-opportunity > span,
+.hvm2-genetics-project > span,
+.hvm2-genetics-network-grid article > span,
+.hvm2-genetics-request-types > span {
+  color: var(--hvm2-gold);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hvm2-genetics-heading h3 {
+  margin: 3px 0 0;
+  color: var(--hvm2-text);
+  font-size: 15px;
+}
+
+.hvm2-genetics-heading > span {
+  color: var(--hvm2-faint);
+  font-size: 10px;
+}
+
+.hvm2-genetics-search {
+  margin-bottom: 10px;
+}
+
+.hvm2-genetics-list,
+.hvm2-genetics-network-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.hvm2-genetics-record,
+.hvm2-genetics-attention-row,
+.hvm2-genetics-network-grid article {
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.hvm2-genetics-attention-row {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  color: var(--hvm2-text);
+  text-decoration: none;
+}
+
+.hvm2-genetics-attention-row > span:first-child {
+  min-width: 0;
+}
+
+.hvm2-genetics-attention-row small,
+.hvm2-genetics-attention-row strong {
+  display: block;
+}
+
+.hvm2-genetics-attention-row small {
+  color: var(--hvm2-faint);
+  font-size: 9px;
+}
+
+.hvm2-genetics-attention-row strong {
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.hvm2-genetics-record {
+  overflow: clip;
+}
+
+.hvm2-genetics-record summary {
+  display: flex;
+  min-height: 64px;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.hvm2-genetics-record summary::-webkit-details-marker {
+  display: none;
+}
+
+.hvm2-genetics-record summary > span:first-child {
+  min-width: 0;
+}
+
+.hvm2-genetics-record summary strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--hvm2-text);
+  font-size: 14px;
+}
+
+.hvm2-genetics-record > p,
+.hvm2-genetics-project p,
+.hvm2-genetics-network-grid article p {
+  margin: 0;
+  color: var(--hvm2-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.hvm2-genetics-record > p {
+  padding: 0 14px 12px;
+}
+
+.hvm2-genetics-facts {
+  display: grid;
+  grid-template-columns: minmax(78px, auto) minmax(0, 1fr);
+  gap: 7px 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+.hvm2-genetics-facts dt {
+  color: var(--hvm2-faint);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hvm2-genetics-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--hvm2-text);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.hvm2-genetics-subsection,
+.hvm2-genetics-request-types {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+.hvm2-genetics-subsection > strong {
+  color: var(--hvm2-text);
+  font-size: 11px;
+}
+
+.hvm2-genetics-evidence,
+.hvm2-genetics-opportunity,
+.hvm2-genetics-project {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.hvm2-genetics-evidence b,
+.hvm2-genetics-opportunity b,
+.hvm2-genetics-project b {
+  overflow-wrap: anywhere;
+  color: var(--hvm2-text);
+  font-size: 11px;
+}
+
+.hvm2-genetics-evidence small,
+.hvm2-genetics-opportunity p {
+  margin: 0;
+  color: var(--hvm2-faint);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.hvm2-genetics-request-types p {
+  margin: 0;
+  color: var(--hvm2-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.hvm2-genetics-record-footer {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+.hvm2-genetics-record-footer > span {
+  color: var(--hvm2-faint);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.hvm2-genetics-record-footer a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(198, 165, 90, 0.28);
+  border-radius: 11px;
+  color: var(--hvm2-gold-light);
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.hvm2-genetics-network-grid article {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+}
+
+.hvm2-genetics-network-grid article strong {
+  overflow-wrap: anywhere;
+  color: var(--hvm2-text);
+  font-size: 12px;
+}
+
+@media (min-width: 768px) {
+  .hvm2-genetics-network-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

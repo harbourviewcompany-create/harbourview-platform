@@ -34,8 +34,24 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     { limit: 4, roleId: model.currentRole },
   ), [model.commandHref, model.countryLabel, model.currentRole, model.marketRows, model.signals])
 
+  const geneticsRecords = useMemo(() => Object.assign(
+    (props.cultivarPassports ?? []).map(passport => ({
+      ...passport,
+      kind: 'Cultivar passport',
+      title: passport.displayName,
+      subtitle: passport.publicSummary,
+      status: passport.claimStatus,
+    })),
+    {
+      serviceProviders: props.serviceProviders ?? [],
+      collaborationProjects: props.collaborationProjects ?? [],
+      sourceMeta: props.geneticsSourceMeta,
+    },
+  ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
+
   return {
     ...model,
+    geneticsRecords,
     nextActions: [...model.nextActions, ...commercialActions],
   }
 }

@@ -29,7 +29,7 @@
     "test:used-surplus-public-leakage": "vitest run tests/marketplace/publicProjection.test.ts",
     "test:admin-guard": "vitest run tests/harbourview/public-route-smoke.test.ts",
     "test:genetics-routing": "vitest run tests/genetics/geneticsRouting.test.ts tests/genetics/accessGrants.test.ts",
-    "test:genetics-profile-redaction": "vitest run tests/genetics/cultivarPassportNetwork.test.tsx",
+    "test:genetics-profile-redaction": "vitest run tests/genetics/cultivarPassportNetwork.test.tsx tests/dashboard/mobileGeneticsCommand.test.tsx",
     "smoke:marketplace": "vitest run tests/harbourview/marketplace-capture-route.test.ts",
     "smoke:marketplace:browser": "vitest run tests/harbourview/marketplace-capture-route.test.ts",
     "smoke:marketplace:rls": "vitest run tests/marketplace/seedImportSchema.test.ts tests/marketplace/publicProjection.test.ts",
