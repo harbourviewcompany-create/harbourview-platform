@@ -11,11 +11,12 @@
 -- is a replay-only compatibility field.
 --
 -- The applied statement also referenced source UUID
--- 431f3158-b037-471c-8ae7-af55efc8ea35. Fresh read-only production metadata
--- shows that source is no longer present, and the production migration ledger
--- contains no recorded creation for it; only transient July test snapshots
--- reference the UUID. Do not invent source metadata during replay. Preserve the
--- historical test insert only when its parent source exists.
+-- 431f3158-b037-471c-8ae7-af55efc8ea35. Fresh read-only production inspection
+-- confirms that UUID is the live `Mainstream Media – Thailand` source. Production
+-- migration 20260706220724 records the source seed, but its INSERT does not assign
+-- UUIDs; a clean replay therefore cannot deterministically recreate this historical
+-- parent ID. Do not invent or reassociate source identity during replay. Preserve
+-- the historical test insert only when that exact parent UUID exists.
 --
 -- Rewriting this file cannot affect production: 20260710081115 is already recorded
 -- in schema_migrations, so `supabase db push` skips it. This is a repository-only
