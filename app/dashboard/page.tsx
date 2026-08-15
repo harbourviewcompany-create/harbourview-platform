@@ -5,8 +5,14 @@ import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import {
+  getActiveEvidenceData,
+  getActiveOrgPathwayProgress,
+  getActiveWatchlistData,
+} from '@/lib/dashboard/activeWorkspaceDashboardData'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
 import { canAccess, checkFeatureAccess, normalizeSubscriptionTier } from '@/lib/billing/entitlements'
+import { getUserTier } from '@/lib/stripe/tier'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
 import { createClient } from '@/lib/supabase/server'
 import { attachDecisionIntelDashboardRoutes } from '@/lib/intelligence-os/dashboardRoutes'
@@ -68,14 +74,16 @@ export default async function DashboardPage({
   const urlCountry = normalizeCountryParam(firstParam(params.country) ?? firstParam(params.countries))
   const urlRole = normalizeRoleParam(firstParam(params.role))
   const urlPage = normalizeCommandPage(firstParam(params.page))
+  const openSignalsSearch = firstParam(params.search) === '1'
 
   let userId: string | null = null
   let userEmail: string | null = null
   let userAppMetadata: Record<string, unknown> | undefined
-  let userProfileTier: unknown = null
   let storedCountryIso2: string | null = null
   let storedRoleId: string | null = null
+  let activeWorkspaceId: string | null = null
   let hasOrg = false
+  let userTier: Awaited<ReturnType<typeof getUserTier>> = 'free'
 
   try {
     const supabase = await createClient()
@@ -84,30 +92,35 @@ export default async function DashboardPage({
       userId = user.id
       userEmail = user.email ?? null
       userAppMetadata = user.app_metadata
-
-      const [{ data: prefs }, { data: membership }, { data: profile }] = await Promise.all([
-        supabase
-          .from('user_dashboard_preferences')
-          .select('country_iso2, role_id')
-          .eq('user_id', user.id)
-          .single(),
-        supabase
-          .from('workspace_members')
-          .select('workspace_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .single(),
-        supabase
-          .from('user_profiles')
-          .select('tier')
-          .eq('id', user.id)
-          .single(),
-      ])
-
+      userTier = await getUserTier()
+      const { data: prefs } = await supabase
+        .from('user_dashboard_preferences')
+        .select('country_iso2, role_id, active_workspace_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
-      hasOrg = !!membership
-      userProfileTier = profile?.tier ?? null
+      activeWorkspaceId = prefs?.active_workspace_id ?? null
+
+      if (activeWorkspaceId) {
+        const [{ data: membership }, { data: workspace }] = await Promise.all([
+          supabase
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('workspace_id', activeWorkspaceId)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .maybeSingle(),
+          supabase
+            .from('workspaces')
+            .select('id,status')
+            .eq('id', activeWorkspaceId)
+            .eq('status', 'active')
+            .maybeSingle(),
+        ])
+        hasOrg = Boolean(membership && workspace)
+        if (!hasOrg) activeWorkspaceId = null
+      }
     }
   } catch (error) {
     console.error('[command-centre-auth-context]', {
@@ -124,10 +137,25 @@ export default async function DashboardPage({
     userId,
     hasOrganization: hasOrg,
   } as const
-  const commandData = await loadCommandCentreData(
-    loadContext,
-    buildDashboardCommandSources(loadContext),
-  )
+
+  const defaultSources = buildDashboardCommandSources(loadContext)
+  const commandSources = {
+    ...defaultSources,
+    orgPathway: {
+      ...defaultSources.orgPathway,
+      load: () => getActiveOrgPathwayProgress(activeWorkspaceId, countryIso2, roleId),
+    },
+    watchlistData: {
+      ...defaultSources.watchlistData,
+      load: () => getActiveWatchlistData(activeWorkspaceId, userId),
+    },
+    evidenceData: {
+      ...defaultSources.evidenceData,
+      load: () => getActiveEvidenceData(activeWorkspaceId, countryIso2),
+    },
+  }
+
+  const commandData = await loadCommandCentreData(loadContext, commandSources)
 
   const {
     signals,
@@ -164,7 +192,7 @@ export default async function DashboardPage({
   const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
   // Decision Intel uses public.user_profiles.tier, matching the dossier RPC and admin
   // membership tooling. app_metadata is not treated as a second entitlement authority.
-  const decisionIntelAccess = canAccess('signals', normalizeSubscriptionTier(userProfileTier))
+  const decisionIntelAccess = canAccess('signals', normalizeSubscriptionTier(userTier))
   const [routedSignals, routedDigestSignals] = await Promise.all([
     attachDecisionIntelDashboardRoutes(signals),
     attachDecisionIntelDashboardRoutes(dailyDigest.signals),
@@ -185,7 +213,7 @@ export default async function DashboardPage({
       loadedAt={commandData.loadedAt}
     >
       <DashboardResponsiveShell
-        key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${urlPage ?? 'none'}`}
+        key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${activeWorkspaceId ?? 'personal'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
         signals={routedSignals}
         digestSignals={routedDigestSignals}
@@ -195,6 +223,8 @@ export default async function DashboardPage({
         initialCountryIso2={countryIso2}
         initialRoleId={roleId}
         initialPage={urlPage}
+        userTier={userTier}
+        openSignalsSearch={openSignalsSearch}
         wantedCount={wantedCount}
         marketplaceRows={marketplaceProjection.rows}
         marketplaceMediaById={marketplaceProjection.mediaById}

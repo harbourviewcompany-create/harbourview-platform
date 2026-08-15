@@ -72,6 +72,38 @@ migration alone, then the evidence row alone. Confirmed empirically:
 `contracts-and-control` never appeared on the migration-only PRs and both
 triggered and passed on the docs-only PR.
 
+### 3a. The evidence log is not the only door into this deadlock
+
+**Verified 2026-08-15 on #1368.** The paragraph above names
+`docs/control/EVIDENCE_LOG.md` as the trigger, which is how the deadlock was
+first met. It is not the only path. `global-reg-os-phase0-replacement.yml`
+triggers on five paths:
+
+```
+docs/control/global-regulatory-os/**
+scripts/global-reg-os/**
+.github/workflows/global-reg-os-phase0-replacement.yml
+docs/control/DATABASE_CONTROL.md
+docs/control/EVIDENCE_LOG.md
+```
+
+#1368 does **not** touch `EVIDENCE_LOG.md`. It touches
+`docs/control/DATABASE_CONTROL.md` and three migrations
+(`20260808190000`, `20260808203000`, `20260810202000`), and
+`contracts-and-control` fails on the same
+`git diff --exit-code … -- supabase/migrations` assertion.
+
+This matters more than the evidence-log case, not less. Recording a schema
+change in `DATABASE_CONTROL.md` is arguably the *most* obligatory documentation
+a migration PR can carry — so the gate is at its tightest exactly where a
+migration is most correctly documented. Diagnosing this from the job log alone
+is slow: the failing step prints the entire migration diff and then exits 1,
+with no message naming the isolation rule, so it reads like a SQL error rather
+than a policy assertion.
+
+The same split resolution applies. Check the trigger list above, not just the
+evidence log, before concluding a PR is safe from this.
+
 ## 4. `main` branch protection is documentation, not configuration
 
 **Verified 2026-08-13.** `docs/control/MAIN_BRANCH_PROTECTION_SPEC.md` (merged

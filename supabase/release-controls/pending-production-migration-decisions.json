@@ -10,8 +10,8 @@
     "repository_migration_files": 841,
     "repository_unique_versions": 841,
     "live_versions": 809,
-    "repository_only_versions": 86,
-    "repository_only_files": 86,
+    "repository_only_versions": 83,
+    "repository_only_files": 83,
     "live_only_versions": 54,
     "duplicate_repository_versions": [],
     "pending_duplicate_versions": [],
@@ -464,36 +464,6 @@
       "classification": "separately_authorized",
       "reason_code": "independent_release_not_authorized",
       "live_equivalent_versions": []
-    },
-    {
-      "version": "20260728000000",
-      "file": "20260728000000_professional_service_providers.sql",
-      "git_blob_sha": "cc6b804efc11a48774bd5999226ffb05b0afa15e",
-      "classification": "requiring_forward_reconciliation",
-      "reason_code": "exact_live_name_different_version",
-      "live_equivalent_versions": [
-        "20260728191340"
-      ]
-    },
-    {
-      "version": "20260728010000",
-      "file": "20260728010000_rename_professional_service_providers_table.sql",
-      "git_blob_sha": "e9c1f4428b5eb5dc9182d5ae660259953948f427",
-      "classification": "requiring_forward_reconciliation",
-      "reason_code": "exact_live_name_different_version",
-      "live_equivalent_versions": [
-        "20260728192052"
-      ]
-    },
-    {
-      "version": "20260728020000",
-      "file": "20260728020000_grant_public_view_access_to_approved_listings.sql",
-      "git_blob_sha": "90c7f2c08e5ccb86e3a33c13c85a482af2cb99ee",
-      "classification": "requiring_forward_reconciliation",
-      "reason_code": "exact_live_name_different_version",
-      "live_equivalent_versions": [
-        "20260729021820"
-      ]
     },
     {
       "version": "20260728201439",
