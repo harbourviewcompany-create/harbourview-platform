@@ -1,0 +1,340 @@
+name: Education Command Visual
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - app/api/dashboard/education-command/**
+      - components/dashboard/mobile-command/Sections.tsx
+      - components/dashboard/mobile-command/sections/EducationCommandSection.tsx
+      - components/dashboard/mobile-command/sections/EducationCommandSection.module.css
+      - lib/education/command.ts
+      - lib/server/educationCommandQuery.ts
+      - tests/education/educationCommand.test.ts
+      - tests/e2e/education-command-visual.spec.ts
+      - .github/workflows/education-command-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: education-command-visual-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  education-command-evidence:
+    name: Education Command exact-head verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      EDUCATION_COMMAND_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SUPABASE_DB_SCHEMA: api
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Checkout exact verified branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          ref: ${{ env.EDUCATION_COMMAND_SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Education Command contracts
+        run: npx vitest run tests/education/educationCommand.test.ts
+
+      - name: Type check exact head
+        run: npm run typecheck
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated local Supabase schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_education_command_visual.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+
+          create table if not exists api.user_dashboard_preferences (
+            user_id uuid primary key,
+            country_iso2 text,
+            role_id text,
+            active_workspace_id uuid
+          );
+
+          create table if not exists api.workspace_members (
+            user_id uuid not null,
+            workspace_id uuid not null default gen_random_uuid(),
+            status text not null default 'active'
+          );
+
+          create table if not exists api.education_tracks (
+            id text primary key,
+            title text not null,
+            description text,
+            publication_state text not null default 'published'
+          );
+
+          create table if not exists api.education_modules (
+            id uuid primary key default gen_random_uuid(),
+            slug text unique not null,
+            title text not null,
+            description text,
+            audience text[] not null default '{}',
+            sensitivity text not null default 'standard',
+            track_id text,
+            publication_state text not null default 'published',
+            sort_order integer not null default 0,
+            updated_at timestamptz not null default now()
+          );
+
+          create table if not exists api.education_module_sections (
+            id uuid primary key default gen_random_uuid(),
+            module_id uuid not null references api.education_modules(id) on delete cascade,
+            heading text not null,
+            body text not null,
+            block_type text,
+            section_order integer not null default 0
+          );
+
+          create table if not exists api.education_articles (
+            id uuid primary key default gen_random_uuid(),
+            module_id uuid references api.education_modules(id) on delete cascade,
+            publication_state text not null default 'published',
+            review_status text,
+            last_reviewed timestamptz,
+            next_review_due timestamptz,
+            publication_confidence text,
+            controlled_topic boolean not null default false
+          );
+
+          create table if not exists api.country_education_overlay (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text not null,
+            role_id text,
+            module_key text not null,
+            topics text[] not null default '{}',
+            action_label text,
+            review_status text
+          );
+
+          create table if not exists api.cc_pathway_templates (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text not null,
+            role_id text not null,
+            name text not null,
+            status text not null default 'published',
+            version integer not null default 1
+          );
+
+          create table if not exists api.cc_pathway_steps (
+            id uuid primary key default gen_random_uuid(),
+            template_id uuid not null references api.cc_pathway_templates(id) on delete cascade,
+            step_number integer not null,
+            title text not null,
+            description text
+          );
+
+          create table if not exists api.cc_pathway_requirements (
+            id uuid primary key default gen_random_uuid(),
+            step_id uuid not null references api.cc_pathway_steps(id) on delete cascade,
+            title text not null,
+            description text,
+            evidence_type text,
+            is_required boolean not null default true,
+            sort_order integer not null default 0
+          );
+
+          create table if not exists api.signals (
+            id uuid primary key default gen_random_uuid(),
+            headline text not null default '',
+            cat text,
+            country text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed boolean not null default false,
+            action text,
+            analysis jsonb,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            impact text,
+            title_en text,
+            summary_en text,
+            lang_detected text,
+            is_representative boolean,
+            cluster_rep_id uuid
+          );
+
+          create or replace view api.signals_with_quality as select * from api.signals;
+
+          insert into api.education_tracks (id, title) values
+            ('export', 'Export Readiness'),
+            ('quality', 'Compliance & Quality')
+          on conflict (id) do nothing;
+
+          insert into api.education_modules (id, slug, title, description, audience, sensitivity, track_id, sort_order) values
+            ('00000000-0000-4000-8000-000000000201', 'export-readiness-101', 'Export Readiness 101', 'Published export-readiness orientation.', array['exporter','general'], 'standard', 'export', 10),
+            ('00000000-0000-4000-8000-000000000202', 'gmp-compliance-essentials', 'GMP Compliance Essentials', 'Published GMP and quality-system orientation.', array['exporter','gmp_quality'], 'controlled', 'quality', 20)
+          on conflict (id) do nothing;
+
+          insert into api.education_module_sections (module_id, heading, body, block_type, section_order) values
+            ('00000000-0000-4000-8000-000000000201', 'Export route overview', 'Review the source-backed requirements before progressing a shipment or commercial route.', 'body', 1),
+            ('00000000-0000-4000-8000-000000000201', 'Border rejection scenario', 'A shipment cannot advance because destination authorization evidence is incomplete.', 'scenario', 2),
+            ('00000000-0000-4000-8000-000000000202', 'Quality-system overview', 'Use the applicable quality-system source set for the actual market and activity.', 'body', 1);
+
+          insert into api.country_education_overlay (country_iso2, role_id, module_key, topics, action_label, review_status) values
+            ('CA', 'exporter', 'export-readiness-101', array['export permits','market access'], 'Validate route', 'verified_primary_source');
+
+          insert into api.education_articles (module_id, review_status, last_reviewed, next_review_due, publication_confidence, controlled_topic) values
+            ('00000000-0000-4000-8000-000000000201', 'verified_primary_source', now() - interval '1 day', now() + interval '29 days', 'high', false),
+            ('00000000-0000-4000-8000-000000000202', 'review_pending', now() - interval '45 days', now() - interval '14 days', null, true);
+
+          grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
+          grant select on all tables in schema api to anon;
+          grant select on api.signals_with_quality to anon, authenticated, service_role;
+          SQL
+          : > supabase/seed.sql
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create isolated authenticated test account
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="education-command-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvEducation-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+          const client = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            { auth: { autoRefreshToken: false, persistSession: false } },
+          )
+          const { data, error } = await client.auth.admin.createUser({
+            email: process.env.E2E_TEST_USER_EMAIL,
+            password: process.env.E2E_TEST_USER_PASSWORD,
+            email_confirm: true,
+            app_metadata: { education_command_visual_test: true },
+          })
+          if (error) throw error
+          if (!data.user) throw new Error('Education Command visual user was not created')
+          console.log(`Created isolated Education Command user ${data.user.id}`)
+          NODE
+
+      - name: Build exact source against isolated Supabase
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 > /tmp/education-command-next.log 2>&1 &
+          echo $! > /tmp/education-command-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
+              echo 'GO: exact Education Command build is ready.'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/education-command-next.log
+          exit 1
+
+      - name: Capture Education Command mobile evidence
+        run: >-
+          npx playwright test
+          tests/e2e/education-command-visual.spec.ts
+          --project=chromium-desktop
+          --workers=1
+          --retries=0
+
+      - name: Collect server evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/education-command
+          if [ -f /tmp/education-command-next.log ]; then
+            cp /tmp/education-command-next.log artifacts/education-command/server.log
+          fi
+
+      - name: Upload Education Command evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: education-command-${{ github.run_id }}
+          path: |
+            artifacts/education-command/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore production migration source tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
+      - name: Stop isolated services
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/education-command-next.pid ]; then
+            kill "$(cat /tmp/education-command-next.pid)" 2>/dev/null || true
+          fi
+          supabase stop --no-backup || true
