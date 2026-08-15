@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { MobileCommandCentreProps } from './props'
 import { useMobileCommandModel as useBaseMobileCommandModel } from './useMobileCommandModel.base'
@@ -18,12 +18,44 @@ const COMMAND_RETURN_PARAM_KEYS = [
 
 /**
  * Canonical activation wrapper over the current-main Command Centre model.
- * Keeps the already-merged session intelligence/action and Genetics behavior intact,
- * then adds deterministic organization onboarding and jurisdiction-matched commercial follow-ups.
+ * Preserves organization onboarding and Genetics behavior, adds the authenticated
+ * safe signal-presentation refresh, then derives jurisdiction-matched commercial follow-ups.
+ * Raw signal analysis/provenance JSON never crosses this client boundary.
  */
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
   const searchParams = useSearchParams()
+  const [enrichedSignals, setEnrichedSignals] = useState<MobileCommandCentreProps['signals'] | null>(null)
+
+  useEffect(() => {
+    setEnrichedSignals(null)
+    if (model.commandDataState === 'empty') return
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({ country: model.countryLabel, limit: '25' })
+
+    void fetch(`/api/dashboard/signals?${params.toString()}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+      .then(async response => {
+        if (!response.ok) return null
+        const payload = await response.json() as { signals?: unknown }
+        return Array.isArray(payload.signals) ? payload.signals as MobileCommandCentreProps['signals'] : null
+      })
+      .then(signals => {
+        if (!controller.signal.aborted && signals && signals.length > 0) setEnrichedSignals(signals)
+      })
+      .catch(() => {
+        // Preserve the SSR/session payload on network or auth refresh failure.
+      })
+
+    return () => controller.abort()
+  }, [model.commandDataState, model.countryLabel])
+
+  const effectiveSignals = enrichedSignals ?? model.signals
 
   const commandReturnTo = useMemo(() => {
     const params = new URLSearchParams()
@@ -62,9 +94,6 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       },
     ]
 
-    // The Command overview renders only the first two attention rows. When no
-    // organization is active, both canonical onboarding choices must therefore
-    // be the visible priority rather than hiding Join behind the full queue.
     return [
       ...onboarding,
       ...model.nextActions.filter(action => action.id !== 'organization'),
@@ -72,7 +101,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [commandReturnTo, model.currentCountry, model.nextActions])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
-    model.signals.map(signal => ({
+    effectiveSignals.map(signal => ({
       id: signal.id,
       title: signal.title,
       market: signal.market,
@@ -90,7 +119,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     model.countryLabel,
     model.commandHref,
     { limit: 4, roleId: model.currentRole },
-  ), [model.commandHref, model.countryLabel, model.currentRole, model.marketRows, model.signals])
+  ), [effectiveSignals, model.commandHref, model.countryLabel, model.currentRole, model.marketRows])
 
   const geneticsRecords = useMemo(() => Object.assign(
     (props.cultivarPassports ?? []).map(passport => ({
@@ -109,6 +138,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   return {
     ...model,
+    signals: effectiveSignals,
     geneticsRecords,
     nextActions: [...organizationActions, ...commercialActions],
   }
