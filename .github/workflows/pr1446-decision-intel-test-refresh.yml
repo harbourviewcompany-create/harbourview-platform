@@ -1,0 +1,58 @@
+name: PR1446 Decision Intel Test Refresh
+
+on:
+  push:
+    branches:
+      - fix/pr1444-corridor-replay-20260815
+    paths:
+      - .github/workflows/pr1446-decision-intel-test-refresh.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: fix/pr1444-corridor-replay-20260815
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Refresh stale entitlement assertions only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/intel/decisionIntelFirstSlice.test.ts')
+          before = path.read_text()
+          after = before.replace(
+              "const dashboardPage = readFileSync('app/dashboard/page.tsx', 'utf8')\n",
+              "const dashboardPage = readFileSync('app/dashboard/page.tsx', 'utf8')\nconst tierHelper = readFileSync('lib/stripe/tier.ts', 'utf8')\n",
+              1,
+          )
+          after = after.replace(
+              "    expect(dashboardPage).toContain(\".from('user_profiles')\")\n    expect(dashboardPage).toContain(\"canAccess('signals', normalizeSubscriptionTier(userProfileTier))\")\n",
+              "    expect(tierHelper).toContain(\".from('user_profiles')\")\n    expect(tierHelper).toContain(\".select('tier')\")\n    expect(dashboardPage).toContain('userTier = await getUserTier()')\n    expect(dashboardPage).toContain(\"canAccess('signals', normalizeSubscriptionTier(userTier))\")\n",
+              1,
+          )
+          if after == before:
+              raise SystemExit('expected Decision Intel entitlement assertions were not found')
+          path.write_text(after)
+          PY
+          npx vitest run tests/intel/decisionIntelFirstSlice.test.ts
+
+      - name: Commit only the test correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/intel/decisionIntelFirstSlice.test.ts
+          git diff --cached --check
+          git commit -m "test(intel): follow canonical tier helper contract"
+          git push origin HEAD:fix/pr1444-corridor-replay-20260815
