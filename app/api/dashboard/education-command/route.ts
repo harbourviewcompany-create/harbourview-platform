@@ -3,8 +3,8 @@ import { getEducationCommand } from '@/lib/server/educationCommandQuery'
 import { createClient } from '@/lib/supabase/server'
 
 function cleanCountry(value: string | null): string {
-  const normalized = (value ?? 'CA').trim().toUpperCase().replace(/[^A-Z]/g, '')
-  return normalized.length === 2 ? normalized : 'CA'
+  const head = (value ?? 'CA').trim().toUpperCase().split('-')[0].replace(/[^A-Z]/g, '')
+  return head.length === 2 ? head : 'CA'
 }
 
 function cleanRole(value: string | null): string | null {
