@@ -2,19 +2,35 @@
 
 ## Purpose
 
-This file records Harbourview's deployment-provider authority so build agents, reviewers, and branch-gate decisions do not treat Vercel, Netlify, or Cloudflare/OpenNext checks as ambiguous noise.
+This file records Harbourview's deployment-provider authority so build agents, reviewers, and branch-gate decisions do not treat Vercel, Netlify, or Cloudflare checks as interchangeable.
 
-> Source of truth note: When deployment/provider metadata conflicts across docs, CI status text, or PR comments, treat this file and `docs/control/PROJECT_REGISTRY.md` as canonical and update them first to prevent configuration drift.
-
-Harbourview uses both Vercel and Netlify. This document does not change runtime code, deployment settings, provider configuration, branch protection, secrets, domains, or CI workflows. It is a control document for interpreting provider status checks and release evidence.
+> Source of truth note: When deployment/provider metadata conflicts across docs, CI status text, or PR comments, treat this file and `docs/control/PROJECT_REGISTRY.md` as canonical and update them before changing provider behavior.
 
 ## Current authority
 
-| Provider / target | Role | Status-check treatment | Production-launch treatment | Evidence basis | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Vercel | Primary production target | Required when Vercel preview/production checks are present or configured in branch protection | Required for production GO | Repository has a `vercel-ignore-build` script and Harbourview has been operated as a Vercel-hosted platform | Vercel owns canonical production-readiness evidence unless superseded by a future control update. |
-| Netlify | Secondary preview / alternate deployment target | Required only for the named Netlify project classified as required below; other Netlify checks are advisory until owner confirmation | Required only for the promoted Netlify target(s) | GitHub status checks are currently posted by Netlify for multiple projects | Netlify is intentional, not accidental. The project mapping below controls merge interpretation. |
-| Cloudflare / OpenNext | Deferred / experimental deployment target | Advisory only; must not block merge unless promoted in this file | HOLD for production unless separately promoted and verified | `package.json` includes `preview`, `deploy`, `upload`, and `cf-typegen` scripts using OpenNext/Cloudflare, but no active provider-authority evidence or required check has been confirmed | Keep scripts available, but do not treat Cloudflare as an active release gate without a later owner decision. |
+| Provider / target | Role | Status-check treatment | Production-launch treatment | Repository contract |
+| --- | --- | --- | --- | --- |
+| Vercel | Primary production web target | Required when Vercel preview/production checks are present or configured in branch protection | Required for production GO | Existing exact-SHA production promotion workflow, canonical production alias, runtime/leakage verification and Vercel-specific release evidence remain authoritative. |
+| Netlify | Secondary preview / alternate deployment target | Required only for the named Netlify project classified below; other Netlify checks remain advisory until mapped | Required only for promoted Netlify target(s) | Netlify remains intentional and independent of the Cloudflare work described here. |
+| Cloudflare Worker `harbourview` | Standalone intelligence/health utility | Its architecture contract is required when Cloudflare files change; it is not a substitute for the Vercel web release gate | Not a web-production target | Root `wrangler.toml` points to `scripts/engine/cloudflare-worker.ts`; `/healthz` is the active HTTP surface; there are no Cron Triggers. |
+| Cloudflare/OpenNext web target | Reserved future preview target | Design-only until explicitly activated | **HOLD for production** | Current `package.json` does not install `@opennextjs/cloudflare` or expose OpenNext deploy scripts. Exact proposed configuration is documented in `docs/deployment/CLOUDFLARE.md` and `config/cloudflare/wrangler.web-preview.example.toml`. |
+
+## Cloudflare target separation
+
+Cloudflare has two distinct architectural concepts and they must never share one Worker identity:
+
+1. `harbourview` — the existing standalone intelligence/health Worker. Its root configuration is `wrangler.toml`. It must stay free of Cron Triggers while Supabase Edge Functions + `pg_cron` remain the ingestion authority.
+2. `harbourview-platform-web-preview` — the reserved name for a future full Next.js/OpenNext preview Worker. It is not active, has no production route/custom domain, and must use a separate Wrangler configuration if activated.
+
+`harbourview-platform` is not an authorized Worker name in repository configuration. If an object with that name still exists in the Cloudflare dashboard, treat it as legacy/ambiguous until its deployment history, repository connection and routes are inspected. Do not repoint root `wrangler.toml` to that object and do not rename the active `harbourview` Worker merely to match a stale dashboard object.
+
+The previous version of this document incorrectly said current `package.json` contained OpenNext `preview`, `deploy`, `upload` and `cf-typegen` scripts. It does not. That stale claim is removed here rather than manufacturing a deployment configuration that the repository does not yet support.
+
+## Ingestion authority
+
+Supabase Edge Functions + `pg_cron` remain the production intelligence-ingestion authority. The Cloudflare health Worker contains a dormant `scheduled()` implementation for recoverability, but root `wrangler.toml` deliberately declares no Cron Triggers. Adding a Cloudflare ingestion trigger while the Supabase pipeline is active would create a duplicate writer against shared intelligence tables and is a production HOLD condition.
+
+Any future decision to move ingestion to Cloudflare requires a separate cutover plan that first disables/replaces the corresponding Supabase writer and verifies idempotency, source registry ownership, snapshot writes, circuit-state ownership and rollback. It is not part of a web-hosting migration.
 
 ## Netlify project/status-check classification
 
@@ -32,9 +48,10 @@ A PR may be Merge GO only when all of the following are true:
 2. Project Registry Discipline passes when sensitive/control/runtime files change.
 3. Required deployment-provider checks pass according to this file and branch protection.
 4. Route smoke and leakage checks pass when the PR changes public routes, build behavior, package scripts, smoke scripts, marketplace surfaces, signals/intelligence surfaces, or deployment behavior.
-5. Any failing deployment check classified as advisory has a written reason in the PR body or review note explaining why it is non-blocking for that PR.
+5. `npm run check:env-manifest` and `npm run check:cloudflare-architecture` pass whenever the Cloudflare/environment contract is changed.
+6. Any failing deployment check classified as advisory has a written reason explaining why it is non-blocking for that PR.
 
-A Netlify or Vercel check must not be ignored merely because another provider passed. If both are active for the touched surface, both must be interpreted.
+A Netlify or Vercel check must not be ignored merely because another provider passed. Cloudflare health-worker evidence cannot substitute for Vercel production-web evidence.
 
 ## Production-launch policy
 
@@ -47,33 +64,30 @@ Production GO requires evidence from the provider(s) promoted for the release:
 5. Public route smoke evidence for the release cutline.
 6. Confirmation that no required provider preview/deploy check is failing.
 
-If any provider target is still pending owner confirmation, production launch remains HOLD for that provider until its purpose, URL, environment, and branch-protection role are documented.
+Cloudflare/OpenNext web production is not included in this policy until an explicit control change promotes it. Creating an OpenNext preview Worker does not promote Cloudflare to production authority.
 
 ## Branch-protection interpretation
 
-Branch protection is the source of enforcement, but this file is the source of intent. If GitHub requires a check that this file marks advisory or pending-owner-confirmation, reviewers must either:
-
-- let the required check pass before merge;
-- update branch protection to match this file; or
-- update this file if the required check is actually intended to be blocking.
-
-Do not bypass a required failing check by calling it noise without evidence.
+Branch protection is the source of enforcement, but this file is the source of intent. If GitHub requires a check that this file marks advisory or pending-owner-confirmation, reviewers must either let the required check pass, update branch protection to match this file, or update this file if the check is actually intended to be blocking.
 
 ## Agent instructions
 
 When a build agent sees deployment-provider checks:
 
-1. Inspect this file before classifying Vercel, Netlify, or Cloudflare status.
-2. Do not remove Netlify; Harbourview uses Netlify intentionally.
-3. Do not remove Vercel; Vercel is the primary production target unless this file is superseded.
-4. Do not promote Cloudflare/OpenNext to an active merge or production gate unless this file is updated with owner confirmation.
-5. For docs-only PRs touching this file, deployment checks may be advisory unless branch protection requires them.
+1. Inspect this file before classifying Vercel, Netlify or Cloudflare status.
+2. Preserve Vercel as the production web target unless an explicit owner-approved control change supersedes it.
+3. Preserve Netlify's documented role independently.
+4. Treat root `wrangler.toml` as the `harbourview` intelligence/health Worker only.
+5. Never add a Cloudflare Cron Trigger for ingestion while the Supabase ingestion writer remains active.
+6. Do not activate `harbourview-platform-web-preview`, install OpenNext, attach a custom domain or change production secrets without explicit authorization.
 
 ## Current GO/HOLD defaults
 
 | Decision | Default |
 | --- | --- |
-| Branch GO | Allowed with local/build/test evidence relevant to the changed files. |
-| Merge GO | Requires required GitHub Actions, Project Registry Discipline when applicable, and required provider checks. |
-| Production GO | HOLD unless Vercel production evidence and any promoted Netlify evidence are captured. |
-| Cloudflare production GO | HOLD; deferred until promoted by owner decision. |
+| Branch GO | Allowed with relevant build/test evidence. |
+| Merge GO | Requires protected GitHub Actions, Project Registry Discipline when applicable, provider checks, environment-manifest validation and Cloudflare architecture validation for affected changes. |
+| Vercel production GO | Governed by the existing exact-SHA production promotion workflow and production verification. |
+| Cloudflare intelligence/health Worker GO | GO only when Worker identity is `harbourview`, runtime Supabase URL + service-role secret are configured, `/healthz` passes and no Cron Trigger exists. |
+| Cloudflare/OpenNext web preview GO | HOLD until adapter installation/configuration is explicitly authorized and workerd parity tests pass. |
+| Cloudflare web production GO | **HOLD** until separately promoted by owner decision and full compatibility/release evidence exists. |
