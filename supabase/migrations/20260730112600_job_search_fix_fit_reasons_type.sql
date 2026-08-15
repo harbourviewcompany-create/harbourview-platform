@@ -1,0 +1,1 @@
+ALTER TABLE job_search.jobs ALTER COLUMN fit_reasons TYPE TEXT[] USING NULL;

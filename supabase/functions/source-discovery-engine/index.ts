@@ -1,5 +1,7 @@
 /**
- * source-discovery-engine v7 (2026-08-13) -- rate-limit pacing fix
+ * source-discovery-engine v10 (2026-08-13) -- back off Wikidata entirely
+ * for the rest of a run after a confirmed sustained rate-limit, instead of
+ * continuing to hit the same wall on every remaining pair
  *
  * Fills the remaining depth gaps in source_registry: for every viable country
  * in source_expansion_coverage_queue, it needs up to 7 regulator_class
@@ -230,33 +232,53 @@ or
 // entirely). This means the pipeline produces real, live-verified results
 // even when every paid key is at $0 balance, which is the actual state of
 // this project's vault as of 2026-08-12.
+//
+// `deadProviders` is scoped to a single invocation (created fresh inside
+// Deno.serve below, never module-level/persisted) -- once a provider fails
+// with a confirmed billing/credit error, the rest of THIS batch skips it
+// immediately instead of wasting a full round-trip per remaining pair. The
+// very next invocation starts with a clean slate and re-checks from
+// scratch, so this never masks a provider recovering (e.g. billing
+// restored between runs).
+function isBillingError(err: string | undefined): boolean {
+  if (!err) return false;
+  return /credit/i.test(err) || /insufficient_quota/i.test(err) || /billing/i.test(err);
+}
+
 async function findCandidate(
   country: string,
   cls: string,
+  deadProviders: { anthropic: boolean; openai: boolean; wikidataRateLimited: boolean },
 ): Promise<{ candidate?: Candidate; error?: string; provider?: string }> {
   const attempts: string[] = [];
 
-  if (ANTHROPIC_API_KEY) {
+  if (ANTHROPIC_API_KEY && !deadProviders.anthropic) {
     const a = await findCandidateAnthropic(country, cls);
     if (a.candidate) return { ...a, provider: "anthropic" };
     if (a.error && a.error.startsWith("model_reported_not_found")) {
       return { ...a, provider: "anthropic" };
     }
+    if (isBillingError(a.error)) deadProviders.anthropic = true;
     attempts.push(`anthropic: ${a.error}`);
+  } else if (deadProviders.anthropic) {
+    attempts.push("anthropic: skipped (confirmed billing-dead earlier this run)");
   }
 
-  if (OPENAI_API_KEY) {
+  if (OPENAI_API_KEY && !deadProviders.openai) {
     const o = await findCandidateOpenAI(country, cls);
     if (o.candidate) return { ...o, provider: "openai_fallback" };
     if (o.error && o.error.startsWith("model_reported_not_found")) {
       return { ...o, provider: "openai_fallback" };
     }
+    if (isBillingError(o.error)) deadProviders.openai = true;
     attempts.push(`openai: ${o.error}`);
+  } else if (deadProviders.openai) {
+    attempts.push("openai: skipped (confirmed billing-dead earlier this run)");
   }
 
   // Always try the free path last, regardless of whether paid keys exist --
   // this is the "works even at $0 spend" guarantee.
-  const w = await findCandidateWikidata(country, cls);
+  const w = await findCandidateWikidata(country, cls, deadProviders);
   if (w.candidate) return { ...w, provider: "wikidata_free" };
   attempts.push(`wikidata: ${w.error}`);
 
@@ -284,11 +306,22 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function findCandidateWikidata(country: string, cls: string): Promise<{ candidate?: Candidate; error?: string }> {
-  // Pace requests -- confirmed live that unpaced calls trip Wikidata's rate
-  // limit (429) partway through a batch of 10 (each pair can make up to 4
-  // Wikidata calls: 1 search + up to 3 entity lookups).
-  await sleep(300);
+async function findCandidateWikidata(
+  country: string,
+  cls: string,
+  deadProviders: { wikidataRateLimited: boolean },
+): Promise<{ candidate?: Candidate; error?: string }> {
+  // Confirmed live (three times now, at increasing batch sizes) that
+  // Wikidata rate-limits fast, repeated traffic. Static delays alone don't
+  // scale with batch size -- the right fix is the same pattern already used
+  // for the paid providers: once a 429 survives a retry, stop hitting
+  // Wikidata for the REST of this invocation instead of continuing to burn
+  // through the batch hitting the same wall on every remaining pair. The
+  // next invocation starts fresh.
+  if (deadProviders.wikidataRateLimited) {
+    return { error: "wikidata_skipped (rate-limited earlier this run)" };
+  }
+  await sleep(600);
   const phrase = WIKIDATA_SEARCH_PHRASE[cls] ?? cls;
   const query = `${phrase} ${country}`;
 
@@ -296,12 +329,19 @@ async function findCandidateWikidata(country: string, cls: string): Promise<{ ca
   // endpoint) -- tolerant of label mismatches like our generic "Ministry of
   // Health of X" query against a real label like "Ministry of Public Health
   // (X)". Returns Wikidata page titles, which for item pages are QIDs.
+  const searchUrl = `https://www.wikidata.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=0&srlimit=3&format=json`;
   let searchRes: Response;
   try {
-    searchRes = await fetch(
-      `https://www.wikidata.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srnamespace=0&srlimit=3&format=json`,
-      { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } },
-    );
+    searchRes = await fetch(searchUrl, { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } });
+    if (searchRes.status === 429) {
+      await sleep(2000);
+      searchRes = await fetch(searchUrl, { headers: { "User-Agent": "HarbourviewSourceDiscovery/1.0 (contact: ops@harbourview)" } });
+      if (searchRes.status === 429) {
+        // Retry also failed -- this is a real, sustained rate limit, not a
+        // one-off blip. Back off entirely for the rest of this run.
+        deadProviders.wikidataRateLimited = true;
+      }
+    }
   } catch (e) {
     return { error: `wikidata_search_threw: ${e instanceof Error ? e.message : String(e)}` };
   }
@@ -316,7 +356,7 @@ async function findCandidateWikidata(country: string, cls: string): Promise<{ ca
   for (const hit of hits) {
     const qid = hit.title;
     if (!qid || !/^Q\d+$/.test(qid)) continue;
-    await sleep(200);
+    await sleep(400);
     let claimsRes: Response;
     try {
       claimsRes = await fetch(
@@ -452,8 +492,9 @@ Deno.serve(async (req: Request) => {
 
   // 3. Work the batch.
   const providersUsed = new Set<string>();
+  const deadProviders = { anthropic: false, openai: false, wikidataRateLimited: false }; // fresh every invocation, never persisted
   for (const p of pairs) {
-    const { candidate, error, provider } = await findCandidate(p.country, p.cls);
+    const { candidate, error, provider } = await findCandidate(p.country, p.cls, deadProviders);
     if (provider) providersUsed.add(provider);
 
     const recordAttempt = async (succeeded: boolean, errText?: string) => {

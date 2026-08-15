@@ -155,3 +155,31 @@ Before concluding anything about migration state, read `AGENTS.md`'s release-con
 Drift is also already measured. `.github/workflows/migration-drift-check.yml` runs on push and hourly, and `scripts/migration-ledger-manifest.mjs` computes both `applied_not_committed` and `committed_not_applied`. The gate fails only on the former. The real gap is that an `approved` migration can sit unapplied indefinitely without escalation.
 
 The first version of this note asserted "68 unapplied migrations" and "there is no automated check for this drift". Both were wrong, and were written before reading the two sources above. The retraction is in the drift document.
+
+---
+
+## Read `docs/control/AGENT_OPERATING_FACTS.md` before working in this repo (added 2026-08-13)
+
+That file records verified, dated facts about how this repository and its
+production project actually behave — each one discovered the expensive way.
+It is the operational companion to the governance rules above.
+
+The single most important one, because it silently invalidates "done":
+
+> **Merging a migration does not apply it to production.** There is no CD for
+> migrations. `supabase-migrate.yml` is `workflow_dispatch`-only and scoped to
+> one 2026-08-02 release. On 2026-08-13 production was **25 migrations behind**
+> the repository, including security hardening that had been merged and never
+> applied. The drift gate does not catch this — it fails only on
+> `applied_not_committed`, and this is the reverse direction.
+
+Before reporting any schema change as complete, confirm it is applied:
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where version = '<the version you merged>';
+```
+
+The note directly above this section — "the real gap is that an `approved`
+migration can sit unapplied indefinitely without escalation" — was correct, and
+2026-08-13 is the day that gap was measured: 25 migrations, oldest 2026-08-01.

@@ -7,9 +7,39 @@ set -euo pipefail
 #
 # Harbourview deployment policy:
 #   - Production deployments must always build.
-#   - The canonical Vercel project must build previews for normal PR branches.
+#   - Previews are OFF by default and opt-in per commit via [preview].
 #   - Known duplicate/legacy Harbourview projects must skip non-production builds.
-#   - This script must not block ordinary feature/fix/ops/codex preview branches.
+#
+# The preview default was inverted on 2026-08-14. It previously read "the
+# canonical Vercel project must build previews for normal PR branches", and that
+# is what exhausted the quota: every push to every open PR built a preview, and
+# the free plan allows 100 deployments/day. On 2026-08-13 the cap was hit twice
+# in one day ("api-deployments-free-per-day", >100), and the second time it also
+# blocked #1398, #1367 and #1410 with `Deployment rate limited - retry in 24
+# hours` on pull requests whose own diffs were fine.
+#
+# The failure mode that matters is not a missing preview URL. It is that a
+# spent preview budget blocks PRODUCTION deploys from the same daily pool --
+# exactly the risk the earlier revision of this file set out to avoid, arrived
+# at anyway because the per-commit opt-outs it relied on never fired often
+# enough against sustained agent churn across 350+ branches.
+#
+# THIS FILE IS NOT WHAT PROTECTS THE QUOTA. That was claimed when the default
+# was inverted, and it is wrong. An ignore command runs INSIDE a deployment that
+# Vercel has already created: exiting 0 skips the build and marks the deployment
+# CANCELED, but the deployment record exists either way. Verified on the very
+# commit this gate suppressed -- 9f0bc053 produced
+# dpl_29B1mowXqMAVTrwRYVubBbL2pmeE, state CANCELED, target null. The daily cap
+# counts deployments created, so an ignored build still spends one. Consistent
+# with that, #1412 was rate-limited minutes AFTER the inversion merged.
+#
+# What actually stops the spend is `git.deploymentEnabled` in vercel.json, which
+# decides whether a push creates a deployment at all. It is now an allowlist:
+# `main` and `preview/*` only. Everything else never reaches this script.
+#
+# So this file is the second layer, not the first. It still earns its place:
+# it protects production from the duplicate/legacy projects, and it governs the
+# branches the allowlist does let through.
 
 branch="${VERCEL_GIT_COMMIT_REF:-${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-}}}"
 commit_message="${VERCEL_GIT_COMMIT_MESSAGE:-${GITHUB_COMMIT_MESSAGE:-${COMMIT_MESSAGE:-}}}"
@@ -71,13 +101,17 @@ if is_known_duplicate_url "$project_production_url" || is_known_duplicate_url "$
 fi
 
 if [[ -z "$branch" ]]; then
-  if [[ "$project_id" == "$canonical_project_id" ]]; then
-    echo "Vercel ignore: canonical project with unknown branch; continue build."
-    exit 1
+  if [[ "$project_id" != "$canonical_project_id" ]]; then
+    echo "Vercel ignore: branch unknown in non-production context; skip build to avoid uncontrolled duplicate preview deployment."
+    exit 0
   fi
 
-  echo "Vercel ignore: branch unknown in non-production context; skip build to avoid uncontrolled duplicate preview deployment."
-  exit 0
+  # Canonical project with an unknown branch. This used to build
+  # unconditionally, which under the opt-in policy below would have been a hole
+  # straight through it: a preview with no branch name would deploy while every
+  # named branch was being skipped. It now falls through to the same [preview]
+  # gate as everything else.
+  echo "Vercel ignore: canonical project with unknown branch; deferring to the preview opt-in gate."
 fi
 
 # Previously only checked on `main`. Broadened to any branch: this is an
@@ -89,6 +123,41 @@ fi
 # regardless of commit message.
 if [[ "$commit_message" == *"[skip ci]"* || "$commit_message" == *"[docs only]"* ]]; then
   echo "Vercel ignore: commit message requests skip ('$commit_message') on branch '$branch'; skip build."
+  exit 0
+fi
+
+# Previews are opt-in. Everything below this point is a preview build, because
+# production returned at the top of the script.
+#
+# Deliberately placed before the build-inert path check: that check exists to
+# spare the budget on docs-only commits, and with previews off by default there
+# is no budget left to spare. It stays in the file because it still applies to
+# any commit that opts back in.
+#
+# The marker is read from the SUBJECT LINE ONLY, not the whole message. The
+# first version of this gate substring-matched the entire commit message, and
+# the very commit that introduced it deployed a preview it was supposed to
+# suppress -- because the body explained the feature and therefore contained the
+# marker as prose. Anything that documents, reverts or discusses this mechanism
+# would have opted itself in.
+#
+# Note the asymmetry with [skip ci]/[docs only] above, which still match the
+# whole message. Those fail SAFE: a stray mention skips a build that was going
+# to be free anyway. This one fails OPEN, and an accidental match spends the
+# budget this file exists to protect, so it gets the stricter rule.
+commit_subject="${commit_message%%$'\n'*}"
+
+# A `preview/*` branch is opt-in by its name. vercel.json's deploymentEnabled
+# allowlist only creates deployments for `main` and `preview/*`, so a build that
+# gets here on such a branch was asked for deliberately -- requiring a commit
+# marker as well would be a second lock on the same door.
+if [[ "$branch" == preview/* ]]; then
+  echo "Vercel ignore: branch '$branch' is on the preview allowlist; continue preview build."
+elif [[ "$commit_subject" == *"[preview]"* ]]; then
+  echo "Vercel ignore: subject line opts in ('[preview]') on branch '$branch'; continue preview build."
+else
+  echo "Vercel ignore: previews are opt-in; skipping preview build for branch '$branch'."
+  echo "Add [preview] to the commit SUBJECT line to build one. Production deploys are unaffected."
   exit 0
 fi
 

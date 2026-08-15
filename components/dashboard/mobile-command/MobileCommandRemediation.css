@@ -1,0 +1,317 @@
+.hvm2-root {
+  --hvm2-muted: rgba(245, 241, 232, 0.72);
+  --hvm2-faint: rgba(245, 241, 232, 0.52);
+  timeline-scope: --hvm-mobile-scroll;
+}
+
+.hvm-op-current-chip {
+  display: none;
+}
+
+.hvm-op-header {
+  padding: max(10px, env(safe-area-inset-top)) var(--hvm-op-inline) 6px;
+}
+
+.hvm-op-header-top {
+  min-height: 50px;
+}
+
+.hvm-op-wordmark {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+}
+
+.hvm-op-page-title {
+  margin-top: 2px;
+  font-size: 24px;
+}
+
+.hvm-op-context-trigger {
+  min-height: 42px;
+  margin-top: 5px;
+}
+
+.hvm-op-secondary-nav {
+  flex: 0 0 auto;
+  min-height: 58px;
+  max-height: 58px;
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 7px var(--hvm-op-inline);
+  scroll-padding-inline: calc(var(--hvm-op-inline) + 8px);
+  /*
+   * Deliberately NOT scroll-snapped. Proximity snapping re-snaps the rail
+   * after a programmatic scrollIntoView, which lands a destination partially
+   * off-screen and defeats the "every destination is reachable" contract in
+   * tests/e2e/mobile-command-centre-v2.spec.ts. Reproduced in Chromium at
+   * 320px: with `scroll-snap-type: x proximity` + `scroll-snap-align: center`
+   * one rail item stayed clipped after scrollIntoViewIfNeeded; with snapping
+   * removed every item resolved fully inside the viewport.
+   *
+   * scroll-padding-inline is kept — it only insets the scroll destination and
+   * does not fight the scroll.
+   */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(226, 198, 121, 0.42) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hvm-op-secondary-nav::-webkit-scrollbar {
+  height: 3px;
+}
+
+.hvm-op-secondary-nav::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: rgba(226, 198, 121, 0.42);
+}
+
+.hvm-op-secondary-nav button {
+  min-height: 44px;
+  padding: 0 10px;
+  scroll-margin-inline: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+.hvm-op-secondary-nav button.active {
+  border-color: rgba(198, 165, 90, 0.28);
+}
+
+.hvm2-main.hvm-op-main {
+  padding-top: 10px;
+  scroll-timeline: --hvm-mobile-scroll block;
+}
+
+.hvm-op-command {
+  gap: 17px;
+}
+
+.hvm-op-pulse button {
+  min-height: 62px;
+  padding: 9px 8px;
+}
+
+.hvm-op-pulse span {
+  min-height: 24px;
+  color: var(--hvm2-muted);
+}
+
+.hvm-op-pulse strong {
+  font-size: 20px;
+}
+
+.hvm-op-row small,
+.hvm-op-operating-picture p,
+.hvm-op-empty span,
+.hvm-op-context-meta {
+  color: var(--hvm2-muted);
+}
+
+.hvm-op-meta {
+  color: var(--hvm2-faint);
+}
+
+.hvm-op-compact-zero {
+  min-height: 54px;
+}
+
+.hvm-op-operating-picture {
+  order: 4;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--hvm2-border-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.hvm-op-command > .hvm-op-commercial-group {
+  order: 5;
+}
+
+#jurisdiction.hvm2-section {
+  padding: 4px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#jurisdiction .hvm2-section-heading {
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+#jurisdiction .hvm2-section-heading h2 {
+  font-size: 27px;
+}
+
+#jurisdiction .hvm2-section-heading p {
+  max-width: 30rem;
+  color: var(--hvm2-muted);
+}
+
+#jurisdiction .hvm2-jurisdiction-card {
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--hvm2-border-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+.hvm2-jurisdiction-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hvm2-jurisdiction-title > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 23px;
+}
+
+.hvm2-jurisdiction-title h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 400;
+}
+
+.hvm2-jurisdiction-title p {
+  margin: 2px 0 0;
+  color: var(--hvm2-faint);
+  font-size: 10px;
+}
+
+#jurisdiction .hvm2-jurisdiction-card > p {
+  margin: 14px 0 0;
+  color: var(--hvm2-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+#jurisdiction .hvm2-status-matrix {
+  margin-top: 14px;
+  gap: 0;
+  border-top: 1px solid var(--hvm2-border-soft);
+  border-left: 1px solid var(--hvm2-border-soft);
+}
+
+#jurisdiction .hvm2-status-matrix > div {
+  min-height: 72px;
+  padding: 12px;
+  border: 0;
+  border-right: 1px solid var(--hvm2-border-soft);
+  border-bottom: 1px solid var(--hvm2-border-soft);
+  border-radius: 0;
+  background: transparent;
+}
+
+#jurisdiction .hvm2-status-matrix strong {
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+#jurisdiction > .hvm2-subhead,
+#jurisdiction .hvm2-subhead {
+  margin: 18px 0 0;
+  font-size: 20px;
+}
+
+#jurisdiction .hvm2-pathway-steps > p {
+  margin: 8px 0 0;
+  padding: 9px 10px;
+  border-left: 2px solid rgba(198, 165, 90, 0.46);
+  background: rgba(198, 165, 90, 0.05);
+  color: var(--hvm2-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+#jurisdiction .hvm2-pathway-steps ol {
+  display: grid;
+  gap: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+#jurisdiction .hvm2-pathway-steps li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hvm2-border-soft);
+}
+
+#jurisdiction .hvm2-pathway-steps li > span {
+  color: var(--hvm2-gold-light);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+#jurisdiction .hvm2-pathway-steps li strong {
+  display: block;
+  color: var(--hvm2-text);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.hvm2-bottom-nav.hvm-op-bottom-nav {
+  margin-top: 6px;
+}
+
+@supports (animation-timeline: scroll()) {
+  .hvm-op-header {
+    animation: hvm-header-compact linear both;
+    animation-timeline: --hvm-mobile-scroll;
+    animation-range: 0 84px;
+  }
+
+  .hvm-op-wordmark {
+    animation: hvm-wordmark-compact linear both;
+    animation-timeline: --hvm-mobile-scroll;
+    animation-range: 0 64px;
+  }
+
+  @keyframes hvm-header-compact {
+    to {
+      padding-bottom: 2px;
+    }
+  }
+
+  @keyframes hvm-wordmark-compact {
+    to {
+      opacity: 0;
+      line-height: 0;
+      font-size: 0;
+      letter-spacing: 0;
+    }
+  }
+}
+
+@media (max-height: 700px) {
+  .hvm-op-wordmark {
+    display: none;
+  }
+
+  .hvm-op-header-top {
+    min-height: 38px;
+  }
+
+  .hvm-op-page-title {
+    margin-top: 0;
+    font-size: 22px;
+  }
+}
