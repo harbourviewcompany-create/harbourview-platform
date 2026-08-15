@@ -5,7 +5,19 @@ on:
     branches:
       - main
     paths:
-      - supabase/migrations/20260804190000_production_security_hardening.sql
+      # This job is the ONLY real replay gate in the repository: it runs
+      # `supabase db reset --local`, rebuilding the database from the full
+      # migration tree. It was filtered to five files, so it almost never fired
+      # -- and on 2026-08-14 that let a replay break sit undetected on main.
+      # The #1403 backfill committed 20260728191340/192052 from production,
+      # duplicating the never-applied 20260728000000/010000 already in the repo,
+      # and a fresh replay ran both pairs until the second ALTER TABLE ... RENAME
+      # TO failed with 42P07. It surfaced only because #1417 happened to touch
+      # one of the five paths below.
+      #
+      # A gate that cannot fire on the thing it checks is not a gate. Any change
+      # under supabase/migrations/** now runs it.
+      - supabase/migrations/**
       - supabase/tests/production_security_hardening.sql
       - scripts/configure-supabase-auth-production.mjs
       - tests/supabase/productionSecurityHardening.test.ts
