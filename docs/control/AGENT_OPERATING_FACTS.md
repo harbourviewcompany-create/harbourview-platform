@@ -72,6 +72,38 @@ migration alone, then the evidence row alone. Confirmed empirically:
 `contracts-and-control` never appeared on the migration-only PRs and both
 triggered and passed on the docs-only PR.
 
+### 3a. The evidence log is not the only door into this deadlock
+
+**Verified 2026-08-15 on #1368.** The paragraph above names
+`docs/control/EVIDENCE_LOG.md` as the trigger, which is how the deadlock was
+first met. It is not the only path. `global-reg-os-phase0-replacement.yml`
+triggers on five paths:
+
+```
+docs/control/global-regulatory-os/**
+scripts/global-reg-os/**
+.github/workflows/global-reg-os-phase0-replacement.yml
+docs/control/DATABASE_CONTROL.md
+docs/control/EVIDENCE_LOG.md
+```
+
+#1368 does **not** touch `EVIDENCE_LOG.md`. It touches
+`docs/control/DATABASE_CONTROL.md` and three migrations
+(`20260808190000`, `20260808203000`, `20260810202000`), and
+`contracts-and-control` fails on the same
+`git diff --exit-code … -- supabase/migrations` assertion.
+
+This matters more than the evidence-log case, not less. Recording a schema
+change in `DATABASE_CONTROL.md` is arguably the *most* obligatory documentation
+a migration PR can carry — so the gate is at its tightest exactly where a
+migration is most correctly documented. Diagnosing this from the job log alone
+is slow: the failing step prints the entire migration diff and then exits 1,
+with no message naming the isolation rule, so it reads like a SQL error rather
+than a policy assertion.
+
+The same split resolution applies. Check the trigger list above, not just the
+evidence log, before concluding a PR is safe from this.
+
 ## 4. `main` branch protection is documentation, not configuration
 
 **Verified 2026-08-13.** `docs/control/MAIN_BRANCH_PROTECTION_SPEC.md` (merged
@@ -190,3 +222,72 @@ These are dashboard or account actions. Do not attempt code workarounds.
   `scripts/check-pending-production-migration-decisions.mjs` with a git blob
   mismatch — a pending migration edited after its content hash was bound. Needs
   a re-hash or a revert.
+
+## 10. The pg_cron estate is production state with no version history
+
+**Verified 2026-08-14.** The scheduled jobs in `cron.job` are live production
+configuration that exists **nowhere in git**. The repository says so itself, in
+`20260720200000_intel_editorial_pipeline_reconcile.sql`:
+
+> the pg_cron jobs are environment state, not created here
+
+So enabling, disabling or rescheduling a job leaves no commit, no diff, no
+author and no reason. There is no way to tell a deliberate change from an
+accident after the fact.
+
+**The run history is not a substitute.** `cron.job_run_details` is pruned daily
+by job `prune-cron-job-run-details` (03:23). A job that has not run recently has
+no rows at all, so you cannot date a change from it either.
+
+**What this cost.** On 2026-08-14, `hv-embed-every-30min` (jobid 13,
+`SELECT public.hv_trigger_embed()`) was found at `active = false`, with no record
+of when or why. `hv-extract` and `hv-score` stayed active, so signals kept
+arriving and the feed looked alive. Nothing was red.
+
+The disable could not be dated or attributed, which mattered:
+`INTELLIGENCE_ARCHITECTURE_SPEC.md` §10 lists cron cadence versus the Nano
+disk-I/O budget as an open owner decision, and §9 Guardrail 8 exists because
+cron load degraded this database for two hours. Re-enabling therefore required
+the owner, not an agent's judgement — purely because the record was missing.
+
+**And a second lesson, which is why this paragraph is longer than it looks.**
+The disabled job was initially assumed to be the writer of the stalled
+`public.signals.embedding_1024` column, because 133 signals had accumulated
+unembedded since 2026-08-11 and a disabled embed cron is the obvious culprit.
+**That was wrong.** Re-enabling it returned HTTP 200 with
+`processed: 10, errored: 0` — against `artifact_id` rows at **384 dimensions**,
+via `provider: supabase_onnx`. `signals.embedding_1024` is **1024** dimensions
+and is written by `lib/hf/pipeline/signalEmbedder.ts`, driven by
+`/api/cron/embed-signals` and `/api/cron/embed-artifacts` — **neither of which
+appears in any `vercel.json` cron or workflow.** The one scheduled route,
+`/api/cron/intelligence-embed`, contains zero references to `embedding_1024`.
+
+So there were two unrelated stalls, and the plausible-looking one was not the
+reported one. This is Guardrail 1 in the spec — *verify the consumer/writer
+before changing anything; check which column is actually populated, not which
+function looks responsible.* A job name matching the symptom is not evidence.
+The 1024-dim routing gap remains open and is not fixed by that cron.
+
+**Baseline at 2026-08-14, so a future drift is detectable.** Inactive jobs:
+
+| jobid | jobname | note |
+|---|---|---|
+| 13 | `hv-embed-every-30min` | re-enabled 2026-08-14 on owner instruction |
+| 14 | `claude-signal-extraction` | still inactive; provenance unknown |
+| 26 | `airtable-tier-pull` | still inactive; provenance unknown |
+
+**Do this:**
+
+- Before concluding the intelligence pipeline is healthy, check `cron.job.active`
+  — not just whether rows are arriving. A downstream stage can be dead while
+  upstream stages keep the feed looking live.
+- Treat enabling or disabling a job as an owner decision, not a fix, unless it is
+  actively harming the database. There is no record to tell you why it is in the
+  state it is in.
+- Record any change to cron state here, with the date and the reason. This
+  section is the only audit trail that exists.
+
+```sql
+-- the check that would have caught it
+select jobid, jobname, schedule, active from cron.job order by active, jobname;
+```

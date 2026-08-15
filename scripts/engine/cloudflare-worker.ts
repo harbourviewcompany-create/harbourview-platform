@@ -14,13 +14,31 @@
  * here -- Workers don't bind to a port; HTTP is handled via the exported
  * fetch handler instead.
  *
- * wrangler.toml currently defines 4 cron schedules, but only one
- * ("Ingestion run") has a real implementation behind it. The other three
- * are intentionally left as a clearly-logged no-op rather than silently
- * doing nothing or guessing at unbuilt behavior -- see the cron table
- * below (kept as line comments, not a block comment, since the cron
- * expressions themselves contain "*" + "/" sequences that would close a
- * /* block early).
+ * wrangler.toml previously defined 4 cron schedules. They have been REMOVED
+ * (2026-08-15) and scheduled() is therefore currently unreachable in
+ * production -- only the /healthz fetch route below is live.
+ *
+ * Three of those crons were never implemented. The fourth, "Ingestion run",
+ * was -- and that is precisely why they had to go: it calls
+ * WorkerNode.runOnce(), which writes source_registry, source_snapshots,
+ * source_documents and crawl_domain_circuit_state -- the same tables the live
+ * Supabase edge-function pipeline writes, on the same 30-minute cadence (live
+ * pg_cron job hv-source-pull-runner-safe-rss). Running both would
+ * double-ingest. See wrangler.toml for the measured evidence and
+ * INTELLIGENCE_ARCHITECTURE_SPEC.md Guardrail 10.
+ *
+ * Note the cron expression for that job is deliberately NOT written out here:
+ * a literal star-slash sequence terminates this block comment. That is the
+ * same hazard the paragraph at the end of this comment describes, and writing
+ * it out is exactly how this file got broken while being edited.
+ *
+ * scheduled() is kept rather than deleted so the Cloudflare path stays
+ * recoverable if it ever legitimately replaces the pg_cron path in the spec.
+ * It cannot fire without a trigger, so leaving it is inert, not latent.
+ *
+ * The cron table below is kept as line comments, not a block comment, since
+ * the cron expressions themselves contain "*" + "/" sequences that would
+ * close a /* block early.
  */
 //
 // schedule        label                 status

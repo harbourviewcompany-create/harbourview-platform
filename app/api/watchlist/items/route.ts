@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { getAuthenticatedUser } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+import { resolveActiveWorkspace } from '@/lib/hv/active-workspace'
 
 const ROUTE_ID = '/api/watchlist/items'
 
 async function resolveOrg(userId: string) {
-  const svc = await createSupabaseServiceClient()
-  const { data } = await svc
-    .from('workspace_members')
-    .select('workspace_id')
-    .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle()
-  return { svc, orgId: data?.workspace_id ?? null }
+  const { supabase, workspaceId, stale, error } = await resolveActiveWorkspace(userId)
+  return { svc: supabase, orgId: workspaceId, stale, error }
 }
 
 export async function POST(req: NextRequest) {
@@ -40,8 +35,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'item_type and title are required' }, { status: 400 })
   }
 
-  const { svc, orgId } = await resolveOrg(user.id)
-  if (!orgId) return NextResponse.json({ error: 'No organisation found' }, { status: 403 })
+  const { svc, orgId, stale, error: contextError } = await resolveOrg(user.id)
+  if (contextError) return NextResponse.json({ error: 'Operating context unavailable' }, { status: 500 })
+  if (!orgId) {
+    return NextResponse.json(
+      { error: stale ? 'Selected organization is no longer available' : 'Select an organization before saving an organization-scoped watch item' },
+      { status: 409 },
+    )
+  }
 
   const { data, error } = await svc
     .from('cc_watchlist_items')
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ item: data }, { status: 201 })
+  return NextResponse.json({ item: data, workspace_id: orgId }, { status: 201 })
 }
 
 export async function DELETE(req: NextRequest) {
@@ -70,8 +71,14 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  const { svc, orgId } = await resolveOrg(user.id)
-  if (!orgId) return NextResponse.json({ error: 'No organisation found' }, { status: 403 })
+  const { svc, orgId, stale, error: contextError } = await resolveOrg(user.id)
+  if (contextError) return NextResponse.json({ error: 'Operating context unavailable' }, { status: 500 })
+  if (!orgId) {
+    return NextResponse.json(
+      { error: stale ? 'Selected organization is no longer available' : 'Select an organization before changing an organization-scoped watch item' },
+      { status: 409 },
+    )
+  }
 
   const { error } = await svc
     .from('cc_watchlist_items')
@@ -81,5 +88,5 @@ export async function DELETE(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, workspace_id: orgId })
 }
