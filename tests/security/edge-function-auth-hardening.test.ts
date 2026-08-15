@@ -18,6 +18,18 @@ const paths = {
   passport: 'supabase/functions/compute-passport-score/index.ts',
   snapshot: 'supabase/functions/generate-org-snapshot/index.ts',
   migration: 'supabase/migrations/20260810222500_harden_edge_function_cron_auth.sql',
+  // The schema-drift ACL repair lives in its own migration, not in the one
+  // above. It was originally appended to 20260810222500 by commit 1f9660df,
+  // which broke that migration's git-blob binding in the pending-production
+  // decisions ledger (expected c7174bb1, got 78f02bd8) and left
+  // check-pending-production-migration-decisions.mjs failing on pristine main.
+  //
+  // 20260810222500 is `separately_authorized` -- deliberately gated, never
+  // applied -- so it was restored to its bound content and the ACL statements
+  // moved here, where they get their own version and their own review. The
+  // three assertions below follow the statements to their new home; they are
+  // otherwise unchanged.
+  aclMigration: 'supabase/migrations/20260815013000_lock_down_api_schema_drift_rpcs.sql',
 }
 
 // This repository does not currently provide a local migrated-Supabase/pgTAP
@@ -99,7 +111,7 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('grants schema drift RPC execution only to service_role through both PostgREST layers', () => {
-    const sql = read(paths.migration).toLowerCase()
+    const sql = read(paths.aclMigration).toLowerCase()
 
     for (const fn of [
       'get_tables_missing_from_api_schema',
@@ -121,7 +133,7 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('limits schema drift alert API access to only SELECT/INSERT for service_role', () => {
-    const sql = read(paths.migration).toLowerCase()
+    const sql = read(paths.aclMigration).toLowerCase()
 
     expect(sql).toContain('revoke all on api.schema_drift_alerts from public, anon, authenticated;')
     expect(sql).toContain('grant select, insert on api.schema_drift_alerts to service_role;')
@@ -131,7 +143,7 @@ describe('production Edge Function authentication hardening', () => {
   })
 
   it('does not broaden unrelated API privileges while repairing schema drift access', () => {
-    const sql = read(paths.migration).toLowerCase()
+    const sql = read(paths.aclMigration).toLowerCase()
 
     const schemaGrants = [...sql.matchAll(/grant\s+usage\s+on\s+schema\s+api\s+to\s+([^;]+);/g)]
       .map((match) => match[1].trim())

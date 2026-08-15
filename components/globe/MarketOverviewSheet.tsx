@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { RouterBottomSheet } from './RouterBottomSheet'
@@ -7,7 +8,6 @@ import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '
 import type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
 import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 
-/** Lazy singleton — reuses one client instance for the lifetime of the page. */
 function getClient() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createClient<any, 'api'>(getSupabaseUrl(), getSupabasePublicClientKey(), {
@@ -16,19 +16,11 @@ function getClient() {
   })
 }
 
-/**
- * Guards a promise against a hung network request. Supabase-js has no built-in
- * client timeout, so a stalled fetch (DNS, TLS, or edge cold-start hang) would
- * otherwise leave the sheet spinning on "Fetching regulatory data…" forever.
- * Rejecting here routes the hang into the existing retryable error state.
- */
 const FETCH_TIMEOUT_MS = 7_000
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`Timed out after ${ms}ms: ${label}`))
-    }, ms)
+    const timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms: ${label}`)), ms)
     promise.then(
       (value) => { clearTimeout(timer); resolve(value) },
       (err) => { clearTimeout(timer); reject(err) },
@@ -36,14 +28,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
-
-/**
- * Retries a promise-returning fn with backoff. The diagnosed cause of the
- * "Could not load regulatory data" / uncoloured-gold globe was transient
- * database latency that recovers within seconds; a retry turns a blip into a
- * brief reload instead of a dead-end. Each attempt is independently
- * timeout-guarded by the caller where applicable.
- */
 async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly number[]): Promise<T> {
   let lastErr: unknown
   for (let i = 0; i <= backoffsMs.length; i++) {
@@ -51,9 +35,7 @@ async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly numb
       return await attempt()
     } catch (err) {
       lastErr = err
-      if (i < backoffsMs.length) {
-        await new Promise((resolve) => setTimeout(resolve, backoffsMs[i]))
-      }
+      if (i < backoffsMs.length) await new Promise((resolve) => setTimeout(resolve, backoffsMs[i]))
     }
   }
   throw lastErr
@@ -75,22 +57,13 @@ type FetchState =
 function BriefingSection({ label, text }: { label: string; text: string }) {
   return (
     <div className="grid gap-1">
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#d8be76]/72">
-        {label}
-      </dt>
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#d8be76]/72">{label}</dt>
       <dd className="text-sm leading-6 text-[#f5f1e8]/80">{text}</dd>
     </div>
   )
 }
 
-// ── Main component ─────────────────────────────────────────────
-
-export function MarketOverviewSheet({
-  countryIso2,
-  countryName,
-  onEnter,
-  onBack,
-}: Props) {
+export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack }: Props) {
   const [state, setState] = useState<FetchState>({ status: 'loading' })
   const cache = useRef<Map<string, JurisdictionBriefing | null>>(new Map())
   const [retryKey, setRetryKey] = useState(0)
@@ -98,7 +71,6 @@ export function MarketOverviewSheet({
   useEffect(() => {
     setState({ status: 'loading' })
     let cancelled = false
-
     const code = countryIso2.toUpperCase()
 
     if (cache.current.has(code)) {
@@ -106,31 +78,18 @@ export function MarketOverviewSheet({
       return
     }
 
-    // Throw on a real PostgREST/transport error so it surfaces as the retryable
-    // error state. A clean empty result (`[]`) returns null — genuine "no briefing".
     function firstOrThrow(
       result: { data: JurisdictionBriefing[] | null; error: { message: string } | null },
       label: string,
     ): JurisdictionBriefing | null {
-      if (result.error) {
-        // Real failure (auth, RLS, network, schema) — do NOT mask as "no briefing".
-        throw new Error(`cc_jurisdiction_briefings[${label}]: ${result.error.message}`)
-      }
+      if (result.error) throw new Error(`cc_jurisdiction_briefings[${label}]: ${result.error.message}`)
       return result.data?.[0] ?? null
     }
 
-    // NOTE: we use `.limit(1)` returning an ARRAY, never `.maybeSingle()`.
-    // PostgREST returns HTTP 406 for the single-object accept header when zero
-    // rows match; supabase-js surfaces that as an error, making a genuinely
-    // empty briefing indistinguishable from a real transport failure (the root
-    // cause of every jurisdiction rendering "no briefing on file"). An array
-    // select makes an empty result a clean `[]` (HTTP 200); only true errors throw.
     async function load(): Promise<JurisdictionBriefing | null> {
       const db = getClient()
-
       if (code.includes('-')) {
         const parentIso2 = code.split('-')[0]
-
         const stateRes = await db
           .from('cc_jurisdiction_briefings')
           .select(BRIEFING_SELECT)
@@ -164,10 +123,6 @@ export function MarketOverviewSheet({
       return firstOrThrow(res, 'country')
     }
 
-    // PATCH: guard the fetch with a client-side timeout. Without this a hung
-    // request (never resolving, never rejecting) leaves `state` stuck on
-    // 'loading' forever — the gold spinner that never clears. On timeout we
-    // reject into the existing retryable error state.
     withRetry(() => withTimeout(load(), FETCH_TIMEOUT_MS, `briefing:${code}`), FETCH_RETRY_BACKOFFS_MS)
       .then((briefing) => {
         if (cancelled) return
@@ -184,11 +139,11 @@ export function MarketOverviewSheet({
   }, [countryIso2, retryKey])
 
   const isLoading = state.status === 'loading'
-  const briefing  = state.status === 'ok' ? state.briefing : null
-
-  const title = isLoading
-    ? 'Loading regulatory overview…'
-    : (briefing?.program_status ?? 'Market overview')
+  const briefing = state.status === 'ok' ? state.briefing : null
+  const title = isLoading ? 'Loading regulatory overview…' : (briefing?.program_status ?? 'Market overview')
+  const commandReturn = `/dashboard?country=${encodeURIComponent(countryIso2)}&page=briefing&section=overview`
+  const parentCountry = countryIso2.split('-')[0]
+  const createOrgHref = `/organization/new?country=${encodeURIComponent(parentCountry)}&returnTo=${encodeURIComponent(commandReturn)}`
 
   return (
     <RouterBottomSheet
@@ -197,17 +152,23 @@ export function MarketOverviewSheet({
       size="search"
       onBack={onBack}
       footer={
-        <button
-          type="button"
-          onClick={onEnter}
-          disabled={isLoading}
-          className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] shadow-[0_0_34px_rgba(198,165,90,0.18)] transition hover:bg-[#d4b46a] disabled:opacity-40"
-        >
-          Enter {countryName} Market
-        </button>
+        <div className="grid gap-3">
+          <button
+            type="button"
+            onClick={onEnter}
+            disabled={isLoading}
+            className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] shadow-[0_0_34px_rgba(198,165,90,0.18)] transition hover:bg-[#d4b46a] disabled:opacity-40"
+          >
+            Enter {countryName} Market
+          </button>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.1em]">
+            <Link href={`/login?next=${encodeURIComponent(commandReturn)}`} className="text-[#d8be76]/80 hover:text-[#d8be76]">Sign in</Link>
+            <Link href={`/login?mode=signup&next=${encodeURIComponent(commandReturn)}`} className="text-[#d8be76]/80 hover:text-[#d8be76]">Create account</Link>
+            <Link href={createOrgHref} className="text-[#d8be76]/80 hover:text-[#d8be76]">Create organization</Link>
+          </div>
+        </div>
       }
     >
-      {/* ── Loading ── */}
       {state.status === 'loading' && (
         <div className="flex items-center gap-3 py-6">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#c6a55a]/40 border-t-[#c6a55a]" />
@@ -215,12 +176,9 @@ export function MarketOverviewSheet({
         </div>
       )}
 
-      {/* ── Error ── */}
       {state.status === 'error' && (
         <div className="grid gap-3 py-4">
-          <p className="text-sm leading-6 text-white/50">
-            Could not load regulatory data. Check your connection and try again.
-          </p>
+          <p className="text-sm leading-6 text-white/50">Could not load regulatory data. Check your connection and try again.</p>
           <button
             type="button"
             onClick={() => {
@@ -234,7 +192,6 @@ export function MarketOverviewSheet({
         </div>
       )}
 
-      {/* ── Data ── */}
       {state.status === 'ok' && briefing && (
         <dl className="grid gap-5">
           {briefing.public_summary && (
@@ -243,43 +200,24 @@ export function MarketOverviewSheet({
               <dd className="text-sm leading-6 text-[#f5f1e8]/90">{briefing.public_summary}</dd>
             </div>
           )}
-
           <div className="h-px bg-[#c6a55a]/14" />
-
-          {briefing.patient_access && (
-            <BriefingSection label="Patient Access"     text={briefing.patient_access} />
-          )}
-          {briefing.physician_access && (
-            <BriefingSection label="Physician Access"   text={briefing.physician_access} />
-          )}
-          {briefing.market_dynamics && (
-            <BriefingSection label="Market Dynamics"    text={briefing.market_dynamics} />
-          )}
-          {briefing.regulatory_outlook && (
-            <BriefingSection label="Regulatory Outlook" text={briefing.regulatory_outlook} />
-          )}
-          {briefing.regulatory_body && (
-            <BriefingSection label="Regulatory Body"    text={briefing.regulatory_body} />
-          )}
-
-          {/* Last reviewed */}
+          {briefing.patient_access && <BriefingSection label="Patient Access" text={briefing.patient_access} />}
+          {briefing.physician_access && <BriefingSection label="Physician Access" text={briefing.physician_access} />}
+          {briefing.market_dynamics && <BriefingSection label="Market Dynamics" text={briefing.market_dynamics} />}
+          {briefing.regulatory_outlook && <BriefingSection label="Regulatory Outlook" text={briefing.regulatory_outlook} />}
+          {briefing.regulatory_body && <BriefingSection label="Regulatory Body" text={briefing.regulatory_body} />}
           {briefing.last_reviewed_date && (
             <p className="text-[10px] uppercase tracking-[0.15em] text-[#d8be76]/50">
               Last reviewed{' '}
-              {new Date(briefing.last_reviewed_date).toLocaleDateString('en-GB', {
-                month: 'short',
-                year: 'numeric',
-              })}
+              {new Date(briefing.last_reviewed_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
             </p>
           )}
         </dl>
       )}
 
-      {/* ── Empty ── */}
       {state.status === 'ok' && !briefing && (
         <p className="py-4 text-sm leading-6 text-white/50">
-          No regulatory briefing is on file for {countryName} yet. You can still enter the
-          market to view available intelligence.
+          No regulatory briefing is on file for {countryName} yet. You can still enter the market to view available intelligence.
         </p>
       )}
     </RouterBottomSheet>

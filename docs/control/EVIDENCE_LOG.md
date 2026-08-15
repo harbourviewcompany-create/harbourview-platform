@@ -4900,3 +4900,83 @@ for other versions on `main`. Those predate this work and are untouched.
 - **Final-review corrections:** abort sibling image batches when any batch rejects; expose degraded media state on country-role routes; link trust-copy implementation back to `docs/control/MARKETPLACE_MEDIA_COPY.md`; add this canonical evidence-log entry.
 - **Focused verification:** exact implementation head `504c8c3db00ae00b15e60a1fc1923ad370ae07b0` — `npx tsc --noEmit`: **PASS**; `npx vitest run tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/marketplace/publicImageQueryContract.test.ts`: **PASS**. Evidence: GitHub Actions run `31523742623` (`Temporary PR 1328 Exact QA`). Exact resulting PR-head CI/build/security/authenticated Playwright remains the authoritative merge gate.
 - **Status:** Current corrective evidence; merge remains gated on exact-head repository checks and requested non-production preview/review evidence.
+
+## 2026-08-14 — PR #1428 classifier dispatch-budget and retry-loop repair
+
+**Evidence ID:** `HV-PR1428-CLASSIFY-BUDGET-20260814`
+
+**Scope:** repository-only migration `supabase/migrations/20260814180000_bound_classify_retries.sql`. Adds two columns and two partial indexes to `public.hv_classify_jobs`; replaces `public.hv_classify_corpus_harvest()` and `public.hv_classify_corpus_dispatch()`. **Not applied to production** — applying requires explicit sign-off per `CLAUDE.md` rule 3c, and merging does not apply it (`AGENT_OPERATING_FACTS.md` §1).
+
+**Diagnosis (read-only against project `zvxdgdkukjrrwamdpqrg`, 2026-08-14):** classification stalled from 2026-08-12. Signals ingested / left unclassified by day — 08-11: 133/0 (0.0%); 08-12: 27/21 (77.8%); 08-13: 44/44 (100.0%); 08-14: 62/57 (91.9%). Every cron job reported `succeeded` throughout.
+
+Two defects:
+
+1. **Unreleased budget reservation.** `hv_classify_corpus_dispatch()` charged `hv_consume_dispatch_budget('classify', p_limit)` before selecting rows and never returned the remainder. At `p_limit=120` from `hv_pipeline_tick()` every 30 minutes this consumes `120 × 48 = 5,760/day` against a `3,000/day` ceiling regardless of work performed. Corroborated by all three metered stages sitting exactly at ceiling: classify `3000/3000`, translate `800/800`, entities `600/600`.
+2. **Unrecorded failures.** `hv_classify_corpus_harvest()` wrote a signal only on HTTP 200 carrying a `classification` object, discarding every other outcome while still marking the job harvested. Backlogged signals therefore requeued without limit: 123 signals, 3,859 `hv_classify_jobs` rows, mean 31.4 dispatches each, maximum 392. Surviving `net._http_response` rows: 169 × HTTP 200 `{"ok":true,"routed":"manual_review","reason":"openai_429"}`, 71 × HTTP 503 `SUPABASE_EDGE_RUNTIME_SERVICE_DEGRADED`.
+
+**Related finding, not fixed here:** `hv-classify`'s ad-hoc `{text}` path returns `routed: "manual_review"` without calling `routeToManualReview`, and cannot, because the dispatcher posts no `signalId`. `public.intel_classify_review_queue` has taken no row since 2026-07-21. `INTELLIGENCE_ARCHITECTURE_SPEC.md` §6.1's "nothing is silently dropped" does not hold for the path Pipeline B uses.
+
+**Verification:** local PostgreSQL 16.13 harness (method per `AGENT_OPERATING_FACTS.md` §7) with shims for `net.http_post`, `net._http_response`, `vault.decrypted_secrets` and `hv_consume_dispatch_budget`. Migration applies clean to a fresh database (exit 0). Seven behavioural cases **PASS**: empty-pool budget consumption 0 across three ticks (was 120/tick); retry termination at 5 attempts with retirement to `intel_classify_review_queue` and budget frozen at 10; outcome recording (`no_classification` × 10); happy path writing all five classification fields; HTTP 503 recorded as `http_503`; resolve-to-retry override reclassifying only the resolved row; ceiling still capping 50 candidates to the 5 remaining budget.
+
+Production pre-flight (read-only): retirement predicate matches **0** rows on first run; dispatch pool 123 → 122; `intel_classify_review_queue` unresolved 58.
+
+`node scripts/check-no-secret-strings.mjs` → **GO**, no committed secret-looking values. `scripts/check-pending-production-migration-decisions.mjs` fails on the pre-existing `20260810222500` blob mismatch recorded in `AGENT_OPERATING_FACTS.md` §9 — unrelated to and unchanged by this diff.
+
+**Safety / scope:** no production DDL, no production write, no migration applied, no secret created or persisted, no deployment. Grants deliberately unchanged — live ACLs are `{postgres=X/postgres}` on both functions and `create or replace function` preserves them; adding `service_role` would have widened privileges against Guardrail 6.
+
+**Out of scope, recorded so it stays visible:** `translate` and `entities` share defect 1 in their own dispatch functions; `hv_classify_jobs` holds 97,443 rows with no retention policy (spec Stage H); nothing alerts on this stall class today.
+
+**Decision:** **GO for the repository migration.** Production application remains gated on explicit owner sign-off.
+## 2026-08-14 — PR #1423 migration-replay duplicate removal and ledger reconciliation
+
+**Evidence ID:** `HV-PR1423-REPLAY-DUPES-20260814`
+
+**Scope:** repository-only. Deletes three never-applied migrations (`20260728000000`, `20260728010000`, `20260728020000`), removes their `repository_only_decisions` records, moves `snapshot.repository_only_files`/`repository_only_versions` 86 → 83, and widens `production-security-hardening.yml` to trigger on `supabase/migrations/**`. **Not applied to production**; no migration applied by this PR.
+
+**Diagnosis.** `supabase db reset --local` could not rebuild the tree. The repository carried two identical create/rename pairs for the professional-services directory; the second `ALTER TABLE … RENAME TO` failed with 42P07. Deleting the early pair moved the failure rather than removing it — `20260728020000` sits between the deleted pair and the surviving one and references the renamed table, and `drop policy if exists` guards the policy, not the relation.
+
+**Which pair goes, verified against production rather than inferred:** `supabase_migrations.schema_migrations` contains `20260728191340` and `20260728192052` and does **not** contain `20260728000000`, `20260728010000` or `20260728020000`. The decisions ledger already classified all three as `requiring_forward_reconciliation` / `exact_live_name_different_version` with recorded `live_equivalent_versions` (`20260728191340`, `20260728192052`, `20260729021820` respectively). Deleting them therefore cannot produce `applied_not_committed` drift.
+
+**Ledger reconciliation.** The checker errors `decision file is absent` for a record whose file is gone and separately asserts `records.length === snapshot.repository_only_files`, so records and counters were moved together. Snapshot provenance fields (`source_commit`, `source_tree`, `workflow_run_id`, `artifact_id`, `artifact_sha256`) are **unchanged**. Removed records are reproduced verbatim in the commit message. Ledger edit made on explicit owner instruction.
+
+**Verification:** 906 migrations parse → **GO**. First reference to the table in replay order is now `20260728191340`'s `create table if not exists`. Replay progressed past the entire professional-services group (log shows `20260728191340` → `20260729102231` all applied) and stopped at an unrelated defect (see PR #1430 entry). Ledger checker reports **only** the pre-existing `20260810222500` blob mismatch, byte-identical to pristine `origin/main`; unit tests 4/5 with the same single pre-existing failure. Registry discipline → **success**.
+
+**Known blocker, not introduced here:** `20260810222500_harden_edge_function_cron_auth.sql` fails its content binding on pristine `main` (commit `1f9660df` appended ACL statements to an already-pending migration). Editing the ledger made `pending-migration-decision-verification.yml` fire, so this now blocks the PR. Resolution — revert that edit or re-record the hash — is an owner decision about a pending production migration.
+
+**Decision:** **GO for the repository change.** Merge gated on the `20260810222500` decision.
+
+## 2026-08-14 — PR #1430 placeholder migration reconstruction
+
+**Evidence ID:** `HV-PR1430-STUB-RECONSTRUCTION-20260814`
+
+**Scope:** repository-only. Reconstructs `20260720093632` and `20260720093647` from production statements and adds `scripts/reconstruct-stub-migrations.mjs`. Stacked on PR #1423. **Not applied to production.**
+
+**Diagnosis.** **167 of 906 migrations (18%) contain no DDL** — each carries a comment stating it was applied directly via Supabase MCP and exists for history parity, followed by `SELECT 1;`. The repository therefore cannot rebuild production. Replay fails at `relation "public.education_content_citations" does not exist (42P01)` on an `alter policy` in `20260729102231`, because that table's create migration is a placeholder.
+
+**Why no gate caught it:** `Compare repository and live migration ledgers` compares version numbers, which a placeholder satisfies; `check-placeholder-landmines` greps five English phrases, none of which these files use; `check-migration-sql-parses.mjs` parses `SELECT 1;` happily. Only `supabase db reset --local` detects it, and that workflow was `paths`-filtered to five files until PR #1423 widened it.
+
+**Safety.** `supabase db push` applies only versions absent from `schema_migrations`, and rewritten versions are present, so production is untouched. Verified: of the 167 placeholders **166 are applied and exactly one is not** — `20260724000000_fix_entity_decode_blanking_bug_in_signal_extraction`. That one has no statements to recover and filling it in would convert a repository repair into a production schema change; the script skips any version missing from `schema_migrations` and reports it separately.
+
+**Verification:** 906 migrations parse → **GO**; secret scan → **GO**; `renderMigration` self-test (header present, placeholder marker absent from output, statements terminated exactly once, version interpolated); script exits 2 with no connection string; reconstructed table's dependencies (`education_modules`, `education_module_sections`, `user_roles`) are all real migrations at earlier versions.
+
+**Not verified:** replay. `production-security-hardening.yml` is filtered to `branches: [main]` and this PR targets #1423's branch, so the replay gate does not run on it. Green CI here is not evidence the tree replays.
+
+**Open:** the remaining 165 placeholders require running the script with read access to `supabase_migrations.schema_migrations` — an owner credential decision under Rule 3b; no database credential was taken or stored.
+
+**Decision:** **GO for the two reconstructed files and the script.** Completion gated on the credential decision.
+
+## 2026-08-14 — PR #1431 alert-delivery assertion
+
+**Evidence ID:** `HV-PR1431-ALERT-DELIVERY-20260814`
+
+**Scope:** repository-only. Adds an `alert_delivery_unconfigured` assertion to `public.hv_pipeline_alerts()`. **Not applied to production.**
+
+**Diagnosis.** `hv_alert_tick()` emails via Resend only when the vault holds both `resend_api_key` and `alert_email_to`; otherwise it returns `delivery: 'skipped: …'` into pg_cron job 55, which discards the return value. Measured live: **0** rows for each secret, **3** open alerts, **0** ever notified — no alert has been delivered in the history of the table. Open at the time: `classification_stalled` (critical, 122, first seen 2026-08-13 20:47), `edge_http_errors` (critical, 3), `extraction_rescan` (warning, 40). `classification_stalled` caught the 2026-08-14 pipeline outage a day early and reached nobody. Spec §9 Guardrail 5 requires active alerting rather than a dashboard.
+
+**Why the board and not the tick:** `20260802080000_harden_eval_labels_and_alert_delivery.sql` is merged, `separately_authorized`, **not applied**, redefines `hv_alert_tick`, and carries the same silent-skip return. As an earlier version applied later it would clobber any fix there. It does **not** redefine `hv_pipeline_alerts` (checked: it replaces only `api.admin_add_signal_to_eval_set` and `public.hv_alert_tick`).
+
+**Verification:** the 11 pre-existing assertions are reproduced **byte-for-byte** from the live definition — `md5 4b4a4e9e7bbab3ebc17a7ca9f453c9ea` over 6,169 characters, matching production exactly; only the new block differs. New assertion executed read-only against production returning `critical` / `3 open alert(s) with no delivery channel`. 911 migrations parse → **GO**; secret scan → **GO**. No secret value is read — only `exists(...)`.
+
+**Does not fix delivery.** Two vault secrets are required, an owner action under Rule 3b.
+
+**Decision:** **GO for the repository change.** Production application gated on owner sign-off.
