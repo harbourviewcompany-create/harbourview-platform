@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
-import type { GlobeIntroPhase } from '@/lib/globe/globe-intro'
+import { GLOBE_INTRO, type GlobeIntroPhase } from '@/lib/globe/globe-intro'
 import dynamic from 'next/dynamic'
 
 const GlobeCanvas = dynamic(() => import('./r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })), {
@@ -103,7 +103,15 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
   return reason
 }
 
+/**
+ * Static fallback with a CSS gold 360° spin, then a soft settle into a warmer
+ * "heat" wash — mirrors the WebGL intro without requiring WebGL.
+ */
 function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
+  const [phase, setPhase] = useState<GlobeIntroPhase>(
+    reason === 'reduced-motion' ? 'ready' : 'spinning',
+  )
+
   const reasonLabel = useMemo(() => {
     switch (reason) {
       case 'reduced-motion':
@@ -117,10 +125,76 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
     }
   }, [reason])
 
+  useEffect(() => {
+    if (reason === 'reduced-motion') {
+      setPhase('ready')
+      return
+    }
+    setPhase('spinning')
+    const revealTimer = window.setTimeout(() => setPhase('revealing'), GLOBE_INTRO.spinDurationMs)
+    const readyTimer = window.setTimeout(
+      () => setPhase('ready'),
+      GLOBE_INTRO.spinDurationMs + GLOBE_INTRO.revealDurationMs,
+    )
+    return () => {
+      window.clearTimeout(revealTimer)
+      window.clearTimeout(readyTimer)
+    }
+  }, [reason])
+
+  const spinMs = GLOBE_INTRO.spinDurationMs
+  const revealMs = GLOBE_INTRO.revealDurationMs
+
   return (
-    <div className="absolute inset-0 grid place-items-center px-6" data-globe-fallback-reason={reason}>
+    <div
+      className="absolute inset-0 grid place-items-center px-6"
+      data-globe-fallback-reason={reason}
+      data-globe-intro={phase}
+    >
+      <style>{`
+        @keyframes hv-css-globe-spin {
+          from { transform: translate(-50%, -50%) rotate(0deg); }
+          to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        @keyframes hv-css-globe-reveal {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+      `}</style>
       <div className="relative h-[min(66vh,620px)] w-full max-w-[920px] overflow-hidden rounded-[40px] border border-white/12 bg-[radial-gradient(circle_at_30%_35%,rgba(96,144,220,.34),transparent_45%),radial-gradient(circle_at_72%_58%,rgba(198,165,90,.28),transparent_42%),linear-gradient(165deg,#020712_0%,#030b16_45%,#051125_100%)] shadow-[0_28px_90px_rgba(0,0,0,.6)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_42%,rgba(1,5,13,.84)_100%)]" />
+
+        {/* Gold sphere — one CSS 360, then holds. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-[46%] h-[min(52vh,420px)] w-[min(52vh,420px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#c6a55a]/28 shadow-[inset_-28px_-36px_70px_rgba(0,0,0,0.55),inset_10px_14px_40px_rgba(198,165,90,0.18),0_24px_80px_rgba(0,0,0,0.55)]"
+          style={{
+            background:
+              'radial-gradient(circle at 32% 24%, rgba(255,240,180,0.55), transparent 22%), radial-gradient(circle at 42% 42%, rgba(180,140,55,0.92) 0%, rgba(90,65,22,0.96) 52%, rgba(20,14,6,0.98) 100%)',
+            animation:
+              phase === 'spinning' && reason !== 'reduced-motion'
+                ? `hv-css-globe-spin ${spinMs}ms linear 1 forwards`
+                : undefined,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+
+        {/* Soft heat wash after spin — stands in for tier colour without WebGL. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-[46%] h-[min(52vh,420px)] w-[min(52vh,420px)] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            background:
+              'conic-gradient(from 210deg, rgba(47,212,111,0.22), rgba(242,197,61,0.2), rgba(240,125,46,0.18), rgba(43,194,194,0.16), rgba(178,59,59,0.14), rgba(47,212,111,0.22))',
+            opacity: phase === 'ready' || phase === 'revealing' ? 1 : 0,
+            animation:
+              phase === 'revealing' && reason !== 'reduced-motion'
+                ? `hv-css-globe-reveal ${revealMs}ms ease-out 1 forwards`
+                : undefined,
+            transition: phase === 'ready' ? 'opacity 200ms ease-out' : undefined,
+          }}
+        />
+
         <div className="absolute left-8 top-8 rounded-full border border-white/16 bg-[#071122]/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/78">
           {reasonLabel}
         </div>
@@ -244,7 +318,6 @@ export function GlobeSameScreenRouterLanding() {
           {srAnnouncement}
         </p>
 
-        {/* Legend waits for intro ready so the key matches visible tier colours. */}
         {showLegend ? <GlobeRegulatoryLegend /> : null}
 
         {state.step === 'market_overview' && state.selectedCountryIso2 ? (
