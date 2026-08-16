@@ -10,7 +10,11 @@ import {
   isClinicalEvidenceApiResult,
   type ClinicalEvidenceApiResult,
 } from '@/lib/clinical/runtime'
-import { CANADA_CLINICAL_AUTHORITIES } from './clinicalCommandContract'
+import {
+  clinicalJurisdictionLabel,
+  countryIso2FromCommandHref,
+  getClinicalAuthoritiesForCountry,
+} from './clinicalCommandContract'
 import { formatStatus } from './contracts'
 
 type ClinicalView = 'evidence' | 'safety' | 'interactions' | 'formulations' | 'guidelines' | 'practice' | 'monitoring'
@@ -21,8 +25,9 @@ function commandParams(commandHref: string): URLSearchParams {
 }
 
 function jurisdictionFromCommandHref(commandHref: string): string {
+  const iso = countryIso2FromCommandHref(commandHref)
+  if (iso) return clinicalJurisdictionLabel(iso)
   const raw = commandParams(commandHref).get('country')?.trim() ?? ''
-  if (raw.toUpperCase() === 'CA') return 'Canada'
   return raw || 'Canada'
 }
 
@@ -168,9 +173,11 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
   const attention = stateAttention(result, loading)
   const latestChange = result?.changes[0] ?? null
   const visibleRecords = recordsForView(result?.records ?? [], activeView)
-  const safetyAuthority = CANADA_CLINICAL_AUTHORITIES.find(source => source.id === 'safety-interactions')
-  const documentAuthority = CANADA_CLINICAL_AUTHORITIES.find(source => source.id === 'medical-document')
-  const pharmacovigilanceAuthority = CANADA_CLINICAL_AUTHORITIES.find(source => source.id === 'pharmacovigilance')
+  const countryIso2 = countryIso2FromCommandHref(commandHref)
+  const authorities = getClinicalAuthoritiesForCountry(countryIso2)
+  const safetyAuthority = authorities.find(source => source.id === 'safety-interactions')
+  const documentAuthority = authorities.find(source => source.id === 'medical-document')
+  const pharmacovigilanceAuthority = authorities.find(source => source.id === 'pharmacovigilance')
 
   const viewLabels: Record<ClinicalView, string> = {
     evidence: 'Evidence',
@@ -184,324 +191,6 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
 
   return (
     <section className="hvm2-clinical-evidence hvc-command" aria-labelledby="clinical-evidence-title">
-      <style jsx global>{`
-        #clinical.hvm2-section {
-          padding-bottom: max(116px, calc(96px + env(safe-area-inset-bottom)));
-        }
-        #clinical > .hvm2-section-heading {
-          gap: 8px;
-          margin-bottom: 10px;
-        }
-        #clinical > .hvm2-section-heading h2 {
-          margin: 3px 0 4px;
-          font-size: clamp(1.75rem, 6.8vw, 2.35rem);
-          line-height: 1.02;
-        }
-        #clinical > .hvm2-section-heading p {
-          max-width: 58rem;
-          margin: 0;
-          font-size: 0.88rem;
-          line-height: 1.42;
-        }
-        #clinical > .hvm2-section-heading > .hvm2-text-link {
-          align-self: end;
-          white-space: nowrap;
-        }
-        #clinical > .hvm2-compliance-grid {
-          display: none;
-        }
-        #clinical > .hvm2-sourcing-note {
-          margin-top: 12px;
-          padding: 11px 13px;
-        }
-        #clinical .hvc-command {
-          display: grid;
-          gap: 12px;
-          margin-top: 4px;
-        }
-        #clinical .hvc-statusbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          min-height: 38px;
-          padding: 8px 10px;
-          border: 1px solid rgba(214, 178, 92, 0.18);
-          border-radius: 12px;
-          background: rgba(255, 255, 255, 0.025);
-        }
-        #clinical .hvc-statusbar strong {
-          font-size: 0.78rem;
-        }
-        #clinical .hvc-state {
-          flex: 0 0 auto;
-          padding: 4px 8px;
-          border: 1px solid rgba(214, 178, 92, 0.28);
-          border-radius: 999px;
-          color: #e7c875;
-          font-size: 0.68rem;
-          font-weight: 800;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-        }
-        #clinical .hvc-now-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px;
-        }
-        #clinical .hvc-now-card {
-          min-width: 0;
-          padding: 11px;
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.025);
-        }
-        #clinical .hvc-now-card > span,
-        #clinical .hvc-block-label {
-          display: block;
-          margin-bottom: 4px;
-          color: #d9b85d;
-          font-size: 0.67rem;
-          font-weight: 800;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        #clinical .hvc-now-card strong {
-          display: block;
-          font-size: 0.88rem;
-          line-height: 1.25;
-        }
-        #clinical .hvc-now-card p {
-          margin: 5px 0 0;
-          color: rgba(236, 236, 236, 0.72);
-          font-size: 0.74rem;
-          line-height: 1.38;
-        }
-        #clinical .hvc-ask {
-          padding: 12px;
-          border: 1px solid rgba(214, 178, 92, 0.24);
-          border-radius: 15px;
-          background: rgba(7, 17, 31, 0.72);
-        }
-        #clinical .hvc-ask h3 {
-          margin: 0;
-          font-size: 1rem;
-        }
-        #clinical .hvc-ask > p {
-          margin: 4px 0 10px;
-          color: rgba(236, 236, 236, 0.66);
-          font-size: 0.76rem;
-          line-height: 1.4;
-        }
-        #clinical .hvc-search-row {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 8px;
-        }
-        #clinical .hvc-search-row input {
-          width: 100%;
-          min-width: 0;
-          min-height: 44px;
-          padding: 0 12px;
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          border-radius: 11px;
-          background: rgba(0, 0, 0, 0.22);
-          color: inherit;
-        }
-        #clinical .hvc-search-row button,
-        #clinical .hvc-retry,
-        #clinical .hvc-lane {
-          min-height: 44px;
-          border: 1px solid rgba(214, 178, 92, 0.28);
-          border-radius: 11px;
-          background: rgba(214, 178, 92, 0.07);
-          color: #e7c875;
-          font: inherit;
-          font-size: 0.78rem;
-          font-weight: 800;
-        }
-        #clinical .hvc-search-scope {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          margin-top: 8px;
-          color: rgba(236, 236, 236, 0.6);
-          font-size: 0.7rem;
-        }
-        #clinical .hvc-search-scope button {
-          padding: 0;
-          border: 0;
-          background: transparent;
-          color: #e7c875;
-          font: inherit;
-          font-weight: 800;
-        }
-        #clinical .hvc-state-panel {
-          padding: 11px 12px;
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 13px;
-          background: rgba(255, 255, 255, 0.02);
-        }
-        #clinical .hvc-state-panel[data-state="error"],
-        #clinical .hvc-state-panel[data-state="permission"],
-        #clinical .hvc-state-panel[data-state="stale"],
-        #clinical .hvc-state-panel[data-state="conflicted"],
-        #clinical .hvc-state-panel[data-state="degraded-source"] {
-          border-color: rgba(214, 178, 92, 0.34);
-        }
-        #clinical .hvc-state-panel strong {
-          display: block;
-          font-size: 0.84rem;
-        }
-        #clinical .hvc-state-panel p {
-          margin: 4px 0 0;
-          color: rgba(236, 236, 236, 0.68);
-          font-size: 0.74rem;
-          line-height: 1.4;
-        }
-        #clinical .hvc-retry {
-          width: auto;
-          min-height: 36px;
-          margin-top: 8px;
-          padding: 0 12px;
-        }
-        #clinical .hvc-lanes {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 6px;
-        }
-        #clinical .hvc-lane {
-          min-height: 38px;
-          padding: 6px 4px;
-          border-color: rgba(255, 255, 255, 0.09);
-          background: rgba(255, 255, 255, 0.025);
-          color: rgba(236, 236, 236, 0.72);
-          font-size: 0.68rem;
-        }
-        #clinical .hvc-lane[data-active="true"] {
-          border-color: rgba(214, 178, 92, 0.38);
-          background: rgba(214, 178, 92, 0.09);
-          color: #e7c875;
-        }
-        #clinical .hvc-results {
-          display: grid;
-          gap: 8px;
-        }
-        #clinical .hvc-results-head {
-          display: flex;
-          align-items: end;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        #clinical .hvc-results-head h3 {
-          margin: 0;
-          font-size: 1rem;
-        }
-        #clinical .hvc-results-head span {
-          color: rgba(236, 236, 236, 0.5);
-          font-size: 0.7rem;
-        }
-        #clinical .hvc-record {
-          overflow: hidden;
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 13px;
-          background: rgba(255, 255, 255, 0.02);
-        }
-        #clinical .hvc-record summary {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 10px;
-          padding: 11px 12px;
-          cursor: pointer;
-          list-style: none;
-        }
-        #clinical .hvc-record summary::-webkit-details-marker { display: none; }
-        #clinical .hvc-record summary small,
-        #clinical .hvc-record summary strong {
-          display: block;
-        }
-        #clinical .hvc-record summary small {
-          margin-bottom: 3px;
-          color: #d9b85d;
-          font-size: 0.66rem;
-          font-weight: 800;
-          text-transform: uppercase;
-        }
-        #clinical .hvc-record summary strong {
-          font-size: 0.86rem;
-          line-height: 1.25;
-        }
-        #clinical .hvc-record-state {
-          align-self: start;
-          padding: 3px 6px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 999px;
-          color: rgba(236, 236, 236, 0.58);
-          font-size: 0.62rem;
-          white-space: nowrap;
-        }
-        #clinical .hvc-record-body {
-          display: grid;
-          gap: 8px;
-          padding: 0 12px 12px;
-          color: rgba(236, 236, 236, 0.74);
-          font-size: 0.75rem;
-          line-height: 1.42;
-        }
-        #clinical .hvc-record-body p { margin: 0; }
-        #clinical .hvc-facts {
-          display: grid;
-          grid-template-columns: auto minmax(0, 1fr);
-          gap: 4px 9px;
-          margin: 0;
-        }
-        #clinical .hvc-facts dt {
-          color: rgba(236, 236, 236, 0.45);
-        }
-        #clinical .hvc-facts dd {
-          min-width: 0;
-          margin: 0;
-        }
-        #clinical .hvc-boundary {
-          padding: 12px;
-          border: 1px dashed rgba(214, 178, 92, 0.24);
-          border-radius: 13px;
-        }
-        #clinical .hvc-boundary strong { display: block; font-size: 0.83rem; }
-        #clinical .hvc-boundary p { margin: 5px 0 0; color: rgba(236, 236, 236, 0.66); font-size: 0.74rem; line-height: 1.42; }
-        #clinical .hvc-boundary a { display: inline-block; margin-top: 7px; }
-        #clinical > .hvm2-horizontal-deck,
-        #clinical > .hvm2-two-column {
-          margin-top: 12px;
-        }
-
-        @media (max-width: 559px) {
-          #clinical > .hvm2-section-heading {
-            display: block;
-          }
-          #clinical > .hvm2-section-heading > .hvm2-text-link {
-            display: inline-block;
-            margin-top: 6px;
-            font-size: 0.78rem;
-          }
-          #clinical .hvc-search-row {
-            grid-template-columns: 1fr;
-          }
-          #clinical .hvc-lanes {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-          #clinical .hvc-lane {
-            min-height: 36px;
-          }
-        }
-
-        @media (max-width: 374px) {
-          #clinical .hvc-now-grid { grid-template-columns: 1fr; }
-          #clinical .hvc-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-      `}</style>
-
       <div className="hvc-statusbar" aria-live="polite">
         <strong id="clinical-evidence-title">Evidence command · {jurisdiction} · {role}</strong>
         <span className="hvc-state">{clinicalStateLabel(state)}</span>
@@ -557,13 +246,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
 
       <nav className="hvc-lanes" aria-label="Clinical workspace views">
         {(Object.keys(viewLabels) as ClinicalView[]).map(view => (
-          <button
-            className="hvc-lane"
-            data-active={activeView === view}
-            key={view}
-            type="button"
-            onClick={() => setActiveView(view)}
-          >
+          <button className="hvc-lane" data-active={activeView === view} key={view} type="button" onClick={() => setActiveView(view)}>
             {viewLabels[view]}
           </button>
         ))}
@@ -572,36 +255,26 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       {activeView === 'interactions' ? (
         <div className="hvc-boundary" role="note">
           <strong>Structured drug–cannabinoid interaction checker is not yet published</strong>
-          <p>The repository defines an interaction contract but does not yet expose a governed reviewed interaction dataset. Clinical therefore does not infer interaction severity or patient-specific compatibility.</p>
-          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Health Canada safety guidance ↗</a>}
+          <p>The repository defines an interaction contract but does not yet expose a governed reviewed interaction dataset.</p>
+          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">{safetyAuthority.sourceName} ↗</a>}
         </div>
       ) : activeView === 'monitoring' ? (
         <div className="hvc-boundary" role="note">
           <strong>Governed monitoring and reassessment protocol is not yet published</strong>
-          <p>The repository has a monitoring contract but no reviewed production dataset that supports patient-specific goals, intervals or discontinuation rules. Use the primary professional authorities and existing reviewed education until that contract is populated.</p>
+          <p>Use primary professional authorities and reviewed education until that contract is populated.</p>
           <a className="hvm2-text-link" href="/network/clinical-education">Reviewed clinical education →</a>
         </div>
       ) : activeView === 'safety' && visibleRecords.length === 0 ? (
         <div className="hvc-boundary" role="note">
           <strong>No structured safety record matches the current evidence scope</strong>
-          <p>Do not interpret this as absence of risk. Use current primary safety guidance while the governed evidence corpus is expanded.</p>
-          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Health Canada safety guidance ↗</a>}
-          {pharmacovigilanceAuthority && <><br /><a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">Adverse-reaction reporting ↗</a></>}
-        </div>
-      ) : activeView === 'formulations' && visibleRecords.length === 0 ? (
-        <div className="hvc-boundary" role="note">
-          <strong>No reviewed formulation-specific record matches this scope</strong>
-          <p>Clinical keeps regulated cannabinoid drugs, isolates, cannabis-derived formulations and general cannabis evidence distinct. It does not transfer evidence between those classes without an explicit reviewed record.</p>
-        </div>
-      ) : activeView === 'guidelines' && visibleRecords.length === 0 ? (
-        <div className="hvc-boundary" role="note">
-          <strong>No published clinical-guideline record matches this scope</strong>
-          <p>Private intake candidates and unreviewed source identifications are not surfaced as clinical guidance.</p>
+          <p>Do not interpret this as absence of risk. Use current primary safety guidance.</p>
+          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">{safetyAuthority.sourceName} ↗</a>}
+          {pharmacovigilanceAuthority && <><br /><a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">{pharmacovigilanceAuthority.label} ↗</a></>}
         </div>
       ) : activeView === 'practice' && visibleRecords.length === 0 ? (
         <div className="hvc-boundary" role="note">
           <strong>No reviewed practice record matches this scope</strong>
-          <p>Federal primary authorities remain available below. Province- and profession-specific authorization rules are not inferred from the Command role alone.</p>
+          <p>Primary authorities remain available below when registered for this jurisdiction.</p>
           {documentAuthority && <a className="hvm2-text-link" href={documentAuthority.href} target="_blank" rel="noreferrer">Medical document authority ↗</a>}
         </div>
       ) : (
@@ -610,13 +283,6 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
             <h3>{viewLabels[activeView]}</h3>
             <span>{visibleRecords.length} reviewed record{visibleRecords.length === 1 ? '' : 's'}</span>
           </div>
-
-          {!loading && result?.synthesis && result.synthesis.recordCount > 0 && activeView === 'evidence' && (
-            <div className="hvc-state-panel" data-state={result.synthesis.hasMaterialConflict ? 'conflicted' : result.state} aria-label="Evidence set summary">
-              <strong>{result.synthesis.currentRecordCount} current · {result.synthesis.gradedRecordCount} graded · {result.synthesis.ungradedRecordCount} ungraded</strong>
-              <p>{result.synthesis.regulatedDrugRecordCount} regulated-drug · {result.synthesis.generalCannabisRecordCount} general-cannabis / authority. Counts describe the reviewed corpus only; they do not infer efficacy or comparative superiority.</p>
-            </div>
-          )}
 
           {visibleRecords.map(record => (
             <details className="hvc-record" key={record.id}>
@@ -629,23 +295,6 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
               </summary>
               <div className="hvc-record-body">
                 <p>{record.summary}</p>
-                <dl className="hvc-facts">
-                  <dt>Evidence</dt><dd>{formatStatus(record.evidenceType)} · {formatStatus(record.evidenceStrength)}</dd>
-                  <dt>Class</dt><dd>{evidenceClassLabel(record)}</dd>
-                  {record.formulation && <><dt>Formulation</dt><dd>{record.formulation}</dd></>}
-                  {record.cannabinoid.length > 0 && <><dt>Cannabinoid</dt><dd>{record.cannabinoid.join(', ')}</dd></>}
-                  {record.population && <><dt>Population</dt><dd>{record.population}</dd></>}
-                  {record.intervention && <><dt>Intervention</dt><dd>{record.intervention}</dd></>}
-                  {record.comparator && <><dt>Comparator</dt><dd>{record.comparator}</dd></>}
-                  {record.outcome && <><dt>Outcome</dt><dd>{record.outcome}</dd></>}
-                  <dt>Currentness</dt><dd>{formatStatus(record.freshnessStatus ?? 'current')} · {formatStatus(record.supersessionState)}</dd>
-                  <dt>Jurisdiction</dt><dd>{record.jurisdiction.join(', ') || 'Not encoded'}</dd>
-                  <dt>Profession</dt><dd>{record.professionRelevance.length ? record.professionRelevance.map(value => formatStatus(value)).join(', ') : 'Not encoded'}</dd>
-                  <dt>Verified</dt><dd>{date(record.verifiedAt)}{record.effectiveDate ? ` · effective ${date(record.effectiveDate)}` : ''}</dd>
-                </dl>
-                {record.uncertainty && <p><strong>Uncertainty:</strong> {record.uncertainty}</p>}
-                {record.conflictStatus !== 'none' && <p><strong>Conflict:</strong> {formatStatus(record.conflictStatus)}</p>}
-                {record.freshnessReason && <p><strong>Currentness note:</strong> {record.freshnessReason}</p>}
                 <p><strong>Primary source:</strong> {record.primarySource.publisher} · {record.primarySource.title}</p>
                 <a className="hvm2-text-link" href={record.primarySource.url} target="_blank" rel="noreferrer">Open primary source ↗</a>
               </div>
