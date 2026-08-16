@@ -287,6 +287,7 @@ test.describe.serial('authenticated organization onboarding', () => {
       expect(orgContext.status).toBe(200)
       expect(orgContext.payload.data?.memberships.length).toBeGreaterThanOrEqual(2)
       expect(orgContext.payload.data?.active_workspace_id).not.toBe(createdWorkspaceId)
+      await expect(page.getByText('ATTENTION', { exact: true })).toBeVisible({ timeout: 30_000 })
       await page.screenshot({ path: path.join(evidenceRoot, '390x844-command-after-join.png'), fullPage: false, animations: 'disabled' })
     } finally {
       await context.close()
