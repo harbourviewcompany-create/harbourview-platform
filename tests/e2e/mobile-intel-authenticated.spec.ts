@@ -137,7 +137,7 @@ test.describe('Mobile Intel authenticated evidence', () => {
           expect(response?.status()).toBeLessThan(400); await expect(page.locator('#clinical')).toBeVisible()
           await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible()
           await expect(page.getByRole('region', { name: 'Evidence command · Canada · Exporter' })).toBeVisible()
-          if (stateName !== 'loaded') await expect(page.getByText(fixture.message, { exact: true })).toBeVisible()
+          if (stateName !== 'loaded') await expect(page.locator('.hvc-state-panel[role="status"]').getByText(fixture.message, { exact: true })).toBeVisible()
           await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
           for (const label of ['Command','Market','Intel','Actions']) await expect(page.locator('.hvm-op-bottom-nav')).toContainText(label)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
