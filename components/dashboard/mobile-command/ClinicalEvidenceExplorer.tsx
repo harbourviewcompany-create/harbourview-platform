@@ -3,16 +3,15 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { ClinicalEvidenceSearchResult } from '@/lib/clinical/evidence'
 import { formatStatus } from './contracts'
-
-function jurisdictionFromCommandHref(commandHref: string): string {
-  const query = commandHref.includes('?') ? commandHref.slice(commandHref.indexOf('?') + 1) : ''
-  const raw = new URLSearchParams(query).get('country')?.trim() ?? ''
-  if (raw.toUpperCase() === 'CA') return 'Canada'
-  return raw || 'Canada'
-}
+import {
+  CLINICAL_SCOPE_NOTICE,
+  clinicalJurisdictionLabel,
+  countryIso2FromCommandHref,
+} from './clinicalCommandContract'
 
 export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
-  const jurisdiction = useMemo(() => jurisdictionFromCommandHref(commandHref), [commandHref])
+  const countryIso2 = useMemo(() => countryIso2FromCommandHref(commandHref), [commandHref])
+  const jurisdiction = useMemo(() => clinicalJurisdictionLabel(countryIso2), [countryIso2])
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<ClinicalEvidenceSearchResult | null>(null)
@@ -20,6 +19,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
 
   useEffect(() => {
     const controller = new AbortController()
+    // API historically accepts display labels like "Canada"; also accept ISO when wired.
     const params = new URLSearchParams({ jurisdiction, limit: '20' })
     if (submittedQuery) params.set('q', submittedQuery)
 
@@ -91,12 +91,13 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       `}</style>
 
       <div className="hvm2-sourcing-note" data-sourcing={state} aria-live="polite">
-        <strong id="clinical-evidence-title">Evidence by condition · {jurisdiction}</strong>
+        <strong id="clinical-evidence-title">Evidence command · {jurisdiction}</strong>
         <p>{loading ? 'Loading reviewed evidence…' : result?.message}</p>
+        <p><small>{CLINICAL_SCOPE_NOTICE}</small></p>
       </div>
 
       <form onSubmit={submit} role="search" aria-label="Search clinical evidence by condition">
-        <label htmlFor="clinical-evidence-query">Condition or clinical question</label>
+        <label htmlFor="clinical-evidence-query">Condition, product class, or clinical question</label>
         <div className="hvm2-two-column">
           <input
             id="clinical-evidence-query"
@@ -104,7 +105,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
             value={query}
             maxLength={160}
             autoComplete="off"
-            placeholder="e.g. Dravet syndrome"
+            placeholder="e.g. Dravet syndrome, CBD"
             onChange={event => setQuery(event.target.value)}
           />
           <button type="submit" className="hvm2-inline-cta">Search reviewed evidence</button>
