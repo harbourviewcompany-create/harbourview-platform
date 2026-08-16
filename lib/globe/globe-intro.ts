@@ -1,35 +1,59 @@
 /**
- * First-paint globe intro: gold plates → timed 360° spin → soft lerp into
- * regulatory tier colouring. Pure helpers shared by Canvas and tests.
+ * First-paint globe intro: gold → 360° spin → soft lerp into tier colours.
+ *
+ * Phase machine lives in GlobeCanvas. This module only holds timing constants
+ * and pure helpers (blend amount, material lerp) so tests stay lightweight.
  */
 
-import type { GlobeMaterialState } from '@/lib/globe/globe-materials'
+import {
+  resolveCountryMaterialState,
+  type GlobeCountryVisualState,
+  type GlobeMaterialState,
+  type GlobeTierPalette,
+  type RegulatoryTier,
+} from '@/lib/globe/globe-materials'
+import type { GlobeLayerId } from '@/types/globe-router'
 
 export type GlobeIntroPhase = 'spinning' | 'revealing' | 'ready'
 
 export const GLOBE_INTRO = {
-  /** Wall-clock duration of the gold 360 spin (ms). */
+  /** Gold-only orbit before the colour reveal (ms). */
   spinDurationMs: 2800,
-  /** Soft gold → tier colour lerp after spin (ms). */
+  /** Gold → tier material lerp after spin (ms). */
   revealDurationMs: 750,
   /**
-   * OrbitControls autoRotateSpeed for the intro spin.
-   * three.js: default 2.0 ≈ 30s/rev at 60fps → speed ≈ 60 / durationSec.
+   * OrbitControls autoRotateSpeed during spin.
+   * three.js: speed 2 ≈ 30s/rev at 60fps → ~60 / durationSec for one turn.
    */
   spinAutoRotateSpeed: 21.5,
-  /** Production idle spin after intro. */
+  /** Idle auto-rotate after intro (matches camera config default). */
   idleAutoRotateSpeed: 0.22,
 } as const
 
-/** Ease-out cubic for the colour reveal (fast start, soft settle). */
-export function easeOutCubic(t: number): number {
-  const x = Math.min(1, Math.max(0, t))
-  return 1 - Math.pow(1 - x, 3)
+// ─── scalar helpers ───────────────────────────────────────────────────────────
+
+function clamp01(t: number): number {
+  if (t <= 0) return 0
+  if (t >= 1) return 1
+  return t
 }
 
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+/** Ease-out cubic: moves quickly off gold, settles softly into tier colour. */
+export function easeOutCubic(t: number): number {
+  const x = clamp01(t)
+  return 1 - (1 - x) ** 3
+}
+
+// ─── phase → blend ────────────────────────────────────────────────────────────
+
 /**
- * 0 = pure gold plates, 1 = full tier heat map.
- * Reduced motion jumps straight to 1 once data is ready.
+ * How far the heat map has taken over the plates.
+ * - 0 = pure gold
+ * - 1 = full tier colours
  */
 export function introTierBlend({
   introPhase,
@@ -40,18 +64,12 @@ export function introTierBlend({
   revealElapsedMs: number
   prefersReducedMotion: boolean
 }): number {
-  if (prefersReducedMotion) {
-    return introPhase === 'spinning' ? 0 : 1
-  }
+  if (prefersReducedMotion) return introPhase === 'spinning' ? 0 : 1
   if (introPhase === 'spinning') return 0
   if (introPhase === 'ready') return 1
   return easeOutCubic(revealElapsedMs / GLOBE_INTRO.revealDurationMs)
 }
 
-/**
- * Interaction lock: spin + reveal. Reduced motion only locks while still
- * waiting on the spinning→ready jump (effectively until data is ready).
- */
 export function isIntroInteractionLocked({
   introPhase,
   prefersReducedMotion,
@@ -63,7 +81,7 @@ export function isIntroInteractionLocked({
   return introPhase !== 'ready'
 }
 
-/** True while plates must ignore tiers entirely (pre-reveal). */
+/** Pre-reveal only: omit tier data entirely so every plate is gold. */
 export function shouldForceGoldPlates({
   introPhase,
   prefersReducedMotion,
@@ -75,10 +93,6 @@ export function shouldForceGoldPlates({
   return introPhase === 'spinning'
 }
 
-/**
- * Advance spinning → revealing when the timed orbit finished and live data
- * is no longer loading. Reduced motion skips reveal and goes straight ready.
- */
 export function shouldStartReveal({
   spinElapsedMs,
   loading,
@@ -93,7 +107,6 @@ export function shouldStartReveal({
   return spinElapsedMs >= GLOBE_INTRO.spinDurationMs
 }
 
-/** Advance revealing → ready after the lerp window. */
 export function shouldFinishReveal({
   revealElapsedMs,
   prefersReducedMotion,
@@ -105,18 +118,20 @@ export function shouldFinishReveal({
   return revealElapsedMs >= GLOBE_INTRO.revealDurationMs
 }
 
-/** @deprecated use shouldStartReveal */
+/** @deprecated Prefer shouldStartReveal. */
 export const shouldCompleteIntro = shouldStartReveal
 
-function parseHex(hex: string): [number, number, number] {
-  const h = hex.replace('#', '')
+// ─── colour / material lerp ───────────────────────────────────────────────────
+
+function parseHexRgb(hex: string): [number, number, number] {
+  const raw = hex.replace('#', '')
   const full =
-    h.length === 3
-      ? h
+    raw.length === 3
+      ? raw
           .split('')
-          .map((c) => c + c)
+          .map((ch) => ch + ch)
           .join('')
-      : h.padEnd(6, '0').slice(0, 6)
+      : raw.padEnd(6, '0').slice(0, 6)
   return [
     parseInt(full.slice(0, 2), 16) / 255,
     parseInt(full.slice(2, 4), 16) / 255,
@@ -124,44 +139,82 @@ function parseHex(hex: string): [number, number, number] {
   ]
 }
 
-function toHex(r: number, g: number, b: number): string {
-  const c = (n: number) =>
-    Math.round(Math.min(1, Math.max(0, n)) * 255)
+function formatHexRgb(r: number, g: number, b: number): string {
+  const byte = (n: number) =>
+    Math.round(clamp01(n) * 255)
       .toString(16)
       .padStart(2, '0')
-  return `#${c(r)}${c(g)}${c(b)}`
+  return `#${byte(r)}${byte(g)}${byte(b)}`
 }
 
-export function lerpHex(a: string, b: string, t: number): string {
-  const [ar, ag, ab] = parseHex(a)
-  const [br, bg, bb] = parseHex(b)
-  const x = Math.min(1, Math.max(0, t))
-  return toHex(ar + (br - ar) * x, ag + (bg - ag) * x, ab + (bb - ab) * x)
+export function lerpHex(from: string, to: string, t: number): string {
+  const x = clamp01(t)
+  const [fr, fg, fb] = parseHexRgb(from)
+  const [tr, tg, tb] = parseHexRgb(to)
+  return formatHexRgb(lerp(fr, tr, x), lerp(fg, tg, x), lerp(fb, tb, x))
 }
 
-function lerpNum(a: number, b: number, t: number): number {
-  return a + (b - a) * t
-}
-
-/** Blend two plate material states for the intro reveal. */
+/** Field-wise blend of two plate materials (gold ↔ tier). */
 export function lerpGlobeMaterialState(
   from: GlobeMaterialState,
   to: GlobeMaterialState,
   t: number,
 ): GlobeMaterialState {
-  const x = Math.min(1, Math.max(0, t))
-  if (x <= 0) return from
-  if (x >= 1) return to
+  const x = clamp01(t)
+  if (x === 0) return from
+  if (x === 1) return to
+
   return {
     oceanBase: lerpHex(from.oceanBase, to.oceanBase, x),
     plateBase: lerpHex(from.plateBase, to.plateBase, x),
     borderColor: lerpHex(from.borderColor, to.borderColor, x),
     emissive: lerpHex(from.emissive, to.emissive, x),
-    emissiveIntensity: lerpNum(from.emissiveIntensity, to.emissiveIntensity, x),
-    roughness: lerpNum(from.roughness, to.roughness, x),
-    metalness: lerpNum(from.metalness, to.metalness, x),
-    clearcoat: lerpNum(from.clearcoat, to.clearcoat, x),
-    clearcoatRoughness: lerpNum(from.clearcoatRoughness, to.clearcoatRoughness, x),
+    emissiveIntensity: lerp(from.emissiveIntensity, to.emissiveIntensity, x),
+    roughness: lerp(from.roughness, to.roughness, x),
+    metalness: lerp(from.metalness, to.metalness, x),
+    clearcoat: lerp(from.clearcoat, to.clearcoat, x),
+    clearcoatRoughness: lerp(from.clearcoatRoughness, to.clearcoatRoughness, x),
     sidewallColor: lerpHex(from.sidewallColor, to.sidewallColor, x),
   }
+}
+
+/**
+ * Single entry point for plate colour during the intro.
+ *
+ * `blend` 0 → gold (no tier claim). `blend` 1 → normal tier material.
+ * Values in between soft-lerp metalness and fill so the heat map fades in.
+ */
+export function resolveIntroPlateMaterial({
+  visualState,
+  layerId,
+  regulatoryTier = null,
+  palette = 'metal',
+  blend,
+}: {
+  visualState: GlobeCountryVisualState
+  layerId: GlobeLayerId
+  regulatoryTier?: RegulatoryTier | null
+  palette?: GlobeTierPalette
+  blend: number
+}): GlobeMaterialState {
+  const t = clamp01(blend)
+
+  const gold = resolveCountryMaterialState({
+    visualState,
+    layerId,
+    regulatoryTier: null,
+    palette,
+  })
+
+  if (t === 0) return gold
+
+  const tiered = resolveCountryMaterialState({
+    visualState,
+    layerId,
+    regulatoryTier,
+    palette,
+  })
+
+  if (t === 1) return tiered
+  return lerpGlobeMaterialState(gold, tiered, t)
 }
