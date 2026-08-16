@@ -75,6 +75,7 @@ test('zero-state replay skips only evidenced production-only repair and duplicat
   assert.deepEqual(zeroStateSkips, [
     '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
     '20260714224152_create_intel_eval_set_stage0.sql',
+    '20260714225601_expose_intel_eval_set_via_api_schema.sql',
   ])
 
   const originalRegulatory = fs.readFileSync(
@@ -97,6 +98,18 @@ test('zero-state replay skips only evidenced production-only repair and duplicat
     path.join(root, 'supabase/migrations/20260714224152_create_intel_eval_set_stage0.sql'),
     'utf8',
   )
+  const canonicalApi = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714120100_expose_intel_eval_set_via_api_schema.sql'),
+    'utf8',
+  )
+  const widenedApi = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714120300_expose_needs_human_in_eval_view.sql'),
+    'utf8',
+  )
+  const duplicateApi = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714225601_expose_intel_eval_set_via_api_schema.sql'),
+    'utf8',
+  )
 
   assert.match(originalRegulatory, /constraint regulatory_signals_slug_not_empty/i)
   assert.match(originalRegulatory, /constraint regulatory_signals_private_summary_not_empty/i)
@@ -110,13 +123,19 @@ test('zero-state replay skips only evidenced production-only repair and duplicat
   assert.match(canonicalEval, /20260714224152 stays a no-op: by the time replay\s*-- reaches it the table exists/i)
   assert.match(duplicateEval, /Reconstructed from production/i)
   assert.match(duplicateEval, /create table public\.intel_eval_set/i)
+
+  assert.match(canonicalApi, /real work was already applied to production under\s*-- the neighboring version 20260714225601/i)
+  assert.match(widenedApi, /drop view if exists api\.intel_eval_labeling/i)
+  assert.match(widenedApi, /create view api\.intel_eval_labeling/i)
+  assert.match(duplicateApi, /Reconstructed from production/i)
+  assert.match(duplicateApi, /create view api\.intel_eval_labeling/i)
 })
 
 test('zero-state skips are suppressed when their exact historical files are absent', () => {
   assert.deepEqual(planReplayZeroStateSkips({ migrationFiles: [] }), [])
   assert.deepEqual(
-    planReplayZeroStateSkips({ migrationFiles: ['20260714224152_create_intel_eval_set_stage0.sql'] }),
-    ['20260714224152_create_intel_eval_set_stage0.sql'],
+    planReplayZeroStateSkips({ migrationFiles: ['20260714225601_expose_intel_eval_set_via_api_schema.sql'] }),
+    ['20260714225601_expose_intel_eval_set_via_api_schema.sql'],
   )
 })
 
