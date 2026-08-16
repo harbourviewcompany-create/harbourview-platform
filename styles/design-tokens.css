@@ -67,4 +67,30 @@
   --hvm2-faint: rgba(245, 241, 232, 0.34);
   --hvm2-ok: #64c08a;
   --hvm2-warn: #e4b458;
+
+  /*
+   * Compatibility aliases for residual ui/* components that still reference
+   * generic shadcn-style tokens (bg-background, text-foreground, etc.).
+   * Prefer --hv-* in new code.
+   */
+  --background: var(--hv-black);
+  --foreground: var(--hv-ivory);
+  --card: var(--hv-navy-deep);
+  --card-foreground: var(--hv-ivory);
+  --popover: var(--hv-navy-deep);
+  --popover-foreground: var(--hv-ivory);
+  --primary: var(--hv-gold);
+  --primary-foreground: var(--hv-navy-deep);
+  --secondary: var(--hv-navy);
+  --secondary-foreground: var(--hv-ivory);
+  --muted: var(--hv-navy-800);
+  --muted-foreground: var(--hv-muted);
+  --accent: var(--hv-gold-deep);
+  --accent-foreground: var(--hv-ivory);
+  --destructive: #dc2626;
+  --destructive-foreground: var(--hv-ivory);
+  --border: var(--hv-panel-border);
+  --input: var(--hv-panel-border);
+  --ring: var(--hv-focus-ring);
+  --radius: 0.5rem;
 }

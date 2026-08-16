@@ -26,7 +26,6 @@ describe('design token authority', () => {
     for (const name of Object.keys(hvCssVariableMap)) {
       expect(tokenCss.toLowerCase()).toContain(name.toLowerCase())
     }
-    // Core hexes are present (aliases may reference other vars)
     expect(tokenCss.toLowerCase()).toContain('c6a55a')
     expect(tokenCss.toLowerCase()).toContain('0b1a2f')
     expect(tokenCss.toLowerCase()).toContain('f5f1e8')
@@ -41,10 +40,27 @@ describe('design token authority', () => {
     expect(tokenCss).toContain('--hvm2-text: var(--hv-ivory)')
   })
 
+  it('compat aliases preserve bg-background / text-foreground consumers', () => {
+    expect(tokenCss).toContain('--background: var(--hv-black)')
+    expect(tokenCss).toContain('--foreground: var(--hv-ivory)')
+    expect(tokenCss).toContain('--primary: var(--hv-gold)')
+  })
+
   it('shared panel primitive exists for sheets and cards', () => {
     const panel = readFileSync(join(process.cwd(), 'components/ui/HarbourviewPanel.tsx'), 'utf8')
     expect(panel).toContain('HarbourviewBottomSheet')
     expect(panel).toContain('HarbourviewCard')
     expect(panel).toContain('var(--hv-gold)')
+  })
+
+  it('Role Select and Country Selection use token-backed surfaces', () => {
+    const role = readFileSync(join(process.cwd(), 'components/globe/RoleSelectSheet.tsx'), 'utf8')
+    const country = readFileSync(join(process.cwd(), 'components/harbourview/CountrySelectionSheet.tsx'), 'utf8')
+    const core = readFileSync(join(process.cwd(), 'components/dashboard/mobile-command/sections/CoreSections.tsx'), 'utf8')
+
+    expect(role).toContain('var(--hv-gold)')
+    expect(role).not.toContain('#c6a55a')
+    expect(country).toContain('HarbourviewBottomSheet')
+    expect(core).toContain('CommandCard')
   })
 })
