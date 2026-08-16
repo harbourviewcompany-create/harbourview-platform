@@ -8,10 +8,13 @@ import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
 import { australiaStates } from '@/data/globe/australia-states'
+import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
+import { type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
+import { resolveIntroPlateMaterial } from '@/lib/globe/globe-intro'
+import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
+import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
+import type { GlobeLayerId } from '@/types/globe-router'
 
-// Sub-national entries keyed by parent iso2.
-// US is always expanded (state-level cannabis law relevance).
-// All others expand only when explicitly requested (e.g. in BriefingRoom).
 const SUB_NATIONALS: Record<string, (typeof canadaProvinces[number])[]> = {
   CA: canadaProvinces,
   US: usStates,
@@ -21,29 +24,17 @@ const SUB_NATIONALS: Record<string, (typeof canadaProvinces[number])[]> = {
 
 function buildGlobeEntries(subNationalIso2s: string[]) {
   const expanded = new Set(subNationalIso2s)
-  expanded.add('US') // US always split
-  expanded.add('CA') // CA always split (provinces)
-  const excluded = new Set(Object.keys(SUB_NATIONALS).filter(k => expanded.has(k)))
+  expanded.add('US')
+  expanded.add('CA')
+  const excluded = new Set(Object.keys(SUB_NATIONALS).filter((k) => expanded.has(k)))
   return [
-    ...naturalEarthCountriesPayload.countries.filter(c => !excluded.has(c.iso2)),
-    ...Array.from(expanded).flatMap(iso2 => SUB_NATIONALS[iso2] ?? []),
+    ...naturalEarthCountriesPayload.countries.filter((c) => !excluded.has(c.iso2)),
+    ...Array.from(expanded).flatMap((iso2) => SUB_NATIONALS[iso2] ?? []),
   ]
 }
-import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
-import { resolveCountryMaterialState, type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
-import { lerpGlobeMaterialState } from '@/lib/globe/globe-intro'
-import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
-import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
-import type { GlobeLayerId } from '@/types/globe-router'
 
-// Idle plates for these iso2s must use full-detail geometry. Medium LOD was
-// still voiding Russia in production despite per-polygon antimeridian unwrap.
 const FULL_DETAIL_IDLE_ISO2 = new Set(['RU', 'US'])
-
 const SPECULAR_CAP = 0.42
-
-// Countries whose bbox area (lon-span × lat-span) is below this threshold get an
-// inflated invisible hit mesh so they're tappable on mobile.
 const SMALL_COUNTRY_BBOX_THRESHOLD_DEG2 = 8
 
 function bboxArea(bbox: [number, number, number, number]) {
@@ -93,7 +84,9 @@ function HoverPulseMesh({
 
   useEffect(() => {
     if (matRef.current) registerMat(iso2, matRef.current)
-    return () => { registerMat(iso2, null) }
+    return () => {
+      registerMat(iso2, null)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iso2, registerMat])
 
@@ -120,7 +113,7 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
-          envMapIntensity={isSelected ? 0.95 : isFocused ? 0.76 : 0.60}
+          envMapIntensity={isSelected ? 0.95 : isFocused ? 0.76 : 0.6}
           specularIntensity={isSelected ? 1.15 : isFocused ? 1.05 : 0.94}
           sheen={isSelected ? 0.32 : 0.18}
           sheenColor={isSelected ? '#fff0b8' : '#d5a642'}
@@ -167,9 +160,18 @@ function HoverPulseMesh({
         geometry={hitGeometry ?? geometry}
         visible={false}
         renderOrder={40}
-        onPointerEnter={(e) => { e.stopPropagation(); onPointerEnter() }}
-        onPointerLeave={(e) => { e.stopPropagation(); onPointerLeave() }}
-        onClick={(e) => { e.stopPropagation(); onClick() }}
+        onPointerEnter={(e) => {
+          e.stopPropagation()
+          onPointerEnter()
+        }}
+        onPointerLeave={(e) => {
+          e.stopPropagation()
+          onPointerLeave()
+        }}
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick()
+        }}
       />
     </>
   )
@@ -183,7 +185,7 @@ export function CountryPolygonMeshLayer({
   activeLayerId,
   tierByIso2,
   tierPalette = 'metal',
-  /** 0 = pure gold, 1 = full tier heat. Used during intro reveal lerp. */
+  /** 0 = pure gold, 1 = full tier heat. Driven by the intro reveal. */
   introTierBlend = 1,
   onHoverCountry,
   onSelectCountry,
@@ -193,10 +195,6 @@ export function CountryPolygonMeshLayer({
   focusedCountryIso2?: string
   selectedCountryIso2s: string[]
   activeLayerId: GlobeLayerId
-  /**
-   * iso2 → reviewed regulatory tier. Absent key = unreviewed = neutral plate.
-   * Undefined map entirely = tier colouring disabled (feature flag off).
-   */
   tierByIso2?: Record<string, RegulatoryTier | null>
   tierPalette?: GlobeTierPalette
   introTierBlend?: number
@@ -204,8 +202,8 @@ export function CountryPolygonMeshLayer({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const matRegistry = useRef(new Map<string, MeshPhysicalMaterial>())
-  const targetMap   = useRef(new Map<string, number>())
-  const animating   = useRef(new Set<string>())
+  const targetMap = useRef(new Map<string, number>())
+  const animating = useRef(new Set<string>())
   const { invalidate } = useThree()
 
   const registerMat = useCallback((iso2: string, mat: MeshPhysicalMaterial | null) => {
@@ -218,19 +216,25 @@ export function CountryPolygonMeshLayer({
     }
   }, [])
 
-  const scheduleAnimation = useCallback((iso2: string, target: number) => {
-    targetMap.current.set(iso2, target)
-    animating.current.add(iso2)
-    invalidate()
-  }, [invalidate])
+  const scheduleAnimation = useCallback(
+    (iso2: string, target: number) => {
+      targetMap.current.set(iso2, target)
+      animating.current.add(iso2)
+      invalidate()
+    },
+    [invalidate],
+  )
 
   useFrame((state, delta) => {
     if (animating.current.size === 0) return
     const settled: string[] = []
     for (const iso2 of animating.current) {
-      const mat    = matRegistry.current.get(iso2)
+      const mat = matRegistry.current.get(iso2)
       const target = targetMap.current.get(iso2)
-      if (!mat || target === undefined) { settled.push(iso2); continue }
+      if (!mat || target === undefined) {
+        settled.push(iso2)
+        continue
+      }
       const cur = mat.emissiveIntensity
       if (Math.abs(cur - target) < 0.001) {
         mat.emissiveIntensity = target
@@ -333,26 +337,16 @@ export function CountryPolygonMeshLayer({
           : focusedCountryIso2 === entry.iso2
             ? 'focused'
             : 'idle'
+
+        // Subdivisions inherit the parent country's reviewed tier.
         const tierIso2 = (entry as { parentIso2?: string }).parentIso2 ?? entry.iso2
-        const blend = Math.min(1, Math.max(0, introTierBlend))
-        const goldMaterial = resolveCountryMaterialState({
-          visualState,
-          layerId: activeLayerId,
-          regulatoryTier: null,
-          palette: tierPalette,
-        })
-        const tierMaterial = resolveCountryMaterialState({
+        const material = resolveIntroPlateMaterial({
           visualState,
           layerId: activeLayerId,
           regulatoryTier: tierByIso2?.[tierIso2] ?? null,
           palette: tierPalette,
+          blend: introTierBlend,
         })
-        const material =
-          blend >= 0.999
-            ? tierMaterial
-            : blend <= 0.001
-              ? goldMaterial
-              : lerpGlobeMaterialState(goldMaterial, tierMaterial, blend)
 
         return (
           <HoverPulseMesh
@@ -374,7 +368,9 @@ export function CountryPolygonMeshLayer({
             scheduleAnimation={scheduleAnimation}
             onPointerEnter={() => onHoverCountry?.(entry.iso2)}
             onPointerLeave={() => onHoverCountry?.(undefined)}
-            onClick={() => { onSelectCountry?.(entry.iso2) }}
+            onClick={() => {
+              onSelectCountry?.(entry.iso2)
+            }}
           />
         )
       })}
