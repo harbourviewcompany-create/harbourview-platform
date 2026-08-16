@@ -10,7 +10,14 @@ import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
 import { australiaStates } from '@/data/globe/australia-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
-import { resolveIntroPlateMaterial, shouldUseMetallicGoldShader } from '@/lib/globe/globe-intro'
+import {
+  introEnvMapIntensity,
+  introSheen,
+  introSpecularIntensity,
+  metallicGoldMix,
+  resolveIntroPlateMaterial,
+  shouldUseMetallicGoldShader,
+} from '@/lib/globe/globe-intro'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
@@ -55,7 +62,9 @@ function HoverPulseMesh({
   reflectivity,
   isFocused,
   isSelected,
+  tierBlend,
   useMetallicGold,
+  goldMix,
   registerMat,
   scheduleAnimation,
   onPointerEnter,
@@ -75,8 +84,12 @@ function HoverPulseMesh({
   reflectivity: number
   isFocused: boolean
   isSelected: boolean
-  /** False during tier reveal so gold brush shader does not retint heat colours. */
+  /** 0 gold → 1 tier; drives env/specular/sheen continuity. */
+  tierBlend: number
+  /** True while any brushed gold remains (goldMix > ~0). */
   useMetallicGold: boolean
+  /** Continuous brush strength for uGoldMix. */
+  goldMix: number
   registerMat: (iso2: string, mat: MeshPhysicalMaterial | null) => void
   scheduleAnimation: (iso2: string, target: number) => void
   onPointerEnter: () => void
@@ -84,6 +97,8 @@ function HoverPulseMesh({
   onClick: () => void
 }) {
   const matRef = useRef<MeshPhysicalMaterial>(null)
+  const goldMixRef = useRef(goldMix)
+  goldMixRef.current = goldMix
 
   useEffect(() => {
     if (matRef.current) registerMat(iso2, matRef.current)
@@ -99,14 +114,43 @@ function HoverPulseMesh({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iso2, isFocused, emissiveIntensity, scheduleAnimation])
 
+  // Push uGoldMix without recompiling when only the mix changes.
+  useEffect(() => {
+    const mat = matRef.current as MeshPhysicalMaterial & {
+      userData?: { shader?: MetallicGoldShader }
+    }
+    const shader = mat?.userData?.shader
+    if (shader?.uniforms?.uGoldMix) {
+      shader.uniforms.uGoldMix.value = goldMix
+    }
+  }, [goldMix])
+
   const metallicGoldShader = useMemo(() => {
     if (!useMetallicGold) return undefined
-    return (shader: MetallicGoldShader) => applyMetallicGoldShader(shader, { isFocused, isSelected })
+    return (shader: MetallicGoldShader) => {
+      applyMetallicGoldShader(shader, {
+        isFocused,
+        isSelected,
+        goldMix: goldMixRef.current,
+      })
+      // Stash for uniform updates across reveal steps without onBeforeCompile again.
+      if (matRef.current) {
+        ;(matRef.current as MeshPhysicalMaterial & { userData: { shader?: MetallicGoldShader } }).userData =
+          {
+            ...(matRef.current.userData ?? {}),
+            shader,
+          }
+      }
+    }
   }, [isFocused, isSelected, useMetallicGold])
 
   const programCacheKey = useMetallicGold
     ? getMetallicGoldProgramCacheKey({ isFocused, isSelected })
     : `harbourview-plain-plate-${isSelected ? 'selected' : isFocused ? 'focused' : 'idle'}`
+
+  const envMapIntensity = introEnvMapIntensity({ isSelected, isFocused, tierBlend })
+  const specularIntensity = introSpecularIntensity({ isSelected, isFocused, tierBlend })
+  const sheen = introSheen({ isSelected, tierBlend })
 
   return (
     <>
@@ -121,9 +165,9 @@ function HoverPulseMesh({
           clearcoat={clearcoat}
           clearcoatRoughness={clearcoatRoughness}
           reflectivity={reflectivity}
-          envMapIntensity={isSelected ? 0.95 : isFocused ? 0.76 : 0.6}
-          specularIntensity={isSelected ? 1.15 : isFocused ? 1.05 : 0.94}
-          sheen={isSelected ? 0.32 : 0.18}
+          envMapIntensity={envMapIntensity}
+          specularIntensity={specularIntensity}
+          sheen={sheen}
           sheenColor={isSelected ? '#fff0b8' : '#d5a642'}
           sheenRoughness={0.42}
           iridescence={isSelected ? 0.12 : 0.06}
@@ -213,6 +257,7 @@ export function CountryPolygonMeshLayer({
   const animating = useRef(new Set<string>())
   const { invalidate } = useThree()
   const useMetallicGold = shouldUseMetallicGoldShader(introTierBlend)
+  const goldMix = metallicGoldMix(introTierBlend)
 
   const registerMat = useCallback((iso2: string, mat: MeshPhysicalMaterial | null) => {
     if (mat) {
@@ -371,7 +416,9 @@ export function CountryPolygonMeshLayer({
             reflectivity={SPECULAR_CAP}
             isFocused={focusedCountryIso2 === entry.iso2}
             isSelected={visualState === 'selected'}
+            tierBlend={introTierBlend}
             useMetallicGold={useMetallicGold}
+            goldMix={goldMix}
             registerMat={registerMat}
             scheduleAnimation={scheduleAnimation}
             onPointerEnter={() => onHoverCountry?.(entry.iso2)}

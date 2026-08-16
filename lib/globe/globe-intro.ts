@@ -33,8 +33,15 @@ export const GLOBE_INTRO = {
   /** Idle auto-rotate after intro. */
   idleAutoRotateSpeed: 0.22,
   /**
-   * Above this introTierBlend, drop the metallic-gold onBeforeCompile path so
-   * tier colours are not re-tinted toward gold mid-reveal.
+   * Last fraction of the measured orbit over which spin speed eases down
+   * for a settled stop (visual only — completion still uses azimuth/timeout).
+   */
+  spinEaseOutFraction: 0.18,
+  /** Floor as a fraction of spinAutoRotateSpeed at the end of the ease. */
+  spinEaseOutMinFactor: 0.22,
+  /**
+   * @deprecated Prefer metallicGoldMix(tierBlend). Kept for callers that still
+   * gate on a hard cutoff; continuous uGoldMix is the visual path.
    */
   metallicGoldMaxBlend: 0.05,
 } as const
@@ -69,6 +76,14 @@ export function introTierBlend({
   return easeOutCubic(revealElapsedMs / GLOBE_INTRO.revealDurationMs)
 }
 
+/**
+ * Brushed-gold shader mix: 1 while pure gold, 0 when fully tiered.
+ * Driven as a uniform so the grain dissolves instead of a hard program cut.
+ */
+export function metallicGoldMix(tierBlend: number): number {
+  return 1 - clamp01(tierBlend)
+}
+
 export function isIntroInteractionLocked({
   introPhase,
   prefersReducedMotion,
@@ -92,11 +107,68 @@ export function shouldForceGoldPlates({
 }
 
 /**
- * True while the brushed metallic-gold shader should own diffuseColour.
- * Once the heat map starts fading in, plain PBR uses the lerped plate colour.
+ * Keep the metallic-gold onBeforeCompile path while any gold grain remains.
+ * When mix hits ~0, plain PBR is enough (fully tiered / ready).
  */
-export function shouldUseMetallicGoldShader(blend: number): boolean {
-  return clamp01(blend) <= GLOBE_INTRO.metallicGoldMaxBlend
+export function shouldUseMetallicGoldShader(tierBlend: number): boolean {
+  return metallicGoldMix(tierBlend) > 0.001
+}
+
+/**
+ * Spin speed for the measured orbit: full speed until the final ease window,
+ * then ease down so the stop feels settled (does not change completion rules).
+ */
+export function introSpinAutoRotateSpeed(azimuthAccumRad: number): number {
+  const progress = clamp01(azimuthAccumRad / GLOBE_INTRO.fullOrbitRad)
+  const easeStart = 1 - GLOBE_INTRO.spinEaseOutFraction
+  if (progress <= easeStart) return GLOBE_INTRO.spinAutoRotateSpeed
+
+  const t = (progress - easeStart) / GLOBE_INTRO.spinEaseOutFraction
+  // Smoothstep into the slowdown.
+  const ease = t * t * (3 - 2 * t)
+  const minSpeed = GLOBE_INTRO.spinAutoRotateSpeed * GLOBE_INTRO.spinEaseOutMinFactor
+  return lerp(GLOBE_INTRO.spinAutoRotateSpeed, minSpeed, ease)
+}
+
+/** Env map response: richer on gold, eases to steady tier values. */
+export function introEnvMapIntensity({
+  isSelected,
+  isFocused,
+  tierBlend,
+}: {
+  isSelected: boolean
+  isFocused: boolean
+  tierBlend: number
+}): number {
+  const gold = isSelected ? 1.05 : isFocused ? 0.88 : 0.72
+  const tier = isSelected ? 0.95 : isFocused ? 0.76 : 0.6
+  return lerp(gold, tier, clamp01(tierBlend))
+}
+
+export function introSpecularIntensity({
+  isSelected,
+  isFocused,
+  tierBlend,
+}: {
+  isSelected: boolean
+  isFocused: boolean
+  tierBlend: number
+}): number {
+  const gold = isSelected ? 1.22 : isFocused ? 1.12 : 1.02
+  const tier = isSelected ? 1.15 : isFocused ? 1.05 : 0.94
+  return lerp(gold, tier, clamp01(tierBlend))
+}
+
+export function introSheen({
+  isSelected,
+  tierBlend,
+}: {
+  isSelected: boolean
+  tierBlend: number
+}): number {
+  const gold = isSelected ? 0.38 : 0.24
+  const tier = isSelected ? 0.32 : 0.18
+  return lerp(gold, tier, clamp01(tierBlend))
 }
 
 /**
