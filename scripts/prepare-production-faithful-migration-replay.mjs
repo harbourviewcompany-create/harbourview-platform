@@ -19,6 +19,7 @@ const REPLAY_ZERO_STATE_SKIPS = [
   '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
   '20260714224152_create_intel_eval_set_stage0.sql',
   '20260714225601_expose_intel_eval_set_via_api_schema.sql',
+  '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
 ]
 
 // Repository-only reconciliation migrations can occasionally have a timestamp
