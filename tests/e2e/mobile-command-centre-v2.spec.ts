@@ -4,11 +4,7 @@ import path from 'node:path'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
 import { SECTION_GROUPS, SECTION_NAV } from '@/components/dashboard/mobile-command/contracts'
 
-/**
- * Derived, not hand-typed. Spelling a label by hand cost this gate a run:
- * `education` renders as "Education path", and `getByText('Education', {
- * exact: true })` matched nothing rather than failing on the real condition.
- */
+/** Derived from SECTION_NAV so rail-label changes stay synchronized with the UI contract. */
 function railLabelsFor(group: keyof typeof SECTION_GROUPS): string[] {
   return SECTION_GROUPS[group].map(id => {
     const entry = SECTION_NAV.find(section => section.id === id)
@@ -498,7 +494,9 @@ test.describe('Mobile Command operator-first verification', () => {
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
       await assertSingleRowHorizontalRail(rail, 'Command operational-domain rail')
-      for (const label of ['Genetics', 'Talent', 'Clinical', 'Compliance', 'Education path', 'Directories', 'Network']) {
+      for (const id of ['genetics', 'talent', 'clinical', 'compliance', 'education', 'directories', 'network'] as const) {
+        const label = SECTION_NAV.find(section => section.id === id)?.label
+        if (!label) throw new Error(`SECTION_NAV has no entry for operational section "${id}"`)
         await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `rail "${label}"`)
       }
 
