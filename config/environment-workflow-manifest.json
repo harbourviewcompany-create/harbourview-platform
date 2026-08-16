@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "parentManifest": "config/environment-manifest.json",
-  "scope": "Supplemental environment classifications merged with the parent manifest. Primarily workflow-local references, plus platform-provided release-identity markers and explicit fail-closed application gates discovered by static scanning; production environment authority remains the parent manifest.",
+  "scope": "Workflow-local environment variables that are referenced by .github/workflows but are not application/runtime infrastructure variables. Common provider credentials and platform variables remain classified in the parent manifest.",
   "groups": [
     {
       "id": "workflow-local-plain",
@@ -12,7 +12,6 @@
         "BASE_URL",
         "BEFORE",
         "CLINICAL_CALCULATOR_REVIEW_APPROVED",
-        "CLINICAL_TEST_ANON_KEY",
         "CLINICAL_TEST_API_URL",
         "CONFIRMATION",
         "DECISION_INTEL_EVENT_ID",
@@ -73,7 +72,7 @@
       "stage": "CI/Deploy only",
       "sensitivity": "Plain variable",
       "provider": "github-actions/workflow-local",
-      "requirement": "Workflow-local input, derived value, test configuration or artifact path; not a production application secret contract",
+      "requirement": "Workflow-local input, derived value, test configuration or artifact path; not a Cloudflare/Vercel runtime environment requirement",
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
@@ -97,50 +96,11 @@
       "stage": "CI/Deploy only",
       "sensitivity": "Secret",
       "provider": "github-actions/test-runtime",
-      "requirement": "Workflow-local verification/test secret or short-lived deployment credential; not an application production secret contract",
+      "requirement": "Workflow-local verification/test secret; not an application production secret contract",
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
         "nextWebPreview": "Keep in CI/test secret store; do not copy to Worker runtime"
-      }
-    },
-    {
-      "id": "github-actions-platform-markers",
-      "names": ["GITHUB_ENV"],
-      "stage": "CI/Deploy only",
-      "sensitivity": "Plain variable",
-      "provider": "github-actions",
-      "requirement": "GitHub Actions-provided environment file path used to pass derived values between workflow steps",
-      "status": "platform-provided",
-      "cloudflare": {
-        "intelligenceHealthWorker": "Not used",
-        "nextWebPreview": "GitHub Actions platform marker; do not configure as application runtime state"
-      }
-    },
-    {
-      "id": "vercel-release-identity-markers",
-      "names": ["VERCEL_DEPLOYMENT_ID", "VERCEL_GIT_COMMIT_SHA", "VERCEL_URL"],
-      "stage": "Runtime only",
-      "sensitivity": "Plain variable",
-      "provider": "vercel",
-      "requirement": "Vercel-provided deployment identity metadata exposed by the no-store release-identity route for verification",
-      "status": "platform-provided",
-      "cloudflare": {
-        "intelligenceHealthWorker": "Not used",
-        "nextWebPreview": "Vercel-specific markers; replace with provider-equivalent identity metadata before any Cloudflare production parity cutover"
-      }
-    },
-    {
-      "id": "clinical-calculator-review-gate",
-      "names": ["CLINICAL_CALCULATOR_REVIEW_APPROVED"],
-      "stage": "Runtime only",
-      "sensitivity": "Plain variable",
-      "provider": "harbourview",
-      "requirement": "Reserved fail-closed enablement gate; leave unset until the current calculation algorithm receives explicit qualified clinical and legal review",
-      "status": "reserved",
-      "cloudflare": {
-        "intelligenceHealthWorker": "Not used",
-        "nextWebPreview": "Do not configure unless the same explicit clinical-review approval applies to that deployment"
       }
     }
   ]
