@@ -585,4 +585,252 @@ This document does **not** authorize a third promotion path or unvalidated auto-
 
 ---
 
+## 21. Gate Invocation Contract
+
+### 21.1 Call graph (required shape)
+
+```
+hv_quality_promote_tick()                    -- existing cadence entry
+  └─ hv_dedup_assign(...)
+  └─ hv_autonomy_evaluate(signal_ids)        -- NEW: pure evaluation, no promote
+        writes: autonomy_level, gate_scores, promotion_path (pending)
+        reads:  autonomy_policies, source_yield_metrics, embeddings, entities
+  └─ hv_promote_signals(...)                 -- EXISTING: still the only promote writer
+        still requires classifier_validation.gate_passed
+        additionally: only promotes rows whose promotion_path ∈ ('full_auto','shadow')
+                      OR that were human-approved via decision events
+  └─ hv_log_decision_events(...)             -- NEW: auto decisions for full_auto/shadow/discard
+```
+
+**Rules**
+
+1. `hv_autonomy_evaluate` **never** sets `reviewed=true`. It only scores and stamps autonomy fields.
+2. `hv_promote_signals` remains the **only** function that flips `reviewed` false→true for auto paths.
+3. Human promote from the review UI calls a dedicated server action that (a) writes `signal_decision_events`, (b) sets autonomy/promotion_path, (c) invokes the same promote primitive or a narrow human-promote helper that still refuses to touch rows already `reviewed_by like 'human:%'` incorrectly.
+4. No HTTP route or edge function may promote without going through this graph.
+
+### 21.2 Function contracts (sketch)
+
+```text
+hv_autonomy_evaluate(
+  p_signal_ids uuid[] default null,  -- null = eligible unreviewed batch
+  p_mode text default 'shadow'       -- 'shadow' | 'live'
+) returns table (
+  signal_id uuid,
+  autonomy_level smallint,
+  promotion_path text,
+  gate_scores jsonb
+)
+
+-- Idempotent: re-running on same signal overwrites gate_scores / autonomy_level
+-- with the latest policy version; does not promote.
+
+hv_promote_signals(
+  p_min_conf numeric default 0.65
+) 
+-- Extended filter (additive, not replacing existing):
+--   AND (
+--     promotion_path in ('full_auto', 'shadow')
+--     OR exists human promote decision event
+--   )
+--   AND classifier_validation.gate_passed for classifier_version
+--   AND autonomy_policies.gate_passed for signal_class (when live mode)
+```
+
+### 21.3 Idempotency
+
+- Evaluate: safe to re-run; last write wins on gate fields.
+- Promote: still only `reviewed is distinct from true` and not human-owned.
+- Decision events: append-only; never update prior rows.
+- Review queue: unique open row per `signal_id` (or upsert status).
+
+---
+
+## 22. Baseline Measurement Plan
+
+Before enabling Shadow that changes any behavior, capture a **time-bounded baseline** (recommended: 14 consecutive days of current production behavior).
+
+### 22.1 Required baseline metrics
+
+| Metric | Definition |
+|--------|------------|
+| Human review volume | Count of promote/reject/edit actions by humans per day |
+| Human override rate | Human reject after auto candidate / auto candidates (if any auto exists) |
+| Median / p90 time-to-reviewed | From signal insert → `reviewed_at` for human-reviewed rows |
+| Promoted volume by content_type, language, source tier | Daily counts |
+| Precision proxy | Spot-audit sample (e.g. 50 promoted/day) graded by human rubric |
+| Exception-equivalent load | Unreviewed backlog age and depth |
+
+### 22.2 Example queries (illustrative — adjust to live schema)
+
+```sql
+-- Daily human decisions once signal_decision_events exists;
+-- until then, approximate from reviewed_by / review tables.
+select date_trunc('day', created_at) as d,
+       decision,
+       count(*)
+from signal_decision_events
+where human_id is not null
+  and created_at >= now() - interval '14 days'
+group by 1, 2
+order by 1, 2;
+
+-- Promoted mix
+select date_trunc('day', reviewed_at) as d,
+       content_type,
+       lang_detected,
+       count(*)
+from signals
+where reviewed = true
+  and reviewed_at >= now() - interval '14 days'
+group by 1, 2, 3;
+```
+
+### 22.3 Success criteria anchoring
+
+Store baseline snapshot in `docs/control/EVIDENCE_LOG.md` (or a metrics table) with date range and query hashes. All later “↓ 70–90% human volume” claims compare against this snapshot, not against memory.
+
+---
+
+## 23. Downstream Consumer Checklist
+
+Autonomy must not silently break product surfaces. Before Full Auto on a class, verify each consumer.
+
+| Consumer | Path / mechanism | Autonomy impact | Check |
+|----------|------------------|-----------------|-------|
+| Intel / Signals feed | `lib/regulatory-signals/public.ts` → `reviewed=eq.true` | Full Auto and Shadow both set `reviewed=true` if promote runs; Shadow-only-log mode must **not** set reviewed | Confirm Shadow policy (open decision §20.7) |
+| Digest | `daily_digest` / editorial paths (Architecture Spec Stage D gap) | `content_type=story` Full Auto only after Digest wiring verified | End-to-end: story row appears on Digest |
+| `intelligence-notify` cron | `signals_for_digest` / subscription digests | New auto volume can spike email load | Rate limits / quality filters on notify |
+| Watchlists / briefings | Command centre / my-briefings | Higher signal volume → more matches | Ensure watch rules still meaningful; no spam |
+| Marketplace conversion | `signal_conversions` / marketplace candidates | Commercial heads may auto-create candidates | Human gate remains for high-stakes listings if required |
+| Jurisdiction synthesis | `lib/intelligence/jurisdictionSynthesis.ts` | Reads reviewed signals | Stratified precision before trusting auto in synthesis |
+| Public DTOs | Allowlist docs | Must not expose gate_scores, decision events, yield | Leakage tests |
+
+**Rule:** Shadow that promotes user-visibly is treated as Full Auto for consumer impact. Prefer log-only Shadow until pilot class metrics clear.
+
+---
+
+## 24. Policy Enablement Runbook
+
+Mechanical sequence for turning on Full Auto for one `signal_class`. No step skipped.
+
+1. **Branch test** — Apply migrations + gate code on a Supabase branch DB; no production promote change.
+2. **Instrument in production** — Deploy decision logging + nullable autonomy columns; behavior unchanged.
+3. **Baseline** — Complete §22 capture; record in evidence log.
+4. **Shadow evaluate** — Run `hv_autonomy_evaluate(..., mode='shadow')` on schedule; write gate_scores; **do not** promote via new paths.
+5. **Shadow report** — Compare would-be Full Auto set vs human outcomes + eval set for ≥7 days (or N≥100 class samples). Precision ≥ target for that class.
+6. **Policy row** — Insert `autonomy_policies` with `gate_passed=false` and metrics jsonb from step 5.
+7. **Owner sign-off** — Tyler explicitly approves pilot class (see §20).
+8. **Open gate** — Set `gate_passed=true` for that `policy_version` only.
+9. **Live promote** — `hv_promote_signals` may promote that class when path is full_auto/shadow and all gates pass.
+10. **Soak** — ≥7 days: watch precision, Exception depth, consumer metrics, cost, Disk IO.
+11. **Expand or revert** — Widen class thresholds only with new policy version + evidence; on regression set `gate_passed=false` immediately.
+
+Irreversible widenings (new class, large threshold drop) always require steps 5–8 again.
+
+---
+
+## 25. Admin Authority Model
+
+| Action | Who |
+|--------|-----|
+| View Exception / AL inbox | Signal admin (existing admin convention) |
+| Promote / reject / edit from inbox | Signal admin |
+| Force-promote bypassing autonomy recommendation | Signal admin; always logged with reason_code `force_promote` |
+| Insert/update `autonomy_policies` | Owner or designated ops role only (stricter than general signal admin) |
+| Set `gate_passed` true/false | Owner or designated ops role only |
+| Export decision events / yield metrics | Admin; no public API |
+| Change acquisition weights / sampler version | Ops via config table or deploy; versioned |
+
+Implementation must not grant `autonomy_policies` writes to broad admin if the platform admin role is shared with less trusted operators. Prefer a dedicated capability flag or owner-only path for policy gates.
+
+---
+
+## 26. Edge Cases and Degraded Modes
+
+| Case | Behavior |
+|------|----------|
+| Translation missing / failed | Gate 3 treats confidence as uncalibrated for non-English; prefer Exception unless source is English or translation stage succeeded |
+| One multi-head timeout / error | Do not Full Auto on partial consensus; Exception or requeue evaluate |
+| All heads fail | Exception + processing error log; no promote |
+| Empty cluster / no embedding yet | Corroboration = 0; apply per-class min_corroboration (may force Exception) |
+| Model outage (OpenAI) | Evaluate/promote auto paths pause; human Exception path remains; no silent drop |
+| `classifier_validation.gate_passed=false` | No auto promote (existing invariant); autonomy evaluate may still run for measurement |
+| `autonomy_policies` missing for class | Treat as Human Required |
+| Conflicting policies | Highest specificity wins (class+language > class > default); never fail open |
+| Duplicate open review-queue rows | Upsert / unique constraint; sampler idempotent |
+| Human edits after Full Auto promote | Allowed; decision event logged; do not auto-unreview unless explicit reject workflow |
+| Shadow vs live mode mismatch | `p_mode` and policy `gate_passed` both required for live Full Auto |
+
+---
+
+## 27. Decision-Event Retention and Redaction
+
+| Field | Retention | Notes |
+|-------|-----------|-------|
+| Structured fields (decision, gate_scores, reason_codes, model_versions) | ≥ 24 months (audit) | Needed for training + compliance |
+| `free_text_notes` | ≤ 90 days default, then null or hard-delete | May contain sensitive ops commentary |
+| `human_id` | Retain with row | Access admin-only |
+| `edits` payloads | ≥ 24 months if no PII; redact if free text embedded | Prefer field-level structured edits |
+
+- No decision events in public DTOs, logs shipped to third parties, or client bundles.
+- Export for model training: strip `free_text_notes` by default; require explicit flag to include.
+- Align with platform data-handling rules in `AGENTS.md` and control docs.
+
+---
+
+## 28. Implementation Test Plan (acceptance)
+
+Each implementation PR must quote evidence for the applicable rows.
+
+### 28.1 Instrument phase
+
+- [ ] Migrations apply cleanly on branch DB
+- [ ] RLS: anon/authenticated cannot read/write new tables
+- [ ] Decision event insert from a mocked human action succeeds
+- [ ] Existing promote path unchanged (row counts / reviewed flags stable)
+
+### 28.2 Shadow phase
+
+- [ ] `hv_autonomy_evaluate` writes gate_scores without setting `reviewed=true`
+- [ ] Re-run evaluate is idempotent on same signal
+- [ ] Shadow report query returns comparable set vs human labels
+- [ ] Budget ceiling stops evaluate batch when exhausted
+
+### 28.3 Policy / Full Auto phase
+
+- [ ] `hv_promote_signals` promotes 0 rows when `autonomy_policies.gate_passed=false` for class
+- [ ] With `gate_passed=true` and high-confidence fixture, promote flips reviewed once
+- [ ] Human-owned rows never auto-touched
+- [ ] `classifier_validation.gate_passed=false` still blocks all auto promote
+- [ ] Decision events written for auto promote/discard
+
+### 28.4 Sampler / UI phase
+
+- [ ] Sampler respects batch size and diversity threshold
+- [ ] Quotas produce min non-English share when pool allows
+- [ ] No duplicate open queue rows for same signal_id
+- [ ] Claim/lock prevents double claim
+- [ ] Public leakage tests pass (no gate_scores on public routes)
+
+### 28.5 Regression
+
+- [ ] `npm run typecheck` / tests / build as required by AGENTS.md for touched code
+- [ ] Evidence log entry for the PR
+
+---
+
+## 29. Acquisition-Function A/B Protocol
+
+Experiment on α/β/γ/δ/ε (and diversity threshold) without poisoning production labels.
+
+1. **Version** every sampler run: `acquisition_version` string stored on queue rows and decision events.
+2. **Split** eligible pool by stable hash of `signal_id` (e.g. 80% control / 20% treatment) or by day-of-week — document the split rule.
+3. **Primary metrics:** labels-to-Δ-precision, rare-slice coverage, human time per accepted improve.
+4. **Guardrails:** treatment cannot reduce safety (Exception reasons still honored); max treatment traffic cap.
+5. **Promotion of winner:** only by config change + evidence log entry; never silent mid-day weight edit.
+6. **Offline simulation** preferred before live traffic: replay historical unlabeled pool with different weights against eventual human labels.
+
+---
+
 *End of design specification.*
