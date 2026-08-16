@@ -12,8 +12,9 @@
 -- its benchmark/alert sections when they are empty. Omitting the rows therefore
 -- makes a zero-state rebuild materially different from production.
 --
--- Production already records version 20260701230000, so this remains a
--- repository-only replay-fidelity repair and is never reapplied remotely.
+-- Production already records version 20260701230000, so this is a
+-- repository-only replay-fidelity repair and is not a production migration.
+-- It is never reapplied remotely.
 
 create table if not exists public.corridor_processing_times (
   id uuid primary key default gen_random_uuid(),
