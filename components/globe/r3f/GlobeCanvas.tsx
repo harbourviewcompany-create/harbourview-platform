@@ -20,14 +20,14 @@ import type { GlobeTierPalette, RegulatoryTier } from '@/lib/globe/globe-materia
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import {
   GLOBE_INTRO,
-  shouldCompleteIntro,
+  introTierBlend,
+  isIntroInteractionLocked,
+  shouldFinishReveal,
   shouldForceGoldPlates,
+  shouldStartReveal,
   type GlobeIntroPhase,
 } from '@/lib/globe/globe-intro'
 
-// Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
-// OrbitControls does not call state.invalidate() internally, so without this
-// the globe freezes on initial load when nothing has been interacted with yet.
 function AutoRotateInvalidator({ active }: { active: boolean }) {
   useFrame((state) => {
     if (active) state.invalidate()
@@ -35,10 +35,6 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   return null
 }
 
-/**
- * Drives the gold intro orbit on wall-clock time and notifies when the spin
- * window has elapsed. Parent combines this with `loading` to unlock tiers.
- */
 function IntroSpinClock({
   active,
   onElapsed,
@@ -53,6 +49,30 @@ function IntroSpinClock({
     const now = performance.now()
     if (startedAtRef.current === null) startedAtRef.current = now
     onElapsed(now - startedAtRef.current)
+  })
+
+  useEffect(() => {
+    if (!active) startedAtRef.current = null
+  }, [active])
+
+  return null
+}
+
+function IntroRevealClock({
+  active,
+  onElapsed,
+}: {
+  active: boolean
+  onElapsed: (elapsedMs: number) => void
+}) {
+  const startedAtRef = useRef<number | null>(null)
+
+  useFrame((state) => {
+    if (!active) return
+    const now = performance.now()
+    if (startedAtRef.current === null) startedAtRef.current = now
+    onElapsed(now - startedAtRef.current)
+    state.invalidate()
   })
 
   useEffect(() => {
@@ -131,6 +151,7 @@ export function GlobeCanvas({
   const { liveData, loading } = useGlobe()
   const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [revealElapsedMs, setRevealElapsedMs] = useState(0)
   const spinElapsedMsRef = useRef(0)
 
   useEffect(() => {
@@ -143,9 +164,15 @@ export function GlobeCanvas({
   }, [])
 
   const forceGold = shouldForceGoldPlates({ introPhase, prefersReducedMotion })
+  const interactionLocked = isIntroInteractionLocked({ introPhase, prefersReducedMotion })
+  const tierBlend = introTierBlend({
+    introPhase,
+    revealElapsedMs,
+    prefersReducedMotion,
+  })
 
-  // iso2 → reviewed tier. Undefined when the flag is off OR during the gold
-  // intro, which forces every plate through the neutral gold material path.
+  // During spinning: omit tiers. During reveal/ready: pass real tier map so
+  // the mesh layer can lerp gold → heat.
   const tierByIso2 = useMemo(() => {
     if (forceGold) return undefined
     if (!featureFlags.globeRegulatoryTiers) return undefined
@@ -167,61 +194,84 @@ export function GlobeCanvas({
   const invalidateRef = useRef<(() => void) | null>(null)
   const handleHoverCountry = useCallback(
     (iso2?: string) => {
-      if (forceGold) return
+      if (interactionLocked) return
       invalidateRef.current?.()
       onHoverCountry?.(iso2)
     },
-    [onHoverCountry, forceGold],
+    [onHoverCountry, interactionLocked],
   )
 
   const handleSelectCountry = useCallback(
     (iso2: string) => {
-      if (forceGold) return
+      if (interactionLocked) return
       onSelectCountry?.(iso2)
     },
-    [onSelectCountry, forceGold],
+    [onSelectCountry, interactionLocked],
   )
 
-  const tryCompleteIntro = useCallback(() => {
-    if (introPhase === 'ready') return
+  const tryAdvanceFromSpin = useCallback(() => {
+    if (introPhase !== 'spinning') return
     if (
-      shouldCompleteIntro({
+      !shouldStartReveal({
         spinElapsedMs: spinElapsedMsRef.current,
         loading,
         prefersReducedMotion,
       })
     ) {
-      setIntroPhase('ready')
+      return
     }
+    if (prefersReducedMotion) {
+      setIntroPhase('ready')
+      return
+    }
+    setRevealElapsedMs(0)
+    setIntroPhase('revealing')
   }, [introPhase, loading, prefersReducedMotion])
 
   useEffect(() => {
-    tryCompleteIntro()
-  }, [tryCompleteIntro, loading])
+    tryAdvanceFromSpin()
+  }, [tryAdvanceFromSpin, loading])
 
   const handleSpinElapsed = useCallback(
     (elapsedMs: number) => {
       spinElapsedMsRef.current = elapsedMs
-      tryCompleteIntro()
+      tryAdvanceFromSpin()
     },
-    [tryCompleteIntro],
+    [tryAdvanceFromSpin],
   )
 
-  // Auto-rotate: forced during intro; idle rules after ready.
+  const handleRevealElapsed = useCallback(
+    (elapsedMs: number) => {
+      setRevealElapsedMs(elapsedMs)
+      if (
+        introPhase === 'revealing' &&
+        shouldFinishReveal({ revealElapsedMs: elapsedMs, prefersReducedMotion })
+      ) {
+        setIntroPhase('ready')
+      }
+    },
+    [introPhase, prefersReducedMotion],
+  )
+
   const isHovering = !!focusedCountryIso2
   const isSelected = !!selectedCountryIso2
-  const introSpinning = forceGold && !prefersReducedMotion
-  const shouldAutoRotate = introSpinning || (!isHovering && !isSelected)
+  const introSpinning = introPhase === 'spinning' && !prefersReducedMotion
+  const introRevealing = introPhase === 'revealing' && !prefersReducedMotion
+  const shouldAutoRotate =
+    introSpinning || introRevealing || (!isHovering && !isSelected && introPhase === 'ready')
   const autoRotateSpeed = introSpinning
     ? GLOBE_INTRO.spinAutoRotateSpeed
-    : GLOBE_CAMERA_CONFIG.autoRotateSpeed
+    : introRevealing
+      ? GLOBE_CAMERA_CONFIG.autoRotateSpeed * 2.4
+      : GLOBE_CAMERA_CONFIG.autoRotateSpeed
 
   return (
     <div
       className={className ?? 'absolute inset-0 pointer-events-none'}
-      style={{ cursor: !forceGold && isHovering ? 'pointer' : 'default' }}
+      style={{ cursor: !interactionLocked && isHovering ? 'pointer' : 'default' }}
       data-globe-intro={introPhase}
       data-globe-force-gold={forceGold ? 'true' : 'false'}
+      data-globe-tier-blend={tierBlend.toFixed(3)}
     >
       <Canvas
         className="h-full w-full pointer-events-auto"
@@ -249,15 +299,7 @@ export function GlobeCanvas({
         <hemisphereLight args={['#243b5e', '#080409', 0.26]} />
 
         <Suspense fallback={null}>
-          <Stars
-            radius={30}
-            depth={10}
-            count={3500}
-            factor={1.2}
-            saturation={0}
-            fade
-            speed={0}
-          />
+          <Stars radius={30} depth={10} count={3500} factor={1.2} saturation={0} fade speed={0} />
 
           <group rotation={[0.08, 0.3, 0]}>
             <AtmosphereGlow />
@@ -266,16 +308,17 @@ export function GlobeCanvas({
               selectedCountryIso2={selectedCountryIso2}
               subNationalIso2s={subNationalIso2s}
               selectedCountryIso2s={selectedCountryIso2s}
-              focusedCountryIso2={forceGold ? undefined : focusedCountryIso2}
+              focusedCountryIso2={interactionLocked ? undefined : focusedCountryIso2}
               activeLayerId={activeLayerId}
               tierByIso2={tierByIso2}
               tierPalette={tierPalette}
+              introTierBlend={tierBlend}
               onHoverCountry={handleHoverCountry}
               onSelectCountry={handleSelectCountry}
             />
             <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
             <CountryBorderLayer />
-            {!forceGold && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
+            {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
@@ -286,6 +329,7 @@ export function GlobeCanvas({
 
         <AutoRotateInvalidator active={shouldAutoRotate} />
         <IntroSpinClock active={introSpinning} onElapsed={handleSpinElapsed} />
+        <IntroRevealClock active={introRevealing} onElapsed={handleRevealElapsed} />
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
@@ -299,8 +343,8 @@ export function GlobeCanvas({
           maxPolarAngle={polarLimits.max}
           autoRotate={shouldAutoRotate}
           autoRotateSpeed={autoRotateSpeed}
-          enableZoom={!forceGold && GLOBE_CAMERA_CONFIG.enableZoom}
-          enableRotate={!forceGold}
+          enableZoom={!interactionLocked && GLOBE_CAMERA_CONFIG.enableZoom}
+          enableRotate={!interactionLocked}
           minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
           maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
         />
