@@ -8,7 +8,7 @@ import {
   titleCase,
   type NextAction,
 } from '../contracts'
-import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { CommandCard, EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
 export function OverviewSection({
   sectionRef,
@@ -32,7 +32,7 @@ export function OverviewSection({
   return (
     <section id="overview" ref={sectionRef} className="hvm2-section hvm2-overview">
       <div className="hvm2-hero-grid">
-        <article className="hvm2-command-brief">
+        <CommandCard className="hvm2-command-brief">
           <span>Command brief</span>
           <h2>{countryLabel} operating picture</h2>
           <p>{publicSummary?.trim() || `${countryLabel} is loaded as the active jurisdiction for ${roleLabel}. Live marketplace, intelligence, pathway and education signals are consolidated below.`}</p>
@@ -40,13 +40,13 @@ export function OverviewSection({
             <StatusPill tone="gold">{formatStatus(marketAccessStatus, 'Market access review')}</StatusPill>
             <StatusPill>{reviewStatus}</StatusPill>
           </div>
-        </article>
-        <article className="hvm2-priority-card">
+        </CommandCard>
+        <CommandCard className="hvm2-priority-card">
           <span>Immediate priority</span>
           <strong>{firstAction?.label ?? 'Validate the active market context'}</strong>
           <p>{firstAction?.detail ?? 'Review the live operating picture before moving into commercial action.'}</p>
           <button type="button" onClick={onOpenActions}>Open action queue</button>
-        </article>
+        </CommandCard>
       </div>
     </section>
   )
