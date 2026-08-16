@@ -7,7 +7,8 @@ import Footer from '@/components/Footer'
 // Routes that suppress the public marketing shell (nav + footer).
 // /dashboard: operator dashboard
 // /country: Command Centre segment-based jurisdiction routes
-const NO_SHELL_PREFIXES = ['/dashboard', '/country']
+// /organization: authenticated organization onboarding and management workflows
+const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization']
 
 // Routes where neither nav nor footer renders — page provides its own chrome.
 const NO_CHROME_ROUTES = ['/']

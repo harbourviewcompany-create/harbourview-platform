@@ -21,10 +21,29 @@ const BodySchema = z.object({
   }),
 })
 
+function calculatorApprovedForClinicalUse(): boolean {
+  return process.env.CLINICAL_CALCULATOR_REVIEW_APPROVED === '1'
+}
+
 export async function POST(req: Request) {
   const auth = await requireVerifiedClinician()
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
+  }
+
+  // lib/clinical/dosing.ts explicitly marks the current algorithm as an interim
+  // safety bound that MUST receive qualified clinical/legal review before real
+  // patient use. Preserve the implementation, but fail closed in every runtime
+  // until that review is explicitly enabled by deployment configuration.
+  if (!calculatorApprovedForClinicalUse()) {
+    return NextResponse.json(
+      {
+        error: 'Clinical calculation is unavailable pending qualified clinical review.',
+        code: 'CLINICAL_CALCULATOR_REVIEW_REQUIRED',
+        algorithmVersion: DOSING_ALGORITHM_VERSION,
+      },
+      { status: 503 },
+    )
   }
 
   let json: unknown

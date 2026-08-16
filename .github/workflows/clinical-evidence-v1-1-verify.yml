@@ -1,0 +1,223 @@
+name: Clinical Evidence V1.1 Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/clinical/review/**
+      - lib/auth/clinicalReviewGuard.ts
+      - lib/clinical/operations.ts
+      - lib/server/clinicalEvidenceOperations.ts
+      - lib/admin/navConfig.ts
+      - supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql
+      - supabase/migrations/20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
+      - tests/clinical/evidenceV11Operations.test.ts
+      - tests/e2e/clinical-evidence-v11-reviewer.spec.ts
+      - .github/workflows/clinical-evidence-v1-1-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-evidence-v1-1-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Replay Clinical V1.1 and prove private reviewer operations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SUPABASE_DB_SCHEMA: api
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Clinical V1.1 contracts and typecheck
+        run: |
+          npx vitest run tests/clinical/evidenceSpine.test.ts tests/clinical/evidenceSpineStorage.test.ts tests/clinical/evidenceV1Governance.test.ts tests/clinical/evidenceV1ProductionFoundation.test.ts tests/clinical/evidenceV11Operations.test.ts tests/dashboard/mobileClinicalProfessional.test.ts
+          npm run typecheck
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Clinical migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            20260814121500_clinical_evidence_spine.sql
+            20260814134500_clinical_evidence_v1_governance.sql
+            20260814135500_clinical_evidence_v1_source_reconciliation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
+            20260814144000_clinical_evidence_v1_audit_immutability.sql
+            20260814150000_clinical_evidence_v1_1_operations.sql
+            20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
+          )
+          for f in "${files[@]}"; do cp "supabase/migrations/${f}" "/tmp/${f}"; done
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_isolated_clinical_dependencies.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          grant select on public.user_roles to authenticated, service_role;
+          grant all on public.user_roles to service_role;
+          SQL
+          for f in "${files[@]}"; do cp "/tmp/${f}" "supabase/migrations/${f}"; done
+          : > supabase/seed.sql
+
+      - name: Replay Clinical V1.1 from zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "CLINICAL_TEST_API_URL=${API_URL}"
+            echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
+            echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove private queue, RLS, source-only expansion and immutable audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const anon = process.env.CLINICAL_TEST_ANON_KEY
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          const h = key => ({ apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' })
+          const get = async (path, key = service) => {
+            const r = await fetch(`${base}/rest/v1/${path}`, { headers: h(key) })
+            if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`)
+            return r.json()
+          }
+          const candidates = await get('clinical_evidence_intake_queue?select=id,source_id,intake_status,coverage_status')
+          if (candidates.length !== 5 || candidates.some(x => x.intake_status !== 'snapshot-required' || x.coverage_status !== 'source-identified')) throw new Error('expected five private source-only V1.1 candidates')
+          const candidateSources = await get('clinical_evidence_sources?select=id,source_key&source_key=in.(pubmed-40238954,pubmed-39953210,pubmed-38478773,pubmed-38171632,ca-cesamet-hpr-00548375-2026-08-14)')
+          if (candidateSources.length !== 5) throw new Error('V1.1 source registry expansion missing')
+          const sourceIds = new Set(candidateSources.map(x => x.id))
+          const publicRecords = await get('clinical_evidence_records?select=primary_source_registry_id,review_status&review_status=eq.published', anon)
+          if (publicRecords.some(x => sourceIds.has(x.primary_source_registry_id))) throw new Error('unreviewed V1.1 source leaked into published evidence projection')
+          for (const table of ['clinical_evidence_intake_queue','clinical_evidence_operation_events','clinical_evidence_source_snapshots','clinical_reviewer_credentials']) {
+            const r = await fetch(`${base}/rest/v1/${table}?select=id&limit=1`, { headers: h(anon) })
+            if (r.ok && (await r.json()).length > 0) throw new Error(`anon read leaked from ${table}`)
+          }
+          const inserted = await fetch(`${base}/rest/v1/clinical_evidence_operation_events`, { method: 'POST', headers: { ...h(service), Prefer: 'return=representation' }, body: JSON.stringify({ entity_type: 'corpus', event_type: 'v1-1-ci-fixture', event_payload: { scope: 'isolated-ci' } }) })
+          if (!inserted.ok) throw new Error(`operation audit insert failed: ${inserted.status}`)
+          const event = (await inserted.json())[0]
+          const mutate = await fetch(`${base}/rest/v1/clinical_evidence_operation_events?id=eq.${event.id}`, { method: 'PATCH', headers: { ...h(service), Prefer: 'return=minimal' }, body: JSON.stringify({ event_type: 'mutated' }) })
+          if (mutate.ok) throw new Error('append-only operation event accepted update')
+          console.log('GO: V1.1 private queues, source-only corpus expansion, RLS and append-only audit verified.')
+          NODE
+
+      - name: Create authenticated reviewer fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="clinical-review-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+          import fs from 'node:fs'
+          const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+          const { data, error } = await client.auth.admin.createUser({ email: process.env.E2E_TEST_USER_EMAIL, password: process.env.E2E_TEST_USER_PASSWORD, email_confirm: true })
+          if (error || !data.user) throw error || new Error('reviewer user missing')
+          const { error: roleError } = await client.from('user_roles').insert({ user_id: data.user.id, role: 'admin' })
+          if (roleError) throw roleError
+          const { data: source, error: sourceError } = await client.from('clinical_evidence_sources').select('id').eq('source_key', 'pubmed-40238954').single()
+          if (sourceError || !source) throw sourceError || new Error('source fixture missing')
+          fs.appendFileSync(process.env.GITHUB_ENV, `E2E_CLINICAL_SOURCE_ID=${source.id}\n`)
+          NODE
+
+      - name: Build exact head
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          npm start -- --hostname 127.0.0.1 > /tmp/clinical-v11-next.log 2>&1 &
+          echo $! > /tmp/clinical-v11-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/clinical-v11-next.log
+          exit 1
+
+      - name: Capture authenticated reviewer workbench evidence
+        run: npx playwright test tests/e2e/clinical-evidence-v11-reviewer.spec.ts --project=chromium-desktop --workers=1 --retries=0
+
+      - name: Upload reviewer evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: clinical-evidence-v1-1-reviewer-${{ github.run_id }}
+          path: |
+            artifacts/clinical-evidence-v1-1/
+            playwright-report/
+            test-results/
+            /tmp/clinical-v11-next.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+      - name: Stop isolated services
+        if: always()
+        run: |
+          if [ -f /tmp/clinical-v11-next.pid ]; then kill "$(cat /tmp/clinical-v11-next.pid)" 2>/dev/null || true; fi
+          supabase stop --no-backup || true

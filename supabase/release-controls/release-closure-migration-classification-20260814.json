@@ -1,0 +1,169 @@
+{
+  "version": 1,
+  "status": "HOLD",
+  "baseline": {
+    "source_sha": "04e306d520d69d746a5099bf778dc253296710a3",
+    "observed_at_utc": "2026-08-14T11:50:24.181Z",
+    "repository_pending_versions": 88,
+    "approved_pending": 3,
+    "intentionally_deferred": 80,
+    "superseded_retired": 5
+  },
+  "evidence_sources": [
+    "supabase/release-controls/pending-production-migration-decisions.json",
+    "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md",
+    "supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+    "supabase/release-controls/elite-digest-production-activation.json",
+    "August 14 exact-main migration drift manifest at source SHA 04e306d520d69d746a5099bf778dc253296710a3"
+  ],
+  "classification_policy": {
+    "approved_pending": "Historical August 14 audit classification: exact content-bound migration present in the production release allowlist at the baseline observation time. Later application is recorded separately and does not rewrite the baseline.",
+    "intentionally_deferred": "Repository-pending migration explicitly excluded from the current controlled production release. Historical forward-reconciliation and separate-release decisions remain deferred rather than being reclassified as safe to apply; fresh pending versions with no independent authorization are also deferred.",
+    "superseded_retired": "Repository migration that must not be applied because repository control evidence already classifies it obsolete/superseded. Retirement here is a release disposition; the historical SQL file is retained until a separately reviewed history-preservation/removal change."
+  },
+  "approved_pending": [
+    {
+      "version": "20260802073000",
+      "file": "20260802073000_hv_dedup_assign_restore_hnsw_knn.sql",
+      "git_blob_sha": "6b8544df5969f12d72891201d2c82b4406d56c51",
+      "evidence": "supabase/release-controls/elite-digest-production-activation.json"
+    },
+    {
+      "version": "20260802152500",
+      "file": "20260802152500_signal_feedback_api_rpcs.sql",
+      "git_blob_sha": "512a5c59207fe2ae29fb87e4cceeb6264ab40a34",
+      "evidence": "supabase/release-controls/elite-digest-production-activation.json"
+    },
+    {
+      "version": "20260802163000",
+      "file": "20260802163000_elite_digest_rpc_boundary_hardening.sql",
+      "git_blob_sha": "f9b1cb7c09a6183f8bd1f080df37be9a619ba4eb",
+      "evidence": "supabase/release-controls/elite-digest-production-activation.json"
+    }
+  ],
+  "intentionally_deferred": [
+    "20260430000003",
+    "20260528033001",
+    "20260611103000",
+    "20260611150000",
+    "20260613080000",
+    "20260613170000",
+    "20260615091139",
+    "20260618210800",
+    "20260618210830",
+    "20260618210840",
+    "20260618210850",
+    "20260618211000",
+    "20260621220515",
+    "20260622162300",
+    "20260624032500",
+    "20260624171409",
+    "20260626110922",
+    "20260626110923",
+    "20260626110924",
+    "20260630233906",
+    "20260708214306",
+    "20260708214307",
+    "20260708214309",
+    "20260708214310",
+    "20260708214311",
+    "20260708214312",
+    "20260708214313",
+    "20260708214314",
+    "20260708214315",
+    "20260708214316",
+    "20260708214317",
+    "20260709085216",
+    "20260710094129",
+    "20260710114720",
+    "20260710235323",
+    "20260719190928",
+    "20260722021500",
+    "20260722021600",
+    "20260722021700",
+    "20260722022000",
+    "20260722022100",
+    "20260722031500",
+    "20260722120002",
+    "20260727160000",
+    "20260727161000",
+    "20260727162000",
+    "20260727163000",
+    "20260728000000",
+    "20260728010000",
+    "20260728020000",
+    "20260728201439",
+    "20260729000000",
+    "20260729000002",
+    "20260729010000",
+    "20260729020000",
+    "20260729130000",
+    "20260730123000",
+    "20260730215959",
+    "20260730220000",
+    "20260730220050",
+    "20260730220100",
+    "20260730220200",
+    "20260730221500",
+    "20260730222000",
+    "20260731013000",
+    "20260731120000",
+    "20260801150000",
+    "20260802080000",
+    "20260804233000",
+    "20260804234000",
+    "20260804234500",
+    "20260804235000",
+    "20260804235500",
+    "20260805000000",
+    "20260805233500",
+    "20260805234000",
+    "20260808120000",
+    "20260810222500",
+    "20260810223000",
+    "20260811140000"
+  ],
+  "superseded_retired": [
+    {
+      "version": "20260722030000",
+      "file": "20260722030000_analyze_hv_classify_jobs_fix_harvest_timeout.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    },
+    {
+      "version": "20260723180000",
+      "file": "20260723180000_revoke_legacy_jurisdiction_briefings_grants.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    },
+    {
+      "version": "20260724000000",
+      "file": "20260724000000_fix_entity_decode_blanking_bug_in_signal_extraction.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    },
+    {
+      "version": "20260730110000",
+      "file": "20260730110000_fix_hv_dedup_assign_timeout_and_ranking.sql",
+      "evidence": "supabase/migrations/20260802073000_hv_dedup_assign_restore_hnsw_knn.sql explicitly identifies this as the SUPERSEDED pre-HNSW body"
+    },
+    {
+      "version": "20260730180000",
+      "file": "20260730180000_search_public_signals_rpc.sql",
+      "evidence": "docs/control/PENDING_PRODUCTION_MIGRATION_DECISIONS_2026-08-02.md classifies this Obsolete / must not apply"
+    }
+  ],
+  "current_production_preflight": {
+    "observed_at_utc": "2026-08-14T17:00:00Z",
+    "20260802073000": "applied",
+    "20260802152500": "applied",
+    "20260802163000": "applied",
+    "20260814143000": "applied_forward_vector_search_path_repair",
+    "20260814124500": "not_applied_candidate"
+  },
+  "new_release_closure_candidate": {
+    "version": "20260814124500",
+    "file": "20260814124500_release_closure_security_hardening.sql",
+    "git_blob_sha": "b4ae99c3d0014422327e7861667cabd6cc1cb168",
+    "classification": "candidate_pending",
+    "production_authorized": false,
+    "note": "Created after the 88-version audit baseline; requires explicit production release authorization and is not counted in the baseline 88."
+  }
+}
