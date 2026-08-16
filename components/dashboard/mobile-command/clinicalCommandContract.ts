@@ -1,3 +1,15 @@
+import {
+  CLINICAL_AUTHORITY_SEED,
+  CLINICAL_COUNTRY_ALIASES,
+  CLINICAL_JURISDICTION_LABELS,
+  getClinicalAuthoritiesForCountry as getAuthorities,
+  listClinicalAuthorityCountries,
+  type ClinicalAuthorityRecord,
+} from '@/lib/clinical/authorityRegistry'
+
+export type { ClinicalAuthorityRecord, ClinicalAuthorityId } from '@/lib/clinical/authorityRegistry'
+export { listClinicalAuthorityCountries }
+
 export type ClinicalSourceState =
   | 'loaded'
   | 'empty'
@@ -6,65 +18,36 @@ export type ClinicalSourceState =
   | 'degraded'
   | 'permission'
   | 'error'
+  | 'limited-coverage'
 
-export type ClinicalAuthorityRecord = {
-  id: 'federal-authority' | 'medical-document' | 'safety-interactions' | 'pharmacovigilance'
-  label: string
-  purpose: string
-  jurisdiction: 'Canada'
-  evidenceType: 'regulation' | 'federal-guidance' | 'safety-guidance' | 'pharmacovigilance-guidance'
-  evidenceStrength: 'Primary authority — evidence strength not graded by source'
-  sourceName: string
-  href: string
-  verifiedAt: '2026-08-14'
+/** @deprecated Prefer getClinicalAuthoritiesForCountry */
+export const CANADA_CLINICAL_AUTHORITIES: readonly ClinicalAuthorityRecord[] =
+  CLINICAL_AUTHORITY_SEED.filter(a => a.countryIso2 === 'CA')
+
+export function normalizeClinicalCountryIso2(raw: string | null | undefined): string | null {
+  const key = raw?.trim().toUpperCase()
+  if (!key) return null
+  return CLINICAL_COUNTRY_ALIASES[key] ?? (key.length === 2 ? key : null)
 }
 
-export const CANADA_CLINICAL_AUTHORITIES: readonly ClinicalAuthorityRecord[] = [
-  {
-    id: 'federal-authority',
-    label: 'Authorization framework',
-    purpose: 'Current federal authority for health care practitioners under the Cannabis Regulations.',
-    jurisdiction: 'Canada',
-    evidenceType: 'regulation',
-    evidenceStrength: 'Primary authority — evidence strength not graded by source',
-    sourceName: 'Justice Laws Website · Cannabis Regulations §272',
-    href: 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-272.html',
-    verifiedAt: '2026-08-14',
-  },
-  {
-    id: 'medical-document',
-    label: 'Medical document requirements',
-    purpose: 'Required contents and validity of the federal medical document.',
-    jurisdiction: 'Canada',
-    evidenceType: 'regulation',
-    evidenceStrength: 'Primary authority — evidence strength not graded by source',
-    sourceName: 'Justice Laws Website · Cannabis Regulations §273',
-    href: 'https://laws-lois.justice.gc.ca/eng/regulations/SOR-2018-144/section-273.html',
-    verifiedAt: '2026-08-14',
-  },
-  {
-    id: 'safety-interactions',
-    label: 'Safety & interaction guidance',
-    purpose: 'Current federal safety, contraindication-like and interaction guidance for cannabis used for medical purposes.',
-    jurisdiction: 'Canada',
-    evidenceType: 'safety-guidance',
-    evidenceStrength: 'Primary authority — evidence strength not graded by source',
-    sourceName: 'Health Canada · Cannabis for medical purposes',
-    href: 'https://www.canada.ca/en/health-canada/topics/accessing-cannabis-for-medical-purposes/cannabis-medical-purposes.html',
-    verifiedAt: '2026-08-14',
-  },
-  {
-    id: 'pharmacovigilance',
-    label: 'Adverse-reaction reporting',
-    purpose: 'Current federal health-professional guidance for reporting suspected adverse reactions to cannabis.',
-    jurisdiction: 'Canada',
-    evidenceType: 'pharmacovigilance-guidance',
-    evidenceStrength: 'Primary authority — evidence strength not graded by source',
-    sourceName: 'Health Canada · Report a side effect to cannabis: Health care professionals',
-    href: 'https://www.canada.ca/en/health-canada/services/drugs-medication/cannabis/recalls-adverse-reactions-reporting/report-side-effects-cannabis-products/health-care-professionals.html',
-    verifiedAt: '2026-08-14',
-  },
-] as const
+export function clinicalJurisdictionLabel(iso2: string | null): string {
+  if (!iso2) return 'Unknown jurisdiction'
+  return CLINICAL_JURISDICTION_LABELS[iso2] ?? iso2
+}
+
+export function countryIso2FromCommandHref(commandHref: string): string | null {
+  const query = commandHref.includes('?') ? commandHref.slice(commandHref.indexOf('?') + 1) : ''
+  const raw = new URLSearchParams(query).get('country')?.trim() ?? ''
+  return normalizeClinicalCountryIso2(raw)
+}
+
+export function getClinicalAuthoritiesForCountry(countryIso2: string | null | undefined): readonly ClinicalAuthorityRecord[] {
+  return getAuthorities(countryIso2)
+}
+
+export function hasClinicalAuthorityCoverage(countryIso2: string | null | undefined): boolean {
+  return getClinicalAuthoritiesForCountry(countryIso2).length > 0
+}
 
 const LEGACY_MEDICAL_FRAMEWORK = /\bACMPR\b|Access to Cannabis for Medical Purposes Regulations/i
 
@@ -86,6 +69,7 @@ export function deriveClinicalSourceState(input: {
   error?: boolean
   permissionDenied?: boolean
   noMatch?: boolean
+  limitedAuthorityCoverage?: boolean
 }): ClinicalSourceState {
   if (input.error) return 'error'
   if (input.permissionDenied) return 'permission'
@@ -93,17 +77,31 @@ export function deriveClinicalSourceState(input: {
 
   const values = [input.programStatus, input.medicalStatus, input.patientAccess, input.physicianAccess]
   if (values.some(containsLegacyClinicalFramework)) return 'stale'
-  if (values.every(value => !value?.trim())) return 'empty'
+  if (values.every(value => !value?.trim())) {
+    return input.limitedAuthorityCoverage ? 'limited-coverage' : 'empty'
+  }
   if (values.some(value => !value?.trim())) return 'degraded'
   return 'loaded'
 }
 
 export const CLINICAL_SOURCE_STATE_COPY: Record<ClinicalSourceState, string> = {
-  loaded: 'Jurisdiction briefing loaded. Verify material clinical decisions against the cited primary authority.',
-  empty: 'No reviewed jurisdiction-specific clinical briefing is loaded. Primary Canadian authorities remain available below.',
-  'no-match': 'No reviewed clinical record matches this context. Change jurisdiction or role, or use the primary authorities below.',
-  stale: 'Legacy medical-cannabis terminology was detected and suppressed. Use the current Cannabis Act / Cannabis Regulations sources below.',
-  degraded: 'Only part of the jurisdiction briefing is available. Treat missing fields as unknown and use the primary authorities below.',
-  permission: 'This clinical workspace requires additional permission. Public primary-authority guidance remains available.',
-  error: 'Clinical briefing data could not be loaded. Retry the Command context or use the primary authorities below.',
+  loaded:
+    'Jurisdiction briefing loaded. Verify material clinical decisions against the cited primary authority for this country. Cannabinoid / medical-cannabis clinical reference only — not general prescribing across all drug classes.',
+  empty:
+    'No reviewed jurisdiction-specific clinical briefing is loaded. Primary authorities for this country remain available below when registered.',
+  'no-match':
+    'No reviewed clinical record matches this context. Change jurisdiction or query, or use the primary authorities below.',
+  stale:
+    'Legacy medical-cannabis terminology was detected and suppressed. Use current primary authorities for this jurisdiction.',
+  degraded:
+    'Only part of the jurisdiction briefing is available. Treat missing fields as unknown and use the primary authorities below.',
+  permission:
+    'This clinical workspace requires additional permission. Public primary-authority guidance remains available when registered for this jurisdiction.',
+  error:
+    'Clinical briefing data could not be loaded. Retry the Command context or use the primary authorities below.',
+  'limited-coverage':
+    'No reviewed primary-authority pack is published for this jurisdiction yet. Clinical Command will not substitute another country’s rules. Use local regulators directly.',
 }
+
+export const CLINICAL_SCOPE_NOTICE =
+  'Reviewed cannabinoid and medical-cannabis clinical reference for the active country. Not a general medicines monograph service. Not patient-specific advice.'

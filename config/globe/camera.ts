@@ -2,7 +2,8 @@ export const GLOBE_CAMERA_CONFIG = {
   fov: 26,
   near: 0.1,
   far: 100,
-  initialPosition: [0, 0.6, 7.8] as [number, number, number],
+  // Continent-scale opening frame (was 7.8 — too tight on North America).
+  initialPosition: [0, 0.6, 11.2] as [number, number, number],
   initialTarget: [0, 0, 0] as [number, number, number],
   minDistance: 3.0,
   maxDistance: 16,

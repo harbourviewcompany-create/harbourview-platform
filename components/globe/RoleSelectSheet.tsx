@@ -2,15 +2,14 @@
 
 import { KeyboardEvent, useMemo, useState } from 'react'
 import { RouterBottomSheet } from './RouterBottomSheet'
+import { hvPanelBodyClass } from '@/components/ui/HarbourviewPanel'
 import { getCountryRoleProfile, getMultiMarketRoleIds } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import type { RoleId } from '@/types/globe-router'
 
 interface Props {
-  /** Single-market selection. Undefined in multi_market mode. */
   countryIso2?: string
-  /** All selected markets. Drives the curated list in multi_market mode. */
   countryIso2s: string[]
   countryName: string
   mode: 'single_market' | 'multi_market' | 'not_sure'
@@ -29,13 +28,19 @@ function SearchIcon() {
       viewBox="0 0 14 14"
       fill="none"
       aria-hidden="true"
-      style={{ flexShrink: 0, color: 'rgba(212,173,58,0.72)' }}
+      className="shrink-0 text-[color:var(--hv-gold)]/72"
     >
       <circle cx="5.8" cy="5.8" r="4.1" stroke="currentColor" strokeWidth="1.4" />
       <line x1="9.2" y1="9.2" x2="12.6" y2="12.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }
+
+const roleChipClass =
+  'grid min-h-12 w-full gap-0.5 rounded-lg border border-[color:var(--hv-gold)]/18 bg-white/[0.03] px-4 py-2.5 text-left transition hover:border-[color:var(--hv-gold)]/55 hover:bg-[color:var(--hv-gold)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hv-focus-ring)]'
+
+const roleOptionBase =
+  'grid min-h-12 w-full gap-0.5 rounded-lg px-3 py-2 text-left transition'
 
 export function RoleSelectSheet({
   countryIso2,
@@ -50,9 +55,6 @@ export function RoleSelectSheet({
 }: Props) {
   const [highlightedIndex, setHighlightedIndex] = useState(0)
 
-  // Curated shortlist. Multi-market weights cross-border roles across every
-  // selected market; single-market uses that country's curated profile and
-  // falls back to the global default for uncurated countries.
   const profile = useMemo(() => getCountryRoleProfile(countryIso2), [countryIso2])
 
   const primaryRoleIds = useMemo(() => {
@@ -62,9 +64,6 @@ export function RoleSelectSheet({
     return profile.primaryRoleIds
   }, [mode, countryIso2s, profile])
 
-  // 'not_sure' is not a selectable role — filtered from the chip list. There is
-  // no "I'm not sure" escape hatch on this step; the curated list plus search
-  // covers every real role, and a dead-end fallback screen isn't a real answer.
   const chipRoleIds = useMemo(
     () => primaryRoleIds.filter((roleId) => roleId !== 'not_sure'),
     [primaryRoleIds],
@@ -73,8 +72,6 @@ export function RoleSelectSheet({
   const query = searchQuery.trim()
   const hasQuery = query.length > 0
 
-  // Search spans every role, not just the curated shortlist — that's the whole
-  // point of "curated list + search to find more".
   const matches = useMemo(() => {
     if (!hasQuery) return []
     return profile.searchableRoleIds.filter((roleId) => {
@@ -127,27 +124,15 @@ export function RoleSelectSheet({
       onBack={onBack}
     >
       <div className="grid gap-4">
-        <p className="text-sm leading-6 text-white/60">
+        <p className={hvPanelBodyClass}>
           {mode === 'multi_market'
             ? 'Your role determines which intelligence, pathways and counterparties we surface across these markets.'
             : `Your role determines which intelligence, pathways and counterparties we surface for ${countryName}.`}
         </p>
 
-        {/* Search — spans every role, including ones not in the shortlist */}
         <label className="block" htmlFor="role-search-input">
           <span className="sr-only">Search all roles</span>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(255,255,255,0.045)',
-              border: '1px solid rgba(212,173,58,0.22)',
-              borderRadius: '8px',
-              padding: '0 12px',
-              boxShadow: 'inset 0 1px 6px rgba(0,0,0,0.22)',
-            }}
-          >
+          <div className="flex items-center gap-2 rounded-lg border border-[color:var(--hv-gold)]/22 bg-white/[0.045] px-3 shadow-[inset_0_1px_6px_rgba(0,0,0,0.22)]">
             <SearchIcon />
             <input
               id="role-search-input"
@@ -162,17 +147,7 @@ export function RoleSelectSheet({
               aria-activedescendant={hasQuery && highlightedRoleId ? `role-option-${highlightedRoleId}` : undefined}
               autoComplete="off"
               placeholder="Search all roles…"
-              style={{
-                flex: 1,
-                minHeight: '40px',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                fontSize: '13px',
-                letterSpacing: '0.02em',
-                color: '#fff8e6',
-                WebkitAppearance: 'none',
-              }}
+              className="min-h-10 flex-1 border-0 bg-transparent text-[13px] tracking-[0.02em] text-[color:var(--hv-ivory)] outline-none appearance-none"
             />
           </div>
         </label>
@@ -191,12 +166,13 @@ export function RoleSelectSheet({
                   aria-selected={isHighlighted}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onClick={() => onSearchSelectRole(roleId)}
-                  className={`grid min-h-12 w-full gap-0.5 rounded-lg px-3 py-2 text-left transition ${
-                    isHighlighted ? 'bg-[#c6a55a]/12' : 'bg-transparent hover:bg-white/[0.04]'
+                  className={`${roleOptionBase} ${
+                    isHighlighted
+                      ? 'border-l-2 border-l-[color:var(--hv-gold)]/72 bg-[color:var(--hv-gold)]/12'
+                      : 'border-l-2 border-l-transparent hover:bg-white/[0.04]'
                   }`}
-                  style={{ borderLeft: `2px solid ${isHighlighted ? 'rgba(212,173,58,0.72)' : 'transparent'}` }}
                 >
-                  <span className="text-sm font-medium text-[#fff8e6]">{role?.label ?? roleId}</span>
+                  <span className="text-sm font-medium text-[color:var(--hv-ivory)]">{role?.label ?? roleId}</span>
                   {role?.description ? (
                     <span className="text-xs leading-5 text-white/48">{role.description}</span>
                   ) : null}
@@ -217,9 +193,9 @@ export function RoleSelectSheet({
                     key={roleId}
                     type="button"
                     onClick={() => onSelectRole(roleId)}
-                    className="grid min-h-12 w-full gap-0.5 rounded-lg border border-[#c6a55a]/18 bg-white/[0.03] px-4 py-2.5 text-left transition hover:border-[#c6a55a]/55 hover:bg-[#c6a55a]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f1dfaa]"
+                    className={roleChipClass}
                   >
-                    <span className="text-sm font-medium text-[#fff8e6]">{role?.label ?? roleId}</span>
+                    <span className="text-sm font-medium text-[color:var(--hv-ivory)]">{role?.label ?? roleId}</span>
                     {role?.description ? (
                       <span className="text-xs leading-5 text-white/48">{role.description}</span>
                     ) : null}
@@ -229,7 +205,7 @@ export function RoleSelectSheet({
             </div>
 
             {profile.notes ? (
-              <p className="text-[10px] uppercase leading-4 tracking-[0.14em] text-[#d8be76]/48">
+              <p className="text-[10px] uppercase leading-4 tracking-[0.14em] text-[color:var(--hv-gold-light)]/48">
                 {profile.notes}
               </p>
             ) : null}
