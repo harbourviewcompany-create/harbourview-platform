@@ -28,7 +28,6 @@ import {
   type GlobeIntroPhase,
 } from '@/lib/globe/globe-intro'
 
-/** Publish ~40 blend steps across the reveal window instead of every frame. */
 const REVEAL_BLEND_STEPS = 40
 
 function AutoRotateInvalidator({ active }: { active: boolean }) {
@@ -38,24 +37,56 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   return null
 }
 
-function IntroSpinClock({
+/**
+ * Accumulates OrbitControls azimuth while auto-rotating so the intro completes
+ * after a real ~360° turn (not only a wall-clock estimate).
+ */
+function IntroOrbitTracker({
   active,
-  onElapsed,
+  controlsRef,
+  onProgress,
 }: {
   active: boolean
-  onElapsed: (elapsedMs: number) => void
+  controlsRef: RefObject<ComponentRef<typeof OrbitControls> | null>
+  onProgress: (progress: { azimuthAccumRad: number; elapsedMs: number }) => void
 }) {
   const startedAtRef = useRef<number | null>(null)
+  const lastAzimuthRef = useRef<number | null>(null)
+  const accumRef = useRef(0)
 
   useFrame(() => {
     if (!active) return
+    const controls = controlsRef.current as { getAzimuthalAngle?: () => number } | null
+    if (!controls?.getAzimuthalAngle) return
+
     const now = performance.now()
-    if (startedAtRef.current === null) startedAtRef.current = now
-    onElapsed(now - startedAtRef.current)
+    if (startedAtRef.current === null) {
+      startedAtRef.current = now
+      lastAzimuthRef.current = controls.getAzimuthalAngle()
+      accumRef.current = 0
+    }
+
+    const az = controls.getAzimuthalAngle()
+    const prev = lastAzimuthRef.current ?? az
+    let delta = az - prev
+    // Unwrap across ±π so continuous auto-rotate accumulates cleanly.
+    if (delta > Math.PI) delta -= Math.PI * 2
+    if (delta < -Math.PI) delta += Math.PI * 2
+    accumRef.current += Math.abs(delta)
+    lastAzimuthRef.current = az
+
+    onProgress({
+      azimuthAccumRad: accumRef.current,
+      elapsedMs: now - startedAtRef.current,
+    })
   })
 
   useEffect(() => {
-    if (!active) startedAtRef.current = null
+    if (!active) {
+      startedAtRef.current = null
+      lastAzimuthRef.current = null
+      accumRef.current = 0
+    }
   }, [active])
 
   return null
@@ -150,7 +181,6 @@ export function GlobeCanvas({
   tierPalette?: GlobeTierPalette
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
-  /** Fires when spin / reveal / ready changes — used to gate chrome like the legend. */
   onIntroPhaseChange?: (phase: GlobeIntroPhase) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
@@ -159,6 +189,7 @@ export function GlobeCanvas({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
   const spinElapsedMsRef = useRef(0)
+  const azimuthAccumRadRef = useRef(0)
   const lastRevealStepRef = useRef(-1)
 
   useEffect(() => {
@@ -222,6 +253,7 @@ export function GlobeCanvas({
     if (introPhase !== 'spinning') return
     if (
       !shouldStartReveal({
+        azimuthAccumRad: azimuthAccumRadRef.current,
         spinElapsedMs: spinElapsedMsRef.current,
         loading,
         prefersReducedMotion,
@@ -242,8 +274,9 @@ export function GlobeCanvas({
     tryAdvanceFromSpin()
   }, [tryAdvanceFromSpin, loading])
 
-  const handleSpinElapsed = useCallback(
-    (elapsedMs: number) => {
+  const handleOrbitProgress = useCallback(
+    ({ azimuthAccumRad, elapsedMs }: { azimuthAccumRad: number; elapsedMs: number }) => {
+      azimuthAccumRadRef.current = azimuthAccumRad
       spinElapsedMsRef.current = elapsedMs
       tryAdvanceFromSpin()
     },
@@ -260,7 +293,6 @@ export function GlobeCanvas({
       )
       const finished = shouldFinishReveal({ revealElapsedMs: elapsedMs, prefersReducedMotion })
 
-      // Skip React updates until the quantised blend step advances (or we finish).
       if (step !== lastRevealStepRef.current || finished) {
         lastRevealStepRef.current = step
         setRevealElapsedMs(elapsedMs)
@@ -334,7 +366,6 @@ export function GlobeCanvas({
               onHoverCountry={handleHoverCountry}
               onSelectCountry={handleSelectCountry}
             />
-            {/* Keep signal markers off until the heat map is fully in. */}
             {introPhase === 'ready' ? (
               <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
             ) : null}
@@ -349,7 +380,11 @@ export function GlobeCanvas({
         </Suspense>
 
         <AutoRotateInvalidator active={shouldAutoRotate} />
-        <IntroSpinClock active={introSpinning} onElapsed={handleSpinElapsed} />
+        <IntroOrbitTracker
+          active={introSpinning}
+          controlsRef={controlsRef}
+          onProgress={handleOrbitProgress}
+        />
         <IntroRevealClock active={introRevealing} onElapsed={handleRevealElapsed} />
         <OrbitControls
           ref={controlsRef}
