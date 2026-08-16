@@ -4,6 +4,10 @@ import { HarbourviewCard } from '@/components/ui/HarbourviewPanel'
 
 export type SectionRef = (node: HTMLElement | null) => void
 
+/**
+ * Launch-quality section shell for every mobile Command section.
+ * Layout chrome stays on hvm2-* CSS; surface language is shared via tokens.
+ */
 export function SectionShell({
   id,
   sectionRef,
@@ -38,15 +42,25 @@ export function SectionShell({
   )
 }
 
-/** Command card using shared Harbourview surface (token-backed). */
+/**
+ * Command card surface.
+ * Use tone="bare" when pairing with hvm2-command-brief / hvm2-priority-card
+ * so CSS owns padding/border and we avoid double chrome.
+ */
 export function CommandCard({
   children,
   className = '',
+  tone = 'bare',
 }: {
   children: React.ReactNode
   className?: string
+  tone?: 'default' | 'priority' | 'bare'
 }) {
-  return <HarbourviewCard className={className}>{children}</HarbourviewCard>
+  return (
+    <HarbourviewCard tone={tone} className={className}>
+      {children}
+    </HarbourviewCard>
+  )
 }
 
 export function Metric({ label, value, detail, tone = 'neutral' }: {

@@ -50,17 +50,26 @@ describe('design token authority', () => {
     const panel = readFileSync(join(process.cwd(), 'components/ui/HarbourviewPanel.tsx'), 'utf8')
     expect(panel).toContain('HarbourviewBottomSheet')
     expect(panel).toContain('HarbourviewCard')
+    expect(panel).toContain('HarbourviewSectionHeader')
+    expect(panel).toContain('tone')
     expect(panel).toContain('var(--hv-gold)')
   })
 
-  it('Role Select and Country Selection use token-backed surfaces', () => {
+  it('Role Select, Country Selection, PublicUi use token-backed surfaces', () => {
     const role = readFileSync(join(process.cwd(), 'components/globe/RoleSelectSheet.tsx'), 'utf8')
     const country = readFileSync(join(process.cwd(), 'components/harbourview/CountrySelectionSheet.tsx'), 'utf8')
     const core = readFileSync(join(process.cwd(), 'components/dashboard/mobile-command/sections/CoreSections.tsx'), 'utf8')
+    const publicUi = readFileSync(join(process.cwd(), 'components/PublicUi.tsx'), 'utf8')
+    const uiIndex = readFileSync(join(process.cwd(), 'components/ui/index.ts'), 'utf8')
+    const sectionDoc = readFileSync(join(process.cwd(), 'docs/control/SECTION_SURFACE.md'), 'utf8')
 
     expect(role).toContain('var(--hv-gold)')
     expect(role).not.toContain('#c6a55a')
     expect(country).toContain('HarbourviewBottomSheet')
     expect(core).toContain('CommandCard')
+    expect(publicUi).toContain('HarbourviewCard')
+    expect(publicUi).toContain('var(--hv-')
+    expect(uiIndex).toContain('HarbourviewCard')
+    expect(sectionDoc).toContain('SectionShell')
   })
 })

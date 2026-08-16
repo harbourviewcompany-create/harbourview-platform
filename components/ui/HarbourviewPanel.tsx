@@ -1,10 +1,13 @@
 'use client'
 
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { ElementType, HTMLAttributes, ReactNode } from 'react'
 
 /**
- * Shared institutional surface language for sheets, command cards, and panels.
- * Colours come from styles/design-tokens.css (--hv-*).
+ * Shared institutional surface language for sheets, command cards, public cards,
+ * and section panels. Colours from styles/design-tokens.css (--hv-*).
+ *
+ * Use across every product area so Command, Marketplace, Intel, Clinical, and
+ * public marketing share one launch-quality material language.
  */
 
 function cx(...parts: Array<string | false | null | undefined>) {
@@ -30,8 +33,27 @@ export const hvPanelBackButtonClass =
 export const hvPanelPrimaryCtaClass =
   'flex min-h-12 w-full items-center justify-center rounded-full bg-[color:var(--hv-gold)] px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--hv-navy-deep)] shadow-[0_0_34px_rgba(198,165,90,0.18)] transition hover:brightness-105 disabled:opacity-40'
 
+/** Default command / marketplace tile — token-backed border + navy field. */
 export const hvCardSurfaceClass =
-  'rounded-[18px] border border-[color:var(--hvm2-border)] bg-gradient-to-br from-[rgba(16,34,53,0.98)] to-[rgba(6,17,31,0.98)] p-[19px] text-[color:var(--hv-ivory)]'
+  'rounded-[18px] border border-[color:var(--hv-panel-border-warm)] bg-[color:var(--hv-panel-strong)] p-[19px] text-[color:var(--hv-ivory)] shadow-[0_16px_50px_rgba(0,0,0,0.18)]'
+
+/** Priority / attention emphasis without neon. */
+export const hvCardPriorityClass =
+  'rounded-[18px] border border-[color:var(--hv-gold)]/26 bg-[linear-gradient(145deg,rgba(45,37,21,0.72),rgba(12,20,31,0.96))] p-[19px] text-[color:var(--hv-ivory)]'
+
+/** Public marketing card (sm radius, soft gold edge). */
+export const hvCardPublicClass =
+  'rounded-sm border border-[color:var(--hv-gold)]/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] text-[color:var(--hv-ivory)] shadow-[0_18px_44px_rgba(0,0,0,0.24)]'
+
+export type HarbourviewCardTone = 'default' | 'priority' | 'public' | 'bare'
+
+const CARD_TONE_CLASS: Record<HarbourviewCardTone, string> = {
+  default: hvCardSurfaceClass,
+  priority: hvCardPriorityClass,
+  public: hvCardPublicClass,
+  /** Surface only via className / external CSS (e.g. hvm2-command-brief). */
+  bare: 'text-[color:var(--hv-ivory)]',
+}
 
 export function HarbourviewPanel({
   children,
@@ -119,15 +141,59 @@ export function HarbourviewBottomSheet({
   )
 }
 
-/** Compact command / marketplace card surface. */
+/** Compact section / marketplace / intel card surface. */
 export function HarbourviewCard({
   children,
   className,
+  tone = 'default',
+  as: Comp = 'article',
   ...rest
-}: { children: ReactNode } & HTMLAttributes<HTMLElement>) {
+}: {
+  children: ReactNode
+  tone?: HarbourviewCardTone
+  as?: ElementType
+} & HTMLAttributes<HTMLElement>) {
   return (
-    <article className={cx(hvCardSurfaceClass, className)} {...rest}>
+    <Comp className={cx(CARD_TONE_CLASS[tone], className)} {...rest}>
       {children}
-    </article>
+    </Comp>
+  )
+}
+
+/**
+ * Standard section chrome: eyebrow + title + description + optional action.
+ * Use for public pages and any non-hvm2 section that needs the same hierarchy.
+ */
+export function HarbourviewSectionHeader({
+  eyebrow,
+  title,
+  children,
+  action,
+  className,
+}: {
+  eyebrow?: string
+  title: ReactNode
+  children?: ReactNode
+  action?: ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cx(
+        'mb-8 flex flex-col gap-5 sm:mb-10 lg:flex-row lg:items-end lg:justify-between',
+        className,
+      )}
+    >
+      <div className="max-w-3xl">
+        {eyebrow ? <p className={cx(hvPanelEyebrowClass, 'mb-3 tracking-[0.26em]')}>{eyebrow}</p> : null}
+        <h2 className="font-serif text-3xl leading-tight tracking-[-0.035em] text-[color:var(--hv-ivory)] sm:text-4xl">
+          {title}
+        </h2>
+        {children ? (
+          <div className="mt-4 text-sm leading-7 text-[color:var(--hv-text-secondary)] sm:text-base">{children}</div>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
   )
 }
