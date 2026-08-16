@@ -1,8 +1,8 @@
 /**
- * First-paint globe intro: gold → 360° spin → soft lerp into tier colours.
+ * First-paint globe intro: gold → full azimuth orbit → soft lerp into tiers.
  *
- * Phase machine lives in GlobeCanvas. This module only holds timing constants
- * and pure helpers (blend amount, material lerp) so tests stay lightweight.
+ * Phase machine lives in GlobeCanvas / CSS fallback. This module holds timing
+ * constants and pure helpers so unit tests stay free of R3F.
  */
 
 import {
@@ -17,8 +17,12 @@ import type { GlobeLayerId } from '@/types/globe-router'
 export type GlobeIntroPhase = 'spinning' | 'revealing' | 'ready'
 
 export const GLOBE_INTRO = {
-  /** Gold-only orbit before the colour reveal (ms). */
+  /** Expected gold orbit duration (ms) at spinAutoRotateSpeed — docs / CSS fallback. */
   spinDurationMs: 2800,
+  /** Hard cap if azimuth tracking never completes (ms). */
+  spinMaxDurationMs: 5200,
+  /** One full turn in radians (OrbitControls azimuth). */
+  fullOrbitRad: Math.PI * 2,
   /** Gold → tier material lerp after spin (ms). */
   revealDurationMs: 750,
   /**
@@ -26,11 +30,14 @@ export const GLOBE_INTRO = {
    * three.js: speed 2 ≈ 30s/rev at 60fps → ~60 / durationSec for one turn.
    */
   spinAutoRotateSpeed: 21.5,
-  /** Idle auto-rotate after intro (matches camera config default). */
+  /** Idle auto-rotate after intro. */
   idleAutoRotateSpeed: 0.22,
+  /**
+   * Above this introTierBlend, drop the metallic-gold onBeforeCompile path so
+   * tier colours are not re-tinted toward gold mid-reveal.
+   */
+  metallicGoldMaxBlend: 0.05,
 } as const
-
-// ─── scalar helpers ───────────────────────────────────────────────────────────
 
 function clamp01(t: number): number {
   if (t <= 0) return 0
@@ -42,19 +49,11 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
 
-/** Ease-out cubic: moves quickly off gold, settles softly into tier colour. */
 export function easeOutCubic(t: number): number {
   const x = clamp01(t)
   return 1 - (1 - x) ** 3
 }
 
-// ─── phase → blend ────────────────────────────────────────────────────────────
-
-/**
- * How far the heat map has taken over the plates.
- * - 0 = pure gold
- * - 1 = full tier colours
- */
 export function introTierBlend({
   introPhase,
   revealElapsedMs,
@@ -81,7 +80,6 @@ export function isIntroInteractionLocked({
   return introPhase !== 'ready'
 }
 
-/** Pre-reveal only: omit tier data entirely so every plate is gold. */
 export function shouldForceGoldPlates({
   introPhase,
   prefersReducedMotion,
@@ -93,18 +91,34 @@ export function shouldForceGoldPlates({
   return introPhase === 'spinning'
 }
 
+/**
+ * True while the brushed metallic-gold shader should own diffuseColour.
+ * Once the heat map starts fading in, plain PBR uses the lerped plate colour.
+ */
+export function shouldUseMetallicGoldShader(blend: number): boolean {
+  return clamp01(blend) <= GLOBE_INTRO.metallicGoldMaxBlend
+}
+
+/**
+ * Start reveal after one measured azimuth orbit (or safety timeout), and only
+ * once live data is no longer loading.
+ */
 export function shouldStartReveal({
+  azimuthAccumRad,
   spinElapsedMs,
   loading,
   prefersReducedMotion,
 }: {
+  azimuthAccumRad: number
   spinElapsedMs: number
   loading: boolean
   prefersReducedMotion: boolean
 }): boolean {
   if (loading) return false
   if (prefersReducedMotion) return true
-  return spinElapsedMs >= GLOBE_INTRO.spinDurationMs
+  const fullOrbit = azimuthAccumRad >= GLOBE_INTRO.fullOrbitRad * 0.98
+  const timedOut = spinElapsedMs >= GLOBE_INTRO.spinMaxDurationMs
+  return fullOrbit || timedOut
 }
 
 export function shouldFinishReveal({
@@ -120,8 +134,6 @@ export function shouldFinishReveal({
 
 /** @deprecated Prefer shouldStartReveal. */
 export const shouldCompleteIntro = shouldStartReveal
-
-// ─── colour / material lerp ───────────────────────────────────────────────────
 
 function parseHexRgb(hex: string): [number, number, number] {
   const raw = hex.replace('#', '')
@@ -154,7 +166,6 @@ export function lerpHex(from: string, to: string, t: number): string {
   return formatHexRgb(lerp(fr, tr, x), lerp(fg, tg, x), lerp(fb, tb, x))
 }
 
-/** Field-wise blend of two plate materials (gold ↔ tier). */
 export function lerpGlobeMaterialState(
   from: GlobeMaterialState,
   to: GlobeMaterialState,
@@ -178,12 +189,6 @@ export function lerpGlobeMaterialState(
   }
 }
 
-/**
- * Single entry point for plate colour during the intro.
- *
- * `blend` 0 → gold (no tier claim). `blend` 1 → normal tier material.
- * Values in between soft-lerp metalness and fill so the heat map fades in.
- */
 export function resolveIntroPlateMaterial({
   visualState,
   layerId,
