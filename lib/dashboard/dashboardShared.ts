@@ -14,22 +14,8 @@ export type DashboardSignal = {
   timeAgo: string
   confidence: number
   commercialImpact: string
-  /** Safe authenticated presentation fields. Raw/private signal analysis never belongs in this DTO. */
-  summary?: string
   sourceLabel?: string   // source attribution (regulator name or 'Harbourview Intelligence'); optional — not all signal sources supply it
   sourceUrl?: string     // link to the original article for editorial content; optional
-  publishedAt?: string
-  verificationStatus?: string
-  jurisdictions?: string[]
-  counterparties?: string[]
-  facilities?: string[]
-  licencesCertifications?: string[]
-  products?: string[]
-  marketAccess?: string[]
-  verifiedFacts?: string[]
-  inferences?: string[]
-  transactionStage?: string
-  image?: { url?: string; status?: string }
   flag?: string          // country flag emoji; optional — not all signal sources supply it
   /** Canonical first-slice Decision Intelligence event identifier when this feed row can resolve to a dossier. */
   decisionIntelEventId?: string

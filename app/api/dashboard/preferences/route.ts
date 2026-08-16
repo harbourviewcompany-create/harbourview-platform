@@ -70,7 +70,12 @@ export async function PATCH(req: NextRequest) {
     const heatmapLayer = normalizeHeatmapLayer(body.heatmap_layer)
     const activeWorkspaceId = normalizeUuidOrNull(body.active_workspace_id)
 
-    if (countryIso2 === undefined || roleId === undefined || heatmapLayer === undefined || activeWorkspaceId === undefined) {
+    if (
+      ('country_iso2' in body && countryIso2 === undefined) ||
+      ('role_id' in body && roleId === undefined) ||
+      ('heatmap_layer' in body && heatmapLayer === undefined) ||
+      ('active_workspace_id' in body && activeWorkspaceId === undefined)
+    ) {
       return NextResponse.json({ ok: false, error: 'Invalid dashboard preference payload.' }, { status: 400 })
     }
 

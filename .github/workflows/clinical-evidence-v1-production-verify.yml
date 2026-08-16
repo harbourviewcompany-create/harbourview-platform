@@ -31,14 +31,14 @@ jobs:
       CI: '1'
     steps:
       - name: Checkout exact head
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.4.0
         with:
           node-version: '22'
           cache: npm
@@ -97,6 +97,26 @@ jobs:
           supabase start
           supabase db reset --local --no-seed
           eval "$(supabase status -o env)"
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --output /tmp/clinical-v1-postgrest-ready.json --write-out '%{http_code}' \
+              --header "apikey: ${SERVICE_ROLE_KEY}" \
+              --header "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_evidence_records?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "${ready}" -ne 1 ]; then
+            echo "PostgREST did not expose the Clinical V1 schema after reset."
+            cat /tmp/clinical-v1-postgrest-ready.json || true
+            supabase status || true
+            exit 1
+          fi
+
           {
             echo "CLINICAL_TEST_API_URL=${API_URL}"
             echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
