@@ -24,7 +24,7 @@ jobs:
       - name: Generate package lock
         run: npm install --package-lock-only --ignore-scripts
       - name: Commit generated lock
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: Update package lock for dependency drift
           file_pattern: package-lock.json
