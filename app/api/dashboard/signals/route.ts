@@ -25,7 +25,8 @@ import {
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 
-const SAFE_SELECT = `id, headline, summary, source, url, verification, commercial_impact, analysis, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const PRESENTATION_SELECT = `id, headline, summary, source, url, verification, commercial_impact, analysis, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const LEGACY_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
 const LANE_TOP_LANES: Record<string, string[]> = {
   regulatory: ['regulatory', 'REGULATORY', 'GAZETTE', 'PARLIAMENTARY', 'PRESS_RELEASE'],
@@ -94,18 +95,27 @@ function timeAgo(dateStr: string | null | undefined): string {
 type SignalRow = SignalQualityRow & {
   id: string
   headline: string
-  summary: string | null
-  source: string | null
-  url: string | null
-  verification: string | null
-  commercial_impact: string | null
-  analysis: unknown
+  summary?: string | null
+  source?: string | null
+  url?: string | null
+  verification?: string | null
+  commercial_impact?: string | null
+  analysis?: unknown
   cat: string | null
   top_lane: string | null
   pri: string | null
   country: string | null
   date: string | null
   created_at: string
+}
+
+type QueryError = { code?: string; message?: string }
+
+function isPresentationSchemaGap(error: QueryError): boolean {
+  if (error.code === '42703' || error.code === 'PGRST204') return true
+  const message = (error.message ?? '').toLowerCase()
+  return ['summary', 'source', 'url', 'verification', 'commercial_impact', 'analysis']
+    .some(column => message.includes(column) && (message.includes('column') || message.includes('schema cache')))
 }
 
 export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSignal {
@@ -159,29 +169,40 @@ export async function GET(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
 
     const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
-
-    let query = supabase
-      .from('signals_with_quality')
-      .select(SAFE_SELECT, { count: 'exact' })
-      .eq('reviewed', true)
-      .or(NOT_REJECTED_OR_FILTER)
-      .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
-      .order('quality_confidence', { ascending: false, nullsFirst: false })
-      .order('date', { ascending: false })
-
-    if (isCountryFiltered) query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
-    if (lane !== 'all' && LANE_TOP_LANES[lane]) query = query.in('top_lane', LANE_TOP_LANES[lane])
-
     const fetchLimit = isCountryFiltered ? Math.min(limit * 4, 400) : limit
-    query = query.range(offset, offset + fetchLimit - 1)
 
-    const { data, error, count } = await query
+    const executeQuery = async (selectFields: string) => {
+      let query = supabase
+        .from('signals_with_quality')
+        .select(selectFields, { count: 'exact' })
+        .eq('reviewed', true)
+        .or(NOT_REJECTED_OR_FILTER)
+        .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+        .order('quality_confidence', { ascending: false, nullsFirst: false })
+        .order('date', { ascending: false })
+
+      if (isCountryFiltered) query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
+      if (lane !== 'all' && LANE_TOP_LANES[lane]) query = query.in('top_lane', LANE_TOP_LANES[lane])
+
+      return query.range(offset, offset + fetchLimit - 1)
+    }
+
+    let result = await executeQuery(PRESENTATION_SELECT)
+    if (result.error && isPresentationSchemaGap(result.error)) {
+      // Isolated CI and staged schema transitions can legitimately expose the
+      // legacy quality view before presentation columns are available. Fall
+      // back to the historical allowlist rather than turning Command into a
+      // 500 surface. The DTO projector receives no raw analysis in this path.
+      result = await executeQuery(LEGACY_SELECT)
+    }
+
+    const { data, error, count } = result
     if (error) {
       console.error('[/api/dashboard/signals] supabase error:', error.message)
       return NextResponse.json({ signals: [], total: 0, source: 'error', error: error.message }, { status: 500 })
     }
 
-    let rows = (data ?? []) as SignalRow[]
+    let rows = (data ?? []) as unknown as SignalRow[]
     const corrIndex = buildCorroborationIndex(rows)
 
     if (isCountryFiltered) {
