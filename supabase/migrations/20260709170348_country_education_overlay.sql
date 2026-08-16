@@ -6,15 +6,15 @@
 --
 -- That placeholder satisfied the version-number ledger while executing nothing,
 -- so `supabase db reset --local` could not rebuild the schema this migration is
--- supposed to create. The statements below are the verbatim text production
--- ran, read back from supabase_migrations.schema_migrations.statements for
--- version 20260709170348.
+-- supposed to create. The statements below are the production-ledger body for
+-- version 20260709170348, with one replay-safety guard immediately before the
+-- duplicated policy creation. Production also records 20260707120000 with the
+-- same table and policy body, and no intervening recorded migration drops that
+-- policy. Dropping the exact policy IF EXISTS before recreating it preserves the
+-- same final schema while allowing both recorded versions to replay in order.
 --
--- Rewriting this file cannot affect production: 20260709170348 is already recorded
--- in schema_migrations, so `supabase db push` skips it. This is a
--- repository-only repair of replay fidelity.
---
--- Regenerate with: node scripts/reconstruct-stub-migrations.mjs
+-- Production already records 20260709170348, so this is repository-only replay
+-- fidelity and cannot be pushed as a new production migration.
 
 -- Country/module-specific education overlay. Falls back to the existing
 -- generic MODULE_TOPICS lookup in MobileCommandCentre.tsx whenever no
@@ -44,6 +44,8 @@ create table if not exists country_education_overlay (
 );
 
 alter table country_education_overlay enable row level security;
+
+drop policy if exists "public read published country overlays" on country_education_overlay;
 
 create policy "public read published country overlays"
   on country_education_overlay for select

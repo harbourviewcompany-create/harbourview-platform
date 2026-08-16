@@ -115,23 +115,38 @@ comment on function public.hv_trigger_source_pull_runner() is
 -- Preserve current production schedules and job identities where possible by
 -- changing only their command text. If a named job is absent, leave it absent;
 -- this migration does not create new schedules implicitly.
+--
+-- Supabase owns cron.job as supabase_admin and grants postgres SELECT but not
+-- direct UPDATE. pg_cron exposes cron.alter_job(...) to postgres for supported
+-- mutation of postgres-owned jobs, so use that API instead of writing cron.job.
 do $cron_auth$
+declare
+  v_job_id bigint;
 begin
   if to_regclass('cron.job') is null then
     raise notice 'cron.job unavailable; caller helpers installed but schedules not rewired';
     return;
   end if;
 
-  update cron.job
-  set command = 'select public.invoke_job_refresh();'
+  select jobid into v_job_id
+  from cron.job
   where jobname = 'job-refresh-daily';
+  if found then
+    perform cron.alter_job(v_job_id, command => 'select public.invoke_job_refresh();');
+  end if;
 
-  update cron.job
-  set command = 'select public.invoke_schema_drift_monitor();'
+  select jobid into v_job_id
+  from cron.job
   where jobname = 'schema-drift-monitor';
+  if found then
+    perform cron.alter_job(v_job_id, command => 'select public.invoke_schema_drift_monitor();');
+  end if;
 
-  update cron.job
-  set command = 'select public.hv_trigger_source_pull_runner();'
+  select jobid into v_job_id
+  from cron.job
   where jobname = 'hv-source-pull-runner-safe-rss';
+  if found then
+    perform cron.alter_job(v_job_id, command => 'select public.hv_trigger_source_pull_runner();');
+  end if;
 end
 $cron_auth$;

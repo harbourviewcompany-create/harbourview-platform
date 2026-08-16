@@ -8,6 +8,10 @@ function tokenLooksValid(value: string) {
   return /^[0-9a-f]{64}$/i.test(value.trim())
 }
 
+function safeInternalPath(value: string | null, fallback = '/dashboard') {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : fallback
+}
+
 export default function OrganizationJoinForm() {
   const router = useRouter()
   const pathname = usePathname()
@@ -16,6 +20,7 @@ export default function OrganizationJoinForm() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle')
   const [error, setError] = useState('')
 
+  const returnTo = useMemo(() => safeInternalPath(searchParams.get('returnTo')), [searchParams])
   const currentPath = useMemo(() => {
     const query = searchParams.toString()
     return `${pathname}${query ? `?${query}` : ''}`
@@ -54,7 +59,7 @@ export default function OrganizationJoinForm() {
       }
       setStatus('success')
       window.setTimeout(() => {
-        router.replace('/dashboard')
+        router.replace(returnTo)
         router.refresh()
       }, 500)
     } catch {
@@ -66,7 +71,7 @@ export default function OrganizationJoinForm() {
   return (
     <main className="min-h-screen bg-[#020814] px-5 py-12 text-[#F5F1E8]">
       <div className="mx-auto max-w-lg">
-        <Link href="/dashboard" className="text-xs font-semibold uppercase tracking-[0.16em] text-[#C6A55A]">← Command</Link>
+        <Link href={returnTo} className="text-xs font-semibold uppercase tracking-[0.16em] text-[#C6A55A]">← Command</Link>
         <p className="mt-8 text-[10px] font-semibold uppercase tracking-[0.26em] text-[#C6A55A]">Harbourview organization</p>
         <h1 className="mt-2 text-3xl font-semibold">Join organization</h1>
         <p className="mt-3 text-sm leading-6 text-white/55">Invitation access is bound to the email address it was issued to. If you are not signed in, Harbourview will return you here after account creation or sign-in.</p>

@@ -33,6 +33,6 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Apply and verify migration fixture
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/pr1224_pipeline_hardening_dry_run.sql

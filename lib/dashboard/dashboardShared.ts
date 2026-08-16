@@ -17,6 +17,10 @@ export type DashboardSignal = {
   sourceLabel?: string   // source attribution (regulator name or 'Harbourview Intelligence'); optional — not all signal sources supply it
   sourceUrl?: string     // link to the original article for editorial content; optional
   flag?: string          // country flag emoji; optional — not all signal sources supply it
+  /** Canonical first-slice Decision Intelligence event identifier when this feed row can resolve to a dossier. */
+  decisionIntelEventId?: string
+  /** Decision posture carried from the same rule used by the first-slice assessment/recommendation backfill. */
+  decisionRecommendationState?: 'act_now' | 'investigate' | 'monitor' | 'no_action'
   // 'signal' (default): trade/regulatory intelligence — confidence bar + category chip.
   // 'editorial': mainstream-media cannabis news/commentary — no confidence score,
   // no commercial-impact framing, rendered as a plain headline + why-it-matters card.
@@ -36,7 +40,7 @@ export type DashboardSignal = {
 
   // ── Quality-brain display fields (Pipeline B) ───────────────────────────────
   // Computed upstream; optional so older/fixture rows keep working.
-  /** How many independent sources in this feed report the same development. */
+  /** How many related source observations in this feed report the same development. */
   corroborationCount?: number
   /** True when headline/summary shown are machine-translated. */
   translated?: boolean

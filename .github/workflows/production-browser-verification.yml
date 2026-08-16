@@ -1,231 +1,108 @@
-name: Production Browser Verification
+name: Exact Deployment Browser Verification
 
 on:
+  repository_dispatch:
+    types:
+      - vercel.deployment.ready
+      - vercel.deployment.success
+      - vercel.deployment.promoted
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/production-browser-verification.yml
+    inputs:
+      deployment_id:
+        description: 'Immutable Vercel deployment ID (dpl_...)'
+        required: true
+        type: string
+      deployment_url:
+        description: 'Immutable Vercel deployment URL'
+        required: true
+        type: string
+      git_sha:
+        description: 'Full 40-character Git SHA deployed by Vercel'
+        required: true
+        type: string
+      environment:
+        description: 'Vercel environment represented by the deployment'
+        required: true
+        type: choice
+        options:
+          - preview
+          - production
 
 permissions:
   contents: read
+  id-token: write
+
+concurrency:
+  group: exact-deployment-browser-${{ github.event.client_payload.id || inputs.deployment_id || github.run_id }}
+  cancel-in-progress: false
 
 env:
-  HARBOURVIEW_PRODUCTION_URL: https://harbourview.vercel.app
+  EXPECTED_PROJECT_ID: prj_Zp8HBDstqAAOCN6W7LAElahsq3qS
+  EXPECTED_DEPLOYMENT_ID: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.id || inputs.deployment_id }}
+  HARBOURVIEW_DEPLOYMENT_URL: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.url || inputs.deployment_url }}
+  EXPECTED_GIT_SHA: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.git.sha || inputs.git_sha }}
+  EXPECTED_ENVIRONMENT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.environment || inputs.environment }}
 
 jobs:
-  verify-production-browser:
-    name: Verify Harbourview production in Chromium
+  verify-exact-deployment:
+    name: Verify immutable Vercel deployment in Chromium
+    if: ${{ github.event_name != 'repository_dispatch' || github.event.client_payload.project.id == 'prj_Zp8HBDstqAAOCN6W7LAElahsq3qS' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Validate immutable deployment identity payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_DEPLOYMENT_ID" =~ ^dpl_[A-Za-z0-9]+$ ]]
+          [[ "$EXPECTED_GIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]
+          [[ "$EXPECTED_ENVIRONMENT" == "preview" || "$EXPECTED_ENVIRONMENT" == "production" ]]
+          node -e "const u=new URL(process.env.HARBOURVIEW_DEPLOYMENT_URL); if (u.protocol !== 'https:' || !/^harbourview-[a-z0-9]+-harbourview\\.vercel\\.app$/i.test(u.hostname)) process.exit(1)"
+          if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+            [[ "${{ github.event.client_payload.project.id }}" == "$EXPECTED_PROJECT_ID" ]]
+          fi
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Checkout deployed Git SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 20
+          ref: ${{ env.EXPECTED_GIT_SHA }}
+          persist-credentials: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
           cache: npm
 
-      - name: Install dependencies
+      - name: Install reviewed dependency graph
         run: npm ci
 
-      - name: Install Playwright Chromium
+      - name: Verify runtime baseline
+        run: npm run verify:runtime
+
+      - name: Obtain short-lived GitHub OIDC identity token
+        id: oidc
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = await core.getIDToken()
+            core.setSecret(token)
+            core.setOutput('token', token)
+
+      - name: Install lockfile-matched Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Verify production routes
-        run: |
-          cat > /tmp/harbourview-production-browser-verification.mjs <<'EOF'
-          import { chromium } from 'playwright'
-          import { mkdir, writeFile } from 'node:fs/promises'
-          import path from 'node:path'
+      - name: Verify exact deployment identity and browser surface
+        env:
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: node scripts/verify-exact-deployment.mjs
 
-          const baseUrl = process.env.HARBOURVIEW_PRODUCTION_URL || 'https://harbourview.vercel.app'
-          const artifactDir = path.resolve('production-browser-verification-artifacts')
-          const screenshotDir = path.join(artifactDir, 'screenshots')
-          const traceDir = path.join(artifactDir, 'traces')
-          await mkdir(screenshotDir, { recursive: true })
-          await mkdir(traceDir, { recursive: true })
-
-          const viewports = [
-            { name: 'desktop-1440x900', width: 1440, height: 900 },
-            { name: 'laptop-1366x768', width: 1366, height: 768 },
-            { name: 'mobile-390x844', width: 390, height: 844 },
-          ]
-
-          const routes = [
-            { path: '/', title: /Harbourview|Opening Soon/i, mustContain: [/Full site opening soon|Market access backed by intelligence|Harbourview/i] },
-            { path: '/marketplace', title: /Harbourview Network|Harbourview/i, mustContain: [/Harbourview Network/i, /Submit Opportunity/i] },
-            { path: '/marketplace/sell', title: /Submit Opportunity|Harbourview/i, mustContain: [/Submit Opportunity|controlled review/i, /Full Name/i, /Email Address/i, /Listing Type/i] },
-            { path: '/contact', title: /Contact|Harbourview/i, mustContain: [/Contact|Send Message|Message/i] },
-            { path: '/admin', title: /Harbourview|Admin/i, mustContain: [/Admin sign-in required|Admin access restricted|Sign in with an authorized Harbourview admin or operator account/i] },
-          ]
-
-          const forbidden = [
-            'sourceUrl',
-            'provenanceSummary',
-            'reviewedBy',
-            'internalReviewNotes',
-            'sourceEvidence',
-            'sourceName',
-            'Evidence captured',
-            'verificationStatus',
-            'sellerAuthorizationStatus',
-          ]
-
-          const browser = await chromium.launch()
-          const failures = []
-          const consoleErrors = []
-
-          async function verifyNoHorizontalOverflow(page, label) {
-            const overflow = await page.evaluate(() => ({
-              scrollWidth: document.documentElement.scrollWidth,
-              clientWidth: document.documentElement.clientWidth,
-              bodyScrollWidth: document.body.scrollWidth,
-              bodyClientWidth: document.body.clientWidth,
-            }))
-            if (overflow.scrollWidth > overflow.clientWidth + 2 || overflow.bodyScrollWidth > overflow.bodyClientWidth + 2) {
-              failures.push(`${label}: horizontal overflow detected ${JSON.stringify(overflow)}`)
-            }
-          }
-
-          async function verifyForbidden(page, label) {
-            const html = await page.content()
-            for (const token of forbidden) {
-              if (html.includes(token)) failures.push(`${label}: forbidden leakage string exposed: ${token}`)
-            }
-          }
-
-          async function verifyMobileNav(page, label) {
-            const button = page.getByRole('button', { name: /toggle menu/i })
-            await button.waitFor({ state: 'visible', timeout: 5000 })
-            const before = await button.getAttribute('aria-expanded')
-            if (before !== 'false') failures.push(`${label}: mobile nav initial aria-expanded expected false, got ${before}`)
-            await button.click()
-            await page.waitForTimeout(300)
-            const afterOpen = await button.getAttribute('aria-expanded')
-            if (afterOpen !== 'true') failures.push(`${label}: mobile nav aria-expanded did not become true after click, got ${afterOpen}`)
-            await expectVisibleText(page, /Network|Intelligence|Contact/i, `${label}: mobile nav opened menu links`)
-            await button.click()
-            await page.waitForTimeout(300)
-            const afterClose = await button.getAttribute('aria-expanded')
-            if (afterClose !== 'false') failures.push(`${label}: mobile nav aria-expanded did not return false after second click, got ${afterClose}`)
-          }
-
-          async function expectVisibleText(page, pattern, label) {
-            const locator = page.getByText(pattern).first()
-            try {
-              await locator.waitFor({ state: 'visible', timeout: 7000 })
-            } catch {
-              failures.push(`${label}: expected visible text ${pattern}`)
-            }
-          }
-
-          for (const viewport of viewports) {
-            const context = await browser.newContext({
-              viewport: { width: viewport.width, height: viewport.height },
-              ignoreHTTPSErrors: false,
-            })
-            await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
-            const page = await context.newPage()
-
-            page.on('console', (msg) => {
-              if (msg.type() === 'error') consoleErrors.push(`${viewport.name}: ${msg.text()}`)
-            })
-            page.on('pageerror', (err) => {
-              failures.push(`${viewport.name}: page runtime error: ${err.message}`)
-            })
-
-            for (const route of routes) {
-              const label = `${viewport.name} ${route.path}`
-              const response = await page.goto(`${baseUrl}${route.path}`, { waitUntil: 'networkidle', timeout: 30000 })
-              const status = response?.status() ?? 0
-              if (route.path === '/admin') {
-                if (![200, 401, 403].includes(status)) failures.push(`${label}: unexpected admin status ${status}`)
-              } else if (status !== 200) {
-                failures.push(`${label}: expected 200, got ${status}`)
-              }
-
-              await page.screenshot({ path: path.join(screenshotDir, `${viewport.name}${route.path === '/' ? '-home' : route.path.replaceAll('/', '-')}.png`), fullPage: true })
-              await verifyNoHorizontalOverflow(page, label)
-              await verifyForbidden(page, label)
-
-              const pageTitle = await page.title()
-              if (!route.title.test(pageTitle)) failures.push(`${label}: title mismatch: ${pageTitle}`)
-              for (const requiredText of route.mustContain) await expectVisibleText(page, requiredText, label)
-
-              if (route.path === '/') {
-                const ctaVisible = await page.getByRole('link', { name: /Contact Harbourview|Preview Network|Enter Marketplace|Request Intelligence/i }).first().isVisible().catch(() => false)
-                if (!ctaVisible) failures.push(`${label}: no primary homepage CTA visible above fold`)
-              }
-
-              if (route.path === '/marketplace/sell') {
-                await expectVisibleText(page, /Full Name/i, `${label}: sell form full name`)
-                await expectVisibleText(page, /Email Address/i, `${label}: sell form email`)
-                await expectVisibleText(page, /Listing Type/i, `${label}: sell form listing type`)
-              }
-
-              if (route.path === '/contact') {
-                await expectVisibleText(page, /Name|Full Name/i, `${label}: contact form name`)
-                await expectVisibleText(page, /Email/i, `${label}: contact form email`)
-                await expectVisibleText(page, /Message/i, `${label}: contact form message`)
-              }
-            }
-
-            if (viewport.name === 'mobile-390x844') {
-              await page.goto(`${baseUrl}/`, { waitUntil: 'networkidle', timeout: 30000 })
-              await verifyMobileNav(page, `${viewport.name} /`)
-              await verifyNoHorizontalOverflow(page, `${viewport.name} / after mobile nav`)
-            }
-
-            await context.tracing.stop({ path: path.join(traceDir, `${viewport.name}.zip`) })
-            await context.close()
-          }
-
-          await browser.close()
-
-          const report = {
-            baseUrl,
-            checkedAt: new Date().toISOString(),
-            viewports,
-            routes: routes.map((route) => route.path),
-            forbidden,
-            consoleErrors,
-            failures,
-            status: failures.length === 0 && consoleErrors.length === 0 ? 'PRODUCTION VERIFIED' : 'HOLD',
-          }
-          await writeFile(path.join(artifactDir, 'production-browser-verification-report.json'), JSON.stringify(report, null, 2))
-          await writeFile(path.join(artifactDir, 'production-browser-verification-report.md'), [
-            `# Harbourview Production Browser Verification`,
-            ``,
-            `Base URL: ${baseUrl}`,
-            `Status: ${report.status}`,
-            `Checked at: ${report.checkedAt}`,
-            ``,
-            `## Failures`,
-            ...(failures.length ? failures.map((failure) => `- ${failure}`) : ['- None']),
-            ``,
-            `## Console errors`,
-            ...(consoleErrors.length ? consoleErrors.map((error) => `- ${error}`) : ['- None']),
-          ].join('\n'))
-
-          if (failures.length || consoleErrors.length) {
-            console.error(JSON.stringify(report, null, 2))
-            process.exit(1)
-          }
-
-          console.log('PRODUCTION VERIFIED')
-          EOF
-          node /tmp/harbourview-production-browser-verification.mjs
-
-      - name: Upload production browser verification artifacts
+      - name: Upload immutable release evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: harbourview-production-browser-verification
-          path: production-browser-verification-artifacts
-          if-no-files-found: error
-          retention-days: 14
+          name: exact-deployment-browser-${{ env.EXPECTED_DEPLOYMENT_ID }}
+          path: production-browser-verification-artifacts/
+          if-no-files-found: warn
+          retention-days: 30

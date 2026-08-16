@@ -11,10 +11,11 @@ import {
   getActiveWatchlistData,
 } from '@/lib/dashboard/activeWorkspaceDashboardData'
 import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dashboard/pathwayReadiness'
-import { checkFeatureAccess } from '@/lib/billing/entitlements'
+import { canAccess, checkFeatureAccess, normalizeSubscriptionTier } from '@/lib/billing/entitlements'
 import { getUserTier } from '@/lib/stripe/tier'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
 import { createClient } from '@/lib/supabase/server'
+import { attachDecisionIntelDashboardRoutes } from '@/lib/intelligence-os/dashboardRoutes'
 import type { RoleId } from '@/types/globe-router'
 
 export const metadata: Metadata = {
@@ -189,6 +190,13 @@ export default async function DashboardPage({
   } = commandData.data
 
   const watchlistAccess = checkFeatureAccess({ app_metadata: userAppMetadata }, 'watchlist')
+  // Decision Intel uses public.user_profiles.tier, matching the dossier RPC and admin
+  // membership tooling. app_metadata is not treated as a second entitlement authority.
+  const decisionIntelAccess = canAccess('signals', normalizeSubscriptionTier(userTier))
+  const [routedSignals, routedDigestSignals] = await Promise.all([
+    attachDecisionIntelDashboardRoutes(signals),
+    attachDecisionIntelDashboardRoutes(dailyDigest.signals),
+  ])
 
   const pathwayData = deriveRequirementStatusesFromIntel(
     mergePathwayData(orgPathway, publicPathway),
@@ -207,8 +215,8 @@ export default async function DashboardPage({
       <DashboardResponsiveShell
         key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${activeWorkspaceId ?? 'personal'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
-        signals={signals}
-        digestSignals={dailyDigest.signals}
+        signals={routedSignals}
+        digestSignals={routedDigestSignals}
         digestWindow={dailyDigest.window}
         eduCategories={eduCategories}
         liveTiles={liveEduTiles.length > 0 ? liveEduTiles : undefined}
@@ -227,6 +235,7 @@ export default async function DashboardPage({
         pathwayData={pathwayData}
         watchlistData={watchlistData}
         watchlistAccess={watchlistAccess}
+        decisionIntelAccess={decisionIntelAccess}
         evidenceData={evidenceData}
         recentEduModules={recentEduModules}
         sourceCoverage={sourceCoverage}

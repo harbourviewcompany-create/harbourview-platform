@@ -52,6 +52,10 @@ export function mapPublicToDashboardSignal(s: PublicRegulatorySignal): Dashboard
     commercialImpact: s.public_implication,
     sourceLabel:      s.regulator_name || 'Harbourview Intelligence',
     flag:             flagEmoji(s.country_code),
+    // Preserve the presentation feed's native identifier. The Stage-0 resolver
+    // resolves both the exact Pipeline-B signal id and the regulatory mirror form
+    // (`rs-<id>`), so reviewed public.signals fallback rows are never double-prefixed.
+    decisionIntelEventId: `event:${s.id}`,
     contentType:      'signal',
     corroborationCount: s.corroboration_count,
     translated: s.translated,

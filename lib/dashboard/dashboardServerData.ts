@@ -209,18 +209,6 @@ export async function fetchDashboardSignals(
     }
   } catch { /* fall through */ }
 
-  // Tier 2 of three. `signals`, not `signals_quality`: CURATED_SELECT names
-  // `analysis` plus the nine Pipeline B quality columns, and this query orders
-  // by `quality_confidence`. None of those are columns on `signals_quality` in
-  // either schema, so PostgREST 400'd.
-  //
-  // The `try/catch` below does NOT catch that. It wraps client *construction*;
-  // a column error arrives inside `{ data, error }` and never throws, so
-  // `if (!error && data...)` fell straight through to tier 3, `listIaSignals()`
-  // — 641 `ia_signals` rows standing in for a 3,732-row classified corpus, with
-  // nothing logged either way.
-  //
-  // `NOT_REJECTED_OR_FILTER` carries `signals_quality`'s action gate across.
   try {
     const signalQuery = async () => {
       try {
@@ -363,8 +351,12 @@ export async function fetchDailyDigest(
       const todayUtc  = new Date().toISOString().slice(0, 10)
       const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
 
-      // Pipeline B confidence from public.signals (not deprecated signal_classifications).
+      // Resolve both confidence and dossier eligibility from the underlying reviewed
+      // Pipeline-B signal. A published digest headline receives an explicit dossier
+      // route only when the referenced signal is itself eligible for the first slice;
+      // story/research/noise/rejected/classifier-reject rows remain non-dossier content.
       const digestConfidenceMap = new Map<string, number>()
+      const digestDossierEligibleIds = new Set<string>()
       try {
         const signalIds = signalItems.map(h => h.signal_id).filter((id): id is string => !!id)
         if (signalIds.length > 0) {
@@ -372,14 +364,21 @@ export async function fetchDailyDigest(
           const svc = await createSupabaseServiceClient()
           const { data: signalRows } = await svc
             .from('signals_with_quality')
-            .select('id, quality_confidence, reviewed')
+            .select('id, quality_confidence, reviewed, content_type, action, quality_label')
             .in('id', signalIds)
           for (const row of signalRows ?? []) {
             const conf = resolveConfidence(row as SignalQualityRow)
             if (typeof conf === 'number' && row.id) digestConfidenceMap.set(String(row.id), conf)
+            const contentType = String(row.content_type ?? '').toLowerCase()
+            const qualityLabel = String(row.quality_label ?? '').toLowerCase()
+            if (
+              row.id && row.reviewed === true && row.action !== 'rejected'
+              && !['story','research','noise'].includes(contentType)
+              && !['spam','boilerplate','nav','duplicate'].includes(qualityLabel)
+            ) digestDossierEligibleIds.add(String(row.id))
           }
         }
-      } catch { /* leave empty — flat 90 fallback */ }
+      } catch { /* leave routes unset rather than synthesize an unverified digest route */ }
 
       const signalSignals: DashboardSignal[] = signalItems.map((h, i) => ({
         id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
@@ -396,6 +395,7 @@ export async function fetchDailyDigest(
         sourceLabel:      'Harbourview Daily',
         flag:             flagForMarket(h.market ?? 'Global'),
         contentType:      'signal',
+        decisionIntelEventId: h.signal_id && digestDossierEligibleIds.has(h.signal_id) ? `event:${h.signal_id}` : undefined,
       }))
 
       const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
@@ -420,21 +420,6 @@ export async function fetchDailyDigest(
       }
     }
 
-    // The unpublished-edition fallback: no digest edition exists for today, so
-    // the digest is assembled from the signal corpus directly.
-    //
-    // This was left on `signals_quality` while the curated path above moved.
-    // `supabase` here is the schema-pinned server client, so it resolves to
-    // `api.signals_quality`, which carries none of the ten quality columns
-    // DIGEST_SELECT names and none of the two this orders by — verified on
-    // production 2026-08-08, 0 of 9 present on both `api.signals_quality` and
-    // `public.signals_quality`. PostgREST 400s, `error` is set, and the guard
-    // below returns an empty digest. So on every day without a published
-    // edition the Daily Digest was blank, and nothing said why.
-    //
-    // `NOT_REJECTED_OR_FILTER` carries across the one row gate
-    // `signals_quality` applied on top of `reviewed = true`, same as the
-    // curated read above.
     let query = supabase
       .from('signals_with_quality')
       .select(DIGEST_SELECT)
@@ -598,15 +583,15 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
     { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal requirements'        },
     { icon: '🏛️', title: 'Audit Readiness',        desc: 'Inspection preparation'             },
     { icon: '📜', title: 'Licence Pathways',       desc: 'Application & renewal'              },
-    { icon: '🔍', title: 'Enforcement Trends',     desc: 'Regulatory action monitoring'       },
+    { icon: '🔍', title: 'Enforcement Trends',      desc: 'Regulatory action monitoring'      },
   ],
   legal_advisory: [
     { icon: '⚖️', title: 'Legal Frameworks',       desc: 'Cannabis law by jurisdiction'       },
-    { icon: '📜', title: 'Licence & Permits',      desc: 'Authorisation pathways'             },
+    { icon: '📜', title: 'Licence & Permits',      desc: 'Authorisation pathways'              },
     { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal requirements'        },
     { icon: '🏛️', title: 'Regulatory Updates',     desc: 'Policy changes & enforcement'       },
     { icon: '🤝', title: 'Commercial Structures',  desc: 'Contracts & IP considerations'      },
-    { icon: '📋', title: 'Compliance Obligations', desc: 'Ongoing reporting & duties'         },
+    { icon: '📋', title: 'Compliance Obligations', desc: 'Ongoing reporting & duties'          },
   ],
   investor_operator: [
     { icon: '📈', title: 'Market Analysis',        desc: 'Opportunity & risk assessment'      },
@@ -619,18 +604,18 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
   government_regulator: [
     { icon: '🏛️', title: 'Regulatory Frameworks', desc: 'International policy comparison'    },
     { icon: '⚖️', title: 'Enforcement',            desc: 'Compliance monitoring approaches'   },
-    { icon: '🗺️', title: 'Country Models',         desc: 'Regulatory design benchmarks'       },
-    { icon: '📋', title: 'GMP Standards',          desc: 'Manufacturing oversight'            },
-    { icon: '📊', title: 'Market Data',            desc: 'Supply chain & market metrics'      },
-    { icon: '📜', title: 'Policy Resources',       desc: 'Legislation & treaty references'    },
+    { icon: '🗺️', title: 'Country Models',          desc: 'Regulatory design benchmarks'      },
+    { icon: '📋', title: 'GMP Standards',          desc: 'Manufacturing oversight'             },
+    { icon: '📊', title: 'Market Data',             desc: 'Supply chain & market metrics'     },
+    { icon: '📜', title: 'Policy Resources',        desc: 'Legislation & treaty references'   },
   ],
   logistics_customs: [
     { icon: '📦', title: 'Import / Export Rules',  desc: 'Controlled substance transport'     },
-    { icon: '🚚', title: 'GDP Compliance',         desc: 'Good distribution practice'         },
+    { icon: '🚚', title: 'GDP Compliance',         desc: 'Good distribution practice'          },
     { icon: '📜', title: 'Customs Documentation',  desc: 'Permits, licences & manifests'      },
     { icon: '⚖️', title: 'Regulatory Frameworks',  desc: 'Transport rules by jurisdiction'    },
     { icon: '🗺️', title: 'Country Rules',          desc: 'Border & customs requirements'      },
-    { icon: '🔍', title: 'Enforcement Trends',     desc: 'Customs action monitoring'          },
+    { icon: '🔍', title: 'Enforcement Trends',      desc: 'Customs action monitoring'         },
   ],
   budtender: [
     { icon: '💊', title: 'Product Knowledge',      desc: 'Formats, dosing & effects'         },
@@ -642,18 +627,18 @@ const ROLE_EDU_CATEGORIES: Record<string, { icon: string; title: string; desc: s
   ],
   patient_caregiver_education: [
     { icon: '🩺', title: 'Patient Guidance',       desc: 'Access pathways & authorisation'    },
-    { icon: '💊', title: 'Dosage & Formats',       desc: 'Product types & dosing basics'      },
+    { icon: '💊', title: 'Dosage & Formats',       desc: 'Product types & dosing basics'       },
     { icon: '📖', title: 'Clinical Evidence',      desc: 'Conditions & treatment research'    },
     { icon: '⚖️', title: 'Country Rules',          desc: 'Patient access by jurisdiction'     },
-    { icon: '🔬', title: 'Pharmacology Basics',    desc: 'How cannabinoids work'              },
+    { icon: '🔬', title: 'Pharmacology Basics',    desc: 'How cannabinoids work'               },
     { icon: '🤝', title: 'Support Resources',      desc: 'Caregiver & patient networks'       },
   ],
   not_sure: [
-    { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal framework'           },
-    { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Stay audit-ready'                   },
-    { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing compliance'           },
-    { icon: '📖', title: 'Clinical Evidence',      desc: 'Research & trial summaries'         },
-    { icon: '📦', title: 'Trade & Access',         desc: 'Import/export frameworks'            },
+    { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal framework'            },
+    { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Stay audit-ready'                    },
+    { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing compliance'            },
+    { icon: '📖', title: 'Clinical Evidence',      desc: 'Research & trial summaries'          },
+    { icon: '📦', title: 'Trade & Access',          desc: 'Import/export frameworks'            },
     { icon: '📋', title: 'Getting Started',        desc: 'Orientation for new participants'   },
   ],
 }
@@ -662,9 +647,9 @@ const DEFAULT_EDU = [
   { icon: '🩺', title: 'Doctors & Prescribers', desc: 'Clinical guidance & prescribing'  },
   { icon: '💊', title: 'Pharmacists',            desc: 'Dosing, interactions & safety'    },
   { icon: '📐', title: 'Dosage Education',       desc: 'Personalise dosing'               },
-  { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Stay audit-ready'                 },
-  { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal framework'         },
-  { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing compliance'          },
+  { icon: '⚖️', title: 'Compliance & Reg.',      desc: 'Stay audit-ready'                   },
+  { icon: '🗺️', title: 'Country Rules',          desc: 'Regional legal framework'          },
+  { icon: '🏛️', title: 'GMP Standards',          desc: 'Manufacturing compliance'           },
 ]
 
 export function getEduCategoriesForRole(roleId?: string) {
@@ -695,12 +680,6 @@ export async function getWantedRequestsCount(countryIso2?: string | null): Promi
   try {
     const { createClient } = await import('@/lib/supabase/server')
     const supabase = await createClient()
-    // `listings` has no `listing_type` column, and its status enum is
-    // approved/pending_review -- never 'published'. Both filters were rejected,
-    // so this counter reported 0 regardless of the data. The filters below
-    // mirror getWantedListings() exactly, because the Command Centre renders
-    // that list under this count; if the two disagree the tab contradicts the
-    // rows beneath it.
     let q = supabase
       .from('listings')
       .select('id', { count: 'exact', head: true })
