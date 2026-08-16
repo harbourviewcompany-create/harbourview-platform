@@ -30,7 +30,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: exact-deployment-browser-${{ github.event.client_payload.id || inputs.deployment_id || github.run_id }}
@@ -81,21 +80,12 @@ jobs:
       - name: Verify runtime baseline
         run: npm run verify:runtime
 
-      - name: Obtain short-lived GitHub OIDC identity token
-        id: oidc
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const token = await core.getIDToken()
-            core.setSecret(token)
-            core.setOutput('token', token)
-
       - name: Install lockfile-matched Playwright Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Verify exact deployment identity and browser surface
         env:
-          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/verify-exact-deployment.mjs
 
       - name: Upload immutable release evidence
