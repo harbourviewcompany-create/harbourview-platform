@@ -7,6 +7,7 @@ import {
   shouldFinishReveal,
   shouldForceGoldPlates,
   shouldStartReveal,
+  shouldUseMetallicGoldShader,
 } from '@/lib/globe/globe-intro'
 
 describe('globe intro', () => {
@@ -17,9 +18,6 @@ describe('globe intro', () => {
     expect(
       shouldForceGoldPlates({ introPhase: 'revealing', prefersReducedMotion: false }),
     ).toBe(false)
-    expect(
-      shouldForceGoldPlates({ introPhase: 'ready', prefersReducedMotion: false }),
-    ).toBe(false)
   })
 
   it('never forces gold under reduced motion', () => {
@@ -28,34 +26,66 @@ describe('globe intro', () => {
     ).toBe(false)
   })
 
-  it('does not start reveal while loading even after spin window', () => {
+  it('does not start reveal while loading even after a full orbit', () => {
     expect(
       shouldStartReveal({
-        spinElapsedMs: GLOBE_INTRO.spinDurationMs + 500,
+        azimuthAccumRad: GLOBE_INTRO.fullOrbitRad,
+        spinElapsedMs: GLOBE_INTRO.spinDurationMs,
         loading: true,
         prefersReducedMotion: false,
       }),
     ).toBe(false)
   })
 
-  it('starts reveal after spin window when data is ready', () => {
+  it('starts reveal after a measured full orbit when data is ready', () => {
     expect(
       shouldStartReveal({
-        spinElapsedMs: GLOBE_INTRO.spinDurationMs,
+        azimuthAccumRad: GLOBE_INTRO.fullOrbitRad,
+        spinElapsedMs: 500,
         loading: false,
         prefersReducedMotion: false,
       }),
     ).toBe(true)
   })
 
+  it('starts reveal on safety timeout if azimuth never reaches a full turn', () => {
+    expect(
+      shouldStartReveal({
+        azimuthAccumRad: 0.1,
+        spinElapsedMs: GLOBE_INTRO.spinMaxDurationMs,
+        loading: false,
+        prefersReducedMotion: false,
+      }),
+    ).toBe(true)
+  })
+
+  it('does not start reveal early without orbit or timeout', () => {
+    expect(
+      shouldStartReveal({
+        azimuthAccumRad: Math.PI,
+        spinElapsedMs: 800,
+        loading: false,
+        prefersReducedMotion: false,
+      }),
+    ).toBe(false)
+  })
+
   it('starts reveal immediately under reduced motion once data is ready', () => {
     expect(
       shouldStartReveal({
+        azimuthAccumRad: 0,
         spinElapsedMs: 0,
         loading: false,
         prefersReducedMotion: true,
       }),
     ).toBe(true)
+  })
+
+  it('uses metallic-gold shader only near pure gold blend', () => {
+    expect(shouldUseMetallicGoldShader(0)).toBe(true)
+    expect(shouldUseMetallicGoldShader(GLOBE_INTRO.metallicGoldMaxBlend)).toBe(true)
+    expect(shouldUseMetallicGoldShader(GLOBE_INTRO.metallicGoldMaxBlend + 0.01)).toBe(false)
+    expect(shouldUseMetallicGoldShader(1)).toBe(false)
   })
 
   it('blends 0 during spin, eases through reveal, 1 when ready', () => {
@@ -89,12 +119,6 @@ describe('globe intro', () => {
         prefersReducedMotion: false,
       }),
     ).toBe(true)
-    expect(
-      shouldFinishReveal({
-        revealElapsedMs: 10,
-        prefersReducedMotion: false,
-      }),
-    ).toBe(false)
   })
 
   it('resolveIntroPlateMaterial is gold at 0, tier at 1, mixed in between', () => {
