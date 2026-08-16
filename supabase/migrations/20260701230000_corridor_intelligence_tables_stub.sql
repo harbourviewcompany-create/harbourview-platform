@@ -1,4 +1,5 @@
--- Reconstructed from production migration-ledger evidence for zero-state replay.
+-- Reconstructed from the live production catalog for zero-state migration replay.
+-- Seed values below are restored from production migration-ledger evidence.
 --
 -- Production version 20260701180751 created these tables and seeded 59 processing
 -- observations plus 15 regulatory alerts in the same recorded statement. The
@@ -128,3 +129,16 @@ values
   ('Morocco→EU','2025-09-12','watch','Morocco tables medical cannabis export bill — legislative passage expected H1 2026','Moroccan parliament received draft legislation enabling licensed medical cannabis cultivation and export with EU GMP requirements. Monitor for passage and implementing regulations.','Harbourview Legislative Watch'),
   ('Poland→EU Distribution','2025-08-20','minor','URPL extends export permit processing to 12 weeks — domestic demand cited','URPL issued notice extending standard export permit processing from 8 to 12 weeks effective September 2025, citing high domestic prescription volumes. Export operators advised to apply 16 weeks before target ship date.','URPL Notice 2025-08'),
   ('Jamaica→North America / EU','2025-10-05','minor','CLA introduces operator verification database — reduces EU due diligence burden','Cannabis Licensing Authority (Jamaica) launched online operator verification portal. EU importers can now verify CLA licence status in 2–3 days vs previous 4–6 week process.','CLA Jamaica Press Release Oct 2025');
+
+
+-- Fail closed if replay no longer reproduces the production seed cardinalities.
+do $corridor_seed_fidelity$
+begin
+  if (select count(*) from public.corridor_processing_times) <> 59 then
+    raise exception 'corridor_processing_times replay seed count mismatch';
+  end if;
+  if (select count(*) from public.corridor_regulatory_alerts) <> 15 then
+    raise exception 'corridor_regulatory_alerts replay seed count mismatch';
+  end if;
+end
+$corridor_seed_fidelity$;
