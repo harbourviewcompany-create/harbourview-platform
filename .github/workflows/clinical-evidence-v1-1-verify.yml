@@ -155,8 +155,7 @@ jobs:
           TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
           echo "::add-mask::${TEST_EMAIL}"
           echo "::add-mask::${TEST_PASSWORD}"
-          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
-          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          export TEST_EMAIL TEST_PASSWORD
           {
             echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
             echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
@@ -165,7 +164,7 @@ jobs:
           import { createClient } from '@supabase/supabase-js'
           import fs from 'node:fs'
           const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
-          const { data, error } = await client.auth.admin.createUser({ email: process.env.E2E_TEST_USER_EMAIL, password: process.env.E2E_TEST_USER_PASSWORD, email_confirm: true })
+          const { data, error } = await client.auth.admin.createUser({ email: process.env.TEST_EMAIL, password: process.env.TEST_PASSWORD, email_confirm: true })
           if (error || !data.user) throw error || new Error('reviewer user missing')
           const { error: roleError } = await client.from('user_roles').insert({ user_id: data.user.id, role: 'admin' })
           if (roleError) throw roleError
