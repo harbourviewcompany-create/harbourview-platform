@@ -1,7 +1,25 @@
 # Harbourview Finish-Line Backlog
 
 Last updated: 2026-05-28
-Status: Pass 1.5 working-alpha backlog lock
+Status: **SUPERSEDED — historical record only, not current authority**
+
+> ⚠️ **Do not use this file as current backlog/priority authority.** It is frozen at
+> 2026-05-28 ("Pass 1.5 working-alpha backlog lock") and its top priority item
+> (HV-ALPHA-002, fixing the globe) has been marked Live since at least
+> `docs/control/CURRENT_STATE.md`'s 2026-06-29 update. The live, actively-maintained
+> operating handoff is the repo-root `HANDOFF.md` — read that first for current
+> priorities, not this one.
+>
+> `docs/control/SOURCE_OF_TRUTH.md`, `docs/control/CURRENT_STATE.md`, and
+> `docs/control/PROJECT_STATE.md` carry the same superseded notice (PR #1440,
+> 2026-08-15). This file was named alongside them in `docs/control/AGENT_HANDOFF.md`'s
+> original banner (PR #1112, 2026-07-21) but was missed in that pass — closing that
+> gap here.
+>
+> Flagged during a docs-review session, 2026-08-15 — see
+> `docs/control/EVIDENCE_LOG.md` for the entry.
+
+---
 
 ## Target
 
