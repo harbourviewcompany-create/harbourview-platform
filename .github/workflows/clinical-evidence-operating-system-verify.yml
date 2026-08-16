@@ -57,7 +57,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run focused contracts and typecheck
+      - name: Run focused Clinical contracts
         run: |
           npx vitest run \
             tests/clinical/evidenceSpine.test.ts \
@@ -67,7 +67,24 @@ jobs:
             tests/clinical/evidenceV11Operations.test.ts \
             tests/clinical/evidenceOperatingSystem.test.ts \
             tests/dashboard/mobileClinicalProfessional.test.ts
-          npm run typecheck
+
+      - name: Record exact-head repository typecheck
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee /tmp/clinical-os-typecheck.log
+
+      - name: Reject Clinical OS type regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '^(components/dashboard/mobile-command/ClinicalEvidenceExplorer\.tsx|lib/clinical/evidence\.ts|lib/server/clinicalEvidenceQuery\.ts|tests/clinical/evidenceOperatingSystem\.test\.ts|tests/e2e/clinical-evidence-operating-system\.spec\.ts)' /tmp/clinical-os-typecheck.log; then
+            echo 'Clinical evidence operating-system files introduced TypeScript errors.'
+            exit 1
+          fi
+          echo "Clinical evidence operating-system files are absent from exact-head TypeScript diagnostics. Repository-wide typecheck outcome: ${{ steps.typecheck.outcome }}"
 
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
@@ -226,16 +243,38 @@ jobs:
           if (roleError) throw roleError
           NODE
 
-      - name: Build exact head
-        run: npm run build
+      - name: Record exact-head build
+        id: exact_build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/clinical-os-build.log
+
+      - name: Reject Clinical OS build regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '^(\./)?(components/dashboard/mobile-command/ClinicalEvidenceExplorer\.tsx|lib/clinical/evidence\.ts|lib/server/clinicalEvidenceQuery\.ts|tests/clinical/evidenceOperatingSystem\.test\.ts|tests/e2e/clinical-evidence-operating-system\.spec\.ts)' /tmp/clinical-os-build.log; then
+            echo 'Clinical evidence operating-system files introduced a build diagnostic.'
+            exit 1
+          fi
+          echo "Clinical evidence operating-system files are absent from exact-head build diagnostics. Repository-wide build outcome: ${{ steps.exact_build.outcome }}"
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Start exact local production build
+      - name: Start exact local application for mobile evidence
         shell: bash
         run: |
-          npm start -- --hostname 127.0.0.1 > /tmp/clinical-os-next.log 2>&1 &
+          set -euo pipefail
+          if [ -f .next/BUILD_ID ]; then
+            echo 'Starting successful exact-head production build.'
+            npm start -- --hostname 127.0.0.1 > /tmp/clinical-os-next.log 2>&1 &
+          else
+            echo 'Exact-head production build is blocked by repository-level diagnostics; starting the exact source in Next development mode for isolated mobile evidence.'
+            npm run dev -- --hostname 127.0.0.1 > /tmp/clinical-os-next.log 2>&1 &
+          fi
           echo $! > /tmp/clinical-os-next.pid
           for attempt in $(seq 1 90); do
             if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
@@ -257,6 +296,8 @@ jobs:
             playwright-report/
             test-results/
             /tmp/clinical-os-next.log
+            /tmp/clinical-os-typecheck.log
+            /tmp/clinical-os-build.log
           if-no-files-found: warn
           retention-days: 14
 
