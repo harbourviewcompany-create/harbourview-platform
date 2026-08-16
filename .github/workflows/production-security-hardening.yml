@@ -47,7 +47,7 @@ jobs:
       - run: npx vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
       - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
         with:
-          version: latest
+          version: 2.109.1
       - name: Prepare production-faithful migration replay
         run: node scripts/prepare-production-faithful-migration-replay.mjs --apply
       - name: Reset production-faithful migration history locally
