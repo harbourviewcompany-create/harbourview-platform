@@ -16,8 +16,6 @@ import { FinancingWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 import '../GeneticsSection.css'
 
-export { ClinicalSection } from './ClinicalSection'
-
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
 type GeneticsServiceProvider = {
@@ -282,6 +280,8 @@ export function GeneticsSection({ sectionRef, records, commandHref }: { sectionR
     </SectionShell>
   )
 }
+
+export { ClinicalSection } from './ClinicalSection'
 
 export function ComplianceSection({ sectionRef, regulatoryTier, outlook, playbookSourcing, marketAccessStatus, pathway, commandHref }: {
   sectionRef: SectionRef
