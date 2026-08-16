@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reconstruct-stub-migrations-${{ github.run_id }}
           path: reconstruct.log

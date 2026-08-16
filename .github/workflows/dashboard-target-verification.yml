@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload dashboard verification artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dashboard-target-verification-artifacts
           path: dashboard-target-verification-artifacts
@@ -178,7 +178,7 @@ jobs:
 
       - name: Upload server log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dashboard-target-server-log
           path: /tmp/harbourview-dashboard-next.log
