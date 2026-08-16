@@ -12,7 +12,7 @@ const expectedGitSha = required('EXPECTED_GIT_SHA')
 const expectedDeploymentId = required('EXPECTED_DEPLOYMENT_ID')
 const expectedEnvironment = required('EXPECTED_ENVIRONMENT')
 const expectedProjectId = required('EXPECTED_PROJECT_ID')
-const oidcToken = required('VERCEL_TRUSTED_OIDC_TOKEN')
+const automationBypassSecret = required('VERCEL_AUTOMATION_BYPASS_SECRET')
 const rawDeploymentUrl = required('HARBOURVIEW_DEPLOYMENT_URL')
 
 if (!/^[0-9a-f]{40}$/i.test(expectedGitSha)) {
@@ -34,7 +34,7 @@ if (!/^harbourview-[a-z0-9]+-harbourview\.vercel\.app$/i.test(deploymentUrl.host
   throw new Error(`Deployment URL is not an immutable Harbourview Vercel deployment hostname: ${deploymentUrl.hostname}`)
 }
 const baseUrl = deploymentUrl.origin
-const trustedOidcHeader = { 'x-vercel-trusted-oidc-idp-token': oidcToken }
+const protectionHeaders = { 'x-vercel-protection-bypass': automationBypassSecret }
 const artifactDir = path.resolve('production-browser-verification-artifacts')
 const screenshotDir = path.join(artifactDir, 'screenshots')
 const traceDir = path.join(artifactDir, 'traces')
@@ -42,11 +42,11 @@ await mkdir(screenshotDir, { recursive: true })
 await mkdir(traceDir, { recursive: true })
 
 const identityResponse = await fetch(`${baseUrl}/api/release-identity`, {
-  headers: trustedOidcHeader,
+  headers: protectionHeaders,
   redirect: 'manual',
 })
 if (!identityResponse.ok) {
-  throw new Error(`Release identity probe failed: HTTP ${identityResponse.status}`)
+  throw new Error(`Release identity probe failed: HTTP ${identityResponse.status}; Vercel Deployment Protection did not accept the configured automation bypass credential`)
 }
 const identity = await identityResponse.json()
 const identityFailures = []
@@ -90,7 +90,7 @@ try {
         await route.continue({
           headers: {
             ...request.headers(),
-            ...trustedOidcHeader,
+            ...protectionHeaders,
           },
         })
         return
@@ -149,7 +149,7 @@ const evidence = {
     environment: expectedEnvironment,
   },
   observed: identity,
-  authentication: 'github-actions-oidc-trusted-source',
+  authentication: 'vercel-automation-protection-bypass',
   routes,
   viewports,
   screenshots,

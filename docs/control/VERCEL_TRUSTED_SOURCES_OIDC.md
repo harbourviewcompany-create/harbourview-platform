@@ -1,8 +1,8 @@
-# Vercel Trusted Sources + GitHub OIDC Release Contract
+# Vercel Deployment Protection Authentication Contract
 
 ## Scope
 
-This contract replaces long-lived `VERCEL_AUTOMATION_BYPASS_SECRET` authentication for the exact-deployment release verifier. It does not change deployment protection settings by itself.
+This contract governs authentication for the exact-deployment release verifier.
 
 Canonical targets:
 
@@ -13,19 +13,31 @@ Canonical targets:
 - Runtime identity route: `/api/release-identity`
 - Browser verifier: `scripts/verify-exact-deployment.mjs`
 
-## External Vercel configuration required
+## Current authentication mode
 
-The connected Vercel tool available during this remediation can inspect the project but does not expose a safe Trusted Sources mutation. Vercel's public project schema confirms `trustedSources.oidcProviders` exists, but the public documentation retrieved for this change does not define a stable provider-write payload. Do not invent or replay an undocumented PATCH body.
+The active verifier uses Vercel's documented Protection Bypass for Automation header with the existing GitHub Actions secret:
 
-Configure the `harbourview` project in Vercel Deployment Protection / Trusted Sources to trust GitHub Actions OIDC for this repository. Keep the trust as narrow as Vercel's UI permits: this repository and the release-verification workflow/context only. Do not disable Deployment Protection and do not create a new long-lived bypass secret as part of this change.
+```text
+x-vercel-protection-bypass: <VERCEL_AUTOMATION_BYPASS_SECRET>
+```
 
-GitHub Actions obtains a short-lived ID token using the workflow's `id-token: write` permission and sends it only to the immutable Harbourview deployment origin using Vercel's documented header:
+This is the same existing project-scoped bypass credential already used by Harbourview production verification jobs. This repair does not create, rotate, revoke, or otherwise modify the Vercel bypass secret or Deployment Protection configuration.
+
+The secret must remain in GitHub Actions secrets and must never be written to repository files, artifacts, logs, URLs, query strings, screenshots, or requests to third-party origins. The verifier injects the header only when the request origin exactly matches the immutable Harbourview deployment origin.
+
+## Why GitHub OIDC Trusted Sources is not the active gate
+
+The prior verifier requested a short-lived GitHub Actions OIDC token and sent it in:
 
 ```text
 x-vercel-trusted-oidc-idp-token: <GitHub Actions OIDC token>
 ```
 
-The token must never be placed in repository secrets, artifacts, logs, URLs, query strings, screenshots, or requests to third-party origins.
+Vercel documents this as a valid Deployment Protection bypass only when the project is configured to trust the corresponding external OIDC source. The repository implementation was shipped before that external Trusted Sources configuration had been completed and proven. The result was a Vercel Authentication redirect (`HTTP 302`) from the immutable deployment URL before `/api/release-identity` could execute.
+
+Repository code cannot safely infer or create that external trust relationship. Until Trusted Sources is explicitly configured and proven in Vercel, the release gate must use the already-provisioned Protection Bypass for Automation path rather than fail every exact-deployment verification.
+
+OIDC remains the preferred future replacement for the reusable bypass secret because it is short-lived. Migration back to OIDC requires an explicit, separately controlled Vercel configuration change and positive/negative authentication proof before the bypass secret is removed from this workflow.
 
 ## Exact deployment event contract
 
@@ -41,30 +53,25 @@ The verifier checks those values again against `/api/release-identity`, which re
 
 ## Fail-closed verification sequence
 
-1. Validate project ID, deployment ID, immutable deployment hostname, Git SHA, and environment before obtaining an OIDC token.
+1. Validate project ID, deployment ID, immutable deployment hostname, Git SHA, and environment before any protected request.
 2. Checkout the exact deployed Git SHA with reviewed immutable `actions/checkout` pin and no persisted credentials.
 3. Install dependencies with `npm ci` under Node 22 and run `npm run verify:runtime`.
-4. Request a short-lived GitHub OIDC token only inside the verification job.
+4. Require `VERCEL_AUTOMATION_BYPASS_SECRET` from GitHub Actions secrets.
 5. Install Chromium from the lockfile-resolved Playwright package.
-6. Send the OIDC header only to requests whose origin exactly equals the immutable deployment origin.
+6. Send `x-vercel-protection-bypass` only to requests whose origin exactly equals the immutable deployment origin.
 7. Require `/api/release-identity` to match deployment ID, deployment URL, project ID, Git SHA, and environment exactly.
 8. Run the Chromium route/leakage/overflow probes with no `continue-on-error` path.
 9. Persist `production-browser-verification-artifacts/release-evidence.json`, screenshots, and traces.
-10. A mismatch, authentication failure, route failure, leakage failure, overflow failure, missing evidence, or missing Trusted Sources configuration is a release HOLD.
+10. A missing bypass secret, protection rejection, identity mismatch, route failure, leakage failure, overflow failure, or missing evidence is a release HOLD.
 
-## Trusted Sources acceptance proof
+## Acceptance proof
 
-The migration from `VERCEL_AUTOMATION_BYPASS_SECRET` is complete only when one real immutable deployment satisfies all of these checks:
+The repaired exact-deployment gate is considered proven when one immutable Preview deployment and one subsequent immutable Production deployment satisfy all of the following:
 
-- A protected request without any bypass credential remains denied/protected.
-- A request carrying the GitHub Actions OIDC token in `x-vercel-trusted-oidc-idp-token` reaches `/api/release-identity` successfully.
-- A request with a missing/invalid OIDC token does not reach the application route.
+- A request without a valid protection credential remains protected where Deployment Protection applies.
+- A request carrying `x-vercel-protection-bypass` reaches `/api/release-identity` successfully.
 - The observed runtime identity exactly matches the Vercel dispatch deployment ID, immutable URL, Git SHA, project ID, and environment.
 - The exact-deployment Chromium workflow completes successfully and uploads immutable release evidence.
-- No `VERCEL_AUTOMATION_BYPASS_SECRET` is required by that workflow.
+- No mutable production alias is substituted for the immutable deployment URL.
 
-After this positive/negative proof is captured, legacy verification jobs that still use `VERCEL_AUTOMATION_BYPASS_SECRET` can be migrated to the same OIDC pattern and the reusable bypass secret can be retired through the normal secret-removal control path.
-
-## Current release status
-
-Repository implementation is present, but Trusted Sources is not considered configured or proven until the external Vercel setting and one live positive/negative authentication test are completed. Until then this gate remains `HOLD`.
+A Preview verification is safe evidence for the authentication path. Production remains read-only verification only; this workflow does not deploy, promote, roll back, or mutate application data.
