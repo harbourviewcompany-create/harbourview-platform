@@ -28,12 +28,12 @@ jobs:
           echo '=== BEFORE PREPARE: matching filenames ==='
           find supabase -type f -print | grep -E '20260706134949|market_size' || true
           echo '=== BEFORE PREPARE: matching content ==='
-          grep -R -n -E "market_size_local|\\$2\\.1B|BDSA/State Sales Reports" supabase scripts tests .github 2>/dev/null || true
+          grep -R -n -E 'market_size_local|market_size_usd|BDSA/State Sales Reports' supabase scripts tests .github 2>/dev/null || true
           echo '=== PREPARE ==='
           node scripts/prepare-production-faithful-migration-replay.mjs --apply
           echo '=== AFTER PREPARE: matching filenames ==='
           find supabase -type f -print | grep -E '20260706134949|market_size' || true
           echo '=== AFTER PREPARE: matching content ==='
-          grep -R -n -E "market_size_local|\\$2\\.1B|BDSA/State Sales Reports" supabase scripts tests .github 2>/dev/null || true
+          grep -R -n -E 'market_size_local|market_size_usd|BDSA/State Sales Reports' supabase scripts tests .github 2>/dev/null || true
           echo '=== MIGRATION WINDOW ==='
           find supabase/migrations -maxdepth 1 -type f -printf '%f\n' | sort | awk '$0 >= "20260705000000" && $0 <= "20260707000000" {print}'
