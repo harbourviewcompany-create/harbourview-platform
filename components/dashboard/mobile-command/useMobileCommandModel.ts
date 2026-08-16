@@ -29,7 +29,13 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   useEffect(() => {
     setEnrichedSignals(null)
-    if (model.commandDataState === 'empty') return
+    // Was `model.commandDataState === 'empty'`. That property does not exist
+    // on the base model and never has -- nothing in the repository defines or
+    // returns it -- so this file did not compile and `tsc --noEmit` has been
+    // failing on main. Preserves the original intent (skip enrichment when
+    // there is nothing to enrich) using the signals the model does expose,
+    // which this hook already reads two statements below.
+    if (model.signals.length === 0) return
 
     const controller = new AbortController()
     const params = new URLSearchParams({ country: model.countryLabel, limit: '25' })
@@ -53,7 +59,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       })
 
     return () => controller.abort()
-  }, [model.commandDataState, model.countryLabel])
+  }, [model.signals.length, model.countryLabel])
 
   const effectiveSignals = enrichedSignals ?? model.signals
 
