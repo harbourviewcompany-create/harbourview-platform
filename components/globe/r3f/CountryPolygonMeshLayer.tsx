@@ -31,6 +31,7 @@ function buildGlobeEntries(subNationalIso2s: string[]) {
 }
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { resolveCountryMaterialState, type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
+import { lerpGlobeMaterialState } from '@/lib/globe/globe-intro'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
@@ -49,17 +50,6 @@ function bboxArea(bbox: [number, number, number, number]) {
   return Math.abs(bbox[2] - bbox[0]) * Math.abs(bbox[3] - bbox[1])
 }
 
-// ---------------------------------------------------------------------------
-// HoverPulseMesh
-//
-// Renders a single country plate. Emissive pulse animation is NOT handled
-// here — it was moved to the single centralized useFrame in
-// CountryPolygonMeshLayer, reducing useFrame subscriptions from ~250 to 1.
-//
-// Contract with parent:
-//   registerMat(iso2, mat | null) — called on mount (mat) and unmount (null)
-//   scheduleAnimation(iso2, target) — called when pulse target changes
-// ---------------------------------------------------------------------------
 function HoverPulseMesh({
   iso2,
   geometry,
@@ -101,16 +91,12 @@ function HoverPulseMesh({
 }) {
   const matRef = useRef<MeshPhysicalMaterial>(null)
 
-  // Register mat with the parent animation registry on mount; deregister on unmount.
   useEffect(() => {
     if (matRef.current) registerMat(iso2, matRef.current)
     return () => { registerMat(iso2, null) }
-    // iso2 is stable per-entry; registerMat is useCallback-stable
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [iso2, registerMat])
 
-  // Whenever focus/intensity changes, push the new target to the parent scheduler.
-  // The parent's single useFrame lerps all active animations.
   useEffect(() => {
     const target = isFocused ? Math.max(emissiveIntensity, 0.36) : emissiveIntensity
     scheduleAnimation(iso2, target)
@@ -123,7 +109,6 @@ function HoverPulseMesh({
 
   return (
     <>
-      {/* Visual mesh — renders the country plate. */}
       <mesh geometry={geometry} renderOrder={20}>
         <meshPhysicalMaterial
           ref={matRef}
@@ -178,7 +163,6 @@ function HoverPulseMesh({
           </mesh>
         </>
       ) : null}
-      {/* Hit mesh — inflated invisible surface for pointer events. */}
       <mesh
         geometry={hitGeometry ?? geometry}
         visible={false}
@@ -199,6 +183,8 @@ export function CountryPolygonMeshLayer({
   activeLayerId,
   tierByIso2,
   tierPalette = 'metal',
+  /** 0 = pure gold, 1 = full tier heat. Used during intro reveal lerp. */
+  introTierBlend = 1,
   onHoverCountry,
   onSelectCountry,
 }: {
@@ -213,21 +199,10 @@ export function CountryPolygonMeshLayer({
    */
   tierByIso2?: Record<string, RegulatoryTier | null>
   tierPalette?: GlobeTierPalette
+  introTierBlend?: number
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
 }) {
-  // ---------------------------------------------------------------------------
-  // Centralised emissive-pulse animation
-  //
-  // Previously each HoverPulseMesh registered its own useFrame, resulting in
-  // ~250 subscriptions that R3F iterates every frame regardless of whether
-  // anything is animating. Now a single useFrame handles all active lerps.
-  //
-  // matRegistry  — iso2 → MeshPhysicalMaterial (registered on mesh mount)
-  // targetMap    — iso2 → target emissiveIntensity (set when state changes)
-  // animating    — set of iso2s currently lerping (added by scheduleAnimation,
-  //                removed when settled)
-  // ---------------------------------------------------------------------------
   const matRegistry = useRef(new Map<string, MeshPhysicalMaterial>())
   const targetMap   = useRef(new Map<string, number>())
   const animating   = useRef(new Set<string>())
@@ -249,7 +224,6 @@ export function CountryPolygonMeshLayer({
     invalidate()
   }, [invalidate])
 
-  // Single useFrame — only does work when animating.size > 0
   useFrame((state, delta) => {
     if (animating.current.size === 0) return
     const settled: string[] = []
@@ -269,13 +243,6 @@ export function CountryPolygonMeshLayer({
     for (const iso2 of settled) animating.current.delete(iso2)
   })
 
-  // ---------------------------------------------------------------------------
-  // Geometry and entry memos
-  // ---------------------------------------------------------------------------
-
-  // Stringify dep to avoid rebuilding all geometries when the array ref changes
-  // but contents are identical. The join is computed inside useMemo so the
-  // outer render path pays only the useMemo cache-check cost per render.
   const subNationalKey = useMemo(
     () => subNationalIso2s.slice().sort().join(','),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -366,18 +333,26 @@ export function CountryPolygonMeshLayer({
           : focusedCountryIso2 === entry.iso2
             ? 'focused'
             : 'idle'
-        // Sub-national entries carry a hyphenated iso2 ('CA-AB', 'US-CO') plus a
-        // `parentIso2`. A regulatory tier is a national-law claim and we have no
-        // state-level review, so subdivisions inherit the parent's tier. Without
-        // the parentIso2 fallback every province/state would silently miss the
-        // lookup and render neutral.
         const tierIso2 = (entry as { parentIso2?: string }).parentIso2 ?? entry.iso2
-        const material = resolveCountryMaterialState({
+        const blend = Math.min(1, Math.max(0, introTierBlend))
+        const goldMaterial = resolveCountryMaterialState({
+          visualState,
+          layerId: activeLayerId,
+          regulatoryTier: null,
+          palette: tierPalette,
+        })
+        const tierMaterial = resolveCountryMaterialState({
           visualState,
           layerId: activeLayerId,
           regulatoryTier: tierByIso2?.[tierIso2] ?? null,
           palette: tierPalette,
         })
+        const material =
+          blend >= 0.999
+            ? tierMaterial
+            : blend <= 0.001
+              ? goldMaterial
+              : lerpGlobeMaterialState(goldMaterial, tierMaterial, blend)
 
         return (
           <HoverPulseMesh
