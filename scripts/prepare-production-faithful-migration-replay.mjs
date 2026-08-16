@@ -9,14 +9,15 @@ const DECISIONS_FILE = 'supabase/release-controls/pending-production-migration-d
 const MIGRATIONS_DIR = 'supabase/migrations'
 const EXCLUDED_SUFFIX = '.replay-excluded'
 
-// Production can contain out-of-band drift that a later migration repairs even
-// though a repository zero-state replay never contains that drift. Skip only
-// explicitly evidenced repair migrations whose intended post-state is already
-// established by earlier checked-in history. This is a temporary replay-only
+// Production can contain out-of-band drift or duplicate registrations that a
+// later migration repairs/replays even though a repository zero-state replay
+// already contains the intended post-state from earlier checked-in history.
+// Skip only explicitly evidenced files. This is a temporary replay-only
 // exclusion; checked-in history and the production migration ledger are not
 // changed.
 const REPLAY_ZERO_STATE_SKIPS = [
   '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
+  '20260714224152_create_intel_eval_set_stage0.sql',
 ]
 
 // Repository-only reconciliation migrations can occasionally have a timestamp
@@ -148,9 +149,9 @@ if (isDirect) {
       }
     }
     if (zeroStateSkips.length === 0) {
-      console.log('Production-faithful replay: no out-of-band-drift repair files require zero-state exclusion.')
+      console.log('Production-faithful replay: no zero-state-inapplicable historical repair/duplicate files require exclusion.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'excluded' : 'would exclude'} ${zeroStateSkips.length} out-of-band-drift repair file(s) from zero-state replay:`)
+      console.log(`Production-faithful replay: ${apply ? 'excluded' : 'would exclude'} ${zeroStateSkips.length} zero-state-inapplicable historical repair/duplicate file(s):`)
       for (const file of zeroStateSkips) console.log(`- ${file}`)
     }
     if (relocations.length === 0) {
