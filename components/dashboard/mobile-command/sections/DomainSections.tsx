@@ -12,16 +12,11 @@ import {
   type MobileCommandTool,
   type SectionId,
 } from '../contracts'
-import {
-  CANADA_CLINICAL_AUTHORITIES,
-  CLINICAL_SOURCE_STATE_COPY,
-  deriveClinicalSourceState,
-  safeClinicalBriefing,
-} from '../clinicalCommandContract'
-import ClinicalEvidenceExplorer from '../ClinicalEvidenceExplorer'
 import { FinancingWorkspacePanel } from '../WorkspacePanels'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 import '../GeneticsSection.css'
+
+export { ClinicalSection } from './ClinicalSection'
 
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
@@ -283,118 +278,6 @@ export function GeneticsSection({ sectionRef, records, commandHref }: { sectionR
       <div className="hvm2-genetics-boundary" role="note">
         <strong>{MOBILE_COMMAND_COPY.geneticsBoundaryTitle}</strong>
         <p>{MOBILE_COMMAND_COPY.geneticsBoundaryDetail}</p>
-      </div>
-    </SectionShell>
-  )
-}
-
-export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalStatus, patientAccess, physicianAccess, commandHref }: {
-  sectionRef: SectionRef
-  roleShort: string
-  programStatus?: string | null
-  medicalStatus?: string | null
-  patientAccess?: string | null
-  physicianAccess?: string | null
-  commandHref: CommandHref
-}) {
-  const sourceState = deriveClinicalSourceState({
-    programStatus,
-    medicalStatus,
-    patientAccess,
-    physicianAccess,
-  })
-  const safePatientAccess = safeClinicalBriefing(patientAccess)
-  const safePhysicianAccess = safeClinicalBriefing(physicianAccess)
-  const jurisdictionStatus = safeClinicalBriefing(programStatus) || safeClinicalBriefing(medicalStatus)
-  const changed = CANADA_CLINICAL_AUTHORITIES[0]
-  const documentAuthority = CANADA_CLINICAL_AUTHORITIES[1]
-  const safetyAuthority = CANADA_CLINICAL_AUTHORITIES[2]
-  const pharmacovigilanceAuthority = CANADA_CLINICAL_AUTHORITIES[3]
-  const clinicalHref = commandHref('clinical')
-
-  return (
-    <SectionShell
-      id="clinical"
-      sectionRef={sectionRef}
-      eyebrow="Clinical"
-      title="Professional clinical command"
-      description="Primary-authority clinical orientation for medical professionals. Evidence and regulatory status stay distinct from product marketing and genetics."
-      action={<Link className="hvm2-text-link" href={clinicalHref}>Open clinician workspace</Link>}
-    >
-      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
-
-      <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' ? 'status' : undefined}>
-        <strong>Jurisdiction briefing · {formatStatus(sourceState)}</strong>
-        <p>{CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
-      </div>
-
-      <div className="hvm2-compliance-grid" aria-label="Clinical command summary">
-        <article>
-          <span>What changed</span>
-          <strong>Current federal framework</strong>
-          <p>Use the Cannabis Act and Cannabis Regulations authority rather than legacy ACMPR-era terminology.</p>
-          <a className="hvm2-text-link" href={changed.href} target="_blank" rel="noreferrer">Primary authority ↗</a>
-        </article>
-        <article>
-          <span>What requires attention</span>
-          <strong>{sourceState === 'loaded' ? 'Verify against source' : 'Briefing needs review'}</strong>
-          <p>{sourceState === 'loaded' ? 'Jurisdiction briefing is present; confirm material decisions against the cited authority and professional regulator.' : CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
-        </article>
-      </div>
-
-      <div className="hvm2-horizontal-deck" aria-label="Clinical actions">
-        <article className="hvm2-directory-card">
-          <span>What can I do next</span>
-          <h3>Authorization & documentation</h3>
-          <p>Review the current federal medical-document requirements before using jurisdiction-specific workflow content.</p>
-          <a className="hvm2-text-link" href={documentAuthority.href} target="_blank" rel="noreferrer">Open §273 ↗</a>
-        </article>
-        <article className="hvm2-directory-card">
-          <span>Patient safety</span>
-          <h3>Safety & interactions</h3>
-          <p>Open current Health Canada safety and interaction guidance. Harbourview does not present a structured interaction checker until a reviewed interaction contract is wired.</p>
-          <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Open guidance ↗</a>
-        </article>
-        <article className="hvm2-directory-card">
-          <span>Pharmacovigilance</span>
-          <h3>Adverse-reaction reporting</h3>
-          <p>Use the current federal health-professional reporting guidance and capture product identity details required by the authority.</p>
-          <a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">Reporting guidance ↗</a>
-        </article>
-        <article className="hvm2-directory-card">
-          <span>Professional education</span>
-          <h3>Reviewed clinical modules</h3>
-          <p>Open Harbourview's existing professional-only clinical education surface and its review-status controls.</p>
-          <Link className="hvm2-text-link" href="/network/clinical-education">Clinical education →</Link>
-        </article>
-      </div>
-
-      <div className="hvm2-two-column" aria-label="Jurisdiction clinical briefing">
-        <article>
-          <span>Jurisdiction pathway</span>
-          <h3>{jurisdictionStatus || 'Jurisdiction-specific status unavailable'}</h3>
-          <p>{safePatientAccess || 'No current reviewed patient-access briefing is available for this context. Treat the field as unknown rather than inferring a pathway.'}</p>
-          <Link className="hvm2-text-link" href={commandHref('jurisdiction')}>Jurisdiction command →</Link>
-        </article>
-        <article>
-          <span>Professional pathway</span>
-          <h3>{roleShort || 'All roles'}</h3>
-          <p>{safePhysicianAccess || 'No current reviewed profession-specific briefing is available for this context. Confirm requirements with the applicable provincial or territorial professional regulator.'}</p>
-          <Link className="hvm2-text-link" href={clinicalHref}>Clinical workspace →</Link>
-        </article>
-      </div>
-
-      <div className="hvm2-horizontal-deck" aria-label="Clinical provenance">
-        {CANADA_CLINICAL_AUTHORITIES.map(source => (
-          <article className="hvm2-directory-card" key={source.id}>
-            <span>{source.evidenceType.replaceAll('-', ' ')}</span>
-            <h3>{source.label}</h3>
-            <p>{source.purpose}</p>
-            <p><strong>{source.jurisdiction}</strong> · {source.evidenceStrength}</p>
-            <p>Verified {source.verifiedAt} · {source.sourceName}</p>
-            <a className="hvm2-text-link" href={source.href} target="_blank" rel="noreferrer">Primary source ↗</a>
-          </article>
-        ))}
       </div>
     </SectionShell>
   )
