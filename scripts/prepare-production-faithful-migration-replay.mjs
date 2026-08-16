@@ -9,12 +9,28 @@ const DECISIONS_FILE = 'supabase/release-controls/pending-production-migration-d
 const MIGRATIONS_DIR = 'supabase/migrations'
 const EXCLUDED_SUFFIX = '.replay-excluded'
 
+// Production can contain out-of-band drift or duplicate registrations that a
+// later migration repairs/replays even though a repository zero-state replay
+// already contains the intended post-state from earlier checked-in history.
+// Skip only explicitly evidenced files. This is a temporary replay-only
+// exclusion; checked-in history and the production migration ledger are not
+// changed.
+const REPLAY_ZERO_STATE_SKIPS = [
+  '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
+  '20260714224152_create_intel_eval_set_stage0.sql',
+]
+
 // Repository-only reconciliation migrations can occasionally have a timestamp
 // later than the first historical migration that depends on the production
 // state they reconstruct. Relocate only an explicitly evidenced, production-
-// unapplied reconciliation file for zero-state replay; the checked-in file and
-// production migration ledger remain unchanged.
+// unapplied reconstruction/reconciliation file for zero-state replay; the
+// checked-in file and production migration ledger remain unchanged.
 const REPLAY_RELOCATIONS = [
+  {
+    source: '20260701230000_corridor_intelligence_tables_stub.sql',
+    destination: '20260701180750_replay_corridor_intelligence_tables_stub.sql',
+    before: '20260701180751_remote_applied_repair.sql',
+  },
   {
     source: '20260730220050_reconcile_listings_production_columns.sql',
     destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
@@ -62,6 +78,11 @@ export function planReplayExclusions({ decisions, migrationFiles }) {
   return exclusions.sort((a, b) => a.version.localeCompare(b.version))
 }
 
+export function planReplayZeroStateSkips({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_ZERO_STATE_SKIPS.filter((file) => fileSet.has(file))
+}
+
 export function planReplayRelocations({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_RELOCATIONS.filter((item) => {
@@ -84,6 +105,7 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
   const migrationFiles = fs.readdirSync(migrationDirectory).filter((file) => file.endsWith('.sql'))
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
+  const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
 
   if (apply) {
@@ -92,6 +114,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       const destination = `${source}${EXCLUDED_SUFFIX}`
       if (!fs.existsSync(source)) throw new Error(`Replay exclusion source disappeared: ${item.file}`)
       if (fs.existsSync(destination)) throw new Error(`Replay exclusion destination already exists: ${path.basename(destination)}`)
+      fs.renameSync(source, destination)
+    }
+    for (const file of zeroStateSkips) {
+      const source = path.join(migrationDirectory, file)
+      const destination = `${source}${EXCLUDED_SUFFIX}`
+      if (!fs.existsSync(source)) throw new Error(`Replay zero-state skip source disappeared: ${file}`)
+      if (fs.existsSync(destination)) throw new Error(`Replay zero-state skip destination already exists: ${path.basename(destination)}`)
       fs.renameSync(source, destination)
     }
     for (const item of relocations) {
@@ -103,14 +132,14 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
     }
   }
 
-  return { exclusions, relocations }
+  return { exclusions, zeroStateSkips, relocations }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const { exclusions, relocations } = runReplayPreparation({ apply })
+    const { exclusions, zeroStateSkips, relocations } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
@@ -119,10 +148,16 @@ if (isDirect) {
         console.log(`- ${item.file} -> live/repository equivalent ${item.repository_equivalent_versions.join(', ')}`)
       }
     }
-    if (relocations.length === 0) {
-      console.log('Production-faithful replay: no repository-only reconciliation files require earlier replay ordering.')
+    if (zeroStateSkips.length === 0) {
+      console.log('Production-faithful replay: no zero-state-inapplicable historical repair/duplicate files require exclusion.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconciliation file(s):`)
+      console.log(`Production-faithful replay: ${apply ? 'excluded' : 'would exclude'} ${zeroStateSkips.length} zero-state-inapplicable historical repair/duplicate file(s):`)
+      for (const file of zeroStateSkips) console.log(`- ${file}`)
+    }
+    if (relocations.length === 0) {
+      console.log('Production-faithful replay: no repository-only reconstruction/reconciliation files require earlier replay ordering.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
       }
