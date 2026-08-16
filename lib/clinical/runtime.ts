@@ -39,7 +39,12 @@ export function classifyClinicalFailure(input: {
   if (/clinical_evidence_not_configured|missing.*supabase|supabase.*not configured/i.test(message)) return 'configuration'
   if (/clinical_evidence_environment_mismatch|supabase project mismatch/i.test(message)) return 'environment-mismatch'
   if (/clinical_evidence_(?:http_404|route_missing)/i.test(message)) return 'missing-route'
-  if (status === 401 || status === 403 || code === '42501' || /row-level security|permission denied/i.test(message)) return 'permission'
+  if (
+    status === 401
+    || status === 403
+    || code === '42501'
+    || /clinical_evidence_http_(?:401|403)|row-level security|permission denied/i.test(message)
+  ) return 'permission'
   if (
     status === 404
     || ['PGRST202', 'PGRST205', '42P01', '42883'].includes(code)
