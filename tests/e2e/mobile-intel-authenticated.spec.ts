@@ -135,14 +135,17 @@ test.describe('Mobile Intel authenticated evidence', () => {
           await page.route('**/api/clinical/evidence**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }))
           const response = await page.goto('/dashboard?country=CA&role=exporter&page=clinical&section=clinical', { waitUntil: 'domcontentloaded', timeout: 60_000 })
           expect(response?.status()).toBeLessThan(400); await expect(page.locator('#clinical')).toBeVisible()
-          await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible(); await expect(page.getByText('Evidence by condition · Canada', { exact: true })).toBeVisible()
-          await expect(page.getByText(fixture.message, { exact: true })).toBeVisible(); await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
+          await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible()
+          await expect(page.getByRole('region', { name: 'Evidence command · Canada · Exporter' })).toBeVisible()
+          if (stateName !== 'loaded') await expect(page.getByText(fixture.message, { exact: true })).toBeVisible()
+          await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
           for (const label of ['Command','Market','Intel','Actions']) await expect(page.locator('.hvm-op-bottom-nav')).toContainText(label)
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
           if (stateName === 'loaded') {
             await expect(page.getByText('EPIDIOLEX authorized indication — Dravet syndrome', { exact: true })).toBeVisible()
-            await expect(page.getByText('Evidence set · 1 published source', { exact: true })).toBeVisible()
-            await expect(page.getByText('This is a provenance/count summary only; it does not infer efficacy or comparative superiority.', { exact: true })).toBeVisible()
+            await expect(page.getByText('1 reviewed record', { exact: true })).toBeVisible()
+            await expect(page.getByText('1 current · 0 graded · 1 ungraded', { exact: true })).toBeVisible()
+            await expect(page.getByText(/Counts describe the reviewed corpus only; they do not infer efficacy or comparative superiority\./)).toBeVisible()
           }
           await page.screenshot({ path: path.join(evidenceRoot, `clinical-evidence-${stateName}-${viewport.width}x${viewport.height}.png`), fullPage: false })
         } finally { await context.close() }
