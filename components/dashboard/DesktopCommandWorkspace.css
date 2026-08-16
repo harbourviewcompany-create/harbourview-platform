@@ -1,18 +1,13 @@
 .desktop-command-workspace-layer {
-  --hvm2-bg: #020814;
-  --hvm2-panel: #07111f;
-  --hvm2-text: #f5f1e8;
-  --hvm2-muted: #9aa8b6;
-  --hvm2-gold: #c6a55a;
-  --hvm2-gold-light: #f3cf86;
-  --hvm2-border-soft: rgba(198, 165, 90, 0.24);
+  /* Palette inherits --hvm2-* aliases from styles/design-tokens.css */
   position: fixed;
   inset: 0;
   z-index: 120;
   overflow-y: auto;
   padding: 72px 24px 40px;
-  background: rgba(2, 8, 20, 0.92);
+  background: color-mix(in srgb, var(--hv-black) 92%, transparent);
   backdrop-filter: blur(12px);
+  color: var(--hvm2-text);
 }
 
 .desktop-command-workspace-layer > .hvm2-workspace {

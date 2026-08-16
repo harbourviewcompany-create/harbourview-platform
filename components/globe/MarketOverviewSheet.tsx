@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { RouterBottomSheet } from './RouterBottomSheet'
+import { hvPanelPrimaryCtaClass } from '@/components/ui/HarbourviewPanel'
 import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
 import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
@@ -57,8 +58,8 @@ type FetchState =
 function BriefingSection({ label, text }: { label: string; text: string }) {
   return (
     <div className="grid gap-1">
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#d8be76]/72">{label}</dt>
-      <dd className="text-sm leading-6 text-[#f5f1e8]/80">{text}</dd>
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--hv-gold-light)]/72">{label}</dt>
+      <dd className="text-sm leading-6 text-[color:var(--hv-ivory)]/80">{text}</dd>
     </div>
   )
 }
@@ -157,21 +158,21 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
             type="button"
             onClick={onEnter}
             disabled={isLoading}
-            className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#c6a55a] px-5 text-center text-sm font-semibold uppercase tracking-[0.16em] text-[#06101d] shadow-[0_0_34px_rgba(198,165,90,0.18)] transition hover:bg-[#d4b46a] disabled:opacity-40"
+            className={hvPanelPrimaryCtaClass}
           >
             Enter {countryName} Market
           </button>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.1em]">
-            <Link href={`/login?next=${encodeURIComponent(commandReturn)}`} className="text-[#d8be76]/80 hover:text-[#d8be76]">Sign in</Link>
-            <Link href={`/login?mode=signup&next=${encodeURIComponent(commandReturn)}`} className="text-[#d8be76]/80 hover:text-[#d8be76]">Create account</Link>
-            <Link href={createOrgHref} className="text-[#d8be76]/80 hover:text-[#d8be76]">Create organization</Link>
+            <Link href={`/login?next=${encodeURIComponent(commandReturn)}`} className="text-[color:var(--hv-gold-light)]/80 hover:text-[color:var(--hv-gold-light)]">Sign in</Link>
+            <Link href={`/login?mode=signup&next=${encodeURIComponent(commandReturn)}`} className="text-[color:var(--hv-gold-light)]/80 hover:text-[color:var(--hv-gold-light)]">Create account</Link>
+            <Link href={createOrgHref} className="text-[color:var(--hv-gold-light)]/80 hover:text-[color:var(--hv-gold-light)]">Create organization</Link>
           </div>
         </div>
       }
     >
       {state.status === 'loading' && (
         <div className="flex items-center gap-3 py-6">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#c6a55a]/40 border-t-[#c6a55a]" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[color:var(--hv-gold)]/40 border-t-[color:var(--hv-gold)]" />
           <span className="text-sm text-white/50">Fetching regulatory data…</span>
         </div>
       )}
@@ -185,7 +186,7 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
               cache.current.delete(countryIso2.toUpperCase())
               setRetryKey((k) => k + 1)
             }}
-            className="self-start text-xs font-semibold uppercase tracking-widest text-[#c6a55a] hover:text-[#d4b46a]"
+            className="self-start text-xs font-semibold uppercase tracking-widest text-[color:var(--hv-gold)] hover:brightness-110"
           >
             Retry
           </button>
@@ -197,17 +198,17 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
           {briefing.public_summary && (
             <div className="grid gap-1">
               <dt className="sr-only">Overview</dt>
-              <dd className="text-sm leading-6 text-[#f5f1e8]/90">{briefing.public_summary}</dd>
+              <dd className="text-sm leading-6 text-[color:var(--hv-ivory)]/90">{briefing.public_summary}</dd>
             </div>
           )}
-          <div className="h-px bg-[#c6a55a]/14" />
+          <div className="h-px bg-[color:var(--hv-gold)]/14" />
           {briefing.patient_access && <BriefingSection label="Patient Access" text={briefing.patient_access} />}
           {briefing.physician_access && <BriefingSection label="Physician Access" text={briefing.physician_access} />}
           {briefing.market_dynamics && <BriefingSection label="Market Dynamics" text={briefing.market_dynamics} />}
           {briefing.regulatory_outlook && <BriefingSection label="Regulatory Outlook" text={briefing.regulatory_outlook} />}
           {briefing.regulatory_body && <BriefingSection label="Regulatory Body" text={briefing.regulatory_body} />}
           {briefing.last_reviewed_date && (
-            <p className="text-[10px] uppercase tracking-[0.15em] text-[#d8be76]/50">
+            <p className="text-[10px] uppercase tracking-[0.15em] text-[color:var(--hv-gold-light)]/50">
               Last reviewed{' '}
               {new Date(briefing.last_reviewed_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
             </p>
