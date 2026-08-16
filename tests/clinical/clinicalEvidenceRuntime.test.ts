@@ -20,11 +20,14 @@ function result(overrides: Partial<ClinicalEvidenceApiResult> = {}): ClinicalEvi
 }
 
 describe('Clinical evidence runtime classification', () => {
-  it('distinguishes permission, migration drift, configuration, schema and upstream failures', () => {
+  it('distinguishes permission/RLS, missing route, migration drift, environment, configuration, schema and upstream failures', () => {
     expect(classifyClinicalFailure({ status: 401 })).toBe('permission')
     expect(classifyClinicalFailure({ status: 403 })).toBe('permission')
+    expect(classifyClinicalFailure({ code: '42501', message: 'permission denied for relation clinical_evidence_records' })).toBe('permission')
+    expect(classifyClinicalFailure({ message: 'clinical_evidence_http_404' })).toBe('missing-route')
     expect(classifyClinicalFailure({ status: 404, code: 'PGRST202', message: 'Could not find the function' })).toBe('migration-drift')
     expect(classifyClinicalFailure({ code: '42P01', message: 'relation clinical_evidence_records does not exist' })).toBe('migration-drift')
+    expect(classifyClinicalFailure({ message: 'clinical_evidence_environment_mismatch' })).toBe('environment-mismatch')
     expect(classifyClinicalFailure({ message: 'clinical_evidence_not_configured' })).toBe('configuration')
     expect(classifyClinicalFailure({ message: 'clinical_evidence_schema_contract validation failed' })).toBe('schema')
     expect(classifyClinicalFailure({ status: 503, message: 'upstream unavailable' })).toBe('upstream')
@@ -48,6 +51,8 @@ describe('Clinical evidence runtime classification', () => {
   it('uses clinician-facing state and diagnostic labels', () => {
     expect(clinicalStateLabel('degraded-source')).toBe('Partial source coverage')
     expect(clinicalStateLabel('conflicted')).toBe('Conflicting evidence')
+    expect(clinicalFailureLabel('missing-route')).toBe('Evidence route unavailable')
+    expect(clinicalFailureLabel('environment-mismatch')).toBe('Evidence environment mismatch')
     expect(clinicalFailureLabel('migration-drift')).toBe('Evidence schema not activated')
     expect(clinicalFailureLabel('schema')).toBe('Evidence contract mismatch')
   })
