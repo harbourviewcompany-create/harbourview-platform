@@ -63,8 +63,6 @@ export type DashboardSignal = {
   jurisdiction?: string
   entities?: string[]
   priorityDomain?: DigestPriorityDomain
-  verifiedFacts?: string[]
-  inferences?: string[]
   competitivePositionChange?: boolean
   competitivePositionDetail?: string | null
 
