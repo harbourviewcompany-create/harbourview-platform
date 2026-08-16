@@ -5003,3 +5003,27 @@ Production pre-flight (read-only): retirement predicate matches **0** rows on fi
 **Known gap, not closed.** Desktop Genetics still has no content contract — mobile asserts twelve properties of the rendered cultivar data, desktop asserts render + redaction + no overflow. Writing the desktop equivalent requires fixture detail not available from this environment (the Actions artifact host is blocked by the network policy).
 
 **Decision:** **GO for the repository change.** No production action; nothing to apply.
+
+---
+
+**Evidence ID:** `HV-CLINICAL-JURISDICTION-BOUNDARY-20260816`
+
+**Scope:** repository-only. Fixes jurisdiction resolution in the mobile Command Centre clinical section and adds `docs/control/CLINICAL_FLAGSHIP_SPEC.md`. No migration, no schema change, no production action, no content change to any published clinical record.
+
+**Diagnosis (verified live against `zvxdgdkukjrrwamdpqrg`, read-only).** The clinical section returns "No reviewed condition or evidence record matches this search" for every clinical query. Two independent causes, plus one governance finding:
+
+1. **Empty corpus.** `clinical_evidence_records` holds **3** rows (all published, all Canadian regulatory/guidance, all `condition_label = NULL`, all `evidence_strength = 'ungraded'`); `clinical_evidence_change_events` holds **1**; `clinical_condition_terms` holds **0**. No condition-level evidence exists, so no clinical query can match. The empty `clinical_condition_terms` also forces `clinical_condition_term_known()` to return false for every input, collapsing the `no-evidence` state into `no-match` — the system cannot distinguish a known coverage gap from an unrecognised term.
+
+2. **Jurisdiction defects (fixed here).** `ClinicalEvidenceExplorer` parsed the ISO code from the URL and mapped only `CA → "Canada"`, passing all other codes through raw. `clinical_evidence_records.jurisdictions` stores full names, so `'DE' = any(jurisdictions)` never matched — every non-Canadian market returned zero results independent of cause 1 — and an absent country parameter fell back to the literal `'Canada'`. Separately, `ClinicalSection` rendered `CANADA_CLINICAL_AUTHORITIES` unconditionally, presenting *Cannabis Regulations* §272/§273 and Health Canada reporting guidance as the "primary authority" to prescribers in every other jurisdiction.
+
+3. **Migration drift.** `supabase_migrations.schema_migrations` contains `20260814121500_clinical_evidence_spine` and **none** of the six later clinical-evidence migrations present in the repository (governance, source reconciliation, production foundation, audit immutability, v1.1 operations, nabilone source). Unapplied: the `clinical_condition_terms` seed, credentialed-reviewer gating, hashed source snapshots, GRADE assessments, outcome links, and the intake queue. `mapEvidence()` in `lib/server/clinicalEvidenceQuery.ts` already reads `freshness_status`, `publication_scope`, `grading_method_key`, `review_due_at` and `source_currentness_checked_at` — confirmed absent from the production table, so they map to `null` silently. This is the `AGENT_OPERATING_FACTS.md` pattern, unchanged.
+
+**Not a defect.** `app/api/clinical/{patients,prescriptions,calculations,recommendations,verification,me}` have no schema behind them (live check for `%patient%`/`%prescription%`/`%calculation%`/`%clinician%` in `public` and `clinical`: **0 tables**). `supabase/release-controls/pending-production-migration-decisions.json` classifies migrations `20260727160000`–`163000` as `separately_authorized` / `independent_release_not_authorized`. Patient-identifiable data is deliberately unauthorised; the routes shipping ahead of that decision is the gap, not the absent schema.
+
+**Change made.** `ClinicalEvidenceExplorer` now takes the resolved country display name from the Command model instead of parsing the href. `clinicalAuthoritiesForJurisdiction()` resolves the authority deck per jurisdiction and returns empty outside Canada; the section renders an explicit "no reviewed primary authority for this jurisdiction" note in its place rather than foreign law. Copy lives in `clinicalCommandContract.ts` and cites this evidence entry's spec document, per the domain-copy rule in `AGENTS.md`.
+
+**Verification.** `npm run typecheck` clean. `npx vitest run tests/dashboard/mobileClinicalProfessional.test.ts tests/clinical/` — 7 files, 39 tests, all pass, including a new assertion that no jurisdiction other than Canada (`Germany`, `Australia`, `United States`, `Global`, `CA`, empty, null, undefined) resolves to the Canadian authority deck. `npm run lint` and `npm run build` recorded in the PR body.
+
+**Known gap, not closed.** `clinical_evidence_records.jurisdictions` is free-text `text[]` with no foreign key to the country identity rows, which use UN canonical names ("United States of America", "Netherlands (Kingdom of the)"). Any record seeded with a colloquial name will silently never match. Flagged in the spec; needs a constraint, not a convention.
+
+**Decision:** **GO for the repository change.** The corpus, the six unapplied migrations, and every content decision in the spec remain gated on owner sign-off.

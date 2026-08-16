@@ -66,6 +66,25 @@ export const CANADA_CLINICAL_AUTHORITIES: readonly ClinicalAuthorityRecord[] = [
   },
 ] as const
 
+/**
+ * Primary-authority cards are jurisdiction-bound. Canadian federal law is not a
+ * lawful reference for a prescriber working in another jurisdiction, so the deck
+ * must resolve by jurisdiction rather than render unconditionally.
+ * Control document: docs/control/CLINICAL_FLAGSHIP_SPEC.md (Finding 3).
+ */
+export function clinicalAuthoritiesForJurisdiction(
+  jurisdiction: string | null | undefined,
+): readonly ClinicalAuthorityRecord[] {
+  return jurisdiction?.trim().toLowerCase() === 'canada' ? CANADA_CLINICAL_AUTHORITIES : []
+}
+
+/** Shown in place of the authority deck when no reviewed primary authority exists for the jurisdiction. */
+export const CLINICAL_AUTHORITY_ABSENT_COPY =
+  'No reviewed primary clinical authority is loaded for this jurisdiction. ' +
+  'Harbourview does not substitute another jurisdiction’s law — confirm authorization, ' +
+  'documentation and reporting requirements with the applicable national regulator and ' +
+  'professional college before prescribing.'
+
 const LEGACY_MEDICAL_FRAMEWORK = /\bACMPR\b|Access to Cannabis for Medical Purposes Regulations/i
 
 export function containsLegacyClinicalFramework(value: string | null | undefined): boolean {

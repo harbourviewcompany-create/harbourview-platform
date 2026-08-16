@@ -1,18 +1,18 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import type { ClinicalEvidenceSearchResult } from '@/lib/clinical/evidence'
 import { formatStatus } from './contracts'
 
-function jurisdictionFromCommandHref(commandHref: string): string {
-  const query = commandHref.includes('?') ? commandHref.slice(commandHref.indexOf('?') + 1) : ''
-  const raw = new URLSearchParams(query).get('country')?.trim() ?? ''
-  if (raw.toUpperCase() === 'CA') return 'Canada'
-  return raw || 'Canada'
-}
-
-export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
-  const jurisdiction = useMemo(() => jurisdictionFromCommandHref(commandHref), [commandHref])
+/**
+ * `jurisdiction` is the resolved country display name from the Command model
+ * (e.g. "Germany"), not the ISO code in the URL. Evidence records store full
+ * jurisdiction names, so an ISO code never matches — and defaulting an unknown
+ * jurisdiction to "Canada" would label another country's workspace with
+ * Canadian evidence. Both are treated as defects, see
+ * docs/control/CLINICAL_FLAGSHIP_SPEC.md (Findings 2 and 3).
+ */
+export default function ClinicalEvidenceExplorer({ jurisdiction }: { jurisdiction: string }) {
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<ClinicalEvidenceSearchResult | null>(null)

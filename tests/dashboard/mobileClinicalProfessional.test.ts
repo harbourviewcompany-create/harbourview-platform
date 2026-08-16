@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   CANADA_CLINICAL_AUTHORITIES,
+  CLINICAL_AUTHORITY_ABSENT_COPY,
   CLINICAL_SOURCE_STATE_COPY,
+  clinicalAuthoritiesForJurisdiction,
   containsLegacyClinicalFramework,
   deriveClinicalSourceState,
   safeClinicalBriefing,
@@ -45,6 +47,15 @@ describe('mobile professional clinical command contract', () => {
       expect(authority.sourceName.length).toBeGreaterThan(10)
       expect(authority.evidenceStrength).toContain('not graded')
     }
+  })
+
+  it('never presents Canadian federal authority outside Canada', () => {
+    expect(clinicalAuthoritiesForJurisdiction('Canada')).toEqual(CANADA_CLINICAL_AUTHORITIES)
+    expect(clinicalAuthoritiesForJurisdiction('canada')).toEqual(CANADA_CLINICAL_AUTHORITIES)
+    for (const jurisdiction of ['Germany', 'Australia', 'United States', 'Global', 'CA', '', null, undefined]) {
+      expect(clinicalAuthoritiesForJurisdiction(jurisdiction)).toHaveLength(0)
+    }
+    expect(CLINICAL_AUTHORITY_ABSENT_COPY).toContain('does not substitute')
   })
 
   it('does not represent a structured interaction checker as implemented', () => {
