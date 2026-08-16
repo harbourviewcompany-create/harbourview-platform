@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 import { getLatestDailyDigest, formatDigestDateLabel } from '@/lib/harbourview/digest'
-import type { HvEditorialHeadlineDto } from '@/lib/harbourview/dto'
+import type { HvDigestHeadlineDto, HvEditorialHeadlineDto, HvDigestPriorityDomain } from '@/lib/harbourview/dto'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
 // Force dynamic rendering — page fetches live Supabase data at request time
@@ -25,6 +25,18 @@ export const metadata: Metadata = {
   alternates: { canonical: '/daily' },
 }
 
+const PRIORITY_DOMAIN_LABELS: Record<HvDigestPriorityDomain, string> = {
+  global_medical: 'Global medical',
+  import_export_eu_gmp: 'Import / export · EU-GMP',
+  m_and_a: 'M&A',
+  licensing_regulatory: 'Licensing / regulation',
+  commercial_distribution: 'Commercial distribution',
+  genetics: 'Genetics',
+  formulations: 'Formulations',
+  pharmaceutical_cannabinoid_technology: 'Pharmaceutical cannabinoid technology',
+  other: 'Other',
+}
+
 function groupByMarket<T extends { market: string }>(headlines: T[]) {
   const groups = new Map<string, T[]>()
   for (const item of headlines) {
@@ -36,11 +48,40 @@ function groupByMarket<T extends { market: string }>(headlines: T[]) {
   return Array.from(groups.entries())
 }
 
+function DeltaMeta({ item }: { item: HvDigestHeadlineDto }) {
+  const isAdvancement = item.delta_status === 'material_advancement'
+  const isNew = item.delta_status === 'new_event'
+  return (
+    <div className="mb-4 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-[0.16em]">
+      {isAdvancement && (
+        <span className="rounded-full border border-gold/35 bg-gold/[0.08] px-3 py-1 text-gold/85">
+          Material advancement
+        </span>
+      )}
+      {isNew && (
+        <span className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-white/62">
+          New event
+        </span>
+      )}
+      <span className="rounded-full border border-white/10 bg-white/[0.025] px-3 py-1 text-white/48">
+        {PRIORITY_DOMAIN_LABELS[item.priority_domain]}
+      </span>
+      {item.competitive_position_change && (
+        <span className="rounded-full border border-gold/50 bg-gold/[0.12] px-3 py-1 text-gold">
+          Competitive position changed
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default async function DailyDigestPage() {
   const { digest } = await getLatestDailyDigest()
   const grouped = groupByMarket(digest.headlines)
   const groupedEditorial = groupByMarket(digest.editorial_headlines)
   const hasContent = grouped.length > 0 || groupedEditorial.length > 0
+  const competitiveChanges = digest.headlines.filter((item) => item.competitive_position_change).length
+  const materialAdvancements = digest.headlines.filter((item) => item.delta_status === 'material_advancement').length
 
   return (
     <main>
@@ -66,6 +107,14 @@ export default async function DailyDigestPage() {
                   <p className="text-lg font-semibold text-[#f4f1eb]">{digest.markets.length}</p>
                   <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/42">Markets</p>
                 </div>
+                <div className="rounded border border-white/10 bg-white/[0.03] p-3">
+                  <p className="text-lg font-semibold text-[#f4f1eb]">{materialAdvancements}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/42">Advancements</p>
+                </div>
+                <div className="rounded border border-white/10 bg-white/[0.03] p-3">
+                  <p className="text-lg font-semibold text-[#f4f1eb]">{competitiveChanges}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/42">Position shifts</p>
+                </div>
               </div>
               <p className="mt-5 text-xs leading-6 text-white/48">
                 Edition: {formatDigestDateLabel(digest.digest_date)}
@@ -75,20 +124,19 @@ export default async function DailyDigestPage() {
         }
       >
         <p>
-          A free daily read on the regulated cannabis world — the most commercially important regulatory, licensing,
-          market and enforcement developments from Harbourview&apos;s qualified signal pipeline, distilled into
-          headlines with one line of editorial context each.
+          A free daily read on the regulated cannabis world — only genuinely new developments and material advances
+          that cleared Harbourview&apos;s qualified signal pipeline and cross-edition event comparison.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
-          This is the open edition. Full signal detail, all tracked markets, country briefings and alerts are part of
-          Harbourview Pro.
+          Repeated coverage and unchanged follow-on commentary are suppressed from the trade briefing while underlying
+          source evidence remains retained internally.
         </p>
       </PublicHero>
 
       {digest && hasContent ? (
         <PublicSection tone="dark">
-          <SectionHeader eyebrow={formatDigestDateLabel(digest.digest_date)} title="What moved, and why it matters.">
-            Curated from qualified intelligence signals. Ordered by commercial importance.
+          <SectionHeader eyebrow={formatDigestDateLabel(digest.digest_date)} title="What changed since the last edition.">
+            New events and material advancements only, ordered by commercial importance. Competitive-position changes are flagged explicitly.
           </SectionHeader>
           {grouped.length > 0 && (
             <div className="space-y-10">
@@ -97,13 +145,51 @@ export default async function DailyDigestPage() {
                   <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.26em] text-gold/72">{market}</p>
                   <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
                     {items.map((item, index) => (
-                      <PublicCard key={item.signal_id ?? `${market}-${index}`} className="p-6">
+                      <PublicCard key={item.event_key ?? item.signal_id ?? `${market}-${index}`} className="p-6">
                         <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
+                        <DeltaMeta item={item} />
                         <h2 className="mb-4 text-lg font-semibold leading-snug text-[#f4f1eb]">{item.headline}</h2>
                         <p className="text-sm leading-7 text-white/58">
                           <span className="font-semibold text-gold/80">Why it matters: </span>
                           {item.why_it_matters}
                         </p>
+                        {item.advancement_reason && (
+                          <p className="mt-4 text-sm leading-7 text-white/54">
+                            <span className="font-semibold text-gold/80">What advanced: </span>
+                            {item.advancement_reason}
+                          </p>
+                        )}
+                        {item.competitive_position_change && item.competitive_position_detail && (
+                          <p className="mt-4 rounded border border-gold/25 bg-gold/[0.05] p-3 text-sm leading-7 text-white/62">
+                            <span className="font-semibold text-gold/90">Competitive-position change: </span>
+                            {item.competitive_position_detail}
+                          </p>
+                        )}
+                        {item.entities.length > 0 && (
+                          <p className="mt-4 text-xs leading-6 text-white/42">
+                            Entities: {item.entities.join(' · ')}
+                          </p>
+                        )}
+                        {(item.verified_facts.length > 0 || item.inferences.length > 0) && (
+                          <div className="mt-5 grid gap-4 border-t border-white/8 pt-4 sm:grid-cols-2">
+                            <div>
+                              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">Verified facts</p>
+                              {item.verified_facts.length > 0 ? (
+                                <ul className="space-y-1 text-xs leading-6 text-white/52">
+                                  {item.verified_facts.map((fact) => <li key={fact}>• {fact}</li>)}
+                                </ul>
+                              ) : <p className="text-xs text-white/36">None separately recorded.</p>}
+                            </div>
+                            <div>
+                              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">Inference</p>
+                              {item.inferences.length > 0 ? (
+                                <ul className="space-y-1 text-xs leading-6 text-white/52">
+                                  {item.inferences.map((inference) => <li key={inference}>• {inference}</li>)}
+                                </ul>
+                              ) : <p className="text-xs text-white/36">No separate inference recorded.</p>}
+                            </div>
+                          </div>
+                        )}
                         {item.whats_next && (
                           <p className="mt-4 text-sm leading-7 text-white/48">
                             <span className="font-semibold text-gold/80">What&apos;s next: </span>
@@ -155,8 +241,8 @@ export default async function DailyDigestPage() {
       ) : (
         <PublicSection tone="dark">
           <SectionHeader eyebrow="Harbourview Daily" title="Today's briefing is being prepared.">
-            The daily edition publishes each morning once qualified signals clear review. Check back shortly, or
-            explore the public signals feed in the meantime.
+            The daily edition publishes once genuinely new or materially advanced qualified signals clear review.
+            An empty trade edition can therefore mean the prior briefing remains current rather than that the pipeline failed.
           </SectionHeader>
         </PublicSection>
       )}

@@ -27,6 +27,7 @@ import {
 import { rankDigestCandidates, type DigestCandidate } from '@/lib/signals/digestRank'
 import { loadFeedbackScores } from '@/lib/signals/feedbackScores'
 import { buildDigestConfidenceMap } from '@/lib/signals/digestPresentation'
+import { normalizeDigestDeltaMetadata } from '@/lib/signals/digestDelta'
 import { cleanPlainText } from '@/lib/utils/htmlEntities'
 
 const SAFE_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
@@ -177,7 +178,12 @@ export async function GET(req: NextRequest) {
       console.error('[/api/dashboard/digest] daily_digest edition query failed:', editionError.message)
     }
 
-    type EditorialHeadline = { headline?: string; why_it_matters?: string; market?: string; signal_id?: string }
+    type EditorialHeadline = Record<string, unknown> & {
+      headline?: string
+      why_it_matters?: string
+      market?: string
+      signal_id?: string
+    }
     type NewsHeadline = { headline?: string; why_it_matters?: string; market?: string; item_id?: string; published_at?: string; source_url?: string; outlet_name?: string }
 
     const hasSignalEdition    = edition && Array.isArray(edition.headlines) && edition.headlines.length > 0
@@ -236,20 +242,35 @@ export async function GET(req: NextRequest) {
       const tag       = SIGNAL_TAG_MAP.regulatory_change
       const editorialTag = { label: 'NEWS', color: '#B8AF9E', bg: 'rgba(184,175,158,0.10)', border: 'rgba(184,175,158,0.25)' }
 
-      const signalSignals: DashboardSignal[] = signalItems.slice(0, limit).map((h, i) => ({
-        id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
-        slug:             undefined,
-        title:            stripHtml(h.headline!),
-        type:             'regulatory_change',
-        market:           h.market ?? 'Global',
-        tag,
-        timeAgo:          timeAgo(edition!.generated_at),
-        confidence:       h.signal_id ? (confidenceBySignalId.get(h.signal_id) ?? 80) : 80,
-        commercialImpact: stripHtml(h.why_it_matters ?? ''),
-        sourceLabel:      'Harbourview Daily',
-        flag:             flagForMarket(h.market ?? 'Global'),
-        contentType:      'signal',
-      }))
+      const signalSignals: DashboardSignal[] = signalItems.slice(0, limit).map((h, i) => {
+        const delta = normalizeDigestDeltaMetadata(h)
+        const market = h.market ?? delta.jurisdiction ?? 'Global'
+        return {
+          id:               h.signal_id ?? `digest-${edition!.digest_date}-${i}`,
+          slug:             undefined,
+          title:            stripHtml(h.headline!),
+          type:             'regulatory_change',
+          market,
+          tag,
+          timeAgo:          timeAgo(edition!.generated_at),
+          confidence:       h.signal_id ? (confidenceBySignalId.get(h.signal_id) ?? 80) : 80,
+          commercialImpact: stripHtml(h.why_it_matters ?? ''),
+          sourceLabel:      'Harbourview Daily',
+          flag:             flagForMarket(market),
+          contentType:      'signal',
+          eventKey: delta.eventKey,
+          priorEventKey: delta.priorEventKey,
+          deltaStatus: delta.deltaStatus,
+          advancementReason: delta.advancementReason,
+          jurisdiction: delta.jurisdiction,
+          entities: delta.entities,
+          priorityDomain: delta.priorityDomain,
+          verifiedFacts: delta.verifiedFacts,
+          inferences: delta.inferences,
+          competitivePositionChange: delta.competitivePositionChange,
+          competitivePositionDetail: delta.competitivePositionDetail,
+        }
+      })
 
       const newsSignals: DashboardSignal[] = newsItems.map((h, i) => ({
         id:               h.item_id ?? `editorial-${edition!.digest_date}-${i}`,

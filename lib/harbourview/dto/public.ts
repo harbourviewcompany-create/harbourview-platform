@@ -76,6 +76,18 @@ export type HvEducationResourcePublicDto = {
   updated_at: string;
 };
 
+export type HvDigestDeltaStatus = 'new_event' | 'material_advancement' | 'unchanged_duplicate'
+export type HvDigestPriorityDomain =
+  | 'global_medical'
+  | 'import_export_eu_gmp'
+  | 'm_and_a'
+  | 'licensing_regulatory'
+  | 'commercial_distribution'
+  | 'genetics'
+  | 'formulations'
+  | 'pharmaceutical_cannabinoid_technology'
+  | 'other'
+
 // A single card in the daily_digest.headlines jsonb array. No raw ia_signals
 // row (source_id, source_name, internal notes, confidence, etc.) is exposed
 // -- only what the editor function (run_daily_digest) itself already wrote
@@ -86,6 +98,17 @@ export type HvDigestHeadlineDto = {
   market: string;
   whats_next: string | null;
   signal_id: string | null;
+  event_key: string | null;
+  prior_event_key: string | null;
+  delta_status: HvDigestDeltaStatus | null;
+  advancement_reason: string | null;
+  jurisdiction: string;
+  entities: string[];
+  priority_domain: HvDigestPriorityDomain;
+  verified_facts: string[];
+  inferences: string[];
+  competitive_position_change: boolean;
+  competitive_position_detail: string | null;
 };
 
 // A single card in the daily_digest.editorial_headlines jsonb array —
@@ -120,6 +143,36 @@ function pick<T extends AnyRecord>(src: AnyRecord, keys: readonly string[]): T {
   return Object.fromEntries(keys.filter((k) => k in src).map((k) => [k, src[k]])) as T
 }
 
+function publicStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function publicDeltaStatus(value: unknown): HvDigestDeltaStatus | null {
+  return value === 'new_event' || value === 'material_advancement' || value === 'unchanged_duplicate'
+    ? value
+    : null
+}
+
+function publicPriorityDomain(value: unknown): HvDigestPriorityDomain {
+  switch (value) {
+    case 'global_medical':
+    case 'import_export_eu_gmp':
+    case 'm_and_a':
+    case 'licensing_regulatory':
+    case 'commercial_distribution':
+    case 'genetics':
+    case 'formulations':
+    case 'pharmaceutical_cannabinoid_technology':
+      return value
+    default:
+      return 'other'
+  }
+}
+
 export function toHvJurisdictionPublicDto(src: AnyRecord): HvJurisdictionPublicDto {
   return pick(src, ['id', 'country_name', 'iso_code', 'region', 'cannabis_market_status', 'priority_tier', 'updated_at'])
 }
@@ -149,12 +202,26 @@ export function toHvEducationResourcePublicDto(src: AnyRecord): HvEducationResou
 }
 
 export function toHvDigestHeadlineDto(src: AnyRecord): HvDigestHeadlineDto {
+  const market = typeof src.market === 'string' && src.market.trim() ? src.market : 'Global'
   return {
     headline: typeof src.headline === 'string' ? src.headline : '',
     why_it_matters: typeof src.why_it_matters === 'string' ? src.why_it_matters : '',
-    market: typeof src.market === 'string' && src.market.trim() ? src.market : 'Global',
+    market,
     whats_next: typeof src.whats_next === 'string' && src.whats_next.trim() ? src.whats_next : null,
     signal_id: typeof src.signal_id === 'string' ? src.signal_id : null,
+    event_key: typeof src.event_key === 'string' && src.event_key.trim() ? src.event_key : null,
+    prior_event_key: typeof src.prior_event_key === 'string' && src.prior_event_key.trim() ? src.prior_event_key : null,
+    delta_status: publicDeltaStatus(src.delta_status),
+    advancement_reason: typeof src.advancement_reason === 'string' && src.advancement_reason.trim() ? src.advancement_reason : null,
+    jurisdiction: typeof src.jurisdiction === 'string' && src.jurisdiction.trim() ? src.jurisdiction : market,
+    entities: publicStringList(src.entities),
+    priority_domain: publicPriorityDomain(src.priority_domain),
+    verified_facts: publicStringList(src.verified_facts),
+    inferences: publicStringList(src.inferences),
+    competitive_position_change: src.competitive_position_change === true,
+    competitive_position_detail: typeof src.competitive_position_detail === 'string' && src.competitive_position_detail.trim()
+      ? src.competitive_position_detail
+      : null,
   }
 }
 

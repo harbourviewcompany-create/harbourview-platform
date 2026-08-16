@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "release": "p0-identity-org-context-production-activation",
+  "production_project_ref": "zvxdgdkukjrrwamdpqrg",
+  "migration": {
+    "version": "20260814122000",
+    "name": "p0_identity_org_context",
+    "file": "supabase/migrations/20260814122000_p0_identity_org_context.sql",
+    "git_blob_sha": "99437d3dba7d73c14af45beadad7d7616e29e512"
+  },
+  "expected_later_applied_versions": [
+    "20260814143000",
+    "20260814180000",
+    "20260815190715"
+  ],
+  "expected_preflight_snapshot": {
+    "prefs_rows": 7,
+    "membership_rows": 1,
+    "workspace_rows": 2,
+    "users_with_exactly_one_eligible_membership": 1,
+    "prefs_rows_that_backfill": 1,
+    "users_with_multiple_eligible_memberships": 0,
+    "active_memberships_in_nonactive_workspaces": 0,
+    "orphan_memberships": 0,
+    "membership_users_missing_auth": 0,
+    "pref_users_missing_auth": 0
+  },
+  "prestate_contract": {
+    "active_workspace_id_absent": true,
+    "workspace_invitations_absent": true,
+    "api_workspace_invitations_absent": true,
+    "accept_workspace_invitation_absent": true,
+    "api_preferences_legacy_columns": [
+      "id",
+      "user_id",
+      "country_iso2",
+      "role_id",
+      "heatmap_layer",
+      "created_at",
+      "updated_at"
+    ],
+    "api_preferences_security_invoker": true,
+    "workspace_member_roles": ["admin", "operator", "analyst", "viewer"],
+    "workspace_member_statuses": ["active", "invited", "suspended", "removed"],
+    "workspace_statuses": ["active", "suspended", "archived"]
+  },
+  "activation": {
+    "required_dispatch_action": "APPLY_P0_IDENTITY_ORG_CONTEXT",
+    "required_environment": "production-database",
+    "ledger_created_by": "harbourview-p0-release",
+    "idempotency_key": "gitblob:99437d3dba7d73c14af45beadad7d7616e29e512"
+  },
+  "rollback_forward": [
+    "Before COMMIT, any failure rolls back both schema changes and migration-ledger registration.",
+    "After COMMIT, preserve migration history and issue a forward repair rather than deleting the ledger row.",
+    "If operating-context selection must be disabled, set affected active_workspace_id values to NULL and disable organization-selection application paths while preserving memberships.",
+    "If invitation behavior must be disabled, block invitation application paths while preserving workspace_invitations and workspace_members data.",
+    "Do not drop workspace_members or delete accepted membership history as a rollback mechanism."
+  ]
+}
