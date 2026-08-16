@@ -20,6 +20,7 @@ import type { GlobeTierPalette, RegulatoryTier } from '@/lib/globe/globe-materia
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import {
   GLOBE_INTRO,
+  introSpinAutoRotateSpeed,
   introTierBlend,
   isIntroInteractionLocked,
   shouldFinishReveal,
@@ -40,6 +41,7 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
 /**
  * Accumulates OrbitControls azimuth while auto-rotating so the intro completes
  * after a real ~360° turn (not only a wall-clock estimate).
+ * Also eases autoRotateSpeed in the final orbit fraction for a settled stop.
  */
 function IntroOrbitTracker({
   active,
@@ -56,7 +58,10 @@ function IntroOrbitTracker({
 
   useFrame(() => {
     if (!active) return
-    const controls = controlsRef.current as { getAzimuthalAngle?: () => number } | null
+    const controls = controlsRef.current as {
+      getAzimuthalAngle?: () => number
+      autoRotateSpeed?: number
+    } | null
     if (!controls?.getAzimuthalAngle) return
 
     const now = performance.now()
@@ -69,11 +74,14 @@ function IntroOrbitTracker({
     const az = controls.getAzimuthalAngle()
     const prev = lastAzimuthRef.current ?? az
     let delta = az - prev
-    // Unwrap across ±π so continuous auto-rotate accumulates cleanly.
     if (delta > Math.PI) delta -= Math.PI * 2
     if (delta < -Math.PI) delta += Math.PI * 2
     accumRef.current += Math.abs(delta)
     lastAzimuthRef.current = az
+
+    if (typeof controls.autoRotateSpeed === 'number') {
+      controls.autoRotateSpeed = introSpinAutoRotateSpeed(accumRef.current)
+    }
 
     onProgress({
       azimuthAccumRad: accumRef.current,
