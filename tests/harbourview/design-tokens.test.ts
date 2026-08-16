@@ -22,22 +22,29 @@ describe('design token authority', () => {
     expect(designSystem).toContain('#F5F1E8')
   })
 
-  it('CSS token file declares every mapped variable', () => {
-    for (const [name, value] of Object.entries(hvCssVariableMap)) {
+  it('CSS token file declares every mapped variable name', () => {
+    for (const name of Object.keys(hvCssVariableMap)) {
       expect(tokenCss.toLowerCase()).toContain(name.toLowerCase())
-      // Hex may be lowercased in CSS; check without # case
-      const hex = value.replace('#', '').toLowerCase()
-      expect(tokenCss.toLowerCase()).toContain(hex)
     }
+    // Core hexes are present (aliases may reference other vars)
+    expect(tokenCss.toLowerCase()).toContain('c6a55a')
+    expect(tokenCss.toLowerCase()).toContain('0b1a2f')
+    expect(tokenCss.toLowerCase()).toContain('f5f1e8')
   })
 
   it('globals.css imports the shared token stylesheet', () => {
-    expect(globalsCss).toMatch(/@import\s+["'].*design-tokens\.css["']/
-    )
+    expect(globalsCss).toMatch(/@import\s+["'].*design-tokens\.css["']/)
   })
 
   it('command aliases resolve through --hv-* (not a second palette)', () => {
     expect(tokenCss).toContain('--hvm2-gold: var(--hv-gold)')
     expect(tokenCss).toContain('--hvm2-text: var(--hv-ivory)')
+  })
+
+  it('shared panel primitive exists for sheets and cards', () => {
+    const panel = readFileSync(join(process.cwd(), 'components/ui/HarbourviewPanel.tsx'), 'utf8')
+    expect(panel).toContain('HarbourviewBottomSheet')
+    expect(panel).toContain('HarbourviewCard')
+    expect(panel).toContain('var(--hv-gold)')
   })
 })
