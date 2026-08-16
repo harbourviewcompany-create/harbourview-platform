@@ -12,9 +12,14 @@ const EXCLUDED_SUFFIX = '.replay-excluded'
 // Repository-only reconciliation migrations can occasionally have a timestamp
 // later than the first historical migration that depends on the production
 // state they reconstruct. Relocate only an explicitly evidenced, production-
-// unapplied reconciliation file for zero-state replay; the checked-in file and
-// production migration ledger remain unchanged.
+// unapplied reconstruction/reconciliation file for zero-state replay; the
+// checked-in file and production migration ledger remain unchanged.
 const REPLAY_RELOCATIONS = [
+  {
+    source: '20260701230000_corridor_intelligence_tables_stub.sql',
+    destination: '20260701180750_replay_corridor_intelligence_tables_stub.sql',
+    before: '20260701180751_remote_applied_repair.sql',
+  },
   {
     source: '20260730220050_reconcile_listings_production_columns.sql',
     destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
@@ -120,9 +125,9 @@ if (isDirect) {
       }
     }
     if (relocations.length === 0) {
-      console.log('Production-faithful replay: no repository-only reconciliation files require earlier replay ordering.')
+      console.log('Production-faithful replay: no repository-only reconstruction/reconciliation files require earlier replay ordering.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconciliation file(s):`)
+      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
       }
