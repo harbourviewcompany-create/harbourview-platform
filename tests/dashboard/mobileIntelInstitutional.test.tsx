@@ -12,6 +12,11 @@ import {
   WeeklySignalsSection,
 } from '@/components/dashboard/mobile-command/sections/IntelligenceSections'
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 const noopRef = () => {}
 
 function documentFrom(element: ReturnType<typeof createElement>) {
