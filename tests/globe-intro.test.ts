@@ -2,13 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   GLOBE_INTRO,
   introTierBlend,
-  lerpGlobeMaterialState,
   lerpHex,
+  resolveIntroPlateMaterial,
   shouldFinishReveal,
   shouldForceGoldPlates,
   shouldStartReveal,
 } from '@/lib/globe/globe-intro'
-import { resolveCountryMaterialState } from '@/lib/globe/globe-materials'
 
 describe('globe intro', () => {
   it('forces gold while spinning and not reduced-motion', () => {
@@ -98,19 +97,20 @@ describe('globe intro', () => {
     ).toBe(false)
   })
 
-  it('lerps hex colours and material metalness toward tier fill', () => {
+  it('resolveIntroPlateMaterial is gold at 0, tier at 1, mixed in between', () => {
     expect(lerpHex('#000000', '#ffffff', 0.5)).toBe('#808080')
-    const gold = resolveCountryMaterialState({
-      visualState: 'idle',
-      layerId: 'country_select',
-      regulatoryTier: null,
-    })
-    const tier = resolveCountryMaterialState({
-      visualState: 'idle',
-      layerId: 'country_select',
-      regulatoryTier: 'legal_commercial_access',
-    })
-    const mid = lerpGlobeMaterialState(gold, tier, 0.5)
+
+    const base = {
+      visualState: 'idle' as const,
+      layerId: 'country_select' as const,
+      regulatoryTier: 'legal_commercial_access' as const,
+    }
+
+    const gold = resolveIntroPlateMaterial({ ...base, blend: 0 })
+    const tier = resolveIntroPlateMaterial({ ...base, blend: 1 })
+    const mid = resolveIntroPlateMaterial({ ...base, blend: 0.5 })
+
+    expect(gold.metalness).toBeGreaterThan(tier.metalness)
     expect(mid.metalness).toBeCloseTo((gold.metalness + tier.metalness) / 2, 5)
     expect(mid.plateBase).not.toBe(gold.plateBase)
     expect(mid.plateBase).not.toBe(tier.plateBase)
