@@ -3,8 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
 import {
+  classifyClinicalFailure,
   clinicalFailureLabel,
   clinicalStateLabel,
+  diagnosticForFailure,
   isClinicalEvidenceApiResult,
   type ClinicalEvidenceApiResult,
 } from '@/lib/clinical/runtime'
@@ -85,6 +87,20 @@ function evidenceClassLabel(record: ClinicalEvidenceRecordDTO): string {
   return formatStatus(record.interventionClass)
 }
 
+function clientFailureMessage(category: ReturnType<typeof classifyClinicalFailure>): string {
+  const messages = {
+    configuration: 'Clinical evidence is not configured in this deployment.',
+    'environment-mismatch': 'Clinical evidence is connected to an unexpected data environment. Do not rely on this workspace until deployment configuration is corrected.',
+    'missing-route': 'The Clinical evidence API route is unavailable in this deployment.',
+    permission: 'Clinical evidence is not available to this access context.',
+    'migration-drift': 'The Clinical evidence schema is not activated for this deployment.',
+    schema: 'Clinical evidence returned a response that does not match the reviewed application contract.',
+    upstream: 'Clinical evidence could not be loaded. Retry before relying on this workspace.',
+    unknown: 'Clinical evidence could not be loaded. Retry before relying on this workspace.',
+  }
+  return messages[category]
+}
+
 export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
   const jurisdiction = useMemo(() => jurisdictionFromCommandHref(commandHref), [commandHref])
   const role = useMemo(() => roleFromCommandHref(commandHref), [commandHref])
@@ -112,17 +128,18 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       })
       .catch(error => {
         if (!active || (error instanceof DOMException && error.name === 'AbortError')) return
+        const message = error instanceof Error ? error.message : ''
+        const category = classifyClinicalFailure({ message })
+        const permission = category === 'permission'
+        const statusMatch = message.match(/clinical_evidence_http_(\d{3})/)
+        const httpStatus = statusMatch ? Number(statusMatch[1]) : null
         setResult({
-          state: 'error',
+          state: permission ? 'permission' : 'error',
           query: submittedQuery,
           records: [],
           changes: [],
-          message: 'Clinical evidence could not be loaded. Retry before relying on this workspace.',
-          diagnostic: {
-            category: error instanceof Error && /schema|contract/i.test(error.message) ? 'schema' : 'upstream',
-            retryable: true,
-            httpStatus: null,
-          },
+          message: clientFailureMessage(category),
+          diagnostic: diagnosticForFailure(category, httpStatus),
         })
       })
       .finally(() => {
@@ -532,7 +549,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         <div className="hvc-state-panel" data-state={result.state} role="status">
           <strong>{result.diagnostic ? clinicalFailureLabel(result.diagnostic.category) : clinicalStateLabel(result.state)}</strong>
           <p>{result.message}</p>
-          {result.state === 'error' && (
+          {result.state === 'error' && result.diagnostic?.retryable !== false && (
             <button className="hvc-retry" type="button" onClick={() => setRequestVersion(version => version + 1)}>Retry evidence service</button>
           )}
         </div>
