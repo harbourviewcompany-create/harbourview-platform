@@ -10,7 +10,7 @@ import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
 import { australiaStates } from '@/data/globe/australia-states'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
-import { resolveIntroPlateMaterial } from '@/lib/globe/globe-intro'
+import { resolveIntroPlateMaterial, shouldUseMetallicGoldShader } from '@/lib/globe/globe-intro'
 import { applyMetallicGoldShader, getMetallicGoldProgramCacheKey, type MetallicGoldShader } from '@/lib/globe/metallic-gold-shader'
 import { PLATE_LIFT, IDLE_EXTRUSION, SELECTED_EXTRUSION, SELECTED_GLOW, LOD_SIMPLIFY_TOLERANCE } from '@/lib/globe/globe-plate-config'
 import type { GlobeLayerId } from '@/types/globe-router'
@@ -55,6 +55,7 @@ function HoverPulseMesh({
   reflectivity,
   isFocused,
   isSelected,
+  useMetallicGold,
   registerMat,
   scheduleAnimation,
   onPointerEnter,
@@ -74,6 +75,8 @@ function HoverPulseMesh({
   reflectivity: number
   isFocused: boolean
   isSelected: boolean
+  /** False during tier reveal so gold brush shader does not retint heat colours. */
+  useMetallicGold: boolean
   registerMat: (iso2: string, mat: MeshPhysicalMaterial | null) => void
   scheduleAnimation: (iso2: string, target: number) => void
   onPointerEnter: () => void
@@ -97,8 +100,13 @@ function HoverPulseMesh({
   }, [iso2, isFocused, emissiveIntensity, scheduleAnimation])
 
   const metallicGoldShader = useMemo(() => {
+    if (!useMetallicGold) return undefined
     return (shader: MetallicGoldShader) => applyMetallicGoldShader(shader, { isFocused, isSelected })
-  }, [isFocused, isSelected])
+  }, [isFocused, isSelected, useMetallicGold])
+
+  const programCacheKey = useMetallicGold
+    ? getMetallicGoldProgramCacheKey({ isFocused, isSelected })
+    : `harbourview-plain-plate-${isSelected ? 'selected' : isFocused ? 'focused' : 'idle'}`
 
   return (
     <>
@@ -121,7 +129,7 @@ function HoverPulseMesh({
           iridescence={isSelected ? 0.12 : 0.06}
           iridescenceIOR={1.35}
           onBeforeCompile={metallicGoldShader}
-          customProgramCacheKey={() => getMetallicGoldProgramCacheKey({ isFocused, isSelected })}
+          customProgramCacheKey={() => programCacheKey}
           side={DoubleSide}
           depthTest
           depthWrite
@@ -185,7 +193,6 @@ export function CountryPolygonMeshLayer({
   activeLayerId,
   tierByIso2,
   tierPalette = 'metal',
-  /** 0 = pure gold, 1 = full tier heat. Driven by the intro reveal. */
   introTierBlend = 1,
   onHoverCountry,
   onSelectCountry,
@@ -205,6 +212,7 @@ export function CountryPolygonMeshLayer({
   const targetMap = useRef(new Map<string, number>())
   const animating = useRef(new Set<string>())
   const { invalidate } = useThree()
+  const useMetallicGold = shouldUseMetallicGoldShader(introTierBlend)
 
   const registerMat = useCallback((iso2: string, mat: MeshPhysicalMaterial | null) => {
     if (mat) {
@@ -338,7 +346,6 @@ export function CountryPolygonMeshLayer({
             ? 'focused'
             : 'idle'
 
-        // Subdivisions inherit the parent country's reviewed tier.
         const tierIso2 = (entry as { parentIso2?: string }).parentIso2 ?? entry.iso2
         const material = resolveIntroPlateMaterial({
           visualState,
@@ -364,6 +371,7 @@ export function CountryPolygonMeshLayer({
             reflectivity={SPECULAR_CAP}
             isFocused={focusedCountryIso2 === entry.iso2}
             isSelected={visualState === 'selected'}
+            useMetallicGold={useMetallicGold}
             registerMat={registerMat}
             scheduleAnimation={scheduleAnimation}
             onPointerEnter={() => onHoverCountry?.(entry.iso2)}
