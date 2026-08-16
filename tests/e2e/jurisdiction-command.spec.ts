@@ -112,13 +112,15 @@ test.describe('Jurisdiction Command mobile evidence', () => {
         waitUntil: 'domcontentloaded',
         timeout: 60_000,
       })
+      const reviewedRoute = page.locator('[data-route-coverage="trade-flow-match"]')
       await expect(page.locator('[data-jurisdiction-command="v1"]')).toBeVisible()
-      await expect(page.locator('[data-route-coverage="trade-flow-match"]')).toBeVisible({ timeout: 15_000 })
+      await expect(reviewedRoute).toBeVisible({ timeout: 15_000 })
       await expect(page.getByText('DE → CA', { exact: true })).toBeVisible()
       await expect(page.getByText('Permit required', { exact: true }).first()).toBeVisible()
       await expect(page.getByText('Export readiness', { exact: false })).toBeVisible()
       await expect(page.getByText('Satisfied', { exact: true }).first()).toBeVisible()
       await assertNoHorizontalOverflow(page)
+      await reviewedRoute.scrollIntoViewIfNeeded()
       await page.screenshot({
         path: path.join(evidenceRoot, 'exporter-import-route-390x844.png'),
         fullPage: true,
@@ -145,10 +147,12 @@ test.describe('Jurisdiction Command mobile evidence', () => {
         waitUntil: 'domcontentloaded',
         timeout: 60_000,
       })
-      await expect(page.locator('[data-route-coverage="unsupported"]')).toBeVisible({ timeout: 15_000 })
+      const unsupportedRoute = page.locator('[data-route-coverage="unsupported"]')
+      await expect(unsupportedRoute).toBeVisible({ timeout: 15_000 })
       await expect(page.getByText('Harbourview will not infer a transaction route from the country-level status.', { exact: false })).toBeVisible()
       await expect(page.getByText('Unknown', { exact: true }).first()).toBeVisible()
       await assertNoHorizontalOverflow(page)
+      await unsupportedRoute.scrollIntoViewIfNeeded()
       await page.screenshot({
         path: path.join(evidenceRoot, 'unsupported-route-390x844.png'),
         fullPage: true,
@@ -178,11 +182,13 @@ test.describe('Jurisdiction Command mobile evidence', () => {
         waitUntil: 'domcontentloaded',
         timeout: 60_000,
       })
-      await expect(page.locator('[data-jurisdiction-command="v1"]').getByRole('alert')).toContainText('Live command enrichment failed')
+      const enrichmentAlert = page.locator('[data-jurisdiction-command="v1"]').getByRole('alert')
+      await expect(enrichmentAlert).toContainText('Live command enrichment failed')
       await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'What are you trying to do?', exact: true })).toBeVisible()
       await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
       await assertNoHorizontalOverflow(page)
+      await enrichmentAlert.scrollIntoViewIfNeeded()
       await page.screenshot({
         path: path.join(evidenceRoot, 'error-fallback-390x844.png'),
         fullPage: true,
