@@ -121,7 +121,7 @@ test('Dravet resolves to the governed Dravet syndrome concept with useful zero-r
       await page.getByRole('button', { name: 'Search evidence', exact: true }).click()
 
       await expect(page.locator('.hvc-state')).toHaveText('No reviewed evidence')
-      await expect(page.locator('.hvc-resolution').getByText('Dravet syndrome', { exact: true })).toBeVisible()
+      await expect(page.locator('.hvc-resolution > strong')).toHaveText('Dravet syndrome')
       await expect(page.locator('.hvc-resolution').getByText('SMEI', { exact: true })).toBeVisible()
       await expect(page.locator('.hvc-state-panel').getByText(/zero result means no eligible reviewed record/i)).toBeVisible()
       await expect(page.getByRole('button', { name: 'Search canonical term', exact: true })).toBeVisible()
