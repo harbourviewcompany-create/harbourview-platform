@@ -28,6 +28,9 @@ import {
   type GlobeIntroPhase,
 } from '@/lib/globe/globe-intro'
 
+/** Publish ~40 blend steps across the reveal window instead of every frame. */
+const REVEAL_BLEND_STEPS = 40
+
 function AutoRotateInvalidator({ active }: { active: boolean }) {
   useFrame((state) => {
     if (active) state.invalidate()
@@ -135,6 +138,7 @@ export function GlobeCanvas({
   tierPalette = 'metal',
   onHoverCountry,
   onSelectCountry,
+  onIntroPhaseChange,
 }: {
   className?: string
   selectedCountryIso2?: string
@@ -146,6 +150,8 @@ export function GlobeCanvas({
   tierPalette?: GlobeTierPalette
   onHoverCountry?: (countryIso2?: string) => void
   onSelectCountry?: (countryIso2: string) => void
+  /** Fires when spin / reveal / ready changes — used to gate chrome like the legend. */
+  onIntroPhaseChange?: (phase: GlobeIntroPhase) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const { liveData, loading } = useGlobe()
@@ -153,6 +159,7 @@ export function GlobeCanvas({
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
   const spinElapsedMsRef = useRef(0)
+  const lastRevealStepRef = useRef(-1)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -163,6 +170,10 @@ export function GlobeCanvas({
     return () => mq.removeEventListener('change', apply)
   }, [])
 
+  useEffect(() => {
+    onIntroPhaseChange?.(introPhase)
+  }, [introPhase, onIntroPhaseChange])
+
   const forceGold = shouldForceGoldPlates({ introPhase, prefersReducedMotion })
   const interactionLocked = isIntroInteractionLocked({ introPhase, prefersReducedMotion })
   const tierBlend = introTierBlend({
@@ -171,8 +182,6 @@ export function GlobeCanvas({
     prefersReducedMotion,
   })
 
-  // During spinning: omit tiers. During reveal/ready: pass real tier map so
-  // the mesh layer can lerp gold → heat.
   const tierByIso2 = useMemo(() => {
     if (forceGold) return undefined
     if (!featureFlags.globeRegulatoryTiers) return undefined
@@ -224,6 +233,7 @@ export function GlobeCanvas({
       setIntroPhase('ready')
       return
     }
+    lastRevealStepRef.current = -1
     setRevealElapsedMs(0)
     setIntroPhase('revealing')
   }, [introPhase, loading, prefersReducedMotion])
@@ -242,13 +252,21 @@ export function GlobeCanvas({
 
   const handleRevealElapsed = useCallback(
     (elapsedMs: number) => {
-      setRevealElapsedMs(elapsedMs)
-      if (
-        introPhase === 'revealing' &&
-        shouldFinishReveal({ revealElapsedMs: elapsedMs, prefersReducedMotion })
-      ) {
-        setIntroPhase('ready')
+      if (introPhase !== 'revealing') return
+
+      const step = Math.min(
+        REVEAL_BLEND_STEPS,
+        Math.floor((elapsedMs / GLOBE_INTRO.revealDurationMs) * REVEAL_BLEND_STEPS),
+      )
+      const finished = shouldFinishReveal({ revealElapsedMs: elapsedMs, prefersReducedMotion })
+
+      // Skip React updates until the quantised blend step advances (or we finish).
+      if (step !== lastRevealStepRef.current || finished) {
+        lastRevealStepRef.current = step
+        setRevealElapsedMs(elapsedMs)
       }
+
+      if (finished) setIntroPhase('ready')
     },
     [introPhase, prefersReducedMotion],
   )
@@ -316,7 +334,10 @@ export function GlobeCanvas({
               onHoverCountry={handleHoverCountry}
               onSelectCountry={handleSelectCountry}
             />
-            <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
+            {/* Keep signal markers off until the heat map is fully in. */}
+            {introPhase === 'ready' ? (
+              <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
+            ) : null}
             <CountryBorderLayer />
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
