@@ -13,9 +13,10 @@ export {
   NextActionsSection,
   PersonalBriefingSection,
   SearchSection,
-  EducationSection,
   LocalIntelSection,
 } from './sections/IntelligenceSections'
+
+export { EducationSection } from './sections/EducationCommandSection'
 
 export { WeeklySignalsSection } from './sections/DecisionSignalsSection'
 
