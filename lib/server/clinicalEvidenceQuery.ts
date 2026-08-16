@@ -26,6 +26,7 @@ const CHANGE_SELECT = [
 
 type Row = Record<string, unknown>
 type ErrorPayload = { code?: unknown; message?: unknown; details?: unknown; hint?: unknown }
+type EvidenceDomain = 'clinical' | 'preclinical' | 'regulatory' | 'mixed' | 'other' | 'not-assessed'
 
 type ClinicalSupabaseConfig = {
   url: string
@@ -83,10 +84,22 @@ function normalizeQuery(value: string): string {
     .trim()
 }
 
+function evidenceDomainValue(value: unknown): EvidenceDomain {
+  const candidate = text(value)
+  return candidate === 'clinical'
+    || candidate === 'preclinical'
+    || candidate === 'regulatory'
+    || candidate === 'mixed'
+    || candidate === 'other'
+    || candidate === 'not-assessed'
+    ? candidate
+    : 'not-assessed'
+}
+
 function mapEvidence(row: Row): ClinicalEvidenceRecordDTO {
   const publicationScope = text(row.publication_scope)
   const freshnessStatus = text(row.freshness_status)
-  return {
+  const record: ClinicalEvidenceRecordDTO = {
     id: requiredText(row, 'id'),
     slug: requiredText(row, 'slug'),
     title: requiredText(row, 'title'),
@@ -129,6 +142,7 @@ function mapEvidence(row: Row): ClinicalEvidenceRecordDTO {
     claims: [],
     studyFamilies: [],
   }
+  return Object.assign(record, { evidenceDomain: evidenceDomainValue(row.evidence_domain) })
 }
 
 function mapChange(row: Row): ClinicalEvidenceChangeEventDTO {
