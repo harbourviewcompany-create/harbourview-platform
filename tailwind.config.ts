@@ -1,5 +1,10 @@
 import type { Config } from 'tailwindcss'
 
+/**
+ * Colour values mirror docs/control/DESIGN_SYSTEM.md and
+ * lib/harbourview/design-tokens.ts / styles/design-tokens.css.
+ * Prefer CSS variables (var(--hv-*)) in new UI so runtime theme stays single-sourced.
+ */
 const config: Config = {
   content: [
     './app/**/*.{ts,tsx}',
@@ -12,25 +17,27 @@ const config: Config = {
     extend: {
       colors: {
         navy: {
-          DEFAULT: '#0B1A2F',
-          dark: '#081423',
+          DEFAULT: 'var(--hv-navy)',
+          dark: 'var(--hv-navy-deep)',
           light: '#142845',
           muted: '#304761',
         },
         gold: {
-          DEFAULT: '#C6A55A',
-          dark: '#A8842D',
-          light: '#D8BE76',
-          pale: '#F5F1E8',
-       },
+          DEFAULT: 'var(--hv-gold)',
+          dark: 'var(--hv-gold-deep)',
+          light: 'var(--hv-gold-light)',
+          pale: 'var(--hv-ivory)',
+        },
         hv: {
-          black: '#030507',
-          'near-black': '#050A10',
-          navy: '#07172A',
-          'ocean-navy': '#0A2138',
-          gold: '#C6A55A',
-          'dark-gold': '#A8842D',
-          offwhite: '#F5F1E8',
+          black: 'var(--hv-black)',
+          'near-black': 'var(--hv-near-black)',
+          navy: 'var(--hv-navy)',
+          'ocean-navy': 'var(--hv-ocean-navy)',
+          gold: 'var(--hv-gold)',
+          'dark-gold': 'var(--hv-gold-deep)',
+          offwhite: 'var(--hv-ivory)',
+          ivory: 'var(--hv-ivory)',
+          muted: 'var(--hv-muted)',
         },
       },
       fontFamily: {
@@ -38,8 +45,10 @@ const config: Config = {
         serif: ['Georgia', 'Times New Roman', 'serif'],
       },
       backgroundImage: {
-        'gradient-gold': 'linear-gradient(135deg, #7A5C2E 0%, #C6A55A 25%, #F4E4B8 45%, #FFF6DE 50%, #F4E4B8 55%, #C6A55A 75%, #7A5C2E 100%)',
-        'gradient-gold-shimmer': 'linear-gradient(100deg, #7A5C2E 0%, #C6A55A 30%, #FFF6DE 50%, #C6A55A 70%, #7A5C2E 100%)',
+        'gradient-gold':
+          'linear-gradient(135deg, #7A5C2E 0%, var(--hv-gold) 25%, #F4E4B8 45%, #FFF6DE 50%, #F4E4B8 55%, var(--hv-gold) 75%, #7A5C2E 100%)',
+        'gradient-gold-shimmer':
+          'linear-gradient(100deg, #7A5C2E 0%, var(--hv-gold) 30%, #FFF6DE 50%, var(--hv-gold) 70%, #7A5C2E 100%)',
       },
       keyframes: {
         'gold-shimmer': {

@@ -1,5 +1,6 @@
 import type React from 'react'
 import type { SectionId, Tone } from './contracts'
+import { HarbourviewCard } from '@/components/ui/HarbourviewPanel'
 
 export type SectionRef = (node: HTMLElement | null) => void
 
@@ -35,6 +36,17 @@ export function SectionShell({
       {children}
     </section>
   )
+}
+
+/** Command card using shared Harbourview surface (token-backed). */
+export function CommandCard({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return <HarbourviewCard className={className}>{children}</HarbourviewCard>
 }
 
 export function Metric({ label, value, detail, tone = 'neutral' }: {
