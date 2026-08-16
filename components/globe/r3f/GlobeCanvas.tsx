@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentRef, RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
@@ -18,6 +18,12 @@ import { useGlobe } from '../GlobeProvider'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 import type { GlobeTierPalette, RegulatoryTier } from '@/lib/globe/globe-materials'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
+import {
+  GLOBE_INTRO,
+  shouldCompleteIntro,
+  shouldForceGoldPlates,
+  type GlobeIntroPhase,
+} from '@/lib/globe/globe-intro'
 
 // Keeps frameloop="demand" alive while OrbitControls autoRotate is active.
 // OrbitControls does not call state.invalidate() internally, so without this
@@ -26,6 +32,33 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   useFrame((state) => {
     if (active) state.invalidate()
   })
+  return null
+}
+
+/**
+ * Drives the gold intro orbit on wall-clock time and notifies when the spin
+ * window has elapsed. Parent combines this with `loading` to unlock tiers.
+ */
+function IntroSpinClock({
+  active,
+  onElapsed,
+}: {
+  active: boolean
+  onElapsed: (elapsedMs: number) => void
+}) {
+  const startedAtRef = useRef<number | null>(null)
+
+  useFrame(() => {
+    if (!active) return
+    const now = performance.now()
+    if (startedAtRef.current === null) startedAtRef.current = now
+    onElapsed(now - startedAtRef.current)
+  })
+
+  useEffect(() => {
+    if (!active) startedAtRef.current = null
+  }, [active])
+
   return null
 }
 
@@ -95,19 +128,34 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
-  const { liveData } = useGlobe()
+  const { liveData, loading } = useGlobe()
+  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const spinElapsedMsRef = useRef(0)
 
-  // iso2 → reviewed tier. Undefined when the flag is off, which makes
-  // CountryPolygonMeshLayer skip tier colouring entirely rather than render a
-  // map of nulls. Countries with a null tier are simply absent from the map.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => setPrefersReducedMotion(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+
+  const forceGold = shouldForceGoldPlates({ introPhase, prefersReducedMotion })
+
+  // iso2 → reviewed tier. Undefined when the flag is off OR during the gold
+  // intro, which forces every plate through the neutral gold material path.
   const tierByIso2 = useMemo(() => {
+    if (forceGold) return undefined
     if (!featureFlags.globeRegulatoryTiers) return undefined
     const map: Record<string, RegulatoryTier> = {}
     for (const country of liveData.countries) {
       if (country.regulatoryTier) map[country.iso2] = country.regulatoryTier
     }
     return map
-  }, [liveData.countries])
+  }, [liveData.countries, forceGold])
+
   const isCountryState = routerStep === 'country' || !selectedCountryIso2
   const distanceLimits = isCountryState
     ? GLOBE_CAMERA_CONFIG.distanceByState.country
@@ -116,32 +164,67 @@ export function GlobeCanvas({
     ? GLOBE_CAMERA_CONFIG.polarByState.country
     : GLOBE_CAMERA_CONFIG.polarByState.selected
 
-  // Wrap hover callbacks to also invalidate the canvas so frameloop="demand"
-  // re-renders when pointer enters/leaves a country plate.
   const invalidateRef = useRef<(() => void) | null>(null)
   const handleHoverCountry = useCallback(
     (iso2?: string) => {
+      if (forceGold) return
       invalidateRef.current?.()
       onHoverCountry?.(iso2)
     },
-    [onHoverCountry],
+    [onHoverCountry, forceGold],
   )
 
-  // Auto-rotate only when nothing is hovered or selected
+  const handleSelectCountry = useCallback(
+    (iso2: string) => {
+      if (forceGold) return
+      onSelectCountry?.(iso2)
+    },
+    [onSelectCountry, forceGold],
+  )
+
+  const tryCompleteIntro = useCallback(() => {
+    if (introPhase === 'ready') return
+    if (
+      shouldCompleteIntro({
+        spinElapsedMs: spinElapsedMsRef.current,
+        loading,
+        prefersReducedMotion,
+      })
+    ) {
+      setIntroPhase('ready')
+    }
+  }, [introPhase, loading, prefersReducedMotion])
+
+  useEffect(() => {
+    tryCompleteIntro()
+  }, [tryCompleteIntro, loading])
+
+  const handleSpinElapsed = useCallback(
+    (elapsedMs: number) => {
+      spinElapsedMsRef.current = elapsedMs
+      tryCompleteIntro()
+    },
+    [tryCompleteIntro],
+  )
+
+  // Auto-rotate: forced during intro; idle rules after ready.
   const isHovering = !!focusedCountryIso2
   const isSelected = !!selectedCountryIso2
-  const shouldAutoRotate = !isHovering && !isSelected
+  const introSpinning = forceGold && !prefersReducedMotion
+  const shouldAutoRotate = introSpinning || (!isHovering && !isSelected)
+  const autoRotateSpeed = introSpinning
+    ? GLOBE_INTRO.spinAutoRotateSpeed
+    : GLOBE_CAMERA_CONFIG.autoRotateSpeed
 
   return (
     <div
       className={className ?? 'absolute inset-0 pointer-events-none'}
-      // Pointer cursor whenever a country plate is hovered
-      style={{ cursor: isHovering ? 'pointer' : 'default' }}
+      style={{ cursor: !forceGold && isHovering ? 'pointer' : 'default' }}
+      data-globe-intro={introPhase}
+      data-globe-force-gold={forceGold ? 'true' : 'false'}
     >
       <Canvas
         className="h-full w-full pointer-events-auto"
-        // Only render when something changes — saves GPU on idle.
-        // Components that animate must call state.invalidate() inside useFrame.
         frameloop="demand"
         dpr={[1, 1.75]}
         aria-label="Harbourview country globe"
@@ -152,28 +235,20 @@ export function GlobeCanvas({
           position: GLOBE_CAMERA_CONFIG.initialPosition,
         }}
         onCreated={(state) => {
-          // ACES Filmic tone mapping — whole-scene response curve.
-          // Richer shadow detail, compressed highlights, graded look.
-          // Exposure pulled to 0.78 so ACES knee compresses specular peaks
-          // before they clip to white — highlights feel surface-driven, not pasted.
           state.gl.toneMapping = ACESFilmicToneMapping
           state.gl.toneMappingExposure = 0.54
-          // Expose invalidate so pointer callbacks above can request a frame.
           invalidateRef.current = state.invalidate
         }}
       >
         <color attach="background" args={['#010810']} />
         <MetallicEnvironment />
 
-        {/* Metallic plate lighting: equatorial key + opposite fill at Y≈0 so neither
-            hemisphere gets extra illumination. Two lights only — eliminates hotspot scatter. */}
         <ambientLight intensity={0.22} color="#f4dfad" />
         <directionalLight position={[4.5, 0.6, 4.2]} intensity={0.62} color="#fff3c4" />
         <directionalLight position={[-4.8, -0.4, -3.5]} intensity={0.26} color="#c99f4a" />
         <hemisphereLight args={['#243b5e', '#080409', 0.26]} />
 
         <Suspense fallback={null}>
-          {/* 3 500 stars — enough to read as deep space, negligible GPU cost */}
           <Stars
             radius={30}
             depth={10}
@@ -185,25 +260,22 @@ export function GlobeCanvas({
           />
 
           <group rotation={[0.08, 0.3, 0]}>
-            {/* Single restrained cobalt atmospheric rim — no second neon shell. */}
             <AtmosphereGlow />
             <OceanSphere />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
               subNationalIso2s={subNationalIso2s}
               selectedCountryIso2s={selectedCountryIso2s}
-              focusedCountryIso2={focusedCountryIso2}
+              focusedCountryIso2={forceGold ? undefined : focusedCountryIso2}
               activeLayerId={activeLayerId}
               tierByIso2={tierByIso2}
               tierPalette={tierPalette}
               onHoverCountry={handleHoverCountry}
-              onSelectCountry={onSelectCountry}
+              onSelectCountry={handleSelectCountry}
             />
             <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
-            {/* Border strokes render after polygon plates so U.S. subdivisions remain legible on mobile. */}
             <CountryBorderLayer />
-            {/* Hover label — floats above the plate centroid while hovering */}
-            {focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
+            {!forceGold && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
             selectedCountryIso2={selectedCountryIso2}
@@ -212,8 +284,8 @@ export function GlobeCanvas({
           />
         </Suspense>
 
-        {/* Drive frame invalidation while autoRotate is active */}
         <AutoRotateInvalidator active={shouldAutoRotate} />
+        <IntroSpinClock active={introSpinning} onElapsed={handleSpinElapsed} />
         <OrbitControls
           ref={controlsRef}
           enablePan={GLOBE_CAMERA_CONFIG.enablePan}
@@ -226,13 +298,12 @@ export function GlobeCanvas({
           minPolarAngle={polarLimits.min}
           maxPolarAngle={polarLimits.max}
           autoRotate={shouldAutoRotate}
-          autoRotateSpeed={GLOBE_CAMERA_CONFIG.autoRotateSpeed}
-          enableZoom={GLOBE_CAMERA_CONFIG.enableZoom}
+          autoRotateSpeed={autoRotateSpeed}
+          enableZoom={!forceGold && GLOBE_CAMERA_CONFIG.enableZoom}
+          enableRotate={!forceGold}
           minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
           maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
         />
-
-        {/* Post-processing effects — restrained bloom and vignette only, with no normal-pass occlusion mask over high-latitude geometry. */}
       </Canvas>
     </div>
   )
