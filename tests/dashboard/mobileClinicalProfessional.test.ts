@@ -9,6 +9,7 @@ import {
   deriveClinicalSourceState,
   getClinicalAuthoritiesForCountry,
   hasClinicalAuthorityCoverage,
+  listClinicalAuthorityCountries,
   normalizeClinicalCountryIso2,
   safeClinicalBriefing,
 } from '@/components/dashboard/mobile-command/clinicalCommandContract'
@@ -61,26 +62,30 @@ describe('mobile professional clinical command contract', () => {
     expect(safety?.purpose).toContain('guidance')
   })
 
-  it('resolves Tier-1 countries without falling back to Canada', () => {
-    expect(normalizeClinicalCountryIso2('de')).toBe('DE')
-    expect(normalizeClinicalCountryIso2('Germany')).toBe('DE')
-    expect(normalizeClinicalCountryIso2('uk')).toBe('GB')
-    expect(getClinicalAuthoritiesForCountry('DE')).toHaveLength(4)
-    expect(getClinicalAuthoritiesForCountry('AU')).toHaveLength(4)
-    expect(getClinicalAuthoritiesForCountry('GB')).toHaveLength(4)
-    expect(getClinicalAuthoritiesForCountry('DE').every(a => a.countryIso2 === 'DE')).toBe(true)
-    expect(getClinicalAuthoritiesForCountry('DE').some(a => a.href.includes('canada.ca'))).toBe(false)
+  it('covers major global medical-cannabis markets without Canada fallback', () => {
+    const countries = listClinicalAuthorityCountries()
+    expect(countries.length).toBeGreaterThanOrEqual(30)
+    for (const code of ['CA', 'US', 'DE', 'GB', 'AU', 'FR', 'NL', 'IL', 'BR', 'NZ', 'ZA', 'TH', 'IT', 'PL', 'CH']) {
+      expect(hasClinicalAuthorityCoverage(code)).toBe(true)
+      const authorities = getClinicalAuthoritiesForCountry(code)
+      expect(authorities.length).toBe(4)
+      expect(authorities.every(a => a.countryIso2 === code)).toBe(true)
+      if (code !== 'CA') {
+        expect(authorities.some(a => /canada\.ca|justice\.gc\.ca/i.test(a.href))).toBe(false)
+      }
+    }
+    expect(hasClinicalAuthorityCoverage('XX')).toBe(false)
     expect(getClinicalAuthoritiesForCountry('XX')).toEqual([])
-    expect(hasClinicalAuthorityCoverage('FR')).toBe(false)
-    expect(hasClinicalAuthorityCoverage('CA')).toBe(true)
   })
 
   it('parses country from command href and labels jurisdictions', () => {
     expect(countryIso2FromCommandHref('/dashboard?country=DE&section=clinical')).toBe('DE')
-    expect(countryIso2FromCommandHref('/dashboard?country=CA')).toBe('CA')
+    expect(countryIso2FromCommandHref('/dashboard?country=BR')).toBe('BR')
+    expect(countryIso2FromCommandHref('/dashboard?country=IL')).toBe('IL')
     expect(countryIso2FromCommandHref('/dashboard')).toBeNull()
-    expect(clinicalJurisdictionLabel('DE')).toBe('Germany')
-    expect(clinicalJurisdictionLabel(null)).toBe('Unknown jurisdiction')
+    expect(clinicalJurisdictionLabel('BR')).toBe('Brazil')
+    expect(clinicalJurisdictionLabel('IL')).toBe('Israel')
+    expect(normalizeClinicalCountryIso2('New Zealand')).toBe('NZ')
   })
 
   it('states cannabinoid scope boundary in copy', () => {
