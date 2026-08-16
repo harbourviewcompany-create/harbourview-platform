@@ -63,8 +63,6 @@ export type DashboardSignal = {
   jurisdiction?: string
   entities?: string[]
   priorityDomain?: DigestPriorityDomain
-  verifiedFacts?: string[]
-  inferences?: string[]
   competitivePositionChange?: boolean
   competitivePositionDetail?: string | null
 
@@ -100,7 +98,7 @@ export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: strin
   investor_operator:          { label: 'Investor / Operator',      short: 'Investor'    },
   government_regulator:       { label: 'Government Regulator',     short: 'Regulator'   },
   patient_caregiver_education:{ label: 'Patient / Caregiver',      short: 'Patient Ed.' },
-  gmp_quality:                { label: 'GMP / Quality',            short: 'GMP/QA'      },
+  gmp_quality:                { label: 'GMP / Quality',             short: 'GMP/QA'      },
   logistics_customs:          { label: 'Logistics / Customs',      short: 'Logistics'   },
   not_sure:                   { label: 'Not Sure Yet',             short: 'General'     },
 }
