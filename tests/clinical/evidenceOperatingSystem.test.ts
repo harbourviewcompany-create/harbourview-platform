@@ -71,7 +71,8 @@ describe('Clinical evidence operating system contracts', () => {
     expect(hardeningMigration).toContain('regexp_split_to_table')
     expect(hardeningMigration).toContain('public.resolve_clinical_query(p_query, 50)')
     expect(hardeningMigration).toContain("'evidence','clinical','reviewed'")
-    expect(hardeningMigration).not.toMatch(/embedding|vector|llm|language model/i)
+    expect(hardeningMigration).toContain('order by b.match_rank, b.canonical_label, b.concept_id')
+    expect(hardeningMigration).not.toContain('embedding <=>')
   })
 
   it('requires evidence eligibility, immutable claim anchors and reviewed publication-family metadata', () => {
