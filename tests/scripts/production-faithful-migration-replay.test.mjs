@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   planReplayExclusions,
   planReplayRelocations,
+  planReplayZeroStateSkips,
 } from '../../scripts/prepare-production-faithful-migration-replay.mjs'
 
 const root = process.cwd()
@@ -15,6 +16,7 @@ const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations')).fi
 
 const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
+const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
 const relocations = planReplayRelocations({ migrationFiles })
 
 test('replay handles duplicate aliases only while their repository files still exist', () => {
@@ -67,6 +69,37 @@ test('every exclusion is backed by exact-live-name-different-version control evi
       assert.ok(migrationFiles.some((file) => file.startsWith(`${equivalentVersion}_`)))
     }
   }
+})
+
+test('zero-state replay skips only the production-only regulatory-signals drift repair', () => {
+  assert.deepEqual(zeroStateSkips, [
+    '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
+  ])
+
+  const original = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'),
+    'utf8',
+  )
+  const noOpTwin = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714094735_revert_regulatory_signals_orphaned_constraint_drift.sql'),
+    'utf8',
+  )
+  const reconstructedRepair = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql'),
+    'utf8',
+  )
+
+  assert.match(original, /constraint regulatory_signals_slug_not_empty/i)
+  assert.match(original, /constraint regulatory_signals_private_summary_not_empty/i)
+  assert.match(original, /constraint regulatory_signals_source_url_not_empty/i)
+  assert.match(original, /constraint regulatory_signals_publication_gate/i)
+  assert.match(noOpTwin, /exact restoration was already applied to production under the\s*-- neighboring version 20260714095121/i)
+  assert.match(reconstructedRepair, /Reconstructed from production/i)
+  assert.match(reconstructedRepair, /repository-only repair of replay fidelity/i)
+})
+
+test('zero-state skip is suppressed when its exact historical file is absent', () => {
+  assert.deepEqual(planReplayZeroStateSkips({ migrationFiles: [] }), [])
 })
 
 test('replay relocates only evidenced reconstruction files before their first dependencies', () => {
