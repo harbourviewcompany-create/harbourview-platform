@@ -71,12 +71,13 @@ test('every exclusion is backed by exact-live-name-different-version control evi
   }
 })
 
-test('zero-state replay skips only the production-only regulatory-signals drift repair', () => {
+test('zero-state replay skips only evidenced production-only repair and duplicate registration files', () => {
   assert.deepEqual(zeroStateSkips, [
     '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
+    '20260714224152_create_intel_eval_set_stage0.sql',
   ])
 
-  const original = fs.readFileSync(
+  const originalRegulatory = fs.readFileSync(
     path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'),
     'utf8',
   )
@@ -88,18 +89,35 @@ test('zero-state replay skips only the production-only regulatory-signals drift 
     path.join(root, 'supabase/migrations/20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql'),
     'utf8',
   )
+  const canonicalEval = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714120000_create_intel_eval_set_stage0.sql'),
+    'utf8',
+  )
+  const duplicateEval = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260714224152_create_intel_eval_set_stage0.sql'),
+    'utf8',
+  )
 
-  assert.match(original, /constraint regulatory_signals_slug_not_empty/i)
-  assert.match(original, /constraint regulatory_signals_private_summary_not_empty/i)
-  assert.match(original, /constraint regulatory_signals_source_url_not_empty/i)
-  assert.match(original, /constraint regulatory_signals_publication_gate/i)
+  assert.match(originalRegulatory, /constraint regulatory_signals_slug_not_empty/i)
+  assert.match(originalRegulatory, /constraint regulatory_signals_private_summary_not_empty/i)
+  assert.match(originalRegulatory, /constraint regulatory_signals_source_url_not_empty/i)
+  assert.match(originalRegulatory, /constraint regulatory_signals_publication_gate/i)
   assert.match(noOpTwin, /exact restoration was already applied to production under the\s*-- neighboring version 20260714095121/i)
   assert.match(reconstructedRepair, /Reconstructed from production/i)
   assert.match(reconstructedRepair, /repository-only repair of replay fidelity/i)
+
+  assert.match(canonicalEval, /production-recorded statement for version\s*-- 20260714224152, the duplicate registration of this same migration/i)
+  assert.match(canonicalEval, /20260714224152 stays a no-op: by the time replay\s*-- reaches it the table exists/i)
+  assert.match(duplicateEval, /Reconstructed from production/i)
+  assert.match(duplicateEval, /create table public\.intel_eval_set/i)
 })
 
-test('zero-state skip is suppressed when its exact historical file is absent', () => {
+test('zero-state skips are suppressed when their exact historical files are absent', () => {
   assert.deepEqual(planReplayZeroStateSkips({ migrationFiles: [] }), [])
+  assert.deepEqual(
+    planReplayZeroStateSkips({ migrationFiles: ['20260714224152_create_intel_eval_set_stage0.sql'] }),
+    ['20260714224152_create_intel_eval_set_stage0.sql'],
+  )
 })
 
 test('replay relocates only evidenced reconstruction files before their first dependencies', () => {
