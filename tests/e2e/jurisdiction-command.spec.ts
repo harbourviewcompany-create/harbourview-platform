@@ -64,13 +64,14 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       })
       try {
         const page = await context.newPage()
-        const response = await page.goto('/dashboard?country=CA&section=jurisdiction&page=access-pathway', {
+        const response = await page.goto('/dashboard?country=CA&role=all&section=jurisdiction&page=access-pathway', {
           waitUntil: 'domcontentloaded',
           timeout: 60_000,
         })
         expect(response?.status()).toBeLessThan(400)
         await expect(page.locator('[data-jurisdiction-command="v1"]')).toBeVisible()
         await expect(page.getByText('Jurisdiction command', { exact: true })).toBeVisible()
+        await expect(page.getByText('All roles · baseline', { exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Material deltas', exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'What are you trying to do?', exact: true })).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Access pathway', exact: true })).toBeVisible()
@@ -113,13 +114,77 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       })
       await expect(page.locator('[data-jurisdiction-command="v1"]')).toBeVisible()
       await expect(page.locator('[data-route-coverage="trade-flow-match"]')).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByText('DE → CA', { exact: false })).toBeVisible()
+      await expect(page.getByText('DE → CA', { exact: true })).toBeVisible()
       await expect(page.getByText('Permit required', { exact: false })).toBeVisible()
       await expect(page.getByText('Export readiness', { exact: false })).toBeVisible()
       await expect(page.getByText('Satisfied', { exact: true }).first()).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await page.screenshot({
         path: path.join(evidenceRoot, 'exporter-import-route-390x844.png'),
+        fullPage: true,
+      })
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('unsupported scoped route remains explicit instead of falling back to a country inference', async ({ browser }) => {
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+    const context = await browser.newContext({
+      ...contextOptions(),
+      storageState,
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    })
+
+    try {
+      const page = await context.newPage()
+      await page.goto('/dashboard?country=CA&role=exporter&section=jurisdiction&page=access-pathway&activity=import&market=AU&product=Dried%20flower', {
+        waitUntil: 'domcontentloaded',
+        timeout: 60_000,
+      })
+      await expect(page.locator('[data-route-coverage="unsupported"]')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText('Harbourview will not infer a transaction route from the country-level status.', { exact: false })).toBeVisible()
+      await expect(page.getByText('Unknown', { exact: true }).first()).toBeVisible()
+      await assertNoHorizontalOverflow(page)
+      await page.screenshot({
+        path: path.join(evidenceRoot, 'unsupported-route-390x844.png'),
+        fullPage: true,
+      })
+    } finally {
+      await context.close()
+    }
+  })
+
+  test('live enrichment error keeps the reviewed country baseline visible and retryable', async ({ browser }) => {
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+    const context = await browser.newContext({
+      ...contextOptions(),
+      storageState,
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    })
+
+    try {
+      const page = await context.newPage()
+      await page.route('**/api/dashboard/jurisdiction-command?**', async route => {
+        await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"forced evidence failure"}' })
+      })
+      await page.goto('/dashboard?country=CA&role=all&section=jurisdiction&page=access-pathway', {
+        waitUntil: 'domcontentloaded',
+        timeout: 60_000,
+      })
+      await expect(page.getByRole('alert')).toContainText('Live command enrichment failed')
+      await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'What are you trying to do?', exact: true })).toBeVisible()
+      await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
+      await assertNoHorizontalOverflow(page)
+      await page.screenshot({
+        path: path.join(evidenceRoot, 'error-fallback-390x844.png'),
         fullPage: true,
       })
     } finally {
