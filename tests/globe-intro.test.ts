@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   GLOBE_INTRO,
+  introEnvMapIntensity,
+  introSpinAutoRotateSpeed,
   introTierBlend,
   lerpHex,
+  metallicGoldMix,
   resolveIntroPlateMaterial,
   shouldFinishReveal,
   shouldForceGoldPlates,
@@ -81,11 +84,34 @@ describe('globe intro', () => {
     ).toBe(true)
   })
 
-  it('uses metallic-gold shader only near pure gold blend', () => {
+  it('metallic gold mix dissolves continuously with tier blend', () => {
+    expect(metallicGoldMix(0)).toBe(1)
+    expect(metallicGoldMix(0.5)).toBeCloseTo(0.5, 5)
+    expect(metallicGoldMix(1)).toBe(0)
     expect(shouldUseMetallicGoldShader(0)).toBe(true)
-    expect(shouldUseMetallicGoldShader(GLOBE_INTRO.metallicGoldMaxBlend)).toBe(true)
-    expect(shouldUseMetallicGoldShader(GLOBE_INTRO.metallicGoldMaxBlend + 0.01)).toBe(false)
+    expect(shouldUseMetallicGoldShader(0.5)).toBe(true)
+    expect(shouldUseMetallicGoldShader(0.999)).toBe(true)
     expect(shouldUseMetallicGoldShader(1)).toBe(false)
+  })
+
+  it('eases spin speed only in the final orbit fraction', () => {
+    expect(introSpinAutoRotateSpeed(0)).toBe(GLOBE_INTRO.spinAutoRotateSpeed)
+    expect(introSpinAutoRotateSpeed(GLOBE_INTRO.fullOrbitRad * 0.5)).toBe(
+      GLOBE_INTRO.spinAutoRotateSpeed,
+    )
+    const late = introSpinAutoRotateSpeed(GLOBE_INTRO.fullOrbitRad * 0.95)
+    expect(late).toBeLessThan(GLOBE_INTRO.spinAutoRotateSpeed)
+    expect(late).toBeGreaterThan(
+      GLOBE_INTRO.spinAutoRotateSpeed * GLOBE_INTRO.spinEaseOutMinFactor - 0.01,
+    )
+  })
+
+  it('lerps env map intensity from richer gold to steady tier', () => {
+    const gold = introEnvMapIntensity({ isSelected: false, isFocused: false, tierBlend: 0 })
+    const tier = introEnvMapIntensity({ isSelected: false, isFocused: false, tierBlend: 1 })
+    const mid = introEnvMapIntensity({ isSelected: false, isFocused: false, tierBlend: 0.5 })
+    expect(gold).toBeGreaterThan(tier)
+    expect(mid).toBeCloseTo((gold + tier) / 2, 5)
   })
 
   it('blends 0 during spin, eases through reveal, 1 when ready', () => {
