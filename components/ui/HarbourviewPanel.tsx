@@ -1,6 +1,6 @@
 'use client'
 
-import type { ElementType, HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
 /**
  * Shared institutional surface language for sheets, command cards, public cards,
@@ -46,6 +46,8 @@ export const hvCardPublicClass =
   'rounded-sm border border-[color:var(--hv-gold)]/10 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] text-[color:var(--hv-ivory)] shadow-[0_18px_44px_rgba(0,0,0,0.24)]'
 
 export type HarbourviewCardTone = 'default' | 'priority' | 'public' | 'bare'
+
+export type HarbourviewCardAs = 'article' | 'div' | 'section'
 
 const CARD_TONE_CLASS: Record<HarbourviewCardTone, string> = {
   default: hvCardSurfaceClass,
@@ -146,13 +148,16 @@ export function HarbourviewCard({
   children,
   className,
   tone = 'default',
-  as: Comp = 'article',
+  as = 'article',
   ...rest
 }: {
   children: ReactNode
+  className?: string
   tone?: HarbourviewCardTone
-  as?: ElementType
-} & HTMLAttributes<HTMLElement>) {
+  /** Intrinsic element only — avoids ElementType × HTMLAttributes children: never. */
+  as?: HarbourviewCardAs
+} & Omit<HTMLAttributes<HTMLElement>, 'className' | 'children'>) {
+  const Comp = as
   return (
     <Comp className={cx(CARD_TONE_CLASS[tone], className)} {...rest}>
       {children}
