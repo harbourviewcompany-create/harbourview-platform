@@ -328,4 +328,144 @@ Scoped to active jurisdiction and **in-scope intervention classes**:
 
 ---
 
-*This specification does not authorize any clinical claim not backed by reviewed evidence for the active jurisdiction. It does not expand product scope to general medicine without a separate governance and liability decision.*
+## Appendix A — Delivery Plan (executable)
+
+This appendix turns policy into a backlog. Numbers and named topics are **starting templates** — product and clinical review may substitute equivalents, but the plan must stay named and finite.
+
+### A.1 Named MVP topic list (ship target)
+
+**Hard cap for first publish wave:** ≤ 30 clinician-facing records (condition, drug/class, or pathway). Prefer depth over breadth.
+
+#### Conditions / clinical contexts (illustrative starter set)
+
+| ID | Topic | Why in scope | Priority |
+|----|-------|--------------|----------|
+| C1 | Dravet syndrome (cannabinoid context) | High-recognition query; matches known empty-search pain (“Dravel”) | P0 |
+| C2 | Lennox-Gastaut syndrome (cannabinoid context) | Paired epilepsy evidence | P0 |
+| C3 | MS-related spasticity | Common authorized context in multiple markets | P0 |
+| C4 | Chemotherapy-induced nausea/vomiting (CINV) | Established cannabinoid use-case | P0 |
+| C5 | Selected chronic pain contexts (narrow, evidence-bounded) | High demand; strict uncertainty labeling required | P1 |
+| C6 | Palliative / appetite–cachexia contexts (where evidence exists) | Specialty use | P1 |
+| C7 | Pediatric considerations (cross-cutting, not a diagnosis) | Safety-critical | P0 |
+| C8 | Pregnancy & lactation (cross-cutting) | Safety-critical | P0 |
+
+#### Drugs / product classes (illustrative)
+
+| ID | Topic | Notes | Priority |
+|----|-------|-------|----------|
+| D1 | Cannabidiol (CBD) — purified / authorized products | Jurisdiction-specific authorization | P0 |
+| D2 | THC-containing authorized products (class-level) | Avoid brand promotion; label-linked | P0 |
+| D3 | Nabiximols / oromucosal sprays (where marketed) | Market-dependent | P1 |
+| D4 | Plant cannabis medical authorization (framework, not strain claims) | Pathway + practice rules | P0 |
+| D5 | Formulation & route differences (oil, capsule, inhaled where legal) | Safety and onset — reviewed only | P1 |
+
+#### Pathways / practice (illustrative)
+
+| ID | Topic | Notes | Priority |
+|----|-------|-------|----------|
+| P1 | Medical authorization / access pathway — Canada | Federal + “subnational not published” unless reviewed | P0 |
+| P2 | Adverse reaction reporting — how/where | Authority-registry driven | P0 |
+| P3 | Access pathway — Tier-1 market #2 (product-chosen) | Same structure as P1 | P1 |
+| P4 | Access pathway — Tier-1 market #3 | Same structure | P1 |
+| P5 | Drug–drug interaction boundary notice | Explicit “not a full interaction checker” | P0 |
+
+Product replaces any row with higher-value in-scope topics; **does not** add general hypertension/diabetes monographs under this MVP.
+
+### A.2 Corpus gap table (fill before scaling)
+
+Run once against production (or staging mirror). Update weekly during the 90-day window.
+
+| Jurisdiction | Topic ID | Record exists? | Status (`published` / draft / none) | Structured dosing? | Safety section? | Primary source linked? | Last verified | Owner |
+|--------------|----------|----------------|-------------------------------------|--------------------|-----------------|------------------------|---------------|-------|
+| Canada | C1 | | | | | | | |
+| Canada | C2 | | | | | | | |
+| Canada | … | | | | | | | |
+| [Tier-1 #2] | … | | | | | | | |
+
+**Baseline metrics to capture on day 0**
+
+- Count of `published` clinical evidence records by jurisdiction
+- Count of published records with non-empty dosing / safety / source fields
+- Top 50 search queries (if any instrumentation exists) and hit rate
+- Current hard-coded Canada-only UI paths (`CANADA_CLINICAL_AUTHORITIES` call sites)
+
+### A.3 Authority registry — engineering checklist (ADR-level)
+
+Produce a short ADR + initial seed (not only prose in this doc):
+
+- [ ] Data shape: `country_iso2`, optional `subnational_code`, regulator name, URLs, scheduling/access summary (non-clinical), pharmacovigilance URL, guideline body links, last_checked_at, owner
+- [ ] Code location: replace hard-coded `CANADA_CLINICAL_AUTHORITIES` consumption in mobile/desktop Clinical
+- [ ] Seed: Canada complete; ≥2 additional Tier-1 countries minimum viable labels + official URLs
+- [ ] Behavior: missing registry row → limited-coverage UI, never Canada fallback
+- [ ] Tests: country switch swaps authorities; snapshot test for no CA URLs when country ≠ CA
+- [ ] Link health: quarterly check or automated HEAD/GET job for primary URLs
+
+### A.4 Clinician pilot (validation loop)
+
+**Who:** 5–10 target users (mix of MD / NP / RPh where possible), at least one non-Canada if Tier-1 #2 is live.
+
+**Tasks (timed, observed or self-reported):**
+
+1. Find evidence related to Dravet / CBD (or local equivalent query).
+2. Find medical access / authorization pathway for active jurisdiction.
+3. Find adverse-reaction reporting path.
+4. Search an out-of-scope general drug (e.g. metformin) — confirm honest empty/out-of-scope.
+5. Switch country — confirm authorities and results re-scope.
+
+**Pass signals:** tasks 1–3 completable in <60s with correct jurisdiction framing; task 4 does not show invented general Rx; task 5 shows zero cross-jurisdiction leakage.
+
+**Fail → action:** if P0 topics still empty after day 60, freeze UI feature work and only publish content + fix empty states.
+
+### A.5 Instrumentation & metric baselines
+
+| Metric | Definition | Baseline | Target (Tier-1, in-scope) |
+|--------|------------|----------|---------------------------|
+| Search hit rate | Queries with ≥1 in-jurisdiction published result / all in-scope probe queries | Measure day 0 | >90% on probe set |
+| Empty-result rate | Share of searches with zero results | Measure day 0 | Decline as corpus grows; never “fake” hits |
+| Cross-jurisdiction leakage | Automated tests + monthly audit | 0 required | 0 |
+| Time-to-first-useful-view | Search → open record with sources visible | Qualitative in pilot | <30s median in pilot |
+| Publish without review | Count of clinical-synthesis publishes missing reviewer metadata | 0 required | 0 |
+
+**Probe query set:** maintain a versioned list of 30–50 in-scope queries (including common misspellings such as “Dravel”) and 10 out-of-scope controls.
+
+### A.6 90-day sequence
+
+Assumes #1456 lands early in the window. If #1456 slips, days shift; do not build content UX on a broken production spine.
+
+| Window | Outcomes |
+|--------|----------|
+| **Days 0–14** | Land #1456; lock scope copy + empty states; capture corpus baseline; draft gap table; ADR for authority registry; confirm entitlement (who sees Clinical) |
+| **Days 15–30** | Ship multi-jurisdiction authority registry (CA + ≥2 countries); jurisdiction contract tests; governance publish path enforced; liability framing in UI |
+| **Days 31–60** | Publish P0 MVP records for Canada (conditions + pathways + key drug classes); fill gap table weekly; start clinician pilot recruitment |
+| **Days 61–75** | Pilot running; fix top failure modes; optional Tier-1 #2 pathway + 3–5 records if reviewer capacity allows |
+| **Days 76–90** | Pilot readout; hit-rate on probe set; decide go/no-go for wider Tier-1 content vs freeze and deepen Canada only; audit-trail (“what I viewed”) design or thin ship |
+
+### A.7 Risks, dependencies, kill criteria
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| #1456 delayed | UI rebuild and production diagnostics blocked | Sequence content authoring in parallel; do not market Clinical as fixed |
+| Reviewer capacity < publish ambition | Stale or empty flagship | Cap MVP at P0; tier model; freeze new countries |
+| Scope creep to general Rx | Liability + thin content everywhere | Reject out-of-scope records; empty state for general queries |
+| Legal delay on positioning language | Launch copy uncertainty | Ship conservative reference framing by default |
+| Authority URLs rot | Trust failure | last_checked_at + link job; unpublish/replace on break |
+| Divergent truth vs education/briefings | Clinician confusion | Single jurisdiction owner; cross-link, don’t duplicate |
+| Entitlement undecided | Wrong RLS / wasted content | Decide in days 0–14 |
+
+**Kill / freeze criteria**
+
+- Stop adding countries if P0 Canada records are not published by day 60.
+- Stop UI feature expansion if cross-jurisdiction leakage is found in production.
+- Stop marketing “flagship” language if pilot tasks 1–3 fail for majority of participants.
+
+### A.8 Open product decisions (resolve in days 0–14)
+
+1. Tier-1 markets beyond Canada (exactly which 2–4).
+2. Entitlement: which roles/orgs/plans see Clinical Command.
+3. Named final MVP list (confirm or edit A.1).
+4. Primary clinical reviewer(s) and backup.
+5. Whether FR-CA authority labels are in the 90-day window or immediately after.
+
+---
+
+*This specification does not authorize any clinical claim not backed by reviewed evidence for the active jurisdiction. It does not expand product scope to general medicine without a separate governance and liability decision. Appendix A is a delivery template — topic rows may be substituted, but the program must remain finite, measured, and governed.*
