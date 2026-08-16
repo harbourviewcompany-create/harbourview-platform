@@ -13,6 +13,9 @@ export const CLINICAL_INTERVENTION_CLASSES = [
 ] as const
 export type ClinicalInterventionClass = typeof CLINICAL_INTERVENTION_CLASSES[number]
 
+export const CLINICAL_EVIDENCE_DOMAINS = ['clinical','preclinical','regulatory','mixed','other','not-assessed'] as const
+export type ClinicalEvidenceDomain = typeof CLINICAL_EVIDENCE_DOMAINS[number]
+
 export const CLINICAL_EVIDENCE_STATES = [
   'loaded','empty','no-evidence','no-match','stale','conflicted','degraded-source','permission','error',
 ] as const
@@ -85,7 +88,8 @@ export type ClinicalEvidenceRecordDTO = {
   id: string; slug: string; title: string; summary: string; condition: string | null; conditionAliases: string[]
   population: string | null; intervention: string | null; formulation: string | null; cannabinoid: string[]
   interventionClass: ClinicalInterventionClass; comparator: string | null; outcome: string | null
-  evidenceType: ClinicalEvidenceType; evidenceStrength: ClinicalEvidenceCertainty; evidenceStrengthMethod: string | null
+  evidenceType: ClinicalEvidenceType; evidenceDomain?: ClinicalEvidenceDomain
+  evidenceStrength: ClinicalEvidenceCertainty; evidenceStrengthMethod: string | null
   uncertainty: string | null; conflictStatus: 'none' | 'mixed' | 'material-conflict'; jurisdiction: string[]
   professionRelevance: string[]; primarySource: ClinicalPrimarySourceDTO; publicationDate: string | null
   effectiveDate: string | null; verifiedAt: string; supersessionState: 'current' | 'superseded' | 'partially-superseded'
