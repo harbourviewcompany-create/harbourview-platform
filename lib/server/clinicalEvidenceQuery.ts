@@ -1,5 +1,13 @@
 import 'server-only'
-import type { ClinicalEvidenceChangeEventDTO, ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
+import type {
+  ClinicalClaimProvenanceDTO,
+  ClinicalConceptMatchDTO,
+  ClinicalCorpusProfileDTO,
+  ClinicalEvidenceChangeEventDTO,
+  ClinicalEvidenceRecordDTO,
+  ClinicalQueryResolutionDTO,
+  ClinicalStudyFamilyDTO,
+} from '@/lib/clinical/evidence'
 import { clinicalEvidenceStateMessage, deriveClinicalEvidenceState, synthesizeClinicalEvidence } from '@/lib/clinical/evidence'
 import {
   classifyClinicalFailure,
@@ -57,6 +65,24 @@ function requiredText(row: Row, key: string): string {
   return value
 }
 
+function numberValue(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value)
+  return 0
+}
+
+function booleanValue(value: unknown): boolean {
+  return value === true || value === 'true'
+}
+
+function normalizeQuery(value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function mapEvidence(row: Row): ClinicalEvidenceRecordDTO {
   const publicationScope = text(row.publication_scope)
   const freshnessStatus = text(row.freshness_status)
@@ -100,6 +126,8 @@ function mapEvidence(row: Row): ClinicalEvidenceRecordDTO {
     reviewDueAt: text(row.review_due_at),
     sourceCurrentnessCheckedAt: text(row.source_currentness_checked_at),
     freshnessReason: text(row.freshness_reason),
+    claims: [],
+    studyFamilies: [],
   }
 }
 
@@ -121,6 +149,67 @@ function mapChange(row: Row): ClinicalEvidenceChangeEventDTO {
       url: requiredText(row, 'primary_source_url'),
       sourceId: text(row.primary_source_id),
     },
+  }
+}
+
+function mapConcept(row: Row): ClinicalConceptMatchDTO {
+  return {
+    conceptId: requiredText(row, 'concept_id'),
+    conceptType: requiredText(row, 'concept_type') as ClinicalConceptMatchDTO['conceptType'],
+    canonicalLabel: requiredText(row, 'canonical_label'),
+    matchedLabel: requiredText(row, 'matched_label'),
+    matchKind: requiredText(row, 'match_kind') as ClinicalConceptMatchDTO['matchKind'],
+    matchRank: numberValue(row.match_rank),
+    aliases: strings(row.aliases),
+  }
+}
+
+function mapClaim(row: Row): ClinicalClaimProvenanceDTO {
+  return {
+    id: requiredText(row, 'id'),
+    evidenceRecordId: requiredText(row, 'evidence_record_id'),
+    claimKey: requiredText(row, 'claim_key'),
+    claimKind: requiredText(row, 'claim_kind') as ClinicalClaimProvenanceDTO['claimKind'],
+    claimOrigin: requiredText(row, 'claim_origin') as ClinicalClaimProvenanceDTO['claimOrigin'],
+    statement: requiredText(row, 'statement'),
+    sourceSnapshotId: requiredText(row, 'source_snapshot_id'),
+    sourceLocator: requiredText(row, 'source_locator'),
+    verifiedAt: requiredText(row, 'verified_at'),
+  }
+}
+
+function mapStudyFamily(row: Row): ClinicalStudyFamilyDTO {
+  return {
+    evidenceRecordId: requiredText(row, 'evidence_record_id'),
+    familyKey: requiredText(row, 'family_key'),
+    familyKind: requiredText(row, 'family_kind') as ClinicalStudyFamilyDTO['familyKind'],
+    title: requiredText(row, 'title'),
+    trialRegistryId: text(row.trial_registry_id),
+    protocolId: text(row.protocol_id),
+    countsAsIndependentStudy: booleanValue(row.counts_as_independent_study),
+    publicationRole: requiredText(row, 'publication_role') as ClinicalStudyFamilyDTO['publicationRole'],
+    isPrimaryReport: booleanValue(row.is_primary_report),
+    overlapNote: text(row.overlap_note),
+    verifiedAt: requiredText(row, 'verified_at'),
+  }
+}
+
+function mapCorpus(row: Row): ClinicalCorpusProfileDTO {
+  return {
+    recordCount: numberValue(row.record_count),
+    currentRecordCount: numberValue(row.current_record_count),
+    gradedRecordCount: numberValue(row.graded_record_count),
+    conditionCount: numberValue(row.condition_count),
+    conceptCount: numberValue(row.concept_count),
+    sourceCount: numberValue(row.source_count),
+    independentStudyCount: numberValue(row.independent_study_count),
+    studyFamilyCount: numberValue(row.study_family_count),
+    claimCount: numberValue(row.claim_count),
+    claimAnchoredRecordCount: numberValue(row.claim_anchored_record_count),
+    lastVerifiedAt: text(row.last_verified_at),
+    gradingMethodKey: text(row.grading_method_key),
+    gradingMethodVersion: text(row.grading_method_version),
+    gradingMethodTitle: text(row.grading_method_title),
   }
 }
 
@@ -192,6 +281,51 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
   return response.json() as Promise<T>
 }
 
+async function optionalOperatingRpc(name: string, body: Record<string, unknown>): Promise<Row[] | null> {
+  try {
+    const value = await rpc<unknown>(name, body)
+    if (!Array.isArray(value)) throw new ClinicalEvidenceQueryError(`clinical_evidence_schema_invalid_${name}`, 'schema')
+    return value as Row[]
+  } catch (error) {
+    if (error instanceof ClinicalEvidenceQueryError && error.category === 'migration-drift') return null
+    throw error
+  }
+}
+
+function buildResolution(query: string, rows: Row[] | null): ClinicalQueryResolutionDTO | undefined {
+  if (!query || rows === null) return undefined
+  const conceptMatches = rows.map(mapConcept)
+  const expandedTerms: string[] = []
+  for (const match of conceptMatches) {
+    for (const value of [match.canonicalLabel, match.matchedLabel, ...match.aliases]) {
+      if (value && !expandedTerms.some(existing => existing.toLocaleLowerCase() === value.toLocaleLowerCase())) {
+        expandedTerms.push(value)
+      }
+    }
+  }
+  return {
+    normalizedQuery: normalizeQuery(query),
+    recognized: conceptMatches.length > 0,
+    canonicalLabel: conceptMatches[0]?.canonicalLabel ?? null,
+    conceptMatches,
+    expandedTerms,
+  }
+}
+
+function attachOperatingMetadata(
+  records: ClinicalEvidenceRecordDTO[],
+  claimRows: Row[] | null,
+  familyRows: Row[] | null,
+): ClinicalEvidenceRecordDTO[] {
+  const claims = claimRows?.map(mapClaim) ?? []
+  const families = familyRows?.map(mapStudyFamily) ?? []
+  return records.map(record => ({
+    ...record,
+    claims: claims.filter(claim => claim.evidenceRecordId === record.id),
+    studyFamilies: families.filter(family => family.evidenceRecordId === record.id),
+  }))
+}
+
 export async function searchClinicalEvidence(input: { query?: string; jurisdiction?: string; limit?: number }): Promise<ClinicalEvidenceApiResult> {
   const query = input.query?.trim() ?? ''
   const limit = Math.max(1, Math.min(input.limit ?? 20, 50))
@@ -207,11 +341,31 @@ export async function searchClinicalEvidence(input: { query?: string; jurisdicti
       p_limit: limit,
     })
     if (!Array.isArray(evidenceRows)) throw new ClinicalEvidenceQueryError('clinical_evidence_schema_invalid_rpc_result', 'schema')
-    const records = (evidenceRows as Row[]).map(mapEvidence)
+    let records = (evidenceRows as Row[]).map(mapEvidence)
 
-    const conditionResult = query ? await rpc<unknown>('clinical_condition_term_known', { p_query: query }) : false
-    if (query && typeof conditionResult !== 'boolean') throw new ClinicalEvidenceQueryError('clinical_evidence_schema_invalid_condition_result', 'schema')
-    const knownConditionMatch = query ? conditionResult as boolean : false
+    const resolutionRows = query
+      ? await optionalOperatingRpc('resolve_clinical_query', { p_query: query, p_limit: 12 })
+      : []
+    const resolution = buildResolution(query, resolutionRows)
+
+    let knownConditionMatch = resolution?.conceptMatches.some(match => match.conceptType === 'condition') ?? false
+    if (query && resolutionRows === null) {
+      const conditionResult = await rpc<unknown>('clinical_condition_term_known', { p_query: query })
+      if (typeof conditionResult !== 'boolean') throw new ClinicalEvidenceQueryError('clinical_evidence_schema_invalid_condition_result', 'schema')
+      knownConditionMatch = conditionResult
+    }
+
+    const recordIds = records.map(record => record.id)
+    if (recordIds.length > 0) {
+      const [claimRows, familyRows] = await Promise.all([
+        optionalOperatingRpc('clinical_evidence_claims_for_records', { p_record_ids: recordIds }),
+        optionalOperatingRpc('clinical_evidence_study_families_for_records', { p_record_ids: recordIds }),
+      ])
+      records = attachOperatingMetadata(records, claimRows, familyRows)
+    }
+
+    const profileRows = await optionalOperatingRpc('clinical_evidence_corpus_profile', { p_jurisdiction: jurisdiction })
+    const corpus = profileRows?.[0] ? mapCorpus(profileRows[0]) : undefined
 
     const changeParams = new URLSearchParams({
       select: CHANGE_SELECT,
@@ -230,6 +384,8 @@ export async function searchClinicalEvidence(input: { query?: string; jurisdicti
       changes,
       message: clinicalEvidenceStateMessage(state),
       synthesis: synthesizeClinicalEvidence(records),
+      resolution,
+      corpus,
     }
   } catch (error) {
     const typed = error instanceof ClinicalEvidenceQueryError ? error : null
