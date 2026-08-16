@@ -40,6 +40,25 @@ const REPLAY_RELOCATIONS = [
   },
 ]
 
+// Production had these named RLS policies before the reconstructed 20260719083306
+// ALTER POLICY migration ran. Current repository history rebuilds the tables but
+// not the policy identities, so zero-state replay cannot execute the recorded
+// ALTER POLICY statements. Materialize only the missing identities in the replay
+// workspace, fail closed with USING (false), and let the immediately-following
+// production-recorded migration replace both predicates. No checked-in migration
+// or production ledger entry is changed.
+const REPLAY_SYNTHETIC_FOUNDATIONS = [
+  {
+    destination: '20260719083305_replay_education_policy_identities.sql',
+    before: '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
+    required: [
+      '20260719083250_add_clinical_signoff_gate_to_education_modules.sql',
+      '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
+    ],
+    content: `-- Replay-only fail-closed reconstruction of policy identities that existed in production\n-- before 20260719083306. The next migration immediately replaces both USING clauses\n-- with the exact production-recorded predicates. This file exists only in the temporary\n-- production-faithful replay workspace and is never a production migration.\n\ndo $replay_policy_identity$\nbegin\n  if not exists (\n    select 1\n    from pg_policies\n    where schemaname = 'public'\n      and tablename = 'education_modules'\n      and policyname = 'education_modules_public_select'\n  ) then\n    create policy \"education_modules_public_select\"\n      on public.education_modules\n      for select\n      using (false);\n  end if;\n\n  if not exists (\n    select 1\n    from pg_policies\n    where schemaname = 'public'\n      and tablename = 'education_module_sections'\n      and policyname = 'public read sections of published modules'\n  ) then\n    create policy \"public read sections of published modules\"\n      on public.education_module_sections\n      for select\n      using (false);\n  end if;\nend\n$replay_policy_identity$;\n`,
+  },
+]
+
 function migrationVersion(file) {
   const match = /^(\d{14})_.+\.sql$/.exec(file)
   return match?.[1] ?? null
@@ -102,6 +121,17 @@ export function planReplayRelocations({ migrationFiles }) {
   })
 }
 
+export function planReplaySyntheticFoundations({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_SYNTHETIC_FOUNDATIONS.filter((item) => {
+    if (fileSet.has(item.destination) || !fileSet.has(item.before)) return false
+    if (!item.required.every((file) => fileSet.has(file))) return false
+    const destinationVersion = migrationVersion(item.destination)
+    const beforeVersion = migrationVersion(item.before)
+    return Boolean(destinationVersion && beforeVersion && destinationVersion < beforeVersion)
+  })
+}
+
 export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = false } = {}) {
   const decisions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, DECISIONS_FILE), 'utf8'))
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
@@ -109,6 +139,7 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
   const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
+  const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
 
   if (apply) {
     for (const item of exclusions) {
@@ -132,16 +163,24 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (fs.existsSync(destination)) throw new Error(`Replay relocation destination already exists: ${item.destination}`)
       fs.renameSync(source, destination)
     }
+    for (const item of syntheticFoundations) {
+      const destination = path.join(migrationDirectory, item.destination)
+      if (fs.existsSync(destination)) throw new Error(`Replay synthetic foundation already exists: ${item.destination}`)
+      if (!fs.existsSync(path.join(migrationDirectory, item.before))) {
+        throw new Error(`Replay synthetic foundation boundary disappeared: ${item.before}`)
+      }
+      fs.writeFileSync(destination, item.content, 'utf8')
+    }
   }
 
-  return { exclusions, zeroStateSkips, relocations }
+  return { exclusions, zeroStateSkips, relocations, syntheticFoundations }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const { exclusions, zeroStateSkips, relocations } = runReplayPreparation({ apply })
+    const { exclusions, zeroStateSkips, relocations, syntheticFoundations } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
@@ -162,6 +201,14 @@ if (isDirect) {
       console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
+      }
+    }
+    if (syntheticFoundations.length === 0) {
+      console.log('Production-faithful replay: no replay-only synthetic foundations are required.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'materialized' : 'would materialize'} ${syntheticFoundations.length} replay-only synthetic foundation(s):`)
+      for (const item of syntheticFoundations) {
+        console.log(`- ${item.destination} before ${item.before}`)
       }
     }
   } catch (error) {
