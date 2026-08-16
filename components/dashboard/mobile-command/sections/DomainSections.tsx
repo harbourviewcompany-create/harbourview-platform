@@ -379,7 +379,7 @@ export function ClinicalSection({ sectionRef, roleShort, jurisdiction, programSt
         <article className="hvm2-directory-card">
           <span>Professional education</span>
           <h3>Reviewed clinical modules</h3>
-          <p>Open Harbourview's existing professional-only clinical education surface and its review-status controls.</p>
+          <p>Open Harbourview&apos;s existing professional-only clinical education surface and its review-status controls.</p>
           <Link className="hvm2-text-link" href="/network/clinical-education">Clinical education →</Link>
         </article>
       </div>
