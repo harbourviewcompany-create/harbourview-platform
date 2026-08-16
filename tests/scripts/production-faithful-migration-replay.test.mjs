@@ -69,8 +69,13 @@ test('every exclusion is backed by exact-live-name-different-version control evi
   }
 })
 
-test('replay relocates the production-column reconciliation before the first supply view dependency', () => {
+test('replay relocates only evidenced reconstruction files before their first dependencies', () => {
   assert.deepEqual(relocations, [
+    {
+      source: '20260701230000_corridor_intelligence_tables_stub.sql',
+      destination: '20260701180750_replay_corridor_intelligence_tables_stub.sql',
+      before: '20260701180751_remote_applied_repair.sql',
+    },
     {
       source: '20260730220050_reconcile_listings_production_columns.sql',
       destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
@@ -78,12 +83,19 @@ test('replay relocates the production-column reconciliation before the first sup
     },
   ])
 
-  const source = fs.readFileSync(
+  const corridorSource = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260701230000_corridor_intelligence_tables_stub.sql'),
+    'utf8',
+  )
+  assert.match(corridorSource, /reconstructed from the live production catalog for zero-state migration replay/i)
+  assert.match(corridorSource, /repository-only replay-fidelity repair and is not a production migration/i)
+
+  const listingsSource = fs.readFileSync(
     path.join(root, 'supabase/migrations/20260730220050_reconcile_listings_production_columns.sql'),
     'utf8',
   )
-  assert.match(source, /shape was established entirely outside recorded history/i)
-  assert.match(source, /below is taken from the live catalog \(pg_attribute \/ pg_get_expr\), not\s*-- inferred/i)
+  assert.match(listingsSource, /shape was established entirely outside recorded history/i)
+  assert.match(listingsSource, /below is taken from the live catalog \(pg_attribute \/ pg_get_expr\), not\s*-- inferred/i)
 })
 
 test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {
@@ -99,6 +111,16 @@ test('replay relocation is suppressed unless source, destination boundary and or
   )
   assert.deepEqual(
     planReplayRelocations({ migrationFiles: ['20260730220050_reconcile_listings_production_columns.sql'] }),
+    [],
+  )
+  assert.deepEqual(
+    planReplayRelocations({
+      migrationFiles: [
+        '20260701230000_corridor_intelligence_tables_stub.sql',
+        '20260701180750_replay_corridor_intelligence_tables_stub.sql',
+        '20260701180751_remote_applied_repair.sql',
+      ],
+    }),
     [],
   )
 })
