@@ -115,7 +115,7 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       await expect(page.locator('[data-jurisdiction-command="v1"]')).toBeVisible()
       await expect(page.locator('[data-route-coverage="trade-flow-match"]')).toBeVisible({ timeout: 15_000 })
       await expect(page.getByText('DE → CA', { exact: true })).toBeVisible()
-      await expect(page.getByText('Permit required', { exact: false })).toBeVisible()
+      await expect(page.getByText('Permit required', { exact: true }).first()).toBeVisible()
       await expect(page.getByText('Export readiness', { exact: false })).toBeVisible()
       await expect(page.getByText('Satisfied', { exact: true }).first()).toBeVisible()
       await assertNoHorizontalOverflow(page)
@@ -178,7 +178,7 @@ test.describe('Jurisdiction Command mobile evidence', () => {
         waitUntil: 'domcontentloaded',
         timeout: 60_000,
       })
-      await expect(page.getByRole('alert')).toContainText('Live command enrichment failed')
+      await expect(page.locator('[data-jurisdiction-command="v1"]').getByRole('alert')).toContainText('Live command enrichment failed')
       await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible()
       await expect(page.getByRole('heading', { name: 'What are you trying to do?', exact: true })).toBeVisible()
       await expect(page.locator('.hvm-op-bottom-nav')).toBeVisible()
