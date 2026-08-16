@@ -276,7 +276,7 @@ test.describe.serial('authenticated organization onboarding', () => {
       const tokenInput = page.getByPlaceholder('Paste invitation token')
       await tokenInput.fill('f'.repeat(64))
       await page.getByRole('button', { name: 'Join organization', exact: true }).click()
-      await expect(page.getByRole('alert')).toContainText('could not be found')
+      await expect(page.getByRole('alert').filter({ hasText: 'could not be found' })).toContainText('could not be found')
 
       await tokenInput.fill(INVITE_TOKEN)
       await page.getByRole('button', { name: 'Join organization', exact: true }).click()
@@ -287,6 +287,7 @@ test.describe.serial('authenticated organization onboarding', () => {
       expect(orgContext.status).toBe(200)
       expect(orgContext.payload.data?.memberships.length).toBeGreaterThanOrEqual(2)
       expect(orgContext.payload.data?.active_workspace_id).not.toBe(createdWorkspaceId)
+      await expect(page.getByText('ATTENTION', { exact: true })).toBeVisible({ timeout: 30_000 })
       await page.screenshot({ path: path.join(evidenceRoot, '390x844-command-after-join.png'), fullPage: false, animations: 'disabled' })
     } finally {
       await context.close()
