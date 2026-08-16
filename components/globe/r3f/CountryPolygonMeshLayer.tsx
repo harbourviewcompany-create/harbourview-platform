@@ -97,6 +97,8 @@ function HoverPulseMesh({
   onClick: () => void
 }) {
   const matRef = useRef<MeshPhysicalMaterial>(null)
+  const goldMixRef = useRef(goldMix)
+  goldMixRef.current = goldMix
 
   useEffect(() => {
     if (matRef.current) registerMat(iso2, matRef.current)
@@ -126,7 +128,11 @@ function HoverPulseMesh({
   const metallicGoldShader = useMemo(() => {
     if (!useMetallicGold) return undefined
     return (shader: MetallicGoldShader) => {
-      applyMetallicGoldShader(shader, { isFocused, isSelected, goldMix })
+      applyMetallicGoldShader(shader, {
+        isFocused,
+        isSelected,
+        goldMix: goldMixRef.current,
+      })
       // Stash for uniform updates across reveal steps without onBeforeCompile again.
       if (matRef.current) {
         ;(matRef.current as MeshPhysicalMaterial & { userData: { shader?: MetallicGoldShader } }).userData =
@@ -136,7 +142,7 @@ function HoverPulseMesh({
           }
       }
     }
-  }, [isFocused, isSelected, useMetallicGold, goldMix])
+  }, [isFocused, isSelected, useMetallicGold])
 
   const programCacheKey = useMetallicGold
     ? getMetallicGoldProgramCacheKey({ isFocused, isSelected })
