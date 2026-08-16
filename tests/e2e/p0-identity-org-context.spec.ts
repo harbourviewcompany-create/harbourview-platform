@@ -276,7 +276,7 @@ test.describe.serial('authenticated organization onboarding', () => {
       const tokenInput = page.getByPlaceholder('Paste invitation token')
       await tokenInput.fill('f'.repeat(64))
       await page.getByRole('button', { name: 'Join organization', exact: true }).click()
-      await expect(page.getByRole('alert')).toContainText('could not be found')
+      await expect(page.getByRole('alert').filter({ hasText: 'could not be found' })).toContainText('could not be found')
 
       await tokenInput.fill(INVITE_TOKEN)
       await page.getByRole('button', { name: 'Join organization', exact: true }).click()
