@@ -10,7 +10,11 @@ import {
   isClinicalEvidenceApiResult,
   type ClinicalEvidenceApiResult,
 } from '@/lib/clinical/runtime'
-import { CANADA_CLINICAL_AUTHORITIES } from './clinicalCommandContract'
+import {
+  clinicalJurisdictionLabel,
+  countryIso2FromCommandHref,
+  getClinicalAuthoritiesForCountry,
+} from './clinicalCommandContract'
 import { formatStatus } from './contracts'
 
 type ClinicalView = 'evidence' | 'safety' | 'interactions' | 'formulations' | 'guidelines' | 'practice' | 'monitoring'
@@ -23,8 +27,9 @@ function commandParams(commandHref: string): URLSearchParams {
 }
 
 function jurisdictionFromCommandHref(commandHref: string): string {
+  const iso = countryIso2FromCommandHref(commandHref)
+  if (iso) return clinicalJurisdictionLabel(iso)
   const raw = commandParams(commandHref).get('country')?.trim() ?? ''
-  if (raw.toUpperCase() === 'CA') return 'Canada'
   return raw || 'Canada'
 }
 
@@ -188,10 +193,11 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
   const attention = stateAttention(result, loading)
   const latestChange = result?.changes[0] ?? null
   const visibleRecords = recordsForView(result?.records ?? [], activeView)
-  const canadaAuthorities = jurisdiction === 'Canada' ? CANADA_CLINICAL_AUTHORITIES : []
-  const safetyAuthority = canadaAuthorities.find(source => source.id === 'safety-interactions')
-  const documentAuthority = canadaAuthorities.find(source => source.id === 'medical-document')
-  const pharmacovigilanceAuthority = canadaAuthorities.find(source => source.id === 'pharmacovigilance')
+  const countryIso2 = countryIso2FromCommandHref(commandHref)
+  const authorities = getClinicalAuthoritiesForCountry(countryIso2)
+  const safetyAuthority = authorities.find(source => source.id === 'safety-interactions')
+  const documentAuthority = authorities.find(source => source.id === 'medical-document')
+  const pharmacovigilanceAuthority = authorities.find(source => source.id === 'pharmacovigilance')
   const resolution = submittedQuery ? result?.resolution : undefined
   const corpus = result?.corpus
 
@@ -414,7 +420,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         <div className="hvc-boundary" role="note">
           <strong>Structured drug–cannabinoid interaction evidence is not published for this scope</strong>
           <p>Clinical does not infer interaction severity or patient-specific compatibility. A future interaction result must be backed by a published governed record and claim-level source anchor.</p>
-          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Health Canada safety guidance ↗</a>}
+          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">{safetyAuthority.sourceName} ↗</a>}
         </div>
       ) : activeView === 'monitoring' && visibleRecords.length === 0 ? (
         <div className="hvc-boundary" role="note">
@@ -426,8 +432,8 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         <div className="hvc-boundary" role="note">
           <strong>No structured safety record matches the current evidence scope</strong>
           <p>Do not interpret this as absence of risk. Use current primary safety guidance while the governed evidence corpus is expanded.</p>
-          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Health Canada safety guidance ↗</a>}
-          {pharmacovigilanceAuthority && <><br /><a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">Adverse-reaction reporting ↗</a></>}
+          {safetyAuthority && <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">{safetyAuthority.sourceName} ↗</a>}
+          {pharmacovigilanceAuthority && <><br /><a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">{pharmacovigilanceAuthority.label} ↗</a></>}
         </div>
       ) : activeView === 'formulations' && visibleRecords.length === 0 ? (
         <div className="hvc-boundary" role="note">

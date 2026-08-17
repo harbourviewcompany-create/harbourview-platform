@@ -200,9 +200,9 @@ jobs:
           create or replace function public.get_regulatory_calendar(p_iso2 text, p_limit integer default 10)
           returns table(id uuid, iso2 text, event_type text, title text, summary text, expected_date date, confidence text, source_url text, source_label text, status text)
           language sql stable as $$
-            select gen_random_uuid(), 'CA'::text, 'consultation'::text, 'Industrial hemp regulatory follow-up'::text,
-              'Future proposals may proceed through Canada Gazette pre-publication.', current_date + 90,
-              'medium'::text, 'https://www.canada.ca/'::text, 'Health Canada'::text, 'monitoring'::text
+            select gen_random_uuid(), 'CA'::text, 'planned-regulation'::text, 'Industrial Hemp Regulations proposal'::text,
+              'Health Canada''s 2026-2028 Forward Regulatory Plan states that Canada Gazette, Part I public consultation on the regulatory proposal is expected in spring 2027; no exact publication date is stated.'::text, null::date,
+              'official-planned-window'::text, 'https://www.canada.ca/en/health-canada/corporate/about-health-canada/legislation-guidelines/acts-regulations/forward-regulatory-plan/plan.html'::text, 'Health Canada Forward Regulatory Plan 2026-2028'::text, 'planned'::text
             where upper(p_iso2) = 'CA'
             limit p_limit;
           $$;

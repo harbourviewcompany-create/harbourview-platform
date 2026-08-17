@@ -5,6 +5,12 @@
   min-width: 0;
 }
 
+.root > * {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .hero,
 .panel,
 .routeCard,

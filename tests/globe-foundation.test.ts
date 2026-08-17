@@ -57,7 +57,7 @@ describe('Harbourview globe foundation', () => {
   })
 
   it('defines deterministic globe camera defaults', () => {
-    expect(GLOBE_CAMERA_CONFIG.initialPosition).toEqual([0, 0.6, 7.8])
+    expect(GLOBE_CAMERA_CONFIG.initialPosition).toEqual([0, 0.6, 11.2])
     expect(GLOBE_CAMERA_CONFIG.initialTarget).toEqual([0, 0, 0])
     expect(GLOBE_CAMERA_CONFIG.fov).toBe(26)
     expect(GLOBE_CAMERA_CONFIG.near).toBe(0.1)

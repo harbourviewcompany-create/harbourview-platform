@@ -85,7 +85,7 @@ export default function Nav() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gold/10 bg-[#020814]/95 text-white shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-[color:var(--hv-gold)]/10 bg-[color:var(--hv-black)]/95 text-[color:var(--hv-ivory)] shadow-[0_1px_0_rgba(198,165,90,0.08)] backdrop-blur-xl">
       <div className="page-container">
         <div className="flex h-[72px] items-center justify-between pt-[max(env(safe-area-inset-top),0px)] sm:h-20">
           <Link
@@ -127,17 +127,17 @@ export default function Nav() {
                     onClick={() => setOpenDesktopGroup(isOpen ? null : group.label)}
                   >
                     <span>{group.label}</span>
-                    <span aria-hidden="true" className="text-[9px] text-gold/80">▾</span>
+                    <span aria-hidden="true" className="text-[9px] text-[color:var(--hv-gold)]/80">▾</span>
                   </button>
 
                   <div id={menuId} role="menu" className={`absolute left-0 top-full z-[70] min-w-[240px] pt-4 ${isOpen ? 'block' : 'hidden'}`}>
-                    <div className="rounded-sm border border-gold/14 bg-[#020814]/98 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+                    <div className="rounded-sm border border-[color:var(--hv-gold)]/14 bg-[color:var(--hv-black)]/98 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-xl">
                       {group.items.map((item) => (
                         <Link
                           key={item.href}
                           href={item.href}
                           role="menuitem"
-                          className="block rounded-sm px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/72 transition-colors hover:bg-gold/10 hover:text-gold focus:bg-gold/10 focus:text-gold focus:outline-none"
+                          className="block rounded-sm px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/72 transition-colors hover:bg-[color:var(--hv-gold)]/10 hover:text-[color:var(--hv-gold)] focus:bg-[color:var(--hv-gold)]/10 focus:text-[color:var(--hv-gold)] focus:outline-none"
                           onClick={closeMenus}
                         >
                           {item.label}
@@ -163,7 +163,7 @@ export default function Nav() {
           </Link>
 
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-gold/20 bg-white/[0.02] text-gold transition-colors hover:border-gold/50 hover:bg-gold/10 lg:hidden"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--hv-gold)]/20 bg-white/[0.02] text-[color:var(--hv-gold)] transition-colors hover:border-[color:var(--hv-gold)]/50 hover:bg-[color:var(--hv-gold)]/10 lg:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
@@ -180,7 +180,7 @@ export default function Nav() {
       </div>
 
       {mobileOpen && (
-        <div id="mobile-navigation" className="border-t border-gold/10 bg-[#020814]/98 lg:hidden">
+        <div id="mobile-navigation" className="border-t border-[color:var(--hv-gold)]/10 bg-[color:var(--hv-black)]/98 lg:hidden">
           <nav
             className="page-container max-h-[calc(100vh-72px)] overflow-y-auto pb-[max(28px,env(safe-area-inset-bottom))] pt-5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/82"
             aria-label="Mobile navigation"
@@ -190,7 +190,7 @@ export default function Nav() {
                 <Link
                   key={`${link.label}-${link.href}`}
                   href={link.href}
-                  className="rounded-sm border border-gold/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-gold/30 hover:bg-gold/10 hover:text-gold"
+                  className="rounded-sm border border-[color:var(--hv-gold)]/10 bg-white/[0.02] px-4 py-3 transition-colors hover:border-[color:var(--hv-gold)]/30 hover:bg-[color:var(--hv-gold)]/10 hover:text-[color:var(--hv-gold)]"
                   onClick={closeMenus}
                 >
                   {link.label}

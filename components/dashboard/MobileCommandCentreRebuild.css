@@ -1,16 +1,5 @@
 .hvm2-root {
-  --hvm2-bg: #020814;
-  --hvm2-panel: #07111f;
-  --hvm2-panel-2: #0a1626;
-  --hvm2-border: rgba(198, 165, 90, 0.16);
-  --hvm2-border-soft: rgba(255, 255, 255, 0.08);
-  --hvm2-gold: #c6a55a;
-  --hvm2-gold-light: #e2c679;
-  --hvm2-text: #f5f1e8;
-  --hvm2-muted: rgba(245, 241, 232, 0.58);
-  --hvm2-faint: rgba(245, 241, 232, 0.34);
-  --hvm2-ok: #64c08a;
-  --hvm2-warn: #e4b458;
+  /* --hvm2-* palette aliases come from styles/design-tokens.css (:root) */
 
   min-height: 100dvh;
   width: 100%;
@@ -19,7 +8,7 @@
   padding-bottom: calc(104px + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 80% -10%, rgba(24, 54, 82, 0.38), transparent 38%),
-    linear-gradient(180deg, #020814 0%, #06101d 54%, #020814 100%);
+    linear-gradient(180deg, var(--hv-black) 0%, var(--hv-bg-900) 54%, var(--hv-black) 100%);
   color: var(--hvm2-text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -40,7 +29,7 @@
   z-index: 20;
   padding: max(18px, env(safe-area-inset-top)) 16px 14px;
   border-bottom: 1px solid var(--hvm2-border-soft);
-  background: linear-gradient(180deg, rgba(2, 8, 20, 0.98), rgba(2, 8, 20, 0.92));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hv-black) 98%, transparent), color-mix(in srgb, var(--hv-black) 92%, transparent));
   backdrop-filter: blur(18px);
 }
 
@@ -179,7 +168,7 @@
   padding: 0 34px 0 12px;
   border: 1px solid var(--hvm2-border-soft);
   border-radius: 12px;
-  background: #091525;
+  background: var(--hv-bg-850);
   color: var(--hvm2-text);
   font-size: 12px;
   font-weight: 700;
@@ -201,7 +190,7 @@
   overflow-x: auto;
   padding: 10px 12px;
   border-bottom: 1px solid var(--hvm2-border-soft);
-  background: rgba(2, 8, 20, 0.94);
+  background: color-mix(in srgb, var(--hv-black) 94%, transparent);
   scrollbar-width: none;
   backdrop-filter: blur(16px);
 }
@@ -368,7 +357,7 @@
 .hvm2-priority-card button {
   margin-top: 10px;
   background: var(--hvm2-gold);
-  color: #07111f;
+  color: var(--hv-navy-deep);
 }
 
 .hvm2-section-heading {
@@ -570,7 +559,7 @@
   padding: 0 12px;
   border: 1px solid var(--hvm2-border-soft);
   border-radius: 12px;
-  background: rgba(2, 8, 20, 0.5);
+  background: color-mix(in srgb, var(--hv-black) 50%, transparent);
   color: var(--hvm2-faint);
 }
 
@@ -984,7 +973,7 @@
   padding: 7px;
   border: 1px solid rgba(198, 165, 90, 0.16);
   border-radius: 20px;
-  background: rgba(3, 11, 23, 0.96);
+  background: color-mix(in srgb, var(--hv-navy-deep) 96%, transparent);
   box-shadow: 0 18px 70px rgba(0, 0, 0, 0.56);
   backdrop-filter: blur(22px);
 }
