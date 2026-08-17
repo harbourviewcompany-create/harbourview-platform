@@ -57,7 +57,7 @@
     "verify:supabase-auth-production": "node scripts/configure-supabase-auth-production.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
+    "@anthropic-ai/sdk": "^0.117.1",
     "@google/genai": "^2.16.0",
     "@googleapis/drive": "^21.0.0",
     "@react-three/drei": "^10.7.8",
