@@ -152,6 +152,65 @@ type EvidenceEnvelope = {
   changes?: ClinicalEvidenceChangeEventDTO[]
 }
 
+type ProfessionalAuthority = {
+  state: 'loaded' | 'unknown' | 'permission' | 'error'
+  verifiedClinician: boolean
+  professional: {
+    id: string
+    fullName: string
+    role: string | null
+    licenceNumber: string | null
+    licenceJurisdiction: string | null
+    verificationStatus: string | null
+  } | null
+  jurisdiction: string
+  capabilities: {
+    recommend: boolean | null
+    prescribe: boolean | null
+    dispense: boolean | null
+    claimAppropriateness: boolean | null
+  }
+  evidenceVersion: string | null
+  effectiveFrom: string | null
+  effectiveTo: string | null
+  notes: string | null
+  error?: string
+}
+
+type ClinicalPatientRow = {
+  id: string
+  jurisdiction: string
+  status: string
+  given_name: string
+  family_name: string
+  date_of_birth: string | null
+  external_mrn: string | null
+}
+
+type PatientReadiness = {
+  state: 'loaded' | 'permission' | 'error'
+  patient?: { id: string; jurisdiction: string; status: string }
+  consent?: { treatment: boolean; dataProcessing: boolean; core: boolean }
+  openEncounter?: {
+    id: string
+    started_at: string
+    jurisdiction: string
+    encounter_type: string
+    status: string
+  } | null
+  error?: string
+}
+
+type AdverseEventRow = {
+  id: string
+  created_at: string
+  suspected_product_name: string
+  event_summary: string
+  seriousness: string
+  authority_report_status: string
+  status: string
+}
+
 const tabs: Array<{ key: PrescriberWorkspaceTab; label: string }> = [
   { key: 'decision', label: 'Decision' },
   { key: 'evidence', label: 'Evidence' },
@@ -173,8 +232,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function StateBadge({ state }: { state: string }) {
   const normalized = state.replace(/_/g, '-').toLowerCase()
-  const good = ['loaded', 'ready', 'current', 'published'].includes(normalized)
-  const warn = ['stale', 'conflicting', 'conflicted', 'material-conflict', 'review-required', 'under-review', 'attention', 'moderate', 'major'].includes(normalized)
+  const good = ['loaded', 'ready', 'current', 'published', 'active'].includes(normalized)
+  const warn = ['stale', 'conflicting', 'conflicted', 'material-conflict', 'review-required', 'under-review', 'attention', 'moderate', 'major', 'unknown'].includes(normalized)
   return (
     <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
       good ? 'bg-emerald-500/15 text-emerald-300' : warn ? 'bg-amber-500/15 text-amber-300' : 'bg-white/8 text-white/60'
@@ -216,11 +275,24 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
   const [evidenceMessage, setEvidenceMessage] = useState('')
   const [formulary, setFormulary] = useState<FormularyProductDTO[]>([])
   const [skus, setSkus] = useState<FormularySku[]>([])
+  const [selectedSkuId, setSelectedSkuId] = useState('')
   const [interactions, setInteractions] = useState<InteractionRow[]>([])
   const [modules, setModules] = useState<EducationModule[]>([])
   const [jurisdiction, setJurisdiction] = useState<JurisdictionProfile | null>(null)
   const [jurisdictionState, setJurisdictionState] = useState<'loading' | 'loaded' | 'empty' | 'error'>('loading')
   const [workspaceData, setWorkspaceData] = useState<WorkspaceEnvelope>({ state: 'empty', safety: [], regimens: [], monitoring: [], guidelines: [] })
+  const [authority, setAuthority] = useState<ProfessionalAuthority | null>(null)
+  const [authorityState, setAuthorityState] = useState<'loading' | 'loaded' | 'unknown' | 'permission' | 'error'>('loading')
+  const [patients, setPatients] = useState<ClinicalPatientRow[]>([])
+  const [patientState, setPatientState] = useState<'loading' | 'loaded' | 'empty' | 'permission' | 'error'>('loading')
+  const [selectedPatientId, setSelectedPatientId] = useState('')
+  const [patientReadiness, setPatientReadiness] = useState<PatientReadiness | null>(null)
+  const [adverseEvents, setAdverseEvents] = useState<AdverseEventRow[]>([])
+  const [adverseProduct, setAdverseProduct] = useState('')
+  const [adverseSummary, setAdverseSummary] = useState('')
+  const [adverseSeriousness, setAdverseSeriousness] = useState<'serious' | 'non-serious' | 'unknown'>('unknown')
+  const [operationMessage, setOperationMessage] = useState<string | null>(null)
+  const [operationError, setOperationError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -248,23 +320,45 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     [skus],
   )
 
+  const selectedPatient = useMemo(
+    () => patients.find((patient) => patient.id === selectedPatientId) ?? null,
+    [patients, selectedPatientId],
+  )
+
+  const selectedSku = useMemo(
+    () => inspectableSkus.find((sku) => sku.id === selectedSkuId) ?? null,
+    [inspectableSkus, selectedSkuId],
+  )
+
+  const applicableRegimens = useMemo(
+    () => selectedSkuId ? workspaceData.regimens.filter((row) => row.formularySkuId === selectedSkuId) : workspaceData.regimens,
+    [selectedSkuId, workspaceData.regimens],
+  )
+
+  const applicableMonitoring = useMemo(
+    () => selectedSkuId
+      ? workspaceData.monitoring.filter((row) => !row.formularySkuId || row.formularySkuId === selectedSkuId)
+      : workspaceData.monitoring,
+    [selectedSkuId, workspaceData.monitoring],
+  )
+
   const sourceBlockedCount =
     (records.length - inspectableEvidence.length) +
     (interactions.length - inspectableInteractions.length) +
     (skus.length - inspectableSkus.length)
 
   const readiness = useMemo(() => derivePrescriberReadiness({
-    hasClinicalContext: false,
+    hasClinicalContext: Boolean(patientReadiness?.state === 'loaded' && patientReadiness.openEncounter),
     hasInspectableEvidence: inspectableEvidence.length > 0,
-    authorityKnown: false,
-    authorityAllowsAction: false,
-    productResolved: inspectableProducts.length > 0 || inspectableSkus.length > 0,
+    authorityKnown: authority?.state === 'loaded',
+    authorityAllowsAction: authority?.capabilities.prescribe === true,
+    productResolved: Boolean(selectedSku),
     unresolvedMajorSafetyItems:
       inspectableInteractions.filter((row) => row.clinicalSignificance === 'major').length +
       workspaceData.safety.filter((row) => row.severity === 'major' || row.severity === 'contraindicated').length,
-    monitoringDefined: workspaceData.monitoring.length > 0,
-    consentConfirmed: false,
-  }), [inspectableEvidence, inspectableInteractions, inspectableProducts, inspectableSkus, workspaceData.monitoring.length, workspaceData.safety])
+    monitoringDefined: Boolean(selectedSku && applicableMonitoring.length > 0),
+    consentConfirmed: patientReadiness?.consent?.core === true,
+  }), [authority, patientReadiness, inspectableEvidence, inspectableInteractions, selectedSku, applicableMonitoring.length, workspaceData.safety])
 
   const loadEvidence = useCallback(async (q: string) => {
     setError(null)
@@ -307,6 +401,61 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     else setWorkspaceData({ state: response.status === 403 ? 'permission' : 'error', safety: [], regimens: [], monitoring: [], guidelines: [], error: `Workspace API ${response.status}` })
   }, [iso2])
 
+  const loadAuthority = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/clinical/authority?country=${encodeURIComponent(iso2)}`)
+      const body = await response.json().catch(() => null) as ProfessionalAuthority | null
+      if (body?.state) {
+        setAuthority(body)
+        setAuthorityState(body.state)
+        return
+      }
+      setAuthority(null)
+      setAuthorityState(response.status === 403 ? 'permission' : 'error')
+    } catch {
+      setAuthority(null)
+      setAuthorityState('error')
+    }
+  }, [iso2])
+
+  const loadPatients = useCallback(async () => {
+    try {
+      const response = await fetch('/api/clinical/patients')
+      const body = await response.json().catch(() => ({})) as { patients?: ClinicalPatientRow[] }
+      if (!response.ok) {
+        setPatients([])
+        setPatientState(response.status === 401 || response.status === 403 ? 'permission' : 'error')
+        return
+      }
+      const list = Array.isArray(body.patients) ? body.patients : []
+      setPatients(list)
+      setPatientState(list.length ? 'loaded' : 'empty')
+    } catch {
+      setPatients([])
+      setPatientState('error')
+    }
+  }, [])
+
+  const loadPatientContext = useCallback(async (patientId: string) => {
+    if (!patientId) {
+      setPatientReadiness(null)
+      setAdverseEvents([])
+      return
+    }
+    setOperationError(null)
+    const [readinessResponse, adverseResponse] = await Promise.all([
+      fetch(`/api/clinical/patients/${encodeURIComponent(patientId)}/readiness`),
+      fetch(`/api/clinical/adverse-events?patient_id=${encodeURIComponent(patientId)}&limit=20`),
+    ])
+    const readinessBody = await readinessResponse.json().catch(() => null) as PatientReadiness | null
+    setPatientReadiness(readinessBody ?? {
+      state: readinessResponse.status === 401 || readinessResponse.status === 403 ? 'permission' : 'error',
+      error: `Patient readiness API ${readinessResponse.status}`,
+    })
+    const adverseBody = await adverseResponse.json().catch(() => ({})) as { adverseEvents?: AdverseEventRow[] }
+    setAdverseEvents(adverseResponse.ok && Array.isArray(adverseBody.adverseEvents) ? adverseBody.adverseEvents : [])
+  }, [])
+
   const loadInteractions = useCallback(async () => {
     const response = await fetch('/api/clinical/interactions?limit=50')
     const body = await response.json().catch(() => ({})) as { interactions?: InteractionRow[] }
@@ -327,8 +476,14 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
       void loadEducation()
       void loadJurisdiction()
       void loadWorkspace()
+      void loadAuthority()
+      void loadPatients()
     })
-  }, [loadEducation, loadEvidence, loadFormulary, loadInteractions, loadJurisdiction, loadWorkspace])
+  }, [loadAuthority, loadEducation, loadEvidence, loadFormulary, loadInteractions, loadJurisdiction, loadPatients, loadWorkspace])
+
+  useEffect(() => {
+    void loadPatientContext(selectedPatientId)
+  }, [loadPatientContext, selectedPatientId])
 
   function openWorkspace(tab: PrescriberWorkspaceTab) {
     setActiveTab(tab)
@@ -342,6 +497,35 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     const response = await fetch(`/api/clinical/ask?${params}`)
     const body = await response.json().catch(() => null) as AskClinicalResponse | null
     if (body) setAskResult(body)
+  }
+
+  async function recordAdverseEvent() {
+    if (!selectedPatient || !patientReadiness?.consent?.core || !adverseProduct.trim() || adverseSummary.trim().length < 4) return
+    setOperationError(null)
+    setOperationMessage(null)
+    const response = await fetch('/api/clinical/adverse-events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        patient_id: selectedPatient.id,
+        encounter_id: patientReadiness.openEncounter?.id ?? null,
+        jurisdiction: selectedPatient.jurisdiction,
+        formulary_sku_id: selectedSkuId || null,
+        suspected_product_name: adverseProduct.trim(),
+        event_summary: adverseSummary.trim(),
+        seriousness: adverseSeriousness,
+      }),
+    })
+    const body = await response.json().catch(() => ({})) as { error?: string; reportingBoundary?: string }
+    if (!response.ok) {
+      setOperationError(body.error ?? `Adverse event API ${response.status}`)
+      return
+    }
+    setAdverseProduct('')
+    setAdverseSummary('')
+    setAdverseSeriousness('unknown')
+    setOperationMessage(body.reportingBoundary ?? 'Adverse event recorded.')
+    await loadPatientContext(selectedPatient.id)
   }
 
   return (
@@ -376,6 +560,7 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
           {sourceBlockedCount > 0 && <StateBadge state="review-required" />}
           <span className={`text-xs ${muted}`}>{roleLabel}</span>
           <StateBadge state={jurisdictionState} />
+          <StateBadge state={authorityState} />
           {workspaceData.state !== 'loaded' && <StateBadge state={workspaceData.state} />}
           {attention.slice(0, 1).map((item) => <span key={item.id} className="text-xs text-amber-300">{item.title}</span>)}
         </div>
@@ -418,6 +603,35 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
             <section className={`${card} p-4`}>
               <SectionLabel>Prescribing readiness</SectionLabel>
               <p className={`text-sm ${muted}`}>Inspectable completeness check only; this is not a recommendation to prescribe.</p>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                <div className="rounded-lg bg-white/[.03] p-3">
+                  <div className="flex items-start justify-between gap-2"><p className="text-sm font-medium text-white/85">Professional authority</p><StateBadge state={authorityState} /></div>
+                  {authority?.professional ? (
+                    <p className={`mt-2 text-xs ${muted}`}>{authority.professional.fullName} · {authority.professional.role || 'role unresolved'} · {authority.professional.licenceJurisdiction || 'licence jurisdiction unresolved'}</p>
+                  ) : <p className={`mt-2 text-xs ${muted}`}>Verified clinician identity and governed jurisdiction authority are required.</p>}
+                  {authority?.state === 'loaded' && (
+                    <p className={`mt-2 text-xs ${muted}`}>Prescribe {authority.capabilities.prescribe ? 'allowed' : 'not allowed'} · recommend {authority.capabilities.recommend ? 'allowed' : 'not allowed'} · evidence {authority.evidenceVersion || 'version not recorded'}</p>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-white/[.03] p-3">
+                  <div className="flex items-start justify-between gap-2"><label htmlFor="clinical-patient-context" className="text-sm font-medium text-white/85">Patient / encounter context</label><StateBadge state={selectedPatientId ? patientReadiness?.state || 'loading' : patientState} /></div>
+                  <select id="clinical-patient-context" value={selectedPatientId} onChange={(event) => setSelectedPatientId(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-[#11161d] px-3 py-2 text-sm text-white">
+                    <option value="">No patient selected</option>
+                    {patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.given_name} {patient.family_name} · {patient.jurisdiction}</option>)}
+                  </select>
+                  {patientReadiness?.state === 'loaded' && <p className={`mt-2 text-xs ${muted}`}>Core consent {patientReadiness.consent?.core ? 'active' : 'incomplete'} · {patientReadiness.openEncounter ? `open ${patientReadiness.openEncounter.encounter_type} encounter` : 'no open encounter'}</p>}
+                  {patientState === 'permission' && <p className="mt-2 text-xs text-amber-300">Verified clinician access is required to load patient context.</p>}
+                </div>
+
+                <div className="rounded-lg bg-white/[.03] p-3">
+                  <div className="flex items-start justify-between gap-2"><p className="text-sm font-medium text-white/85">Resolved product</p><StateBadge state={selectedSku ? 'ready' : 'review-required'} /></div>
+                  <p className={`mt-2 text-xs ${muted}`}>{selectedSku ? `${selectedSku.brandName || selectedSku.productName} · ${selectedSku.strengthLabel || 'strength not loaded'}` : 'Select an inspectable exact SKU in Products before product-specific readiness can clear.'}</p>
+                  <button type="button" onClick={() => openWorkspace('products')} className="mt-2 text-xs font-semibold text-[#d4a853]">Open Products →</button>
+                </div>
+              </div>
+
               <div className="mt-4 space-y-2">
                 {readiness.dimensions.map((dimension) => (
                   <div key={dimension.key} className="flex items-start justify-between gap-3 rounded-lg bg-white/[.03] p-3">
@@ -426,7 +640,7 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-amber-300">Overall: {readiness.state.replace(/-/g, ' ')}. Load a verified patient/encounter before any patient-specific action.</p>
+              <p className="mt-3 text-xs text-amber-300">Overall: {readiness.state.replace(/-/g, ' ')}. Patient-specific action remains blocked until patient, open encounter, core consent, professional authority, product, safety and monitoring requirements are resolved.</p>
             </section>
           )}
 
@@ -489,6 +703,32 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
                 ))}
                 {workspaceData.safety.length === 0 && inspectableInteractions.length === 0 && <EmptyState title="No prescriber-inspectable safety rows loaded" body="Contraindication, interaction and special-population material remains review-gated until source-specific records are available." />}
               </div>
+
+              <div className="mt-5 border-t border-white/8 pt-4">
+                <div className="flex items-start justify-between gap-3"><div><SectionLabel>Pharmacovigilance</SectionLabel><p className={`text-sm ${muted}`}>Clinician-authored adverse-event record only. Harbourview does not infer reporting obligations or submit regulator reports.</p></div><StateBadge state={selectedPatient ? patientReadiness?.state || 'loading' : 'review-required'} /></div>
+                {selectedPatient && patientReadiness?.consent?.core ? (
+                  <>
+                    <form className="mt-3 grid gap-2" onSubmit={(event) => { event.preventDefault(); void recordAdverseEvent() }}>
+                      <input value={adverseProduct} onChange={(event) => setAdverseProduct(event.target.value)} placeholder="Suspected product" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35" />
+                      <textarea value={adverseSummary} onChange={(event) => setAdverseSummary(event.target.value)} placeholder="Clinician-authored event summary" rows={3} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35" />
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <select value={adverseSeriousness} onChange={(event) => setAdverseSeriousness(event.target.value as 'serious' | 'non-serious' | 'unknown')} className="rounded-lg border border-white/10 bg-[#11161d] px-3 py-2 text-sm text-white">
+                          <option value="unknown">Seriousness not assessed</option>
+                          <option value="non-serious">Non-serious</option>
+                          <option value="serious">Serious</option>
+                        </select>
+                        <button type="submit" disabled={!adverseProduct.trim() || adverseSummary.trim().length < 4} className="rounded-lg bg-[#d4a853]/20 px-4 py-2 text-sm font-semibold text-[#d4a853] disabled:opacity-40">Record adverse event</button>
+                      </div>
+                    </form>
+                    {operationError && <p className="mt-2 text-xs text-red-300">{operationError}</p>}
+                    {operationMessage && <p className="mt-2 text-xs text-emerald-300">{operationMessage}</p>}
+                    <div className="mt-3 space-y-2">
+                      {adverseEvents.map((event) => <div key={event.id} className="rounded-lg bg-white/[.025] p-3"><div className="flex items-start justify-between gap-3"><p className="text-sm font-medium text-white/85">{event.suspected_product_name}</p><StateBadge state={event.seriousness} /></div><p className={`mt-1 text-xs ${muted}`}>{event.event_summary}</p><p className={`mt-2 text-xs ${muted}`}>{event.created_at.slice(0, 10)} · record {event.status} · external report {event.authority_report_status}</p></div>)}
+                      {adverseEvents.length === 0 && <p className={`text-xs ${muted}`}>No adverse-event record is loaded for the selected patient.</p>}
+                    </div>
+                  </>
+                ) : <EmptyState title="Select an eligible patient context" body="Recording stays unavailable until the verified clinician can access a patient with active treatment and data-processing consent." />}
+              </div>
             </section>
           )}
 
@@ -499,10 +739,10 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
               <div className="mt-4 space-y-2">
                 {skus.map((sku) => (
                   <div key={sku.id} className="rounded-lg bg-white/[.03] p-3">
-                    <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-white/90">{sku.brandName || sku.productName}</p><p className={`mt-1 text-xs ${muted}`}>{sku.authority} · {sku.authorizationStatus} · {sku.route || 'route not loaded'}</p></div><StateBadge state={isInspectableClinicalSource(sku.sourceUrl) ? 'published' : 'review-required'} /></div>
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-white/90">{sku.brandName || sku.productName}</p><p className={`mt-1 text-xs ${muted}`}>{sku.authority} · {sku.authorizationStatus} · {sku.route || 'route not loaded'}</p></div><StateBadge state={selectedSkuId === sku.id ? 'ready' : isInspectableClinicalSource(sku.sourceUrl) ? 'published' : 'review-required'} /></div>
                     <p className={`mt-2 text-xs ${muted}`}>{[sku.registrationCode && `Registration ${sku.registrationCode}`, sku.strengthLabel, sku.cannabinoidProfile].filter(Boolean).join(' · ') || 'Product metadata incomplete'}</p>
                     {sku.notes && <p className={`mt-2 text-xs ${muted}`}>{sku.notes}</p>}
-                    <p className="mt-2 text-xs"><SourceLink url={sku.sourceUrl}>Inspect product authority ↗</SourceLink></p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs"><SourceLink url={sku.sourceUrl}>Inspect product authority ↗</SourceLink>{isInspectableClinicalSource(sku.sourceUrl) && <button type="button" onClick={() => setSelectedSkuId(selectedSkuId === sku.id ? '' : sku.id)} className="font-semibold text-[#d4a853]">{selectedSkuId === sku.id ? 'Clear decision product' : 'Use in decision'}</button>}</div>
                   </div>
                 ))}
                 {formulary.map((product) => (
@@ -521,8 +761,9 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
             <section className={`${card} p-4`}>
               <SectionLabel>Product-specific regimen</SectionLabel>
               <p className={`text-sm ${muted}`}>Only published, source-versioned product/indication/population/jurisdiction protocols are shown. The legacy generic mg/kg helper is excluded.</p>
+              {selectedSku && <p className="mt-2 text-xs text-[#d4a853]">Decision product: {selectedSku.brandName || selectedSku.productName}</p>}
               <div className="mt-4 space-y-2">
-                {workspaceData.regimens.map((row) => (
+                {applicableRegimens.map((row) => (
                   <div key={row.id} className="rounded-lg bg-white/[.03] p-3">
                     <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-white/90">{row.indication}</p><p className={`mt-1 text-xs ${muted}`}>{row.population || 'population not specified'} · {row.formularySkuId ? 'exact SKU' : 'formulary product/class'}</p></div><StateBadge state="published" /></div>
                     <StringList label="Administration" values={row.administrationInstructions} />
@@ -531,7 +772,7 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
                     <p className="mt-3 text-xs"><SourceLink url={row.primarySourceUrl}>Inspect regimen source ↗</SourceLink>{row.sourceVersion ? <span className="ml-2 text-white/45">Version {row.sourceVersion}</span> : null}</p>
                   </div>
                 ))}
-                {workspaceData.regimens.length === 0 && <EmptyState title="No reviewed product/indication regimen loaded" body="A regimen becomes prescriber-visible only after a governed product or exact SKU, indication, population, jurisdiction, source version and professional review are linked." />}
+                {applicableRegimens.length === 0 && <EmptyState title="No reviewed product/indication regimen loaded" body={selectedSku ? 'No published regimen protocol matches the selected exact SKU. The product remains unresolved for regimen use.' : 'A regimen becomes prescriber-visible only after a governed product or exact SKU, indication, population, jurisdiction, source version and professional review are linked.'} />}
               </div>
               <p className="mt-3 text-xs text-white/45">Legacy calculation records/APIs remain preserved for compatibility; they are not promoted as prescribing guidance.</p>
             </section>
@@ -541,7 +782,7 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
             <section className={`${card} p-4`}>
               <SectionLabel>Monitoring & therapeutic objectives</SectionLabel>
               <div className="space-y-2">
-                {workspaceData.monitoring.map((row) => (
+                {applicableMonitoring.map((row) => (
                   <div key={row.id} className="rounded-lg bg-white/[.03] p-3">
                     <StringList label="Baseline" values={row.baselineRequirements} />
                     <StringList label="Therapeutic objectives" values={row.therapeuticObjectives} />
@@ -553,9 +794,9 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
                     <p className="mt-3 text-xs"><SourceLink url={row.primarySourceUrl}>Inspect monitoring source ↗</SourceLink></p>
                   </div>
                 ))}
-                {workspaceData.monitoring.length === 0 && <EmptyState title="No reviewed monitoring protocol loaded" body="Baseline, objectives, effectiveness/safety measures, reassessment and stopping rules remain unavailable until a source-backed protocol is reviewed." />}
+                {applicableMonitoring.length === 0 && <EmptyState title="No reviewed monitoring protocol loaded" body="Baseline, objectives, effectiveness/safety measures, reassessment and stopping rules remain unavailable until a source-backed protocol matching the selected decision context is reviewed." />}
               </div>
-              <p className="mt-3 text-xs text-amber-300">Patient-specific monitoring remains blocked until a verified patient/encounter and required consent are loaded.</p>
+              <p className="mt-3 text-xs text-amber-300">Patient-specific monitoring remains blocked until a verified patient/encounter, core consent, governed authority and decision product are loaded.</p>
             </section>
           )}
 
@@ -572,6 +813,10 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
                     <StringList label="Current scoped rules" values={jurisdiction.keyRules} />
                   </div>
                   {jurisdiction.pathway && <div className="rounded-lg bg-white/[.03] p-3"><p className="text-sm font-medium text-white/90">Professional pathway</p><p className={`mt-1 text-xs ${muted}`}>{jurisdiction.pathway.whoMayPrescribe}</p><p className={`mt-2 text-xs ${muted}`}>Scope: {jurisdiction.pathway.roles} · reviewed {jurisdiction.pathway.lastReviewed}</p><StringList label="Restrictions" values={jurisdiction.pathway.restrictions} /></div>}
+                  <div className="rounded-lg bg-white/[.03] p-3">
+                    <div className="flex items-start justify-between gap-3"><p className="text-sm font-medium text-white/90">Your governed authority</p><StateBadge state={authorityState} /></div>
+                    <p className={`mt-1 text-xs ${muted}`}>{authority?.state === 'loaded' ? `${authority.professional?.role || 'role unresolved'} · prescribe ${authority.capabilities.prescribe ? 'allowed' : 'not allowed'} · recommend ${authority.capabilities.recommend ? 'allowed' : 'not allowed'}` : authority?.notes || 'No current governed authority resolution is available for this user and jurisdiction.'}</p>
+                  </div>
                 </div>
               ) : <EmptyState title="No reviewed jurisdiction profile loaded" body="Professional authority is not inferred when the DB-backed jurisdiction record is empty or unavailable." />}
               <div className="mt-4 space-y-2">
@@ -585,8 +830,12 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
             <section className={`${card} p-4`}>
               <SectionLabel>Documentation & shared decision</SectionLabel>
               <p className={`text-sm ${muted}`}>Existing verified-clinician, patient, care-team, consent, recommendation and prescription contracts remain authoritative. New decision records store clinician-authored rationale plus evidence-claim, product/SKU, guideline and unresolved-safety references.</p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-lg bg-white/[.03] p-3"><p className="text-sm font-medium text-white/85">Current decision context</p><p className={`mt-1 text-xs ${muted}`}>{selectedPatient ? `${selectedPatient.given_name} ${selectedPatient.family_name} · ${selectedPatient.jurisdiction}` : 'No patient selected'} · {selectedSku ? selectedSku.brandName || selectedSku.productName : 'no exact SKU selected'}</p><p className={`mt-2 text-xs ${muted}`}>{patientReadiness?.consent?.core ? 'Core consent active' : 'Core consent unresolved'} · {patientReadiness?.openEncounter ? 'Open encounter loaded' : 'Open encounter unresolved'} · authority {authorityState}</p></div>
+                <div className="rounded-lg bg-white/[.03] p-3"><p className="text-sm font-medium text-white/85">Shared-decision boundary</p><p className={`mt-1 text-xs ${muted}`}>The schema can retain clinician-authored rationale and the consent record references used for shared decision-making. No consent is created automatically from this workspace.</p></div>
+              </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-2"><Link href="/network/clinical-education" className="rounded-lg bg-white/[.04] p-3 text-sm font-medium text-[#d4a853]">Professional education →</Link><Link href="/network/clinical-education/request" className="rounded-lg bg-white/[.04] p-3 text-sm font-medium text-[#d4a853]">Request clinical education support →</Link></div>
-              <p className="mt-3 text-xs text-white/45">Patient writes remain unavailable from generic Command until verified patient/encounter selection and consent checks are satisfied.</p>
+              <p className="mt-3 text-xs text-white/45">Patient writes remain unavailable until the verified patient/encounter, consent and authority gates are satisfied; existing recommendation and prescription APIs remain the authoritative write paths.</p>
             </section>
           )}
 
