@@ -1,2 +1,5 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard?page=education') }
+
+export default function Page() {
+  redirect('/dashboard/network')
+}
