@@ -69,7 +69,7 @@ jobs:
 
       - name: Upload production artifact scan evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: harbourview-production-artifact-scan-${{ inputs.deployment_id }}-${{ github.run_id }}
           path: artifacts/production-artifact-scan/

@@ -233,7 +233,7 @@ jobs:
 
       - name: Upload visual evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr1222-supply-responsive-screenshots
           path: verification-results/pr1222-supply/
@@ -242,7 +242,7 @@ jobs:
 
       - name: Upload protected-route evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr1222-vercel-protected-route-verification
           path: verification-results/pr1222-vercel/

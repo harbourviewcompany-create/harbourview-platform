@@ -11,17 +11,18 @@ export {
 
 export {
   NextActionsSection,
-  WeeklySignalsSection,
   PersonalBriefingSection,
   SearchSection,
   LocalIntelSection,
 } from './sections/IntelligenceSections'
 
+export { WeeklySignalsSection } from './sections/DecisionSignalsSection'
 export { EducationSection } from './sections/EducationCommandSection'
+
 export { RegulatoryWatchSection } from './sections/RegulatoryWatchWithCorpus'
+export { JurisdictionSection } from './sections/JurisdictionCommandSection'
 
 export {
-  JurisdictionSection,
   MarketStatusSection,
   ReviewGatesSection,
   DirectoriesSection,

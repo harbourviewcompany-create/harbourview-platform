@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import { clinicalEvidenceHttpStatus } from '@/lib/clinical/runtime'
 import { searchClinicalEvidence } from '@/lib/server/clinicalEvidenceQuery'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +19,10 @@ export async function GET(request: NextRequest) {
   })
 
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid clinical evidence query' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid clinical evidence query', category: 'invalid-query' },
+      { status: 400, headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' } },
+    )
   }
 
   const result = await searchClinicalEvidence({
@@ -26,9 +30,14 @@ export async function GET(request: NextRequest) {
     jurisdiction: parsed.data.jurisdiction,
     limit: parsed.data.limit,
   })
+  const headers: Record<string, string> = {
+    'Cache-Control': 'private, max-age=0, must-revalidate',
+    'X-Harbourview-Clinical-State': result.state,
+  }
+  if (result.diagnostic?.category) headers['X-Harbourview-Clinical-Diagnostic'] = result.diagnostic.category
 
   return NextResponse.json(result, {
-    status: result.state === 'error' ? 503 : 200,
-    headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+    status: clinicalEvidenceHttpStatus(result),
+    headers,
   })
 }

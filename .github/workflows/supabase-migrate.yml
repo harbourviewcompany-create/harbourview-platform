@@ -126,7 +126,7 @@ jobs:
 
       - name: Upload preflight evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: elite-digest-preflight-${{ github.sha }}
           path: artifacts/elite-digest-preflight/
@@ -305,7 +305,7 @@ jobs:
 
       - name: Upload activation evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: elite-digest-activation-${{ github.sha }}
           path: artifacts/elite-digest-activation/

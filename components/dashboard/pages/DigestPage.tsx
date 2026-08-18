@@ -45,8 +45,23 @@ const DIGEST_WINDOW_COPY: Record<DigestWindow, { kicker: string; sub: string }> 
   'recent': { kicker: 'Most recent',               sub: 'No new intel in the recent window — showing the latest reviewed signals.' },
 }
 
+function domainLabel(value: string): string {
+  return value
+    .replace('m_and_a', 'M&A')
+    .replace('import_export_eu_gmp', 'Import / export · EU-GMP')
+    .replace('global_medical', 'Global medical')
+    .replace('licensing_regulatory', 'Licensing / regulation')
+    .replace('commercial_distribution', 'Commercial distribution')
+    .replace('pharmaceutical_cannabinoid_technology', 'Pharmaceutical cannabinoid technology')
+    .replaceAll('_', ' ')
+}
+
 function QualityChips({ s }: { s: DashboardSignal }) {
   const chips: string[] = []
+  if (s.deltaStatus === 'material_advancement') chips.push('Material advancement')
+  if (s.deltaStatus === 'new_event') chips.push('New event')
+  if (s.priorityDomain && s.priorityDomain !== 'other') chips.push(domainLabel(s.priorityDomain))
+  if (s.competitivePositionChange) chips.push('Competitive position changed')
   if (s.corroborationCount && s.corroborationCount > 1) {
     chips.push(`${s.corroborationCount} sources reporting`)
   }
@@ -139,6 +154,11 @@ export const DigestPage = React.memo(function DigestPage({
 
   const topSignal = useMemo(
     () => [...effectiveSignals].sort((a, b) => {
+      if (a.competitivePositionChange !== b.competitivePositionChange) return b.competitivePositionChange ? 1 : -1
+      if (a.deltaStatus !== b.deltaStatus) {
+        if (b.deltaStatus === 'material_advancement') return 1
+        if (a.deltaStatus === 'material_advancement') return -1
+      }
       const corr = (b.corroborationCount ?? 1) - (a.corroborationCount ?? 1)
       if (corr !== 0) return corr
       return b.confidence - a.confidence
@@ -152,7 +172,7 @@ export const DigestPage = React.memo(function DigestPage({
         <h2>Daily Digest — {country.label}{region ? ` · ${region}` : ''}{role ? ` · ${role}` : ''}</h2>
         <p>
           Your once-a-day commercial brief for {country.label || 'this market'}.
-          Ranked by quality, impact, and multi-source corroboration — not keyword noise.
+          Curated editions contain genuinely new events or material advancements; unchanged repeats are suppressed.
           {' '}{copy.sub}
         </p>
       </div>
@@ -184,14 +204,22 @@ export const DigestPage = React.memo(function DigestPage({
           <div className="cc-digest-lead-tag">
             {topSignal.contentType === 'editorial'
               ? 'Featured this week'
-              : `Lead signal · ${topSignal.confidence}% confidence${
-                  topSignal.corroborationCount && topSignal.corroborationCount > 1
-                    ? ` · ${topSignal.corroborationCount} sources`
-                    : ''
-                }`}
+              : topSignal.deltaStatus === 'material_advancement'
+                ? `Lead material advancement · ${topSignal.confidence}% confidence`
+                : `Lead signal · ${topSignal.confidence}% confidence${
+                    topSignal.corroborationCount && topSignal.corroborationCount > 1
+                      ? ` · ${topSignal.corroborationCount} sources`
+                      : ''
+                  }`}
           </div>
           <strong>{topSignal.title}</strong>
           <p>{topSignal.commercialImpact}</p>
+          {topSignal.advancementReason && (
+            <p><strong>What advanced: </strong>{topSignal.advancementReason}</p>
+          )}
+          {topSignal.competitivePositionChange && topSignal.competitivePositionDetail && (
+            <p><strong>Competitive-position change: </strong>{topSignal.competitivePositionDetail}</p>
+          )}
           <QualityChips s={topSignal} />
           <SignalFeedbackButtons signalId={topSignal.id} surface="digest" />
           <div className="cc-digest-lead-meta">
@@ -212,9 +240,9 @@ export const DigestPage = React.memo(function DigestPage({
       <div className="cc-sig-feed">
         {effectiveSignals.length === 0 ? (
           <div className="cc-empty-state">
-            <strong style={{ display: 'block', marginBottom: 6 }}>Nothing in this window yet</strong>
-            The brief fills as quality-gated signals are classified and published.
-            If this persists past a day, outcome monitoring will flag a stale digest.
+            <strong style={{ display: 'block', marginBottom: 6 }}>Nothing new or materially advanced yet</strong>
+            The curated brief remains quiet when reviewed evidence only repeats previously presented events.
+            The live ranked fallback remains available when no curated edition exists.
           </div>
         ) : (
           effectiveSignals.map((s, i) => {
@@ -256,6 +284,10 @@ export const DigestPage = React.memo(function DigestPage({
                 <div className="cc-sig-why">
                   <em>Why it matters</em>
                   <span>{s.commercialImpact || `Affects operations in ${s.market || country.label}`}</span>
+                  {s.advancementReason && <span><strong>What advanced: </strong>{s.advancementReason}</span>}
+                  {s.competitivePositionChange && s.competitivePositionDetail && (
+                    <span><strong>Competitive-position change: </strong>{s.competitivePositionDetail}</span>
+                  )}
                 </div>
                 <span className={`cc-imp-badge ${imp.toLowerCase()}`}>{imp}</span>
                 <svg viewBox="0 0 36 36" className="cc-mini-donut" aria-label={`${s.confidence}% confidence`}>

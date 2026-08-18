@@ -1,0 +1,73 @@
+name: Daily Brief Delta Intelligence Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/20260815204500_daily_brief_delta_intelligence.sql'
+      - 'supabase/migrations/20260815213000_daily_brief_delta_history_backfill.sql'
+      - 'supabase/migrations/20260815234000_daily_brief_lineage_hardening.sql'
+      - 'lib/signals/digestDelta.ts'
+      - 'lib/harbourview/dto/public.ts'
+      - 'lib/fixtures/dailyDigest.ts'
+      - 'app/daily/page.tsx'
+      - 'app/api/dashboard/digest/route.ts'
+      - 'lib/dashboard/dashboardShared.ts'
+      - 'components/dashboard/pages/DigestPage.tsx'
+      - 'tests/signals/digestDelta.test.ts'
+      - 'tests/signals/dailyBriefDeltaIntelligence.test.ts'
+      - '.github/workflows/daily-brief-delta-intelligence-verify.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-brief-delta-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Delta-intelligence regression suite
+        run: npx vitest run tests/signals/digestDelta.test.ts tests/signals/dailyBriefDeltaIntelligence.test.ts
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: npm run typecheck
+      - name: Public leakage regression
+        id: leakage
+        continue-on-error: true
+        run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/network/public-projection-leakage.test.ts
+      - name: Production build
+        id: build
+        continue-on-error: true
+        run: npm run build
+      - name: Enforce verification result
+        if: always()
+        env:
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          LEAKAGE_OUTCOME: ${{ steps.leakage.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          failed=0
+          if [ "$TYPECHECK_OUTCOME" != "success" ]; then
+            echo "::error::Typecheck failed."
+            failed=1
+          fi
+          if [ "$LEAKAGE_OUTCOME" != "success" ]; then
+            echo "::error::Public leakage regression failed."
+            failed=1
+          fi
+          if [ "$BUILD_OUTCOME" != "success" ]; then
+            echo "::error::Production build failed."
+            failed=1
+          fi
+          exit "$failed"

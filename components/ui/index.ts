@@ -17,3 +17,19 @@ export * from "./popover"
 export * from "./tooltip"
 export * from "./avatar"
 export * from "./sheet"
+export {
+  HarbourviewPanel,
+  HarbourviewBottomSheet,
+  HarbourviewCard,
+  HarbourviewSectionHeader,
+  hvPanelSurfaceClass,
+  hvPanelEyebrowClass,
+  hvPanelTitleClass,
+  hvPanelBodyClass,
+  hvPanelPrimaryCtaClass,
+  hvPanelBackButtonClass,
+  hvCardSurfaceClass,
+  hvCardPriorityClass,
+  hvCardPublicClass,
+} from "./HarbourviewPanel"
+export type { HarbourviewBottomSheetSize, HarbourviewCardTone } from "./HarbourviewPanel"

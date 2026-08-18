@@ -39,8 +39,10 @@ describe('clinical evidence storage and public boundary', () => {
     expect(migration).toContain('function public.search_clinical_evidence_records')
     expect(migration).toContain('security invoker')
     expect(migration).toContain('function public.clinical_condition_term_known')
-    expect(query).toContain("rpc<Row[]>('search_clinical_evidence_records'")
-    expect(query).toContain("rpc<boolean>('clinical_condition_term_known'")
+    expect(query).toMatch(/rpc<(?:Row\[\]|unknown)>\('search_clinical_evidence_records'/)
+    expect(query).toMatch(/rpc<(?:boolean|unknown)>\('clinical_condition_term_known'/)
+    expect(query).toContain('clinical_evidence_schema_invalid_rpc_result')
+    expect(query).toContain('clinical_evidence_schema_invalid_condition_result')
   })
 
   it('does not expose profession filtering before role vocabulary reconciliation', () => {
@@ -54,8 +56,8 @@ describe('clinical evidence storage and public boundary', () => {
   it('exposes accessible search and source links', () => {
     expect(explorer).toContain('role="search"')
     expect(explorer).toContain('aria-live="polite"')
-    expect(explorer).toContain('htmlFor="clinical-evidence-query"')
+    expect(explorer).toContain('aria-label="Condition, formulation or clinical evidence question"')
     expect(explorer).toContain('rel="noreferrer"')
-    expect(explorer).toContain('Primary source ↗')
+    expect(explorer).toMatch(/primary source ↗/i)
   })
 })

@@ -20,7 +20,7 @@ export function getStripe(): Stripe {
         'Add it to your Vercel environment variables.'
       )
     }
-    _stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' })
+    _stripe = new Stripe(key, { apiVersion: '2026-07-29.dahlia' })
   }
   return _stripe
 }

@@ -9,16 +9,53 @@ const DECISIONS_FILE = 'supabase/release-controls/pending-production-migration-d
 const MIGRATIONS_DIR = 'supabase/migrations'
 const EXCLUDED_SUFFIX = '.replay-excluded'
 
+// Production can contain out-of-band drift or duplicate registrations that a
+// later migration repairs/replays even though a repository zero-state replay
+// already contains the intended post-state from earlier checked-in history.
+// Skip only explicitly evidenced files. This is a temporary replay-only
+// exclusion; checked-in history and the production migration ledger are not
+// changed.
+const REPLAY_ZERO_STATE_SKIPS = [
+  '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
+  '20260714224152_create_intel_eval_set_stage0.sql',
+  '20260714225601_expose_intel_eval_set_via_api_schema.sql',
+  '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
+]
+
 // Repository-only reconciliation migrations can occasionally have a timestamp
 // later than the first historical migration that depends on the production
 // state they reconstruct. Relocate only an explicitly evidenced, production-
-// unapplied reconciliation file for zero-state replay; the checked-in file and
-// production migration ledger remain unchanged.
+// unapplied reconstruction/reconciliation file for zero-state replay; the
+// checked-in file and production migration ledger remain unchanged.
 const REPLAY_RELOCATIONS = [
+  {
+    source: '20260701230000_corridor_intelligence_tables_stub.sql',
+    destination: '20260701180750_replay_corridor_intelligence_tables_stub.sql',
+    before: '20260701180751_remote_applied_repair.sql',
+  },
   {
     source: '20260730220050_reconcile_listings_production_columns.sql',
     destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
     before: '20260730211147_create_supply_catalog_public_view.sql',
+  },
+]
+
+// Production had these named RLS policies before the reconstructed 20260719083306
+// ALTER POLICY migration ran. Current repository history rebuilds the tables but
+// not the policy identities, so zero-state replay cannot execute the recorded
+// ALTER POLICY statements. Materialize only the missing identities in the replay
+// workspace, fail closed with USING (false), and let the immediately-following
+// production-recorded migration replace both predicates. No checked-in migration
+// or production ledger entry is changed.
+const REPLAY_SYNTHETIC_FOUNDATIONS = [
+  {
+    destination: '20260719083305_replay_education_policy_identities.sql',
+    before: '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
+    required: [
+      '20260719083250_add_clinical_signoff_gate_to_education_modules.sql',
+      '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
+    ],
+    content: `-- Replay-only fail-closed reconstruction of policy identities that existed in production\n-- before 20260719083306. The next migration immediately replaces both USING clauses\n-- with the exact production-recorded predicates. This file exists only in the temporary\n-- production-faithful replay workspace and is never a production migration.\n\ndo $replay_policy_identity$\nbegin\n  if not exists (\n    select 1\n    from pg_policies\n    where schemaname = 'public'\n      and tablename = 'education_modules'\n      and policyname = 'education_modules_public_select'\n  ) then\n    create policy \"education_modules_public_select\"\n      on public.education_modules\n      for select\n      using (false);\n  end if;\n\n  if not exists (\n    select 1\n    from pg_policies\n    where schemaname = 'public'\n      and tablename = 'education_module_sections'\n      and policyname = 'public read sections of published modules'\n  ) then\n    create policy \"public read sections of published modules\"\n      on public.education_module_sections\n      for select\n      using (false);\n  end if;\nend\n$replay_policy_identity$;\n`,
   },
 ]
 
@@ -62,6 +99,11 @@ export function planReplayExclusions({ decisions, migrationFiles }) {
   return exclusions.sort((a, b) => a.version.localeCompare(b.version))
 }
 
+export function planReplayZeroStateSkips({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_ZERO_STATE_SKIPS.filter((file) => fileSet.has(file))
+}
+
 export function planReplayRelocations({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_RELOCATIONS.filter((item) => {
@@ -79,12 +121,25 @@ export function planReplayRelocations({ migrationFiles }) {
   })
 }
 
+export function planReplaySyntheticFoundations({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_SYNTHETIC_FOUNDATIONS.filter((item) => {
+    if (fileSet.has(item.destination) || !fileSet.has(item.before)) return false
+    if (!item.required.every((file) => fileSet.has(file))) return false
+    const destinationVersion = migrationVersion(item.destination)
+    const beforeVersion = migrationVersion(item.before)
+    return Boolean(destinationVersion && beforeVersion && destinationVersion < beforeVersion)
+  })
+}
+
 export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = false } = {}) {
   const decisions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, DECISIONS_FILE), 'utf8'))
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
   const migrationFiles = fs.readdirSync(migrationDirectory).filter((file) => file.endsWith('.sql'))
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
+  const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
+  const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
 
   if (apply) {
     for (const item of exclusions) {
@@ -94,6 +149,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (fs.existsSync(destination)) throw new Error(`Replay exclusion destination already exists: ${path.basename(destination)}`)
       fs.renameSync(source, destination)
     }
+    for (const file of zeroStateSkips) {
+      const source = path.join(migrationDirectory, file)
+      const destination = `${source}${EXCLUDED_SUFFIX}`
+      if (!fs.existsSync(source)) throw new Error(`Replay zero-state skip source disappeared: ${file}`)
+      if (fs.existsSync(destination)) throw new Error(`Replay zero-state skip destination already exists: ${path.basename(destination)}`)
+      fs.renameSync(source, destination)
+    }
     for (const item of relocations) {
       const source = path.join(migrationDirectory, item.source)
       const destination = path.join(migrationDirectory, item.destination)
@@ -101,16 +163,24 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (fs.existsSync(destination)) throw new Error(`Replay relocation destination already exists: ${item.destination}`)
       fs.renameSync(source, destination)
     }
+    for (const item of syntheticFoundations) {
+      const destination = path.join(migrationDirectory, item.destination)
+      if (fs.existsSync(destination)) throw new Error(`Replay synthetic foundation already exists: ${item.destination}`)
+      if (!fs.existsSync(path.join(migrationDirectory, item.before))) {
+        throw new Error(`Replay synthetic foundation boundary disappeared: ${item.before}`)
+      }
+      fs.writeFileSync(destination, item.content, 'utf8')
+    }
   }
 
-  return { exclusions, relocations }
+  return { exclusions, zeroStateSkips, relocations, syntheticFoundations }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const { exclusions, relocations } = runReplayPreparation({ apply })
+    const { exclusions, zeroStateSkips, relocations, syntheticFoundations } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
@@ -119,12 +189,26 @@ if (isDirect) {
         console.log(`- ${item.file} -> live/repository equivalent ${item.repository_equivalent_versions.join(', ')}`)
       }
     }
-    if (relocations.length === 0) {
-      console.log('Production-faithful replay: no repository-only reconciliation files require earlier replay ordering.')
+    if (zeroStateSkips.length === 0) {
+      console.log('Production-faithful replay: no zero-state-inapplicable historical repair/duplicate files require exclusion.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconciliation file(s):`)
+      console.log(`Production-faithful replay: ${apply ? 'excluded' : 'would exclude'} ${zeroStateSkips.length} zero-state-inapplicable historical repair/duplicate file(s):`)
+      for (const file of zeroStateSkips) console.log(`- ${file}`)
+    }
+    if (relocations.length === 0) {
+      console.log('Production-faithful replay: no repository-only reconstruction/reconciliation files require earlier replay ordering.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
+      }
+    }
+    if (syntheticFoundations.length === 0) {
+      console.log('Production-faithful replay: no replay-only synthetic foundations are required.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'materialized' : 'would materialize'} ${syntheticFoundations.length} replay-only synthetic foundation(s):`)
+      for (const item of syntheticFoundations) {
+        console.log(`- ${item.destination} before ${item.before}`)
       }
     }
   } catch (error) {

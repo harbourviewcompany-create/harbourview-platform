@@ -1,0 +1,205 @@
+name: P0 Identity Organization Context Production Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: Explicit production authorization
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_P0_IDENTITY_ORG_CONTEXT
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-identity-org-context-production-activation
+  cancel-in-progress: false
+
+env:
+  CONTROL_FILE: supabase/release-controls/p0-identity-org-context-activation.json
+  MIGRATION_FILE: supabase/migrations/20260814122000_p0_identity_org_context.sql
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  preflight:
+    name: Read-only exact migration preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+      migration_sha256: ${{ steps.bind.outputs.sha256 }}
+    steps:
+      - name: Require current main
+        id: source
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "::error::Dispatch from main only."; exit 1; }
+          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact dispatch SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove dispatch SHA is still current main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)" || { echo "::error::main moved after dispatch."; exit 1; }
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Verify immutable migration binding and single-file generator
+        id: bind
+        run: |
+          set -euo pipefail
+          node scripts/p0-identity-activation-control.mjs verify --control "$CONTROL_FILE" --migration "$MIGRATION_FILE"
+          node --test tests/scripts/p0-identity-activation-control.test.mjs
+          SHA256=$(sha256sum "$MIGRATION_FILE" | awk '{print $1}')
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Run read-only production preflight
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/p0-identity-activation
+          psql -X -qAt -f tests/sql/p0_identity_production_preflight_read_only.sql > artifacts/p0-identity-activation/preflight-raw.txt
+          grep -q '^STRUCTURAL|PASS$' artifacts/p0-identity-activation/preflight-raw.txt || { echo "::error::Production structural pre-state changed."; cat artifacts/p0-identity-activation/preflight-raw.txt; exit 1; }
+          grep '^SNAPSHOT|' artifacts/p0-identity-activation/preflight-raw.txt | sed 's/^SNAPSHOT|//' > artifacts/p0-identity-activation/preflight-snapshot.json
+          grep '^LATER|' artifacts/p0-identity-activation/preflight-raw.txt | sed 's/^LATER|//' > artifacts/p0-identity-activation/later-applied.json
+          node scripts/p0-identity-activation-control.mjs assert-preflight-snapshot --control "$CONTROL_FILE" --file artifacts/p0-identity-activation/preflight-snapshot.json
+          node scripts/p0-identity-activation-control.mjs assert-later-set --control "$CONTROL_FILE" --file artifacts/p0-identity-activation/later-applied.json
+
+      - name: Generate but do not execute exact activation stream
+        run: |
+          set -euo pipefail
+          node scripts/p0-identity-activation-control.mjs generate --control "$CONTROL_FILE" --migration "$MIGRATION_FILE" --out artifacts/p0-identity-activation/activation.sql
+          sha256sum "$MIGRATION_FILE" artifacts/p0-identity-activation/activation.sql > artifacts/p0-identity-activation/sha256.txt
+          cp "$CONTROL_FILE" artifacts/p0-identity-activation/release-control.json
+          git show -s --format=fuller "$GITHUB_SHA" > artifacts/p0-identity-activation/source-commit.txt
+
+      - name: Upload read-only preflight evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-identity-activation-preflight-${{ github.sha }}
+          path: artifacts/p0-identity-activation/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish preflight disposition
+        run: |
+          {
+            echo "## P0 identity activation preflight"
+            echo "- Source SHA: \`$GITHUB_SHA\`"
+            echo "- Migration Git blob: \`$(git hash-object "$MIGRATION_FILE")\`"
+            echo "- Migration SHA-256: \`${{ steps.bind.outputs.sha256 }}\`"
+            echo "- Structural pre-state: PASS"
+            echo "- Exact data snapshot: PASS"
+            echo "- Later-applied set: PASS"
+            echo "- Production write: none"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: Apply exact P0 identity migration
+    needs: preflight
+    if: needs.preflight.result == 'success' && inputs.production_action == 'APPLY_P0_IDENTITY_ORG_CONTEXT'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production-database
+    steps:
+      - name: Checkout exact authorized SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Recheck source and binding after protected-environment approval
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "${{ needs.preflight.outputs.source_sha }}"
+          git fetch --no-tags origin main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)" || { echo "::error::main moved after preflight; start a new run."; exit 1; }
+          node scripts/p0-identity-activation-control.mjs verify --control "$CONTROL_FILE" --migration "$MIGRATION_FILE"
+          test "$(sha256sum "$MIGRATION_FILE" | awk '{print $1}')" = "${{ needs.preflight.outputs.migration_sha256 }}"
+
+      - name: Re-run exact read-only production preflight immediately before write
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/p0-identity-activation-apply
+          psql -X -qAt -f tests/sql/p0_identity_production_preflight_read_only.sql > artifacts/p0-identity-activation-apply/preflight-raw.txt
+          grep -q '^STRUCTURAL|PASS$' artifacts/p0-identity-activation-apply/preflight-raw.txt
+          grep '^SNAPSHOT|' artifacts/p0-identity-activation-apply/preflight-raw.txt | sed 's/^SNAPSHOT|//' > artifacts/p0-identity-activation-apply/preflight-snapshot.json
+          grep '^LATER|' artifacts/p0-identity-activation-apply/preflight-raw.txt | sed 's/^LATER|//' > artifacts/p0-identity-activation-apply/later-applied-before.json
+          node scripts/p0-identity-activation-control.mjs assert-preflight-snapshot --control "$CONTROL_FILE" --file artifacts/p0-identity-activation-apply/preflight-snapshot.json
+          node scripts/p0-identity-activation-control.mjs assert-later-set --control "$CONTROL_FILE" --file artifacts/p0-identity-activation-apply/later-applied-before.json
+
+      - name: Generate the only authorized SQL stream
+        run: |
+          set -euo pipefail
+          node scripts/p0-identity-activation-control.mjs generate --control "$CONTROL_FILE" --migration "$MIGRATION_FILE" --out artifacts/p0-identity-activation-apply/activation.sql
+          sha256sum "$MIGRATION_FILE" artifacts/p0-identity-activation-apply/activation.sql > artifacts/p0-identity-activation-apply/sha256.txt
+          ! grep -Eiq 'supabase[[:space:]]+db[[:space:]]+push|--include-all' artifacts/p0-identity-activation-apply/activation.sql
+
+      - name: Apply bound migration and migration-ledger row atomically
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f artifacts/p0-identity-activation-apply/activation.sql | tee artifacts/p0-identity-activation-apply/apply-output.txt
+
+      - name: Run read-only production postflight
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -qAt -f tests/sql/p0_identity_production_postflight_read_only.sql > artifacts/p0-identity-activation-apply/postflight-raw.txt
+          grep -q '^POSTFLIGHT|PASS$' artifacts/p0-identity-activation-apply/postflight-raw.txt || { echo "::error::Postflight failed. Preserve migration history and use forward repair."; cat artifacts/p0-identity-activation-apply/postflight-raw.txt; exit 1; }
+          grep '^LATER|' artifacts/p0-identity-activation-apply/postflight-raw.txt | sed 's/^LATER|//' > artifacts/p0-identity-activation-apply/later-applied-after.json
+          node scripts/p0-identity-activation-control.mjs assert-later-set --control "$CONTROL_FILE" --file artifacts/p0-identity-activation-apply/later-applied-after.json
+          cp "$CONTROL_FILE" artifacts/p0-identity-activation-apply/release-control.json
+
+      - name: Upload activation and rollback-forward evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-identity-activation-${{ github.sha }}
+          path: artifacts/p0-identity-activation-apply/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish activation disposition
+        if: always()
+        run: |
+          {
+            echo "## P0 identity production activation"
+            echo "- Source SHA: \`$GITHUB_SHA\`"
+            echo "- Bound migration: \`$MIGRATION_FILE\`"
+            echo "- Bound Git blob: \`$(git hash-object "$MIGRATION_FILE")\`"
+            echo "- Execution scope: exact migration body + one migration-ledger row"
+            echo "- Recovery: preserve ledger history and use forward repair after COMMIT"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { ModuleItem } from '@/lib/institutional/content'
+import { HarbourviewCard, hvPanelEyebrowClass } from '@/components/ui/HarbourviewPanel'
 
 type ModuleCardGridProps = {
   title: string
@@ -15,13 +16,13 @@ export default function ModuleCardGrid({
   id,
 }: ModuleCardGridProps) {
   return (
-    <section id={id} className="border-b border-gold/10 bg-[#020814] py-14 sm:py-18 lg:py-20">
+    <section id={id} className="border-b border-[color:var(--hv-gold)]/10 bg-[color:var(--hv-black)] py-14 sm:py-18 lg:py-20">
       <div className="page-container">
         <div className="max-w-3xl">
-          <h2 className="font-serif text-3xl tracking-[-0.04em] text-[#f5f1e8] sm:text-4xl">
+          <h2 className="font-serif text-3xl tracking-[-0.04em] text-[color:var(--hv-ivory)] sm:text-4xl">
             {title}
           </h2>
-          <p className="mt-5 text-base leading-8 text-white/60">{description}</p>
+          <p className="mt-5 text-base leading-8 text-[color:var(--hv-text-secondary)]">{description}</p>
         </div>
 
         <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -29,32 +30,31 @@ export default function ModuleCardGrid({
             const content = (
               <>
                 {item.eyebrow ? (
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-gold/68">
+                  <p className={`${hvPanelEyebrowClass} mb-3 tracking-[0.24em]`}>
                     {item.eyebrow}
                   </p>
                 ) : null}
-                <div className="mb-5 h-px w-12 bg-gradient-to-r from-gold to-gold-light" />
-                <h3 className="text-lg font-semibold text-[#f4f1eb]">{item.title}</h3>
-                <p className="mt-4 text-sm leading-7 text-white/60">{item.description}</p>
+                <div className="mb-5 h-px w-12 bg-gradient-to-r from-[color:var(--hv-gold)] to-[color:var(--hv-gold-light)]" />
+                <h3 className="text-lg font-semibold text-[color:var(--hv-ivory)]">{item.title}</h3>
+                <p className="mt-4 text-sm leading-7 text-[color:var(--hv-text-secondary)]">{item.description}</p>
                 {item.href ? (
-                  <span className="mt-6 inline-flex text-xs font-semibold uppercase tracking-[0.18em] text-gold">
+                  <span className="mt-6 inline-flex text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--hv-gold)]">
                     Explore
                   </span>
                 ) : null}
               </>
             )
 
-            const classes =
-              'rounded-sm border border-gold/12 bg-[linear-gradient(180deg,rgba(10,20,35,0.94)_0%,rgba(5,12,22,0.98)_100%)] p-7 shadow-[0_20px_50px_rgba(0,0,0,0.28)] transition-colors hover:border-gold/24'
-
             return item.href ? (
-              <Link key={item.title} href={item.href} className={classes}>
-                {content}
+              <Link key={item.title} href={item.href} className="block transition-colors hover:opacity-95">
+                <HarbourviewCard tone="public" as="div" className="h-full p-7 hover:border-[color:var(--hv-gold)]/24">
+                  {content}
+                </HarbourviewCard>
               </Link>
             ) : (
-              <div key={item.title} className={classes}>
+              <HarbourviewCard key={item.title} tone="public" as="div" className="p-7">
                 {content}
-              </div>
+              </HarbourviewCard>
             )
           })}
         </div>

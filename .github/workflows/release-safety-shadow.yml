@@ -36,7 +36,7 @@ jobs:
         run: node scripts/ci/release-safety-shadow.mjs
       - name: Migration review-boundary audit
         run: node scripts/ci/verify-migration-review-boundary.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: release-safety-shadow-${{ env.RELEASE_EVIDENCE_SHA }}

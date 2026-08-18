@@ -1,20 +1,8 @@
 {
   "color": {
-    "background": {
-      "value": "#0A2540",
-      "type": "color"
-    },
-    "foreground": {
-      "value": "#F4F4F5",
-      "type": "color"
-    },
-    "card": {
-      "value": "#111827",
-      "type": "color"
-    },
-    "border": {
-      "value": "#374151",
-      "type": "color"
-    }
+    "background": { "value": "{color.hv.black}", "type": "color" },
+    "foreground": { "value": "{color.hv.ivory}", "type": "color" },
+    "card": { "value": "{color.hv.navyDeep}", "type": "color" },
+    "border": { "value": "#374151", "type": "color" }
   }
 }

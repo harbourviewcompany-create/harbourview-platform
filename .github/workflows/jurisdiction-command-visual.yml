@@ -1,0 +1,558 @@
+name: Jurisdiction Command Visual
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - app/api/dashboard/jurisdiction-command/**
+      - components/dashboard/mobile-command/**
+      - lib/dashboard/jurisdictionCommandContract.ts
+      - lib/dashboard/dashboardLiveData.ts
+      - lib/hv/active-workspace.ts
+      - supabase/migrations/*jurisdiction_command*.sql
+      - tests/dashboard/jurisdictionCommand.test.ts
+      - tests/e2e/jurisdiction-command.spec.ts
+      - .github/workflows/jurisdiction-command-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jurisdiction-command-visual-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  authenticated-visual:
+    name: Jurisdiction Command exact-head evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SUPABASE_DB_SCHEMA: api
+      NEXT_TELEMETRY_DISABLED: '1'
+      JURISDICTION_COMMAND_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          ref: ${{ env.JURISDICTION_COMMAND_SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused contract tests
+        run: >-
+          npx vitest run
+          tests/dashboard/jurisdictionCommand.test.ts
+          tests/dashboard/mobileCommandCentreV2.test.ts
+
+      - name: Type check exact source
+        run: npm run typecheck
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Jurisdiction Command schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_jurisdiction_command_visual.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+
+          create table if not exists api.user_dashboard_preferences (
+            user_id uuid primary key,
+            country_iso2 text,
+            role_id text,
+            active_workspace_id uuid
+          );
+          create table if not exists api.workspaces (
+            id uuid primary key,
+            status text not null default 'active'
+          );
+          create table if not exists api.workspace_members (
+            user_id uuid not null,
+            workspace_id uuid not null,
+            role text not null default 'member',
+            status text not null default 'active',
+            primary key (user_id, workspace_id)
+          );
+
+          create table if not exists api.countries (
+            country_name text not null,
+            iso_alpha2 text primary key,
+            region text,
+            subregion text,
+            market_access_status text,
+            medical_status text,
+            adult_use_status text,
+            import_status text,
+            export_status text,
+            signals_status text,
+            opportunity_score numeric,
+            data_completeness text,
+            public_summary text,
+            trade_roles text[],
+            opportunity_categories text[],
+            regulator_label text,
+            last_updated_label text
+          );
+          insert into api.countries values
+            ('Canada','CA','Americas','Northern America','conditional','regulated','active','limited','regulated','active',91,'high','Federal cannabis framework under the Cannabis Act and Cannabis Regulations.',array['importer','exporter'],array['medical','trade'],'Health Canada','2026-08-15'),
+            ('Germany','DE','Europe','Western Europe','conditional','regulated','restricted','regulated','regulated','active',88,'high','Reviewed German market context.',array['importer'],array['medical'],'BfArM','2026-08-15'),
+            ('Australia','AU','Oceania','Australia and New Zealand','conditional','regulated','prohibited','regulated','regulated','active',82,'medium','Reviewed Australian market context.',array['importer','exporter'],array['medical'],'TGA / ODC','2026-08-15')
+          on conflict (iso_alpha2) do nothing;
+
+          create table if not exists public.countries (
+            country_name text not null,
+            iso_alpha2 text primary key,
+            region text,
+            subregion text,
+            market_access_status text,
+            medical_status text,
+            adult_use_status text,
+            import_status text,
+            export_status text,
+            signals_status text,
+            opportunity_score numeric,
+            data_completeness text,
+            public_summary text,
+            trade_roles text[],
+            opportunity_categories text[],
+            regulator_label text,
+            last_updated_label text
+          );
+          insert into public.countries
+            select * from api.countries
+          on conflict (iso_alpha2) do nothing;
+
+          create table if not exists public.country_intel (
+            id uuid primary key default gen_random_uuid(),
+            country_code text not null,
+            public_summary text,
+            commercial_pathway_summary text,
+            review_status text,
+            regulatory_tier text,
+            last_reviewed_at timestamptz
+          );
+          insert into public.country_intel(country_code,public_summary,commercial_pathway_summary,review_status,regulatory_tier,last_reviewed_at)
+          values ('CA','Canada has a reviewed federal cannabis framework.','Transaction execution remains licence, product, purpose and permit specific.','approved','mature',now())
+          on conflict do nothing;
+
+          create table if not exists public.cc_jurisdiction_briefings (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text not null,
+            jurisdiction_type text not null,
+            program_status text,
+            patient_access text,
+            physician_access text,
+            market_dynamics text,
+            regulatory_outlook text,
+            regulatory_body text,
+            confidence_score numeric,
+            last_reviewed_date date
+          );
+          insert into public.cc_jurisdiction_briefings(country_iso2,jurisdiction_type,program_status,patient_access,physician_access,market_dynamics,regulatory_outlook,regulatory_body,confidence_score,last_reviewed_date)
+          values ('CA','country','active','Medical access under the Cannabis Regulations.','Medical document framework applies.','Structured commercial market with transaction-specific trade requirements.','Current primary-source review completed for visual evidence.','Health Canada',0.94,'2026-08-15');
+
+          create table if not exists public.jurisdiction_playbooks (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text not null,
+            status text not null,
+            last_verified_at timestamptz,
+            confidence_label text
+          );
+          insert into public.jurisdiction_playbooks(country_iso2,status,last_verified_at,confidence_label)
+          values ('CA','published',now(),'primary-source reviewed');
+
+          create or replace function public.get_field_changes_for_country(p_iso2 text, p_limit integer default 10)
+          returns table(id uuid, table_name text, field_name text, old_value text, new_value text, changed_at timestamptz, source_label text)
+          language sql stable as $$
+            select gen_random_uuid(), 'countries'::text, 'import_status'::text, 'under review'::text, 'limited'::text, now() - interval '2 days', 'Health Canada'::text
+            where upper(p_iso2) = 'CA'
+            limit p_limit;
+          $$;
+
+          create or replace function public.get_regulatory_calendar(p_iso2 text, p_limit integer default 10)
+          returns table(id uuid, iso2 text, event_type text, title text, summary text, expected_date date, confidence text, source_url text, source_label text, status text)
+          language sql stable as $$
+            select gen_random_uuid(), 'CA'::text, 'planned-regulation'::text, 'Industrial Hemp Regulations proposal'::text,
+              'Health Canada''s 2026-2028 Forward Regulatory Plan states that Canada Gazette, Part I public consultation on the regulatory proposal is expected in spring 2027; no exact publication date is stated.'::text, null::date,
+              'official-planned-window'::text, 'https://www.canada.ca/en/health-canada/corporate/about-health-canada/legislation-guidelines/acts-regulations/forward-regulatory-plan/plan.html'::text, 'Health Canada Forward Regulatory Plan 2026-2028'::text, 'planned'::text
+            where upper(p_iso2) = 'CA'
+            limit p_limit;
+          $$;
+
+          create table if not exists api.ia_sources (
+            id uuid primary key,
+            name text not null,
+            category text not null,
+            markets text[] not null default '{}',
+            reliability text not null,
+            last_checked timestamptz,
+            status text not null,
+            notes text
+          );
+          insert into api.ia_sources values
+            ('00000000-0000-4000-8000-000000000201','Health Canada cannabis','regulator',array['Canada'],'primary',now(),'active','Official federal source'),
+            ('00000000-0000-4000-8000-000000000202','Canada Gazette','gazette',array['Canada'],'primary',now() - interval '1 day','active','Official federal gazette')
+          on conflict (id) do nothing;
+
+          create table if not exists api.source_registry (
+            id uuid primary key default gen_random_uuid(),
+            iso text not null,
+            source_type text not null,
+            tier integer not null,
+            is_active boolean not null default true
+          );
+          insert into api.source_registry(iso,source_type,tier,is_active) values
+            ('CA','regulator',1,true),('CA','gazette',1,true),('CA','trade',2,true);
+
+          create table if not exists api.cc_pathway_templates (
+            id uuid primary key,
+            country_iso2 text not null,
+            role_id text not null,
+            name text not null,
+            total_steps integer not null
+          );
+          create table if not exists api.cc_pathway_steps (
+            id uuid primary key,
+            template_id uuid not null,
+            step_number integer not null,
+            title text not null,
+            description text,
+            unlock_condition text not null default ''
+          );
+          create table if not exists api.cc_pathway_step_requirements (
+            id uuid primary key,
+            step_id uuid not null,
+            title text not null,
+            description text,
+            evidence_type text not null,
+            is_required boolean not null default true,
+            sort_order integer not null default 0
+          );
+          create table if not exists api.cc_org_pathway_progress (
+            org_id uuid not null,
+            template_id uuid not null,
+            current_step integer not null default 1,
+            status text not null,
+            last_action_at timestamptz,
+            primary key(org_id,template_id)
+          );
+          create table if not exists api.cc_org_requirement_status (
+            org_id uuid not null,
+            requirement_id uuid not null,
+            status text not null,
+            submitted_at timestamptz,
+            reviewed_at timestamptz,
+            primary key(org_id,requirement_id)
+          );
+          insert into api.cc_pathway_templates values
+            ('00000000-0000-4000-8000-000000000210','CA','exporter','Canada exporter pathway',2)
+          on conflict (id) do nothing;
+          insert into api.cc_pathway_steps values
+            ('00000000-0000-4000-8000-000000000211','00000000-0000-4000-8000-000000000210',1,'Export readiness','Verify the operator and product evidence required before a transaction is treated as ready.',''),
+            ('00000000-0000-4000-8000-000000000212','00000000-0000-4000-8000-000000000210',2,'Shipment authorization','Resolve shipment-specific permit requirements.','')
+          on conflict (id) do nothing;
+          insert into api.cc_pathway_step_requirements values
+            ('00000000-0000-4000-8000-000000000213','00000000-0000-4000-8000-000000000211','Operator licence evidence','Reviewed authorization evidence for the active organization.','licence',true,1),
+            ('00000000-0000-4000-8000-000000000214','00000000-0000-4000-8000-000000000212','Shipment permit','Shipment-specific permit evidence.','permit',true,1)
+          on conflict (id) do nothing;
+
+          create table if not exists api.market_metrics (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text not null,
+            metric_name text not null,
+            metric_value numeric not null,
+            metric_unit text,
+            period_start date,
+            period_end date,
+            data_type text,
+            source_name text
+          );
+          insert into api.market_metrics(country_iso2,metric_name,metric_value,metric_unit,period_start,period_end,data_type,source_name) values
+            ('CA','Reviewed active sources',3,'sources','2026-08-01','2026-08-15','coverage','Harbourview source registry'),
+            ('CA','Opportunity score',91,'score','2026-08-01','2026-08-15','internal index','Harbourview country index');
+
+          create table if not exists api.trade_flows (
+            id uuid primary key default gen_random_uuid(),
+            origin_iso2 text not null,
+            destination_iso2 text not null,
+            flow_direction text,
+            product_category text,
+            legal_status text,
+            permit_required boolean,
+            permit_authority text
+          );
+          insert into api.trade_flows(origin_iso2,destination_iso2,flow_direction,product_category,legal_status,permit_required,permit_authority) values
+            ('DE','CA','import','Dried flower','regulated',true,'Health Canada'),
+            ('CA','DE','export','Dried flower','regulated',true,'Health Canada');
+
+          create table if not exists api.hv_professionals (
+            id uuid primary key,
+            full_name text not null,
+            title text,
+            credential_type text,
+            specialties text[] not null default '{}',
+            countries text[] not null default '{}',
+            institution text,
+            accepts_referrals boolean,
+            consultation_available boolean,
+            verification_status text not null,
+            status text not null
+          );
+          insert into api.hv_professionals values
+            ('00000000-0000-4000-8000-000000000220','Verified Regulatory Professional','Regulatory specialist','professional',array['market access'],array['CA'],'Harbourview visual fixture',true,true,'verified','active')
+          on conflict (id) do nothing;
+
+          create table if not exists api.cannabis_operators (
+            id uuid primary key,
+            country_iso2 text not null,
+            legal_name text not null,
+            operator_type text,
+            verification_status text,
+            public_status text not null
+          );
+          insert into api.cannabis_operators values
+            ('00000000-0000-4000-8000-000000000221','CA','Verified Canada Operator','licensed operator','verified','active')
+          on conflict (id) do nothing;
+
+          create table if not exists api.user_profiles (
+            user_id uuid primary key,
+            tier text
+          );
+          create table if not exists api.regulatory_pathways (
+            id uuid primary key,
+            iso_alpha2 text,
+            name text,
+            pathway_type text,
+            status text,
+            regulator text,
+            summary text
+          );
+          create table if not exists api.pathway_format_rules (
+            pathway_id uuid,
+            format_id uuid,
+            status text,
+            thc_limit text,
+            cbd_limit text,
+            notes text
+          );
+          create table if not exists api.product_formats (
+            id uuid primary key,
+            slug text,
+            name text
+          );
+          create table if not exists api.jurisdiction_playbooks (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text,
+            country_name text,
+            difficulty text,
+            typical_timeline_months integer,
+            estimated_cost_range text,
+            legal_framework_summary text,
+            steps text[],
+            key_regulators jsonb,
+            common_pitfalls text[],
+            status text
+          );
+
+          create table if not exists api.signals (
+            id uuid primary key,
+            headline text not null,
+            cat text,
+            top_lane text,
+            pri text,
+            country text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed boolean not null default false,
+            action text,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            impact text,
+            title_en text,
+            summary_en text,
+            lang_detected text,
+            is_representative boolean,
+            cluster_rep_id uuid
+          );
+          insert into api.signals(id,headline,cat,top_lane,pri,country,date,reviewed,action,quality_label,quality_confidence,content_type,impact,title_en,summary_en,lang_detected,is_representative)
+          values ('00000000-0000-4000-8000-000000000230','Canada regulatory requirements updated','regulatory','REGULATORY','high','Canada',now() - interval '1 day',true,null,'signal',0.96,'regulatory','Review market-access implications.',null,null,'en',true)
+          on conflict (id) do nothing;
+          create or replace view api.signals_with_quality as select * from api.signals;
+
+          grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
+          grant select on all tables in schema api to anon;
+          grant select on public.countries, public.country_intel, public.cc_jurisdiction_briefings, public.jurisdiction_playbooks to anon, authenticated, service_role;
+          grant execute on function public.get_field_changes_for_country(text,integer) to anon, authenticated, service_role;
+          grant execute on function public.get_regulatory_calendar(text,integer) to anon, authenticated, service_role;
+          SQL
+          : > supabase/seed.sql
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create isolated authenticated user and active organization
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="jurisdiction-command-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvJurisdiction-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+
+          const authClient = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            { auth: { autoRefreshToken: false, persistSession: false } },
+          )
+          const { data, error } = await authClient.auth.admin.createUser({
+            email: process.env.E2E_TEST_USER_EMAIL,
+            password: process.env.E2E_TEST_USER_PASSWORD,
+            email_confirm: true,
+            app_metadata: { jurisdiction_command_visual_test: true },
+          })
+          if (error) throw error
+          if (!data.user) throw new Error('Jurisdiction Command visual user was not created')
+
+          const api = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            { auth: { autoRefreshToken: false, persistSession: false }, db: { schema: 'api' } },
+          )
+          const workspaceId = '00000000-0000-4000-8000-000000000240'
+          const templateId = '00000000-0000-4000-8000-000000000210'
+          const verifiedRequirement = '00000000-0000-4000-8000-000000000213'
+          const pendingRequirement = '00000000-0000-4000-8000-000000000214'
+
+          for (const [table, rows] of [
+            ['workspaces', [{ id: workspaceId, status: 'active' }]],
+            ['workspace_members', [{ user_id: data.user.id, workspace_id: workspaceId, role: 'admin', status: 'active' }]],
+            ['user_dashboard_preferences', [{ user_id: data.user.id, country_iso2: 'CA', role_id: 'exporter', active_workspace_id: workspaceId }]],
+            ['cc_org_pathway_progress', [{ org_id: workspaceId, template_id: templateId, current_step: 1, status: 'in_progress', last_action_at: new Date().toISOString() }]],
+            ['cc_org_requirement_status', [
+              { org_id: workspaceId, requirement_id: verifiedRequirement, status: 'verified', submitted_at: new Date().toISOString(), reviewed_at: new Date().toISOString() },
+              { org_id: workspaceId, requirement_id: pendingRequirement, status: 'pending', submitted_at: new Date().toISOString(), reviewed_at: null },
+            ]],
+          ]) {
+            const { error: insertError } = await api.from(table).upsert(rows)
+            if (insertError) throw insertError
+          }
+          NODE
+
+      - name: Build exact source against isolated Supabase
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 > /tmp/jurisdiction-command-next.log 2>&1 &
+          echo $! > /tmp/jurisdiction-command-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
+              echo 'GO: exact local production build is ready.'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/jurisdiction-command-next.log
+          exit 1
+
+      - name: Capture authenticated Jurisdiction Command evidence
+        run: >-
+          npx playwright test
+          tests/e2e/jurisdiction-command.spec.ts
+          --project=chromium-desktop
+          --workers=1
+          --retries=0
+
+      - name: Collect server evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/jurisdiction-command
+          if [ -f /tmp/jurisdiction-command-next.log ]; then
+            cp /tmp/jurisdiction-command-next.log artifacts/jurisdiction-command/server.log
+          fi
+
+      - name: Upload Jurisdiction Command evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jurisdiction-command-${{ github.run_id }}
+          path: |
+            artifacts/jurisdiction-command/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore production migration source tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
+      - name: Stop isolated services
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/jurisdiction-command-next.pid ]; then
+            kill "$(cat /tmp/jurisdiction-command-next.pid)" 2>/dev/null || true
+          fi
+          supabase stop --no-backup || true

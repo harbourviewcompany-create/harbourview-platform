@@ -3,6 +3,7 @@
 // NO 'server-only' — safe to import from 'use client' components.
 
 import type { RoleId } from '@/types/globe-router'
+import type { DigestDeltaStatus, DigestPriorityDomain } from '@/lib/signals/digestDelta'
 
 export type DashboardSignal = {
   id: string
@@ -14,8 +15,22 @@ export type DashboardSignal = {
   timeAgo: string
   confidence: number
   commercialImpact: string
+  /** Safe authenticated presentation fields. Raw/private signal analysis never belongs in this DTO. */
+  summary?: string
   sourceLabel?: string   // source attribution (regulator name or 'Harbourview Intelligence'); optional — not all signal sources supply it
   sourceUrl?: string     // link to the original article for editorial content; optional
+  publishedAt?: string
+  verificationStatus?: string
+  jurisdictions?: string[]
+  counterparties?: string[]
+  facilities?: string[]
+  licencesCertifications?: string[]
+  products?: string[]
+  marketAccess?: string[]
+  verifiedFacts?: string[]
+  inferences?: string[]
+  transactionStage?: string
+  image?: { url?: string; status?: string }
   flag?: string          // country flag emoji; optional — not all signal sources supply it
   /** Canonical first-slice Decision Intelligence event identifier when this feed row can resolve to a dossier. */
   decisionIntelEventId?: string
@@ -38,6 +53,19 @@ export type DashboardSignal = {
     confidence_rationale?: string
   }
 
+  // ── Daily Brief cross-edition delta metadata ──────────────────────────────
+  // Present only on curated Daily Brief signal cards. Optional so older
+  // editions and the live ranked fallback remain backward compatible.
+  eventKey?: string | null
+  priorEventKey?: string | null
+  deltaStatus?: DigestDeltaStatus | null
+  advancementReason?: string | null
+  jurisdiction?: string
+  entities?: string[]
+  priorityDomain?: DigestPriorityDomain
+  competitivePositionChange?: boolean
+  competitivePositionDetail?: string | null
+
   // ── Quality-brain display fields (Pipeline B) ───────────────────────────────
   // Computed upstream; optional so older/fixture rows keep working.
   /** How many related source observations in this feed report the same development. */
@@ -59,7 +87,7 @@ export const ROLE_PROFILES: Partial<Record<RoleId, { label: string; short: strin
   cultivator_producer:        { label: 'Cultivator / Producer',    short: 'Cultivator'  },
   geneticist_breeder:         { label: 'Geneticist / Breeder',     short: 'Geneticist'  },
   processor_extractor:        { label: 'Processor / Extractor',    short: 'Processor'   },
-  lab_qa:                     { label: 'Lab / QA',                 short: 'Lab/QA'      },
+  lab_qa:                     { label: 'Lab / QA',                  short: 'Lab/QA'      },
   importer:                   { label: 'Importer / Buyer',         short: 'Importer'    },
   exporter:                   { label: 'Exporter / Supplier',      short: 'Exporter'    },
   distributor_wholesaler:     { label: 'Distributor / Wholesaler', short: 'Distributor' },
