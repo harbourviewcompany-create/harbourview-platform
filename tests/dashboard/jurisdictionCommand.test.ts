@@ -48,6 +48,10 @@ describe('Jurisdiction Command production contracts', () => {
     path.join(root, 'supabase/migrations/20260815222000_jurisdiction_command_canada_refresh.sql'),
     'utf8',
   )
+  const visualWorkflowSource = fs.readFileSync(
+    path.join(root, '.github/workflows/jurisdiction-command-visual.yml'),
+    'utf8',
+  )
 
   it('keeps All roles useful instead of returning the legacy dead-end pathway copy', () => {
     expect(sectionSource).toContain('Country-level access remains available in All roles')
@@ -77,5 +81,12 @@ describe('Jurisdiction Command production contracts', () => {
     expect(migrationSource).toContain('Cannabis Regulations, not the former ACMPR framework')
     expect(migrationSource).toContain("last_reviewed_date = DATE '2026-08-15'")
     expect(migrationSource).not.toContain('review was completed in 2023')
+  })
+
+  it('keeps the Industrial Hemp future state source-grounded without inventing an exact date', () => {
+    expect(visualWorkflowSource).toContain('Health Canada Forward Regulatory Plan 2026-2028')
+    expect(visualWorkflowSource).toContain('expected in spring 2027')
+    expect(visualWorkflowSource).toContain('null::date')
+    expect(visualWorkflowSource).not.toContain('current_date + 90')
   })
 })
