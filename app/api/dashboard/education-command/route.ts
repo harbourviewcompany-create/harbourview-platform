@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { parseEducationCountry } from '@/lib/education/command'
 import { getEducationCommand } from '@/lib/server/educationCommandQuery'
 import { createClient } from '@/lib/supabase/server'
-
-function cleanCountry(value: string | null): string {
-  const head = (value ?? 'CA').trim().toUpperCase().split('-')[0].replace(/[^A-Z]/g, '')
-  return head.length === 2 ? head : 'CA'
-}
 
 function cleanRole(value: string | null): string | null {
   const normalized = (value ?? '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
@@ -17,7 +13,13 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
 
-  const country = cleanCountry(request.nextUrl.searchParams.get('country'))
+  const country = parseEducationCountry(request.nextUrl.searchParams.get('country'))
+  if (!country) {
+    return NextResponse.json(
+      { error: 'country query parameter is required (ISO 3166-1 alpha-2)' },
+      { status: 400 },
+    )
+  }
   const role = cleanRole(request.nextUrl.searchParams.get('role'))
 
   try {
