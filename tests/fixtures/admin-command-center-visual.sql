@@ -43,7 +43,6 @@ create table public.marketplace_candidates (
   discovered_at timestamptz,
   candidate_type text,
   status text,
-  title text,
   title_internal text,
   title_public_draft text,
   country text,
@@ -108,6 +107,19 @@ create table public.signals (
 grant select, insert, update, delete on public.hv_admin_review_queue, public.marketplace_inquiries,
   public.marketplace_candidates, public.scraper_source_state, public.pipeline_tasks, public.audit_events,
   public.signals to service_role;
+
+-- Harbourview's application clients are locked to the exposed api schema. The
+-- isolated visual fixture mirrors the production proxy-view architecture rather
+-- than allowing tests to succeed through direct public-schema access.
+create view api.hv_admin_review_queue with (security_invoker = true) as select * from public.hv_admin_review_queue;
+create view api.marketplace_inquiries with (security_invoker = true) as select * from public.marketplace_inquiries;
+create view api.marketplace_candidates with (security_invoker = true) as select * from public.marketplace_candidates;
+create view api.scraper_source_state with (security_invoker = true) as select * from public.scraper_source_state;
+create view api.pipeline_tasks with (security_invoker = true) as select * from public.pipeline_tasks;
+create view api.audit_events with (security_invoker = true) as select * from public.audit_events;
+grant select on api.hv_admin_review_queue, api.marketplace_inquiries, api.marketplace_candidates,
+  api.scraper_source_state, api.pipeline_tasks, api.audit_events to service_role;
+grant insert on api.audit_events to service_role;
 
 create or replace function api.list_engine_review_queue(
   p_country text default null,
@@ -174,7 +186,7 @@ insert into public.hv_admin_review_queue(queue_type,target_entity_type,target_en
 values ('signal_review','engine_signal','00000000-0000-4000-8000-000000000101',5,'pending','Urgent persistent signal review assignment',now()-interval '2 hours');
 
 insert into public.marketplace_inquiries(inquiry_type,contact_company,contact_name,message,review_status,priority,created_at)
-values ('quote_request','EU Importer GmbH','Visual Operator','Qualified inbound request requires operator follow-up.','open','high',now()-interval '5 hours');
+values ('quote_request','EU Importer GmbH','Visual Operator','Qualified inbound request requires operator follow-up.','received','high',now()-interval '5 hours');
 
 insert into public.marketplace_candidates(candidate_type,status,title_internal,country,created_at)
 values
