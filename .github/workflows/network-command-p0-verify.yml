@@ -34,5 +34,7 @@ jobs:
         run: npm ci
       - name: Network Command tests
         run: npx vitest run tests/network/network-command-p0.test.ts tests/network/public-projection-leakage.test.ts
+      - name: Generate Next route types
+        run: npx next typegen
       - name: Network Command type check
         run: npx tsc --project tsconfig.network-command-p0.json --noEmit
