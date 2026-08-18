@@ -2,12 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "incremental": false,
-    "noEmit": true
+    "noEmit": true,
+    "types": ["node", "react", "react-dom", "next"]
   },
   "include": [
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
     "lib/network/**/*.ts",
     "app/api/network/**/*.ts",
     "app/dashboard/network/**/*.tsx",
@@ -19,6 +17,7 @@
     "tests",
     "src",
     "supabase/functions",
-    "tools"
+    "tools",
+    ".next"
   ]
 }
