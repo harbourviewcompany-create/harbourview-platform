@@ -1,0 +1,70 @@
+name: Admin Command Center P0-P4 Run Pointer
+
+on:
+  push:
+    branches:
+      - codex/admin-command-center-p0-p4
+
+permissions:
+  actions: read
+  contents: read
+  statuses: write
+
+jobs:
+  publish-pointer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Find and wait for primary verification run
+        id: primary
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=''
+          for attempt in $(seq 1 60); do
+            run_id=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/workflows/admin-command-center-p0-p4-verify.yml/runs?event=push&per_page=50" --jq ".workflow_runs[] | select(.head_sha == \"${GITHUB_SHA}\") | .id" | head -n1 || true)
+            if [ -n "$run_id" ]; then break; fi
+            sleep 2
+          done
+          if [ -z "$run_id" ]; then
+            echo 'Primary Admin Command Center verification run was not found.' >&2
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          conclusion=''
+          for attempt in $(seq 1 720); do
+            status=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status')
+            if [ "$status" = 'completed' ]; then
+              conclusion=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.conclusion')
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$conclusion" ]; then conclusion='timed_out'; fi
+          echo "conclusion=$conclusion" >> "$GITHUB_OUTPUT"
+
+      - name: Publish run pointer as commit status
+        if: always()
+        shell: bash
+        env:
+          RUN_ID: ${{ steps.primary.outputs.run_id }}
+          CONCLUSION: ${{ steps.primary.outputs.conclusion }}
+        run: |
+          set -euo pipefail
+          run_id="${RUN_ID:-unknown}"
+          conclusion="${CONCLUSION:-pointer_failed}"
+          case "$conclusion" in
+            success) state='success' ;;
+            failure|cancelled|timed_out) state='failure' ;;
+            *) state='error' ;;
+          esac
+          target_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${run_id}"
+          description="run:${run_id} conclusion:${conclusion}"
+          gh api --method POST "/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+            -f state="$state" \
+            -f context='admin-command-center-p0-p4-evidence' \
+            -f description="$description" \
+            -f target_url="$target_url" >/dev/null
+          echo "$description"
