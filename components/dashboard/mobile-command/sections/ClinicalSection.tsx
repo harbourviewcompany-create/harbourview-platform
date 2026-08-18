@@ -15,10 +15,28 @@ import {
   hasClinicalAuthorityCoverage,
   safeClinicalBriefing,
 } from '../clinicalCommandContract'
-import ClinicalEvidenceExplorer from '../ClinicalEvidenceExplorer'
 import { SectionShell, type SectionRef } from '../SectionUI'
+import '../ClinicalWorkspace.css'
 
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
+
+function clinicalWorkspaceHref(commandHref: string): string {
+  const sourceQuery = commandHref.includes('?') ? commandHref.slice(commandHref.indexOf('?') + 1) : ''
+  const source = new URLSearchParams(sourceQuery)
+  const target = new URLSearchParams()
+  const country = source.get('country')?.trim()
+  const role = source.get('role')?.trim()
+  if (country) target.set('country', country)
+  if (role) target.set('role', role)
+  const query = target.toString()
+  return `/dashboard/clinical${query ? `?${query}` : ''}`
+}
+
+function professionalPathwayLabel(roleShort: string): string {
+  const normalized = roleShort.trim().toLocaleLowerCase()
+  if (!normalized || normalized === 'all roles' || normalized === 'all') return 'Professional requirements'
+  return roleShort
+}
 
 export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalStatus, patientAccess, physicianAccess, commandHref }: {
   sectionRef: SectionRef
@@ -30,6 +48,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
   commandHref: CommandHref
 }) {
   const clinicalHref = commandHref('clinical')
+  const workspaceHref = clinicalWorkspaceHref(clinicalHref)
   const countryIso2 = countryIso2FromCommandHref(clinicalHref)
   const jurisdictionLabel = clinicalJurisdictionLabel(countryIso2)
   const authorities = getClinicalAuthoritiesForCountry(countryIso2)
@@ -45,6 +64,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
   const safePatientAccess = safeClinicalBriefing(patientAccess)
   const safePhysicianAccess = safeClinicalBriefing(physicianAccess)
   const jurisdictionStatus = safeClinicalBriefing(programStatus) || safeClinicalBriefing(medicalStatus)
+  const professionalLabel = professionalPathwayLabel(roleShort)
 
   const frameworkAuthority = authorities.find(item => item.id === 'federal-authority')
   const documentAuthority = authorities.find(item => item.id === 'medical-document')
@@ -56,111 +76,88 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       id="clinical"
       sectionRef={sectionRef}
       eyebrow="Clinical"
-      title="Professional clinical command"
-      description="Reviewed cannabinoid and medical-cannabis clinical reference for medical professionals. Evidence and regulatory status stay distinct from product marketing and genetics. Not a general medicines monograph service."
-      action={<Link className="hvm2-text-link" href={clinicalHref}>Open clinician workspace</Link>}
+      title="Clinical command"
+      description={`Decision-ready cannabinoid and medical-cannabis clinical context for ${jurisdictionLabel}.`}
+      action={<Link className="hvm2-text-link hvc-open-workspace" href={workspaceHref}>Open Clinical workspace →</Link>}
     >
-      <div className="hvm2-sourcing-note" data-sourcing="loaded" role="note">
-        <strong>Evidence command · {jurisdictionLabel}</strong>
-        <p>{CLINICAL_SCOPE_NOTICE}</p>
-      </div>
+      <div className="hvc-command-summary" aria-label="Clinical decision summary">
+        <article className="hvc-command-card hvc-command-status">
+          <span>Status</span>
+          <strong>{formatStatus(sourceState)}</strong>
+          <p>{CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
+        </article>
 
-      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
-
-      <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' || sourceState === 'limited-coverage' ? 'status' : undefined}>
-        <strong>Jurisdiction briefing · {formatStatus(sourceState)} · {jurisdictionLabel}</strong>
-        <p>{CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
-      </div>
-
-      <div className="hvm2-compliance-grid" aria-label="Clinical command summary">
-        <article>
+        <article className="hvc-command-card">
           <span>What changed</span>
           <strong>{frameworkAuthority ? 'Primary framework authority' : 'Authority pack unavailable'}</strong>
           <p>
             {frameworkAuthority
-              ? `Use current ${jurisdictionLabel} primary authorities rather than legacy or foreign frameworks.`
-              : `No reviewed authority pack is published for ${jurisdictionLabel}. Clinical Command will not substitute another country's rules.`}
+              ? `Use the current ${jurisdictionLabel} primary framework for material clinical decisions.`
+              : `No reviewed primary-authority pack is published for ${jurisdictionLabel}; another jurisdiction is not substituted.`}
           </p>
-          {frameworkAuthority && (
-            <a className="hvm2-text-link" href={frameworkAuthority.href} target="_blank" rel="noreferrer">Primary authority ↗</a>
-          )}
+          {frameworkAuthority && <a href={frameworkAuthority.href} target="_blank" rel="noreferrer">Open authority ↗</a>}
         </article>
-        <article>
-          <span>What requires attention</span>
-          <strong>{sourceState === 'loaded' ? 'Verify against source' : 'Briefing needs review'}</strong>
-          <p>{sourceState === 'loaded' ? 'Jurisdiction briefing is present; confirm material decisions against the cited authority and professional regulator.' : CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
-        </article>
-      </div>
 
-      {authorities.length > 0 && (
-        <div className="hvm2-horizontal-deck" aria-label="Clinical actions">
-          {documentAuthority && (
-            <article className="hvm2-directory-card">
-              <span>What can I do next</span>
-              <h3>{documentAuthority.label}</h3>
-              <p>{documentAuthority.purpose}</p>
-              <a className="hvm2-text-link" href={documentAuthority.href} target="_blank" rel="noreferrer">Open primary source ↗</a>
-            </article>
-          )}
-          {safetyAuthority && (
-            <article className="hvm2-directory-card">
-              <span>Patient safety</span>
-              <h3>{safetyAuthority.label}</h3>
-              <p>{safetyAuthority.purpose}</p>
-              <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Open guidance ↗</a>
-            </article>
-          )}
-          {pharmacovigilanceAuthority && (
-            <article className="hvm2-directory-card">
-              <span>Pharmacovigilance</span>
-              <h3>{pharmacovigilanceAuthority.label}</h3>
-              <p>{pharmacovigilanceAuthority.purpose}</p>
-              <a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">Reporting guidance ↗</a>
-            </article>
-          )}
-          <article className="hvm2-directory-card">
-            <span>Professional education</span>
-            <h3>Reviewed clinical modules</h3>
-            <p>Open Harbourview's existing professional-only clinical education surface and its review-status controls.</p>
-            <Link className="hvm2-text-link" href="/network/clinical-education">Clinical education →</Link>
-          </article>
-        </div>
-      )}
-
-      <div className="hvm2-two-column" aria-label="Jurisdiction clinical briefing">
-        <article>
-          <span>Jurisdiction pathway</span>
-          <h3>{jurisdictionStatus || 'Jurisdiction-specific status unavailable'}</h3>
-          <p>{safePatientAccess || 'No current reviewed patient-access briefing is available for this context. Treat the field as unknown rather than inferring a pathway.'}</p>
-          <Link className="hvm2-text-link" href={commandHref('jurisdiction')}>Jurisdiction command →</Link>
+        <article className="hvc-command-card">
+          <span>Needs attention</span>
+          <strong>{sourceState === 'loaded' ? 'Confirm applicability' : 'Briefing requires review'}</strong>
+          <p>{sourceState === 'loaded' ? 'Check population, formulation, professional scope, source date and jurisdiction before relying on a record.' : CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
         </article>
-        <article>
+
+        <article className="hvc-command-card">
+          <span>Evidence</span>
+          <strong>Governed evidence workspace</strong>
+          <p>Search reviewed evidence and inspect certainty, provenance, conflicts, currentness and formulation context.</p>
+          <Link href={workspaceHref}>Search evidence →</Link>
+        </article>
+
+        <article className="hvc-command-card">
+          <span>Safety</span>
+          <strong>{safetyAuthority ? safetyAuthority.label : 'Primary safety guidance'}</strong>
+          <p>{safetyAuthority?.purpose ?? 'No reviewed safety authority is registered for this jurisdiction.'}</p>
+          {safetyAuthority && <a href={safetyAuthority.href} target="_blank" rel="noreferrer">Open guidance ↗</a>}
+        </article>
+
+        <article className="hvc-command-card">
           <span>Professional pathway</span>
-          <h3>{roleShort || 'All roles'}</h3>
-          <p>{safePhysicianAccess || 'No current reviewed profession-specific briefing is available for this context. Confirm requirements with the applicable professional regulator for this jurisdiction.'}</p>
-          <Link className="hvm2-text-link" href={clinicalHref}>Clinical workspace →</Link>
+          <strong>{professionalLabel}</strong>
+          <p>{safePhysicianAccess || 'No reviewed profession-specific pathway is available for this context. Confirm requirements with the applicable professional regulator.'}</p>
+          <Link href={workspaceHref}>Open professional workspace →</Link>
+        </article>
+
+        <article className="hvc-command-card hvc-command-jurisdiction">
+          <span>Jurisdiction pathway</span>
+          <strong>{jurisdictionStatus || 'Jurisdiction-specific status unavailable'}</strong>
+          <p>{safePatientAccess || 'No current reviewed patient-access briefing is available. Treat the pathway as unknown rather than inferring one.'}</p>
+          <Link href={commandHref('jurisdiction')}>Jurisdiction command →</Link>
         </article>
       </div>
 
-      {authorities.length > 0 ? (
-        <div className="hvm2-horizontal-deck" aria-label="Clinical provenance">
-          {authorities.map(source => (
-            <article className="hvm2-directory-card" key={`${source.countryIso2}-${source.id}`}>
-              <span>{source.evidenceType.replaceAll('-', ' ')}</span>
-              <h3>{source.label}</h3>
-              <p>{source.purpose}</p>
-              <p><strong>{source.jurisdiction}</strong> · {source.evidenceStrength}</p>
-              <p>Verified {source.verifiedAt} · {source.sourceName}</p>
-              <a className="hvm2-text-link" href={source.href} target="_blank" rel="noreferrer">Primary source ↗</a>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="hvm2-sourcing-note" data-sourcing="limited-coverage" role="status">
-          <strong>No primary-authority pack · {jurisdictionLabel}</strong>
-          <p>{CLINICAL_SOURCE_STATE_COPY['limited-coverage']}</p>
+      {(documentAuthority || pharmacovigilanceAuthority) && (
+        <div className="hvc-command-actions" aria-label="Clinical primary-source actions">
+          {documentAuthority && <a href={documentAuthority.href} target="_blank" rel="noreferrer"><span>Authorization</span><strong>{documentAuthority.label}</strong><small>Primary source ↗</small></a>}
+          {pharmacovigilanceAuthority && <a href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer"><span>Monitoring</span><strong>{pharmacovigilanceAuthority.label}</strong><small>Primary source ↗</small></a>}
+          <Link href="/network/clinical-education"><span>Education</span><strong>Reviewed clinical modules</strong><small>Open modules →</small></Link>
         </div>
       )}
+
+      <details className="hvc-provenance-pack">
+        <summary>Sources, provenance and scope</summary>
+        <p>{CLINICAL_SCOPE_NOTICE}</p>
+        {authorities.length > 0 ? (
+          <div className="hvc-provenance-list">
+            {authorities.map(source => (
+              <a href={source.href} target="_blank" rel="noreferrer" key={`${source.countryIso2}-${source.id}`}>
+                <strong>{source.label}</strong>
+                <span>{source.sourceName} · verified {source.verifiedAt}</span>
+                <span>{source.evidenceStrength}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p>No reviewed primary-authority pack is registered for {jurisdictionLabel}.</p>
+        )}
+      </details>
     </SectionShell>
   )
 }
