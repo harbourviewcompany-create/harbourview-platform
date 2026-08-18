@@ -1,15 +1,14 @@
 /**
- * Clinical Evidence Command — unified data path
- * Evidence: GET /api/clinical/evidence
+ * Clinical Evidence Command — production data paths
+ * Evidence: GET /api/clinical/evidence → { state, records, message }
  * Formulary: GET /api/clinical/formulary
- * Education: dual surface link
- * Dosing / interactions: decision-support helpers (not prescriptions)
+ * Education: GET /api/clinical/education
+ * Interactions: GET /api/clinical/interactions
  */
 'use client'
 
 import React, { useCallback, useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { clinicalEducationModules } from '@/lib/fixtures/clinical-education'
 import {
   JURISDICTION_BRIEFINGS,
   PROFESSIONAL_PATHWAYS,
@@ -22,6 +21,7 @@ import {
   CAUTION_MG_PER_KG_PER_DAY,
 } from '@/lib/clinical/dosing'
 import type { FormularyProductDTO } from '@/lib/clinical/formulary'
+import type { ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
 
 export type ClinicalEvidenceCommandPageProps = {
   countryLabel: string
@@ -29,27 +29,27 @@ export type ClinicalEvidenceCommandPageProps = {
   roleLabel?: string
 }
 
-type EvidenceApiRecord = {
+type EduModule = {
   id: string
+  slug: string
   title: string
-  summary: string
-  condition?: string | null
-  cannabinoid?: string[]
-  formulation?: string | null
-  evidenceStrength?: string
-  evidenceType?: string
-  uncertainty?: string | null
-  primarySource?: { title?: string; publisher?: string; url?: string }
-  verifiedAt?: string
-  jurisdictions?: string[]
+  route?: string
+  moduleStatus?: string
+  riskLevel?: string
+  publicSummary?: string
 }
 
-type EvidenceApiResult = {
-  state?: string
-  records?: EvidenceApiRecord[]
-  items?: EvidenceApiRecord[]
-  data?: EvidenceApiRecord[]
-  message?: string
+type InteractionRow = {
+  id: string
+  medicationIngredient: string
+  cannabinoid: string
+  mechanism: string | null
+  clinicalSignificance: string
+  evidenceCertainty: string
+  uncertainty: string | null
+  monitoringConsideration: string | null
+  primarySourceTitle: string
+  primarySourceUrl: string | null
 }
 
 const card = 'bg-[#161b22] border border-white/8 rounded-xl'
@@ -84,29 +84,24 @@ function StatusBadge({
   )
 }
 
-function extractRecords(payload: EvidenceApiResult): EvidenceApiRecord[] {
-  if (Array.isArray(payload.records)) return payload.records
-  if (Array.isArray(payload.items)) return payload.items
-  if (Array.isArray(payload.data)) return payload.data
-  return []
-}
-
 export default function ClinicalEvidenceCommandPage({
   countryLabel,
   countryIso2 = 'BR',
   roleLabel = 'All roles',
 }: ClinicalEvidenceCommandPageProps) {
   const iso2 = (countryIso2 || 'BR').toUpperCase()
-  const [records, setRecords] = useState<EvidenceApiRecord[]>([])
+  const [records, setRecords] = useState<ClinicalEvidenceRecordDTO[]>([])
+  const [evidenceState, setEvidenceState] = useState('loading')
+  const [evidenceMessage, setEvidenceMessage] = useState('')
   const [formulary, setFormulary] = useState<FormularyProductDTO[]>([])
+  const [modules, setModules] = useState<EduModule[]>([])
+  const [interactions, setInteractions] = useState<InteractionRow[]>([])
   const [query, setQuery] = useState('')
+  const [ixQuery, setIxQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
-  const [evidenceState, setEvidenceState] = useState<string>('loading')
-  const [formularyState, setFormularyState] = useState<string>('loading')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Dosing calculator (decision support only)
   const [weightKg, setWeightKg] = useState('70')
   const [mgPerKg, setMgPerKg] = useState('2.5')
   const [dosesPerDay, setDosesPerDay] = useState('2')
@@ -118,60 +113,68 @@ export default function ClinicalEvidenceCommandPage({
   const attention = getAttentionItems(iso2)
   const nextActions = getNextActions(iso2)
 
-  const loadEvidence = useCallback(
-    async (q: string) => {
-      setError(null)
-      const params = new URLSearchParams()
-      if (q.trim()) params.set('q', q.trim())
-      params.set('jurisdiction', iso2)
-      params.set('limit', '30')
-      const res = await fetch(`/api/clinical/evidence?${params}`)
-      const body = (await res.json().catch(() => ({}))) as EvidenceApiResult
-      if (!res.ok) {
-        setEvidenceState('error')
-        setRecords([])
-        setError(body.message ?? `Evidence API ${res.status}`)
-        return
-      }
-      const list = extractRecords(body)
-      setRecords(list)
-      setEvidenceState(body.state ?? (list.length ? 'loaded' : 'empty'))
-    },
-    [iso2],
-  )
-
-  const loadFormulary = useCallback(async () => {
-    const params = new URLSearchParams({ country: iso2, limit: '30' })
-    const res = await fetch(`/api/clinical/formulary?${params}`)
+  const loadEvidence = useCallback(async (q: string) => {
+    setError(null)
+    const params = new URLSearchParams()
+    if (q.trim()) params.set('q', q.trim())
+    params.set('jurisdiction', iso2)
+    params.set('limit', '30')
+    const res = await fetch(`/api/clinical/evidence?${params}`)
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setFormularyState('error')
-      setFormulary([])
+      setEvidenceState('error')
+      setRecords([])
+      setEvidenceMessage(body.message ?? `Evidence API ${res.status}`)
+      setError(body.message ?? `Evidence API ${res.status}`)
       return
     }
-    setFormulary(body.products ?? [])
-    setFormularyState(body.state ?? 'empty')
+    // Contract: ClinicalEvidenceSearchResult { state, records, message, changes }
+    const list = Array.isArray(body.records) ? (body.records as ClinicalEvidenceRecordDTO[]) : []
+    setRecords(list)
+    setEvidenceState(typeof body.state === 'string' ? body.state : list.length ? 'loaded' : 'empty')
+    setEvidenceMessage(typeof body.message === 'string' ? body.message : '')
   }, [iso2])
+
+  const loadFormulary = useCallback(async () => {
+    const res = await fetch(`/api/clinical/formulary?country=${encodeURIComponent(iso2)}&limit=40`)
+    const body = await res.json().catch(() => ({}))
+    setFormulary(Array.isArray(body.products) ? body.products : [])
+  }, [iso2])
+
+  const loadEducation = useCallback(async () => {
+    const res = await fetch('/api/clinical/education')
+    const body = await res.json().catch(() => ({}))
+    setModules(Array.isArray(body.modules) ? body.modules : [])
+  }, [])
+
+  const loadInteractions = useCallback(async (q: string) => {
+    const params = new URLSearchParams({ limit: '25' })
+    if (q.trim()) params.set('q', q.trim())
+    const res = await fetch(`/api/clinical/interactions?${params}`)
+    const body = await res.json().catch(() => ({}))
+    setInteractions(Array.isArray(body.interactions) ? body.interactions : [])
+  }, [])
 
   useEffect(() => {
     startTransition(() => {
       void loadEvidence('')
       void loadFormulary()
+      void loadEducation()
+      void loadInteractions('')
     })
-  }, [loadEvidence, loadFormulary])
+  }, [loadEvidence, loadFormulary, loadEducation, loadInteractions])
 
   const filters = ['Evidence', 'Safety', 'Interactions', 'Formulations', 'Guidelines', 'Practice', 'Monitoring']
 
   const filtered = records.filter((r) => {
-    if (!activeFilter) return true
-    const blob = `${r.title} ${r.summary} ${r.evidenceType ?? ''} ${r.condition ?? ''}`.toLowerCase()
+    if (!activeFilter || activeFilter === 'Evidence') return true
+    const blob = `${r.title} ${r.summary} ${r.evidenceType} ${r.condition ?? ''} ${(r.cannabinoid ?? []).join(' ')}`.toLowerCase()
     const map: Record<string, RegExp> = {
-      Evidence: /efficac|trial|review|pain|epilepsy|condition/,
-      Safety: /safety|adverse|tolerab|sedation|hepatic/,
-      Interactions: /interaction|cyp|clobazam|drug–drug|drug-drug/,
-      Formulations: /formulation|oral|oromucosal|inhal|isolate|spectrum/,
+      Safety: /safety|adverse|tolerab|sedation|hepatic|pharmacovigilance/,
+      Interactions: /interaction|cyp|clobazam|drug/,
+      Formulations: /formulation|oral|oromucosal|inhal|isolate|spectrum|oil/,
       Guidelines: /guideline|consensus|guidance/,
-      Practice: /practice|prescrib|monitoring|clinical/,
+      Practice: /practice|prescrib|clinical/,
       Monitoring: /monitor|lab|hepatic|follow/,
     }
     return (map[activeFilter] ?? /./).test(blob)
@@ -181,15 +184,22 @@ export default function ClinicalEvidenceCommandPage({
     setDoseError(null)
     setDoseResult(null)
     try {
-      const result = computeWeightBasedCannabinoidDose({
-        weightKg: Number(weightKg),
-        mgPerKgPerDay: Number(mgPerKg),
-        dosesPerDay: Math.round(Number(dosesPerDay)),
-      })
-      setDoseResult(result)
+      setDoseResult(
+        computeWeightBasedCannabinoidDose({
+          weightKg: Number(weightKg),
+          mgPerKgPerDay: Number(mgPerKg),
+          dosesPerDay: Math.round(Number(dosesPerDay)),
+        }),
+      )
     } catch (e) {
       setDoseError(e instanceof Error ? e.message : 'Calculation failed')
     }
+  }
+
+  const significanceTone = (s: string) => {
+    if (s === 'major') return 'text-red-400'
+    if (s === 'moderate') return 'text-amber-400'
+    return 'text-white/70'
   }
 
   return (
@@ -199,12 +209,11 @@ export default function ClinicalEvidenceCommandPage({
         <h2 className="text-xl font-semibold leading-snug text-white">Professional clinical command</h2>
         <p className={`mt-2 text-sm leading-relaxed ${muted}`}>
           Reviewed cannabinoid and medical-cannabis clinical reference for medical professionals.
-          Evidence and regulatory status stay distinct from product marketing and genetics.
-          Not a general medicines monograph service. Not patient-specific advice.
+          Evidence, formulary and interactions stay distinct from product marketing and genetics.
+          Not medical advice. Not patient-specific guidance.
         </p>
       </section>
 
-      {/* Evidence — API-backed */}
       <section className={`${card} p-4`}>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -212,7 +221,7 @@ export default function ClinicalEvidenceCommandPage({
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className={`text-sm ${muted}`}>{roleLabel}</span>
               <StatusBadge
-                label={filtered.length > 0 ? 'Ready' : evidenceState === 'loading' ? 'Loading' : 'No records'}
+                label={filtered.length > 0 ? 'Ready' : evidenceState}
                 tone={filtered.length > 0 ? 'ready' : 'empty'}
               />
             </div>
@@ -255,10 +264,11 @@ export default function ClinicalEvidenceCommandPage({
           {error && <p className="text-sm text-amber-400">{error}</p>}
           {!isPending && filtered.length === 0 && (
             <div className="rounded-lg bg-white/[0.03] px-3.5 py-4">
-              <p className="text-sm font-medium text-white/80">0 reviewed records for this context</p>
+              <p className="text-sm font-medium text-white/80">
+                {evidenceMessage || '0 reviewed records for this context'}
+              </p>
               <p className={`mt-1.5 text-sm leading-relaxed ${muted}`}>
-                Enter a condition or clinical question to search reviewed evidence from the production
-                clinical evidence spine. Not patient-specific advice.
+                Search uses the production clinical evidence spine. State: {evidenceState}.
               </p>
             </div>
           )}
@@ -266,17 +276,15 @@ export default function ClinicalEvidenceCommandPage({
             <article key={r.id} className={`${card} space-y-2 p-4`}>
               <div className="flex items-start justify-between gap-2">
                 <h3 className="text-sm font-medium leading-snug text-white/90">{r.title}</h3>
-                {r.evidenceStrength && (
-                  <span className="rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase text-sky-400">
-                    {r.evidenceStrength}
-                  </span>
-                )}
+                <span className="rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase text-sky-400">
+                  {r.evidenceStrength}
+                </span>
               </div>
               <p className={`text-xs ${muted}`}>
                 {[r.condition, (r.cannabinoid ?? []).join(', '), r.formulation].filter(Boolean).join(' · ')}
               </p>
               <p className={`text-sm leading-relaxed ${muted}`}>{r.summary}</p>
-              {r.uncertainty && <p className={`text-xs text-amber-400/80`}>{r.uncertainty}</p>}
+              {r.uncertainty && <p className="text-xs text-amber-400/80">{r.uncertainty}</p>}
               <div className={`border-t border-white/6 pt-2 text-[11px] ${muted}`}>
                 {r.primarySource?.title ?? 'Source'} · Verified {r.verifiedAt?.slice(0, 10) ?? '—'}
                 {r.primarySource?.url && (
@@ -290,86 +298,111 @@ export default function ClinicalEvidenceCommandPage({
         </div>
       </section>
 
-      {/* Decision support: dosing + interactions */}
+      {/* Interactions tool */}
+      <section className={`${card} p-4`}>
+        <SectionLabel>Interactions tool</SectionLabel>
+        <p className={`text-sm leading-relaxed ${muted}`}>
+          Published cannabinoid–medication interaction references. Decision support only — confirm with
+          primary sources and the patient&apos;s full medication list.
+        </p>
+        <form
+          className="mt-3 flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void loadInteractions(ixQuery)
+          }}
+        >
+          <input
+            value={ixQuery}
+            onChange={(e) => setIxQuery(e.target.value)}
+            placeholder="Search drug or cannabinoid (e.g. clobazam, CBD)…"
+            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/35"
+          />
+          <button type="submit" className="rounded-lg bg-[#d4a853]/20 px-3 py-2 text-sm text-[#d4a853]">
+            Search
+          </button>
+        </form>
+        <ul className="mt-3 space-y-2">
+          {interactions.map((ix) => (
+            <li key={ix.id} className="rounded-lg bg-white/[0.03] px-3 py-2">
+              <p className="text-sm font-medium text-white/90">
+                {ix.medicationIngredient} × {ix.cannabinoid}{' '}
+                <span className={`text-xs uppercase ${significanceTone(ix.clinicalSignificance)}`}>
+                  {ix.clinicalSignificance}
+                </span>
+              </p>
+              {ix.mechanism && <p className={`mt-0.5 text-xs ${muted}`}>{ix.mechanism}</p>}
+              {ix.monitoringConsideration && (
+                <p className="mt-1 text-xs text-amber-400/90">{ix.monitoringConsideration}</p>
+              )}
+              <p className={`mt-1 text-[11px] ${muted}`}>
+                {ix.primarySourceTitle} · {ix.evidenceCertainty}
+                {ix.primarySourceUrl && (
+                  <a href={ix.primarySourceUrl} target="_blank" rel="noreferrer" className="ml-2 text-[#d4a853]">
+                    Source ↗
+                  </a>
+                )}
+              </p>
+            </li>
+          ))}
+          {interactions.length === 0 && (
+            <p className={`text-sm ${muted}`}>No published interaction rows for this search.</p>
+          )}
+        </ul>
+      </section>
+
+      {/* Dosing */}
       <section className={`${card} p-4`}>
         <SectionLabel>Decision support · starting dose helper</SectionLabel>
         <p className={`text-sm leading-relaxed ${muted}`}>
-          Weight-based starting-dose calculator (algorithm {DOSING_ALGORITHM_VERSION}). Decision support only —
-          not a prescription. Confirm formulary, jurisdiction, and professional scope before use.
-          Values ≥ {CAUTION_MG_PER_KG_PER_DAY} mg/kg/day are flagged for extra attention.
+          Algorithm {DOSING_ALGORITHM_VERSION}. Not a prescription. Confirm formulary and jurisdiction.
+          Values ≥ {CAUTION_MG_PER_KG_PER_DAY} mg/kg/day are flagged.
         </p>
         <div className="mt-3 grid grid-cols-3 gap-2">
           <label className={`text-xs ${muted}`}>
             Weight (kg)
-            <input
-              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white"
-              value={weightKg}
-              onChange={(e) => setWeightKg(e.target.value)}
-            />
+            <input className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} />
           </label>
           <label className={`text-xs ${muted}`}>
             mg/kg/day
-            <input
-              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white"
-              value={mgPerKg}
-              onChange={(e) => setMgPerKg(e.target.value)}
-            />
+            <input className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" value={mgPerKg} onChange={(e) => setMgPerKg(e.target.value)} />
           </label>
           <label className={`text-xs ${muted}`}>
             Doses/day
-            <input
-              className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white"
-              value={dosesPerDay}
-              onChange={(e) => setDosesPerDay(e.target.value)}
-            />
+            <input className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" value={dosesPerDay} onChange={(e) => setDosesPerDay(e.target.value)} />
           </label>
         </div>
-        <button
-          type="button"
-          onClick={runDoseCalc}
-          className="mt-3 rounded-lg bg-[#d4a853]/20 px-3 py-1.5 text-sm font-medium text-[#d4a853]"
-        >
+        <button type="button" onClick={runDoseCalc} className="mt-3 rounded-lg bg-[#d4a853]/20 px-3 py-1.5 text-sm font-medium text-[#d4a853]">
           Calculate starting point
         </button>
         {doseError && <p className="mt-2 text-sm text-amber-400">{doseError}</p>}
         {doseResult && (
           <div className={`mt-3 rounded-lg bg-white/[0.03] px-3 py-2 text-sm ${muted}`}>
             <p>
-              Total {doseResult.totalMgPerDay} mg/day · {doseResult.mgPerDose} mg/dose ·{' '}
-              {doseResult.dosesPerDay}× daily
+              Total {doseResult.totalMgPerDay} mg/day · {doseResult.mgPerDose} mg/dose · {doseResult.dosesPerDay}× daily
             </p>
             {doseResult.cautions.map((c) => (
-              <p key={c} className="mt-1 text-xs text-amber-400/90">
-                · {c}
-              </p>
+              <p key={c} className="mt-1 text-xs text-amber-400/90">· {c}</p>
             ))}
           </div>
         )}
-        <div className={`mt-4 border-t border-white/6 pt-3 text-sm ${muted}`}>
-          <p className="font-medium text-white/80">Interactions</p>
-          <p className="mt-1 leading-relaxed">
-            CBD is a more significant CYP inhibitor (CYP3A4, CYP2C19, CYP2C9) than THC in most contexts.
-            Monitor with clobazam and narrow-therapeutic-index substrates. Search evidence with filter
-            “Interactions” for graded records. Always cross-check current medications against a dedicated
-            interaction resource and the primary authority.
-          </p>
-        </div>
       </section>
 
-      {/* Formulary — API */}
+      {/* Formulary SKU/class */}
       <section className={`${card} p-4`}>
         <SectionLabel>Formulary · {countryLabel}</SectionLabel>
         <p className={`text-sm leading-relaxed ${muted}`}>
-          Jurisdiction-authorised product reference only. Not marketplace listings. Verify the live register.
+          Published authorised product / class reference. Prefer registration codes when present. Always verify the live authority register — SKU lists change.
         </p>
-        {formularyState === 'loading' && <p className={`mt-2 text-sm ${muted}`}>Loading formulary…</p>}
-        {formulary.length === 0 && formularyState !== 'loading' && (
-          <p className={`mt-3 text-sm ${muted}`}>No published formulary rows for this jurisdiction yet.</p>
-        )}
         <ul className="mt-3 space-y-3">
           {formulary.map((p) => (
             <li key={p.id} className="rounded-lg bg-white/[0.03] px-3 py-2.5">
               <p className="text-sm font-medium text-white/90">{p.name}</p>
+              {(p.brandName || p.registrationCode || p.strengthLabel) && (
+                <p className={`mt-0.5 text-xs text-[#d4a853]/90`}>
+                  {[p.brandName, p.registrationCode, p.strengthLabel].filter(Boolean).join(' · ')}
+                </p>
+              )}
               <p className={`mt-0.5 text-xs ${muted}`}>
                 {p.authorizationStatus} · {p.productClass} · {p.cannabinoidProfile}
               </p>
@@ -381,35 +414,34 @@ export default function ClinicalEvidenceCommandPage({
               )}
             </li>
           ))}
+          {formulary.length === 0 && <p className={`text-sm ${muted}`}>No published formulary rows for this jurisdiction.</p>}
         </ul>
       </section>
 
-      {/* Education dual surface */}
+      {/* Education from live API */}
       <section className={`${card} p-4`}>
         <SectionLabel>Clinical education modules</SectionLabel>
         <p className={`text-sm leading-relaxed ${muted}`}>
-          Professional education themes — separate from graded evidence records.
+          Live professional education modules (approved / Live only). Separate from graded evidence.
         </p>
         <ul className="mt-3 space-y-2">
-          {clinicalEducationModules
-            .filter((m) => m.publicUseApproved || m.moduleStatus === 'Live')
-            .slice(0, 6)
-            .map((m) => (
-              <li key={m.id} className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-white/90">{m.title}</p>
-                  <p className={`text-xs ${muted}`}>
-                    {m.moduleStatus} · {m.riskLevel} risk
-                  </p>
-                </div>
-                <Link
-                  href={m.route || `/network/clinical-education/${m.slug}`}
-                  className="shrink-0 text-xs font-medium text-[#d4a853]"
-                >
-                  Open →
-                </Link>
-              </li>
-            ))}
+          {modules.slice(0, 8).map((m) => (
+            <li key={m.id} className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-white/90">{m.title}</p>
+                <p className={`text-xs ${muted}`}>
+                  {m.moduleStatus ?? '—'} · {m.riskLevel ?? '—'} risk
+                </p>
+              </div>
+              <Link
+                href={m.route || `/network/clinical-education/${m.slug}`}
+                className="shrink-0 text-xs font-medium text-[#d4a853]"
+              >
+                Open →
+              </Link>
+            </li>
+          ))}
+          {modules.length === 0 && <p className={`text-sm ${muted}`}>No published education modules available.</p>}
         </ul>
         <Link href="/network/clinical-education" className="mt-3 inline-flex text-sm font-medium text-[#d4a853]">
           All clinical education →
@@ -423,11 +455,6 @@ export default function ClinicalEvidenceCommandPage({
             <StatusBadge label="Loaded" tone="loaded" />
           </div>
           <p className={`mt-1 text-sm leading-relaxed ${muted}`}>{briefing.summary}</p>
-          {briefing.primaryAuthority.url && (
-            <a href={briefing.primaryAuthority.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-sm text-[#d4a853]">
-              Open primary source ↗
-            </a>
-          )}
         </section>
       )}
 
@@ -441,21 +468,6 @@ export default function ClinicalEvidenceCommandPage({
             </li>
           ))}
         </ul>
-      </section>
-
-      <section className={`${card} p-4`}>
-        <SectionLabel>What can I do next</SectionLabel>
-        {nextActions.map((action) => (
-          <div key={action.id} className="mt-2">
-            <p className="text-sm font-medium text-white/90">{action.title}</p>
-            <p className={`mt-1 text-sm leading-relaxed ${muted}`}>{action.body}</p>
-            {action.primaryActionUrl && (
-              <a href={action.primaryActionUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm text-[#d4a853]">
-                {action.primaryActionLabel}
-              </a>
-            )}
-          </div>
-        ))}
       </section>
 
       {pathway && (
