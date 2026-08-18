@@ -1,0 +1,317 @@
+name: Clinical Corpus Depth Release Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - supabase/migrations/20260814121500_clinical_evidence_spine.sql
+      - supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+      - supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
+      - supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql
+      - supabase/migrations/20260814144000_clinical_evidence_v1_audit_immutability.sql
+      - supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql
+      - supabase/migrations/20260818110000_clinical_evidence_release_publication_guard.sql
+      - supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql
+      - supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql
+      - supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql
+      - supabase/migrations/20260818192000_clinical_graded_evidence_interactions_depth.sql
+      - app/api/clinical/evidence/route.ts
+      - app/api/clinical/interactions/route.ts
+      - lib/server/clinicalEvidenceQuery.ts
+      - lib/server/clinicalInteractionQuery.ts
+      - components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx
+      - tests/clinical/**
+      - .github/workflows/clinical-corpus-depth-release-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-corpus-depth-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Zero-state governed corpus replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run corpus release regression contracts
+        run: >-
+          npx vitest run
+          tests/clinical/corpusDepthRelease.test.ts
+          tests/clinical/clinicalInteractionQuerySource.test.ts
+          tests/clinical/evidenceSpine.test.ts
+          tests/clinical/evidenceSpineStorage.test.ts
+          tests/clinical/evidenceV1Governance.test.ts
+          tests/clinical/evidenceV1ProductionFoundation.test.ts
+          tests/clinical/evidenceV11Operations.test.ts
+          tests/dashboard/mobileClinicalProfessional.test.ts
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Clinical corpus migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            20260814121500_clinical_evidence_spine.sql
+            20260814134500_clinical_evidence_v1_governance.sql
+            20260814135500_clinical_evidence_v1_source_reconciliation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
+            20260814144000_clinical_evidence_v1_audit_immutability.sql
+            20260814150000_clinical_evidence_v1_1_operations.sql
+            20260818110000_clinical_evidence_release_publication_guard.sql
+            20260818120000_clinical_formulary_and_evidence_seed.sql
+            20260818130000_clinical_evidence_formulary_expand.sql
+            20260818140000_clinical_interactions_sku_depth.sql
+            20260818192000_clinical_graded_evidence_interactions_depth.sql
+          )
+          for f in "${files[@]}"; do cp "supabase/migrations/${f}" "/tmp/${f}"; done
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_isolated_clinical_dependencies.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          grant select on public.user_roles to authenticated, service_role;
+          grant all on public.user_roles to service_role;
+          SQL
+          for f in "${files[@]}"; do cp "/tmp/${f}" "supabase/migrations/${f}"; done
+          : > supabase/seed.sql
+
+      - name: Replay governed Clinical corpus from zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+          eval "$(supabase status -o env)"
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --output /tmp/clinical-corpus-ready.json --write-out '%{http_code}' \
+              --header "apikey: ${SERVICE_ROLE_KEY}" \
+              --header "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_evidence_records?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "${ready}" -ne 1 ]; then
+            echo "PostgREST did not expose the governed Clinical corpus after reset."
+            cat /tmp/clinical-corpus-ready.json || true
+            supabase status || true
+            exit 1
+          fi
+
+          {
+            echo "CLINICAL_TEST_API_URL=${API_URL}"
+            echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
+            echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "CLINICAL_TEST_DB_URL=${DB_URL}"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove staging, sources, RLS and publication gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const anon = process.env.CLINICAL_TEST_ANON_KEY
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          if (!base || !anon || !service) throw new Error('local Clinical Supabase credentials missing')
+          const headers = key => ({ apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' })
+          const get = async (path, key = service) => {
+            const r = await fetch(`${base}/rest/v1/${path}`, { headers: headers(key) })
+            if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`)
+            return r.json()
+          }
+          const mutate = async (path, method, body, key = service, prefer = 'return=representation') => {
+            const r = await fetch(`${base}/rest/v1/${path}`, {
+              method,
+              headers: { ...headers(key), Prefer: prefer },
+              body: JSON.stringify(body),
+            })
+            return { ok: r.ok, status: r.status, text: await r.text() }
+          }
+          const depthSlugs = [
+            'ev-dravet-cbd-adjunctive','ev-lgs-cbd-adjunctive','ev-ms-spasticity-nabiximols',
+            'ev-chemotherapy-nausea-thc','ev-neuropathic-pain-cannabinoids','ev-cbd-hepatic-safety',
+            'ev-sleep-cannabinoids','ev-anxiety-cbd','ev-appetite-thc-cachexia',
+          ]
+          const legacySlugs = [
+            'ev-neuropathic-pain-overview','ev-cbd-epilepsy-dravet-lgs','ev-safety-monitoring-overview','ev-cannabinoid-drug-interactions',
+            'ev-spasticity-ms-overview','ev-chemo-nausea-overview','ev-anxiety-cbd-overview','ev-sleep-cannabinoids-overview',
+            'ev-chronic-pain-non-cancer-overview','ev-parkinson-symptoms-overview','ev-ptsd-symptoms-overview',
+          ]
+          const newInteractionPairs = new Set([
+            'valproate|cbd','clobazam|thc','opioids|thc','opioids|cbd','benzodiazepines|thc',
+            'benzodiazepines|cbd','phenytoin|cbd','carbamazepine|cbd','everolimus|cbd','alcohol|thc',
+            'alcohol|cbd','theophylline|cbd','bupropion|cbd','anticholinergics|thc','cns-depressants|cbd',
+          ])
+          const depth = await get(`clinical_evidence_records?select=id,slug,review_status,publication_scope,freshness_status,jurisdictions,primary_source_url,primary_source_registry_id&slug=in.(${depthSlugs.join(',')})&order=slug.asc`)
+          if (depth.length !== 9) throw new Error(`expected nine depth records, got ${depth.length}`)
+          if (depth.some(r => r.review_status !== 'under-review' || r.publication_scope !== 'clinical-synthesis' || r.freshness_status !== 'review-required')) {
+            throw new Error('graded corpus-depth records were not staged under governed review')
+          }
+          if (depth.some(r => !r.primary_source_registry_id || !r.primary_source_url || r.primary_source_url === 'https://pubmed.ncbi.nlm.nih.gov/' || r.primary_source_url === 'https://www.accessdata.fda.gov/scripts/cder/daf/')) {
+            throw new Error('depth record lacks record-specific normalized source provenance')
+          }
+          for (const slug of ['ev-dravet-cbd-adjunctive','ev-lgs-cbd-adjunctive','ev-cbd-hepatic-safety']) {
+            const row = depth.find(r => r.slug === slug)
+            if (!row || !row.jurisdictions.includes('CA')) throw new Error(`${slug} is not queryable in the Canada corpus context`)
+          }
+
+          const legacy = await get(`clinical_evidence_records?select=slug,review_status,publication_scope&slug=in.(${legacySlugs.join(',')})`)
+          if (legacy.length !== 11 || legacy.some(r => r.review_status !== 'under-review' || r.publication_scope !== 'clinical-synthesis')) {
+            throw new Error('legacy direct-published graded seed was not converted to under-review during zero-state replay')
+          }
+
+          const interactions = await get('clinical_medication_interactions?select=id,medication_ingredient,cannabinoid,medication_ingredient_key,cannabinoid_key,primary_source_url,review_status')
+          if (interactions.length !== 20) throw new Error(`expected 20 total interaction pairs, got ${interactions.length}`)
+          const normalized = new Set(interactions.map(r => `${r.medication_ingredient_key}|${r.cannabinoid_key}`))
+          if (normalized.size !== interactions.length) throw new Error('duplicate normalized interaction pair survived')
+          const newInteractions = interactions.filter(r => newInteractionPairs.has(`${r.medication_ingredient_key}|${r.cannabinoid_key}`))
+          if (newInteractions.length !== 15) throw new Error(`expected all 15 new interaction pairs, got ${newInteractions.length}`)
+          if (newInteractions.some(r => !r.primary_source_url || r.primary_source_url === 'https://pubmed.ncbi.nlm.nih.gov/' || r.primary_source_url === 'https://www.accessdata.fda.gov/scripts/cder/daf/')) {
+            throw new Error('new interaction corpus contains a generic landing-page primary source')
+          }
+
+          const anonDepth = await get(`clinical_evidence_records?select=slug&slug=in.(${depthSlugs.join(',')})`, anon)
+          if (anonDepth.length !== 0) throw new Error('under-review graded depth records leaked through evidence RLS')
+          for (const table of ['clinical_evidence_sources','clinical_evidence_reviews','clinical_reviewer_credentials','clinical_evidence_source_snapshots','clinical_evidence_intake_queue']) {
+            const r = await fetch(`${base}/rest/v1/${table}?select=id&limit=1`, { headers: headers(anon) })
+            if (r.ok && (await r.json()).length > 0) throw new Error(`private Clinical governance table leaked to anon: ${table}`)
+          }
+
+          const target = depth.find(r => r.slug === 'ev-dravet-cbd-adjunctive')
+          if (!target) throw new Error('Dravet depth fixture missing')
+          let attempt = await mutate(`clinical_evidence_records?id=eq.${target.id}`, 'PATCH', { review_status: 'published' })
+          if (attempt.ok) throw new Error('publication succeeded without provenance or qualified clinical review')
+
+          const provenance = await mutate('clinical_evidence_reviews', 'POST', {
+            evidence_record_id: target.id,
+            review_type: 'provenance', reviewer_type: 'system', reviewer_identity: 'CI provenance gate fixture',
+            decision: 'approved', rationale: 'CI-only gate proof; not a production clinical approval.', reviewed_at: new Date().toISOString(),
+          })
+          if (!provenance.ok) throw new Error(`CI provenance fixture failed: ${provenance.status} ${provenance.text}`)
+          attempt = await mutate(`clinical_evidence_records?id=eq.${target.id}`, 'PATCH', { review_status: 'published' })
+          if (attempt.ok) throw new Error('publication succeeded with provenance but without credential-bound clinical review')
+
+          const reviewerId = crypto.randomUUID()
+          const credential = await mutate('clinical_reviewer_credentials', 'POST', {
+            user_id: reviewerId,
+            profession: 'clinician', jurisdiction: 'CA-TEST', credential_reference: 'CORPUS-CI-CREDENTIAL',
+            verification_source_url: 'https://example.invalid/clinical-corpus-ci-credential',
+            verification_status: 'verified', verified_at: new Date().toISOString(),
+          })
+          if (!credential.ok) throw new Error(`credential fixture failed: ${credential.status} ${credential.text}`)
+          const credentialId = JSON.parse(credential.text)[0].id
+          const clinical = await mutate('clinical_evidence_reviews', 'POST', {
+            evidence_record_id: target.id,
+            review_type: 'clinical', reviewer_type: 'clinician', reviewer_user_id: reviewerId,
+            reviewer_credential_id: credentialId, reviewer_identity: 'CI credential-bound clinician fixture',
+            decision: 'approved', grading_method_key: 'harbourview-clinical-evidence-v1', assigned_evidence_strength: 'high',
+            rationale: 'CI-only lifecycle gate proof; not a production clinical approval.', reviewed_at: new Date().toISOString(),
+          })
+          if (!clinical.ok) throw new Error(`credential-bound clinical fixture failed: ${clinical.status} ${clinical.text}`)
+          attempt = await mutate(`clinical_evidence_records?id=eq.${target.id}`, 'PATCH', { review_status: 'published' })
+          if (!attempt.ok) throw new Error(`publication did not succeed after both governed review gates: ${attempt.status} ${attempt.text}`)
+          const restore = await mutate(`clinical_evidence_records?id=eq.${target.id}`, 'PATCH', { review_status: 'under-review', freshness_status: 'review-required' })
+          if (!restore.ok) throw new Error(`failed to restore CI depth fixture to under-review: ${restore.status}`)
+
+          const evidence = {
+            depth_records: depth.length,
+            depth_under_review: depth.filter(r => r.review_status === 'under-review').length,
+            legacy_graded_under_review: legacy.length,
+            interaction_pairs: interactions.length,
+            new_interaction_pairs: newInteractions.length,
+            normalized_interaction_pairs: normalized.size,
+            anon_depth_visible: anonDepth.length,
+            publication_gate: 'provenance + valid credential-bound clinician/pharmacist review required',
+          }
+          fs.mkdirSync('artifacts/clinical-corpus-depth', { recursive: true })
+          fs.writeFileSync('artifacts/clinical-corpus-depth/zero-state-contract.json', `${JSON.stringify(evidence, null, 2)}\n`)
+          console.log('GO:', JSON.stringify(evidence))
+          NODE
+
+      - name: Replay corpus-depth migration idempotently on the same database
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$CLINICAL_TEST_DB_URL" -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260818192000_clinical_graded_evidence_interactions_depth.sql
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          const h = { apikey: service, Authorization: `Bearer ${service}` }
+          const get = async path => {
+            const r = await fetch(`${base}/rest/v1/${path}`, { headers: h })
+            if (!r.ok) throw new Error(`${path}: ${r.status} ${await r.text()}`)
+            return r.json()
+          }
+          const depthSlugs = ['ev-dravet-cbd-adjunctive','ev-lgs-cbd-adjunctive','ev-ms-spasticity-nabiximols','ev-chemotherapy-nausea-thc','ev-neuropathic-pain-cannabinoids','ev-cbd-hepatic-safety','ev-sleep-cannabinoids','ev-anxiety-cbd','ev-appetite-thc-cachexia']
+          const depth = await get(`clinical_evidence_records?select=slug,review_status&slug=in.(${depthSlugs.join(',')})`)
+          const interactions = await get('clinical_medication_interactions?select=id,medication_ingredient_key,cannabinoid_key')
+          const normalized = new Set(interactions.map(r => `${r.medication_ingredient_key}|${r.cannabinoid_key}`))
+          if (depth.length !== 9 || interactions.length !== 20 || normalized.size !== 20) throw new Error('same-database replay changed corpus cardinality')
+          if (depth.some(r => r.review_status !== 'under-review')) throw new Error('same-database replay promoted a staged graded record')
+          const evidence = { depth_records_after_replay: depth.length, interaction_pairs_after_replay: interactions.length, normalized_pairs_after_replay: normalized.size }
+          fs.writeFileSync('artifacts/clinical-corpus-depth/idempotent-replay.json', `${JSON.stringify(evidence, null, 2)}\n`)
+          console.log('GO:', JSON.stringify(evidence))
+          NODE
+
+      - name: Upload zero-state replay evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: clinical-corpus-depth-${{ github.sha }}
+          path: artifacts/clinical-corpus-depth/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup || true
