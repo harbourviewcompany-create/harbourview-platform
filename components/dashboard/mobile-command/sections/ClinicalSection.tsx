@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   formatStatus,
@@ -31,6 +32,25 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
 }) {
   const clinicalHref = commandHref('clinical')
   const countryIso2 = countryIso2FromCommandHref(clinicalHref)
+  const [formulary, setFormulary] = useState<Array<{
+    id: string
+    name: string
+    authorizationStatus: string
+    cannabinoidProfile: string
+    notes: string
+    primarySourceUrl?: string | null
+  }>>([])
+  useEffect(() => {
+    if (!countryIso2) return
+    let cancelled = false
+    fetch(`/api/clinical/formulary?country=${encodeURIComponent(countryIso2)}&limit=10`)
+      .then((r) => r.json())
+      .then((body) => {
+        if (!cancelled) setFormulary(body.products ?? [])
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [countryIso2])
   const jurisdictionLabel = clinicalJurisdictionLabel(countryIso2)
   const authorities = getClinicalAuthoritiesForCountry(countryIso2)
   const limitedAuthority = !hasClinicalAuthorityCoverage(countryIso2)
@@ -128,6 +148,22 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       )}
 
       
+      {formulary.length > 0 && (
+        <div className="hvm2-horizontal-deck" aria-label="Published formulary">
+          {formulary.map((p) => (
+            <article className="hvm2-directory-card" key={p.id}>
+              <span>Formulary</span>
+              <h3>{p.name}</h3>
+              <p>{p.authorizationStatus} · {p.cannabinoidProfile}</p>
+              <p>{p.notes}</p>
+              {p.primarySourceUrl ? (
+                <a className="hvm2-text-link" href={p.primarySourceUrl} target="_blank" rel="noreferrer">Primary source ↗</a>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
+
       <div className="hvm2-two-column" aria-label="Clinical dual surface">
         <article>
           <span>Clinical education</span>
