@@ -99,7 +99,7 @@ export async function getClinicalPrescriberWorkspace(input: {
         .from('clinical_safety_rules')
         .select('id,rule_kind,subject,severity,rationale,action_text,primary_source_url,source_locator,jurisdictions,review_status')
         .eq('review_status', 'published')
-        .contains('jurisdictions', [jurisdiction])
+        .overlaps('jurisdictions', [jurisdiction, 'global'])
         .limit(100),
       supabase
         .from('clinical_regimen_protocols')
