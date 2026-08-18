@@ -20,6 +20,7 @@ import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
 import { ListingDetailModal } from './ListingDetailModal'
 import SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'
 import type { UserTier } from '@/lib/stripe/tier'
+import { DesktopDecisionIntelBridge } from '@/components/dashboard/DesktopDecisionIntelBridge'
 import { TIER_DISPLAY } from '@/lib/stripe/tierDisplay'
 import UpgradeButton from '@/components/stripe/UpgradeButton'
 import ManageBillingButton from '@/components/stripe/ManageBillingButton'
@@ -138,6 +139,9 @@ type Props = {
   // Set when landing via /dashboard?page=signals&search=1 — the redirect
   // target for the old /dashboard/signals/search route.
   openSignalsSearch?: boolean
+  // Evidence-backed dossier gate — moved from a global banner (every page)
+  // into a dedicated sub-tab within the Intel/Signals section.
+  decisionIntelAccess?: FeatureAccess
   wantedCount?:     number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
   pipeline?:        PipelineCounts
@@ -775,22 +779,32 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
 const SignalsPage = React.memo(function SignalsPage({
-  country, region, role, signals, watchlistData, onPageChange, initialShowSearch = false,
+  country, region, role, signals, digestSignals, watchlistData, onPageChange, initialShowSearch = false, decisionIntelAccess,
 }: {
   country: { iso2: string; label: string }
   region:  string
   role:    string
   signals: DashboardSignal[]
+  digestSignals?: DashboardSignal[]
   watchlistData?: WatchlistData
   onPageChange?: (page: CommandPage) => void
   initialShowSearch?: boolean
+  decisionIntelAccess?: FeatureAccess
 }) {
   const [filterImpact,  setFilterImpact]  = useState('all')
   const [filterConf,    setFilterConf]    = useState('all')
   const [filterType,    setFilterType]    = useState('all')
   const [currentPage,   setCurrentPage]   = useState(1)
   const [selectedSignal, setSelectedSignal] = useState<DashboardSignal | null>(null)
-  const [showSearch, setShowSearch] = useState(initialShowSearch)
+  const [signalsTab, setSignalsTab] = useState<'feed' | 'search' | 'dossiers'>(initialShowSearch ? 'search' : 'feed')
+  const dossierSignals = React.useMemo(() => {
+    const byId = new Map<string, DashboardSignal>()
+    for (const signal of [...signals, ...(digestSignals ?? [])]) {
+      const key = `${signal.id}:${signal.decisionIntelEventId ?? ''}`
+      if (!byId.has(key)) byId.set(key, signal)
+    }
+    return [...byId.values()].filter(s => Boolean(s.decisionIntelEventId))
+  }, [signals, digestSignals])
   const PAGE_SIZE = 6
 
   // ── Live signal fetch ──────────────────────────────────────────────────────
@@ -980,13 +994,25 @@ const SignalsPage = React.memo(function SignalsPage({
         <div className="cc-inner-header">
           <h2>{country.label}{region ? ` ${region}` : ''}{role ? ` ${role}` : ''} Signals</h2>
           <p>Intelligence feed surfacing regulatory, market, export, and operational signals relevant to the resolved jurisdiction{role ? ' and your role' : ''}.</p>
-          <button type="button" className="cc-signals-search-toggle" aria-pressed={showSearch} onClick={() => setShowSearch(v => !v)}>
-            {showSearch ? 'Hide semantic search' : '◈ Semantic search'}
-          </button>
+          <div className="cc-signals-tabs">
+            <button type="button" className="cc-signals-search-toggle" aria-pressed={signalsTab === 'feed'} onClick={() => setSignalsTab('feed')}>
+              Feed
+            </button>
+            <button type="button" className="cc-signals-search-toggle" aria-pressed={signalsTab === 'search'} onClick={() => setSignalsTab('search')}>
+              ◈ Semantic search
+            </button>
+            {dossierSignals.length > 0 && (
+              <button type="button" className="cc-signals-search-toggle" aria-pressed={signalsTab === 'dossiers'} onClick={() => setSignalsTab('dossiers')}>
+                Dossiers
+              </button>
+            )}
+          </div>
         </div>
 
-        {showSearch ? (
+        {signalsTab === 'search' ? (
           <SignalSemanticSearch />
+        ) : signalsTab === 'dossiers' ? (
+          <DesktopDecisionIntelBridge signals={dossierSignals} access={decisionIntelAccess} />
         ) : (
         <>
         <div className="cc-filter-bar">
@@ -10952,6 +10978,7 @@ export default function CommandCentre({
   initialPage,
   userTier = 'free',
   openSignalsSearch = false,
+  decisionIntelAccess,
   wantedCount = 0,
   marketplaceRows,
   pipeline,
@@ -11169,7 +11196,7 @@ export default function CommandCentre({
       case 'local-intel':
         return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={liveCountryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
       case 'signals':
-        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} watchlistData={watchlistData} onPageChange={handlePageChange} initialShowSearch={openSignalsSearch} />
+        return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} digestSignals={digestSignals} watchlistData={watchlistData} onPageChange={handlePageChange} initialShowSearch={openSignalsSearch} decisionIntelAccess={decisionIntelAccess} />
       case 'watchlist':
         if (watchlistAccess && !watchlistAccess.granted) {
           return <WatchlistUpgradeGate access={watchlistAccess} />

@@ -38,6 +38,20 @@ type InteractionRow = {
   verifiedAt?: string
 }
 
+type MonitoringRow = {
+  id: string
+  protocolName: string
+  context: string
+  cannabinoid?: string | null
+  monitoringParameter: string
+  baselineRequired?: boolean
+  followUpInterval?: string | null
+  rationale?: string | null
+  evidenceCertainty?: string
+  primarySource?: { publisher?: string; url?: string }
+  verifiedAt?: string
+}
+
 const FILTER_DEFS: { id: ClinicalFilter; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'graded', label: 'Graded' },
@@ -193,6 +207,8 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
   const [refreshing, setRefreshing] = useState(false)
   const [interactions, setInteractions] = useState<InteractionRow[]>([])
   const [showInteractions, setShowInteractions] = useState(false)
+  const [monitoring, setMonitoring] = useState<MonitoringRow[]>([])
+  const [showMonitoring, setShowMonitoring] = useState(false)
 
   const filterRef = useRef(filter)
   filterRef.current = filter
@@ -283,6 +299,23 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       })
       .catch(() => {
         if (!cancelled) setInteractions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/clinical/monitoring?limit=12')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return
+        const rows = (body?.protocols ?? []) as MonitoringRow[]
+        setMonitoring(Array.isArray(rows) ? rows : [])
+      })
+      .catch(() => {
+        if (!cancelled) setMonitoring([])
       })
     return () => {
       cancelled = true
@@ -579,11 +612,12 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
                 type="button"
                 onClick={() => {
                   setShowInteractions(false)
+                  setShowMonitoring(false)
                   setFilter(f.id)
                 }}
-                aria-pressed={active && !showInteractions}
+                aria-pressed={active && !showInteractions && !showMonitoring}
                 className={
-                  active && !showInteractions
+                  active && !showInteractions && !showMonitoring
                     ? 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3.5 text-xs font-medium text-[#d4a853]'
                     : 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-xs text-white/65 active:bg-white/10'
                 }
@@ -595,7 +629,10 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
           {interactions.length > 0 ? (
             <button
               type="button"
-              onClick={() => setShowInteractions(true)}
+              onClick={() => {
+                setShowInteractions(true)
+                setShowMonitoring(false)
+              }}
               aria-pressed={showInteractions}
               className={
                 showInteractions
@@ -606,11 +643,28 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
               Interactions
             </button>
           ) : null}
+          {monitoring.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowMonitoring(true)
+                setShowInteractions(false)
+              }}
+              aria-pressed={showMonitoring}
+              className={
+                showMonitoring
+                  ? 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3.5 text-xs font-medium text-[#d4a853]'
+                  : 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-xs text-white/65'
+              }
+            >
+              Monitoring
+            </button>
+          ) : null}
         </nav>
       ) : null}
 
       {/* Cannabinoid chips — only when present in results */}
-      {!showInteractions && cannabinoidOptions.length > 0 ? (
+      {!showInteractions && !showMonitoring && cannabinoidOptions.length > 0 ? (
         <nav className="flex flex-wrap gap-1.5" aria-label="Cannabinoid filter">
           <button
             type="button"
@@ -695,6 +749,44 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
                       rel="noreferrer"
                     >
                       {ix.primarySource.publisher || 'Source'} ↗
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : showMonitoring ? (
+          <div className="space-y-2.5" aria-label="Monitoring protocols">
+            {monitoring.map((mp) => (
+              <article
+                key={mp.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-medium text-white">{mp.protocolName}</h3>
+                  {mp.baselineRequired ? (
+                    <span className="shrink-0 rounded-full border border-amber-200/30 bg-amber-200/10 px-2 py-0.5 text-[10px] font-medium text-amber-200/90">
+                      Baseline
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-white/65">{mp.monitoringParameter}</p>
+                {mp.followUpInterval ? (
+                  <p className="mt-1 text-xs text-white/50">Follow-up: {mp.followUpInterval}</p>
+                ) : null}
+                {mp.rationale ? (
+                  <p className="mt-1 text-xs text-white/50">{mp.rationale}</p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/45">
+                  {mp.verifiedAt ? <span>Verified {shortDate(mp.verifiedAt)}</span> : null}
+                  {mp.primarySource?.url ? (
+                    <a
+                      className="font-medium text-[#d4a853]"
+                      href={mp.primarySource.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {mp.primarySource.publisher || 'Source'} ↗
                     </a>
                   ) : null}
                 </div>
