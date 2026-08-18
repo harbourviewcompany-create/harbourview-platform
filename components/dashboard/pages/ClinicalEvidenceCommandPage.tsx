@@ -320,10 +320,17 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     [skus],
   )
 
-  const selectedPatient = useMemo(
-    () => patients.find((patient) => patient.id === selectedPatientId) ?? null,
-    [patients, selectedPatientId],
+  const contextPatients = useMemo(
+    () => patients.filter((patient) => patient.jurisdiction.toUpperCase() === iso2),
+    [iso2, patients],
   )
+
+  const selectedPatient = useMemo(
+    () => contextPatients.find((patient) => patient.id === selectedPatientId) ?? null,
+    [contextPatients, selectedPatientId],
+  )
+
+  const contextPatientState = patientState === 'loaded' && contextPatients.length === 0 ? 'empty' : patientState
 
   const selectedSku = useMemo(
     () => inspectableSkus.find((sku) => sku.id === selectedSkuId) ?? null,
@@ -444,7 +451,7 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     }
     setOperationError(null)
     const [readinessResponse, adverseResponse] = await Promise.all([
-      fetch(`/api/clinical/patients/${encodeURIComponent(patientId)}/readiness`),
+      fetch(`/api/clinical/patients/${encodeURIComponent(patientId)}/readiness?country=${encodeURIComponent(iso2)}`),
       fetch(`/api/clinical/adverse-events?patient_id=${encodeURIComponent(patientId)}&limit=20`),
     ])
     const readinessBody = await readinessResponse.json().catch(() => null) as PatientReadiness | null
@@ -454,7 +461,7 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     })
     const adverseBody = await adverseResponse.json().catch(() => ({})) as { adverseEvents?: AdverseEventRow[] }
     setAdverseEvents(adverseResponse.ok && Array.isArray(adverseBody.adverseEvents) ? adverseBody.adverseEvents : [])
-  }, [])
+  }, [iso2])
 
   const loadInteractions = useCallback(async () => {
     const response = await fetch('/api/clinical/interactions?limit=50')
@@ -467,6 +474,15 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
     const body = await response.json().catch(() => ({})) as { modules?: EducationModule[] }
     setModules(Array.isArray(body.modules) ? body.modules : [])
   }, [])
+
+  useEffect(() => {
+    setSelectedPatientId('')
+    setSelectedSkuId('')
+    setPatientReadiness(null)
+    setAdverseEvents([])
+    setOperationError(null)
+    setOperationMessage(null)
+  }, [iso2])
 
   useEffect(() => {
     startTransition(() => {
@@ -616,13 +632,14 @@ export default function ClinicalEvidenceCommandPage({ countryLabel, countryIso2 
                 </div>
 
                 <div className="rounded-lg bg-white/[.03] p-3">
-                  <div className="flex items-start justify-between gap-2"><label htmlFor="clinical-patient-context" className="text-sm font-medium text-white/85">Patient / encounter context</label><StateBadge state={selectedPatientId ? patientReadiness?.state || 'loading' : patientState} /></div>
+                  <div className="flex items-start justify-between gap-2"><label htmlFor="clinical-patient-context" className="text-sm font-medium text-white/85">Patient / encounter context</label><StateBadge state={selectedPatientId ? patientReadiness?.state || 'loading' : contextPatientState} /></div>
                   <select id="clinical-patient-context" value={selectedPatientId} onChange={(event) => setSelectedPatientId(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-[#11161d] px-3 py-2 text-sm text-white">
                     <option value="">No patient selected</option>
-                    {patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.given_name} {patient.family_name} · {patient.jurisdiction}</option>)}
+                    {contextPatients.map((patient) => <option key={patient.id} value={patient.id}>{patient.given_name} {patient.family_name} · {patient.jurisdiction}</option>)}
                   </select>
                   {patientReadiness?.state === 'loaded' && <p className={`mt-2 text-xs ${muted}`}>Core consent {patientReadiness.consent?.core ? 'active' : 'incomplete'} · {patientReadiness.openEncounter ? `open ${patientReadiness.openEncounter.encounter_type} encounter` : 'no open encounter'}</p>}
-                  {patientState === 'permission' && <p className="mt-2 text-xs text-amber-300">Verified clinician access is required to load patient context.</p>}
+                  {contextPatientState === 'permission' && <p className="mt-2 text-xs text-amber-300">Verified clinician access is required to load patient context.</p>}
+                  {contextPatientState === 'empty' && <p className={`mt-2 text-xs ${muted}`}>No accessible active patient is loaded for {countryLabel}.</p>}
                 </div>
 
                 <div className="rounded-lg bg-white/[.03] p-3">
