@@ -2,7 +2,8 @@
 
 **Library:** `lib/clinical/sourceCurrentness.ts`  
 **CLI:** `scripts/clinical-source-currentness.ts`  
-**Cron:** `GET /api/cron/clinical-source-currentness` (`Authorization: Bearer $CRON_SECRET`)
+**Cron:** `GET /api/cron/clinical-source-currentness` (`Authorization: Bearer $CRON_SECRET`)  
+**Schedule:** `30 6 * * *` (06:30 UTC daily) in `vercel.json`
 
 **Scope:** Source-metadata validation only. Does **not** approve clinical-synthesis claims.
 
@@ -39,12 +40,14 @@ npx tsx scripts/clinical-source-currentness.ts --dry-run --limit=10
 
 ## Cron
 
+Scheduled in `vercel.json` at **06:30 UTC** daily.
+
+Manual:
+
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" \
   "https://harbourview.vercel.app/api/cron/clinical-source-currentness?limit=40"
 ```
-
-Optional: add to `vercel.json` crons once migration is live.
 
 ## Tests
 
@@ -54,10 +57,10 @@ npx vitest run tests/clinical/sourceCurrentness.test.ts
 
 ## Schema dependency
 
-Requires clinical evidence spine migration for records, snapshots, and change events.
+Requires clinical evidence spine migration (`clinical_evidence_records`, `clinical_evidence_snapshots`, `clinical_evidence_change_events`). Until applied, the job returns empty/error and does not affect clinician surfaces.
 
 ## Registry impact
 
-- New lib module, script, cron route, tests, docs
+- New lib module, script, cron route, tests, docs, vercel cron entry
 - No public clinician routes
 - Service-role + CRON_SECRET only
