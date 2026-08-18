@@ -1,13 +1,10 @@
 -- Harbourview Clinical Evidence Spine
--- Production migration — matches lib/clinical/evidence.ts + operations.ts contracts exactly
+-- Production migration — matches lib/clinical/evidence.ts + operations.ts + sourceCurrentness
 -- Safe to apply after RLS review. Does not publish any clinical claims.
+-- Idempotent: uses IF NOT EXISTS / OR REPLACE where possible.
 
--- Extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ---------------------------------------------------------------------------
--- Core evidence records (published surface)
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_evidence_records (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug                  text NOT NULL UNIQUE,
@@ -69,36 +66,40 @@ CREATE TABLE IF NOT EXISTS clinical_evidence_records (
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_clinical_evidence_records_condition ON clinical_evidence_records USING gin (to_tsvector('english', coalesce(condition,'') || ' ' || coalesce(title,'')));
-CREATE INDEX idx_clinical_evidence_records_jurisdiction ON clinical_evidence_records USING gin (jurisdiction);
-CREATE INDEX idx_clinical_evidence_records_review_status ON clinical_evidence_records (review_status);
-CREATE INDEX idx_clinical_evidence_records_freshness ON clinical_evidence_records (freshness_status);
+CREATE INDEX IF NOT EXISTS idx_clinical_evidence_records_condition
+  ON clinical_evidence_records USING gin (to_tsvector('english', coalesce(condition,'') || ' ' || coalesce(title,'')));
+CREATE INDEX IF NOT EXISTS idx_clinical_evidence_records_jurisdiction
+  ON clinical_evidence_records USING gin (jurisdiction);
+CREATE INDEX IF NOT EXISTS idx_clinical_evidence_records_review_status
+  ON clinical_evidence_records (review_status);
+CREATE INDEX IF NOT EXISTS idx_clinical_evidence_records_freshness
+  ON clinical_evidence_records (freshness_status);
+CREATE INDEX IF NOT EXISTS idx_clinical_evidence_records_currentness_checked
+  ON clinical_evidence_records (source_currentness_checked_at NULLS FIRST);
 
--- ---------------------------------------------------------------------------
--- Change events
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_evidence_change_events (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   evidence_record_id    uuid REFERENCES clinical_evidence_records(id),
-  event_type            text NOT NULL CHECK (event_type IN (
-    'published','updated','superseded','conflict-detected','conflict-resolved'
-  )),
-  title                 text NOT NULL,
-  summary               text NOT NULL,
-  materiality           text NOT NULL CHECK (materiality IN ('low','medium','high')),
+  event_type            text NOT NULL,
+  title                 text,
+  summary               text,
+  materiality           text CHECK (materiality IS NULL OR materiality IN ('low','medium','high')),
   jurisdiction          text[] NOT NULL DEFAULT '{}',
   profession_relevance  text[] NOT NULL DEFAULT '{}',
-  occurred_at           timestamptz NOT NULL,
-  verified_at           timestamptz NOT NULL,
-  primary_source_title  text NOT NULL,
-  primary_source_publisher text NOT NULL,
-  primary_source_url    text NOT NULL,
+  occurred_at           timestamptz NOT NULL DEFAULT now(),
+  verified_at           timestamptz,
+  primary_source_title  text,
+  primary_source_publisher text,
+  primary_source_url    text,
+  payload               jsonb NOT NULL DEFAULT '{}',
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- Source snapshots (provenance)
--- ---------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_clinical_change_events_record
+  ON clinical_evidence_change_events (evidence_record_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_clinical_change_events_type
+  ON clinical_evidence_change_events (event_type, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS clinical_evidence_snapshots (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   source_registry_id    text NOT NULL,
@@ -108,7 +109,7 @@ CREATE TABLE IF NOT EXISTS clinical_evidence_snapshots (
   retrieved_at          timestamptz NOT NULL,
   media_type            text NOT NULL,
   hash_scope            text NOT NULL CHECK (hash_scope IN (
-    'source-bytes','normalized-reviewed-extract'
+    'source-bytes','normalized-text','normalized-reviewed-extract'
   )),
   content_sha256        text NOT NULL,
   byte_size             integer,
@@ -117,9 +118,9 @@ CREATE TABLE IF NOT EXISTS clinical_evidence_snapshots (
   UNIQUE (source_registry_id, snapshot_key)
 );
 
--- ---------------------------------------------------------------------------
--- Structured extractions
--- ---------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_clinical_snapshots_registry
+  ON clinical_evidence_snapshots (source_registry_id, retrieved_at DESC);
+
 CREATE TABLE IF NOT EXISTS clinical_structured_extractions (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   evidence_record_id    uuid NOT NULL REFERENCES clinical_evidence_records(id),
@@ -141,9 +142,6 @@ CREATE TABLE IF NOT EXISTS clinical_structured_extractions (
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- Outcome evidence links
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_outcome_evidence (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   condition_id          text NOT NULL,
@@ -170,9 +168,6 @@ CREATE TABLE IF NOT EXISTS clinical_outcome_evidence (
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- GRADE assessments
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_grade_assessments (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   evidence_record_id    uuid NOT NULL REFERENCES clinical_evidence_records(id),
@@ -189,9 +184,6 @@ CREATE TABLE IF NOT EXISTS clinical_grade_assessments (
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- Reviewer credentials
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_reviewer_credentials (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               uuid NOT NULL,
@@ -209,9 +201,6 @@ CREATE TABLE IF NOT EXISTS clinical_reviewer_credentials (
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- Intake / review queue
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_intake_queue (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   intake_status         text NOT NULL DEFAULT 'queued',
@@ -239,9 +228,6 @@ CREATE TABLE IF NOT EXISTS clinical_intake_queue (
   created_at            timestamptz NOT NULL DEFAULT now()
 );
 
--- ---------------------------------------------------------------------------
--- View audit (“what I viewed”)
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clinical_view_audit (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id               uuid NOT NULL,
@@ -251,30 +237,34 @@ CREATE TABLE IF NOT EXISTS clinical_view_audit (
   viewed_at             timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_clinical_view_audit_user ON clinical_view_audit (user_id, viewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_clinical_view_audit_user
+  ON clinical_view_audit (user_id, viewed_at DESC);
 
--- ---------------------------------------------------------------------------
--- RLS (production posture)
--- ---------------------------------------------------------------------------
 ALTER TABLE clinical_evidence_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clinical_evidence_change_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clinical_evidence_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clinical_view_audit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clinical_intake_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clinical_structured_extractions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clinical_outcome_evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clinical_grade_assessments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clinical_reviewer_credentials ENABLE ROW LEVEL SECURITY;
 
--- Published records readable by authenticated users
-CREATE POLICY clinical_evidence_published_read ON clinical_evidence_records
-  FOR SELECT TO authenticated
-  USING (review_status = 'published');
+DO $$ BEGIN
+  CREATE POLICY clinical_evidence_published_read ON clinical_evidence_records
+    FOR SELECT TO authenticated
+    USING (review_status = 'published');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- Under-review / intake only for service role or internal staff (handled via service role in practice)
--- View audit: users can only see their own rows
-CREATE POLICY clinical_view_audit_own ON clinical_view_audit
-  FOR ALL TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
+DO $$ BEGIN
+  CREATE POLICY clinical_view_audit_own ON clinical_view_audit
+    FOR ALL TO authenticated
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- ---------------------------------------------------------------------------
--- Updated_at trigger
--- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION clinical_set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -283,6 +273,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS clinical_evidence_records_updated_at ON clinical_evidence_records;
 CREATE TRIGGER clinical_evidence_records_updated_at
   BEFORE UPDATE ON clinical_evidence_records
   FOR EACH ROW EXECUTE FUNCTION clinical_set_updated_at();
