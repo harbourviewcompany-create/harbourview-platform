@@ -15,6 +15,7 @@ const workspaceRoute = read('app/api/clinical/workspace/route.ts')
 const workspaceQuery = read('lib/server/clinicalPrescriberWorkspaceQuery.ts')
 const authorityRoute = read('app/api/clinical/authority/route.ts')
 const authorityResolver = read('lib/server/clinicalProfessionalAuthority.ts')
+const patientReadinessRoute = read('app/api/clinical/patients/[id]/readiness/route.ts')
 const adverseEventRoute = read('app/api/clinical/adverse-events/route.ts')
 
 describe('Clinical Prescriber OS integration contract', () => {
@@ -51,11 +52,15 @@ describe('Clinical Prescriber OS integration contract', () => {
     expect(page).toContain('legacy generic mg/kg helper is excluded')
   })
 
-  it('uses production evidence, formulary SKU, jurisdiction and governed workspace APIs', () => {
+  it('uses production evidence, formulary SKU, jurisdiction, authority, patient and governed workspace APIs', () => {
     expect(page).toContain('/api/clinical/evidence?')
     expect(page).toContain('/api/clinical/formulary?')
     expect(page).toContain('/api/clinical/jurisdiction?')
     expect(page).toContain('/api/clinical/workspace?')
+    expect(page).toContain('/api/clinical/authority?')
+    expect(page).toContain("fetch('/api/clinical/patients')")
+    expect(page).toContain('/readiness')
+    expect(page).toContain('/api/clinical/adverse-events')
     expect(page).toContain('/api/clinical/ask?')
     expect(page).toContain('setSkus')
     expect(page).toContain('setJurisdiction')
@@ -85,6 +90,26 @@ describe('Clinical Prescriber OS integration contract', () => {
     expect(authorityResolver).toContain(".eq('clinical_role', professional.clinical_role)")
     expect(authorityResolver).toContain("state: 'unknown'")
     expect(authorityResolver).not.toContain('roleLabel')
+    expect(page).toContain('authority?.capabilities.prescribe === true')
+  })
+
+  it('makes patient readiness a read-only verified-clinician view of access, core consent and open encounter state', () => {
+    expect(patientReadinessRoute).toContain('requireVerifiedClinician()')
+    expect(patientReadinessRoute).toContain(".from('clinical_patients')")
+    expect(patientReadinessRoute).toContain("p_consent_type: 'treatment'")
+    expect(patientReadinessRoute).toContain("p_consent_type: 'data_processing'")
+    expect(patientReadinessRoute).toContain(".from('clinical_encounters')")
+    expect(patientReadinessRoute).toContain(".eq('status', 'open')")
+    expect(patientReadinessRoute).not.toMatch(/\.insert\(|\.update\(|\.delete\(/)
+    expect(page).toContain("consentConfirmed: patientReadiness?.consent?.core === true")
+    expect(page).toContain("hasClinicalContext: Boolean(patientReadiness?.state === 'loaded' && patientReadiness.openEncounter)")
+  })
+
+  it('requires an inspectable exact SKU before product readiness can clear', () => {
+    expect(page).toContain('productResolved: Boolean(selectedSku)')
+    expect(page).toContain('Select an inspectable exact SKU in Products')
+    expect(page).toContain('Use in decision')
+    expect(page).not.toContain('productResolved: inspectableProducts.length > 0 || inspectableSkus.length > 0')
   })
 
   it('adds the governed concept, claim, safety, regimen, monitoring, guideline and longitudinal patient schema', () => {
@@ -119,6 +144,7 @@ describe('Clinical Prescriber OS integration contract', () => {
     expect(adverseEventRoute).toContain('requireVerifiedClinician()')
     expect(adverseEventRoute).toContain(".from('clinical_adverse_events')")
     expect(adverseEventRoute).toContain('Recorded in Harbourview only. No external regulator submission was performed.')
+    expect(page).toContain('Harbourview does not infer reporting obligations or submit regulator reports')
     expect(pharmacovigilanceMigration).toContain('public.clinical_adverse_events')
     expect(pharmacovigilanceMigration).toContain("public.clinical_has_active_consent(patient_id, 'treatment')")
     expect(pharmacovigilanceMigration).toContain("public.clinical_has_active_consent(patient_id, 'data_processing')")
