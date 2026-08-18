@@ -1,0 +1,296 @@
+name: Clinical Prescriber OS Reconciliation Visual
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - app/api/clinical/**
+      - app/dashboard/clinical/**
+      - components/dashboard/pages/ClinicalEvidenceCommandPage.tsx
+      - components/dashboard/pages/ClinicalWorkspacePage.tsx
+      - components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx
+      - components/dashboard/mobile-command/sections/ClinicalSection.tsx
+      - lib/clinical/**
+      - lib/server/clinicalInteractionQuery.ts
+      - lib/server/clinicalPrescriberWorkspaceQuery.ts
+      - lib/server/clinicalProfessionalAuthority.ts
+      - supabase/migrations/*clinical*.sql
+      - tests/clinical/prescriberOSReconciliation.test.ts
+      - tests/e2e/clinical-prescriber-os-reconciliation-visual.spec.ts
+      - .github/workflows/clinical-prescriber-os-reconciliation-visual.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-prescriber-os-reconciliation-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  clinical-prescriber-mobile-evidence:
+    name: Reconciled Clinical exact-head mobile evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      CLINICAL_RECONCILIATION_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      SUPABASE_DB_SCHEMA: api
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Checkout exact verified branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.CLINICAL_RECONCILIATION_SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify reconciliation contracts
+        run: npx vitest run tests/clinical/prescriberOSReconciliation.test.ts
+
+      - name: Type check exact head
+        run: npm run typecheck
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated local Supabase schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then
+            mv supabase/seed.sql /tmp/harbourview-production-seed.sql
+          fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_clinical_reconciliation_visual.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+
+          create table if not exists api.user_dashboard_preferences (
+            user_id uuid primary key,
+            country_iso2 text,
+            role_id text,
+            active_workspace_id uuid
+          );
+
+          create table if not exists api.workspace_members (
+            user_id uuid not null,
+            workspace_id uuid not null default gen_random_uuid(),
+            status text not null default 'active'
+          );
+
+          create table if not exists api.signals (
+            id uuid primary key default gen_random_uuid(),
+            headline text not null default '',
+            cat text,
+            top_lane text,
+            pri text,
+            country text,
+            date timestamptz,
+            created_at timestamptz not null default now(),
+            reviewed boolean not null default false,
+            action text,
+            analysis jsonb,
+            quality_label text,
+            quality_confidence numeric,
+            content_type text,
+            impact text,
+            title_en text,
+            summary_en text,
+            lang_detected text,
+            is_representative boolean,
+            cluster_rep_id uuid
+          );
+          create or replace view api.signals_with_quality as select * from api.signals;
+
+          create table if not exists api.market_metrics (
+            id uuid primary key default gen_random_uuid(),
+            country_iso2 text,
+            metric_name text,
+            metric_value numeric,
+            metric_unit text,
+            source_name text,
+            source_url text,
+            source_date date
+          );
+
+          create table if not exists api.hv_professionals (
+            id uuid primary key default gen_random_uuid(),
+            full_name text not null,
+            title text,
+            credential_type text,
+            specialties text[] not null default '{}',
+            countries text[] not null default '{}',
+            institution text,
+            accepts_referrals boolean not null default false,
+            consultation_available boolean not null default false,
+            bio_public text,
+            verification_status text not null default 'verified',
+            status text not null default 'active'
+          );
+
+          create table if not exists api.deal_rooms (
+            id uuid primary key default gen_random_uuid(),
+            title text,
+            listing_ref text,
+            status text,
+            updated_at timestamptz not null default now(),
+            initiator_id uuid,
+            counterparty_id uuid
+          );
+
+          create table if not exists api.marketplace_candidates (
+            id uuid primary key default gen_random_uuid(),
+            title_public_draft text,
+            marketplace_category text,
+            listing_type text,
+            status text,
+            created_at timestamptz not null default now(),
+            country text,
+            submitted_by uuid,
+            submission_source text
+          );
+
+          grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
+          grant select on all tables in schema api to anon;
+          grant select on api.signals_with_quality to anon, authenticated, service_role;
+          SQL
+          : > supabase/seed.sql
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create isolated authenticated test account
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="clinical-reconcile-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvClinical-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+          const client = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            { auth: { autoRefreshToken: false, persistSession: false } },
+          )
+          const { data, error } = await client.auth.admin.createUser({
+            email: process.env.E2E_TEST_USER_EMAIL,
+            password: process.env.E2E_TEST_USER_PASSWORD,
+            email_confirm: true,
+            app_metadata: { clinical_reconciliation_visual_test: true },
+            user_metadata: { purpose: 'isolated-playwright' },
+          })
+          if (error) throw error
+          if (!data.user) throw new Error('Clinical reconciliation visual user was not created')
+          console.log(`Created isolated Clinical reconciliation user ${data.user.id}`)
+          NODE
+
+      - name: Build exact source against isolated Supabase
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 > /tmp/clinical-reconciliation-next.log 2>&1 &
+          echo $! > /tmp/clinical-reconciliation-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then
+              echo 'GO: exact Clinical reconciliation build is ready.'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/clinical-reconciliation-next.log
+          exit 1
+
+      - name: Capture required Clinical mobile evidence
+        run: >-
+          npx playwright test
+          tests/e2e/clinical-prescriber-os-reconciliation-visual.spec.ts
+          --project=chromium-desktop
+          --workers=1
+          --retries=0
+
+      - name: Collect server evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/clinical-prescriber-os-reconciliation
+          if [ -f /tmp/clinical-reconciliation-next.log ]; then
+            cp /tmp/clinical-reconciliation-next.log artifacts/clinical-prescriber-os-reconciliation/server.log
+          fi
+
+      - name: Upload Clinical reconciliation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: clinical-prescriber-os-reconciliation-${{ github.run_id }}
+          path: |
+            artifacts/clinical-prescriber-os-reconciliation/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore production migration source tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then
+            mv /tmp/harbourview-production-migrations supabase/migrations
+          fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then
+            mv /tmp/harbourview-production-seed.sql supabase/seed.sql
+          fi
+
+      - name: Stop isolated services
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/clinical-reconciliation-next.pid ]; then
+            kill "$(cat /tmp/clinical-reconciliation-next.pid)" 2>/dev/null || true
+          fi
+          supabase stop --no-backup || true
