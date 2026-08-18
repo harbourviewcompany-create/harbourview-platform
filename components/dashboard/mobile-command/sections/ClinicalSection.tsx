@@ -78,7 +78,6 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       eyebrow="Clinical"
       title="Clinical command"
       description={`Decision-ready cannabinoid and medical-cannabis clinical context for ${jurisdictionLabel}.`}
-      action={<Link className="hvm2-text-link hvc-open-workspace" href={workspaceHref}>Open Clinical workspace →</Link>}
     >
       <div className="hvc-command-summary" aria-label="Clinical decision summary">
         <article className="hvc-command-card hvc-command-status">
@@ -130,6 +129,13 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
           <strong>{jurisdictionStatus || 'Jurisdiction-specific status unavailable'}</strong>
           <p>{safePatientAccess || 'No current reviewed patient-access briefing is available. Treat the pathway as unknown rather than inferring one.'}</p>
           <Link href={commandHref('jurisdiction')}>Jurisdiction command →</Link>
+        </article>
+
+        <article className="hvc-command-card hvc-command-workspace">
+          <span>Clinical workspace</span>
+          <strong>Full Clinical workspace</strong>
+          <p>Evidence, Safety, Interactions, Formulations, Guidelines, Practice and Monitoring stay in the dedicated workspace rather than expanding inside Command.</p>
+          <Link href={workspaceHref}>Open Clinical workspace →</Link>
         </article>
       </div>
 
