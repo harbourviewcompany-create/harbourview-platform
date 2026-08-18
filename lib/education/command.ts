@@ -147,3 +147,9 @@ export function practiceKind(heading: string): EducationPracticeItem['kind'] | n
   if (normalized.includes('practice') || normalized.includes('how this plays out')) return 'practice'
   return null
 }
+
+/** ISO2 only — never invent a default market (no silent CA). */
+export function parseEducationCountry(value: string | null | undefined): string | null {
+  const head = (value ?? '').trim().toUpperCase().split('-')[0].replace(/[^A-Z]/g, '')
+  return head.length === 2 ? head : null
+}
