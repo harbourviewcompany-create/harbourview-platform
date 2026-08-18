@@ -209,8 +209,10 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
   const [requestVersion, setRequestVersion] = useState(0)
   const [activeView, setActiveView] = useState<ClinicalView>('evidence')
 
-  const loadEvidence = useCallback(async () => {
+  useEffect(() => {
     const controller = new AbortController()
+    let active = true
+
     const params = new URLSearchParams({ limit: '50' })
     // Prefer ISO2 country for the unified evidence API; keep jurisdiction as fallback label.
     if (countryIso2) params.set('country', countryIso2)
@@ -218,53 +220,69 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     if (submittedQuery) params.set('q', submittedQuery)
 
     setLoading(true)
-    try {
-      const response = await fetch(`/api/clinical/evidence?${params}`, {
-        signal: controller.signal,
-        credentials: 'same-origin',
-      })
-      const body: unknown = await response.json().catch(() => null)
-      if (!isClinicalEvidenceApiResult(body)) {
-        // Tolerate { records } shape from unified spine API
-        if (body && typeof body === 'object' && Array.isArray((body as { records?: unknown }).records)) {
-          const rows = (body as { records: ClinicalEvidenceRecordDTO[]; state?: string; message?: string })
-          setResult({
-            state: (rows.state as ClinicalEvidenceApiResult['state']) || (rows.records.length ? 'ready' : 'no-match'),
-            query: submittedQuery,
-            records: rows.records,
-            changes: [],
-            message: rows.message || (rows.records.length ? '' : 'No reviewed evidence matched this context.'),
-          })
-          return
-        }
-        throw new Error(
-          response.ok ? 'clinical_evidence_schema_contract_validation' : `clinical_evidence_http_${response.status}`,
-        )
-      }
-      setResult(body)
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      const message = error instanceof Error ? error.message : ''
-      const category = classifyClinicalFailure({ message })
-      const permission = category === 'permission'
-      const statusMatch = message.match(/clinical_evidence_http_(\\d{3})/)
-      const httpStatus = statusMatch ? Number(statusMatch[1]) : null
-      setResult({
-        state: permission ? 'permission' : 'error',
-        query: submittedQuery,
-        records: [],
-        changes: [],
-        message: clientFailureMessage(category),
-        diagnostic: diagnosticForFailure(category, httpStatus),
-      })
-    } finally {
-      setLoading(false)
-    }
-  }, [countryIso2, jurisdiction, submittedQuery])
 
-  useEffect(() => {
-    void loadEvidence()
-  }, [loadEvidence, requestVersion])
+    void (async () => {
+      try {
+        const response = await fetch(`/api/clinical/evidence?${params}`, {
+          signal: controller.signal,
+          credentials: 'same-origin',
+        })
+        const body: unknown = await response.json().catch(() => null)
+        if (!active) return
+
+        if (!isClinicalEvidenceApiResult(body)) {
+          // Tolerate { records } shape from unified spine API
+          if (body && typeof body === 'object' && Array.isArray((body as { records?: unknown }).records)) {
+            const rows = body as {
+              records: ClinicalEvidenceRecordDTO[]
+              state?: string
+              message?: string
+            }
+            setResult({
+              state:
+                (rows.state as ClinicalEvidenceApiResult['state']) ||
+                (rows.records.length ? 'ready' : 'no-match'),
+              query: submittedQuery,
+              records: rows.records,
+              changes: [],
+              message:
+                rows.message ||
+                (rows.records.length ? '' : 'No reviewed evidence matched this context.'),
+            })
+            return
+          }
+          throw new Error(
+            response.ok
+              ? 'clinical_evidence_schema_contract_validation'
+              : `clinical_evidence_http_${response.status}`,
+          )
+        }
+        setResult(body)
+      } catch (error) {
+        if (!active || (error instanceof DOMException && error.name === 'AbortError')) return
+        const message = error instanceof Error ? error.message : ''
+        const category = classifyClinicalFailure({ message })
+        const permission = category === 'permission'
+        const statusMatch = message.match(/clinical_evidence_http_(\d{3})/)
+        const httpStatus = statusMatch ? Number(statusMatch[1]) : null
+        setResult({
+          state: permission ? 'permission' : 'error',
+          query: submittedQuery,
+          records: [],
+          changes: [],
+          message: clientFailureMessage(category),
+          diagnostic: diagnosticForFailure(category, httpStatus),
+        })
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+      controller.abort()
+    }
+  }, [countryIso2, jurisdiction, submittedQuery, requestVersion])
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
