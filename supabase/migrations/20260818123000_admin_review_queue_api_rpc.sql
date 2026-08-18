@@ -4,11 +4,10 @@
 -- exposure, while Harbourview's Data API is intentionally pinned to `api`.
 -- Existing callers therefore cannot read the queue through PostgREST.
 --
--- This RPC is deliberately service-role-only and uses dynamic SQL so zero-state
--- migration replay does not invent or replace the production-owned queue table.
--- If the underlying table is absent at runtime the call fails explicitly and
--- the Admin Command Center reports that adapter as degraded rather than a
--- misleading zero.
+-- These RPCs are deliberately service-role-only and use dynamic SQL so
+-- zero-state migration replay does not invent or replace production-owned
+-- public tables. If an underlying table is absent at runtime, the call fails
+-- explicitly and the Admin Command Center reports that operation as degraded.
 
 create or replace function api.list_admin_review_queue(
   p_include_resolved boolean default false,
@@ -59,5 +58,47 @@ grant execute on function api.list_admin_review_queue(boolean, integer) to servi
 
 comment on function api.list_admin_review_queue(boolean, integer) is
   'Service-role-only Admin Command Center read bridge to public.hv_admin_review_queue. Does not expose the queue to browser roles.';
+
+create or replace function api.append_admin_signal_audit(
+  p_entity_type text,
+  p_entity_id text,
+  p_action text,
+  p_actor_user_id text,
+  p_metadata jsonb default '{}'::jsonb
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $function$
+begin
+  execute $sql$
+    insert into public.audit_events (
+      entity_type,
+      entity_id,
+      action,
+      actor,
+      actor_user_id,
+      metadata
+    ) values (
+      $1,
+      $2::uuid,
+      $3,
+      $4,
+      $4::uuid,
+      coalesce($5, '{}'::jsonb)
+    )
+  $sql$
+  using p_entity_type, p_entity_id, p_action, p_actor_user_id, p_metadata;
+
+  return true;
+end
+$function$;
+
+revoke all on function api.append_admin_signal_audit(text, text, text, text, jsonb) from public, anon, authenticated;
+grant execute on function api.append_admin_signal_audit(text, text, text, text, jsonb) to service_role;
+
+comment on function api.append_admin_signal_audit(text, text, text, text, jsonb) is
+  'Service-role-only Admin Command Center audit append bridge. Browser roles cannot execute it.';
 
 notify pgrst, 'reload schema';
