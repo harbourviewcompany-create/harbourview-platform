@@ -1,0 +1,26 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { searchClinicalInteractions } from '@/lib/server/clinicalInteractionQuery'
+
+export const dynamic = 'force-dynamic'
+
+const QuerySchema = z.object({
+  q: z.string().trim().max(120).optional().default(''),
+  limit: z.coerce.number().int().min(1).max(50).optional().default(25),
+})
+
+export async function GET(request: NextRequest) {
+  const parsed = QuerySchema.safeParse({
+    q: request.nextUrl.searchParams.get('q') ?? '',
+    limit: request.nextUrl.searchParams.get('limit') ?? undefined,
+  })
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid interaction query' }, { status: 400 })
+  }
+
+  const result = await searchClinicalInteractions(parsed.data)
+  return NextResponse.json(result, {
+    status: result.state === 'error' ? 503 : 200,
+    headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+  })
+}

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireClinicalUser } from '@/lib/clinical/auth'
+import { getAdminAuthCheck } from '@/lib/auth/adminGuard'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -14,13 +14,13 @@ const BodySchema = z.object({
 
 /**
  * Publish / retire clinical evidence or formulary rows.
- * Auth: signed-in clinical user. Uses service role for write (RLS is read-only public).
- * Tighten to admin-only RPC before broad staff access.
+ * Auth: platform admin/operator only (adminGuard).
  */
 export async function POST(req: Request) {
-  const auth = await requireClinicalUser()
+  const auth = await getAdminAuthCheck()
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status })
+    const status = auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
+    return NextResponse.json({ error: 'Admin authentication required', reason: auth.reason }, { status })
   }
 
   let json: unknown
@@ -35,8 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid body', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { entity, id, review_status, notes } = parsed.data
-  // Map retired → under-review for evidence table which only allows published | under-review
+  const { entity, id, review_status } = parsed.data
   const evidenceStatus = review_status === 'retired' ? 'under-review' : review_status
 
   try {
@@ -47,12 +46,10 @@ export async function POST(req: Request) {
         .update({
           review_status,
           updated_at: new Date().toISOString(),
-          reviewed_by: auth.userId,
+          reviewed_by: auth.auth.user.id,
         })
         .eq('id', id)
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 })
-      }
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     } else {
       const { error } = await admin
         .from('clinical_evidence_records')
@@ -61,9 +58,7 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 400 })
-      }
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
     return NextResponse.json({
@@ -71,8 +66,8 @@ export async function POST(req: Request) {
       entity,
       id,
       review_status: entity === 'evidence' ? evidenceStatus : review_status,
-      notes: notes ?? null,
-      actor: auth.userId,
+      actor: auth.auth.user.id,
+      roles: auth.auth.roles,
     })
   } catch (e) {
     return NextResponse.json(
@@ -82,41 +77,32 @@ export async function POST(req: Request) {
   }
 }
 
-/** List under-review + published for admin queue */
-export async function GET(req: Request) {
-  const auth = await requireClinicalUser()
+export async function GET() {
+  const auth = await getAdminAuthCheck()
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status })
+    const status = auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
+    return NextResponse.json({ error: 'Admin authentication required', reason: auth.reason }, { status })
   }
-
-  const url = new URL(req.url)
-  const entity = url.searchParams.get('entity') ?? 'both'
 
   try {
     const admin = await createSupabaseServiceClient()
-    const out: {
-      evidence: unknown[]
-      formulary: unknown[]
-    } = { evidence: [], formulary: [] }
-
-    if (entity === 'evidence' || entity === 'both') {
-      const { data } = await admin
+    const [ev, form] = await Promise.all([
+      admin
         .from('clinical_evidence_records')
         .select('id,slug,title,review_status,evidence_strength,jurisdictions,verified_at,updated_at')
         .order('updated_at', { ascending: false })
-        .limit(100)
-      out.evidence = data ?? []
-    }
-    if (entity === 'formulary' || entity === 'both') {
-      const { data } = await admin
+        .limit(100),
+      admin
         .from('clinical_formulary_products')
-        .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at')
+        .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at,brand_name,registration_code')
         .order('updated_at', { ascending: false })
-        .limit(100)
-      out.formulary = data ?? []
-    }
+        .limit(100),
+    ])
 
-    return NextResponse.json(out)
+    return NextResponse.json({
+      evidence: ev.data ?? [],
+      formulary: form.data ?? [],
+    })
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Review list failed' },

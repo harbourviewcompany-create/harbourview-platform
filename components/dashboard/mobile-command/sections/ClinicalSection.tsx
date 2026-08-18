@@ -32,23 +32,22 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
 }) {
   const clinicalHref = commandHref('clinical')
   const countryIso2 = countryIso2FromCommandHref(clinicalHref)
-  const [formulary, setFormulary] = useState<Array<{
-    id: string
-    name: string
-    authorizationStatus: string
-    cannabinoidProfile: string
-    notes: string
-    primarySourceUrl?: string | null
-  }>>([])
+  const [formulary, setFormulary] = useState<Array<Record<string, unknown>>>([])
+  const [education, setEducation] = useState<Array<Record<string, unknown>>>([])
+  const [interactions, setInteractions] = useState<Array<Record<string, unknown>>>([])
   useEffect(() => {
     if (!countryIso2) return
     let cancelled = false
-    fetch(`/api/clinical/formulary?country=${encodeURIComponent(countryIso2)}&limit=10`)
-      .then((r) => r.json())
-      .then((body) => {
-        if (!cancelled) setFormulary(body.products ?? [])
-      })
-      .catch(() => {})
+    Promise.all([
+      fetch(`/api/clinical/formulary?country=${encodeURIComponent(countryIso2)}&limit=8`).then((r) => r.json()),
+      fetch('/api/clinical/education').then((r) => r.json()),
+      fetch('/api/clinical/interactions?limit=6').then((r) => r.json()),
+    ]).then(([form, edu, ix]) => {
+      if (cancelled) return
+      setFormulary(form.products ?? [])
+      setEducation(edu.modules ?? [])
+      setInteractions(ix.interactions ?? [])
+    }).catch(() => {})
     return () => { cancelled = true }
   }, [countryIso2])
   const jurisdictionLabel = clinicalJurisdictionLabel(countryIso2)
@@ -151,14 +150,39 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       {formulary.length > 0 && (
         <div className="hvm2-horizontal-deck" aria-label="Published formulary">
           {formulary.map((p) => (
-            <article className="hvm2-directory-card" key={p.id}>
+            <article className="hvm2-directory-card" key={String(p.id)}>
               <span>Formulary</span>
-              <h3>{p.name}</h3>
-              <p>{p.authorizationStatus} · {p.cannabinoidProfile}</p>
-              <p>{p.notes}</p>
-              {p.primarySourceUrl ? (
-                <a className="hvm2-text-link" href={p.primarySourceUrl} target="_blank" rel="noreferrer">Primary source ↗</a>
+              <h3>{String(p.name)}</h3>
+              <p>{String(p.authorizationStatus)} · {String(p.cannabinoidProfile)}</p>
+              <p>{String(p.notes ?? "")}</p>
+              {p["primarySourceUrl"] ? (
+                <a className="hvm2-text-link" href={p["primarySourceUrl"]} target="_blank" rel="noreferrer">Primary source ↗</a>
               ) : null}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {education.length > 0 && (
+        <div className="hvm2-horizontal-deck" aria-label="Clinical education modules">
+          {education.slice(0, 4).map((m) => (
+            <article className="hvm2-directory-card" key={String(m.id)}>
+              <span>Education</span>
+              <h3>{String(m.title)}</h3>
+              <p>{String(m.moduleStatus ?? '')} · {String(m.riskLevel ?? '')}</p>
+              <Link className="hvm2-text-link" href={String(m.route || `/network/clinical-education/${m.slug}`)}>Open →</Link>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {interactions.length > 0 && (
+        <div className="hvm2-horizontal-deck" aria-label="Published interactions">
+          {interactions.slice(0, 4).map((ix) => (
+            <article className="hvm2-directory-card" key={String(ix.id)}>
+              <span>Interaction</span>
+              <h3>{String(ix.medicationIngredient)} × {String(ix.cannabinoid)}</h3>
+              <p>{String(ix.clinicalSignificance)} · {String(ix.mechanism ?? '')}</p>
             </article>
           ))}
         </div>
