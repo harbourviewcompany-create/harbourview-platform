@@ -13,6 +13,7 @@ const workspace = read('components/dashboard/pages/ClinicalWorkspacePage.tsx')
 const interactionQuery = read('lib/server/clinicalInteractionQuery.ts')
 const workspaceQuery = read('lib/server/clinicalPrescriberWorkspaceQuery.ts')
 const formularyQuery = read('lib/server/clinicalFormularyQuery.ts')
+const preflightMigration = read('supabase/migrations/20260818212800_clinical_prescriber_governance_preflight.sql')
 const dedupeMigration = read('supabase/migrations/20260818212900_clinical_interaction_published_uniqueness.sql')
 const reconciliationMigration = read('supabase/migrations/20260818213000_clinical_prescriber_os_reconciliation.sql')
 const auditMigration = read('supabase/migrations/20260818213100_clinical_provenance_remediation_audit.sql')
@@ -73,6 +74,23 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(workspace).not.toContain('Record<string, unknown>')
     expect(workspaceQuery).not.toContain('Record<string, unknown>')
     expect(formularyQuery).not.toContain('Record<string, unknown>')
+  })
+
+  it('fails closed before Prescriber OS DDL when the Evidence V1/V1.1 governance foundation is absent', () => {
+    for (const required of [
+      'public.clinical_evidence_reviews',
+      'public.clinical_reviewer_credentials',
+      'public.clinical_evidence_source_snapshots',
+      'public.clinical_evidence_grade_assessments',
+      'public.clinical_evidence_operation_events',
+      'clinical_evidence_records.publication_scope',
+      'clinical_evidence_records.freshness_status',
+      'clinical_evidence_records.primary_source_registry_id',
+    ]) {
+      expect(preflightMigration).toContain(required)
+    }
+    expect(preflightMigration).toContain('RAISE EXCEPTION')
+    expect(preflightMigration).not.toMatch(/create table|alter table|update public\.|insert into/i)
   })
 
   it('reconciles current-main monitoring instead of creating the stale PR table shape', () => {
