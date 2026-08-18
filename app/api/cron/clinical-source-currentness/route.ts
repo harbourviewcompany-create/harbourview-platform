@@ -1,4 +1,4 @@
-// Vercel Cron — clinical source-metadata currentness (Phase A+)
+// Vercel Cron — clinical source-metadata currentness (Phase B)
 // Secured by CRON_SECRET. Does not publish clinical-synthesis.
 
 import { NextResponse } from 'next/server'
@@ -26,11 +26,20 @@ export async function GET(request: Request) {
     ? Math.max(1, Math.min(200, parseInt(limitParam, 10) || DEFAULT_LIMIT))
     : DEFAULT_LIMIT
   const dryRun = url.searchParams.get('dryRun') === '1'
+  const concurrencyParam = url.searchParams.get('concurrency')
+  const concurrency = concurrencyParam
+    ? Math.max(1, Math.min(8, parseInt(concurrencyParam, 10) || 3))
+    : 3
 
-  console.info('clinical_source_currentness_cron: starting', { limit, dryRun })
+  console.info('clinical_source_currentness_cron: starting', { limit, dryRun, concurrency })
 
   try {
-    const summary = await runSourceCurrentness({ limit, dryRun })
+    const summary = await runSourceCurrentness({
+      limit,
+      dryRun,
+      concurrency,
+      priorityFirst: true,
+    })
     if (!summary.ok && !summary.skippedLock) {
       console.error('clinical_source_currentness_cron: failed', summary.error)
       return NextResponse.json(summary, { status: 500 })
