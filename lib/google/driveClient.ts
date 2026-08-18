@@ -25,8 +25,7 @@
 // rather than a confusing auth failure deep in googleapis internals.
 
 import 'server-only'
-import { drive, drive_v3 } from '@googleapis/drive'
-import { JWT } from 'googleapis-common'
+import { auth as driveAuth, drive, drive_v3 } from '@googleapis/drive'
 
 let cachedClient: drive_v3.Drive | null = null
 
@@ -53,9 +52,11 @@ function loadServiceAccountCredentials(): { client_email: string; private_key: s
 export function getDriveClient(): drive_v3.Drive {
   if (cachedClient) return cachedClient
   const { client_email, private_key } = loadServiceAccountCredentials()
-  const auth = new JWT({
-    email: client_email,
-    key: private_key,
+  const auth = new driveAuth.GoogleAuth({
+    credentials: {
+      client_email,
+      private_key,
+    },
     scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   })
   cachedClient = drive({ version: 'v3', auth })
