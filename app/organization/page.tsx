@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import OrganizationManager from './OrganizationManager'
 
 export const metadata: Metadata = {
@@ -7,5 +8,13 @@ export const metadata: Metadata = {
 }
 
 export default function OrganizationPage() {
-  return <OrganizationManager />
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#020814] px-5 py-12 text-white/50">Loading organizations…</main>
+      }
+    >
+      <OrganizationManager />
+    </Suspense>
+  )
 }
