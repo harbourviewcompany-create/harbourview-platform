@@ -6,20 +6,24 @@ Use this before any production push that touches clinical surfaces.
 
 - [ ] Named primary clinical reviewer (D4) appointed and recorded in FLAGSHIP_ENHANCEMENT_SPEC or HANDOFF
 - [ ] Backup clinical reviewer identified
-- [ ] No clinical-synthesis record marked `published` without reviewer sign-off
+- [ ] No clinical-synthesis record marked `published` without approved provenance plus a current credential-bound clinician/pharmacist review
 - [ ] All marketing / empty-state copy remains cannabinoid-scope-honest
 
 ## Data & schema
 
-- [ ] Migration `20260818_clinical_evidence_spine.sql` applied to production Supabase
-- [ ] RLS policies verified: published readable by authenticated; under-review hidden from clinicians
+- [ ] Migration `20260818224000_clinical_evidence_spine_reconcile.sql` applied to production Supabase
+- [ ] Migration preserves all pre-existing Clinical evidence rows
+- [ ] Existing graded/claim-bearing rows without credential-bound approval are `publication_scope = 'clinical-synthesis'` and `review_status = 'under-review'`
+- [ ] RLS policies verified: published evidence readable by authenticated users only; under-review hidden; anon has no evidence-table SELECT
 - [ ] `clinical_view_audit` restricted to own rows
-- [ ] At least the Wave-1 records loaded with complete required fields
+- [ ] Currentness change events accept `currentness_lock` and `source_currentness_check`
+- [ ] At least the Wave-1 records have complete record-specific primary-source and review provenance before publication
 
 ## Query & API
 
 - [ ] `productionQuery.ts` (or equivalent) wired as the primary search path
-- [ ] Fixture fallback only activates when live spine is unreachable
+- [ ] Live query uses canonical production fields: `condition_label`, `cannabinoids`, `jurisdictions`
+- [ ] Fixture fallback only activates when live spine is unreachable; a successful live zero-result response remains authoritative
 - [ ] Search never returns `review_status = 'under-review'`
 - [ ] Jurisdiction filter works; no Canada content appears for DE/AU/GB when those countries are selected
 
@@ -50,7 +54,7 @@ Use this before any production push that touches clinical surfaces.
 
 ## Final smoke (production)
 
-- [ ] Authenticated search for “Dravet” → loaded with graded record
+- [ ] Authenticated search for “Dravet” returns a graded record only after credential-bound publication review is complete
 - [ ] Authenticated search for a non-cannabinoid primary-care condition → honest no-match / out-of-scope
 - [ ] Anonymous / public Clinical surface shows marketing teaser only
 - [ ] Verified clinician can open dosing calculator; unverified cannot
