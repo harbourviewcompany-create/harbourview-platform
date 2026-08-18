@@ -26,6 +26,7 @@ on:
       - components/dashboard/mobile-command/**
       - components/marketplace/DynamicMarketplaceIntakeForm.tsx
       - tests/dashboard/mobileCommandCentreV2.test.ts
+      - tests/dashboard/mobileClinicalProfessional.test.ts
       - tests/dashboard/dashboardResponsiveShell.behavior.test.ts
       - tests/dashboard/loadCommandCentreData.test.ts
       - tests/dashboard/commandCentreHealth.test.ts
@@ -39,6 +40,7 @@ on:
       - tests/security/command-centre-boundaries.test.ts
       - tests/supabase/env.test.ts
       - tests/e2e/mobile-command-centre-v2.spec.ts
+      - tests/e2e/mobile-clinical-command.spec.ts
       - tests/e2e/mobile-marketplace-media.spec.ts
       - tests/e2e/mobile-intel-authenticated.spec.ts
       - .github/workflows/mobile-command-centre-v2-visual.yml
@@ -51,9 +53,6 @@ permissions:
   contents: read
 
 concurrency:
-  # Same fix as ci.yml: on push the old key collapsed to `refs/heads/main`, so
-  # consecutive merges cancelled each other's visual verification. Key non-PR
-  # runs on the commit, and cancel only within a pull request.
   group: mobile-command-centre-v2-visual-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -90,10 +89,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify registry loader shell readiness auth leakage and local-auth contracts
+      - name: Verify registry loader shell readiness auth leakage clinical presentation and local-auth contracts
         run: >-
           npx vitest run
           tests/dashboard/mobileCommandCentreV2.test.ts
+          tests/dashboard/mobileClinicalProfessional.test.ts
           tests/dashboard/dashboardResponsiveShell.behavior.test.ts
           tests/dashboard/loadCommandCentreData.test.ts
           tests/dashboard/commandCentreHealth.test.ts
@@ -303,9 +303,6 @@ jobs:
             12
           ) on conflict (id) do nothing;
 
-          -- Public image projection fixture. It uses the exact public DTO shape
-          -- and points to an existing first-party asset so the browser verifies
-          -- an image-bearing card without any production data write.
           create table if not exists api.marketplace_item_images (
             id uuid primary key,
             item_id uuid not null,
@@ -423,10 +420,11 @@ jobs:
           cat /tmp/mobile-command-next.log
           exit 1
 
-      - name: Run authenticated Command Centre and marketplace media visual gates
+      - name: Run authenticated Command Centre Clinical and marketplace media visual gates
         run: >-
           npx playwright test
           tests/e2e/mobile-command-centre-v2.spec.ts
+          tests/e2e/mobile-clinical-command.spec.ts
           tests/e2e/mobile-marketplace-media.spec.ts
           tests/e2e/mobile-intel-authenticated.spec.ts
           --project=chromium-desktop
@@ -449,6 +447,7 @@ jobs:
           name: command-centre-responsive-${{ github.run_id }}
           path: |
             artifacts/mobile-command-v2/
+            artifacts/mobile-clinical/
             artifacts/mobile-marketplace-media/
             playwright-report/
             test-results/
