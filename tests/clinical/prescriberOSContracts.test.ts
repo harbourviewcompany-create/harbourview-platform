@@ -22,7 +22,7 @@ function evidence(overrides: Partial<ClinicalEvidenceRecordDTO> = {}): ClinicalE
     interventionClass: 'regulated-cannabinoid-drug',
     comparator: 'placebo',
     outcome: 'seizure frequency',
-    evidenceType: 'guideline',
+    evidenceType: 'clinical-guideline',
     evidenceStrength: 'moderate',
     evidenceStrengthMethod: 'source-specific',
     uncertainty: null,
@@ -84,8 +84,8 @@ describe('Prescriber Operating System contracts', () => {
     expect(result.answer).toBe('Reviewed summary.')
   })
 
-  it('surfaces conflicts and stale sources explicitly', () => {
-    expect(buildAskClinicalResponse('Question', [evidence({ conflictStatus: 'conflicted' })]).state).toBe('conflicting')
+  it('surfaces material conflicts and stale sources explicitly', () => {
+    expect(buildAskClinicalResponse('Question', [evidence({ conflictStatus: 'material-conflict' })]).state).toBe('conflicting')
     expect(buildAskClinicalResponse('Question', [evidence({ freshnessStatus: 'stale' })]).state).toBe('stale')
   })
 
