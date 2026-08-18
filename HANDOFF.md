@@ -1,9 +1,19 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Aug 11 2026 · Claude (chat)
+> Last updated: Aug 18 2026 · Claude (chat)
 
 ---
+
+## OPEN — Clinical monitoring protocols PR (2026-08-18)
+
+PR #1522 (`feat/clinical-monitoring-protocols`) adds a governed `clinical_monitoring_protocols`
+table (applied directly to Supabase, 10 published rows), `/api/clinical/monitoring`, and a
+Monitoring tab in `ClinicalEvidenceExplorer.tsx` — closing the last open item in
+`docs/control/CLINICAL_MOBILE_EVIDENCE_EXPLORER_20260818.md`. `tsc --noEmit` and `next build`
+both green locally; not yet merged or verified in production. Org creation flow (`app/organization/`,
+`app/api/org/create`) was also audited this session — end-to-end (create → validate → membership →
+passport profile → redirect) is already complete, no gaps found.
 
 ## OPEN — Frontend dashboard optimization plan (2026-07-19)
 
