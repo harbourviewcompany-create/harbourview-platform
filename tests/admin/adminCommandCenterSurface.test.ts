@@ -40,6 +40,17 @@ describe('Admin Command Center Phase 0-4 contracts', () => {
     expect(shell.indexOf("if (legacyHub) return")).toBeGreaterThan(shell.indexOf('useEffect('))
   })
 
+  it('keeps new work adapters on the canonical api-schema service client', () => {
+    const workServer = read('lib/admin/work/server.ts')
+    expect(workServer).toContain('createSupabaseServiceClient')
+    expect(workServer).toContain(".from('hv_admin_review_queue')")
+    expect(workServer).toContain(".from('marketplace_inquiries')")
+    expect(workServer).toContain(".from('marketplace_candidates')")
+    expect(workServer).not.toContain('fetchAdminSupabaseJson')
+    expect(workServer).toContain("['received', 'reviewing', 'contacted', 'qualified']")
+    expect(workServer).toContain("['needs_review', 'needs_verification']")
+  })
+
   it('keeps the Hub and Stripe setup during parity and records exactly one runtime hub-proxy caller', () => {
     const parity = JSON.parse(read('docs/control/ADMIN_COMMAND_CENTER_HUB_PARITY.json'))
     expect(parity.base_sha).toBe('db692bceccdcf4dc263530b947b775c93fb6b535')
@@ -53,7 +64,8 @@ describe('Admin Command Center Phase 0-4 contracts', () => {
     const route = read('app/api/admin/signals/bulk/route.ts')
     const workspace = read('components/admin/SignalReviewWorkspace.tsx')
     expect(route).toContain('requireAdminApiAuth')
-    expect(route).toContain('audit_events')
+    expect(route).toContain('createSupabaseServiceClient')
+    expect(route).toContain("from('audit_events')")
     expect(route).toContain('idempotency_key')
     expect(route).not.toContain('hub-proxy')
     expect(workspace).toContain('/api/admin/signals/bulk')
