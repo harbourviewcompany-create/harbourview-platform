@@ -5,6 +5,12 @@ import { ORG_TYPES } from "@/lib/hv/orgTypes"
 
 const ROUTE_ID = "/api/org/create"
 
+function safeErrorDetail(err: { message?: string; code?: string; details?: string } | null): string {
+  if (!err) return ""
+  const parts = [err.code, err.message, err.details].filter(Boolean)
+  return parts.join(" — ").slice(0, 240)
+}
+
 export async function POST(req: NextRequest) {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 })
@@ -24,68 +30,179 @@ export async function POST(req: NextRequest) {
   }
 
   let body: Record<string, string>
-  try { body = await req.json() } catch { return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 })
+  }
+
   const { legal_name, trade_name, org_type, jurisdiction_country, jurisdiction_region } = body
-  if (!legal_name?.trim()) return NextResponse.json({ error: "legal_name required" }, { status: 422 })
-  if (!org_type || !(ORG_TYPES as readonly string[]).includes(org_type)) return NextResponse.json({ error: "invalid org_type" }, { status: 422 })
-  if (!jurisdiction_country?.trim() || jurisdiction_country.trim().length !== 2) return NextResponse.json({ error: "jurisdiction_country must be 2-letter ISO code" }, { status: 422 })
+  if (!legal_name?.trim()) {
+    return NextResponse.json({ error: "Legal name is required." }, { status: 422 })
+  }
+  if (!org_type || !(ORG_TYPES as readonly string[]).includes(org_type)) {
+    return NextResponse.json({ error: "Select a valid organization type." }, { status: 422 })
+  }
+  if (!jurisdiction_country?.trim() || jurisdiction_country.trim().length !== 2) {
+    return NextResponse.json({ error: "Country code must be a 2-letter ISO code (e.g. BR, CA)." }, { status: 422 })
+  }
 
-  const slug = (trade_name?.trim() || legal_name.trim())
-    .toLowerCase().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 48)
-    + "-" + Math.random().toString(36).slice(2, 7)
-  const supabase = await createSupabaseServiceClient()
+  const legal = legal_name.trim()
+  const trade = trade_name?.trim() || null
+  const country = jurisdiction_country.trim().toUpperCase().slice(0, 2)
+  const region = jurisdiction_region?.trim() || null
 
-  // workspace_members is intentionally many-to-many. A user may create another
-  // organization even when they already belong to one or more workspaces.
-  const { data: ws, error: wsErr } = await supabase.from("workspaces").insert({
-    name: trade_name?.trim() || legal_name.trim(), slug, legal_name: legal_name.trim(),
-    trade_name: trade_name?.trim() || null, org_type,
-    jurisdiction_country: jurisdiction_country.trim().toUpperCase().slice(0, 2),
-    jurisdiction_region: jurisdiction_region?.trim() || null,
-    verification_status: "unverified", is_public: false, settings: {}, status: "active",
-  }).select("id,slug,name").single()
+  const slug =
+    (trade || legal)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 48) +
+    "-" +
+    Math.random().toString(36).slice(2, 7)
+
+  let supabase
+  try {
+    supabase = await createSupabaseServiceClient()
+  } catch {
+    return NextResponse.json(
+      { error: "Organization service is not configured." },
+      { status: 503 },
+    )
+  }
+
+  // 1) Workspace (organization entity)
+  const { data: ws, error: wsErr } = await supabase
+    .from("workspaces")
+    .insert({
+      name: trade || legal,
+      slug,
+      legal_name: legal,
+      trade_name: trade,
+      org_type,
+      jurisdiction_country: country,
+      jurisdiction_region: region,
+      verification_status: "unverified",
+      is_public: false,
+      settings: {},
+      status: "active",
+    })
+    .select("id,slug,name,legal_name,trade_name,org_type,jurisdiction_country,jurisdiction_region,verification_status,status")
+    .single()
+
   if (wsErr || !ws) {
-    if (wsErr?.code === "23505") return NextResponse.json({ error: "SLUG_CONFLICT" }, { status: 409 })
-    return NextResponse.json({ error: "CREATE_FAILED" }, { status: 500 })
+    if (wsErr?.code === "23505") {
+      return NextResponse.json({ error: "That organization name is already taken. Try a different legal or trade name." }, { status: 409 })
+    }
+    return NextResponse.json(
+      { error: "Organization could not be created.", code: "CREATE_FAILED", detail: safeErrorDetail(wsErr) },
+      { status: 500 },
+    )
   }
 
   const now = new Date().toISOString()
+
+  // 2) Membership — user owns/admin this org (required for profile to "stick")
   const { error: mErr } = await supabase.from("workspace_members").insert({
-    workspace_id: ws.id, user_id: user.id, role: "admin", status: "active",
-    invited_at: now, joined_at: now,
+    workspace_id: ws.id,
+    user_id: user.id,
+    role: "admin",
+    status: "active",
+    invited_at: now,
+    joined_at: now,
   })
   if (mErr) {
     await supabase.from("workspaces").delete().eq("id", ws.id)
-    return NextResponse.json({ error: "MEMBERSHIP_FAILED" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Organization was created but membership failed. Nothing was kept — please retry.", code: "MEMBERSHIP_FAILED", detail: safeErrorDetail(mErr) },
+      { status: 500 },
+    )
   }
 
-  await supabase.from("hv_passports").insert({
+  // 3) Org passport profile (identity / readiness shell)
+  let passportCreated = false
+  const passportPayload = {
     org_id: ws.id,
     verification_level: "none",
     completeness_band: "incomplete",
     recall_exposure_flag: false,
-  })
-
-  // Creating an organization is an explicit choice to operate as it. Persist
-  // that context while preserving nullable active_workspace_id as Personal.
-  await supabase.from("user_dashboard_preferences").upsert({
-    user_id: user.id,
-    active_workspace_id: ws.id,
-    updated_at: now,
-  }, { onConflict: "user_id" })
-
-  await supabase.from("audit_events").insert({
-    entity_type: "workspace", entity_id: ws.id, action: "org.created",
-    actor: user.id, actor_user_id: user.id, actor_org_id: ws.id,
-    metadata: { org_type, jurisdiction_country },
-  })
-
-  return NextResponse.json({
-    data: {
-      org_id: ws.id,
-      slug: ws.slug,
-      name: ws.name,
-      active_workspace_id: ws.id,
+    public_snapshot: {
+      legal_name: legal,
+      trade_name: trade,
+      org_type,
+      jurisdiction_country: country,
+      jurisdiction_region: region,
+      created_via: "org.create",
     },
-  }, { status: 201 })
+  }
+  const { error: passportErr } = await supabase.from("hv_passports").upsert(passportPayload, {
+    onConflict: "org_id",
+  })
+  if (!passportErr) {
+    passportCreated = true
+  } else {
+    // Non-fatal for membership, but surface so the client can show partial success
+    console.error("org.create passport", passportErr)
+  }
+
+  // 4) Bind operating context to this org on the user profile (when column exists)
+  let activeContextSet = false
+  const { error: prefErr } = await supabase.from("user_dashboard_preferences").upsert(
+    {
+      user_id: user.id,
+      active_workspace_id: ws.id,
+      updated_at: now,
+    },
+    { onConflict: "user_id" },
+  )
+  if (!prefErr) {
+    activeContextSet = true
+  } else {
+    // Column may be missing in environments without P0 migration; still keep membership.
+    const { error: prefFallbackErr } = await supabase.from("user_dashboard_preferences").upsert(
+      {
+        user_id: user.id,
+        updated_at: now,
+      },
+      { onConflict: "user_id" },
+    )
+    if (prefFallbackErr) console.error("org.create preferences", prefErr, prefFallbackErr)
+    else console.warn("org.create preferences: active_workspace_id not persisted", safeErrorDetail(prefErr))
+  }
+
+  // 5) Audit (best-effort)
+  await supabase.from("audit_events").insert({
+    entity_type: "workspace",
+    entity_id: ws.id,
+    action: "org.created",
+    actor: user.id,
+    actor_user_id: user.id,
+    actor_org_id: ws.id,
+    metadata: { org_type, jurisdiction_country: country, passport: passportCreated, active_context: activeContextSet },
+  }).then(({ error }) => {
+    if (error) console.error("org.create audit", error)
+  })
+
+  return NextResponse.json(
+    {
+      data: {
+        org_id: ws.id,
+        slug: ws.slug,
+        name: ws.name,
+        legal_name: ws.legal_name,
+        trade_name: ws.trade_name,
+        org_type: ws.org_type,
+        jurisdiction_country: ws.jurisdiction_country,
+        verification_status: ws.verification_status,
+        status: ws.status,
+        active_workspace_id: activeContextSet ? ws.id : null,
+        role: "admin",
+        passport: passportCreated,
+        profile_bound: true,
+      },
+    },
+    { status: 201 },
+  )
 }
