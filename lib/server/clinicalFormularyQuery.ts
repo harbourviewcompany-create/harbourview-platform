@@ -66,3 +66,78 @@ export async function searchClinicalFormulary(opts: {
     }
   }
 }
+
+export type FormularySkuDTO = {
+  id: string
+  countryIso2: string
+  authority: string
+  registrationCode: string | null
+  brandName: string | null
+  productName: string
+  strengthLabel: string | null
+  dosageForm: string | null
+  route: string | null
+  cannabinoidProfile: string | null
+  authorizationStatus: string
+  sourceUrl: string | null
+  sourceType: string
+  notes: string
+  lastSeenAt: string
+}
+
+export async function searchClinicalFormularySkus(opts: {
+  countryIso2?: string
+  q?: string
+  limit?: number
+}): Promise<{ state: 'loaded' | 'empty' | 'error'; skus: FormularySkuDTO[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from('clinical_formulary_skus')
+      .select(
+        'id,country_iso2,authority,registration_code,brand_name,product_name,strength_label,dosage_form,route,cannabinoid_profile,authorization_status,source_url,source_type,notes,last_seen_at,review_status',
+      )
+      .eq('review_status', 'published')
+      .order('product_name', { ascending: true })
+      .limit(opts.limit ?? 50)
+
+    if (opts.countryIso2) query = query.eq('country_iso2', opts.countryIso2.toUpperCase())
+    if (opts.q?.trim()) {
+      const q = `%${opts.q.trim()}%`
+      query = query.or(
+        `product_name.ilike.${q},brand_name.ilike.${q},registration_code.ilike.${q},notes.ilike.${q}`,
+      )
+    }
+
+    const { data, error } = await query
+    if (error) return { state: 'error', skus: [], error: error.message }
+
+    const skus: FormularySkuDTO[] = (data ?? []).map((row) => {
+      const r = row as Record<string, unknown>
+      return {
+        id: String(r.id),
+        countryIso2: String(r.country_iso2),
+        authority: String(r.authority),
+        registrationCode: r.registration_code ? String(r.registration_code) : null,
+        brandName: r.brand_name ? String(r.brand_name) : null,
+        productName: String(r.product_name),
+        strengthLabel: r.strength_label ? String(r.strength_label) : null,
+        dosageForm: r.dosage_form ? String(r.dosage_form) : null,
+        route: r.route ? String(r.route) : null,
+        cannabinoidProfile: r.cannabinoid_profile ? String(r.cannabinoid_profile) : null,
+        authorizationStatus: String(r.authorization_status),
+        sourceUrl: r.source_url ? String(r.source_url) : null,
+        sourceType: String(r.source_type),
+        notes: String(r.notes ?? ''),
+        lastSeenAt: String(r.last_seen_at ?? ''),
+      }
+    })
+    return { state: skus.length ? 'loaded' : 'empty', skus }
+  } catch (e) {
+    return {
+      state: 'error',
+      skus: [],
+      error: e instanceof Error ? e.message : 'SKU query failed',
+    }
+  }
+}

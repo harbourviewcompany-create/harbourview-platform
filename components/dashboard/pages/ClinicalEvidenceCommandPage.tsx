@@ -10,8 +10,6 @@
 import React, { useCallback, useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
-  JURISDICTION_BRIEFINGS,
-  PROFESSIONAL_PATHWAYS,
   getAttentionItems,
   getNextActions,
 } from '@/lib/fixtures/clinical/jurisdictions'
@@ -96,6 +94,15 @@ export default function ClinicalEvidenceCommandPage({
   const [formulary, setFormulary] = useState<FormularyProductDTO[]>([])
   const [modules, setModules] = useState<EduModule[]>([])
   const [interactions, setInteractions] = useState<InteractionRow[]>([])
+  const [jurisdiction, setJurisdiction] = useState<{
+    country?: string
+    summary?: string
+    legalPathway?: string
+    primaryAuthority?: { name?: string; url?: string }
+    lastReviewed?: string
+    pathway?: { roles?: string; whoMayPrescribe?: string; notes?: string } | null
+  } | null>(null)
+  const [skus, setSkus] = useState<Array<Record<string, unknown>>>([])
   const [query, setQuery] = useState('')
   const [ixQuery, setIxQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
@@ -108,8 +115,6 @@ export default function ClinicalEvidenceCommandPage({
   const [doseResult, setDoseResult] = useState<ReturnType<typeof computeWeightBasedCannabinoidDose> | null>(null)
   const [doseError, setDoseError] = useState<string | null>(null)
 
-  const briefing = JURISDICTION_BRIEFINGS[iso2] ?? null
-  const pathway = PROFESSIONAL_PATHWAYS[iso2] ?? null
   const attention = getAttentionItems(iso2)
   const nextActions = getNextActions(iso2)
 
@@ -139,6 +144,13 @@ export default function ClinicalEvidenceCommandPage({
     const res = await fetch(`/api/clinical/formulary?country=${encodeURIComponent(iso2)}&limit=40`)
     const body = await res.json().catch(() => ({}))
     setFormulary(Array.isArray(body.products) ? body.products : [])
+    setSkus(Array.isArray(body.skus) ? body.skus : [])
+  }, [iso2])
+
+  const loadJurisdiction = useCallback(async () => {
+    const res = await fetch(`/api/clinical/jurisdiction?country=${encodeURIComponent(iso2)}`)
+    const body = await res.json().catch(() => ({}))
+    setJurisdiction(body.profile ?? null)
   }, [iso2])
 
   const loadEducation = useCallback(async () => {
@@ -161,8 +173,9 @@ export default function ClinicalEvidenceCommandPage({
       void loadFormulary()
       void loadEducation()
       void loadInteractions('')
+      void loadJurisdiction()
     })
-  }, [loadEvidence, loadFormulary, loadEducation, loadInteractions])
+  }, [loadEvidence, loadFormulary, loadEducation, loadInteractions, loadJurisdiction])
 
   const filters = ['Evidence', 'Safety', 'Interactions', 'Formulations', 'Guidelines', 'Practice', 'Monitoring']
 
@@ -418,6 +431,38 @@ export default function ClinicalEvidenceCommandPage({
         </ul>
       </section>
 
+      {/* National SKUs from authority feeds */}
+      <section className={`${card} p-4`}>
+        <SectionLabel>National SKU feed · {countryLabel}</SectionLabel>
+        <p className={`text-sm leading-relaxed ${muted}`}>
+          Product-level rows from ANVISA/TGA feeds or curated authority snapshots. Prefer registration codes when present. Always verify the live register — catalogues change.
+        </p>
+        <ul className="mt-3 space-y-3">
+          {skus.map((s) => (
+            <li key={String(s.id)} className="rounded-lg bg-white/[0.03] px-3 py-2.5">
+              <p className="text-sm font-medium text-white/90">{String(s.productName)}</p>
+              <p className={`mt-0.5 text-xs text-[#d4a853]/90`}>
+                {[s.authority, s.registrationCode, s.brandName, s.strengthLabel].filter(Boolean).map(String).join(' · ')}
+              </p>
+              <p className={`mt-0.5 text-xs ${muted}`}>
+                {String(s.authorizationStatus)} · {String(s.sourceType)} · {String(s.cannabinoidProfile ?? '')}
+              </p>
+              <p className={`mt-1 text-xs leading-relaxed ${muted}`}>{String(s.notes ?? '')}</p>
+              {s.sourceUrl ? (
+                <a href={String(s.sourceUrl)} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-xs text-[#d4a853]">
+                  Open source ↗
+                </a>
+              ) : null}
+            </li>
+          ))}
+          {skus.length === 0 && (
+            <p className={`text-sm ${muted}`}>
+              No published national SKUs for this jurisdiction yet. Run the clinical SKU feed cron for ANVISA/TGA.
+            </p>
+          )}
+        </ul>
+      </section>
+
       {/* Education from live API */}
       <section className={`${card} p-4`}>
         <SectionLabel>Clinical education modules</SectionLabel>
@@ -448,13 +493,13 @@ export default function ClinicalEvidenceCommandPage({
         </Link>
       </section>
 
-      {briefing && (
+      {jurisdiction && (
         <section className={`${card} p-4`}>
           <div className="flex items-center justify-between gap-2">
-            <SectionLabel>Jurisdiction briefing · {briefing.country}</SectionLabel>
+            <SectionLabel>Jurisdiction briefing · {jurisdiction.country}</SectionLabel>
             <StatusBadge label="Loaded" tone="loaded" />
           </div>
-          <p className={`mt-1 text-sm leading-relaxed ${muted}`}>{briefing.summary}</p>
+          <p className={`mt-1 text-sm leading-relaxed ${muted}`}>{jurisdiction.summary}</p>
         </section>
       )}
 
@@ -470,11 +515,11 @@ export default function ClinicalEvidenceCommandPage({
         </ul>
       </section>
 
-      {pathway && (
+      {jurisdiction?.pathway && (
         <section className={`${card} p-4`}>
           <SectionLabel>Professional pathway</SectionLabel>
-          <p className={`text-xs ${muted}`}>{pathway.roles}</p>
-          <p className={`mt-1.5 text-sm leading-relaxed ${muted}`}>{pathway.whoMayPrescribe}</p>
+          <p className={`text-xs ${muted}`}>{jurisdiction.pathway?.roles}</p>
+          <p className={`mt-1.5 text-sm leading-relaxed ${muted}`}>{jurisdiction.pathway?.whoMayPrescribe}</p>
         </section>
       )}
     </div>
