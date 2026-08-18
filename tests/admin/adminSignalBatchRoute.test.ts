@@ -6,9 +6,8 @@ const getAdminAuth = vi.fn()
 const approveEngineSignal = vi.fn()
 const rejectEngineSignal = vi.fn()
 const transitionRegulatorySignalStatus = vi.fn()
-const auditInsert = vi.fn()
-const auditFrom = vi.fn(() => ({ insert: auditInsert }))
-const createSupabaseServiceClient = vi.fn(async () => ({ from: auditFrom }))
+const auditRpc = vi.fn()
+const createSupabaseServiceClient = vi.fn(async () => ({ rpc: auditRpc }))
 
 vi.mock('@/lib/auth/adminApiAuth', () => ({ requireAdminApiAuth }))
 vi.mock('@/lib/auth/adminGuard', () => ({ getAdminAuth }))
@@ -22,7 +21,7 @@ describe('POST /api/admin/signals/bulk', () => {
     vi.clearAllMocks()
     requireAdminApiAuth.mockResolvedValue(null)
     getAdminAuth.mockResolvedValue({ user: { id: '00000000-0000-4000-8000-000000000001' }, roles: ['admin'] })
-    auditInsert.mockResolvedValue({ error: null })
+    auditRpc.mockResolvedValue({ data: true, error: null })
   })
 
   it('returns per-record success and failure instead of optimistic batch success', async () => {
@@ -50,8 +49,11 @@ describe('POST /api/admin/signals/bulk', () => {
       expect.objectContaining({ id: '00000000-0000-4000-8000-000000000101', ok: true, resultingState: 'approved' }),
       expect.objectContaining({ id: '00000000-0000-4000-8000-000000000102', ok: false, errorCode: 'mutation_failed' }),
     ]))
-    expect(auditFrom).toHaveBeenCalledWith('audit_events')
-    expect(auditInsert).toHaveBeenCalledTimes(1)
+    expect(auditRpc).toHaveBeenCalledTimes(1)
+    expect(auditRpc).toHaveBeenCalledWith('append_admin_signal_audit', expect.objectContaining({
+      p_entity_id: '00000000-0000-4000-8000-000000000101',
+      p_action: 'admin.signal.approve',
+    }))
   })
 
   it('does not bypass the curated regulatory publication gate with bulk approve', async () => {
@@ -72,7 +74,7 @@ describe('POST /api/admin/signals/bulk', () => {
     expect(body).toMatchObject({ requested: 1, succeeded: 0, failed: 0, skipped: 1 })
     expect(body.results[0]).toMatchObject({ ok: false, errorCode: 'unsupported_action' })
     expect(transitionRegulatorySignalStatus).not.toHaveBeenCalled()
-    expect(auditInsert).not.toHaveBeenCalled()
+    expect(auditRpc).not.toHaveBeenCalled()
   })
 
   it('keeps authorization server-side', async () => {
@@ -82,6 +84,6 @@ describe('POST /api/admin/signals/bulk', () => {
     const response = await POST(new NextRequest('https://harbourview.local/api/admin/signals/bulk', { method: 'POST', body: '{}' }))
     expect(response.status).toBe(401)
     expect(approveEngineSignal).not.toHaveBeenCalled()
-    expect(auditInsert).not.toHaveBeenCalled()
+    expect(auditRpc).not.toHaveBeenCalled()
   })
 })
