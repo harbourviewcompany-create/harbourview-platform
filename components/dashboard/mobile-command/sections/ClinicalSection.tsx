@@ -16,6 +16,7 @@ import {
   hasClinicalAuthorityCoverage,
   safeClinicalBriefing,
 } from '../clinicalCommandContract'
+import ClinicalEvidenceErrorBoundary from '../ClinicalEvidenceErrorBoundary'
 import ClinicalEvidenceExplorer from '../ClinicalEvidenceExplorer'
 import { SectionShell, type SectionRef } from '../SectionUI'
 
@@ -84,7 +85,9 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
         <p>{CLINICAL_SCOPE_NOTICE}</p>
       </div>
 
-      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
+      <ClinicalEvidenceErrorBoundary>
+        <ClinicalEvidenceExplorer commandHref={clinicalHref} />
+      </ClinicalEvidenceErrorBoundary>
 
       <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' || sourceState === 'limited-coverage' ? 'status' : undefined}>
         <strong>Jurisdiction briefing · {formatStatus(sourceState)} · {jurisdictionLabel}</strong>
@@ -146,7 +149,6 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
         </div>
       )}
 
-      
       {formulary.length > 0 && (
         <div className="hvm2-horizontal-deck" aria-label="Published formulary">
           {formulary.map((p) => (
