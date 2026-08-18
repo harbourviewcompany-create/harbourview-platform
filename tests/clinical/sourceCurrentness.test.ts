@@ -15,6 +15,9 @@ describe('extractDoi', () => {
   it('extracts DOI from URL', () => {
     expect(extractDoi(null, 'https://doi.org/10.1056/NEJMoa1234567')).toBe('10.1056/NEJMoa1234567')
   })
+  it('strips trailing punctuation', () => {
+    expect(extractDoi('10.1001/jama.2024.1234.', 'https://example.com')).toBe('10.1001/jama.2024.1234')
+  })
   it('returns null when absent', () => {
     expect(extractDoi(null, 'https://example.com/page')).toBeNull()
   })
@@ -26,6 +29,9 @@ describe('extractPmid', () => {
   })
   it('extracts from pmid: prefix', () => {
     expect(extractPmid('pmid:12345678', 'https://example.com')).toBe('12345678')
+  })
+  it('returns null when absent', () => {
+    expect(extractPmid(null, 'https://example.com')).toBeNull()
   })
 })
 
@@ -44,6 +50,13 @@ describe('normalizeHtmlForHash', () => {
     const h1 = sha256Hex(normalizeHtmlForHash('<main>version one</main>'))
     const h2 = sha256Hex(normalizeHtmlForHash('<main>version two</main>'))
     expect(h1).not.toBe(h2)
+  })
+  it('prefers role=main region', () => {
+    const n = normalizeHtmlForHash(
+      '<div role="main">Core content here</div><footer>nav junk</footer>'
+    )
+    expect(n).toContain('core content')
+    expect(n).not.toContain('nav junk')
   })
 })
 
@@ -85,7 +98,21 @@ describe('decideFreshness', () => {
     })
     expect(r.status).toBe('source-degraded')
   })
-  it('requires review on retraction', () => {
+  it('notes archive availability when degraded', () => {
+    const r = decideFreshness({
+      urlOk: false,
+      urlError: 'HTTP 503',
+      firstCheck: false,
+      hashChanged: false,
+      retracted: false,
+      titleMismatch: false,
+      idNotes: [],
+      archiveAvailable: true,
+    })
+    expect(r.status).toBe('source-degraded')
+    expect(r.reason).toMatch(/Internet Archive/i)
+  })
+  it('requires review on retraction (even if URL ok)', () => {
     const r = decideFreshness({
       urlOk: true,
       firstCheck: false,
@@ -128,5 +155,30 @@ describe('decideFreshness', () => {
       idNotes: [],
     })
     expect(r.status).toBe('current')
+  })
+  it('marks current on HTTP 304 not-modified', () => {
+    const r = decideFreshness({
+      urlOk: true,
+      firstCheck: false,
+      hashChanged: false,
+      notModified: true,
+      retracted: false,
+      titleMismatch: false,
+      idNotes: [],
+    })
+    expect(r.status).toBe('current')
+    expect(r.reason).toMatch(/304/i)
+  })
+  it('retraction takes precedence over URL failure', () => {
+    const r = decideFreshness({
+      urlOk: false,
+      urlError: 'HTTP 404',
+      firstCheck: false,
+      hashChanged: false,
+      retracted: true,
+      titleMismatch: false,
+      idNotes: ['OpenAlex marks work as retracted'],
+    })
+    expect(r.status).toBe('review-required')
   })
 })
