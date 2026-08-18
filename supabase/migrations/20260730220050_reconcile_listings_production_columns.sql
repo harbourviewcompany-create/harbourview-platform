@@ -18,11 +18,19 @@
 -- below is taken from the live catalog (pg_attribute / pg_get_expr), not
 -- inferred.
 --
--- Every statement is ADD COLUMN IF NOT EXISTS, so columns the repository
--- already builds are skipped untouched -- including their existing types. This
--- migration therefore never rewrites an existing column, and re-running it is a
--- no-op. That matters because it makes the reconciliation independent of
--- exactly which subset of these columns replay already has.
+-- Every added column uses IF NOT EXISTS, so columns the repository already
+-- builds are skipped untouched -- including their existing types.
+--
+-- Zero-state replay also carries a legacy listings.listing_type text NOT NULL
+-- column plus listings_listing_type_check from 20260528033000. Fresh production
+-- catalog evidence shows neither the column nor its check exists in production,
+-- while the historical api.listings view still depends on the column at this
+-- point in replay. Dropping the column here would cascade into unrelated
+-- historical API shape. Instead, when the replay-only legacy column exists,
+-- remove only its stale discriminator check and NOT NULL requirement so the
+-- historical supply seed (which correctly does not populate listing_type) can
+-- run. On production these operations are no-ops because the column/constraint
+-- are absent.
 --
 -- Deliberate deviations from the live catalog, both to keep this replay-safe:
 --   * Columns are added nullable even where production marks them NOT NULL.
@@ -53,6 +61,33 @@ begin
       '5m_plus',
       'negotiable'
     );
+  end if;
+end $$;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_catalog.pg_constraint con
+    where con.conrelid = 'public.listings'::regclass
+      and con.conname = 'listings_listing_type_check'
+  ) then
+    alter table public.listings drop constraint listings_listing_type_check;
+  end if;
+
+  if exists (
+    select 1
+    from pg_catalog.pg_attribute a
+    join pg_catalog.pg_class c on c.oid = a.attrelid
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'listings'
+      and a.attname = 'listing_type'
+      and a.attnum > 0
+      and not a.attisdropped
+      and a.attnotnull
+  ) then
+    alter table public.listings alter column listing_type drop not null;
   end if;
 end $$;
 

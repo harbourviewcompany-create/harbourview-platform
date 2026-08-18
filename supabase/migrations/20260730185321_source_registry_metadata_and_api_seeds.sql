@@ -17,9 +17,9 @@ ALTER TABLE public.source_registry
 COMMENT ON COLUMN public.source_registry.metadata IS
   'Optional adapter config. For adapter=api: { headers, accept, timeout_ms, auth_env }. Secrets must live in env vars referenced by auth_env, never in this column.';
 
--- -----------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Helper pattern: INSERT … SELECT … WHERE NOT EXISTS (by source_url)
--- ----------------------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 -- 1) Texas COA — 50-state + DC hemp compliance matrix (public, no key)
 INSERT INTO public.source_registry (
