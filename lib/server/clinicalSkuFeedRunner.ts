@@ -35,13 +35,23 @@ export async function runClinicalSkuFeeds(opts?: { authorities?: Array<'ANVISA' 
 
     let upserted = 0
     for (const row of feed.rows) {
+      const sponsor =
+        'sponsorName' in row && row.sponsorName
+          ? String(row.sponsorName)
+          : 'holderName' in row && row.holderName
+            ? String(row.holderName)
+            : null
+      const notes = [row.notes, sponsor ? `Sponsor/holder: ${sponsor}` : null]
+        .filter(Boolean)
+        .join(' ')
+
       const { error } = await admin.from('clinical_formulary_skus').upsert(
         {
           country_iso2: row.countryIso2,
           authority: row.authority,
           registration_code: row.registrationCode,
           brand_name: row.brandName,
-          product_name: row.productName,
+          product_name: row.productName.slice(0, 240),
           strength_label: row.strengthLabel,
           dosage_form: row.dosageForm,
           route: row.route,
@@ -52,7 +62,7 @@ export async function runClinicalSkuFeeds(opts?: { authorities?: Array<'ANVISA' 
           feed_run_id: runRow.id,
           last_seen_at: new Date().toISOString(),
           review_status: 'published',
-          notes: row.notes,
+          notes: notes.slice(0, 2000),
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'country_iso2,authority,registration_code,product_name' },
@@ -69,6 +79,7 @@ export async function runClinicalSkuFeeds(opts?: { authorities?: Array<'ANVISA' 
       authority: feed.authority,
       status: feed.status,
       upserted,
+      attempted: feed.rows.length,
       httpStatus: feed.httpStatus,
       errorMessage: feed.errorMessage,
       feedRunId: runRow.id,
