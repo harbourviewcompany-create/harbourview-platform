@@ -1,0 +1,376 @@
+name: Admin Command Center P0-P4 Verify
+
+on:
+  push:
+    branches:
+      - codex/admin-command-center-p0-p4
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-command-center-p0-p4-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  CI: '1'
+  NODE_VERSION: '22'
+  HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+  NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+  HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+  NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+  NEXT_PUBLIC_HARBOURVIEW_CI_RUN_ID: ${{ github.run_id }}
+  HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  verify:
+    name: Type, test, build, security, visual evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate machine-checkable Hub parity inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const parity = JSON.parse(fs.readFileSync('docs/control/ADMIN_COMMAND_CENTER_HUB_PARITY.json', 'utf8'))
+          if (parity.base_sha !== 'db692bceccdcf4dc263530b947b775c93fb6b535') throw new Error('Parity base SHA drifted')
+          if (parity.navigation.length !== 14) throw new Error(`Expected 14 Hub navigation items, got ${parity.navigation.length}`)
+          if (parity.hub_proxy.runtime_caller_count !== 1) throw new Error(`Expected one runtime hub-proxy caller, got ${parity.hub_proxy.runtime_caller_count}`)
+          if (!parity.read_queries?.length || !parity.mutations?.length || !parity.rpcs?.length || !parity.bulk_actions?.length || !parity.table_dependencies?.length || !parity.metrics?.length || !parity.hidden_capabilities?.length) {
+            throw new Error('Parity inventory is missing a required capability category')
+          }
+          console.log(JSON.stringify({ navigation: parity.navigation.length, reads: parity.read_queries.length, mutations: parity.mutations.length, rpcs: parity.rpcs.length, bulk: parity.bulk_actions.length, tables: parity.table_dependencies.length, metrics: parity.metrics.length, hidden: parity.hidden_capabilities.length, hubProxyRuntimeCallers: parity.hub_proxy.runtime_caller_count }, null, 2))
+          NODE
+
+      - name: Admin Phase 0-4 unit and contract tests
+        run: >-
+          npx vitest run
+          tests/admin/adminWorkTypes.test.ts
+          tests/admin/adminSignalBatchContract.test.ts
+          tests/admin/adminSignalBatchRoute.test.ts
+          tests/admin/adminCommandCenterSurface.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Security and leakage regression
+        run: npm run test:security
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Admin Command Center visual schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_admin_command_center_visual.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+
+          create table public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          create policy user_roles_self_read on public.user_roles for select to authenticated using (user_id = auth.uid());
+          grant select on public.user_roles to authenticated, service_role;
+          grant insert, update, delete on public.user_roles to service_role;
+
+          create table public.hv_admin_review_queue (
+            id uuid primary key default gen_random_uuid(),
+            queue_type text not null,
+            target_entity_type text not null,
+            target_entity_id text not null,
+            assigned_to text,
+            priority integer not null default 50,
+            status text not null default 'pending',
+            notes text,
+            created_at timestamptz not null default now(),
+            updated_at timestamptz,
+            resolved_at timestamptz
+          );
+
+          create table public.marketplace_inquiries (
+            id uuid primary key default gen_random_uuid(),
+            created_at timestamptz not null default now(),
+            inquiry_type text,
+            contact_company text,
+            contact_name text,
+            message text,
+            review_status text,
+            priority text,
+            next_follow_up_at timestamptz
+          );
+
+          create table public.marketplace_candidates (
+            id uuid primary key default gen_random_uuid(),
+            created_at timestamptz not null default now(),
+            discovered_at timestamptz,
+            candidate_type text,
+            status text,
+            title text,
+            title_internal text,
+            title_public_draft text,
+            country text,
+            region text,
+            jurisdiction text
+          );
+
+          create table public.scraper_source_state (
+            source_id text primary key,
+            consecutive_failures integer not null default 0,
+            last_error text,
+            last_success_at timestamptz,
+            last_run_at timestamptz
+          );
+
+          create table public.pipeline_tasks (
+            id uuid primary key default gen_random_uuid(),
+            queue_name text,
+            task_type text,
+            status text,
+            priority integer,
+            attempts integer,
+            max_attempts integer,
+            last_error text,
+            created_at timestamptz not null default now(),
+            available_at timestamptz
+          );
+
+          create table public.audit_events (
+            id uuid primary key default gen_random_uuid(),
+            entity_type text not null,
+            entity_id uuid not null,
+            action text not null,
+            actor text not null,
+            metadata jsonb not null default '{}'::jsonb,
+            created_at timestamptz not null default now(),
+            actor_user_id uuid
+          );
+
+          create table public.signals (
+            id text primary key,
+            date timestamptz,
+            cat text,
+            headline text not null,
+            summary text,
+            source text,
+            url text,
+            verification text,
+            tier text,
+            lang text,
+            country text,
+            score integer,
+            reviewed boolean not null default false,
+            action text,
+            reviewed_by text,
+            reviewed_at timestamptz,
+            created_at timestamptz not null default now(),
+            pri text,
+            top_lane text
+          );
+
+          grant select, insert, update, delete on public.hv_admin_review_queue, public.marketplace_inquiries,
+            public.marketplace_candidates, public.scraper_source_state, public.pipeline_tasks, public.audit_events,
+            public.signals to service_role;
+
+          create or replace function api.list_engine_review_queue(
+            p_country text default null,
+            p_min_score int default 0,
+            p_limit int default 50
+          ) returns table(
+            id text, date timestamptz, cat text, headline text, summary text, source text, url text,
+            verification text, tier text, lang text, country text, score int, reviewed boolean, action text,
+            reviewed_by text, reviewed_at timestamptz, created_at timestamptz
+          ) language sql security definer set search_path = public as $$
+            select s.id,s.date,s.cat,s.headline,s.summary,s.source,s.url,s.verification,s.tier,s.lang,s.country,s.score,
+              s.reviewed,s.action,s.reviewed_by,s.reviewed_at,s.created_at
+            from public.signals s
+            where s.cat='SOURCE_ENGINE' and s.reviewed is not true
+              and (s.action is null or s.action <> 'rejected')
+              and coalesce(s.score,0) >= p_min_score
+              and (p_country is null or s.country=p_country)
+            order by s.score desc nulls last, s.date desc nulls last
+            limit p_limit;
+          $$;
+
+          create or replace function api.count_engine_review_queue(p_country text default null, p_min_score int default 0)
+          returns int language sql security definer set search_path = public as $$
+            select count(*)::int from public.signals s where s.cat='SOURCE_ENGINE' and s.reviewed is not true
+              and (s.action is null or s.action <> 'rejected') and coalesce(s.score,0)>=p_min_score
+              and (p_country is null or s.country=p_country);
+          $$;
+
+          create or replace function api.list_engine_review_countries()
+          returns table(country text) language sql security definer set search_path = public as $$
+            select distinct s.country from public.signals s where s.cat='SOURCE_ENGINE' and s.reviewed is not true and s.country is not null order by s.country;
+          $$;
+
+          create or replace function api.approve_engine_signal(p_id text, p_user_id text)
+          returns boolean language plpgsql security definer set search_path = public as $$
+          begin update public.signals set reviewed=true,action='approved',reviewed_by=p_user_id,reviewed_at=now() where id=p_id; return found; end $$;
+
+          create or replace function api.reject_engine_signal(p_id text, p_user_id text)
+          returns boolean language plpgsql security definer set search_path = public as $$
+          begin update public.signals set reviewed=false,action='rejected',reviewed_by=p_user_id,reviewed_at=now() where id=p_id; return found; end $$;
+
+          create or replace function api.bulk_approve_engine_queue(p_country text default null,p_min_score int default 0,p_user_id text default null)
+          returns int language plpgsql security definer set search_path = public as $$
+          declare v_count int; begin
+            update public.signals s set reviewed=true,action='approved',reviewed_by=p_user_id,reviewed_at=now()
+            where s.cat='SOURCE_ENGINE' and s.reviewed is not true and coalesce(s.score,0)>=p_min_score and (p_country is null or s.country=p_country);
+            get diagnostics v_count=row_count; return v_count;
+          end $$;
+
+          grant execute on function api.list_engine_review_queue to service_role;
+          grant execute on function api.count_engine_review_queue to service_role;
+          grant execute on function api.list_engine_review_countries to service_role;
+          grant execute on function api.approve_engine_signal to service_role;
+          grant execute on function api.reject_engine_signal to service_role;
+          grant execute on function api.bulk_approve_engine_queue to service_role;
+
+          insert into public.signals(id,date,cat,headline,summary,source,country,score,pri,top_lane)
+          values
+            ('00000000-0000-4000-8000-000000000101', now()-interval '1 hour','SOURCE_ENGINE','Germany medical-cannabis import pathway changed','Engine fixture for responsive operator review.','Federal Gazette','DE',91,'URGENT','Regulatory'),
+            ('00000000-0000-4000-8000-000000000102', now()-interval '3 hours','SOURCE_ENGINE','EU-GMP supply signal requires review','Second engine fixture with a long headline to verify mobile wrapping and queue density.','Official source','EU',74,'HIGH','Trade'),
+            ('00000000-0000-4000-8000-000000000103', now()-interval '1 day','SOURCE_ENGINE','Routine monitored market update','Normal-priority fixture.','Official source','GB',52,'MONITOR','Economic');
+
+          insert into public.hv_admin_review_queue(queue_type,target_entity_type,target_entity_id,priority,status,notes,created_at)
+          values ('signal_review','engine_signal','00000000-0000-4000-8000-000000000101',5,'pending','Urgent persistent signal review assignment',now()-interval '2 hours');
+
+          insert into public.marketplace_inquiries(inquiry_type,contact_company,contact_name,message,review_status,priority,created_at)
+          values ('quote_request','EU Importer GmbH','Visual Operator','Qualified inbound request requires operator follow-up.','open','high',now()-interval '5 hours');
+
+          insert into public.marketplace_candidates(candidate_type,status,title_internal,country,created_at)
+          values
+            ('source_supported','needs_review','EU-GMP flower supply candidate','DE',now()-interval '6 hours'),
+            ('intake_form','needs_review','New marketplace intake submission','GB',now()-interval '4 hours');
+
+          insert into public.scraper_source_state(source_id,consecutive_failures,last_error,last_run_at)
+          values ('visual-source-degraded',2,'HTTP 503 during last collection attempt',now()-interval '30 minutes');
+
+          insert into public.pipeline_tasks(queue_name,task_type,status,priority,attempts,max_attempts,last_error,created_at)
+          values ('intelligence','extract','failed',20,2,5,'Fixture extraction failure',now()-interval '45 minutes');
+          SQL
+          : > supabase/seed.sql
+
+      - name: Start isolated local Supabase
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          eval "$(supabase status -o env)"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Create isolated admin/operator test account
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="admin-command-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvAdmin-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+          const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } })
+          const { data, error } = await client.auth.admin.createUser({ email: process.env.E2E_TEST_USER_EMAIL, password: process.env.E2E_TEST_USER_PASSWORD, email_confirm: true })
+          if (error || !data.user) throw error || new Error('Admin visual user not created')
+          const { error: roleError } = await client.from('user_roles').insert({ user_id: data.user.id, role: 'admin' })
+          if (roleError) throw roleError
+          console.log(`Created isolated admin fixture ${data.user.id}`)
+          NODE
+
+      - name: Build exact branch head
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start -- --hostname 127.0.0.1 --port 3000 > /tmp/admin-command-center-next.log 2>&1 &
+          echo $! > /tmp/admin-command-center-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/admin/login >/dev/null; then
+              echo 'GO: local admin build is ready.'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/admin-command-center-next.log
+          exit 1
+
+      - name: Run responsive authenticated Playwright evidence
+        run: npx playwright test tests/e2e/admin-command-center.spec.ts --project=chromium-desktop
+
+      - name: Build evidence manifest
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/admin-command-center
+          if [ -d test-results/admin-command-center ]; then
+            cp -R test-results/admin-command-center artifacts/admin-command-center/screenshots
+            find artifacts/admin-command-center/screenshots -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum > artifacts/admin-command-center/screenshots.sha256
+          fi
+          if [ -f /tmp/admin-command-center-next.log ]; then cp /tmp/admin-command-center-next.log artifacts/admin-command-center/server.log; fi
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const parity = JSON.parse(fs.readFileSync('docs/control/ADMIN_COMMAND_CENTER_HUB_PARITY.json','utf8'))
+          const evidence = {
+            source_sha: process.env.GITHUB_SHA,
+            frozen_base_sha: parity.base_sha,
+            hub_proxy_runtime_callers: parity.hub_proxy.runtime_caller_count,
+            required_viewports: ['320x568','375x667','390x844','430x932','768x1024','1024x768','1280x800','1440x900'],
+            generated_at: new Date().toISOString(),
+          }
+          fs.writeFileSync('artifacts/admin-command-center/evidence.json', JSON.stringify(evidence, null, 2) + '\n')
+          NODE
+
+      - name: Upload Admin Command Center evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: admin-command-center-p0-p4-${{ github.run_id }}
+          path: |
+            artifacts/admin-command-center/
+            playwright-report/
+          if-no-files-found: warn
