@@ -29,30 +29,26 @@ async function appendAuditEvent({
   userId: string
   idempotencyKey: string
 }) {
-  // audit_events.entity_id is UUID. Current signal IDs are expected to be UUIDs;
-  // retain the target in metadata as well so an unexpected non-UUID identifier
-  // is visible without constructing a false entity relationship.
   if (!isUuid(targetId)) {
     return { ok: false as const, message: 'signal identifier is not UUID-shaped; row-level review fields remain the audit fallback' }
   }
 
   try {
     const supabase = await createSupabaseServiceClient()
-    const { error } = await supabase.from('audit_events').insert({
-      entity_type: kind === 'engine' ? 'engine_signal' : 'regulatory_signal',
-      entity_id: targetId,
-      action: `admin.signal.${action}`,
-      actor: userId,
-      actor_user_id: userId,
-      metadata: {
+    const { data, error } = await supabase.rpc('append_admin_signal_audit', {
+      p_entity_type: kind === 'engine' ? 'engine_signal' : 'regulatory_signal',
+      p_entity_id: targetId,
+      p_action: `admin.signal.${action}`,
+      p_actor_user_id: userId,
+      p_metadata: {
         target_id: targetId,
         signal_kind: kind,
         idempotency_key: idempotencyKey,
         surface: 'admin_command_center',
       },
     })
-    return error
-      ? { ok: false as const, message: error.message }
+    return error || data !== true
+      ? { ok: false as const, message: error?.message || 'Audit append did not confirm success' }
       : { ok: true as const }
   } catch (error) {
     return { ok: false as const, message: error instanceof Error ? error.message : 'Audit append failed' }
