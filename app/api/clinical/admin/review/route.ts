@@ -1,25 +1,69 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { headers } from 'next/headers'
 import { getAdminAuthCheck } from '@/lib/auth/adminGuard'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 const BodySchema = z.object({
-  entity: z.enum(['evidence', 'formulary']),
-  id: z.string().uuid(),
+  entity: z.enum(['evidence', 'formulary', 'formulary_sku', 'jurisdiction']),
+  id: z.string().min(1),
   review_status: z.enum(['published', 'under-review', 'retired']),
   notes: z.string().max(2000).optional().nullable(),
 })
 
-/**
- * Publish / retire clinical evidence or formulary rows.
- * Auth: platform admin/operator only (adminGuard).
- */
+async function writeAudit(input: {
+  actorUserId?: string
+  actorEmail?: string
+  actorRoles: string[]
+  action: string
+  entityType: string
+  entityId: string
+  before: unknown
+  after: unknown
+  notes?: string | null
+}) {
+  const admin = await createSupabaseServiceClient()
+  const h = await headers()
+  await admin.from('clinical_admin_audit_log').insert({
+    actor_user_id: input.actorUserId ?? null,
+    actor_email: input.actorEmail ?? null,
+    actor_roles: input.actorRoles,
+    action: input.action,
+    entity_type: input.entityType,
+    entity_id: input.entityId,
+    before_state: input.before ?? null,
+    after_state: input.after ?? null,
+    notes: input.notes ?? null,
+    ip_address: h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? null,
+    user_agent: h.get('user-agent') ?? null,
+  })
+  // Also mirror into generic audit_events when entity id is uuid-like
+  try {
+    await admin.from('audit_events').insert({
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      action: input.action,
+      actor: input.actorEmail ?? input.actorUserId ?? 'clinical-admin',
+      actor_user_id: input.actorUserId ?? null,
+      metadata: {
+        before: input.before,
+        after: input.after,
+        notes: input.notes,
+        roles: input.actorRoles,
+      },
+    })
+  } catch {
+    // non-fatal if entity_id type mismatch
+  }
+}
+
 export async function POST(req: Request) {
   const auth = await getAdminAuthCheck()
   if (!auth.ok) {
-    const status = auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
+    const status =
+      auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
     return NextResponse.json({ error: 'Admin authentication required', reason: auth.reason }, { status })
   }
 
@@ -35,78 +79,103 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid body', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { entity, id, review_status } = parsed.data
+  const { entity, id, review_status, notes } = parsed.data
   const evidenceStatus = review_status === 'retired' ? 'under-review' : review_status
+  const admin = await createSupabaseServiceClient()
 
-  try {
-    const admin = await createSupabaseServiceClient()
-    if (entity === 'formulary') {
-      const { error } = await admin
-        .from('clinical_formulary_products')
-        .update({
-          review_status,
-          updated_at: new Date().toISOString(),
-          reviewed_by: auth.auth.user.id,
-        })
-        .eq('id', id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    } else {
-      const { error } = await admin
-        .from('clinical_evidence_records')
-        .update({
-          review_status: evidenceStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    }
+  const table =
+    entity === 'evidence'
+      ? 'clinical_evidence_records'
+      : entity === 'formulary'
+        ? 'clinical_formulary_products'
+        : entity === 'formulary_sku'
+          ? 'clinical_formulary_skus'
+          : 'clinical_jurisdiction_profiles'
 
-    return NextResponse.json({
-      ok: true,
-      entity,
-      id,
-      review_status: entity === 'evidence' ? evidenceStatus : review_status,
-      actor: auth.auth.user.id,
-      roles: auth.auth.roles,
-    })
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Review update failed' },
-      { status: 500 },
-    )
+  const { data: before } = await admin.from(table).select('*').eq('id', id).maybeSingle()
+
+  const updatePayload: Record<string, unknown> = {
+    review_status: entity === 'evidence' ? evidenceStatus : review_status,
+    updated_at: new Date().toISOString(),
   }
+  if (entity === 'formulary' || entity === 'jurisdiction') {
+    updatePayload.reviewed_by = auth.auth.user.id
+  }
+
+  const { data: after, error } = await admin
+    .from(table)
+    .update(updatePayload)
+    .eq('id', id)
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 })
+  }
+
+  await writeAudit({
+    actorUserId: auth.auth.user.id,
+    actorEmail: auth.auth.user.email,
+    actorRoles: auth.auth.roles,
+    action: `clinical.review.${review_status}`,
+    entityType: table,
+    entityId: id,
+    before,
+    after,
+    notes,
+  })
+
+  return NextResponse.json({
+    ok: true,
+    entity,
+    id,
+    review_status: entity === 'evidence' ? evidenceStatus : review_status,
+    actor: auth.auth.user.id,
+    roles: auth.auth.roles,
+  })
 }
 
 export async function GET() {
   const auth = await getAdminAuthCheck()
   if (!auth.ok) {
-    const status = auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
+    const status =
+      auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
     return NextResponse.json({ error: 'Admin authentication required', reason: auth.reason }, { status })
   }
 
-  try {
-    const admin = await createSupabaseServiceClient()
-    const [ev, form] = await Promise.all([
-      admin
-        .from('clinical_evidence_records')
-        .select('id,slug,title,review_status,evidence_strength,jurisdictions,verified_at,updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(100),
-      admin
-        .from('clinical_formulary_products')
-        .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at,brand_name,registration_code')
-        .order('updated_at', { ascending: false })
-        .limit(100),
-    ])
+  const admin = await createSupabaseServiceClient()
+  const [ev, form, skus, jur, audit] = await Promise.all([
+    admin
+      .from('clinical_evidence_records')
+      .select('id,slug,title,review_status,evidence_strength,jurisdictions,verified_at,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(100),
+    admin
+      .from('clinical_formulary_products')
+      .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(100),
+    admin
+      .from('clinical_formulary_skus')
+      .select('id,product_name,country_iso2,authority,registration_code,review_status,source_type,updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(100),
+    admin
+      .from('clinical_jurisdiction_profiles')
+      .select('id,country_iso2,country_name,review_status,last_reviewed,updated_at')
+      .order('country_iso2', { ascending: true }),
+    admin
+      .from('clinical_admin_audit_log')
+      .select('id,actor_email,action,entity_type,entity_id,created_at,notes')
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ])
 
-    return NextResponse.json({
-      evidence: ev.data ?? [],
-      formulary: form.data ?? [],
-    })
-  } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : 'Review list failed' },
-      { status: 500 },
-    )
-  }
+  return NextResponse.json({
+    evidence: ev.data ?? [],
+    formulary: form.data ?? [],
+    skus: skus.data ?? [],
+    jurisdictions: jur.data ?? [],
+    audit: audit.data ?? [],
+  })
 }

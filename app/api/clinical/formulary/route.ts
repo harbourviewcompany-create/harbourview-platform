@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { searchClinicalFormulary } from '@/lib/server/clinicalFormularyQuery'
+import {
+  searchClinicalFormulary,
+  searchClinicalFormularySkus,
+} from '@/lib/server/clinicalFormularyQuery'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,14 +24,36 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid formulary query' }, { status: 400 })
   }
 
-  const result = await searchClinicalFormulary({
-    q: parsed.data.q,
-    countryIso2: parsed.data.country,
-    limit: parsed.data.limit,
-  })
+  const [classes, skus] = await Promise.all([
+    searchClinicalFormulary({
+      q: parsed.data.q,
+      countryIso2: parsed.data.country,
+      limit: parsed.data.limit,
+    }),
+    searchClinicalFormularySkus({
+      q: parsed.data.q,
+      countryIso2: parsed.data.country,
+      limit: parsed.data.limit,
+    }),
+  ])
 
-  return NextResponse.json(result, {
-    status: result.state === 'error' ? 503 : 200,
-    headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-  })
+  const status =
+    classes.state === 'error' && skus.state === 'error'
+      ? 503
+      : 200
+
+  return NextResponse.json(
+    {
+      state: classes.state === 'error' && skus.state === 'error' ? 'error' : 'loaded',
+      products: classes.products,
+      skus: skus.skus,
+      productState: classes.state,
+      skuState: skus.state,
+      error: classes.error || skus.error,
+    },
+    {
+      status,
+      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+    },
+  )
 }
