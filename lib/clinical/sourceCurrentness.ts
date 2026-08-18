@@ -1,17 +1,7 @@
 /**
  * Clinical Evidence — source-metadata currentness (Phase B)
- *
  * Source-metadata only. Never publishes clinical-synthesis or invents claims.
- * D4 / credential-bound clinical reviewer remains the only path for synthesis.
- *
- * Phase B additions vs A:
- * - OpenAlex metadata + retraction-aware secondary signal
- * - PubMed publication-type / retraction flag via NCBI
- * - Priority ordering (review-required / source-degraded / stale first)
- * - Conditional GET with ETag / Last-Modified when prior snapshot has them
- * - Internet Archive availability probe on source-degraded
- * - Bounded concurrency
- * - Richer run summary (duration, archiveHits, notModified)
+ * D4 credential-bound review remains mandatory for clinical-synthesis.
  */
 
 import { createHash } from 'node:crypto'
@@ -37,7 +27,6 @@ export interface RunOptions {
   dryRun?: boolean
   concurrency?: number
   supabase?: SupabaseClient
-  /** Prefer rows already in non-current states */
   priorityFirst?: boolean
 }
 
@@ -62,7 +51,6 @@ const LOCK_KEY = 'clinical_source_currentness'
 const LOCK_TTL_MS = 15 * 60 * 1000
 const DEFAULT_CONCURRENCY = 3
 const PER_RECORD_DELAY_MS = 250
-
 const STATUS_PRIORITY: Record<FreshnessStatus, number> = {
   'review-required': 0,
   'source-degraded': 1,
@@ -79,17 +67,12 @@ function userAgent(): string {
 export function getServiceSupabase(): SupabaseClient {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
-    throw new Error('Missing SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY')
-  }
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
+  if (!url || !key) throw new Error('Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY')
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
 export function extractDoi(primarySourceId: string | null, url: string): string | null {
-  const candidates = [primarySourceId, url].filter(Boolean) as string[]
-  for (const c of candidates) {
+  for (const c of [primarySourceId, url].filter(Boolean) as string[]) {
     const m = c.match(/10\.\d{4,9}\/[^\s"'<>]+/i)
     if (m) return m[0].replace(/[.,;)]+$/, '')
   }
@@ -97,8 +80,7 @@ export function extractDoi(primarySourceId: string | null, url: string): string 
 }
 
 export function extractPmid(primarySourceId: string | null, url: string): string | null {
-  const candidates = [primarySourceId, url].filter(Boolean) as string[]
-  for (const c of candidates) {
+  for (const c of [primarySourceId, url].filter(Boolean) as string[]) {
     const m =
       c.match(/(?:pubmed\.ncbi\.nlm\.nih\.gov\/|pmid[=:\s]?)(\d{5,9})/i) ||
       c.match(/^pmid[:\s]?(\d{5,9})$/i)
@@ -107,21 +89,18 @@ export function extractPmid(primarySourceId: string | null, url: string): string
   return null
 }
 
-/** Strip scripts/styles/comments and collapse whitespace for stable hashing. */
 export function normalizeHtmlForHash(html: string): string {
   let s = html
   s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ')
   s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ')
   s = s.replace(/<!--[\s\S]*?-->/g, ' ')
   s = s.replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
-  const mainMatch =
+  const main =
     s.match(/<main[\s\S]*?<\/main>/i) ||
     s.match(/<article[\s\S]*?<\/article>/i) ||
     s.match(/<div[^>]+role=["']main["'][\s\S]*?<\/div>/i)
-  if (mainMatch) s = mainMatch[0]
-  s = s.replace(/<[^>]+>/g, ' ')
-  s = s.replace(/&[a-z]+;/gi, ' ')
-  s = s.replace(/\s+/g, ' ').trim().toLowerCase()
+  if (main) s = main[0]
+  s = s.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
   return s
 }
 
@@ -129,29 +108,19 @@ export function sha256Hex(input: string | Buffer): string {
   return createHash('sha256').update(input).digest('hex')
 }
 
-export function titlesLikelyMatch(
-  stored: string | null | undefined,
-  remote: string | null | undefined
-): boolean {
+export function titlesLikelyMatch(stored?: string | null, remote?: string | null): boolean {
   if (!stored || !remote) return true
   const norm = (t: string) =>
-    t
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
+    t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
   const a = norm(stored)
   const b = norm(remote)
-  if (!a || !b) return true
-  if (a === b) return true
-  if (a.includes(b) || b.includes(a)) return true
+  if (!a || !b || a === b || a.includes(b) || b.includes(a)) return true
   const ta = new Set(a.split(' ').filter((w) => w.length > 2))
   const tb = new Set(b.split(' ').filter((w) => w.length > 2))
-  if (ta.size === 0 || tb.size === 0) return true
+  if (!ta.size || !tb.size) return true
   let inter = 0
   for (const w of ta) if (tb.has(w)) inter++
-  const union = ta.size + tb.size - inter
-  return inter / union >= 0.45
+  return inter / (ta.size + tb.size - inter) >= 0.45
 }
 
 export function decideFreshness(input: {
@@ -166,10 +135,7 @@ export function decideFreshness(input: {
   archiveAvailable?: boolean
 }): { status: FreshnessStatus; reason: string } {
   if (input.retracted) {
-    return {
-      status: 'review-required',
-      reason: input.idNotes.join('; ') || 'Retraction signal on primary identifier',
-    }
+    return { status: 'review-required', reason: input.idNotes.join('; ') || 'Retraction signal on primary identifier' }
   }
   if (!input.urlOk) {
     const archiveNote = input.archiveAvailable
@@ -177,41 +143,31 @@ export function decideFreshness(input: {
       : undefined
     return {
       status: 'source-degraded',
-      reason: [input.urlError || 'URL unreachable', archiveNote, ...input.idNotes]
-        .filter(Boolean)
-        .join('; '),
+      reason: [input.urlError || 'URL unreachable', archiveNote, ...input.idNotes].filter(Boolean).join('; '),
     }
   }
   if (input.titleMismatch) {
     return {
       status: 'review-required',
-      reason: ['Stored title does not match identifier registry metadata', ...input.idNotes]
-        .filter(Boolean)
-        .join('; '),
+      reason: ['Stored title does not match identifier registry metadata', ...input.idNotes].filter(Boolean).join('; '),
     }
   }
   if (input.notModified) {
     return {
       status: 'current',
-      reason: ['HTTP 304 Not Modified; prior snapshot still valid', ...input.idNotes]
-        .filter(Boolean)
-        .join('. '),
+      reason: ['HTTP 304 Not Modified; prior snapshot still valid', ...input.idNotes].filter(Boolean).join('. '),
     }
   }
   if (input.firstCheck) {
     return {
       status: 'current',
-      reason: ['First currentness check; snapshot recorded', ...input.idNotes]
-        .filter(Boolean)
-        .join('. '),
+      reason: ['First currentness check; snapshot recorded', ...input.idNotes].filter(Boolean).join('. '),
     }
   }
   if (input.hashChanged) {
     return {
       status: 'stale',
-      reason: ['Primary source content hash changed since last snapshot', ...input.idNotes]
-        .filter(Boolean)
-        .join('; '),
+      reason: ['Primary source content hash changed since last snapshot', ...input.idNotes].filter(Boolean).join('; '),
     }
   }
   return {
