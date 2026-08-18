@@ -4,6 +4,7 @@ import {
   educationGoalForTrack,
   moduleMatchesRole,
   practiceKind,
+  parseEducationCountry,
 } from '@/lib/education/command'
 
 describe('Education Command contracts', () => {
@@ -44,5 +45,14 @@ describe('Education Command contracts', () => {
     expect(practiceKind('Readiness checklist')).toBe('checklist')
     expect(practiceKind('Knowledge assessment')).toBe('assessment')
     expect(practiceKind('Overview')).toBeNull()
+  })
+
+  it('never invents a default country code', () => {
+    expect(parseEducationCountry(null)).toBeNull()
+    expect(parseEducationCountry('')).toBeNull()
+    expect(parseEducationCountry('C')).toBeNull()
+    expect(parseEducationCountry('Canada')).toBeNull()
+    expect(parseEducationCountry('ca')).toBe('CA')
+    expect(parseEducationCountry('CA-ON')).toBe('CA')
   })
 })
