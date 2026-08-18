@@ -46,7 +46,6 @@ type CandidateRow = {
   discovered_at?: string | null
   candidate_type?: string | null
   status?: string | null
-  title?: string | null
   title_internal?: string | null
   title_public_draft?: string | null
   country?: string | null
@@ -76,7 +75,6 @@ type PipelineTaskRow = {
 }
 
 type QueryResult<T> = { ok: true; data: T } | { ok: false; error: string }
-
 type PostgrestLikeResult<T> = { data: T | null; error: { message?: string } | null }
 
 function nowIso() {
@@ -131,19 +129,14 @@ export async function getAdminWorkSnapshot(): Promise<AdminWorkSnapshot> {
   const sources: AdminWorkSourceState[] = []
   const supabase = await createSupabaseServiceClient()
 
-  // createSupabaseServiceClient is locked to SUPABASE_DB_SCHEMA='api'. This is
-  // intentional: Harbourview's Data API does not expose public directly. An
-  // absent api.* view degrades only that adapter instead of silently querying
-  // the wrong schema or treating an unavailable count as zero.
+  // Harbourview's Data API intentionally exposes `api`, not `public`. The
+  // persistent queue is production-owned in public only, so it is read through
+  // the service-role-only api.list_admin_review_queue bridge added by this
+  // change. Other adapters use existing api proxy views and degrade explicitly
+  // if a view is unavailable.
   const [reviewQueue, engine, regulatory, inquiries, candidates, sourceStates, pipelineTasks] = await Promise.all([
     settleQuery<ReviewQueueRow[]>(
-      supabase
-        .from('hv_admin_review_queue')
-        .select('id,queue_type,target_entity_type,target_entity_id,assigned_to,priority,status,notes,created_at,updated_at,resolved_at')
-        .neq('status', 'resolved')
-        .order('priority', { ascending: true })
-        .order('created_at', { ascending: true })
-        .limit(250),
+      supabase.rpc('list_admin_review_queue', { p_include_resolved: false, p_limit: 250 }),
     ),
     listEngineReviewQueue({ minScore: 0, limit: 200 }),
     listRegulatoryReviewQueue(),
