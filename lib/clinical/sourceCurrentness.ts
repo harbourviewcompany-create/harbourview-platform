@@ -1,47 +1,33 @@
 /**
- * Clinical Evidence — source-metadata currentness (Phase B)
- * Source-metadata only. Never publishes clinical-synthesis or invents claims.
- * D4 credential-bound review remains mandatory for clinical-synthesis.
+ * Clinical Evidence — source-metadata currentness orchestrator (Phase B)
+ * Pure helpers: ./sourceCurrentnessHelpers
+ * Source-metadata only. Never publishes clinical-synthesis or bypasses D4.
  */
 
-import { createHash } from 'node:crypto'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  type EvidenceRow,
+  type FreshnessStatus,
+  type RunOptions,
+  type RunSummary,
+  decideFreshness,
+  extractDoi,
+  extractPmid,
+  getServiceSupabase,
+  normalizeHtmlForHash,
+  sha256Hex,
+  titlesLikelyMatch,
+} from './sourceCurrentnessHelpers'
 
-export type FreshnessStatus = 'current' | 'stale' | 'review-required' | 'source-degraded'
-
-export interface EvidenceRow {
-  id: string
-  slug: string
-  primary_source_url: string
-  primary_source_title: string | null
-  primary_source_publisher: string | null
-  primary_source_id: string | null
-  review_status: string
-  freshness_status: FreshnessStatus
-  source_registry_id: string | null
-  source_currentness_checked_at?: string | null
-}
-
-export interface RunOptions {
-  limit?: number
-  dryRun?: boolean
-  concurrency?: number
-  supabase?: SupabaseClient
-  priorityFirst?: boolean
-}
-
-export interface RunSummary {
-  ok: boolean
-  total: number
-  current: number
-  stale: number
-  'review-required': number
-  'source-degraded': number
-  notModified?: number
-  archiveHits?: number
-  durationMs?: number
-  skippedLock?: boolean
-  error?: string
+export type { EvidenceRow, FreshnessStatus, RunOptions, RunSummary }
+export {
+  decideFreshness,
+  extractDoi,
+  extractPmid,
+  getServiceSupabase,
+  normalizeHtmlForHash,
+  sha256Hex,
+  titlesLikelyMatch,
 }
 
 const FETCH_TIMEOUT_MS = 15_000
@@ -64,114 +50,150 @@ function userAgent(): string {
     : 'HarbourviewClinicalSourceCheck/1.1 (clinical evidence provenance; +https://harbourview.vercel.app)'
 }
 
-export function getServiceSupabase(): SupabaseClient {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY')
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-}
-
-export function extractDoi(primarySourceId: string | null, url: string): string | null {
-  for (const c of [primarySourceId, url].filter(Boolean) as string[]) {
-    const m = c.match(/10\.\d{4,9}\/[^\s"'<>]+/i)
-    if (m) return m[0].replace(/[.,;)]+$/, '')
-  }
-  return null
-}
-
-export function extractPmid(primarySourceId: string | null, url: string): string | null {
-  for (const c of [primarySourceId, url].filter(Boolean) as string[]) {
-    const m =
-      c.match(/(?:pubmed\.ncbi\.nlm\.nih\.gov\/|pmid[=:\s]?)(\d{5,9})/i) ||
-      c.match(/^pmid[:\s]?(\d{5,9})$/i)
-    if (m) return m[1]
-  }
-  return null
-}
-
-export function normalizeHtmlForHash(html: string): string {
-  let s = html
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ')
-  s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ')
-  s = s.replace(/<!--[\s\S]*?-->/g, ' ')
-  s = s.replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
-  const main =
-    s.match(/<main[\s\S]*?<\/main>/i) ||
-    s.match(/<article[\s\S]*?<\/article>/i) ||
-    s.match(/<div[^>]+role=["']main["'][\s\S]*?<\/div>/i)
-  if (main) s = main[0]
-  s = s.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
-  return s
-}
-
-export function sha256Hex(input: string | Buffer): string {
-  return createHash('sha256').update(input).digest('hex')
-}
-
-export function titlesLikelyMatch(stored?: string | null, remote?: string | null): boolean {
-  if (!stored || !remote) return true
-  const norm = (t: string) =>
-    t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-  const a = norm(stored)
-  const b = norm(remote)
-  if (!a || !b || a === b || a.includes(b) || b.includes(a)) return true
-  const ta = new Set(a.split(' ').filter((w) => w.length > 2))
-  const tb = new Set(b.split(' ').filter((w) => w.length > 2))
-  if (!ta.size || !tb.size) return true
-  let inter = 0
-  for (const w of ta) if (tb.has(w)) inter++
-  return inter / (ta.size + tb.size - inter) >= 0.45
-}
-
-export function decideFreshness(input: {
-  urlOk: boolean
-  urlError?: string
-  firstCheck: boolean
-  hashChanged: boolean
+interface UrlCheckResult {
+  ok: boolean
+  statusCode: number | null
+  finalUrl: string
+  redirected: boolean
+  body: Buffer | null
+  contentType: string | null
+  etag?: string | null
+  lastModified?: string | null
   notModified?: boolean
-  retracted: boolean
-  titleMismatch: boolean
-  idNotes: string[]
-  archiveAvailable?: boolean
-}): { status: FreshnessStatus; reason: string } {
-  if (input.retracted) {
-    return { status: 'review-required', reason: input.idNotes.join('; ') || 'Retraction signal on primary identifier' }
-  }
-  if (!input.urlOk) {
-    const archiveNote = input.archiveAvailable
-      ? 'Internet Archive has a capture (source may be temporarily offline)'
-      : undefined
-    return {
-      status: 'source-degraded',
-      reason: [input.urlError || 'URL unreachable', archiveNote, ...input.idNotes].filter(Boolean).join('; '),
+  error?: string
+}
+
+async function checkUrl(
+  url: string,
+  conditional?: { etag?: string | null; lastModified?: string | null }
+): Promise<UrlCheckResult> {
+  let current = url
+  let redirects = 0
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    while (redirects <= MAX_REDIRECTS) {
+      const headers: Record<string, string> = {
+        'User-Agent': userAgent(),
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,*/*;q=0.7',
+      }
+      if (conditional?.etag) headers['If-None-Match'] = conditional.etag
+      if (conditional?.lastModified) headers['If-Modified-Since'] = conditional.lastModified
+      const res = await fetch(current, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: controller.signal,
+        headers,
+      })
+      if (res.status === 304) {
+        return {
+          ok: true,
+          statusCode: 304,
+          finalUrl: current,
+          redirected: redirects > 0,
+          body: null,
+          contentType: res.headers.get('content-type'),
+          etag: res.headers.get('etag'),
+          lastModified: res.headers.get('last-modified'),
+          notModified: true,
+        }
+      }
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location')
+        if (!loc) {
+          return {
+            ok: false,
+            statusCode: res.status,
+            finalUrl: current,
+            redirected: redirects > 0,
+            body: null,
+            contentType: null,
+            error: 'Redirect without Location',
+          }
+        }
+        current = new URL(loc, current).toString()
+        redirects++
+        continue
+      }
+      if (res.status < 200 || res.status >= 400) {
+        return {
+          ok: false,
+          statusCode: res.status,
+          finalUrl: current,
+          redirected: redirects > 0,
+          body: null,
+          contentType: res.headers.get('content-type'),
+          error: `HTTP ${res.status}`,
+        }
+      }
+      let body = Buffer.from(await res.arrayBuffer())
+      if (body.length > MAX_BODY_BYTES) body = body.subarray(0, MAX_BODY_BYTES)
+      return {
+        ok: true,
+        statusCode: res.status,
+        finalUrl: current,
+        redirected: redirects > 0,
+        body,
+        contentType: res.headers.get('content-type'),
+        etag: res.headers.get('etag'),
+        lastModified: res.headers.get('last-modified'),
+      }
     }
-  }
-  if (input.titleMismatch) {
     return {
-      status: 'review-required',
-      reason: ['Stored title does not match identifier registry metadata', ...input.idNotes].filter(Boolean).join('; '),
+      ok: false,
+      statusCode: null,
+      finalUrl: current,
+      redirected: true,
+      body: null,
+      contentType: null,
+      error: 'Too many redirects',
     }
-  }
-  if (input.notModified) {
+  } catch (err: any) {
     return {
-      status: 'current',
-      reason: ['HTTP 304 Not Modified; prior snapshot still valid', ...input.idNotes].filter(Boolean).join('. '),
+      ok: false,
+      statusCode: null,
+      finalUrl: current,
+      redirected: redirects > 0,
+      body: null,
+      contentType: null,
+      error: err?.name === 'AbortError' ? 'Timeout' : String(err?.message || err),
     }
+  } finally {
+    clearTimeout(timer)
   }
-  if (input.firstCheck) {
+}
+
+type IdResult = {
+  valid: boolean | null
+  title?: string
+  publisher?: string
+  retracted?: boolean
+  notes?: string
+}
+
+async function resolveDoi(doi: string): Promise<IdResult> {
+  try {
+    const res = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
+      headers: { 'User-Agent': userAgent(), Accept: 'application/json' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (res.status === 404) return { valid: false, notes: 'DOI not found in Crossref' }
+    if (!res.ok) return { valid: null, notes: `Crossref HTTP ${res.status}` }
+    const msg = ((await res.json()) as any)?.message
+    if (!msg) return { valid: null, notes: 'Empty Crossref message' }
+    const title = Array.isArray(msg.title) ? msg.title[0] : msg.title
+    const updateTo = msg['update-to'] as Array<{ type?: string }> | undefined
+    const retracted =
+      Array.isArray(updateTo) &&
+      updateTo.some((u) => /retract|withdraw|expression.of.concern/i.test(String(u.type || '')))
     return {
-      status: 'current',
-      reason: ['First currentness check; snapshot recorded', ...input.idNotes].filter(Boolean).join('. '),
+      valid: true,
+      title,
+      publisher: msg.publisher,
+      retracted: Boolean(retracted),
+      notes: retracted ? 'Crossref signals update/retraction-related status' : undefined,
     }
-  }
-  if (input.hashChanged) {
-    return {
-      status: 'stale',
-      reason: ['Primary source content hash changed since last snapshot', ...input.idNotes].filter(Boolean).join('; '),
-    }
-  }
-  return {
-    status: 'current',
-    reason: ['URL OK; content hash unchanged', ...input.idNotes].filter(Boolean).join('. '),
+  } catch (err: any) {
+    return { valid: null, notes: `Crossref error: ${err?.message || err}` }
   }
 }
