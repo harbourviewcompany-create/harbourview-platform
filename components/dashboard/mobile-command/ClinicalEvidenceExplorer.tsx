@@ -1,6 +1,14 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
 import {
   classifyClinicalFailure,
@@ -26,6 +34,10 @@ const FILTERS: { id: ClinicalFilter; label: string }[] = [
   { id: 'guidelines', label: 'Guidelines' },
   { id: 'practice', label: 'Rules' },
 ]
+
+const SWIPE_MIN_PX = 56
+const PULL_TRIGGER_PX = 72
+const PULL_MAX_PX = 96
 
 function strengthRank(s: string): number {
   const order: Record<string, number> = {
@@ -105,11 +117,11 @@ function Skeleton() {
   )
 }
 
+type GestureMode = 'none' | 'horizontal' | 'vertical'
+
 /**
- * Mobile evidence search — frictionless + responsive.
- * - Search-first, graded results first
- * - 44px min touch targets, 16px input (prevents iOS zoom)
- * - Horizontal filter scroll with snap, overflow-safe rows
+ * Mobile evidence search — frictionless + responsive + gestures.
+ * Swipe L/R on results → change filter. Pull down → refresh.
  */
 export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
   const countryIso2 = useMemo(() => countryIso2FromCommandHref(commandHref), [commandHref])
@@ -120,6 +132,17 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
   const [loading, setLoading] = useState(true)
   const [requestVersion, setRequestVersion] = useState(0)
   const [filter, setFilter] = useState<ClinicalFilter>('all')
+  const [pullPx, setPullPx] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const filterRef = useRef(filter)
+  filterRef.current = filter
+  const gesture = useRef({
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    mode: 'none' as GestureMode,
+  })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -176,7 +199,11 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
           diagnostic: diagnosticForFailure(category, httpStatus),
         })
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setRefreshing(false)
+          setPullPx(0)
+        }
       }
     })()
 
@@ -185,6 +212,88 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       controller.abort()
     }
   }, [countryIso2, submittedQuery, requestVersion])
+
+  const shiftFilter = useCallback((dir: -1 | 1) => {
+    const idx = FILTERS.findIndex((f) => f.id === filterRef.current)
+    const next = Math.max(0, Math.min(FILTERS.length - 1, idx + dir))
+    if (next !== idx) setFilter(FILTERS[next].id)
+  }, [])
+
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    // Ignore interactive controls so taps still work
+    const target = e.target as HTMLElement
+    if (target.closest('a, button, input, summary, details')) return
+
+    gesture.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      mode: 'none',
+    }
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = gesture.current
+    if (g.pointerId !== e.pointerId) return
+
+    const dx = e.clientX - g.startX
+    const dy = e.clientY - g.startY
+
+    if (g.mode === 'none') {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
+      g.mode = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+    }
+
+    if (g.mode === 'vertical' && dy > 0 && !loading) {
+      // Pull-to-refresh only when near top of page
+      const scrollY = typeof window !== 'undefined' ? window.scrollY : 0
+      if (scrollY <= 4) {
+        setPullPx(Math.min(PULL_MAX_PX, dy * 0.45))
+      }
+    }
+  }, [loading])
+
+  const endGesture = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const g = gesture.current
+      if (g.pointerId !== e.pointerId) return
+
+      const dx = e.clientX - g.startX
+      const dy = e.clientY - g.startY
+      const mode = g.mode
+      g.pointerId = -1
+      g.mode = 'none'
+
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+
+      if (mode === 'horizontal' && Math.abs(dx) >= SWIPE_MIN_PX) {
+        // Swipe left → next filter; swipe right → previous
+        shiftFilter(dx < 0 ? 1 : -1)
+        setPullPx(0)
+        return
+      }
+
+      if (mode === 'vertical' && dy * 0.45 >= PULL_TRIGGER_PX && !loading) {
+        setRefreshing(true)
+        setPullPx(PULL_TRIGGER_PX * 0.4)
+        setRequestVersion((v) => v + 1)
+        return
+      }
+
+      setPullPx(0)
+    },
+    [loading, shiftFilter],
+  )
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -209,13 +318,13 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     ['error', 'permission', 'no-match', 'no-evidence', 'stale', 'conflicted', 'degraded-source'].includes(
       result.state,
     )
+  const pullProgress = Math.min(1, pullPx / PULL_TRIGGER_PX)
 
   return (
     <section
       className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden sm:space-y-3.5"
       aria-label={`Evidence · ${jurisdiction}`}
     >
-      {/* Search — sticky on mobile, 16px font prevents iOS focus zoom */}
       <form
         onSubmit={submit}
         role="search"
@@ -240,15 +349,11 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         </button>
       </form>
 
-      {/* Context row — wraps cleanly on narrow widths */}
       <div
         className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-none text-white/55"
         aria-live="polite"
       >
         <span className="font-medium text-white/85">{jurisdiction}</span>
-        <span className="hidden text-white/25 xs:inline" aria-hidden>
-          ·
-        </span>
         <span>{clinicalStateLabel(state)}</span>
         {!loading && result ? (
           <span className="tabular-nums text-white/45">{result.records.length} records</span>
@@ -265,10 +370,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       </div>
 
       {showAlert ? (
-        <div
-          className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3"
-          role="status"
-        >
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3" role="status">
           <p className="text-sm font-medium text-amber-100">
             {result!.diagnostic
               ? clinicalFailureLabel(result!.diagnostic.category)
@@ -294,7 +396,6 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         </p>
       ) : null}
 
-      {/* Filter chips — horizontal scroll, snap, no scrollbar chrome */}
       <nav
         className="-mx-0.5 flex gap-1.5 overflow-x-auto overscroll-x-contain px-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory"
         aria-label="Filter evidence"
@@ -319,64 +420,89 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         })}
       </nav>
 
-      {loading ? (
-        <Skeleton />
-      ) : (
-        <div className="space-y-2.5" aria-label="Evidence results">
-          {visible.map((record) => (
-            <details
-              key={record.id}
-              className="group min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] open:bg-white/[0.05]"
-            >
-              <summary className="min-h-12 cursor-pointer list-none touch-manipulation px-3.5 py-3 [&::-webkit-details-marker]:hidden">
-                <div className="flex items-start gap-2.5">
-                  <div className="min-w-0 flex-1 overflow-hidden">
-                    <p className="truncate text-[10px] uppercase tracking-wide text-white/40">
-                      {record.condition || 'Regulatory'}
-                    </p>
-                    <p className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-white">
-                      {record.title}
-                    </p>
-                  </div>
-                  <span
-                    className={`mt-0.5 max-w-[5.5rem] shrink-0 truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-medium leading-tight ${strengthClass(record.evidenceStrength)}`}
-                  >
-                    {formatStatus(record.evidenceStrength)}
-                  </span>
-                </div>
-              </summary>
-              <div className="space-y-2.5 border-t border-white/10 px-3.5 py-3">
-                <p className="text-xs leading-relaxed text-white/70 sm:text-[13px]">{record.summary}</p>
-                <a
-                  className="inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
-                  href={record.primarySource.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {record.primarySource.publisher} ↗
-                </a>
-              </div>
-            </details>
-          ))}
-
-          {visible.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center">
-              <p className="text-sm text-white/85">No records in this view</p>
-              <p className="mt-1 text-xs text-white/50">Try another filter or search.</p>
-              {primaryAuthority ? (
-                <a
-                  className="mt-4 inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
-                  href={primaryAuthority.href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Primary authority ↗
-                </a>
-              ) : null}
-            </div>
-          ) : null}
+      {/* Gesture surface: swipe filters + pull to refresh */}
+      <div
+        className="relative touch-pan-y select-none"
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endGesture}
+        onPointerCancel={endGesture}
+        aria-label="Evidence results. Swipe left or right to change filter. Pull down to refresh."
+      >
+        {/* Pull indicator */}
+        <div
+          className="pointer-events-none flex items-center justify-center overflow-hidden transition-[height] duration-150"
+          style={{ height: pullPx || (refreshing ? 28 : 0) }}
+          aria-hidden
+        >
+          <span
+            className="text-[11px] font-medium text-[#d4a853]/90"
+            style={{ opacity: refreshing ? 1 : 0.35 + pullProgress * 0.65 }}
+          >
+            {refreshing ? 'Refreshing…' : pullProgress >= 1 ? 'Release to refresh' : 'Pull to refresh'}
+          </span>
         </div>
-      )}
+
+        {loading && !refreshing ? (
+          <Skeleton />
+        ) : (
+          <div className="space-y-2.5" aria-label="Evidence results">
+            {visible.map((record) => (
+              <details
+                key={record.id}
+                className="group min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] open:bg-white/[0.05]"
+              >
+                <summary className="min-h-12 cursor-pointer list-none touch-manipulation px-3.5 py-3 [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-start gap-2.5">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="truncate text-[10px] uppercase tracking-wide text-white/40">
+                        {record.condition || 'Regulatory'}
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-white">
+                        {record.title}
+                      </p>
+                    </div>
+                    <span
+                      className={`mt-0.5 max-w-[5.5rem] shrink-0 truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-medium leading-tight ${strengthClass(record.evidenceStrength)}`}
+                    >
+                      {formatStatus(record.evidenceStrength)}
+                    </span>
+                  </div>
+                </summary>
+                <div className="space-y-2.5 border-t border-white/10 px-3.5 py-3">
+                  <p className="text-xs leading-relaxed text-white/70 sm:text-[13px]">{record.summary}</p>
+                  <a
+                    className="inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
+                    href={record.primarySource.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {record.primarySource.publisher} ↗
+                  </a>
+                </div>
+              </details>
+            ))}
+
+            {visible.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center">
+                <p className="text-sm text-white/85">No records in this view</p>
+                <p className="mt-1 text-xs text-white/50">Swipe for another filter, or search.</p>
+                {primaryAuthority ? (
+                  <a
+                    className="mt-4 inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
+                    href={primaryAuthority.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Primary authority ↗
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
