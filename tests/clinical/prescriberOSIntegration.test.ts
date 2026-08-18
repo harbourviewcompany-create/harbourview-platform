@@ -9,9 +9,13 @@ const page = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx')
 const mobileClinical = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
 const migration = read('supabase/migrations/20260818154500_clinical_prescriber_operating_system.sql')
 const skuLinkMigration = read('supabase/migrations/20260818161500_clinical_prescriber_sku_links.sql')
+const pharmacovigilanceMigration = read('supabase/migrations/20260818162000_clinical_prescriber_pharmacovigilance.sql')
 const askRoute = read('app/api/clinical/ask/route.ts')
 const workspaceRoute = read('app/api/clinical/workspace/route.ts')
 const workspaceQuery = read('lib/server/clinicalPrescriberWorkspaceQuery.ts')
+const authorityRoute = read('app/api/clinical/authority/route.ts')
+const authorityResolver = read('lib/server/clinicalProfessionalAuthority.ts')
+const adverseEventRoute = read('app/api/clinical/adverse-events/route.ts')
 
 describe('Clinical Prescriber OS integration contract', () => {
   it('exposes one compact command surface and the complete workspace tab contract', () => {
@@ -74,6 +78,15 @@ describe('Clinical Prescriber OS integration contract', () => {
     expect(workspaceQuery).toContain(".overlaps('jurisdictions', [jurisdiction, 'global'])")
   })
 
+  it('resolves professional authority from verified clinician identity and governed jurisdiction rows', () => {
+    expect(authorityRoute).toContain('resolveClinicalProfessionalAuthority')
+    expect(authorityResolver).toContain('requireVerifiedClinician()')
+    expect(authorityResolver).toContain(".from('clinical_jurisdiction_authority')")
+    expect(authorityResolver).toContain(".eq('clinical_role', professional.clinical_role)")
+    expect(authorityResolver).toContain("state: 'unknown'")
+    expect(authorityResolver).not.toContain('roleLabel')
+  })
+
   it('adds the governed concept, claim, safety, regimen, monitoring, guideline and longitudinal patient schema', () => {
     for (const table of [
       'clinical_concepts',
@@ -100,6 +113,20 @@ describe('Clinical Prescriber OS integration contract', () => {
     expect(migration).toContain("public.clinical_has_active_consent(patient_id, 'data_processing')")
     expect(migration).toContain('revoke all on public.clinical_patient_contexts from anon')
     expect(migration).toContain('revoke all on public.clinical_decision_records from anon')
+  })
+
+  it('records adverse events without inferring or auto-submitting regulatory reports', () => {
+    expect(adverseEventRoute).toContain('requireVerifiedClinician()')
+    expect(adverseEventRoute).toContain(".from('clinical_adverse_events')")
+    expect(adverseEventRoute).toContain('Recorded in Harbourview only. No external regulator submission was performed.')
+    expect(pharmacovigilanceMigration).toContain('public.clinical_adverse_events')
+    expect(pharmacovigilanceMigration).toContain("public.clinical_has_active_consent(patient_id, 'treatment')")
+    expect(pharmacovigilanceMigration).toContain("public.clinical_has_active_consent(patient_id, 'data_processing')")
+    expect(pharmacovigilanceMigration).toContain('public.clinical_care_team')
+    expect(pharmacovigilanceMigration).toContain('clinical_adverse_event_encounter_patient_mismatch')
+    expect(pharmacovigilanceMigration).toContain('clinical_adverse_event_ownership_immutable')
+    expect(pharmacovigilanceMigration).toContain('public.clinical_audit_write')
+    expect(pharmacovigilanceMigration).not.toMatch(/http_post|net\.http|pg_net|fetch\s*\(/i)
   })
 
   it('fails generic PubMed-root clinical material closed without deleting evidence', () => {
