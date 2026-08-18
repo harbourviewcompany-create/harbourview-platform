@@ -95,6 +95,26 @@ async function mockClinicalApis(page: Page) {
       body: JSON.stringify({ state: 'empty', safety: [], regimens: [], monitoring: [], guidelines: [] }),
     })
   })
+  await page.route('**/api/clinical/authority?**', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        state: 'unknown',
+        verifiedClinician: false,
+        professional: null,
+        jurisdiction: 'CA',
+        capabilities: { recommend: null, prescribe: null, dispense: null, claimAppropriateness: null },
+        evidenceVersion: null,
+        effectiveFrom: null,
+        effectiveTo: null,
+        notes: 'Visual fixture: professional authority intentionally unresolved.',
+      }),
+    })
+  })
+  await page.route('**/api/clinical/patients', async route => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ patients: [] }) })
+  })
   await page.route('**/api/clinical/ask?**', async route => {
     await route.fulfill({
       status: 200,
@@ -156,7 +176,8 @@ test.describe('Clinical Prescriber OS mobile visual evidence', () => {
         for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
           await expect(surface.getByRole('tab', { name: label, exact: true })).toBeAttached()
         }
-        await expect(surface.getByText('Load a verified patient/encounter before any patient-specific action.', { exact: false })).toBeVisible()
+        await expect(surface.getByText('Patient-specific action remains blocked until patient, open encounter, core consent, professional authority, product, safety and monitoring requirements are resolved.', { exact: true })).toBeVisible()
+        await expect(surface.getByLabel('Patient / encounter context')).toBeVisible()
         await assertNoHorizontalPageOverflow(page)
 
         await page.screenshot({
