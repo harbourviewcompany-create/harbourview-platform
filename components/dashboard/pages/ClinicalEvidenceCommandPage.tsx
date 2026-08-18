@@ -16,6 +16,10 @@ import type {
 } from "@/lib/clinical/types";
 import { loadClinicalPageData } from "@/lib/clinical/clinicalQuery";
 import { searchEvidence } from "@/lib/fixtures/clinical/evidence";
+import { searchFormulary } from "@/lib/fixtures/clinical/formulary";
+import type { FormularyProduct } from "@/lib/clinical/formulary";
+import Link from "next/link";
+import { clinicalEducationModules } from "@/lib/fixtures/clinical-education";
 
 export type ClinicalEvidenceCommandPageProps = {
   countryLabel: string;
@@ -136,6 +140,7 @@ export default function ClinicalEvidenceCommandPage({
   const [whatChanged, setWhatChanged] = useState<WhatChangedEvent[]>([]);
   const [attention, setAttention] = useState<ClinicalAttentionItem[]>([]);
   const [nextActions, setNextActions] = useState<ClinicalNextAction[]>([]);
+  const [formulary, setFormulary] = useState<FormularyProduct[]>([]);
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
@@ -153,6 +158,7 @@ export default function ClinicalEvidenceCommandPage({
       setWhatChanged(data.whatChanged);
       setAttention(data.attention);
       setNextActions(data.nextActions);
+      setFormulary(searchFormulary({ countryIso2: iso2 }));
       setLoading(false);
     });
     return () => {
@@ -366,6 +372,80 @@ export default function ClinicalEvidenceCommandPage({
           <p className={`mt-1.5 text-sm leading-relaxed ${muted}`}>{briefing.accessNotes}</p>
         </section>
       )}
+
+
+      {/* Dual surface — clinical education modules */}
+      <section className={`${card} p-4`}>
+        <SectionLabel>Clinical education modules</SectionLabel>
+        <p className={`text-sm leading-relaxed ${muted}`}>
+          Professional education themes for regulated markets. Separate from the
+          evidence command above — training and orientation, not graded clinical records.
+        </p>
+        <ul className="mt-3 space-y-2">
+          {clinicalEducationModules
+            .filter((m) => m.publicUseApproved || m.moduleStatus === "Live")
+            .slice(0, 6)
+            .map((m) => (
+              <li key={m.id} className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-white/90">{m.title}</p>
+                  <p className={`text-xs ${muted}`}>{m.moduleStatus} · {m.riskLevel} risk</p>
+                </div>
+                <Link
+                  href={m.route || `/network/clinical-education/${m.slug}`}
+                  className="shrink-0 text-xs font-medium text-[#d4a853] hover:text-[#e0b96a]"
+                >
+                  Open →
+                </Link>
+              </li>
+            ))}
+        </ul>
+        <Link
+          href="/network/clinical-education"
+          className="mt-3 inline-flex text-sm font-medium text-[#d4a853] hover:text-[#e0b96a]"
+        >
+          All clinical education →
+        </Link>
+      </section>
+
+      {/* Formulary layer */}
+      <section className={`${card} p-4`}>
+        <SectionLabel>Formulary · {countryLabel}</SectionLabel>
+        <p className={`text-sm leading-relaxed ${muted}`}>
+          Jurisdiction-authorised product reference only. Not marketplace listings or
+          product marketing. Always verify the live authority register.
+        </p>
+        {formulary.length === 0 ? (
+          <p className={`mt-3 text-sm ${muted}`}>
+            No published formulary rows for this jurisdiction yet.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {formulary.map((p) => (
+              <li key={p.id} className="rounded-lg bg-white/[0.03] px-3 py-2.5">
+                <p className="text-sm font-medium text-white/90">{p.name}</p>
+                <p className={`mt-0.5 text-xs ${muted}`}>
+                  {p.authorizationStatus} · {p.productClass} · {p.cannabinoidProfile}
+                </p>
+                <p className={`mt-1 text-xs leading-relaxed ${muted}`}>{p.notes}</p>
+                <p className={`mt-1 text-[11px] ${muted}`}>
+                  {p.authority} · Reviewed {p.lastReviewed}
+                </p>
+                {p.primarySourceUrl && (
+                  <a
+                    href={p.primarySourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex text-xs font-medium text-[#d4a853]"
+                  >
+                    Open primary source ↗
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {pathway && (
         <section className={`${card} p-4`}>
