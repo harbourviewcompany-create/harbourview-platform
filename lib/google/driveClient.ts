@@ -58,7 +58,11 @@ export function getDriveClient(): drive_v3.Drive {
     key: private_key,
     scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   })
-  cachedClient = drive({ version: 'v3', auth })
+  // @googleapis/drive and this repository currently resolve distinct
+  // googleapis-common/auth-client type instances. Their runtime JWT contract
+  // is compatible, but TypeScript rejects the duplicated private fields as
+  // nominally different types. Keep the bridge local to this API boundary.
+  cachedClient = drive({ version: 'v3', auth: auth as any })
   return cachedClient
 }
 
