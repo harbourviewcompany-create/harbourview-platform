@@ -1,24 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import type { FormularyProductDTO } from '@/lib/clinical/formulary'
-import {
-  formatStatus,
-  type SectionId,
-} from '../contracts'
+import { formatStatus, type SectionId } from '../contracts'
 import {
   CLINICAL_SOURCE_STATE_COPY,
   clinicalJurisdictionLabel,
   countryIso2FromCommandHref,
   deriveClinicalSourceState,
-  getClinicalAuthoritiesForCountry,
-  hasClinicalAuthorityCoverage,
   safeClinicalBriefing,
 } from '../clinicalCommandContract'
-import ClinicalEvidenceErrorBoundary from '../ClinicalEvidenceErrorBoundary'
-import ClinicalEvidenceExplorer from '../ClinicalEvidenceExplorer'
 import { SectionShell, type SectionRef } from '../SectionUI'
+import type { ClinicalPrescriberWorkspaceDTO } from '@/lib/clinical/workspace'
 
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
@@ -33,140 +26,131 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
 }) {
   const clinicalHref = commandHref('clinical')
   const countryIso2 = countryIso2FromCommandHref(clinicalHref)
-  const [formulary, setFormulary] = useState<FormularyProductDTO[]>([])
-  const [education, setEducation] = useState<Array<Record<string, unknown>>>([])
-  const [interactions, setInteractions] = useState<Array<Record<string, unknown>>>([])
+  const [workspace, setWorkspace] = useState<ClinicalPrescriberWorkspaceDTO | null>(null)
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'error'>('idle')
+
   useEffect(() => {
-    if (!countryIso2) return
-    let cancelled = false
-    Promise.all([
-      fetch(`/api/clinical/formulary?country=${encodeURIComponent(countryIso2)}&limit=8`).then((r) => r.json()),
-      fetch('/api/clinical/education').then((r) => r.json()),
-      fetch('/api/clinical/interactions?limit=6').then((r) => r.json()),
-    ]).then(([form, edu, ix]) => {
-      if (cancelled) return
-      setFormulary(form.products ?? [])
-      setEducation(edu.modules ?? [])
-      setInteractions(ix.interactions ?? [])
-    }).catch(() => {})
-    return () => { cancelled = true }
+    setWorkspace(null)
+    if (!countryIso2) {
+      setLoadState('idle')
+      return
+    }
+    const controller = new AbortController()
+    setLoadState('loading')
+    void fetch(`/api/clinical/workspace?jurisdiction=${encodeURIComponent(countryIso2)}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null) as ClinicalPrescriberWorkspaceDTO | null
+        if (body) setWorkspace(body)
+        setLoadState(body ? 'idle' : 'error')
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setLoadState('error')
+      })
+    return () => controller.abort()
   }, [countryIso2])
-  const jurisdictionLabel = clinicalJurisdictionLabel(countryIso2)
-  const authorities = getClinicalAuthoritiesForCountry(countryIso2)
-  const limitedAuthority = !hasClinicalAuthorityCoverage(countryIso2)
+
+  const workspaceHref = useMemo(() => {
+    if (!countryIso2) return null
+    const params = new URLSearchParams({ country: countryIso2 })
+    if (roleShort) params.set('role', roleShort)
+    return `/dashboard/clinical?${params.toString()}`
+  }, [countryIso2, roleShort])
 
   const sourceState = deriveClinicalSourceState({
     programStatus,
     medicalStatus,
     patientAccess,
     physicianAccess,
-    limitedAuthorityCoverage: limitedAuthority,
+    error: loadState === 'error',
+    permissionDenied: workspace?.state === 'permission',
+    limitedAuthorityCoverage: workspace?.authority.state === 'unknown',
   })
+  const jurisdictionLabel = clinicalJurisdictionLabel(countryIso2)
   const safePatientAccess = safeClinicalBriefing(patientAccess)
   const safePhysicianAccess = safeClinicalBriefing(physicianAccess)
-  const jurisdictionStatus = safeClinicalBriefing(programStatus) || safeClinicalBriefing(medicalStatus)
 
-  const documentAuthority = authorities.find(item => item.id === 'medical-document')
-  const safetyAuthority = authorities.find(item => item.id === 'safety-interactions')
-  const pharmacovigilanceAuthority = authorities.find(item => item.id === 'pharmacovigilance')
+  if (!countryIso2) {
+    return (
+      <SectionShell
+        id="clinical"
+        sectionRef={sectionRef}
+        eyebrow="Clinical"
+        title="Clinical decision surface"
+        description="Select a specific jurisdiction before Clinical evaluates authority, evidence, products or safety. No country is substituted."
+      >
+        <div className="hvm2-sourcing-note" data-sourcing="limited-coverage" role="status" data-testid="clinical-mobile-context-required">
+          <strong>Jurisdiction required</strong>
+          <p>Choose a country in Command context. Clinical will not silently use Brazil, Canada, or another jurisdiction.</p>
+        </div>
+      </SectionShell>
+    )
+  }
+
+  const authorityCopy = workspace?.authority.state === 'loaded'
+    ? `Authority resolved for ${workspace.authority.professional?.role ?? 'verified clinician'}.`
+    : workspace?.authority.state === 'permission'
+      ? 'Verified clinician access required.'
+      : workspace?.authority.notes ?? 'Professional authority is unresolved.'
 
   return (
     <SectionShell
       id="clinical"
       sectionRef={sectionRef}
       eyebrow="Clinical"
-      title="Evidence"
-      description="Search reviewed cannabinoid evidence for this jurisdiction. Not patient-specific advice."
-      action={<Link className="hvm2-text-link" href={clinicalHref}>Full workspace</Link>}
+      title="Clinical decision surface"
+      description="Concise jurisdiction, authority, safety and product status. Use the dedicated workspace for full Prescriber OS decisions."
+      action={workspaceHref ? <Link className="hvm2-text-link" href={workspaceHref}>Open Clinical workspace</Link> : undefined}
     >
-      <ClinicalEvidenceErrorBoundary>
-        <ClinicalEvidenceExplorer commandHref={clinicalHref} />
-      </ClinicalEvidenceErrorBoundary>
-
-      {(documentAuthority || safetyAuthority || pharmacovigilanceAuthority) && (
-        <div className="hvm2-horizontal-deck" aria-label="Primary sources">
-          {documentAuthority && (
-            <article className="hvm2-directory-card">
-              <span>Authority</span>
-              <h3>{documentAuthority.label}</h3>
-              <a className="hvm2-text-link" href={documentAuthority.href} target="_blank" rel="noreferrer">Open ↗</a>
-            </article>
-          )}
-          {safetyAuthority && (
-            <article className="hvm2-directory-card">
-              <span>Safety</span>
-              <h3>{safetyAuthority.label}</h3>
-              <a className="hvm2-text-link" href={safetyAuthority.href} target="_blank" rel="noreferrer">Open ↗</a>
-            </article>
-          )}
-          {pharmacovigilanceAuthority && (
-            <article className="hvm2-directory-card">
-              <span>Report</span>
-              <h3>{pharmacovigilanceAuthority.label}</h3>
-              <a className="hvm2-text-link" href={pharmacovigilanceAuthority.href} target="_blank" rel="noreferrer">Open ↗</a>
-            </article>
-          )}
-        </div>
-      )}
-
-      {formulary.length > 0 && (
-        <div className="hvm2-horizontal-deck" aria-label="Formulary">
-          {formulary.map((p) => (
-            <article className="hvm2-directory-card" key={p.id}>
-              <span>Formulary</span>
-              <h3>{p.name}</h3>
-              <p>{p.authorizationStatus} · {p.cannabinoidProfile}</p>
-              {p.primarySourceUrl ? (
-                <a className="hvm2-text-link" href={p.primarySourceUrl} target="_blank" rel="noreferrer">Source ↗</a>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      )}
-
-      {interactions.length > 0 && (
-        <div className="hvm2-horizontal-deck" aria-label="Interactions">
-          {interactions.slice(0, 4).map((ix) => (
-            <article className="hvm2-directory-card" key={String(ix.id)}>
-              <span>Interaction</span>
-              <h3>{String(ix.medicationIngredient)} × {String(ix.cannabinoid)}</h3>
-              <p>{String(ix.clinicalSignificance)}</p>
-            </article>
-          ))}
-        </div>
-      )}
-
-      {education.length > 0 && (
-        <div className="hvm2-horizontal-deck" aria-label="Education">
-          {education.slice(0, 3).map((m) => (
-            <article className="hvm2-directory-card" key={String(m.id)}>
-              <span>Education</span>
-              <h3>{String(m.title)}</h3>
-              <Link className="hvm2-text-link" href={String(m.route || `/network/clinical-education/${m.slug}`)}>Open →</Link>
-            </article>
-          ))}
-        </div>
-      )}
-
-      <div className="hvm2-two-column" aria-label="Pathways">
+      <div className="hvm2-two-column" aria-label="Clinical decision status" data-testid="clinical-mobile-decision-surface">
         <article>
-          <span>Pathway</span>
-          <h3>{jurisdictionStatus || 'Status unavailable'}</h3>
-          <p>{safePatientAccess || 'No reviewed patient-access briefing for this context.'}</p>
-          <Link className="hvm2-text-link" href={commandHref('jurisdiction')}>Jurisdiction →</Link>
+          <span>Authority</span>
+          <h3>{workspace?.authority.state ?? (loadState === 'loading' ? 'loading' : 'unknown')}</h3>
+          <p>{authorityCopy}</p>
         </article>
         <article>
-          <span>Professional</span>
-          <h3>{roleShort || 'All roles'}</h3>
-          <p>{safePhysicianAccess || 'Confirm requirements with the professional regulator.'}</p>
-          <Link className="hvm2-text-link" href={clinicalHref}>Workspace →</Link>
+          <span>Safety</span>
+          <h3>{workspace ? `${workspace.safety.length} structured rules` : 'Checking'}</h3>
+          <p>{workspace?.interactionState === 'review-required' ? 'Some interactions are withheld pending inspectable provenance.' : `${workspace?.interactions.length ?? 0} inspectable interaction records.`}</p>
+        </article>
+        <article>
+          <span>Products</span>
+          <h3>{workspace ? `${workspace.formulary.length} formulary records` : 'Checking'}</h3>
+          <p>No product from another jurisdiction is substituted.</p>
+        </article>
+        <article>
+          <span>Decision</span>
+          <h3>{roleShort || 'Professional role unresolved'}</h3>
+          <p>No evidence answer is shown until an explicit question or clinical context is submitted.</p>
         </article>
       </div>
 
-      {sourceState !== 'loaded' && (
-        <div className="hvm2-sourcing-note" data-sourcing={sourceState} role="status">
-          <strong>Briefing · {formatStatus(sourceState)} · {jurisdictionLabel}</strong>
-          <p>{CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
+      {(safePatientAccess || safePhysicianAccess) && (
+        <div className="hvm2-two-column" aria-label="Clinical pathway context">
+          <article>
+            <span>Patient access</span>
+            <p>{safePatientAccess || 'No reviewed patient-access briefing for this jurisdiction.'}</p>
+          </article>
+          <article>
+            <span>Professional pathway</span>
+            <p>{safePhysicianAccess || 'Confirm current professional requirements with the governing authority.'}</p>
+          </article>
+        </div>
+      )}
+
+      {workspaceHref && (
+        <Link className="hvm2-primary-action" href={workspaceHref}>
+          Decision · Evidence · Safety · Products · Regimen · Monitoring →
+        </Link>
+      )}
+
+      {(sourceState !== 'loaded' || workspace?.state === 'review-required') && (
+        <div className="hvm2-sourcing-note" data-sourcing={workspace?.state === 'review-required' ? 'stale' : sourceState} role="status">
+          <strong>Clinical · {workspace?.state === 'review-required' ? 'Review required' : formatStatus(sourceState)} · {jurisdictionLabel}</strong>
+          <p>{workspace?.state === 'review-required' ? 'Records without exact prescriber-inspectable provenance are withheld rather than presented as current clinical support.' : CLINICAL_SOURCE_STATE_COPY[sourceState]}</p>
         </div>
       )}
     </SectionShell>

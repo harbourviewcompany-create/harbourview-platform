@@ -14,27 +14,15 @@ export async function GET(request: NextRequest) {
     q: request.nextUrl.searchParams.get('q') ?? '',
     limit: request.nextUrl.searchParams.get('limit') ?? undefined,
   })
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid interaction query' }, { status: 400 })
-  }
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid interaction query' }, { status: 400 })
 
   const result = await searchClinicalInteractions(parsed.data)
-  const interactions = result.interactions.map((ix) => ({
-    id: ix.id,
-    medicationIngredient: ix.medicationIngredient,
-    cannabinoid: ix.cannabinoid,
-    mechanism: ix.mechanism,
-    clinicalSignificance: ix.clinicalSignificance,
-    evidenceCertainty: ix.evidenceCertainty,
-    uncertainty: ix.uncertainty,
-    monitoringConsideration: ix.monitoringConsideration,
-    verifiedAt: ix.verifiedAt,
-    primarySourceTitle: ix.primarySourceTitle,
-    primarySourceUrl: ix.primarySourceUrl,
-    // Nested shape for mobile explorer
+  const interactions = result.interactions.map((interaction) => ({
+    ...interaction,
     primarySource: {
-      publisher: ix.primarySourceTitle,
-      url: ix.primarySourceUrl ?? undefined,
+      publisher: interaction.primarySourceTitle,
+      url: interaction.primarySourceUrl,
+      locator: interaction.sourceLocator,
     },
   }))
 

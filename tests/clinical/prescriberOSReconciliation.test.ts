@@ -1,0 +1,115 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { buildAskClinicalResponse, isInspectableClinicalSource } from '@/lib/clinical/prescriber'
+
+const root = process.cwd()
+const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8')
+
+const command = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx')
+const mobile = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
+const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
+const workspace = read('components/dashboard/pages/ClinicalWorkspacePage.tsx')
+const interactionQuery = read('lib/server/clinicalInteractionQuery.ts')
+const workspaceQuery = read('lib/server/clinicalPrescriberWorkspaceQuery.ts')
+const formularyQuery = read('lib/server/clinicalFormularyQuery.ts')
+const dedupeMigration = read('supabase/migrations/20260818212900_clinical_interaction_published_uniqueness.sql')
+const reconciliationMigration = read('supabase/migrations/20260818213000_clinical_prescriber_os_reconciliation.sql')
+const auditMigration = read('supabase/migrations/20260818213100_clinical_provenance_remediation_audit.sql')
+
+describe('Clinical Prescriber OS reconciliation', () => {
+  it('fails closed on generic source portals and accepts inspectable records', () => {
+    expect(isInspectableClinicalSource('https://pubmed.ncbi.nlm.nih.gov/')).toBe(false)
+    expect(isInspectableClinicalSource('https://www.gov.br/anvisa')).toBe(false)
+    expect(isInspectableClinicalSource('https://www.accessdata.fda.gov/scripts/cder/daf/')).toBe(false)
+    expect(isInspectableClinicalSource('https://www.tga.gov.au/')).toBe(false)
+    expect(isInspectableClinicalSource('https://pubmed.ncbi.nlm.nih.gov/36417631/')).toBe(true)
+    expect(isInspectableClinicalSource('https://www.canada.ca/en/health-canada/services/drugs-medication/cannabis/medical-use-cannabis.html')).toBe(true)
+  })
+
+  it('does not assemble an evidence answer before an explicit question', () => {
+    const result = buildAskClinicalResponse('', [])
+    expect(result.state).toBe('empty')
+    expect(result.citations).toEqual([])
+    expect(command).toContain('query.trim().length < 2')
+    expect(explorer).toContain('query.trim().length < 2')
+    expect(explorer).not.toContain('answerRecord')
+  })
+
+  it('does not silently substitute Brazil or another jurisdiction', () => {
+    expect(command).not.toMatch(/countryIso2\s*=\s*['"]BR['"]/)
+    expect(command).not.toMatch(/countryIso2\s*\|\|\s*['"]BR['"]/)
+    expect(command).toContain('Jurisdiction required')
+    expect(mobile).toContain('Jurisdiction required')
+    expect(workspace).toContain('Clinical does not infer or substitute a country')
+  })
+
+  it('keeps Command Clinical concise and routes the complete OS to the dedicated workspace', () => {
+    expect(command).toContain('/dashboard/clinical?country=')
+    expect(mobile).toContain('/dashboard/clinical?')
+    for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
+      expect(workspace).toContain(`label: '${label}'`)
+    }
+  })
+
+  it('removes regex-derived Safety classification from Clinical evidence', () => {
+    expect(explorer).not.toMatch(/const\s+isSafety\s*=/)
+    expect(explorer).not.toMatch(/safety\|adverse\|tolerab/i)
+    expect(workspace).toContain('workspace?.safety')
+    expect(workspaceQuery).toContain(".from('clinical_safety_rules')")
+  })
+
+  it('does not mask production interaction failures with fixtures', () => {
+    expect(interactionQuery).toContain("process.env.NODE_ENV !== 'production'")
+    expect(interactionQuery).toContain("process.env.HARBOURVIEW_CLINICAL_FIXTURES === '1'")
+    expect(interactionQuery).toContain("state: 'error'")
+    expect(interactionQuery).toContain("state: 'empty'")
+    expect(interactionQuery).toContain("state: 'review-required'")
+  })
+
+  it('uses typed Clinical DTO boundaries instead of generic object bags', () => {
+    expect(mobile).not.toContain('Record<string, unknown>')
+    expect(command).not.toContain('Record<string, unknown>')
+    expect(workspace).not.toContain('Record<string, unknown>')
+    expect(workspaceQuery).not.toContain('Record<string, unknown>')
+    expect(formularyQuery).not.toContain('Record<string, unknown>')
+  })
+
+  it('reconciles current-main monitoring instead of creating the stale PR table shape', () => {
+    expect(reconciliationMigration).toContain('alter table public.clinical_monitoring_protocols')
+    expect(reconciliationMigration).not.toMatch(/create table if not exists public\.clinical_monitoring_protocols/i)
+    expect(reconciliationMigration).toContain('source_locator')
+    expect(reconciliationMigration).toContain('provenance_status')
+  })
+
+  it('requires exact claim-level provenance and preserves credential-bound publication review', () => {
+    expect(reconciliationMigration).toContain('public.clinical_evidence_claims')
+    expect(reconciliationMigration).toContain('source_locator text not null')
+    expect(reconciliationMigration).toContain('public.clinical_source_is_prescriber_inspectable')
+    expect(reconciliationMigration).toContain('clinical_reviewer_credential_is_valid')
+    expect(reconciliationMigration).toContain('credential-bound clinician/pharmacist review')
+    expect(reconciliationMigration).toContain("set review_status = 'under-review'")
+  })
+
+  it('preserves duplicate interaction history while enforcing one published normalized pair', () => {
+    expect(dedupeMigration).toContain("review_status = 'under-review'")
+    expect(dedupeMigration).toContain('row_number() over')
+    expect(dedupeMigration).toContain("where review_status = 'published'")
+    expect(dedupeMigration).toContain('uq_clinical_interaction_normalized_pair')
+  })
+
+  it('preserves patient consent, care-team and professional-authority gates', () => {
+    expect(reconciliationMigration).toContain("public.clinical_has_active_consent(patient_id, 'treatment')")
+    expect(reconciliationMigration).toContain("public.clinical_has_active_consent(patient_id, 'data_processing')")
+    expect(reconciliationMigration).toContain('public.clinical_care_team')
+    expect(reconciliationMigration).toContain('public.is_verified_clinician()')
+  })
+
+  it('records post-migration provenance remediation counts without publishing replacements', () => {
+    expect(auditMigration).toContain('prescriber-provenance-remediation')
+    expect(auditMigration).toContain('evidence_records_withheld')
+    expect(auditMigration).toContain('interaction_records_withheld')
+    expect(auditMigration).toContain('remaining_published_noninspectable_evidence')
+    expect(auditMigration).toContain('remaining_published_noninspectable_interactions')
+  })
+})
