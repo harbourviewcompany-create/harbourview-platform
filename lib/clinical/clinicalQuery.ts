@@ -107,3 +107,9 @@ export async function loadClinicalPageData(iso2: string, roleLabel = "All roles"
     nextActions,
   };
 }
+
+/** Formulary — fixture-backed; migrate reads to clinical_formulary_products when live. */
+export async function getFormularyProducts(iso2: string, q?: string) {
+  const { searchFormulary } = await import("@/lib/fixtures/clinical/formulary");
+  return searchFormulary({ countryIso2: iso2, q });
+}

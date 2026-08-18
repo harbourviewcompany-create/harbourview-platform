@@ -127,6 +127,22 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
         </div>
       )}
 
+      
+      <div className="hvm2-two-column" aria-label="Clinical dual surface">
+        <article>
+          <span>Clinical education</span>
+          <h3>Professional education modules</h3>
+          <p>Training and orientation for regulated markets — separate from graded evidence records above.</p>
+          <Link className="hvm2-text-link" href="/network/clinical-education">Clinical education →</Link>
+        </article>
+        <article>
+          <span>Formulary</span>
+          <h3>Authorised product reference</h3>
+          <p>Jurisdiction-authorised product classes only. Not marketplace listings. Verify the live authority register before prescribing.</p>
+          <Link className="hvm2-text-link" href={clinicalHref}>Open clinical workspace →</Link>
+        </article>
+      </div>
+
       <div className="hvm2-two-column" aria-label="Jurisdiction clinical briefing">
         <article>
           <span>Jurisdiction pathway</span>

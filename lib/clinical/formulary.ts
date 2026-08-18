@@ -1,0 +1,44 @@
+/**
+ * Clinical formulary layer — jurisdiction-authorised product reference.
+ * Distinct from marketplace listings and genetics. Not product marketing.
+ */
+
+export type FormularyAuthorizationStatus =
+  | 'authorised'
+  | 'import-authorised'
+  | 'compounding-permitted'
+  | 'restricted'
+  | 'not-authorised'
+  | 'unknown'
+
+export type FormularyProductClass =
+  | 'cbd-dominant'
+  | 'thc-dominant'
+  | 'balanced'
+  | 'isolate'
+  | 'full-spectrum'
+  | 'pharmaceutical'
+  | 'other'
+
+export type FormularyProduct = {
+  id: string
+  slug: string
+  name: string
+  countryIso2: string
+  productClass: FormularyProductClass
+  authorizationStatus: FormularyAuthorizationStatus
+  cannabinoidProfile: string
+  routes: string[]
+  authority: string
+  notes: string
+  primarySourceUrl?: string
+  lastReviewed: string
+  reviewStatus: 'published' | 'under-review'
+}
+
+export type FormularyQuery = {
+  countryIso2?: string
+  status?: FormularyAuthorizationStatus
+  q?: string
+  limit?: number
+}
