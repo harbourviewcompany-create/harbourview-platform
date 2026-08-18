@@ -100,7 +100,10 @@ export function sha256Hex(input: string | Buffer): string {
   return createHash('sha256').update(input).digest('hex')
 }
 
-export function titlesLikelyMatch(stored: string | null | undefined, remote: string | null | undefined): boolean {
+export function titlesLikelyMatch(
+  stored: string | null | undefined,
+  remote: string | null | undefined
+): boolean {
   if (!stored || !remote) return true
   const norm = (t: string) =>
     t
@@ -154,7 +157,9 @@ export function decideFreshness(input: {
   if (input.firstCheck) {
     return {
       status: 'current',
-      reason: ['First currentness check; snapshot recorded', ...input.idNotes].filter(Boolean).join('. '),
+      reason: ['First currentness check; snapshot recorded', ...input.idNotes]
+        .filter(Boolean)
+        .join('. '),
     }
   }
   if (input.hashChanged) {
@@ -194,7 +199,8 @@ async function checkUrl(url: string): Promise<UrlCheckResult> {
         signal: controller.signal,
         headers: {
           'User-Agent': userAgent(),
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,*/*;q=0.7',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf;q=0.8,*/*;q=0.7',
         },
       })
       if (res.status >= 300 && res.status < 400) {
@@ -322,7 +328,10 @@ async function resolvePmid(pmid: string): Promise<{
   }
 }
 
-function contentHash(body: Buffer, contentType: string | null): { hash: string; hashScope: string } {
+function contentHash(
+  body: Buffer,
+  contentType: string | null
+): { hash: string; hashScope: string } {
   const ct = (contentType || '').toLowerCase()
   if (ct.includes('html') || ct.includes('xml') || ct.includes('text')) {
     const normalized = normalizeHtmlForHash(body.toString('utf8'))
@@ -419,11 +428,11 @@ async function processRecord(
 
   const urlResult = await checkUrl(url)
   if (!urlResult.ok || !urlResult.body) {
+    const statusSuffix =
+      urlResult.statusCode != null ? ` status=${urlResult.statusCode}` : ''
     return decideFreshness({
       urlOk: false,
-      urlError: `URL unreachable: ${urlResult.error || 'unknown'}${{
-        urlResult.statusCode != null ? ` status=${urlResult.statusCode}` : ''
-      }}`,
+      urlError: `URL unreachable: ${urlResult.error || 'unknown'}${statusSuffix}`,
       firstCheck: false,
       hashChanged: false,
       retracted,
@@ -487,7 +496,14 @@ async function processRecord(
     if (snapErr) console.error(`[snapshot] ${row.id}:`, snapErr.message)
   }
 
-  await writeChangeEvent(supabase, row.id, row.freshness_status, decided.status, decided.reason, dryRun)
+  await writeChangeEvent(
+    supabase,
+    row.id,
+    row.freshness_status,
+    decided.status,
+    decided.reason,
+    dryRun
+  )
 
   const { error: updErr } = await supabase
     .from('clinical_evidence_records')
