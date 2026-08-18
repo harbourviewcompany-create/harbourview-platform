@@ -30,7 +30,7 @@ function jurisdictionFromCommandHref(commandHref: string): string {
   const iso = countryIso2FromCommandHref(commandHref)
   if (iso) return clinicalJurisdictionLabel(iso)
   const raw = commandParams(commandHref).get('country')?.trim() ?? ''
-  return raw || 'Canada'
+  return raw
 }
 
 function roleFromCommandHref(commandHref: string): string {
