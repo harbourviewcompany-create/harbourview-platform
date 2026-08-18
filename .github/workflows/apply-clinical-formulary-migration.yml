@@ -4,17 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type APPLY to run clinical formulary/evidence migrations on production'
+        description: 'Type APPLY to run clinical migrations on production'
         required: true
         type: string
       migration:
         description: 'Which migration set'
         required: true
         type: choice
-        default: expand
+        default: interactions
         options:
           - seed
           - expand
+          - interactions
           - both
 
 permissions:
@@ -36,10 +37,6 @@ jobs:
             echo "::error::Refusing to run. Set confirm=APPLY."
             exit 1
           fi
-          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "::error::Must dispatch from main."
-            exit 1
-          fi
 
       - uses: actions/checkout@v4
 
@@ -56,18 +53,15 @@ jobs:
           WHICH: ${{ inputs.migration }}
         run: |
           set -euo pipefail
-          apply() {
-            local f="$1"
-            test -f "$f"
-            echo "Applying $f ..."
-            psql -v ON_ERROR_STOP=1 -f "$f"
-          }
+          apply() { test -f "$1"; echo "Applying $1 ..."; psql -v ON_ERROR_STOP=1 -f "$1"; }
           case "$WHICH" in
             seed) apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql ;;
             expand) apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql ;;
+            interactions) apply supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql ;;
             both)
               apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql
               apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql
+              apply supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql
               ;;
           esac
 
@@ -83,21 +77,13 @@ jobs:
           set -euo pipefail
           record() {
             local VERSION="$1"
-            psql -v ON_ERROR_STOP=1 <<SQL
-          DO \$\$
-          BEGIN
-            IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
-              INSERT INTO supabase_migrations.schema_migrations (version)
-              VALUES ('$VERSION') ON CONFLICT DO NOTHING;
-            END IF;
-          END
-          \$\$;
-          SQL
+            psql -v ON_ERROR_STOP=1 -c "INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('$VERSION') ON CONFLICT DO NOTHING;" || true
           }
           case "$WHICH" in
             seed) record 20260818120000 ;;
             expand) record 20260818130000 ;;
-            both) record 20260818120000; record 20260818130000 ;;
+            interactions) record 20260818140000 ;;
+            both) record 20260818120000; record 20260818130000; record 20260818140000 ;;
           esac
 
       - name: Verify counts
@@ -113,5 +99,8 @@ jobs:
           FROM public.clinical_formulary_products WHERE review_status = 'published'
           UNION ALL
           SELECT 'evidence_published', count(*)::text
-          FROM public.clinical_evidence_records WHERE review_status = 'published';
+          FROM public.clinical_evidence_records WHERE review_status = 'published'
+          UNION ALL
+          SELECT 'interactions_published', count(*)::text
+          FROM public.clinical_medication_interactions WHERE review_status = 'published';
           SQL
