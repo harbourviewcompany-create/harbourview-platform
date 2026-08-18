@@ -274,7 +274,7 @@ describe('Mobile Command Centre operator architecture', () => {
 
     const rail = [...document.querySelectorAll('.hvm-op-secondary-nav button')]
     expect(rail).toHaveLength(SECTION_GROUPS.overview.length)
-    for (const label of ['Genetics', 'Talent', 'Clinical', 'Compliance', 'Education path', 'Directories', 'Network']) {
+    for (const label of ['Genetics', 'Talent', 'Clinical', 'Compliance', 'Education', 'Directories', 'Network']) {
       expect(rail.map(button => button.textContent)).toContain(label)
     }
   })
