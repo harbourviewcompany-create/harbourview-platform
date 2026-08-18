@@ -42,13 +42,17 @@ describe('Admin Command Center Phase 0-4 contracts', () => {
 
   it('keeps new work adapters on the canonical api-schema service client', () => {
     const workServer = read('lib/admin/work/server.ts')
+    const migration = read('supabase/migrations/20260818123000_admin_review_queue_api_rpc.sql')
     expect(workServer).toContain('createSupabaseServiceClient')
-    expect(workServer).toContain(".from('hv_admin_review_queue')")
+    expect(workServer).toContain("rpc('list_admin_review_queue'")
     expect(workServer).toContain(".from('marketplace_inquiries')")
     expect(workServer).toContain(".from('marketplace_candidates')")
     expect(workServer).not.toContain('fetchAdminSupabaseJson')
     expect(workServer).toContain("['received', 'reviewing', 'contacted', 'qualified']")
     expect(workServer).toContain("['needs_review', 'needs_verification']")
+    expect(migration).toContain('service-role-only')
+    expect(migration).toContain('grant execute on function api.list_admin_review_queue(boolean, integer) to service_role')
+    expect(migration).toContain('revoke all on function api.list_admin_review_queue(boolean, integer) from public, anon, authenticated')
   })
 
   it('keeps the Hub and Stripe setup during parity and records exactly one runtime hub-proxy caller', () => {
