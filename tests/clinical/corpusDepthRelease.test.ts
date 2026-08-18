@@ -64,7 +64,7 @@ describe('Clinical corpus-depth governed release contract', () => {
     expect(depthSql).not.toContain("'current',\n    'published',\n    'clinical-synthesis'")
   })
 
-  it('requires normalized source provenance and rejects generic landing-page sources', () => {
+  it('requires normalized source provenance and rejects generic landing-page sources from corpus writes', () => {
     const requiredUrls = [
       'https://pubmed.ncbi.nlm.nih.gov/28538134/',
       'https://pubmed.ncbi.nlm.nih.gov/29768152/',
@@ -77,8 +77,11 @@ describe('Clinical corpus-depth governed release contract', () => {
       'https://pubmed.ncbi.nlm.nih.gov/7730690/',
     ]
     for (const url of requiredUrls) expect(depthSql).toContain(url)
-    expect(depthSql).not.toContain("'https://pubmed.ncbi.nlm.nih.gov/',\n")
-    expect(depthSql).not.toContain("'https://www.accessdata.fda.gov/scripts/cder/daf/',\n")
+    const validationMarker = depthSql.indexOf('-- Fail the migration rather than accept generic landing pages')
+    expect(validationMarker).toBeGreaterThan(0)
+    const corpusWrites = depthSql.slice(0, validationMarker)
+    expect(corpusWrites).not.toContain("'https://pubmed.ncbi.nlm.nih.gov/',")
+    expect(corpusWrites).not.toContain("'https://www.accessdata.fda.gov/scripts/cder/daf/',")
     expect(depthSql).toContain('primary_source_registry_id')
     expect(depthSql).toContain('record-specific normalized primary-source provenance')
   })
