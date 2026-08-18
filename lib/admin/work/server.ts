@@ -1,5 +1,5 @@
 import 'server-only'
-import { fetchAdminSupabaseJson, type AdminDataResult } from '@/lib/supabase/adminDataClient'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { listEngineReviewQueue, type EngineSignal } from '@/lib/signals-engine/admin'
 import { listRegulatoryReviewQueue } from '@/lib/regulatory-signals/admin'
 import type { RegulatorySignalRecord } from '@/lib/regulatory-signals/types'
@@ -75,6 +75,10 @@ type PipelineTaskRow = {
   available_at?: string | null
 }
 
+type QueryResult<T> = { ok: true; data: T } | { ok: false; error: string }
+
+type PostgrestLikeResult<T> = { data: T | null; error: { message?: string } | null }
+
 function nowIso() {
   return new Date().toISOString()
 }
@@ -99,8 +103,18 @@ function regulatoryPriority(signal: RegulatorySignalRecord) {
   return 'normal' as const
 }
 
-function resultError(result: AdminDataResult<unknown>) {
-  return result.ok ? undefined : result.error.message
+async function settleQuery<T>(query: PromiseLike<PostgrestLikeResult<T>>): Promise<QueryResult<T>> {
+  try {
+    const result = await query
+    if (result.error) return { ok: false, error: result.error.message || 'Supabase query failed' }
+    return { ok: true, data: result.data as T }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Supabase query failed' }
+  }
+}
+
+function resultError(result: QueryResult<unknown>) {
+  return result.ok ? undefined : result.error
 }
 
 function pushSourceState(
@@ -115,15 +129,56 @@ function pushSourceState(
 export async function getAdminWorkSnapshot(): Promise<AdminWorkSnapshot> {
   const items: AdminWorkItemDTO[] = []
   const sources: AdminWorkSourceState[] = []
+  const supabase = await createSupabaseServiceClient()
 
+  // createSupabaseServiceClient is locked to SUPABASE_DB_SCHEMA='api'. This is
+  // intentional: Harbourview's Data API does not expose public directly. An
+  // absent api.* view degrades only that adapter instead of silently querying
+  // the wrong schema or treating an unavailable count as zero.
   const [reviewQueue, engine, regulatory, inquiries, candidates, sourceStates, pipelineTasks] = await Promise.all([
-    fetchAdminSupabaseJson<ReviewQueueRow[]>('/rest/v1/hv_admin_review_queue?select=id,queue_type,target_entity_type,target_entity_id,assigned_to,priority,status,notes,created_at,updated_at,resolved_at&status=not.in.(resolved)&order=priority.asc,created_at.asc&limit=250'),
+    settleQuery<ReviewQueueRow[]>(
+      supabase
+        .from('hv_admin_review_queue')
+        .select('id,queue_type,target_entity_type,target_entity_id,assigned_to,priority,status,notes,created_at,updated_at,resolved_at')
+        .neq('status', 'resolved')
+        .order('priority', { ascending: true })
+        .order('created_at', { ascending: true })
+        .limit(250),
+    ),
     listEngineReviewQueue({ minScore: 0, limit: 200 }),
     listRegulatoryReviewQueue(),
-    fetchAdminSupabaseJson<InquiryRow[]>('/rest/v1/marketplace_inquiries?select=id,created_at,inquiry_type,contact_company,contact_name,message,review_status,priority,next_follow_up_at&review_status=in.(new,open,pending_response)&order=created_at.asc&limit=200'),
-    fetchAdminSupabaseJson<CandidateRow[]>('/rest/v1/marketplace_candidates?select=*&status=in.(needs_review,draft)&order=created_at.asc&limit=200'),
-    fetchAdminSupabaseJson<SourceStateRow[]>('/rest/v1/scraper_source_state?select=source_id,consecutive_failures,last_error,last_success_at,last_run_at&consecutive_failures=gt.0&order=consecutive_failures.desc&limit=100'),
-    fetchAdminSupabaseJson<PipelineTaskRow[]>('/rest/v1/pipeline_tasks?select=id,queue_name,task_type,status,priority,attempts,max_attempts,last_error,created_at,available_at&status=in.(failed,dead)&order=created_at.asc&limit=100'),
+    settleQuery<InquiryRow[]>(
+      supabase
+        .from('marketplace_inquiries')
+        .select('id,created_at,inquiry_type,contact_company,contact_name,message,review_status,priority,next_follow_up_at')
+        .in('review_status', ['received', 'reviewing', 'contacted', 'qualified'])
+        .order('created_at', { ascending: true })
+        .limit(200),
+    ),
+    settleQuery<CandidateRow[]>(
+      supabase
+        .from('marketplace_candidates')
+        .select('id,created_at,discovered_at,candidate_type,status,title_internal,title_public_draft,country,region,jurisdiction')
+        .in('status', ['needs_review', 'needs_verification'])
+        .order('created_at', { ascending: true })
+        .limit(200),
+    ),
+    settleQuery<SourceStateRow[]>(
+      supabase
+        .from('scraper_source_state')
+        .select('source_id,consecutive_failures,last_error,last_success_at,last_run_at')
+        .gt('consecutive_failures', 0)
+        .order('consecutive_failures', { ascending: false })
+        .limit(100),
+    ),
+    settleQuery<PipelineTaskRow[]>(
+      supabase
+        .from('pipeline_tasks')
+        .select('id,queue_name,task_type,status,priority,attempts,max_attempts,last_error,created_at,available_at')
+        .in('status', ['failed', 'dead'])
+        .order('created_at', { ascending: true })
+        .limit(100),
+    ),
   ])
 
   if (reviewQueue.ok) {
@@ -214,7 +269,7 @@ export async function getAdminWorkSnapshot(): Promise<AdminWorkSnapshot> {
         id: `candidate:${candidate.id}`,
         source: 'marketplace_candidate',
         entity: { type: 'marketplace_candidate', id: candidate.id },
-        title: candidate.title_internal || candidate.title_public_draft || candidate.title || 'Marketplace candidate',
+        title: candidate.title_internal || candidate.title_public_draft || 'Marketplace candidate',
         summary: [candidate.country, candidate.region, candidate.jurisdiction].filter(Boolean).join(' · ') || 'Candidate requires review',
         priority: 'normal',
         status: normalizeAdminStatus(candidate.status),
@@ -229,7 +284,7 @@ export async function getAdminWorkSnapshot(): Promise<AdminWorkSnapshot> {
         id: `intake:${candidate.id}`,
         source: 'intake',
         entity: { type: 'marketplace_candidate', id: candidate.id },
-        title: candidate.title_internal || candidate.title_public_draft || candidate.title || 'Marketplace intake submission',
+        title: candidate.title_internal || candidate.title_public_draft || 'Marketplace intake submission',
         summary: [candidate.country, candidate.region, candidate.jurisdiction].filter(Boolean).join(' · ') || 'Intake submission requires review',
         priority: 'high',
         status: normalizeAdminStatus(candidate.status),
@@ -287,8 +342,7 @@ export async function getAdminWorkSnapshot(): Promise<AdminWorkSnapshot> {
   const operationalErrors = [resultError(sourceStates), resultError(pipelineTasks)].filter(Boolean)
   pushSourceState(sources, 'operational_exception', operationalCount, operationalErrors.length ? operationalErrors.join(' · ') : undefined)
 
-  // The persistent queue is the assignment/escalation layer. Place it first so
-  // a persisted work record suppresses a virtual adapter record for the same entity.
-  const ordered = sortAdminWorkItems(dedupeAdminWorkItems(items))
-  return { generatedAt: nowIso(), items: ordered, sources }
+  // Persistent review records are deliberately inserted before virtual adapter
+  // records so target-entity dedupe keeps the assignment/escalation source of truth.
+  return { generatedAt: nowIso(), items: sortAdminWorkItems(dedupeAdminWorkItems(items)), sources }
 }
