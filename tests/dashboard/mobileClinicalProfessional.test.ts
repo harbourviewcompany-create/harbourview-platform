@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   CANADA_CLINICAL_AUTHORITIES,
@@ -13,6 +15,10 @@ import {
   normalizeClinicalCountryIso2,
   safeClinicalBriefing,
 } from '@/components/dashboard/mobile-command/clinicalCommandContract'
+
+function read(rel: string) {
+  return fs.readFileSync(path.join(process.cwd(), rel), 'utf8')
+}
 
 describe('mobile professional clinical command contract', () => {
   it('suppresses stale ACMPR-era briefing copy', () => {
@@ -64,9 +70,7 @@ describe('mobile professional clinical command contract', () => {
       const authorities = getClinicalAuthoritiesForCountry(code)
       expect(authorities.length).toBe(4)
       expect(authorities.every(a => a.countryIso2 === code)).toBe(true)
-      if (code !== 'CA') {
-        expect(authorities.some(a => /canada\.ca|justice\.gc\.ca/i.test(a.href))).toBe(false)
-      }
+      if (code !== 'CA') expect(authorities.some(a => /canada\.ca|justice\.gc\.ca/i.test(a.href))).toBe(false)
     }
     expect(hasClinicalAuthorityCoverage('XX')).toBe(false)
     expect(getClinicalAuthoritiesForCountry('XX')).toEqual([])
@@ -83,5 +87,52 @@ describe('mobile professional clinical command contract', () => {
   it('states cannabinoid scope boundary in copy', () => {
     expect(CLINICAL_SCOPE_NOTICE.toLowerCase()).toContain('cannabinoid')
     expect(CLINICAL_SCOPE_NOTICE.toLowerCase()).toContain('not a general')
+  })
+
+  it('keeps Command Clinical concise and moves the complete evidence workspace to a dedicated route', () => {
+    const command = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
+    const workspace = read('app/dashboard/clinical/page.tsx')
+    const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
+
+    expect(command).not.toContain('ClinicalEvidenceExplorer')
+    expect(command).toContain('/dashboard/clinical')
+    for (const label of ['Status', 'What changed', 'Needs attention', 'Evidence', 'Safety', 'Professional pathway']) {
+      expect(command).toContain(label)
+    }
+    expect(workspace).toContain('ClinicalEvidenceExplorer')
+    expect(workspace).toContain('Clinical workspace')
+    for (const lane of ['Evidence', 'Safety', 'Interactions', 'Formulations', 'Guidelines', 'Practice', 'Monitoring']) {
+      expect(explorer).toContain(`${lane}`)
+    }
+  })
+
+  it('separates empty-query readiness from a submitted zero-result state', () => {
+    const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
+    expect(explorer).toContain('const hasSubmittedQuery = submittedQuery.length > 0')
+    expect(explorer).toContain("!hasSubmittedQuery ? 'Ready'")
+    expect(explorer).toContain('Enter a condition, formulation, cannabinoid or clinical question to search reviewed evidence.')
+    expect(explorer).not.toContain('0 reviewed records')
+    expect(explorer).toContain("hasSubmittedQuery && ['no-match', 'no-evidence'].includes(result.state)")
+  })
+
+  it('does not label a neutral Clinical context as an All roles professional pathway', () => {
+    const command = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
+    const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
+    expect(command).toContain("return 'Professional requirements'")
+    expect(explorer).toContain("return 'Professional overview'")
+  })
+
+  it('locks mobile Clinical to one column and keeps workspace lanes deliberately scrollable', () => {
+    const css = read('components/dashboard/mobile-command/ClinicalWorkspace.css')
+    const shellCss = read('components/dashboard/mobile-command/MobileCommandOperatorFirst.css')
+
+    expect(css).toMatch(/\.hvc-command-summary\s*\{[\s\S]*?gap:\s*10px;/)
+    expect(css).toContain('.hvc-now-grid { grid-template-columns: 1fr;')
+    expect(css).toContain('@media (min-width: 720px)')
+    expect(css).toMatch(/\.hvc-lanes\s*\{[\s\S]*?overflow-x:\s*auto;/)
+    expect(css).toMatch(/\.hvc-search-row\s*\{[^}]*grid-template-columns:\s*1fr;/)
+    expect(shellCss).toMatch(/\.hvm-op-secondary-nav\s*\{[\s\S]*?flex-wrap:\s*wrap;/)
+    expect(shellCss).toMatch(/\.hvm2-main\.hvm-op-main\s*\{[\s\S]*?overflow-y:\s*auto;/)
+    expect(shellCss).toMatch(/\.hvm2-bottom-nav\.hvm-op-bottom-nav\s*\{[\s\S]*?position:\s*relative;/)
   })
 })
