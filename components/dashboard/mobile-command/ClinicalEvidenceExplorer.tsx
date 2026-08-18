@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
 import {
   classifyClinicalFailure,
@@ -190,6 +190,23 @@ function stateBadgeClass(state: string): string {
   return 'bg-white/10 text-white/80 border-white/15'
 }
 
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="animate-pulse rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3"
+        >
+          <div className="h-2.5 w-24 rounded bg-white/10" />
+          <div className="mt-2 h-3.5 w-3/4 rounded bg-white/15" />
+          <div className="mt-2 h-2.5 w-full rounded bg-white/10" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /**
  * Mobile Evidence Command.
  * Uses Tailwind layout — does not depend on missing hvc-* stylesheet rules
@@ -197,10 +214,7 @@ function stateBadgeClass(state: string): string {
  */
 export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
   const countryIso2 = useMemo(() => countryIso2FromCommandHref(commandHref), [commandHref])
-  const jurisdiction = useMemo(
-    () => (countryIso2 ? clinicalJurisdictionLabel(countryIso2) : 'Canada'),
-    [countryIso2],
-  )
+  const jurisdiction = useMemo(() => clinicalJurisdictionLabel(countryIso2), [countryIso2])
   const role = useMemo(() => roleFromCommandHref(commandHref), [commandHref])
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -214,12 +228,12 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     let active = true
 
     const params = new URLSearchParams({ limit: '50' })
-    // Prefer ISO2 country for the unified evidence API; keep jurisdiction as fallback label.
+    // Prefer ISO2 country for the unified evidence API. Never invent a default jurisdiction.
     if (countryIso2) params.set('country', countryIso2)
-    else params.set('jurisdiction', jurisdiction)
     if (submittedQuery) params.set('q', submittedQuery)
 
     setLoading(true)
+    setResult(null)
 
     void (async () => {
       try {
@@ -282,7 +296,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       active = false
       controller.abort()
     }
-  }, [countryIso2, jurisdiction, submittedQuery, requestVersion])
+  }, [countryIso2, submittedQuery, requestVersion])
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -304,6 +318,12 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
   const safetyAuthority = authorities.find((source) => source.id === 'safety-interactions')
   const documentAuthority = authorities.find((source) => source.id === 'medical-document')
   const pharmacovigilanceAuthority = authorities.find((source) => source.id === 'pharmacovigilance')
+
+  const showRecordList =
+    activeView !== 'interactions' &&
+    activeView !== 'monitoring' &&
+    !(activeView === 'safety' && visibleRecords.length === 0 && !loading) &&
+    !(activeView === 'practice' && visibleRecords.length === 0 && !loading)
 
   return (
     <section className="space-y-4" aria-labelledby="clinical-evidence-title">
@@ -474,7 +494,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
             Reviewed clinical education →
           </a>
         </div>
-      ) : activeView === 'safety' && visibleRecords.length === 0 ? (
+      ) : activeView === 'safety' && !loading && visibleRecords.length === 0 ? (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="note">
           <strong className="text-sm text-white">No structured safety record in current scope</strong>
           <p className="mt-1.5 text-xs leading-relaxed text-white/60">
@@ -501,7 +521,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
             </a>
           ) : null}
         </div>
-      ) : activeView === 'practice' && visibleRecords.length === 0 ? (
+      ) : activeView === 'practice' && !loading && visibleRecords.length === 0 ? (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="note">
           <strong className="text-sm text-white">No reviewed practice record in this scope</strong>
           <p className="mt-1.5 text-xs leading-relaxed text-white/60">
@@ -518,64 +538,70 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
             </a>
           ) : null}
         </div>
-      ) : (
+      ) : showRecordList ? (
         <div className="space-y-2" aria-label={`${VIEW_LABELS[activeView]} clinical records`}>
           <div className="flex items-center justify-between gap-2 px-0.5">
             <h3 className="text-sm font-semibold text-white">{VIEW_LABELS[activeView]}</h3>
             <span className="text-xs text-white/50">
-              {visibleRecords.length} reviewed record{visibleRecords.length === 1 ? '' : 's'}
+              {loading ? '…' : `${visibleRecords.length} reviewed record${visibleRecords.length === 1 ? '' : 's'}`}
             </span>
           </div>
 
-          {visibleRecords.map((record) => (
-            <details
-              key={record.id}
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 open:bg-white/[0.05]"
-            >
-              <summary className="cursor-pointer list-none">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wide text-white/45">
-                      {record.condition || 'Regulatory / professional evidence'}
-                    </p>
-                    <p className="mt-0.5 text-sm font-medium text-white">{record.title}</p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">
-                    {formatStatus(record.evidenceStrength)}
-                  </span>
-                </div>
-              </summary>
-              <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
-                <p className="text-xs leading-relaxed text-white/65">{record.summary}</p>
-                <p className="text-xs text-white/50">
-                  <span className="text-white/70">Primary source:</span> {record.primarySource.publisher} ·{' '}
-                  {record.primarySource.title}
-                </p>
-                <a
-                  className="inline-flex text-xs text-[#d4a853]"
-                  href={record.primarySource.url}
-                  target="_blank"
-                  rel="noreferrer"
+          {loading ? (
+            <LoadingSkeleton />
+          ) : (
+            <>
+              {visibleRecords.map((record) => (
+                <details
+                  key={record.id}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 open:bg-white/[0.05]"
                 >
-                  Open primary source ↗
-                </a>
-              </div>
-            </details>
-          ))}
+                  <summary className="cursor-pointer list-none">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-wide text-white/45">
+                          {record.condition || 'Regulatory / professional evidence'}
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium text-white">{record.title}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">
+                        {formatStatus(record.evidenceStrength)}
+                      </span>
+                    </div>
+                  </summary>
+                  <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
+                    <p className="text-xs leading-relaxed text-white/65">{record.summary}</p>
+                    <p className="text-xs text-white/50">
+                      <span className="text-white/70">Primary source:</span> {record.primarySource.publisher} ·{' '}
+                      {record.primarySource.title}
+                    </p>
+                    <a
+                      className="inline-flex text-xs text-[#d4a853]"
+                      href={record.primarySource.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open primary source ↗
+                    </a>
+                  </div>
+                </details>
+              ))}
 
-          {!loading && visibleRecords.length === 0 && activeView === 'evidence' ? (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="status">
-              <strong className="text-sm text-white">
-                {result ? clinicalStateLabel(result.state) : 'No evidence loaded'}
-              </strong>
-              <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-                {result?.message ??
-                  'Enter a condition or clinical question to search reviewed evidence. Empty result is not proof that evidence does not exist outside this corpus.'}
-              </p>
-            </div>
-          ) : null}
+              {visibleRecords.length === 0 && activeView === 'evidence' ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="status">
+                  <strong className="text-sm text-white">
+                    {result ? clinicalStateLabel(result.state) : 'No evidence loaded'}
+                  </strong>
+                  <p className="mt-1.5 text-xs leading-relaxed text-white/60">
+                    {result?.message ??
+                      'Enter a condition or clinical question to search reviewed evidence. Empty result is not proof that evidence does not exist outside this corpus.'}
+                  </p>
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
-      )}
+      ) : null}
     </section>
   )
 }
