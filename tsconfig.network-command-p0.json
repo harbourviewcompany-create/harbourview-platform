@@ -6,6 +6,8 @@
   },
   "include": [
     "next-env.d.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
     "lib/network/**/*.ts",
     "app/api/network/**/*.ts",
     "app/dashboard/network/**/*.tsx",
