@@ -66,7 +66,7 @@
     },
     {
       "path": "/api/cron/market-access-promote",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 11 * * *"
     },
     {
       "path": "/api/cron/clinical-sku-feeds",
