@@ -19,6 +19,10 @@ const domainMigration = fs.readFileSync(
   path.join(process.cwd(), 'supabase/migrations/20260816150200_clinical_evidence_domain_separation.sql'),
   'utf8',
 )
+const explorerSource = fs.readFileSync(
+  path.join(process.cwd(), 'components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx'),
+  'utf8',
+)
 
 function evidence(id: string, overrides: Partial<ClinicalEvidenceRecordDTO> = {}): ClinicalEvidenceRecordDTO {
   return {
@@ -89,6 +93,14 @@ describe('Clinical evidence operating system contracts', () => {
     expect(domainMigration).toContain("evidence_type in ('regulation','regulatory-guidance','product-monograph') then 'regulatory'")
     expect(domainMigration).toContain("evidence_type in ('randomized-trial','observational-study','clinical-guideline') then 'clinical'")
     expect(domainMigration).toContain('Systematic reviews/meta-analyses remain not-assessed')
+  })
+
+  it('never silently substitutes Canada when Clinical has no jurisdiction', () => {
+    expect(explorerSource).toContain('const iso = countryIso2FromCommandHref(commandHref)')
+    expect(explorerSource).toContain('if (iso) return clinicalJurisdictionLabel(iso)')
+    expect(explorerSource).toContain("const raw = commandParams(commandHref).get('country')?.trim() ?? ''")
+    expect(explorerSource).toContain('return raw')
+    expect(explorerSource).not.toContain("return raw || 'Canada'")
   })
 
   it('counts normalized independent studies once across multiple publications and preserves claim anchors', () => {
