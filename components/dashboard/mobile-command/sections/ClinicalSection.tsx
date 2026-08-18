@@ -142,7 +142,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
       )}
 
       {workspaceHref && (
-        <Link className="hvm2-primary-action" href={workspaceHref}>
+        <Link className="hvm2-inline-cta" href={workspaceHref}>
           Decision · Evidence · Safety · Products · Regimen · Monitoring →
         </Link>
       )}
