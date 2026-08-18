@@ -1,0 +1,32 @@
+name: Apply clinical SKU product bootstrap
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm
+        run: test "${{ inputs.confirm }}" = "APPLY"
+      - uses: actions/checkout@v4
+      - name: Install psql
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Apply
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260818160000_clinical_sku_product_level_bootstrap.sql
+          psql -v ON_ERROR_STOP=1 -c "INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('20260818160000') ON CONFLICT DO NOTHING;" || true
