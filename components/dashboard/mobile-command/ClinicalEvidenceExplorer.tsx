@@ -16,6 +16,7 @@ import {
   getClinicalAuthoritiesForCountry,
 } from './clinicalCommandContract'
 import { formatStatus } from './contracts'
+import './ClinicalWorkspace.css'
 
 type ClinicalView = 'evidence' | 'safety' | 'interactions' | 'formulations' | 'guidelines' | 'practice' | 'monitoring'
 
@@ -27,16 +28,17 @@ function commandParams(commandHref: string): URLSearchParams {
 function jurisdictionFromCommandHref(commandHref: string): string {
   const iso = countryIso2FromCommandHref(commandHref)
   if (iso) return clinicalJurisdictionLabel(iso)
-  const raw = commandParams(commandHref).get('country')?.trim() ?? ''
-  return raw || 'Canada'
+  return commandParams(commandHref).get('country')?.trim() || 'Canada'
 }
 
 function roleFromCommandHref(commandHref: string): string {
   const raw = commandParams(commandHref).get('role')?.trim() ?? ''
-  return raw ? formatStatus(raw) : 'All roles'
+  const normalized = raw.toLocaleLowerCase().replace(/[_-]+/g, ' ')
+  if (!normalized || normalized === 'all roles' || normalized === 'all') return 'Professional overview'
+  return formatStatus(raw)
 }
 
-function date(value: string | null | undefined): string {
+function shortDate(value: string | null | undefined): string {
   return value ? value.slice(0, 10) : 'Not recorded'
 }
 
@@ -66,16 +68,18 @@ function recordsForView(records: ClinicalEvidenceRecordDTO[], view: ClinicalView
   return records
 }
 
-function stateAttention(result: ClinicalEvidenceApiResult | null, loading: boolean): { title: string; detail: string } {
+function stateAttention(result: ClinicalEvidenceApiResult | null, loading: boolean, hasQuery: boolean): { title: string; detail: string } {
   if (loading) return { title: 'Checking evidence state', detail: 'Loading reviewed records, currentness and conflict status.' }
   if (!result) return { title: 'Evidence state unavailable', detail: 'Retry the evidence service before relying on this workspace.' }
+  if (!hasQuery && (result.state === 'no-match' || result.state === 'no-evidence')) {
+    return { title: 'Ready', detail: 'Enter a condition, formulation, cannabinoid or clinical question to search reviewed evidence.' }
+  }
   if (result.state === 'conflicted') return { title: 'Material conflict requires review', detail: 'Open the conflicting records and primary sources before relying on a conclusion.' }
   if (result.state === 'stale') return { title: 'Currentness requires review', detail: 'Only stale, superseded or review-required records match the current question.' }
   if (result.state === 'degraded-source') return { title: 'Partial source coverage', detail: 'At least one source has degraded or unresolved currentness. Verify the primary source.' }
   if (result.state === 'permission') return { title: 'Evidence access restricted', detail: result.message }
   if (result.state === 'error') {
-    const label = result.diagnostic ? clinicalFailureLabel(result.diagnostic.category) : 'Evidence service unavailable'
-    return { title: label, detail: result.message }
+    return { title: result.diagnostic ? clinicalFailureLabel(result.diagnostic.category) : 'Evidence service unavailable', detail: result.message }
   }
   if (result.state === 'no-evidence') return { title: 'Known condition, no reviewed record', detail: 'The condition is recognized but the governed corpus has no published evidence record for this context.' }
   if (result.state === 'no-match') return { title: 'No reviewed match', detail: 'Change the question or clear the search; no matching condition or evidence record is published.' }
@@ -84,12 +88,6 @@ function stateAttention(result: ClinicalEvidenceApiResult | null, loading: boole
   return ungraded > 0
     ? { title: 'Inspect certainty and applicability', detail: `${ungraded} loaded record${ungraded === 1 ? ' is' : 's are'} ungraded; source authority is not the same as clinical efficacy certainty.` }
     : { title: 'Inspect applicability', detail: 'Confirm population, formulation, jurisdiction, professional scope and source date before relying on a record.' }
-}
-
-function evidenceClassLabel(record: ClinicalEvidenceRecordDTO): string {
-  if (record.interventionClass === 'regulated-cannabinoid-drug') return 'Regulated cannabinoid drug'
-  if (record.interventionClass === 'general-cannabis') return 'General cannabis / authority'
-  return formatStatus(record.interventionClass)
 }
 
 function clientFailureMessage(category: ReturnType<typeof classifyClinicalFailure>): string {
@@ -135,11 +133,10 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         if (!active || (error instanceof DOMException && error.name === 'AbortError')) return
         const message = error instanceof Error ? error.message : ''
         const category = classifyClinicalFailure({ message })
-        const permission = category === 'permission'
         const statusMatch = message.match(/clinical_evidence_http_(\d{3})/)
         const httpStatus = statusMatch ? Number(statusMatch[1]) : null
         setResult({
-          state: permission ? 'permission' : 'error',
+          state: category === 'permission' ? 'permission' : 'error',
           query: submittedQuery,
           records: [],
           changes: [],
@@ -159,8 +156,14 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const nextQuery = query.trim()
+    if (!nextQuery) {
+      setSubmittedQuery('')
+      setActiveView('evidence')
+      return
+    }
     setActiveView('evidence')
-    setSubmittedQuery(query.trim())
+    setSubmittedQuery(nextQuery)
   }
 
   function clearSearch() {
@@ -169,8 +172,9 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     setActiveView('evidence')
   }
 
+  const hasSubmittedQuery = submittedQuery.length > 0
   const state = loading ? 'loading' : result?.state ?? 'error'
-  const attention = stateAttention(result, loading)
+  const attention = stateAttention(result, loading, hasSubmittedQuery)
   const latestChange = result?.changes[0] ?? null
   const visibleRecords = recordsForView(result?.records ?? [], activeView)
   const countryIso2 = countryIso2FromCommandHref(commandHref)
@@ -189,21 +193,26 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     monitoring: 'Monitoring',
   }
 
+  const showStatePanel = !loading && result && (
+    ['error', 'permission', 'stale', 'conflicted', 'degraded-source'].includes(result.state)
+    || (hasSubmittedQuery && ['no-match', 'no-evidence'].includes(result.state))
+  )
+
   return (
-    <section className="hvm2-clinical-evidence hvc-command" aria-labelledby="clinical-evidence-title">
+    <section className="hvm2-clinical-evidence hvc-command" data-clinical-workspace="true" aria-labelledby="clinical-evidence-title">
       <div className="hvc-statusbar" aria-live="polite">
         <strong id="clinical-evidence-title">Evidence command · {jurisdiction} · {role}</strong>
-        <span className="hvc-state">{clinicalStateLabel(state)}</span>
+        <span className="hvc-state">{!hasSubmittedQuery && !loading && (state === 'no-match' || state === 'no-evidence') ? 'Ready' : clinicalStateLabel(state)}</span>
       </div>
 
-      <div className="hvc-now-grid" aria-label="Clinical command now">
+      <div className="hvc-now-grid" aria-label="Clinical workspace now">
         <article className="hvc-now-card">
           <span>What changed</span>
           <strong>{loading ? 'Checking current changes' : latestChange?.title ?? 'No published change event loaded'}</strong>
-          <p>{loading ? 'Comparing the loaded clinical evidence context.' : latestChange ? `${latestChange.summary} Verified ${date(latestChange.verifiedAt)}.` : 'No reviewed material-change record is available for this context; this is not a claim that nothing changed externally.'}</p>
+          <p>{loading ? 'Comparing the loaded clinical evidence context.' : latestChange ? `${latestChange.summary} Verified ${shortDate(latestChange.verifiedAt)}.` : 'No reviewed material-change record is available for this context; this is not a claim that nothing changed externally.'}</p>
         </article>
         <article className="hvc-now-card">
-          <span>What needs attention</span>
+          <span>Needs attention</span>
           <strong>{attention.title}</strong>
           <p>{attention.detail}</p>
         </article>
@@ -226,7 +235,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
           />
           <button type="submit">Search evidence</button>
         </div>
-        {submittedQuery && (
+        {hasSubmittedQuery && (
           <div className="hvc-search-scope">
             <span>Current question: “{submittedQuery}”</span>
             <button type="button" onClick={clearSearch}>Clear</button>
@@ -234,7 +243,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         )}
       </form>
 
-      {!loading && result && ['error', 'permission', 'no-match', 'no-evidence', 'stale', 'conflicted', 'degraded-source'].includes(result.state) && (
+      {showStatePanel && result && (
         <div className="hvc-state-panel" data-state={result.state} role="status">
           <strong>{result.diagnostic ? clinicalFailureLabel(result.diagnostic.category) : clinicalStateLabel(result.state)}</strong>
           <p>{result.message}</p>
@@ -281,7 +290,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         <div className="hvc-results" aria-label={`${viewLabels[activeView]} clinical records`}>
           <div className="hvc-results-head">
             <h3>{viewLabels[activeView]}</h3>
-            <span>{visibleRecords.length} reviewed record{visibleRecords.length === 1 ? '' : 's'}</span>
+            <span>{!hasSubmittedQuery ? 'Ready' : `${visibleRecords.length} reviewed record${visibleRecords.length === 1 ? '' : 's'}`}</span>
           </div>
 
           {visibleRecords.map(record => (
@@ -303,8 +312,8 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
 
           {!loading && visibleRecords.length === 0 && activeView === 'evidence' && (
             <div className="hvc-boundary" role="status">
-              <strong>{result ? clinicalStateLabel(result.state) : 'No evidence loaded'}</strong>
-              <p>{result?.message ?? 'Retry the evidence service.'}</p>
+              <strong>{hasSubmittedQuery ? (result ? clinicalStateLabel(result.state) : 'No evidence loaded') : 'Ready'}</strong>
+              <p>{hasSubmittedQuery ? (result?.message ?? 'Retry the evidence service.') : 'Enter a condition, formulation, cannabinoid or clinical question to search reviewed evidence.'}</p>
             </div>
           )}
         </div>
