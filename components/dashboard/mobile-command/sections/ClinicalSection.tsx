@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   formatStatus,
@@ -31,6 +32,24 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
 }) {
   const clinicalHref = commandHref('clinical')
   const countryIso2 = countryIso2FromCommandHref(clinicalHref)
+  const [formulary, setFormulary] = useState<Array<Record<string, unknown>>>([])
+  const [education, setEducation] = useState<Array<Record<string, unknown>>>([])
+  const [interactions, setInteractions] = useState<Array<Record<string, unknown>>>([])
+  useEffect(() => {
+    if (!countryIso2) return
+    let cancelled = false
+    Promise.all([
+      fetch(`/api/clinical/formulary?country=${encodeURIComponent(countryIso2)}&limit=8`).then((r) => r.json()),
+      fetch('/api/clinical/education').then((r) => r.json()),
+      fetch('/api/clinical/interactions?limit=6').then((r) => r.json()),
+    ]).then(([form, edu, ix]) => {
+      if (cancelled) return
+      setFormulary(form.products ?? [])
+      setEducation(edu.modules ?? [])
+      setInteractions(ix.interactions ?? [])
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [countryIso2])
   const jurisdictionLabel = clinicalJurisdictionLabel(countryIso2)
   const authorities = getClinicalAuthoritiesForCountry(countryIso2)
   const limitedAuthority = !hasClinicalAuthorityCoverage(countryIso2)
@@ -126,6 +145,63 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
           </article>
         </div>
       )}
+
+      
+      {formulary.length > 0 && (
+        <div className="hvm2-horizontal-deck" aria-label="Published formulary">
+          {formulary.map((p) => (
+            <article className="hvm2-directory-card" key={String(p.id)}>
+              <span>Formulary</span>
+              <h3>{String(p.name)}</h3>
+              <p>{String(p.authorizationStatus)} · {String(p.cannabinoidProfile)}</p>
+              <p>{String(p.notes ?? "")}</p>
+              {p["primarySourceUrl"] ? (
+                <a className="hvm2-text-link" href={p["primarySourceUrl"]} target="_blank" rel="noreferrer">Primary source ↗</a>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      )}
+
+      {education.length > 0 && (
+        <div className="hvm2-horizontal-deck" aria-label="Clinical education modules">
+          {education.slice(0, 4).map((m) => (
+            <article className="hvm2-directory-card" key={String(m.id)}>
+              <span>Education</span>
+              <h3>{String(m.title)}</h3>
+              <p>{String(m.moduleStatus ?? '')} · {String(m.riskLevel ?? '')}</p>
+              <Link className="hvm2-text-link" href={String(m.route || `/network/clinical-education/${m.slug}`)}>Open →</Link>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {interactions.length > 0 && (
+        <div className="hvm2-horizontal-deck" aria-label="Published interactions">
+          {interactions.slice(0, 4).map((ix) => (
+            <article className="hvm2-directory-card" key={String(ix.id)}>
+              <span>Interaction</span>
+              <h3>{String(ix.medicationIngredient)} × {String(ix.cannabinoid)}</h3>
+              <p>{String(ix.clinicalSignificance)} · {String(ix.mechanism ?? '')}</p>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <div className="hvm2-two-column" aria-label="Clinical dual surface">
+        <article>
+          <span>Clinical education</span>
+          <h3>Professional education modules</h3>
+          <p>Training and orientation for regulated markets — separate from graded evidence records above.</p>
+          <Link className="hvm2-text-link" href="/network/clinical-education">Clinical education →</Link>
+        </article>
+        <article>
+          <span>Formulary</span>
+          <h3>Authorised product reference</h3>
+          <p>Jurisdiction-authorised product classes only. Not marketplace listings. Verify the live authority register before prescribing.</p>
+          <Link className="hvm2-text-link" href={clinicalHref}>Open clinical workspace →</Link>
+        </article>
+      </div>
 
       <div className="hvm2-two-column" aria-label="Jurisdiction clinical briefing">
         <article>
