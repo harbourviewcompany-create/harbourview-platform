@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
-import { DesktopDecisionIntelBridge } from '@/components/dashboard/DesktopDecisionIntelBridge'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import {
@@ -52,14 +51,6 @@ export function DashboardResponsiveShellContent({
   ...props
 }: DashboardResponsiveShellProps & { isMobile: boolean }) {
   const renderer = isMobile ? 'mobile' : 'desktop'
-  const desktopDossierSignals = useMemo(() => {
-    const byId = new Map<string, (typeof props.signals)[number]>()
-    for (const signal of [...props.signals, ...(props.digestSignals ?? [])]) {
-      const key = `${signal.id}:${signal.decisionIntelEventId ?? ''}`
-      if (!byId.has(key)) byId.set(key, signal)
-    }
-    return [...byId.values()]
-  }, [props.signals, props.digestSignals])
 
   return (
     <div
@@ -86,8 +77,7 @@ export function DashboardResponsiveShellContent({
         ? <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
         : (
           <>
-            <DesktopDecisionIntelBridge signals={desktopDossierSignals} access={decisionIntelAccess} />
-            <CommandCentre {...props} />
+            <CommandCentre {...props} decisionIntelAccess={decisionIntelAccess} />
             <DesktopCommandWorkspace />
           </>
         )}
