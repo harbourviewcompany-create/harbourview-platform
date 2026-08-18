@@ -1,0 +1,37 @@
+name: Network Command P0 Verify
+
+on:
+  pull_request:
+    paths:
+      - 'app/api/network/**'
+      - 'app/dashboard/network/**'
+      - 'app/network/**'
+      - 'components/network/**'
+      - 'components/dashboard/mobile-command/**'
+      - 'lib/network/**'
+      - 'supabase/migrations/**network_command_p0**'
+      - 'tests/network/**'
+      - '.github/workflows/network-command-p0-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Network Command tests
+        run: npx vitest run tests/network/network-command-p0.test.ts tests/network/public-projection-leakage.test.ts
+      - name: Type check
+        run: npm run typecheck
