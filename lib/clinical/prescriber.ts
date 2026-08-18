@@ -330,8 +330,8 @@ export function evidenceRecordIsPrescriberInspectable(record: ClinicalEvidenceRe
 
 export function buildAskClinicalResponse(question: string, records: ClinicalEvidenceRecordDTO[]): AskClinicalResponse {
   const eligible = records.filter(evidenceRecordIsPrescriberInspectable)
-  const conflicts = eligible.filter((record) => record.conflictStatus === 'conflicted')
-  const stale = eligible.filter((record) => record.freshnessStatus !== 'current')
+  const conflicts = eligible.filter((record) => record.conflictStatus === 'material-conflict')
+  const stale = eligible.filter((record) => ['stale', 'review-required', 'source-degraded'].includes(record.freshnessStatus ?? 'current'))
 
   if (!question.trim()) {
     return {
