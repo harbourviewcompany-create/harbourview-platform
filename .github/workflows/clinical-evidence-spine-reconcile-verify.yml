@@ -147,14 +147,18 @@ jobs:
           cp "/tmp/${RECON}" "supabase/migrations/${RECON}"
           : > supabase/seed.sql
 
-      - name: Replay reconciliation and verify fail-closed state
+      - name: Start local Supabase and apply reconciliation
         shell: bash
         run: |
           set -euo pipefail
           supabase start
           supabase db reset --local --no-seed
-          eval "$(supabase status -o env)"
 
+      - name: Verify preserved corpus and RLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
           psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
           do $$
           declare
@@ -189,7 +193,14 @@ jobs:
               raise exception 'anon still has SELECT on clinical_evidence_records';
             end if;
           end $$;
+          SQL
 
+      - name: Verify PR 1525 currentness writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
           insert into public.clinical_evidence_change_events (
             evidence_record_id,event_type,payload
           ) values (
@@ -208,7 +219,14 @@ jobs:
             'ci-source','ci-snapshot','https://example.invalid/source',now(),'text/html',
             'normalized-text',repeat('a',64),100
           );
+          SQL
 
+      - name: Verify unreviewed synthesis remains fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
           do $$
           declare target_id uuid;
           begin
@@ -278,7 +296,6 @@ jobs:
           end $$;
           SQL
 
-          # Third execution proves replay safety after a genuinely approved synthesis row exists.
           psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${RECON}"
           psql "${DB_URL}" -v ON_ERROR_STOP=1 -Atc "
             select case
