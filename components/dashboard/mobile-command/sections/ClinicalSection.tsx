@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import type { FormularyProductDTO } from '@/lib/clinical/formulary'
 import {
   formatStatus,
   type SectionId,
@@ -16,6 +17,7 @@ import {
   hasClinicalAuthorityCoverage,
   safeClinicalBriefing,
 } from '../clinicalCommandContract'
+import ClinicalEvidenceErrorBoundary from '../ClinicalEvidenceErrorBoundary'
 import ClinicalEvidenceExplorer from '../ClinicalEvidenceExplorer'
 import { SectionShell, type SectionRef } from '../SectionUI'
 
@@ -32,7 +34,7 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
 }) {
   const clinicalHref = commandHref('clinical')
   const countryIso2 = countryIso2FromCommandHref(clinicalHref)
-  const [formulary, setFormulary] = useState<Array<Record<string, unknown>>>([])
+  const [formulary, setFormulary] = useState<FormularyProductDTO[]>([])
   const [education, setEducation] = useState<Array<Record<string, unknown>>>([])
   const [interactions, setInteractions] = useState<Array<Record<string, unknown>>>([])
   useEffect(() => {
@@ -84,7 +86,9 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
         <p>{CLINICAL_SCOPE_NOTICE}</p>
       </div>
 
-      <ClinicalEvidenceExplorer commandHref={clinicalHref} />
+      <ClinicalEvidenceErrorBoundary>
+        <ClinicalEvidenceExplorer commandHref={clinicalHref} />
+      </ClinicalEvidenceErrorBoundary>
 
       <div className="hvm2-sourcing-note" data-sourcing={sourceState} role={sourceState === 'stale' || sourceState === 'limited-coverage' ? 'status' : undefined}>
         <strong>Jurisdiction briefing · {formatStatus(sourceState)} · {jurisdictionLabel}</strong>
@@ -146,17 +150,16 @@ export function ClinicalSection({ sectionRef, roleShort, programStatus, medicalS
         </div>
       )}
 
-      
       {formulary.length > 0 && (
         <div className="hvm2-horizontal-deck" aria-label="Published formulary">
           {formulary.map((p) => (
-            <article className="hvm2-directory-card" key={String(p.id)}>
+            <article className="hvm2-directory-card" key={p.id}>
               <span>Formulary</span>
-              <h3>{String(p.name)}</h3>
-              <p>{String(p.authorizationStatus)} · {String(p.cannabinoidProfile)}</p>
-              <p>{String(p.notes ?? "")}</p>
-              {p["primarySourceUrl"] ? (
-                <a className="hvm2-text-link" href={p["primarySourceUrl"]} target="_blank" rel="noreferrer">Primary source ↗</a>
+              <h3>{p.name}</h3>
+              <p>{p.authorizationStatus} · {p.cannabinoidProfile}</p>
+              <p>{p.notes}</p>
+              {p.primarySourceUrl ? (
+                <a className="hvm2-text-link" href={p.primarySourceUrl} target="_blank" rel="noreferrer">Primary source ↗</a>
               ) : null}
             </article>
           ))}
