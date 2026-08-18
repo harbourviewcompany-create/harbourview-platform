@@ -68,7 +68,7 @@ export function normalizeAdminStatus(value: string | null | undefined, assignedT
   if (['resolved', 'closed', 'completed', 'approved', 'rejected', 'published'].includes(normalized)) return 'resolved'
   if (normalized === 'escalated') return 'escalated'
   if (['blocked', 'failing', 'dead'].includes(normalized)) return 'blocked'
-  if (['in_progress', 'in_review', 'pending_response', 'claimed'].includes(normalized)) return 'in_progress'
+  if (['in_progress', 'in_review', 'reviewing', 'contacted', 'qualified', 'pending_response', 'claimed'].includes(normalized)) return 'in_progress'
   return assignedTo ? 'assigned' : 'unassigned'
 }
 
