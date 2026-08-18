@@ -19,8 +19,30 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await searchClinicalInteractions(parsed.data)
-  return NextResponse.json(result, {
-    status: result.state === 'error' ? 503 : 200,
-    headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-  })
+  const interactions = result.interactions.map((ix) => ({
+    id: ix.id,
+    medicationIngredient: ix.medicationIngredient,
+    cannabinoid: ix.cannabinoid,
+    mechanism: ix.mechanism,
+    clinicalSignificance: ix.clinicalSignificance,
+    evidenceCertainty: ix.evidenceCertainty,
+    uncertainty: ix.uncertainty,
+    monitoringConsideration: ix.monitoringConsideration,
+    verifiedAt: ix.verifiedAt,
+    primarySourceTitle: ix.primarySourceTitle,
+    primarySourceUrl: ix.primarySourceUrl,
+    // Nested shape for mobile explorer
+    primarySource: {
+      publisher: ix.primarySourceTitle,
+      url: ix.primarySourceUrl ?? undefined,
+    },
+  }))
+
+  return NextResponse.json(
+    { ...result, interactions },
+    {
+      status: result.state === 'error' ? 503 : 200,
+      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+    },
+  )
 }
