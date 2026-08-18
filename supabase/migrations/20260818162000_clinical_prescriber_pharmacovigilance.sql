@@ -144,6 +144,18 @@ begin
   end if;
 
   if tg_op = 'UPDATE' then
+    -- Ownership and patient identity are immutable after creation. This keeps
+    -- an authenticated direct-table update from moving an event to a different
+    -- patient/reporter context after the USING policy has authorized OLD.
+    if new.patient_id is distinct from old.patient_id
+      or new.reporter_user_id is distinct from old.reporter_user_id
+      or new.professional_id is distinct from old.professional_id
+      or new.jurisdiction is distinct from old.jurisdiction
+    then
+      raise exception 'clinical_adverse_event_ownership_immutable'
+        using errcode = '23514';
+    end if;
+
     new.updated_at = now();
   end if;
 
