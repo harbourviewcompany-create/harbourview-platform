@@ -1,0 +1,109 @@
+name: Apply clinical formulary + evidence seed migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY to run clinical migrations on production'
+        required: true
+        type: string
+      migration:
+        description: 'Which migration set'
+        required: true
+        type: choice
+        default: feeds
+        options:
+          - seed
+          - expand
+          - interactions
+          - feeds
+          - both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-formulary-migration-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply migration on zvxdgdkukjrrwamdpqrg
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require APPLY confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "::error::Refusing to run. Set confirm=APPLY."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Apply migration SQL
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+          WHICH: ${{ inputs.migration }}
+        run: |
+          set -euo pipefail
+          apply() { test -f "$1"; echo "Applying $1 ..."; psql -v ON_ERROR_STOP=1 -f "$1"; }
+          case "$WHICH" in
+            seed) apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql ;;
+            expand) apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql ;;
+            interactions) apply supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql ;;
+            feeds) apply supabase/migrations/20260818150000_clinical_sku_feeds_jurisdiction_audit.sql ;;
+            both)
+              apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql
+              apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql
+              apply supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql
+              apply supabase/migrations/20260818150000_clinical_sku_feeds_jurisdiction_audit.sql
+              ;;
+          esac
+
+      - name: Record migration ledger
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+          WHICH: ${{ inputs.migration }}
+        run: |
+          set -euo pipefail
+          record() {
+            local VERSION="$1"
+            psql -v ON_ERROR_STOP=1 -c "INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('$VERSION') ON CONFLICT DO NOTHING;" || true
+          }
+          case "$WHICH" in
+            seed) record 20260818120000 ;;
+            expand) record 20260818130000 ;;
+            interactions) record 20260818140000 ;;
+            feeds) record 20260818150000 ;;
+            both) record 20260818120000; record 20260818130000; record 20260818140000; record 20260818150000 ;;
+          esac
+
+      - name: Verify counts
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT 'jurisdiction_published' AS metric, count(*)::text AS value
+          FROM public.clinical_jurisdiction_profiles WHERE review_status = 'published'
+          UNION ALL
+          SELECT 'sku_published', count(*)::text
+          FROM public.clinical_formulary_skus WHERE review_status = 'published'
+          UNION ALL
+          SELECT 'audit_table', CASE WHEN to_regclass('public.clinical_admin_audit_log') IS NOT NULL THEN 'yes' ELSE 'no' END;
+          SQL

@@ -1,121 +1,103 @@
-/** Clinical domain types — restricted data; never expose on public DTOs. */
+/**
+ * Harbourview Clinical — core types
+ * Evidence Engine + Jurisdiction Briefing + Professional Pathway
+ */
 
-export const CLINICAL_ROLES = [
-  'doctor',
-  'pharmacist',
-  'nurse',
-  'nurse_practitioner',
-  'other',
-] as const
+export type EvidenceStrength = "high" | "moderate" | "low" | "very_low" | "insufficient";
 
-export type ClinicalRole = (typeof CLINICAL_ROLES)[number]
+export type EvidenceDomain =
+  | "efficacy"
+  | "safety"
+  | "interactions"
+  | "formulations"
+  | "guidelines"
+  | "practice"
+  | "monitoring";
 
-export const APPROPRIATENESS_CLAIMS = [
-  'appropriate',
-  'appropriate_with_cautions',
-  'not_appropriate',
-  'insufficient_data',
-] as const
+export type Population =
+  | "adult"
+  | "elderly"
+  | "paediatric"
+  | "pregnancy"
+  | "hepatic_impairment"
+  | "renal_impairment"
+  | "general";
 
-export type AppropriatenessClaim = (typeof APPROPRIATENESS_CLAIMS)[number]
-
-export type ClinicalPatient = {
-  id: string
-  created_at: string
-  updated_at: string
-  created_by: string
-  jurisdiction: string
-  status: 'active' | 'inactive' | 'archived'
-  given_name: string
-  family_name: string
-  date_of_birth: string | null
-  sex_at_birth: string | null
-  external_mrn: string | null
+export interface EvidenceRecord {
+  id: string;
+  title: string;
+  domain: EvidenceDomain;
+  condition: string; // e.g. "chronic neuropathic pain"
+  cannabinoidFocus: string[]; // e.g. ["CBD", "THC:CBD 1:1"]
+  route?: string; // oral, oromucosal, inhaled, topical
+  population: Population[];
+  strength: EvidenceStrength;
+  summary: string;
+  keyFindings: string[];
+  limitations: string[];
+  sourceCitation: string;
+  sourceUrl?: string;
+  sourceDate: string; // ISO date
+  reviewedAt: string; // ISO date when Harbourview last reviewed
+  jurisdictions: string[]; // ISO2 or "global"
+  applicabilityNotes?: string;
 }
 
-export type ClinicalConsent = {
-  id: string
-  patient_id: string
-  recorded_at: string
-  recorded_by: string
-  jurisdiction: string
-  consent_type: string
-  lawful_basis: string
-  status: 'granted' | 'withdrawn' | 'expired'
-  method: string | null
+export interface JurisdictionBriefing {
+  country: string;
+  iso2: string;
+  flag: string;
+  status: "loaded" | "partial" | "unavailable";
+  legalPathway: string; // short label
+  adultUse: boolean;
+  summary: string;
+  primaryAuthority: {
+    name: string;
+    role: string;
+    url?: string;
+  };
+  professionalRegulator?: {
+    name: string;
+    role: string;
+    url?: string;
+  };
+  keyRules: string[];
+  accessNotes: string;
+  lastReviewed: string;
 }
 
-export type ClinicalEncounter = {
-  id: string
-  patient_id: string
-  clinician_user_id: string
-  started_at: string
-  ended_at: string | null
-  jurisdiction: string
-  encounter_type: string
-  status: 'open' | 'closed' | 'cancelled'
-  chief_complaint: string | null
-  clinical_notes: string | null
+export interface ProfessionalPathway {
+  country: string;
+  iso2: string;
+  roles: string; // e.g. "All roles" or "Physicians only"
+  whoMayPrescribe: string;
+  conditionsMentioned: string[];
+  restrictions: string[];
+  notes: string;
+  lastReviewed: string;
 }
 
-export type ClinicalCalculation = {
-  id: string
-  created_at: string
-  patient_id: string
-  encounter_id: string | null
-  clinician_user_id: string
-  jurisdiction: string
-  calculator_key: string
-  algorithm_version: string
-  inputs: Record<string, unknown>
-  outputs: Record<string, unknown>
-  unit: string | null
-  status: string
+export interface WhatChangedEvent {
+  id: string;
+  country: string;
+  title: string;
+  summary: string;
+  effectiveDate?: string;
+  sourceUrl?: string;
+  reviewedAt: string;
 }
 
-export type ClinicalRecommendation = {
-  id: string
-  created_at: string
-  patient_id: string
-  clinician_user_id: string
-  jurisdiction: string
-  recommendation_key: string
-  evidence_version: string
-  summary: string
-  detail: Record<string, unknown>
-  appropriateness_claim: AppropriatenessClaim | null
-  appropriateness_rationale: string | null
-  status: string
+export interface ClinicalAttentionItem {
+  id: string;
+  title: string;
+  body: string;
+  severity: "info" | "attention" | "critical";
 }
 
-export type ClinicalPrescription = {
-  id: string
-  created_at: string
-  patient_id: string
-  prescriber_user_id: string
-  jurisdiction: string
-  product_name: string
-  dose_text: string
-  quantity: string | null
-  directions: string | null
-  status: string
-  signed_at: string | null
+export interface ClinicalNextAction {
+  id: string;
+  title: string;
+  body: string;
+  primaryActionLabel: string;
+  primaryActionUrl?: string;
 }
-
-export type ClinicalMyProfessional = {
-  id: string
-  full_name: string
-  title: string | null
-  credential_type: string | null
-  verification_status: string | null
-  status: string | null
-  licence_number: string | null
-  licence_jurisdiction: string | null
-  clinical_role: ClinicalRole | null
-  user_id: string | null
-}
-
-export const CLINICAL_DISCLAIMER =
-  'Clinical decision support only. Does not replace professional judgment. ' +
-  'Prescribing and treatment remain the responsibility of the licensed clinician. ' +
-  'Harbourview is the data controller for clinical records stored on this platform.'
