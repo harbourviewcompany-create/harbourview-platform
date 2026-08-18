@@ -11,11 +11,12 @@ on:
         description: 'Which migration set'
         required: true
         type: choice
-        default: interactions
+        default: feeds
         options:
           - seed
           - expand
           - interactions
+          - feeds
           - both
 
 permissions:
@@ -58,10 +59,12 @@ jobs:
             seed) apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql ;;
             expand) apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql ;;
             interactions) apply supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql ;;
+            feeds) apply supabase/migrations/20260818150000_clinical_sku_feeds_jurisdiction_audit.sql ;;
             both)
               apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql
               apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql
               apply supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql
+              apply supabase/migrations/20260818150000_clinical_sku_feeds_jurisdiction_audit.sql
               ;;
           esac
 
@@ -83,7 +86,8 @@ jobs:
             seed) record 20260818120000 ;;
             expand) record 20260818130000 ;;
             interactions) record 20260818140000 ;;
-            both) record 20260818120000; record 20260818130000; record 20260818140000 ;;
+            feeds) record 20260818150000 ;;
+            both) record 20260818120000; record 20260818130000; record 20260818140000; record 20260818150000 ;;
           esac
 
       - name: Verify counts
@@ -95,12 +99,11 @@ jobs:
           PGDATABASE: postgres
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          SELECT 'formulary_published' AS metric, count(*)::text AS value
-          FROM public.clinical_formulary_products WHERE review_status = 'published'
+          SELECT 'jurisdiction_published' AS metric, count(*)::text AS value
+          FROM public.clinical_jurisdiction_profiles WHERE review_status = 'published'
           UNION ALL
-          SELECT 'evidence_published', count(*)::text
-          FROM public.clinical_evidence_records WHERE review_status = 'published'
+          SELECT 'sku_published', count(*)::text
+          FROM public.clinical_formulary_skus WHERE review_status = 'published'
           UNION ALL
-          SELECT 'interactions_published', count(*)::text
-          FROM public.clinical_medication_interactions WHERE review_status = 'published';
+          SELECT 'audit_table', CASE WHEN to_regclass('public.clinical_admin_audit_log') IS NOT NULL THEN 'yes' ELSE 'no' END;
           SQL
