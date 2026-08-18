@@ -1,0 +1,109 @@
+name: Apply clinical formulary + evidence seed migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY to run 20260818120000_clinical_formulary_and_evidence_seed.sql on production'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-formulary-migration-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply migration on zvxdgdkukjrrwamdpqrg
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require APPLY confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "::error::Refusing to run. Set confirm=APPLY."
+            exit 1
+          fi
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Must dispatch from main. Current: $GITHUB_REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Apply migration SQL
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+        run: |
+          set -euo pipefail
+          MIGRATION="supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql"
+          test -f "$MIGRATION"
+          echo "Applying $MIGRATION ..."
+          psql -v ON_ERROR_STOP=1 -f "$MIGRATION"
+          echo "Migration SQL completed."
+
+      - name: Record migration in schema_migrations if table exists
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+        run: |
+          set -euo pipefail
+          VERSION="20260818120000"
+          # supabase_migrations.schema_migrations is the CLI ledger
+          psql -v ON_ERROR_STOP=1 <<SQL
+          DO \$\$
+          BEGIN
+            IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
+              INSERT INTO supabase_migrations.schema_migrations (version)
+              VALUES ('$VERSION')
+              ON CONFLICT DO NOTHING;
+              RAISE NOTICE 'Recorded version % in supabase_migrations.schema_migrations', '$VERSION';
+            ELSIF to_regclass('public.schema_migrations') IS NOT NULL THEN
+              INSERT INTO public.schema_migrations (version)
+              VALUES ('$VERSION')
+              ON CONFLICT DO NOTHING;
+              RAISE NOTICE 'Recorded version % in public.schema_migrations', '$VERSION';
+            ELSE
+              RAISE NOTICE 'No schema_migrations ledger found — SQL applied without ledger row';
+            END IF;
+          END
+          \$\$;
+          SQL
+
+      - name: Verify formulary + evidence seed
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT 'formulary_count' AS metric, count(*)::text AS value
+          FROM public.clinical_formulary_products
+          WHERE review_status = 'published'
+          UNION ALL
+          SELECT 'evidence_seed_count', count(*)::text
+          FROM public.clinical_evidence_records
+          WHERE slug IN (
+            'ev-neuropathic-pain-overview',
+            'ev-cbd-epilepsy-dravet-lgs',
+            'ev-safety-monitoring-overview',
+            'ev-cannabinoid-drug-interactions'
+          )
+          AND review_status = 'published';
+          SQL
