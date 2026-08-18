@@ -6,6 +6,7 @@ const root = process.cwd()
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8')
 
 const page = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx')
+const mobileClinical = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
 const migration = read('supabase/migrations/20260818154500_clinical_prescriber_operating_system.sql')
 const skuLinkMigration = read('supabase/migrations/20260818161500_clinical_prescriber_sku_links.sql')
 const askRoute = read('app/api/clinical/ask/route.ts')
@@ -28,6 +29,15 @@ describe('Clinical Prescriber OS integration contract', () => {
     ]) {
       expect(page).toContain(`label: '${label}'`)
     }
+  })
+
+  it('uses the same Prescriber OS component on mobile instead of the legacy Clinical split', () => {
+    expect(mobileClinical).toContain("import ClinicalEvidenceCommandPage from '@/components/dashboard/pages/ClinicalEvidenceCommandPage'")
+    expect(mobileClinical).toContain('data-clinical-surface="prescriber-os"')
+    expect(mobileClinical).toContain('<ClinicalEvidenceCommandPage')
+    expect(mobileClinical).not.toContain('ClinicalEvidenceExplorer')
+    expect(mobileClinical).not.toContain('getClinicalAuthoritiesForCountry')
+    expect(mobileClinical).not.toContain('fetch(`/api/clinical/formulary')
   })
 
   it('removes the generic weight-based helper from the prescriber-facing surface', () => {
@@ -61,6 +71,7 @@ describe('Clinical Prescriber OS integration contract', () => {
     expect(workspaceQuery).toContain(".from('clinical_guideline_recommendations')")
     expect(workspaceQuery).toContain(".eq('review_status', 'published')")
     expect(workspaceQuery).toContain(".eq('status', 'current')")
+    expect(workspaceQuery).toContain(".overlaps('jurisdictions', [jurisdiction, 'global'])")
   })
 
   it('adds the governed concept, claim, safety, regimen, monitoring, guideline and longitudinal patient schema', () => {
@@ -92,10 +103,10 @@ describe('Clinical Prescriber OS integration contract', () => {
   })
 
   it('fails generic PubMed-root clinical material closed without deleting evidence', () => {
-    expect(migration).toContain("update public.clinical_evidence_records")
-    expect(migration).toContain("update public.clinical_medication_interactions")
+    expect(migration).toContain('update public.clinical_evidence_records')
+    expect(migration).toContain('update public.clinical_medication_interactions')
     expect(migration).toContain("set review_status = 'under-review'")
-    expect(migration).toContain("https://pubmed.ncbi.nlm.nih.gov/")
+    expect(migration).toContain('https://pubmed.ncbi.nlm.nih.gov/')
     expect(migration).not.toMatch(/delete\s+from\s+public\.clinical_(evidence_records|medication_interactions)/i)
   })
 
