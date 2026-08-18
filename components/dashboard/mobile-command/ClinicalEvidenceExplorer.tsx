@@ -90,11 +90,15 @@ function clientFailureMessage(category: ReturnType<typeof classifyClinicalFailur
 
 function Skeleton() {
   return (
-    <div className="space-y-2" aria-hidden>
+    <div className="space-y-2.5" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="animate-pulse rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
-          <div className="h-2.5 w-20 rounded bg-white/10" />
-          <div className="mt-2 h-3.5 w-4/5 rounded bg-white/15" />
+        <div
+          key={i}
+          className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3.5"
+        >
+          <div className="h-2.5 w-24 max-w-[40%] rounded bg-white/10" />
+          <div className="mt-2.5 h-3.5 w-full max-w-[90%] rounded bg-white/15" />
+          <div className="mt-2 h-2.5 w-full max-w-[70%] rounded bg-white/10" />
         </div>
       ))}
     </div>
@@ -102,8 +106,10 @@ function Skeleton() {
 }
 
 /**
- * Mobile evidence search — frictionless.
- * Search first. Graded results first. Minimal chrome.
+ * Mobile evidence search — frictionless + responsive.
+ * - Search-first, graded results first
+ * - 44px min touch targets, 16px input (prevents iOS zoom)
+ * - Horizontal filter scroll with snap, overflow-safe rows
  */
 export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
   const countryIso2 = useMemo(() => countryIso2FromCommandHref(commandHref), [commandHref])
@@ -205,55 +211,74 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     )
 
   return (
-    <section className="space-y-3" aria-label={`Evidence · ${jurisdiction}`}>
-      {/* Search is the product */}
-      <form onSubmit={submit} role="search" className="flex gap-2">
+    <section
+      className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden sm:space-y-3.5"
+      aria-label={`Evidence · ${jurisdiction}`}
+    >
+      {/* Search — sticky on mobile, 16px font prevents iOS focus zoom */}
+      <form
+        onSubmit={submit}
+        role="search"
+        className="sticky top-0 z-10 -mx-0.5 flex gap-2 bg-[#0a0e17]/90 px-0.5 py-1 backdrop-blur-md supports-[backdrop-filter]:bg-[#0a0e17]/75"
+      >
         <input
           type="search"
           value={query}
           maxLength={160}
           autoComplete="off"
-          placeholder={`Search ${jurisdiction} evidence…`}
+          enterKeyHint="search"
+          placeholder={`Search ${jurisdiction}…`}
           aria-label="Search clinical evidence"
           onChange={(e) => setQuery(e.target.value)}
-          className="min-w-0 flex-1 rounded-xl border border-white/15 bg-black/35 px-3.5 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-[#d4a853]/55"
+          className="min-h-11 min-w-0 flex-1 touch-manipulation rounded-2xl border border-white/15 bg-black/40 px-3.5 text-base text-white placeholder:text-white/40 outline-none focus:border-[#d4a853]/55 sm:text-sm"
         />
         <button
           type="submit"
-          className="shrink-0 rounded-xl bg-[#d4a853] px-4 py-2.5 text-sm font-semibold text-black"
+          className="min-h-11 shrink-0 touch-manipulation rounded-2xl bg-[#d4a853] px-4 text-sm font-semibold text-black active:scale-[0.98]"
         >
           Search
         </button>
       </form>
 
-      {/* One-line context */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-white/55" aria-live="polite">
-        <span className="font-medium text-white/80">{jurisdiction}</span>
-        <span className="text-white/25">·</span>
+      {/* Context row — wraps cleanly on narrow widths */}
+      <div
+        className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-none text-white/55"
+        aria-live="polite"
+      >
+        <span className="font-medium text-white/85">{jurisdiction}</span>
+        <span className="hidden text-white/25 xs:inline" aria-hidden>
+          ·
+        </span>
         <span>{clinicalStateLabel(state)}</span>
         {!loading && result ? (
-          <>
-            <span className="text-white/25">·</span>
-            <span>{result.records.length} records</span>
-          </>
+          <span className="tabular-nums text-white/45">{result.records.length} records</span>
         ) : null}
         {submittedQuery ? (
-          <button type="button" onClick={clearSearch} className="ml-auto text-[#d4a853]">
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="ml-auto max-w-full truncate touch-manipulation py-1 text-[#d4a853]"
+          >
             Clear “{submittedQuery}”
           </button>
         ) : null}
       </div>
 
       {showAlert ? (
-        <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5" role="status">
+        <div
+          className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3"
+          role="status"
+        >
           <p className="text-sm font-medium text-amber-100">
-            {result!.diagnostic ? clinicalFailureLabel(result!.diagnostic.category) : clinicalStateLabel(result!.state)}
+            {result!.diagnostic
+              ? clinicalFailureLabel(result!.diagnostic.category)
+              : clinicalStateLabel(result!.state)}
           </p>
-          <p className="mt-1 text-xs text-amber-100/80">{result!.message}</p>
+          <p className="mt-1 text-xs leading-relaxed text-amber-100/80">{result!.message}</p>
           {result!.state === 'error' && result!.diagnostic?.retryable !== false ? (
             <button
               type="button"
-              className="mt-2 text-xs font-medium text-[#d4a853]"
+              className="mt-2.5 min-h-10 touch-manipulation text-sm font-medium text-[#d4a853]"
               onClick={() => setRequestVersion((v) => v + 1)}
             >
               Retry
@@ -262,16 +287,18 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         </div>
       ) : null}
 
-      {/* Material change — only if present, one line */}
       {!loading && latestChange ? (
-        <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs leading-relaxed text-white/70">
+        <p className="line-clamp-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs leading-relaxed text-white/70">
           <span className="font-medium text-white">Update · </span>
           {latestChange.title}
         </p>
       ) : null}
 
-      {/* Compact filters */}
-      <nav className="flex gap-1.5 overflow-x-auto pb-0.5" aria-label="Filter evidence">
+      {/* Filter chips — horizontal scroll, snap, no scrollbar chrome */}
+      <nav
+        className="-mx-0.5 flex gap-1.5 overflow-x-auto overscroll-x-contain px-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory"
+        aria-label="Filter evidence"
+      >
         {FILTERS.map((f) => {
           const active = filter === f.id
           return (
@@ -282,8 +309,8 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
               aria-pressed={active}
               className={
                 active
-                  ? 'shrink-0 rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3 py-1 text-xs font-medium text-[#d4a853]'
-                  : 'shrink-0 rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-xs text-white/65'
+                  ? 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3.5 text-xs font-medium text-[#d4a853]'
+                  : 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-xs text-white/65 active:bg-white/10'
               }
             >
               {f.label}
@@ -295,31 +322,33 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
       {loading ? (
         <Skeleton />
       ) : (
-        <div className="space-y-2" aria-label="Evidence results">
+        <div className="space-y-2.5" aria-label="Evidence results">
           {visible.map((record) => (
             <details
               key={record.id}
-              className="group rounded-xl border border-white/10 bg-white/[0.03] open:bg-white/[0.05]"
+              className="group min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] open:bg-white/[0.05]"
             >
-              <summary className="cursor-pointer list-none px-3 py-2.5">
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] uppercase tracking-wide text-white/40">
+              <summary className="min-h-12 cursor-pointer list-none touch-manipulation px-3.5 py-3 [&::-webkit-details-marker]:hidden">
+                <div className="flex items-start gap-2.5">
+                  <div className="min-w-0 flex-1 overflow-hidden">
+                    <p className="truncate text-[10px] uppercase tracking-wide text-white/40">
                       {record.condition || 'Regulatory'}
                     </p>
-                    <p className="mt-0.5 text-sm font-medium leading-snug text-white">{record.title}</p>
+                    <p className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-white">
+                      {record.title}
+                    </p>
                   </div>
                   <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${strengthClass(record.evidenceStrength)}`}
+                    className={`mt-0.5 max-w-[5.5rem] shrink-0 truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-medium leading-tight ${strengthClass(record.evidenceStrength)}`}
                   >
                     {formatStatus(record.evidenceStrength)}
                   </span>
                 </div>
               </summary>
-              <div className="space-y-2 border-t border-white/10 px-3 py-2.5">
-                <p className="text-xs leading-relaxed text-white/70">{record.summary}</p>
+              <div className="space-y-2.5 border-t border-white/10 px-3.5 py-3">
+                <p className="text-xs leading-relaxed text-white/70 sm:text-[13px]">{record.summary}</p>
                 <a
-                  className="inline-flex text-xs font-medium text-[#d4a853]"
+                  className="inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
                   href={record.primarySource.url}
                   target="_blank"
                   rel="noreferrer"
@@ -331,12 +360,12 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
           ))}
 
           {visible.length === 0 ? (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-center">
-              <p className="text-sm text-white/80">No records in this view</p>
-              <p className="mt-1 text-xs text-white/50">Try another filter or a different search.</p>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center">
+              <p className="text-sm text-white/85">No records in this view</p>
+              <p className="mt-1 text-xs text-white/50">Try another filter or search.</p>
               {primaryAuthority ? (
                 <a
-                  className="mt-3 inline-flex text-xs font-medium text-[#d4a853]"
+                  className="mt-4 inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
                   href={primaryAuthority.href}
                   target="_blank"
                   rel="noreferrer"
