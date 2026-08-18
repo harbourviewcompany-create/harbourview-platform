@@ -4,9 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type APPLY to run 20260818120000_clinical_formulary_and_evidence_seed.sql on production'
+        description: 'Type APPLY to run clinical formulary/evidence migrations on production'
         required: true
         type: string
+      migration:
+        description: 'Which migration set'
+        required: true
+        type: choice
+        default: expand
+        options:
+          - seed
+          - expand
+          - both
 
 permissions:
   contents: read
@@ -28,7 +37,7 @@ jobs:
             exit 1
           fi
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "::error::Must dispatch from main. Current: $GITHUB_REF"
+            echo "::error::Must dispatch from main."
             exit 1
           fi
 
@@ -44,46 +53,54 @@ jobs:
           PGPORT: "5432"
           PGUSER: postgres.zvxdgdkukjrrwamdpqrg
           PGDATABASE: postgres
+          WHICH: ${{ inputs.migration }}
         run: |
           set -euo pipefail
-          MIGRATION="supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql"
-          test -f "$MIGRATION"
-          echo "Applying $MIGRATION ..."
-          psql -v ON_ERROR_STOP=1 -f "$MIGRATION"
-          echo "Migration SQL completed."
+          apply() {
+            local f="$1"
+            test -f "$f"
+            echo "Applying $f ..."
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          }
+          case "$WHICH" in
+            seed) apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql ;;
+            expand) apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql ;;
+            both)
+              apply supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql
+              apply supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql
+              ;;
+          esac
 
-      - name: Record migration in schema_migrations if table exists
+      - name: Record migration ledger
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           PGHOST: aws-1-us-west-2.pooler.supabase.com
           PGPORT: "5432"
           PGUSER: postgres.zvxdgdkukjrrwamdpqrg
           PGDATABASE: postgres
+          WHICH: ${{ inputs.migration }}
         run: |
           set -euo pipefail
-          VERSION="20260818120000"
-          # supabase_migrations.schema_migrations is the CLI ledger
-          psql -v ON_ERROR_STOP=1 <<SQL
+          record() {
+            local VERSION="$1"
+            psql -v ON_ERROR_STOP=1 <<SQL
           DO \$\$
           BEGIN
             IF to_regclass('supabase_migrations.schema_migrations') IS NOT NULL THEN
               INSERT INTO supabase_migrations.schema_migrations (version)
-              VALUES ('$VERSION')
-              ON CONFLICT DO NOTHING;
-              RAISE NOTICE 'Recorded version % in supabase_migrations.schema_migrations', '$VERSION';
-            ELSIF to_regclass('public.schema_migrations') IS NOT NULL THEN
-              INSERT INTO public.schema_migrations (version)
-              VALUES ('$VERSION')
-              ON CONFLICT DO NOTHING;
-              RAISE NOTICE 'Recorded version % in public.schema_migrations', '$VERSION';
-            ELSE
-              RAISE NOTICE 'No schema_migrations ledger found — SQL applied without ledger row';
+              VALUES ('$VERSION') ON CONFLICT DO NOTHING;
             END IF;
           END
           \$\$;
           SQL
+          }
+          case "$WHICH" in
+            seed) record 20260818120000 ;;
+            expand) record 20260818130000 ;;
+            both) record 20260818120000; record 20260818130000 ;;
+          esac
 
-      - name: Verify formulary + evidence seed
+      - name: Verify counts
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           PGHOST: aws-1-us-west-2.pooler.supabase.com
@@ -91,19 +108,10 @@ jobs:
           PGUSER: postgres.zvxdgdkukjrrwamdpqrg
           PGDATABASE: postgres
         run: |
-          set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          SELECT 'formulary_count' AS metric, count(*)::text AS value
-          FROM public.clinical_formulary_products
-          WHERE review_status = 'published'
+          SELECT 'formulary_published' AS metric, count(*)::text AS value
+          FROM public.clinical_formulary_products WHERE review_status = 'published'
           UNION ALL
-          SELECT 'evidence_seed_count', count(*)::text
-          FROM public.clinical_evidence_records
-          WHERE slug IN (
-            'ev-neuropathic-pain-overview',
-            'ev-cbd-epilepsy-dravet-lgs',
-            'ev-safety-monitoring-overview',
-            'ev-cannabinoid-drug-interactions'
-          )
-          AND review_status = 'published';
+          SELECT 'evidence_published', count(*)::text
+          FROM public.clinical_evidence_records WHERE review_status = 'published';
           SQL
