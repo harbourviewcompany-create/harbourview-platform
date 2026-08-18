@@ -3,7 +3,7 @@ import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth'
 import { getAdminAuth } from '@/lib/auth/adminGuard'
 import { approveEngineSignal, rejectEngineSignal } from '@/lib/signals-engine/admin'
 import { transitionRegulatorySignalStatus } from '@/lib/regulatory-signals/admin'
-import { fetchAdminSupabaseJsonMutation } from '@/lib/supabase/adminDataClient'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import {
   adminSignalBatchRequestSchema,
   type AdminSignalBatchItemResult,
@@ -35,22 +35,28 @@ async function appendAuditEvent({
   if (!isUuid(targetId)) {
     return { ok: false as const, message: 'signal identifier is not UUID-shaped; row-level review fields remain the audit fallback' }
   }
-  const result = await fetchAdminSupabaseJsonMutation<null>('/rest/v1/audit_events', 'POST', {
-    entity_type: kind === 'engine' ? 'engine_signal' : 'regulatory_signal',
-    entity_id: targetId,
-    action: `admin.signal.${action}`,
-    actor: userId,
-    actor_user_id: userId,
-    metadata: {
-      target_id: targetId,
-      signal_kind: kind,
-      idempotency_key: idempotencyKey,
-      surface: 'admin_command_center',
-    },
-  })
-  return result.ok
-    ? { ok: true as const }
-    : { ok: false as const, message: result.error.message }
+
+  try {
+    const supabase = await createSupabaseServiceClient()
+    const { error } = await supabase.from('audit_events').insert({
+      entity_type: kind === 'engine' ? 'engine_signal' : 'regulatory_signal',
+      entity_id: targetId,
+      action: `admin.signal.${action}`,
+      actor: userId,
+      actor_user_id: userId,
+      metadata: {
+        target_id: targetId,
+        signal_kind: kind,
+        idempotency_key: idempotencyKey,
+        surface: 'admin_command_center',
+      },
+    })
+    return error
+      ? { ok: false as const, message: error.message }
+      : { ok: true as const }
+  } catch (error) {
+    return { ok: false as const, message: error instanceof Error ? error.message : 'Audit append failed' }
+  }
 }
 
 export async function POST(request: NextRequest) {
