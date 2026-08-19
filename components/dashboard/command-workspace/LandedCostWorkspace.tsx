@@ -1,7 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import {
+  listOriginJurisdictions,
+  listDestinationJurisdictions,
+} from '@/lib/intelligence/tradeCorridors'
 
 type Scenario = {
   id: string
@@ -51,6 +55,9 @@ export function LandedCostWorkspace({ onClose }: { onClose: () => void }) {
   const destination = (searchParams.get('destination') ?? 'DE').toUpperCase()
   const product = searchParams.get('product') ?? 'flower-premium'
   const volume = searchParams.get('volume') ?? '10'
+
+  const origins = useMemo(() => listOriginJurisdictions(), [])
+  const destinations = useMemo(() => listDestinationJurisdictions(), [])
 
   const [data, setData] = useState<ApiBody | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -109,8 +116,8 @@ export function LandedCostWorkspace({ onClose }: { onClose: () => void }) {
           <h3>Landed cost + sensitivity</h3>
           <p>Orientation USD ranges — not a commercial quote.</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close landed cost">
-          Close
+        <button type="button" onClick={onClose} aria-label="Back to Command Centre">
+          Back
         </button>
       </header>
 
@@ -129,20 +136,32 @@ export function LandedCostWorkspace({ onClose }: { onClose: () => void }) {
       >
         <label>
           Origin
-          <input name="origin" defaultValue={origin} maxLength={2} className="cc-corridor-input" />
+          <select name="origin" defaultValue={origin} className="cc-corridor-input" key={`o-${origin}`}>
+            {origins.map((j) => (
+              <option key={j.iso2} value={j.iso2}>
+                {j.name} ({j.iso2})
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Destination
-          <input
+          <select
             name="destination"
             defaultValue={destination}
-            maxLength={2}
             className="cc-corridor-input"
-          />
+            key={`d-${destination}`}
+          >
+            {destinations.map((j) => (
+              <option key={j.iso2} value={j.iso2}>
+                {j.name} ({j.iso2})
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Product
-          <select name="product" defaultValue={product} className="cc-corridor-input">
+          <select name="product" defaultValue={product} className="cc-corridor-input" key={`p-${product}`}>
             <option value="flower-premium">Flower — Premium</option>
             <option value="flower-standard">Flower — Standard</option>
             <option value="oil">Oil / extract</option>
