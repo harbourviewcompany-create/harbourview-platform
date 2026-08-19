@@ -11,10 +11,7 @@ function first(v: string | string[] | undefined): string | undefined {
   return v
 }
 
-/**
- * Canonical entry redirects into Command Centre workspace layer.
- * URL contract: /dashboard?page=logistics&tool=corridor-plan&origin=&destination=
- */
+/** Alias → canonical `/dashboard/tools/corridor-plan`. */
 export default async function DashboardCorridorPlanPage({
   searchParams,
 }: {
