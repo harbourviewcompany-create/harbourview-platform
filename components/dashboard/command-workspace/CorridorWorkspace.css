@@ -48,6 +48,8 @@
   padding: 6px 12px;
   font-size: 12px;
   cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .cc-corridor-form {
@@ -64,6 +66,8 @@
   gap: 4px;
   font-size: 11px;
   color: rgba(243, 240, 234, 0.5);
+  min-width: min(100%, 9.5rem);
+  flex: 1 1 8rem;
 }
 
 .cc-corridor-input {
@@ -74,6 +78,7 @@
   padding: 8px 10px;
   font-size: 13px;
   min-width: 4.5rem;
+  min-height: 44px;
 }
 
 .cc-corridor-submit {
@@ -86,6 +91,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  min-height: 44px;
 }
 
 .cc-corridor-chips {
@@ -103,6 +109,7 @@
   padding: 4px 10px;
   font-size: 11px;
   cursor: pointer;
+  min-height: 36px;
 }
 
 .cc-corridor-chip:hover {
@@ -112,6 +119,8 @@
 .cc-corridor-body {
   flex: 1;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 18px 24px;
 }
 
@@ -193,6 +202,7 @@
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
+  min-height: 44px;
 }
 
 /* Desktop layer: center over Command Centre */
@@ -214,18 +224,28 @@
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
 }
 
-/* Mobile Command Centre: full-viewport tool layer */
+/*
+ * Mobile: in-shell tool layer — must NOT cover the Command Centre bottom tabs.
+ * Bottom nav sits in the flex shell (~66px + margins + safe-area). Leave that
+ * strip clear so operators can switch Command / Market / Intel / Actions without
+ * dismissing the tool first. Scroll is confined to .cc-corridor-body.
+ */
 .hvm-corridor-tool-layer {
+  --hvm-tool-nav-reserve: calc(66px + 24px + env(safe-area-inset-bottom, 0px));
   position: fixed;
-  inset: 0;
-  z-index: 90;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--hvm-tool-nav-reserve);
+  z-index: 40; /* below bottom-nav interaction; chrome stays reachable */
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: 12px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  background: rgba(2, 8, 20, 0.88);
+  padding: 10px 10px 8px;
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+  background: rgba(2, 8, 20, 0.92);
   backdrop-filter: blur(8px);
+  pointer-events: auto;
 }
 
 .hvm-corridor-tool-layer .hvm2-corridor-workspace {
@@ -233,4 +253,12 @@
   max-height: 100%;
   height: 100%;
   border-radius: 14px;
+}
+
+@media (max-width: 767px) {
+  /* Ensure bottom nav paints above the tool dimmer strip */
+  .hvm2-bottom-nav.hvm-op-bottom-nav {
+    position: relative;
+    z-index: 50;
+  }
 }
