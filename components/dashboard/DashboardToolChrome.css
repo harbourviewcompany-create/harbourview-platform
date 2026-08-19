@@ -1,0 +1,102 @@
+.hvm-tool-chrome {
+  --hvm-tool-nav-h: 66px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #020814;
+  color: #f5f1e8;
+}
+
+.hvm-tool-chrome-header {
+  flex: 0 0 auto;
+  padding: max(12px, env(safe-area-inset-top)) 16px 10px;
+  border-bottom: 1px solid rgba(198, 165, 90, 0.16);
+  background: rgba(2, 8, 20, 0.96);
+}
+
+.hvm-tool-chrome-brand {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #d8be76;
+}
+
+.hvm-tool-chrome-title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.hvm-tool-chrome-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 10px 12px;
+}
+
+/* Workspace fills the main panel; no second full-viewport fixed layer */
+.hvm-tool-chrome-main .hvm2-corridor-workspace {
+  max-height: none;
+  height: auto;
+  min-height: min(70dvh, 720px);
+}
+
+.hvm-tool-chrome-nav {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  min-height: var(--hvm-tool-nav-h);
+  margin: 6px 10px max(8px, env(safe-area-inset-bottom));
+  padding: 5px;
+  border: 1px solid rgba(198, 165, 90, 0.14);
+  border-radius: 18px;
+  background: rgba(7, 17, 31, 0.94);
+}
+
+.hvm-tool-chrome-nav a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 54px;
+  min-width: 44px;
+  border-radius: 12px;
+  color: rgba(245, 241, 232, 0.55);
+  text-decoration: none;
+  font-size: 17px;
+}
+
+.hvm-tool-chrome-nav a small {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hvm-tool-chrome-nav a.active {
+  background: rgba(198, 165, 90, 0.11);
+  color: #e8d7a0;
+}
+
+.hvm-tool-chrome-nav a:focus-visible {
+  outline: 2px solid #e8d7a0;
+  outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+  .hvm-tool-chrome {
+    max-width: 720px;
+    margin: 0 auto;
+    border-left: 1px solid rgba(198, 165, 90, 0.12);
+    border-right: 1px solid rgba(198, 165, 90, 0.12);
+  }
+}
