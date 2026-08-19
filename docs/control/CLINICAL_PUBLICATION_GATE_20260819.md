@@ -1,6 +1,7 @@
 # Clinical Publication Gate — Control Document
 
-**Status:** Repository change. **No migration applied, no credential created, no record published.**
+**Status:** Migration **APPLIED to production 2026-08-19** on explicit owner instruction.
+No credential created, no review recorded, no record published.
 **Verified live (read-only):** project `zvxdgdkukjrrwamdpqrg`, 2026-08-19.
 **Supersedes nothing.** Complements `CLINICAL_EVIDENCE_V1_PRODUCTION_FOUNDATION_20260814.md`.
 
@@ -171,10 +172,47 @@ attribution. The schema is built for the former. Raised 2026-08-16, still unansw
 
 ---
 
-## 5. Boundaries observed
+## 5. Production application record
 
-- No migration applied to production. `20260819170000` is repository-only and requires explicit
-  sign-off under Rule 3c before application.
+`20260819170000` was **applied to production on 2026-08-19**, on Tyler's explicit instruction
+("Apply it") given after the migration's contents, effects and boundaries were stated in full.
+This satisfies the Rule 3c sign-off; it was not applied on agent initiative.
+
+**Pre-flight, immediately before applying** — all zero, so no constraint could fail against live data:
+
+| Check | Rows |
+|---|---|
+| `clinical_reviewer_credentials` | 0 |
+| `clinical_grade_assessments` | 0 |
+| Credentials whose `user_id` is not an `auth.users` row | 0 |
+| `verified` credentials with no `verified_by_user_id` | 0 |
+| Self-verified credentials | 0 |
+| Inverted validity windows | 0 |
+| Version `20260819170000` already recorded | 0 |
+
+**Applied** as a single transaction via `execute_sql`, deliberately not `apply_migration`.
+`apply_migration` mints its own timestamp version, which would have recorded a live version absent
+from the repository *and* left the repository version unapplied — drift in both directions at once.
+The ledger row was therefore written explicitly as version `20260819170000`, name
+`clinical_reviewer_credential_integrity`, matching the repository filename exactly.
+
+**Post-verification:**
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where version = '20260819170000';
+-- 20260819170000 | clinical_reviewer_credential_integrity
+```
+
+All nine constraints confirmed present in `pg_constraint` with definitions matching the migration
+text, and all report `convalidated = true` — enforced against the tables, not added `NOT VALID`.
+
+**Rollback:** each constraint is `drop constraint if exists` then `add`; dropping the nine named
+constraints and deleting the ledger row restores the prior state exactly. Both tables remain empty,
+so no data is at risk in either direction.
+
+## 6. Boundaries still observed
+
 - No credential created, no review recorded, no record published.
 - No clinical content authored. GRADE assessments are deliberately **not** pre-populated — both
   because the schema forbids it (§1.3) and because authoring clinical certainty ratings is the
