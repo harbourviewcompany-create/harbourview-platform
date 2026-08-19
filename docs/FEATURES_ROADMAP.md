@@ -2,7 +2,7 @@
 
 **Status**: Active Planning Document  
 **Owner**: Tyler / Harbourview Team  
-**Last Updated**: July 28, 2026  
+**Last Updated**: August 18, 2026  
 **Purpose**: Single source of truth for all planned features. All implementation must reference this document and update PROJECT_REGISTRY.md.
 
 ## Phase 0–1 — CLOSED (2026-07-28)
@@ -19,18 +19,23 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 | AI personalized briefings spine | ✅ Complete (spine) | `/dashboard/my-briefings` — authenticated; assembles active watch rules + published jurisdiction briefings. Full LLM synthesis / email delivery still Phase 2 depth. |
 | PROJECT_REGISTRY reconciliation | ✅ Complete (scoped code-presence) | Supplier directory public surface, financing, my-briefings, watchlists routes registered in `docs/control/PROJECT_REGISTRY.md`. Full system-by-system live RLS/Vercel re-verify remains Phase 2 HOLD (requires operator production access). |
 
-## Phase 2 remaining depth (not residual blockers)
+## Phase 2 — In progress (2026-08-18)
 
-1. LLM synthesis job for daily/weekly briefings from watch rules  
-2. Email / in-app delivery via signal subscription patterns  
-3. User preference storage for cadence and markets  
-4. Logistics & trade route simulator  
-5. Mobile globe + PWA  
-6. Genetics marketplace core beyond basic catalog  
-7. Education CPD / certificates / premium modules  
-8. Full BNPL partner embed  
-9. Full PROJECT_REGISTRY live re-verification pass (Vercel deployment IDs, production RLS, leakage probe, category routes)  
+| Item | Status | Evidence |
+|------|--------|----------|
+| Corridor Execution Plan v1 | ✅ Shipped (this PR) | `lib/intelligence/workflowEngine.ts` expanded (product class, doc checklist, trust meta, more CORRIDOR_NOTES); `GET /api/corridor-plan`; public `/intelligence/corridor-plan`; `lib/intelligence/corridorSimulator.ts` |
+| Logistics & trade route simulator (orientation) | 🟡 Partial | `tradeCorridors.ts` + simulator helpers + link from corridor-plan; interactive UI depth still Phase 2 follow-up |
+| LLM synthesis job for daily/weekly briefings | ⬜ Remaining | Spine exists (`personalBriefing.ts`, `/api/dashboard/my-briefings`) |
+| Email / in-app delivery via signal subscription | ⬜ Remaining | |
+| User preference storage for cadence and markets | ⬜ Remaining | `user_dashboard_preferences` exists for country/role/heatmap only |
+| Mobile globe + PWA | ⬜ Remaining | |
+| Genetics marketplace core beyond basic catalog | ⬜ Remaining | |
+| Education CPD / certificates / premium modules | ⬜ Remaining | |
+| Full BNPL partner embed | ⬜ Remaining | |
+| Full PROJECT_REGISTRY live re-verification | ⬜ HOLD | Requires operator production access |
 
 ## Next Action
 
-Prefer production smoke on `/marketplace/financing`, `/dashboard/my-briefings`, `/supplier-directory`, and dashboard watchlist. Then either LLM briefing synthesis or full registry live re-verification.
+1. Production smoke: `/intelligence/corridor-plan?origin=CA&destination=DE`, `/api/corridor-plan?origin=CA&destination=DE`.
+2. Wire corridor plan into Command Centre Compliance / trade-calc panel if product prioritises authenticated depth next.
+3. Briefings Phase 2 depth: cadence preferences + scheduled synthesis + delivery.
