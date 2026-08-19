@@ -1,39 +1,54 @@
 'use client'
 
-import { useCallback } from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { parseMobileCommandTool } from '@/components/dashboard/mobile-command/contracts'
-import { CorridorPlanWorkspace } from './CorridorPlanWorkspace'
-import { LandedCostWorkspace } from './LandedCostWorkspace'
-import './CorridorWorkspace.css'
+import { useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  buildCorridorPlanToolHref,
+  buildLandedCostToolHref,
+  parseMobileCommandTool,
+} from '@/components/dashboard/mobile-command/contracts'
 
 /**
- * Mobile Command Centre does not mount DesktopCommandWorkspace.
- * This host reads the same ?tool= URL contract and opens corridor tools full-screen.
+ * Legacy bridge: Command Centre used to open corridor tools via `?tool=` on
+ * `/dashboard`. Phase 2 owns dedicated routes under `/dashboard/tools/*` with
+ * permanent chrome. This host only redirects so old bookmarks and action hrefs
+ * still work until fully retired.
  */
 export function MobileCorridorToolHost() {
   const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const tool = parseMobileCommandTool(searchParams.get('tool'))
 
-  const close = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete('tool')
-    params.delete('listing')
-    const q = params.toString()
-    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
-  }, [pathname, router, searchParams])
+  useEffect(() => {
+    if (tool !== 'corridor-plan' && tool !== 'landed-cost') return
 
-  if (tool !== 'corridor-plan' && tool !== 'landed-cost') return null
+    const origin = searchParams.get('origin') ?? 'CA'
+    const destination = searchParams.get('destination') ?? 'DE'
+    const product = searchParams.get('product') ?? undefined
+    const volume = searchParams.get('volume') ?? undefined
+    const country = searchParams.get('country') ?? undefined
+    const role = searchParams.get('role') ?? undefined
 
-  return (
-    <div className="hvm-corridor-tool-layer" role="presentation" data-mobile-corridor-tool={tool}>
-      {tool === 'corridor-plan' ? (
-        <CorridorPlanWorkspace onClose={close} />
-      ) : (
-        <LandedCostWorkspace onClose={close} />
-      )}
-    </div>
-  )
+    const returnParams = new URLSearchParams(searchParams.toString())
+    returnParams.delete('tool')
+    returnParams.delete('listing')
+    const returnTo = `/dashboard?${returnParams.toString()}`
+
+    const href =
+      tool === 'corridor-plan'
+        ? buildCorridorPlanToolHref({ origin, destination, product, country, role, returnTo })
+        : buildLandedCostToolHref({
+            origin,
+            destination,
+            product: product ?? 'flower-premium',
+            volume,
+            country,
+            role,
+            returnTo,
+          })
+
+    router.replace(href)
+  }, [router, searchParams, tool])
+
+  return null
 }
