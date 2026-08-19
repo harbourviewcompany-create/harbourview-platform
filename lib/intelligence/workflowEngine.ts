@@ -1,33 +1,18 @@
 import 'server-only'
 import { getPlaybook } from './jurisdictionPlaybooks'
 import type { PlaybookStep, PlaybookRegulator } from './jurisdictionPlaybooks'
+import {
+  TRADE_CORRIDORS,
+  type ProductClass,
+  type TradeCorridor,
+} from './tradeCorridors'
+import {
+  buildCorridorDepth,
+  type CorridorDepthBundle,
+} from './corridorDepth'
 
 /**
- * Corridor Workflow Engine — prototype
- * ─────────────────────────────────────
- * Layer 9 of the Market Entry OS concept ("Workflow Engine — no dependency-graph
- * execution plan generator, doesn't exist yet") was the biggest gap between what
- * the North Star doc describes and what's actually built. This is a first,
- * intentionally narrow attempt at it — built on the jurisdiction_playbooks data
- * that already exists (steps/timeline/cost/regulators/pitfalls per country),
- * rather than the abandoned cannabis_intelligence schema, which was never
- * populated with real schema and would have been a much bigger lift for the
- * same first test.
- *
- * What it does: takes an origin (export side) and destination (import side)
- * country, and merges their two independent playbooks into one corridor-level
- * plan, instead of leaving a human to read both dossiers separately and do the
- * reconciliation themselves.
- *
- * What it deliberately does NOT do: infer step-level dependencies automatically.
- * jurisdiction_playbooks.steps has no "depends_on" field, so there's no honest
- * way to compute a real critical path yet — see criticalPathWeeksEstimate below
- * for the heuristic used instead, and CORRIDOR_NOTES for the one genuine
- * cross-jurisdiction linkage worth surfacing by hand for the corridor this was
- * built and tested against. Automating that detection generally is exactly the
- * kind of thing that would need the normalized cannabis_intelligence tables
- * (licence_types, legal_thresholds) rather than text-matching prose — worth
- * revisiting there if/when this proves out for more corridors.
+ * Corridor Workflow Engine — Execution Plan v1 + depth layer
  */
 
 export type CorridorSide = 'export' | 'import'
@@ -38,45 +23,198 @@ export type CorridorStep = PlaybookStep & {
   country_name: string
 }
 
+export type DocChecklistItem = {
+  id: string
+  side: CorridorSide
+  label: string
+  required: boolean
+  notes?: string
+}
+
+export type CorridorTrustMeta = {
+  originVerifiedAt: string | null
+  destinationVerifiedAt: string | null
+  confidence: number
+  confidenceLabel: 'orientation' | 'partial' | 'reviewed'
+  asOf: string
+  disclaimer: string
+}
+
 export type CorridorPlan = {
   origin: { iso2: string; name: string; difficulty: string }
   destination: { iso2: string; name: string; difficulty: string }
+  productClass: ProductClass | 'any'
+  corridorRef: TradeCorridor | null
   steps: CorridorStep[]
   totalSequentialWeeks: number
   criticalPathWeeksEstimate: number
   estimatedCostRanges: { country_iso2: string; range: string | null }[]
   regulators: { country_iso2: string; regulators: PlaybookRegulator[] }[]
   risks: { country_iso2: string; pitfalls: string[] }[]
+  documentationChecklist: DocChecklistItem[]
   notes: string[]
+  trust: CorridorTrustMeta
+  /** Decision-grade depth: workstreams, failure modes, open questions */
+  depth: CorridorDepthBundle
 }
 
-// Cross-jurisdiction insights that require actually reading both sides' legal
-// text, not something a jsonb merge can surface on its own. Hand-curated per
-// corridor pair as they're found — this is not meant to scale past a handful
-// of entries; once it needs to, that's the signal to build real requirement
-// matching against structured license/certification tables instead.
 const CORRIDOR_NOTES: Record<string, string[]> = {
   'CA-DE': [
-    'Canada\u2019s "Ensure GMP compliance under Cannabis Regulations" step and Germany\u2019s ' +
-      '"Obtain EU-GMP certificate for manufacturing site" step are the same underlying audit, not ' +
-      'two separate ones \u2014 Germany\u2019s BfArM import authorisation explicitly requires a GMP ' +
-      'certificate "recognised by the relevant EU competent authority," so the Canadian facility audit ' +
-      'should be scoped as an EU-GMP audit from the outset rather than redone for each market.',
+    "Canada's GMP step under Cannabis Regulations and Germany's EU-GMP manufacturing-site requirement are the same underlying audit path — scope the Canadian facility audit as EU-GMP from the outset rather than redoing it for each EU market.",
+    'BfArM narcotics import authorisation typically expects a recognised EU competent-authority GMP certificate; allow parallel preparation of Health Canada export licence paperwork while the audit window is scheduled.',
+  ],
+  'CA-AU': [
+    'TGA ODC import permits and Health Canada export licences are independent clocks — start both early; neither is a substitute for the other.',
+    'Narcotic Drugs Act 1967 pathways are product-class sensitive; finished products and extracts often face different evidence packs than bulk flower.',
+  ],
+  'PT-DE': [
+    'Intra-EU movement still requires narcotics transport permits even when EU-GMP is already satisfied — do not treat free movement of goods as narcotics-free movement.',
+  ],
+  'NL-DE': [
+    'Among tracked corridors this pair has the lowest structural friction, but OMC wholesale authorisation and narcotics transport paperwork remain mandatory.',
+  ],
+  'CO-DE': [
+    'INVIMA + EU-GMP recognition and BfArM import timing often dominate the critical path; treat Colombian export readiness and German import readiness as parallel workstreams with a late merge on the import permit.',
+  ],
+  'IL-DE': [
+    'IMCA export and BfArM import remain independent clocks; monitor EU-GMP equivalency status for Israeli sites before treating recognition as settled.',
+  ],
+  'ZA-DE': [
+    'SAHPRA export licensing and EU-GMP recognition for South African sites can lag commercial readiness — align batch release and permit applications early.',
+  ],
+  'AU-GB': [
+    'TGA export and MHRA/Home Office controlled-drug import are separate regimes post-Brexit; product Schedule classification drives evidence pack differences.',
+  ],
+  'CA-GB': [
+    'Health Canada export and UK specials / MHRA pathways should be planned as parallel streams; digital-only import process changes do not remove GDP storage expectations.',
+  ],
+  'MX-CA': [
+    'CUSMA does not currently provide a simplified medical-cannabis corridor; treat COFEPRIS export and Health Canada import as high-friction, policy-sensitive workstreams.',
+  ],
+  'TH-AU': [
+    'Thai export restrictions and TGA import evidence (including irradiation expectations) are frequently the binding constraints; re-check export eligibility before each shipment plan.',
+  ],
+  'BR-PT': [
+    'ANVISA export and Infarmed import remain distinct; phytosanitary / product-class equivalence discussions should not be assumed complete for planning purposes.',
   ],
 }
+
+const BASE_EXPORT_DOCS: DocChecklistItem[] = [
+  {
+    id: 'exp-licence',
+    side: 'export',
+    label: 'Export / narcotics export licence from origin competent authority',
+    required: true,
+  },
+  {
+    id: 'exp-gmp',
+    side: 'export',
+    label: 'Site GMP / EU-GMP (or destination-recognised equivalent) evidence pack',
+    required: true,
+  },
+  {
+    id: 'exp-coa',
+    side: 'export',
+    label: 'Batch COA / analytical dossier aligned to destination specification',
+    required: true,
+  },
+  {
+    id: 'exp-commercial',
+    side: 'export',
+    label: 'Commercial invoice, packing list, and transport chain-of-custody plan',
+    required: true,
+  },
+]
+
+const BASE_IMPORT_DOCS: DocChecklistItem[] = [
+  {
+    id: 'imp-permit',
+    side: 'import',
+    label: 'Import / narcotics import permit from destination competent authority',
+    required: true,
+  },
+  {
+    id: 'imp-importer-auth',
+    side: 'import',
+    label: 'Importer wholesale / controlled-substance authorisation on file',
+    required: true,
+  },
+  {
+    id: 'imp-release',
+    side: 'import',
+    label: 'Customs / controlled-goods release pathway documented',
+    required: true,
+  },
+  {
+    id: 'imp-quality',
+    side: 'import',
+    label: 'Receiving QC / GDP-aligned handling SOP referenced',
+    required: false,
+    notes: 'Orientation only — operator-specific SOPs are not published here.',
+  },
+]
 
 function corridorKey(origin: string, destination: string): string {
   return `${origin.toUpperCase()}-${destination.toUpperCase()}`
 }
 
+function findCorridorRef(
+  origin: string,
+  destination: string,
+  product: ProductClass | 'any',
+): TradeCorridor | null {
+  const match = TRADE_CORRIDORS.find(
+    (c) => c.from === origin && c.to === destination,
+  )
+  if (!match) return null
+  if (product !== 'any' && !match.productClasses.includes(product)) return null
+  return match
+}
+
+function buildTrust(
+  originVerifiedAt: string | null,
+  destinationVerifiedAt: string | null,
+  stepCount: number,
+): CorridorTrustMeta {
+  const hasOrigin = Boolean(originVerifiedAt)
+  const hasDest = Boolean(destinationVerifiedAt)
+  let confidence = 0.35
+  if (hasOrigin) confidence += 0.2
+  if (hasDest) confidence += 0.2
+  if (stepCount >= 4) confidence += 0.15
+  if (stepCount >= 8) confidence += 0.1
+  confidence = Math.min(1, Math.round(confidence * 100) / 100)
+
+  let confidenceLabel: CorridorTrustMeta['confidenceLabel'] = 'orientation'
+  if (confidence >= 0.75) confidenceLabel = 'reviewed'
+  else if (confidence >= 0.5) confidenceLabel = 'partial'
+
+  return {
+    originVerifiedAt,
+    destinationVerifiedAt,
+    confidence,
+    confidenceLabel,
+    asOf: new Date().toISOString().slice(0, 10),
+    disclaimer:
+      'Orientation-level corridor plan only. Harbourview does not publish operator identities, commercial terms, or private route analysis on this surface. Verify all requirements with competent authorities before acting.',
+  }
+}
+
+export type DeriveCorridorPlanOptions = {
+  productClass?: ProductClass | 'any'
+}
+
 export async function deriveCorridorPlan(
   originIso2: string,
   destinationIso2: string,
+  options: DeriveCorridorPlanOptions = {},
 ): Promise<CorridorPlan | null> {
   const origin = originIso2.trim().toUpperCase()
   const destination = destinationIso2.trim().toUpperCase()
+  const productClass = options.productClass ?? 'any'
 
   if (!/^[A-Z]{2}$/.test(origin) || !/^[A-Z]{2}$/.test(destination)) return null
+  if (origin === destination) return null
 
   const [originPlaybook, destinationPlaybook] = await Promise.all([
     getPlaybook(origin),
@@ -87,19 +225,41 @@ export async function deriveCorridorPlan(
 
   const exportSteps: CorridorStep[] = originPlaybook.steps.map((s) => ({
     ...s,
-    side: 'export',
+    side: 'export' as const,
     country_iso2: origin,
     country_name: originPlaybook.country_name,
   }))
   const importSteps: CorridorStep[] = destinationPlaybook.steps.map((s) => ({
     ...s,
-    side: 'import',
+    side: 'import' as const,
     country_iso2: destination,
     country_name: destinationPlaybook.country_name,
   }))
 
-  const exportWeeks = exportSteps.reduce((acc, s) => acc + s.estimated_weeks, 0)
-  const importWeeks = importSteps.reduce((acc, s) => acc + s.estimated_weeks, 0)
+  const exportWeeks = exportSteps.reduce((acc, s) => acc + (s.estimated_weeks || 0), 0)
+  const importWeeks = importSteps.reduce((acc, s) => acc + (s.estimated_weeks || 0), 0)
+  const steps = [...exportSteps, ...importSteps]
+
+  const corridorRef = findCorridorRef(origin, destination, productClass)
+  const depth = buildCorridorDepth({
+    origin,
+    destination,
+    productClass,
+    exportWeeks,
+    importWeeks,
+  })
+
+  const documentationChecklist: DocChecklistItem[] = [
+    ...BASE_EXPORT_DOCS,
+    ...BASE_IMPORT_DOCS,
+    ...depth.productDocDeltas.map((d) => ({
+      id: d.id,
+      side: d.side,
+      label: d.label,
+      required: d.required,
+      notes: d.notes,
+    })),
+  ]
 
   return {
     origin: {
@@ -112,20 +272,10 @@ export async function deriveCorridorPlan(
       name: destinationPlaybook.country_name,
       difficulty: destinationPlaybook.difficulty,
     },
-    // Export-side steps first, then import-side — each list keeps its own
-    // internal order (that part IS reliable, it's authored as a sequence).
-    // What's a heuristic is treating the two sides as parallelizable at all;
-    // see criticalPathWeeksEstimate.
-    steps: [...exportSteps, ...importSteps],
+    productClass,
+    corridorRef,
+    steps,
     totalSequentialWeeks: exportWeeks + importWeeks,
-    // Heuristic, not a real critical-path computation: treats each side's
-    // steps as sequential (same internal team usually runs them in order)
-    // but assumes the two sides CAN run in parallel with each other, absent
-    // any evidence otherwise. This will overstate speed wherever one side's
-    // step is genuinely blocking on the other's output (e.g. Germany's BfArM
-    // step needs the GMP cert Canada's step produces) \u2014 that's exactly
-    // what CORRIDOR_NOTES exists to flag until dependencies are modeled for
-    // real.
     criticalPathWeeksEstimate: Math.max(exportWeeks, importWeeks),
     estimatedCostRanges: [
       { country_iso2: origin, range: originPlaybook.estimated_cost_range },
@@ -139,6 +289,17 @@ export async function deriveCorridorPlan(
       { country_iso2: origin, pitfalls: originPlaybook.common_pitfalls },
       { country_iso2: destination, pitfalls: destinationPlaybook.common_pitfalls },
     ],
+    documentationChecklist,
     notes: CORRIDOR_NOTES[corridorKey(origin, destination)] ?? [],
+    trust: buildTrust(
+      originPlaybook.last_verified_at,
+      destinationPlaybook.last_verified_at,
+      steps.length,
+    ),
+    depth,
   }
+}
+
+export function listTrackedCorridorPairs(): { from: string; to: string; label: string }[] {
+  return TRADE_CORRIDORS.map((c) => ({ from: c.from, to: c.to, label: c.label }))
 }

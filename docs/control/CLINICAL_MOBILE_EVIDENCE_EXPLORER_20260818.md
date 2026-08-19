@@ -13,10 +13,13 @@
 
 ## Known non-goals (still open)
 
-- Governed interactions dataset inside the explorer tabs (section deck uses `/api/clinical/interactions` when published).
-- Governed monitoring protocol dataset.
 - Netlify `harbourviewns` preview (known ignore; disconnect is operator dashboard action).
 - Pre-existing typecheck failures outside this surface (`ClinicalPanel`, clinical API types).
+
+## Closed
+
+- Governed interactions dataset inside the explorer tabs — `/api/clinical/interactions` live, DB-first with fixture fallback (Aug 18).
+- Governed monitoring protocol dataset — `clinical_monitoring_protocols` table + `/api/clinical/monitoring` + Monitoring tab, PR #1522 (Aug 18).
 
 ## Verify after merge
 

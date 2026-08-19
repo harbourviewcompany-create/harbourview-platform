@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server'
+import { getStaticPlaybook } from '@/lib/intelligence/staticPlaybooks'
 
 export type PlaybookStep = {
   step: number
@@ -66,9 +67,10 @@ const PLAYBOOK_COLUMNS = [
 ].join(',')
 
 export async function getPlaybook(iso2: string): Promise<JurisdictionPlaybook | null> {
+  const code = iso2.toUpperCase()
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return null
+  if (!url || !key) return getStaticPlaybook(code)
 
   try {
     // Use the shared fetch-based approach so Next.js can apply ISR revalidation.
@@ -90,11 +92,11 @@ export async function getPlaybook(iso2: string): Promise<JurisdictionPlaybook | 
       },
     })
 
-    if (!res.ok) return null
+    if (!res.ok) return getStaticPlaybook(code)
     const rows = await res.json()
-    return (rows[0] as JurisdictionPlaybook) ?? null
+    return (rows[0] as JurisdictionPlaybook) ?? getStaticPlaybook(code)
   } catch {
-    return null
+    return getStaticPlaybook(code)
   }
 }
 
