@@ -10,6 +10,7 @@ import {
 } from '@/components/dashboard/data/landedCostData'
 import { corridorPlanHref } from '@/lib/intelligence/corridorSimulator'
 import { LANDED_PRODUCT_OPTIONS } from '@/lib/intelligence/landedCostBridge'
+import { OrientationFeedback } from '@/components/intelligence/OrientationFeedback'
 
 export const metadata: Metadata = {
   title: 'Landed Cost Calculator | Harbourview',
@@ -248,10 +249,18 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
             >
               Logistics simulator →
             </Link>
+            <Link href="/intelligence/corridor-coverage" className="text-zinc-400 hover:underline">
+              Corridor coverage →
+            </Link>
             <Link href="/intake" className="text-zinc-400 hover:underline">
               Confidential intake →
             </Link>
           </div>
+
+          <OrientationFeedback
+            surface="landed_cost"
+            context={`${origin}-${destination}-${product}-${volumeKg}`}
+          />
         </div>
       )}
 
