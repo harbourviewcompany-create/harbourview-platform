@@ -17,7 +17,7 @@
     "check:env-manifest": "node scripts/check-environment-manifest.mjs",
     "check:cloudflare-architecture": "node scripts/check-cloudflare-architecture.mjs",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
-    "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
+    "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts tests/globe/derive-regulatory-tier.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
