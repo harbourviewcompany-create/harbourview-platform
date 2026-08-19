@@ -4,7 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { CorridorDepthSections } from '@/components/intelligence/CorridorDepthSections'
 import type { CorridorDepthBundle } from '@/lib/intelligence/corridorDepth'
-import { TRADE_CORRIDORS, PRODUCT_OPTIONS } from '@/lib/intelligence/tradeCorridors'
+import {
+  TRADE_CORRIDORS,
+  PRODUCT_OPTIONS,
+  listOriginJurisdictions,
+  listDestinationJurisdictions,
+  getPopularCorridors,
+  APPLICABLE_TRADE_JURISDICTIONS,
+} from '@/lib/intelligence/tradeCorridors'
 
 type PlanPayload = {
   origin: { iso2: string; name: string; difficulty: string }
@@ -49,17 +56,17 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = useState<PlanPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [chipFilter, setChipFilter] = useState<'all' | 'to-de' | 'from-ca' | 'intra-eu'>('all')
+  const [chipMode, setChipMode] = useState<'popular' | 'to-de' | 'from-ca'>('popular')
+
+  const origins = useMemo(() => listOriginJurisdictions(), [])
+  const destinations = useMemo(() => listDestinationJurisdictions(), [])
+  const popular = useMemo(() => getPopularCorridors(), [])
 
   const chips = useMemo(() => {
-    let list = TRADE_CORRIDORS
-    if (chipFilter === 'to-de') list = list.filter((c) => c.to === 'DE')
-    if (chipFilter === 'from-ca') list = list.filter((c) => c.from === 'CA')
-    if (chipFilter === 'intra-eu') {
-      list = list.filter((c) => c.compliance.includes('intra_eu'))
-    }
-    return list
-  }, [chipFilter])
+    if (chipMode === 'to-de') return TRADE_CORRIDORS.filter((c) => c.to === 'DE')
+    if (chipMode === 'from-ca') return TRADE_CORRIDORS.filter((c) => c.from === 'CA')
+    return popular
+  }, [chipMode, popular])
 
   const setParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -80,16 +87,16 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
     let cancelled = false
     setLoading(true)
     setError(null)
-    const q = new URLSearchParams({
-      origin,
-      destination,
-      product,
-    })
+    const q = new URLSearchParams({ origin, destination, product })
     fetch(`/api/corridor-plan?${q.toString()}`)
       .then(async (res) => {
         const body = await res.json()
         if (!res.ok) throw new Error(body.error ?? 'Plan unavailable')
-        if (!body.plan) throw new Error('No published playbooks for this pair — try another corridor or request coverage.')
+        if (!body.plan) {
+          throw new Error(
+            'No published playbooks for this pair yet. GMP recognition and notes still apply — request playbook coverage or try a popular corridor.',
+          )
+        }
         return body.plan as PlanPayload
       })
       .then((p) => {
@@ -121,8 +128,8 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
           <span>Command Centre / Logistics</span>
           <h3>Corridor execution plan</h3>
           <p>
-            {TRADE_CORRIDORS.length} tracked corridors — GMP recognition, workstreams, failure modes.
-            Orientation-level only.
+            {APPLICABLE_TRADE_JURISDICTIONS.length} applicable jurisdictions ·{' '}
+            {TRADE_CORRIDORS.length.toLocaleString()} directed corridors. Orientation-level only.
           </p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close corridor plan">
@@ -144,17 +151,28 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
       >
         <label>
           Origin
-          <input name="origin" defaultValue={origin} maxLength={2} className="cc-corridor-input" key={`o-${origin}`} />
+          <select name="origin" defaultValue={origin} className="cc-corridor-input" key={`o-${origin}`}>
+            {origins.map((j) => (
+              <option key={j.iso2} value={j.iso2}>
+                {j.name} ({j.iso2})
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Destination
-          <input
+          <select
             name="destination"
             defaultValue={destination}
-            maxLength={2}
             className="cc-corridor-input"
             key={`d-${destination}`}
-          />
+          >
+            {destinations.map((j) => (
+              <option key={j.iso2} value={j.iso2}>
+                {j.name} ({j.iso2})
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           Product
@@ -172,21 +190,15 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
       </form>
 
       <div className="cc-corridor-chips" style={{ gap: 8 }}>
-        {(['all', 'to-de', 'from-ca', 'intra-eu'] as const).map((f) => (
+        {(['popular', 'to-de', 'from-ca'] as const).map((f) => (
           <button
             key={f}
             type="button"
             className="cc-corridor-chip"
-            style={chipFilter === f ? { borderColor: 'rgba(198,165,90,0.8)', color: '#d4b56a' } : undefined}
-            onClick={() => setChipFilter(f)}
+            style={chipMode === f ? { borderColor: 'rgba(198,165,90,0.8)', color: '#d4b56a' } : undefined}
+            onClick={() => setChipMode(f)}
           >
-            {f === 'all'
-              ? `All (${TRADE_CORRIDORS.length})`
-              : f === 'to-de'
-                ? 'Into Germany'
-                : f === 'from-ca'
-                  ? 'From Canada'
-                  : 'Intra-EU'}
+            {f === 'popular' ? 'Popular' : f === 'to-de' ? 'Into Germany' : 'From Canada'}
           </button>
         ))}
       </div>
@@ -218,8 +230,8 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
                 {plan.origin.name} → {plan.destination.name}
               </h4>
               <p className="cc-corridor-muted">
-                Trust: {plan.trust.confidenceLabel} · {Math.round(plan.trust.confidence * 100)}% · as
-                of {plan.trust.asOf}
+                Trust: {plan.trust.confidenceLabel} · {Math.round(plan.trust.confidence * 100)}% · as of{' '}
+                {plan.trust.asOf}
               </p>
               <dl className="cc-corridor-metrics">
                 <div>
