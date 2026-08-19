@@ -2,7 +2,7 @@
  * TypeScript mirror of `api.derive_regulatory_tier(program_status)`.
  *
  * Keep behaviour aligned with:
- *   supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql
+ *   supabase/migrations/20260819150000_regulatory_tier_trade_negation_hardening.sql
  *
  * Used only for unit tests and offline diagnostics — production classification
  * runs in Postgres so briefing changes stay the single live source of truth.
@@ -19,10 +19,16 @@ const CBD_HEMP =
 const EXPORT_COMMERCIAL =
   /(export (industry|hub|industry leader|-oriented)|licensed export|export-oriented|export permit)/i
 
+const EXPORT_NEGATED =
+  /(no|without|not currently|lacks?|absent)\s+(licensed\s+)?(commercial\s+)?export(\s+(industry|hub|pathway|permit|market))?/i
+
 const EXPORT_UNDER_DISCUSSION = /export licensing under (discussion|consideration|review)/i
 
 const IMPORT_COMMERCIAL =
   /(licensed import|import market|medical import|commercial import|import pathway|import permit|licensed importer|importers)/i
+
+const IMPORT_NEGATED =
+  /(no|without|not currently|lacks?|absent)\s+(licensed\s+)?((commercial|medical)\s+)?import(ers?|\s+(market|pathway|permit))/i
 
 const IMPORT_UNDER_DISCUSSION = /import licensing under (discussion|consideration|review)/i
 
@@ -39,6 +45,20 @@ const MEDICAL =
 const MEDICAL_NEGATED =
   /(no medical programme|reform under|under (active )?consideration|under discussion)/i
 
+function hasAffirmativeTradeClause(
+  programStatus: string,
+  affirmative: RegExp,
+  negated: RegExp,
+  underDiscussion: RegExp,
+): boolean {
+  return programStatus
+    .split(/[.;,]+/)
+    .some(
+      (segment) =>
+        affirmative.test(segment) && !negated.test(segment) && !underDiscussion.test(segment),
+    )
+}
+
 /**
  * Derive a regulatory tier from jurisdiction briefing program_status text.
  * Returns null only when there is no usable signal (empty string).
@@ -48,16 +68,28 @@ export function deriveRegulatoryTier(programStatus: string | null | undefined): 
   if (ps.trim() === '') return null
 
   const underDiscussion = UNDER_DISCUSSION.test(ps)
+  const exportCommercial = hasAffirmativeTradeClause(
+    ps,
+    EXPORT_COMMERCIAL,
+    EXPORT_NEGATED,
+    EXPORT_UNDER_DISCUSSION,
+  )
+  const importCommercial = hasAffirmativeTradeClause(
+    ps,
+    IMPORT_COMMERCIAL,
+    IMPORT_NEGATED,
+    IMPORT_UNDER_DISCUSSION,
+  )
 
   if (/prohibited/i.test(ps) && CBD_HEMP.test(ps) && !/(research (interest|developing)|informal)/i.test(ps)) {
     return 'cbd_hemp_only'
   }
 
   if (!underDiscussion) {
-    if (EXPORT_COMMERCIAL.test(ps) && !EXPORT_UNDER_DISCUSSION.test(ps)) {
+    if (exportCommercial) {
       return 'legal_commercial_access'
     }
-    if (IMPORT_COMMERCIAL.test(ps) && !IMPORT_UNDER_DISCUSSION.test(ps)) {
+    if (importCommercial) {
       return 'legal_commercial_access'
     }
     if (INDUSTRIAL.test(ps)) {
