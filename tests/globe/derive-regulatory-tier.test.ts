@@ -14,7 +14,7 @@ describe('deriveRegulatoryTier (import-aware classifier)', () => {
     expect(deriveRegulatoryTier(de)).toBe('legal_commercial_access')
   })
 
-  it('promotes export industry language to legal_commercial_access', () => {
+  it('promotes affirmative export industry language to legal_commercial_access', () => {
     expect(deriveRegulatoryTier('Medical Legal - Export Industry Leader')).toBe(
       'legal_commercial_access',
     )
@@ -25,6 +25,43 @@ describe('deriveRegulatoryTier (import-aware classifier)', () => {
     expect(deriveRegulatoryTier('Medical legal; export licensing under discussion')).toBe(
       'medical_limited_trade',
     )
+  })
+
+  it('does not treat explicitly negated export language as commercial access', () => {
+    expect(
+      deriveRegulatoryTier('Medical legal; prescription programme; no licensed export industry'),
+    ).toBe('medical_limited_trade')
+    expect(deriveRegulatoryTier('Medical legal; no export industry')).toBe(
+      'medical_limited_trade',
+    )
+    expect(deriveRegulatoryTier('Medical legal; without export permit')).toBe(
+      'medical_limited_trade',
+    )
+  })
+
+  it('does not treat explicitly negated import language as commercial access', () => {
+    expect(deriveRegulatoryTier('Medical legal; no licensed importers')).toBe(
+      'medical_limited_trade',
+    )
+    expect(deriveRegulatoryTier('Medical legal; no commercial import pathway')).toBe(
+      'medical_limited_trade',
+    )
+    expect(deriveRegulatoryTier('Medical legal; without import permit')).toBe(
+      'medical_limited_trade',
+    )
+  })
+
+  it('allows a separate affirmative trade clause to override historical negative language', () => {
+    expect(
+      deriveRegulatoryTier(
+        'Medical legal; no export industry historically; licensed export permit now active',
+      ),
+    ).toBe('legal_commercial_access')
+    expect(
+      deriveRegulatoryTier(
+        'Medical legal; no licensed export industry; licensed importers operate under active permits',
+      ),
+    ).toBe('legal_commercial_access')
   })
 
   it('classifies pure adult-use / social clubs without commercial trade as domestic_only', () => {
