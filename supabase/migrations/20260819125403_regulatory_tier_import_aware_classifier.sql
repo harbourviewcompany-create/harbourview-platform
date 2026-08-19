@@ -73,8 +73,6 @@ begin
   end if;
 
   -- domestic_only: lawful internally, no cross-border commercial route signal.
-  -- Only when adult-use / personal cultivation is present AND we did not already
-  -- match a commercial import/export pathway above.
   if ps ~* 'adult-use|personal cultivation legal|social clubs|home cultivation|recreational legal|coffee shop|pilot retail' then
     return 'domestic_only';
   end if;
@@ -93,7 +91,6 @@ $$;
 comment on function api.derive_regulatory_tier(text) is
   'Derives countries.regulatory_tier from briefing program_status. Import and export pathways both map to legal_commercial_access; adult-use alone is domestic_only; medical-only is medical_limited_trade.';
 
--- Keep the public wrapper used by the briefing-change trigger in sync.
 create or replace function public.api_derive_or_null(program_status text)
 returns text
 language sql
@@ -104,47 +101,45 @@ as $$
   select api.derive_regulatory_tier(program_status);
 $$;
 
--- Reclassify every auto-origin country from current briefing text so production
--- map colours match the upgraded classifier without waiting for the next edit.
+-- Snapshot + reclassify origin=auto countries from current briefing text.
 with derived as (
   select
     b.country_iso2,
     b.program_status,
-    api.derive_regulatory_tier(b.program_status) as new_tier
+    api.derive_regulatory_tier(b.program_status) as new_tier,
+    c.regulatory_tier as old_tier
   from public.cc_jurisdiction_briefings b
+  join public.countries c on c.iso_alpha2 = b.country_iso2
   where b.jurisdiction_type = 'country'
     and coalesce(b.program_status, '') <> ''
+    and coalesce(c.regulatory_tier_origin, 'auto') = 'auto'
+),
+changed as (
+  select * from derived
+  where new_tier is not null
+    and new_tier is distinct from old_tier
+),
+updated as (
+  update public.countries c set
+    regulatory_tier = ch.new_tier,
+    regulatory_tier_source = 'auto-reclassified import-aware classifier 2026-08-19',
+    regulatory_tier_rationale = 'Derived from briefing: "' || left(ch.program_status, 500) || '"',
+    regulatory_tier_source_hash = md5(coalesce(ch.program_status, '')),
+    regulatory_tier_last_derived_at = now(),
+    regulatory_tier_needs_review = true
+  from changed ch
+  where c.iso_alpha2 = ch.country_iso2
+  returning c.iso_alpha2, ch.old_tier, ch.new_tier, ch.program_status
 )
-update public.countries c set
-  regulatory_tier = d.new_tier,
-  regulatory_tier_source = 'auto-reclassified import-aware classifier 2026-08-19',
-  regulatory_tier_rationale = 'Derived from briefing: "' || left(d.program_status, 500) || '"',
-  regulatory_tier_source_hash = md5(coalesce(d.program_status, '')),
-  regulatory_tier_last_derived_at = now(),
-  regulatory_tier_needs_review = case
-    when d.new_tier is distinct from c.regulatory_tier then true
-    else c.regulatory_tier_needs_review
-  end
-from derived d
-where c.iso_alpha2 = d.country_iso2
-  and coalesce(c.regulatory_tier_origin, 'auto') = 'auto'
-  and d.new_tier is not null
-  and d.new_tier is distinct from c.regulatory_tier;
-
--- Audit rows for every country that actually moved.
 insert into public.regulatory_tier_audit
   (country_iso2, old_tier, new_tier, origin, trigger_source, program_status, actor, note)
 select
-  c.iso_alpha2,
-  null, -- historical old tier not recoverable in bulk without a temp table
-  c.regulatory_tier,
+  iso_alpha2,
+  old_tier,
+  new_tier,
   'auto',
   'classifier_upgrade',
-  b.program_status,
+  program_status,
   'system',
   'Bulk reclassify after import-aware classifier upgrade (20260819125403).'
-from public.countries c
-join public.cc_jurisdiction_briefings b
-  on b.country_iso2 = c.iso_alpha2
- and b.jurisdiction_type = 'country'
-where c.regulatory_tier_source = 'auto-reclassified import-aware classifier 2026-08-19';
+from updated;
