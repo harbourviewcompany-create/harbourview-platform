@@ -1,5 +1,16 @@
 # Harbourview Platform
 
+## Brand spelling (canonical)
+
+| Form | Use |
+|------|-----|
+| **Harbourview** | Product and company name (British/Canadian *Harbour*, not *Harbor*) |
+| **HARBOURVIEW** | UI wordmark only |
+| `harbourview-platform` | GitHub repository |
+| `https://harbourview.vercel.app` | **Only** canonical production domain |
+
+**Do not use:** Harborview, Harbor View, OurView, ourview, ourview.vercel.app, or truncated mobile chrome strings as the product name or production URL.
+
 ## Repository status
 
 | Field | Value |
