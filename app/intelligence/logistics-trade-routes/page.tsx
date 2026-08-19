@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
+import { CorridorSimulator } from '@/components/intelligence/CorridorSimulator'
 
 export const metadata: Metadata = {
   title: 'Logistics & Trade Routes — Cannabis Corridor Intelligence | Harbourview',
@@ -58,7 +59,6 @@ const SEVERITY_COLOR: Record<string, string> = {
 const DAYS_COLOR = (days: number) =>
   days < 60 ? '#4caf82' : days < 90 ? '#d4a84b' : days < 120 ? '#e07c3a' : '#e05555'
 
-// ── Data types ────────────────────────────────────────────────────────────────────────────
 type Briefing  = { country_iso2: string; legal_status: string; market_maturity: string }
 type Signal    = { id: string; headline: string; country: string | null; date: string | null; top_lane: string | null }
 type ProcTime  = { corridor_key: string; permit_type: string; days_taken: number; verified: boolean }
@@ -73,7 +73,6 @@ type ProcessingGroup = {
   verified_count: number
 }
 
-// ── Data fetching ─────────────────────────────────────────────────────────────────────────
 async function getData() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -101,14 +100,12 @@ async function getData() {
       .limit(20),
   ])
 
-  // Dedupe briefings (keep latest per country)
   const seen = new Set<string>()
   const briefings = new Map<string, Briefing>()
   for (const row of bRes.data ?? []) {
     if (!seen.has(row.country_iso2)) { seen.add(row.country_iso2); briefings.set(row.country_iso2, row as Briefing) }
   }
 
-  // Aggregate processing times by corridor_key → permit_type
   const processingMap = new Map<string, ProcessingGroup[]>()
   const rawPt = (ptRes.data ?? []) as ProcTime[]
   for (const row of rawPt) {
@@ -134,13 +131,10 @@ async function getData() {
   }
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────────────────
 export default async function LogisticsTradeRoutesPage() {
   const { briefings, signals, processingMap, alerts } = await getData()
   const corridorIso2s = new Set(CORRIDORS.flatMap(c => [c.from, c.to]))
   const endpointMarkets = SYNTHESIS_MARKETS.filter(m => corridorIso2s.has(m.iso2))
-
-  // Sort corridors: those with processing data first
   const corridorKeys = Array.from(processingMap.keys()).sort()
 
   return (
@@ -174,7 +168,8 @@ export default async function LogisticsTradeRoutesPage() {
           <p>Orientation-level only. Harbourview does not publish operator identities, commercial terms, or private route analysis here. Processing times are aggregated from verified operator submissions — not guarantees.</p>
         </div>
 
-        {/* ── PERMIT PROCESSING BENCHMARKS ─────────────────────────────── */}
+        <CorridorSimulator />
+
         {processingMap.size > 0 && (
           <section className="lt-section">
             <div className="lt-section-hd">
@@ -223,7 +218,6 @@ export default async function LogisticsTradeRoutesPage() {
           </section>
         )}
 
-        {/* ── CORRIDOR REGULATORY ALERTS ───────────────────────────────── */}
         {alerts.length > 0 && (
           <section className="lt-section">
             <div className="lt-section-hd">
@@ -251,7 +245,6 @@ export default async function LogisticsTradeRoutesPage() {
           </section>
         )}
 
-        {/* ── CORRIDOR OVERVIEW ─────────────────────────────────────────── */}
         <section className="lt-section">
           <div className="lt-section-hd">
             <h2 className="lt-section-title">Corridor Overview</h2>
@@ -291,7 +284,6 @@ export default async function LogisticsTradeRoutesPage() {
           </div>
         </section>
 
-        {/* ── ENDPOINT MARKET STATUS ────────────────────────────────────── */}
         <section className="lt-section">
           <h2 className="lt-section-title">Endpoint Market Status</h2>
           <div className="lt-markets">
@@ -315,7 +307,6 @@ export default async function LogisticsTradeRoutesPage() {
           </div>
         </section>
 
-        {/* ── TRADE SIGNALS ─────────────────────────────────────────────── */}
         {signals.length > 0 && (
           <section className="lt-section">
             <h2 className="lt-section-title">Recent Trade & Logistics Signals</h2>
@@ -335,7 +326,6 @@ export default async function LogisticsTradeRoutesPage() {
           </section>
         )}
 
-        {/* ── DOCUMENTATION FRAMEWORK ──────────────────────────────────── */}
         <section className="lt-section lt-section--doc">
           <h2 className="lt-section-title">Documentation Framework Orientation</h2>
           <div className="lt-docs">
@@ -356,7 +346,6 @@ export default async function LogisticsTradeRoutesPage() {
           </div>
         </section>
 
-        {/* ── CTA ──────────────────────────────────────────────────────── */}
         <section className="lt-cta">
           <p className="lt-cta-eyebrow">Private corridor intelligence</p>
           <h2 className="lt-cta-title">Route analysis for qualified operators</h2>
@@ -403,8 +392,6 @@ const CSS = `
 .lt-section-hd{margin-bottom:16px}
 .lt-section-title{font-family:Georgia,serif;font-size:20px;font-weight:400;color:#f5f0e8;margin:0 0 6px}
 .lt-section-sub{font-size:13px;color:rgba(245,240,232,.4);max-width:640px;line-height:1.6;margin:0}
-
-/* Processing benchmarks */
 .lt-proc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
 .lt-proc-card{padding:16px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02)}
 .lt-proc-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -418,8 +405,6 @@ const CSS = `
 .lt-proc-range{font-size:9px;color:rgba(245,240,232,.25);font-family:'JetBrains Mono',ui-monospace,monospace;margin-top:2px}
 .lt-proc-verified{grid-column:1/-1;display:flex;align-items:center;gap:4px;font-size:9px;color:rgba(76,175,130,.5);font-family:'JetBrains Mono',ui-monospace,monospace}
 .lt-proc-v-dot{color:#4caf82;font-size:10px}
-
-/* Corridor alerts */
 .lt-alerts{display:flex;flex-direction:column;gap:10px}
 .lt-alert{padding:14px 18px;border-radius:8px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)}
 .lt-alert-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
@@ -428,8 +413,6 @@ const CSS = `
 .lt-alert-date{font-size:10px;color:rgba(245,240,232,.25);font-family:'JetBrains Mono',ui-monospace,monospace;margin-left:auto}
 .lt-alert-summary{font-size:13px;color:rgba(245,240,232,.75);line-height:1.55;margin:0 0 4px}
 .lt-alert-source{font-size:10px;color:rgba(212,168,75,.45);font-family:'JetBrains Mono',ui-monospace,monospace;margin:0}
-
-/* Corridor overview */
 .lt-corridors{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
 .lt-corridor{padding:18px 20px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);display:flex;flex-direction:column;gap:10px}
 .lt-corr-label{font-size:13px;font-weight:600;color:rgba(245,240,232,.8)}
@@ -442,8 +425,6 @@ const CSS = `
 .lt-ep-role{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(245,240,232,.2);font-weight:600;white-space:nowrap;margin-left:auto}
 .lt-corr-arr{color:rgba(212,168,75,.3);font-size:18px;flex-shrink:0}
 .lt-corr-notes{font-size:12px;line-height:1.6;color:rgba(245,240,232,.4);margin:0}
-
-/* Markets grid */
 .lt-markets{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px}
 .lt-market{position:relative;display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);text-decoration:none;color:inherit;overflow:hidden;transition:border-color .15s}
 .lt-market:hover{border-color:var(--accent,rgba(212,168,75,.4))}
@@ -455,8 +436,6 @@ const CSS = `
 .lt-mc-legal{color:rgba(245,240,232,.3)}
 .lt-mc-pending{color:rgba(245,240,232,.2);font-style:italic}
 .lt-mc-bar{position:absolute;top:0;left:0;width:3px;height:100%;opacity:.4;border-radius:10px 0 0 10px}
-
-/* Signals */
 .lt-signals{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
 .lt-signal{padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)}
 .lt-sig-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:5px}
@@ -466,15 +445,11 @@ const CSS = `
 .lt-sig-headline{font-size:13px;color:rgba(245,240,232,.65);line-height:1.5;margin:0}
 .lt-more{font-size:12px;color:#d4a84b;text-decoration:none}
 .lt-more:hover{opacity:.7}
-
-/* Documentation */
 .lt-docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 .lt-doc{padding:16px 18px;border-radius:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)}
 .lt-doc-title{font-size:13px;font-weight:600;color:rgba(245,240,232,.85);margin:0 0 6px}
 .lt-doc-body{font-size:12px;line-height:1.65;color:rgba(245,240,232,.5);margin:0 0 6px}
 .lt-doc-ref{font-size:10px;color:rgba(212,168,75,.5);font-family:'JetBrains Mono',ui-monospace,monospace;margin:0}
-
-/* CTA */
 .lt-cta{padding:32px;border-radius:16px;border:1px solid rgba(212,168,75,.12);background:rgba(212,168,75,.03);margin-bottom:48px}
 .lt-cta-eyebrow{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(212,168,75,.6);margin-bottom:8px}
 .lt-cta-title{font-family:Georgia,serif;font-size:22px;font-weight:400;color:#f5f0e8;margin:0 0 10px}
@@ -484,8 +459,6 @@ const CSS = `
 .lt-gold:hover{opacity:.85}
 .lt-ghost{display:inline-flex;align-items:center;padding:10px 20px;border:1px solid rgba(245,240,232,.15);color:rgba(245,240,232,.6);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;border-radius:4px}
 .lt-ghost:hover{border-color:rgba(245,240,232,.35);color:#f5f0e8}
-
-/* Footer */
 .lt-footnote{padding-top:24px;border-top:1px solid rgba(255,255,255,.06)}
 .lt-footnote p{font-size:11px;line-height:1.7;color:rgba(245,240,232,.25);max-width:640px;margin:0 0 14px}
 .lt-f-links{display:flex;flex-wrap:wrap;gap:16px}
