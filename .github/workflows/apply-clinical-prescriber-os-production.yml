@@ -14,6 +14,7 @@ on:
         default: full-prescriber
         options:
           - foundation
+          - patient-core
           - prescriber-os
           - api-exposure
           - full-prescriber
@@ -73,6 +74,13 @@ jobs:
             supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql
             supabase/migrations/20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
           )
+          # Patient / consent / care-team / encounter core required by Prescriber OS
+          # reconciliation (FK to clinical_patients, clinical_has_active_consent, etc.)
+          patient_core=(
+            supabase/migrations/20260727160000_clinical_control_foundation.sql
+            supabase/migrations/20260727161000_clinical_patient_core.sql
+            supabase/migrations/20260727162000_clinical_workflows.sql
+          )
           prescriber=(
             supabase/migrations/20260818210936_clinical_monitoring_protocols.sql
             supabase/migrations/20260818212800_clinical_prescriber_governance_preflight.sql
@@ -103,10 +111,15 @@ jobs:
 
           case "$PHASE" in
             foundation) run_list foundation ;;
-            prescriber-os) run_list prescriber ;;
+            patient-core) run_list patient_core ;;
+            prescriber-os)
+              run_list patient_core
+              run_list prescriber
+              ;;
             api-exposure) run_list exposure ;;
             full-prescriber)
               run_list foundation
+              run_list patient_core
               run_list prescriber
               run_list exposure
               ;;
@@ -122,7 +135,9 @@ jobs:
           PGDATABASE: postgres
         run: |
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          select to_regclass('api.clinical_safety_rules') as safety,
+          select to_regclass('public.clinical_patients') as patients,
+                 to_regclass('public.clinical_encounters') as encounters,
+                 to_regclass('api.clinical_safety_rules') as safety,
                  to_regclass('api.clinical_regimen_protocols') as regimen,
                  to_regclass('api.clinical_monitoring_protocols') as monitoring,
                  to_regclass('api.clinical_guideline_recommendations') as guidelines,
