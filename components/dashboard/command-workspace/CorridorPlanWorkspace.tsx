@@ -132,8 +132,8 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
             {TRADE_CORRIDORS.length.toLocaleString()} directed corridors. Orientation-level only.
           </p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close corridor plan">
-          Close
+        <button type="button" onClick={onClose} aria-label="Back to Command Centre">
+          Back
         </button>
       </header>
 
