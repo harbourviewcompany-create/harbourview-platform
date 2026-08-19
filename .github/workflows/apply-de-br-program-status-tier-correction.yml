@@ -1,0 +1,158 @@
+name: Apply DE/BR program_status tier correction (20260819151000)
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: 'Explicit production migration authorization'
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_PRODUCTION_MIGRATIONS
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apply-de-br-program-status-tier-correction
+  cancel-in-progress: false
+
+env:
+  MIGRATION_VERSION: '20260819151000'
+  MIGRATION_NAME: correct_de_br_program_status_commercial_import
+  MIGRATION_FILE: supabase/migrations/20260819151000_correct_de_br_program_status_commercial_import.sql
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  apply:
+    name: Apply and verify
+    if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    runs-on: ubuntu-latest
+    environment: production-database
+    timeout-minutes: 20
+    steps:
+      - name: Require main branch dispatch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Must be dispatched from main. Current ref: $GITHUB_REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Build masked connection string
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+          print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))
+          PY
+          )
+          DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::$DB_URL"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Refuse if already applied
+        run: |
+          set -o pipefail
+          COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+            "select count(*) from supabase_migrations.schema_migrations
+             where version = '${MIGRATION_VERSION}' or name = '${MIGRATION_NAME}';")
+          echo "Existing ledger rows for this migration: $COUNT"
+          if [ "$COUNT" != "0" ]; then
+            echo "::error::Already recorded in the ledger. Nothing to do."
+            exit 1
+          fi
+
+      - name: Capture before (briefing + tier)
+        run: |
+          mkdir -p artifacts
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select c.iso_alpha2 || '|tier=' || coalesce(c.regulatory_tier,'null')
+              || '|status=' || left(coalesce(b.program_status,''), 120)
+            from public.countries c
+            left join public.cc_jurisdiction_briefings b
+              on b.country_iso2 = c.iso_alpha2 and b.jurisdiction_type = 'country'
+            where c.iso_alpha2 in ('DE','BR')
+            order by c.iso_alpha2;
+          " | tee artifacts/before.txt
+
+      - name: Apply the migration in one transaction
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "$MIGRATION_FILE" \
+            2>&1 | tee artifacts/apply.log
+
+      - name: Record the ledger row under its repository version
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "
+            insert into supabase_migrations.schema_migrations (version, name)
+            values ('${MIGRATION_VERSION}', '${MIGRATION_NAME}')
+            on conflict (version) do nothing;
+          "
+
+      - name: Capture after (briefing + tier)
+        run: |
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select c.iso_alpha2 || '|tier=' || coalesce(c.regulatory_tier,'null')
+              || '|status=' || left(coalesce(b.program_status,''), 120)
+            from public.countries c
+            left join public.cc_jurisdiction_briefings b
+              on b.country_iso2 = c.iso_alpha2 and b.jurisdiction_type = 'country'
+            where c.iso_alpha2 in ('DE','BR')
+            order by c.iso_alpha2;
+          " | tee artifacts/after.txt
+
+      - name: Prove expected tiers
+        run: |
+          set -o pipefail
+          DE_TIER=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select regulatory_tier from public.countries where iso_alpha2 = 'DE';
+          ")
+          BR_TIER=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select regulatory_tier from public.countries where iso_alpha2 = 'BR';
+          ")
+          echo "DE → $DE_TIER"
+          echo "BR → $BR_TIER"
+          if [ "$DE_TIER" != "legal_commercial_access" ]; then
+            echo "::error::DE expected legal_commercial_access (got: $DE_TIER)"
+            exit 1
+          fi
+          if [ "$BR_TIER" != "medical_limited_trade" ]; then
+            echo "::error::BR expected medical_limited_trade (got: $BR_TIER)"
+            exit 1
+          fi
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo '## DE/BR program_status → tier correction'
+            echo
+            echo '### Before'
+            echo '```'
+            cat artifacts/before.txt 2>/dev/null || echo 'not captured'
+            echo '```'
+            echo '### After'
+            echo '```'
+            cat artifacts/after.txt 2>/dev/null || echo 'not captured'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: de-br-program-status-tier-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90
