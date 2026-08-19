@@ -24,6 +24,20 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
+    // eslint-plugin-react's version auto-detection ('detect', set by
+    // eslint-config-next's own presets above) calls a context method that no
+    // longer exists under eslint 10's newer flat-config context API.
+    // eslint-plugin-react@7.37.5 is the latest available release and does
+    // not yet support eslint 10 here — pinning the version explicitly
+    // bypasses the broken detection path. Must come after the presets
+    // above: flat config settings merge in array order, and 'detect' from
+    // the presets would otherwise win. Keep in sync with the react/
+    // react-dom version in package.json.
+    settings: {
+      react: { version: '19.2.8' },
+    },
+  },
+  {
     // Admin routes and internal lib files use `as any` to work around TypeScript's
     // inability to narrow AdminResult<T> generics past noreturn functions (redirect).
     // These are internal-only paths — no public API surface is affected.

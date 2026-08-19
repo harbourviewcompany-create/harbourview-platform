@@ -88,14 +88,14 @@ function matchImpactModule(text: string, modules: EducationCommandModule[]): Edu
   const normalized = text.toLowerCase()
   let winner: EducationCommandModule | null = null
   let best = 0
-  for (const module of modules) {
+  for (const mod of modules) {
     let score = 0
-    for (const token of moduleKeywords(module)) {
-      if (normalized.includes(token)) score += module.overlayTopics.some(topic => topic.toLowerCase().includes(token)) ? 3 : 1
+    for (const token of moduleKeywords(mod)) {
+      if (normalized.includes(token)) score += mod.overlayTopics.some(topic => topic.toLowerCase().includes(token)) ? 3 : 1
     }
-    if (module.jurisdictionMatch) score += 1
+    if (mod.jurisdictionMatch) score += 1
     if (score > best) {
-      winner = module
+      winner = mod
       best = score
     }
   }
@@ -325,14 +325,14 @@ export async function getEducationCommand(userId: string, countryIso2: string, r
   const dedupedImpacts = Array.from(new Map(impacts.map(impact => [`${impact.kind}:${impact.title.toLowerCase()}`, impact])).values()).slice(0, 8)
 
   const practice: EducationPracticeItem[] = []
-  for (const module of modules) {
-    module.sections.forEach((section, index) => {
+  for (const mod of modules) {
+    mod.sections.forEach((section, index) => {
       const kind = practiceKind(section.heading)
       if (!kind) return
       practice.push({
-        id: `${module.id}:${index}`,
-        moduleSlug: module.slug,
-        moduleTitle: module.title,
+        id: `${mod.id}:${index}`,
+        moduleSlug: mod.slug,
+        moduleTitle: mod.title,
         heading: section.heading,
         body: section.body,
         kind,
