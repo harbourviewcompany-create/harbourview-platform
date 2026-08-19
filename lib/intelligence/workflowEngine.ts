@@ -84,6 +84,27 @@ const CORRIDOR_NOTES: Record<string, string[]> = {
   'CO-DE': [
     'INVIMA + EU-GMP recognition and BfArM import timing often dominate the critical path; treat Colombian export readiness and German import readiness as parallel workstreams with a late merge on the import permit.',
   ],
+  'IL-DE': [
+    'IMCA export and BfArM import remain independent clocks; monitor EU-GMP equivalency status for Israeli sites before treating recognition as settled.',
+  ],
+  'ZA-DE': [
+    'SAHPRA export licensing and EU-GMP recognition for South African sites can lag commercial readiness — align batch release and permit applications early.',
+  ],
+  'AU-GB': [
+    'TGA export and MHRA/Home Office controlled-drug import are separate regimes post-Brexit; product Schedule classification drives evidence pack differences.',
+  ],
+  'CA-GB': [
+    'Health Canada export and UK specials / MHRA pathways should be planned as parallel streams; digital-only import process changes do not remove GDP storage expectations.',
+  ],
+  'MX-CA': [
+    'CUSMA does not currently provide a simplified medical-cannabis corridor; treat COFEPRIS export and Health Canada import as high-friction, policy-sensitive workstreams.',
+  ],
+  'TH-AU': [
+    'Thai export restrictions and TGA import evidence (including irradiation expectations) are frequently the binding constraints; re-check export eligibility before each shipment plan.',
+  ],
+  'BR-PT': [
+    'ANVISA export and Infarmed import remain distinct; phytosanitary / product-class equivalence discussions should not be assumed complete for planning purposes.',
+  ],
 }
 
 const BASE_EXPORT_DOCS: DocChecklistItem[] = [
@@ -244,7 +265,6 @@ export async function deriveCorridorPlan(
     corridorRef,
     steps,
     totalSequentialWeeks: exportWeeks + importWeeks,
-    // Heuristic: sides treated as parallelizable unless CORRIDOR_NOTES say otherwise.
     criticalPathWeeksEstimate: Math.max(exportWeeks, importWeeks),
     estimatedCostRanges: [
       { country_iso2: origin, range: originPlaybook.estimated_cost_range },
@@ -268,7 +288,6 @@ export async function deriveCorridorPlan(
   }
 }
 
-/** List corridor pairs that have both a TRADE_CORRIDORS entry and can be planned when playbooks exist. */
 export function listTrackedCorridorPairs(): { from: string; to: string; label: string }[] {
   return TRADE_CORRIDORS.map((c) => ({ from: c.from, to: c.to, label: c.label }))
 }

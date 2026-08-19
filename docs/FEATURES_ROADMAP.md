@@ -9,36 +9,39 @@
 
 See prior audit. Public supplier directory closed in `e0f87ff`.
 
-## Residual closure pass (2026-07-28, same session)
-
-| Residual | Status | Evidence |
-|----------|--------|----------|
-| Watchlist interactive rule builder | ✅ Complete | `components/dashboard/pages/WatchlistPage.tsx` |
-| Public supplier directory | ✅ Complete | `/supplier-directory` |
-| BNPL / financing inquiry | ✅ Complete (inquiry + embed slot) | `/marketplace/financing` + `PartnerEmbedSlot` (`NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL`) |
-| AI personalized briefings | ✅ Complete (spine + email) | cadence API, MyBriefingsPanel, personal-briefings-tick + Resend |
-| PROJECT_REGISTRY reconciliation | ✅ Complete (scoped) | Live RLS/Vercel re-verify remains HOLD |
-
-## Phase 2 — In progress (2026-08-18)
+## Phase 2 — Feature spines (2026-08-18) — SHIPPED
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Corridor Execution Plan v1 | ✅ Shipped | `/api/corridor-plan`, `/intelligence/corridor-plan`, `/dashboard/corridor-plan` |
-| Logistics simulator | ✅ Shipped | `/intelligence/logistics-simulator` |
-| Landed cost calculator | ✅ Shipped | `/api/landed-cost`, `/intelligence/landed-cost` |
-| Briefing cadence + email | ✅ Shipped | briefingCadence, personalBriefingEmail, cron |
-| Genetics public catalog | ✅ Shipped | `/marketplace/genetics` + `[slug]` passport depth |
-| PWA spine | ✅ Shipped | `manifest.webmanifest`, `sw.js`, `RegisterServiceWorker`, layout metadata |
-| Education CPD / certificates | ✅ Shipped (spine) | `/education/cpd`, `cpdCatalog`, certificate interest → marketplace_inquiries |
-| BNPL partner embed | ✅ Shipped (slot) | Env-gated iframe; no fake partner UI |
-| Operator tools hub (CC-adjacent) | ✅ Shipped | `/dashboard/tools` — avoids 650k CommandCentre.tsx edit |
-| Mobile globe | ⬜ Remaining | |
-| Partner-accredited CPD issuance | ⬜ Remaining | Requires commercial education partner |
-| Full PROJECT_REGISTRY live re-verification | ⬜ HOLD | Requires operator production access |
+| Corridor Execution Plan v1 | ✅ | `/api/corridor-plan`, `/intelligence/corridor-plan`, `/dashboard/corridor-plan` |
+| Corridor coverage transparency | ✅ | `/api/corridor-coverage`, `/intelligence/corridor-coverage` |
+| Logistics simulator | ✅ | `/intelligence/logistics-simulator` |
+| Landed cost calculator | ✅ | `/api/landed-cost`, `/intelligence/landed-cost` |
+| Briefing cadence + email | ✅ | briefing preferences API, personal-briefings-tick, Resend |
+| Genetics public catalog | ✅ | `/marketplace/genetics` + passport detail |
+| PWA spine | ✅ | manifest + SW |
+| Education CPD / certificates | ✅ spine | `/education/cpd` |
+| BNPL partner embed | ✅ slot | env-gated iframe |
+| Operator tools hub | ✅ | `/dashboard/tools` |
+| Orientation feedback loop | ✅ | `POST /api/orientation-feedback` |
+| Production smoke checklist | ✅ docs | `docs/control/PHASE2_PRODUCTION_SMOKE.md`, `scripts/smoke-phase2.sh` |
+| Env wiring doc | ✅ | `docs/control/ENV_PHASE2_WIRING.md` |
+| Registry Phase 2 rows | ✅ docs | `docs/control/PHASE2_REGISTRY_ROWS.md` |
+
+## Still operator / partner dependent
+
+| Item | Status | Notes |
+|------|--------|-------|
+| Live production HOLD gates | ⬜ HOLD | Leakage, admin denial, secret mapping — operator |
+| Repo public vs private | ⬜ Decision | Tyler — registry Master Register |
+| Partner-accredited CPD issuance | ⬜ | Commercial education partner |
+| Live BNPL partner URL | ⬜ | Set `NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL` |
+| Mobile globe | ⬜ | Product priority |
+| Published playbooks for all tracked corridors | ⬜ editorial | Use coverage API to prioritise |
 
 ## Next Action
 
-1. Production smoke of all Phase 2 public + auth routes after Vercel READY.
-2. Set `NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL` when partner contract is live.
-3. Mobile globe / map when product prioritises geographic discovery.
-4. Accredited CPD issuance only with named professional-body partnership.
+1. Run `bash scripts/smoke-phase2.sh` (or BASE=custom domain).
+2. Complete `PHASE2_PRODUCTION_SMOKE.md` sections D–G.
+3. Publish missing playbooks for non-plan-ready tracked corridors.
+4. Decide repository visibility and update PROJECT_REGISTRY.

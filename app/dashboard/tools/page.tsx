@@ -18,6 +18,11 @@ const TOOLS = [
     blurb: 'Merged export/import playbooks, documentation checklist, trust metadata.',
   },
   {
+    href: '/intelligence/corridor-coverage',
+    title: 'Corridor coverage',
+    blurb: 'Which tracked pairs have published playbooks on both ends (plan-ready).',
+  },
+  {
     href: '/intelligence/landed-cost?origin=CA&destination=DE&product=flower-premium&volume=10',
     title: 'Landed cost calculator',
     blurb: 'Orientation USD cost stack by origin, destination, product, and volume.',
@@ -90,7 +95,8 @@ export default async function DashboardToolsPage() {
 
       <p className="mt-10 text-xs text-zinc-600">
         Install Harbourview as an app from your browser when the PWA manifest is available (Add to
-        Home Screen / Install). Dashboard data always loads from the network.
+        Home Screen / Install). Dashboard data always loads from the network. Ops: see{' '}
+        <code className="text-zinc-500">docs/control/PHASE2_PRODUCTION_SMOKE.md</code>.
       </p>
     </main>
   )
