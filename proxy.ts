@@ -76,12 +76,18 @@ const PROTECTED_PREFIXES = [
 ]
 
 /**
- * Public marketing shells under otherwise-protected prefixes.
+ * Public marketing / orientation shells under otherwise-protected prefixes.
  * These pages must not require auth or subscription tier — they deep-link
  * into authenticated Command Centre / My Briefings for interactive work.
  */
 const PUBLIC_AUTH_EXCEPTIONS = [
   '/intelligence/watchlists',
+  '/intelligence/corridor-plan',
+  '/intelligence/corridor-coverage',
+  '/intelligence/landed-cost',
+  '/intelligence/logistics-simulator',
+  '/intelligence/logistics-trade-routes',
+  '/education/cpd',
 ]
 
 function isPublicAuthException(pathname: string): boolean {
