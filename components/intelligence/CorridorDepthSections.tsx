@@ -7,8 +7,57 @@ const severityColor: Record<string, string> = {
 }
 
 export function CorridorDepthSections({ depth }: { depth: CorridorDepthBundle }) {
+  const gmp = depth.gmpRecognition
+
   return (
     <div className="space-y-8">
+      <section className="rounded-xl border border-zinc-800 p-6">
+        <h3 className="text-lg font-medium">EU / destination GMP recognition</h3>
+        <p className="mt-1 text-xs uppercase tracking-wide text-amber-500/80">{gmp.label}</p>
+        <p className="mt-3 text-sm leading-relaxed text-zinc-400">{gmp.summary}</p>
+
+        {gmp.instruments.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs uppercase text-zinc-500">Instruments</p>
+            <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-zinc-300">
+              {gmp.instruments.map((i) => (
+                <li key={i.slice(0, 48)}>{i}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-4">
+          <p className="text-xs uppercase text-zinc-500">Typical quality paths</p>
+          <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-zinc-300">
+            {gmp.typicalPaths.map((p) => (
+              <li key={p.slice(0, 48)}>{p}</li>
+            ))}
+          </ol>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-xs uppercase text-zinc-500">Does not automatically cover</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-zinc-400">
+            {gmp.doesNotCover.map((d) => (
+              <li key={d.slice(0, 40)}>{d}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-xs uppercase text-zinc-500">Verify before relying</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-zinc-300">
+            {gmp.verifyBeforeRelying.map((v) => (
+              <li key={v.slice(0, 40)}>{v}</li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="mt-4 text-xs text-zinc-500">{gmp.eudraGmdpHint}</p>
+        <p className="mt-2 text-xs leading-relaxed text-zinc-600">{gmp.disclaimer}</p>
+      </section>
+
       <section className="rounded-xl border border-zinc-800 p-6">
         <h3 className="text-lg font-medium">Critical path (planning heuristic)</h3>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">{depth.criticalPathNarrative}</p>
