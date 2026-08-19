@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { CorridorDepthSections } from '@/components/intelligence/CorridorDepthSections'
 import type { CorridorDepthBundle } from '@/lib/intelligence/corridorDepth'
+import { TRADE_CORRIDORS, PRODUCT_OPTIONS } from '@/lib/intelligence/tradeCorridors'
 
 type PlanPayload = {
   origin: { iso2: string; name: string; difficulty: string }
@@ -36,23 +37,6 @@ type PlanPayload = {
   depth: CorridorDepthBundle
 }
 
-const PRODUCT_OPTIONS = [
-  { value: 'any', label: 'Any product' },
-  { value: 'flower', label: 'Flower' },
-  { value: 'extract', label: 'Extract' },
-  { value: 'finished_product', label: 'Finished product' },
-  { value: 'starting_material', label: 'Starting material' },
-] as const
-
-const QUICK = [
-  { from: 'CA', to: 'DE', label: 'Canada → Germany' },
-  { from: 'CA', to: 'AU', label: 'Canada → Australia' },
-  { from: 'IL', to: 'DE', label: 'Israel → Germany' },
-  { from: 'PT', to: 'DE', label: 'Portugal → Germany' },
-  { from: 'CO', to: 'DE', label: 'Colombia → Germany' },
-  { from: 'NL', to: 'DE', label: 'Netherlands → Germany' },
-] as const
-
 export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -65,6 +49,17 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = useState<PlanPayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [chipFilter, setChipFilter] = useState<'all' | 'to-de' | 'from-ca' | 'intra-eu'>('all')
+
+  const chips = useMemo(() => {
+    let list = TRADE_CORRIDORS
+    if (chipFilter === 'to-de') list = list.filter((c) => c.to === 'DE')
+    if (chipFilter === 'from-ca') list = list.filter((c) => c.from === 'CA')
+    if (chipFilter === 'intra-eu') {
+      list = list.filter((c) => c.compliance.includes('intra_eu'))
+    }
+    return list
+  }, [chipFilter])
 
   const setParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -94,7 +89,7 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
       .then(async (res) => {
         const body = await res.json()
         if (!res.ok) throw new Error(body.error ?? 'Plan unavailable')
-        if (!body.plan) throw new Error('No published playbooks for this pair')
+        if (!body.plan) throw new Error('No published playbooks for this pair — try another corridor or request coverage.')
         return body.plan as PlanPayload
       })
       .then((p) => {
@@ -126,8 +121,8 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
           <span>Command Centre / Logistics</span>
           <h3>Corridor execution plan</h3>
           <p>
-            In-shell operator workspace — GMP recognition, workstreams, failure modes, and playbook
-            merge. Orientation-level only.
+            {TRADE_CORRIDORS.length} tracked corridors — GMP recognition, workstreams, failure modes.
+            Orientation-level only.
           </p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close corridor plan">
@@ -149,7 +144,7 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
       >
         <label>
           Origin
-          <input name="origin" defaultValue={origin} maxLength={2} className="cc-corridor-input" />
+          <input name="origin" defaultValue={origin} maxLength={2} className="cc-corridor-input" key={`o-${origin}`} />
         </label>
         <label>
           Destination
@@ -158,11 +153,12 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
             defaultValue={destination}
             maxLength={2}
             className="cc-corridor-input"
+            key={`d-${destination}`}
           />
         </label>
         <label>
           Product
-          <select name="product" defaultValue={product} className="cc-corridor-input">
+          <select name="product" defaultValue={product} className="cc-corridor-input" key={`p-${product}`}>
             {PRODUCT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -175,17 +171,41 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
         </button>
       </form>
 
-      <div className="cc-corridor-chips">
-        {QUICK.map((q) => (
+      <div className="cc-corridor-chips" style={{ gap: 8 }}>
+        {(['all', 'to-de', 'from-ca', 'intra-eu'] as const).map((f) => (
           <button
-            key={`${q.from}-${q.to}`}
+            key={f}
             type="button"
             className="cc-corridor-chip"
-            onClick={() => setParams({ origin: q.from, destination: q.to, product })}
+            style={chipFilter === f ? { borderColor: 'rgba(198,165,90,0.8)', color: '#d4b56a' } : undefined}
+            onClick={() => setChipFilter(f)}
           >
-            {q.label}
+            {f === 'all'
+              ? `All (${TRADE_CORRIDORS.length})`
+              : f === 'to-de'
+                ? 'Into Germany'
+                : f === 'from-ca'
+                  ? 'From Canada'
+                  : 'Intra-EU'}
           </button>
         ))}
+      </div>
+
+      <div className="cc-corridor-chips">
+        {chips.map((q) => {
+          const active = q.from === origin && q.to === destination
+          return (
+            <button
+              key={q.id}
+              type="button"
+              className="cc-corridor-chip"
+              style={active ? { borderColor: 'rgba(198,165,90,0.9)', color: '#d4b56a' } : undefined}
+              onClick={() => setParams({ origin: q.from, destination: q.to, product })}
+            >
+              {q.label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="cc-corridor-body">
