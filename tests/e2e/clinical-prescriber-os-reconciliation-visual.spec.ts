@@ -165,7 +165,7 @@ test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
 
         await page.getByRole('button', { name: 'Evidence', exact: true }).click()
         await expect(page.getByText('Awaiting explicit query', { exact: true })).toBeVisible()
-        await expect(page.getByText(/Top graded/i)).toHaveCount(0)
+        await expect(page.getByRole('link', { name: /Inspect primary source/i })).toHaveCount(0)
         const question = page.getByLabel('Clinical evidence question', { exact: true })
         await question.fill('Dravet syndrome')
         await page.getByRole('button', { name: 'Retrieve evidence', exact: true }).click()
