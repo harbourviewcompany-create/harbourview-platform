@@ -22,6 +22,9 @@ export function TradingListingCard({ listing }: { listing: PublicListing }) {
   const location = spec.stockLocation ?? listing.location_country ?? listing.location_region ?? null
   const published = formatTradeDate(spec.updatedAt ?? spec.publishedAt ?? listing.created_at)
   const status = spec.activityStatus ?? spec.availabilityStatus
+  const detailHref = listing.slug
+    ? `/marketplace/trading/${encodeURIComponent(listing.slug)}`
+    : `/marketplace/quote?listing=${encodeURIComponent(listing.title)}`
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gold/15 bg-[linear-gradient(180deg,rgba(11,26,47,0.98),rgba(5,14,26,0.98))] shadow-[0_22px_60px_rgba(0,0,0,0.28)] transition hover:border-gold/35">
@@ -45,7 +48,7 @@ export function TradingListingCard({ listing }: { listing: PublicListing }) {
         </div>
 
         <h2 className="text-lg font-semibold leading-snug text-[#f5f1e8]">{listing.title}</h2>
-        {spec.reference ? <p className="mt-1 text-xs font-mono text-white/35">{spec.reference}</p> : null}
+        {spec.reference ? <p className="mt-1 font-mono text-xs text-white/35">{spec.reference}</p> : null}
 
         <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/56">{listing.description}</p>
 
@@ -94,8 +97,8 @@ export function TradingListingCard({ listing }: { listing: PublicListing }) {
             </div>
             {published ? <p className="text-right text-[10px] text-white/30">Updated<br />{published}</p> : null}
           </div>
-          <Link href={`/marketplace/trading/${encodeURIComponent(listing.slug ?? listing.id)}`} className="btn-marketplace flex w-full justify-center text-sm">
-            View trade dossier
+          <Link href={detailHref} className="btn-marketplace flex w-full justify-center text-sm">
+            {listing.slug ? 'View trade dossier' : 'Request Harbourview review'}
           </Link>
         </div>
       </div>
