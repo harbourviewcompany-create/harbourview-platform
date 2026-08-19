@@ -14,7 +14,7 @@ import { landedCostHref } from '@/lib/intelligence/landedCostBridge'
 export const metadata: Metadata = {
   title: 'Logistics Corridor Simulator | Harbourview',
   description:
-    'Filter regulated cannabis trade corridors by product class, compliance path, and risk. Orientation-level only — open merged execution plans without operator identities or commercial terms.',
+    'Filter regulated cannabis trade corridors by product class, compliance path, and risk. Open execution plans, landed-cost sensitivity, or confidential intake.',
 }
 
 export const dynamic = 'force-dynamic'
@@ -52,24 +52,11 @@ export default async function LogisticsSimulatorPage({
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 text-zinc-100">
-      <nav className="mb-8 text-xs text-zinc-500">
-        <Link href="/intelligence" className="text-amber-500 hover:underline">
-          Intelligence
-        </Link>
-        <span className="mx-2">›</span>
-        <Link href="/intelligence/logistics-trade-routes" className="text-zinc-400 hover:underline">
-          Logistics
-        </Link>
-        <span className="mx-2">›</span>
-        <span>Simulator</span>
-      </nav>
-
       <p className="text-xs uppercase tracking-widest text-amber-500/90">Logistics · Simulator</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Corridor simulator</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
-        Filter tracked corridors by product, compliance path, endpoints, and risk. Open an execution
-        plan or landed-cost estimate. Orientation-level only — no operator identities or commercial
-        terms.
+        Filter tracked corridors, open decision-grade execution plans or landed-cost sensitivity, then
+        continue via confidential intake when you need counterparties or private diligence.
       </p>
 
       <form
@@ -165,10 +152,7 @@ export default async function LogisticsSimulatorPage({
 
       <ul className="mt-4 space-y-3">
         {matched.map((c) => (
-          <li
-            key={c.id}
-            className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4"
-          >
+          <li key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-base font-medium text-zinc-100">{c.label}</h2>
               <span className="text-xs text-zinc-500">
@@ -184,7 +168,7 @@ export default async function LogisticsSimulatorPage({
                 href={corridorPlanHref(c.from, c.to, product === 'any' ? undefined : product)}
                 className="text-amber-400 hover:underline"
               >
-                Execution plan →
+                Execution plan + failure modes →
               </Link>
               <Link
                 href={landedCostHref({
@@ -194,36 +178,39 @@ export default async function LogisticsSimulatorPage({
                 })}
                 className="text-amber-400/80 hover:underline"
               >
-                Landed cost →
+                Landed cost + sensitivity →
               </Link>
               <Link
-                href={`/dashboard/corridor-plan?origin=${c.from}&destination=${c.to}`}
-                className="text-zinc-400 hover:underline"
+                href={`/intake?topic=corridor&from=${c.from}&to=${c.to}`}
+                className="text-zinc-300 hover:underline"
               >
-                Open in dashboard →
+                Mediated next step (intake) →
               </Link>
             </div>
           </li>
         ))}
       </ul>
 
+      {matched.length > 0 && (
+        <section className="mt-10 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6">
+          <h3 className="text-base font-medium">Recommended sequence</h3>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-zinc-400">
+            <li>Open execution plan — workstreams, failure modes, open questions.</li>
+            <li>Run landed-cost sensitivity at your trial volume.</li>
+            <li>
+              If the corridor is commercially real for you, start{' '}
+              <Link href="/intake" className="text-amber-400 underline">
+                confidential intake
+              </Link>{' '}
+              for counterparty and private diligence (not published on this surface).
+            </li>
+          </ol>
+        </section>
+      )}
+
       {matched.length === 0 && (
         <p className="mt-8 text-sm text-zinc-500">No corridors match these filters. Broaden product or risk.</p>
       )}
-
-      <p className="mt-12 text-center text-xs text-zinc-600">
-        <Link href="/intelligence/logistics-trade-routes" className="underline">
-          Full logistics & trade routes
-        </Link>
-        {' · '}
-        <Link href="/intelligence/corridor-plan" className="underline">
-          Corridor execution plans
-        </Link>
-        {' · '}
-        <Link href="/intelligence/landed-cost" className="underline">
-          Landed cost calculator
-        </Link>
-      </p>
     </main>
   )
 }
