@@ -10,12 +10,16 @@ import {
 } from '@/components/dashboard/data/landedCostData'
 import { corridorPlanHref } from '@/lib/intelligence/corridorSimulator'
 import { LANDED_PRODUCT_OPTIONS } from '@/lib/intelligence/landedCostBridge'
+import {
+  buildLandedAssumptions,
+  buildSensitivityScenarios,
+} from '@/lib/intelligence/landedCostSensitivity'
 import { OrientationFeedback } from '@/components/intelligence/OrientationFeedback'
 
 export const metadata: Metadata = {
   title: 'Landed Cost Calculator | Harbourview',
   description:
-    'Orientation-level cannabis trade landed-cost ranges by origin, destination, product, and shipment volume. Not a commercial quote.',
+    'Orientation landed-cost ranges with sensitivity (freight, volume, production) and explicit model assumptions. Not a commercial quote.',
 }
 
 export const dynamic = 'force-dynamic'
@@ -54,6 +58,12 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
   const freight = FREIGHT_CORRIDORS.find(
     (c) => c.originIso2 === origin && c.destIso2 === destination,
   )
+  const assumptions = result.available
+    ? buildLandedAssumptions(origin, destination, product, result)
+    : null
+  const scenarios = result.available
+    ? buildSensitivityScenarios(origin, destination, product, volumeKg, result)
+    : []
 
   const lineItems: { label: string; range: { low: number; high: number } }[] = [
     { label: 'Production (ex-works ref.)', range: result.productionCostPerKg },
@@ -70,20 +80,11 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 text-zinc-100">
-      <nav className="mb-8 text-xs text-zinc-500">
-        <Link href="/intelligence" className="text-amber-500 hover:underline">
-          Intelligence
-        </Link>
-        <span className="mx-2">›</span>
-        <span>Landed cost</span>
-      </nav>
-
       <p className="text-xs uppercase tracking-widest text-amber-500/90">Trade economics</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Landed cost calculator</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
-        Orientation-level USD ranges for regulated cannabis cross-border shipments. Built from
-        published reference permit fees, freight bands, and wholesale targets — not a quote and not
-        operator-specific pricing.
+        Orientation USD ranges plus sensitivity scenarios and explicit model assumptions — not a
+        quote.
       </p>
 
       <form
@@ -156,9 +157,7 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
 
       {!result.available ? (
         <p className="mt-8 text-sm text-zinc-500">
-          This product is not in the reference export set for {origin}, or the pair is outside the
-          published origin/destination tables. Try flower-standard from CO/ZA or premium flower from
-          CA/IL/PT.
+          Product not in the reference export set for this origin, or pair outside published tables.
         </p>
       ) : (
         <div className="mt-8 space-y-6">
@@ -167,7 +166,7 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
               {originMeta?.label ?? origin} → {destMeta?.label ?? destination}
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              {LANDED_PRODUCT_LABELS[product]} · {volumeKg} kg shipment
+              {LANDED_PRODUCT_LABELS[product]} · {volumeKg} kg
             </p>
             <p className="mt-4 text-2xl font-semibold text-amber-400/90">
               {fmtRange(result.totalLandedPerKg)}
@@ -175,12 +174,10 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
             </p>
             {result.wholesaleTarget && (
               <p className="mt-2 text-sm text-zinc-400">
-                Destination wholesale target: {fmtRange(result.wholesaleTarget)}
+                Wholesale target: {fmtRange(result.wholesaleTarget)}
                 {result.impliedMarginPct && (
                   <>
-                    {' · '}
-                    Implied margin band:{' '}
-                    {result.impliedMarginPct.low.toFixed(0)}% –{' '}
+                    {' · '}Margin band: {result.impliedMarginPct.low.toFixed(0)}% –{' '}
                     {result.impliedMarginPct.high.toFixed(0)}%
                   </>
                 )}
@@ -188,17 +185,40 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
             )}
             {result.breakEvenVolumeKg != null && (
               <p className="mt-1 text-xs text-zinc-500">
-                Rough break-even volume on fixed costs: ~{result.breakEvenVolumeKg} kg / shipment
-              </p>
-            )}
-            {!result.corridorFound && (
-              <p className="mt-2 text-xs text-amber-600/80">
-                No specific freight corridor row — using default air freight band.
+                Rough break-even volume: ~{result.breakEvenVolumeKg} kg / shipment
               </p>
             )}
             {freight?.notes && (
-              <p className="mt-2 text-xs text-zinc-500">{freight.notes} · ~{freight.transitDays} days transit</p>
+              <p className="mt-2 text-xs text-zinc-500">
+                {freight.notes} · ~{freight.transitDays} days transit
+              </p>
             )}
+          </section>
+
+          <section className="rounded-xl border border-zinc-800 p-5">
+            <h3 className="font-medium">Sensitivity</h3>
+            <p className="mt-1 text-xs text-zinc-500">
+              Same model under stress — still orientation, not a forecast.
+            </p>
+            <ul className="mt-3 divide-y divide-zinc-800/80 text-sm">
+              {scenarios.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                  <div>
+                    <span className="text-zinc-200">{s.label}</span>
+                    <span className="ml-2 text-xs text-zinc-500">{s.description}</span>
+                  </div>
+                  <div className="tabular-nums text-zinc-300">
+                    {fmtRange(s.totalLandedPerKg)}
+                    {s.deltaVsBaseMidPct != null && s.id !== 'base' && (
+                      <span className="ml-2 text-xs text-zinc-500">
+                        {s.deltaVsBaseMidPct > 0 ? '+' : ''}
+                        {s.deltaVsBaseMidPct.toFixed(1)}% mid
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className="rounded-xl border border-zinc-800 p-5">
@@ -213,44 +233,30 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
             </ul>
           </section>
 
-          {(originMeta || destMeta) && (
-            <section className="grid gap-4 sm:grid-cols-2">
-              {originMeta && (
-                <div className="rounded-xl border border-zinc-800 p-4 text-sm">
-                  <h4 className="text-xs uppercase tracking-wider text-zinc-500">Origin</h4>
-                  <p className="mt-1 font-medium">{originMeta.label}</p>
-                  <p className="mt-1 text-zinc-400">{originMeta.regulatoryBody}</p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    Export licence: {originMeta.exportLicenceBody}
-                  </p>
-                </div>
-              )}
-              {destMeta && (
-                <div className="rounded-xl border border-zinc-800 p-4 text-sm">
-                  <h4 className="text-xs uppercase tracking-wider text-zinc-500">Destination</h4>
-                  <p className="mt-1 font-medium">{destMeta.label}</p>
-                  <p className="mt-1 text-zinc-400">{destMeta.regulatoryBody}</p>
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-500">{destMeta.notes}</p>
-                </div>
-              )}
+          {assumptions && (
+            <section className="rounded-xl border border-zinc-800 p-5">
+              <h3 className="font-medium">Model assumptions</h3>
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-400">
+                <li>{assumptions.dutyBasis}</li>
+                <li>
+                  Freight source: {assumptions.freightSource}
+                  {assumptions.transitDays != null
+                    ? ` · ~${assumptions.transitDays} days reference transit`
+                    : ''}
+                </li>
+                {assumptions.fixedCostsCalledOut.map((f) => (
+                  <li key={f}>Fixed cost in model: {f}</li>
+                ))}
+                {assumptions.modelLimits.map((m) => (
+                  <li key={m.slice(0, 40)}>{m}</li>
+                ))}
+              </ul>
             </section>
           )}
 
           <div className="flex flex-wrap gap-4 text-sm">
-            <Link
-              href={corridorPlanHref(origin, destination)}
-              className="text-amber-400 hover:underline"
-            >
+            <Link href={corridorPlanHref(origin, destination)} className="text-amber-400 hover:underline">
               Corridor execution plan →
-            </Link>
-            <Link
-              href={`/intelligence/logistics-simulator?from=${origin}&to=${destination}`}
-              className="text-zinc-400 hover:underline"
-            >
-              Logistics simulator →
-            </Link>
-            <Link href="/intelligence/corridor-coverage" className="text-zinc-400 hover:underline">
-              Corridor coverage →
             </Link>
             <Link href="/intake" className="text-zinc-400 hover:underline">
               Confidential intake →
@@ -263,12 +269,6 @@ export default async function LandedCostPage({ searchParams }: { searchParams: S
           />
         </div>
       )}
-
-      <p className="mt-12 text-xs leading-relaxed text-zinc-600">
-        Orientation-level reference only. Harbourview does not publish operator identities or binding
-        commercial terms on this surface. Duty codes, permit fees, and freight change; confirm with
-        licensed logistics partners and competent authorities before acting.
-      </p>
     </main>
   )
 }
