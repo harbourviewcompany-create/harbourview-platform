@@ -2,7 +2,17 @@ import type { ClinicalStructuredObject } from '@/lib/clinical/prescriber'
 import type { FormularyProductDTO } from '@/lib/clinical/formulary'
 import type { ClinicalInteractionDTO, ClinicalInteractionState } from '@/lib/clinical/interactions'
 
-export type ClinicalWorkspaceState = 'loaded' | 'empty' | 'review-required' | 'permission' | 'error'
+/**
+ * `migration-drift` = Prescriber OS tables/views are not present in the live schema
+ * (repo migrations not applied). Distinct from permission and generic upstream error.
+ */
+export type ClinicalWorkspaceState =
+  | 'loaded'
+  | 'empty'
+  | 'review-required'
+  | 'permission'
+  | 'migration-drift'
+  | 'error'
 
 export type ClinicalWorkspaceSafetyDTO = {
   id: string
