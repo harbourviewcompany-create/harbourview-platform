@@ -1,0 +1,189 @@
+name: Apply all-country briefing-prose tier classify (20260819152000)
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: 'Explicit production migration authorization'
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_PRODUCTION_MIGRATIONS
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apply-tier-classify-all-countries-briefing-prose
+  cancel-in-progress: false
+
+env:
+  MIGRATION_VERSION: '20260819152000'
+  MIGRATION_NAME: tier_classify_all_countries_from_briefing_prose
+  MIGRATION_FILE: supabase/migrations/20260819152000_tier_classify_all_countries_from_briefing_prose.sql
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  apply:
+    name: Apply and verify
+    if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    runs-on: ubuntu-latest
+    environment: production-database
+    timeout-minutes: 25
+    steps:
+      - name: Require main branch dispatch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Must be dispatched from main. Current ref: $GITHUB_REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Build masked connection string
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+          print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))
+          PY
+          )
+          DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::$DB_URL"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Refuse if already applied
+        run: |
+          set -o pipefail
+          COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+            "select count(*) from supabase_migrations.schema_migrations
+             where version = '${MIGRATION_VERSION}' or name = '${MIGRATION_NAME}';")
+          echo "Existing ledger rows for this migration: $COUNT"
+          if [ "$COUNT" != "0" ]; then
+            echo "::error::Already recorded in the ledger. Nothing to do."
+            exit 1
+          fi
+
+      - name: Capture before tier distribution
+        run: |
+          mkdir -p artifacts
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select coalesce(regulatory_tier, 'null') || '=' || count(*)::text
+            from public.countries
+            group by 1 order by 1;
+          " | tee artifacts/before-dist.txt
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select iso_alpha2 || '=' || coalesce(regulatory_tier, 'null')
+            from public.countries
+            where iso_alpha2 in ('DE','BR','CA','PT','GR','AU','CO','US','GB','FR')
+            order by iso_alpha2;
+          " | tee artifacts/before-sample.txt
+
+      - name: Apply the migration in one transaction
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "$MIGRATION_FILE" \
+            2>&1 | tee artifacts/apply.log
+
+      - name: Record the ledger row under its repository version
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "
+            insert into supabase_migrations.schema_migrations (version, name)
+            values ('${MIGRATION_VERSION}', '${MIGRATION_NAME}')
+            on conflict (version) do nothing;
+          "
+
+      - name: Capture after tier distribution
+        run: |
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select coalesce(regulatory_tier, 'null') || '=' || count(*)::text
+            from public.countries
+            group by 1 order by 1;
+          " | tee artifacts/after-dist.txt
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select iso_alpha2 || '=' || coalesce(regulatory_tier, 'null')
+            from public.countries
+            where iso_alpha2 in ('DE','BR','CA','PT','GR','AU','CO','US','GB','FR')
+            order by iso_alpha2;
+          " | tee artifacts/after-sample.txt
+
+      - name: Prove function + sample tiers
+        run: |
+          set -o pipefail
+          EXISTS=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select count(*) from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'api' and p.proname = 'briefing_classifier_text';
+          ")
+          if [ "$EXISTS" = "0" ]; then
+            echo "::error::api.briefing_classifier_text missing"
+            exit 1
+          fi
+
+          DE_TIER=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select regulatory_tier from public.countries where iso_alpha2 = 'DE';
+          ")
+          echo "DE → $DE_TIER"
+          if [ "$DE_TIER" != "legal_commercial_access" ]; then
+            echo "::error::DE expected legal_commercial_access (got: $DE_TIER)"
+            exit 1
+          fi
+
+          # Combined-text probe: short status adult-use only, prose has import market
+          RESULT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select api.derive_regulatory_tier(
+              api.briefing_classifier_text(
+                'Adult-use social clubs',
+                'Europe largest medical import market with licensed importers operating at scale.',
+                null,
+                null
+              )
+            );
+          ")
+          echo "Prose-import probe → $RESULT"
+          if [ "$RESULT" != "legal_commercial_access" ]; then
+            echo "::error::Prose-import probe failed (got: $RESULT)"
+            exit 1
+          fi
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo '## All-country briefing-prose tier classify'
+            echo
+            echo '### Before distribution'
+            echo '```'
+            cat artifacts/before-dist.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### After distribution'
+            echo '```'
+            cat artifacts/after-dist.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### Sample before'
+            echo '```'
+            cat artifacts/before-sample.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### Sample after'
+            echo '```'
+            cat artifacts/after-sample.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: all-country-briefing-prose-tier-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90
