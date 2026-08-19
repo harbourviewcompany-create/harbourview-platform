@@ -1,6 +1,6 @@
 'use server'
 
-import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { postMarketplaceInquiry } from '@/lib/marketplace/inquirySubmission'
 import { getCpdModule } from '@/lib/education/cpdCatalog'
 
 export type CpdInterestState =
@@ -23,7 +23,7 @@ export async function submitCpdCertificateInterest(
   }
 
   const contact_name = str(form, 'contact_name', 200)
-  const contact_email = str(form, 'contact_email', 200)
+  const contact_email = str(form, 'contact_email', 200).toLowerCase()
   const contact_company = str(form, 'contact_company', 200)
   const module_slug = str(form, 'module_slug', 120)
   const professional_body = str(form, 'professional_body', 200)
@@ -39,38 +39,35 @@ export async function submitCpdCertificateInterest(
     return { status: 'error', message: 'Selected module is not open for certificate interest.' }
   }
 
-  try {
-    const supabase = await createSupabaseServiceClient()
-    const { error } = await supabase.from('marketplace_inquiries').insert({
-      inquiry_type: 'cpd_certificate_interest',
-      contact_name,
-      contact_email,
-      contact_company: contact_company || null,
-      message: [
-        `Module: ${mod.title} (${mod.slug})`,
-        `Nominal hours: ${mod.nominalHours}`,
-        professional_body ? `Professional body / context: ${professional_body}` : null,
-        message ? `Notes: ${message}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      metadata: {
-        module_slug: mod.slug,
-        module_id: mod.id,
-        nominal_hours: mod.nominalHours,
-        professional_body: professional_body || null,
-      },
-    })
+  const structuredMessage = [
+    '--- CPD certificate interest ---',
+    `Module: ${mod.title} (${mod.slug})`,
+    `Nominal hours: ${mod.nominalHours}`,
+    professional_body ? `Professional body / context: ${professional_body}` : null,
+    message ? `Notes: ${message}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
-    if (error) {
-      console.error('[cpd_certificate_interest]', error.message)
+  const result = await postMarketplaceInquiry({
+    listing_id: null,
+    buyer_request_id: null,
+    contact_name,
+    contact_email,
+    contact_company: contact_company || 'Not provided',
+    contact_phone: null,
+    inquiry_type: 'cpd_certificate_interest',
+    message: structuredMessage,
+    status: 'received',
+  })
+
+  if (!result.ok) {
+    if (result.kind === 'config_missing') {
       return {
         status: 'error',
-        message: 'Could not save inquiry. Try again or use confidential intake.',
+        message: 'Inquiry capture is not configured yet. Please use confidential intake.',
       }
     }
-  } catch (e) {
-    console.error('[cpd_certificate_interest]', e)
     return {
       status: 'error',
       message: 'Could not save inquiry. Try again or use confidential intake.',
