@@ -1,2 +1,6 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard?page=genetics') }
+
+/** Public genetics marketing entry — catalog lives on the marketplace surface. */
+export default function GeneticsHomeRedirect() {
+  redirect('/marketplace/genetics')
+}
