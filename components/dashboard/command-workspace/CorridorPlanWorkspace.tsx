@@ -1,0 +1,284 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { CorridorDepthSections } from '@/components/intelligence/CorridorDepthSections'
+import type { CorridorDepthBundle } from '@/lib/intelligence/corridorDepth'
+
+type PlanPayload = {
+  origin: { iso2: string; name: string; difficulty: string }
+  destination: { iso2: string; name: string; difficulty: string }
+  productClass: string
+  totalSequentialWeeks: number
+  criticalPathWeeksEstimate: number
+  notes: string[]
+  documentationChecklist: Array<{
+    id: string
+    side: string
+    label: string
+    required: boolean
+    notes?: string
+  }>
+  steps: Array<{
+    side: string
+    country_iso2: string
+    step: number
+    title: string
+    description: string
+    estimated_weeks: number
+  }>
+  trust: {
+    confidenceLabel: string
+    confidence: number
+    asOf: string
+    disclaimer: string
+  }
+  depth: CorridorDepthBundle
+}
+
+const PRODUCT_OPTIONS = [
+  { value: 'any', label: 'Any product' },
+  { value: 'flower', label: 'Flower' },
+  { value: 'extract', label: 'Extract' },
+  { value: 'finished_product', label: 'Finished product' },
+  { value: 'starting_material', label: 'Starting material' },
+] as const
+
+const QUICK = [
+  { from: 'CA', to: 'DE', label: 'Canada → Germany' },
+  { from: 'CA', to: 'AU', label: 'Canada → Australia' },
+  { from: 'IL', to: 'DE', label: 'Israel → Germany' },
+  { from: 'PT', to: 'DE', label: 'Portugal → Germany' },
+  { from: 'CO', to: 'DE', label: 'Colombia → Germany' },
+  { from: 'NL', to: 'DE', label: 'Netherlands → Germany' },
+] as const
+
+export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const origin = (searchParams.get('origin') ?? 'CA').toUpperCase()
+  const destination = (searchParams.get('destination') ?? 'DE').toUpperCase()
+  const product = searchParams.get('product') ?? 'any'
+
+  const [plan, setPlan] = useState<PlanPayload | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const setParams = useCallback(
+    (patch: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('page', 'logistics')
+      params.set('section', 'supply')
+      params.set('tool', 'corridor-plan')
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null || v === '') params.delete(k)
+        else params.set(k, v)
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    const q = new URLSearchParams({
+      origin,
+      destination,
+      product,
+    })
+    fetch(`/api/corridor-plan?${q.toString()}`)
+      .then(async (res) => {
+        const body = await res.json()
+        if (!res.ok) throw new Error(body.error ?? 'Plan unavailable')
+        if (!body.plan) throw new Error('No published playbooks for this pair')
+        return body.plan as PlanPayload
+      })
+      .then((p) => {
+        if (!cancelled) setPlan(p)
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setPlan(null)
+          setError(e instanceof Error ? e.message : 'Unable to load plan')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [origin, destination, product])
+
+  return (
+    <section
+      className="hvm2-workspace hvm2-corridor-workspace"
+      data-mobile-command-tool="corridor-plan"
+      aria-label="Corridor execution plan"
+      tabIndex={-1}
+    >
+      <header className="hvm2-workspace-header">
+        <div>
+          <span>Command Centre / Logistics</span>
+          <h3>Corridor execution plan</h3>
+          <p>
+            In-shell operator workspace — GMP recognition, workstreams, failure modes, and playbook
+            merge. Orientation-level only.
+          </p>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Close corridor plan">
+          Close
+        </button>
+      </header>
+
+      <form
+        className="cc-corridor-form"
+        onSubmit={(e) => {
+          e.preventDefault()
+          const fd = new FormData(e.currentTarget)
+          setParams({
+            origin: String(fd.get('origin') ?? 'CA').toUpperCase(),
+            destination: String(fd.get('destination') ?? 'DE').toUpperCase(),
+            product: String(fd.get('product') ?? 'any'),
+          })
+        }}
+      >
+        <label>
+          Origin
+          <input name="origin" defaultValue={origin} maxLength={2} className="cc-corridor-input" />
+        </label>
+        <label>
+          Destination
+          <input
+            name="destination"
+            defaultValue={destination}
+            maxLength={2}
+            className="cc-corridor-input"
+          />
+        </label>
+        <label>
+          Product
+          <select name="product" defaultValue={product} className="cc-corridor-input">
+            {PRODUCT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="cc-corridor-submit">
+          Build plan
+        </button>
+      </form>
+
+      <div className="cc-corridor-chips">
+        {QUICK.map((q) => (
+          <button
+            key={`${q.from}-${q.to}`}
+            type="button"
+            className="cc-corridor-chip"
+            onClick={() => setParams({ origin: q.from, destination: q.to, product })}
+          >
+            {q.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="cc-corridor-body">
+        {loading && <p className="cc-corridor-muted">Building plan…</p>}
+        {error && !loading && <p className="cc-corridor-error">{error}</p>}
+        {plan && !loading && (
+          <>
+            <div className="cc-corridor-summary">
+              <h4>
+                {plan.origin.name} → {plan.destination.name}
+              </h4>
+              <p className="cc-corridor-muted">
+                Trust: {plan.trust.confidenceLabel} · {Math.round(plan.trust.confidence * 100)}% · as
+                of {plan.trust.asOf}
+              </p>
+              <dl className="cc-corridor-metrics">
+                <div>
+                  <dt>Sequential</dt>
+                  <dd>{plan.totalSequentialWeeks} wk</dd>
+                </div>
+                <div>
+                  <dt>Parallel heuristic</dt>
+                  <dd>{plan.criticalPathWeeksEstimate} wk</dd>
+                </div>
+                <div>
+                  <dt>Origin</dt>
+                  <dd>{plan.origin.difficulty}</dd>
+                </div>
+                <div>
+                  <dt>Destination</dt>
+                  <dd>{plan.destination.difficulty}</dd>
+                </div>
+              </dl>
+              <div className="cc-corridor-links">
+                <button
+                  type="button"
+                  className="cc-corridor-link"
+                  onClick={() => {
+                    const params = new URLSearchParams(searchParams.toString())
+                    params.set('page', 'trade-calc')
+                    params.set('section', 'financing')
+                    params.set('tool', 'landed-cost')
+                    params.set('origin', origin)
+                    params.set('destination', destination)
+                    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+                  }}
+                >
+                  Landed cost + sensitivity →
+                </button>
+              </div>
+            </div>
+
+            {plan.notes.length > 0 && (
+              <ul className="cc-corridor-notes">
+                {plan.notes.map((n) => (
+                  <li key={n.slice(0, 40)}>{n}</li>
+                ))}
+              </ul>
+            )}
+
+            <CorridorDepthSections depth={plan.depth} />
+
+            <section className="cc-corridor-block">
+              <h4>Documentation checklist</h4>
+              <ul>
+                {plan.documentationChecklist.map((item) => (
+                  <li key={item.id}>
+                    <span className="cc-corridor-muted">{item.side}</span> {item.label}
+                    {item.required ? ' · required' : ''}
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="cc-corridor-block">
+              <h4>Process steps</h4>
+              <ol>
+                {plan.steps.map((s) => (
+                  <li key={`${s.side}-${s.step}-${s.title}`}>
+                    <strong>
+                      {s.side} · {s.country_iso2} · {s.step}. {s.title}
+                    </strong>{' '}
+                    <span className="cc-corridor-muted">~{s.estimated_weeks} wk</span>
+                    <p>{s.description}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <p className="cc-corridor-muted">{plan.trust.disclaimer}</p>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
