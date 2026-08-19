@@ -23,19 +23,21 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| Corridor Execution Plan v1 | ✅ Shipped (this PR) | `lib/intelligence/workflowEngine.ts` expanded (product class, doc checklist, trust meta, more CORRIDOR_NOTES); `GET /api/corridor-plan`; public `/intelligence/corridor-plan`; `lib/intelligence/corridorSimulator.ts` |
-| Logistics & trade route simulator (orientation) | 🟡 Partial | `tradeCorridors.ts` + simulator helpers + link from corridor-plan; interactive UI depth still Phase 2 follow-up |
-| LLM synthesis job for daily/weekly briefings | ⬜ Remaining | Spine exists (`personalBriefing.ts`, `/api/dashboard/my-briefings`) |
-| Email / in-app delivery via signal subscription | ⬜ Remaining | |
-| User preference storage for cadence and markets | ⬜ Remaining | `user_dashboard_preferences` exists for country/role/heatmap only |
+| Corridor Execution Plan v1 | ✅ Shipped | `lib/intelligence/workflowEngine.ts`; `GET /api/corridor-plan`; `/intelligence/corridor-plan`; `lib/intelligence/corridorSimulator.ts` |
+| Logistics & trade route simulator | ✅ Shipped | `/intelligence/logistics-simulator` + `tradeCorridors.ts` filters |
+| Dashboard corridor plan panel | ✅ Shipped | `/dashboard/corridor-plan` (auth; avoids editing 650k CommandCentre.tsx) |
+| Briefing cadence preferences | ✅ Shipped | `lib/intelligence/briefingCadence.ts`; `GET/PATCH /api/dashboard/briefing-preferences`; MyBriefingsPanel cadence UI |
+| LLM synthesis + email delivery | ✅ Shipped (spine) | `personal-briefings-tick` cron + `lib/intelligence/personalBriefingEmail.ts` (Resend); requires RESEND_API_KEY |
+| Landed cost calculator (public) | ✅ Shipped | `GET /api/landed-cost`; `/intelligence/landed-cost`; bridges from corridor plan via `landedCostBridge.ts` |
 | Mobile globe + PWA | ⬜ Remaining | |
-| Genetics marketplace core beyond basic catalog | ⬜ Remaining | |
+| Genetics marketplace core beyond basic catalog | ⬜ Remaining | Cultivar passport + access request exist; commercial depth still thin |
 | Education CPD / certificates / premium modules | ⬜ Remaining | |
 | Full BNPL partner embed | ⬜ Remaining | |
 | Full PROJECT_REGISTRY live re-verification | ⬜ HOLD | Requires operator production access |
 
 ## Next Action
 
-1. Production smoke: `/intelligence/corridor-plan?origin=CA&destination=DE`, `/api/corridor-plan?origin=CA&destination=DE`.
-2. Wire corridor plan into Command Centre Compliance / trade-calc panel if product prioritises authenticated depth next.
-3. Briefings Phase 2 depth: cadence preferences + scheduled synthesis + delivery.
+1. Production smoke: corridor-plan, logistics-simulator, landed-cost, briefing preference PATCH, personal-briefings-tick `?dry=1`.
+2. Genetics: public comparison / passport depth without commercial leakage.
+3. Optional: in-CC nav entry for corridor-plan without large CommandCentre edit.
+4. Education / BNPL partner embed when commercial partners are ready.
