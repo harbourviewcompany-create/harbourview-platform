@@ -45,6 +45,14 @@ const MobileCommandCentreRebuild = dynamic(
   },
 )
 
+const MobileCorridorToolHost = dynamic(
+  () =>
+    import('@/components/dashboard/command-workspace/MobileCorridorToolHost').then(m => ({
+      default: m.MobileCorridorToolHost,
+    })),
+  { ssr: false },
+)
+
 export function DashboardResponsiveShellContent({
   isMobile,
   decisionIntelAccess,
@@ -73,14 +81,17 @@ export function DashboardResponsiveShellContent({
       // mobile child already fills at least the viewport.
       style={{ minHeight: '100dvh' }}
     >
-      {isMobile
-        ? <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
-        : (
-          <>
-            <CommandCentre {...props} decisionIntelAccess={decisionIntelAccess} />
-            <DesktopCommandWorkspace />
-          </>
-        )}
+      {isMobile ? (
+        <>
+          <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
+          <MobileCorridorToolHost />
+        </>
+      ) : (
+        <>
+          <CommandCentre {...props} decisionIntelAccess={decisionIntelAccess} />
+          <DesktopCommandWorkspace />
+        </>
+      )}
     </div>
   )
 }
