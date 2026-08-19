@@ -39,6 +39,9 @@ import {
 import { MyBriefingsPanel } from './MyBriefingsPanel'
 import SignalSemanticSearch from './SignalSemanticSearch'
 import { CultivarPassportModal } from './CultivarPassportModal'
+import { CorridorPlanWorkspace } from './command-workspace/CorridorPlanWorkspace'
+import { LandedCostWorkspace } from './command-workspace/LandedCostWorkspace'
+import './command-workspace/CorridorWorkspace.css'
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
@@ -99,8 +102,9 @@ export default function MobileCommandCentreRebuild(props: Props) {
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         setContextOpen(false)
-        window.requestAnimationFrame(() => contextTriggerRef.current?.focus())
+        return
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -108,52 +112,16 @@ export default function MobileCommandCentreRebuild(props: Props) {
   }, [contextOpen])
 
   useEffect(() => {
-    if (!showSecondaryNav) return
-
-    let frame = 0
-    const revealActiveSection = () => {
-      window.cancelAnimationFrame(frame)
-      frame = window.requestAnimationFrame(() => {
-        secondaryButtonRefs.current
-          .get(model.highlightedSection)
-          ?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' })
-      })
-    }
-
-    revealActiveSection()
-    window.addEventListener('resize', revealActiveSection)
-    window.visualViewport?.addEventListener('resize', revealActiveSection)
-
-    const resizeObserver = typeof ResizeObserver === 'undefined'
-      ? null
-      : new ResizeObserver(revealActiveSection)
-    const secondaryNav = secondaryNavRef.current
-    const activeButton = secondaryButtonRefs.current.get(model.highlightedSection)
-    if (secondaryNav) resizeObserver?.observe(secondaryNav)
-    if (activeButton) resizeObserver?.observe(activeButton)
-
+    if (!contextOpen) return
+    const trigger = contextTriggerRef.current
     return () => {
-      window.removeEventListener('resize', revealActiveSection)
-      window.visualViewport?.removeEventListener('resize', revealActiveSection)
-      resizeObserver?.disconnect()
-      window.cancelAnimationFrame(frame)
+      window.requestAnimationFrame(() => trigger?.focus())
     }
-  }, [model.highlightedSection, showSecondaryNav])
+  }, [contextOpen])
 
-  function closeContext() {
-    setContextOpen(false)
-    window.requestAnimationFrame(() => contextTriggerRef.current?.focus())
-  }
+  const closeContext = () => setContextOpen(false)
 
-  function updateContext(key: 'country' | 'role', value: string) {
-    setContextOpen(false)
-    void fetch('/api/dashboard/preferences', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(key === 'country'
-        ? { country_iso2: value }
-        : { role_id: value || null }),
-    }).catch(() => undefined)
+  const updateContext = (key: 'country' | 'role', value: string) => {
     model.updateContext(key, value)
   }
 
@@ -162,15 +130,18 @@ export default function MobileCommandCentreRebuild(props: Props) {
       <CommandOverviewOperator
         sectionRef={model.sectionRef('overview')}
         countryLabel={model.countryLabel}
-        roleLabel={model.roleLabel}
+        roleShort={model.roleShort}
         attentionItems={attentionItems}
+        opportunityRows={opportunityRows}
+        nextActions={model.nextActions}
         signals={model.signals}
-        opportunities={opportunityRows}
-        operatingPicture={props.countryIntel?.public_summary}
-        onOpenActions={() => model.navigateToSection('next-actions')}
-        onOpenIntel={() => model.navigateToSection('weekly-signals')}
-        onOpenOpportunities={() => model.selectMarketView('opportunities')}
-        onOpenContext={() => model.navigateToSection('jurisdiction')}
+        marketRows={model.marketRows}
+        confidence={model.confidence}
+        reviewStatus={model.reviewStatus}
+        sourceCoverageCount={model.sourceCoverageCount}
+        pipelineTotal={model.pipelineTotal}
+        commandHref={model.commandHref}
+        onOpenPassport={() => setPassportModalOpen(true)}
       />
     ),
     'live-status': <LiveStatusSection sectionRef={model.sectionRef('live-status')} marketplaceCount={model.marketRows.length} wantedCount={props.wantedCount ?? 0} signalCount={model.signals.length} confidence={model.confidence} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} />,
@@ -182,42 +153,23 @@ export default function MobileCommandCentreRebuild(props: Props) {
     'personal-briefing': (
       <>
         <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} signals={model.signals} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} nextAction={model.nextActions[0]} />
-        {/* Above is a deterministic quick-glance summary (computed local
-            counts, no LLM). Below is real personal-briefing synthesis. */}
-        <div className="hvm2-section">
-          <MyBriefingsPanel onOpenWatchlist={() => model.navigateToSection('weekly-signals')} />
-        </div>
+        <MyBriefingsPanel />
       </>
     ),
     search: (
-      <>
-        <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} searchRecords={searchRecords} countryLabel={model.countryLabel} onQueryChange={model.setSearchQuery} onNavigate={model.navigateToSection} onListingSelect={model.selectListingResult} />
-        {/* Above is explicitly session-scope only. Below is full-corpus
-            search, so the /dashboard/signals/search redirect target
-            actually delivers what its own link text promises. */}
-        <div className="hvm2-section">
-          <SignalSemanticSearch />
-        </div>
-      </>
+      <div className="hvm2-section">
+        <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} searchRecords={searchRecords} countryLabel={model.countryLabel} onSearchQueryChange={model.setSearchQuery} commandHref={model.commandHref} />
+        <SignalSemanticSearch />
+      </div>
     ),
-    education: <EducationSection sectionRef={model.sectionRef('education')} roleShort={model.roleShort} tiles={model.educationTiles} commandHref={model.commandHref} />,
-    jurisdiction: <JurisdictionSection sectionRef={model.sectionRef('jurisdiction')} countryLabel={model.countryLabel} flag={flagEmoji(model.countryIso2)} region={props.countryIntel?.region} outlook={props.countryIntel?.briefing_regulatory_outlook} pathway={props.countryIntel?.commercial_pathway_summary} importStatus={props.countryIntel?.import_status} exportStatus={props.countryIntel?.export_status} medicalStatus={props.countryIntel?.medical_status} adultUseStatus={props.countryIntel?.adult_use_status} regulator={props.countryIntel?.regulator_label || props.countryIntel?.briefing_regulatory_body} reviewStatus={model.reviewStatus} pathwaySteps={model.pathwaySteps} pathwayIsGeneric={model.pathwayIsGeneric} commandHref={model.commandHref} />,
-    'market-status': <MarketStatusSection sectionRef={model.sectionRef('market-status')} wanted={props.wantedCount ?? model.pipeline.wanted} inquiry={model.pipeline.inquiry} proofReview={model.pipeline.proof_review} matched={model.pipeline.matched} dealRoom={model.pipeline.deal_room} submissions={model.submissions} />,
-    'review-gates': <ReviewGatesSection sectionRef={model.sectionRef('review-gates')} reviewStatus={model.reviewStatus} approved={props.countryIntel?.review_status === 'approved'} sourceCoverageCount={model.sourceCoverageCount} proofReview={model.pipeline.proof_review} submissionCount={model.submissions.length} evidenceDocuments={model.evidenceDocuments} />,
-    directories: <DirectoriesSection sectionRef={model.sectionRef('directories')} records={model.directoryRecords} commandHref={model.commandHref} />,
-    talent: <TalentSection sectionRef={model.sectionRef('talent')} records={model.talentRecords} commandHref={model.commandHref} />,
-    genetics: (
-      <>
-        <GeneticsSection sectionRef={model.sectionRef('genetics')} records={model.geneticsRecords} commandHref={model.commandHref} />
-        <div className="hvm2-section">
-          <button type="button" className="cc-sub-upgrade-btn" onClick={() => setPassportModalOpen(true)}>
-            Register cultivar →
-          </button>
-        </div>
-        <CultivarPassportModal open={passportModalOpen} onClose={() => setPassportModalOpen(false)} />
-      </>
-    ),
-    clinical: <ClinicalSection sectionRef={model.sectionRef('clinical')} roleShort={model.roleShort} programStatus={props.countryIntel?.briefing_program_status} medicalStatus={props.countryIntel?.medical_status} patientAccess={props.countryIntel?.briefing_patient_access} physicianAccess={props.countryIntel?.briefing_physician_access} commandHref={model.commandHref} />,
+    education: <EducationSection sectionRef={model.sectionRef('education')} eduCategories={props.eduCategories} liveTiles={props.liveTiles} recentModules={props.recentEduModules} tracks={props.educationTracks} commandHref={model.commandHref} />,
+    jurisdiction: <JurisdictionSection sectionRef={model.sectionRef('jurisdiction')} countryLabel={model.countryLabel} countryIntel={props.countryIntel} pathwayData={props.pathwayData} playbook={props.jurisdictionPlaybook} pathwayMatrix={props.pathwayMatrix} commandHref={model.commandHref} />,
+    'market-status': <MarketStatusSection sectionRef={model.sectionRef('market-status')} marketRows={model.marketRows} wantedCount={props.wantedCount ?? 0} pipeline={props.pipeline} />,
+    'review-gates': <ReviewGatesSection sectionRef={model.sectionRef('review-gates')} evidenceData={props.evidenceData} evidenceDocuments={model.evidenceDocuments} mySubmissions={props.mySubmissions} pipeline={props.pipeline} commandHref={model.commandHref} />,
+    directories: <DirectoriesSection sectionRef={model.sectionRef('directories')} professionals={props.professionals ?? []} serviceProviders={props.serviceProviders ?? []} operators={props.cannabisOperators ?? []} commandHref={model.commandHref} />,
+    talent: <TalentSection sectionRef={model.sectionRef('talent')} talentRecords={model.talentRecords} commandHref={model.commandHref} />,
+    genetics: <GeneticsSection sectionRef={model.sectionRef('genetics')} geneticsRecords={model.geneticsRecords} onOpenPassport={() => setPassportModalOpen(true)} commandHref={model.commandHref} />,
+    clinical: <ClinicalSection sectionRef={model.sectionRef('clinical')} physicianAccess={props.countryIntel?.briefing_physician_access} commandHref={model.commandHref} />,
     compliance: <ComplianceSection sectionRef={model.sectionRef('compliance')} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} playbookSourcing={readString(props.jurisdictionPlaybook, ['confidence_label', 'status'], '')} marketAccessStatus={props.countryIntel?.market_access_status} pathway={props.countryIntel?.commercial_pathway_summary} commandHref={model.commandHref} />,
     regulatory: <RegulatoryWatchSection sectionRef={model.sectionRef('regulatory')} items={props.watchlistData?.items ?? []} activeRules={(props.watchlistData?.rules ?? []).filter(rule => rule.is_active).length} rules={props.watchlistData?.rules ?? []} signals={model.signals} regulatoryTier={props.countryIntel?.regulatory_tier} outlook={props.countryIntel?.briefing_regulatory_outlook} sourceCoverageCount={model.sourceCoverageCount} commandHref={model.commandHref} />,
     'local-intel': <LocalIntelSection sectionRef={model.sectionRef('local-intel')} localIntel={props.localIntel ?? null} countryLabel={model.countryLabel} />,
@@ -228,32 +180,26 @@ export default function MobileCommandCentreRebuild(props: Props) {
   }
 
   return (
-    <div className="hvm2-root" data-mobile-command-version="2" data-active-destination={model.activeGroup}>
-      <header className="hvm-op-header">
-        <div className="hvm-op-header-top">
-          <div className="hvm-op-brand">
-            <span className="hvm-op-wordmark">HARBOURVIEW</span>
-            <h1 className="hvm-op-page-title">{activeDestination?.label ?? 'Command'}</h1>
-          </div>
-          <span className="hvm-op-current-chip" aria-label="Current command context">Current</span>
+    <div className="hvm-op-shell" data-mobile-command-centre="rebuild">
+      <header className="hvm-op-topbar">
+        <div className="hvm-op-topbar-main">
+          <h1 className="hvm-op-title">{activeDestination?.label ?? 'Command'}</h1>
+          <button
+            ref={contextTriggerRef}
+            type="button"
+            className="hvm-op-context-trigger"
+            onClick={() => setContextOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={contextOpen}
+          >
+            <span>{flagEmoji(model.currentCountry)} {model.countryLabel} · {model.roleShort}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
         </div>
-
-        <button
-          ref={contextTriggerRef}
-          type="button"
-          className="hvm-op-context-trigger"
-          aria-haspopup="dialog"
-          aria-expanded={contextOpen}
-          aria-label={`Change operating context. ${model.countryLabel}, ${model.roleLabel}`}
-          onClick={() => setContextOpen(true)}
-        >
-          <span>{flagEmoji(model.countryIso2)} {model.countryLabel} · {model.roleLabel}</span>
-          <span aria-hidden="true">⌄</span>
-        </button>
       </header>
 
       {showSecondaryNav && (
-        <nav ref={secondaryNavRef} className="hvm-op-secondary-nav" aria-label={secondaryNavLabel}>
+        <nav className="hvm-op-secondary" ref={secondaryNavRef} aria-label={secondaryNavLabel}>
           {model.groupSections.map(id => {
             const section = SECTION_NAV.find(entry => entry.id === id)
             if (!section) return null
@@ -266,7 +212,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
                 }}
                 key={section.id}
                 type="button"
-                className={isActive ? 'active' : ''}
+                className={isActive ? 'is-active' : undefined}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => model.navigateToSection(section.id)}
               >
@@ -277,26 +223,37 @@ export default function MobileCommandCentreRebuild(props: Props) {
         </nav>
       )}
 
-      <main className="hvm2-main hvm-op-main">
+      <main className="hvm-op-main">
         {model.visibleSections.map(id => <Fragment key={id}>{sectionElements[id]}</Fragment>)}
       </main>
 
-      <nav className="hvm2-bottom-nav hvm-op-bottom-nav" aria-label="Primary mobile command navigation">
+      <nav className="hvm-op-primary" aria-label="Primary command navigation">
         {PRIMARY_NAV.map(item => {
           const isActive = model.activeGroup === item.id
           return (
             <button
               key={item.id}
               type="button"
-              className={isActive ? 'active' : ''}
+              className={isActive ? 'is-active' : undefined}
               aria-current={isActive ? 'page' : undefined}
-              onClick={() => model.navigateToSection(item.id)}
+              onClick={() => model.navigateToGroup(item.id)}
             >
-              <span aria-hidden="true">{item.icon}</span><small>{item.label}</small>
+              <span aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
             </button>
           )
         })}
       </nav>
+
+      {(model.activeTool === 'corridor-plan' || model.activeTool === 'landed-cost') && (
+        <div className="hvm-op-dialog-backdrop hvm-corridor-tool-layer" role="presentation">
+          {model.activeTool === 'corridor-plan' ? (
+            <CorridorPlanWorkspace onClose={model.closeTool} />
+          ) : (
+            <LandedCostWorkspace onClose={model.closeTool} />
+          )}
+        </div>
+      )}
 
       {contextOpen && (
         <div className="hvm-op-dialog-backdrop" onMouseDown={event => {
@@ -333,6 +290,8 @@ export default function MobileCommandCentreRebuild(props: Props) {
           </div>
         </div>
       )}
+
+      <CultivarPassportModal open={passportModalOpen} onClose={() => setPassportModalOpen(false)} />
     </div>
   )
 }
