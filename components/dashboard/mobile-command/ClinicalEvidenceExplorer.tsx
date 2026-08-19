@@ -1,6 +1,14 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
 import {
   classifyClinicalFailure,
@@ -17,218 +25,204 @@ import {
 } from './clinicalCommandContract'
 import { formatStatus } from './contracts'
 
-type ClinicalView =
-  | 'evidence'
-  | 'safety'
-  | 'interactions'
-  | 'formulations'
-  | 'guidelines'
-  | 'practice'
-  | 'monitoring'
+type ClinicalFilter = 'all' | 'graded' | 'safety' | 'guidelines' | 'practice'
 
-const VIEW_ORDER: ClinicalView[] = [
-  'evidence',
-  'safety',
-  'interactions',
-  'formulations',
-  'guidelines',
-  'practice',
-  'monitoring',
+type InteractionRow = {
+  id: string
+  medicationIngredient: string
+  cannabinoid: string
+  clinicalSignificance: string
+  mechanism?: string | null
+  monitoringConsideration?: string | null
+  primarySource?: { publisher?: string; url?: string }
+  verifiedAt?: string
+}
+
+type MonitoringRow = {
+  id: string
+  protocolName: string
+  context: string
+  cannabinoid?: string | null
+  monitoringParameter: string
+  baselineRequired?: boolean
+  followUpInterval?: string | null
+  rationale?: string | null
+  evidenceCertainty?: string
+  primarySource?: { publisher?: string; url?: string }
+  verifiedAt?: string
+}
+
+const FILTER_DEFS: { id: ClinicalFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'graded', label: 'Graded' },
+  { id: 'safety', label: 'Safety' },
+  { id: 'guidelines', label: 'Guidelines' },
+  { id: 'practice', label: 'Rules' },
 ]
 
-const VIEW_LABELS: Record<ClinicalView, string> = {
-  evidence: 'Evidence',
-  safety: 'Safety',
-  interactions: 'Interactions',
-  formulations: 'Formulations',
-  guidelines: 'Guidelines',
-  practice: 'Practice',
-  monitoring: 'Monitoring',
+const SWIPE_MIN_PX = 56
+const PULL_TRIGGER_PX = 72
+const PULL_MAX_PX = 96
+
+function strengthRank(s: string): number {
+  const order: Record<string, number> = {
+    high: 0,
+    moderate: 1,
+    low: 2,
+    'very-low': 3,
+    'very_low': 3,
+    insufficient: 4,
+    conflicted: 5,
+    ungraded: 6,
+  }
+  return order[s] ?? 7
 }
 
-function commandParams(commandHref: string): URLSearchParams {
-  const query = commandHref.includes('?') ? commandHref.slice(commandHref.indexOf('?') + 1) : ''
-  return new URLSearchParams(query)
+function isClinicalBody(record: ClinicalEvidenceRecordDTO): boolean {
+  return [
+    'systematic-review',
+    'meta-analysis',
+    'randomized-trial',
+    'observational-study',
+    'clinical-guideline',
+  ].includes(record.evidenceType)
 }
 
-function roleFromCommandHref(commandHref: string): string {
-  const raw = commandParams(commandHref).get('role')?.trim() ?? ''
-  return raw ? formatStatus(raw) : 'All roles'
-}
-
-function date(value: string | null | undefined): string {
-  return value ? value.slice(0, 10) : 'Not recorded'
-}
-
-function recordIsSafety(record: ClinicalEvidenceRecordDTO): boolean {
-  const searchable = [record.title, record.summary, record.outcome, record.uncertainty]
+function isSafety(record: ClinicalEvidenceRecordDTO): boolean {
+  const text = [record.title, record.summary, record.outcome, record.uncertainty]
     .filter(Boolean)
     .join(' ')
     .toLocaleLowerCase()
   return (
     record.evidenceType === 'pharmacovigilance-signal' ||
-    /safety|adverse|contraindicat|interaction|tolerab/.test(searchable)
+    /safety|adverse|contraindicat|interaction|tolerab/.test(text)
   )
 }
 
-function recordsForView(records: ClinicalEvidenceRecordDTO[], view: ClinicalView): ClinicalEvidenceRecordDTO[] {
-  if (view === 'safety') return records.filter(recordIsSafety)
-  if (view === 'formulations') {
-    return records.filter(
-      (record) =>
-        record.interventionClass === 'regulated-cannabinoid-drug' ||
-        record.interventionClass === 'cannabinoid-isolate' ||
-        record.interventionClass === 'cannabis-derived-formulation' ||
-        Boolean(record.formulation) ||
-        record.cannabinoid.length > 0,
-    )
-  }
-  if (view === 'guidelines') return records.filter((record) => record.evidenceType === 'clinical-guideline')
-  if (view === 'practice') {
-    return records.filter(
-      (record) => record.evidenceType === 'regulation' || record.evidenceType === 'regulatory-guidance',
-    )
-  }
-  if (view === 'interactions' || view === 'monitoring') return []
-  return records
+function isGraded(record: ClinicalEvidenceRecordDTO): boolean {
+  return record.evidenceStrength !== 'ungraded' && record.evidenceStrength !== 'conflicted'
 }
 
-function stateAttention(
-  result: ClinicalEvidenceApiResult | null,
-  loading: boolean,
-): { title: string; detail: string } {
-  if (loading) {
-    return {
-      title: 'Checking evidence state',
-      detail: 'Loading reviewed records, currentness and conflict status.',
-    }
-  }
-  if (!result) {
-    return {
-      title: 'Evidence state unavailable',
-      detail: 'Retry the evidence service before relying on this workspace.',
-    }
-  }
-  if (result.state === 'conflicted') {
-    return {
-      title: 'Material conflict requires review',
-      detail: 'Open the conflicting records and primary sources before relying on a conclusion.',
-    }
-  }
-  if (result.state === 'stale') {
-    return {
-      title: 'Currentness requires review',
-      detail: 'Only stale, superseded or review-required records match the current question.',
-    }
-  }
-  if (result.state === 'degraded-source') {
-    return {
-      title: 'Partial source coverage',
-      detail: 'At least one source has degraded or unresolved currentness. Verify the primary source.',
-    }
-  }
-  if (result.state === 'permission') {
-    return { title: 'Evidence access restricted', detail: result.message }
-  }
-  if (result.state === 'error') {
-    const label = result.diagnostic
-      ? clinicalFailureLabel(result.diagnostic.category)
-      : 'Evidence service unavailable'
-    return { title: label, detail: result.message }
-  }
-  if (result.state === 'no-evidence') {
-    return {
-      title: 'Known condition, no reviewed record',
-      detail:
-        'The condition is recognized but the governed corpus has no published evidence record for this context.',
-    }
-  }
-  if (result.state === 'no-match') {
-    return {
-      title: 'No reviewed match',
-      detail: 'Change the question or clear the search; no matching condition or evidence record is published.',
-    }
-  }
+function yearOf(record: ClinicalEvidenceRecordDTO): string | null {
+  const raw = record.publicationDate || record.effectiveDate || record.verifiedAt
+  return raw ? raw.slice(0, 4) : null
+}
 
-  const ungraded =
-    result.synthesis?.ungradedRecordCount ??
-    result.records.filter((record) => record.evidenceStrength === 'ungraded').length
-  return ungraded > 0
-    ? {
-        title: 'Inspect certainty and applicability',
-        detail: `${ungraded} loaded record${ungraded === 1 ? ' is' : 's are'} ungraded; source authority is not the same as clinical efficacy certainty.`,
-      }
-    : {
-        title: 'Inspect applicability',
-        detail:
-          'Confirm population, formulation, jurisdiction, professional scope and source date before relying on a record.',
-      }
+function shortDate(value: string | null | undefined): string | null {
+  return value ? value.slice(0, 10) : null
+}
+
+function filterRecords(
+  records: ClinicalEvidenceRecordDTO[],
+  filter: ClinicalFilter,
+  cannabinoid: string | null,
+): ClinicalEvidenceRecordDTO[] {
+  let rows = records
+  if (filter === 'graded') rows = rows.filter(isGraded)
+  if (filter === 'safety') rows = rows.filter(isSafety)
+  if (filter === 'guidelines') rows = rows.filter((r) => r.evidenceType === 'clinical-guideline')
+  if (filter === 'practice') {
+    rows = rows.filter(
+      (r) => r.evidenceType === 'regulation' || r.evidenceType === 'regulatory-guidance',
+    )
+  }
+  if (cannabinoid) {
+    const key = cannabinoid.toLowerCase()
+    rows = rows.filter((r) => r.cannabinoid.some((c) => c.toLowerCase() === key))
+  }
+  return [...rows].sort((a, b) => {
+    const clinicalDelta = Number(isClinicalBody(b)) - Number(isClinicalBody(a))
+    if (clinicalDelta !== 0) return clinicalDelta
+    const gradeDelta = strengthRank(a.evidenceStrength) - strengthRank(b.evidenceStrength)
+    if (gradeDelta !== 0) return gradeDelta
+    return (b.verifiedAt || '').localeCompare(a.verifiedAt || '')
+  })
+}
+
+function strengthClass(s: string): string {
+  if (s === 'high' || s === 'moderate') return 'border-emerald-500/35 bg-emerald-500/15 text-emerald-200'
+  if (s === 'low' || s === 'very-low' || s === 'very_low') return 'border-amber-500/35 bg-amber-500/15 text-amber-100'
+  if (s === 'insufficient' || s === 'conflicted') return 'border-rose-500/30 bg-rose-500/10 text-rose-200'
+  return 'border-white/15 bg-white/5 text-white/65'
+}
+
+function significanceClass(s: string): string {
+  if (s === 'major') return 'text-rose-200'
+  if (s === 'moderate') return 'text-amber-200'
+  if (s === 'minor') return 'text-emerald-200'
+  return 'text-white/70'
 }
 
 function clientFailureMessage(category: ReturnType<typeof classifyClinicalFailure>): string {
   const messages = {
-    configuration: 'Clinical evidence is not configured in this deployment.',
-    'environment-mismatch':
-      'Clinical evidence is connected to an unexpected data environment. Do not rely on this workspace until deployment configuration is corrected.',
-    'missing-route': 'The Clinical evidence API route is unavailable in this deployment.',
-    permission: 'Clinical evidence is not available to this access context.',
-    'migration-drift': 'The Clinical evidence schema is not activated for this deployment.',
-    schema: 'Clinical evidence returned a response that does not match the reviewed application contract.',
-    upstream: 'Clinical evidence could not be loaded. Retry before relying on this workspace.',
-    unknown: 'Clinical evidence could not be loaded. Retry before relying on this workspace.',
+    configuration: 'Evidence is not configured here.',
+    'environment-mismatch': 'Evidence environment mismatch. Do not rely on this view.',
+    'missing-route': 'Evidence API unavailable.',
+    permission: 'Evidence is restricted for this access context.',
+    'migration-drift': 'Evidence schema not active.',
+    schema: 'Evidence response did not match contract.',
+    upstream: 'Could not load evidence. Try again.',
+    unknown: 'Could not load evidence. Try again.',
   }
   return messages[category]
 }
 
-function stateBadgeClass(state: string): string {
-  if (state === 'ready' || state === 'loaded') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-  if (state === 'loading') return 'bg-white/10 text-white/70 border-white/15'
-  if (state === 'error' || state === 'permission') return 'bg-rose-500/15 text-rose-300 border-rose-500/30'
-  if (state === 'stale' || state === 'conflicted' || state === 'degraded-source') {
-    return 'bg-amber-500/15 text-amber-200 border-amber-500/30'
-  }
-  return 'bg-white/10 text-white/80 border-white/15'
+function buildAnswerLine(record: ClinicalEvidenceRecordDTO): string {
+  const bits: string[] = []
+  if (record.condition) bits.push(record.condition)
+  if (record.intervention) bits.push(record.intervention)
+  else if (record.cannabinoid.length) bits.push(record.cannabinoid.join('/'))
+  if (record.outcome) bits.push(record.outcome)
+  if (bits.length) return bits.join(' · ')
+  return record.summary.slice(0, 140)
 }
 
-function LoadingSkeleton() {
+function Skeleton() {
   return (
-    <div className="space-y-2" aria-hidden="true">
+    <div className="space-y-2.5" aria-hidden>
       {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="animate-pulse rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3"
-        >
-          <div className="h-2.5 w-24 rounded bg-white/10" />
-          <div className="mt-2 h-3.5 w-3/4 rounded bg-white/15" />
-          <div className="mt-2 h-2.5 w-full rounded bg-white/10" />
+        <div key={i} className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3.5">
+          <div className="h-2.5 w-24 max-w-[40%] rounded bg-white/10" />
+          <div className="mt-2.5 h-3.5 w-full max-w-[90%] rounded bg-white/15" />
+          <div className="mt-2 h-2.5 w-full max-w-[70%] rounded bg-white/10" />
         </div>
       ))}
     </div>
   )
 }
 
-/**
- * Mobile Evidence Command.
- * Uses Tailwind layout — does not depend on missing hvc-* stylesheet rules
- * (those caused concatenated labels: EvidenceSafety…, rolesReady, etc.).
- */
+type GestureMode = 'none' | 'horizontal' | 'vertical'
+
 export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref: string }) {
   const countryIso2 = useMemo(() => countryIso2FromCommandHref(commandHref), [commandHref])
   const jurisdiction = useMemo(() => clinicalJurisdictionLabel(countryIso2), [countryIso2])
-  const role = useMemo(() => roleFromCommandHref(commandHref), [commandHref])
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
   const [result, setResult] = useState<ClinicalEvidenceApiResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [requestVersion, setRequestVersion] = useState(0)
-  const [activeView, setActiveView] = useState<ClinicalView>('evidence')
+  const [filter, setFilter] = useState<ClinicalFilter>('all')
+  const [cannabinoid, setCannabinoid] = useState<string | null>(null)
+  const [pullPx, setPullPx] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [interactions, setInteractions] = useState<InteractionRow[]>([])
+  const [showInteractions, setShowInteractions] = useState(false)
+  const [monitoring, setMonitoring] = useState<MonitoringRow[]>([])
+  const [showMonitoring, setShowMonitoring] = useState(false)
+
+  const filterRef = useRef(filter)
+  filterRef.current = filter
+  const gesture = useRef({
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    mode: 'none' as GestureMode,
+  })
 
   useEffect(() => {
     const controller = new AbortController()
     let active = true
-
     const params = new URLSearchParams({ limit: '50' })
-    // Prefer ISO2 country for the unified evidence API. Never invent a default jurisdiction.
     if (countryIso2) params.set('country', countryIso2)
     if (submittedQuery) params.set('q', submittedQuery)
 
@@ -245,13 +239,8 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         if (!active) return
 
         if (!isClinicalEvidenceApiResult(body)) {
-          // Tolerate { records } shape from unified spine API
           if (body && typeof body === 'object' && Array.isArray((body as { records?: unknown }).records)) {
-            const rows = body as {
-              records: ClinicalEvidenceRecordDTO[]
-              state?: string
-              message?: string
-            }
+            const rows = body as { records: ClinicalEvidenceRecordDTO[]; state?: string; message?: string }
             setResult({
               state:
                 (rows.state as ClinicalEvidenceApiResult['state']) ||
@@ -259,9 +248,7 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
               query: submittedQuery,
               records: rows.records,
               changes: [],
-              message:
-                rows.message ||
-                (rows.records.length ? '' : 'No reviewed evidence matched this context.'),
+              message: rows.message || (rows.records.length ? '' : 'No reviewed evidence for this context.'),
             })
             return
           }
@@ -276,11 +263,10 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
         if (!active || (error instanceof DOMException && error.name === 'AbortError')) return
         const message = error instanceof Error ? error.message : ''
         const category = classifyClinicalFailure({ message })
-        const permission = category === 'permission'
         const statusMatch = message.match(/clinical_evidence_http_(\d{3})/)
         const httpStatus = statusMatch ? Number(statusMatch[1]) : null
         setResult({
-          state: permission ? 'permission' : 'error',
+          state: category === 'permission' ? 'permission' : 'error',
           query: submittedQuery,
           records: [],
           changes: [],
@@ -288,7 +274,11 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
           diagnostic: diagnosticForFailure(category, httpStatus),
         })
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setRefreshing(false)
+          setPullPx(0)
+        }
       }
     })()
 
@@ -298,310 +288,587 @@ export default function ClinicalEvidenceExplorer({ commandHref }: { commandHref:
     }
   }, [countryIso2, submittedQuery, requestVersion])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/clinical/interactions?limit=12')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return
+        const rows = (body?.interactions ?? []) as InteractionRow[]
+        setInteractions(Array.isArray(rows) ? rows : [])
+      })
+      .catch(() => {
+        if (!cancelled) setInteractions([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/clinical/monitoring?limit=12')
+      .then((r) => r.json())
+      .then((body) => {
+        if (cancelled) return
+        const rows = (body?.protocols ?? []) as MonitoringRow[]
+        setMonitoring(Array.isArray(rows) ? rows : [])
+      })
+      .catch(() => {
+        if (!cancelled) setMonitoring([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const records = result?.records ?? []
+  const availableFilters = useMemo(() => {
+    return FILTER_DEFS.filter((f) => {
+      if (f.id === 'all') return true
+      if (f.id === 'graded') return records.some(isGraded)
+      if (f.id === 'safety') return records.some(isSafety)
+      if (f.id === 'guidelines') return records.some((r) => r.evidenceType === 'clinical-guideline')
+      if (f.id === 'practice') {
+        return records.some(
+          (r) => r.evidenceType === 'regulation' || r.evidenceType === 'regulatory-guidance',
+        )
+      }
+      return true
+    })
+  }, [records])
+
+  useEffect(() => {
+    if (!availableFilters.some((f) => f.id === filter)) setFilter('all')
+  }, [availableFilters, filter])
+
+  const cannabinoidOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const r of records) for (const c of r.cannabinoid) if (c.trim()) set.add(c.trim())
+    return [...set].sort((a, b) => a.localeCompare(b))
+  }, [records])
+
+  const visible = useMemo(
+    () => filterRecords(records, filter, cannabinoid),
+    [records, filter, cannabinoid],
+  )
+
+  const answerRecord = useMemo(() => {
+    const gradedClinical = records
+      .filter((r) => isGraded(r) && isClinicalBody(r))
+      .sort((a, b) => strengthRank(a.evidenceStrength) - strengthRank(b.evidenceStrength))
+    if (gradedClinical[0]) return gradedClinical[0]
+    const graded = records.filter(isGraded).sort((a, b) => strengthRank(a.evidenceStrength) - strengthRank(b.evidenceStrength))
+    return graded[0] ?? null
+  }, [records])
+
+  const materialFlags = useMemo(() => {
+    const conflicted =
+      result?.state === 'conflicted' ||
+      records.some((r) => r.conflictStatus === 'material-conflict' || r.evidenceStrength === 'conflicted')
+    const stale =
+      result?.state === 'stale' ||
+      records.some((r) => r.freshnessStatus === 'stale' || r.freshnessStatus === 'review-required')
+    const degraded =
+      result?.state === 'degraded-source' || records.some((r) => r.freshnessStatus === 'source-degraded')
+    return { conflicted, stale, degraded }
+  }, [records, result?.state])
+
+  const shiftFilter = useCallback(
+    (dir: -1 | 1) => {
+      const ids = availableFilters.map((f) => f.id)
+      const idx = ids.indexOf(filterRef.current)
+      const next = Math.max(0, Math.min(ids.length - 1, idx + dir))
+      if (next !== idx) setFilter(ids[next])
+    },
+    [availableFilters],
+  )
+
+  const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('a, button, input, summary, details')) return
+    gesture.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      mode: 'none',
+    }
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const g = gesture.current
+      if (g.pointerId !== e.pointerId) return
+      const dx = e.clientX - g.startX
+      const dy = e.clientY - g.startY
+      if (g.mode === 'none') {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return
+        g.mode = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+      }
+      if (g.mode === 'vertical' && dy > 0 && !loading) {
+        const scrollY = typeof window !== 'undefined' ? window.scrollY : 0
+        if (scrollY <= 4) setPullPx(Math.min(PULL_MAX_PX, dy * 0.45))
+      }
+    },
+    [loading],
+  )
+
+  const endGesture = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const g = gesture.current
+      if (g.pointerId !== e.pointerId) return
+      const dx = e.clientX - g.startX
+      const dy = e.clientY - g.startY
+      const mode = g.mode
+      g.pointerId = -1
+      g.mode = 'none'
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+      if (mode === 'horizontal' && Math.abs(dx) >= SWIPE_MIN_PX) {
+        shiftFilter(dx < 0 ? 1 : -1)
+        setPullPx(0)
+        return
+      }
+      if (mode === 'vertical' && dy * 0.45 >= PULL_TRIGGER_PX && !loading) {
+        setRefreshing(true)
+        setPullPx(PULL_TRIGGER_PX * 0.4)
+        setRequestVersion((v) => v + 1)
+        return
+      }
+      setPullPx(0)
+    },
+    [loading, shiftFilter],
+  )
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setActiveView('evidence')
+    setFilter('all')
+    setCannabinoid(null)
+    setShowInteractions(false)
     setSubmittedQuery(query.trim())
   }
 
   function clearSearch() {
     setQuery('')
     setSubmittedQuery('')
-    setActiveView('evidence')
+    setFilter('all')
+    setCannabinoid(null)
   }
 
-  const state = loading ? 'loading' : result?.state ?? 'error'
-  const attention = stateAttention(result, loading)
   const latestChange = result?.changes?.[0] ?? null
-  const visibleRecords = recordsForView(result?.records ?? [], activeView)
   const authorities = getClinicalAuthoritiesForCountry(countryIso2)
-  const safetyAuthority = authorities.find((source) => source.id === 'safety-interactions')
-  const documentAuthority = authorities.find((source) => source.id === 'medical-document')
-  const pharmacovigilanceAuthority = authorities.find((source) => source.id === 'pharmacovigilance')
-
-  const showRecordList =
-    activeView !== 'interactions' &&
-    activeView !== 'monitoring' &&
-    !(activeView === 'safety' && visibleRecords.length === 0 && !loading) &&
-    !(activeView === 'practice' && visibleRecords.length === 0 && !loading)
+  const primaryAuthority = authorities.find((a) => a.id === 'federal-authority' || a.id === 'medical-document')
+  const state = loading ? 'loading' : result?.state ?? 'error'
+  const showServiceAlert =
+    !loading &&
+    result &&
+    ['error', 'permission', 'no-match', 'no-evidence'].includes(result.state)
+  const pullProgress = Math.min(1, pullPx / PULL_TRIGGER_PX)
 
   return (
-    <section className="space-y-4" aria-labelledby="clinical-evidence-title">
-      {/* Status bar — flex so title and badge never concatenate */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
-        aria-live="polite"
-      >
-        <strong id="clinical-evidence-title" className="text-sm font-semibold text-white">
-          Evidence command · {jurisdiction}
-        </strong>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[11px] text-white/70">
-            {role}
-          </span>
-          <span
-            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${stateBadgeClass(state)}`}
-          >
-            {clinicalStateLabel(state)}
-          </span>
-        </div>
-      </div>
-
-      {/* Now cards — stacked with explicit labels */}
-      <div className="grid gap-2" aria-label="Clinical command now">
-        <article className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d4a853]">What changed</p>
-          <p className="mt-1 text-sm font-semibold text-white">
-            {loading
-              ? 'Checking current changes'
-              : latestChange?.title ?? 'No published change event loaded'}
-          </p>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-            {loading
-              ? 'Comparing the loaded clinical evidence context.'
-              : latestChange
-                ? `${latestChange.summary} Verified ${date(latestChange.verifiedAt)}.`
-                : 'No reviewed material-change record is available for this context; this is not a claim that nothing changed externally.'}
-          </p>
-        </article>
-        <article className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d4a853]">
-            What needs attention
-          </p>
-          <p className="mt-1 text-sm font-semibold text-white">{attention.title}</p>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">{attention.detail}</p>
-        </article>
-      </div>
-
-      {/* Search */}
+    <section
+      className="w-full min-w-0 max-w-full space-y-3 overflow-x-hidden sm:space-y-3.5"
+      aria-label={`Evidence · ${jurisdiction}`}
+    >
       <form
-        className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3"
         onSubmit={submit}
         role="search"
-        aria-label="Ask Clinical reviewed evidence search"
+        className="sticky top-0 z-10 -mx-0.5 flex gap-2 bg-[#0a0e17]/90 px-0.5 py-1 backdrop-blur-md supports-[backdrop-filter]:bg-[#0a0e17]/75"
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d4a853]">Ask Clinical</p>
-        <h3 className="mt-1 text-sm font-semibold text-white">Search the governed evidence corpus</h3>
-        <p className="mt-1 text-xs leading-relaxed text-white/55">
-          Condition, formulation, cannabinoid or clinical evidence question. Results are deterministic reviewed
-          records, not patient-specific advice.
-        </p>
-        <div className="mt-3 flex gap-2">
-          <input
-            id="clinical-evidence-query"
-            aria-label="Condition, formulation or clinical evidence question"
-            type="search"
-            value={query}
-            maxLength={160}
-            autoComplete="off"
-            placeholder="e.g. Dravet syndrome, cannabidiol"
-            onChange={(event) => setQuery(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none focus:border-[#d4a853]/50"
-          />
-          <button
-            type="submit"
-            className="shrink-0 rounded-lg bg-[#d4a853] px-3 py-2 text-xs font-semibold text-black"
-          >
-            Search
-          </button>
-        </div>
-        {submittedQuery ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/55">
-            <span>
-              Current question: “{submittedQuery}”
-            </span>
-            <button type="button" onClick={clearSearch} className="text-[#d4a853] underline-offset-2 hover:underline">
-              Clear
-            </button>
-          </div>
-        ) : null}
+        <input
+          type="search"
+          value={query}
+          maxLength={160}
+          autoComplete="off"
+          enterKeyHint="search"
+          placeholder={`Search ${jurisdiction}…`}
+          aria-label="Search clinical evidence"
+          onChange={(e) => setQuery(e.target.value)}
+          className="min-h-11 min-w-0 flex-1 touch-manipulation rounded-2xl border border-white/15 bg-black/40 px-3.5 text-base text-white placeholder:text-white/40 outline-none focus:border-[#d4a853]/55 sm:text-sm"
+        />
+        <button
+          type="submit"
+          className="min-h-11 shrink-0 touch-manipulation rounded-2xl bg-[#d4a853] px-4 text-sm font-semibold text-black active:scale-[0.98]"
+        >
+          Search
+        </button>
       </form>
 
-      {!loading &&
-        result &&
-        ['error', 'permission', 'no-match', 'no-evidence', 'stale', 'conflicted', 'degraded-source'].includes(
-          result.state,
-        ) && (
-          <div
-            className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-3"
-            data-state={result.state}
-            role="status"
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/55" aria-live="polite">
+        <span className="font-medium text-white/85">{jurisdiction}</span>
+        <span>{clinicalStateLabel(state)}</span>
+        {!loading && result ? (
+          <span className="tabular-nums text-white/45">{result.records.length} records</span>
+        ) : null}
+        {submittedQuery ? (
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="ml-auto max-w-full truncate touch-manipulation py-1 text-[#d4a853]"
           >
-            <strong className="text-sm text-amber-100">
-              {result.diagnostic ? clinicalFailureLabel(result.diagnostic.category) : clinicalStateLabel(result.state)}
-            </strong>
-            <p className="mt-1 text-xs leading-relaxed text-amber-100/80">{result.message}</p>
-            {result.state === 'error' && result.diagnostic?.retryable !== false ? (
-              <button
-                className="mt-2 text-xs font-medium text-[#d4a853]"
-                type="button"
-                onClick={() => setRequestVersion((version) => version + 1)}
-              >
-                Retry evidence service
-              </button>
-            ) : null}
-          </div>
-        )}
+            Clear “{submittedQuery}”
+          </button>
+        ) : null}
+      </div>
 
-      {/* View chips — flex-wrap, never a single text run */}
-      <nav className="flex flex-wrap gap-1.5" aria-label="Clinical workspace views">
-        {VIEW_ORDER.map((view) => {
-          const active = activeView === view
-          return (
+      <p className="text-[11px] leading-relaxed text-white/40">
+        Reviewed corpus for this jurisdiction. Not patient-specific advice. Verify against primary sources and local
+        formulary.
+      </p>
+
+      {/* Material banners only when true */}
+      {!loading && materialFlags.conflicted ? (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5" role="status">
+          <p className="text-sm font-medium text-rose-100">Material conflict present</p>
+          <p className="mt-0.5 text-xs text-rose-100/75">Inspect sources before relying on a single conclusion.</p>
+        </div>
+      ) : null}
+      {!loading && !materialFlags.conflicted && (materialFlags.stale || materialFlags.degraded) ? (
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-2.5" role="status">
+          <p className="text-sm font-medium text-amber-100">
+            {materialFlags.degraded ? 'Source currentness degraded' : 'Some records may be stale'}
+          </p>
+          <p className="mt-0.5 text-xs text-amber-100/75">Confirm the primary source date before clinical use.</p>
+        </div>
+      ) : null}
+
+      {showServiceAlert ? (
+        <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3.5 py-3" role="status">
+          <p className="text-sm font-medium text-amber-100">
+            {result!.diagnostic
+              ? clinicalFailureLabel(result!.diagnostic.category)
+              : clinicalStateLabel(result!.state)}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-amber-100/80">{result!.message}</p>
+          {result!.state === 'error' && result!.diagnostic?.retryable !== false ? (
             <button
-              key={view}
               type="button"
-              onClick={() => setActiveView(view)}
-              aria-pressed={active}
-              className={
-                active
-                  ? 'rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3 py-1.5 text-xs font-medium text-[#d4a853]'
-                  : 'rounded-full border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/70'
-              }
+              className="mt-2.5 min-h-10 touch-manipulation text-sm font-medium text-[#d4a853]"
+              onClick={() => setRequestVersion((v) => v + 1)}
             >
-              {VIEW_LABELS[view]}
+              Retry
             </button>
-          )
-        })}
-      </nav>
+          ) : null}
+        </div>
+      ) : null}
 
-      {activeView === 'interactions' ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="note">
-          <strong className="text-sm text-white">Interaction tool</strong>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-            Use the interactions deck below this explorer (when published) or primary safety sources. Always verify
-            against the competent authority for this jurisdiction.
-          </p>
-          {safetyAuthority ? (
-            <a
-              className="mt-2 inline-flex text-xs text-[#d4a853]"
-              href={safetyAuthority.href}
-              target="_blank"
-              rel="noreferrer"
+      {/* Answer card — top graded clinical hit */}
+      {!loading && answerRecord ? (
+        <article className="rounded-2xl border border-[#d4a853]/35 bg-[#d4a853]/10 px-3.5 py-3.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d4a853]">Top graded</p>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${strengthClass(answerRecord.evidenceStrength)}`}
             >
-              {safetyAuthority.sourceName} ↗
-            </a>
-          ) : null}
-        </div>
-      ) : activeView === 'monitoring' ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="note">
-          <strong className="text-sm text-white">Monitoring protocol</strong>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-            Governed monitoring protocol is not fully published here. Use primary professional authorities and reviewed
-            education.
-          </p>
-          <a className="mt-2 inline-flex text-xs text-[#d4a853]" href="/network/clinical-education">
-            Reviewed clinical education →
-          </a>
-        </div>
-      ) : activeView === 'safety' && !loading && visibleRecords.length === 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="note">
-          <strong className="text-sm text-white">No structured safety record in current scope</strong>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-            Do not interpret this as absence of risk. Use current primary safety guidance.
-          </p>
-          {safetyAuthority ? (
-            <a
-              className="mt-2 inline-flex text-xs text-[#d4a853]"
-              href={safetyAuthority.href}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {safetyAuthority.sourceName} ↗
-            </a>
-          ) : null}
-          {pharmacovigilanceAuthority ? (
-            <a
-              className="mt-2 ml-3 inline-flex text-xs text-[#d4a853]"
-              href={pharmacovigilanceAuthority.href}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {pharmacovigilanceAuthority.label} ↗
-            </a>
-          ) : null}
-        </div>
-      ) : activeView === 'practice' && !loading && visibleRecords.length === 0 ? (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="note">
-          <strong className="text-sm text-white">No reviewed practice record in this scope</strong>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-            Primary authorities remain available when registered for this jurisdiction.
-          </p>
-          {documentAuthority ? (
-            <a
-              className="mt-2 inline-flex text-xs text-[#d4a853]"
-              href={documentAuthority.href}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Medical document authority ↗
-            </a>
-          ) : null}
-        </div>
-      ) : showRecordList ? (
-        <div className="space-y-2" aria-label={`${VIEW_LABELS[activeView]} clinical records`}>
-          <div className="flex items-center justify-between gap-2 px-0.5">
-            <h3 className="text-sm font-semibold text-white">{VIEW_LABELS[activeView]}</h3>
-            <span className="text-xs text-white/50">
-              {loading ? '…' : `${visibleRecords.length} reviewed record${visibleRecords.length === 1 ? '' : 's'}`}
+              {formatStatus(answerRecord.evidenceStrength)}
             </span>
           </div>
+          <h3 className="mt-1.5 text-sm font-semibold leading-snug text-white">{answerRecord.title}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-white/75">{buildAnswerLine(answerRecord)}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/50">
+            {yearOf(answerRecord) ? <span>{yearOf(answerRecord)}</span> : null}
+            {answerRecord.formulation ? <span>· {answerRecord.formulation}</span> : null}
+            {answerRecord.population ? <span>· {answerRecord.population}</span> : null}
+            <span>· Verified {shortDate(answerRecord.verifiedAt)}</span>
+          </div>
+          <a
+            className="mt-2.5 inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
+            href={answerRecord.primarySource.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {answerRecord.primarySource.publisher} ↗
+          </a>
+        </article>
+      ) : null}
 
-          {loading ? (
-            <LoadingSkeleton />
-          ) : (
-            <>
-              {visibleRecords.map((record) => (
-                <details
-                  key={record.id}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 open:bg-white/[0.05]"
-                >
-                  <summary className="cursor-pointer list-none">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase tracking-wide text-white/45">
-                          {record.condition || 'Regulatory / professional evidence'}
-                        </p>
-                        <p className="mt-0.5 text-sm font-medium text-white">{record.title}</p>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] text-white/70">
-                        {formatStatus(record.evidenceStrength)}
-                      </span>
-                    </div>
-                  </summary>
-                  <div className="mt-2 space-y-1.5 border-t border-white/10 pt-2">
-                    <p className="text-xs leading-relaxed text-white/65">{record.summary}</p>
-                    <p className="text-xs text-white/50">
-                      <span className="text-white/70">Primary source:</span> {record.primarySource.publisher} ·{' '}
-                      {record.primarySource.title}
-                    </p>
+      {!loading && latestChange ? (
+        <p className="line-clamp-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs leading-relaxed text-white/70">
+          <span className="font-medium text-white">Update · </span>
+          {latestChange.title}
+        </p>
+      ) : null}
+
+      {/* Dynamic filters — only paths with data */}
+      {availableFilters.length > 1 ? (
+        <nav
+          className="-mx-0.5 flex gap-1.5 overflow-x-auto overscroll-x-contain px-0.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory"
+          aria-label="Filter evidence"
+        >
+          {availableFilters.map((f) => {
+            const active = filter === f.id
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => {
+                  setShowInteractions(false)
+                  setShowMonitoring(false)
+                  setFilter(f.id)
+                }}
+                aria-pressed={active && !showInteractions && !showMonitoring}
+                className={
+                  active && !showInteractions && !showMonitoring
+                    ? 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3.5 text-xs font-medium text-[#d4a853]'
+                    : 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-xs text-white/65 active:bg-white/10'
+                }
+              >
+                {f.label}
+              </button>
+            )
+          })}
+          {interactions.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowInteractions(true)
+                setShowMonitoring(false)
+              }}
+              aria-pressed={showInteractions}
+              className={
+                showInteractions
+                  ? 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3.5 text-xs font-medium text-[#d4a853]'
+                  : 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-xs text-white/65'
+              }
+            >
+              Interactions
+            </button>
+          ) : null}
+          {monitoring.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowMonitoring(true)
+                setShowInteractions(false)
+              }}
+              aria-pressed={showMonitoring}
+              className={
+                showMonitoring
+                  ? 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-[#d4a853]/50 bg-[#d4a853]/15 px-3.5 text-xs font-medium text-[#d4a853]'
+                  : 'snap-start min-h-9 shrink-0 touch-manipulation rounded-full border border-white/12 bg-white/[0.04] px-3.5 text-xs text-white/65'
+              }
+            >
+              Monitoring
+            </button>
+          ) : null}
+        </nav>
+      ) : null}
+
+      {/* Cannabinoid chips — only when present in results */}
+      {!showInteractions && !showMonitoring && cannabinoidOptions.length > 0 ? (
+        <nav className="flex flex-wrap gap-1.5" aria-label="Cannabinoid filter">
+          <button
+            type="button"
+            onClick={() => setCannabinoid(null)}
+            className={
+              !cannabinoid
+                ? 'min-h-8 rounded-full border border-white/20 bg-white/10 px-2.5 text-[11px] text-white'
+                : 'min-h-8 rounded-full border border-white/10 px-2.5 text-[11px] text-white/55'
+            }
+          >
+            Any
+          </button>
+          {cannabinoidOptions.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setCannabinoid(c)}
+              className={
+                cannabinoid === c
+                  ? 'min-h-8 rounded-full border border-[#d4a853]/45 bg-[#d4a853]/15 px-2.5 text-[11px] text-[#d4a853]'
+                  : 'min-h-8 rounded-full border border-white/10 px-2.5 text-[11px] text-white/55'
+              }
+            >
+              {c}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      <div
+        className="relative touch-pan-y select-none"
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endGesture}
+        onPointerCancel={endGesture}
+        aria-label="Evidence results. Swipe to change filter. Pull to refresh."
+      >
+        <div
+          className="pointer-events-none flex items-center justify-center overflow-hidden transition-[height] duration-150"
+          style={{ height: pullPx || (refreshing ? 28 : 0) }}
+          aria-hidden
+        >
+          <span
+            className="text-[11px] font-medium text-[#d4a853]/90"
+            style={{ opacity: refreshing ? 1 : 0.35 + pullProgress * 0.65 }}
+          >
+            {refreshing ? 'Refreshing…' : pullProgress >= 1 ? 'Release to refresh' : 'Pull to refresh'}
+          </span>
+        </div>
+
+        {loading && !refreshing ? (
+          <Skeleton />
+        ) : showInteractions ? (
+          <div className="space-y-2.5" aria-label="Interactions">
+            {interactions.map((ix) => (
+              <article
+                key={ix.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-medium text-white">
+                    {ix.medicationIngredient} × {ix.cannabinoid}
+                  </h3>
+                  <span className={`shrink-0 text-[11px] font-medium capitalize ${significanceClass(ix.clinicalSignificance)}`}>
+                    {ix.clinicalSignificance}
+                  </span>
+                </div>
+                {ix.mechanism ? (
+                  <p className="mt-1 text-xs leading-relaxed text-white/65">{ix.mechanism}</p>
+                ) : null}
+                {ix.monitoringConsideration ? (
+                  <p className="mt-1 text-xs text-white/50">Monitor: {ix.monitoringConsideration}</p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/45">
+                  {ix.verifiedAt ? <span>Verified {shortDate(ix.verifiedAt)}</span> : null}
+                  {ix.primarySource?.url ? (
                     <a
-                      className="inline-flex text-xs text-[#d4a853]"
-                      href={record.primarySource.url}
+                      className="font-medium text-[#d4a853]"
+                      href={ix.primarySource.url}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Open primary source ↗
+                      {ix.primarySource.publisher || 'Source'} ↗
                     </a>
-                  </div>
-                </details>
-              ))}
-
-              {visibleRecords.length === 0 && activeView === 'evidence' ? (
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3" role="status">
-                  <strong className="text-sm text-white">
-                    {result ? clinicalStateLabel(result.state) : 'No evidence loaded'}
-                  </strong>
-                  <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-                    {result?.message ??
-                      'Enter a condition or clinical question to search reviewed evidence. Empty result is not proof that evidence does not exist outside this corpus.'}
-                  </p>
+                  ) : null}
                 </div>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : null}
+              </article>
+            ))}
+          </div>
+        ) : showMonitoring ? (
+          <div className="space-y-2.5" aria-label="Monitoring protocols">
+            {monitoring.map((mp) => (
+              <article
+                key={mp.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-medium text-white">{mp.protocolName}</h3>
+                  {mp.baselineRequired ? (
+                    <span className="shrink-0 rounded-full border border-amber-200/30 bg-amber-200/10 px-2 py-0.5 text-[10px] font-medium text-amber-200/90">
+                      Baseline
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-white/65">{mp.monitoringParameter}</p>
+                {mp.followUpInterval ? (
+                  <p className="mt-1 text-xs text-white/50">Follow-up: {mp.followUpInterval}</p>
+                ) : null}
+                {mp.rationale ? (
+                  <p className="mt-1 text-xs text-white/50">{mp.rationale}</p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-white/45">
+                  {mp.verifiedAt ? <span>Verified {shortDate(mp.verifiedAt)}</span> : null}
+                  {mp.primarySource?.url ? (
+                    <a
+                      className="font-medium text-[#d4a853]"
+                      href={mp.primarySource.url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {mp.primarySource.publisher || 'Source'} ↗
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2.5" aria-label="Evidence results">
+            {visible.map((record) => (
+              <details
+                key={record.id}
+                className="group min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] open:bg-white/[0.05]"
+              >
+                <summary className="min-h-12 cursor-pointer list-none touch-manipulation px-3.5 py-3 [&::-webkit-details-marker]:hidden">
+                  <div className="flex items-start gap-2.5">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="truncate text-[10px] uppercase tracking-wide text-white/40">
+                        {record.condition || formatStatus(record.evidenceType)}
+                      </p>
+                      <p className="mt-0.5 line-clamp-2 text-sm font-medium leading-snug text-white">
+                        {record.title}
+                      </p>
+                      <p className="mt-1 flex flex-wrap gap-x-2 text-[11px] text-white/45">
+                        {yearOf(record) ? <span>{yearOf(record)}</span> : null}
+                        {record.cannabinoid.length ? (
+                          <span>{record.cannabinoid.slice(0, 3).join(', ')}</span>
+                        ) : null}
+                        {record.formulation ? <span>{record.formulation}</span> : null}
+                      </p>
+                    </div>
+                    <span
+                      className={`mt-0.5 max-w-[5.5rem] shrink-0 truncate rounded-full border px-2 py-0.5 text-center text-[10px] font-medium leading-tight ${strengthClass(record.evidenceStrength)}`}
+                    >
+                      {formatStatus(record.evidenceStrength)}
+                    </span>
+                  </div>
+                </summary>
+                <div className="space-y-2 border-t border-white/10 px-3.5 py-3">
+                  <p className="text-xs leading-relaxed text-white/70">{record.summary}</p>
+                  {record.uncertainty ? (
+                    <p className="text-xs text-white/50">Uncertainty: {record.uncertainty}</p>
+                  ) : null}
+                  {record.population ? (
+                    <p className="text-xs text-white/50">Population: {record.population}</p>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/45">
+                    <span>Verified {shortDate(record.verifiedAt)}</span>
+                    {record.supersessionState !== 'current' ? (
+                      <span className="text-amber-200/90">{formatStatus(record.supersessionState)}</span>
+                    ) : null}
+                  </div>
+                  <a
+                    className="inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
+                    href={record.primarySource.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {record.primarySource.publisher} ↗
+                  </a>
+                </div>
+              </details>
+            ))}
+
+            {visible.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-6 text-center">
+                <p className="text-sm text-white/85">No records in this view</p>
+                <p className="mt-1 text-xs text-white/50">Try another filter or search.</p>
+                {primaryAuthority ? (
+                  <a
+                    className="mt-4 inline-flex min-h-10 items-center touch-manipulation text-sm font-medium text-[#d4a853]"
+                    href={primaryAuthority.href}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Primary authority ↗
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
     </section>
   )
 }

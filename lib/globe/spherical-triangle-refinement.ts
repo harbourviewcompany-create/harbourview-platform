@@ -6,18 +6,29 @@ export type Triangle = [number, number, number]
  *
  * Russia's production Earcut mesh contained 46.29° interior diagonals. Once
  * those planar triangles were projected only at their vertices, their straight
- * 3D chords dipped below the 2.35-radius globe and the ocean sphere occluded
- * them as black wedges. 12° leaves a wide radial-clearance margin while adding
- * vertices only where Earcut produced very long interior diagonals.
+ * 3D chords dipped below the 2.35-radius ocean sphere and occluded them as
+ * black wedges. 8° leaves a wide radial-clearance margin (chord sag ≈ 0.0057
+ * at r=2.434 vs ~0.084 plate clearance) while adding vertices only where
+ * Earcut produced long interior diagonals.
+ *
+ * Previously 12°; still allowed residual Siberia voids on mobile GPUs when
+ * midpoints were computed in planar lon/lat instead of on the unit sphere.
  */
-export const MAX_TOP_FACE_SPHERICAL_EDGE_DEG = 12
-const MAX_REFINEMENT_PASSES = 8
+export const MAX_TOP_FACE_SPHERICAL_EDGE_DEG = 8
+const MAX_REFINEMENT_PASSES = 10
 
 function toUnitVector([lon, lat]: LonLat): [number, number, number] {
   const lonRad = (lon * Math.PI) / 180
   const latRad = (lat * Math.PI) / 180
   const cosLat = Math.cos(latRad)
   return [cosLat * Math.cos(lonRad), Math.sin(latRad), cosLat * Math.sin(lonRad)]
+}
+
+function fromUnitVector([x, y, z]: [number, number, number]): LonLat {
+  const hyp = Math.sqrt(x * x + z * z)
+  const lat = (Math.atan2(y, hyp) * 180) / Math.PI
+  const lon = (Math.atan2(z, x) * 180) / Math.PI
+  return [lon, lat]
 }
 
 export function sphericalAngularDistanceDeg(a: LonLat, b: LonLat) {
@@ -54,11 +65,37 @@ function splitTriangleOnEdge(triangle: Triangle, u: number, v: number, midpoint:
   return [triangle]
 }
 
+/**
+ * Great-circle midpoint on the unit sphere, returned in the same longitude
+ * unwrap domain as the endpoints (so Earcut's 2D topology stays valid).
+ *
+ * Planar (lon,lat) averages are wrong at high latitude: they undershoot the
+ * true arc and, after projection, leave chords that still pierce the ocean.
+ */
 function midpointLonLat(a: LonLat, b: LonLat): LonLat {
-  // The polygon-buffer stage has already unwrapped every ring around a local
-  // longitude reference, so a planar midpoint is safe even at ±180 and remains
-  // inside the Earcut source triangle in the same 2D coordinate system.
-  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  const av = toUnitVector(a)
+  const bv = toUnitVector(b)
+  const sx = av[0] + bv[0]
+  const sy = av[1] + bv[1]
+  const sz = av[2] + bv[2]
+  const len = Math.sqrt(sx * sx + sy * sy + sz * sz)
+
+  // Opposite or near-opposite points — fall back to planar average in the
+  // already-unwrapped lon/lat frame so we never emit NaN.
+  if (len < 1e-12) {
+    return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+  }
+
+  const [lon, lat] = fromUnitVector([sx / len, sy / len, sz / len])
+
+  // Keep the midpoint inside the unwrap domain of the endpoints so subsequent
+  // spherical-distance checks and Earcut index space stay consistent.
+  const meanLon = (a[0] + b[0]) / 2
+  let unwrappedLon = lon
+  while (unwrappedLon - meanLon > 180) unwrappedLon -= 360
+  while (unwrappedLon - meanLon < -180) unwrappedLon += 360
+
+  return [unwrappedLon, lat]
 }
 
 export function maxTriangleSphericalEdgeDeg(points: LonLat[], triangle: Triangle) {

@@ -13,15 +13,10 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
-// ── Subscription tier type ───────────────────────────────────────────────────
-// Canonical tier names — matches user_profiles.tier CHECK constraint
-// and app_metadata.subscription_tier written by the Stripe webhook.
-// Previous names ('starter', 'professional', 'enterprise') are retired.
 type SubscriptionTier = 'free' | 'intel' | 'operator'
 
 const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
 
-// Routes that require a minimum subscription tier beyond free.
 const TIER_GATED_PREFIXES: Record<string, SubscriptionTier> = {
   '/signals':       'intel',
   '/intelligence':  'intel',
@@ -36,20 +31,17 @@ function tierMeetsMinimum(
   required: SubscriptionTier,
 ): boolean {
   if (!actual) return false
-  // Normalise any legacy tier names that may still be in existing JWTs
   const normalised = normaliseTier(actual)
   return TIER_ORDER.indexOf(normalised) >= TIER_ORDER.indexOf(required)
 }
 
-// Map legacy Stripe tier names → current names so old JWTs still work
-// during the transition period (tokens expire within 1h).
 function normaliseTier(raw: string): SubscriptionTier {
   switch (raw) {
     case 'intel':        return 'intel'
     case 'operator':     return 'operator'
-    case 'professional': return 'operator'   // legacy
-    case 'enterprise':   return 'operator'   // legacy
-    case 'starter':      return 'intel'      // legacy
+    case 'professional': return 'operator'
+    case 'enterprise':   return 'operator'
+    case 'starter':      return 'intel'
     default:             return 'free'
   }
 }
@@ -75,13 +67,15 @@ const PROTECTED_PREFIXES = [
   '/marketplace/intake',
 ]
 
-/**
- * Public marketing shells under otherwise-protected prefixes.
- * These pages must not require auth or subscription tier — they deep-link
- * into authenticated Command Centre / My Briefings for interactive work.
- */
 const PUBLIC_AUTH_EXCEPTIONS = [
   '/intelligence/watchlists',
+  '/intelligence/corridor-plan',
+  '/intelligence/corridor-coverage',
+  '/intelligence/landed-cost',
+  '/intelligence/logistics-simulator',
+  '/intelligence/logistics-trade-routes',
+  '/genetics',
+  '/education/cpd',
 ]
 
 function isPublicAuthException(pathname: string): boolean {
@@ -109,7 +103,6 @@ export async function proxy(request: NextRequest) {
     return applyNoStoreHeaders(NextResponse.redirect(url, 308))
   }
 
-  // Public marketing exceptions skip auth + tier gates entirely.
   if (isPublicAuthException(normalizedPathname)) {
     return NextResponse.next()
   }
@@ -159,10 +152,6 @@ export async function proxy(request: NextRequest) {
       return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
     }
 
-    // ── Subscription tier gate ───────────────────────────────────────────────
-    // Reads subscription_tier from JWT app_metadata — set by Stripe webhook via
-    // supabase.auth.admin.updateUserById(). Zero DB round-trip.
-    // Falls back to 'free' if not present (new signups before first purchase).
     const rawTier = user.app_metadata?.subscription_tier as string | undefined
     const tier    = normaliseTier(rawTier ?? 'free')
 
@@ -197,6 +186,7 @@ export const config = {
     '/signals',
     '/signals/:path*',
     '/intelligence/:path*',
+    '/genetics',
     '/genetics/:path*',
     '/network/:path*',
     '/opportunities/:path*',

@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 const QuerySchema = z.object({
   q: z.string().trim().max(160).optional().default(''),
   jurisdiction: z.string().trim().min(2).max(120).optional(),
+  country: z.string().trim().min(2).max(8).optional(),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
 })
 
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
   const parsed = QuerySchema.safeParse({
     q: request.nextUrl.searchParams.get('q') ?? '',
     jurisdiction: request.nextUrl.searchParams.get('jurisdiction') ?? undefined,
+    country: request.nextUrl.searchParams.get('country') ?? undefined,
     limit: request.nextUrl.searchParams.get('limit') ?? undefined,
   })
 
@@ -25,9 +27,11 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  const jurisdiction = parsed.data.jurisdiction ?? parsed.data.country
+
   const result = await searchClinicalEvidence({
     query: parsed.data.q,
-    jurisdiction: parsed.data.jurisdiction,
+    jurisdiction,
     limit: parsed.data.limit,
   })
   const headers: Record<string, string> = {

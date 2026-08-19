@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { searchInteractionFixtures } from '@/lib/fixtures/clinical/interactions'
 
 export type ClinicalInteractionDTO = {
   id: string
@@ -13,6 +14,22 @@ export type ClinicalInteractionDTO = {
   primarySourceTitle: string
   primarySourceUrl: string | null
   verifiedAt: string
+}
+
+function fromFixtures(opts: { q?: string; limit?: number }): ClinicalInteractionDTO[] {
+  return searchInteractionFixtures(opts).map((r) => ({
+    id: r.id,
+    medicationIngredient: r.medicationIngredient,
+    cannabinoid: r.cannabinoid,
+    mechanism: r.mechanism,
+    clinicalSignificance: r.clinicalSignificance,
+    evidenceCertainty: r.evidenceCertainty,
+    uncertainty: r.uncertainty,
+    monitoringConsideration: r.monitoringConsideration,
+    primarySourceTitle: r.primarySourceTitle,
+    primarySourceUrl: r.primarySourceUrl,
+    verifiedAt: r.verifiedAt,
+  }))
 }
 
 export async function searchClinicalInteractions(opts: {
@@ -38,7 +55,12 @@ export async function searchClinicalInteractions(opts: {
     }
 
     const { data, error } = await query
-    if (error) return { state: 'error', interactions: [], error: error.message }
+    if (error) {
+      const fixtures = fromFixtures(opts)
+      return fixtures.length
+        ? { state: 'loaded', interactions: fixtures }
+        : { state: 'error', interactions: [], error: error.message }
+    }
 
     const interactions: ClinicalInteractionDTO[] = (data ?? []).map((row) => {
       const r = row as Record<string, unknown>
@@ -57,8 +79,15 @@ export async function searchClinicalInteractions(opts: {
       }
     })
 
-    return { state: interactions.length ? 'loaded' : 'empty', interactions }
+    if (!interactions.length) {
+      const fixtures = fromFixtures(opts)
+      return { state: fixtures.length ? 'loaded' : 'empty', interactions: fixtures }
+    }
+
+    return { state: 'loaded', interactions }
   } catch (e) {
+    const fixtures = fromFixtures(opts)
+    if (fixtures.length) return { state: 'loaded', interactions: fixtures }
     return {
       state: 'error',
       interactions: [],

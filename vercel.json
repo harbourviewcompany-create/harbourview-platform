@@ -37,8 +37,16 @@
       "schedule": "0 4 * * *"
     },
     {
+      "path": "/api/cron/clinical-sku-feeds",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron/intelligence-embed",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/clinical-source-currentness",
+      "schedule": "30 6 * * *"
     },
     {
       "path": "/api/cron/intelligence-notify",
@@ -49,12 +57,8 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/cron/regulatory-watch",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/prune-client-errors",
-      "schedule": "0 3 * * *"
+      "path": "/api/cron/personal-briefings-tick",
+      "schedule": "30 8 * * *"
     },
     {
       "path": "/api/cron/pipeline-manual-review-notify",
@@ -69,8 +73,12 @@
       "schedule": "0 11 * * *"
     },
     {
-      "path": "/api/cron/clinical-sku-feeds",
-      "schedule": "0 5 * * *"
+      "path": "/api/cron/regulatory-watch",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/prune-client-errors",
+      "schedule": "0 3 * * *"
     }
   ]
 }

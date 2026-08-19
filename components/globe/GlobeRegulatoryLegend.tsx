@@ -23,11 +23,11 @@ const TIER_ORDER: RegulatoryTier[] = [
 const TIER_LABELS: Record<RegulatoryTier, { label: string; hint: string }> = {
   legal_commercial_access: {
     label: 'Legal commercial access',
-    hint: 'Lawful import and/or export pathways in operation',
+    hint: 'Lawful cross-border commercial pathway (import and/or export) in operation',
   },
   medical_limited_trade: {
     label: 'Medical access, limited trade',
-    hint: 'Lawful medical market; narrow cross-border route',
+    hint: 'Lawful medical market; narrow or no commercial cross-border route',
   },
   domestic_only: {
     label: 'Domestic only',
@@ -133,7 +133,8 @@ export function GlobeRegulatoryLegend() {
           than letting a viewer read "unreviewed" as "prohibited". */}
       <p className="mt-2.5 border-t border-white/8 pt-2 text-[9px] leading-[13px] text-white/34">
         Unshaded countries have not yet been classified. Absence of colour is not
-        a statement about their law.
+        a statement about their law. Colours update when jurisdiction briefings
+        or high-confidence access signals change.
       </p>
     </aside>
   )

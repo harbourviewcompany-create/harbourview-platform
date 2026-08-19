@@ -17,7 +17,7 @@
     "check:env-manifest": "node scripts/check-environment-manifest.mjs",
     "check:cloudflare-architecture": "node scripts/check-cloudflare-architecture.mjs",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
-    "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts",
+    "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts tests/globe/derive-regulatory-tier.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
@@ -58,7 +58,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
-    "@google/genai": "^2.16.0",
+    "@google/genai": "^2.17.1",
     "@googleapis/drive": "^21.0.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
