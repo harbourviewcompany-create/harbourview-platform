@@ -142,10 +142,32 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     },
   ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
 
+  const corridorActions = useMemo(() => {
+    const origin = model.currentCountry || 'CA'
+    // Default high-volume EU medical destination for planning orientation
+    const destination = origin === 'DE' ? 'CA' : 'DE'
+    return [
+      {
+        id: 'corridor-plan',
+        label: 'Open corridor execution plan',
+        detail: `Map GMP recognition, workstreams and failure modes for ${origin} → ${destination} (change pair in the tool).`,
+        href: `/dashboard?page=logistics&section=supply&tool=corridor-plan&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`,
+        tone: 'gold' as const,
+      },
+      {
+        id: 'landed-cost',
+        label: 'Run landed cost + sensitivity',
+        detail: 'Orientation USD stack and freight/volume scenarios for the active corridor.',
+        href: `/dashboard?page=trade-calc&section=financing&tool=landed-cost&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&product=flower-premium&volume=10`,
+        tone: 'gold' as const,
+      },
+    ]
+  }, [model.currentCountry])
+
   return {
     ...model,
     signals: effectiveSignals,
     geneticsRecords,
-    nextActions: [...organizationActions, ...commercialActions],
+    nextActions: [...corridorActions, ...organizationActions, ...commercialActions],
   }
 }
