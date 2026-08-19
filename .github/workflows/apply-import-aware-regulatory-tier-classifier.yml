@@ -1,8 +1,9 @@
-name: Apply import-aware regulatory tier classifier (20260819125403)
+name: Apply import-aware regulatory tier classifier
 
-# Applies exactly one migration file to production, verbatim from the repository.
-# Same pattern as apply-production-security-hardening.yml — avoids supabase db push
-# --include-all against the drifted pending set.
+# Applies only the reviewed import-aware classifier migrations, never the
+# repository-wide pending migration set. Semantic verification and migration
+# ledger writes occur in the same transaction as the SQL apply so a failed
+# classifier assertion cannot leave production mutated and ledgered.
 
 on:
   workflow_dispatch:
@@ -24,9 +25,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  MIGRATION_VERSION: '20260819125403'
-  MIGRATION_NAME: regulatory_tier_import_aware_classifier
-  MIGRATION_FILE: supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql
+  BASE_MIGRATION_VERSION: '20260819125403'
+  BASE_MIGRATION_NAME: regulatory_tier_import_aware_classifier
+  BASE_MIGRATION_FILE: supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql
+  HARDENING_MIGRATION_VERSION: '20260819150000'
+  HARDENING_MIGRATION_NAME: regulatory_tier_trade_negation_hardening
+  HARDENING_MIGRATION_FILE: supabase/migrations/20260819150000_regulatory_tier_trade_negation_hardening.sql
   PGHOST: aws-1-us-west-2.pooler.supabase.com
   PGPORT: '5432'
   PGUSER: postgres.zvxdgdkukjrrwamdpqrg
@@ -66,21 +70,65 @@ jobs:
           echo "::add-mask::$DB_URL"
           echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
 
-      - name: Refuse if already applied
+      - name: Inspect exact production migration state
         run: |
-          set -o pipefail
-          COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+          set -euo pipefail
+          mkdir -p artifacts
+
+          BASE_VERSION_COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
             "select count(*) from supabase_migrations.schema_migrations
-             where version = '${MIGRATION_VERSION}' or name = '${MIGRATION_NAME}';")
-          echo "Existing ledger rows for this migration: $COUNT"
-          if [ "$COUNT" != "0" ]; then
-            echo "::error::Already recorded in the ledger. Nothing to do."
+             where version = '${BASE_MIGRATION_VERSION}';")
+          BASE_NAME_COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+            "select count(*) from supabase_migrations.schema_migrations
+             where name = '${BASE_MIGRATION_NAME}';")
+          HARDENING_VERSION_COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+            "select count(*) from supabase_migrations.schema_migrations
+             where version = '${HARDENING_MIGRATION_VERSION}';")
+          HARDENING_NAME_COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+            "select count(*) from supabase_migrations.schema_migrations
+             where name = '${HARDENING_MIGRATION_NAME}';")
+
+          {
+            echo "base_version_count=$BASE_VERSION_COUNT"
+            echo "base_name_count=$BASE_NAME_COUNT"
+            echo "hardening_version_count=$HARDENING_VERSION_COUNT"
+            echo "hardening_name_count=$HARDENING_NAME_COUNT"
+          } | tee artifacts/migration-state-before.txt
+
+          if [ "$BASE_VERSION_COUNT" -gt 1 ] || [ "$BASE_NAME_COUNT" -gt 1 ] || \
+             [ "$HARDENING_VERSION_COUNT" -gt 1 ] || [ "$HARDENING_NAME_COUNT" -gt 1 ]; then
+            echo "::error::Duplicate classifier migration ledger rows detected. Refusing production apply."
             exit 1
           fi
 
-      - name: Capture pre-application tier sample (DE/BR)
+          if [ "$BASE_VERSION_COUNT" != "$BASE_NAME_COUNT" ]; then
+            echo "::error::Base migration version/name ledger state is inconsistent. Refusing production apply."
+            exit 1
+          fi
+          if [ "$HARDENING_VERSION_COUNT" != "$HARDENING_NAME_COUNT" ]; then
+            echo "::error::Hardening migration version/name ledger state is inconsistent. Refusing production apply."
+            exit 1
+          fi
+
+          if [ "$HARDENING_VERSION_COUNT" = "1" ] && [ "$BASE_VERSION_COUNT" = "0" ]; then
+            echo "::error::Hardening is ledgered without its base migration. Refusing inconsistent state."
+            exit 1
+          fi
+
+          if [ "$BASE_VERSION_COUNT" = "1" ] && [ "$HARDENING_VERSION_COUNT" = "1" ]; then
+            echo "::error::Both classifier migrations are already recorded. Nothing to apply."
+            exit 1
+          fi
+
+          if [ "$BASE_VERSION_COUNT" = "0" ]; then
+            echo "APPLY_BASE_MIGRATION=1" >> "$GITHUB_ENV"
+          else
+            echo "APPLY_BASE_MIGRATION=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Capture pre-application evidence
         run: |
-          mkdir -p artifacts
+          set -euo pipefail
           psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
             select iso_alpha2 || '=' || coalesce(regulatory_tier, 'null')
             from public.countries
@@ -88,21 +136,183 @@ jobs:
             order by iso_alpha2;
           " | tee artifacts/before-tiers.txt
 
-      - name: Apply the migration in one transaction
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select md5(coalesce(string_agg(
+              iso_alpha2 || '|' ||
+              coalesce(regulatory_tier, '') || '|' ||
+              coalesce(regulatory_tier_origin, '') || '|' ||
+              coalesce(regulatory_tier_source, '') || '|' ||
+              coalesce(regulatory_tier_source_hash, '') || '|' ||
+              coalesce(regulatory_tier_needs_review::text, ''),
+              E'\n' order by iso_alpha2
+            ), ''))
+            from public.countries
+            where coalesce(regulatory_tier_origin, 'auto') <> 'auto';
+          " | tee artifacts/override-fingerprint-before.txt
+
+      - name: Apply missing classifier migrations and verify atomically
         run: |
-          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "$MIGRATION_FILE" \
+          set -euo pipefail
+
+          cat > artifacts/apply-transaction.sql <<'SQL'
+          \set ON_ERROR_STOP on
+          begin;
+
+          create temp table _regulatory_tier_override_before on commit drop as
+          select
+            iso_alpha2,
+            regulatory_tier,
+            regulatory_tier_origin,
+            regulatory_tier_source,
+            regulatory_tier_source_hash,
+            regulatory_tier_needs_review
+          from public.countries
+          where coalesce(regulatory_tier_origin, 'auto') <> 'auto';
+          SQL
+
+          if [ "$APPLY_BASE_MIGRATION" = "1" ]; then
+            echo "\\i $BASE_MIGRATION_FILE" >> artifacts/apply-transaction.sql
+          fi
+          echo "\\i $HARDENING_MIGRATION_FILE" >> artifacts/apply-transaction.sql
+
+          cat >> artifacts/apply-transaction.sql <<'SQL'
+
+          do $verify$
+          declare
+            got text;
+          begin
+            select api.derive_regulatory_tier(
+              'Adult-use social club framework; Europe''s largest medical import market with licensed importers.'
+            ) into got;
+            if got is distinct from 'legal_commercial_access' then
+              raise exception 'affirmative import probe failed: %', got;
+            end if;
+
+            select api.derive_regulatory_tier(
+              'Medical legal; licensed export permit for commercial shipments'
+            ) into got;
+            if got is distinct from 'legal_commercial_access' then
+              raise exception 'affirmative export probe failed: %', got;
+            end if;
+
+            select api.derive_regulatory_tier(
+              'Medical legal; prescription programme; no licensed export industry'
+            ) into got;
+            if got is distinct from 'medical_limited_trade' then
+              raise exception 'negated export probe failed: %', got;
+            end if;
+
+            select api.derive_regulatory_tier(
+              'Medical legal; no commercial import pathway'
+            ) into got;
+            if got is distinct from 'medical_limited_trade' then
+              raise exception 'negated import probe failed: %', got;
+            end if;
+
+            select api.derive_regulatory_tier(
+              'Medical legal; export licensing under discussion'
+            ) into got;
+            if got is distinct from 'medical_limited_trade' then
+              raise exception 'trade-discussion medical fallback probe failed: %', got;
+            end if;
+
+            select api.derive_regulatory_tier(
+              'Medical legal; no licensed export industry; licensed importers operate under active permits'
+            ) into got;
+            if got is distinct from 'legal_commercial_access' then
+              raise exception 'separate affirmative import clause probe failed: %', got;
+            end if;
+
+            if exists (
+              select 1
+              from (
+                (
+                  select
+                    iso_alpha2,
+                    regulatory_tier,
+                    regulatory_tier_origin,
+                    regulatory_tier_source,
+                    regulatory_tier_source_hash,
+                    regulatory_tier_needs_review
+                  from _regulatory_tier_override_before
+                  except
+                  select
+                    iso_alpha2,
+                    regulatory_tier,
+                    regulatory_tier_origin,
+                    regulatory_tier_source,
+                    regulatory_tier_source_hash,
+                    regulatory_tier_needs_review
+                  from public.countries
+                  where coalesce(regulatory_tier_origin, 'auto') <> 'auto'
+                )
+                union all
+                (
+                  select
+                    iso_alpha2,
+                    regulatory_tier,
+                    regulatory_tier_origin,
+                    regulatory_tier_source,
+                    regulatory_tier_source_hash,
+                    regulatory_tier_needs_review
+                  from public.countries
+                  where coalesce(regulatory_tier_origin, 'auto') <> 'auto'
+                  except
+                  select
+                    iso_alpha2,
+                    regulatory_tier,
+                    regulatory_tier_origin,
+                    regulatory_tier_source,
+                    regulatory_tier_source_hash,
+                    regulatory_tier_needs_review
+                  from _regulatory_tier_override_before
+                )
+              ) as override_diff
+            ) then
+              raise exception 'override rows changed during classifier migration';
+            end if;
+          end
+          $verify$;
+          SQL
+
+          if [ "$APPLY_BASE_MIGRATION" = "1" ]; then
+            cat >> artifacts/apply-transaction.sql <<SQL
+          insert into supabase_migrations.schema_migrations (version, name)
+          values ('${BASE_MIGRATION_VERSION}', '${BASE_MIGRATION_NAME}');
+          SQL
+          fi
+
+          cat >> artifacts/apply-transaction.sql <<SQL
+          insert into supabase_migrations.schema_migrations (version, name)
+          values ('${HARDENING_MIGRATION_VERSION}', '${HARDENING_MIGRATION_NAME}');
+          commit;
+          SQL
+
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f artifacts/apply-transaction.sql \
             2>&1 | tee artifacts/apply.log
 
-      - name: Record the ledger row under its repository version
+      - name: Verify committed ledger and capture post-application evidence
         run: |
-          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "
-            insert into supabase_migrations.schema_migrations (version, name)
-            values ('${MIGRATION_VERSION}', '${MIGRATION_NAME}')
-            on conflict (version) do nothing;
-          "
+          set -euo pipefail
 
-      - name: Capture post-application tier sample (DE/BR)
-        run: |
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select version || '=' || coalesce(name, '')
+            from supabase_migrations.schema_migrations
+            where version in ('${BASE_MIGRATION_VERSION}', '${HARDENING_MIGRATION_VERSION}')
+            order by version;
+          " | tee artifacts/migration-state-after.txt
+
+          LEDGER_COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select count(*)
+            from supabase_migrations.schema_migrations
+            where (version = '${BASE_MIGRATION_VERSION}' and name = '${BASE_MIGRATION_NAME}')
+               or (version = '${HARDENING_MIGRATION_VERSION}' and name = '${HARDENING_MIGRATION_NAME}');
+          ")
+          if [ "$LEDGER_COUNT" != "2" ]; then
+            echo "::error::Expected both classifier migration ledger rows after commit; got $LEDGER_COUNT."
+            exit 1
+          fi
+
           psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
             select iso_alpha2 || '=' || coalesce(regulatory_tier, 'null')
             from public.countries
@@ -110,29 +320,42 @@ jobs:
             order by iso_alpha2;
           " | tee artifacts/after-tiers.txt
 
-      - name: Prove classifier function is the import-aware version
-        run: |
-          set -o pipefail
-          RESULT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
-            select api.derive_regulatory_tier(
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select md5(coalesce(string_agg(
+              iso_alpha2 || '|' ||
+              coalesce(regulatory_tier, '') || '|' ||
+              coalesce(regulatory_tier_origin, '') || '|' ||
+              coalesce(regulatory_tier_source, '') || '|' ||
+              coalesce(regulatory_tier_source_hash, '') || '|' ||
+              coalesce(regulatory_tier_needs_review::text, ''),
+              E'\n' order by iso_alpha2
+            ), ''))
+            from public.countries
+            where coalesce(regulatory_tier_origin, 'auto') <> 'auto';
+          " | tee artifacts/override-fingerprint-after.txt
+
+          if ! cmp -s artifacts/override-fingerprint-before.txt artifacts/override-fingerprint-after.txt; then
+            echo "::error::Override-country fingerprint changed."
+            exit 1
+          fi
+
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select 'affirmative_import=' || api.derive_regulatory_tier(
               'Adult-use social club framework; Europe''s largest medical import market with licensed importers.'
-            );
-          ")
-          echo "DE-style sample → $RESULT"
-          if [ "$RESULT" != "legal_commercial_access" ]; then
-            echo "::error::Classifier did not promote import market to legal_commercial_access (got: $RESULT)"
-            exit 1
-          fi
-          RESULT2=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
-            select api.derive_regulatory_tier(
+            )
+            union all
+            select 'negated_export=' || api.derive_regulatory_tier(
               'Medical legal; prescription programme; no licensed export industry'
+            )
+            union all
+            select 'negated_import=' || api.derive_regulatory_tier(
+              'Medical legal; no commercial import pathway'
+            )
+            union all
+            select 'trade_discussion=' || api.derive_regulatory_tier(
+              'Medical legal; export licensing under discussion'
             );
-          ")
-          echo "Medical-only sample → $RESULT2"
-          if [ "$RESULT2" != "medical_limited_trade" ]; then
-            echo "::error::Classifier medical-only path failed (got: $RESULT2)"
-            exit 1
-          fi
+          " | tee artifacts/classifier-probes.txt
 
       - name: Publish summary
         if: always()
@@ -140,6 +363,10 @@ jobs:
           {
             echo '## Import-aware regulatory tier classifier'
             echo
+            echo '### Migration state before'
+            echo '```'
+            cat artifacts/migration-state-before.txt 2>/dev/null || echo 'not captured'
+            echo '```'
             echo '### Before (DE/BR/CA/US)'
             echo '```'
             cat artifacts/before-tiers.txt 2>/dev/null || echo 'not captured'
@@ -147,6 +374,14 @@ jobs:
             echo '### After (DE/BR/CA/US)'
             echo '```'
             cat artifacts/after-tiers.txt 2>/dev/null || echo 'not captured'
+            echo '```'
+            echo '### Classifier probes'
+            echo '```'
+            cat artifacts/classifier-probes.txt 2>/dev/null || echo 'not captured'
+            echo '```'
+            echo '### Migration state after'
+            echo '```'
+            cat artifacts/migration-state-after.txt 2>/dev/null || echo 'not captured'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
