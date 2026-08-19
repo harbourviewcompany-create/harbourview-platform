@@ -43,7 +43,7 @@ const MEDICAL =
   /(medical (legal|—|-)|prescription|sativex|epidiolex|mcap|decriminaliz|cbd)/i
 
 const MEDICAL_NEGATED =
-  /(no medical programme|reform under|under (active )?consideration|under discussion)/i
+  /(no medical programme|no medical program|medical (reform|programme|program|access|legalization|legalisation|licensing) under (active )?(consideration|discussion|review))/i
 
 function hasAffirmativeTradeClause(
   programStatus: string,
@@ -85,13 +85,11 @@ export function deriveRegulatoryTier(programStatus: string | null | undefined): 
     return 'cbd_hemp_only'
   }
 
+  if (exportCommercial || importCommercial) {
+    return 'legal_commercial_access'
+  }
+
   if (!underDiscussion) {
-    if (exportCommercial) {
-      return 'legal_commercial_access'
-    }
-    if (importCommercial) {
-      return 'legal_commercial_access'
-    }
     if (INDUSTRIAL.test(ps)) {
       return 'legal_commercial_access'
     }
