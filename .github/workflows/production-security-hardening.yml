@@ -38,7 +38,8 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - run: npm ci
+      - name: Verification-only dependency install
+        run: npm install --package-lock=false
       - name: Focused release-closure contract suite
         run: |
           npx vitest run tests/supabase/hvDedupVectorSearchPath.test.ts tests/supabase/productionSecurityHardening.test.ts
@@ -56,6 +57,14 @@ jobs:
           set -euo pipefail
           supabase start
           supabase db reset --local
+      - name: Prove clinical monitoring replay cardinality
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          COUNTS="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*)::text || '|' || count(distinct (protocol_name, context, cannabinoid, monitoring_parameter))::text from public.clinical_monitoring_protocols;")"
+          printf '%s\n' "$COUNTS" | tee clinical-monitoring-replay-counts.txt
+          test "$COUNTS" = "10|10"
       - name: Assert hardened local database
         shell: bash
         run: |
@@ -71,7 +80,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: production-security-hardening-${{ github.run_id }}
-          path: production-security-assertions.txt
+          path: |
+            production-security-assertions.txt
+            clinical-monitoring-replay-counts.txt
           if-no-files-found: warn
           retention-days: 14
       - name: Stop local Supabase
