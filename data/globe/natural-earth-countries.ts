@@ -10,7 +10,7 @@ export const naturalEarthCountriesPayload: HarbourviewCountryGeometryPayload = {
     sourceVersion: 'ne_50m_admin_0_countries (vendored)',
     sourceLicense: 'Public domain',
     boundaryModel: 'Natural Earth de facto boundaries',
-    generatedAt: '2026-08-11T13:46:39.240Z',
+    generatedAt: '2026-08-19T21:51:37.000Z',
     generatedBy: 'scripts/generate-natural-earth-countries.mjs',
     harbourviewTransformVersion: '1.6.0-natural-earth-50m-source-retention-alpha2-centroid',
     notes: 'All Natural Earth polygon parts above 0.008 square degrees are retained; antimeridian-crossing outer and hole rings are split before simplification and each planar fragment is closed along ±180 before triangulation; coordinates rounded to 3 decimal places; source upgraded to 1:50m for higher polygon fidelity.',
