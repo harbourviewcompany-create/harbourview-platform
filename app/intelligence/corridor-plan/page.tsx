@@ -6,6 +6,7 @@ import {
 } from '@/lib/intelligence/workflowEngine'
 import type { ProductClass } from '@/lib/intelligence/tradeCorridors'
 import { PRODUCT_OPTIONS } from '@/lib/intelligence/tradeCorridors'
+import { landedCostHref } from '@/lib/intelligence/landedCostBridge'
 
 export const metadata: Metadata = {
   title: 'Corridor Execution Plan | Harbourview',
@@ -109,10 +110,14 @@ export default async function CorridorPlanPage({
           No published playbooks for <strong className="text-zinc-200">{origin} → {destination}</strong>
           {product !== 'any' ? ` with product class ${product}` : ''}. Try a tracked pair above, or
           open{' '}
-          <Link href="/intelligence/logistics-trade-routes" className="text-amber-400 underline">
-            logistics & trade routes
+          <Link href="/intelligence/logistics-simulator" className="text-amber-400 underline">
+            logistics simulator
           </Link>{' '}
-          for corridor orientation.
+          /{' '}
+          <Link href="/intelligence/logistics-trade-routes" className="text-amber-400 underline">
+            trade routes
+          </Link>
+          .
         </div>
       ) : (
         <div className="mt-10 space-y-8">
@@ -151,6 +156,26 @@ export default async function CorridorPlanPage({
                 <dd className="font-medium text-zinc-100">{plan.destination.difficulty}</dd>
               </div>
             </dl>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm">
+              <Link
+                href={landedCostHref({ origin, destination, product })}
+                className="text-amber-400 hover:underline"
+              >
+                Estimate landed cost →
+              </Link>
+              <Link
+                href={`/intelligence/logistics-simulator?from=${origin}&to=${destination}`}
+                className="text-zinc-400 hover:underline"
+              >
+                Logistics simulator →
+              </Link>
+              <Link
+                href={`/dashboard/corridor-plan?origin=${origin}&destination=${destination}&product=${product}`}
+                className="text-zinc-400 hover:underline"
+              >
+                Open in dashboard →
+              </Link>
+            </div>
           </section>
 
           {plan.notes.length > 0 && (
@@ -264,8 +289,16 @@ export default async function CorridorPlanPage({
 
       <p className="mt-12 text-center text-xs text-zinc-600">
         Related:{' '}
+        <Link href="/intelligence/landed-cost" className="underline">
+          Landed cost
+        </Link>{' '}
+        ·{' '}
+        <Link href="/intelligence/logistics-simulator" className="underline">
+          Logistics simulator
+        </Link>{' '}
+        ·{' '}
         <Link href="/intelligence/logistics-trade-routes" className="underline">
-          Logistics & trade routes
+          Trade routes
         </Link>{' '}
         ·{' '}
         <Link href="/dashboard" className="underline">

@@ -9,6 +9,7 @@ import {
   type ComplianceProfile,
 } from '@/lib/intelligence/tradeCorridors'
 import { corridorPlanHref } from '@/lib/intelligence/corridorSimulator'
+import { landedCostHref } from '@/lib/intelligence/landedCostBridge'
 
 export const metadata: Metadata = {
   title: 'Logistics Corridor Simulator | Harbourview',
@@ -67,8 +68,8 @@ export default async function LogisticsSimulatorPage({
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Corridor simulator</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
         Filter tracked corridors by product, compliance path, endpoints, and risk. Open an execution
-        plan for merged export/import playbooks. Orientation-level only — no operator identities or
-        commercial terms.
+        plan or landed-cost estimate. Orientation-level only — no operator identities or commercial
+        terms.
       </p>
 
       <form
@@ -186,6 +187,16 @@ export default async function LogisticsSimulatorPage({
                 Execution plan →
               </Link>
               <Link
+                href={landedCostHref({
+                  origin: c.from,
+                  destination: c.to,
+                  product: product === 'any' ? 'flower' : product,
+                })}
+                className="text-amber-400/80 hover:underline"
+              >
+                Landed cost →
+              </Link>
+              <Link
                 href={`/dashboard/corridor-plan?origin=${c.from}&destination=${c.to}`}
                 className="text-zinc-400 hover:underline"
               >
@@ -207,6 +218,10 @@ export default async function LogisticsSimulatorPage({
         {' · '}
         <Link href="/intelligence/corridor-plan" className="underline">
           Corridor execution plans
+        </Link>
+        {' · '}
+        <Link href="/intelligence/landed-cost" className="underline">
+          Landed cost calculator
         </Link>
       </p>
     </main>
