@@ -346,8 +346,8 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
                     <p>{path.description}</p>
                     <div className={styles.pathModules}>
                       {path.modules.map(slug => {
-                        const module = data.modules.find(item => item.slug === slug)
-                        return module ? <Link key={slug} href={commandHref('education', { module: slug, educationView: 'library' })}>{module.title}<span>{EVIDENCE_LABEL[module.evidenceState]} →</span></Link> : null
+                        const mod = data.modules.find(item => item.slug === slug)
+                        return mod ? <Link key={slug} href={commandHref('education', { module: slug, educationView: 'library' })}>{mod.title}<span>{EVIDENCE_LABEL[mod.evidenceState]} →</span></Link> : null
                       })}
                     </div>
                   </article>
