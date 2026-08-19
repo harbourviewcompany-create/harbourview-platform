@@ -114,6 +114,16 @@ function isPermissionMessage(message: string): boolean {
   return /permission|row-level security|42501|not authorized|not authenticated/i.test(message)
 }
 
+/** PostgREST / schema-cache messages when repo migrations are not applied live. */
+function isSchemaMissingMessage(message: string): boolean {
+  return /schema cache|could not find the table|does not exist|42P01|PGRST205|relation .* does not exist/i.test(
+    message,
+  )
+}
+
+const SCHEMA_DRIFT_COPY =
+  'Prescriber OS structured tables are not active in this environment yet. Evidence search still works from the Evidence tab. Apply the Clinical production sequence when authorized (docs/control/CLINICAL_NETWORK_PRODUCTION_APPLY_RUNBOOK_20260819.md).'
+
 export async function getClinicalPrescriberWorkspace(input: {
   jurisdiction: string
 }): Promise<ClinicalPrescriberWorkspaceDTO> {
@@ -147,42 +157,60 @@ export async function getClinicalPrescriberWorkspace(input: {
 
   try {
     const supabase = await createClient()
-    const [safetyResult, regimenResult, monitoringResult, guidelineResult, interactionResult, formularyResult, authority] = await Promise.all([
-      supabase
-        .from('clinical_safety_rules')
-        .select('id,rule_kind,subject,severity,rationale,action_text,primary_source_url,source_locator,reviewed_at,review_status,jurisdictions')
-        .eq('review_status', 'published')
-        .overlaps('jurisdictions', [jurisdiction, 'global'])
-        .limit(100),
-      supabase
-        .from('clinical_regimen_protocols')
-        .select('id,formulary_product_id,formulary_sku_id,jurisdiction,population,indication,regimen_structured,titration_structured,administration_instructions,monitoring_requirements,stopping_rules,primary_source_url,source_locator,source_version,review_status')
-        .eq('review_status', 'published')
-        .eq('jurisdiction', jurisdiction)
-        .limit(100),
-      supabase
-        .from('clinical_monitoring_protocols')
-        .select('id,protocol_name,context,cannabinoid,jurisdiction,monitoring_parameter,baseline_required,follow_up_interval,rationale,baseline_requirements,therapeutic_objectives,efficacy_measures,safety_measures,laboratory_monitoring,reassessment_schedule,stopping_rules,primary_source_title,primary_source_url,source_locator,verified_at,review_status,provenance_status')
-        .eq('review_status', 'published')
-        .eq('provenance_status', 'inspectable')
-        .or(`jurisdiction.eq.${jurisdiction},jurisdiction.is.null`)
-        .limit(100),
-      supabase
-        .from('clinical_guideline_recommendations')
-        .select('id,jurisdiction,authority,title,recommendation_text,recommendation_strength,population,intervention,outcome,effective_date,primary_source_url,source_locator,status')
-        .eq('status', 'current')
-        .eq('jurisdiction', jurisdiction)
-        .limit(100),
-      searchClinicalInteractions({ limit: 100 }),
-      searchClinicalFormulary({ countryIso2: jurisdiction.slice(0, 2), limit: 100 }),
-      resolveClinicalProfessionalAuthority(jurisdiction),
-    ])
+    const [safetyResult, regimenResult, monitoringResult, guidelineResult, interactionResult, formularyResult, authority] =
+      await Promise.all([
+        supabase
+          .from('clinical_safety_rules')
+          .select(
+            'id,rule_kind,subject,severity,rationale,action_text,primary_source_url,source_locator,reviewed_at,review_status,jurisdictions',
+          )
+          .eq('review_status', 'published')
+          .overlaps('jurisdictions', [jurisdiction, 'global'])
+          .limit(100),
+        supabase
+          .from('clinical_regimen_protocols')
+          .select(
+            'id,formulary_product_id,formulary_sku_id,jurisdiction,population,indication,regimen_structured,titration_structured,administration_instructions,monitoring_requirements,stopping_rules,primary_source_url,source_locator,source_version,review_status',
+          )
+          .eq('review_status', 'published')
+          .eq('jurisdiction', jurisdiction)
+          .limit(100),
+        supabase
+          .from('clinical_monitoring_protocols')
+          .select(
+            'id,protocol_name,context,cannabinoid,jurisdiction,monitoring_parameter,baseline_required,follow_up_interval,rationale,baseline_requirements,therapeutic_objectives,efficacy_measures,safety_measures,laboratory_monitoring,reassessment_schedule,stopping_rules,primary_source_title,primary_source_url,source_locator,verified_at,review_status,provenance_status',
+          )
+          .eq('review_status', 'published')
+          .eq('provenance_status', 'inspectable')
+          .or(`jurisdiction.eq.${jurisdiction},jurisdiction.is.null`)
+          .limit(100),
+        supabase
+          .from('clinical_guideline_recommendations')
+          .select(
+            'id,jurisdiction,authority,title,recommendation_text,recommendation_strength,population,intervention,outcome,effective_date,primary_source_url,source_locator,status',
+          )
+          .eq('status', 'current')
+          .eq('jurisdiction', jurisdiction)
+          .limit(100),
+        searchClinicalInteractions({ limit: 100 }),
+        searchClinicalFormulary({ countryIso2: jurisdiction.slice(0, 2), limit: 100 }),
+        resolveClinicalProfessionalAuthority(jurisdiction),
+      ])
 
-    const queryErrors = [safetyResult.error, regimenResult.error, monitoringResult.error, guidelineResult.error]
-      .filter((error): error is NonNullable<typeof error> => Boolean(error))
-    if (queryErrors.length > 0) {
-      const message = queryErrors.map((error) => error.message).join('; ')
-      const state: ClinicalWorkspaceState = isPermissionMessage(message) ? 'permission' : 'error'
+    const structuredErrors = [safetyResult.error, regimenResult.error, monitoringResult.error, guidelineResult.error].filter(
+      (error): error is NonNullable<typeof error> => Boolean(error),
+    )
+
+    const schemaMissing = structuredErrors.filter((error) => isSchemaMissingMessage(error.message))
+    const permissionErrors = structuredErrors.filter((error) => isPermissionMessage(error.message))
+    const otherErrors = structuredErrors.filter(
+      (error) => !isSchemaMissingMessage(error.message) && !isPermissionMessage(error.message),
+    )
+
+    // Hard fail only on real upstream/permission issues that are not schema drift.
+    if (otherErrors.length > 0 && schemaMissing.length === 0) {
+      const message = otherErrors.map((error) => error.message).join('; ')
+      const state: ClinicalWorkspaceState = permissionErrors.length > 0 ? 'permission' : 'error'
       return {
         state,
         jurisdiction,
@@ -199,100 +227,141 @@ export async function getClinicalPrescriberWorkspace(input: {
       }
     }
 
-    const safety: ClinicalWorkspaceSafetyDTO[] = ((safetyResult.data ?? []) as SafetyRow[])
-      .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
-      .map((row) => ({
-        id: row.id,
-        kind: row.rule_kind,
-        subject: row.subject,
-        severity: row.severity,
-        rationale: row.rationale,
-        actionText: row.action_text,
-        primarySourceUrl: row.primary_source_url,
-        sourceLocator: row.source_locator,
-        reviewedAt: row.reviewed_at,
-      }))
+    if (permissionErrors.length > 0 && schemaMissing.length === 0 && otherErrors.length === 0) {
+      return {
+        state: 'permission',
+        jurisdiction,
+        safety: [],
+        regimens: [],
+        monitoring: [],
+        guidelines: [],
+        interactions: interactionResult.interactions,
+        interactionState: interactionResult.state,
+        interactionProvenanceRejected: interactionResult.rejectedForProvenance,
+        formulary: formularyResult.products,
+        authority,
+        diagnostics: ['Verified clinician or workspace permission is required for structured Clinical sources.'],
+      }
+    }
 
-    const regimens: ClinicalWorkspaceRegimenDTO[] = ((regimenResult.data ?? []) as RegimenRow[])
-      .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
-      .map((row) => ({
-        id: row.id,
-        formularyProductId: row.formulary_product_id,
-        formularySkuId: row.formulary_sku_id,
-        jurisdiction: row.jurisdiction,
-        population: row.population,
-        indication: row.indication,
-        regimenStructured: structuredObject(row.regimen_structured),
-        titrationStructured: structuredObject(row.titration_structured),
-        administrationInstructions: stringArray(row.administration_instructions),
-        monitoringRequirements: stringArray(row.monitoring_requirements),
-        stoppingRules: stringArray(row.stopping_rules),
-        primarySourceUrl: row.primary_source_url,
-        sourceLocator: row.source_locator,
-        sourceVersion: row.source_version,
-      }))
+    const safety: ClinicalWorkspaceSafetyDTO[] = schemaMissing.some((e) => /clinical_safety_rules/i.test(e.message))
+      ? []
+      : ((safetyResult.data ?? []) as SafetyRow[])
+          .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
+          .map((row) => ({
+            id: row.id,
+            kind: row.rule_kind,
+            subject: row.subject,
+            severity: row.severity,
+            rationale: row.rationale,
+            actionText: row.action_text,
+            primarySourceUrl: row.primary_source_url,
+            sourceLocator: row.source_locator,
+            reviewedAt: row.reviewed_at,
+          }))
 
-    const monitoring: ClinicalWorkspaceMonitoringDTO[] = ((monitoringResult.data ?? []) as MonitoringRow[])
-      .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
-      .map((row) => {
-        const baseline = stringArray(row.baseline_requirements)
-        if (baseline.length === 0 && row.baseline_required) baseline.push(row.monitoring_parameter)
-        const reassessment = stringArray(row.reassessment_schedule)
-        if (reassessment.length === 0 && row.follow_up_interval) reassessment.push(row.follow_up_interval)
-        const safetyMeasures = stringArray(row.safety_measures)
-        if (safetyMeasures.length === 0 && row.rationale) safetyMeasures.push(row.rationale)
-        return {
-          id: row.id,
-          protocolName: row.protocol_name,
-          context: row.context,
-          cannabinoid: row.cannabinoid,
-          jurisdiction: row.jurisdiction,
-          baselineRequirements: baseline,
-          therapeuticObjectives: stringArray(row.therapeutic_objectives),
-          efficacyMeasures: stringArray(row.efficacy_measures),
-          safetyMeasures,
-          laboratoryMonitoring: stringArray(row.laboratory_monitoring),
-          reassessmentSchedule: reassessment,
-          stoppingRules: stringArray(row.stopping_rules),
-          primarySourceTitle: row.primary_source_title,
-          primarySourceUrl: row.primary_source_url as string,
-          sourceLocator: row.source_locator as string,
-          verifiedAt: row.verified_at,
-        }
-      })
+    const regimens: ClinicalWorkspaceRegimenDTO[] = schemaMissing.some((e) => /clinical_regimen_protocols/i.test(e.message))
+      ? []
+      : ((regimenResult.data ?? []) as RegimenRow[])
+          .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
+          .map((row) => ({
+            id: row.id,
+            formularyProductId: row.formulary_product_id,
+            formularySkuId: row.formulary_sku_id,
+            jurisdiction: row.jurisdiction,
+            population: row.population,
+            indication: row.indication,
+            regimenStructured: structuredObject(row.regimen_structured),
+            titrationStructured: structuredObject(row.titration_structured),
+            administrationInstructions: stringArray(row.administration_instructions),
+            monitoringRequirements: stringArray(row.monitoring_requirements),
+            stoppingRules: stringArray(row.stopping_rules),
+            primarySourceUrl: row.primary_source_url,
+            sourceLocator: row.source_locator,
+            sourceVersion: row.source_version,
+          }))
 
-    const guidelines: ClinicalWorkspaceGuidelineDTO[] = ((guidelineResult.data ?? []) as GuidelineRow[])
-      .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
-      .map((row) => ({
-        id: row.id,
-        jurisdiction: row.jurisdiction,
-        authority: row.authority,
-        title: row.title,
-        recommendationText: row.recommendation_text,
-        recommendationStrength: row.recommendation_strength,
-        population: row.population,
-        intervention: row.intervention,
-        outcome: row.outcome,
-        effectiveDate: row.effective_date,
-        primarySourceUrl: row.primary_source_url,
-        sourceLocator: row.source_locator,
-      }))
+    const monitoring: ClinicalWorkspaceMonitoringDTO[] = schemaMissing.some((e) =>
+      /clinical_monitoring_protocols/i.test(e.message),
+    )
+      ? []
+      : ((monitoringResult.data ?? []) as MonitoringRow[])
+          .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
+          .map((row) => {
+            const baseline = stringArray(row.baseline_requirements)
+            if (baseline.length === 0 && row.baseline_required) baseline.push(row.monitoring_parameter)
+            const reassessment = stringArray(row.reassessment_schedule)
+            if (reassessment.length === 0 && row.follow_up_interval) reassessment.push(row.follow_up_interval)
+            const safetyMeasures = stringArray(row.safety_measures)
+            if (safetyMeasures.length === 0 && row.rationale) safetyMeasures.push(row.rationale)
+            return {
+              id: row.id,
+              protocolName: row.protocol_name,
+              context: row.context,
+              cannabinoid: row.cannabinoid,
+              jurisdiction: row.jurisdiction,
+              baselineRequirements: baseline,
+              therapeuticObjectives: stringArray(row.therapeutic_objectives),
+              efficacyMeasures: stringArray(row.efficacy_measures),
+              safetyMeasures,
+              laboratoryMonitoring: stringArray(row.laboratory_monitoring),
+              reassessmentSchedule: reassessment,
+              stoppingRules: stringArray(row.stopping_rules),
+              primarySourceTitle: row.primary_source_title,
+              primarySourceUrl: row.primary_source_url as string,
+              sourceLocator: row.source_locator as string,
+              verifiedAt: row.verified_at,
+            }
+          })
+
+    const guidelines: ClinicalWorkspaceGuidelineDTO[] = schemaMissing.some((e) =>
+      /clinical_guideline_recommendations/i.test(e.message),
+    )
+      ? []
+      : ((guidelineResult.data ?? []) as GuidelineRow[])
+          .filter((row) => isInspectableClinicalSource(row.primary_source_url) && Boolean(row.source_locator?.trim()))
+          .map((row) => ({
+            id: row.id,
+            jurisdiction: row.jurisdiction,
+            authority: row.authority,
+            title: row.title,
+            recommendationText: row.recommendation_text,
+            recommendationStrength: row.recommendation_strength,
+            population: row.population,
+            intervention: row.intervention,
+            outcome: row.outcome,
+            effectiveDate: row.effective_date,
+            primarySourceUrl: row.primary_source_url,
+            sourceLocator: row.source_locator,
+          }))
 
     const diagnostics: string[] = []
+    if (schemaMissing.length > 0) diagnostics.push(SCHEMA_DRIFT_COPY)
     if (interactionResult.state === 'review-required' || interactionResult.rejectedForProvenance > 0) {
-      diagnostics.push(`${interactionResult.rejectedForProvenance} interaction record(s) withheld pending inspectable provenance.`)
+      diagnostics.push(
+        `${interactionResult.rejectedForProvenance} interaction record(s) withheld pending inspectable provenance.`,
+      )
     }
     if (interactionResult.state === 'error') diagnostics.push(interactionResult.error ?? 'Interaction source unavailable.')
     if (formularyResult.state === 'error') diagnostics.push(formularyResult.error ?? 'Formulary source unavailable.')
     if (authority.state === 'error' && authority.error) diagnostics.push(authority.error)
 
-    const hasData = safety.length || regimens.length || monitoring.length || guidelines.length || interactionResult.interactions.length || formularyResult.products.length
-    const needsReview = interactionResult.state === 'review-required' || diagnostics.some((item) => /withheld|review/i.test(item))
-    const state: ClinicalWorkspaceState = authority.state === 'permission'
-      ? 'permission'
-      : hasData
-        ? needsReview ? 'review-required' : 'loaded'
-        : needsReview ? 'review-required' : 'empty'
+    const hasData =
+      safety.length ||
+      regimens.length ||
+      monitoring.length ||
+      guidelines.length ||
+      interactionResult.interactions.length ||
+      formularyResult.products.length
+    const needsReview =
+      interactionResult.state === 'review-required' || diagnostics.some((item) => /withheld|review/i.test(item))
+
+    let state: ClinicalWorkspaceState
+    if (authority.state === 'permission') state = 'permission'
+    else if (schemaMissing.length > 0 && !hasData) state = 'migration-drift'
+    else if (schemaMissing.length > 0 && hasData) state = needsReview ? 'review-required' : 'loaded'
+    else if (hasData) state = needsReview ? 'review-required' : 'loaded'
+    else state = needsReview ? 'review-required' : 'empty'
 
     return {
       state,
@@ -310,6 +379,32 @@ export async function getClinicalPrescriberWorkspace(input: {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Clinical workspace query failed'
+    if (isSchemaMissingMessage(message)) {
+      return {
+        state: 'migration-drift',
+        jurisdiction,
+        safety: [],
+        regimens: [],
+        monitoring: [],
+        guidelines: [],
+        interactions: [],
+        interactionState: 'empty',
+        interactionProvenanceRejected: 0,
+        formulary: [],
+        authority: {
+          state: 'unknown',
+          verifiedClinician: false,
+          jurisdiction,
+          professional: null,
+          capabilities: { recommend: null, prescribe: null, dispense: null, claimAppropriateness: null },
+          evidenceVersion: null,
+          effectiveFrom: null,
+          effectiveTo: null,
+          notes: null,
+        },
+        diagnostics: [SCHEMA_DRIFT_COPY],
+      }
+    }
     return {
       state: isPermissionMessage(message) ? 'permission' : 'error',
       jurisdiction,
