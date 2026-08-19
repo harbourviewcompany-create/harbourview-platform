@@ -56,7 +56,7 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
 }
 
 const ROWS_PER_VIEW = 8
-const MARKETPLACE_MEDIA_TIMEOUT_MS = 1_500
+const MARKETPLACE_MEDIA_TIMEOUT_MS = 3_000
 
 function safeText(value: string | null | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback
@@ -241,9 +241,9 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       load: () => getDashboardMarketplaceProjection(countryIso2),
       fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
       isEmpty: projection => Object.keys(projection.rows).length === 0,
-      classify: projection => Object.keys(projection.rows).length === 0
-        ? 'empty'
-        : projection.mediaStatus === 'degraded' ? 'fallback' : 'live',
+      // Listing rows are the verified source of truth. Media timeout/failure uses
+      // category silhouettes on the card; that is not a Command Centre data failure.
+      classify: projection => Object.keys(projection.rows).length === 0 ? 'empty' : 'live',
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },
