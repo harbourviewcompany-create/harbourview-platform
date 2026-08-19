@@ -5,9 +5,13 @@
 --
 -- The import-aware classifier correctly added licensed import pathways as
 -- legal_commercial_access, but its affirmative trade regexes also matched
--- explicitly negated phrases such as "no licensed export industry".
+-- explicitly negated phrases such as "no licensed export industry". The
+-- prior medical fallback also treated any "under discussion" phrase as if
+-- established medical access itself were under discussion.
+--
 -- This migration preserves the import-aware behavior while requiring an
--- affirmative, non-negated trade clause before promoting a jurisdiction.
+-- affirmative, non-negated trade clause before promoting a jurisdiction and
+-- scopes medical negation to medical-specific future/negative language.
 --
 -- The previously merged migration remains immutable. This migration replaces
 -- the shared classifier and re-derives origin='auto' countries only. Manual
@@ -22,7 +26,7 @@ set search_path = ''
 as $$
 declare
   ps text := coalesce(program_status, '');
-  under_discussion boolean;
+  general_under_discussion boolean;
   export_commercial boolean;
   import_commercial boolean;
 begin
@@ -30,7 +34,7 @@ begin
     return null;
   end if;
 
-  under_discussion :=
+  general_under_discussion :=
     ps ~* '(under (active )?consideration|under discussion|under review|licensing under (discussion|consideration|review)|reform under)';
 
   -- Evaluate trade language clause-by-clause so a negated clause such as
@@ -64,15 +68,13 @@ begin
 
   -- legal_commercial_access: lawful CROSS-BORDER commercial pathway at scale.
   -- Import and export remain peers, but only affirmative trade clauses count.
-  if not under_discussion then
-    if export_commercial then
-      return 'legal_commercial_access';
-    end if;
+  if export_commercial or import_commercial then
+    return 'legal_commercial_access';
+  end if;
 
-    if import_commercial then
-      return 'legal_commercial_access';
-    end if;
-
+  -- Preserve the prior fail-closed treatment for broad future/discussion text
+  -- on non-trade commercial signals.
+  if not general_under_discussion then
     if ps ~* 'industrial (cultivation licensed|legal)' then
       return 'legal_commercial_access';
     end if;
@@ -87,9 +89,11 @@ begin
     return 'domestic_only';
   end if;
 
-  -- medical_limited_trade: affirmative medical access; exclude negated/future.
+  -- medical_limited_trade: established medical access remains established even
+  -- when a separate export/import reform is under discussion. Only explicit
+  -- medical negation/future language suppresses this fallback.
   if ps ~* '(medical (legal|—|-)|prescription|sativex|epidiolex|mcap|decriminaliz|cbd)'
-     and ps !~* '(no medical programme|reform under|under (active )?consideration|under discussion)'
+     and ps !~* '(no medical programme|no medical program|medical (reform|programme|program|access|legalization|legalisation|licensing) under (active )?(consideration|discussion|review))'
   then
     return 'medical_limited_trade';
   end if;
@@ -99,7 +103,7 @@ end;
 $$;
 
 comment on function api.derive_regulatory_tier(text) is
-  'Derives countries.regulatory_tier from briefing program_status. Affirmative import/export pathways map to legal_commercial_access; explicitly negated trade language does not; adult-use alone is domestic_only; medical-only is medical_limited_trade.';
+  'Derives countries.regulatory_tier from briefing program_status. Affirmative import/export pathways map to legal_commercial_access; explicitly negated trade language does not; unrelated trade discussion does not erase established medical access; adult-use alone is domestic_only; medical-only is medical_limited_trade.';
 
 -- Re-derive every automatic country from the current briefing text so any
 -- false-positive trade promotion from the prior classifier is corrected.
@@ -142,5 +146,5 @@ select
   'classifier_negation_hardening',
   program_status,
   'system',
-  'Forward reclassify after trade-negation hardening (20260819150000).'
+  'Forward reclassify after trade-negation and discussion-scope hardening (20260819150000).'
 from updated;
