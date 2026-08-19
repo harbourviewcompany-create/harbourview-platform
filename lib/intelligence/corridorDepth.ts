@@ -1,9 +1,13 @@
 /**
  * Corridor depth layer — decision-grade structure on top of playbook merge.
- * Failure modes and workstreams are orientation patterns, not authority advice.
+ * Failure modes, workstreams, and EU GMP recognition are orientation patterns — not authority advice.
  */
 
 import type { ProductClass } from './tradeCorridors'
+import {
+  buildGmpRecognition,
+  type GmpRecognitionProfile,
+} from './gmpRecognition'
 
 export type FailureMode = {
   id: string
@@ -42,6 +46,7 @@ export type CorridorDepthBundle = {
   productDocDeltas: ProductDocDelta[]
   openQuestions: OpenQuestion[]
   criticalPathNarrative: string
+  gmpRecognition: GmpRecognitionProfile
 }
 
 const GENERIC_FAILURES: FailureMode[] = [
@@ -54,6 +59,16 @@ const GENERIC_FAILURES: FailureMode[] = [
       'Export-site certificate is valid domestically but not accepted as equivalent by the destination competent authority or notified body.',
     mitigation:
       'Map recognition pathway before scheduling audits; treat destination GMP expectation as the design target, not a later add-on.',
+  },
+  {
+    id: 'mra-scope-assumed',
+    title: 'MRA / CETA scope assumed for cannabis SKU',
+    severity: 'high',
+    where: 'quality',
+    pattern:
+      'Teams treat “origin has an EU MRA/CETA protocol” as automatic EU-GMP coverage for a specific cannabis dosage form without checking operational product scope and certificate issuer.',
+    mitigation:
+      'Verify SKU classification, MRA annex scope, and current site certificate (e.g. EudraGMDP) before relying on mutual recognition.',
   },
   {
     id: 'permit-clock-desync',
@@ -119,6 +134,16 @@ const CORRIDOR_FAILURE_EXTRAS: Record<string, FailureMode[]> = {
       mitigation:
         'Scope the manufacturing-site audit as EU-GMP from the outset when Germany is the primary target market.',
     },
+    {
+      id: 'ca-de-ceta',
+      title: 'CETA treated as cannabis free pass',
+      severity: 'high',
+      where: 'quality',
+      pattern:
+        'CETA GMP protocol for pharmaceuticals is assumed to remove EU-GMP inspection or import-testing needs for medical cannabis flower without product-scope confirmation.',
+      mitigation:
+        'Treat CETA as a possible inspection-reliance instrument for in-scope products only; still evidence EU-GMP certificate path for DE import practice.',
+    },
   ],
   'CA-AU': [
     {
@@ -144,6 +169,18 @@ const CORRIDOR_FAILURE_EXTRAS: Record<string, FailureMode[]> = {
         'Keep narcotics transport permits on the critical checklist even for PT→DE EU-GMP product.',
     },
   ],
+  'IL-DE': [
+    {
+      id: 'il-de-acaa-scope',
+      title: 'ACAA scope not checked for dosage form',
+      severity: 'medium',
+      where: 'quality',
+      pattern:
+        'Israel–EU ACAA alignment is assumed for every cannabis presentation without checking exclusions and certificate evidence.',
+      mitigation:
+        'Confirm product is inside ACAA operational coverage and that site evidence matches destination import expectations.',
+    },
+  ],
   'TH-AU': [
     {
       id: 'th-au-export-eligibility',
@@ -154,6 +191,18 @@ const CORRIDOR_FAILURE_EXTRAS: Record<string, FailureMode[]> = {
         'Thai export rules or product-class eligibility change between LOI and ship date.',
       mitigation:
         'Re-confirm export eligibility immediately before each shipment plan, not only at annual diligence.',
+    },
+  ],
+  'CO-DE': [
+    {
+      id: 'co-de-no-mra',
+      title: 'No MRA path under-estimated',
+      severity: 'high',
+      where: 'quality',
+      pattern:
+        'Colombian GACP supply is contracted without a clear EU-GMP processing or NCA inspection path into Germany.',
+      mitigation:
+        'Lock EU-GMP processor or overseas NCA inspection plan before commercial volume commitments.',
     },
   ],
 }
@@ -168,6 +217,13 @@ function productDocDeltas(product: ProductClass | 'any'): ProductDocDelta[] {
       label: 'Microbiology / moisture / foreign-matter panel aligned to destination flower monograph',
       required: true,
       notes: 'Product-class delta — confirm method set with destination quality unit.',
+    })
+    extras.push({
+      id: 'prod-gacp',
+      side: 'export',
+      label: 'GACP cultivation evidence for flower / starting material upstream of EU-GMP processing',
+      required: true,
+      notes: 'Often required alongside EU-GMP manufacturing evidence for medical flower pathways.',
     })
   }
   if (product === 'extract' || product === 'finished_product') {
@@ -194,7 +250,49 @@ function productDocDeltas(product: ProductClass | 'any'): ProductDocDelta[] {
     required: true,
     notes: 'Schedule / HS / pharmaceutical vs herbal classification drives duty and permit form.',
   })
+  extras.push({
+    id: 'prod-gmp-cert',
+    side: 'export',
+    label: 'Current manufacturing-site GMP certificate issuer, scope, and date recorded',
+    required: true,
+    notes: 'Prefer EudraGMDP-visible EU-GMP evidence when supplying the EEA.',
+  })
   return extras
+}
+
+function gmpOpenQuestions(gmp: GmpRecognitionProfile): OpenQuestion[] {
+  return [
+    {
+      id: 'oq-gmp-framework',
+      question: `Does this corridor’s quality path match framework “${gmp.label}”?`,
+      whyItMatters: gmp.summary.slice(0, 180) + (gmp.summary.length > 180 ? '…' : ''),
+    },
+    {
+      id: 'oq-gmp-path',
+      question: 'Is the manufacturing site already holding destination-recognised GMP evidence?',
+      whyItMatters: 'Usually the longest uncertainty on export-side critical path.',
+    },
+    {
+      id: 'oq-mra-scope',
+      question: 'If relying on an MRA/ACAA/CETA instrument, is this exact SKU inside operational product scope?',
+      whyItMatters: 'Mutual recognition is annex- and authority-specific — not automatic for all cannabis presentations.',
+    },
+    {
+      id: 'oq-importer-scope',
+      question: 'Does the named importer’s licence cover this product class and storage condition?',
+      whyItMatters: 'Permit grants fail late when the party on the form is out of scope.',
+    },
+    {
+      id: 'oq-spec',
+      question: 'Is the destination specification and analytical method set contractually locked?',
+      whyItMatters: 'Prevents COA rejects after the batch is already produced.',
+    },
+    {
+      id: 'oq-volume',
+      question: 'Is trial volume large enough to amortise fixed permit and testing costs?',
+      whyItMatters: 'Use landed-cost sensitivity before committing commercial sample size.',
+    },
+  ]
 }
 
 export function buildCorridorDepth(opts: {
@@ -205,6 +303,8 @@ export function buildCorridorDepth(opts: {
   importWeeks: number
 }): CorridorDepthBundle {
   const key = `${opts.origin}-${opts.destination}`
+  const gmpRecognition = buildGmpRecognition(opts.origin, opts.destination)
+
   const workstreams: Workstream[] = [
     {
       id: 'ws-export-licence',
@@ -218,7 +318,7 @@ export function buildCorridorDepth(opts: {
       name: 'Site GMP / recognition evidence',
       side: 'export',
       canRunInParallelWith: ['ws-export-licence', 'ws-import-permit'],
-      description: 'Audit and certificate path aimed at destination recognition expectations.',
+      description: `Audit and certificate path aimed at destination recognition (${gmpRecognition.label}).`,
     },
     {
       id: 'ws-import-permit',
@@ -248,6 +348,7 @@ export function buildCorridorDepth(opts: {
   const criticalPathNarrative = [
     `If export and import workstreams are run strictly back-to-back, playbook step weeks sum to ~${sequential} weeks.`,
     `If origin GMP/export preparation and destination import preparation run in parallel, a planning heuristic is closer to ~${parallelHeuristic} weeks (max of the two sides) plus transport booking buffer.`,
+    `GMP recognition posture for this pair: ${gmpRecognition.label}.`,
     'Playbook steps do not encode formal dependencies — treat this as orientation, not a Gantt from the competent authorities.',
   ].join(' ')
 
@@ -255,28 +356,8 @@ export function buildCorridorDepth(opts: {
     workstreams,
     failureModes: [...GENERIC_FAILURES, ...(CORRIDOR_FAILURE_EXTRAS[key] ?? [])],
     productDocDeltas: productDocDeltas(opts.productClass),
-    openQuestions: [
-      {
-        id: 'oq-gmp-path',
-        question: 'Is the manufacturing site already holding destination-recognised GMP evidence?',
-        whyItMatters: 'Usually the longest uncertainty on export-side critical path.',
-      },
-      {
-        id: 'oq-importer-scope',
-        question: 'Does the named importer’s licence cover this product class and storage condition?',
-        whyItMatters: 'Permit grants fail late when the party on the form is out of scope.',
-      },
-      {
-        id: 'oq-spec',
-        question: 'Is the destination specification and analytical method set contractually locked?',
-        whyItMatters: 'Prevents COA rejects after the batch is already produced.',
-      },
-      {
-        id: 'oq-volume',
-        question: 'Is trial volume large enough to amortise fixed permit and testing costs?',
-        whyItMatters: 'Use landed-cost sensitivity before committing commercial sample size.',
-      },
-    ],
+    openQuestions: gmpOpenQuestions(gmpRecognition),
     criticalPathNarrative,
+    gmpRecognition,
   }
 }
