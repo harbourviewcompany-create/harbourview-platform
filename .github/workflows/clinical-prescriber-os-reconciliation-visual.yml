@@ -195,15 +195,13 @@ jobs:
         run: |
           set -euo pipefail
           TEST_EMAIL="clinical-reconcile-${GITHUB_RUN_ID}@harbourview.local"
-          TEST_PASSWORD="HvClinical-${GITHUB_RUN_ID}-Aa9!"
+          TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
           echo "::add-mask::${TEST_EMAIL}"
           echo "::add-mask::${TEST_PASSWORD}"
-          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
-          export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"
-          {
-            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
-            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
-          } >> "$GITHUB_ENV"
+          export E2E_TEST_USER_EMAIL=${TEST_EMAIL}
+          export E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}
+          echo E2E_TEST_USER_EMAIL=${TEST_EMAIL} >> "$GITHUB_ENV"
+          echo E2E_TEST_USER_PASSWORD=${TEST_PASSWORD} >> "$GITHUB_ENV"
           node --input-type=module <<'NODE'
           import { createClient } from '@supabase/supabase-js'
           const client = createClient(
