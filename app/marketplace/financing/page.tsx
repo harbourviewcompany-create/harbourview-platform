@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import FinancingInquiryForm from './FinancingInquiryForm'
+import { PartnerEmbedSlot } from '@/components/marketplace/PartnerEmbedSlot'
 
 export const metadata: Metadata = {
   title: 'Trade Financing Inquiry | Harbourview',
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 }
 
 export default function FinancingInquiryPage() {
+  const embedUrl = process.env.NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL ?? null
+
   return (
     <main style={{ minHeight: '100vh', background: '#050c18', color: '#f5f0e8' }}>
       <style>{PAGE_CSS}</style>
@@ -24,10 +27,21 @@ export default function FinancingInquiryPage() {
           <div className="fin-links">
             <Link href="/marketplace">← Marketplace</Link>
             <Link href="/marketplace/deals">Deal rooms</Link>
+            <Link href="/dashboard/tools">Operator tools</Link>
             <Link href="/contact">General contact</Link>
           </div>
         </header>
-        <FinancingInquiryForm />
+
+        <section className="fin-embed">
+          <h2 className="fin-section-title">Partner application</h2>
+          <PartnerEmbedSlot embedUrl={embedUrl} />
+        </section>
+
+        <section className="fin-inquiry">
+          <h2 className="fin-section-title">Harbourview review inquiry</h2>
+          <FinancingInquiryForm />
+        </section>
+
         <p className="fin-foot">
           Submissions are logged as reviewed marketplace inquiries. Do not share banking credentials,
           full account numbers, or documents you are not authorized to disclose on this form.
@@ -46,5 +60,8 @@ const PAGE_CSS = `
 .fin-links { display: flex; flex-wrap: wrap; gap: 16px; }
 .fin-links a { font-size: 11px; color: #d4a84b; text-decoration: none; }
 .fin-links a:hover { opacity: .75; }
+.fin-section-title { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgba(245,240,232,.45); margin: 0 0 14px; }
+.fin-embed { margin-bottom: 36px; }
+.fin-inquiry { margin-bottom: 8px; }
 .fin-foot { margin-top: 28px; font-size: 11px; line-height: 1.65; color: rgba(245,240,232,.3); max-width: 620px; }
 `
