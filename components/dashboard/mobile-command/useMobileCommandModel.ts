@@ -5,6 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import type { MobileCommandCentreProps } from './props'
 import { useMobileCommandModel as useBaseMobileCommandModel } from './useMobileCommandModel.base'
 import { buildCommercialNextActions } from '@/lib/dashboard/buildCommercialActions'
+import {
+  buildCorridorPlanToolHref,
+  buildLandedCostToolHref,
+} from '@/components/dashboard/mobile-command/contracts'
 
 const COMMAND_RETURN_PARAM_KEYS = [
   'page',
@@ -29,12 +33,6 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   useEffect(() => {
     setEnrichedSignals(null)
-    // Was `model.commandDataState === 'empty'`. That property does not exist
-    // on the base model and never has -- nothing in the repository defines or
-    // returns it -- so this file did not compile and `tsc --noEmit` has been
-    // failing on main. Preserves the original intent (skip enrichment when
-    // there is nothing to enrich) using the signals the model does expose,
-    // which this hook already reads two statements below.
     if (model.signals.length === 0) return
 
     const controller = new AbortController()
@@ -142,10 +140,45 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     },
   ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
 
+  const corridorActions = useMemo(() => {
+    const origin = model.currentCountry || 'CA'
+    const destination = origin === 'DE' ? 'CA' : 'DE'
+    return [
+      {
+        id: 'corridor-plan',
+        label: 'Open corridor execution plan',
+        detail: `Map GMP recognition, workstreams and failure modes for ${origin} → ${destination} (change pair in the tool).`,
+        href: buildCorridorPlanToolHref({
+          origin,
+          destination,
+          country: origin,
+          role: model.currentRole ?? undefined,
+          returnTo: commandReturnTo,
+        }),
+        tone: 'gold' as const,
+      },
+      {
+        id: 'landed-cost',
+        label: 'Run landed cost + sensitivity',
+        detail: 'Orientation USD stack and freight/volume scenarios for the active corridor.',
+        href: buildLandedCostToolHref({
+          origin,
+          destination,
+          product: 'flower-premium',
+          volume: '10',
+          country: origin,
+          role: model.currentRole ?? undefined,
+          returnTo: commandReturnTo,
+        }),
+        tone: 'gold' as const,
+      },
+    ]
+  }, [commandReturnTo, model.currentCountry, model.currentRole])
+
   return {
     ...model,
     signals: effectiveSignals,
     geneticsRecords,
-    nextActions: [...organizationActions, ...commercialActions],
+    nextActions: [...corridorActions, ...organizationActions, ...commercialActions],
   }
 }

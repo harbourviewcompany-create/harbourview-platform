@@ -185,6 +185,9 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
     })
   })
 
+  // Aggregate only requested sources. Honest empty results (no rows for this
+  // jurisdiction/role) must not degrade a live session — only fallback, error,
+  // and stale sources raise the boundary notice.
   const states = Object.values(sources).filter(source => source.requested).map(source => source.state)
   const state: CommandCentreDataState = states.length === 0
     ? 'live'

@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation'
-export const dynamic = 'force-dynamic'
-export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+
+export default async function GeneticsCultivarSlugRedirect({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
   const { slug } = await params
-  redirect(`/dashboard?page=genetics&cultivar=${slug}`)
+  redirect(`/marketplace/genetics/${encodeURIComponent(slug)}`)
 }

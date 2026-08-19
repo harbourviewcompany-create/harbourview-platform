@@ -15,29 +15,46 @@ const REVIEW_ROLES = new Set(['admin', 'operator', 'analyst'])
 
 export async function requireClinicalReviewAuth(): Promise<ClinicalReviewAuth> {
   const session = await createSupabaseServerClient()
-  const { data: { user }, error } = await session.auth.getUser()
+  const {
+    data: { user },
+    error,
+  } = await session.auth.getUser()
   if (error || !user) unauthorized()
 
   const service = await createSupabaseServiceClient()
-  const [{ data: roleRows, error: roleError }, { data: credentialRows, error: credentialError }] = await Promise.all([
-    service.schema('public').from('user_roles').select('role').eq('user_id', user.id),
-    service.schema('public').from('clinical_reviewer_credentials')
-      .select('id,verification_status,valid_from,valid_until')
-      .eq('user_id', user.id)
-      .eq('verification_status', 'verified'),
-  ])
+  const [{ data: roleRows, error: roleError }, { data: credentialRows, error: credentialError }] =
+    await Promise.all([
+      service.schema('public').from('user_roles').select('role').eq('user_id', user.id),
+      service
+        .schema('public')
+        .from('clinical_reviewer_credentials')
+        .select('id,verification_status,valid_from,valid_until')
+        .eq('user_id', user.id)
+        .eq('verification_status', 'verified'),
+    ])
+
   if (roleError) throw new Error(`clinical_review_role_lookup_failed:${roleError.message}`)
-  if (credentialError && !credentialError.message.includes('clinical_reviewer_credentials')) {
+
+  // Missing credentials table (or transient schema lag) must not crash the page.
+  if (
+    credentialError &&
+    !/clinical_reviewer_credentials|does not exist|schema cache|relation/i.test(
+      credentialError.message
+    )
+  ) {
     throw new Error(`clinical_review_credential_lookup_failed:${credentialError.message}`)
   }
 
-  const appRoles = (roleRows ?? []).map(row => String(row.role))
+  const appRoles = (roleRows ?? []).map((row) => String(row.role))
   const today = new Date().toISOString().slice(0, 10)
   const qualifiedCredentialIds = (credentialRows ?? [])
-    .filter(row => (!row.valid_from || row.valid_from <= today) && (!row.valid_until || row.valid_until >= today))
-    .map(row => String(row.id))
+    .filter(
+      (row) =>
+        (!row.valid_from || row.valid_from <= today) && (!row.valid_until || row.valid_until >= today)
+    )
+    .map((row) => String(row.id))
 
-  const canOperateEvidence = appRoles.some(role => REVIEW_ROLES.has(role))
+  const canOperateEvidence = appRoles.some((role) => REVIEW_ROLES.has(role))
   if (!canOperateEvidence && qualifiedCredentialIds.length === 0) forbidden()
 
   return {
@@ -45,7 +62,7 @@ export async function requireClinicalReviewAuth(): Promise<ClinicalReviewAuth> {
     appRoles,
     qualifiedCredentialIds,
     canOperateEvidence,
-    canVerifyCredentials: appRoles.some(role => role === 'admin' || role === 'operator'),
-    canPublish: appRoles.some(role => role === 'admin' || role === 'operator'),
+    canVerifyCredentials: appRoles.some((role) => role === 'admin' || role === 'operator'),
+    canPublish: appRoles.some((role) => role === 'admin' || role === 'operator'),
   }
 }

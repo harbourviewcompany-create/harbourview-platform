@@ -39,7 +39,6 @@ async function writeAudit(input: {
     ip_address: h.get('x-forwarded-for') ?? h.get('x-real-ip') ?? null,
     user_agent: h.get('user-agent') ?? null,
   })
-  // Also mirror into generic audit_events when entity id is uuid-like
   try {
     await admin.from('audit_events').insert({
       entity_type: input.entityType,
@@ -55,7 +54,7 @@ async function writeAudit(input: {
       },
     })
   } catch {
-    // non-fatal if entity_id type mismatch
+    // non-fatal
   }
 }
 
@@ -64,7 +63,10 @@ export async function POST(req: Request) {
   if (!auth.ok) {
     const status =
       auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
-    return NextResponse.json({ error: 'Admin authentication required', reason: auth.reason }, { status })
+    return NextResponse.json(
+      { error: 'Admin authentication required', reason: auth.reason },
+      { status }
+    )
   }
 
   let json: unknown
@@ -140,42 +142,77 @@ export async function GET() {
   if (!auth.ok) {
     const status =
       auth.reason === 'missing_access_token' || auth.reason === 'invalid_access_token' ? 401 : 403
-    return NextResponse.json({ error: 'Admin authentication required', reason: auth.reason }, { status })
+    return NextResponse.json(
+      { error: 'Admin authentication required', reason: auth.reason },
+      { status }
+    )
   }
 
   const admin = await createSupabaseServiceClient()
-  const [ev, form, skus, jur, audit] = await Promise.all([
-    admin
-      .from('clinical_evidence_records')
-      .select('id,slug,title,review_status,evidence_strength,jurisdictions,verified_at,updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(100),
-    admin
-      .from('clinical_formulary_products')
-      .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(100),
-    admin
-      .from('clinical_formulary_skus')
-      .select('id,product_name,country_iso2,authority,registration_code,review_status,source_type,updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(100),
-    admin
-      .from('clinical_jurisdiction_profiles')
-      .select('id,country_iso2,country_name,review_status,last_reviewed,updated_at')
-      .order('country_iso2', { ascending: true }),
-    admin
-      .from('clinical_admin_audit_log')
-      .select('id,actor_email,action,entity_type,entity_id,created_at,notes')
-      .order('created_at', { ascending: false })
-      .limit(50),
+  const loadErrors: string[] = []
+
+  async function q(
+    label: string,
+    run: () => Promise<{ data: unknown; error: { message: string } | null }>
+  ) {
+    try {
+      const res = await run()
+      if (res.error) {
+        loadErrors.push(`${label}: ${res.error.message}`)
+        return []
+      }
+      return Array.isArray(res.data) ? res.data : []
+    } catch (err) {
+      loadErrors.push(`${label}: ${err instanceof Error ? err.message : String(err)}`)
+      return []
+    }
+  }
+
+  const [evidence, formulary, skus, jurisdictions, audit] = await Promise.all([
+    q('evidence', async () =>
+      admin
+        .from('clinical_evidence_records')
+        .select('id,slug,title,review_status,evidence_strength,jurisdictions,verified_at,updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(100)
+    ),
+    q('formulary', async () =>
+      admin
+        .from('clinical_formulary_products')
+        .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(100)
+    ),
+    q('skus', async () =>
+      admin
+        .from('clinical_formulary_skus')
+        .select(
+          'id,product_name,country_iso2,authority,registration_code,review_status,source_type,updated_at'
+        )
+        .order('updated_at', { ascending: false })
+        .limit(100)
+    ),
+    q('jurisdictions', async () =>
+      admin
+        .from('clinical_jurisdiction_profiles')
+        .select('id,country_iso2,country_name,review_status,last_reviewed,updated_at')
+        .order('country_iso2', { ascending: true })
+    ),
+    q('audit', async () =>
+      admin
+        .from('clinical_admin_audit_log')
+        .select('id,actor_email,action,entity_type,entity_id,created_at,notes')
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ),
   ])
 
   return NextResponse.json({
-    evidence: ev.data ?? [],
-    formulary: form.data ?? [],
-    skus: skus.data ?? [],
-    jurisdictions: jur.data ?? [],
-    audit: audit.data ?? [],
+    evidence,
+    formulary,
+    skus,
+    jurisdictions,
+    audit,
+    loadErrors,
   })
 }

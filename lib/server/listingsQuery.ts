@@ -1,4 +1,5 @@
 import 'server-only'
+import { orientationListingsForSections } from '@/lib/marketplace/orientationSupplyCatalog'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -125,12 +126,16 @@ export async function getListingsBySections(
     p.set('or', `(location_country.ilike.${safeIso2},region.eq.global)`)
   }
 
-  const rows = await queryListings(p)
+  let rows = await queryListings(p)
 
   if (countryIso2 && rows.length === 0) {
     const fallback = baseParams(limit)
     fallback.set('marketplace_section', `in.(${sections.join(',')})`)
-    return queryListings(fallback)
+    rows = await queryListings(fallback)
+  }
+
+  if (rows.length === 0) {
+    return orientationListingsForSections(sections, countryIso2, limit)
   }
 
   return rows

@@ -13,6 +13,7 @@
         "BEFORE",
         "BUILD_OUTCOME",
         "CLINICAL_CALCULATOR_REVIEW_APPROVED",
+        "CLINICAL_RECONCILIATION_SOURCE_SHA",
         "CLINICAL_TEST_API_URL",
         "CONFIRMATION",
         "CONTROL_FILE",
@@ -26,6 +27,7 @@
         "EXPECTED_GIT_SHA",
         "EXPECTED_PROJECT_ID",
         "GITHUB_ENV",
+        "HARBOURVIEW_CLINICAL_FIXTURES",
         "HARBOURVIEW_DEPLOYMENT_ID",
         "HARBOURVIEW_DEPLOYMENT_URL",
         "HARBOURVIEW_EXPECTED_COMMIT",
@@ -73,7 +75,8 @@
         "VERCEL_DEPLOYMENT_ID",
         "VERCEL_GIT_COMMIT_SHA",
         "VERCEL_IMMUTABLE_BASE_URL",
-        "VERCEL_URL"
+        "VERCEL_URL",
+        "WHICH"
       ],
       "stage": "CI/Deploy only",
       "sensitivity": "Plain variable",

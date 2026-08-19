@@ -1,2 +1,5 @@
 import { redirect } from 'next/navigation'
-export default function Page() { redirect('/dashboard?page=genetics') }
+
+export default function GeneticsServicesRedirect() {
+  redirect('/marketplace/genetics')
+}

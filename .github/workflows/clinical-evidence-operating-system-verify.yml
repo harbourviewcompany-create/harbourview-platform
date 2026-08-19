@@ -1,0 +1,408 @@
+name: Clinical Evidence Operating System Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - app/api/clinical/evidence/**
+      - components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx
+      - components/dashboard/mobile-command/clinicalCommandContract.ts
+      - lib/clinical/evidence.ts
+      - lib/clinical/runtime.ts
+      - lib/server/clinicalEvidenceQuery.ts
+      - supabase/migrations/20260816150000_clinical_evidence_operating_system.sql
+      - supabase/migrations/20260816150100_clinical_evidence_operating_system_retrieval_hardening.sql
+      - supabase/migrations/20260816150200_clinical_evidence_domain_separation.sql
+      - tests/clinical/evidenceOperatingSystem.test.ts
+      - tests/e2e/clinical-evidence-operating-system.spec.ts
+      - .github/workflows/clinical-evidence-operating-system-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-evidence-os-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Replay governed evidence OS and capture mobile proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SUPABASE_DB_SCHEMA: api
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused Clinical contracts
+        run: |
+          npx vitest run \
+            tests/clinical/evidenceSpine.test.ts \
+            tests/clinical/evidenceSpineStorage.test.ts \
+            tests/clinical/evidenceV1Governance.test.ts \
+            tests/clinical/evidenceV1ProductionFoundation.test.ts \
+            tests/clinical/evidenceV11Operations.test.ts \
+            tests/clinical/evidenceOperatingSystem.test.ts \
+            tests/dashboard/mobileClinicalProfessional.test.ts
+
+      - name: Record exact-head repository typecheck
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee /tmp/clinical-os-typecheck.log
+
+      - name: Reject Clinical OS type regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '^(components/dashboard/mobile-command/ClinicalEvidenceExplorer\.tsx|lib/clinical/evidence\.ts|lib/server/clinicalEvidenceQuery\.ts|tests/clinical/evidenceOperatingSystem\.test\.ts|tests/e2e/clinical-evidence-operating-system\.spec\.ts)' /tmp/clinical-os-typecheck.log; then
+            echo 'Clinical evidence operating-system files introduced TypeScript errors.'
+            exit 1
+          fi
+          echo "Clinical evidence operating-system files are absent from exact-head TypeScript diagnostics. Repository-wide typecheck outcome: ${{ steps.typecheck.outcome }}"
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare staged isolated Clinical migration replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            20260814121500_clinical_evidence_spine.sql
+            20260814134500_clinical_evidence_v1_governance.sql
+            20260814135500_clinical_evidence_v1_source_reconciliation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
+            20260814144000_clinical_evidence_v1_audit_immutability.sql
+            20260814150000_clinical_evidence_v1_1_operations.sql
+            20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
+            20260816150000_clinical_evidence_operating_system.sql
+            20260816150100_clinical_evidence_operating_system_retrieval_hardening.sql
+            20260816150200_clinical_evidence_domain_separation.sql
+          )
+          for f in "${files[@]}"; do cp "supabase/migrations/${f}" "/tmp/${f}"; done
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_isolated_clinical_dependencies.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          grant select on public.user_roles to authenticated, service_role;
+          grant all on public.user_roles to service_role;
+          SQL
+          cp /tmp/20260814121500_clinical_evidence_spine.sql supabase/migrations/20260814121500_clinical_evidence_spine.sql
+          : > supabase/seed.sql
+
+      - name: Replay production P0 and capture immutable row identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+          eval "$(supabase status -o env)"
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --output /tmp/clinical-p0-ready.json --write-out '%{http_code}' \
+              --header "apikey: ${SERVICE_ROLE_KEY}" \
+              --header "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_evidence_records?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "${ready}" -ne 1 ]; then
+            echo "PostgREST did not expose the P0 Clinical evidence schema after local reset."
+            cat /tmp/clinical-p0-ready.json || true
+            supabase status || true
+            exit 1
+          fi
+
+          CLINICAL_TEST_API_URL="${API_URL}" CLINICAL_TEST_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY}" node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          const response = await fetch(`${base}/rest/v1/clinical_evidence_records?select=id,slug&order=slug.asc`, {
+            headers: { apikey: service, Authorization: `Bearer ${service}` },
+          })
+          if (!response.ok) throw new Error(`P0 identity read failed: ${response.status} ${await response.text()}`)
+          const rows = await response.json()
+          const expected = [
+            'ca-cannabis-regulations-medical-document-273',
+            'ca-health-canada-cannabis-adverse-reaction-reporting-hcp',
+            'ca-health-canada-medical-practitioners',
+          ]
+          const actual = rows.map(row => row.slug)
+          if (rows.length !== 3 || JSON.stringify(actual) !== JSON.stringify(expected)) {
+            throw new Error(`P0 replay did not produce the exact three production-baseline slugs: ${JSON.stringify(rows)}`)
+          }
+          fs.writeFileSync('/tmp/clinical-p0-identities-before.json', `${JSON.stringify(rows, null, 2)}\n`)
+          console.log(`GO: captured ${rows.length} P0 UUID/slug pairs before V1/OS migrations.`)
+          NODE
+
+      - name: Apply V1 and OS migrations in exact production order
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            20260814134500_clinical_evidence_v1_governance.sql
+            20260814135500_clinical_evidence_v1_source_reconciliation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
+            20260814144000_clinical_evidence_v1_audit_immutability.sql
+            20260814150000_clinical_evidence_v1_1_operations.sql
+            20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
+            20260816150000_clinical_evidence_operating_system.sql
+            20260816150100_clinical_evidence_operating_system_retrieval_hardening.sql
+            20260816150200_clinical_evidence_domain_separation.sql
+          )
+          for f in "${files[@]}"; do cp "/tmp/${f}" "supabase/migrations/${f}"; done
+          supabase migration up --local
+          eval "$(supabase status -o env)"
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --output /tmp/clinical-os-ready.json --write-out '%{http_code}' \
+              --header "apikey: ${SERVICE_ROLE_KEY}" \
+              --header "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_concepts?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "${ready}" -ne 1 ]; then
+            echo "PostgREST did not expose the Clinical evidence OS schema after ordered migration up."
+            cat /tmp/clinical-os-ready.json || true
+            supabase status || true
+            exit 1
+          fi
+
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "CLINICAL_TEST_API_URL=${API_URL}"
+            echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
+            echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove P0 UUID/slug preservation through full Clinical chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const before = JSON.parse(fs.readFileSync('/tmp/clinical-p0-identities-before.json', 'utf8'))
+          const base = process.env.CLINICAL_TEST_API_URL
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          const slugs = before.map(row => row.slug)
+          const response = await fetch(`${base}/rest/v1/clinical_evidence_records?select=id,slug&slug=in.(${slugs.join(',')})&order=slug.asc`, {
+            headers: { apikey: service, Authorization: `Bearer ${service}` },
+          })
+          if (!response.ok) throw new Error(`post-chain P0 identity read failed: ${response.status} ${await response.text()}`)
+          const after = await response.json()
+          if (JSON.stringify(after) !== JSON.stringify(before)) {
+            throw new Error(`P0 UUID/slug identity drifted across V1/OS migrations. before=${JSON.stringify(before)} after=${JSON.stringify(after)}`)
+          }
+          console.log('GO: exact P0 UUID/slug pairs survived every ordered V1 and OS migration unchanged.')
+          NODE
+
+      - name: Prove Dravet resolution, governance, privacy and corpus projections
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const base = process.env.CLINICAL_TEST_API_URL
+          const anon = process.env.CLINICAL_TEST_ANON_KEY
+          const service = process.env.CLINICAL_TEST_SERVICE_ROLE_KEY
+          const h = { apikey: anon, Authorization: `Bearer ${anon}`, 'Content-Type': 'application/json' }
+          const serviceHeaders = { apikey: service, Authorization: `Bearer ${service}`, 'Content-Type': 'application/json' }
+          const rpc = async (name, body) => {
+            const r = await fetch(`${base}/rest/v1/rpc/${name}`, { method: 'POST', headers: h, body: JSON.stringify(body) })
+            if (!r.ok) throw new Error(`${name}: ${r.status} ${await r.text()}`)
+            return r.json()
+          }
+          const expectCanonical = async (query, expected) => {
+            const rows = await rpc('resolve_clinical_query', { p_query: query, p_limit: 12 })
+            if (!Array.isArray(rows) || rows[0]?.canonical_label !== expected) {
+              throw new Error(`${query} resolved to ${JSON.stringify(rows)} instead of ${expected}`)
+            }
+            return rows
+          }
+          await expectCanonical('Dravet', 'Dravet syndrome')
+          await expectCanonical('DS', 'Dravet syndrome')
+          await expectCanonical('SMEI', 'Dravet syndrome')
+          await expectCanonical('Severe myoclonic epilepsy of infancy', 'Dravet syndrome')
+          await expectCanonical('LGS', 'Lennox-Gastaut syndrome')
+          await expectCanonical('What evidence is reviewed for Dravet?', 'Dravet syndrome')
+
+          const known = await rpc('clinical_condition_term_known', { p_query: 'Dravet' })
+          if (known !== true) throw new Error('Dravet must be a governed known condition after concept resolution')
+
+          const search = await rpc('search_clinical_evidence_records', { p_query: 'Dravet', p_jurisdiction: 'Canada', p_limit: 50 })
+          if (!Array.isArray(search)) throw new Error('governed search did not return an array')
+
+          const profile = await rpc('clinical_evidence_corpus_profile', { p_jurisdiction: 'Canada' })
+          if (!Array.isArray(profile) || profile.length !== 1 || Number(profile[0].concept_count) < 1) {
+            throw new Error(`invalid corpus profile: ${JSON.stringify(profile)}`)
+          }
+
+          const evidence = await fetch(`${base}/rest/v1/clinical_evidence_records?select=id,review_status,freshness_status,supersession_state,evidence_type,evidence_domain`, { headers: h })
+          if (!evidence.ok) throw new Error(`public evidence projection failed: ${evidence.status} ${await evidence.text()}`)
+          const rows = await evidence.json()
+          if (rows.some(row => row.review_status !== 'published')) throw new Error('RLS exposed a non-published Clinical evidence record')
+          if (rows.some(row => !row.freshness_status || !row.supersession_state)) throw new Error('published evidence missing currentness/supersession state')
+          if (rows.some(row => !row.evidence_domain)) throw new Error('published evidence record missing evidence_domain')
+          if (rows.some(row => ['regulation','regulatory-guidance','product-monograph'].includes(row.evidence_type) && row.evidence_domain !== 'regulatory')) {
+            throw new Error('unambiguous regulatory evidence was not separated into the regulatory domain')
+          }
+
+          const privateSources = await fetch(`${base}/rest/v1/clinical_evidence_sources?select=id&limit=1`, { headers: h })
+          if (privateSources.ok) throw new Error('anon unexpectedly received direct clinical_evidence_sources access')
+          const serviceSources = await fetch(`${base}/rest/v1/clinical_evidence_sources?select=id&limit=1`, { headers: serviceHeaders })
+          if (!serviceSources.ok) throw new Error(`service role cannot inspect governed source registry: ${serviceSources.status} ${await serviceSources.text()}`)
+
+          const claims = await fetch(`${base}/rest/v1/clinical_evidence_claims?select=id`, { headers: h })
+          if (!claims.ok) throw new Error(`published claim projection unavailable: ${claims.status}`)
+          if ((await claims.json()).length !== 0) throw new Error('operating-system migration must not invent claim-level evidence')
+
+          const families = await fetch(`${base}/rest/v1/clinical_study_families?select=id`, { headers: h })
+          if (!families.ok) throw new Error(`study-family projection unavailable: ${families.status}`)
+          if ((await families.json()).length !== 0) throw new Error('operating-system migration must not invent publication-family normalization')
+
+          console.log(`GO: Dravet/DS/SMEI/LGS resolution, published-only RLS, source-registry privacy, currentness and evidence OS projections verified; ${search.length} Canada Dravet records eligible.`)
+          NODE
+
+      - name: Create authenticated mobile fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_EMAIL="clinical-os-${GITHUB_RUN_ID}@harbourview.local"
+          TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"
+          echo "::add-mask::${TEST_EMAIL}"
+          echo "::add-mask::${TEST_PASSWORD}"
+          export E2E_TEST_USER_EMAIL="${TEST_EMAIL}"
+          export E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}
+          {
+            echo "E2E_TEST_USER_EMAIL=${TEST_EMAIL}"
+            echo "E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}"
+          } >> "$GITHUB_ENV"
+          node --input-type=module <<'NODE'
+          import { createClient } from '@supabase/supabase-js'
+          const client = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } })
+          const { data, error } = await client.auth.admin.createUser({ email: process.env.E2E_TEST_USER_EMAIL, password: process.env.E2E_TEST_USER_PASSWORD, email_confirm: true })
+          if (error || !data.user) throw error || new Error('mobile fixture user missing')
+          const { error: roleError } = await client.from('user_roles').insert({ user_id: data.user.id, role: 'admin' })
+          if (roleError) throw roleError
+          NODE
+
+      - name: Record exact-head build
+        id: exact_build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/clinical-os-build.log
+
+      - name: Reject Clinical OS build regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '^(\./)?(components/dashboard/mobile-command/ClinicalEvidenceExplorer\.tsx|lib/clinical/evidence\.ts|lib/server/clinicalEvidenceQuery\.ts|tests/clinical/evidenceOperatingSystem\.test\.ts|tests/e2e/clinical-evidence-operating-system\.spec\.ts)' /tmp/clinical-os-build.log; then
+            echo 'Clinical evidence operating-system files introduced a build diagnostic.'
+            exit 1
+          fi
+          echo "Clinical evidence operating-system files are absent from exact-head build diagnostics. Repository-wide build outcome: ${{ steps.exact_build.outcome }}"
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start exact local application for mobile evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f .next/BUILD_ID ]; then
+            echo 'Starting successful exact-head production build.'
+            npm start -- --hostname 127.0.0.1 > /tmp/clinical-os-next.log 2>&1 &
+          else
+            echo 'Exact-head production build is blocked by repository-level diagnostics; starting the exact source in Next development mode for isolated mobile evidence.'
+            npm run dev -- --hostname 127.0.0.1 > /tmp/clinical-os-next.log 2>&1 &
+          fi
+          echo $! > /tmp/clinical-os-next.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:3000/login >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/clinical-os-next.log
+          exit 1
+
+      - name: Capture governed concept recovery at required mobile viewports
+        run: npx playwright test tests/e2e/clinical-evidence-operating-system.spec.ts --project=chromium-desktop --workers=1 --retries=0
+
+      - name: Upload evidence OS artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: clinical-evidence-operating-system-${{ github.run_id }}
+          path: |
+            artifacts/clinical-evidence-operating-system/
+            playwright-report/
+            test-results/
+            /tmp/clinical-os-next.log
+            /tmp/clinical-os-typecheck.log
+            /tmp/clinical-os-build.log
+            /tmp/clinical-p0-identities-before.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+      - name: Stop isolated services
+        if: always()
+        run: |
+          if [ -f /tmp/clinical-os-next.pid ]; then kill "$(cat /tmp/clinical-os-next.pid)" 2>/dev/null || true; fi
+          supabase stop --no-backup || true

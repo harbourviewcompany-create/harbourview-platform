@@ -43,24 +43,7 @@ export type FormularyQuery = {
   limit?: number
 }
 
-/** API/DTO shape returned by /api/clinical/formulary */
-export type FormularyProductDTO = {
-  id: string
-  slug: string
-  name: string
-  countryIso2: string
-  productClass: string
-  authorizationStatus: string
-  cannabinoidProfile: string
-  routes: string[]
-  authority: string
-  notes: string
-  primarySourceUrl: string | null
-  lastReviewed: string
-  reviewStatus: string
-}
-
-/** API/DTO shape returned by /api/clinical/formulary */
+/** API/DTO shape returned by /api/clinical/formulary. */
 export type FormularyProductDTO = {
   id: string
   slug: string

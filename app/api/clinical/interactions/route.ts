@@ -14,13 +14,23 @@ export async function GET(request: NextRequest) {
     q: request.nextUrl.searchParams.get('q') ?? '',
     limit: request.nextUrl.searchParams.get('limit') ?? undefined,
   })
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid interaction query' }, { status: 400 })
-  }
+  if (!parsed.success) return NextResponse.json({ error: 'Invalid interaction query' }, { status: 400 })
 
   const result = await searchClinicalInteractions(parsed.data)
-  return NextResponse.json(result, {
-    status: result.state === 'error' ? 503 : 200,
-    headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
-  })
+  const interactions = result.interactions.map((interaction) => ({
+    ...interaction,
+    primarySource: {
+      publisher: interaction.primarySourceTitle,
+      url: interaction.primarySourceUrl,
+      locator: interaction.sourceLocator,
+    },
+  }))
+
+  return NextResponse.json(
+    { ...result, interactions },
+    {
+      status: result.state === 'error' ? 503 : 200,
+      headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+    },
+  )
 }

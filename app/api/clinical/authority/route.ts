@@ -1,0 +1,26 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { resolveClinicalProfessionalAuthority } from '@/lib/server/clinicalProfessionalAuthority'
+
+export const dynamic = 'force-dynamic'
+
+const QuerySchema = z.object({
+  country: z.string().trim().min(2).max(16),
+})
+
+export async function GET(request: NextRequest) {
+  const parsed = QuerySchema.safeParse({
+    country: request.nextUrl.searchParams.get('country') ?? '',
+  })
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'country required' }, { status: 400 })
+  }
+
+  const result = await resolveClinicalProfessionalAuthority(parsed.data.country)
+  const status = result.state === 'permission' ? 403 : result.state === 'error' ? 503 : 200
+
+  return NextResponse.json(result, {
+    status,
+    headers: { 'Cache-Control': 'private, max-age=0, must-revalidate' },
+  })
+}

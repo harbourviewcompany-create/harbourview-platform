@@ -1,0 +1,176 @@
+name: Clinical Corpus Depth Release Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - supabase/migrations/20260814121500_clinical_evidence_spine.sql
+      - supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+      - supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
+      - supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql
+      - supabase/migrations/20260814144000_clinical_evidence_v1_audit_immutability.sql
+      - supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql
+      - supabase/migrations/20260818110000_clinical_evidence_release_publication_guard.sql
+      - supabase/migrations/20260818120000_clinical_formulary_and_evidence_seed.sql
+      - supabase/migrations/20260818130000_clinical_evidence_formulary_expand.sql
+      - supabase/migrations/20260818140000_clinical_interactions_sku_depth.sql
+      - supabase/migrations/20260818192000_clinical_graded_evidence_interactions_depth.sql
+      - app/api/clinical/evidence/route.ts
+      - app/api/clinical/interactions/route.ts
+      - lib/server/clinicalEvidenceQuery.ts
+      - lib/server/clinicalInteractionQuery.ts
+      - components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx
+      - scripts/clinical-corpus-depth-release-verify.mjs
+      - tests/clinical/**
+      - .github/workflows/clinical-corpus-depth-release-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-corpus-depth-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify:
+    name: Zero-state governed corpus replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run corpus release regression contracts
+        run: >-
+          npx vitest run
+          tests/clinical/corpusDepthRelease.test.ts
+          tests/clinical/clinicalInteractionQuerySource.test.ts
+          tests/clinical/evidenceSpine.test.ts
+          tests/clinical/evidenceV1Governance.test.ts
+          tests/clinical/evidenceV1ProductionFoundation.test.ts
+          tests/clinical/evidenceV11Operations.test.ts
+          tests/dashboard/mobileClinicalProfessional.test.ts
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Prepare isolated Clinical corpus migration set
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            20260814121500_clinical_evidence_spine.sql
+            20260814134500_clinical_evidence_v1_governance.sql
+            20260814135500_clinical_evidence_v1_source_reconciliation.sql
+            20260814143500_clinical_evidence_v1_production_foundation.sql
+            20260814144000_clinical_evidence_v1_audit_immutability.sql
+            20260814150000_clinical_evidence_v1_1_operations.sql
+            20260818110000_clinical_evidence_release_publication_guard.sql
+            20260818120000_clinical_formulary_and_evidence_seed.sql
+            20260818130000_clinical_evidence_formulary_expand.sql
+            20260818140000_clinical_interactions_sku_depth.sql
+            20260818192000_clinical_graded_evidence_interactions_depth.sql
+          )
+          for f in "${files[@]}"; do cp "supabase/migrations/${f}" "/tmp/${f}"; done
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_isolated_clinical_dependencies.sql <<'SQL'
+          create schema if not exists api;
+          grant usage on schema api to anon, authenticated, service_role;
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+          alter table public.user_roles enable row level security;
+          grant select on public.user_roles to authenticated, service_role;
+          grant all on public.user_roles to service_role;
+          SQL
+          for f in "${files[@]}"; do cp "/tmp/${f}" "supabase/migrations/${f}"; done
+          : > supabase/seed.sql
+
+      - name: Replay governed Clinical corpus from zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+          eval "$(supabase status -o env)"
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            status="$(curl --silent --output /tmp/clinical-corpus-ready.json --write-out '%{http_code}' \
+              --header "apikey: ${SERVICE_ROLE_KEY}" \
+              --header "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+              "${API_URL}/rest/v1/clinical_evidence_records?select=id&limit=1" || true)"
+            if [ "${status}" = "200" ]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "${ready}" -ne 1 ]; then
+            echo "PostgREST did not expose the governed Clinical corpus after reset."
+            cat /tmp/clinical-corpus-ready.json || true
+            supabase status || true
+            exit 1
+          fi
+
+          {
+            echo "CLINICAL_TEST_API_URL=${API_URL}"
+            echo "CLINICAL_TEST_ANON_KEY=${ANON_KEY}"
+            echo "CLINICAL_TEST_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "CLINICAL_TEST_DB_URL=${DB_URL}"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove staging, sources, RLS and publication gate
+        run: node scripts/clinical-corpus-depth-release-verify.mjs
+
+      - name: Replay corpus-depth migration idempotently on the same database
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$CLINICAL_TEST_DB_URL" -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260818192000_clinical_graded_evidence_interactions_depth.sql
+          CLINICAL_TEST_SKIP_LIFECYCLE=1 node scripts/clinical-corpus-depth-release-verify.mjs
+
+      - name: Upload zero-state replay evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.4.3
+        with:
+          name: clinical-corpus-depth-${{ github.sha }}
+          path: artifacts/clinical-corpus-depth/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup || true

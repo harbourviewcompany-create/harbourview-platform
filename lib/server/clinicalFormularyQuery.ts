@@ -2,24 +2,43 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import type { FormularyProductDTO } from '@/lib/clinical/formulary'
 
-function mapRow(row: Record<string, unknown>): FormularyProductDTO {
+type FormularyProductDbRow = {
+  id: string
+  slug: string
+  name: string
+  country_iso2: string
+  product_class: string
+  authorization_status: string
+  cannabinoid_profile: string
+  routes: string[] | null
+  authority: string
+  notes: string | null
+  primary_source_url: string | null
+  last_reviewed: string | null
+  review_status: string
+  brand_name: string | null
+  registration_code: string | null
+  strength_label: string | null
+}
+
+function mapRow(row: FormularyProductDbRow): FormularyProductDTO {
   return {
-    id: String(row.id),
-    slug: String(row.slug),
-    name: String(row.name),
-    countryIso2: String(row.country_iso2),
-    productClass: String(row.product_class),
-    authorizationStatus: String(row.authorization_status),
-    cannabinoidProfile: String(row.cannabinoid_profile),
-    routes: Array.isArray(row.routes) ? (row.routes as string[]) : [],
-    authority: String(row.authority),
-    notes: String(row.notes ?? ''),
-    primarySourceUrl: row.primary_source_url ? String(row.primary_source_url) : null,
-    lastReviewed: String(row.last_reviewed ?? ''),
-    reviewStatus: String(row.review_status),
-    brandName: row.brand_name ? String(row.brand_name) : null,
-    registrationCode: row.registration_code ? String(row.registration_code) : null,
-    strengthLabel: row.strength_label ? String(row.strength_label) : null,
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    countryIso2: row.country_iso2,
+    productClass: row.product_class,
+    authorizationStatus: row.authorization_status,
+    cannabinoidProfile: row.cannabinoid_profile,
+    routes: Array.isArray(row.routes) ? row.routes : [],
+    authority: row.authority,
+    notes: row.notes ?? '',
+    primarySourceUrl: row.primary_source_url,
+    lastReviewed: row.last_reviewed ?? '',
+    reviewStatus: row.review_status,
+    brandName: row.brand_name,
+    registrationCode: row.registration_code,
+    strengthLabel: row.strength_label,
   }
 }
 
@@ -39,30 +58,22 @@ export async function searchClinicalFormulary(opts: {
       .order('name', { ascending: true })
       .limit(opts.limit ?? 50)
 
-    if (!opts.includeUnderReview) {
-      query = query.eq('review_status', 'published')
-    }
-    if (opts.countryIso2) {
-      query = query.eq('country_iso2', opts.countryIso2.toUpperCase())
-    }
+    if (!opts.includeUnderReview) query = query.eq('review_status', 'published')
+    if (opts.countryIso2) query = query.eq('country_iso2', opts.countryIso2.toUpperCase())
     if (opts.q?.trim()) {
       const q = `%${opts.q.trim()}%`
-      query = query.or(
-        `name.ilike.${q},notes.ilike.${q},cannabinoid_profile.ilike.${q},brand_name.ilike.${q},registration_code.ilike.${q}`,
-      )
+      query = query.or(`name.ilike.${q},notes.ilike.${q},cannabinoid_profile.ilike.${q},brand_name.ilike.${q},registration_code.ilike.${q}`)
     }
 
     const { data, error } = await query
-    if (error) {
-      return { state: 'error', products: [], error: error.message }
-    }
-    const products = (data ?? []).map((r) => mapRow(r as Record<string, unknown>))
+    if (error) return { state: 'error', products: [], error: error.message }
+    const products = ((data ?? []) as FormularyProductDbRow[]).map(mapRow)
     return { state: products.length ? 'loaded' : 'empty', products }
-  } catch (e) {
+  } catch (error) {
     return {
       state: 'error',
       products: [],
-      error: e instanceof Error ? e.message : 'Formulary query failed',
+      error: error instanceof Error ? error.message : 'Formulary query failed',
     }
   }
 }
@@ -85,6 +96,25 @@ export type FormularySkuDTO = {
   lastSeenAt: string
 }
 
+type FormularySkuDbRow = {
+  id: string
+  country_iso2: string
+  authority: string
+  registration_code: string | null
+  brand_name: string | null
+  product_name: string
+  strength_label: string | null
+  dosage_form: string | null
+  route: string | null
+  cannabinoid_profile: string | null
+  authorization_status: string
+  source_url: string | null
+  source_type: string
+  notes: string | null
+  last_seen_at: string | null
+  review_status: string
+}
+
 export async function searchClinicalFormularySkus(opts: {
   countryIso2?: string
   q?: string
@@ -94,9 +124,7 @@ export async function searchClinicalFormularySkus(opts: {
     const supabase = await createClient()
     let query = supabase
       .from('clinical_formulary_skus')
-      .select(
-        'id,country_iso2,authority,registration_code,brand_name,product_name,strength_label,dosage_form,route,cannabinoid_profile,authorization_status,source_url,source_type,notes,last_seen_at,review_status',
-      )
+      .select('id,country_iso2,authority,registration_code,brand_name,product_name,strength_label,dosage_form,route,cannabinoid_profile,authorization_status,source_url,source_type,notes,last_seen_at,review_status')
       .eq('review_status', 'published')
       .order('product_name', { ascending: true })
       .limit(opts.limit ?? 50)
@@ -104,40 +132,35 @@ export async function searchClinicalFormularySkus(opts: {
     if (opts.countryIso2) query = query.eq('country_iso2', opts.countryIso2.toUpperCase())
     if (opts.q?.trim()) {
       const q = `%${opts.q.trim()}%`
-      query = query.or(
-        `product_name.ilike.${q},brand_name.ilike.${q},registration_code.ilike.${q},notes.ilike.${q}`,
-      )
+      query = query.or(`product_name.ilike.${q},brand_name.ilike.${q},registration_code.ilike.${q},notes.ilike.${q}`)
     }
 
     const { data, error } = await query
     if (error) return { state: 'error', skus: [], error: error.message }
 
-    const skus: FormularySkuDTO[] = (data ?? []).map((row) => {
-      const r = row as Record<string, unknown>
-      return {
-        id: String(r.id),
-        countryIso2: String(r.country_iso2),
-        authority: String(r.authority),
-        registrationCode: r.registration_code ? String(r.registration_code) : null,
-        brandName: r.brand_name ? String(r.brand_name) : null,
-        productName: String(r.product_name),
-        strengthLabel: r.strength_label ? String(r.strength_label) : null,
-        dosageForm: r.dosage_form ? String(r.dosage_form) : null,
-        route: r.route ? String(r.route) : null,
-        cannabinoidProfile: r.cannabinoid_profile ? String(r.cannabinoid_profile) : null,
-        authorizationStatus: String(r.authorization_status),
-        sourceUrl: r.source_url ? String(r.source_url) : null,
-        sourceType: String(r.source_type),
-        notes: String(r.notes ?? ''),
-        lastSeenAt: String(r.last_seen_at ?? ''),
-      }
-    })
+    const skus: FormularySkuDTO[] = ((data ?? []) as FormularySkuDbRow[]).map((row) => ({
+      id: row.id,
+      countryIso2: row.country_iso2,
+      authority: row.authority,
+      registrationCode: row.registration_code,
+      brandName: row.brand_name,
+      productName: row.product_name,
+      strengthLabel: row.strength_label,
+      dosageForm: row.dosage_form,
+      route: row.route,
+      cannabinoidProfile: row.cannabinoid_profile,
+      authorizationStatus: row.authorization_status,
+      sourceUrl: row.source_url,
+      sourceType: row.source_type,
+      notes: row.notes ?? '',
+      lastSeenAt: row.last_seen_at ?? '',
+    }))
     return { state: skus.length ? 'loaded' : 'empty', skus }
-  } catch (e) {
+  } catch (error) {
     return {
       state: 'error',
       skus: [],
-      error: e instanceof Error ? e.message : 'SKU query failed',
+      error: error instanceof Error ? error.message : 'SKU query failed',
     }
   }
 }

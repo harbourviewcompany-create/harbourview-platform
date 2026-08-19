@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useState } from 'react'
-import { DesktopDecisionIntelBridge } from '@/components/dashboard/DesktopDecisionIntelBridge'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import {
@@ -46,20 +45,20 @@ const MobileCommandCentreRebuild = dynamic(
   },
 )
 
+const MobileCorridorToolHost = dynamic(
+  () =>
+    import('@/components/dashboard/command-workspace/MobileCorridorToolHost').then(m => ({
+      default: m.MobileCorridorToolHost,
+    })),
+  { ssr: false },
+)
+
 export function DashboardResponsiveShellContent({
   isMobile,
   decisionIntelAccess,
   ...props
 }: DashboardResponsiveShellProps & { isMobile: boolean }) {
   const renderer = isMobile ? 'mobile' : 'desktop'
-  const desktopDossierSignals = useMemo(() => {
-    const byId = new Map<string, (typeof props.signals)[number]>()
-    for (const signal of [...props.signals, ...(props.digestSignals ?? [])]) {
-      const key = `${signal.id}:${signal.decisionIntelEventId ?? ''}`
-      if (!byId.has(key)) byId.set(key, signal)
-    }
-    return [...byId.values()]
-  }, [props.signals, props.digestSignals])
 
   return (
     <div
@@ -82,15 +81,17 @@ export function DashboardResponsiveShellContent({
       // mobile child already fills at least the viewport.
       style={{ minHeight: '100dvh' }}
     >
-      {isMobile
-        ? <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
-        : (
-          <>
-            <DesktopDecisionIntelBridge signals={desktopDossierSignals} access={decisionIntelAccess} />
-            <CommandCentre {...props} />
-            <DesktopCommandWorkspace />
-          </>
-        )}
+      {isMobile ? (
+        <>
+          <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
+          <MobileCorridorToolHost />
+        </>
+      ) : (
+        <>
+          <CommandCentre {...props} decisionIntelAccess={decisionIntelAccess} />
+          <DesktopCommandWorkspace />
+        </>
+      )}
     </div>
   )
 }

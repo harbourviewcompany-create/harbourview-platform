@@ -156,7 +156,6 @@ describe('loadCommandCentreData', () => {
     expect(bundle.state).toBe('live')
   })
 
-
   it('reports a live bundle when every source is disabled', async () => {
     const disabledLoad = vi.fn(async () => ['should-not-load'])
     const bundle = await loadCommandCentreData(context, {
@@ -174,4 +173,28 @@ describe('loadCommandCentreData', () => {
     expect(bundle.state).toBe('live')
   })
 
+  it('treats non-empty classified sources as live even when a secondary channel is degraded', async () => {
+    const bundle = await loadCommandCentreData(context, {
+      marketplaceRows: {
+        load: async () => ({
+          rows: { cannabis: [['Lot A']] },
+          mediaById: {},
+          mediaStatus: 'degraded' as const,
+        }),
+        fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
+        isEmpty: projection => Object.keys(projection.rows).length === 0,
+        classify: projection => Object.keys(projection.rows).length === 0 ? 'empty' : 'live',
+        sourceLabel: 'Public marketplace rows and approved media projection',
+      },
+      mySubmissions: {
+        load: async () => [],
+        fallback: [],
+        sourceLabel: 'Authenticated marketplace submissions',
+      },
+    })
+
+    expect(bundle.state).toBe('live')
+    expect(bundle.sources.marketplaceRows.state).toBe('live')
+    expect(bundle.sources.mySubmissions.state).toBe('empty')
+  })
 })
