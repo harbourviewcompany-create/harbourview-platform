@@ -76,21 +76,27 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(formularyQuery).not.toContain('Record<string, unknown>')
   })
 
-  it('fails closed before Prescriber OS DDL when the Evidence V1/V1.1 governance foundation is absent', () => {
+  it('fails closed before Prescriber OS DDL when the applied production governance contract is absent', () => {
     for (const required of [
       'public.clinical_evidence_reviews',
       'public.clinical_reviewer_credentials',
-      'public.clinical_evidence_source_snapshots',
-      'public.clinical_evidence_grade_assessments',
-      'public.clinical_evidence_operation_events',
+      'public.clinical_evidence_snapshots',
+      'public.clinical_grade_assessments',
+      'public.clinical_monitoring_protocols',
+      'public.clinical_formulary_skus',
       'clinical_evidence_records.publication_scope',
       'clinical_evidence_records.freshness_status',
-      'clinical_evidence_records.primary_source_registry_id',
+      'clinical_evidence_records.source_registry_id',
+      'public.clinical_evidence_has_review_role(text[])',
     ]) {
       expect(preflightMigration).toContain(required)
     }
+    expect(preflightMigration).toContain('20260819100621_clinical_evidence_spine_reconcile.sql')
     expect(preflightMigration).toContain('RAISE EXCEPTION')
     expect(preflightMigration).not.toMatch(/create table|alter table|update public\.|insert into/i)
+    expect(preflightMigration).not.toContain('clinical_evidence_source_snapshots')
+    expect(preflightMigration).not.toContain('clinical_evidence_grade_assessments')
+    expect(preflightMigration).not.toContain('primary_source_registry_id')
   })
 
   it('reconciles current-main monitoring instead of creating the stale PR table shape', () => {
@@ -123,7 +129,10 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(reconciliationMigration).toContain('public.is_verified_clinician()')
   })
 
-  it('records post-migration provenance remediation counts without publishing replacements', () => {
+  it('provisions a private append-only remediation audit when historical V1.1 operations are absent', () => {
+    expect(auditMigration).toContain('create table if not exists public.clinical_evidence_operation_events')
+    expect(auditMigration).toContain('clinical_operation_event_immutable')
+    expect(auditMigration).toContain('enable row level security')
     expect(auditMigration).toContain('prescriber-provenance-remediation')
     expect(auditMigration).toContain('evidence_records_withheld')
     expect(auditMigration).toContain('interaction_records_withheld')
