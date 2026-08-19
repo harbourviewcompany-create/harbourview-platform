@@ -7,6 +7,7 @@ import {
 import type { ProductClass } from '@/lib/intelligence/tradeCorridors'
 import { PRODUCT_OPTIONS } from '@/lib/intelligence/tradeCorridors'
 import { landedCostHref } from '@/lib/intelligence/landedCostBridge'
+import { OrientationFeedback } from '@/components/intelligence/OrientationFeedback'
 
 export const metadata: Metadata = {
   title: 'Corridor Execution Plan | Harbourview',
@@ -108,14 +109,14 @@ export default async function CorridorPlanPage({
       {!plan ? (
         <div className="mt-10 rounded-xl border border-zinc-800 bg-zinc-950/40 p-6 text-sm text-zinc-400">
           No published playbooks for <strong className="text-zinc-200">{origin} → {destination}</strong>
-          {product !== 'any' ? ` with product class ${product}` : ''}. Try a tracked pair above, or
-          open{' '}
+          {product !== 'any' ? ` with product class ${product}` : ''}. Plans require a{' '}
+          <em>published</em> playbook on both ends. See{' '}
+          <Link href="/intelligence/corridor-coverage" className="text-amber-400 underline">
+            corridor coverage
+          </Link>{' '}
+          for which tracked pairs are plan-ready, or try a chip above /{' '}
           <Link href="/intelligence/logistics-simulator" className="text-amber-400 underline">
             logistics simulator
-          </Link>{' '}
-          /{' '}
-          <Link href="/intelligence/logistics-trade-routes" className="text-amber-400 underline">
-            trade routes
           </Link>
           .
         </div>
@@ -271,6 +272,11 @@ export default async function CorridorPlanPage({
             </div>
           </section>
 
+          <OrientationFeedback
+            surface="corridor_plan"
+            context={`${origin}-${destination}-${product}`}
+          />
+
           <section className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-6 text-center">
             <h3 className="text-lg font-medium">Private corridor analysis</h3>
             <p className="mt-2 text-sm text-zinc-400">
@@ -289,16 +295,16 @@ export default async function CorridorPlanPage({
 
       <p className="mt-12 text-center text-xs text-zinc-600">
         Related:{' '}
+        <Link href="/intelligence/corridor-coverage" className="underline">
+          Coverage
+        </Link>{' '}
+        ·{' '}
         <Link href="/intelligence/landed-cost" className="underline">
           Landed cost
         </Link>{' '}
         ·{' '}
         <Link href="/intelligence/logistics-simulator" className="underline">
           Logistics simulator
-        </Link>{' '}
-        ·{' '}
-        <Link href="/intelligence/logistics-trade-routes" className="underline">
-          Trade routes
         </Link>{' '}
         ·{' '}
         <Link href="/dashboard" className="underline">
