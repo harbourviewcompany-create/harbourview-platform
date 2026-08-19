@@ -351,37 +351,44 @@ export function matchesQuery(query: string, values: Array<unknown>): boolean {
   return values.some(value => String(value ?? '').toLowerCase().includes(normalizedQuery))
 }
 
-/** Canonical Command Centre href for corridor plan workspace */
+/** Canonical in-shell route for corridor plan (Phase 2). */
 export function buildCorridorPlanToolHref(opts: {
   origin?: string
   destination?: string
   product?: string
+  country?: string
+  role?: string
+  returnTo?: string
 }): string {
   const params = new URLSearchParams({
-    page: 'logistics',
-    section: 'supply',
-    tool: 'corridor-plan',
     origin: (opts.origin ?? 'CA').toUpperCase(),
     destination: (opts.destination ?? 'DE').toUpperCase(),
   })
   if (opts.product) params.set('product', opts.product)
-  return `/dashboard?${params.toString()}`
+  if (opts.country) params.set('country', opts.country.toUpperCase())
+  if (opts.role) params.set('role', opts.role)
+  if (opts.returnTo) params.set('returnTo', opts.returnTo)
+  return `/dashboard/tools/corridor-plan?${params.toString()}`
 }
 
+/** Canonical in-shell route for landed cost (Phase 2). */
 export function buildLandedCostToolHref(opts: {
   origin?: string
   destination?: string
   product?: string
   volume?: string
+  country?: string
+  role?: string
+  returnTo?: string
 }): string {
   const params = new URLSearchParams({
-    page: 'trade-calc',
-    section: 'financing',
-    tool: 'landed-cost',
     origin: (opts.origin ?? 'CA').toUpperCase(),
     destination: (opts.destination ?? 'DE').toUpperCase(),
     product: opts.product ?? 'flower-premium',
     volume: opts.volume ?? '10',
   })
-  return `/dashboard?${params.toString()}`
+  if (opts.country) params.set('country', opts.country.toUpperCase())
+  if (opts.role) params.set('role', opts.role)
+  if (opts.returnTo) params.set('returnTo', opts.returnTo)
+  return `/dashboard/tools/landed-cost?${params.toString()}`
 }
