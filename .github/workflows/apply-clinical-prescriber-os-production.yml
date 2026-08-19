@@ -1,0 +1,136 @@
+name: Apply Clinical Prescriber OS production migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type APPLY to run Clinical Prescriber OS migrations on production zvxdgdkukjrrwamdpqrg'
+        required: true
+        type: string
+      phase:
+        description: 'Which phase to apply'
+        required: true
+        type: choice
+        default: full-prescriber
+        options:
+          - foundation
+          - prescriber-os
+          - api-exposure
+          - full-prescriber
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-prescriber-os-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply Clinical migrations on zvxdgdkukjrrwamdpqrg
+    runs-on: ubuntu-latest
+    environment: production-database
+    timeout-minutes: 30
+    steps:
+      - name: Require APPLY confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "::error::Refusing to run. Set confirm=APPLY."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Apply ordered Clinical SQL
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+          PHASE: ${{ inputs.phase }}
+        run: |
+          set -euo pipefail
+          apply() {
+            local f="$1"
+            test -f "$f"
+            echo "Applying $f ..."
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          }
+          record() {
+            local VERSION="$1"
+            psql -v ON_ERROR_STOP=1 -c "INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('$VERSION') ON CONFLICT DO NOTHING;"
+          }
+
+          foundation=(
+            supabase/migrations/20260814134500_clinical_evidence_v1_governance.sql
+            supabase/migrations/20260814135500_clinical_evidence_v1_source_reconciliation.sql
+            supabase/migrations/20260814143500_clinical_evidence_v1_production_foundation.sql
+            supabase/migrations/20260814144000_clinical_evidence_v1_audit_immutability.sql
+            supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql
+            supabase/migrations/20260814151000_clinical_evidence_v1_1_canadian_nabilone_source.sql
+          )
+          prescriber=(
+            supabase/migrations/20260818210936_clinical_monitoring_protocols.sql
+            supabase/migrations/20260818212800_clinical_prescriber_governance_preflight.sql
+            supabase/migrations/20260818212900_clinical_interaction_published_uniqueness.sql
+            supabase/migrations/20260818213000_clinical_prescriber_os_reconciliation.sql
+            supabase/migrations/20260818213100_clinical_provenance_remediation_audit.sql
+            supabase/migrations/20260818213200_clinical_prescriber_sku_links.sql
+            supabase/migrations/20260818213300_clinical_prescriber_pharmacovigilance.sql
+          )
+          exposure=(
+            supabase/migrations/20260819210000_clinical_prescriber_os_api_schema_exposure.sql
+          )
+
+          run_list() {
+            local -n arr=$1
+            for f in "${arr[@]}"; do
+              # Skip if version already in ledger
+              ver=$(basename "$f" | cut -d_ -f1)
+              exists=$(psql -qAt -c "select 1 from supabase_migrations.schema_migrations where version = '$ver' limit 1" || true)
+              if [ "$exists" = "1" ]; then
+                echo "Skip $ver (already in schema_migrations)"
+                continue
+              fi
+              apply "$f"
+              record "$ver"
+            done
+          }
+
+          case "$PHASE" in
+            foundation) run_list foundation ;;
+            prescriber-os) run_list prescriber ;;
+            api-exposure) run_list exposure ;;
+            full-prescriber)
+              run_list foundation
+              run_list prescriber
+              run_list exposure
+              ;;
+            *) echo "Unknown phase"; exit 1 ;;
+          esac
+
+      - name: Verify api views and foundation columns
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGHOST: aws-1-us-west-2.pooler.supabase.com
+          PGPORT: "5432"
+          PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+          PGDATABASE: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          select to_regclass('api.clinical_safety_rules') as safety,
+                 to_regclass('api.clinical_regimen_protocols') as regimen,
+                 to_regclass('api.clinical_monitoring_protocols') as monitoring,
+                 to_regclass('api.clinical_guideline_recommendations') as guidelines,
+                 to_regclass('api.clinical_evidence_records') as evidence;
+
+          select count(*) as foundation_cols
+          from information_schema.columns
+          where table_schema = 'public'
+            and table_name = 'clinical_evidence_records'
+            and column_name in ('publication_scope', 'freshness_status', 'grading_method_key');
+          SQL

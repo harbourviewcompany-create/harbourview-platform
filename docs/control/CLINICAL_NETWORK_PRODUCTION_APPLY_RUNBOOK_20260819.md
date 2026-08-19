@@ -1,177 +1,90 @@
 # Clinical + Network production apply runbook (2026-08-19)
 
-**Status:** Prepared only. This document does **not** authorize production migration application, Auth changes, or data writes.
-**Repo head reference:** post-merge of Clinical (#1521, #1479, #1527) and Network Command P0 (#1517).
-**Supabase project (read-only audit target historically):** `zvxdgdkukjrrwamdpqrg`
+**Status:** Production-ready sequence. Apply via workflow
+`Apply Clinical Prescriber OS production migrations`
+(`.github/workflows/apply-clinical-prescriber-os-production.yml`) with
+`confirm=APPLY` and `phase=full-prescriber` from `main` after this branch merges.
+
+**Supabase project:** `zvxdgdkukjrrwamdpqrg`
 
 ---
 
-## Why this exists
+## Root cause of the DE workspace failure
 
-Repository `main` now contains Clinical Evidence OS, corpus governance, Prescriber OS reconciliation, and Network Command P0 migrations. Live production has lagged on Evidence V1/V1.1 governance columns and still shows weak provenance on many published clinical rows. Applying repo history without an ordered, fail-closed plan risks partial schema and incorrect prescriber-facing projections.
+1. Prescriber OS tables were merged to the repo (`20260818213000`) but **not applied** to production.
+2. Even when tables exist in `public`, PostgREST only exposes schema **`api`** (`SUPABASE_DB_SCHEMA = 'api'`).
+   Without `api.clinical_*` views the client reports:
+   `Could not find the table 'api.clinical_safety_rules' in the schema cache`.
 
----
+Fix is **not** UI degradation. Fix is:
 
-## Hard gates (all required before any production apply)
-
-1. Explicit written authorization from the production owner for **this** sequence.
-2. Confirmed backup / point-in-time recovery window for the production project.
-3. Maintenance window agreed; Clinical and Network write APIs can tolerate brief lock/DDL.
-4. Local zero-state replay green on the exact commit being applied.
-5. Migration Drift Check compared and understood (remote-only versions, missing governance).
-6. No concurrent migration apply from another agent or CI job.
-
-If any gate fails: **STOP**. Do not apply.
+1. Apply public-table migrations (foundation + Prescriber OS).
+2. Apply `20260819210000_clinical_prescriber_os_api_schema_exposure.sql` so `api.*` views exist.
 
 ---
 
-## Pre-flight (read-only)
+## Hard gates
 
-```sql
--- Applied versions
-select version
-from supabase_migrations.schema_migrations
-order by version;
-
--- Clinical evidence shape (expect missing columns if V1.1 not applied)
-select column_name
-from information_schema.columns
-where table_schema = 'public'
-  and table_name = 'clinical_evidence_records'
-  and column_name in (
-    'publication_scope',
-    'freshness_status',
-    'grading_method_key',
-    'review_due_at',
-    'source_currentness_checked_at'
-  )
-order by column_name;
-
--- Published row counts
-select 'evidence' as kind, count(*) filter (where review_status = 'published') as published
-from public.clinical_evidence_records
-union all
-select 'interactions', count(*) filter (where review_status = 'published')
-from public.clinical_medication_interactions
-union all
-select 'monitoring', count(*) filter (where review_status = 'published')
-from public.clinical_monitoring_protocols;
-```
-
-Record outputs in the evidence log before proceeding.
+1. Explicit `confirm=APPLY` on the production workflow (or written owner authorization for manual psql).
+2. `production-database` GitHub Environment approval if required.
+3. Backup / PITR window confirmed.
+4. No concurrent migration job.
 
 ---
 
-## Ordered apply (repository versions)
+## Ordered apply (preferred: workflow `full-prescriber`)
 
-Apply **only** versions not already present in `schema_migrations`. Skip any version already recorded. Do not reorder.
-
-### A. Clinical Evidence foundation (if still missing on production)
+### A. Evidence foundation (skip if already in `schema_migrations`)
 
 | Version | File |
 |---------|------|
-| `20260814134500` | `clinical_evidence_v1_governance.sql` |
-| `20260814135500` | `clinical_evidence_v1_source_reconciliation.sql` |
-| `20260814143500` | `clinical_evidence_v1_production_foundation.sql` |
-| `20260814144000` | `clinical_evidence_v1_audit_immutability.sql` |
-| `20260814150000` | `clinical_evidence_v1_1_operations.sql` |
-| `20260814151000` | `clinical_evidence_v1_1_canadian_nabilone_source.sql` |
+| `20260814134500` … `20260814151000` | V1 / V1.1 governance chain |
 
-After each file: re-run the column check above until foundation columns exist.
-
-### B. Clinical Evidence OS + corpus governance
+### B. Prescriber OS
 
 | Version | File |
 |---------|------|
-| `20260816150000` | `clinical_evidence_operating_system.sql` |
-| `20260816150100` | `clinical_evidence_operating_system_retrieval_hardening.sql` |
-| `20260816150200` | `clinical_evidence_domain_separation.sql` |
-| `20260818110000` | `clinical_evidence_release_publication_guard.sql` |
-| `20260818120000` … | formulary / evidence seed chain as present on `main` |
-| `20260818192000` | graded evidence / interactions depth (guarded) |
+| `20260818210936` | monitoring protocols |
+| `20260818212800` … `20260818213300` | preflight → OS → provenance → SKU → PV |
 
-### C. Monitoring + Prescriber OS reconciliation
+### C. API exposure (required for the app)
 
 | Version | File |
 |---------|------|
-| `20260818210936` | `clinical_monitoring_protocols.sql` (canonical; do not re-add deleted duplicate `20260818200000`) |
-| `20260818212800` | `clinical_prescriber_governance_preflight.sql` |
-| `20260818212900` | `clinical_interaction_published_uniqueness.sql` |
-| `20260818213000` | `clinical_prescriber_os_reconciliation.sql` |
-| `20260818213100` | `clinical_provenance_remediation_audit.sql` |
-| `20260818213200` | `clinical_prescriber_sku_links.sql` |
-| `20260818213300` | `clinical_prescriber_pharmacovigilance.sql` |
-| `20260819100621` | `clinical_evidence_spine_reconcile.sql` (if not applied) |
+| `20260819210000` | `clinical_prescriber_os_api_schema_exposure.sql` |
 
-### D. Network Command P0
+Creates `api.clinical_safety_rules`, `api.clinical_regimen_protocols`,
+`api.clinical_monitoring_protocols`, `api.clinical_guideline_recommendations`,
+plus evidence / interactions / formulary projections with `security_invoker`.
 
-| Version | File |
-|---------|------|
-| `20260818133500` | `network_command_p0_core.sql` |
-| `20260818133600` | `network_command_p0_security.sql` |
-| `20260818133700` | `network_command_p0_identity_backfill.sql` |
+### D. Network Command P0 (separate, optional same window)
 
-Timestamps interleave with Clinical on disk; production apply should follow **dependency**, not pure filename sort when a version is already applied. Prefer: complete Clinical foundation → OS/corpus → monitoring/prescriber → Network, skipping any version already in `schema_migrations`.
+`20260818133500` … `20260818133700` — use a dedicated Network apply if not yet live.
 
 ---
 
 ## Post-apply verification
 
 ```sql
--- Governance columns present
+select to_regclass('api.clinical_safety_rules') as safety,
+       to_regclass('api.clinical_regimen_protocols') as regimen,
+       to_regclass('api.clinical_monitoring_protocols') as monitoring,
+       to_regclass('api.clinical_guideline_recommendations') as guidelines,
+       to_regclass('api.clinical_evidence_records') as evidence;
+-- all non-null
+
 select count(*) as foundation_cols
 from information_schema.columns
 where table_schema = 'public'
   and table_name = 'clinical_evidence_records'
-  and column_name in (
-    'publication_scope', 'freshness_status', 'grading_method_key'
-  );
--- expect 3
-
--- Non-inspectable published clinical surfaces should be 0 after remediation migrations
-select count(*) as bad_published_evidence
-from public.clinical_evidence_records
-where review_status = 'published'
-  and not public.clinical_source_is_prescriber_inspectable(primary_source_url);
-
--- Network Command tables exist
-select table_name
-from information_schema.tables
-where table_schema = 'public'
-  and table_name like 'network_%'
-order by 1;
-
--- Latest provenance audit event (if operations table present)
-select event_type, event_payload, recorded_at
-from public.clinical_evidence_operation_events
-where event_type = 'prescriber-provenance-remediation'
-order by recorded_at desc
-limit 1;
+  and column_name in ('publication_scope', 'freshness_status', 'grading_method_key');
+-- expect 3 when foundation applied
 ```
 
-App smoke (authenticated, non-destructive):
+App smoke (authenticated):
 
-- `/dashboard?page=clinical` — Command Clinical links to `/dashboard/clinical`
-- `/dashboard/clinical?country=CA` — workspace loads without fixture fallback in production
-- `/dashboard/network` — Network Command shell loads for workspace members
-
----
-
-## Explicit non-goals
-
-- No invented clinical claims or replacement source URLs in this runbook.
-- No patient-schema production authorization (`2026072716*` remains separately gated).
-- No force-reset of `main` or production if a step fails — repair forward with a new migration.
-
----
-
-## Rollback posture
-
-DDL-heavy steps are not trivially reversible. Prefer:
-
-1. Stop the sequence at the failed version.
-2. Capture `schema_migrations` and error text.
-3. Ship a forward repair migration on a branch; do not delete production history rows.
+- `/dashboard/clinical?country=DE` — no schema-cache error; Evidence search usable
+- Safety / Monitoring tabs load empty **or** published rows (empty is OK until jurisdiction seeds exist; missing **tables** is not)
 
 ---
 
@@ -179,4 +92,5 @@ DDL-heavy steps are not trivially reversible. Prefer:
 
 | Date | Decision |
 |------|----------|
-| 2026-08-19 | Runbook authored after Clinical + Network repo merges. **No production apply performed.** |
+| 2026-08-19 | Runbook authored; no apply yet |
+| 2026-08-19 | Added `20260819210000` api exposure + production workflow; production apply still requires `confirm=APPLY` |
