@@ -65,6 +65,7 @@
   -webkit-line-clamp: 2;
 }
 
+/* Intentional category silhouette — not an error void */
 .hvm2-listing-media-empty {
   display: grid;
   place-items: center;
@@ -75,19 +76,31 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  gap: 6px;
-  color: var(--hvm2-faint);
+  gap: 4px;
+  padding: 0 16px;
+  text-align: center;
+  color: rgba(245, 241, 232, 0.55);
 }
 
 .hvm2-listing-media-empty span {
-  font-size: 24px;
+  font-size: 22px;
+  line-height: 1;
+  color: rgba(198, 165, 90, 0.55);
+}
+
+.hvm2-listing-media-empty strong {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: rgba(245, 241, 232, 0.72);
 }
 
 .hvm2-listing-media-empty small {
   font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-weight: 650;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: rgba(245, 241, 232, 0.38);
 }
 
 @media (min-width: 390px) {
