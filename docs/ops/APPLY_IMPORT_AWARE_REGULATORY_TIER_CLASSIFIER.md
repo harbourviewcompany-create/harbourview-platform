@@ -1,71 +1,101 @@
 # Apply import-aware regulatory tier classifier — production
 
-**Status:** PENDING production apply  
-**Owner for apply:** any agent with `production-database` environment approval  
-**Code:** already on `main` (migration + workflow)  
-**Symptom if not applied:** Germany / Brazil-style markets stay wrong colours on the market-access globe (import pathways treated as non-commercial).
+**Status:** HOLD until this PR merges; then PENDING controlled production apply  
+**Owner for apply:** an operator with `production-database` environment approval  
+**Production action:** not performed by this PR  
+**Symptom before apply:** import-heavy lawful medical markets can remain on the wrong market-access globe tier.
 
 | Item | Value |
-|------|--------|
+|------|-------|
 | Workflow | `.github/workflows/apply-import-aware-regulatory-tier-classifier.yml` |
-| Migration | `supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql` |
-| Version | `20260819125403` |
-| Name | `regulatory_tier_import_aware_classifier` |
+| Base migration | `supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql` |
+| Base version | `20260819125403` |
+| Hardening migration | `supabase/migrations/20260819150000_regulatory_tier_trade_negation_hardening.sql` |
+| Hardening version | `20260819150000` |
 | Target DB | `zvxdgdkukjrrwamdpqrg` (pooler `aws-1-us-west-2.pooler.supabase.com`) |
 | Environment | GitHub Actions `production-database` |
 | Secret | `SUPABASE_DB_PASSWORD` |
 
-## Why this is blocked until an explicit apply
+## Why the apply is explicit
 
-The migration is **merged to main** but is **not** part of a bulk `supabase db push --include-all`. Production uses a single-file, workflow_dispatch apply with explicit `APPLY_PRODUCTION_MIGRATIONS` so a drifted pending set cannot be force-applied.
+Production has a drifted repository-versus-live migration set, so this release must not use a bulk `supabase db push --include-all`. The workflow applies only the reviewed classifier migration files and records only their exact repository versions.
 
-Until this runs:
+The original import-aware migration is already merged to `main` but was verified as not applied to production during PR #1564 review. The hardening migration in this PR is a forward repair rather than a rewrite of that merged migration.
 
-- `api.derive_regulatory_tier` remains the export-only commercial classifier
-- DE / BR-style **import** markets stay `medical_limited_trade` or `domestic_only` on the globe
-- `/api/globe` and `GlobeProvider` continue to paint the wrong tier colours
+## What is being fixed
 
-## What the migration does
+The base migration adds licensed/operating import pathways as a peer to export pathways for `legal_commercial_access`.
 
-1. Replaces `api.derive_regulatory_tier(program_status)` so **licensed import** language ranks as `legal_commercial_access` (peer to export).
-2. Reclassifies every `countries` row with `regulatory_tier_origin = 'auto'` from current `cc_jurisdiction_briefings.program_status`.
-3. Leaves **override** rows alone.
-4. Writes `regulatory_tier_audit` rows with `trigger_source = 'classifier_upgrade'`.
+Review of the original production workflow found two classifier-contract defects that must be repaired before production apply:
 
-## Agent procedure (production apply)
+1. Explicitly negated trade language such as `no licensed export industry` still matched the affirmative `export industry` regex and could be promoted to `legal_commercial_access`.
+2. A separate phrase such as `export licensing under discussion` could suppress an otherwise established `Medical legal` state and fall through to `prohibited`.
+
+`20260819150000_regulatory_tier_trade_negation_hardening.sql` corrects both cases while preserving affirmative import/export behavior and re-deriving only automatic country tiers. Manual override rows are not eligible for reclassification.
+
+## Transaction safety contract
+
+The workflow no longer applies SQL, commits it, writes the ledger, and only then checks classifier semantics.
+
+The controlled apply now performs these actions inside one transaction:
+
+1. Snapshot override-country tier fields into a temporary table.
+2. Apply the base migration if version `20260819125403` is still missing.
+3. Apply hardening migration `20260819150000`.
+4. Run affirmative-import, affirmative-export, negated-export, negated-import, trade-discussion and mixed-clause classifier assertions.
+5. Prove override-country tier fields are unchanged.
+6. Insert the exact missing migration ledger rows.
+7. Commit only if every assertion succeeds.
+
+Any SQL error or failed semantic assertion aborts the transaction, so the workflow cannot intentionally leave classifier mutations committed with a success-looking migration ledger row.
+
+## Agent procedure
 
 ### Preconditions
 
-- [ ] You are operating from repository **main** (workflow refuses non-main refs).
-- [ ] You have permission to approve the **`production-database`** GitHub Environment (or an operator who does is available).
-- [ ] Secret **`SUPABASE_DB_PASSWORD`** is present for that environment.
-- [ ] No concurrent production migration workflow is running.
-- [ ] You have read this runbook and the workflow YAML end-to-end.
+- [ ] This PR has merged and the workflow plus hardening migration are present on repository `main`.
+- [ ] You are dispatching the workflow from branch **`main`**; the job refuses any other ref.
+- [ ] You can approve the **`production-database`** GitHub Environment, or an authorized operator is available to approve it.
+- [ ] Secret **`SUPABASE_DB_PASSWORD`** is configured for that environment.
+- [ ] No concurrent production classifier/migration apply is running.
+- [ ] You have read the workflow YAML and this runbook end-to-end.
 
-### Step 1 — Confirm not already applied
+### Step 1 — Inspect the ledger
 
-Optional manual check (if you have psql access):
+Optional manual verification:
 
 ```sql
 select version, name
 from supabase_migrations.schema_migrations
-where version = '20260819125403'
-   or name = 'regulatory_tier_import_aware_classifier';
+where version in ('20260819125403', '20260819150000')
+   or name in (
+     'regulatory_tier_import_aware_classifier',
+     'regulatory_tier_trade_negation_hardening'
+   )
+order by version;
 ```
 
-If any row exists, **stop**. The workflow will also refuse with `Already recorded in the ledger`.
+The workflow independently verifies version/name consistency and supports these safe states:
 
-### Step 2 — Dispatch the workflow
+| State | Workflow behavior |
+|-------|-------------------|
+| Neither version applied | Apply base + hardening atomically |
+| Base applied, hardening missing | Apply hardening atomically |
+| Both applied | Refuse; nothing to do |
+| Hardening applied while base missing | Refuse inconsistent state |
+| Version/name mismatch or duplicate rows | Refuse inconsistent state |
 
-1. Open:  
-   https://github.com/harbourviewcompany-create/harbourview-platform/actions/workflows/apply-import-aware-regulatory-tier-classifier.yml
-2. Click **Run workflow**.
-3. Use branch **`main`** (required).
-4. Set **production_action** to **`APPLY_PRODUCTION_MIGRATIONS`** (not `HOLD`).
-5. Run workflow.
-6. Approve the **`production-database`** environment gate when GitHub prompts.
+Do not manually repair a mismatched ledger as part of this procedure.
 
-CLI equivalent (if `gh` is authenticated with environment approval rights):
+### Step 2 — Dispatch the controlled workflow
+
+1. Open GitHub Actions workflow `apply-import-aware-regulatory-tier-classifier.yml`.
+2. Choose branch **`main`**.
+3. Set `production_action` to **`APPLY_PRODUCTION_MIGRATIONS`**.
+4. Run the workflow.
+5. Approve the **`production-database`** environment gate when prompted.
+
+CLI equivalent for an authenticated operator with the required permissions:
 
 ```bash
 gh workflow run apply-import-aware-regulatory-tier-classifier.yml \
@@ -73,44 +103,72 @@ gh workflow run apply-import-aware-regulatory-tier-classifier.yml \
   -f production_action=APPLY_PRODUCTION_MIGRATIONS
 ```
 
-### Step 3 — Watch the job
+### Step 3 — Required workflow evidence
 
-Expected steps (all must pass):
+All applicable steps must pass:
 
-1. Require main branch dispatch  
-2. Refuse if already applied  
-3. Capture pre-application tier sample (DE/BR/CA/US) → `artifacts/before-tiers.txt`  
-4. Apply the migration in one transaction  
-5. Record the ledger row under version `20260819125403`  
-6. Capture post-application tier sample → `artifacts/after-tiers.txt`  
-7. Prove classifier function is import-aware:
-   - DE-style sample text → **`legal_commercial_access`**
-   - Medical-only sample text → **`medical_limited_trade`**
-8. Upload artifact `import-aware-classifier-apply-<run_id>`
+1. Require `main` branch dispatch.
+2. Inspect exact base/hardening migration ledger state.
+3. Capture DE/BR/CA/US pre-application tiers.
+4. Capture the pre-application override-country fingerprint.
+5. Apply the missing reviewed migration file(s) and all semantic assertions in one transaction.
+6. Commit exact ledger rows only after assertions pass.
+7. Verify both exact ledger rows exist after commit.
+8. Capture DE/BR/CA/US post-application tiers.
+9. Confirm the post-application override fingerprint exactly equals the pre-application fingerprint.
+10. Publish classifier probes and upload the evidence artifact.
 
-### Step 4 — Acceptance checks
+Artifact name:
 
-From the workflow summary / artifact:
+`import-aware-classifier-apply-<run_id>`
 
-| Check | Pass condition |
-|-------|----------------|
-| Ledger | Row `20260819125403` / `regulatory_tier_import_aware_classifier` present |
-| Classifier probe | Import-market sample → `legal_commercial_access` |
-| Classifier probe | Medical-only sample → `medical_limited_trade` |
-| DE / BR sample | Post tiers reflect import-aware classification where briefings contain import language (not stuck on wrong pre-apply colour solely due to old function) |
+Key artifact files include:
 
-Manual SQL (optional):
+- `migration-state-before.txt`
+- `before-tiers.txt`
+- `override-fingerprint-before.txt`
+- `apply-transaction.sql`
+- `apply.log`
+- `migration-state-after.txt`
+- `after-tiers.txt`
+- `override-fingerprint-after.txt`
+- `classifier-probes.txt`
+
+### Step 4 — Acceptance contract
+
+| Check | Required result |
+|-------|-----------------|
+| Affirmative medical import market | `legal_commercial_access` |
+| Affirmative licensed export permit | `legal_commercial_access` |
+| `Medical legal; ... no licensed export industry` | `medical_limited_trade` |
+| `Medical legal; no commercial import pathway` | `medical_limited_trade` |
+| `Medical legal; export licensing under discussion` | `medical_limited_trade` |
+| Negated export clause + separate active licensed-import clause | `legal_commercial_access` |
+| Override-country fingerprint | unchanged |
+| Base ledger | `20260819125403 / regulatory_tier_import_aware_classifier` present |
+| Hardening ledger | `20260819150000 / regulatory_tier_trade_negation_hardening` present |
+
+Optional manual probes after a successful workflow:
 
 ```sql
--- Classifier probes (same as workflow)
 select api.derive_regulatory_tier(
   'Adult-use social club framework; Europe''s largest medical import market with licensed importers.'
-) as de_style;
+) as affirmative_import;
 -- expect: legal_commercial_access
 
 select api.derive_regulatory_tier(
   'Medical legal; prescription programme; no licensed export industry'
-) as medical_only;
+) as negated_export;
+-- expect: medical_limited_trade
+
+select api.derive_regulatory_tier(
+  'Medical legal; no commercial import pathway'
+) as negated_import;
+-- expect: medical_limited_trade
+
+select api.derive_regulatory_tier(
+  'Medical legal; export licensing under discussion'
+) as trade_discussion;
 -- expect: medical_limited_trade
 
 select iso_alpha2, regulatory_tier, regulatory_tier_origin, regulatory_tier_source
@@ -121,30 +179,39 @@ order by iso_alpha2;
 
 ### Step 5 — Product verification
 
-1. Hard-refresh https://harbourview.vercel.app (or production dashboard) with market-access / globe layer.
-2. Confirm DE / import-heavy medical markets no longer paint as non-commercial solely due to the old classifier.
-3. Confirm override countries (if any) were **not** rewritten (`regulatory_tier_origin <> 'auto'`).
+After the workflow is fully green:
 
-### Step 6 — Close the loop
+1. Hard-refresh the production Harbourview market-access globe.
+2. Confirm DE/import-heavy lawful medical markets are no longer downgraded solely because import pathways were ignored.
+3. Confirm medical-only/negated-trade markets are not falsely promoted because a negative sentence contains words such as `export industry` or `import pathway`.
+4. Confirm known override countries retain their manually controlled tiers.
 
-- [ ] Paste the Actions run URL into the tracking issue / PR comment.
-- [ ] Attach or link the workflow artifact (`before-tiers.txt`, `after-tiers.txt`, `apply.log`).
-- [ ] Update this doc **Status** line to: `Applied — <YYYY-MM-DD> — run <url>`.
-- [ ] Comment on any globe colour regression issues that this was the production apply.
+### Step 6 — Closeout
+
+- [ ] Paste the successful GitHub Actions run URL into the tracking PR/issue.
+- [ ] Retain the uploaded production evidence artifact.
+- [ ] Update this document's Status line in a follow-up evidence commit to `Applied — <YYYY-MM-DD> — run <url>`.
+- [ ] Record any remaining globe-data discrepancy as a separate data/source issue rather than manually changing an automatic tier without evidence.
 
 ## Explicit non-goals
 
-- Do **not** run `supabase db push --include-all` against production for this change.
-- Do **not** re-dispatch if the ledger already contains `20260819125403`.
-- Do **not** edit override tiers by hand as part of this apply.
-- Do **not** change Vercel config, RLS unrelated to this migration, or app code in the same apply session.
+- Do not run `supabase db push --include-all` against production for this release.
+- Do not dispatch from a feature branch.
+- Do not manually edit override tiers as part of the classifier apply.
+- Do not mark a failed workflow as applied merely because one of the migrations appears in a ledger; investigate the exact transaction/ledger evidence first.
+- Do not change unrelated Vercel, RLS, dependency or application behavior in the production apply session.
 
-## Rollback note
+## Rollback / failure behavior
 
-There is no automatic down-migration. Recovery is restore `api.derive_regulatory_tier` from the previous migration definition and re-derive `origin = 'auto'` rows only under a new, reviewed migration — not a casual re-run of this file.
+Before transaction commit, any migration or assertion failure rolls back the transaction automatically and the controlled workflow must remain failed.
+
+After a successful commit there is no automatic down-migration. A later semantic regression must be repaired by a new reviewed forward migration that restores the desired classifier definition and re-derives only `regulatory_tier_origin = 'auto'` rows. Do not casually re-run historical migration files.
 
 ## Related
 
 - Workflow: `.github/workflows/apply-import-aware-regulatory-tier-classifier.yml`
-- Migration: `supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql`
-- Live path: briefing `program_status` → `trg_sync_regulatory_tier` → `countries.regulatory_tier` → GlobeProvider / `/api/globe`
+- Base migration: `supabase/migrations/20260819125403_regulatory_tier_import_aware_classifier.sql`
+- Hardening migration: `supabase/migrations/20260819150000_regulatory_tier_trade_negation_hardening.sql`
+- TypeScript parity mirror: `lib/globe/derive-regulatory-tier.ts`
+- Regression tests: `tests/globe/derive-regulatory-tier.test.ts`
+- Live path: briefing `program_status` → `trg_sync_regulatory_tier` → `countries.regulatory_tier` → `GlobeProvider` / `/api/globe`
