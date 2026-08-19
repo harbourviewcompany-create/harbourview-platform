@@ -6,6 +6,7 @@ import {
   generatePersonalBriefing,
   getSynthBriefingsForMarkets,
 } from '@/lib/intelligence/personalBriefing'
+import { getBriefingCadence } from '@/lib/intelligence/briefingCadence'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -30,17 +31,23 @@ function extractIso2Hints(
   return Array.from(found).slice(0, 6)
 }
 
-// Extracted from the former app/dashboard/my-briefings/page.tsx (server
-// component). Same logic, exposed as JSON so Command Centre's Briefing
-// section can fetch it lazily — the personal LLM synthesis call here is too
-// slow/costly to run on every dashboard load for a tab most visits won't open.
 export async function GET() {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const watchlist = await getWatchlistData(user.id)
+  const [watchlist, cadence] = await Promise.all([
+    getWatchlistData(user.id),
+    getBriefingCadence(user.id),
+  ])
+
   const activeRules = watchlist.rules.filter((r) => r.is_active)
-  const iso2List = extractIso2Hints(activeRules, watchlist.items)
+  const fromWatch = extractIso2Hints(activeRules, watchlist.items)
+  // Prefer explicit subscription markets when present; else watch-rule ISO hints.
+  const iso2List =
+    cadence.markets.length > 0
+      ? cadence.markets.slice(0, 6)
+      : fromWatch
+
   const keywordPool = activeRules.flatMap((r) => r.keywords).slice(0, 12)
   const ruleTypes = Array.from(new Set(activeRules.map((r) => r.rule_type)))
 
@@ -58,6 +65,8 @@ export async function GET() {
   return NextResponse.json({
     activeRules,
     keywordPool,
+    iso2List,
+    cadence,
     staticBriefings,
     synthBriefings,
     personal,
