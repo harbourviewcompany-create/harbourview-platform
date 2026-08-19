@@ -1,0 +1,264 @@
+/* Command Centre corridor / landed-cost workspace layer */
+.hvm2-corridor-workspace {
+  display: flex;
+  flex-direction: column;
+  max-height: min(92dvh, 920px);
+  overflow: hidden;
+  background: #07111f;
+  color: #f3f0ea;
+  border: 1px solid rgba(198, 165, 90, 0.25);
+  border-radius: 16px;
+}
+
+.hvm2-corridor-workspace .hvm2-workspace-header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.hvm2-corridor-workspace .hvm2-workspace-header span {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(198, 165, 90, 0.9);
+}
+
+.hvm2-corridor-workspace .hvm2-workspace-header h3 {
+  margin: 6px 0 4px;
+  font-size: 1.15rem;
+}
+
+.hvm2-corridor-workspace .hvm2-workspace-header p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(243, 240, 234, 0.55);
+  max-width: 42rem;
+}
+
+.hvm2-corridor-workspace .hvm2-workspace-header button {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(243, 240, 234, 0.8);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.cc-corridor-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cc-corridor-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(243, 240, 234, 0.5);
+  min-width: min(100%, 9.5rem);
+  flex: 1 1 8rem;
+}
+
+.cc-corridor-input {
+  background: #0c1624;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #f3f0ea;
+  padding: 8px 10px;
+  font-size: 13px;
+  min-width: 4.5rem;
+  min-height: 44px;
+}
+
+.cc-corridor-submit {
+  align-self: flex-end;
+  background: #c6a55a;
+  color: #0a0a0a;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.cc-corridor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 18px;
+}
+
+.cc-corridor-chip {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(243, 240, 234, 0.75);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  min-height: 36px;
+}
+
+.cc-corridor-chip:hover {
+  border-color: rgba(198, 165, 90, 0.5);
+}
+
+.cc-corridor-body {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 18px 24px;
+}
+
+.cc-corridor-summary h4 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.cc-corridor-price {
+  margin: 8px 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #d4b56a;
+}
+
+.cc-corridor-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.cc-corridor-metrics dt {
+  color: rgba(243, 240, 234, 0.45);
+  font-size: 11px;
+}
+
+.cc-corridor-metrics dd {
+  margin: 0;
+}
+
+.cc-corridor-muted {
+  color: rgba(243, 240, 234, 0.5);
+  font-size: 12px;
+}
+
+.cc-corridor-error {
+  color: #f07178;
+  font-size: 13px;
+}
+
+.cc-corridor-notes {
+  margin: 12px 0;
+  padding-left: 1.1rem;
+  font-size: 13px;
+  color: rgba(243, 240, 234, 0.8);
+}
+
+.cc-corridor-block {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+}
+
+.cc-corridor-block h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.cc-corridor-block ul,
+.cc-corridor-block ol {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 13px;
+  color: rgba(243, 240, 234, 0.75);
+}
+
+.cc-corridor-links {
+  margin: 12px 0;
+}
+
+.cc-corridor-link {
+  background: none;
+  border: none;
+  color: #d4b56a;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  min-height: 44px;
+}
+
+/* Desktop layer: center over Command Centre */
+.desktop-command-workspace-layer:has([data-mobile-command-tool='corridor-plan']),
+.desktop-command-workspace-layer:has([data-mobile-command-tool='landed-cost']) {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 8, 20, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.desktop-command-workspace-layer .hvm2-corridor-workspace {
+  width: min(720px, 100%);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+/*
+ * Mobile: in-shell tool layer — must NOT cover the Command Centre bottom tabs.
+ * Bottom nav sits in the flex shell (~66px + margins + safe-area). Leave that
+ * strip clear so operators can switch Command / Market / Intel / Actions without
+ * dismissing the tool first. Scroll is confined to .cc-corridor-body.
+ */
+.hvm-corridor-tool-layer {
+  --hvm-tool-nav-reserve: calc(66px + 24px + env(safe-area-inset-bottom, 0px));
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--hvm-tool-nav-reserve);
+  z-index: 40; /* below bottom-nav interaction; chrome stays reachable */
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 10px 10px 8px;
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+  background: rgba(2, 8, 20, 0.92);
+  backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.hvm-corridor-tool-layer .hvm2-corridor-workspace {
+  width: 100%;
+  max-height: 100%;
+  height: 100%;
+  border-radius: 14px;
+}
+
+@media (max-width: 767px) {
+  /* Ensure bottom nav paints above the tool dimmer strip */
+  .hvm2-bottom-nav.hvm-op-bottom-nav {
+    position: relative;
+    z-index: 50;
+  }
+}

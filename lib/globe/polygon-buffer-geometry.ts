@@ -26,6 +26,9 @@ const RING_SIMPLIFY_MAX_POINTS = 400
  */
 const ANTIMERIDIAN_HEAVY_ISO2 = new Set(['RU', 'US', 'FJ', 'NZ', 'KI'])
 
+/** Extra radial clearance for countries with long Earcut diagonals at high latitude. */
+const ANTIMERIDIAN_PLATE_LIFT_BONUS = 0.012
+
 const DEFAULT_CONFIG: GlobeExtrusionConfig = {
   radius: 2.35,
   plateLift: 0.024,
@@ -381,6 +384,7 @@ function _createCountryBufferGeometryInner(
   // confirmed cause of the Russia black-void regression.
   if (ANTIMERIDIAN_HEAVY_ISO2.has(country.iso2)) {
     cfg.simplifyTolerance = 0
+    cfg.plateLift = cfg.plateLift + ANTIMERIDIAN_PLATE_LIFT_BONUS
   }
 
   const geometry = new BufferGeometry()

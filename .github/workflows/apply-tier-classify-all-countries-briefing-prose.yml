@@ -1,0 +1,35 @@
+name: Superseded — use regulatory tier classifier release chain
+
+# This workflow previously applied only 20260819152000 and verified semantics
+# after commit. It is intentionally fail-closed now so operators cannot race
+# the canonical 152000/153000 release chain or recreate the earlier
+# committed-but-failed verification state.
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: 'Explicit production migration authorization'
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_PRODUCTION_MIGRATIONS
+
+permissions:
+  contents: read
+
+jobs:
+  superseded:
+    name: Refuse superseded production path
+    if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use canonical release-chain workflow
+        run: |
+          echo "::error::This single-migration production workflow is superseded."
+          echo "Use .github/workflows/apply-regulatory-tier-classifier-negation-fix.yml from main."
+          echo "The canonical workflow reconciles 20260819152000 and 20260819153000 from live ledger state,"
+          echo "runs classifier/override assertions inside the database transaction, and ledgers only before commit."
+          exit 1

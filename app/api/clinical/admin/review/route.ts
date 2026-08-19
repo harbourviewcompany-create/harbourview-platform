@@ -151,7 +151,10 @@ export async function GET() {
   const admin = await createSupabaseServiceClient()
   const loadErrors: string[] = []
 
-  async function q(label: string, run: () => Promise<{ data: unknown; error: { message: string } | null }>) {
+  async function q(
+    label: string,
+    run: () => Promise<{ data: unknown; error: { message: string } | null }>
+  ) {
     try {
       const res = await run()
       if (res.error) {
@@ -166,21 +169,21 @@ export async function GET() {
   }
 
   const [evidence, formulary, skus, jurisdictions, audit] = await Promise.all([
-    q('evidence', () =>
+    q('evidence', async () =>
       admin
         .from('clinical_evidence_records')
         .select('id,slug,title,review_status,evidence_strength,jurisdictions,verified_at,updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
     ),
-    q('formulary', () =>
+    q('formulary', async () =>
       admin
         .from('clinical_formulary_products')
         .select('id,slug,name,country_iso2,authorization_status,review_status,last_reviewed,updated_at')
         .order('updated_at', { ascending: false })
         .limit(100)
     ),
-    q('skus', () =>
+    q('skus', async () =>
       admin
         .from('clinical_formulary_skus')
         .select(
@@ -189,13 +192,13 @@ export async function GET() {
         .order('updated_at', { ascending: false })
         .limit(100)
     ),
-    q('jurisdictions', () =>
+    q('jurisdictions', async () =>
       admin
         .from('clinical_jurisdiction_profiles')
         .select('id,country_iso2,country_name,review_status,last_reviewed,updated_at')
         .order('country_iso2', { ascending: true })
     ),
-    q('audit', () =>
+    q('audit', async () =>
       admin
         .from('clinical_admin_audit_log')
         .select('id,actor_email,action,entity_type,entity_id,created_at,notes')

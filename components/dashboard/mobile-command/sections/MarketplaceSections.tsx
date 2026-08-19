@@ -19,6 +19,16 @@ import '../MarketplaceInventoryFirst.css'
 
 type MediaStage = 'primary' | 'fallback' | 'empty'
 
+const VIEW_GLYPH: Record<MarketView, string> = {
+  cannabis: '✦',
+  wanted: '◎',
+  opportunities: '◇',
+  equipment: '▣',
+  consumables: '▤',
+  services: '◈',
+  'new-products': '⊕',
+}
+
 export function resolveListingMediaStage(row: NormalizedListing, stage: MediaStage) {
   const media = row.media
   if (!media || stage === 'empty') return null
@@ -51,11 +61,17 @@ function ListingCardMedia({ row }: { row: NormalizedListing }) {
   const media = resolveListingMediaStage(row, stage)
 
   if (!media) {
+    const category = MARKET_TABS.find((tab) => tab.id === row.view)?.label ?? row.category ?? 'Listing'
     return (
-      <figure className="hvm2-listing-media hvm2-listing-media-empty" data-media-kind="none">
-        <div role="img" aria-label="Listing image unavailable">
-          <span aria-hidden="true">◇</span>
-          <small>Image unavailable</small>
+      <figure
+        className="hvm2-listing-media hvm2-listing-media-empty"
+        data-media-kind="none"
+        data-market-view={row.view}
+      >
+        <div role="img" aria-label={`${category} preview — approved photo not loaded`}>
+          <span aria-hidden="true">{VIEW_GLYPH[row.view] ?? '◇'}</span>
+          <strong>{category}</strong>
+          <small>Preview · photo on inquiry</small>
         </div>
       </figure>
     )
@@ -215,7 +231,16 @@ export function MarketplaceSection({
           <div className="hvm2-listing-grid">
             {filteredRows.map(row => <ListingCard key={`${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.reviewedIntroduction} />)}
           </div>
-        ) : <EmptyState title="No records match this view" detail={MOBILE_COMMAND_COPY.marketplaceEmptyDetail} />}
+        ) : (
+          <EmptyState
+            title={marketQuery.trim() ? 'No records match this search' : 'No reviewed records in this category yet'}
+            detail={
+              marketQuery.trim()
+                ? 'Clear the search or switch category. Absence of results is not a claim about market supply.'
+                : MOBILE_COMMAND_COPY.marketplaceEmptyDetail
+            }
+          />
+        )}
       </div>
     </SectionShell>
   )
@@ -240,13 +265,28 @@ export function SupplySection({
       action={<button type="button" className="hvm2-text-link" onClick={() => onOpenTool('supply-intake', { marketView: 'cannabis' })}>Submit supply</button>}
     >
       <div className="hvm2-metric-grid">
-        {SUPPLY_TABS.map(tab => <Metric key={tab.id} label={tab.label} value={supplyRows.filter(row => row.view === tab.id).length} detail="Approved loaded records" />)}
+        {SUPPLY_TABS.map((tab) => {
+          const count = supplyRows.filter((row) => row.view === tab.id).length
+          return (
+            <Metric
+              key={tab.id}
+              label={tab.label}
+              value={count}
+              detail={count === 0 ? 'No approved records yet' : 'Approved loaded records'}
+            />
+          )
+        })}
       </div>
       {supplyRows.length > 0 ? (
         <div className="hvm2-horizontal-deck hvm2-deck-spaced">
           {supplyRows.map(row => <ListingCard key={`supply-${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.supplyReview} />)}
         </div>
-      ) : <EmptyState title="No reviewed supply records loaded" detail={MOBILE_COMMAND_COPY.supplyEmptyDetail} />}
+      ) : (
+        <EmptyState
+          title="No reviewed supply records yet"
+          detail={MOBILE_COMMAND_COPY.supplyEmptyDetail}
+        />
+      )}
     </SectionShell>
   )
 }

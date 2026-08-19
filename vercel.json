@@ -57,6 +57,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/personal-briefings-tick",
+      "schedule": "30 8 * * *"
+    },
+    {
       "path": "/api/cron/pipeline-manual-review-notify",
       "schedule": "0 10 * * *"
     },
