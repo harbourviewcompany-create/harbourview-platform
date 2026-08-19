@@ -13,6 +13,9 @@ export const CLINICAL_INTERVENTION_CLASSES = [
 ] as const
 export type ClinicalInterventionClass = typeof CLINICAL_INTERVENTION_CLASSES[number]
 
+export const CLINICAL_EVIDENCE_DOMAINS = ['clinical','preclinical','regulatory','mixed','other','not-assessed'] as const
+export type ClinicalEvidenceDomain = typeof CLINICAL_EVIDENCE_DOMAINS[number]
+
 export const CLINICAL_EVIDENCE_STATES = [
   'loaded','empty','no-evidence','no-match','stale','conflicted','degraded-source','permission','error',
 ] as const
@@ -20,11 +23,73 @@ export type ClinicalEvidenceState = typeof CLINICAL_EVIDENCE_STATES[number]
 
 export type ClinicalPrimarySourceDTO = { title: string; publisher: string; url: string; sourceId?: string | null }
 
+export type ClinicalConceptMatchDTO = {
+  conceptId: string
+  conceptType: 'condition' | 'intervention' | 'cannabinoid' | 'formulation' | 'outcome' | 'safety' | 'guideline' | 'other'
+  canonicalLabel: string
+  matchedLabel: string
+  matchKind: 'exact-canonical' | 'exact-alias' | 'prefix-canonical' | 'prefix-alias' | 'contains-canonical' | 'contains-alias'
+  matchRank: number
+  aliases: string[]
+}
+
+export type ClinicalQueryResolutionDTO = {
+  normalizedQuery: string
+  recognized: boolean
+  canonicalLabel: string | null
+  conceptMatches: ClinicalConceptMatchDTO[]
+  expandedTerms: string[]
+}
+
+export type ClinicalClaimProvenanceDTO = {
+  id: string
+  evidenceRecordId: string
+  claimKey: string
+  claimKind: 'indication' | 'efficacy' | 'safety' | 'tolerability' | 'interaction' | 'monitoring' | 'regulatory' | 'limitation' | 'other'
+  claimOrigin: 'source-extraction' | 'clinical-synthesis'
+  statement: string
+  sourceSnapshotId: string
+  sourceLocator: string
+  verifiedAt: string
+}
+
+export type ClinicalStudyFamilyDTO = {
+  evidenceRecordId: string
+  familyKey: string
+  familyKind: 'randomized-trial' | 'controlled-study' | 'observational-cohort' | 'case-series' | 'systematic-review' | 'meta-analysis' | 'guideline' | 'regulatory-dossier' | 'other'
+  title: string
+  trialRegistryId: string | null
+  protocolId: string | null
+  countsAsIndependentStudy: boolean
+  publicationRole: 'primary-report' | 'secondary-analysis' | 'follow-up' | 'extension' | 'abstract' | 'registry' | 'regulatory-summary' | 'other'
+  isPrimaryReport: boolean
+  overlapNote: string | null
+  verifiedAt: string
+}
+
+export type ClinicalCorpusProfileDTO = {
+  recordCount: number
+  currentRecordCount: number
+  gradedRecordCount: number
+  conditionCount: number
+  conceptCount: number
+  sourceCount: number
+  independentStudyCount: number
+  studyFamilyCount: number
+  claimCount: number
+  claimAnchoredRecordCount: number
+  lastVerifiedAt: string | null
+  gradingMethodKey: string | null
+  gradingMethodVersion: string | null
+  gradingMethodTitle: string | null
+}
+
 export type ClinicalEvidenceRecordDTO = {
   id: string; slug: string; title: string; summary: string; condition: string | null; conditionAliases: string[]
   population: string | null; intervention: string | null; formulation: string | null; cannabinoid: string[]
   interventionClass: ClinicalInterventionClass; comparator: string | null; outcome: string | null
-  evidenceType: ClinicalEvidenceType; evidenceStrength: ClinicalEvidenceCertainty; evidenceStrengthMethod: string | null
+  evidenceType: ClinicalEvidenceType; evidenceDomain?: ClinicalEvidenceDomain
+  evidenceStrength: ClinicalEvidenceCertainty; evidenceStrengthMethod: string | null
   uncertainty: string | null; conflictStatus: 'none' | 'mixed' | 'material-conflict'; jurisdiction: string[]
   professionRelevance: string[]; primarySource: ClinicalPrimarySourceDTO; publicationDate: string | null
   effectiveDate: string | null; verifiedAt: string; supersessionState: 'current' | 'superseded' | 'partially-superseded'
@@ -32,6 +97,7 @@ export type ClinicalEvidenceRecordDTO = {
   gradingMethodKey?: string | null; publicationScope?: 'source-metadata' | 'clinical-synthesis'
   freshnessStatus?: 'current' | 'stale' | 'review-required' | 'source-degraded'
   reviewDueAt?: string | null; sourceCurrentnessCheckedAt?: string | null; freshnessReason?: string | null
+  claims?: ClinicalClaimProvenanceDTO[]; studyFamilies?: ClinicalStudyFamilyDTO[]
 }
 
 export type ClinicalEvidenceChangeEventDTO = {
@@ -88,11 +154,13 @@ export type ClinicalConditionEvidenceSynthesisDTO = {
   regulatedDrugRecordCount: number; generalCannabisRecordCount: number
   evidenceTypes: Partial<Record<ClinicalEvidenceType, number>>; hasMaterialConflict: boolean
   hasDegradedSource: boolean; lastVerifiedAt: string | null; summary: string
+  independentStudyCount?: number | null; studyFamilyCount?: number; claimCount?: number; claimAnchoredRecordCount?: number
 }
 
 export type ClinicalEvidenceSearchResult = {
   state: ClinicalEvidenceState; query: string; records: ClinicalEvidenceRecordDTO[]
   changes: ClinicalEvidenceChangeEventDTO[]; message: string; synthesis?: ClinicalConditionEvidenceSynthesisDTO
+  resolution?: ClinicalQueryResolutionDTO; corpus?: ClinicalCorpusProfileDTO
 }
 
 export function deriveClinicalEvidenceState(input: {
@@ -126,8 +194,9 @@ export function clinicalEvidenceStateMessage(state: ClinicalEvidenceState): stri
 
 export function synthesizeClinicalEvidence(records: ClinicalEvidenceRecordDTO[]): ClinicalConditionEvidenceSynthesisDTO {
   const evidenceTypes: Partial<Record<ClinicalEvidenceType, number>> = {}
+  const studyFamilies = new Map<string, ClinicalStudyFamilyDTO>()
   let gradedRecordCount = 0, regulatedDrugRecordCount = 0, generalCannabisRecordCount = 0, currentRecordCount = 0
-  let hasMaterialConflict = false, hasDegradedSource = false
+  let hasMaterialConflict = false, hasDegradedSource = false, claimCount = 0, claimAnchoredRecordCount = 0
   let lastVerifiedAt: string | null = null
   for (const record of records) {
     evidenceTypes[record.evidenceType] = (evidenceTypes[record.evidenceType] ?? 0) + 1
@@ -138,13 +207,23 @@ export function synthesizeClinicalEvidence(records: ClinicalEvidenceRecordDTO[])
     if (record.conflictStatus === 'material-conflict' || record.evidenceStrength === 'conflicted') hasMaterialConflict = true
     if (record.freshnessStatus === 'source-degraded') hasDegradedSource = true
     if (!lastVerifiedAt || record.verifiedAt > lastVerifiedAt) lastVerifiedAt = record.verifiedAt
+    const claims = record.claims ?? []
+    claimCount += claims.length
+    if (claims.length > 0) claimAnchoredRecordCount += 1
+    for (const family of record.studyFamilies ?? []) studyFamilies.set(family.familyKey, family)
   }
+  const independentStudyCount = studyFamilies.size > 0
+    ? [...studyFamilies.values()].filter(family => family.countsAsIndependentStudy).length
+    : null
   const ungradedRecordCount = records.length - gradedRecordCount
   const summary = records.length === 0
     ? 'No published evidence records are available for deterministic synthesis.'
     : `${records.length} published source record${records.length === 1 ? '' : 's'}; ${gradedRecordCount} clinically graded and ${ungradedRecordCount} ungraded. This count summary does not infer efficacy or comparative superiority.`
-  return { recordCount: records.length, currentRecordCount, gradedRecordCount, ungradedRecordCount,
-    regulatedDrugRecordCount, generalCannabisRecordCount, evidenceTypes, hasMaterialConflict, hasDegradedSource, lastVerifiedAt, summary }
+  return {
+    recordCount: records.length, currentRecordCount, gradedRecordCount, ungradedRecordCount,
+    regulatedDrugRecordCount, generalCannabisRecordCount, evidenceTypes, hasMaterialConflict, hasDegradedSource, lastVerifiedAt, summary,
+    independentStudyCount, studyFamilyCount: studyFamilies.size, claimCount, claimAnchoredRecordCount,
+  }
 }
 
 export type MedicationCannabinoidInteractionContract = {
