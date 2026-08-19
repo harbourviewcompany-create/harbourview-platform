@@ -1,0 +1,184 @@
+name: Apply regulatory tier classifier negation fix (20260819150000)
+
+# Applies exactly one migration file to production, verbatim from the repository.
+# Follow-up to apply-import-aware-regulatory-tier-classifier.yml after the
+# medical-only probe failed on negated export phrases.
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: 'Explicit production migration authorization'
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_PRODUCTION_MIGRATIONS
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apply-regulatory-tier-classifier-negation-fix
+  cancel-in-progress: false
+
+env:
+  MIGRATION_VERSION: '20260819150000'
+  MIGRATION_NAME: regulatory_tier_classifier_negation_fix
+  MIGRATION_FILE: supabase/migrations/20260819150000_regulatory_tier_classifier_negation_fix.sql
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  apply:
+    name: Apply and verify
+    if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    runs-on: ubuntu-latest
+    environment: production-database
+    timeout-minutes: 20
+    steps:
+      - name: Require main branch dispatch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Must be dispatched from main. Current ref: $GITHUB_REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Build masked connection string
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+          print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))
+          PY
+          )
+          DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::$DB_URL"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Refuse if already applied
+        run: |
+          set -o pipefail
+          COUNT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c \
+            "select count(*) from supabase_migrations.schema_migrations
+             where version = '${MIGRATION_VERSION}' or name = '${MIGRATION_NAME}';")
+          echo "Existing ledger rows for this migration: $COUNT"
+          if [ "$COUNT" != "0" ]; then
+            echo "::error::Already recorded in the ledger. Nothing to do."
+            exit 1
+          fi
+
+      - name: Capture pre-application tier sample (DE/BR)
+        run: |
+          mkdir -p artifacts
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select iso_alpha2 || '=' || coalesce(regulatory_tier, 'null')
+            from public.countries
+            where iso_alpha2 in ('DE','BR','CA','US')
+            order by iso_alpha2;
+          " | tee artifacts/before-tiers.txt
+
+      - name: Apply the migration in one transaction
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -1 -f "$MIGRATION_FILE" \
+            2>&1 | tee artifacts/apply.log
+
+      - name: Record the ledger row under its repository version
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -c "
+            insert into supabase_migrations.schema_migrations (version, name)
+            values ('${MIGRATION_VERSION}', '${MIGRATION_NAME}')
+            on conflict (version) do nothing;
+          "
+
+      - name: Capture post-application tier sample (DE/BR)
+        run: |
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select iso_alpha2 || '=' || coalesce(regulatory_tier, 'null')
+            from public.countries
+            where iso_alpha2 in ('DE','BR','CA','US')
+            order by iso_alpha2;
+          " | tee artifacts/after-tiers.txt
+
+      - name: Prove classifier probes
+        run: |
+          set -o pipefail
+
+          RESULT=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select api.derive_regulatory_tier(
+              'Adult-use social club framework; Europe''s largest medical import market with licensed importers.'
+            );
+          ")
+          echo "DE-style sample → $RESULT"
+          if [ "$RESULT" != "legal_commercial_access" ]; then
+            echo "::error::Import market sample failed (got: $RESULT)"
+            exit 1
+          fi
+
+          RESULT2=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select api.derive_regulatory_tier(
+              'Medical legal; prescription programme; no licensed export industry'
+            );
+          ")
+          echo "Medical-only (negated export) sample → $RESULT2"
+          if [ "$RESULT2" != "medical_limited_trade" ]; then
+            echo "::error::Negated-export medical sample failed (got: $RESULT2)"
+            exit 1
+          fi
+
+          RESULT3=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select api.derive_regulatory_tier(
+              'Licensed export industry; commercial cannabis trade'
+            );
+          ")
+          echo "Affirmative export sample → $RESULT3"
+          if [ "$RESULT3" != "legal_commercial_access" ]; then
+            echo "::error::Affirmative export sample failed (got: $RESULT3)"
+            exit 1
+          fi
+
+          RESULT4=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select api.derive_regulatory_tier(
+              'Adult-use social clubs; personal cultivation legal'
+            );
+          ")
+          echo "Adult-use only sample → $RESULT4"
+          if [ "$RESULT4" != "domestic_only" ]; then
+            echo "::error::Adult-use-only sample failed (got: $RESULT4)"
+            exit 1
+          fi
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo '## Negation-aware regulatory tier classifier'
+            echo
+            echo '### Before (DE/BR/CA/US)'
+            echo '```'
+            cat artifacts/before-tiers.txt 2>/dev/null || echo 'not captured'
+            echo '```'
+            echo '### After (DE/BR/CA/US)'
+            echo '```'
+            cat artifacts/after-tiers.txt 2>/dev/null || echo 'not captured'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tier-classifier-negation-fix-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90
