@@ -7,7 +7,10 @@ import {
   MarketplaceWorkspacePanel,
 } from './mobile-command/WorkspacePanels'
 import type { MobileCommandTool } from './mobile-command/contracts'
+import { CorridorPlanWorkspace } from './command-workspace/CorridorPlanWorkspace'
+import { LandedCostWorkspace } from './command-workspace/LandedCostWorkspace'
 import './DesktopCommandWorkspace.css'
+import './command-workspace/CorridorWorkspace.css'
 
 const MARKET_VIEWS = new Set<MarketView>([
   'cannabis',
@@ -23,6 +26,8 @@ const WORKSPACE_TOOLS = new Set<MobileCommandTool>([
   'supply-intake',
   'introduction',
   'financing-intake',
+  'corridor-plan',
+  'landed-cost',
 ])
 
 function parseTool(value: string | null): MobileCommandTool | null {
@@ -64,14 +69,22 @@ export default function DesktopCommandWorkspace() {
 
   return (
     <div className="desktop-command-workspace-layer" data-desktop-command-workspace={tool}>
-      <MarketplaceWorkspacePanel
-        tool={tool}
-        selectedListing={null}
-        activeMarketView={activeMarketView}
-        onClose={close}
-        onViewSubmissions={viewSubmissions}
-      />
-      <FinancingWorkspacePanel open={tool === 'financing-intake'} onClose={close} />
+      {tool === 'corridor-plan' ? (
+        <CorridorPlanWorkspace onClose={close} />
+      ) : tool === 'landed-cost' ? (
+        <LandedCostWorkspace onClose={close} />
+      ) : (
+        <>
+          <MarketplaceWorkspacePanel
+            tool={tool}
+            selectedListing={null}
+            activeMarketView={activeMarketView}
+            onClose={close}
+            onViewSubmissions={viewSubmissions}
+          />
+          <FinancingWorkspacePanel open={tool === 'financing-intake'} onClose={close} />
+        </>
+      )}
     </div>
   )
 }

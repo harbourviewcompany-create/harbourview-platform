@@ -2,63 +2,61 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getAuthenticatedUser } from '@/lib/supabase/server'
+import {
+  buildCorridorPlanToolHref,
+  buildLandedCostToolHref,
+} from '@/components/dashboard/mobile-command/contracts'
 
 export const metadata: Metadata = {
   title: 'Operator tools · Command Centre | Harbourview',
-  description:
-    'Command Centre operator tools hub — corridor plans, landed cost, logistics, briefings, genetics, financing.',
+  description: 'Command Centre deep links — corridor workspace, landed cost, logistics, briefings.',
 }
 
 export const dynamic = 'force-dynamic'
 
-const TOOLS = [
-  {
-    href: '/dashboard/corridor-plan?origin=CA&destination=DE',
-    title: 'Corridor execution plan',
-    blurb:
-      'Full Command Centre plan: EU GMP recognition, workstreams, failure modes, checklist, playbook steps.',
-    primary: true,
-  },
-  {
-    href: '/intelligence/corridor-coverage',
-    title: 'Corridor coverage',
-    blurb: 'Which tracked pairs are plan-ready (published playbooks both ends).',
-  },
-  {
-    href: '/intelligence/landed-cost?origin=CA&destination=DE&product=flower-premium&volume=10',
-    title: 'Landed cost + sensitivity',
-    blurb: 'Cost stack, freight/volume scenarios, explicit model assumptions.',
-  },
-  {
-    href: '/intelligence/logistics-simulator',
-    title: 'Logistics corridor simulator',
-    blurb: 'Filter corridors → plan → cost → mediated intake.',
-  },
-  {
-    href: '/dashboard?page=briefing',
-    title: 'My briefings & cadence',
-    blurb: 'Personal synthesis and daily/weekly cadence preferences.',
-  },
-  {
-    href: '/marketplace/genetics',
-    title: 'Genetics passports',
-    blurb: 'Public cultivar catalog and access-request pathways.',
-  },
-  {
-    href: '/marketplace/financing',
-    title: 'Trade financing / BNPL',
-    blurb: 'Partner embed slot and Harbourview review inquiry.',
-  },
-  {
-    href: '/education/cpd',
-    title: 'CPD & certificates',
-    blurb: 'Professional modules and certificate interest.',
-  },
-] as const
-
 export default async function DashboardToolsPage() {
   const user = await getAuthenticatedUser()
   if (!user) redirect('/login?next=/dashboard/tools')
+
+  const TOOLS = [
+    {
+      href: buildCorridorPlanToolHref({ origin: 'CA', destination: 'DE' }),
+      title: 'Corridor execution plan',
+      blurb: 'Opens in Command Centre (Logistics) — GMP recognition, workstreams, failure modes.',
+      primary: true,
+    },
+    {
+      href: buildLandedCostToolHref({ origin: 'CA', destination: 'DE' }),
+      title: 'Landed cost + sensitivity',
+      blurb: 'Opens in Command Centre (Trade calculator) — scenarios and assumptions.',
+      primary: true,
+    },
+    {
+      href: '/dashboard?page=logistics&section=supply',
+      title: 'Logistics module',
+      blurb: 'Native logistics page in the Command Centre shell.',
+    },
+    {
+      href: '/dashboard?page=trade-calc&section=financing',
+      title: 'Trade calculator module',
+      blurb: 'Native trade-calc page — financing tool also lives here.',
+    },
+    {
+      href: '/dashboard?page=briefing',
+      title: 'Briefing room',
+      blurb: 'Personal synthesis and cadence.',
+    },
+    {
+      href: '/dashboard?page=genetics',
+      title: 'Genetics',
+      blurb: 'In-shell genetics module.',
+    },
+    {
+      href: '/intelligence/corridor-plan?origin=CA&destination=DE',
+      title: 'Public corridor plan (orientation)',
+      blurb: 'Shareable guest surface — same engine, not the operator shell.',
+    },
+  ] as const
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-zinc-100">
@@ -67,14 +65,9 @@ export default async function DashboardToolsPage() {
           <p className="text-xs uppercase tracking-widest text-amber-500/90">Command Centre</p>
           <h1 className="mt-1 text-2xl font-semibold">Operator tools</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            These are <strong className="font-medium text-zinc-200">Command Centre surfaces</strong>{' '}
-            (auth-gated). The public{' '}
-            <Link href="/intelligence/corridor-plan" className="text-amber-400 hover:underline">
-              /intelligence/corridor-plan
-            </Link>{' '}
-            page is the shareable orientation twin — same engine, marketing-safe. In-shell nav inside
-            the large CommandCentre component is deferred to avoid a high-risk edit; use this hub
-            until then.
+            Primary tools open as <strong className="text-zinc-200">in-shell workspaces</strong>{' '}
+            (`?tool=`) on the adaptive dashboard — same pattern as financing intake. Reload-safe and
+            URL-addressable.
           </p>
         </div>
         <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-amber-400">
@@ -95,6 +88,7 @@ export default async function DashboardToolsPage() {
             >
               <span className="font-medium text-zinc-100">{t.title}</span>
               <p className="mt-1 text-sm text-zinc-500">{t.blurb}</p>
+              <p className="mt-2 font-mono text-[10px] text-zinc-600 break-all">{t.href}</p>
             </Link>
           </li>
         ))}
