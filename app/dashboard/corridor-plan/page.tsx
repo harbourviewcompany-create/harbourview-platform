@@ -8,10 +8,13 @@ import {
 } from '@/lib/intelligence/workflowEngine'
 import type { ProductClass } from '@/lib/intelligence/tradeCorridors'
 import { PRODUCT_OPTIONS } from '@/lib/intelligence/tradeCorridors'
+import { CorridorDepthSections } from '@/components/intelligence/CorridorDepthSections'
+import { landedCostHref } from '@/lib/intelligence/landedCostBridge'
 
 export const metadata: Metadata = {
   title: 'Corridor Plan · Command Centre | Harbourview',
-  description: 'Authenticated corridor execution plan — merged playbooks, checklist, trust metadata.',
+  description:
+    'Command Centre corridor execution plan — GMP recognition, workstreams, failure modes, checklist, playbook steps.',
 }
 
 export const dynamic = 'force-dynamic'
@@ -47,10 +50,23 @@ export default async function DashboardCorridorPlanPage({
         <div>
           <p className="text-xs uppercase tracking-widest text-amber-500/90">Command Centre</p>
           <h1 className="mt-1 text-2xl font-semibold">Corridor execution plan</h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            Operator surface for the same engine as the public orientation page — full depth stays here
+            under Command Centre. Open from{' '}
+            <Link href="/dashboard/tools" className="text-amber-400 hover:underline">
+              Operator tools
+            </Link>
+            .
+          </p>
         </div>
-        <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-amber-400">
-          ← Dashboard
-        </Link>
+        <div className="flex flex-wrap gap-3 text-sm">
+          <Link href="/dashboard/tools" className="text-zinc-400 hover:text-amber-400">
+            Tools
+          </Link>
+          <Link href="/dashboard" className="text-zinc-400 hover:text-amber-400">
+            ← Dashboard
+          </Link>
+        </div>
       </div>
 
       <form method="get" className="flex flex-wrap gap-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
@@ -92,7 +108,7 @@ export default async function DashboardCorridorPlanPage({
       </form>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {pairs.slice(0, 6).map((p) => (
+        {pairs.slice(0, 8).map((p) => (
           <Link
             key={`${p.from}-${p.to}`}
             href={`/dashboard/corridor-plan?origin=${p.from}&destination=${p.to}&product=${product}`}
@@ -105,9 +121,13 @@ export default async function DashboardCorridorPlanPage({
 
       {!plan ? (
         <p className="mt-8 text-sm text-zinc-500">
-          No published playbooks for this pair. Try a tracked corridor above, or open the{' '}
-          <Link href="/intelligence/logistics-simulator" className="text-amber-400 underline">
-            logistics simulator
+          No published playbooks for this pair. See{' '}
+          <Link href="/intelligence/corridor-coverage" className="text-amber-400 underline">
+            coverage
+          </Link>{' '}
+          or{' '}
+          <Link href="/dashboard/tools" className="text-amber-400 underline">
+            operator tools
           </Link>
           .
         </p>
@@ -127,7 +147,7 @@ export default async function DashboardCorridorPlanPage({
                 <dd>{plan.totalSequentialWeeks} wk</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Critical path (est.)</dt>
+                <dt className="text-zinc-500">Parallel heuristic</dt>
                 <dd>{plan.criticalPathWeeksEstimate} wk</dd>
               </div>
               <div>
@@ -139,6 +159,20 @@ export default async function DashboardCorridorPlanPage({
                 <dd>{plan.destination.difficulty}</dd>
               </div>
             </dl>
+            <div className="mt-3 flex flex-wrap gap-3 text-sm">
+              <Link
+                href={landedCostHref({ origin, destination, product })}
+                className="text-amber-400 hover:underline"
+              >
+                Landed cost + sensitivity →
+              </Link>
+              <Link
+                href={`/intelligence/logistics-simulator?from=${origin}&to=${destination}`}
+                className="text-zinc-400 hover:underline"
+              >
+                Logistics simulator →
+              </Link>
+            </div>
             <p className="mt-3 text-xs text-zinc-500">{plan.trust.disclaimer}</p>
           </section>
 
@@ -152,6 +186,8 @@ export default async function DashboardCorridorPlanPage({
               </ul>
             </section>
           )}
+
+          <CorridorDepthSections depth={plan.depth} />
 
           <section className="rounded-xl border border-zinc-800 p-5">
             <h3 className="font-medium">Documentation checklist</h3>
@@ -187,12 +223,12 @@ export default async function DashboardCorridorPlanPage({
           </section>
 
           <p className="text-center text-xs text-zinc-600">
-            <Link href="/intelligence/corridor-plan" className="underline">
+            Shareable orientation twin:{' '}
+            <Link
+              href={`/intelligence/corridor-plan?origin=${origin}&destination=${destination}&product=${product}`}
+              className="underline"
+            >
               Public corridor plan
-            </Link>
-            {' · '}
-            <Link href="/intelligence/logistics-simulator" className="underline">
-              Logistics simulator
             </Link>
             {' · '}
             <Link href="/intake" className="underline">
