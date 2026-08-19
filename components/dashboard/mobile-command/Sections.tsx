@@ -21,6 +21,7 @@ export { EducationSection } from './sections/EducationCommandSection'
 
 export { RegulatoryWatchSection } from './sections/RegulatoryWatchWithCorpus'
 export { JurisdictionSection } from './sections/JurisdictionCommandSection'
+export { NetworkSection } from './sections/NetworkCommandSection'
 
 export {
   MarketStatusSection,
@@ -33,7 +34,6 @@ export {
   GeneticsSection,
   ClinicalSection,
   ComplianceSection,
-  NetworkSection,
   FinancingSection,
 } from './sections/DomainSections'
 
