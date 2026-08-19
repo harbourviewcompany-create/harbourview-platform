@@ -7,6 +7,10 @@ import {
   LANDED_PRODUCT_LABELS,
   type LandedProductType,
 } from '@/components/dashboard/data/landedCostData'
+import {
+  buildLandedAssumptions,
+  buildSensitivityScenarios,
+} from '@/lib/intelligence/landedCostSensitivity'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -20,10 +24,6 @@ const PRODUCTS = new Set<LandedProductType>([
   'distillate',
 ])
 
-/**
- * Public-safe orientation landed-cost estimate.
- * Uses published reference ranges only — not a quote or commercial offer.
- */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
         label,
       })),
       freightPairs: FREIGHT_CORRIDORS.map((c) => `${c.originIso2}-${c.destIso2}`),
+      sensitivity:
+        'Pass origin, destination, product, volume for base result plus scenarios (freight ±20%, volume half/double, production +10%) and explicit assumptions.',
       disclaimer:
         'Orientation-level reference ranges only. Not a commercial quote. Verify all fees and duties with licensed operators and competent authorities.',
     })
@@ -85,9 +87,14 @@ export async function GET(req: NextRequest) {
     )
   }
 
+  const assumptions = buildLandedAssumptions(origin, destination, product, result)
+  const scenarios = buildSensitivityScenarios(origin, destination, product, volumeKg, result)
+
   return NextResponse.json({
     input: { origin, destination, product, volumeKg },
     result,
+    assumptions,
+    scenarios,
     labels: {
       product: LANDED_PRODUCT_LABELS[product],
       origin: EXPORTER_ORIGINS.find((o) => o.iso2 === origin)?.label ?? origin,

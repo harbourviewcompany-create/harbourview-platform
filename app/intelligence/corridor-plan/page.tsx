@@ -8,11 +8,12 @@ import type { ProductClass } from '@/lib/intelligence/tradeCorridors'
 import { PRODUCT_OPTIONS } from '@/lib/intelligence/tradeCorridors'
 import { landedCostHref } from '@/lib/intelligence/landedCostBridge'
 import { OrientationFeedback } from '@/components/intelligence/OrientationFeedback'
+import { CorridorDepthSections } from '@/components/intelligence/CorridorDepthSections'
 
 export const metadata: Metadata = {
   title: 'Corridor Execution Plan | Harbourview',
   description:
-    'Orientation-level regulated cannabis corridor plans — merged export/import playbooks, documentation checklist, timeline heuristic, and trust metadata. No operator identities or commercial terms.',
+    'Decision-oriented corridor plans: playbooks, parallel workstreams, failure modes, documentation checklist, and trust metadata. Orientation only.',
 }
 
 export const dynamic = 'force-dynamic'
@@ -48,9 +49,9 @@ export default async function CorridorPlanPage({
       <p className="text-xs uppercase tracking-widest text-amber-500/90">Intelligence · Corridor plan</p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">Corridor execution plan</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-400">
-        Merged export + import playbooks for a regulated corridor. Orientation-level only —
-        verify every requirement with competent authorities before acting. Harbourview does not
-        publish operator identities or commercial terms here.
+        Merged export + import playbooks, parallel workstreams, failure modes, and open diligence
+        questions. Orientation-level only — verify every requirement with competent authorities
+        before acting.
       </p>
 
       <form method="get" className="mt-8 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
@@ -109,14 +110,9 @@ export default async function CorridorPlanPage({
       {!plan ? (
         <div className="mt-10 rounded-xl border border-zinc-800 bg-zinc-950/40 p-6 text-sm text-zinc-400">
           No published playbooks for <strong className="text-zinc-200">{origin} → {destination}</strong>
-          {product !== 'any' ? ` with product class ${product}` : ''}. Plans require a{' '}
-          <em>published</em> playbook on both ends. See{' '}
+          . See{' '}
           <Link href="/intelligence/corridor-coverage" className="text-amber-400 underline">
             corridor coverage
-          </Link>{' '}
-          for which tracked pairs are plan-ready, or try a chip above /{' '}
-          <Link href="/intelligence/logistics-simulator" className="text-amber-400 underline">
-            logistics simulator
           </Link>
           .
         </div>
@@ -145,7 +141,7 @@ export default async function CorridorPlanPage({
                 <dd className="font-medium text-zinc-100">{plan.totalSequentialWeeks}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Critical-path estimate</dt>
+                <dt className="text-zinc-500">Parallel heuristic</dt>
                 <dd className="font-medium text-zinc-100">{plan.criticalPathWeeksEstimate}</dd>
               </div>
               <div>
@@ -162,7 +158,7 @@ export default async function CorridorPlanPage({
                 href={landedCostHref({ origin, destination, product })}
                 className="text-amber-400 hover:underline"
               >
-                Estimate landed cost →
+                Landed cost + sensitivity →
               </Link>
               <Link
                 href={`/intelligence/logistics-simulator?from=${origin}&to=${destination}`}
@@ -170,11 +166,8 @@ export default async function CorridorPlanPage({
               >
                 Logistics simulator →
               </Link>
-              <Link
-                href={`/dashboard/corridor-plan?origin=${origin}&destination=${destination}&product=${product}`}
-                className="text-zinc-400 hover:underline"
-              >
-                Open in dashboard →
+              <Link href="/intake" className="text-zinc-400 hover:underline">
+                Confidential intake →
               </Link>
             </div>
           </section>
@@ -192,10 +185,12 @@ export default async function CorridorPlanPage({
             </section>
           )}
 
+          <CorridorDepthSections depth={plan.depth} />
+
           <section className="rounded-xl border border-zinc-800 p-6">
             <h3 className="text-lg font-medium">Documentation checklist</h3>
             <p className="mt-1 text-xs text-zinc-500">
-              Generic stubs — not a substitute for counsel or authority forms.
+              Base export/import stubs plus product-class deltas when a class is selected.
             </p>
             <ul className="mt-4 space-y-2">
               {plan.documentationChecklist.map((item) => (
@@ -244,7 +239,7 @@ export default async function CorridorPlanPage({
           </section>
 
           <section className="rounded-xl border border-zinc-800 p-6">
-            <h3 className="text-lg font-medium">Regulators & risks</h3>
+            <h3 className="text-lg font-medium">Regulators & playbook pitfalls</h3>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               {plan.regulators.map((block) => (
                 <div key={block.country_iso2} className="rounded-lg border border-zinc-800/80 p-3">
@@ -280,8 +275,8 @@ export default async function CorridorPlanPage({
           <section className="rounded-xl border border-zinc-700 bg-zinc-900/50 p-6 text-center">
             <h3 className="text-lg font-medium">Private corridor analysis</h3>
             <p className="mt-2 text-sm text-zinc-400">
-              Counterparty introduction, documentation review, and confidential corridor viability
-              are handled through reviewed intake — not this public surface.
+              Counterparty introduction and confidential viability review via intake — not this
+              public surface.
             </p>
             <Link
               href="/intake"
@@ -292,25 +287,6 @@ export default async function CorridorPlanPage({
           </section>
         </div>
       )}
-
-      <p className="mt-12 text-center text-xs text-zinc-600">
-        Related:{' '}
-        <Link href="/intelligence/corridor-coverage" className="underline">
-          Coverage
-        </Link>{' '}
-        ·{' '}
-        <Link href="/intelligence/landed-cost" className="underline">
-          Landed cost
-        </Link>{' '}
-        ·{' '}
-        <Link href="/intelligence/logistics-simulator" className="underline">
-          Logistics simulator
-        </Link>{' '}
-        ·{' '}
-        <Link href="/dashboard" className="underline">
-          Command Centre
-        </Link>
-      </p>
     </main>
   )
 }

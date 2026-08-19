@@ -6,22 +6,13 @@ import {
   type ProductClass,
   type TradeCorridor,
 } from './tradeCorridors'
+import {
+  buildCorridorDepth,
+  type CorridorDepthBundle,
+} from './corridorDepth'
 
 /**
- * Corridor Workflow Engine — Execution Plan v1
- * ─────────────────────────────────────────────
- * Layer 9 of the Market Entry OS ("Workflow Engine"). Built on jurisdiction_playbooks
- * (steps/timeline/cost/regulators/pitfalls) rather than the abandoned cannabis_intelligence
- * schema. Merges origin + destination playbooks into one corridor-level plan.
- *
- * v1 additions (2026-08-18):
- * - product class awareness via TRADE_CORRIDORS
- * - documentation checklist stubs (export / import sides)
- * - confidence + freshness from playbook last_verified_at
- * - expanded hand-curated CORRIDOR_NOTES
- *
- * Still deliberately NOT automatic step-level dependency graphs — playbook steps have
- * no depends_on field. criticalPathWeeksEstimate remains a heuristic.
+ * Corridor Workflow Engine — Execution Plan v1 + depth layer
  */
 
 export type CorridorSide = 'export' | 'import'
@@ -43,7 +34,6 @@ export type DocChecklistItem = {
 export type CorridorTrustMeta = {
   originVerifiedAt: string | null
   destinationVerifiedAt: string | null
-  /** 0–1 heuristic from presence of verified dates + step coverage */
   confidence: number
   confidenceLabel: 'orientation' | 'partial' | 'reviewed'
   asOf: string
@@ -64,6 +54,8 @@ export type CorridorPlan = {
   documentationChecklist: DocChecklistItem[]
   notes: string[]
   trust: CorridorTrustMeta
+  /** Decision-grade depth: workstreams, failure modes, open questions */
+  depth: CorridorDepthBundle
 }
 
 const CORRIDOR_NOTES: Record<string, string[]> = {
@@ -249,6 +241,25 @@ export async function deriveCorridorPlan(
   const steps = [...exportSteps, ...importSteps]
 
   const corridorRef = findCorridorRef(origin, destination, productClass)
+  const depth = buildCorridorDepth({
+    origin,
+    destination,
+    productClass,
+    exportWeeks,
+    importWeeks,
+  })
+
+  const documentationChecklist: DocChecklistItem[] = [
+    ...BASE_EXPORT_DOCS,
+    ...BASE_IMPORT_DOCS,
+    ...depth.productDocDeltas.map((d) => ({
+      id: d.id,
+      side: d.side,
+      label: d.label,
+      required: d.required,
+      notes: d.notes,
+    })),
+  ]
 
   return {
     origin: {
@@ -278,13 +289,14 @@ export async function deriveCorridorPlan(
       { country_iso2: origin, pitfalls: originPlaybook.common_pitfalls },
       { country_iso2: destination, pitfalls: destinationPlaybook.common_pitfalls },
     ],
-    documentationChecklist: [...BASE_EXPORT_DOCS, ...BASE_IMPORT_DOCS],
+    documentationChecklist,
     notes: CORRIDOR_NOTES[corridorKey(origin, destination)] ?? [],
     trust: buildTrust(
       originPlaybook.last_verified_at,
       destinationPlaybook.last_verified_at,
       steps.length,
     ),
+    depth,
   }
 }
 
