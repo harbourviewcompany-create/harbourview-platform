@@ -1,0 +1,156 @@
+/**
+ * Clinical Evidence — source-metadata currentness helpers (Phase B)
+ * Pure functions + types. Source-metadata only.
+ */
+
+import { createHash } from 'node:crypto'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+export type FreshnessStatus = 'current' | 'stale' | 'review-required' | 'source-degraded'
+
+export interface EvidenceRow {
+  id: string
+  slug: string
+  primary_source_url: string
+  primary_source_title: string | null
+  primary_source_publisher: string | null
+  primary_source_id: string | null
+  review_status: string
+  freshness_status: FreshnessStatus
+  source_registry_id: string | null
+  source_currentness_checked_at?: string | null
+}
+
+export interface RunOptions {
+  limit?: number
+  dryRun?: boolean
+  concurrency?: number
+  supabase?: SupabaseClient
+  priorityFirst?: boolean
+}
+
+export interface RunSummary {
+  ok: boolean
+  total: number
+  current: number
+  stale: number
+  'review-required': number
+  'source-degraded': number
+  notModified?: number
+  archiveHits?: number
+  durationMs?: number
+  skippedLock?: boolean
+  error?: string
+}
+
+export function getServiceSupabase(): SupabaseClient {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY')
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+export function extractDoi(primarySourceId: string | null, url: string): string | null {
+  for (const c of [primarySourceId, url].filter(Boolean) as string[]) {
+    const m = c.match(/10\.\d{4,9}\/[^\s"'<>]+/i)
+    if (m) return m[0].replace(/[.,;)]+$/, '')
+  }
+  return null
+}
+
+export function extractPmid(primarySourceId: string | null, url: string): string | null {
+  for (const c of [primarySourceId, url].filter(Boolean) as string[]) {
+    const m =
+      c.match(/(?:pubmed\.ncbi\.nlm\.nih\.gov\/|pmid[=:\s]?)(\d{5,9})/i) ||
+      c.match(/^pmid[:\s]?(\d{5,9})$/i)
+    if (m) return m[1]
+  }
+  return null
+}
+
+export function normalizeHtmlForHash(html: string): string {
+  let s = html
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+  s = s.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  s = s.replace(/<!--[\s\S]*?-->/g, ' ')
+  s = s.replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+  const main =
+    s.match(/<main[\s\S]*?<\/main>/i) ||
+    s.match(/<article[\s\S]*?<\/article>/i) ||
+    s.match(/<div[^>]+role=["']main["'][\s\S]*?<\/div>/i)
+  if (main) s = main[0]
+  s = s.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+  return s
+}
+
+export function sha256Hex(input: string | Buffer): string {
+  return createHash('sha256').update(input).digest('hex')
+}
+
+export function titlesLikelyMatch(stored?: string | null, remote?: string | null): boolean {
+  if (!stored || !remote) return true
+  const norm = (t: string) =>
+    t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+  const a = norm(stored)
+  const b = norm(remote)
+  if (!a || !b || a === b || a.includes(b) || b.includes(a)) return true
+  const ta = new Set(a.split(' ').filter((w) => w.length > 2))
+  const tb = new Set(b.split(' ').filter((w) => w.length > 2))
+  if (!ta.size || !tb.size) return true
+  let inter = 0
+  for (const w of ta) if (tb.has(w)) inter++
+  return inter / (ta.size + tb.size - inter) >= 0.45
+}
+
+export function decideFreshness(input: {
+  urlOk: boolean
+  urlError?: string
+  firstCheck: boolean
+  hashChanged: boolean
+  notModified?: boolean
+  retracted: boolean
+  titleMismatch: boolean
+  idNotes: string[]
+  archiveAvailable?: boolean
+}): { status: FreshnessStatus; reason: string } {
+  if (input.retracted) {
+    return { status: 'review-required', reason: input.idNotes.join('; ') || 'Retraction signal on primary identifier' }
+  }
+  if (!input.urlOk) {
+    const archiveNote = input.archiveAvailable
+      ? 'Internet Archive has a capture (source may be temporarily offline)'
+      : undefined
+    return {
+      status: 'source-degraded',
+      reason: [input.urlError || 'URL unreachable', archiveNote, ...input.idNotes].filter(Boolean).join('; '),
+    }
+  }
+  if (input.titleMismatch) {
+    return {
+      status: 'review-required',
+      reason: ['Stored title does not match identifier registry metadata', ...input.idNotes].filter(Boolean).join('; '),
+    }
+  }
+  if (input.notModified) {
+    return {
+      status: 'current',
+      reason: ['HTTP 304 Not Modified; prior snapshot still valid', ...input.idNotes].filter(Boolean).join('. '),
+    }
+  }
+  if (input.firstCheck) {
+    return {
+      status: 'current',
+      reason: ['First currentness check; snapshot recorded', ...input.idNotes].filter(Boolean).join('. '),
+    }
+  }
+  if (input.hashChanged) {
+    return {
+      status: 'stale',
+      reason: ['Primary source content hash changed since last snapshot', ...input.idNotes].filter(Boolean).join('; '),
+    }
+  }
+  return {
+    status: 'current',
+    reason: ['URL OK; content hash unchanged', ...input.idNotes].filter(Boolean).join('. '),
+  }
+}

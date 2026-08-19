@@ -1,0 +1,321 @@
+name: Clinical Evidence Spine Reconcile Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - supabase/migrations/20260818224000_clinical_evidence_spine_reconcile.sql
+      - lib/clinical/productionQuery.ts
+      - .github/workflows/clinical-evidence-spine-reconcile-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clinical-evidence-spine-reconcile-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  replay:
+    name: Replay production-shape reconciliation twice
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1 # v1
+        with:
+          version: 2.109.1
+
+      - name: Build isolated production-shape baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          RECON=20260818224000_clinical_evidence_spine_reconcile.sql
+          cp "supabase/migrations/${RECON}" "/tmp/${RECON}"
+          mv supabase/migrations /tmp/harbourview-production-migrations
+          if [ -f supabase/seed.sql ]; then mv supabase/seed.sql /tmp/harbourview-production-seed.sql; fi
+          mkdir -p supabase/migrations
+          cat > supabase/migrations/00000000000000_live_clinical_shape.sql <<'SQL'
+          create table if not exists public.user_roles (
+            user_id uuid not null,
+            role text not null,
+            primary key (user_id, role)
+          );
+
+          create table public.clinical_evidence_records (
+            id uuid primary key default gen_random_uuid(),
+            slug text not null unique,
+            title text not null,
+            summary text not null,
+            condition_term_id uuid,
+            condition_label text,
+            condition_aliases text[] not null default '{}',
+            population text,
+            intervention text,
+            formulation text,
+            cannabinoids text[] not null default '{}',
+            intervention_class text not null,
+            comparator text,
+            outcome text,
+            evidence_type text not null,
+            evidence_strength text not null,
+            evidence_strength_method text,
+            uncertainty text,
+            conflict_status text not null default 'none',
+            jurisdictions text[] not null default '{}',
+            profession_relevance text[] not null default '{}',
+            primary_source_title text not null,
+            primary_source_publisher text not null,
+            primary_source_url text not null,
+            primary_source_id text,
+            publication_date date,
+            effective_date date,
+            verified_at timestamptz not null,
+            supersession_state text not null default 'current',
+            superseded_by_id uuid references public.clinical_evidence_records(id),
+            review_status text not null default 'under-review',
+            created_at timestamptz not null default now(),
+            updated_at timestamptz not null default now()
+          );
+
+          create table public.clinical_evidence_change_events (
+            id uuid primary key default gen_random_uuid(),
+            evidence_record_id uuid references public.clinical_evidence_records(id),
+            event_type text not null check (event_type in (
+              'published','updated','superseded','conflict-detected','conflict-resolved'
+            )),
+            title text not null,
+            summary text not null,
+            materiality text not null default 'medium',
+            jurisdictions text[] not null default '{}',
+            profession_relevance text[] not null default '{}',
+            occurred_at timestamptz not null,
+            verified_at timestamptz not null,
+            primary_source_title text not null,
+            primary_source_publisher text not null,
+            primary_source_url text not null,
+            primary_source_id text,
+            review_status text not null default 'under-review',
+            created_at timestamptz not null default now()
+          );
+
+          alter table public.clinical_evidence_records enable row level security;
+          alter table public.clinical_evidence_change_events enable row level security;
+          create policy clinical_evidence_records_public_read
+            on public.clinical_evidence_records for select to anon, authenticated
+            using (review_status = 'published');
+          create policy clinical_evidence_change_events_public_read
+            on public.clinical_evidence_change_events for select to anon, authenticated
+            using (review_status = 'published');
+          grant select on public.clinical_evidence_records to anon, authenticated;
+          grant select on public.clinical_evidence_change_events to anon, authenticated;
+          grant all on public.clinical_evidence_records to service_role;
+          grant all on public.clinical_evidence_change_events to service_role;
+
+          insert into public.clinical_evidence_records (
+            slug,title,summary,condition_label,cannabinoids,intervention_class,
+            evidence_type,evidence_strength,jurisdictions,profession_relevance,
+            primary_source_title,primary_source_publisher,primary_source_url,
+            verified_at,review_status
+          ) values
+            ('ca-cannabis-regulations-medical-document-273','Regulation','source','', '{}','general-cannabis','regulation','ungraded',array['Canada'],'{}','Authority','Justice Laws Website','https://example.invalid/regulation',now(),'published'),
+            ('ca-health-canada-cannabis-adverse-reaction-reporting-hcp','Guidance A','source','', '{}','general-cannabis','regulatory-guidance','ungraded',array['Canada'],'{}','Authority','Health Canada','https://example.invalid/guidance-a',now(),'published'),
+            ('ca-health-canada-medical-practitioners','Guidance B','source','', '{}','general-cannabis','regulatory-guidance','ungraded',array['Canada'],'{}','Authority','Health Canada','https://example.invalid/guidance-b',now(),'published'),
+            ('ev-cannabinoid-drug-interactions','Interactions','claim','polypharmacy',array['CBD'],'cannabinoid-isolate','pharmacovigilance-signal','moderate',array['global'],'{}','Literature','Clinical pharmacology literature','https://example.invalid/4',now(),'published'),
+            ('ev-cbd-epilepsy-dravet-lgs','Dravet LGS','claim','treatment-resistant epilepsy',array['CBD'],'regulated-cannabinoid-drug','randomized-trial','high',array['global'],'{}','Assessment','FDA/EMA/ANVISA-related assessments','https://example.invalid/5',now(),'published'),
+            ('ev-neuropathic-pain-overview','Neuropathic pain','claim','chronic neuropathic pain',array['THC','CBD'],'cannabis-derived-formulation','systematic-review','moderate',array['global'],'{}','Literature','Peer-reviewed literature synthesis','https://example.invalid/6',now(),'published'),
+            ('ev-safety-monitoring-overview','Safety','claim','general medical cannabis use',array['THC','CBD'],'general-cannabis','clinical-guideline','moderate',array['global'],'{}','Guideline','Professional society / regulator summaries','https://example.invalid/7',now(),'published'),
+            ('ev-anxiety-cbd-overview','Anxiety','claim','anxiety symptoms',array['CBD'],'cannabinoid-isolate','observational-study','low',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/8',now(),'published'),
+            ('ev-chemo-nausea-overview','CINV','claim','chemotherapy-induced nausea and vomiting',array['THC'],'regulated-cannabinoid-drug','systematic-review','moderate',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/9',now(),'published'),
+            ('ev-sleep-cannabinoids-overview','Sleep','claim','sleep disturbance',array['THC','CBD'],'general-cannabis','observational-study','low',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/10',now(),'published'),
+            ('ev-spasticity-ms-overview','MS spasticity','claim','multiple sclerosis spasticity',array['THC','CBD'],'regulated-cannabinoid-drug','systematic-review','moderate',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/11',now(),'published'),
+            ('ev-chronic-pain-non-cancer-overview','Chronic pain','claim','chronic non-cancer pain',array['THC','CBD'],'cannabis-derived-formulation','systematic-review','low',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/12',now(),'published'),
+            ('ev-parkinson-symptoms-overview','Parkinson','claim','Parkinson disease symptoms',array['THC','CBD'],'general-cannabis','observational-study','very-low',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/13',now(),'published'),
+            ('ev-ptsd-symptoms-overview','PTSD','claim','PTSD-related symptoms',array['THC','CBD'],'general-cannabis','observational-study','very-low',array['global'],'{}','Literature','Peer-reviewed literature','https://example.invalid/14',now(),'published');
+          SQL
+          cp "/tmp/${RECON}" "supabase/migrations/${RECON}"
+          : > supabase/seed.sql
+
+      - name: Start local Supabase and apply reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local --no-seed
+
+      - name: Verify preserved corpus and RLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            total_count integer;
+            published_metadata integer;
+            held_synthesis integer;
+            support_count integer;
+          begin
+            select count(*) into total_count from public.clinical_evidence_records;
+            if total_count <> 14 then raise exception 'record preservation failed: %', total_count; end if;
+
+            select count(*) into published_metadata
+            from public.clinical_evidence_records
+            where review_status='published' and publication_scope='source-metadata';
+            if published_metadata <> 3 then raise exception 'expected 3 published metadata rows, got %', published_metadata; end if;
+
+            select count(*) into held_synthesis
+            from public.clinical_evidence_records
+            where review_status='under-review' and publication_scope='clinical-synthesis';
+            if held_synthesis <> 11 then raise exception 'expected 11 held synthesis rows, got %', held_synthesis; end if;
+
+            select count(*) into support_count
+            from information_schema.tables
+            where table_schema='public' and table_name in (
+              'clinical_evidence_snapshots','clinical_structured_extractions','clinical_outcome_evidence',
+              'clinical_grade_assessments','clinical_reviewer_credentials','clinical_evidence_reviews',
+              'clinical_intake_queue','clinical_view_audit'
+            );
+            if support_count <> 8 then raise exception 'missing supporting tables: %', support_count; end if;
+
+            if has_table_privilege('anon','public.clinical_evidence_records','SELECT') then
+              raise exception 'anon still has SELECT on clinical_evidence_records';
+            end if;
+          end $$;
+          SQL
+
+      - name: Verify PR 1525 currentness writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
+          insert into public.clinical_evidence_change_events (
+            evidence_record_id,event_type,payload
+          ) values (
+            null,'currentness_lock','{"lockKey":"ci","expiresAt":"2099-01-01T00:00:00Z"}'::jsonb
+          );
+
+          insert into public.clinical_evidence_change_events (
+            evidence_record_id,event_type,payload
+          ) select id,'source_currentness_check','{"fromStatus":"current","toStatus":"stale"}'::jsonb
+            from public.clinical_evidence_records order by slug limit 1;
+
+          insert into public.clinical_evidence_snapshots (
+            source_registry_id,snapshot_key,source_url,retrieved_at,media_type,
+            hash_scope,content_sha256,byte_size
+          ) values (
+            'ci-source','ci-snapshot','https://example.invalid/source',now(),'text/html',
+            'normalized-text',repeat('a',64),100
+          );
+          SQL
+
+      - name: Verify unreviewed synthesis remains fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare target_id uuid;
+          begin
+            select id into target_id from public.clinical_evidence_records
+              where slug='ev-cbd-epilepsy-dravet-lgs';
+            begin
+              update public.clinical_evidence_records
+                set review_status='published' where id=target_id;
+              raise exception 'publication gate unexpectedly allowed unreviewed synthesis';
+            exception when others then
+              if sqlerrm = 'publication gate unexpectedly allowed unreviewed synthesis' then raise; end if;
+            end;
+          end $$;
+          SQL
+
+      - name: Replay migration a second time and prove approved credential path
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          RECON=supabase/migrations/20260818224000_clinical_evidence_spine_reconcile.sql
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${RECON}"
+
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          declare
+            target_id uuid;
+            reviewer_id uuid := gen_random_uuid();
+            credential_id uuid;
+          begin
+            select id into target_id from public.clinical_evidence_records
+              where slug='ev-cbd-epilepsy-dravet-lgs';
+
+            insert into public.clinical_reviewer_credentials (
+              user_id,profession,jurisdiction,credential_reference,verification_source_url,
+              verification_status,verified_at
+            ) values (
+              reviewer_id,'clinician','CA-TEST','CI-CREDENTIAL','https://example.invalid/credential',
+              'verified',now()
+            ) returning id into credential_id;
+
+            insert into public.clinical_evidence_reviews (
+              evidence_record_id,review_type,reviewer_type,reviewer_identity,
+              decision,rationale,reviewed_at
+            ) values (
+              target_id,'provenance','analyst','CI provenance reviewer',
+              'approved','CI provenance fixture',now()
+            );
+
+            insert into public.clinical_evidence_reviews (
+              evidence_record_id,review_type,reviewer_type,reviewer_user_id,
+              reviewer_credential_id,reviewer_identity,decision,rationale,reviewed_at
+            ) values (
+              target_id,'clinical','clinician',reviewer_id,credential_id,
+              'CI credential-bound clinician','approved','CI clinical fixture',now()
+            );
+
+            update public.clinical_evidence_records
+              set review_status='published' where id=target_id;
+
+            if not exists (
+              select 1 from public.clinical_evidence_records
+              where id=target_id and review_status='published'
+            ) then
+              raise exception 'credential-bound publication path failed';
+            end if;
+          end $$;
+          SQL
+
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 -f "${RECON}"
+          psql "${DB_URL}" -v ON_ERROR_STOP=1 -Atc "
+            select case
+              when count(*)=14
+               and count(*) filter (where publication_scope='source-metadata' and review_status='published')=3
+               and count(*) filter (where publication_scope='clinical-synthesis' and review_status='published')=1
+               and count(*) filter (where publication_scope='clinical-synthesis' and review_status='under-review')=10
+              then 'GO: reconciliation replay is idempotent and credential-preserving'
+              else 'FAIL'
+            end
+            from public.clinical_evidence_records;" | grep '^GO:'
+
+      - name: Restore repository migration tree
+        if: always()
+        shell: bash
+        run: |
+          rm -rf supabase/migrations supabase/seed.sql
+          if [ -d /tmp/harbourview-production-migrations ]; then mv /tmp/harbourview-production-migrations supabase/migrations; fi
+          if [ -f /tmp/harbourview-production-seed.sql ]; then mv /tmp/harbourview-production-seed.sql supabase/seed.sql; fi
+
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup || true
