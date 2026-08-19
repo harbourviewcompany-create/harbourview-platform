@@ -82,6 +82,8 @@ const PROTECTED_PREFIXES = [
  */
 const PUBLIC_AUTH_EXCEPTIONS = [
   '/intelligence/watchlists',
+  '/intelligence/logistics-trade-routes',
+  '/genetics',
 ]
 
 function isPublicAuthException(pathname: string): boolean {
@@ -197,6 +199,7 @@ export const config = {
     '/signals',
     '/signals/:path*',
     '/intelligence/:path*',
+    '/genetics',
     '/genetics/:path*',
     '/network/:path*',
     '/opportunities/:path*',
