@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       subscriberCount: subscribers.length,
       resendConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
       sample: subscribers.slice(0, 3).map((s) => ({
+        id: s.id,
         user_id: s.user_id,
         markets: s.markets,
         frequency: s.frequency,
@@ -65,9 +66,9 @@ export async function GET(req: NextRequest) {
         narrative: personal.narrative,
         markets: personal.marketsCovered.length > 0 ? personal.marketsCovered : sub.markets,
         source: personal.source,
-        frequency: sub.frequency === 'weekly' ? 'weekly' : 'daily',
+        frequency: sub.frequency,
         siteUrl,
-        unsubscribeUrl: `${siteUrl}/api/signals/subscribe?action=unsubscribe&id=${encodeURIComponent(sub.user_id)}`,
+        unsubscribeUrl: `${siteUrl}/api/signals/subscribe?action=unsubscribe&id=${encodeURIComponent(sub.id)}`,
       })
 
       if (result.status === 'sent') emailed += 1

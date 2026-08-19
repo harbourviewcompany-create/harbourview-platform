@@ -117,16 +117,24 @@ export async function upsertBriefingCadence(
   }
 }
 
-/** Active daily (or weekly on Mondays) subscribers for cron synthesis warm path. */
+export type CadenceSubscriber = {
+  id: string
+  user_id: string
+  email: string
+  markets: string[]
+  frequency: 'daily' | 'weekly'
+}
+
+/** Active daily (or weekly on Mondays) subscribers for cron synthesis + email. */
 export async function listCadenceSubscribersForTick(opts: {
   todayUtc: Date
   limit?: number
-}): Promise<{ user_id: string; email: string; markets: string[]; frequency: string }[]> {
+}): Promise<CadenceSubscriber[]> {
   const svc = serviceClient()
   const isMonday = opts.todayUtc.getUTCDay() === 1
   const { data, error } = await svc
     .from('signal_subscriptions')
-    .select('user_id, email, markets, frequency')
+    .select('id, user_id, email, markets, frequency')
     .eq('active', true)
     .limit(opts.limit ?? 100)
 
@@ -138,9 +146,10 @@ export async function listCadenceSubscribersForTick(opts: {
       return true
     })
     .map((row) => ({
+      id: row.id as string,
       user_id: row.user_id as string,
       email: (row.email as string) ?? '',
       markets: normalizeMarkets(row.markets),
-      frequency: row.frequency === 'weekly' ? 'weekly' : 'daily',
+      frequency: (row.frequency === 'weekly' ? 'weekly' : 'daily') as 'daily' | 'weekly',
     }))
 }
