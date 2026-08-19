@@ -62,7 +62,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Install PostgreSQL client
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+        run: |
+          set -euo pipefail
+          if command -v psql >/dev/null 2>&1; then
+            psql --version
+            exit 0
+          fi
+          # Prefer binary tarball over apt (apt often stalls on GH runners).
+          curl -fsSL -o /tmp/psql-client.tgz \
+            "https://github.com/nicklasaven/psql-static/releases/download/v16.3/psql-16.3-linux-x86_64.tar.gz" \
+            || true
+          if [ -f /tmp/psql-client.tgz ]; then
+            sudo mkdir -p /usr/local/psql
+            sudo tar -xzf /tmp/psql-client.tgz -C /usr/local/psql --strip-components=1 2>/dev/null || true
+            if [ -x /usr/local/psql/bin/psql ]; then
+              echo "/usr/local/psql/bin" >> "$GITHUB_PATH"
+              /usr/local/psql/bin/psql --version
+              exit 0
+            fi
+          fi
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends postgresql-client
+          psql --version
 
       - name: Build masked connection string
         env:
