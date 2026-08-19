@@ -1,11 +1,9 @@
 /**
  * Corridor depth layer — decision-grade structure on top of playbook merge.
  * Failure modes and workstreams are orientation patterns, not authority advice.
- * Unknowns are listed explicitly rather than invented as lead times.
  */
 
 import type { ProductClass } from './tradeCorridors'
-import type { DocChecklistItem, CorridorSide } from './workflowEngine'
 
 export type FailureMode = {
   id: string
@@ -19,7 +17,7 @@ export type FailureMode = {
 export type Workstream = {
   id: string
   name: string
-  side: CorridorSide | 'parallel'
+  side: 'export' | 'import' | 'parallel'
   canRunInParallelWith: string[]
   description: string
 }
@@ -30,10 +28,18 @@ export type OpenQuestion = {
   whyItMatters: string
 }
 
+export type ProductDocDelta = {
+  id: string
+  side: 'export' | 'import'
+  label: string
+  required: boolean
+  notes?: string
+}
+
 export type CorridorDepthBundle = {
   workstreams: Workstream[]
   failureModes: FailureMode[]
-  productDocDeltas: DocChecklistItem[]
+  productDocDeltas: ProductDocDelta[]
   openQuestions: OpenQuestion[]
   criticalPathNarrative: string
 }
@@ -152,9 +158,9 @@ const CORRIDOR_FAILURE_EXTRAS: Record<string, FailureMode[]> = {
   ],
 }
 
-function productDocDeltas(product: ProductClass | 'any'): DocChecklistItem[] {
+function productDocDeltas(product: ProductClass | 'any'): ProductDocDelta[] {
   if (product === 'any') return []
-  const extras: DocChecklistItem[] = []
+  const extras: ProductDocDelta[] = []
   if (product === 'flower') {
     extras.push({
       id: 'prod-flower-micro',
@@ -245,39 +251,32 @@ export function buildCorridorDepth(opts: {
     'Playbook steps do not encode formal dependencies — treat this as orientation, not a Gantt from the competent authorities.',
   ].join(' ')
 
-  const failureModes = [
-    ...GENERIC_FAILURES,
-    ...(CORRIDOR_FAILURE_EXTRAS[key] ?? []),
-  ]
-
-  const openQuestions: OpenQuestion[] = [
-    {
-      id: 'oq-gmp-path',
-      question: 'Is the manufacturing site already holding destination-recognised GMP evidence?',
-      whyItMatters: 'Usually the longest uncertainty on export-side critical path.',
-    },
-    {
-      id: 'oq-importer-scope',
-      question: 'Does the named importer’s licence cover this product class and storage condition?',
-      whyItMatters: 'Permit grants fail late when the party on the form is out of scope.',
-    },
-    {
-      id: 'oq-spec',
-      question: 'Is the destination specification and analytical method set contractually locked?',
-      whyItMatters: 'Prevents COA rejects after the batch is already produced.',
-    },
-    {
-      id: 'oq-volume',
-      question: 'Is trial volume large enough to amortise fixed permit and testing costs?',
-      whyItMatters: 'Use landed-cost sensitivity before committing commercial sample size.',
-    },
-  ]
-
   return {
     workstreams,
-    failureModes,
+    failureModes: [...GENERIC_FAILURES, ...(CORRIDOR_FAILURE_EXTRAS[key] ?? [])],
     productDocDeltas: productDocDeltas(opts.productClass),
-    openQuestions,
+    openQuestions: [
+      {
+        id: 'oq-gmp-path',
+        question: 'Is the manufacturing site already holding destination-recognised GMP evidence?',
+        whyItMatters: 'Usually the longest uncertainty on export-side critical path.',
+      },
+      {
+        id: 'oq-importer-scope',
+        question: 'Does the named importer’s licence cover this product class and storage condition?',
+        whyItMatters: 'Permit grants fail late when the party on the form is out of scope.',
+      },
+      {
+        id: 'oq-spec',
+        question: 'Is the destination specification and analytical method set contractually locked?',
+        whyItMatters: 'Prevents COA rejects after the batch is already produced.',
+      },
+      {
+        id: 'oq-volume',
+        question: 'Is trial volume large enough to amortise fixed permit and testing costs?',
+        whyItMatters: 'Use landed-cost sensitivity before committing commercial sample size.',
+      },
+    ],
     criticalPathNarrative,
   }
 }
