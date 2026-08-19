@@ -15,8 +15,9 @@ const SURFACES = new Set([
 const VERDICTS = new Set(['helpful', 'incomplete', 'wrong'])
 
 /**
- * Anonymous-capable orientation feedback (rate of abuse limited by honeypot optional later).
- * Uses marketplace_inquiries — no new schema.
+ * Anonymous-capable orientation feedback.
+ * Uses marketplace_inquiries with inquiry_type=general (widely accepted by capture policies).
+ * Surface + verdict are encoded in the message body for admin triage.
  */
 export async function POST(req: NextRequest) {
   let body: { surface?: unknown; verdict?: unknown; context?: unknown; email?: unknown }
@@ -31,9 +32,9 @@ export async function POST(req: NextRequest) {
   const context =
     typeof body.context === 'string' ? body.context.trim().slice(0, 300) : null
   const email =
-    typeof body.email === 'string' && body.email.includes('@')
+    typeof body.email === 'string' && body.email.includes('@') && body.email.includes('.')
       ? body.email.trim().toLowerCase().slice(0, 200)
-      : 'orientation-feedback@harbourview.internal'
+      : 'feedback@harbourview.co'
 
   if (!SURFACES.has(surface) || !VERDICTS.has(verdict)) {
     return NextResponse.json({ error: 'Invalid surface or verdict' }, { status: 400 })
@@ -44,9 +45,10 @@ export async function POST(req: NextRequest) {
     buyer_request_id: null,
     contact_name: 'Orientation feedback',
     contact_email: email,
-    contact_company: 'N/A',
+    contact_company: 'Harbourview orientation',
     contact_phone: null,
-    inquiry_type: 'orientation_feedback',
+    // Use general — some environments constrain inquiry_type values; message carries taxonomy.
+    inquiry_type: 'general',
     message: [
       '--- Orientation feedback ---',
       `Surface: ${surface}`,
