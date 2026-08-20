@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { AskClinicalResponse, PrescriberWorkspaceTab } from '@/lib/clinical/prescriber'
 import type { ClinicalPrescriberWorkspaceDTO } from '@/lib/clinical/workspace'
 import SupplyContinuityOutlook from './SupplyContinuityOutlook'
+import CrossBorderCheck from './CrossBorderCheck'
 
 type ClinicalPatientSummary = {
   id: string
@@ -459,6 +460,7 @@ export default function ClinicalWorkspacePage({
                         Source ↗
                       </a>
                     )}
+                    <CrossBorderCheck brandName={product.brandName} cannabinoidProfile={product.cannabinoidProfile} />
                   </article>
                 ))}
               </div>
