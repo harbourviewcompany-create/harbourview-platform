@@ -13,35 +13,90 @@
   box-shadow: inset 0 0 0 1px rgba(198, 165, 90, 0.16);
 }
 
+/* Keep section titles clear of the secondary tab rail when scrolling into view */
 .hvm2-main.hvm-op-main > .hvm2-section {
   min-height: 0;
+  scroll-margin-top: 12px;
+  isolation: isolate;
 }
 
-#weekly-signals.hvm2-section {
+#weekly-signals.hvm2-section,
+#personal-briefing.hvm2-section,
+#regulatory.hvm2-section,
+#local-intel.hvm2-section {
   padding-top: 16px;
 }
 
-#weekly-signals .hvm2-section-heading {
+.hvm2-main.hvm-op-main > .hvm2-section > .hvm2-section-heading {
   display: grid;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 4px;
+  margin-bottom: 14px;
   align-items: start;
 }
 
-#weekly-signals .hvm2-section-heading > div {
+.hvm2-main.hvm-op-main > .hvm2-section > .hvm2-section-heading > div {
   min-width: 0;
   width: 100%;
 }
 
-#weekly-signals .hvm2-section-heading h2 {
-  margin: 4px 0 6px;
+.hvm2-main.hvm-op-main > .hvm2-section > .hvm2-section-heading h2 {
+  margin: 2px 0 4px;
   line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
-#weekly-signals .hvm2-section-heading p {
+.hvm2-main.hvm-op-main > .hvm2-section > .hvm2-section-heading p {
   margin: 0;
   max-width: 40rem;
+}
+
+/* Personal briefing: no stacked/overlapping layers */
+#personal-briefing .hvm2-briefing-decision-grid,
+#personal-briefing .hvm2-briefing-narrative,
+#personal-briefing .hvm2-briefing-cadence {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  background: rgba(8, 18, 32, 0.92);
+}
+
+#personal-briefing .hvm2-briefing-decision-grid > article {
+  overflow: hidden;
+}
+
+#personal-briefing .hvm2-briefing-decision-grid > article > strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#personal-briefing .hvm2-briefing-narrative p {
+  position: relative;
+  z-index: 1;
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 8px 0 12px;
+  color: rgba(245, 241, 232, 0.78);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+}
+
+#personal-briefing .hvm2-narrative-grid {
+  position: relative;
+  z-index: 1;
+}
+
+/* Override desktop narrative serif size inside mobile briefing */
+#personal-briefing .hvm2-narrative-card > p {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .hvm2-intel-record-list {
@@ -143,7 +198,6 @@
   -webkit-line-clamp: 2;
 }
 
-/* Decision line: what changed · who · posture cue */
 .hvm2-intel-implication {
   display: -webkit-box;
   overflow: hidden;
@@ -229,8 +283,6 @@
   border-radius: 16px;
 }
 
-/* Briefing / regulatory / search (unchanged structure) */
-
 .hvm2-briefing-decision-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -239,7 +291,7 @@
 }
 
 .hvm2-briefing-decision-grid > article {
-  padding: 14px 14px 16px;
+  padding: 14px;
 }
 
 .hvm2-briefing-decision-grid > article > span {
@@ -263,13 +315,7 @@
 
 .hvm2-briefing-narrative {
   padding: 16px;
-}
-
-.hvm2-briefing-narrative > p {
-  margin: 8px 0 14px;
-  color: rgba(245, 241, 232, 0.74);
-  font-size: 13px;
-  line-height: 1.65;
+  margin-bottom: 16px;
 }
 
 .hvm2-briefing-meta {
@@ -280,7 +326,6 @@
 }
 
 .hvm2-briefing-cadence {
-  margin-top: 16px;
   padding: 16px;
 }
 
@@ -338,9 +383,14 @@
   cursor: pointer;
 }
 
+/* Regulatory metrics: always 2×2 so the fourth tile does not orphan */
 .hvm2-regulatory-metrics {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px;
+}
+
+.hvm2-regulatory-metrics > .hvm2-metric {
+  padding: 12px 10px;
 }
 
 .hvm2-intel-record-card {
@@ -359,23 +409,6 @@
 .hvm2-local-intel-groups {
   display: grid;
   gap: 18px;
-}
-
-.hvm2-intel-group-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 2px 10px;
-  margin-bottom: 8px;
-}
-
-.hvm2-intel-group-heading > span {
-  grid-column: 1 / -1;
-  color: var(--hvm2-gold);
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
 }
 
 .hvm2-search-filters {
@@ -433,43 +466,7 @@
   text-align: left;
 }
 
-.hvm2-intel-search-result > strong {
-  display: block;
-  margin-top: 5px;
-  color: var(--hvm2-text);
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.hvm2-intel-search-result > p {
-  display: -webkit-box;
-  overflow: hidden;
-  margin: 5px 0 0;
-  color: rgba(245, 241, 232, 0.68);
-  font-size: 11px;
-  line-height: 1.5;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
-.hvm2-intel-search-result > i {
-  position: absolute;
-  top: 50%;
-  right: 13px;
-  color: var(--hvm2-gold-light);
-  font-style: normal;
-  transform: translateY(-50%);
-}
-
 @media (max-width: 359px) {
-  .hvm2-section {
-    padding: 15px 12px;
-  }
-
-  .hvm2-section-heading h2 {
-    font-size: 22px;
-  }
-
   .hvm2-briefing-decision-grid {
     grid-template-columns: 1fr;
   }
