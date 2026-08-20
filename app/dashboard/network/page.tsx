@@ -1,6 +1,4 @@
 import { redirect } from 'next/navigation'
-import NetworkCommandClient from '@/components/network/NetworkCommandClient'
-import { getNetworkCommandForCurrentUser } from '@/lib/network/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,18 +6,24 @@ function firstParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null
 }
 
+/**
+ * Network is a Command Centre section, not a standalone page.
+ * Preserve country/role context and land on the in-shell Network section.
+ */
 export default async function NetworkCommandPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  const command = await getNetworkCommandForCurrentUser({
-    countryIso2: firstParam(params.country),
-    roleId: firstParam(params.role),
-  })
+  const next = new URLSearchParams()
+  next.set('section', 'network')
+  next.set('page', 'experts')
 
-  if (!command) redirect('/login?next=/dashboard/network')
+  const country = firstParam(params.country)
+  const role = firstParam(params.role)
+  if (country) next.set('country', country)
+  if (role) next.set('role', role)
 
-  return <NetworkCommandClient initialData={command} />
+  redirect(`/dashboard?${next.toString()}`)
 }
