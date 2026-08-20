@@ -16,6 +16,14 @@ type Posture = {
   tone: PillTone
 }
 
+function humanizeLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
 function postureFor(signal: Signal): Posture | null {
   const state = signal.decisionRecommendationState
   if (state === 'act_now') return { label: 'Act now', tone: 'warn' }
@@ -25,9 +33,21 @@ function postureFor(signal: Signal): Posture | null {
   return null
 }
 
+function signalMarketLabel(signal: Signal): string {
+  const primary = readString(signal, ['market', 'jurisdiction', 'country'], '')
+  if (primary && !/^(global|unknown|n\/?a)$/i.test(primary)) return primary
+  const jurisdictions = Array.isArray(signal.jurisdictions) ? signal.jurisdictions : []
+  const first = jurisdictions.find(j => typeof j === 'string' && j.trim())
+  return first?.trim() || primary || 'Global'
+}
+
 function signalContextMatches(signal: Signal, countryLabel: string) {
-  const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
-  return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
+  const market = signalMarketLabel(signal)
+  if (market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0) return true
+  const jurisdictions = Array.isArray(signal.jurisdictions) ? signal.jurisdictions : []
+  return jurisdictions.some(
+    j => typeof j === 'string' && j.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0,
+  )
 }
 
 function signalConfidence(signal: Signal) {
@@ -39,7 +59,6 @@ function signalConfidence(signal: Signal) {
 function formatObserved(value: string) {
   const trimmed = value.trim()
   if (!trimmed) return ''
-  // Prefer compact calendar dates when the feed already supplies ISO-ish strings.
   const iso = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed)
   if (iso) return iso[1]
   return trimmed
@@ -67,7 +86,6 @@ function resolveTitles(signal: Signal) {
       'title_src',
       'source_title',
       'headline_src',
-      'originalLanguageLabel',
     ], ''),
     readString(analysis, [
       'original_title',
@@ -94,10 +112,6 @@ function resolveTitles(signal: Signal) {
   return { englishTitle, originalLine }
 }
 
-/**
- * One line that answers so-what before the operator opens the dossier.
- * Prefer analysis fields; fall back to commercial impact without repeating the title.
- */
 function buildImplication(signal: Signal, englishTitle: string): string {
   const analysis = asRecord(asRecord(signal).analysis)
   const what = readString(analysis, ['what_changed'], '')
@@ -144,10 +158,6 @@ function buildMetaChips(signal: Signal): string[] {
   return chips.slice(0, 3)
 }
 
-/**
- * Decision surface for mobile Intel.
- * Hierarchy: posture · market → title → implication → meta → one CTA.
- */
 export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access }: {
   sectionRef: SectionRef
   signals: Signal[]
@@ -170,9 +180,9 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
     <SectionShell
       id="weekly-signals"
       sectionRef={sectionRef}
-      eyebrow="Intel / material changes"
-      title="Intelligence requiring a decision"
-      description="Jurisdiction matches first. Each card states the change, who it hits, and the posture — open the dossier for evidence and unknowns."
+      eyebrow="Intel"
+      title="Weekly signals"
+      description="Jurisdiction matches first. Open a dossier for evidence and unknowns."
     >
       {orderedSignals.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
@@ -188,7 +198,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
                   180,
                 )
               : ''
-            const market = readString(signal, ['market', 'jurisdiction', 'country'], 'Global')
+            const market = signalMarketLabel(signal)
             const meta = buildMetaChips(signal)
             const posture = postureFor(signal)
             const isEditorial = signal.contentType === 'editorial'
@@ -202,7 +212,8 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
               ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
               : null
             const isPrimary = listIndex === 0
-            const typeLabel = readString(signal, ['type', 'tag.label'], '')
+            const typeRaw = readString(signal, ['type', 'tag.label'], '')
+            const typeLabel = typeRaw ? humanizeLabel(typeRaw) : ''
 
             const article = (
               <article className={`hvm2-intel-signal-card${isPrimary ? ' hvm2-intel-primary' : ''}`}>
