@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
@@ -192,10 +192,31 @@ export function PersonalBriefingSection({
   const signalAnalysis = asRecord(asRecord(contextualSignal).analysis)
   const whatChanged = contextualSignal ? readString(signalAnalysis, ['what_changed'], readString(contextualSignal, ['title'], '')) : ''
   const whyItMatters = contextualSignal ? readString(contextualSignal, ['commercialImpact', 'commercial_impact'], '') : ''
-  const [marketsInput, setMarketsInput] = useState('CA, DE, AU')
+  const [marketsInput, setMarketsInput] = useState('')
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily')
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
+
+  const loadCadence = useCallback(() => {
+    fetch('/api/dashboard/my-briefings')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.cadence) return
+        if (Array.isArray(data.cadence.markets) && data.cadence.markets.length > 0) {
+          setMarketsInput(data.cadence.markets.join(', '))
+        }
+        if (data.cadence.frequency === 'daily' || data.cadence.frequency === 'weekly') {
+          setFrequency(data.cadence.frequency)
+        }
+      })
+      .catch(() => {
+        /* keep empty / defaults */
+      })
+  }, [])
+
+  useEffect(() => {
+    loadCadence()
+  }, [loadCadence])
 
   async function saveCadence() {
     setSaving(true)
@@ -212,6 +233,7 @@ export function PersonalBriefingSection({
       })
       if (!res.ok) throw new Error('save failed')
       setSaveMsg('Cadence saved.')
+      loadCadence()
     } catch {
       setSaveMsg('Could not save cadence. Try again.')
     } finally {
