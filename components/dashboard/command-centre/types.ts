@@ -1,0 +1,38 @@
+/** Shared Command Centre page + market types */
+export type MarketView = 'cannabis' | 'equipment' | 'consumables' | 'new-products' | 'services' | 'opportunities' | 'wanted'
+export type MarketRow = [string, string, string, string, string, string, string, string, string, string]
+export type DashboardMarketplaceRows = Partial<Record<MarketView, MarketRow[]>>
+
+export type CommandPage =
+  | 'briefing'
+  | 'digest'
+  | 'access-pathway'
+  | 'marketplace'
+  | 'evidence'
+  | 'education'
+  | 'regulatory'
+  | 'local-intel'
+  | 'signals'
+  | 'watchlist'
+  | 'settings'
+  | 'genetics'
+  | 'clinical'
+  | 'compliance'
+  | 'countries'
+  | 'assistant'
+  | 'documents'
+  | 'events'
+  | 'experts'
+  | 'banking'
+  | 'notifications'
+  | 'kyb'
+  | 'prices'
+  | 'logistics'
+  | 'jobs'
+  | 'insurance'
+  | 'licences'
+  | 'trade-calc'
+  | 'organization'
+  | 'talent'
+
+export type { DigestWindow } from '@/lib/dashboard/dashboardShared'
