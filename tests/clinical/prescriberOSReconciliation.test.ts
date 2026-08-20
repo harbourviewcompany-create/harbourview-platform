@@ -7,6 +7,7 @@ const root = process.cwd()
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8')
 
 const command = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx')
+const commandCentre = read('components/dashboard/CommandCentre.tsx')
 const mobile = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
 const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
 const workspace = read('components/dashboard/pages/ClinicalWorkspacePage.tsx')
@@ -45,12 +46,24 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(workspace).toContain('Clinical does not infer or substitute a country')
   })
 
-  it('keeps Command Clinical concise and routes the complete OS to the dedicated workspace', () => {
-    expect(command).toContain('/dashboard/clinical?country=')
-    expect(mobile).toContain('/dashboard/clinical?')
+  it('embeds the complete Clinical Workspace in Command (desktop + mobile) when jurisdiction is set', () => {
+    // Mobile embeds ClinicalWorkspacePage (post #1578); desktop CommandCentre matches.
+    expect(mobile).toContain('ClinicalWorkspacePage')
+    expect(mobile).toContain('embedded')
+    expect(mobile).toContain('Jurisdiction required')
+    expect(commandCentre).toContain('ClinicalWorkspacePage')
+    expect(commandCentre).toMatch(/case 'clinical'/)
+    expect(commandCentre).toContain('embedded')
+    // Workspace still supports dedicated full-page mode via embedded prop
+    expect(workspace).toContain('embedded?: boolean')
     for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
       expect(workspace).toContain(`label: '${label}'`)
     }
+  })
+
+  it('keeps ClinicalEvidenceCommandPage as a dual-surface summary component', () => {
+    expect(command).toContain('ClinicalEvidenceCommandPage')
+    expect(commandCentre).toContain('ClinicalEvidenceCommandPage')
   })
 
   it('removes regex-derived Safety classification from Clinical evidence', () => {
