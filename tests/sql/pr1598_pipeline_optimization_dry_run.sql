@@ -422,7 +422,7 @@ insert into public.signals(
   ('borderline-reject', 'Cannabis market signal', 'https://authority.example/5', 'signal', 0.60, 'market', 'medium', 'v-ok', true, false),
   ('blank-review', 'Cannabis market signal', 'https://authority.example/6', 'signal', 0.60, 'market', 'medium', 'v-ok', true, false),
   ('not-queued', 'Cannabis market signal', 'https://authority.example/7', 'signal', 0.40, 'market', 'low', 'v-ok', true, false),
-  ('excluded-high', 'Cannabis market signal', 'https://news.leafly.com/8', 'signal', 0.99, 'market', 'high', 'v-ok', true, false);
+  ('excluded-high', 'Cannabis market signal', 'https://leafly.com/8', 'signal', 0.99, 'market', 'high', 'v-ok', true, false);
 
 do $$
 declare
