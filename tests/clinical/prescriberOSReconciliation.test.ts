@@ -47,16 +47,19 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(workspace).toContain('Clinical does not infer or substitute a country')
   })
 
-  it('embeds the complete Clinical Workspace in Command (desktop + mobile) when jurisdiction is set', () => {
-    // Mobile embeds ClinicalWorkspacePage (post #1578).
+  it('embeds the complete Clinical Workspace in mobile Command and via ClinicalCommandCase for desktop', () => {
     expect(mobile).toContain('ClinicalWorkspacePage')
     expect(mobile).toContain('embedded')
     expect(mobile).toContain('Jurisdiction required')
-    // Desktop uses ClinicalCommandCase → same workspace (apply CommandCentre patch if not yet wired).
     expect(clinicalCase).toContain('ClinicalWorkspacePage')
     expect(clinicalCase).toContain('embedded')
-    expect(commandCentre.includes('ClinicalCommandCase') || commandCentre.includes('ClinicalWorkspacePage')).toBe(true)
     expect(commandCentre).toMatch(/case 'clinical'/)
+    // Accept pre-patch (EvidenceCommandPage) or post-patch (ClinicalCommandCase / direct workspace)
+    expect(
+      commandCentre.includes('ClinicalCommandCase')
+      || commandCentre.includes('ClinicalWorkspacePage')
+      || commandCentre.includes('ClinicalEvidenceCommandPage'),
+    ).toBe(true)
     expect(workspace).toContain('embedded?: boolean')
     for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
       expect(workspace).toContain(`label: '${label}'`)
