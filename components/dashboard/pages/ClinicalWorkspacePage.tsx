@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { AskClinicalResponse, PrescriberWorkspaceTab } from '@/lib/clinical/prescriber'
 import type { ClinicalPrescriberWorkspaceDTO } from '@/lib/clinical/workspace'
+import SupplyContinuityOutlook from './SupplyContinuityOutlook'
 
 type ClinicalPatientSummary = {
   id: string
@@ -444,6 +445,7 @@ export default function ClinicalWorkspacePage({
             <section className={card}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Products</p>
               <h2 className="mt-2 text-lg font-semibold">Jurisdiction formulary</h2>
+              {contextResolved && <SupplyContinuityOutlook jurisdiction={normalizedJurisdiction} />}
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {(workspace?.formulary ?? []).map((product) => (
                   <article key={product.id} className={subcard}>

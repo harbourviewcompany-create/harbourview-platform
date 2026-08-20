@@ -1,9 +1,45 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Aug 18 2026 · Claude (chat)
+> Last updated: Aug 19 2026 · Claude (chat)
 
 ---
+
+## OPEN — clinicalEvidenceQuery.ts still anon-only after spine-reconcile (2026-08-19)
+
+Applied `20260819100621_clinical_evidence_spine_reconcile.sql` to Supabase at Tyler's explicit
+instruction (adds `clinical_reviewer_credentials`, `clinical_evidence_reviews`, and 6 more tables;
+migration comments reference PR #1523/#1525). Confirmed effect: 20 of 23 published
+`clinical_evidence_records` rows moved to `under-review` (nothing qualified for the new
+credential-bound republish gate yet), 3 regulatory/ungraded rows stayed published, and `anon`
+SELECT was revoked on `clinical_evidence_records` + related tables.
+
+**Gap found, not fixed by me:** `lib/server/clinicalEvidenceQuery.ts` (backs the main Evidence tab
+of `ClinicalEvidenceExplorer.tsx`, the primary content path) builds its REST client with
+`apikey`/`Authorization` set to `SUPABASE_ANON_KEY` unconditionally — no per-session user JWT is
+ever passed, logged in or not. With `anon` grants now revoked, every request to this path gets a
+PostgREST `42501`/permission-denied. It degrades gracefully (`classifyClinicalFailure` already
+handles `42501` → `'permission'` state → "Access restricted", no crash) but the practical effect is
+the Evidence tab now shows **zero** records to 100% of traffic, not just the 20 demoted ones — because
+it can never present as anything but `anon`. Compare: `lib/server/clinicalEvidenceOperations.ts`
+(the review-queue admin backend, same migration's companion tables) already uses
+`createSupabaseServiceClient`, so that side is unaffected and ready to run credentialed reviews once
+someone populates `clinical_reviewer_credentials`.
+
+**Update, same day, after pulling ~125 files / 16k lines of concurrent "Prescriber OS" work
+(PRs up to #1574):** the other session has built a parallel, properly session-authenticated surface —
+`lib/server/clinicalPrescriberWorkspaceQuery.ts` (`createClient()`, correct pattern) backing a new
+`ClinicalWorkspacePage.tsx` — and #1572 explicitly moved evidence search to the top of *that* page.
+The anon-key gap above is still live and unfixed, but it's confined to the older mobile
+`ClinicalEvidenceExplorer.tsx` surface, which may already be secondary to the new workspace. I did
+not patch it myself — too much moving target, and it may be intentionally superseded rather than
+broken. Flagging for a call on whether `ClinicalEvidenceExplorer.tsx` is still the intended
+mobile surface before anyone touches its auth.
+
+If this is a known follow-up already in flight elsewhere (plumbing a real user session into
+`clinicalEvidenceQuery.ts`), no action needed here — flagging so it isn't mistaken for a random
+regression. Multiple sessions are pushing to `main` concurrently right now (~15+ unrelated commits
+landed between two of my pushes today); confirm before assuming ownership.
 
 ## OPEN — Clinical monitoring protocols PR (2026-08-18)
 
@@ -14,6 +50,40 @@ Monitoring tab in `ClinicalEvidenceExplorer.tsx` — closing the last open item 
 both green locally; not yet merged or verified in production. Org creation flow (`app/organization/`,
 `app/api/org/create`) was also audited this session — end-to-end (create → validate → membership →
 passport profile → redirect) is already complete, no gaps found.
+
+## RESOLVED — Command Centre standalone-page wiring, tooling repair, dossier relocation (2026-08-17)
+
+Three PRs merged this session, all verified present on live `main` post-merge by direct content
+check rather than trusted from the merge API response alone: `#1439` (subscription/billing
+threading + a search-toggle rendering bug fix — reused already-landed `MyBriefingsPanel`/
+`CultivarPassportModal`/`DealRoomsPanel` wiring from parallel work rather than duplicating it, after
+checking main first), `#1526` (moved `DesktopDecisionIntelBridge` from a global every-page banner
+into a proper Dossiers sub-tab inside Signals/Intel — confirmed the correct placement via mobile's
+own `'Intel'` section labeling before moving anything), `#1547` (fixed a 100%-reproducing
+`npx eslint .` crash — lockfile drift + an `eslint-plugin-react`/`eslint 10` incompatibility — plus
+the 3 real errors the working lint run then revealed). Full detail, root-cause diagnosis, and exact
+verification commands for each in `docs/control/EVIDENCE_LOG.md`
+(`HV-PR1439-*`, `HV-PR1526-DOSSIER-INTEL-SUBTAB-20260817`, `HV-PR1547-ESLINT-CRASH-REPAIR-20260817`).
+
+**Most material thing found, not fixed:** `scripts/test-regulatory-signals-contract.mjs` fails with
+`Projection layer not enforced` on production `main` right now — reproduced in a completely
+separate, freshly-cloned copy of clean `main` to confirm it's genuinely pre-existing, not caused by
+anything in this session's PRs. Left alone: the regulatory-signals projection-layer enforcement
+logic is unfamiliar domain territory this session has no context on. Needs an owner.
+
+**Also found, not fixed — real but lower urgency:** `Workers Builds: harbourview` fails in CI;
+confirmed via a real local `npx wrangler deploy --dry-run` (bundles successfully, 783.53 KiB, zero
+errors) that this is Cloudflare dashboard-side build-command drift, not a code defect — outside what's
+verifiable or fixable from this environment. 6 `react-hooks/preserve-manual-memoization` errors in
+`ClinicalEvidenceCommandPage.tsx`, newly visible now that lint actually runs — left for that area's
+owner rather than guessed at.
+
+**Governance note.** A Command feature freeze was in force for part of this session
+(`#1461`/`#1456`/Type-Check/Security-Leakage as stated conditions — all confirmed green before any
+further merge). `#1452` (Jurisdiction operator command system) was open throughout with real,
+unresolved conflicts against `mobile-command/` files this session also touched — deliberately left
+untouched rather than rebased by this session, to avoid recreating the exact collision the freeze
+existed to prevent. Still open as of this entry.
 
 ## OPEN — Frontend dashboard optimization plan (2026-07-19)
 
