@@ -9,7 +9,8 @@ export const metadata: Metadata = {
   description: 'Regulatory licensing pathway context for import, export, cultivation, processing and distribution across priority jurisdictions.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 const COUNTRY_FLAGS: Record<string, string> = {
   DE: 'ð©ðª', GB: 'ð¬ð§', AU: 'ð¦ðº', CA: 'ð¨ð¦', NL: 'ð³ð±',

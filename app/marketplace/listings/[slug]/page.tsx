@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 import { getPublicListingBySlug } from '@/lib/server/listingsQuery'
 
-export const dynamic = 'force-dynamic'
+// ISR: marketplace listing data
+export const revalidate = 1800
 
 type PageProps = { params: Promise<{ slug: string }> }
 

@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { createClient } from '@/lib/supabase/server'
+import { createPublicAnonClient } from '@/lib/supabase/server'
 import { toHvDailyDigestPublicDto, type HvDailyDigestPublicDto, type HvDigestHeadlineDto, type HvEditorialHeadlineDto } from '@/lib/harbourview/dto'
 import { DAILY_DIGEST_FIXTURE } from '@/lib/fixtures/dailyDigest'
 
@@ -17,7 +17,11 @@ export type DailyDigestResult = {
  */
 export async function getLatestDailyDigest(): Promise<DailyDigestResult> {
   try {
-    const supabase = await createClient()
+    // Anonymous client: /daily is identical for every visitor, and the
+    // daily_digest RLS policy already grants anon SELECT on status='published'.
+    // Using the cookie-bound client here would force the page to render
+    // dynamically on every request.
+    const supabase = createPublicAnonClient()
     const { data, error } = await supabase
       .from('daily_digest')
       .select('digest_date, generated_at, markets, headlines, editorial_headlines')

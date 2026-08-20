@@ -5,7 +5,8 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 
-export const dynamic = 'force-dynamic'
+// ISR: directory data
+export const revalidate = 3600
 
 type Professional = {
   id: string

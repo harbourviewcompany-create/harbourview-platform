@@ -15,7 +15,8 @@ export const metadata: Metadata = {
   },
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: directory data
+export const revalidate = 3600
 
 type SupplierCapabilities = {
   business_type?: string

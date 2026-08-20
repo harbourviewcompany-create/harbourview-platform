@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { getPublicCultivarPassportBySlug } from '@/lib/genetics/queries'
 
-export const dynamic = 'force-dynamic'
+// ISR: marketplace listing data
+export const revalidate = 1800
 
 type Params = Promise<{ slug: string }>
 

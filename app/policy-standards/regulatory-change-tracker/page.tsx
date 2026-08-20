@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: 'Live feed of cannabis regulatory changes, policy signals, and legislative developments.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: regulatory tracker — short window keeps published change data fresh
+export const revalidate = 900
 
 type Signal = { id: string; headline: string; country: string | null; date: string | null; top_lane: string | null; cat: string | null }
 

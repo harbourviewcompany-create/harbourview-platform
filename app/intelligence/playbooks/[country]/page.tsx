@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation'
 import { PublicHero, PublicSection, SectionHeader, PublicCard, FooterCta } from '@/components/PublicUi'
 import { getPlaybook, DIFFICULTY_LABEL } from '@/lib/intelligence/jurisdictionPlaybooks'
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 type Props = { params: Promise<{ country: string }> }
 

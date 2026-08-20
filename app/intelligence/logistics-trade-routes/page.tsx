@@ -13,7 +13,8 @@ export const metadata: Metadata = {
     'Trade corridor context and market status for regulated cannabis export and import. Live permit processing benchmarks, corridor regulatory alerts, and documentation frameworks across 20+ markets — sourced from Harbourview\'s 516-source registry.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 // ── Static corridor reference (endpoint linking, ISO2 required for playbook hrefs) ─────────
 const CORRIDORS = [

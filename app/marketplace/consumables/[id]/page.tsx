@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
-export const dynamic = 'force-dynamic'
+// ISR: marketplace listing data
+export const revalidate = 1800
 
 type PageProps = { params: Promise<{ id: string }> }
 

@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   },
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: weekly market briefings
+export const revalidate = 1800
 
 type Briefing = {
   country_iso2: string

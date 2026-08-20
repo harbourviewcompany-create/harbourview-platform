@@ -3,7 +3,8 @@ import { PublicHero, PublicSection, SectionHeader, PublicCard } from '@/componen
 import { getApprovedProviders, groupByCategory } from '@/lib/marketplace/professionalServices'
 import { ProfessionalServiceApplicationForm } from '@/components/marketplace/ProfessionalServiceApplicationForm'
 
-export const dynamic = 'force-dynamic'
+// ISR: marketplace listing data
+export const revalidate = 1800
 
 export const metadata: Metadata = {
   title: 'Professional Services Directory | Harbourview Intelligence',
