@@ -7,11 +7,22 @@ on:
     # Scoped to the surfaces this check actually covers. It previously ran a
     # full install + typecheck + build + server boot on every PR to main to
     # scan one marketplace route for leaked internal fields.
+    #
+    # The scan reads the rendered HTML of /marketplace/new-products, so the
+    # filter has to cover everything that composes that HTML, not just the
+    # marketplace tree: the page renders through components/PublicUi.tsx, sits
+    # inside app/layout.tsx, and is served through proxy.ts. A change to any of
+    # those can introduce a leaked marker while touching no marketplace file.
     paths:
       - 'app/marketplace/**'
       - 'lib/marketplace/**'
       - 'components/marketplace/**'
       - 'tests/marketplace/**'
+      # Shared rendering dependencies of the scanned route
+      - 'components/PublicUi.tsx'
+      - 'app/layout.tsx'
+      - 'app/globals.css'
+      - 'proxy.ts'
       - '.github/workflows/pr166-new-products-equipment-verification.yml'
   workflow_dispatch:
 

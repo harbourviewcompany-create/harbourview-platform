@@ -55,7 +55,7 @@
     "validate:supply-images": "node scripts/validate-supply-images.mjs",
     "test:command-centre-production": "vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/productionSecurityHardening.test.ts tests/supabase/env.test.ts",
     "verify:supabase-auth-production": "node scripts/configure-supabase-auth-production.mjs",
-    "test:full": "HARBOURVIEW_RUN_QUARANTINED=1 vitest run",
+    "test:full": "node scripts/run-vitest.mjs --quarantined",
     "test:quarantined": "vitest run tests/clinical/clinicalInteractionQuerySource.test.ts tests/clinical/corpusDepthRelease.test.ts tests/clinical/evidenceOperatingSystem.test.ts tests/clinical/evidenceV11Operations.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/dashboard/mobileCommandCentreV2.test.ts tests/dashboard/mobileIntelInstitutional.test.tsx tests/globe-russia-radial-clearance.test.ts tests/harbourview/p0-identity-org-context.test.ts tests/intel/decisionIntelFirstSlice.test.ts"
   },
   "dependencies": {
