@@ -16,7 +16,7 @@ function recommendationLabel(signal: Signal) {
   if (state === 'investigate') return 'Investigate'
   if (state === 'no_action') return 'No action'
   if (state === 'monitor') return 'Monitor'
-  return 'Open dossier'
+  return 'Signal'
 }
 
 function signalContextMatches(signal: Signal, countryLabel: string) {
@@ -54,7 +54,6 @@ function clampText(value: string, max = 220) {
   return `${trimmed.slice(0, max - 1).trimEnd()}…`
 }
 
-/** Prefer English display title; surface a distinct original-language line when present. */
 function resolveTitles(signal: Signal) {
   const item = asRecord(signal)
   const analysis = asRecord(item.analysis)
@@ -82,7 +81,6 @@ function resolveTitles(signal: Signal) {
     ], ''),
   ]
 
-  // Common pattern: translated=true means `title` is source language and title_en is English.
   if (item.translated === true) {
     const sourceTitle = readString(item, ['title', 'headline'], '')
     if (sourceTitle) candidates.unshift(sourceTitle)
@@ -157,27 +155,27 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
             const article = (
               <article className={`hvm2-intel-signal-card${isPrimary ? ' hvm2-intel-primary' : ''}`}>
                 <div className="hvm2-card-topline">
-                  <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
-                  <span>{market}</span>
+                  <StatusPill tone={hasDossier ? 'gold' : 'neutral'}>{recommendationLabel(signal)}</StatusPill>
+                  <span className="hvm2-intel-market">{market}</span>
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
                   {!contextual ? (
-                    <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small>
+                    <small>No direct {countryLabel} match in jurisdiction metadata.</small>
                   ) : null}
                 </div>
                 <h3>{englishTitle}</h3>
                 {originalLine ? <p className="hvm2-intel-original">{originalLine}</p> : null}
                 {summary ? <p className="hvm2-intel-summary">{summary}</p> : null}
-                <div className="hvm2-intel-meta-row">
-                  {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
+                <div className="hvm2-intel-meta-row" aria-label="Signal metadata">
+                  {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence unknown</span>}
                   {quality.map(bit => <span key={bit}>{bit}</span>)}
-                  {evidence.source ? <span>Source {evidence.source}</span> : <span>Source Unknown</span>}
+                  {evidence.source ? <span>Source {evidence.source}</span> : <span>Source unknown</span>}
                   {evidence.observed ? <span>{evidence.observed}</span> : null}
                 </div>
                 {hasDossier ? (
                   <div className="hvm2-signal-footer">
-                    <strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong>
+                    <strong className="hvm2-intel-cta">{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong>
                   </div>
                 ) : null}
               </article>
@@ -187,7 +185,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
             if (dossierHref) {
               return (
                 <Link
-                  className="hvm2-signal-card hvm2-intel-event-row"
+                  className="hvm2-intel-event-link"
                   key={key}
                   href={canOpenDossiers ? dossierHref : '/account/upgrade'}
                   aria-label={
@@ -200,7 +198,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
                 </Link>
               )
             }
-            return <div className="hvm2-signal-card hvm2-intel-event-row" key={key}>{article}</div>
+            return <div className="hvm2-intel-event-link" key={key}>{article}</div>
           })}
         </div>
       ) : (
