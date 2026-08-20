@@ -126,26 +126,30 @@ describe('Clinical corpus-depth governed release contract', () => {
     expect(evidenceRoute).toContain('jurisdiction: request.nextUrl.searchParams.get')
     expect(evidenceRoute).toContain('country: request.nextUrl.searchParams.get')
     expect(evidenceRoute).toContain('const jurisdiction = parsed.data.jurisdiction ?? parsed.data.country')
-    expect(explorer).toContain("params.set('country', countryIso2)")
+    expect(explorer).toContain("countryIso2FromCommandHref(commandHref)")
+    expect(explorer).toContain("new URLSearchParams({ q: question, jurisdiction, limit: '8' })")
   })
 
-  it('keeps interactions DB-first and fixtures as an explicit fallback', () => {
+  it('keeps interactions DB-first and fixtures behind the explicit non-production flag', () => {
     const dbQueryIndex = interactionQuery.indexOf(".from('clinical_medication_interactions')")
     const awaitQueryIndex = interactionQuery.indexOf('const { data, error } = await query')
-    const errorFallbackIndex = interactionQuery.indexOf('if (error)')
-    const emptyFallbackIndex = interactionQuery.indexOf('if (!interactions.length)')
+    const errorFallbackIndex = interactionQuery.indexOf('const fixtures = fromFixtures(opts)', awaitQueryIndex)
+    const emptyFallbackIndex = interactionQuery.indexOf('const fixtures = fromFixtures(opts)', errorFallbackIndex + 1)
     expect(dbQueryIndex).toBeGreaterThan(0)
     expect(awaitQueryIndex).toBeGreaterThan(dbQueryIndex)
     expect(errorFallbackIndex).toBeGreaterThan(awaitQueryIndex)
     expect(emptyFallbackIndex).toBeGreaterThan(errorFallbackIndex)
+    expect(interactionQuery).toContain("process.env.NODE_ENV !== 'production'")
+    expect(interactionQuery).toContain("process.env.HARBOURVIEW_CLINICAL_FIXTURES === '1'")
+    expect(interactionQuery).toContain("return { state: 'error', interactions: []")
+    expect(interactionQuery).toContain("return { state: 'empty', interactions: []")
   })
 
-  it('keeps the interactions API/mobile primarySource contract wired', () => {
+  it('keeps the interactions API primarySource contract wired after the workspace split', () => {
     expect(interactionRoute).toContain('primarySource: {')
-    expect(interactionRoute).toContain('publisher: ix.primarySourceTitle')
-    expect(interactionRoute).toContain('url: ix.primarySourceUrl ?? undefined')
-    expect(explorer).toContain('primarySource?: { publisher?: string; url?: string }')
-    expect(explorer).toContain('ix.primarySource?.url')
+    expect(interactionRoute).toContain('publisher: interaction.primarySourceTitle')
+    expect(interactionRoute).toContain('url: interaction.primarySourceUrl')
+    expect(interactionRoute).toContain('locator: interaction.sourceLocator')
   })
 
   it('does not add public grants for private governance provenance', () => {
