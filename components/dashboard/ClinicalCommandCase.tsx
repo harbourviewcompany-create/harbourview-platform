@@ -18,7 +18,6 @@ export default function ClinicalCommandCase({
     <ClinicalWorkspacePage
       jurisdiction={clinicalIso || 'GLOBAL'}
       roleLabel={roleLabel}
-      embedded
     />
   )
 }
