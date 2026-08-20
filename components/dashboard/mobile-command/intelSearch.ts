@@ -310,6 +310,7 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
     })
   }
 
+  // Directory records land on Network — Directories section was removed.
   input.directories.forEach((entry, index) => records.push({
     id: `directory-${entry.id || index}`,
     kind: 'directory',
@@ -318,7 +319,7 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
     subtitle: entry.subtitle,
     category: entry.kind,
     status: entry.status,
-    destination: 'directories',
+    destination: 'network',
     searchableText: searchable(entry.title, entry.subtitle, entry.kind, entry.status),
   }))
 
