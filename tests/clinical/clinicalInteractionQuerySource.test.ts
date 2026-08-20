@@ -36,6 +36,7 @@ const dbRow = {
   monitoring_consideration: 'Monitor LFTs',
   primary_source_title: 'DB primary source',
   primary_source_url: 'https://pubmed.ncbi.nlm.nih.gov/28782097/',
+  source_locator: 'PMID 28782097',
   verified_at: '2026-08-18T00:00:00Z',
   review_status: 'published',
 }
@@ -50,7 +51,7 @@ const fixtureRow = {
   uncertainty: null,
   monitoringConsideration: 'Fixture monitoring',
   primarySourceTitle: 'Fixture source',
-  primarySourceUrl: 'https://example.invalid/fixture',
+  primarySourceUrl: 'https://pubmed.ncbi.nlm.nih.gov/28782097/',
   verifiedAt: '2026-01-01T00:00:00Z',
 }
 
@@ -63,10 +64,11 @@ describe('Clinical interaction DB versus fixture contract', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    delete process.env.HARBOURVIEW_CLINICAL_FIXTURES
     mocks.searchInteractionFixtures.mockReturnValue([fixtureRow])
   })
 
-  it('uses published database rows when the DB returns data', async () => {
+  it('uses published inspectable database rows when the DB returns governed data', async () => {
     const query = makeQuery({ data: [dbRow], error: null })
     mocks.createClient.mockResolvedValue({ from: vi.fn(() => query) })
 
@@ -76,28 +78,30 @@ describe('Clinical interaction DB versus fixture contract', () => {
     expect(result.interactions).toHaveLength(1)
     expect(result.interactions[0]?.id).toBe('db-valproate-cbd')
     expect(result.interactions[0]?.primarySourceUrl).toBe('https://pubmed.ncbi.nlm.nih.gov/28782097/')
+    expect(result.interactions[0]?.sourceLocator).toBe('PMID 28782097')
     expect(mocks.searchInteractionFixtures).not.toHaveBeenCalled()
   })
 
-  it('uses fixtures only when the database query returns an error', async () => {
+  it('fails closed when the database query errors and fixture mode is not explicitly enabled', async () => {
     const query = makeQuery({ data: null, error: { message: 'schema unavailable' } })
     mocks.createClient.mockResolvedValue({ from: vi.fn(() => query) })
 
     const result = await searchClinicalInteractions({ q: 'fixture', limit: 12 })
 
-    expect(result.state).toBe('loaded')
-    expect(result.interactions[0]?.id).toBe('fixture-row')
-    expect(mocks.searchInteractionFixtures).toHaveBeenCalledTimes(1)
+    expect(result.state).toBe('error')
+    expect(result.interactions).toEqual([])
+    expect(result.error).toBe('schema unavailable')
+    expect(mocks.searchInteractionFixtures).not.toHaveBeenCalled()
   })
 
-  it('uses fixtures when the database is healthy but has no matching rows', async () => {
+  it('returns an honest empty state when the database is healthy with no matches and fixture mode is disabled', async () => {
     const query = makeQuery({ data: [], error: null })
     mocks.createClient.mockResolvedValue({ from: vi.fn(() => query) })
 
     const result = await searchClinicalInteractions({ q: 'fixture', limit: 12 })
 
-    expect(result.state).toBe('loaded')
-    expect(result.interactions[0]?.id).toBe('fixture-row')
-    expect(mocks.searchInteractionFixtures).toHaveBeenCalledTimes(1)
+    expect(result.state).toBe('empty')
+    expect(result.interactions).toEqual([])
+    expect(mocks.searchInteractionFixtures).not.toHaveBeenCalled()
   })
 })
