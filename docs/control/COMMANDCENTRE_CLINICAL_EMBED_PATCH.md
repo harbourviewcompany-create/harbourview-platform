@@ -1,16 +1,14 @@
 # Surgical patch: CommandCentre.tsx Clinical embed + briefing modules
 
-Apply on branch `fix/clinical-desktop-workspace-embed` (full ~650KB file may need local apply).
+Apply on branch `fix/clinical-desktop-workspace-embed` if the full file push is unavailable.
 
-## 1. Imports
-
-After existing clinical imports, add:
+## 1. Imports (after ClinicalEvidenceCommandPage import)
 
 ```ts
 import ClinicalCommandCase from './ClinicalCommandCase'
 ```
 
-Keep `ClinicalEvidenceCommandPage` import so dual-surface summary remains available.
+(Optional: keep `ClinicalEvidenceCommandPage` import for dual-surface retention.)
 
 ## 2. Replace clinical case
 
@@ -28,20 +26,17 @@ Keep `ClinicalEvidenceCommandPage` import so dual-surface summary remains availa
 
 ## 3. BRIEFING_ROLE_MODULES
 
-Add to **Doctor** (after Access Pathway):
+Add to **Doctor**, **Pharmacist**, and **Clinic Op.** arrays (after Access Pathway where present):
 
 ```ts
-    { page: 'clinical',       icon: '⚕', label: 'Clinical',           why: 'Governed evidence, authority, and prescriber workspace' },
+{ page: 'clinical', icon: '⚕', label: 'Clinical', why: 'Governed evidence, authority, and prescriber workspace' },
 ```
 
-Add to **Pharmacist** (after Access Pathway):
+(Pharmacist why may use: `'Governed evidence, product, and safety workspace'`.)
 
-```ts
-    { page: 'clinical',       icon: '⚕', label: 'Clinical',           why: 'Governed evidence, product, and safety workspace' },
-```
+## Modular layout (current branch)
 
-Add to **Clinic Op.** (after Access Pathway):
-
-```ts
-    { page: 'clinical',       icon: '⚕', label: 'Clinical',           why: 'Governed evidence, authority, and prescriber workspace' },
-```
+- `CommandCentre.tsx` — thin re-export
+- `command-centre/CommandCentreRoot.tsx` — shell + clinical case
+- `command-centre/pages/*` — page modules (stubs until full bodies restored under size limits)
+- `ClinicalCommandCase.tsx` — desktop embed of `ClinicalWorkspacePage`
