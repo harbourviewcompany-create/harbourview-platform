@@ -8,7 +8,7 @@ import {
   titleCase,
   type NextAction,
 } from '../contracts'
-import { CommandCard, EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { CommandCard, EmptyState, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
 export function OverviewSection({
   sectionRef,
@@ -49,35 +49,6 @@ export function OverviewSection({
         </CommandCard>
       </div>
     </section>
-  )
-}
-
-export function LiveStatusSection({
-  sectionRef,
-  marketplaceCount,
-  wantedCount,
-  signalCount,
-  confidence,
-  reviewStatus,
-  sourceCoverageCount,
-}: {
-  sectionRef: SectionRef
-  marketplaceCount: number
-  wantedCount: number
-  signalCount: number
-  confidence: number | null
-  reviewStatus: string
-  sourceCoverageCount: number
-}) {
-  return (
-    <SectionShell id="live-status" sectionRef={sectionRef} eyebrow="Metrics / live status" title="Current operating state" description="A compact read on opportunity, demand, evidence and intelligence in the selected jurisdiction-role context.">
-      <div className="hvm2-metric-grid">
-        <Metric label="Marketplace records" value={marketplaceCount} detail="Across all active categories" tone="gold" />
-        <Metric label="Wanted demand" value={wantedCount} detail="Approved demand records" />
-        <Metric label="Live intelligence" value={signalCount} detail="Signals in current feed" tone="ok" />
-        <Metric label="Evidence confidence" value={confidence == null ? '—' : `${confidence}%`} detail={`${reviewStatus} · ${sourceCoverageCount} source lanes`} tone={confidence != null && confidence >= 75 ? 'ok' : 'neutral'} />
-      </div>
-    </SectionShell>
   )
 }
 

@@ -61,8 +61,7 @@ describe('typed Command Centre registry', () => {
     expect(summary.launchCriticalModules + summary.importantModules).toBe(32)
     expect(summary.uniqueDesktopPages).toBe(COMMAND_CENTRE_PAGE_IDS.length)
     expect(summary.configuredDesktopPages).toBeGreaterThan(20)
-    // Product modules map to 18 destinations. Mobile additionally renders
-    // live-status and market-status as operational summary sections.
+    // Unique mobile section destinations mapped from product modules.
     expect(summary.mobileSections).toBe(18)
   })
 })
