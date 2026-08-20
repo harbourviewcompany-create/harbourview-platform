@@ -1,10 +1,4 @@
-import type { Metadata } from 'next'
-import ClinicalWorkspacePage from '@/components/dashboard/pages/ClinicalWorkspacePage'
-
-export const metadata: Metadata = {
-  title: 'Clinical Workspace | Harbourview',
-  description: 'Harbourview Prescriber Operating System workspace.',
-}
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,26 +6,26 @@ function first(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
 }
 
-function normalizeJurisdiction(value: string): string {
-  const normalized = value.trim().toUpperCase()
-  return /^[A-Z]{2}(?:-[A-Z0-9]{2,3})?$/.test(normalized) && normalized !== 'GLOBAL' ? normalized : ''
-}
-
+/**
+ * Clinical is a Command Centre section, not a standalone workspace page.
+ * Preserve country/role/query context and land on the in-shell Clinical section.
+ */
 export default async function ClinicalWorkspaceRoute({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const params = await searchParams
-  const jurisdiction = normalizeJurisdiction(first(params.country) || first(params.jurisdiction))
-  const roleLabel = first(params.role).trim()
-  const initialQuery = first(params.q).trim()
+  const next = new URLSearchParams()
+  next.set('section', 'clinical')
+  next.set('page', 'clinical')
 
-  return (
-    <ClinicalWorkspacePage
-      jurisdiction={jurisdiction}
-      roleLabel={roleLabel}
-      initialQuery={initialQuery}
-    />
-  )
+  const country = first(params.country) || first(params.jurisdiction)
+  const role = first(params.role)
+  const q = first(params.q)
+  if (country) next.set('country', country)
+  if (role) next.set('role', role)
+  if (q) next.set('q', q)
+
+  redirect(`/dashboard?${next.toString()}`)
 }
