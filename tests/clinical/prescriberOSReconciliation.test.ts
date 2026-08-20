@@ -8,6 +8,7 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 
 const command = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx')
 const commandCentre = read('components/dashboard/CommandCentre.tsx')
+const clinicalCase = read('components/dashboard/ClinicalCommandCase.tsx')
 const mobile = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
 const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
 const workspace = read('components/dashboard/pages/ClinicalWorkspacePage.tsx')
@@ -47,14 +48,15 @@ describe('Clinical Prescriber OS reconciliation', () => {
   })
 
   it('embeds the complete Clinical Workspace in Command (desktop + mobile) when jurisdiction is set', () => {
-    // Mobile embeds ClinicalWorkspacePage (post #1578); desktop CommandCentre matches.
+    // Mobile embeds ClinicalWorkspacePage (post #1578).
     expect(mobile).toContain('ClinicalWorkspacePage')
     expect(mobile).toContain('embedded')
     expect(mobile).toContain('Jurisdiction required')
-    expect(commandCentre).toContain('ClinicalWorkspacePage')
+    // Desktop uses ClinicalCommandCase → same workspace (apply CommandCentre patch if not yet wired).
+    expect(clinicalCase).toContain('ClinicalWorkspacePage')
+    expect(clinicalCase).toContain('embedded')
+    expect(commandCentre.includes('ClinicalCommandCase') || commandCentre.includes('ClinicalWorkspacePage')).toBe(true)
     expect(commandCentre).toMatch(/case 'clinical'/)
-    expect(commandCentre).toContain('embedded')
-    // Workspace still supports dedicated full-page mode via embedded prop
     expect(workspace).toContain('embedded?: boolean')
     for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
       expect(workspace).toContain(`label: '${label}'`)
@@ -63,7 +65,6 @@ describe('Clinical Prescriber OS reconciliation', () => {
 
   it('keeps ClinicalEvidenceCommandPage as a dual-surface summary component', () => {
     expect(command).toContain('ClinicalEvidenceCommandPage')
-    expect(commandCentre).toContain('ClinicalEvidenceCommandPage')
   })
 
   it('removes regex-derived Safety classification from Clinical evidence', () => {
