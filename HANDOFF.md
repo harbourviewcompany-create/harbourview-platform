@@ -1,9 +1,33 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Aug 19 2026 · Claude (chat)
+> Last updated: Aug 20 2026 · Claude (chat)
 
 ---
+
+## SHIPPED — Prescriber OS differentiation: supply-continuity + cross-border check (2026-08-19/20)
+
+Two new SECURITY DEFINER Postgres functions, applied directly to Supabase, both additive
+(no existing clinical governance table touched):
+
+- `clinical_jurisdiction_supply_outlook(country_iso2, lookback_days)` — clinical-safe aggregate
+  read of the internal `signals` market-intelligence pipeline, scoped to a jurisdiction.
+  `/api/clinical/supply-outlook`, badge wired into `ClinicalWorkspacePage.tsx` Products tab.
+- `clinical_cross_border_formulary_check(destination_country_iso2, brand_name, cannabinoid_profile)`
+  — is an equivalent published formulary entry available in another country, enriched with that
+  country's supply outlook. `/api/clinical/cross-border-check`, per-product "Check destination"
+  control wired into the same Products tab cards.
+
+Full competitive rationale, verification against live data, and an honest caveat on the
+credential-review compliance framing (mechanism is real, 0 reviews have actually run yet) are in
+`docs/control/CLINICAL_PRESCRIBER_OS_DIFFERENTIATION_20260819.md` — read that before touching
+either function or their UI, not just this summary. Unit tests for both query layers are in
+`tests/clinical/clinicalSupplyOutlookQuery.test.ts` and `clinicalCrossBorderQuery.test.ts`.
+
+**Not done:** supply-risk-aware SKU ranking (the third idea in that doc, needs a design decision
+on where multi-SKU ranking currently lives before it's safe to touch). No e2e/browser
+verification of either UI control — only `tsc --noEmit` + `next build` were run, no live
+production check (this session's sandbox can't reach `harbourview.vercel.app`).
 
 ## OPEN — clinicalEvidenceQuery.ts still anon-only after spine-reconcile (2026-08-19)
 
