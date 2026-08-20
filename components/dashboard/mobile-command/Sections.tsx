@@ -25,7 +25,6 @@ export { NetworkSection } from './sections/NetworkCommandSection'
 export {
   MarketStatusSection,
   ReviewGatesSection,
-  DirectoriesSection,
   TalentSection,
 } from './sections/OperationsSections'
 
