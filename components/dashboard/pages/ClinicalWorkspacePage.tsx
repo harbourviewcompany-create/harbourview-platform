@@ -48,10 +48,13 @@ export default function ClinicalWorkspacePage({
   jurisdiction,
   roleLabel = '',
   initialQuery = '',
+  embedded = false,
 }: {
   jurisdiction: string
   roleLabel?: string
   initialQuery?: string
+  /** When true, render without full-page chrome (for Command Clinical tab embed). */
+  embedded?: boolean
 }) {
   const normalizedJurisdiction = jurisdiction.trim().toUpperCase()
   const contextResolved = isResolvedJurisdiction(normalizedJurisdiction)
@@ -178,12 +181,17 @@ export default function ClinicalWorkspacePage({
 
   if (!contextResolved) {
     return (
-      <main className="min-h-screen bg-[#0c1016] px-4 py-6 text-white sm:px-6" data-testid="clinical-workspace-context-required">
-        <div className="mx-auto max-w-6xl">
-          <Link href="/dashboard?page=clinical" className="text-xs text-[#d4a853]">
-            ← Command Clinical
-          </Link>
-          <section className={`${card} mt-4`}>
+      <main
+        className={embedded ? 'bg-transparent px-0 py-2 text-white' : 'min-h-screen bg-[#0c1016] px-4 py-6 text-white sm:px-6'}
+        data-testid="clinical-workspace-context-required"
+      >
+        <div className={embedded ? '' : 'mx-auto max-w-6xl'}>
+          {!embedded && (
+            <Link href="/dashboard?page=clinical" className="text-xs text-[#d4a853]">
+              ← Command Clinical
+            </Link>
+          )}
+          <section className={`${card} ${embedded ? '' : 'mt-4'}`}>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Clinical workspace</p>
             <h1 className="mt-2 text-2xl font-semibold">Jurisdiction required</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
@@ -216,21 +224,24 @@ export default function ClinicalWorkspacePage({
     </form>
   )
 
+  const rootClass = embedded
+    ? 'bg-transparent px-0 pb-4 pt-0 text-white'
+    : 'min-h-screen bg-[#0c1016] px-3 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:pt-6'
+
   return (
-    <main
-      className="min-h-screen bg-[#0c1016] px-3 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:pt-6"
-      data-testid="clinical-workspace"
-    >
-      <div className="mx-auto max-w-7xl">
+    <main className={rootClass} data-testid="clinical-workspace">
+      <div className={embedded ? '' : 'mx-auto max-w-7xl'}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Link
-              href={`/dashboard?country=${encodeURIComponent(normalizedJurisdiction)}&page=clinical`}
-              className="text-xs text-[#d4a853]"
-            >
-              ← Command Clinical
-            </Link>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight">Clinical Workspace</h1>
+            {!embedded && (
+              <Link
+                href={`/dashboard?country=${encodeURIComponent(normalizedJurisdiction)}&page=clinical`}
+                className="text-xs text-[#d4a853]"
+              >
+                ← Command Clinical
+              </Link>
+            )}
+            <h1 className={`${embedded ? 'mt-0' : 'mt-2'} text-2xl font-semibold tracking-tight`}>Clinical Workspace</h1>
             <p className="mt-1 text-sm text-white/50">
               {normalizedJurisdiction} · {roleLabel || 'Professional role unresolved'} · governed cannabinoid /
               medical-cannabis decision support
@@ -262,7 +273,7 @@ export default function ClinicalWorkspacePage({
         </section>
 
         <nav
-          className="sticky top-0 z-20 -mx-3 mt-4 overflow-x-auto border-y border-white/8 bg-[#0c1016]/95 px-3 py-2 backdrop-blur sm:mx-0 sm:rounded-xl sm:border"
+          className={`sticky top-0 z-20 mt-4 overflow-x-auto border-y border-white/8 bg-[#0c1016]/95 py-2 backdrop-blur ${embedded ? 'rounded-xl border px-2' : '-mx-3 px-3 sm:mx-0 sm:rounded-xl sm:border'}`}
           aria-label="Clinical workspace sections"
         >
           <div className="flex min-w-max gap-1">
