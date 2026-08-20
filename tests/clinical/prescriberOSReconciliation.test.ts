@@ -8,6 +8,7 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 
 const command = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx')
 const commandCentre = read('components/dashboard/CommandCentre.tsx')
+const commandCentreRoot = read('components/dashboard/command-centre/CommandCentreRoot.tsx')
 const clinicalCase = read('components/dashboard/ClinicalCommandCase.tsx')
 const mobile = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
 const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
@@ -53,12 +54,13 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(mobile).toContain('Jurisdiction required')
     expect(clinicalCase).toContain('ClinicalWorkspacePage')
     expect(clinicalCase).toContain('embedded')
-    expect(commandCentre).toMatch(/case 'clinical'/)
-    // Accept pre-patch (EvidenceCommandPage) or post-patch (ClinicalCommandCase / direct workspace)
+    // Desktop: thin CommandCentre re-exports Root; clinical case lives in Root + ClinicalCommandCase
+    expect(commandCentre).toMatch(/CommandCentreRoot|command-centre/)
+    expect(commandCentreRoot).toMatch(/case ['"]clinical['"]/)
     expect(
-      commandCentre.includes('ClinicalCommandCase')
-      || commandCentre.includes('ClinicalWorkspacePage')
-      || commandCentre.includes('ClinicalEvidenceCommandPage'),
+      commandCentreRoot.includes('ClinicalCommandCase')
+      || commandCentreRoot.includes('ClinicalWorkspacePage')
+      || commandCentreRoot.includes('ClinicalEvidenceCommandPage'),
     ).toBe(true)
     expect(workspace).toContain('embedded?: boolean')
     for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
