@@ -112,18 +112,14 @@ async function assertNoHorizontalPageOverflow(page: Page) {
   expect(metrics.scrollWidth, `horizontal page overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.clientWidth)
 }
 
-/**
- * Command Clinical tab now embeds the full Clinical Workspace directly.
- * Assert the embed surface + workspace are present (no summary cards / open link).
- */
+/** Clinical is in-shell only inside Command. */
 async function assertClinicalWorkspaceInCommand(page: Page) {
   const commandSurface = page.getByTestId('clinical-mobile-decision-surface')
   await expect(commandSurface).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('clinical-workspace')).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByRole('heading', { name: 'Clinical Workspace', exact: true })).toBeVisible()
   await expect(page.getByTestId('clinical-workspace-search')).toBeVisible()
-  // No legacy summary-card labels or deep-link CTA
-  await expect(page.getByRole('link', { name: 'Open Clinical workspace', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /Open Clinical workspace/i })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /← Command Clinical/i })).toHaveCount(0)
   await expect(page.getByText(/Top graded/i)).toHaveCount(0)
   await assertNoHorizontalPageOverflow(page)
 }
@@ -131,7 +127,7 @@ async function assertClinicalWorkspaceInCommand(page: Page) {
 test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('captures Command Clinical workspace (embedded) at every required mobile viewport', async ({ browser }) => {
+  test('captures Command Clinical workspace (in-shell) at every required mobile viewport', async ({ browser }) => {
     test.setTimeout(480_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
@@ -188,11 +184,13 @@ test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
     const context = await browser.newContext({ ...sharedContextOptions(), viewport: { width: 390, height: 844 }, storageState, isMobile: true, hasTouch: true })
     try {
       const page = await context.newPage()
+      // Legacy path redirects into Command Clinical section
       const response = await page.goto('/dashboard/clinical', { waitUntil: 'domcontentloaded' })
       expect(response?.status()).toBeLessThan(400)
-      await expect(page.getByTestId('clinical-workspace-context-required')).toBeVisible()
-      await expect(page.getByRole('heading', { name: 'Jurisdiction required', exact: true })).toBeVisible()
-      await expect(page.getByText(/Brazil|Canada/, { exact: false })).toHaveCount(0)
+      await page.waitForURL(url => url.pathname === '/dashboard' && url.searchParams.get('section') === 'clinical')
+      await expect(page.getByTestId('clinical-mobile-context-required')).toBeVisible()
+      await expect(page.getByText('Jurisdiction required', { exact: true })).toBeVisible()
+      await expect(page.getByText(/will not silently use Brazil/i)).toBeVisible()
       await assertNoHorizontalPageOverflow(page)
       await page.screenshot({ path: path.join(evidenceRoot, '390x844-clinical-jurisdiction-required.png'), fullPage: false })
     } finally {
@@ -207,7 +205,7 @@ test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
       try {
         const page = await context.newPage()
         await mockClinicalApis(page, state)
-        await page.goto('/dashboard/clinical?country=CA&role=physician', { waitUntil: 'domcontentloaded' })
+        await page.goto('/dashboard?country=CA&role=physician&page=clinical&section=clinical', { waitUntil: 'domcontentloaded' })
         await expect(page.getByTestId('clinical-workspace')).toBeVisible()
         if (state === 'error') await expect(page.getByRole('alert')).toBeVisible()
         if (state === 'permission') await expect(page.getByText(/permission|verified clinician/i).first()).toBeVisible()
