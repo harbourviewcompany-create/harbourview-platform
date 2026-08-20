@@ -27,6 +27,12 @@
   min-width: 0;
 }
 
+.hvm2-signal-card.hvm2-intel-event-row {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
 .hvm2-intel-signal-card,
 .hvm2-intel-record-card,
 .hvm2-briefing-decision-grid > article,
@@ -38,7 +44,6 @@
   background: rgba(255, 255, 255, 0.028);
 }
 
-/* Primary decision card — stronger presence */
 .hvm2-intel-signal-card.hvm2-intel-primary,
 .hvm2-signal-card.hvm2-intel-event-row:first-child .hvm2-intel-signal-card {
   border-color: rgba(198, 165, 90, 0.42);
@@ -52,14 +57,53 @@
   padding: 18px 16px;
 }
 
+.hvm2-card-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hvm2-card-topline > span:last-child {
+  flex: 0 0 auto;
+  color: rgba(245, 241, 232, 0.55);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .hvm2-intel-signal-card h3 {
   overflow-wrap: anywhere;
-  margin: 12px 0 8px;
+  margin: 12px 0 6px;
   color: var(--hvm2-text);
   font-size: 17px;
   line-height: 1.35;
   text-align: left;
   font-weight: 650;
+}
+
+.hvm2-intel-original {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0 0 6px;
+  color: rgba(245, 241, 232, 0.52);
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hvm2-intel-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: rgba(245, 241, 232, 0.72);
+  font-size: 12px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .hvm2-intel-signal-card > p,
@@ -132,7 +176,6 @@
   font-style: italic;
 }
 
-/* Primary CTA on signal cards */
 .hvm2-signal-footer {
   margin-top: 16px;
   padding-top: 14px;
@@ -164,7 +207,7 @@
   font-size: 12px;
 }
 
-/* ── Personal briefing decision grid ──────────────────────────────────────── */
+/* ── Personal briefing ────────────────────────────────────────────────────── */
 
 .hvm2-briefing-decision-grid {
   display: grid;
@@ -208,7 +251,12 @@
   line-height: 1.65;
 }
 
-/* ── Briefing cadence (clean form block) ──────────────────────────────────── */
+.hvm2-briefing-meta {
+  margin-top: 12px;
+  color: rgba(245, 241, 232, 0.55);
+  font-size: 11px;
+  line-height: 1.45;
+}
 
 .hvm2-briefing-cadence {
   margin-top: 16px;
@@ -249,13 +297,19 @@
 .hvm2-cadence-row input,
 .hvm2-cadence-row select {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 11px;
   border: 1px solid var(--hvm2-border-soft);
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.28);
   color: var(--hvm2-text);
   font-size: 13px;
+}
+
+.hvm2-cadence-row input:focus-visible,
+.hvm2-cadence-row select:focus-visible {
+  outline: 2px solid var(--hvm2-gold-light);
+  outline-offset: 2px;
 }
 
 .hvm2-cadence-save {
@@ -278,7 +332,14 @@
   cursor: not-allowed;
 }
 
-/* ── Regulatory metrics ───────────────────────────────────────────────────── */
+.hvm2-cadence-msg {
+  margin-top: 10px;
+  color: rgba(245, 241, 232, 0.6);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* ── Regulatory / local / search (unchanged structure) ────────────────────── */
 
 .hvm2-regulatory-metrics {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -534,7 +595,8 @@
 
 .hvm2-intel-search-result:focus-visible,
 .hvm2-search-filters button:focus-visible,
-.hvm2-cadence-save:focus-visible {
+.hvm2-cadence-save:focus-visible,
+.hvm2-signal-card.hvm2-intel-event-row:focus-visible {
   outline: 2px solid var(--hvm2-gold-light);
   outline-offset: 2px;
 }
