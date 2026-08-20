@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import NetworkCommandClient from '@/components/network/NetworkCommandClient'
 import { SectionShell, type SectionRef } from '../SectionUI'
 import type { SectionId } from '../contracts'
@@ -35,7 +34,6 @@ export function NetworkSection({
       eyebrow="Network"
       title="Commercial Network Command"
       description="Resolve the best reviewed counterparties, requirements, relationship state and next action for the active commercial objective."
-      action={<Link className="hvm2-text-link" href="/dashboard/network">Open workspace</Link>}
     >
       <NetworkCommandClient compact />
     </SectionShell>
