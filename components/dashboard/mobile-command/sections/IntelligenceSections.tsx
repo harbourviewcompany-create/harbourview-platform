@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
-import type { FeatureAccess } from '@/lib/billing/entitlements'
-import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
 import type { MobileCommandCentreProps } from '../props'
+import { MOBILE_COMMAND_COPY } from '@/lib/platform/commandCentreCopy'
 import { asRecord, readString, type NextAction, type NormalizedListing, type SectionId } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 import { commandSearchKindCounts, searchCommandRecords, type CommandSearchKind, type CommandSearchRecord } from '../intelSearch'
@@ -16,42 +14,9 @@ type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNull
 type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['items'][number]
 type LocalIntel = NonNullable<MobileCommandCentreProps['localIntel']>
 
-function recommendationLabel(signal: Signal) {
-  const state = signal.decisionRecommendationState
-  if (state === 'act_now') return 'Act now'
-  if (state === 'investigate') return 'Investigate'
-  if (state === 'no_action') return 'No action'
-  if (state === 'monitor') return 'Monitor'
-  return 'Open dossier'
-}
-
 function signalContextMatches(signal: Signal, countryLabel: string) {
   const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
   return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
-}
-
-function signalConfidence(signal: Signal) {
-  const raw = asRecord(signal).confidence
-  if (typeof raw !== 'number' || !Number.isFinite(raw)) return null
-  return Math.max(0, Math.min(100, Math.round(raw)))
-}
-
-function signalEvidence(signal: Signal) {
-  const source = readString(signal, ['sourceName', 'source_name', 'sourceLabel', 'source_label'], '')
-  const observed = readString(signal, ['published_at', 'observed_at', 'updated_at', 'timeAgo'], '')
-  return { source, observed }
-}
-
-function signalQualityBits(signal: Signal): string[] {
-  const item = asRecord(signal)
-  const bits: string[] = []
-  const corr = item.corroborationCount ?? item.corroboration_count
-  if (typeof corr === 'number' && corr > 1) bits.push(`${Math.round(corr)} sources`)
-  if (item.translated === true) {
-    const lang = readString(item, ['originalLanguageLabel', 'original_language_label'], '')
-    bits.push(lang ? `via ${lang}` : 'Translated')
-  }
-  return bits
 }
 
 function highlightMatch(value: string, query: string): ReactNode {
@@ -77,86 +42,6 @@ export function NextActionsSection({ sectionRef, actions }: { sectionRef: Sectio
           </Link>
         ))}
       </div>
-    </SectionShell>
-  )
-}
-
-export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access }: { sectionRef: SectionRef; signals: Signal[]; countryLabel: string; access?: FeatureAccess }) {
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const query = searchParams.toString()
-  const returnTo = `${pathname}${query ? `?${query}` : ''}`
-  const canOpenDossiers = access?.granted === true
-  const orderedSignals = useMemo(
-    () => signals.map((signal, index) => ({ signal, index, contextual: signalContextMatches(signal, countryLabel) }))
-      .sort((a, b) => Number(b.contextual) - Number(a.contextual) || a.index - b.index),
-    [countryLabel, signals],
-  )
-
-  return (
-    <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Jurisdiction matches for the active context appear first. Open supported events for evidence, unknowns and a reasoned decision posture.">
-      {orderedSignals.length > 0 ? (
-        <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
-          {orderedSignals.map(({ signal, contextual }, listIndex) => {
-            const analysis = asRecord(asRecord(signal).analysis)
-            const whatChanged = readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
-            const recommendedAction = readString(analysis, ['recommended_action'], '')
-            const market = readString(signal, ['market', 'jurisdiction', 'country'], 'Global')
-            const confidence = signalConfidence(signal)
-            const evidence = signalEvidence(signal)
-            const quality = signalQualityBits(signal)
-            const isEditorial = signal.contentType === 'editorial'
-            const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
-            const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
-            const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory
-            const dossierEventId = signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
-            const hasDossier = Boolean(dossierEventId)
-            const dossierHref = hasDossier
-              ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
-              : null
-            const isPrimary = listIndex === 0
-
-            const article = (
-              <article className={`hvm2-intel-signal-card${isPrimary ? ' hvm2-intel-primary' : ''}`}>
-                <div className="hvm2-card-topline">
-                  <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
-                  <span>{market}</span>
-                </div>
-                <div className="hvm2-intel-context-row">
-                  <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
-                </div>
-                <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
-                {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
-                <div className="hvm2-intel-meta-row">
-                  {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
-                  {quality.map(bit => <span key={bit}>{bit}</span>)}
-                  {evidence.source ? <span>Source {evidence.source}</span> : <span>Source Unknown</span>}
-                  {evidence.observed ? <span>{evidence.observed}</span> : null}
-                </div>
-                {recommendedAction ? <div className="hvm2-intel-action"><span>Action</span><p>{recommendedAction}</p></div> : null}
-                {hasDossier ? <div className="hvm2-signal-footer"><strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong></div> : null}
-              </article>
-            )
-
-            const key = readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)
-            if (dossierHref) {
-              return (
-                <Link
-                  className="hvm2-signal-card hvm2-intel-event-row"
-                  key={key}
-                  href={canOpenDossiers ? dossierHref : '/account/upgrade'}
-                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${readString(signal, ['title'], 'signal')}` : `Upgrade to Intel to open intelligence dossier: ${readString(signal, ['title'], 'signal')}`}
-                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
-                >
-                  {article}
-                </Link>
-              )
-            }
-            return <div className="hvm2-signal-card hvm2-intel-event-row" key={key}>{article}</div>
-          })}
-        </div>
-      ) : <EmptyState title="No reviewed signals loaded" detail="The intelligence surface is available, but no current signal records are loaded for review." />}
     </SectionShell>
   )
 }
@@ -210,7 +95,7 @@ export function PersonalBriefingSection({
         }
       })
       .catch(() => {
-        /* keep empty / defaults */
+        /* keep empty / defaults on network failure */
       })
   }, [])
 
@@ -242,7 +127,13 @@ export function PersonalBriefingSection({
   }
 
   return (
-    <SectionShell id="personal-briefing" sectionRef={sectionRef} eyebrow="Personal briefing" title={`${roleShort} briefing for ${countryLabel}`} description="A deterministic summary of the active jurisdiction, market pipeline, signal feed and next operational decisions.">
+    <SectionShell
+      id="personal-briefing"
+      sectionRef={sectionRef}
+      eyebrow="Personal briefing"
+      title={`${roleShort} briefing for ${countryLabel}`}
+      description="A deterministic summary of the active jurisdiction, market pipeline, signal feed and next operational decisions."
+    >
       <div className="hvm2-briefing-decision-grid" aria-label="Briefing decision summary">
         <article>
           <span>What changed</span>
@@ -264,8 +155,9 @@ export function PersonalBriefingSection({
           <div><span>Action queue</span><strong>{actionCount}</strong></div>
         </div>
         {reviewStatus || sourceCoverageCount > 0 ? (
-          <p style={{ marginTop: 12, fontSize: 11, color: 'rgba(245,241,232,0.55)' }}>
-            Evidence: {reviewStatus || 'Unknown'}{sourceCoverageCount > 0 ? ` · ${sourceCoverageCount} source${sourceCoverageCount === 1 ? '' : 's'}` : ''}
+          <p className="hvm2-briefing-meta">
+            Evidence: {reviewStatus || 'Unknown'}
+            {sourceCoverageCount > 0 ? ` · ${sourceCoverageCount} source${sourceCoverageCount === 1 ? '' : 's'}` : ''}
             {nextAction?.href ? <> · <Link className="hvm2-text-link" href={nextAction.href}>Open action →</Link></> : null}
           </p>
         ) : null}
@@ -273,7 +165,10 @@ export function PersonalBriefingSection({
 
       <div className="hvm2-briefing-cadence" aria-label="Briefing cadence">
         <span className="hvm2-intel-kicker">Briefing cadence</span>
-        <p>Choose markets (ISO2) and how often Harbourview should synthesize a personal briefing. When active, the daily cron can email via Resend (same path as signal digests).</p>
+        <p>
+          Choose markets (ISO2) and how often Harbourview should synthesize a personal briefing.
+          When active, the daily cron can email via Resend (same path as signal digests).
+        </p>
         <div className="hvm2-cadence-row">
           <label>
             <span>Markets (comma-separated ISO2)</span>
@@ -281,6 +176,8 @@ export function PersonalBriefingSection({
               value={marketsInput}
               onChange={(e) => setMarketsInput(e.target.value)}
               placeholder="CA, DE, AU"
+              autoComplete="off"
+              spellCheck={false}
               aria-label="Markets comma-separated ISO2"
             />
           </label>
@@ -299,7 +196,7 @@ export function PersonalBriefingSection({
         <button type="button" className="hvm2-cadence-save" onClick={saveCadence} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
-        {saveMsg ? <p style={{ marginTop: 10, fontSize: 11, color: 'rgba(245,241,232,0.6)' }}>{saveMsg}</p> : null}
+        {saveMsg ? <p className="hvm2-cadence-msg" role="status">{saveMsg}</p> : null}
       </div>
     </SectionShell>
   )
