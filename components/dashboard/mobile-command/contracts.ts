@@ -6,7 +6,6 @@ export { MOBILE_COMMAND_COPY }
 
 export type SectionId =
   | 'overview'
-  | 'live-status'
   | 'market-intelligence'
   | 'marketplace'
   | 'supply'
@@ -103,7 +102,6 @@ export const PRIMARY_NAV: NavDestination[] = [
 
 const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   overview: { id: 'overview', label: 'Command', icon: '◎' },
-  'live-status': { id: 'live-status', label: 'Operating state', icon: '◷' },
   'market-intelligence': { id: 'market-intelligence', label: 'Market intelligence', icon: '≈' },
   marketplace: { id: 'marketplace', label: 'Marketplace control', icon: '⊞' },
   supply: { id: 'supply', label: 'Supply', icon: '▤' },
@@ -132,7 +130,6 @@ export const SECTION_NAV: NavDestination[] = Object.values(SECTION_NAV_BY_ID)
 
 export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   overview: 'briefing',
-  'live-status': 'briefing',
   'market-intelligence': 'prices',
   marketplace: 'marketplace',
   supply: 'marketplace',
@@ -199,7 +196,6 @@ export type PrimarySectionId =
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
   overview: [
     'overview',
-    'live-status',
     'genetics',
     'talent',
     'clinical',

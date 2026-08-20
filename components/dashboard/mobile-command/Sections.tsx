@@ -1,6 +1,5 @@
 export {
   OverviewSection,
-  LiveStatusSection,
   MarketIntelligenceSection,
 } from './sections/CoreSections'
 
