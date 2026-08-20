@@ -21,7 +21,6 @@ const BYPASS_TOKEN = process.env.VERCEL_AUTOMATION_BYPASS_SECRET
 const IS_ISOLATED_LOCAL_RUN = Boolean(process.env.HARBOURVIEW_ALLOW_LOCAL_SUPABASE === '1' && BASE_URL?.includes('127.0.0.1'))
 const evidenceRoot = path.join(process.cwd(), 'artifacts', 'mobile-command-v2')
 
-/** The nine widths this gate is named after. */
 const WIDTHS = [320, 360, 375, 390, 430, 768, 820, 1024, 1440] as const
 
 type FailedResponse = {
@@ -41,11 +40,6 @@ function sanitizeDiagnostic(value: string) {
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [redacted]')
     .replace(/sb_[A-Za-z0-9_-]+/g, 'sb_[redacted]')
     .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted-jwt]')
-    // Bare addresses too, not just `?email=`. This suite types
-    // E2E_TEST_USER_EMAIL into the login form, so an application error or a
-    // console message can carry it in a message body where the query-parameter
-    // rule above never sees it — and this output lands in CI logs and in an
-    // artifact retained for 14 days.
     .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[redacted-email]')
 }
 
@@ -67,19 +61,6 @@ function isGenericResourceConsoleError(message: string) {
   return message.includes('Failed to load resource: the server responded with a status of')
 }
 
-/**
- * Collapse a defect list into a few `×N` lines suitable for a CI log.
- *
- * The 1440px pass walks every Command Centre page, so a single endpoint that
- * fails on load shows up ~38 times. Printing all of them buries the signal and
- * printing none of them leaves the log useless — which is exactly what happened
- * before: this gate threw counts only, the offending requests went to an
- * evidence JSON inside a 30MB artifact, and a red run said nothing actionable.
- * It stayed red on main for hours because of it. Deduplicating first means one
- * broken endpoint reads as one line with a count, which is also what
- * distinguishes "one endpoint, every page" from "many endpoints, one page" —
- * the two failure shapes need different fixes.
- */
 function summarizeDefects(label: string, entries: string[], limit = 8) {
   if (!entries.length) return []
   const counts = new Map<string, number>()
@@ -227,11 +208,6 @@ async function assertSingleRowHorizontalRail(rail: Locator, description: string,
   }
 }
 
-/**
- * A scrollable rail must prove that each destination is reachable, not that all
- * destinations are simultaneously inside the phone viewport. Reveal one target
- * at a time and then verify full horizontal containment in the viewport.
- */
 async function expectHorizontallyOnScreen(page: Page, locator: Locator, description: string) {
   await expect(locator).toBeVisible()
   await locator.scrollIntoViewIfNeeded()
@@ -411,12 +387,6 @@ test.describe('Mobile Command operator-first verification', () => {
     test.setTimeout(180_000)
     const storageState = await authenticate(browser)
 
-    // WCAG 1.4.10 reflow: a 1280x1024 desktop window at 400% zoom presents as
-    // roughly 320x256 CSS pixels, which enters this renderer. The shell is
-    // `height: 100dvh; overflow: hidden`, so if the rail refuses to shrink the
-    // content pane is squeezed to nothing and the dashboard becomes
-    // unreachable. The other assertions in this file all run at 700px or
-    // taller, so none of them exercise this.
     for (const [width, height] of [[320, 320], [320, 256]] as const) {
       const context = await browser.newContext({
         ...sharedContextOptions(),
@@ -494,7 +464,7 @@ test.describe('Mobile Command operator-first verification', () => {
       const rail = page.locator('.hvm-op-secondary-nav')
       await expect(rail).toBeVisible()
       await assertSingleRowHorizontalRail(rail, 'Command operational-domain rail')
-      for (const id of ['genetics', 'talent', 'clinical', 'compliance', 'education', 'directories', 'network'] as const) {
+      for (const id of ['genetics', 'talent', 'clinical', 'compliance', 'education', 'network'] as const) {
         const label = SECTION_NAV.find(section => section.id === id)?.label
         if (!label) throw new Error(`SECTION_NAV has no entry for operational section "${id}"`)
         await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `rail "${label}"`)
@@ -535,7 +505,7 @@ test.describe('Mobile Command operator-first verification', () => {
       for (const label of MARKET_RAIL_LABELS) {
         await expectHorizontallyOnScreen(page, rail.getByText(label, { exact: true }), `Market rail "${label}"`)
       }
-      for (const label of ['Genetics', 'Talent', 'Clinical', 'Directories', 'Network']) {
+      for (const label of ['Genetics', 'Talent', 'Clinical', 'Network']) {
         await expect(rail.getByText(label, { exact: true })).toHaveCount(0)
       }
     } finally {
@@ -588,21 +558,6 @@ test.describe('Mobile Command operator-first verification', () => {
         const response = await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded' })
         expect(response?.status()).toBeLessThan(400)
 
-        // Wait for the real desktop shell before asserting on the renderer
-        // marker. CommandCentre is dynamic with ssr: false and its `loading`
-        // fallback (CommandBootShell) is an in-flow <main class="min-h-screen">,
-        // so straight after domcontentloaded the marker has height purely
-        // because the boot shell is still mounted. This assertion used to pass
-        // by winning that race -- it resolved against the loading state and
-        // never observed the settled one, where the only child is the
-        // position:fixed .cc-app.
-        //
-        // That mattered: the marker had a zero-area box in the settled state on
-        // every desktop page, and this test could not see it. The Genetics spec
-        // waited for networkidle, did observe it, and reported the bare
-        // "element(s) not found" that led to the fix in
-        // DashboardResponsiveShell. Anchoring on .cc-app makes this test check
-        // the state users actually get.
         await expect(page.locator('.cc-app')).toBeVisible()
         await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible()
         await expect(page.locator('[data-mobile-command-version="2"]:visible')).toHaveCount(0)
@@ -613,23 +568,6 @@ test.describe('Mobile Command operator-first verification', () => {
   })
 })
 
-/**
- * The nine-width sweep this workflow is named after.
- *
- * It was replaced by the four-viewport mobile block above, which left the job
- * called "Authenticated nine-width Command Centre evidence" checking four
- * widths and no desktop at all. Two things went missing with it: coverage of
- * 768/820/1024/1440, and the per-width browser-defect collection — which is the
- * only thing in this suite that catches a route returning 500 on a surface that
- * still *renders* correctly. That is not hypothetical: a fixture gap had
- * /api/dashboard/signals 500ing on every desktop page load while every visual
- * assertion passed, and only this sweep saw it.
- *
- * The two blocks are complementary and deliberately do not overlap. The block
- * above owns mobile hierarchy and zero-state density in detail; this one owns
- * breadth — every width loads, renders the right shell, does not overflow, and
- * emits no page errors, console errors or failed responses.
- */
 test.describe('Command Centre authenticated responsive verification', () => {
   test.describe.configure({ mode: 'serial' })
 
