@@ -118,51 +118,34 @@ export function MyBriefingsPanel({ onOpenWatchlist }: { onOpenWatchlist?: () => 
 
   return (
     <div className="cc-mybrief">
-      <section className="cc-mybrief-section">
+      <section className="cc-mybrief-section cc-mybrief-cadence">
         <h4>Briefing cadence</h4>
-        <p className="cc-mybrief-empty" style={{ marginBottom: 12 }}>
+        <p className="cc-mybrief-empty">
           Choose markets (ISO2) and how often Harbourview should synthesize a personal briefing. When
           active, the daily cron can email via Resend (same path as signal digests).
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 420 }}>
-          <label style={{ fontSize: 12, color: 'rgba(245,240,232,.5)' }}>
-            Markets (comma-separated ISO2)
+        <div className="cc-mybrief-cadence-form">
+          <label className="cc-mybrief-field">
+            <span>Markets (comma-separated ISO2)</span>
             <input
               value={marketsInput}
               onChange={(e) => setMarketsInput(e.target.value)}
               placeholder="CA, DE, AU"
-              style={{
-                display: 'block',
-                width: '100%',
-                marginTop: 4,
-                padding: '8px 10px',
-                borderRadius: 6,
-                border: '1px solid rgba(255,255,255,.12)',
-                background: 'rgba(0,0,0,.35)',
-                color: '#f5f0e8',
-              }}
+              autoComplete="off"
+              spellCheck={false}
             />
           </label>
-          <label style={{ fontSize: 12, color: 'rgba(245,240,232,.5)' }}>
-            Frequency
+          <label className="cc-mybrief-field">
+            <span>Frequency</span>
             <select
               value={frequency}
               onChange={(e) => setFrequency(e.target.value as 'daily' | 'weekly')}
-              style={{
-                display: 'block',
-                marginTop: 4,
-                padding: '8px 10px',
-                borderRadius: 6,
-                border: '1px solid rgba(255,255,255,.12)',
-                background: 'rgba(0,0,0,.35)',
-                color: '#f5f0e8',
-              }}
             >
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
           </label>
-          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label className="cc-mybrief-check">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             Active (include in synthesis + email tick)
           </label>
@@ -170,12 +153,11 @@ export function MyBriefingsPanel({ onOpenWatchlist }: { onOpenWatchlist?: () => 
             type="button"
             onClick={saveCadence}
             disabled={saving}
-            className="cc-right-link"
-            style={{ alignSelf: 'flex-start' }}
+            className="cc-mybrief-save"
           >
             {saving ? 'Saving…' : 'Save cadence'}
           </button>
-          {saveMsg && <p className="cc-mybrief-empty">{saveMsg}</p>}
+          {saveMsg ? <p className="cc-mybrief-empty" role="status">{saveMsg}</p> : null}
         </div>
       </section>
 
@@ -205,14 +187,11 @@ export function MyBriefingsPanel({ onOpenWatchlist }: { onOpenWatchlist?: () => 
         {activeRules.length === 0 ? (
           <p className="cc-mybrief-empty">
             No active rules yet.{' '}
-            <button
-              type="button"
-              className="cc-right-link"
-              onClick={onOpenWatchlist}
-              style={{ display: 'inline' }}
-            >
-              Add keyword or jurisdiction rules →
-            </button>
+            {onOpenWatchlist ? (
+              <button type="button" className="cc-right-link" onClick={onOpenWatchlist}>
+                Add keyword or jurisdiction rules →
+              </button>
+            ) : null}
           </p>
         ) : (
           <ul className="cc-mybrief-rules">
@@ -299,7 +278,7 @@ export function MyBriefingsPanel({ onOpenWatchlist }: { onOpenWatchlist?: () => 
         )}
       </section>
 
-      <p className="cc-mybrief-empty" style={{ marginTop: 16 }}>
+      <p className="cc-mybrief-empty cc-mybrief-footer-links">
         <a href="/dashboard/corridor-plan" className="cc-right-link">
           Open corridor execution plan →
         </a>

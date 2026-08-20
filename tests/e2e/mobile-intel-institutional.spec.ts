@@ -16,21 +16,57 @@ function sectionHeading(eyebrow: string, title: string, description: string) {
   return `<div class="hvm2-section-heading"><div><span>${eyebrow}</span><h2>${title}</h2><p>${description}</p></div></div>`
 }
 
-function signalCard(options: { market: string; context: string; title: string; summary: string; confidence: string; source: string; time: string; note?: string }) {
-  return `<article class="hvm2-signal-card hvm2-intel-signal-card">
-    <div class="hvm2-card-topline"><span class="hvm2-status-pill">REGULATORY_CHANGE</span><span>${options.market}</span></div>
+function signalCard(options: {
+  market: string
+  context: string
+  title: string
+  original?: string
+  summary: string
+  confidence: string
+  source: string
+  time: string
+  note?: string
+  primary?: boolean
+  cta?: string
+}) {
+  return `<div class="hvm2-signal-card hvm2-intel-event-row"><article class="hvm2-intel-signal-card${options.primary ? ' hvm2-intel-primary' : ''}">
+    <div class="hvm2-card-topline"><span class="hvm2-status-pill">${options.primary ? 'Open dossier' : 'REGULATORY_CHANGE'}</span><span>${options.market}</span></div>
     <div class="hvm2-intel-context-row"><span class="hvm2-status-pill">${options.context}</span>${options.note ? `<small>${options.note}</small>` : ''}</div>
-    <h3>${options.title}</h3><p>${options.summary}</p>
+    <h3>${options.title}</h3>
+    ${options.original ? `<p class="hvm2-intel-original">${options.original}</p>` : ''}
+    <p class="hvm2-intel-summary">${options.summary}</p>
     <div class="hvm2-intel-meta-row"><span>${options.confidence}</span><span>${options.source}</span><span>${options.time}</span></div>
-  </article>`
+    ${options.cta ? `<div class="hvm2-signal-footer"><strong>${options.cta}</strong></div>` : ''}
+  </article></div>`
 }
 
 function weeklySignals() {
   return `<section class="hvm2-section" id="weekly-signals">
-    ${sectionHeading('Context / weekly signals', 'Intelligence requiring attention', 'The complete loaded feed remains reviewable, with direct jurisdiction matches shown before broader-watch items.')}
-    <div class="hvm2-intel-record-list" aria-label="Weekly intelligence signals">
-      ${signalCard({ market: 'GERMANY', context: 'Context match', title: 'German import requirements updated', summary: 'A reviewed German regulatory signal changed in the loaded command session.', confidence: 'Confidence 88%', source: 'Source Unknown', time: '2h ago' })}
-      ${signalCard({ market: 'KENYA', context: 'Broader watch', title: 'Kenya – Rastafarian Use of Bhang Case heard through January 2026', summary: 'Monitor for developing relevance.', confidence: 'Confidence 90%', source: 'Source Unknown', time: '13h ago', note: "No direct Germany match is recorded in this signal's jurisdiction metadata." })}
+    ${sectionHeading('Intel / material changes', 'Intelligence requiring a decision', 'Jurisdiction matches for the active context appear first. Open supported events for evidence, unknowns and a reasoned decision posture.')}
+    <div class="hvm2-intel-record-list" aria-label="Decision intelligence events">
+      ${signalCard({
+        market: 'GERMANY',
+        context: 'Context match',
+        title: 'German import requirements updated',
+        original: 'Aktualisierte Importanforderungen für medizinisches Cannabis',
+        summary: 'A reviewed German regulatory signal changed in the loaded command session.',
+        confidence: 'Confidence 88%',
+        source: 'Source BfArM',
+        time: '2h ago',
+        primary: true,
+        cta: 'Open dossier →',
+      })}
+      ${signalCard({
+        market: 'KENYA',
+        context: 'Broader watch',
+        title: 'Kenya – Rastafarian Use of Bhang Case heard through January 2026',
+        summary: 'Monitor for developing relevance.',
+        confidence: 'Confidence 90%',
+        source: 'Source Unknown',
+        time: '13h ago',
+        note: "No direct Germany match is recorded in this signal's jurisdiction metadata.",
+        cta: 'Open dossier →',
+      })}
     </div>
   </section>`
 }
@@ -41,10 +77,9 @@ function personalBriefing() {
     <div class="hvm2-briefing-decision-grid" aria-label="Briefing decision summary">
       <article><span>What changed</span><strong>A reviewed German regulatory signal changed in the loaded command session.</strong></article>
       <article><span>Why it matters</span><strong>Importer pathway review required before relying on the changed requirement.</strong></article>
-      <article><span>Evidence state</span><strong>Approved</strong><p>3 jurisdiction sources registered.</p></article>
-      <article><span>Action</span><strong>Review the current Germany import pathway and supporting evidence.</strong></article>
     </div>
-    <article class="hvm2-narrative-card hvm2-briefing-narrative"><span class="hvm2-intel-kicker">Longer briefing</span><p>Reviewed commercial pathway narrative for the active Germany importer context. The narrative remains distinct from the structured change, impact, evidence and action summary above it.</p><div class="hvm2-narrative-grid"><div><span>Commercial records</span><strong>4</strong></div><div><span>Signals tracked</span><strong>3</strong></div><div><span>Pipeline items</span><strong>2</strong></div><div><span>Action queue</span><strong>2</strong></div></div></article>
+    <article class="hvm2-narrative-card hvm2-briefing-narrative"><span class="hvm2-intel-kicker">Longer briefing</span><p>Reviewed commercial pathway narrative for the active Germany importer context. The narrative remains distinct from the structured change and impact summary above it.</p><div class="hvm2-narrative-grid"><div><span>Commercial records</span><strong>4</strong></div><div><span>Signals tracked</span><strong>3</strong></div><div><span>Pipeline items</span><strong>2</strong></div><div><span>Action queue</span><strong>2</strong></div></div><p class="hvm2-briefing-meta">Evidence: Approved · 3 sources</p></article>
+    <div class="hvm2-briefing-cadence" aria-label="Briefing cadence"><span class="hvm2-intel-kicker">Briefing cadence</span><p>Choose markets (ISO2) and how often Harbourview should synthesize a personal briefing.</p><div class="hvm2-cadence-row"><label><span>Markets (comma-separated ISO2)</span><input value="DE, CA" placeholder="CA, DE, AU" aria-label="Markets comma-separated ISO2"></label><label><span>Frequency</span><select aria-label="Briefing frequency"><option selected>Daily</option><option>Weekly</option></select></label></div><button type="button" class="hvm2-cadence-save">Save</button></div>
   </section>`
 }
 
@@ -56,7 +91,7 @@ function regulatoryWatch() {
   const items = Array.from({ length: 9 }, (_, index) => `<article class="hvm2-intel-record-card"><div class="hvm2-intel-meta-row"><span>Germany</span><span>regulation</span></div><strong>German regulatory watch ${index + 1}</strong><p>Reviewed change note ${index + 1}</p><small>Evidence metadata Unknown</small><div class="hvm2-intel-action"><span>Next action</span><p>Continue watch</p></div></article>`).join('')
   return `<section class="hvm2-section" id="regulatory">
     ${sectionHeading('Intel / regulatory watch', 'Regulatory change under watch', 'Tracked regulatory objects, active watch rules and the reviewed posture of the current jurisdiction.')}
-    <div class="hvm2-metric-grid hvm2-regulatory-metrics">${metric('Tracked items', '9', 'Under active watch')}${metric('Watch rules', '2', 'Active keyword rules')}${metric('Source coverage', '3', 'Registered jurisdiction sources')}</div>
+    <div class="hvm2-metric-grid hvm2-regulatory-metrics">${metric('Tracked items', '9', 'Under active watch')}${metric('Watch rules', '2', 'Active keyword rules')}${metric('Rule hits', '1', 'In this session feed')}${metric('Source coverage', '3', 'Registered jurisdiction sources')}</div>
     <article class="hvm2-note hvm2-regulatory-posture"><span class="hvm2-status-pill">REGULATED</span><p>Germany regulatory outlook remains under active review.</p></article>
     <div class="hvm2-intel-record-list" aria-label="All 9 tracked regulatory items">${items}</div>
   </section>`
@@ -158,5 +193,4 @@ test.describe('Mobile Intel institutional visual evidence', () => {
       await shot(page, state.file)
     }
   })
-
 })
