@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import type { EducationCommandModule, EducationCommandResponse, EducationCommandView, EducationGoal } from '@/lib/education/command'
+import { parseEducationCountry, type EducationCommandModule, type EducationCommandResponse, type EducationCommandView, type EducationGoal } from '@/lib/education/command'
 import type { MobileCommandCentreProps } from '../props'
 import type { SectionId } from '../contracts'
 import { SectionShell, type SectionRef } from '../SectionUI'
+import { HarbourviewCard } from '@/components/ui/HarbourviewPanel'
 import styles from './EducationCommandSection.module.css'
 
 type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
@@ -79,7 +80,7 @@ function Status({ state }: { state: EducationCommandModule['evidenceState'] }) {
 function ModuleCard({ module, commandHref }: { module: EducationCommandModule; commandHref: Props['commandHref'] }) {
   const verifiedDate = formatDate(module.lastReviewedAt)
   return (
-    <article className={styles.moduleCard} data-education-module={module.slug}>
+    <HarbourviewCard tone="default" className={styles.moduleCard} data-education-module={module.slug}>
       <div className={styles.cardTopline}>
         <span>{module.trackLabel}</span>
         <Status state={module.evidenceState} />
@@ -103,14 +104,13 @@ function ModuleCard({ module, commandHref }: { module: EducationCommandModule; c
         {module.goal === 'regulatory' ? <Link href={commandHref('regulatory')} className={styles.secondaryAction}>Regulatory watch</Link> : null}
         {module.goal === 'quality' ? <Link href={commandHref('compliance')} className={styles.secondaryAction}>Compliance</Link> : null}
       </div>
-    </article>
+    </HarbourviewCard>
   )
 }
 
 export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: Props) {
   const searchParams = useSearchParams()
-  const countryRaw = (searchParams.get('country') || '').trim().toUpperCase()
-  const country = /^[A-Z]{2}$/.test(countryRaw) ? countryRaw : null
+  const country = parseEducationCountry(searchParams.get('country'))
   const role = searchParams.get('role')
   const selectedModuleSlug = searchParams.get('module')
   const [view, setView] = useState<EducationCommandView>(() => validView(searchParams.get('educationView')))

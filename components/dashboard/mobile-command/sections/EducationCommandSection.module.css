@@ -1,3 +1,9 @@
+/**
+ * Education Command — token-backed surfaces (styles/design-tokens.css).
+ * Card language matches components/ui/HarbourviewPanel HarbourviewCard.
+ * Prefer var(--hv-*) / var(--hvm2-*); do not reintroduce one-off gold hex.
+ */
+
 .command {
   display: grid;
   gap: 16px;
@@ -24,10 +30,10 @@
 .goal,
 .goalActive {
   flex: 0 0 auto;
-  border: 1px solid rgba(211, 177, 102, 0.24);
+  border: 1px solid var(--hv-panel-border-warm);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.025);
-  color: rgba(244, 241, 233, 0.64);
+  background: color-mix(in srgb, var(--hv-ivory) 2.5%, transparent);
+  color: var(--hv-text-secondary);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
@@ -39,9 +45,9 @@
 
 .tabActive,
 .goalActive {
-  border-color: rgba(220, 184, 101, 0.58);
-  background: rgba(220, 184, 101, 0.1);
-  color: #e1bf72;
+  border-color: color-mix(in srgb, var(--hv-gold) 58%, transparent);
+  background: color-mix(in srgb, var(--hv-gold) 10%, transparent);
+  color: var(--hv-gold-light);
 }
 
 .stack {
@@ -55,15 +61,15 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--hv-ivory) 6%, transparent);
 }
 
 .contextBar > div {
   min-width: 0;
   padding: 12px 10px;
-  background: rgba(4, 13, 25, 0.94);
+  background: var(--hv-panel-strong);
 }
 
 .contextBar span,
@@ -71,7 +77,7 @@
 .impactBlock > span,
 .sectionHeading span {
   display: block;
-  color: rgba(227, 231, 238, 0.48);
+  color: var(--hv-text-muted);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -82,7 +88,7 @@
   display: block;
   margin-top: 4px;
   overflow: hidden;
-  color: rgba(249, 247, 242, 0.92);
+  color: var(--hv-text-primary);
   font-size: 12px;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -92,14 +98,14 @@
 .warning,
 .infoCard,
 .stateCard {
-  border: 1px solid rgba(255, 255, 255, 0.085);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 15px;
-  background: rgba(7, 19, 33, 0.78);
+  background: var(--hv-panel);
   padding: 15px;
 }
 
 .warning {
-  border-color: rgba(220, 184, 101, 0.35);
+  border-color: color-mix(in srgb, var(--hv-gold) 35%, transparent);
 }
 
 .warning strong,
@@ -114,7 +120,7 @@
 .warning strong,
 .infoCard strong,
 .stateCard strong {
-  color: rgba(248, 245, 237, 0.92);
+  color: var(--hv-text-primary);
   font-size: 14px;
   line-height: 1.4;
 }
@@ -123,7 +129,7 @@
 .infoCard p,
 .stateCard p {
   margin: 5px 0 0;
-  color: rgba(229, 232, 238, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -137,9 +143,9 @@
 .summaryGrid button {
   min-width: 0;
   min-height: 78px;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 14px;
-  background: rgba(8, 20, 35, 0.8);
+  background: var(--hv-panel);
   padding: 11px;
   color: inherit;
   text-align: left;
@@ -148,7 +154,7 @@
 
 .summaryGrid strong {
   display: block;
-  color: #e1bf72;
+  color: var(--hv-gold-light);
   font-family: ui-serif, Georgia, serif;
   font-size: 24px;
   font-weight: 600;
@@ -158,7 +164,7 @@
 .summaryGrid span {
   display: block;
   margin-top: 7px;
-  color: rgba(228, 232, 239, 0.58);
+  color: var(--hvm2-muted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.3;
@@ -175,29 +181,36 @@
 
 .sectionHeading h3 {
   margin: 3px 0 0;
-  color: rgba(248, 246, 241, 0.93);
+  color: var(--hv-text-primary);
   font-size: 16px;
   font-weight: 650;
 }
 
 .sectionHeading a {
   flex: 0 0 auto;
-  color: #d8b76e;
+  color: var(--hv-gold-light);
   font-size: 11px;
   font-weight: 750;
   text-decoration: none;
 }
 
-.moduleCard,
+/* Module cards use HarbourviewCard for surface; class is layout-only */
+.moduleCard {
+  min-width: 0;
+}
+
+/* Sibling command cards — same material language as HarbourviewCard */
 .impactCard,
 .pathCard,
 .practiceCard,
 .moduleDetail {
   min-width: 0;
-  border: 1px solid rgba(255, 255, 255, 0.085);
-  border-radius: 17px;
-  background: linear-gradient(155deg, rgba(12, 28, 46, 0.96), rgba(6, 17, 30, 0.94));
-  padding: 16px;
+  border: 1px solid var(--hv-panel-border-warm);
+  border-radius: 18px;
+  background: var(--hv-panel-strong);
+  color: var(--hv-ivory);
+  padding: 19px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.18);
 }
 
 .moduleCard h3,
@@ -206,7 +219,7 @@
 .practiceCard h3,
 .moduleDetail h3 {
   margin: 9px 0 0;
-  color: rgba(251, 249, 245, 0.95);
+  color: var(--hv-text-primary);
   font-size: 17px;
   font-weight: 620;
   line-height: 1.28;
@@ -223,7 +236,7 @@
 .practiceCard > p,
 .moduleDetail > p {
   margin: 7px 0 0;
-  color: rgba(226, 231, 238, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -233,7 +246,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: rgba(220, 184, 101, 0.86);
+  color: color-mix(in srgb, var(--hv-gold) 86%, transparent);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.07em;
@@ -249,24 +262,24 @@
 
 .status {
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 999px;
   padding: 4px 7px;
-  color: rgba(236, 239, 243, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 9px;
   letter-spacing: 0.04em;
   text-transform: none;
 }
 
 .status_current {
-  border-color: rgba(133, 196, 158, 0.36);
-  color: rgba(171, 218, 187, 0.9);
+  border-color: color-mix(in srgb, var(--hvm2-ok) 36%, transparent);
+  color: color-mix(in srgb, var(--hvm2-ok) 90%, transparent);
 }
 
 .status_stale,
 .status_review_required {
-  border-color: rgba(220, 184, 101, 0.4);
-  color: #ddbf7a;
+  border-color: color-mix(in srgb, var(--hv-gold) 40%, transparent);
+  color: var(--hv-gold-light);
 }
 
 .status_conflicting {
@@ -275,7 +288,7 @@
 }
 
 .status_unknown {
-  color: rgba(223, 227, 234, 0.54);
+  color: var(--hv-text-muted);
 }
 
 .metaRow {
@@ -283,7 +296,7 @@
   flex-wrap: wrap;
   gap: 6px 12px;
   margin-top: 10px;
-  color: rgba(221, 226, 233, 0.5);
+  color: var(--hv-text-muted);
   font-size: 10px;
   line-height: 1.4;
 }
@@ -297,9 +310,9 @@
 
 .topicRow span {
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
+  background: color-mix(in srgb, var(--hv-ivory) 4.5%, transparent);
   padding: 5px 8px;
-  color: rgba(230, 233, 238, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 10px;
 }
 
@@ -326,26 +339,26 @@
 }
 
 .primaryAction {
-  border: 1px solid rgba(220, 184, 101, 0.48);
-  background: rgba(220, 184, 101, 0.09);
-  color: #e2c278;
+  border: 1px solid color-mix(in srgb, var(--hv-gold) 48%, transparent);
+  background: color-mix(in srgb, var(--hv-gold) 9%, transparent);
+  color: var(--hv-gold-light);
 }
 
 .secondaryAction {
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(235, 238, 243, 0.72);
+  border: 1px solid var(--hvm2-border-soft);
+  background: color-mix(in srgb, var(--hv-ivory) 3%, transparent);
+  color: var(--hv-text-secondary);
 }
 
 .impactBlock {
   margin-top: 13px;
   padding-top: 11px;
-  border-top: 1px solid rgba(255, 255, 255, 0.065);
+  border-top: 1px solid var(--hvm2-border-soft);
 }
 
 .impactBlock p {
   margin: 4px 0 0;
-  color: rgba(232, 235, 240, 0.72);
+  color: var(--hv-text-secondary);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -363,11 +376,11 @@
   gap: 12px;
   width: 100%;
   min-height: 58px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 14px;
-  background: rgba(9, 22, 37, 0.72);
+  background: var(--hv-panel);
   padding: 12px 14px;
-  color: rgba(248, 246, 241, 0.9);
+  color: var(--hv-text-primary);
   font: inherit;
   font-size: 13px;
   font-weight: 750;
@@ -377,7 +390,7 @@
 }
 
 .actionGrid span {
-  color: rgba(220, 184, 101, 0.78);
+  color: color-mix(in srgb, var(--hv-gold) 78%, transparent);
   font-size: 10px;
   font-weight: 700;
   text-align: right;
@@ -390,9 +403,9 @@
 }
 
 .step {
-  border: 1px solid rgba(255, 255, 255, 0.065);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 12px;
-  background: rgba(2, 11, 21, 0.42);
+  background: var(--hv-panel);
   padding: 11px;
 }
 
@@ -404,19 +417,19 @@
 }
 
 .step > div > span {
-  color: rgba(220, 184, 101, 0.6);
+  color: color-mix(in srgb, var(--hv-gold) 60%, transparent);
   font-size: 10px;
 }
 
 .step > div > strong {
   min-width: 0;
-  color: rgba(242, 241, 237, 0.86);
+  color: var(--hv-text-primary);
   font-size: 12px;
   line-height: 1.35;
 }
 
 .step em {
-  color: rgba(223, 227, 232, 0.5);
+  color: var(--hv-text-muted);
   font-size: 9px;
   font-style: normal;
   text-transform: uppercase;
@@ -434,21 +447,21 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  color: rgba(224, 228, 235, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 10px;
   line-height: 1.4;
 }
 
 .step li strong {
   flex: 0 0 auto;
-  color: rgba(220, 184, 101, 0.72);
+  color: color-mix(in srgb, var(--hv-gold) 72%, transparent);
   font-size: 9px;
   font-weight: 750;
 }
 
 .step > p {
   margin: 7px 0 0 24px;
-  color: rgba(220, 225, 232, 0.48);
+  color: var(--hv-text-muted);
   font-size: 10px;
 }
 
@@ -457,18 +470,18 @@
   gap: 1px;
   overflow: hidden;
   margin-top: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.065);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.055);
+  background: color-mix(in srgb, var(--hv-ivory) 5.5%, transparent);
 }
 
 .pathModules a {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(4, 14, 25, 0.96);
+  background: var(--hv-panel-strong);
   padding: 11px;
-  color: rgba(240, 239, 235, 0.82);
+  color: var(--hv-text-primary);
   font-size: 11px;
   line-height: 1.4;
   text-decoration: none;
@@ -476,7 +489,7 @@
 
 .pathModules span {
   flex: 0 0 auto;
-  color: rgba(220, 184, 101, 0.72);
+  color: color-mix(in srgb, var(--hv-gold) 72%, transparent);
   font-size: 9px;
 }
 
@@ -484,9 +497,9 @@
 .evidenceGrid {
   display: grid;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.055);
+  background: color-mix(in srgb, var(--hv-ivory) 5.5%, transparent);
 }
 
 .capabilityList > div,
@@ -495,9 +508,9 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(5, 16, 28, 0.96);
+  background: var(--hv-panel-strong);
   padding: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  border-bottom: 1px solid var(--hvm2-border-soft);
 }
 
 .capabilityList > div:last-child,
@@ -506,13 +519,13 @@
 }
 
 .capabilityList span {
-  color: rgba(226, 230, 237, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 11px;
 }
 
 .capabilityList strong,
 .evidenceGrid strong {
-  color: rgba(241, 239, 234, 0.84);
+  color: var(--hv-text-primary);
   font-size: 10px;
   font-weight: 750;
   text-align: right;
@@ -526,7 +539,7 @@
 .libraryControls label > span {
   display: block;
   margin-bottom: 6px;
-  color: rgba(226, 230, 236, 0.54);
+  color: var(--hv-text-muted);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.07em;
@@ -537,18 +550,18 @@
   width: 100%;
   min-height: 44px;
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--hvm2-border-soft);
   border-radius: 12px;
   outline: none;
-  background: rgba(6, 17, 29, 0.8);
+  background: var(--hv-panel);
   padding: 0 13px;
-  color: rgba(249, 247, 241, 0.92);
+  color: var(--hv-text-primary);
   font: inherit;
   font-size: 13px;
 }
 
 .libraryControls input:focus {
-  border-color: rgba(220, 184, 101, 0.56);
+  border-color: color-mix(in srgb, var(--hv-gold) 56%, transparent);
 }
 
 .evidenceGrid {
@@ -576,18 +589,18 @@
   gap: 9px;
   margin-top: 13px;
   padding-top: 13px;
-  border-top: 1px solid rgba(255, 255, 255, 0.065);
+  border-top: 1px solid var(--hvm2-border-soft);
 }
 
 .moduleSection > span {
-  color: rgba(220, 184, 101, 0.55);
+  color: color-mix(in srgb, var(--hv-gold) 55%, transparent);
   font-size: 10px;
   padding-top: 2px;
 }
 
 .moduleSection h4 {
   margin: 0;
-  color: rgba(245, 243, 238, 0.9);
+  color: var(--hv-text-primary);
   font-size: 13px;
   font-weight: 700;
 }
@@ -595,22 +608,22 @@
 .moduleSection p {
   margin: 5px 0 0;
   white-space: pre-wrap;
-  color: rgba(227, 231, 238, 0.62);
+  color: var(--hv-text-secondary);
   font-size: 12px;
   line-height: 1.65;
 }
 
 .limitations {
-  border-top: 1px solid rgba(255, 255, 255, 0.065);
+  border-top: 1px solid var(--hvm2-border-soft);
   padding-top: 12px;
-  color: rgba(220, 225, 232, 0.5);
+  color: var(--hv-text-muted);
   font-size: 10px;
   line-height: 1.5;
 }
 
 .limitations summary {
   cursor: pointer;
-  color: rgba(220, 184, 101, 0.67);
+  color: color-mix(in srgb, var(--hv-gold) 67%, transparent);
   font-weight: 750;
 }
 
@@ -632,7 +645,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .moduleCard,
   .impactCard,
   .pathCard,
   .practiceCard,
