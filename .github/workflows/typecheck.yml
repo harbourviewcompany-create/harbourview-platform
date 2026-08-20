@@ -1,10 +1,11 @@
 name: Type check
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main, claude/intelligence-pipeline-complete]
+  # Automatic triggers removed: `ci.yml`'s "Type Check" job runs the identical
+  # `npm run typecheck` on the same push/pull_request events, and does so
+  # against a shared, cached node_modules rather than a separate
+  # `npm install` — so this workflow was a strictly more expensive duplicate.
+  # Kept dispatchable for running a typecheck in isolation on demand.
   workflow_dispatch:
 
 jobs:

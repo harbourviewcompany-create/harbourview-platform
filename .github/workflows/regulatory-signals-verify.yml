@@ -1,7 +1,12 @@
 name: Regulatory Signals Verify
 
 on:
-  pull_request:
+  # The `pull_request:` trigger here carried no branch or path filter, so this
+  # ran `npm ci` + typecheck + a full `next build` on every pull request in the
+  # repository. Its steps are generic — `ci.yml` already runs the same
+  # typecheck and build — and the only output unique to this workflow is the
+  # captured build log, which is specific to the regulatory-signals work.
+  # It stays wired to its own branch and to manual dispatch.
   workflow_dispatch:
   push:
     branches:

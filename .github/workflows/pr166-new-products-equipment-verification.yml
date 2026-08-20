@@ -4,6 +4,15 @@ on:
   pull_request:
     branches:
       - main
+    # Scoped to the surfaces this check actually covers. It previously ran a
+    # full install + typecheck + build + server boot on every PR to main to
+    # scan one marketplace route for leaked internal fields.
+    paths:
+      - 'app/marketplace/**'
+      - 'lib/marketplace/**'
+      - 'components/marketplace/**'
+      - 'tests/marketplace/**'
+      - '.github/workflows/pr166-new-products-equipment-verification.yml'
   workflow_dispatch:
 
 permissions:
