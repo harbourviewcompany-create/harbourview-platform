@@ -56,6 +56,12 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
     destination: '20260813010001_replay_extend_supply_catalog_equipment_to_australia.sql',
     before: '20260813020000_baseline_capture_reporting_and_triggers.sql',
   },
+  {
+    source: '20260820120000_heatmap_conflict_freeze_seed.sql',
+    sibling: '20260820120000_clinical_pilot_local_authorities_au_gb_br.sql',
+    destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
+    before: '20260820130000_hv_pipeline_optimization.sql',
+  },
 ]
 
 // Production had these named RLS policies before the reconstructed 20260719083306
