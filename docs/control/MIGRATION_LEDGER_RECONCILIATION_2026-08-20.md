@@ -112,3 +112,56 @@ whenever someone wants it; guessing 21 names unasked is not.
 - Does not change any schema object, function, policy or row of application data.
 - Does not resolve `20260819170000`; that clears when its pull request merges,
   and the gate stays red on `main` until it does.
+
+---
+
+## 5. Follow-up, same day: `20260820100423`
+
+After the reconciliation above merged, the drift gate went red again on the next
+push to `main`. The cause is the same one, a third time.
+
+| | |
+|---|---|
+| Live version | `20260820100423`, name `clinical_cross_border_formulary_check` |
+| Canonical repository file | `20260819190000_clinical_cross_border_formulary_check.sql` |
+| Repository `20260820100000` | `network_command_p1_introduction_status` — an **unrelated** migration, and not applied |
+
+The apply-time version resembles a repository version closely enough to be
+misread as one. It is not: nothing named `20260820100423` exists in the
+repository, and the file whose version is nearest shares neither its name nor
+its contents. Matching on the numeric prefix alone would have bound the
+equivalence to the wrong migration.
+
+Content verified before asserting anything, as in §2:
+
+```
+live  md5(array_to_string(statements, E'\n')) = acfeef2a39d8e894f5e5602a5efb5496, 5199 chars
+file  md5sum 20260819190000_clinical_cross_border_formulary_check.sql = acfeef2a39d8e894f5e5602a5efb5496, 5199 bytes
+```
+
+Byte count equals character count here — unlike §2, this file is pure ASCII.
+
+Recorded as an equivalence pinned to git blob
+`c0ee6a1a6edc8976a249839d59a1aed163abe86e`. Verified in both directions against
+the same tree: without the entry the manifest exits 1 naming `20260820100423`;
+with it, `2 historical aliases, gate GO`. Manifest tests still 14/14.
+
+### 5.1 This will keep happening
+
+Three occurrences in two days, all the same mechanism: `apply_migration` mints
+its own apply-time version, so applying through it *always* produces a ledger
+row the repository cannot match, and the drift gate goes red on `main` until
+someone writes an equivalence by hand.
+
+The equivalence manifest is the right record of a mismatch that already exists.
+It is a poor substitute for not creating them. Two ways out, neither taken here
+because both are changes to how releases are performed and that is not an
+agent's call:
+
+1. Apply via `execute_sql` in a transaction that writes the ledger row under the
+   canonical repository version — what was done for `20260819170000` (§1) and
+   why that one produced no equivalence entry.
+2. Apply only through `.github/workflows/apply-clinical-prescriber-os-production.yml`
+   or a generalisation of it, so the version comes from the filename.
+
+Worth deciding before the next apply, rather than after the fourth entry.
