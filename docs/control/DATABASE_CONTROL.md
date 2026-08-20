@@ -163,6 +163,16 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
   `20260730184257_fix_duplicate_dispatch_translate_and_embed.sql` (tick), or
   `20260723084602_stage_c_classifier_validation_gate.sql` (promotion). Do not
   restore the stale July baseline or drop the additive audit tables.
+- Replay fidelity: the temporary verification workspace alone restores the
+  missing `pg_trgm` prerequisite and policy identities, skips absent
+  production-local staging relations while hardening every extant relation,
+  evaluates the reconstructed `source_registry.content_type text[]` shape
+  correctly, places the recorded production-shape Clinical reconciliation before
+  its fail-closed preflight, additively reconciles the recorded legacy and
+  Prescriber OS concept, alias and claims-table contracts, resolves hard-coded
+  cron IDs through the recorded by-name successor and gives each exact duplicate
+  repository version a unique replay-only version. No checked migration
+  filename/body or production-ledger row is changed.
 - Required tests: full production-faithful zero-state replay through both files,
   same-database idempotent replay, PostgreSQL 17 targeted behavior,
   multilingual fixture recall, RLS/ACL assertions, SQL parse/static contracts,
