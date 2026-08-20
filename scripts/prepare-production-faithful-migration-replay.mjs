@@ -26,10 +26,9 @@ const REPLAY_ZERO_STATE_SKIPS = [
   '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
 ]
 
-// Repository-only reconciliation migrations can occasionally have a timestamp
-// later than the first historical migration that depends on the production
-// state they reconstruct. Relocate only an explicitly evidenced, production-
-// unapplied reconstruction/reconciliation file for zero-state replay; the
+// A recorded reconstruction/reconciliation can have a timestamp later than the
+// first historical migration that explicitly depends on the state it restores.
+// Relocate only an exact evidenced file inside the zero-state workspace; the
 // checked-in file and production migration ledger remain unchanged.
 const REPLAY_RELOCATIONS = [
   {
@@ -119,6 +118,81 @@ const REPLAY_CONTENT_PATCHES = [
     file: '20260816120000_auto_heatmap_from_signals.sql',
     anchor: `        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')`,
     replacement: `        or coalesce(s.content_type, '{}'::text[]) && array['regulatory', 'legislation', 'official_notice']::text[]`,
+  },
+  {
+    file: '20260818213000_clinical_prescriber_os_reconciliation.sql',
+    anchor: `create index if not exists clinical_evidence_claim_record_idx
+  on public.clinical_evidence_claims (evidence_record_id, status);`,
+    replacement: `-- Replay-only reconciliation of the two checked-in claim contracts. The
+-- earlier operating-system migration creates the legacy columns but explicitly
+-- seeds no rows; this later migration says it is additive yet CREATE TABLE IF
+-- NOT EXISTS alone cannot add the Prescriber OS columns used below.
+alter table public.clinical_evidence_claims
+  add column if not exists concept_id uuid references public.clinical_concepts(id) on delete set null,
+  add column if not exists claim_text text not null,
+  add column if not exists population text,
+  add column if not exists intervention text,
+  add column if not exists comparator text,
+  add column if not exists outcome text,
+  add column if not exists timeframe text,
+  add column if not exists direction text not null default 'uncertain'
+    check (direction in ('benefit','harm','neutral','uncertain')),
+  add column if not exists effect_measure text,
+  add column if not exists effect_value numeric,
+  add column if not exists effect_unit text,
+  add column if not exists ci_lower numeric,
+  add column if not exists ci_upper numeric,
+  add column if not exists absolute_effect text,
+  add column if not exists relative_effect text,
+  add column if not exists clinically_important_difference text,
+  add column if not exists certainty text not null default 'ungraded'
+    check (certainty in ('high','moderate','low','very-low','ungraded','conflicted')),
+  add column if not exists applicability text,
+  add column if not exists publication_family_id text,
+  add column if not exists independence_group_id text,
+  add column if not exists status text not null default 'review-required'
+    check (status in ('current','superseded','retracted','review-required')),
+  add column if not exists superseded_by_id uuid
+    references public.clinical_evidence_claims(id) on delete set null,
+  add column if not exists primary_source_url text not null,
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists reviewed_by uuid;
+
+-- The newer contract replaces these legacy mandatory inputs. Zero-state has no
+-- claim rows, so this changes no data and lets future Prescriber OS writes use
+-- the later authoritative fields.
+alter table public.clinical_evidence_claims
+  alter column claim_key drop not null,
+  alter column claim_kind drop not null,
+  alter column statement drop not null,
+  alter column verified_at drop not null,
+  alter column source_locator set not null;
+
+do $replay_claim_contract$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.clinical_evidence_claims'::regclass
+      and conname = 'clinical_evidence_claim_source_https'
+  ) then
+    alter table public.clinical_evidence_claims
+      add constraint clinical_evidence_claim_source_https
+      check (primary_source_url ~ '^https://');
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.clinical_evidence_claims'::regclass
+      and conname = 'clinical_evidence_claim_locator_nonempty'
+  ) then
+    alter table public.clinical_evidence_claims
+      add constraint clinical_evidence_claim_locator_nonempty
+      check (length(btrim(source_locator)) > 0);
+  end if;
+end
+$replay_claim_contract$;
+
+create index if not exists clinical_evidence_claim_record_idx
+  on public.clinical_evidence_claims (evidence_record_id, status);`,
   },
 ]
 
@@ -328,9 +402,9 @@ if (isDirect) {
       for (const file of zeroStateSkips) console.log(`- ${file}`)
     }
     if (relocations.length === 0) {
-      console.log('Production-faithful replay: no repository-only reconstruction/reconciliation files require earlier replay ordering.')
+      console.log('Production-faithful replay: no reconstruction/reconciliation files require earlier replay ordering.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
+      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
       }

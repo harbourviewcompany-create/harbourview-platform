@@ -364,7 +364,7 @@ test('synthetic education policy foundation fails closed when its boundary or pr
 
 test('replay hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 2)
+  assert.equal(contentPatches.length, 3)
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
 
@@ -393,6 +393,29 @@ test('replay evaluates source_registry content_type using its reconstructed text
   assert.equal(original.includes(patch.anchor), true)
   assert.match(patch.replacement, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
   assert.match(patch.replacement, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
+})
+
+test('replay reconciles the legacy and Prescriber OS clinical claim contracts additively', () => {
+  const file = '20260818213000_clinical_prescriber_os_reconciliation.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const legacy = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260816150000_clinical_evidence_operating_system.sql'),
+    'utf8',
+  )
+  const prescriber = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.match(legacy, /No claim rows are inferred or seeded by this migration/i)
+  assert.match(legacy, /claim_key text not null/i)
+  assert.match(legacy, /statement text not null/i)
+  assert.match(prescriber, /create table if not exists public\.clinical_evidence_claims/i)
+  assert.match(prescriber, /concept_id uuid references public\.clinical_concepts/i)
+  assert.match(prescriber, /status text not null default 'review-required'/i)
+  assert.equal(prescriber.includes(patch.anchor), true)
+  assert.match(patch.replacement, /add column if not exists claim_text text not null/i)
+  assert.match(patch.replacement, /add column if not exists primary_source_url text not null/i)
+  assert.match(patch.replacement, /alter column claim_key drop not null/i)
+  assert.match(patch.replacement, /alter column source_locator set not null/i)
 })
 
 test('production-local relation guard is suppressed when the exact migration is absent', () => {
