@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { JOB_LISTINGS, JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
 import {
   MOBILE_COMMAND_COPY,
