@@ -51,6 +51,40 @@ both green locally; not yet merged or verified in production. Org creation flow 
 `app/api/org/create`) was also audited this session — end-to-end (create → validate → membership →
 passport profile → redirect) is already complete, no gaps found.
 
+## RESOLVED — Command Centre standalone-page wiring, tooling repair, dossier relocation (2026-08-17)
+
+Three PRs merged this session, all verified present on live `main` post-merge by direct content
+check rather than trusted from the merge API response alone: `#1439` (subscription/billing
+threading + a search-toggle rendering bug fix — reused already-landed `MyBriefingsPanel`/
+`CultivarPassportModal`/`DealRoomsPanel` wiring from parallel work rather than duplicating it, after
+checking main first), `#1526` (moved `DesktopDecisionIntelBridge` from a global every-page banner
+into a proper Dossiers sub-tab inside Signals/Intel — confirmed the correct placement via mobile's
+own `'Intel'` section labeling before moving anything), `#1547` (fixed a 100%-reproducing
+`npx eslint .` crash — lockfile drift + an `eslint-plugin-react`/`eslint 10` incompatibility — plus
+the 3 real errors the working lint run then revealed). Full detail, root-cause diagnosis, and exact
+verification commands for each in `docs/control/EVIDENCE_LOG.md`
+(`HV-PR1439-*`, `HV-PR1526-DOSSIER-INTEL-SUBTAB-20260817`, `HV-PR1547-ESLINT-CRASH-REPAIR-20260817`).
+
+**Most material thing found, not fixed:** `scripts/test-regulatory-signals-contract.mjs` fails with
+`Projection layer not enforced` on production `main` right now — reproduced in a completely
+separate, freshly-cloned copy of clean `main` to confirm it's genuinely pre-existing, not caused by
+anything in this session's PRs. Left alone: the regulatory-signals projection-layer enforcement
+logic is unfamiliar domain territory this session has no context on. Needs an owner.
+
+**Also found, not fixed — real but lower urgency:** `Workers Builds: harbourview` fails in CI;
+confirmed via a real local `npx wrangler deploy --dry-run` (bundles successfully, 783.53 KiB, zero
+errors) that this is Cloudflare dashboard-side build-command drift, not a code defect — outside what's
+verifiable or fixable from this environment. 6 `react-hooks/preserve-manual-memoization` errors in
+`ClinicalEvidenceCommandPage.tsx`, newly visible now that lint actually runs — left for that area's
+owner rather than guessed at.
+
+**Governance note.** A Command feature freeze was in force for part of this session
+(`#1461`/`#1456`/Type-Check/Security-Leakage as stated conditions — all confirmed green before any
+further merge). `#1452` (Jurisdiction operator command system) was open throughout with real,
+unresolved conflicts against `mobile-command/` files this session also touched — deliberately left
+untouched rather than rebased by this session, to avoid recreating the exact collision the freeze
+existed to prevent. Still open as of this entry.
+
 ## OPEN — Frontend dashboard optimization plan (2026-07-19)
 
 A findings + task doc from a frontend/IA audit of the Command Centre dashboard is filed at

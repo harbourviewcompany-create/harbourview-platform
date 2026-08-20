@@ -5003,3 +5003,45 @@ Production pre-flight (read-only): retirement predicate matches **0** rows on fi
 **Known gap, not closed.** Desktop Genetics still has no content contract — mobile asserts twelve properties of the rendered cultivar data, desktop asserts render + redaction + no overflow. Writing the desktop equivalent requires fixture detail not available from this environment (the Actions artifact host is blocked by the network policy).
 
 **Decision:** **GO for the repository change.** No production action; nothing to apply.
+
+---
+
+**Evidence ID:** `HV-PR1526-DOSSIER-INTEL-SUBTAB-20260817`
+
+**Scope:** repository-only. `DesktopDecisionIntelBridge` relocated from a global banner rendered above every Command Centre page (`DashboardResponsiveShell.tsx`) into a dedicated Dossiers sub-tab within the Signals/Intel section (`CommandCentre.tsx`). No migration, no schema change.
+
+**Diagnosis.** The bridge was correctly wired for data (`decisionIntelAccess` computed server-side in `app/dashboard/page.tsx`, deduped `signals`+`digestSignals` merge) but placed outside `<CommandCentre>` entirely, so it rendered unconditionally on Briefing, Marketplace, Genetics, Settings — every page — whenever any dossier-eligible signal existed, with no relationship to which section the user was viewing.
+
+**Placement verified, not assumed.** Confirmed via `mobile-command/contracts.ts`: the `weekly-signals` `PrimarySectionId` group is labeled `'Intel'` and maps to desktop `CommandPage` `'signals'` (`SECTION_TO_DESKTOP_PAGE`), same icon (`≋`) as desktop's own `signals` nav entry (`label: 'Intelligence'`) — confirmed these are the same conceptual section across platforms before moving anything.
+
+**Change.** `DashboardResponsiveShell.tsx`: removed the global placement and its `desktopDossierSignals` dedup `useMemo`; `decisionIntelAccess` now threads into `CommandCentre.tsx` instead (mobile's threading was already correct via `props.decisionIntelAccess`, untouched). `CommandCentre.tsx`: added `decisionIntelAccess` to `Props`, threaded `digestSignals` into `SignalsPage` (needed for the same dedup, moved from the shell), replaced the single `showSearch` boolean with a 3-way tab (`'feed' | 'search' | 'dossiers'`). Dossiers tab only renders when `dossierSignals.length > 0`, matching the bridge component's own self-gating.
+
+**Verification.** `tsc --noEmit` clean. `npm run test` 168 tests pass. `npm run test:security` 114 tests pass. `npx eslint .` could not run at merge time — repo-wide pre-existing crash, fixed separately in `#1547` below. Full local `next build` run separately (see `#1547` entry) succeeded on a near-identical tree.
+
+**Mergeability note.** `Workers Builds: harbourview-platform` failed on this PR's head at merge time. Confirmed via `npx wrangler deploy --dry-run` (see `#1547` entry, same investigation) that the underlying worker bundles and typechecks cleanly locally — treated as the same dashboard-config-drift condition, not a code defect, and not blocking.
+
+**Decision:** **GO.** Merged as `7324072` (squash), verified present on live `main` post-merge by direct content check (`grep -c signalsTab` in the fetched file), not just trusted from the merge API response.
+
+---
+
+**Evidence ID:** `HV-PR1547-ESLINT-CRASH-REPAIR-20260817`
+
+**Scope:** repository + tooling. Fixes a 100%-reproducing `npx eslint .` crash (confirmed pre-existing via isolated fresh clone of clean `main`, unrelated to any code change), plus the 3 real errors it revealed once able to run to completion. No migration, no schema change.
+
+**Root cause, actually diagnosed.** Two layered issues:
+1. `package-lock.json` had `eslint-config-next` resolved to `16.3.0`; `package.json` requires exactly `16.3.1`. `npm ls` flagged the resolution `invalid`. Lockfile drift, fixed with `npm install eslint-config-next@16.3.1`, then the accidental caret-range mutation that command made to `package.json`'s exact pin (`16.3.1` → `^16.3.1`) was reverted by hand to preserve original intent.
+2. That drift was real but not the crash cause: `eslint-plugin-react@7.37.5` — confirmed via `npm view eslint-plugin-react versions` to be the latest available release, no newer version exists — does not support `eslint@10.8.1`'s newer flat-config context API. Crash: `contextOrFilename.getFilename is not a function`, during the plugin's automatic React-version detection (triggered by `settings.react.version` defaulting to `'detect'`). Fixed by setting an explicit `settings: { react: { version: '19.2.8' } }` block in `eslint.config.mjs`. Placement required care: had to be inserted *after* the `eslint-config-next` preset spreads (`...nextCoreWebVitals, ...nextTypescript`), not before — flat config settings merge in array order and the presets' own `'detect'` would otherwise win. Verified both orderings directly rather than assumed.
+
+**Errors the working lint run revealed, and disposition.**
+- 3× `@next/next/no-assign-module-variable` (`EducationCommandSection.tsx`, `educationCommandQuery.ts` ×2) — local variables named `module` colliding with the reserved CommonJS/webpack global. Fixed: mechanical rename to `mod`, zero behavior change. Checked against `#1452`'s changed-file list first (no overlap) before touching, given the active feature freeze.
+- 6× `react-hooks/preserve-manual-memoization` in `ClinicalEvidenceCommandPage.tsx` — left alone. Fixing requires understanding intent in Clinical Command code outside this session's context; flagged for that area's owner rather than guessed at.
+
+**Investigated, not fixed — confirmed outside what's fixable from this environment.** `Workers Builds: harbourview` failing in CI. Its `wrangler.toml` `[build] command = "npm run typecheck"` passes cleanly locally; a real `npx wrangler deploy --dry-run` bundles the worker successfully (783.53 KiB, gzip 157.23 KiB, zero errors) using that exact command. The dashboard's actual configured build command is external to this repo and not independently verifiable from here — treated as dashboard-side drift, not a code defect.
+
+**Two additional failures hit at merge time, investigated rather than dismissed:**
+- `Production-shaped migration, lineage and RLS` (self-contained: spins up its own Postgres 17, applies two fixed migration files by exact path, asserts row counts and RLS grants) — read the full workflow script; it cannot be affected by anything in this PR's diff (no file touched is referenced by the fixture or the two hardcoded migration paths). Cross-checked against other concurrently-open PRs: mixed pass/fail unrelated to content, consistent with a pre-existing condition on those two migration files rather than a diff-specific regression.
+- `Regulatory Signals contract test` (`scripts/test-regulatory-signals-contract.mjs`) — reproduced locally: `Projection layer not enforced`. **Reproduced in a completely separate, freshly-cloned copy of clean `main`** (`/tmp/main-clean-check`, deleted after use) with zero of this PR's changes present — confirmed genuinely pre-existing, not caused by this PR. Not fixed: the projection-layer enforcement logic is unfamiliar domain territory (regulatory signals data-access layer) outside tonight's scope. **Flagged as the most material open item in this session — a live data-access contract test is failing on production `main` right now, independent of anything in this PR.**
+
+**Verification.** `tsc --noEmit` clean. `npx eslint .` now completes (was crashing every time before this commit) — 6 errors remain (all in `ClinicalEvidenceCommandPage.tsx`, left for its owner), 197 pre-existing warnings, down from 9 errors. `npm run test` 168 pass. `npm run test:security` 114 pass. `npm run build` succeeded locally (full route list, exit 0) on a near-identical tree during this same investigation.
+
+**Decision:** **GO for the repository change.** Merged as `5cb9c41` (squash), verified present on live `main` post-merge by direct content check, not just trusted from the merge API response. The regulatory-signals projection-layer failure noted above is **not resolved by this PR** and needs owner attention independent of it.
