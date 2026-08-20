@@ -79,7 +79,7 @@ const CANONICAL_MOBILE_SECTION_BY_PAGE: Readonly<Record<CommandPage, SectionId>>
   assistant: 'search',
   documents: 'review-gates',
   events: 'network',
-  experts: 'directories',
+  experts: 'network',
   banking: 'financing',
   notifications: 'next-actions',
   kyb: 'review-gates',
