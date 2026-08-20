@@ -19,6 +19,12 @@ export type BriefingCadenceSeed = {
   frequency?: 'daily' | 'weekly'
 }
 
+function clampText(value: string, max: number) {
+  const trimmed = value.trim()
+  if (trimmed.length <= max) return trimmed
+  return `${trimmed.slice(0, max - 1).trimEnd()}…`
+}
+
 function signalContextMatches(signal: Signal, countryLabel: string) {
   const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
   return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
@@ -78,13 +84,22 @@ export function PersonalBriefingSection({
   reviewStatus: string
   sourceCoverageCount: number
   nextAction?: NextAction
-  /** Optional seed from parent/server to avoid empty form flash before API hydrate. */
   initialCadence?: BriefingCadenceSeed
 }) {
   const contextualSignal = signals.find(signal => signalContextMatches(signal, countryLabel))
   const signalAnalysis = asRecord(asRecord(contextualSignal).analysis)
-  const whatChanged = contextualSignal ? readString(signalAnalysis, ['what_changed'], readString(contextualSignal, ['title'], '')) : ''
-  const whyItMatters = contextualSignal ? readString(contextualSignal, ['commercialImpact', 'commercial_impact'], '') : ''
+  const whatChanged = contextualSignal
+    ? clampText(
+        readString(signalAnalysis, ['what_changed'], '')
+        || readString(contextualSignal, ['title'], ''),
+        120,
+      )
+    : ''
+  const whyItMatters = contextualSignal
+    ? clampText(readString(contextualSignal, ['commercialImpact', 'commercial_impact'], ''), 120)
+    : ''
+  const narrativeShort = clampText(narrative, 420)
+
   const [marketsInput, setMarketsInput] = useState(() =>
     Array.isArray(initialCadence?.markets) && initialCadence.markets.length > 0
       ? initialCadence.markets.join(', ')
@@ -110,9 +125,7 @@ export function PersonalBriefingSection({
     fetch('/api/dashboard/my-briefings')
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => applyCadence(data?.cadence))
-      .catch(() => {
-        /* keep seed / last known values */
-      })
+      .catch(() => { /* keep seed */ })
   }, [applyCadence])
 
   useEffect(() => {
@@ -146,24 +159,24 @@ export function PersonalBriefingSection({
     <SectionShell
       id="personal-briefing"
       sectionRef={sectionRef}
-      eyebrow="Personal briefing"
-      title={`${roleShort} briefing for ${countryLabel}`}
-      description="A deterministic summary of the active jurisdiction, market pipeline, signal feed and next operational decisions."
+      eyebrow="Intel"
+      title={`${roleShort} briefing · ${countryLabel}`}
+      description="What changed, why it matters, and how often to refresh this context."
     >
       <div className="hvm2-briefing-decision-grid" aria-label="Briefing decision summary">
         <article>
           <span>What changed</span>
-          <strong>{whatChanged || 'No jurisdiction-matched change in the loaded feed.'}</strong>
+          <strong>{whatChanged || 'No matched change in feed.'}</strong>
         </article>
         <article>
           <span>Why it matters</span>
-          <strong>{whyItMatters || 'No commercial-impact statement loaded for the matched signal.'}</strong>
+          <strong>{whyItMatters || 'No impact statement loaded.'}</strong>
         </article>
       </div>
 
       <article className="hvm2-narrative-card hvm2-briefing-narrative">
-        <span className="hvm2-intel-kicker">Longer briefing</span>
-        <p>{narrative}</p>
+        <span className="hvm2-intel-kicker">Context</span>
+        <p>{narrativeShort}</p>
         <div className="hvm2-narrative-grid">
           <div><span>Commercial records</span><strong>{marketplaceCount}</strong></div>
           <div><span>Signals tracked</span><strong>{signalCount}</strong></div>
@@ -181,13 +194,10 @@ export function PersonalBriefingSection({
 
       <div className="hvm2-briefing-cadence" aria-label="Briefing cadence">
         <span className="hvm2-intel-kicker">Briefing cadence</span>
-        <p>
-          Choose markets (ISO2) and how often Harbourview should synthesize a personal briefing.
-          When active, the daily cron can email via Resend (same path as signal digests).
-        </p>
+        <p>Markets (ISO2) and how often to synthesize this briefing.</p>
         <div className="hvm2-cadence-row">
           <label>
-            <span>Markets (comma-separated ISO2)</span>
+            <span>Markets</span>
             <input
               value={marketsInput}
               onChange={(e) => setMarketsInput(e.target.value)}
@@ -210,7 +220,7 @@ export function PersonalBriefingSection({
           </label>
         </div>
         <button type="button" className="hvm2-cadence-save" onClick={saveCadence} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving…' : 'Save cadence'}
         </button>
         {saveMsg ? <p className="hvm2-cadence-msg" role="status">{saveMsg}</p> : null}
       </div>
@@ -379,22 +389,22 @@ export function RegulatoryWatchSection({
     <SectionShell
       id="regulatory"
       sectionRef={sectionRef}
-      eyebrow="Intel / regulatory watch"
-      title="Regulatory change under watch"
-      description="Tracked regulatory objects, active watch rules and the reviewed posture of the current jurisdiction."
-      action={<Link className="hvm2-text-link" href={commandHref('jurisdiction')}>Open jurisdiction context</Link>}
+      eyebrow="Intel"
+      title="Regulatory watch"
+      description="Tracked items, keyword rules, and jurisdiction posture."
+      action={<Link className="hvm2-text-link" href={commandHref('jurisdiction')}>Jurisdiction →</Link>}
     >
       <div className="hvm2-metric-grid hvm2-regulatory-metrics">
         <Metric label="Tracked items" value={items.length} detail="Under active watch" />
         <Metric label="Watch rules" value={activeRules} detail="Active keyword rules" />
         <Metric label="Rule hits" value={ruleHits.length} detail="In this session feed" />
-        <Metric label="Source coverage" value={sourceCoverageCount} detail="Registered jurisdiction sources" />
+        <Metric label="Source coverage" value={sourceCoverageCount} detail="Registered sources" />
       </div>
 
       {regulatoryTier || outlook ? (
         <article className="hvm2-note hvm2-regulatory-posture">
           {regulatoryTier ? <StatusPill>{regulatoryTier}</StatusPill> : null}
-          {outlook ? <p>{outlook}</p> : null}
+          {outlook ? <p>{clampText(outlook, 280)}</p> : null}
         </article>
       ) : null}
 
@@ -423,7 +433,7 @@ export function RegulatoryWatchSection({
           ) : (
             <EmptyState
               title="No matches in this session"
-              detail="Active keyword rules did not hit any signal currently loaded into Command Centre. Silence here is not a guarantee the full corpus is quiet."
+              detail="Active keyword rules did not hit any signal currently loaded into Command Centre."
             />
           )}
         </section>
@@ -472,9 +482,9 @@ export function LocalIntelSection({
     <SectionShell
       id="local-intel"
       sectionRef={sectionRef}
-      eyebrow="Intel / local intelligence"
-      title={`Jurisdiction intelligence for ${countryLabel}`}
-      description="National authorities, subdivision differences, market-access routes, constraints and unresolved local questions in the reviewed record set."
+      eyebrow="Intel"
+      title={`Local intelligence · ${countryLabel}`}
+      description="Authorities, subdivisions, routes, constraints and open questions."
     >
       {!localIntel || coverage !== 'available' ? (
         <EmptyState
