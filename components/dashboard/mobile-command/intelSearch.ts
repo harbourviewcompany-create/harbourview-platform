@@ -137,9 +137,6 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
   input.signals.forEach((signal, index) => {
     const item = asRecord(signal)
     const analysis = asRecord(item.analysis)
-    // Prefer explicit English title fields when present; DashboardSignal.title is
-    // already mapped via displayHeadline upstream, but older loaders may still
-    // attach title_en / headline_en alongside a raw headline.
     const title = readString(
       item,
       ['title_en', 'headline_en', 'title', 'headline'],
@@ -310,7 +307,7 @@ export function buildCommandSearchIndex(input: BuildCommandSearchIndexInput): Co
     })
   }
 
-  // Directory records land on Network — Directories section was removed.
+  // Directory records land on Network — Directories section was removed from SectionId.
   input.directories.forEach((entry, index) => records.push({
     id: `directory-${entry.id || index}`,
     kind: 'directory',
@@ -408,8 +405,6 @@ function rankRecord(record: CommandSearchRecord, query: string, activeCountry?: 
     score = tokens.length > 1 && tokens.every(token => record.searchableText.includes(token)) ? 20 : -1
   }
 
-  // Active Command Centre jurisdiction: boost true context matches so a
-  // Germany-scoped session is not dominated by weak global string hits.
   if (score >= 0 && active && jurisdiction && (jurisdiction === active || jurisdiction.includes(active) || active.includes(jurisdiction))) {
     score += 18
   }
