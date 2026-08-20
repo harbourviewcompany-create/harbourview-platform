@@ -7,6 +7,7 @@ import {
   planReplayExclusions,
   planReplayRelocations,
   planReplaySyntheticFoundations,
+  planReplayVersionCollisionRenames,
   planReplayZeroStateSkips,
 } from '../../scripts/prepare-production-faithful-migration-replay.mjs'
 
@@ -20,6 +21,7 @@ const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
 const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
 const relocations = planReplayRelocations({ migrationFiles })
+const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
 const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
 const contentPatches = planReplayContentPatches({ migrationFiles })
 
@@ -186,6 +188,54 @@ test('replay relocation is suppressed unless source, destination boundary and or
         '20260701230000_corridor_intelligence_tables_stub.sql',
         '20260701180750_replay_corridor_intelligence_tables_stub.sql',
         '20260701180751_remote_applied_repair.sql',
+      ],
+    }),
+    [],
+  )
+})
+
+test('replay disambiguates the two independent 20260813010000 migrations without dropping either body', () => {
+  assert.deepEqual(versionCollisionRenames, [
+    {
+      source: '20260813010000_extend_supply_catalog_equipment_to_australia.sql',
+      sibling: '20260813010000_baseline_capture_pipeline_task_queue.sql',
+      destination: '20260813010001_replay_extend_supply_catalog_equipment_to_australia.sql',
+      before: '20260813020000_baseline_capture_reporting_and_triggers.sql',
+    },
+  ])
+
+  const source = fs.readFileSync(
+    path.join(root, 'supabase/migrations', versionCollisionRenames[0].source),
+    'utf8',
+  )
+  const sibling = fs.readFileSync(
+    path.join(root, 'supabase/migrations', versionCollisionRenames[0].sibling),
+    'utf8',
+  )
+  assert.match(source, /update public\.listings/i)
+  assert.match(source, /repository-only pending/i)
+  assert.match(sibling, /create table public\.pipeline_tasks/i)
+  assert.match(sibling, /create table public\.dead_letter_tasks/i)
+})
+
+test('duplicate-version replay rename fails closed unless the exact two-file collision and boundary remain', () => {
+  const source = '20260813010000_extend_supply_catalog_equipment_to_australia.sql'
+  const sibling = '20260813010000_baseline_capture_pipeline_task_queue.sql'
+  const boundary = '20260813020000_baseline_capture_reporting_and_triggers.sql'
+
+  assert.deepEqual(planReplayVersionCollisionRenames({ migrationFiles: [] }), [])
+  assert.deepEqual(planReplayVersionCollisionRenames({ migrationFiles: [source, sibling] }), [])
+  assert.equal(
+    planReplayVersionCollisionRenames({ migrationFiles: [source, sibling, boundary] }).length,
+    1,
+  )
+  assert.deepEqual(
+    planReplayVersionCollisionRenames({
+      migrationFiles: [
+        source,
+        sibling,
+        boundary,
+        '20260813010000_unexpected_third_collision.sql',
       ],
     }),
     [],

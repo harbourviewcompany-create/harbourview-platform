@@ -44,6 +44,20 @@ const REPLAY_RELOCATIONS = [
   },
 ]
 
+// Supabase's migration ledger keys on the fourteen-digit version, so two
+// independent checked-in files with the same version cannot both replay. Keep
+// both bodies and move only the repository-only Australia update to an unused
+// adjacent version in the temporary workspace. Neither source file nor the
+// production ledger is renamed.
+const REPLAY_VERSION_COLLISION_RENAMES = [
+  {
+    source: '20260813010000_extend_supply_catalog_equipment_to_australia.sql',
+    sibling: '20260813010000_baseline_capture_pipeline_task_queue.sql',
+    destination: '20260813010001_replay_extend_supply_catalog_equipment_to_australia.sql',
+    before: '20260813020000_baseline_capture_reporting_and_triggers.sql',
+  },
+]
+
 // Production had these named RLS policies before the reconstructed 20260719083306
 // ALTER POLICY migration ran. Current repository history rebuilds the tables but
 // not the policy identities, so zero-state replay cannot execute the recorded
@@ -155,6 +169,37 @@ export function planReplayRelocations({ migrationFiles }) {
   })
 }
 
+export function planReplayVersionCollisionRenames({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_VERSION_COLLISION_RENAMES.filter((item) => {
+    if (
+      !fileSet.has(item.source) ||
+      !fileSet.has(item.sibling) ||
+      !fileSet.has(item.before) ||
+      fileSet.has(item.destination)
+    ) return false
+
+    const sourceVersion = migrationVersion(item.source)
+    const siblingVersion = migrationVersion(item.sibling)
+    const destinationVersion = migrationVersion(item.destination)
+    const beforeVersion = migrationVersion(item.before)
+    const collisionFiles = migrationFiles.filter(
+      (file) => migrationVersion(file) === sourceVersion,
+    )
+    return Boolean(
+      sourceVersion &&
+        sourceVersion === siblingVersion &&
+        destinationVersion &&
+        beforeVersion &&
+        sourceVersion < destinationVersion &&
+        destinationVersion < beforeVersion &&
+        collisionFiles.length === 2 &&
+        collisionFiles.includes(item.source) &&
+        collisionFiles.includes(item.sibling),
+    )
+  })
+}
+
 export function planReplaySyntheticFoundations({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_SYNTHETIC_FOUNDATIONS.filter((item) => {
@@ -178,6 +223,7 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
   const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
+  const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
   const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
   const contentPatches = planReplayContentPatches({ migrationFiles })
 
@@ -203,6 +249,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (fs.existsSync(destination)) throw new Error(`Replay relocation destination already exists: ${item.destination}`)
       fs.renameSync(source, destination)
     }
+    for (const item of versionCollisionRenames) {
+      const source = path.join(migrationDirectory, item.source)
+      const destination = path.join(migrationDirectory, item.destination)
+      if (!fs.existsSync(source)) throw new Error(`Replay version-collision source disappeared: ${item.source}`)
+      if (fs.existsSync(destination)) throw new Error(`Replay version-collision destination already exists: ${item.destination}`)
+      fs.renameSync(source, destination)
+    }
     for (const item of syntheticFoundations) {
       const destination = path.join(migrationDirectory, item.destination)
       if (fs.existsSync(destination)) throw new Error(`Replay synthetic foundation already exists: ${item.destination}`)
@@ -223,14 +276,28 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
     }
   }
 
-  return { exclusions, zeroStateSkips, relocations, syntheticFoundations, contentPatches }
+  return {
+    exclusions,
+    zeroStateSkips,
+    relocations,
+    versionCollisionRenames,
+    syntheticFoundations,
+    contentPatches,
+  }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const { exclusions, zeroStateSkips, relocations, syntheticFoundations, contentPatches } = runReplayPreparation({ apply })
+    const {
+      exclusions,
+      zeroStateSkips,
+      relocations,
+      versionCollisionRenames,
+      syntheticFoundations,
+      contentPatches,
+    } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
@@ -251,6 +318,14 @@ if (isDirect) {
       console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
+      }
+    }
+    if (versionCollisionRenames.length === 0) {
+      console.log('Production-faithful replay: no duplicate migration versions require temporary disambiguation.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'disambiguated' : 'would disambiguate'} ${versionCollisionRenames.length} duplicate migration version(s):`)
+      for (const item of versionCollisionRenames) {
+        console.log(`- ${item.source} -> ${item.destination}; sibling ${item.sibling}`)
       }
     }
     if (syntheticFoundations.length === 0) {
