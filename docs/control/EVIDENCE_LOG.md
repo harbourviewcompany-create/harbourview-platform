@@ -5073,7 +5073,9 @@ The full suite runs in about 13 seconds, so runtime was never the reason. 11 sui
 
 **Measured and deliberately not acted on.** The advisor's 78 unindexed-foreign-key notices: every referencing table is tiny — largest is `editorial_items` at 1,068 rows, most under 30 — so Postgres will sequential-scan regardless and 73 new indexes would only add write cost, recreating the 479-unused-index problem. Revisit per-table as any of them grows.
 
-**Not applied.** Per `docs/control/AGENT_OPERATING_FACTS.md`, merging a migration does not apply it, and applying needs explicit sign-off. Production is unchanged.
+**Withdrawn from this PR — migration freeze.** The migration was written, then reverted (`d986694`) after CI surfaced a control this session had not accounted for: the `contracts-and-control` job runs `git diff --exit-code <pinned-sha> HEAD -- supabase/migrations`, asserting the migration directory is byte-identical to commit `c9a172c2a8b77cf12088ab523bfa2187294395b0`. Any new migration file fails that gate by design. The freeze is deliberate and was not worked around; the index cleanup is ready to land as its own change once it lifts. Its full rationale is preserved in the reverted commit `4c1dca8`.
+
+Independently of the freeze: per `docs/control/AGENT_OPERATING_FACTS.md`, merging a migration does not apply it, and applying needs explicit sign-off. Production is unchanged.
 
 **Verification.**
 - `npm run typecheck` — exit 0.
