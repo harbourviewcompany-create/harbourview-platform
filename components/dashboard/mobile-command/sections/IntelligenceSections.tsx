@@ -97,7 +97,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
     <SectionShell id="weekly-signals" sectionRef={sectionRef} eyebrow="Intel / material changes" title="Intelligence requiring a decision" description="Jurisdiction matches for the active context appear first. Open supported events for evidence, unknowns and a reasoned decision posture.">
       {orderedSignals.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
-          {orderedSignals.map(({ signal, contextual }) => {
+          {orderedSignals.map(({ signal, contextual }, listIndex) => {
             const analysis = asRecord(asRecord(signal).analysis)
             const whatChanged = readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
             const recommendedAction = readString(analysis, ['recommended_action'], '')
@@ -114,16 +114,17 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
             const dossierHref = hasDossier
               ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
               : null
+            const isPrimary = listIndex === 0
 
             const article = (
-              <article className="hvm2-intel-signal-card">
+              <article className={`hvm2-intel-signal-card${isPrimary ? ' hvm2-intel-primary' : ''}`}>
                 <div className="hvm2-card-topline">
                   <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
                   <span>{market}</span>
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal&apos;s jurisdiction metadata.</small> : null}
+                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
                 </div>
                 <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
                 {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
@@ -191,33 +192,43 @@ export function PersonalBriefingSection({
   const signalAnalysis = asRecord(asRecord(contextualSignal).analysis)
   const whatChanged = contextualSignal ? readString(signalAnalysis, ['what_changed'], readString(contextualSignal, ['title'], '')) : ''
   const whyItMatters = contextualSignal ? readString(contextualSignal, ['commercialImpact', 'commercial_impact'], '') : ''
-  const recommendedAction = contextualSignal ? readString(signalAnalysis, ['recommended_action'], '') : ''
+  const [marketsInput, setMarketsInput] = useState('CA, DE, AU')
+  const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily')
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+
+  async function saveCadence() {
+    setSaving(true)
+    setSaveMsg(null)
+    const markets = marketsInput
+      .split(/[,\s]+/)
+      .map((s) => s.trim().toUpperCase())
+      .filter((s) => /^[A-Z]{2}$/.test(s))
+    try {
+      const res = await fetch('/api/dashboard/briefing-preferences', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markets, frequency, active: true }),
+      })
+      if (!res.ok) throw new Error('save failed')
+      setSaveMsg('Cadence saved.')
+    } catch {
+      setSaveMsg('Could not save cadence. Try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <SectionShell id="personal-briefing" sectionRef={sectionRef} eyebrow="Personal briefing" title={`${roleShort} briefing for ${countryLabel}`} description="A deterministic summary of the active jurisdiction, market pipeline, signal feed and next operational decisions.">
       <div className="hvm2-briefing-decision-grid" aria-label="Briefing decision summary">
         <article>
           <span>What changed</span>
-          <strong>{whatChanged || 'Unknown'}</strong>
-          {!whatChanged ? <p>No jurisdiction-matched change is present in the loaded signal feed.</p> : null}
+          <strong>{whatChanged || 'No jurisdiction-matched change in the loaded feed.'}</strong>
         </article>
         <article>
           <span>Why it matters</span>
-          <strong>{whyItMatters || 'Unknown'}</strong>
-          {!whyItMatters ? <p>No supported commercial-impact statement is loaded for the current matched signal.</p> : null}
-        </article>
-        <article>
-          <span>Evidence state</span>
-          <strong>{reviewStatus || 'Unknown'}</strong>
-          <p>{sourceCoverageCount > 0 ? `${sourceCoverageCount} jurisdiction source${sourceCoverageCount === 1 ? '' : 's'} registered.` : 'Jurisdiction source coverage is Unknown in this session.'}</p>
-        </article>
-        <article>
-          <span>Action</span>
-          <strong>{recommendedAction || nextAction?.label || 'Unknown'}</strong>
-          {nextAction?.detail && !recommendedAction ? <p>{nextAction.detail}</p> : null}
-          {nextAction?.href ? (
-            <p><Link className="hvm2-text-link" href={nextAction.href}>Open action →</Link></p>
-          ) : null}
+          <strong>{whyItMatters || 'No commercial-impact statement loaded for the matched signal.'}</strong>
         </article>
       </div>
 
@@ -230,7 +241,44 @@ export function PersonalBriefingSection({
           <div><span>Pipeline items</span><strong>{pipelineTotal}</strong></div>
           <div><span>Action queue</span><strong>{actionCount}</strong></div>
         </div>
+        {reviewStatus || sourceCoverageCount > 0 ? (
+          <p style={{ marginTop: 12, fontSize: 11, color: 'rgba(245,241,232,0.55)' }}>
+            Evidence: {reviewStatus || 'Unknown'}{sourceCoverageCount > 0 ? ` · ${sourceCoverageCount} source${sourceCoverageCount === 1 ? '' : 's'}` : ''}
+            {nextAction?.href ? <> · <Link className="hvm2-text-link" href={nextAction.href}>Open action →</Link></> : null}
+          </p>
+        ) : null}
       </article>
+
+      <div className="hvm2-briefing-cadence" aria-label="Briefing cadence">
+        <span className="hvm2-intel-kicker">Briefing cadence</span>
+        <p>Choose markets (ISO2) and how often Harbourview should synthesize a personal briefing. When active, the daily cron can email via Resend (same path as signal digests).</p>
+        <div className="hvm2-cadence-row">
+          <label>
+            <span>Markets (comma-separated ISO2)</span>
+            <input
+              value={marketsInput}
+              onChange={(e) => setMarketsInput(e.target.value)}
+              placeholder="CA, DE, AU"
+              aria-label="Markets comma-separated ISO2"
+            />
+          </label>
+          <label>
+            <span>Frequency</span>
+            <select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as 'daily' | 'weekly')}
+              aria-label="Briefing frequency"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+        </div>
+        <button type="button" className="hvm2-cadence-save" onClick={saveCadence} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        {saveMsg ? <p style={{ marginTop: 10, fontSize: 11, color: 'rgba(245,241,232,0.6)' }}>{saveMsg}</p> : null}
+      </div>
     </SectionShell>
   )
 }
