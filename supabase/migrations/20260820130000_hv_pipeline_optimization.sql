@@ -1,318 +1,628 @@
 -- =============================================================================
 -- HV Intelligence Pipeline Optimization — 2026-08-20
 -- =============================================================================
--- Additive, idempotent. Does NOT schedule or enable any cron jobs.
--- Operator must still run INTEL_CRON_REENABLE_RUNBOOK.md after review.
+-- Additive and replay-safe. This migration does not schedule, unschedule, alter,
+-- or enable any cron job.
 --
--- Goals:
---   1. Cheap pre-filter before LLM spend
---   2. Medium-confidence human review queue (no silent drop)
---   3. Safer promote defaults + optional eval-gate helper
---   4. Incremental-ish dedup (only unassigned / recent)
---   5. Lower dispatch batch sizes in hv_pipeline_tick (Micro-safe)
---   6. Observability log table for stage metrics
---   7. HNSW index on embedding_1024 when missing
+-- The change is intentionally narrow:
+--   * extend the current 20260814180000 classifier dispatch with a persisted
+--     pre-filter disposition;
+--   * add a borderline human-review queue and stage log;
+--   * retain the classifier_validation publication gate in promotion.
+--
+-- Deliberately NOT redefined here:
+--   * hv_classify_corpus_harvest() and its recorded retry outcomes;
+--   * hv_dedup_assign(), whose authoritative body is the HNSW KNN implementation
+--     from 20260814143000 with search_path pg_catalog, public, extensions;
+--   * hv_pipeline_tick(), whose authoritative body is 20260730184257 and excludes
+--     signals with an unharvested hv_embed_jobs row;
+--   * hv_quality_promote_tick();
+--   * the existing idx_signals_embedding_1024_hnsw index.
+--
+-- No second HNSW index is created. No fail-open evaluation helper is introduced:
+-- classifier_validation remains the mechanical publication authority.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. Medium-confidence review queue
+-- 1. Borderline human-review queue
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.hv_signal_review_queue (
-  signal_id text PRIMARY KEY REFERENCES public.signals(id) ON DELETE CASCADE,
+create table if not exists public.hv_signal_review_queue (
+  signal_id text primary key references public.signals(id) on delete cascade,
   quality_label text,
   quality_confidence numeric,
   content_type text,
   impact text,
   reason text,
-  status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'approved', 'rejected', 'skipped')),
-  created_at timestamptz NOT NULL DEFAULT now(),
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected', 'skipped')),
+  created_at timestamptz not null default now(),
   reviewed_at timestamptz,
   reviewed_by text
 );
 
-CREATE INDEX IF NOT EXISTS hv_signal_review_queue_status_idx
-  ON public.hv_signal_review_queue (status, created_at DESC);
+create index if not exists hv_signal_review_queue_status_idx
+  on public.hv_signal_review_queue (status, created_at desc);
 
-ALTER TABLE public.hv_signal_review_queue ENABLE ROW LEVEL SECURITY;
+alter table public.hv_signal_review_queue enable row level security;
 
--- service_role only (pipeline + admin)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'hv_signal_review_queue'
-      AND policyname = 'hv_signal_review_queue_service_all'
-  ) THEN
-    CREATE POLICY hv_signal_review_queue_service_all
-      ON public.hv_signal_review_queue
-      FOR ALL
-      TO service_role
-      USING (true)
-      WITH CHECK (true);
-  END IF;
-END$$;
+drop policy if exists hv_signal_review_queue_service_all
+  on public.hv_signal_review_queue;
+drop policy if exists hv_signal_review_queue_service_select
+  on public.hv_signal_review_queue;
+create policy hv_signal_review_queue_service_select
+  on public.hv_signal_review_queue
+  for select
+  to service_role
+  using (true);
 
-REVOKE ALL ON public.hv_signal_review_queue FROM PUBLIC, anon, authenticated;
-GRANT ALL ON public.hv_signal_review_queue TO service_role;
-GRANT ALL ON public.hv_signal_review_queue TO postgres;
+revoke all on table public.hv_signal_review_queue
+  from public, anon, authenticated, service_role;
+grant select on table public.hv_signal_review_queue to service_role;
+
+comment on table public.hv_signal_review_queue is
+  'Internal borderline-classification review queue. Direct service_role access is read-only; '
+  'approval and rejection are authoritative through the locked SECURITY DEFINER RPCs.';
 
 -- ---------------------------------------------------------------------------
--- 2. Stage observability log
+-- 2. Persisted pre-filter dispositions
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.hv_pipeline_stage_log (
-  id bigserial PRIMARY KEY,
-  stage text NOT NULL,
-  metrics jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
+create table if not exists public.hv_classify_prefilter_dispositions (
+  signal_id text primary key references public.signals(id) on delete cascade,
+  eligible boolean not null,
+  disposition text not null check (
+    disposition in (
+      'eligible',
+      'eligible_untranslated_non_english',
+      'eligible_language_unknown',
+      'filtered_too_short',
+      'filtered_navigation',
+      'filtered_excluded_domain',
+      'filtered_low_relevance'
+    )
+  ),
+  filter_version text not null,
+  input_hash text not null,
+  translated_text_used boolean not null default false,
+  language text,
+  evaluated_at timestamptz not null default now()
 );
 
-CREATE INDEX IF NOT EXISTS hv_pipeline_stage_log_stage_created_idx
-  ON public.hv_pipeline_stage_log (stage, created_at DESC);
+create index if not exists hv_classify_prefilter_disposition_idx
+  on public.hv_classify_prefilter_dispositions
+  (eligible, disposition, evaluated_at desc);
 
-ALTER TABLE public.hv_pipeline_stage_log ENABLE ROW LEVEL SECURITY;
+alter table public.hv_classify_prefilter_dispositions enable row level security;
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public' AND tablename = 'hv_pipeline_stage_log'
-      AND policyname = 'hv_pipeline_stage_log_service_all'
-  ) THEN
-    CREATE POLICY hv_pipeline_stage_log_service_all
-      ON public.hv_pipeline_stage_log
-      FOR ALL
-      TO service_role
-      USING (true)
-      WITH CHECK (true);
-  END IF;
-END$$;
+drop policy if exists hv_classify_prefilter_dispositions_service_select
+  on public.hv_classify_prefilter_dispositions;
+create policy hv_classify_prefilter_dispositions_service_select
+  on public.hv_classify_prefilter_dispositions
+  for select
+  to service_role
+  using (true);
 
-REVOKE ALL ON public.hv_pipeline_stage_log FROM PUBLIC, anon, authenticated;
-GRANT ALL ON public.hv_pipeline_stage_log TO service_role;
-GRANT ALL ON public.hv_pipeline_stage_log TO postgres;
+revoke all on table public.hv_classify_prefilter_dispositions
+  from public, anon, authenticated, service_role;
+grant select on table public.hv_classify_prefilter_dispositions to service_role;
+
+comment on table public.hv_classify_prefilter_dispositions is
+  'Explicit, versioned disposition for every signal evaluated by the classifier pre-filter. '
+  'The input hash makes a translated-text update eligible for re-evaluation.';
 
 -- ---------------------------------------------------------------------------
--- 3. Cheap pre-filter (no LLM)
--- Returns true if the row is worth classifying.
+-- 3. Internal stage observability
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.hv_prefilter_signal(
+create table if not exists public.hv_pipeline_stage_log (
+  id bigserial primary key,
+  stage text not null,
+  metrics jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists hv_pipeline_stage_log_stage_created_idx
+  on public.hv_pipeline_stage_log (stage, created_at desc);
+
+alter table public.hv_pipeline_stage_log enable row level security;
+
+drop policy if exists hv_pipeline_stage_log_service_select
+  on public.hv_pipeline_stage_log;
+create policy hv_pipeline_stage_log_service_select
+  on public.hv_pipeline_stage_log
+  for select
+  to service_role
+  using (true);
+
+revoke all on table public.hv_pipeline_stage_log
+  from public, anon, authenticated, service_role;
+grant select on table public.hv_pipeline_stage_log to service_role;
+
+comment on table public.hv_pipeline_stage_log is
+  'Internal pipeline counters. Browser roles have no privileges; service_role is read-only.';
+
+-- ---------------------------------------------------------------------------
+-- 4. Cheap pre-filter decision
+-- ---------------------------------------------------------------------------
+-- Remove the three-argument draft overload if an ephemeral branch applied the
+-- earlier PR head. The repaired function has language/translation context so
+-- untranslated non-English inputs can fail open instead of losing recall.
+drop function if exists public.hv_prefilter_signal(text, text, text);
+
+create or replace function public.hv_prefilter_signal_disposition(
   p_headline text,
   p_summary text,
-  p_url text DEFAULT NULL
+  p_url text default null,
+  p_language text default null,
+  p_translated boolean default false
 )
-RETURNS boolean
-LANGUAGE plpgsql
-IMMUTABLE
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  h text := lower(coalesce(p_headline, ''));
-  s text := lower(coalesce(p_summary, ''));
-  u text := lower(coalesce(p_url, ''));
-  combined text := h || ' ' || s;
-BEGIN
-  -- too short / empty
-  IF length(btrim(coalesce(p_headline, ''))) < 12 THEN
-    RETURN false;
-  END IF;
+returns text
+language plpgsql
+stable
+set search_path to 'pg_catalog', 'public'
+as $function$
+declare
+  v_headline text := lower(btrim(coalesce(p_headline, '')));
+  v_summary text := lower(btrim(coalesce(p_summary, '')));
+  v_combined text := lower(btrim(coalesce(p_headline, '') || ' ' || coalesce(p_summary, '')));
+  v_authority text;
+  v_host text;
+  v_language text := lower(split_part(coalesce(nullif(btrim(p_language), ''), 'unknown'), '-', 1));
+begin
+  if coalesce(btrim(p_url), '') <> '' then
+    v_authority := split_part(
+      regexp_replace(btrim(p_url), '^[a-z][a-z0-9+.-]*://', '', 'i'),
+      '/',
+      1
+    );
+    v_host := lower(regexp_replace(v_authority, '^.*@', ''));
+    v_host := regexp_replace(v_host, ':[0-9]+$', '');
+    v_host := regexp_replace(v_host, '^www\.', '');
 
-  -- obvious nav / chrome
-  IF h ~ '(cookie|subscribe|sign in|log in|register|privacy policy|terms of use|all rights reserved)' THEN
-    RETURN false;
-  END IF;
+    if exists (
+      select 1
+      from public.excluded_source_domains d
+      where v_host = lower(regexp_replace(d.domain, '^www\.', ''))
+         or v_host like '%.' || lower(regexp_replace(d.domain, '^www\.', ''))
+    ) then
+      return 'filtered_excluded_domain';
+    end if;
+  end if;
 
-  -- pure menu / list patterns
-  IF h ~ '^(home|menu|search|contact|about|faq)\b' AND length(h) < 40 THEN
-    RETURN false;
-  END IF;
+  -- PostgreSQL ARE does not treat \b as a word boundary. Explicit
+  -- non-alphanumeric/end boundaries keep this branch executable and testable.
+  if (
+    v_headline ~ '(^|[^[:alnum:]_])(cookie(s)?|subscribe|sign[[:space:]]+in|log[[:space:]]+in|register|privacy[[:space:]]+policy|terms[[:space:]]+of[[:space:]]+use|all[[:space:]]+rights[[:space:]]+reserved)([^[:alnum:]_]|$)'
+    or (
+      v_headline ~ '^(home|menu|search|contact|about|faq)([^[:alnum:]_]|$)'
+      and length(v_headline) < 80
+    )
+  ) then
+    return 'filtered_navigation';
+  end if;
 
-  -- excluded domains if present
-  IF u <> '' AND EXISTS (
-    SELECT 1 FROM public.excluded_source_domains d
-    WHERE u LIKE '%' || lower(d.domain) || '%'
-  ) THEN
-    RETURN false;
-  END IF;
+  -- A terse headline can still be substantive when its summary carries the
+  -- meaning. Filter only empty/near-empty combined inputs.
+  if v_headline = '' or length(regexp_replace(v_combined, '[[:space:]]+', '', 'g')) < 12 then
+    return 'filtered_too_short';
+  end if;
 
-  -- must have at least weak cannabis / regulatory signal keywords
-  -- (keeps volume down on pure off-topic noise before LLM)
-  IF combined !~ '(cannabis|marijuana|hemp|thc|cbd|gmp|gacp|licence|license|regulator|ministry|fda|bfarm|health canada|ema|quota|import|export|cultivat|pharma|medicinal|medical cannabis)' THEN
-    -- still allow if headline is reasonably specific (actor + verb pattern)
-    IF length(h) < 40 THEN
-      RETURN false;
-    END IF;
-  END IF;
+  -- The classifier is language-agnostic; a predominantly English keyword filter
+  -- is not. Until translation exists, explicitly fail open for known non-English
+  -- rows. Unknown-language rows also fail open so missing metadata cannot become
+  -- a hidden publication-recall loss.
+  if not coalesce(p_translated, false)
+     and v_language not in ('en', 'eng', 'unknown', 'und', '') then
+    return 'eligible_untranslated_non_english';
+  end if;
 
-  RETURN true;
-END;
+  if not coalesce(p_translated, false)
+     and v_language in ('unknown', 'und', '') then
+    return 'eligible_language_unknown';
+  end if;
+
+  -- Relevance filtering is applied only to English or translated text. The
+  -- multilingual terms are defense in depth; translated rows normally match the
+  -- English vocabulary.
+  if v_combined !~ '(cannabis|marijuana|marihuana|maconha|hemp|chanvre|cáñamo|กัญชา|thc|cbd|gmp|gacp|licen[cs]e|regulat|ministry|minister|agency|fda|bfarm|health[[:space:]]+canada|ema|quota|import|export|cultivat|pharma|medicin|patient|dispensar|prescri|narcotic|drug|legalis|legaliz|decriminal|parliament|senate|bill|court|policy|market|sales|clinical[[:space:]]+trial)' then
+    return 'filtered_low_relevance';
+  end if;
+
+  return 'eligible';
+end
 $function$;
 
-REVOKE ALL ON FUNCTION public.hv_prefilter_signal(text, text, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.hv_prefilter_signal(text, text, text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.hv_prefilter_signal(text, text, text) TO postgres;
+create or replace function public.hv_prefilter_signal(
+  p_headline text,
+  p_summary text,
+  p_url text default null,
+  p_language text default null,
+  p_translated boolean default false
+)
+returns boolean
+language sql
+stable
+set search_path to 'pg_catalog', 'public'
+as $function$
+  select public.hv_prefilter_signal_disposition(
+    p_headline,
+    p_summary,
+    p_url,
+    p_language,
+    p_translated
+  ) like 'eligible%';
+$function$;
+
+revoke all on function public.hv_prefilter_signal_disposition(text, text, text, text, boolean)
+  from public, anon, authenticated;
+revoke all on function public.hv_prefilter_signal(text, text, text, text, boolean)
+  from public, anon, authenticated;
+grant execute on function public.hv_prefilter_signal_disposition(text, text, text, text, boolean)
+  to service_role;
+grant execute on function public.hv_prefilter_signal(text, text, text, text, boolean)
+  to service_role;
 
 -- ---------------------------------------------------------------------------
--- 4. Classify dispatch with pre-filter + lower default limit
+-- 5. Current safe classifier dispatch + pre-filter
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.hv_classify_corpus_dispatch(
-  p_limit integer DEFAULT 40,
-  p_scope_days integer DEFAULT 90
+-- This is the 20260814180000 body with its budget accounting, five-attempt
+-- retirement, unresolved manual-review exclusion, and broad live search_path
+-- retained. The only selection change is the persisted pre-filter disposition.
+create or replace function public.hv_classify_corpus_dispatch(
+  p_limit integer default 100,
+  p_scope_days integer default 120
 )
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
+returns integer
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'public', 'api', 'signals', 'regulatory_signals', 'auth', 'storage', 'vault', 'extensions', 'net', 'cron'
+as $function$
+declare
   r record;
   v_rid bigint;
   n int := 0;
-  v_limit int := least(greatest(coalesce(p_limit, 40), 1), 80);
-BEGIN
-  FOR r IN
-    SELECT
+  v_ids text[];
+  v_evaluated int := 0;
+  v_filtered int := 0;
+  v_started_at timestamptz := clock_timestamp();
+  c_max_attempts constant int := 5;
+  c_filter_version constant text := 'hv-prefilter/v1-translated';
+  c_prefilter_scan constant int := 400;
+begin
+  p_limit := least(greatest(coalesce(p_limit, 100), 1), 150);
+  p_scope_days := least(greatest(coalesce(p_scope_days, 120), 1), 400);
+
+  -- Preserve the bounded retry/manual-review retirement from 20260814180000.
+  insert into public.intel_classify_review_queue (signal_id, headline, summary, reason)
+  select
+    s.id,
+    coalesce(nullif(btrim(s.title_en), ''), s.headline),
+    coalesce(
+      nullif(btrim(s.summary_en), ''),
+      nullif(btrim(left(s.summary, 1000)), ''),
+      nullif(btrim(s.title_en), ''),
+      s.headline
+    ),
+    'classify_failed_after_' || c_max_attempts || '_attempts'
+  from public.signals s
+  where s.quality_label is null
+    and s.reviewed is distinct from true
+    and s.headline is not null
+    and s.created_at > now() - (p_scope_days || ' days')::interval
+    and (
+      select count(*)
+      from public.hv_classify_jobs k
+      where k.signal_id = s.id
+        and k.outcome is not null
+        and k.outcome <> 'ok'
+    ) >= c_max_attempts
+  on conflict (signal_id) do nothing;
+
+  -- Evaluate a bounded candidate window. The exact coalesced h/sm values sent
+  -- to hv-classify are the values evaluated here. A changed translation changes
+  -- input_hash and causes re-evaluation.
+  with base as (
+    select
       s.id,
-      coalesce(s.title_en, s.headline) AS h,
-      coalesce(s.summary_en, left(s.summary, 1000), s.title_en, s.headline) AS sm,
-      s.url
-    FROM public.signals s
-    WHERE s.quality_label IS NULL
-      AND s.reviewed IS DISTINCT FROM true
-      AND s.headline IS NOT NULL
-      AND s.created_at > now() - (coalesce(p_scope_days, 90) || ' days')::interval
-      AND NOT EXISTS (
-        SELECT 1 FROM public.hv_classify_jobs j
-        WHERE j.signal_id = s.id AND NOT j.harvested
+      s.created_at,
+      coalesce(nullif(btrim(s.title_en), ''), s.headline) as h,
+      coalesce(
+        nullif(btrim(s.summary_en), ''),
+        nullif(btrim(left(s.summary, 1000)), ''),
+        nullif(btrim(s.title_en), ''),
+        s.headline
+      ) as sm,
+      s.url,
+      coalesce(
+        nullif(btrim(s.lang_detected), ''),
+        nullif(btrim(s.lang), ''),
+        'unknown'
+      ) as language,
+      (
+        nullif(btrim(s.title_en), '') is not null
+        or nullif(btrim(s.summary_en), '') is not null
+      ) as translated_text_used
+    from public.signals s
+    where s.quality_label is null
+      and s.reviewed is distinct from true
+      and s.headline is not null
+      and s.created_at > now() - (p_scope_days || ' days')::interval
+      and not exists (
+        select 1
+        from public.hv_classify_jobs j
+        where j.signal_id = s.id
+          and not j.harvested
       )
-      AND public.hv_prefilter_signal(s.headline, s.summary, s.url)
-    ORDER BY s.created_at DESC
-    LIMIT v_limit
-  LOOP
-    SELECT net.http_post(
+      and not exists (
+        select 1
+        from public.intel_classify_review_queue q
+        where q.signal_id = s.id
+          and not q.resolved
+      )
+  ),
+  fingerprinted as (
+    select
+      b.*,
+      md5(concat_ws(
+        chr(31),
+        coalesce(b.h, ''),
+        coalesce(b.sm, ''),
+        coalesce(b.url, ''),
+        coalesce(b.language, ''),
+        b.translated_text_used::text
+      )) as input_hash
+    from base b
+  ),
+  candidates as (
+    select f.*
+    from fingerprinted f
+    left join public.hv_classify_prefilter_dispositions d
+      on d.signal_id = f.id
+    where d.signal_id is null
+       or d.filter_version <> c_filter_version
+       or d.input_hash is distinct from f.input_hash
+    order by f.created_at desc
+    limit least(c_prefilter_scan, greatest(p_limit * 5, p_limit))
+  ),
+  evaluated as (
+    select
+      c.*,
+      public.hv_prefilter_signal_disposition(
+        c.h,
+        c.sm,
+        c.url,
+        c.language,
+        c.translated_text_used
+      ) as disposition
+    from candidates c
+  )
+  insert into public.hv_classify_prefilter_dispositions (
+    signal_id,
+    eligible,
+    disposition,
+    filter_version,
+    input_hash,
+    translated_text_used,
+    language,
+    evaluated_at
+  )
+  select
+    e.id,
+    e.disposition like 'eligible%',
+    e.disposition,
+    c_filter_version,
+    e.input_hash,
+    e.translated_text_used,
+    e.language,
+    clock_timestamp()
+  from evaluated e
+  on conflict (signal_id) do update
+    set eligible = excluded.eligible,
+        disposition = excluded.disposition,
+        filter_version = excluded.filter_version,
+        input_hash = excluded.input_hash,
+        translated_text_used = excluded.translated_text_used,
+        language = excluded.language,
+        evaluated_at = excluded.evaluated_at;
+
+  get diagnostics v_evaluated = row_count;
+
+  select count(*)
+    into v_filtered
+  from public.hv_classify_prefilter_dispositions d
+  where d.filter_version = c_filter_version
+    and not d.eligible
+    and d.evaluated_at >= v_started_at;
+
+  -- Select before consuming budget, then charge exactly the eligible rows that
+  -- will dispatch. This preserves the August budget repair.
+  with base as (
+    select
+      s.id,
+      s.created_at,
+      coalesce(nullif(btrim(s.title_en), ''), s.headline) as h,
+      coalesce(
+        nullif(btrim(s.summary_en), ''),
+        nullif(btrim(left(s.summary, 1000)), ''),
+        nullif(btrim(s.title_en), ''),
+        s.headline
+      ) as sm,
+      s.url,
+      coalesce(
+        nullif(btrim(s.lang_detected), ''),
+        nullif(btrim(s.lang), ''),
+        'unknown'
+      ) as language,
+      (
+        nullif(btrim(s.title_en), '') is not null
+        or nullif(btrim(s.summary_en), '') is not null
+      ) as translated_text_used
+    from public.signals s
+    where s.quality_label is null
+      and s.reviewed is distinct from true
+      and s.headline is not null
+      and s.created_at > now() - (p_scope_days || ' days')::interval
+      and not exists (
+        select 1
+        from public.hv_classify_jobs j
+        where j.signal_id = s.id
+          and not j.harvested
+      )
+      and not exists (
+        select 1
+        from public.intel_classify_review_queue q
+        where q.signal_id = s.id
+          and not q.resolved
+      )
+  ),
+  fingerprinted as (
+    select
+      b.*,
+      md5(concat_ws(
+        chr(31),
+        coalesce(b.h, ''),
+        coalesce(b.sm, ''),
+        coalesce(b.url, ''),
+        coalesce(b.language, ''),
+        b.translated_text_used::text
+      )) as input_hash
+    from base b
+  )
+  select array_agg(x.id order by x.created_at desc)
+    into v_ids
+  from (
+    select f.id, f.created_at
+    from fingerprinted f
+    join public.hv_classify_prefilter_dispositions d
+      on d.signal_id = f.id
+     and d.filter_version = c_filter_version
+     and d.input_hash = f.input_hash
+     and d.eligible
+    order by f.created_at desc
+    limit p_limit
+  ) x;
+
+  if v_ids is null then
+    insert into public.hv_pipeline_stage_log(stage, metrics)
+    values (
+      'classify_dispatch',
+      jsonb_build_object(
+        'dispatched', 0,
+        'prefilter_evaluated', v_evaluated,
+        'prefilter_filtered', v_filtered,
+        'filter_version', c_filter_version
+      )
+    );
+    return 0;
+  end if;
+
+  p_limit := public.hv_consume_dispatch_budget(
+    'classify',
+    array_length(v_ids, 1)
+  );
+  if p_limit <= 0 then
+    insert into public.hv_pipeline_stage_log(stage, metrics)
+    values (
+      'classify_dispatch',
+      jsonb_build_object(
+        'dispatched', 0,
+        'budget_blocked', true,
+        'prefilter_evaluated', v_evaluated,
+        'prefilter_filtered', v_filtered,
+        'filter_version', c_filter_version
+      )
+    );
+    return 0;
+  end if;
+  v_ids := v_ids[1:least(p_limit, array_length(v_ids, 1))];
+
+  for r in
+    select
+      s.id,
+      coalesce(nullif(btrim(s.title_en), ''), s.headline) as h,
+      coalesce(
+        nullif(btrim(s.summary_en), ''),
+        nullif(btrim(left(s.summary, 1000)), ''),
+        nullif(btrim(s.title_en), ''),
+        s.headline
+      ) as sm
+    from public.signals s
+    where s.id = any(v_ids)
+    order by s.created_at desc
+  loop
+    select net.http_post(
       url := 'https://zvxdgdkukjrrwamdpqrg.supabase.co/functions/v1/hv-classify',
       headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || (
-          SELECT decrypted_secret FROM vault.decrypted_secrets
-          WHERE name = 'hv_edge_anon_key' LIMIT 1
+        'Content-Type',
+        'application/json',
+        'Authorization',
+        'Bearer ' || (
+          select decrypted_secret
+          from vault.decrypted_secrets
+          where name = 'hv_edge_anon_key'
+          limit 1
         )
       ),
       body := jsonb_build_object(
-        'text', jsonb_build_object('headline', r.h, 'summary', r.sm)
+        'text',
+        jsonb_build_object('headline', r.h, 'summary', r.sm)
       ),
       timeout_milliseconds := 30000
-    ) INTO v_rid;
+    ) into v_rid;
 
-    INSERT INTO public.hv_classify_jobs(request_id, signal_id)
-    VALUES (v_rid, r.id)
-    ON CONFLICT DO NOTHING;
+    insert into public.hv_classify_jobs(request_id, signal_id)
+    values (v_rid, r.id)
+    on conflict do nothing;
 
     n := n + 1;
-  END LOOP;
+  end loop;
 
-  INSERT INTO public.hv_pipeline_stage_log(stage, metrics)
-  VALUES ('classify_dispatch', jsonb_build_object('dispatched', n, 'limit', v_limit));
+  insert into public.hv_pipeline_stage_log(stage, metrics)
+  values (
+    'classify_dispatch',
+    jsonb_build_object(
+      'dispatched', n,
+      'prefilter_evaluated', v_evaluated,
+      'prefilter_filtered', v_filtered,
+      'filter_version', c_filter_version
+    )
+  );
 
-  RETURN n;
-END;
+  return n;
+end
 $function$;
 
+-- Preserve the current postgres-only ACL from 20260814180000. CREATE OR REPLACE
+-- carries that ACL forward; no service_role grant is added.
+revoke all on function public.hv_classify_corpus_dispatch(integer, integer)
+  from public, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
--- 5. Incremental-leaning dedup (only rows missing cluster assignment in window)
--- Still O(n*k) but scoped; HNSW index below helps <=> operator.
+-- 6. Promotion: classifier gate + authoritative review dispositions
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.hv_dedup_assign(
-  p_tau double precision DEFAULT 0.90,
-  p_scope_days integer DEFAULT 90
+create or replace function public.hv_promote_signals(
+  p_min_conf numeric default 0.65
 )
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
+returns integer
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
   n int;
-BEGIN
-  UPDATE public.signals a
-  SET
-    is_representative = NOT EXISTS (
-      SELECT 1
-      FROM public.signals b
-      WHERE b.id <> a.id
-        AND b.embedding_1024 IS NOT NULL
-        AND b.created_at > now() - (coalesce(p_scope_days, 90) || ' days')::interval
-        AND (
-          coalesce(b.quality_confidence, 0) > coalesce(a.quality_confidence, 0)
-          OR (
-            coalesce(b.quality_confidence, 0) = coalesce(a.quality_confidence, 0)
-            AND b.created_at < a.created_at
-          )
-          OR (
-            coalesce(b.quality_confidence, 0) = coalesce(a.quality_confidence, 0)
-            AND b.created_at = a.created_at
-            AND b.id < a.id
-          )
-        )
-        AND (1 - (a.embedding_1024 <=> b.embedding_1024)) >= p_tau
-    ),
-    cluster_rep_id = coalesce((
-      SELECT b.id
-      FROM public.signals b
-      WHERE b.id <> a.id
-        AND b.embedding_1024 IS NOT NULL
-        AND b.created_at > now() - (coalesce(p_scope_days, 90) || ' days')::interval
-        AND (1 - (a.embedding_1024 <=> b.embedding_1024)) >= p_tau
-        AND (
-          coalesce(b.quality_confidence, 0) > coalesce(a.quality_confidence, 0)
-          OR (
-            coalesce(b.quality_confidence, 0) = coalesce(a.quality_confidence, 0)
-            AND b.created_at < a.created_at
-          )
-          OR (
-            coalesce(b.quality_confidence, 0) = coalesce(a.quality_confidence, 0)
-            AND b.created_at = a.created_at
-            AND b.id < a.id
-          )
-        )
-      ORDER BY (1 - (a.embedding_1024 <=> b.embedding_1024)) DESC
-      LIMIT 1
-    ), a.id)
-  WHERE a.embedding_1024 IS NOT NULL
-    AND a.created_at > now() - (coalesce(p_scope_days, 90) || ' days')::interval
-    AND (
-      a.cluster_rep_id IS NULL
-      OR a.is_representative IS NULL
-      OR a.created_at > now() - interval '3 days'
-    );
-
-  GET DIAGNOSTICS n = ROW_COUNT;
-
-  INSERT INTO public.hv_pipeline_stage_log(stage, metrics)
-  VALUES ('dedup_assign', jsonb_build_object('updated', n, 'tau', p_tau, 'scope_days', p_scope_days));
-
-  RETURN n;
-END;
-$function$;
-
--- ---------------------------------------------------------------------------
--- 6. Promote: keep structural safety; route borderline to review queue
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.hv_promote_signals(p_min_conf numeric DEFAULT 0.80)
-RETURNS integer
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  n int;
-  v_floor numeric := greatest(coalesce(p_min_conf, 0.80), 0.65);
-BEGIN
-  -- Borderline: label=signal, representative, conf below floor → review queue
-  INSERT INTO public.hv_signal_review_queue (
-    signal_id, quality_label, quality_confidence, content_type, impact, reason, status
+  v_queued int;
+  v_floor numeric := greatest(coalesce(p_min_conf, 0.65), 0.65);
+begin
+  -- Queue only borderline rows. Existing approved/rejected/skipped decisions
+  -- are never reopened by an automatic run.
+  insert into public.hv_signal_review_queue (
+    signal_id,
+    quality_label,
+    quality_confidence,
+    content_type,
+    impact,
+    reason,
+    status
   )
-  SELECT
+  select
     s.id,
     s.quality_label,
     s.quality_confidence,
@@ -320,207 +630,84 @@ BEGIN
     s.impact,
     'below_confidence_floor',
     'pending'
-  FROM public.signals s
-  WHERE s.quality_label = 'signal'
-    AND coalesce(s.is_representative, true) = true
-    AND s.quality_confidence IS NOT NULL
-    AND s.quality_confidence < v_floor
-    AND s.quality_confidence >= 0.50
-    AND s.reviewed IS DISTINCT FROM true
-    AND (s.reviewed_by IS NULL OR s.reviewed_by NOT LIKE 'human:%')
-  ON CONFLICT (signal_id) DO NOTHING;
+  from public.signals s
+  where s.quality_label = 'signal'
+    and coalesce(s.is_representative, true) = true
+    and s.quality_confidence is not null
+    and s.quality_confidence >= 0.50
+    and s.quality_confidence < v_floor
+    and s.reviewed is distinct from true
+    and (s.reviewed_by is null or s.reviewed_by not like 'human:%')
+    and regexp_replace(
+      coalesce(s.url, ''),
+      '^https?://(www\.)?([^/]+).*',
+      '\2'
+    ) not in (select domain from public.excluded_source_domains)
+  on conflict (signal_id) do update
+    set quality_label = excluded.quality_label,
+        quality_confidence = excluded.quality_confidence,
+        content_type = excluded.content_type,
+        impact = excluded.impact,
+        reason = excluded.reason
+  where public.hv_signal_review_queue.status = 'pending';
 
-  -- Promote high-confidence signals only
-  UPDATE public.signals s SET
+  get diagnostics v_queued = row_count;
+
+  -- Auto-promotion retains the classifier_validation publication gate. Pending,
+  -- rejected, and skipped human dispositions are authoritative and block it.
+  update public.signals s
+  set
     reviewed = true,
     reviewed_by = 'auto:v1',
     reviewed_at = now()
-  WHERE s.quality_label = 'signal'
-    AND coalesce(s.is_representative, true) = true
-    AND s.quality_confidence IS NOT NULL
-    AND s.quality_confidence >= v_floor
-    AND s.reviewed IS DISTINCT FROM true
-    AND (s.reviewed_by IS NULL OR s.reviewed_by NOT LIKE 'human:%')
-    AND regexp_replace(coalesce(s.url, ''), '^https?://(www\.)?([^/]+).*', '\2')
-        NOT IN (SELECT domain FROM public.excluded_source_domains);
+  where s.quality_label = 'signal'
+    and coalesce(s.is_representative, true) = true
+    and s.quality_confidence is not null
+    and s.quality_confidence >= v_floor
+    and s.reviewed is distinct from true
+    and (s.reviewed_by is null or s.reviewed_by not like 'human:%')
+    and exists (
+      select 1
+      from public.classifier_validation cv
+      where cv.classifier_version = s.classifier_version
+        and cv.gate_passed = true
+    )
+    and not exists (
+      select 1
+      from public.hv_signal_review_queue q
+      where q.signal_id = s.id
+        and q.status in ('pending', 'rejected', 'skipped')
+    )
+    and regexp_replace(
+      coalesce(s.url, ''),
+      '^https?://(www\.)?([^/]+).*',
+      '\2'
+    ) not in (select domain from public.excluded_source_domains);
 
-  GET DIAGNOSTICS n = ROW_COUNT;
+  get diagnostics n = row_count;
 
-  INSERT INTO public.hv_pipeline_stage_log(stage, metrics)
-  VALUES (
+  insert into public.hv_pipeline_stage_log(stage, metrics)
+  values (
     'promote',
     jsonb_build_object(
       'promoted', n,
       'min_conf', v_floor,
-      'queued_borderline', (
-        SELECT count(*) FROM public.hv_signal_review_queue WHERE status = 'pending'
-      )
+      'queued_borderline', v_queued,
+      'classifier_validation_gate', 'required'
     )
   );
 
-  RETURN n;
-END;
+  return n;
+end
 $function$;
 
--- ---------------------------------------------------------------------------
--- 7. Orchestrators with safer batch sizes + logging
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.hv_pipeline_tick()
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_tr_h int;
-  v_cl_h int;
-  v_em_h int;
-  v_ent_h int;
-  v_cl_d int;
-  v_tr_d int;
-  v_em_d int := 0;
-  v_ent_d int;
-  v_ids text[];
-  v_out jsonb;
-BEGIN
-  v_tr_h := public.hv_translate_harvest();
-  v_cl_h := public.hv_classify_corpus_harvest();
-  v_em_h := public.hv_embed_harvest();
-  v_ent_h := public.hv_entities_harvest();
-
-  -- Reduced limits for Micro-tier sustainability
-  v_tr_d := public.hv_translate_dispatch(20, false);
-  v_cl_d := public.hv_classify_corpus_dispatch(40, 90);
-  v_ent_d := public.hv_entities_dispatch(20);
-
-  SELECT array_agg(id) INTO v_ids FROM (
-    SELECT s.id
-    FROM public.signals s
-    WHERE s.quality_label = 'signal'
-      AND s.embedding_1024 IS NULL
-    ORDER BY s.created_at DESC
-    LIMIT 40
-  ) q;
-
-  IF v_ids IS NOT NULL THEN
-    PERFORM public.hv_embed_dispatch(v_ids);
-    v_em_d := array_length(v_ids, 1);
-  END IF;
-
-  v_out := jsonb_build_object(
-    'translate_harvested', v_tr_h,
-    'classify_harvested', v_cl_h,
-    'embed_harvested', v_em_h,
-    'entities_harvested', v_ent_h,
-    'translate_dispatched', v_tr_d,
-    'classify_dispatched', v_cl_d,
-    'entities_dispatched', v_ent_d,
-    'embed_dispatched', v_em_d
-  );
-
-  INSERT INTO public.hv_pipeline_stage_log(stage, metrics)
-  VALUES ('pipeline_tick', v_out);
-
-  RETURN v_out;
-END;
-$function$;
-
-CREATE OR REPLACE FUNCTION public.hv_quality_promote_tick()
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_dd int;
-  v_pr int;
-  v_out jsonb;
-BEGIN
-  v_dd := public.hv_dedup_assign(0.90, 90);
-  -- Higher default floor; borderline goes to review queue
-  v_pr := public.hv_promote_signals(0.80);
-  v_out := jsonb_build_object('deduped', v_dd, 'promoted', v_pr);
-
-  INSERT INTO public.hv_pipeline_stage_log(stage, metrics)
-  VALUES ('quality_promote_tick', v_out);
-
-  RETURN v_out;
-END;
-$function$;
+revoke all on function public.hv_promote_signals(numeric)
+  from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 8. HNSW index for embedding similarity (no-op if already present)
+-- 7. Preservation boundary
 -- ---------------------------------------------------------------------------
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE schemaname = 'public'
-      AND tablename = 'signals'
-      AND indexname = 'signals_embedding_1024_hnsw_idx'
-  ) THEN
-    -- CONCURRENTLY cannot run inside a transaction block in some paths;
-    -- plain CREATE INDEX is acceptable for migration apply.
-    EXECUTE $idx$
-      CREATE INDEX signals_embedding_1024_hnsw_idx
-      ON public.signals
-      USING hnsw (embedding_1024 vector_cosine_ops)
-      WITH (m = 16, ef_construction = 64)
-      WHERE embedding_1024 IS NOT NULL
-    $idx$;
-  END IF;
-EXCEPTION
-  WHEN others THEN
-    -- Index creation can fail on very large tables under load; non-fatal.
-    RAISE NOTICE 'HNSW index creation skipped: %', SQLERRM;
-END$$;
-
--- ---------------------------------------------------------------------------
--- 9. Eval-gate helper (read-only decision aid; does not auto-block promote)
--- Returns true when latest eval run meets precision/recall floors.
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.hv_eval_gate_ok(
-  p_min_precision numeric DEFAULT 0.90,
-  p_min_recall numeric DEFAULT 0.70
-)
-RETURNS boolean
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_precision numeric;
-  v_recall numeric;
-BEGIN
-  -- Prefer live scoring view if present; otherwise fail-open (true) so
-  -- promote path is not hard-blocked when eval tables are empty.
-  BEGIN
-    SELECT precision, recall
-    INTO v_precision, v_recall
-    FROM api.intel_eval_scoring
-    ORDER BY 1 DESC NULLS LAST
-    LIMIT 1;
-  EXCEPTION
-    WHEN undefined_table THEN
-      RETURN true;
-    WHEN undefined_column THEN
-      RETURN true;
-  END;
-
-  IF v_precision IS NULL OR v_recall IS NULL THEN
-    RETURN true;
-  END IF;
-
-  RETURN v_precision >= p_min_precision AND v_recall >= p_min_recall;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.hv_eval_gate_ok(numeric, numeric) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.hv_eval_gate_ok(numeric, numeric) TO service_role;
-GRANT EXECUTE ON FUNCTION public.hv_eval_gate_ok(numeric, numeric) TO postgres;
-
--- ---------------------------------------------------------------------------
--- Explicit: do NOT schedule crons here.
--- Operator path remains docs/control/INTEL_CRON_REENABLE_RUNBOOK.md
--- ---------------------------------------------------------------------------
+-- No CREATE OR REPLACE follows for hv_dedup_assign, hv_pipeline_tick, or
+-- hv_quality_promote_tick. No CREATE INDEX follows. Their latest pre-existing
+-- migration definitions remain authoritative, including HNSW KNN, extensions
+-- search_path, pending-embedding exclusion, and current cron call behavior.

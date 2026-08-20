@@ -49,6 +49,14 @@ const REPLAY_RELOCATIONS = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260719140825_replay_pg_trgm_extension.sql',
+    before: '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+    required: [
+      '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+    ],
+    content: `-- Replay-only restoration of production's pg_trgm prerequisite.\n-- The immediately-following reconstructed migration calls similarity(text, text),\n-- but no recorded repository migration installs pg_trgm. This file exists only in\n-- the temporary production-faithful replay workspace and is never a production\n-- migration or migration-ledger entry.\n\ncreate schema if not exists extensions;\ncreate extension if not exists pg_trgm with schema extensions;\n`,
+  },
+  {
     destination: '20260719083305_replay_education_policy_identities.sql',
     before: '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
     required: [

@@ -1,0 +1,50 @@
+name: PR 1598 Pipeline Optimization Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/20260820130000_hv_pipeline_optimization.sql'
+      - 'supabase/migrations/20260820131000_hv_review_queue_resolve.sql'
+      - 'tests/sql/pr1598_pipeline_optimization_dry_run.sql'
+      - 'tests/supabase/pr1598PipelineOptimization.test.ts'
+      - '.github/workflows/pr1598-pipeline-optimization-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr1598-pipeline-optimization-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-17:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Replay and verify both PR migrations
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/pr1598_pipeline_optimization_dry_run.sql

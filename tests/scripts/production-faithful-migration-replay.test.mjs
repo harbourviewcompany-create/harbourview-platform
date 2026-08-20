@@ -172,9 +172,12 @@ test('replay relocation is suppressed unless source, destination boundary and or
   )
 })
 
-test('replay materializes only the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 1)
-  const [foundation] = syntheticFoundations
+test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
+  assert.equal(syntheticFoundations.length, 2)
+  const foundation = syntheticFoundations.find(
+    (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
+  )
+  assert.ok(foundation)
   assert.equal(foundation.destination, '20260719083305_replay_education_policy_identities.sql')
   assert.equal(foundation.before, '20260719083306_enforce_clinical_signoff_gate_in_rls.sql')
   assert.match(foundation.content, /policyname = 'education_modules_public_select'/i)
@@ -191,6 +194,52 @@ test('replay materializes only the missing education policy identities immediate
   assert.match(productionAlter, /alter policy "education_modules_public_select" on public\.education_modules/i)
   assert.match(productionAlter, /alter policy "public read sections of published modules" on public\.education_module_sections/i)
   assert.match(productionAlter, /requires_clinical_signoff = false or reviewed_by is not null/i)
+})
+
+test('replay restores pg_trgm only in the temporary workspace before similarity() is called', () => {
+  const foundation = syntheticFoundations.find(
+    (item) => item.destination === '20260719140825_replay_pg_trgm_extension.sql',
+  )
+  assert.ok(foundation)
+  assert.equal(
+    foundation.before,
+    '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+  )
+  assert.deepEqual(foundation.required, [
+    '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+  ])
+  assert.match(foundation.content, /temporary production-faithful replay workspace/i)
+  assert.match(foundation.content, /create extension if not exists pg_trgm with schema extensions/i)
+
+  const dedup = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260719140826_stage4_dedup_near_duplicate_signals.sql'),
+    'utf8',
+  )
+  assert.match(dedup, /similarity\(left\(a\.headline,80\), left\(b\.headline,80\)\)/i)
+})
+
+test('pg_trgm replay foundation fails closed when its boundary is absent or already materialized', () => {
+  const boundary = '20260719140826_stage4_dedup_near_duplicate_signals.sql'
+  const destination = '20260719140825_replay_pg_trgm_extension.sql'
+
+  assert.equal(
+    planReplaySyntheticFoundations({ migrationFiles: [] }).some(
+      (item) => item.destination === destination,
+    ),
+    false,
+  )
+  assert.equal(
+    planReplaySyntheticFoundations({ migrationFiles: [boundary] }).some(
+      (item) => item.destination === destination,
+    ),
+    true,
+  )
+  assert.equal(
+    planReplaySyntheticFoundations({ migrationFiles: [boundary, destination] }).some(
+      (item) => item.destination === destination,
+    ),
+    false,
+  )
 })
 
 test('synthetic education policy foundation fails closed when its boundary or prerequisite is absent', () => {
