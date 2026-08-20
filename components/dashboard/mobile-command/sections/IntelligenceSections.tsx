@@ -14,6 +14,11 @@ type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNull
 type WatchlistItem = NonNullable<MobileCommandCentreProps['watchlistData']>['items'][number]
 type LocalIntel = NonNullable<MobileCommandCentreProps['localIntel']>
 
+export type BriefingCadenceSeed = {
+  markets?: string[]
+  frequency?: 'daily' | 'weekly'
+}
+
 function signalContextMatches(signal: Signal, countryLabel: string) {
   const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
   return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
@@ -59,6 +64,7 @@ export function PersonalBriefingSection({
   reviewStatus,
   sourceCoverageCount,
   nextAction,
+  initialCadence,
 }: {
   sectionRef: SectionRef
   roleShort: string
@@ -72,32 +78,42 @@ export function PersonalBriefingSection({
   reviewStatus: string
   sourceCoverageCount: number
   nextAction?: NextAction
+  /** Optional seed from parent/server to avoid empty form flash before API hydrate. */
+  initialCadence?: BriefingCadenceSeed
 }) {
   const contextualSignal = signals.find(signal => signalContextMatches(signal, countryLabel))
   const signalAnalysis = asRecord(asRecord(contextualSignal).analysis)
   const whatChanged = contextualSignal ? readString(signalAnalysis, ['what_changed'], readString(contextualSignal, ['title'], '')) : ''
   const whyItMatters = contextualSignal ? readString(contextualSignal, ['commercialImpact', 'commercial_impact'], '') : ''
-  const [marketsInput, setMarketsInput] = useState('')
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily')
+  const [marketsInput, setMarketsInput] = useState(() =>
+    Array.isArray(initialCadence?.markets) && initialCadence.markets.length > 0
+      ? initialCadence.markets.join(', ')
+      : '',
+  )
+  const [frequency, setFrequency] = useState<'daily' | 'weekly'>(() =>
+    initialCadence?.frequency === 'weekly' ? 'weekly' : 'daily',
+  )
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
+
+  const applyCadence = useCallback((cadence: { markets?: string[]; frequency?: string } | null | undefined) => {
+    if (!cadence) return
+    if (Array.isArray(cadence.markets) && cadence.markets.length > 0) {
+      setMarketsInput(cadence.markets.join(', '))
+    }
+    if (cadence.frequency === 'daily' || cadence.frequency === 'weekly') {
+      setFrequency(cadence.frequency)
+    }
+  }, [])
 
   const loadCadence = useCallback(() => {
     fetch('/api/dashboard/my-briefings')
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!data?.cadence) return
-        if (Array.isArray(data.cadence.markets) && data.cadence.markets.length > 0) {
-          setMarketsInput(data.cadence.markets.join(', '))
-        }
-        if (data.cadence.frequency === 'daily' || data.cadence.frequency === 'weekly') {
-          setFrequency(data.cadence.frequency)
-        }
-      })
+      .then((data) => applyCadence(data?.cadence))
       .catch(() => {
-        /* keep empty / defaults on network failure */
+        /* keep seed / last known values */
       })
-  }, [])
+  }, [applyCadence])
 
   useEffect(() => {
     loadCadence()
