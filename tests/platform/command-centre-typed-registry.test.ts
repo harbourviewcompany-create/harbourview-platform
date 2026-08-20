@@ -52,7 +52,7 @@ describe('typed Command Centre registry', () => {
       expect(getCommandCentreModule(mod.id)).toEqual(mod)
     }
     expect(getMobileSectionForPage('marketplace')).toBe('marketplace')
-    expect(getMobileSectionForPage('experts')).toBe('directories')
+    expect(getMobileSectionForPage('experts')).toBe('network')
   })
 
   it('reports the complete readiness inventory without enforcing count at import time', () => {
@@ -61,7 +61,7 @@ describe('typed Command Centre registry', () => {
     expect(summary.launchCriticalModules + summary.importantModules).toBe(32)
     expect(summary.uniqueDesktopPages).toBe(COMMAND_CENTRE_PAGE_IDS.length)
     expect(summary.configuredDesktopPages).toBeGreaterThan(20)
-    // Unique mobile section destinations mapped from product modules.
-    expect(summary.mobileSections).toBe(18)
+    // Unique mobile section destinations mapped from product modules (directories folded into network).
+    expect(summary.mobileSections).toBe(17)
   })
 })

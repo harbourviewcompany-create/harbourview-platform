@@ -17,7 +17,6 @@ export type SectionId =
   | 'jurisdiction'
   | 'market-status'
   | 'review-gates'
-  | 'directories'
   | 'talent'
   | 'genetics'
   | 'clinical'
@@ -113,7 +112,6 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   jurisdiction: { id: 'jurisdiction', label: 'Jurisdiction', icon: '◉' },
   'market-status': { id: 'market-status', label: 'Marketplace status', icon: '◫' },
   'review-gates': { id: 'review-gates', label: 'Review gates', icon: '◆' },
-  directories: { id: 'directories', label: 'Directories', icon: '⊚' },
   talent: { id: 'talent', label: 'Talent', icon: '✦' },
   genetics: { id: 'genetics', label: 'Genetics', icon: '⊕' },
   clinical: { id: 'clinical', label: 'Clinical', icon: '⚕' },
@@ -141,7 +139,6 @@ export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   jurisdiction: 'access-pathway',
   'market-status': 'marketplace',
   'review-gates': 'evidence',
-  directories: 'experts',
   talent: 'jobs',
   genetics: 'genetics',
   clinical: 'clinical',
@@ -174,7 +171,7 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   clinical: 'clinical',
   compliance: 'compliance',
   licences: 'compliance',
-  experts: 'directories',
+  experts: 'network',
   banking: 'financing',
   'trade-calc': 'financing',
   insurance: 'financing',
@@ -201,7 +198,6 @@ export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
     'clinical',
     'compliance',
     'education',
-    'directories',
     'network',
     'jurisdiction',
     'settings',

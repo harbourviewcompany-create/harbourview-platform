@@ -16,7 +16,7 @@ export const COMMAND_CENTRE_MODULES = [
   { id: 'clinical', label: 'Clinical', desktopPage: 'clinical', mobileSection: 'clinical', criticality: 'launch-critical' },
   { id: 'compliance', label: 'Compliance', desktopPage: 'compliance', mobileSection: 'compliance', criticality: 'launch-critical' },
   { id: 'licences', label: 'Licences', desktopPage: 'licences', mobileSection: 'compliance', criticality: 'launch-critical' },
-  { id: 'directories', label: 'Directories', desktopPage: 'experts', mobileSection: 'directories', criticality: 'launch-critical' },
+  { id: 'directories', label: 'Directories', desktopPage: 'experts', mobileSection: 'network', criticality: 'launch-critical' },
   { id: 'talent', label: 'Talent', desktopPage: 'jobs', mobileSection: 'talent', criticality: 'launch-critical' },
   { id: 'network', label: 'Network', desktopPage: 'experts', mobileSection: 'network', criticality: 'launch-critical' },
   { id: 'logistics', label: 'Logistics', desktopPage: 'logistics', mobileSection: 'supply', criticality: 'launch-critical' },
