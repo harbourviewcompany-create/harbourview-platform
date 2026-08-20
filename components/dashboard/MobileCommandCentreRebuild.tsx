@@ -15,7 +15,6 @@ import {
   ClinicalSection,
   ComplianceSection,
   DealRoomsSection,
-  DirectoriesSection,
   EducationSection,
   FinancingSection,
   GeneticsSection,
@@ -42,9 +41,6 @@ import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
 import './mobile-command/MobileCommandNavigation.css'
-// cc-* classes used by DealRoomsPanel, MyBriefingsPanel, SignalSemanticSearch,
-// and SettingsSection — reused as-is from the desktop shell rather than
-// duplicated; prefixes (cc-*) don't collide with this file's (hvm2-*).
 import './CommandCentre.css'
 
 type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
@@ -180,8 +176,6 @@ export default function MobileCommandCentreRebuild(props: Props) {
     'personal-briefing': (
       <>
         <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} signals={model.signals} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} nextAction={model.nextActions[0]} />
-        {/* Above is a deterministic quick-glance summary (computed local
-            counts, no LLM). Below is real personal-briefing synthesis. */}
         <div className="hvm2-section">
           <MyBriefingsPanel onOpenWatchlist={() => model.navigateToSection('weekly-signals')} />
         </div>
@@ -190,9 +184,6 @@ export default function MobileCommandCentreRebuild(props: Props) {
     search: (
       <>
         <SearchSection sectionRef={model.sectionRef('search')} searchQuery={model.searchQuery} searchRecords={searchRecords} countryLabel={model.countryLabel} onQueryChange={model.setSearchQuery} onNavigate={model.navigateToSection} onListingSelect={model.selectListingResult} />
-        {/* Above is explicitly session-scope only. Below is full-corpus
-            search, so the /dashboard/signals/search redirect target
-            actually delivers what its own link text promises. */}
         <div className="hvm2-section">
           <SignalSemanticSearch />
         </div>
@@ -202,7 +193,6 @@ export default function MobileCommandCentreRebuild(props: Props) {
     jurisdiction: <JurisdictionSection sectionRef={model.sectionRef('jurisdiction')} countryLabel={model.countryLabel} flag={flagEmoji(model.countryIso2)} region={props.countryIntel?.region} outlook={props.countryIntel?.briefing_regulatory_outlook} pathway={props.countryIntel?.commercial_pathway_summary} importStatus={props.countryIntel?.import_status} exportStatus={props.countryIntel?.export_status} medicalStatus={props.countryIntel?.medical_status} adultUseStatus={props.countryIntel?.adult_use_status} regulator={props.countryIntel?.regulator_label || props.countryIntel?.briefing_regulatory_body} reviewStatus={model.reviewStatus} pathwaySteps={model.pathwaySteps} pathwayIsGeneric={model.pathwayIsGeneric} commandHref={model.commandHref} />,
     'market-status': <MarketStatusSection sectionRef={model.sectionRef('market-status')} wanted={props.wantedCount ?? model.pipeline.wanted} inquiry={model.pipeline.inquiry} proofReview={model.pipeline.proof_review} matched={model.pipeline.matched} dealRoom={model.pipeline.deal_room} submissions={model.submissions} />,
     'review-gates': <ReviewGatesSection sectionRef={model.sectionRef('review-gates')} reviewStatus={model.reviewStatus} approved={props.countryIntel?.review_status === 'approved'} sourceCoverageCount={model.sourceCoverageCount} proofReview={model.pipeline.proof_review} submissionCount={model.submissions.length} evidenceDocuments={model.evidenceDocuments} />,
-    directories: <DirectoriesSection sectionRef={model.sectionRef('directories')} records={model.directoryRecords} commandHref={model.commandHref} />,
     talent: <TalentSection sectionRef={model.sectionRef('talent')} records={model.talentRecords} commandHref={model.commandHref} />,
     genetics: (
       <>
