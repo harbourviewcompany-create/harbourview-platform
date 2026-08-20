@@ -26,6 +26,15 @@ const QUARANTINED_SUITES = [
   'tests/globe-russia-radial-clearance.test.ts',
   'tests/harbourview/p0-identity-org-context.test.ts',
   'tests/intel/decisionIntelFirstSlice.test.ts',
+  // Added 2026-08-20 when origin/main was merged in. Fails on origin/main
+  // independently of this PR: `decisionDossier.ts` narrowed its fail-closed
+  // guard to `if (route.status === 'error' && !isSyntheticEventRoute)` in
+  // 9e14af4a / 7a10f511 ("prevent Open dossier 404 for feed signals") so that
+  // synthetic `event:` routes stop 404ing, and this source-text assertion still
+  // requires the unconditional form. The guard was narrowed deliberately, not
+  // removed, so the assertion is what is stale — but reconciling it belongs
+  // with the change that made it, not with a performance PR.
+  'tests/intel/decisionIntelIaFallback.test.ts',
 ]
 
 const runQuarantined = process.env.HARBOURVIEW_RUN_QUARANTINED === '1'

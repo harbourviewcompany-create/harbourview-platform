@@ -1,5 +1,6 @@
 import 'server-only'
 import { orientationListingsForSections } from '@/lib/marketplace/orientationSupplyCatalog'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -58,9 +59,18 @@ async function queryListings(params: URLSearchParams): Promise<PublicListing[]> 
         Accept: 'application/json',
       },
     })
-    if (!res.ok) return []
+    // A non-2xx is a query failure, not "no listings". Returning [] here made
+    // /marketplace/listings/[slug] call notFound(), which under ISR renders a
+    // successful 404 and replaces the last good cached listing for the whole
+    // revalidate window. guardIsrQuery throws at runtime so the stale page is
+    // served instead, and stays quiet during the production build.
+    if (!res.ok) {
+      guardIsrQuery({ message: `${res.status} ${res.statusText}` }, `listingsQuery: ${TARGET_PUBLIC_VIEW}`)
+      return []
+    }
     return res.json()
-  } catch {
+  } catch (err) {
+    guardIsrQuery({ message: err instanceof Error ? err.message : String(err) }, `listingsQuery: ${TARGET_PUBLIC_VIEW}`)
     return []
   }
 }
