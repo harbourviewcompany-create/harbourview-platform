@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import './MyBriefingsPanel.css'
 
 type WatchRule = { id: string; rule_type: string; keywords: string[] }
 type StaticBriefing = {
@@ -149,12 +150,7 @@ export function MyBriefingsPanel({ onOpenWatchlist }: { onOpenWatchlist?: () => 
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
             Active (include in synthesis + email tick)
           </label>
-          <button
-            type="button"
-            onClick={saveCadence}
-            disabled={saving}
-            className="cc-mybrief-save"
-          >
+          <button type="button" onClick={saveCadence} disabled={saving} className="cc-mybrief-save">
             {saving ? 'Saving…' : 'Save cadence'}
           </button>
           {saveMsg ? <p className="cc-mybrief-empty" role="status">{saveMsg}</p> : null}
