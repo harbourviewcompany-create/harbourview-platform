@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { JOB_LISTINGS } from '../data/jobsBoard'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { resolveMarketCountryIso2, resolveMarketRegionCode } from '@/lib/market/marketCode'
+import { resolveCommandCountryContext } from '@/lib/dashboard/resolveCommandCountry'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { marketplaceMediaKey } from '@/lib/dashboard/marketplaceMediaProjection'
 import type { MarketView } from '../CommandCentre'
@@ -95,15 +96,11 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const requestedCountry = searchParams.get('country') || props.initialCountryIso2
   // `country` may name a subdivision (`US-KS`, `CA-ON`). Resolve it to the
   // parent country: a subdivision narrows the context, it never excludes the
-  // country. Matching the raw value against ALL_COUNTRIES used to fail for
-  // every subdivision and drop through to the Canada fallback below, so
-  // selecting Kansas landed the operator in Canada's Command Centre.
-  const country = useMemo(() => {
-    const resolvedIso2 = resolveMarketCountryIso2(requestedCountry) ?? requestedCountry
-    const match = ALL_COUNTRIES.find(item => item.iso2 === resolvedIso2)
-    return match ?? ALL_COUNTRIES.find(item => item.iso2 === 'CA') ?? ALL_COUNTRIES[0]
-  }, [requestedCountry])
-  const currentCountry = country?.iso2 ?? 'CA'
+  // country. Never invent a default jurisdiction (e.g. Canada).
+  const { currentCountry, country, countryLabel: resolvedCountryLabel } = useMemo(
+    () => resolveCommandCountryContext(requestedCountry, ALL_COUNTRIES),
+    [requestedCountry],
+  )
   // Subdivision context for the active selection, when there is one.
   const currentRegion = useMemo(() => resolveMarketRegionCode(requestedCountry), [requestedCountry])
 
@@ -122,7 +119,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const roleLabel = role?.label ?? (currentRole ? titleCase(currentRole) : 'All roles')
   const roleShort = role?.short ?? roleLabel
-  const countryLabel = country?.displayName ?? 'Global'
+  const countryLabel = resolvedCountryLabel
   const countryIso2 = currentCountry
 
   const baseContext = useMemo(
