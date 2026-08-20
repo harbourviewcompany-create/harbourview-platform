@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { AskClinicalResponse, PrescriberWorkspaceTab } from '@/lib/clinical/prescriber'
 import type { ClinicalPrescriberWorkspaceDTO } from '@/lib/clinical/workspace'
@@ -45,17 +44,18 @@ function StatePanel({ title, detail }: { title: string; detail: string }) {
   )
 }
 
+/**
+ * Clinical Prescriber OS — Command Centre in-shell surface only.
+ * No standalone page chrome. Jurisdiction is required by the parent section.
+ */
 export default function ClinicalWorkspacePage({
   jurisdiction,
   roleLabel = '',
   initialQuery = '',
-  embedded = false,
 }: {
   jurisdiction: string
   roleLabel?: string
   initialQuery?: string
-  /** When true, render without full-page chrome (for Command Clinical tab embed). */
-  embedded?: boolean
 }) {
   const normalizedJurisdiction = jurisdiction.trim().toUpperCase()
   const contextResolved = isResolvedJurisdiction(normalizedJurisdiction)
@@ -103,6 +103,16 @@ export default function ClinicalWorkspacePage({
         if (!controller.signal.aborted) setWorkspaceLoading(false)
       })
 
+    return () => controller.abort()
+  }, [contextResolved, normalizedJurisdiction, initialQuery])
+
+  // Patients only when Documentation or History is open
+  useEffect(() => {
+    if (!contextResolved) return
+    if (activeTab !== 'documentation' && activeTab !== 'history') return
+    if (patientsState !== 'idle') return
+
+    const controller = new AbortController()
     void fetch('/api/clinical/patients', { signal: controller.signal, cache: 'no-store' })
       .then(async (response) => {
         const body = (await response.json().catch(() => ({}))) as PatientsResponse
@@ -123,7 +133,7 @@ export default function ClinicalWorkspacePage({
       })
 
     return () => controller.abort()
-  }, [contextResolved, normalizedJurisdiction, initialQuery])
+  }, [activeTab, contextResolved, patientsState])
 
   useEffect(() => {
     if (!contextResolved || initialQuery.trim().length < 2) return
@@ -179,88 +189,60 @@ export default function ClinicalWorkspacePage({
     [patients, normalizedJurisdiction],
   )
 
+  // Parent ClinicalSection owns the jurisdiction-required gate; this is a hard fail-closed only.
   if (!contextResolved) {
     return (
-      <main
-        className={embedded ? 'bg-transparent px-0 py-2 text-white' : 'min-h-screen bg-[#0c1016] px-4 py-6 text-white sm:px-6'}
-        data-testid="clinical-workspace-context-required"
-      >
-        <div className={embedded ? '' : 'mx-auto max-w-6xl'}>
-          {!embedded && (
-            <Link href="/dashboard?page=clinical" className="text-xs text-[#d4a853]">
-              ← Command Clinical
-            </Link>
-          )}
-          <section className={`${card} ${embedded ? '' : 'mt-4'}`}>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Clinical workspace</p>
-            <h1 className="mt-2 text-2xl font-semibold">Jurisdiction required</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-              Clinical does not infer or substitute a country. Return to Command Clinical and select a specific
-              jurisdiction before opening the Prescriber Operating System.
-            </p>
-          </section>
+      <div className="w-full min-w-0 px-0 py-2 text-white" data-testid="clinical-workspace-context-required" role="status">
+        <div className={card}>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Clinical</p>
+          <p className="mt-2 text-sm leading-6 text-white/55">
+            Jurisdiction required. Clinical does not infer or substitute a country.
+          </p>
         </div>
-      </main>
+      </div>
     )
   }
 
-  const evidenceForm = (
-    <form className="mt-4 flex w-full min-w-0 flex-col gap-2" onSubmit={submitQuestion} role="search">
-      <input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        type="search"
-        aria-label="Clinical evidence question"
-        placeholder="Search conditions, products, or questions…"
-        className="min-h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-sm outline-none placeholder:text-white/35 focus:border-[#d4a853]/55"
-      />
-      <button
-        type="submit"
-        disabled={answerLoading || query.trim().length < 2}
-        className="min-h-11 w-full shrink-0 rounded-lg border border-[#d4a853]/35 bg-[#d4a853]/10 px-4 py-2.5 text-sm font-medium text-[#e8c36f] disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-white/45 disabled:opacity-100"
-      >
-        {answerLoading ? 'Retrieving…' : 'Search evidence'}
-      </button>
-    </form>
-  )
-
-  const rootClass = embedded
-    ? 'w-full min-w-0 max-w-full overflow-x-hidden bg-transparent px-0 pb-4 pt-0 text-white'
-    : 'min-h-screen bg-[#0c1016] px-3 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:pt-6'
-
   return (
-    <main className={rootClass} data-testid="clinical-workspace">
-      <div className={embedded ? 'w-full min-w-0 max-w-full' : 'mx-auto max-w-7xl'}>
-        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-          <div className="min-w-0 flex-1">
-            {!embedded && (
-              <Link
-                href={`/dashboard?country=${encodeURIComponent(normalizedJurisdiction)}&page=clinical`}
-                className="text-xs text-[#d4a853]"
-              >
-                ← Command Clinical
-              </Link>
-            )}
-            <h1 className={`${embedded ? 'mt-0 text-xl' : 'mt-2 text-2xl'} font-semibold tracking-tight`}>Clinical Workspace</h1>
-            <p className="mt-1 text-xs leading-5 text-white/50 sm:text-sm">
-              {embedded
-                ? `${normalizedJurisdiction}${roleLabel ? ` · ${roleLabel}` : ''}`
-                : `${normalizedJurisdiction} · ${roleLabel || 'Professional role unresolved'} · governed cannabinoid / medical-cannabis decision support`}
-            </p>
-          </div>
-          <div className="w-fit shrink-0 rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/55">
+    <div
+      className="w-full min-w-0 max-w-full overflow-x-hidden bg-transparent px-0 pb-4 pt-0 text-white"
+      data-testid="clinical-workspace"
+      role="region"
+      aria-label="Clinical workspace"
+    >
+      <div className="w-full min-w-0 max-w-full">
+        <div className="flex w-full min-w-0 items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-xs text-white/50">
+            {normalizedJurisdiction}{roleLabel ? ` · ${roleLabel}` : ''}
+          </p>
+          <div className="w-fit shrink-0 rounded-lg border border-white/10 bg-white/[0.025] px-2.5 py-1.5 text-[11px] text-white/55">
             {workspaceLoading
-              ? 'Loading governed sources…'
+              ? 'Loading…'
               : workspace
                 ? `Workspace ${workspace.state}`
-                : 'Workspace unavailable'}
+                : 'Unavailable'}
           </div>
         </div>
 
-        <section className={`${card} mt-4`} data-testid="clinical-workspace-search">
+        <section className={`${card} mt-3`} data-testid="clinical-workspace-search">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Evidence search</p>
-          <h2 className="mt-1 text-base font-semibold text-white/90">Ask governed Clinical evidence</h2>
-          {evidenceForm}
+          <form className="mt-3 flex w-full min-w-0 flex-col gap-2 sm:flex-row" onSubmit={submitQuestion} role="search">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              type="search"
+              aria-label="Clinical evidence question"
+              placeholder="Search conditions, products, or questions…"
+              className="min-h-11 w-full min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-sm outline-none placeholder:text-white/35 focus:border-[#d4a853]/55"
+            />
+            <button
+              type="submit"
+              disabled={answerLoading || query.trim().length < 2}
+              className="min-h-11 w-full shrink-0 rounded-lg border border-[#d4a853]/35 bg-[#d4a853]/10 px-4 py-2.5 text-sm font-medium text-[#e8c36f] disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-white/45 sm:w-auto"
+            >
+              {answerLoading ? 'Retrieving…' : 'Search evidence'}
+            </button>
+          </form>
           {answer && activeTab !== 'evidence' && (
             <p className="mt-3 text-xs text-white/45">
               Result ready — open the{' '}
@@ -273,7 +255,7 @@ export default function ClinicalWorkspacePage({
         </section>
 
         <nav
-          className={`sticky top-0 z-20 mt-4 overflow-x-auto border-y border-white/8 py-2 backdrop-blur ${embedded ? 'rounded-xl border border-white/10 bg-black/40 px-1.5' : '-mx-3 bg-[#0c1016]/95 px-3 sm:mx-0 sm:rounded-xl sm:border'}`}
+          className="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-black/40 px-1.5 py-2"
           aria-label="Clinical workspace sections"
         >
           <div className="flex min-w-max gap-1">
@@ -296,7 +278,7 @@ export default function ClinicalWorkspacePage({
         </nav>
 
         {workspace?.state === 'migration-drift' && (
-          <div className="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/85" role="status">
+          <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/85" role="status">
             <p className="font-medium">Structured Prescriber OS sources not active here yet</p>
             <p className="mt-1 leading-5 text-amber-100/70">
               {workspace.diagnostics[0] ??
@@ -305,18 +287,18 @@ export default function ClinicalWorkspacePage({
           </div>
         )}
         {workspaceError && (
-          <div className="mt-4 rounded-lg border border-red-400/25 bg-red-400/8 p-3 text-sm text-red-100/80" role="alert">
+          <div className="mt-3 rounded-lg border border-red-400/25 bg-red-400/8 p-3 text-sm text-red-100/80" role="alert">
             {workspaceError}
           </div>
         )}
         {workspace?.state === 'review-required' && (
-          <div className="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/80" role="status">
+          <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/80" role="status">
             Some Clinical records are withheld pending exact prescriber-inspectable provenance. Missing records are not
             treated as evidence of safety, efficacy or no interaction.
           </div>
         )}
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-3 space-y-4">
           {activeTab === 'decision' && (
             <section className={card}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Decision</p>
@@ -338,7 +320,9 @@ export default function ClinicalWorkspacePage({
                       ? `${relevantPatients.length} care-team patient${relevantPatients.length === 1 ? '' : 's'} in this jurisdiction.`
                       : patientsState === 'permission'
                         ? 'Verified clinician access is required.'
-                        : 'No patient context selected.'
+                        : patientsState === 'idle'
+                          ? 'Open Documentation or History to load patient context.'
+                          : 'No patient context selected.'
                   }
                 />
                 <StatePanel title="Evidence posture" detail="Use the search above. No clinical answer is generated until an explicit question is submitted." />
@@ -433,7 +417,7 @@ export default function ClinicalWorkspacePage({
             <section className={card}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Products</p>
               <h2 className="mt-2 text-lg font-semibold">Jurisdiction formulary</h2>
-              {contextResolved && <SupplyContinuityOutlook jurisdiction={normalizedJurisdiction} />}
+              <SupplyContinuityOutlook jurisdiction={normalizedJurisdiction} />
               <div className="mt-4 grid gap-3 md:grid-cols-2">
                 {(workspace?.formulary ?? []).map((product) => (
                   <article key={product.id} className={subcard}>
@@ -565,6 +549,9 @@ export default function ClinicalWorkspacePage({
                 and RLS contracts.
               </p>
               <div className="mt-4 space-y-3">
+                {patientsState === 'idle' && (
+                  <StatePanel title="Loading patient context…" detail="Patient records load only when Documentation or History is open." />
+                )}
                 {patientsState === 'permission' && (
                   <StatePanel
                     title="Verified clinician access required"
@@ -600,7 +587,11 @@ export default function ClinicalWorkspacePage({
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">History</p>
               <h2 className="mt-2 text-lg font-semibold">Longitudinal clinical history</h2>
               <p className="mt-1 text-sm leading-6 text-white/50">History is patient-scoped and protected by care-team RLS.</p>
-              {relevantPatients.length === 0 ? (
+              {patientsState === 'idle' ? (
+                <div className="mt-4">
+                  <StatePanel title="Loading patient context…" detail="Patient records load only when Documentation or History is open." />
+                </div>
+              ) : relevantPatients.length === 0 ? (
                 <div className="mt-4">
                   <StatePanel
                     title="Select patient context first"
@@ -623,6 +614,6 @@ export default function ClinicalWorkspacePage({
           )}
         </div>
       </div>
-    </main>
+    </div>
   )
 }
