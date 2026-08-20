@@ -34,7 +34,6 @@ import {
   RegulatoryWatchSection,
   LocalIntelSection,
 } from './mobile-command/Sections'
-import { MyBriefingsPanel } from './MyBriefingsPanel'
 import SignalSemanticSearch from './SignalSemanticSearch'
 import { CultivarPassportModal } from './CultivarPassportModal'
 import './MobileCommandCentreRebuild.css'
@@ -173,13 +172,27 @@ export default function MobileCommandCentreRebuild(props: Props) {
     supply: <SupplySection sectionRef={model.sectionRef('supply')} supplyRows={model.supplyRows} onOpenTool={model.openTool} />,
     'next-actions': <NextActionsSection sectionRef={model.sectionRef('next-actions')} actions={model.nextActions} />,
     'weekly-signals': <WeeklySignalsSection sectionRef={model.sectionRef('weekly-signals')} signals={model.signals} countryLabel={model.countryLabel} access={props.decisionIntelAccess} />,
+    // Mobile owns a single personal-briefing surface. Desktop MyBriefingsPanel was
+    // stacked underneath and produced double cadence forms + overlapping narrative.
     'personal-briefing': (
-      <>
-        <PersonalBriefingSection sectionRef={model.sectionRef('personal-briefing')} roleShort={model.roleShort} countryLabel={model.countryLabel} narrative={props.countryIntel?.commercial_pathway_summary?.trim() || props.countryIntel?.public_summary?.trim() || `${model.countryLabel} remains the active commercial-intelligence context.`} marketplaceCount={model.marketRows.length} signalCount={model.signals.length} pipelineTotal={model.pipelineTotal} actionCount={model.nextActions.length} signals={model.signals} reviewStatus={model.reviewStatus} sourceCoverageCount={model.sourceCoverageCount} nextAction={model.nextActions[0]} />
-        <div className="hvm2-section">
-          <MyBriefingsPanel onOpenWatchlist={() => model.navigateToSection('weekly-signals')} />
-        </div>
-      </>
+      <PersonalBriefingSection
+        sectionRef={model.sectionRef('personal-briefing')}
+        roleShort={model.roleShort}
+        countryLabel={model.countryLabel}
+        narrative={
+          props.countryIntel?.commercial_pathway_summary?.trim()
+          || props.countryIntel?.public_summary?.trim()
+          || `${model.countryLabel} remains the active commercial-intelligence context.`
+        }
+        marketplaceCount={model.marketRows.length}
+        signalCount={model.signals.length}
+        pipelineTotal={model.pipelineTotal}
+        actionCount={model.nextActions.length}
+        signals={model.signals}
+        reviewStatus={model.reviewStatus}
+        sourceCoverageCount={model.sourceCoverageCount}
+        nextAction={model.nextActions[0]}
+      />
     ),
     search: (
       <>
