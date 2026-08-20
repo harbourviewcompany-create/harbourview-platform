@@ -45,27 +45,18 @@ function signalQualityBits(signal: Signal): string[] {
     const lang = readString(item, ['originalLanguageLabel', 'original_language_label'], '')
     bits.push(lang ? `via ${lang}` : 'Translated')
   }
-  if (signal.verificationStatus) bits.push(`Verification ${signal.verificationStatus}`)
   return bits
 }
 
-function displayList(label: string, values?: string[]) {
-  if (!values?.length) return null
-  return <p><strong>{label}:</strong> {values.join(' · ')}</p>
-}
-
-function imageStatusLabel(status?: string) {
-  if (!status || status === 'not_applicable') return ''
-  if (status === 'source_page_contains_image_not_ingested') return 'Image available at source'
-  if (status === 'not_captured') return 'Image not captured'
-  return status.replace(/_/g, ' ')
+function clampText(value: string, max = 220) {
+  const trimmed = value.trim()
+  if (trimmed.length <= max) return trimmed
+  return `${trimmed.slice(0, max - 1).trimEnd()}…`
 }
 
 /**
- * Canonical mobile signal renderer after the #1402 reconciliation.
- * Keeps Decision Intelligence dossier routing from current main while exposing
- * only the explicit authenticated presentation fields projected by
- * /api/dashboard/signals. Raw analysis/provenance payloads are never rendered.
+ * Canonical mobile signal list after layout cleanup.
+ * Feed cards are lean decision surfaces; deep evidence lives in the dossier.
  */
 export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access }: {
   sectionRef: SectionRef
@@ -97,34 +88,34 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
           {orderedSignals.map(({ signal, contextual }, listIndex) => {
             const analysis = asRecord(asRecord(signal).analysis)
-            const whatChanged = signal.summary
-              || readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
-            const recommendedAction = readString(analysis, ['recommended_action'], '')
+            const englishTitle = readString(signal, ['title_en', 'headline_en'], '')
+              || readString(signal, ['title'], 'Untitled signal')
+            const originalLine = readString(signal, [
+              'title_original',
+              'original_title',
+              'headline_original',
+              'title_src',
+              'headline',
+            ], '')
+            const showOriginal = Boolean(
+              originalLine
+              && originalLine !== englishTitle
+              && originalLine !== readString(signal, ['title'], ''),
+            )
+            const summaryRaw = signal.summary
+              || readString(analysis, ['what_changed'], '')
+              || (signal.commercialImpact && signal.commercialImpact !== englishTitle ? signal.commercialImpact : '')
+            const summary = summaryRaw ? clampText(summaryRaw) : ''
             const market = readString(signal, ['market', 'jurisdiction', 'country'], 'Global')
             const confidence = signalConfidence(signal)
             const evidence = signalEvidence(signal)
             const quality = signalQualityBits(signal)
-            const imageStatus = imageStatusLabel(signal.image?.status)
-            const originalLine = readString(signal, ['title', 'headline', 'original_title', 'title_original'], '')
-            const englishTitle = readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')
-            const showOriginal = Boolean(originalLine && originalLine !== englishTitle)
-            const hasSafeEvidenceDetails = Boolean(
-              signal.jurisdictions?.length
-              || signal.counterparties?.length
-              || signal.facilities?.length
-              || signal.licencesCertifications?.length
-              || signal.products?.length
-              || signal.marketAccess?.length
-              || signal.verifiedFacts?.length
-              || signal.inferences?.length
-              || signal.transactionStage
-              || imageStatus,
-            )
             const isEditorial = signal.contentType === 'editorial'
             const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
             const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
             const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory
-            const dossierEventId = signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
+            const dossierEventId = signal.decisionIntelEventId
+              ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
             const hasDossier = Boolean(dossierEventId)
             const dossierHref = hasDossier
               ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
@@ -139,48 +130,39 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
+                  {!contextual ? (
+                    <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small>
+                  ) : null}
                 </div>
                 <h3>{englishTitle}</h3>
-                {showOriginal ? <p className="hvm2-intel-unknown">{originalLine}</p> : null}
-                {whatChanged ? <p>{whatChanged}</p> : !showOriginal ? <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p> : null}
+                {showOriginal ? <p className="hvm2-intel-original">{originalLine}</p> : null}
+                {summary ? <p className="hvm2-intel-summary">{summary}</p> : null}
                 <div className="hvm2-intel-meta-row">
                   {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
                   {quality.map(bit => <span key={bit}>{bit}</span>)}
                   {evidence.source ? <span>Source {evidence.source}</span> : <span>Source Unknown</span>}
                   {evidence.observed ? <span>{evidence.observed}</span> : null}
                 </div>
-                {signal.commercialImpact && signal.commercialImpact !== whatChanged ? (
-                  <div className="hvm2-intel-action"><span>Commercial implication</span><p>{signal.commercialImpact}</p></div>
-                ) : null}
-                {recommendedAction ? <div className="hvm2-intel-action"><span>Action</span><p>{recommendedAction}</p></div> : null}
-                {hasSafeEvidenceDetails ? (
-                  <div className="hvm2-note hvm2-signal-evidence-details" aria-label="Evidence and market-access details">
-                    {signal.transactionStage ? <p><strong>Stage:</strong> {signal.transactionStage}</p> : null}
-                    {displayList('Jurisdictions', signal.jurisdictions)}
-                    {displayList('Counterparties', signal.counterparties)}
-                    {displayList('Facilities', signal.facilities)}
-                    {displayList('Licences / certifications', signal.licencesCertifications)}
-                    {displayList('Products', signal.products)}
-                    {displayList('Market access', signal.marketAccess)}
-                    {imageStatus ? <p><strong>Image:</strong> {imageStatus}</p> : null}
-                    {displayList('Verified facts', signal.verifiedFacts)}
-                    {displayList('Inference', signal.inferences)}
+                {hasDossier ? (
+                  <div className="hvm2-signal-footer">
+                    <strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong>
                   </div>
                 ) : null}
-                {hasDossier ? <div className="hvm2-signal-footer"><strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong></div> : null}
               </article>
             )
 
-            const key = readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)
+            const key = readString(signal, ['id'], `${market}-${englishTitle}`)
             if (dossierHref) {
               return (
                 <Link
                   className="hvm2-signal-card hvm2-intel-event-row"
                   key={key}
                   href={canOpenDossiers ? dossierHref : '/account/upgrade'}
-                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${englishTitle}` : `Upgrade to Intel to open intelligence dossier: ${englishTitle}`}
-                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+                  aria-label={
+                    canOpenDossiers
+                      ? `Open intelligence dossier: ${englishTitle}`
+                      : `Upgrade to Intel to open intelligence dossier: ${englishTitle}`
+                  }
                 >
                   {article}
                 </Link>
@@ -190,7 +172,10 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
           })}
         </div>
       ) : (
-        <EmptyState title="No reviewed signals loaded" detail="The intelligence surface is available, but no current signal records are loaded for review." />
+        <EmptyState
+          title="No reviewed signals loaded"
+          detail="The intelligence surface is available, but no current signal records are loaded for review."
+        />
       )}
     </SectionShell>
   )
