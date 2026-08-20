@@ -2,7 +2,6 @@ import { JOB_LISTINGS, JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/job
 import {
   MOBILE_COMMAND_COPY,
   formatStatus,
-  type DirectoryRecord,
   type SectionId,
   type SubmissionRecord,
 } from '../contracts'
@@ -56,11 +55,6 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
           <div><span>Evidence</span><strong>{reviewStatus}</strong></div>
         </div>
       </article>
-      {/* The access pathway reached this surface as nothing at all: the section
-          mapped to the access-pathway page and its data was fetched, but no
-          part of it was rendered. Where a pathway exists its provenance is now
-          stated, and where none exists the absence is stated rather than left
-          as blank space. */}
       <h3 className="hvm2-subhead">{MOBILE_COMMAND_COPY.pathwayStepsTitle}</h3>
       {pathwaySteps.length > 0 ? (
         <div className="hvm2-pathway-steps" data-pathway-origin={pathwayIsGeneric ? 'generic' : 'curated'}>
@@ -94,12 +88,6 @@ export function MarketStatusSection({ sectionRef, wanted, inquiry, proofReview, 
   )
 }
 
-/**
- * Structural shape of `hv_evidence_documents` rows as they arrive on
- * `evidenceData.orgDocs`. Declared locally rather than imported from
- * `lib/dashboard/dashboardLiveData` so this presentational module does not take
- * a compile-time dependency on the data layer for four fields it only reads.
- */
 export type EvidenceDocument = {
   id: string
   display_name: string
@@ -118,20 +106,12 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, sourceC
 }) {
   return (
     <SectionShell id="review-gates" sectionRef={sectionRef} eyebrow="Review / gate status" title="Evidence and release controls" description={MOBILE_COMMAND_COPY.reviewDescription}>
-      {/* The second metric was "Data coverage", valued from
-          `countries.data_completeness` — a raw enum rendering as "Stub" /
-          "Seed" / "Partial" and inverted against the underlying data. The
-          source-lane count it used as its detail line is the part that was
-          actually measured, so it becomes the metric and the enum is gone. */}
       <div className="hvm2-gate-grid">
         <Metric label="Country review" value={reviewStatus} detail="Jurisdiction intelligence state" tone={approved ? 'ok' : 'warn'} />
         <Metric label="Source coverage" value={sourceCoverageCount} detail="Registered evidence source lanes" />
         <Metric label="Proof review" value={proofReview} detail="Marketplace records awaiting evidence" tone={proofReview > 0 ? 'warn' : 'ok'} />
         <Metric label="My submissions" value={submissionCount} detail="Private records in review workflow" />
       </div>
-      {/* `hv_evidence_documents` is empty in production, so this panel rendered
-          nothing at all and the surface read as broken rather than as new. It
-          now states what is absent and what would fill it. */}
       <h3 className="hvm2-subhead">{MOBILE_COMMAND_COPY.evidenceDocumentsTitle}</h3>
       {evidenceDocuments.length > 0 ? (
         <div className="hvm2-submission-list">
@@ -144,19 +124,6 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, sourceC
         </div>
       ) : <EmptyState title={MOBILE_COMMAND_COPY.evidenceDocumentsEmpty} detail={MOBILE_COMMAND_COPY.evidenceDocumentsEmptyDetail} />}
       <div className="hvm2-control-note"><strong>{MOBILE_COMMAND_COPY.controlTitle}</strong><p>{MOBILE_COMMAND_COPY.controlDetail}</p></div>
-    </SectionShell>
-  )
-}
-
-export function DirectoriesSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: DirectoryRecord[]; commandHref: CommandHref }) {
-  void commandHref
-  return (
-    <SectionShell id="directories" sectionRef={sectionRef} eyebrow="Directories" title="Reviewed professionals, providers and operators" description={MOBILE_COMMAND_COPY.directoryDescription}>
-      {records.length > 0 ? (
-        <div className="hvm2-horizontal-deck">
-          {records.map(item => <article className="hvm2-directory-card" key={`${item.kind}-${item.id}`}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
-        </div>
-      ) : <EmptyState title="No reviewed directory records loaded" detail={MOBILE_COMMAND_COPY.directoryEmptyDetail} />}
     </SectionShell>
   )
 }
