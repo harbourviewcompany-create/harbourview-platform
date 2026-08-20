@@ -30,6 +30,24 @@ const QUARANTINED_SUITES = [
 
 const runQuarantined = process.env.HARBOURVIEW_RUN_QUARANTINED === '1'
 
+/**
+ * True when the caller named specific test files, e.g.
+ * `npx vitest run tests/clinical/evidenceV11Operations.test.ts`.
+ *
+ * The quarantine must never apply to those invocations. `exclude` is global,
+ * so without this check a workflow that explicitly requests a quarantined file
+ * either has it silently dropped from a multi-file run — still exiting 0, so
+ * the gate goes green having tested less than it asked for — or fails outright
+ * with "No test files found" when it is the only file requested. Ten of the
+ * eleven quarantined suites are named directly by a workflow, so the quarantine
+ * is scoped to the bare `npm test` gate and nothing else.
+ */
+const hasExplicitFileFilter = process.argv
+  .slice(2)
+  .some((arg) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(arg) || arg.startsWith('tests/'))
+
+const applyQuarantine = !runQuarantined && !hasExplicitFileFilter
+
 export default defineConfig({
   plugins: [
     {
@@ -55,7 +73,7 @@ export default defineConfig({
       'tests/e2e/**',
       'tests/scripts/*.test.mjs',
       'supabase/functions/**/*.test.ts',
-      ...(runQuarantined ? [] : QUARANTINED_SUITES),
+      ...(applyQuarantine ? QUARANTINED_SUITES : []),
     ],
     setupFiles: ['./tests/setup.ts'],
   },

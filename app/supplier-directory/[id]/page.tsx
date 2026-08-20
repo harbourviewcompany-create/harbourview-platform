@@ -8,6 +8,17 @@ import { flagEmoji } from '@/lib/utils/flagEmoji'
 // ISR: directory data
 export const revalidate = 3600
 
+/**
+ * Opts this dynamic segment into ISR. Exporting `revalidate` alone does not:
+ * an unenumerated dynamic segment stays server-rendered per request with no
+ * revalidation window. Returning no paths prerenders nothing at build time
+ * while still letting each `id` be rendered once and then cached for the
+ * window above — this route reads through a keyed client, not a cookie-bound one.
+ */
+export async function generateStaticParams() {
+  return []
+}
+
 type SupplierCapabilities = {
   business_type?: string
   title?: string | null

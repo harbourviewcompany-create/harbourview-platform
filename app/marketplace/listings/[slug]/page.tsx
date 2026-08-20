@@ -7,6 +7,17 @@ import { getPublicListingBySlug } from '@/lib/server/listingsQuery'
 // ISR: marketplace listing data
 export const revalidate = 1800
 
+/**
+ * Opts this dynamic segment into ISR. Exporting `revalidate` alone does not:
+ * an unenumerated dynamic segment stays server-rendered per request with no
+ * revalidation window. Returning no paths prerenders nothing at build time
+ * while still letting each `slug` be rendered once and then cached for the
+ * window above — getPublicListingBySlug() uses a non-cookie client.
+ */
+export async function generateStaticParams() {
+  return []
+}
+
 type PageProps = { params: Promise<{ slug: string }> }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
