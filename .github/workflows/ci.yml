@@ -50,9 +50,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run typecheck
 
   env-check:
@@ -73,9 +77,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - name: Check critical environment variables
         run: node scripts/check-critical-env.mjs
 
@@ -90,9 +98,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - name: Environment manifest coverage
         run: npm run check:env-manifest
       - name: Cloudflare provider architecture
@@ -147,9 +159,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run test:globe-router
       - run: npm run test:country-role
       - run: npm run test:genetics-routing
@@ -168,9 +184,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run test:new-products-equipment-intake
       - run: npx vitest run tests/harbourview/unified-listings-dto.test.ts
       - run: npm run test:public-images
@@ -186,9 +206,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run test:signal-engine-runtime
 
   smoke:
@@ -202,9 +226,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run smoke:marketplace
       - run: npx vitest run tests/marketplace/seedImportSchema.test.ts
 
@@ -223,9 +251,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run build
 
   e2e:
@@ -245,9 +277,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - uses: actions/cache/restore@v6
+        id: restore-node-modules
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies (cache miss fallback)
+        if: steps.restore-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - name: Check optional E2E credentials
         id: e2e-creds
         shell: bash
