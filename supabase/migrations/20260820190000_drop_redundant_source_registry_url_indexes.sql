@@ -1,0 +1,39 @@
+-- Drop two redundant UNIQUE indexes on public.source_registry (source_url).
+--
+-- Context (measured against production 2026-08-20, read-only):
+--   source_registry holds 1,826 rows in 3,400 kB, of which 2,040 kB is index.
+--   It carries 17 indexes and had 349,242 sequential scans — the highest
+--   seq_scan count of any table in the database — so the index bloat is
+--   costing writes without buying reads.
+--
+-- Five of those 17 indexes cover source_url or a normalisation of it:
+--
+--   source_registry_source_url_uniq            UNIQUE (source_url)              69 scans  [CONSTRAINT]
+--   source_registry_source_url_unique_idx2     UNIQUE (source_url)              45 scans
+--   source_registry_source_url_unique_idx      UNIQUE (source_url) WHERE NOT NULL 0 scans
+--   source_registry_normalized_url_idx         UNIQUE (lower(regexp_replace(...))) 0 scans
+--   source_registry_normalized_url_unique_idx  UNIQUE (hv_normalize_source_url(...)) 0 scans
+--
+-- `source_registry_source_url_uniq` is backed by a UNIQUE *constraint*
+-- (pg_constraint contype='u'), so it stays: it is the guarantee, and the
+-- other two plain indexes on the same column are duplicates of it.
+-- Supabase's performance advisor flags the _uniq / _unique_idx2 pair as
+-- `duplicate_index`.
+--
+-- Deliberately NOT dropped here: the two normalized-url indexes. They are
+-- unused by scan count, but they express *different* normalisation rules
+-- (a lower/regexp expression vs. the hv_normalize_source_url() function),
+-- so each enforces a uniqueness guarantee the constraint above does not.
+-- Removing those changes what duplicate rows the registry will accept and
+-- needs a decision about intended de-duplication semantics, not a
+-- performance cleanup.
+--
+-- Effect: reclaims ~456 kB and removes two index writes per insert/update on
+-- the crawler's registry table. No uniqueness guarantee is weakened — every
+-- non-null source_url remains unique via the retained constraint.
+--
+-- Plain DROP INDEX (not CONCURRENTLY) is used because migrations run inside a
+-- transaction; on a table this small the ACCESS EXCLUSIVE lock is momentary.
+
+drop index if exists public.source_registry_source_url_unique_idx2;
+drop index if exists public.source_registry_source_url_unique_idx;
