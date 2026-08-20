@@ -95,7 +95,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
     >
       {orderedSignals.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
-          {orderedSignals.map(({ signal, contextual }) => {
+          {orderedSignals.map(({ signal, contextual }, listIndex) => {
             const analysis = asRecord(asRecord(signal).analysis)
             const whatChanged = signal.summary
               || readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
@@ -105,6 +105,9 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
             const evidence = signalEvidence(signal)
             const quality = signalQualityBits(signal)
             const imageStatus = imageStatusLabel(signal.image?.status)
+            const originalLine = readString(signal, ['title', 'headline', 'original_title', 'title_original'], '')
+            const englishTitle = readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')
+            const showOriginal = Boolean(originalLine && originalLine !== englishTitle)
             const hasSafeEvidenceDetails = Boolean(
               signal.jurisdictions?.length
               || signal.counterparties?.length
@@ -126,19 +129,21 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
             const dossierHref = hasDossier
               ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
               : null
+            const isPrimary = listIndex === 0
 
             const article = (
-              <article className="hvm2-intel-signal-card">
+              <article className={`hvm2-intel-signal-card${isPrimary ? ' hvm2-intel-primary' : ''}`}>
                 <div className="hvm2-card-topline">
                   <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
                   <span>{market}</span>
                 </div>
                 <div className="hvm2-intel-context-row">
                   <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal&apos;s jurisdiction metadata.</small> : null}
+                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal's jurisdiction metadata.</small> : null}
                 </div>
-                <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
-                {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
+                <h3>{englishTitle}</h3>
+                {showOriginal ? <p className="hvm2-intel-unknown">{originalLine}</p> : null}
+                {whatChanged ? <p>{whatChanged}</p> : !showOriginal ? <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p> : null}
                 <div className="hvm2-intel-meta-row">
                   {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
                   {quality.map(bit => <span key={bit}>{bit}</span>)}
@@ -174,7 +179,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
                   className="hvm2-signal-card hvm2-intel-event-row"
                   key={key}
                   href={canOpenDossiers ? dossierHref : '/account/upgrade'}
-                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${readString(signal, ['title'], 'signal')}` : `Upgrade to Intel to open intelligence dossier: ${readString(signal, ['title'], 'signal')}`}
+                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${englishTitle}` : `Upgrade to Intel to open intelligence dossier: ${englishTitle}`}
                   style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
                 >
                   {article}
