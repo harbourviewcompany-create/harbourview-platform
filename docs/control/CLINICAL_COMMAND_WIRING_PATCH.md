@@ -1,74 +1,44 @@
-# CommandCentre wiring patch (apply manually or as follow-up commit)
+# CommandCentre wiring patch — status (reconciled 2026-08-20)
 
-This PR adds the Clinical Evidence Command system. The following wiring is still required inside existing files so the section appears in the Command Centre.
+The original patch checklist is **complete on `main`**. Keep this file as a historical map of what was required; do not re-apply blindly.
 
-## 1. `components/dashboard/CommandCentre.tsx`
+## Verified on main
 
-### A. Extend the page union
-```ts
-// before
-type CommandPage = 'overview' | 'market' | ... 
+### 1. `components/dashboard/CommandCentre.tsx`
 
-// after — add:
-| 'clinical'
-```
+- `CommandPage` includes `'clinical'`.
+- Nav: `{ id: 'clinical', label: 'Clinical', icon: '⚕' }` under Compliance & Legal.
+- Switch:
 
-### B. Add nav item
-```ts
-// In NAV_ITEMS_FLAT or equivalent sidebar list
-{ id: 'clinical', label: 'Clinical', icon: '⚕' }
-```
-
-### C. Page switch
 ```tsx
-{page === 'clinical' && (
-  <ClinicalPage
-    iso2={activeCountryIso2}
-    countryName={activeCountryName}
-    flag={activeFlag}
-    roleLabel={activeRoleLabel}
-    briefing={clinicalData.briefing}
-    pathway={clinicalData.pathway}
-    initialEvidence={clinicalData.evidence}
-    whatChanged={clinicalData.whatChanged}
-    attention={clinicalData.attention}
-    nextActions={clinicalData.nextActions}
-  />
-)}
+case 'clinical':
+  return (
+    <ClinicalEvidenceCommandPage
+      countryLabel={country.label}
+      countryIso2={country.iso2}
+      roleLabel={roleLabel}
+    />
+  )
 ```
 
-Import:
-```ts
-import ClinicalPage from '@/components/dashboard/ClinicalPage'
-```
+Imports present for `ClinicalPage` (shim) and `ClinicalEvidenceCommandPage`.
 
-## 2. `app/dashboard/page.tsx` (or data loader)
+### 2. Registry / config
 
-```ts
-import { loadClinicalPageData } from '@/lib/clinical/clinicalQuery'
+- `config/command-centre-routes.mjs` — module `clinical` → desktop `clinical`, mobile `clinical`, launch-critical.
+- `lib/platform/commandCentreRegistry.ts` — `'clinical'` in `SUPPORTED_COMMAND_PAGES` and mobile section map.
 
-// inside loader / server component
-const clinicalData = await loadClinicalPageData(countryIso2, roleLabel)
-```
+### 3. Mobile
 
-Pass `clinicalData` into the shell / CommandCentre props.
+- `contracts.ts`: `SectionId` includes `'clinical'`; `SECTION_TO_DESKTOP_PAGE.clinical = 'clinical'`.
+- `ClinicalSection.tsx`: jurisdiction required → context gate; else embeds `ClinicalWorkspacePage` with `embedded`.
 
-## 3. Mobile nav
+### 4. Role priority
 
-```ts
-{ id: 'clinical', label: 'Clinical', icon: '⚕' }
-```
+- `lib/dashboard/roleNavPriority.ts` maps `clinical` to clinical pathway / evidence modules for `medical_clinical` roles.
 
-And the corresponding `case 'clinical'` branch if using a switch.
+## Residual work (not wiring)
 
-## 4. `VALID_COMMAND_PAGES`
-
-Ensure `'clinical'` is included (doc already notes this may be done on `feat/clinical-command-centre`).
-
----
-
-After wiring, switch country to Brazil and confirm:
-- Empty evidence state is clean
-- Search for "pain" or "epilepsy" returns graded records
-- Jurisdiction briefing + professional pathway render
-- No concatenated status strings
+- Pilot `local_authorities` rows for markets not in batch1 — see `CLINICAL_PILOT_AUTHORITY_INVENTORY.md` and migration `20260820120000_clinical_pilot_local_authorities_au_gb_br.sql`.
+- Production application of clinical DDL / seeds remains owner-gated (do not self-apply).
+- Formal clinical reviewer appointment remains a publish gate for synthesis content.
