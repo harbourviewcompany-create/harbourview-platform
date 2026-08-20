@@ -302,7 +302,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
             <div className="hvm-op-context-form">
               <label>
                 <span>Jurisdiction</span>
-                <select value={model.currentCountry} onChange={event => updateContext('country', event.target.value)}>
+                <select value={model.currentCountry ?? ''} onChange={event => updateContext('country', event.target.value)}>
                   {ALL_COUNTRIES.map(option => <option key={option.iso2} value={option.iso2}>{option.displayName}</option>)}
                 </select>
               </label>
