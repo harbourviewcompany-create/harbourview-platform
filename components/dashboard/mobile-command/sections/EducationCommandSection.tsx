@@ -109,7 +109,8 @@ function ModuleCard({ module, commandHref }: { module: EducationCommandModule; c
 
 export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: Props) {
   const searchParams = useSearchParams()
-  const country = (searchParams.get('country') || 'CA').toUpperCase()
+  const countryRaw = (searchParams.get('country') || '').trim().toUpperCase()
+  const country = /^[A-Z]{2}$/.test(countryRaw) ? countryRaw : null
   const role = searchParams.get('role')
   const selectedModuleSlug = searchParams.get('module')
   const [view, setView] = useState<EducationCommandView>(() => validView(searchParams.get('educationView')))
@@ -126,6 +127,11 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
   const load = useCallback(async (signal: AbortSignal) => {
     setLoadState('loading')
     try {
+      if (!country) {
+        setLoadState('error')
+        setData(null)
+        return
+      }
       const params = new URLSearchParams({ country })
       if (role) params.set('role', role)
       const response = await fetch(`/api/dashboard/education-command?${params.toString()}`, {
@@ -228,9 +234,13 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
         {loadState === 'error' ? (
           <div className={styles.stack} data-testid="education-error">
             <div className={styles.stateCard} role="alert">
-              <strong>Education Command could not load</strong>
-              <p>Live context is unavailable. Retry without losing the selected market or role.</p>
-              <button type="button" className={styles.primaryAction} onClick={() => setRetryNonce(value => value + 1)}>Retry</button>
+              <strong>{country ? 'Education Command could not load' : 'Select a market to load Education Command'}</strong>
+              <p>{country
+                ? 'Live context is unavailable. Retry without losing the selected market or role.'
+                : 'Education Command does not invent a default jurisdiction. Choose a country in Command, then return here.'}</p>
+              {country ? (
+                <button type="button" className={styles.primaryAction} onClick={() => setRetryNonce(value => value + 1)}>Retry</button>
+              ) : null}
             </div>
             {fallbackLibrary}
           </div>
