@@ -55,7 +55,7 @@ export function ClinicalSection({
     )
   }
 
-  // Jurisdiction resolved → render the full Clinical Workspace in the dashboard
+  // Jurisdiction resolved → full Clinical Workspace in-shell only
   return (
     <section
       id="clinical"
@@ -63,7 +63,7 @@ export function ClinicalSection({
       data-testid="clinical-mobile-decision-surface"
       className="hvm2-clinical-workspace-embed min-w-0 w-full max-w-full overflow-x-hidden"
     >
-      <ClinicalWorkspacePage jurisdiction={countryIso2} roleLabel={roleLabel} embedded />
+      <ClinicalWorkspacePage jurisdiction={countryIso2} roleLabel={roleLabel} />
     </section>
   )
 }
