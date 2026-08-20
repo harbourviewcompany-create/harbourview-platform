@@ -5,9 +5,64 @@ import {
   isEligibleForMarketAccessExtraction,
   type EligibleSignal,
 } from '@/lib/intelligence/marketAccessAutoApply'
+import { resolveCountry } from '@/lib/signals/quality'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
+
+/** ISO-3 (from resolveCountry) → ISO-2 for common markets; extend as needed. */
+const ISO3_TO_ISO2: Record<string, string> = {
+  DEU: 'DE', BRA: 'BR', COL: 'CO', CAN: 'CA', USA: 'US', GBR: 'GB',
+  AUS: 'AU', NLD: 'NL', FRA: 'FR', ITA: 'IT', ESP: 'ES', PRT: 'PT',
+  CHE: 'CH', ISR: 'IL', NZL: 'NZ', POL: 'PL', CZE: 'CZ', DNK: 'DK',
+  SWE: 'SE', NOR: 'NO', MEX: 'MX', THA: 'TH', ZAF: 'ZA', MLT: 'MT',
+  AUT: 'AT', BEL: 'BE', IRL: 'IE', LUX: 'LU', JPN: 'JP', KOR: 'KR',
+}
+
+function resolveIso2(row: Record<string, unknown>): string | null {
+  if (typeof row.country_iso2 === 'string' && /^[A-Za-z]{2}$/.test(row.country_iso2)) {
+    return row.country_iso2.toUpperCase()
+  }
+  const identity = resolveCountry(row.country)
+  if (!identity?.code) return null
+  const code = identity.code.toUpperCase()
+  if (code.length === 2) return code
+  return ISO3_TO_ISO2[code] ?? null
+}
+
+async function alertAutoApplies(
+  applies: Array<{ country: string; reason: string }>,
+): Promise<void> {
+  if (applies.length === 0) return
+  const to =
+    process.env.MARKET_ACCESS_ALERT_EMAIL?.trim() ||
+    process.env.HARBOURVIEW_OPS_EMAIL?.trim()
+  const resendKey = process.env.RESEND_API_KEY?.trim()
+  if (!to || !resendKey) {
+    console.info('market_access_promote: auto_applied (no alert email configured)', applies)
+    return
+  }
+  const from = process.env.HARBOURVIEW_FROM_EMAIL?.trim() ?? 'ops@harbourview.co'
+  const lines = applies.map((a) => `• ${a.country}: ${a.reason}`).join('\n')
+  const html = `<pre style="font-family:monospace">Heat-map auto-apply\n\n${lines}</pre>`
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject: `[Harbourview] ${applies.length} heat-map tier auto-apply`,
+        html,
+      }),
+    })
+  } catch (err) {
+    console.error('market_access_promote: alert send failed', err)
+  }
+}
 
 /**
  * Cron: close the signal → heat-map loop.
@@ -16,6 +71,7 @@ export const maxDuration = 60
  * 2. Extract market-access impacts (rule-based)
  * 3. Record market_access_events (idempotent RPC)
  * 4. Promote pending events into countries.regulatory_tier
+ * 5. Email ops on auto_applied (optional)
  *
  * Schedule: every 15 minutes via vercel.json
  * Auth: Authorization: Bearer $CRON_SECRET
@@ -37,8 +93,6 @@ export async function GET(request: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
-  // ── 1. Pull recent surfaceable regulatory signals ──────────────────────────
-  // Look back 7 days; promote RPC also uses a 168h window.
   const since = new Date(Date.now() - 168 * 3600_000).toISOString()
   const { data: signalRows, error: signalErr } = await supabase
     .from('signals')
@@ -56,16 +110,12 @@ export async function GET(request: Request) {
 
   const rows = (signalRows ?? []) as Array<Record<string, unknown>>
 
-  // ── 2–3. Extract + record events ───────────────────────────────────────────
   let extracted = 0
   let recorded = 0
   let recordErrors = 0
 
   for (const row of rows) {
-    const iso2 =
-      typeof row.country_iso2 === 'string' && /^[A-Za-z]{2}$/.test(row.country_iso2)
-        ? row.country_iso2.toUpperCase()
-        : null
+    const iso2 = resolveIso2(row)
     if (!iso2) continue
 
     const confRaw = row.quality_confidence
@@ -117,7 +167,6 @@ export async function GET(request: Request) {
       })
 
       if (rpcErr) {
-        // Fallback without schema hint if PostgREST exposes on public
         const { error: rpcErr2 } = await supabase.rpc('record_market_access_event', {
           p_signal_id: signal.id,
           p_country_iso2: signal.country_iso2,
@@ -145,7 +194,6 @@ export async function GET(request: Request) {
     }
   }
 
-  // ── 4. Promote pending events → regulatory_tier ────────────────────────────
   let promoteResult: unknown = null
   let promoteError: string | null = null
 
@@ -167,6 +215,25 @@ export async function GET(request: Request) {
     promoteResult = data
   }
 
+  // Surface auto-applies from recent proposal ledger (best-effort)
+  const applies: Array<{ country: string; reason: string }> = []
+  if (!promoteError) {
+    const { data: recent } = await supabase
+      .from('market_access_proposals')
+      .select('country_iso2, decision_reason, decision')
+      .eq('decision', 'auto_applied')
+      .gte('decided_at', new Date(Date.now() - 20 * 60_000).toISOString())
+      .limit(50)
+
+    for (const row of recent ?? []) {
+      applies.push({
+        country: String((row as { country_iso2: string }).country_iso2),
+        reason: String((row as { decision_reason?: string }).decision_reason ?? 'auto_applied'),
+      })
+    }
+    await alertAutoApplies(applies)
+  }
+
   const summary = {
     ok: !promoteError,
     signals_scanned: rows.length,
@@ -175,6 +242,7 @@ export async function GET(request: Request) {
     record_errors: recordErrors,
     promote: promoteResult,
     promote_error: promoteError,
+    auto_applied_alerted: applies.length,
   }
   console.info('market_access_promote_cron: complete', summary)
 
