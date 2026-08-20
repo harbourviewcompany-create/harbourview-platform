@@ -73,12 +73,13 @@ test('every exclusion is backed by exact-live-name-different-version control evi
   }
 })
 
-test('zero-state replay skips only evidenced production-only repair and duplicate registration files', () => {
+test('zero-state replay skips only evidenced production-only, duplicate, and local-ID files', () => {
   assert.deepEqual(zeroStateSkips, [
     '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
     '20260714224152_create_intel_eval_set_stage0.sql',
     '20260714225601_expose_intel_eval_set_via_api_schema.sql',
     '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
+    '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
   ])
 
   const originalRegulatory = fs.readFileSync(path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'), 'utf8')
@@ -123,6 +124,23 @@ test('zero-state skips are suppressed when their exact historical files are abse
     planReplayZeroStateSkips({ migrationFiles: ['20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql'] }),
     ['20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql'],
   )
+})
+
+test('zero-state skips the production-local cron IDs only when the by-name successor remains', () => {
+  const hardcoded = '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql'
+  const byName = '20260722185015_resolve_quality_crons_by_name.sql'
+  const planned = planReplayZeroStateSkips({ migrationFiles })
+
+  assert.ok(planned.includes(hardcoded))
+
+  const hardcodedSql = fs.readFileSync(path.join(root, 'supabase/migrations', hardcoded), 'utf8')
+  const byNameSql = fs.readFileSync(path.join(root, 'supabase/migrations', byName), 'utf8')
+  assert.match(hardcodedSql, /cron\.alter_job\(47, active => true\)/i)
+  assert.match(hardcodedSql, /cron\.alter_job\(48, active => true\)/i)
+  assert.match(byNameSql, /where jobname = 'hv-quality-pipeline'/i)
+  assert.match(byNameSql, /where jobname = 'hv-quality-promote'/i)
+  assert.match(byNameSql, /cron\.alter_job\(v_pipeline_id, active => true\)/i)
+  assert.match(byNameSql, /cron\.alter_job\(v_promote_id, active => true\)/i)
 })
 
 test('replay relocates only evidenced reconstruction files before their first dependencies', () => {

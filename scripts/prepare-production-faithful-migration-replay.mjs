@@ -20,6 +20,10 @@ const REPLAY_ZERO_STATE_SKIPS = [
   '20260714224152_create_intel_eval_set_stage0.sql',
   '20260714225601_expose_intel_eval_set_via_api_schema.sql',
   '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
+  // Production recorded job IDs 47/48, but replay-created pg_cron IDs are
+  // database-local. The immediately-following 20260722185015 migration resolves
+  // the same two jobs by name and applies the same active=true state.
+  '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
 ]
 
 // Repository-only reconciliation migrations can occasionally have a timestamp
