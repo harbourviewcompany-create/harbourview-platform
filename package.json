@@ -22,7 +22,7 @@
     "test:intelligence-fixtures": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:intelligence-os": "vitest run tests/intelligence-os/extraction.test.ts",
     "test:listing-quality": "vitest run tests/marketplace/publicProjection.test.ts tests/harbourview/unified-listings-dto.test.ts",
-    "test:public-images": "vitest run tests/harbourview/globe-quality.test.ts tests/dashboard/mobileMarketplaceMedia.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/marketplace/marketplaceImageTrustReconciliation.test.ts tests/marketplace/publicImageQueryContract.test.ts tests/marketplace/marketplaceMediaSelection.test.ts tests/marketplace/representativeMediaAssignments.test.ts",
+    "test:public-images": "HARBOURVIEW_RUN_QUARANTINED=1 vitest run tests/harbourview/globe-quality.test.ts tests/dashboard/mobileMarketplaceMedia.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/marketplace/marketplaceImageTrustReconciliation.test.ts tests/marketplace/publicImageQueryContract.test.ts tests/marketplace/marketplaceMediaSelection.test.ts tests/marketplace/representativeMediaAssignments.test.ts",
     "test:visibility": "vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts",
     "test:services-public-leakage": "vitest run tests/network/public-projection-leakage.test.ts",
     "test:compliance-visibility": "vitest run tests/harbourview/public-route-smoke.test.ts",
@@ -44,8 +44,8 @@
     "test:security": "npx vitest run tests/security/public-leakage-fuzz.test.ts tests/harbourview/public-safety-fuzz.test.ts tests/harbourview/middleware-admin-matcher.test.ts tests/harbourview/middleware-redirects.test.ts tests/harbourview/middleware-signals-matcher.test.ts tests/harbourview/global-css-regression.test.ts tests/education/medical-guardrails.test.ts tests/education/dto-boundary.test.ts tests/dashboard/commercialDashboard.test.tsx tests/dashboard/routing.test.ts tests/actions/marketplaceSubmissionActions.test.ts tests/supabase/adminDataClient.test.ts tests/supabase/env.test.ts tests/globe-motion-preferences.test.ts tests/api/used-surplus-preview-route.test.ts tests/harbourview/globe-interactive-readiness.test.ts tests/globe-natural-earth-countries.test.ts",
     "test:signal-quality": "vitest run tests/signals/quality.test.ts",
     "test:signal-routing": "vitest run tests/signals/routing.test.ts",
-    "test:mobile-intel": "vitest run tests/dashboard/mobileIntelInstitutional.test.tsx",
-    "test": "npm run test:globe-router && npm run test:globe-data && npm run test:country-role && npm run test:signal-quality && npm run test:signal-routing && npm run test:mobile-intel && vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts",
+    "test:mobile-intel": "HARBOURVIEW_RUN_QUARANTINED=1 vitest run tests/dashboard/mobileIntelInstitutional.test.tsx",
+    "test": "vitest run",
     "vercel-ignore-build": "bash scripts/vercel-ignore-wbcc-only.sh",
     "intelligence:discover": "tsx scripts/engine/global-discovery.ts",
     "intelligence:ingest": "tsx scripts/engine/run-ingestion.ts",
@@ -54,7 +54,9 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts",
     "validate:supply-images": "node scripts/validate-supply-images.mjs",
     "test:command-centre-production": "vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/productionSecurityHardening.test.ts tests/supabase/env.test.ts",
-    "verify:supabase-auth-production": "node scripts/configure-supabase-auth-production.mjs"
+    "verify:supabase-auth-production": "node scripts/configure-supabase-auth-production.mjs",
+    "test:full": "HARBOURVIEW_RUN_QUARANTINED=1 vitest run",
+    "test:quarantined": "HARBOURVIEW_RUN_QUARANTINED=1 vitest run tests/clinical/clinicalInteractionQuerySource.test.ts tests/clinical/corpusDepthRelease.test.ts tests/clinical/evidenceOperatingSystem.test.ts tests/clinical/evidenceV11Operations.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/dashboard/mobileCommandCentreV2.test.ts tests/dashboard/mobileIntelInstitutional.test.tsx tests/globe-russia-radial-clearance.test.ts tests/harbourview/p0-identity-org-context.test.ts tests/intel/decisionIntelFirstSlice.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
