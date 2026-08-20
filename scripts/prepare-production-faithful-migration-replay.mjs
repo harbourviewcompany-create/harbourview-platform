@@ -123,7 +123,28 @@ const REPLAY_CONTENT_PATCHES = [
     file: '20260818213000_clinical_prescriber_os_reconciliation.sql',
     anchor: `create index if not exists clinical_evidence_claim_record_idx
   on public.clinical_evidence_claims (evidence_record_id, status);`,
-    replacement: `-- Replay-only reconciliation of the two checked-in claim contracts. The
+    replacement: `-- Replay-only reconciliation of the legacy Clinical Evidence OS and
+-- Prescriber OS concept contracts. CREATE TABLE IF NOT EXISTS cannot add the
+-- lifecycle columns used by the policies below. Preserve the earlier review
+-- gate when mapping its existing rows: only published concepts/aliases become
+-- active in the later lifecycle vocabulary.
+alter table public.clinical_concepts
+  add column if not exists status text not null default 'active'
+    check (status in ('active','superseded','retired')),
+  add column if not exists superseded_by_id uuid
+    references public.clinical_concepts(id) on delete set null;
+
+update public.clinical_concepts
+set status = case when review_status = 'published' then 'active' else 'retired' end;
+
+alter table public.clinical_concept_aliases
+  add column if not exists status text not null default 'active'
+    check (status in ('active','retired'));
+
+update public.clinical_concept_aliases
+set status = case when review_status = 'published' then 'active' else 'retired' end;
+
+-- Replay-only reconciliation of the two checked-in claim contracts. The
 -- earlier operating-system migration creates the legacy columns but explicitly
 -- seeds no rows; this later migration says it is additive yet CREATE TABLE IF
 -- NOT EXISTS alone cannot add the Prescriber OS columns used below.

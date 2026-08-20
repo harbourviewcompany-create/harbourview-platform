@@ -395,7 +395,7 @@ test('replay evaluates source_registry content_type using its reconstructed text
   assert.match(patch.replacement, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
 })
 
-test('replay reconciles the legacy and Prescriber OS clinical claim contracts additively', () => {
+test('replay reconciles the legacy and Prescriber OS clinical contracts additively', () => {
   const file = '20260818213000_clinical_prescriber_os_reconciliation.sql'
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
@@ -412,6 +412,9 @@ test('replay reconciles the legacy and Prescriber OS clinical claim contracts ad
   assert.match(prescriber, /concept_id uuid references public\.clinical_concepts/i)
   assert.match(prescriber, /status text not null default 'review-required'/i)
   assert.equal(prescriber.includes(patch.anchor), true)
+  assert.match(patch.replacement, /alter table public\.clinical_concepts/i)
+  assert.match(patch.replacement, /review_status = 'published' then 'active' else 'retired'/i)
+  assert.match(patch.replacement, /alter table public\.clinical_concept_aliases/i)
   assert.match(patch.replacement, /add column if not exists claim_text text not null/i)
   assert.match(patch.replacement, /add column if not exists primary_source_url text not null/i)
   assert.match(patch.replacement, /alter column claim_key drop not null/i)
