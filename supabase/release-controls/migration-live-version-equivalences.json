@@ -70,6 +70,17 @@
         "source_head": "9d04dea46a3691cf56714993237dd59e86cd4120",
         "production_apply_evidence": "Production migration ledger version 20260812143733 matched the exact PR #1351 migration statement content by read-only verification on 2026-08-12"
       }
+    },
+    {
+      "live_version": "20260819232736",
+      "repository_version": "20260819160000",
+      "file": "20260819160000_clinical_jurisdiction_supply_outlook.sql",
+      "git_blob_sha": "d5778b84281064ae561081b51b94c725486f0705",
+      "provenance": {
+        "type": "direct_commit_content_match",
+        "commit": "3ca3d327129d2ea93fedac690d19f562e5f182d6",
+        "production_apply_evidence": "Production ledger version 20260819232736 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = 456e6aa3ca90458775f1a83675eed96c, equal to md5sum of the file. The apply preceded the commit by three minutes, so supabase apply_migration minted its own timestamp version instead of the canonical one."
+      }
     }
   ]
 }
