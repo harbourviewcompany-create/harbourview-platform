@@ -112,27 +112,26 @@ async function assertNoHorizontalPageOverflow(page: Page) {
   expect(metrics.scrollWidth, `horizontal page overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.clientWidth)
 }
 
-async function openClinicalWorkspace(page: Page) {
+/**
+ * Command Clinical tab now embeds the full Clinical Workspace directly.
+ * Assert the embed surface + workspace are present (no summary cards / open link).
+ */
+async function assertClinicalWorkspaceInCommand(page: Page) {
   const commandSurface = page.getByTestId('clinical-mobile-decision-surface')
   await expect(commandSurface).toBeVisible({ timeout: 30_000 })
-  await expect(commandSurface.getByText('Authority', { exact: true })).toBeVisible()
-  await expect(commandSurface.getByText('Safety', { exact: true })).toBeVisible()
-  await expect(commandSurface.getByText('Products', { exact: true })).toBeVisible()
-  await expect(commandSurface.getByText('Decision', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('clinical-workspace')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Clinical Workspace', exact: true })).toBeVisible()
+  await expect(page.getByTestId('clinical-workspace-search')).toBeVisible()
+  // No legacy summary-card labels or deep-link CTA
+  await expect(page.getByRole('link', { name: 'Open Clinical workspace', exact: true })).toHaveCount(0)
   await expect(page.getByText(/Top graded/i)).toHaveCount(0)
   await assertNoHorizontalPageOverflow(page)
-
-  const workspaceLink = page.getByRole('link', { name: 'Open Clinical workspace', exact: true }).first()
-  await expect(workspaceLink).toBeVisible()
-  await workspaceLink.click()
-  await page.waitForURL(url => url.pathname === '/dashboard/clinical', { timeout: 30_000 })
-  await expect(page.getByTestId('clinical-workspace')).toBeVisible({ timeout: 30_000 })
 }
 
 test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
   test.describe.configure({ mode: 'serial' })
 
-  test('captures concise Command Clinical and the dedicated workspace at every required mobile viewport', async ({ browser }) => {
+  test('captures Command Clinical workspace (embedded) at every required mobile viewport', async ({ browser }) => {
     test.setTimeout(480_000)
     await fs.mkdir(evidenceRoot, { recursive: true })
     const storageState = await authenticate(browser)
@@ -150,7 +149,7 @@ test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
         await mockClinicalApis(page, 'review-required')
         const response = await page.goto('/dashboard?country=CA&role=physician&page=clinical&section=clinical', { waitUntil: 'domcontentloaded' })
         expect(response?.status()).toBeLessThan(400)
-        await openClinicalWorkspace(page)
+        await assertClinicalWorkspaceInCommand(page)
 
         await page.screenshot({
           path: path.join(evidenceRoot, `${viewport.width}x${viewport.height}-clinical-workspace-decision.png`),
@@ -168,7 +167,7 @@ test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
         await expect(page.getByRole('link', { name: /Inspect primary source/i })).toHaveCount(0)
         const question = page.getByLabel('Clinical evidence question', { exact: true })
         await question.fill('Dravet syndrome')
-        await page.getByRole('button', { name: 'Retrieve evidence', exact: true }).click()
+        await page.getByRole('button', { name: 'Search evidence', exact: true }).click()
         await expect(page.getByText('No governed evidence matched this question.', { exact: true })).toBeVisible()
         await assertNoHorizontalPageOverflow(page)
 
