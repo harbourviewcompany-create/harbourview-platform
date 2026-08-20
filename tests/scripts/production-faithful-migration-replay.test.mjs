@@ -345,18 +345,35 @@ test('synthetic education policy foundation fails closed when its boundary or pr
 
 test('replay hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 1)
-  assert.equal(contentPatches[0].file, file)
+  assert.equal(contentPatches.length, 2)
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
 
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  assert.equal(original.includes(contentPatches[0].anchor), true)
-  assert.equal(original.includes(contentPatches[0].replacement), false)
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
 
-  const replayCopy = original.replace(contentPatches[0].anchor, contentPatches[0].replacement)
+  const replayCopy = original.replace(patch.anchor, patch.replacement)
   assert.match(replayCopy, /to_regclass\(format\('public\.%I', t\)\) is null/i)
   assert.match(replayCopy, /alter table public\.%I enable row level security/i)
   assert.match(replayCopy, /revoke all on public\.%I from anon, authenticated/i)
   assert.match(replayCopy, /'country_name_aliases'/i)
+})
+
+test('replay evaluates source_registry content_type using its reconstructed text-array type', () => {
+  const file = '20260816120000_auto_heatmap_from_signals.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  const columnMigration = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260715130000_stage1_add_content_type_to_source_registry.sql'),
+    'utf8',
+  )
+  assert.match(columnMigration, /content_type text\[\]/i)
+  assert.equal(original.includes(patch.anchor), true)
+  assert.match(patch.replacement, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
+  assert.match(patch.replacement, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
 })
 
 test('production-local relation guard is suppressed when the exact migration is absent', () => {

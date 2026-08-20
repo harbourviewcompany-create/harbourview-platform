@@ -44,11 +44,11 @@ const REPLAY_RELOCATIONS = [
   },
 ]
 
-// Supabase's migration ledger keys on the fourteen-digit version, so two
-// independent checked-in files with the same version cannot both replay. Keep
-// both bodies and move only the repository-only Australia update to an unused
-// adjacent version in the temporary workspace. Neither source file nor the
-// production ledger is renamed.
+// Supabase's migration ledger keys on the fourteen-digit version, so independent
+// checked-in files with the same version cannot all replay. Keep every body and
+// move only the later-sorted member of each exact collision to an unused adjacent
+// version in the temporary workspace. No source file or production-ledger row is
+// renamed.
 const REPLAY_VERSION_COLLISION_RENAMES = [
   {
     source: '20260813010000_extend_supply_catalog_equipment_to_australia.sql',
@@ -91,11 +91,10 @@ const REPLAY_SYNTHETIC_FOUNDATIONS = [
   },
 ]
 
-// Production's one-off staging/job tables were present when the recorded
-// 20260723183914 hardening migration ran, but several have no create migration
-// in repository history. On a zero-state replay, retain the hardening for every
-// table that does exist and skip only absent production-local relations. The
-// checked-in reconstructed migration and the production ledger stay unchanged.
+// Exact historical statements can depend on production-local relations or a
+// catalog shape that differs from the repository's reconstructed zero state.
+// Patch only the temporary replay copy with a type/absence-correct equivalent;
+// checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
     file: '20260723183914_lock_down_21_anon_exposed_public_tables.sql',
@@ -110,6 +109,11 @@ const REPLAY_CONTENT_PATCHES = [
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
   END LOOP;`,
+  },
+  {
+    file: '20260816120000_auto_heatmap_from_signals.sql',
+    anchor: `        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')`,
+    replacement: `        or coalesce(s.content_type, '{}'::text[]) && array['regulatory', 'legislation', 'official_notice']::text[]`,
   },
 ]
 
@@ -343,9 +347,9 @@ if (isDirect) {
       }
     }
     if (contentPatches.length === 0) {
-      console.log('Production-faithful replay: no production-local relation guards are required.')
+      console.log('Production-faithful replay: no zero-state-only SQL corrections are required.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'guarded' : 'would guard'} ${contentPatches.length} migration(s) against absent production-local relations:`)
+      console.log(`Production-faithful replay: ${apply ? 'corrected' : 'would correct'} ${contentPatches.length} migration(s) for zero-state-only catalog differences:`)
       for (const item of contentPatches) console.log(`- ${item.file}`)
     }
   } catch (error) {
