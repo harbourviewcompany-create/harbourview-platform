@@ -10,6 +10,7 @@ on:
       - 'components/dashboard/mobile-command/**'
       - 'lib/network/**'
       - 'supabase/migrations/**network_command_p0**'
+      - 'supabase/migrations/**network_command_p1**'
       - 'tests/network/**'
       - 'tsconfig.network-command-p0.json'
       - '.github/workflows/network-command-p0-verify.yml'
@@ -33,6 +34,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Network Command tests
-        run: npx vitest run tests/network/network-command-p0.test.ts tests/network/public-projection-leakage.test.ts
+        run: npx vitest run tests/network/network-command-p0.test.ts tests/network/network-command-p1-introduction-status.test.ts tests/network/public-projection-leakage.test.ts
       - name: Network Command type check
         run: npx tsc --project tsconfig.network-command-p0.json --noEmit
