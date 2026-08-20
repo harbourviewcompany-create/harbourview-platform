@@ -61,7 +61,7 @@ export function ClinicalSection({
       id="clinical"
       ref={sectionRef}
       data-testid="clinical-mobile-decision-surface"
-      className="hvm2-clinical-workspace-embed"
+      className="hvm2-clinical-workspace-embed min-w-0 w-full max-w-full overflow-x-hidden"
     >
       <ClinicalWorkspacePage jurisdiction={countryIso2} roleLabel={roleLabel} embedded />
     </section>

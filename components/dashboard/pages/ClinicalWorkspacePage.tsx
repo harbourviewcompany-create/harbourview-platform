@@ -29,7 +29,7 @@ const tabs: Array<{ id: PrescriberWorkspaceTab; label: string }> = [
   { id: 'history', label: 'History' },
 ]
 
-const card = 'rounded-xl border border-white/10 bg-[#141922] p-4'
+const card = 'min-w-0 rounded-xl border border-white/10 bg-[#141922] p-3 sm:p-4'
 const subcard = 'rounded-lg border border-white/8 bg-white/[0.025] p-3'
 
 function isResolvedJurisdiction(value: string): boolean {
@@ -89,7 +89,6 @@ export default function ClinicalWorkspacePage({
         const body = (await response.json().catch(() => null)) as ClinicalPrescriberWorkspaceDTO | null
         if (!body) throw new Error(`Clinical workspace API ${response.status}`)
         setWorkspace(body)
-        // Do not dump raw PostgREST schema-cache strings into a red alert.
         if (body.state === 'error') {
           setWorkspaceError(body.diagnostics[0] ?? 'Clinical workspace source unavailable.')
         } else {
@@ -206,19 +205,19 @@ export default function ClinicalWorkspacePage({
   }
 
   const evidenceForm = (
-    <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={submitQuestion} role="search">
+    <form className="mt-4 flex w-full min-w-0 flex-col gap-2" onSubmit={submitQuestion} role="search">
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         type="search"
         aria-label="Clinical evidence question"
-        placeholder="Search conditions, products, or clinical questions…"
-        className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-sm outline-none placeholder:text-white/35 focus:border-[#d4a853]/55"
+        placeholder="Search conditions, products, or questions…"
+        className="min-h-11 w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2.5 text-sm outline-none placeholder:text-white/35 focus:border-[#d4a853]/55"
       />
       <button
         type="submit"
         disabled={answerLoading || query.trim().length < 2}
-        className="min-h-11 rounded-lg border border-[#d4a853]/35 bg-[#d4a853]/10 px-4 py-2.5 text-sm font-medium text-[#e8c36f] disabled:opacity-40"
+        className="min-h-11 w-full shrink-0 rounded-lg border border-[#d4a853]/35 bg-[#d4a853]/10 px-4 py-2.5 text-sm font-medium text-[#e8c36f] disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-white/45 disabled:opacity-100"
       >
         {answerLoading ? 'Retrieving…' : 'Search evidence'}
       </button>
@@ -226,14 +225,14 @@ export default function ClinicalWorkspacePage({
   )
 
   const rootClass = embedded
-    ? 'bg-transparent px-0 pb-4 pt-0 text-white'
+    ? 'w-full min-w-0 max-w-full overflow-x-hidden bg-transparent px-0 pb-4 pt-0 text-white'
     : 'min-h-screen bg-[#0c1016] px-3 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-white sm:px-6 sm:pt-6'
 
   return (
     <main className={rootClass} data-testid="clinical-workspace">
-      <div className={embedded ? '' : 'mx-auto max-w-7xl'}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <div className={embedded ? 'w-full min-w-0 max-w-full' : 'mx-auto max-w-7xl'}>
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="min-w-0 flex-1">
             {!embedded && (
               <Link
                 href={`/dashboard?country=${encodeURIComponent(normalizedJurisdiction)}&page=clinical`}
@@ -242,13 +241,14 @@ export default function ClinicalWorkspacePage({
                 ← Command Clinical
               </Link>
             )}
-            <h1 className={`${embedded ? 'mt-0' : 'mt-2'} text-2xl font-semibold tracking-tight`}>Clinical Workspace</h1>
-            <p className="mt-1 text-sm text-white/50">
-              {normalizedJurisdiction} · {roleLabel || 'Professional role unresolved'} · governed cannabinoid /
-              medical-cannabis decision support
+            <h1 className={`${embedded ? 'mt-0 text-xl' : 'mt-2 text-2xl'} font-semibold tracking-tight`}>Clinical Workspace</h1>
+            <p className="mt-1 text-xs leading-5 text-white/50 sm:text-sm">
+              {embedded
+                ? `${normalizedJurisdiction}${roleLabel ? ` · ${roleLabel}` : ''}`
+                : `${normalizedJurisdiction} · ${roleLabel || 'Professional role unresolved'} · governed cannabinoid / medical-cannabis decision support`}
             </p>
           </div>
-          <div className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/55">
+          <div className="w-fit shrink-0 rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-white/55">
             {workspaceLoading
               ? 'Loading governed sources…'
               : workspace
@@ -257,7 +257,6 @@ export default function ClinicalWorkspacePage({
           </div>
         </div>
 
-        {/* Search always visible at top — was only under Evidence tab before */}
         <section className={`${card} mt-4`} data-testid="clinical-workspace-search">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Evidence search</p>
           <h2 className="mt-1 text-base font-semibold text-white/90">Ask governed Clinical evidence</h2>
@@ -274,7 +273,7 @@ export default function ClinicalWorkspacePage({
         </section>
 
         <nav
-          className={`sticky top-0 z-20 mt-4 overflow-x-auto border-y border-white/8 bg-[#0c1016]/95 py-2 backdrop-blur ${embedded ? 'rounded-xl border px-2' : '-mx-3 px-3 sm:mx-0 sm:rounded-xl sm:border'}`}
+          className={`sticky top-0 z-20 mt-4 overflow-x-auto border-y border-white/8 py-2 backdrop-blur ${embedded ? 'rounded-xl border border-white/10 bg-black/40 px-1.5' : '-mx-3 bg-[#0c1016]/95 px-3 sm:mx-0 sm:rounded-xl sm:border'}`}
           aria-label="Clinical workspace sections"
         >
           <div className="flex min-w-max gap-1">
@@ -297,10 +296,7 @@ export default function ClinicalWorkspacePage({
         </nav>
 
         {workspace?.state === 'migration-drift' && (
-          <div
-            className="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/85"
-            role="status"
-          >
+          <div className="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/85" role="status">
             <p className="font-medium">Structured Prescriber OS sources not active here yet</p>
             <p className="mt-1 leading-5 text-amber-100/70">
               {workspace.diagnostics[0] ??
@@ -314,10 +310,7 @@ export default function ClinicalWorkspacePage({
           </div>
         )}
         {workspace?.state === 'review-required' && (
-          <div
-            className="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/80"
-            role="status"
-          >
+          <div className="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/8 p-3 text-sm text-amber-100/80" role="status">
             Some Clinical records are withheld pending exact prescriber-inspectable provenance. Missing records are not
             treated as evidence of safety, efficacy or no interaction.
           </div>
@@ -329,10 +322,7 @@ export default function ClinicalWorkspacePage({
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Decision</p>
               <h2 className="mt-2 text-lg font-semibold">Decision readiness</h2>
               <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <StatePanel
-                  title="Jurisdiction"
-                  detail={`${normalizedJurisdiction} is explicit. No cross-jurisdiction fallback is permitted.`}
-                />
+                <StatePanel title="Jurisdiction" detail={`${normalizedJurisdiction} is explicit. No cross-jurisdiction fallback is permitted.`} />
                 <StatePanel
                   title="Professional authority"
                   detail={
@@ -351,10 +341,7 @@ export default function ClinicalWorkspacePage({
                         : 'No patient context selected.'
                   }
                 />
-                <StatePanel
-                  title="Evidence posture"
-                  detail="Use the search above. No clinical answer is generated until an explicit question is submitted."
-                />
+                <StatePanel title="Evidence posture" detail="Use the search above. No clinical answer is generated until an explicit question is submitted." />
               </div>
             </section>
           )}
@@ -364,10 +351,7 @@ export default function ClinicalWorkspacePage({
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Evidence</p>
               <h2 className="mt-2 text-lg font-semibold">Results</h2>
               {!answer && !answerLoading && (
-                <StatePanel
-                  title="Awaiting explicit query"
-                  detail="Enter a condition or clinical question in the search field above, then submit."
-                />
+                <StatePanel title="Awaiting explicit query" detail="Enter a condition or clinical question in the search field above, then submit." />
               )}
               {answer && (
                 <div className="mt-4 space-y-3">
@@ -375,24 +359,16 @@ export default function ClinicalWorkspacePage({
                     <p className="text-xs uppercase tracking-[0.12em] text-white/40">{answer.state}</p>
                     <p className="mt-2 text-sm leading-6 text-white/75">{answer.answer}</p>
                     {answer.unresolved.map((item) => (
-                      <p key={item} className="mt-2 text-xs text-amber-200/70">
-                        {item}
-                      </p>
+                      <p key={item} className="mt-2 text-xs text-amber-200/70">{item}</p>
                     ))}
                   </div>
                   {answer.citations.map((citation) => (
                     <article key={citation.evidenceRecordId} className={subcard}>
                       <h3 className="text-sm font-medium text-white/85">{citation.title}</h3>
                       <p className="mt-1 text-xs text-white/45">
-                        {citation.evidenceStrength} · {citation.conflictStatus} · verified{' '}
-                        {citation.verifiedAt.slice(0, 10)}
+                        {citation.evidenceStrength} · {citation.conflictStatus} · verified {citation.verifiedAt.slice(0, 10)}
                       </p>
-                      <a
-                        href={citation.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block text-xs text-[#d4a853]"
-                      >
+                      <a href={citation.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#d4a853]">
                         Inspect primary source ↗
                       </a>
                     </article>
@@ -476,10 +452,7 @@ export default function ClinicalWorkspacePage({
                 ))}
               </div>
               {!workspaceLoading && (workspace?.formulary.length ?? 0) === 0 && (
-                <StatePanel
-                  title="No published formulary records"
-                  detail="The workspace does not substitute a product from another jurisdiction."
-                />
+                <StatePanel title="No published formulary records" detail="The workspace does not substitute a product from another jurisdiction." />
               )}
             </section>
           )}
