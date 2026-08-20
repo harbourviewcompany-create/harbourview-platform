@@ -1,1 +1,661 @@
-PLACEHOLDER_CSS
+/**
+ * Education Command — token-backed surfaces (styles/design-tokens.css).
+ * Card language matches components/ui/HarbourviewPanel HarbourviewCard.
+ * Prefer var(--hv-*) / var(--hvm2-*); do not reintroduce one-off gold hex.
+ */
+
+.command {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.tabs,
+.goalScroller {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tabs::-webkit-scrollbar,
+.goalScroller::-webkit-scrollbar {
+  display: none;
+}
+
+.tab,
+.tabActive,
+.goal,
+.goalActive {
+  flex: 0 0 auto;
+  border: 1px solid var(--hv-panel-border-warm);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hv-ivory) 2.5%, transparent);
+  color: var(--hv-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  min-height: 40px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.tabActive,
+.goalActive {
+  border-color: color-mix(in srgb, var(--hv-gold) 58%, transparent);
+  background: color-mix(in srgb, var(--hv-gold) 10%, transparent);
+  color: var(--hv-gold-light);
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.contextBar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--hv-ivory) 6%, transparent);
+}
+
+.contextBar > div {
+  min-width: 0;
+  padding: 12px 10px;
+  background: var(--hv-panel-strong);
+}
+
+.contextBar span,
+.evidenceGrid span,
+.impactBlock > span,
+.sectionHeading span {
+  display: block;
+  color: var(--hv-text-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.contextBar strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--hv-text-primary);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warning,
+.infoCard,
+.stateCard {
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 15px;
+  background: var(--hv-panel);
+  padding: 15px;
+}
+
+.warning {
+  border-color: color-mix(in srgb, var(--hv-gold) 35%, transparent);
+}
+
+.warning strong,
+.warning span,
+.infoCard strong,
+.infoCard p,
+.stateCard strong,
+.stateCard p {
+  display: block;
+}
+
+.warning strong,
+.infoCard strong,
+.stateCard strong {
+  color: var(--hv-text-primary);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.warning span,
+.infoCard p,
+.stateCard p {
+  margin: 5px 0 0;
+  color: var(--hv-text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.summaryGrid button {
+  min-width: 0;
+  min-height: 78px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 14px;
+  background: var(--hv-panel);
+  padding: 11px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.summaryGrid strong {
+  display: block;
+  color: var(--hv-gold-light);
+  font-family: ui-serif, Georgia, serif;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.summaryGrid span {
+  display: block;
+  margin-top: 7px;
+  color: var(--hvm2-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.sectionHeading h3 {
+  margin: 3px 0 0;
+  color: var(--hv-text-primary);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.sectionHeading a {
+  flex: 0 0 auto;
+  color: var(--hv-gold-light);
+  font-size: 11px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+/* Module cards use HarbourviewCard for surface; class is layout-only */
+.moduleCard {
+  min-width: 0;
+}
+
+/* Sibling command cards — same material language as HarbourviewCard */
+.impactCard,
+.pathCard,
+.practiceCard,
+.moduleDetail {
+  min-width: 0;
+  border: 1px solid var(--hv-panel-border-warm);
+  border-radius: 18px;
+  background: var(--hv-panel-strong);
+  color: var(--hv-ivory);
+  padding: 19px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.18);
+}
+
+.moduleCard h3,
+.impactCard h3,
+.pathCard h3,
+.practiceCard h3,
+.moduleDetail h3 {
+  margin: 9px 0 0;
+  color: var(--hv-text-primary);
+  font-size: 17px;
+  font-weight: 620;
+  line-height: 1.28;
+}
+
+.moduleDetail h3 {
+  font-family: ui-serif, Georgia, serif;
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.moduleCard > p,
+.pathCard > p,
+.practiceCard > p,
+.moduleDetail > p {
+  margin: 7px 0 0;
+  color: var(--hv-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.cardTopline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: color-mix(in srgb, var(--hv-gold) 86%, transparent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.cardTopline > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status {
+  flex: 0 0 auto;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: var(--hv-text-secondary);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.status_current {
+  border-color: color-mix(in srgb, var(--hvm2-ok) 36%, transparent);
+  color: color-mix(in srgb, var(--hvm2-ok) 90%, transparent);
+}
+
+.status_stale,
+.status_review_required {
+  border-color: color-mix(in srgb, var(--hv-gold) 40%, transparent);
+  color: var(--hv-gold-light);
+}
+
+.status_conflicting {
+  border-color: rgba(218, 126, 126, 0.4);
+  color: rgba(238, 169, 169, 0.92);
+}
+
+.status_unknown {
+  color: var(--hv-text-muted);
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 10px;
+  color: var(--hv-text-muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.topicRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.topicRow span {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hv-ivory) 4.5%, transparent);
+  padding: 5px 8px;
+  color: var(--hv-text-secondary);
+  font-size: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 11px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primaryAction {
+  border: 1px solid color-mix(in srgb, var(--hv-gold) 48%, transparent);
+  background: color-mix(in srgb, var(--hv-gold) 9%, transparent);
+  color: var(--hv-gold-light);
+}
+
+.secondaryAction {
+  border: 1px solid var(--hvm2-border-soft);
+  background: color-mix(in srgb, var(--hv-ivory) 3%, transparent);
+  color: var(--hv-text-secondary);
+}
+
+.impactBlock {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+.impactBlock p {
+  margin: 4px 0 0;
+  color: var(--hv-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.actionGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.actionGrid a,
+.actionGrid button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 14px;
+  background: var(--hv-panel);
+  padding: 12px 14px;
+  color: var(--hv-text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.actionGrid span {
+  color: color-mix(in srgb, var(--hv-gold) 78%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.step {
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 12px;
+  background: var(--hv-panel);
+  padding: 11px;
+}
+
+.step > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.step > div > span {
+  color: color-mix(in srgb, var(--hv-gold) 60%, transparent);
+  font-size: 10px;
+}
+
+.step > div > strong {
+  min-width: 0;
+  color: var(--hv-text-primary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.step em {
+  color: var(--hv-text-muted);
+  font-size: 9px;
+  font-style: normal;
+  text-transform: uppercase;
+}
+
+.step ul {
+  display: grid;
+  gap: 6px;
+  margin: 9px 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+
+.step li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--hv-text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.step li strong {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--hv-gold) 72%, transparent);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.step > p {
+  margin: 7px 0 0 24px;
+  color: var(--hv-text-muted);
+  font-size: 10px;
+}
+
+.pathModules {
+  display: grid;
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 13px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--hv-ivory) 5.5%, transparent);
+}
+
+.pathModules a {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--hv-panel-strong);
+  padding: 11px;
+  color: var(--hv-text-primary);
+  font-size: 11px;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.pathModules span {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--hv-gold) 72%, transparent);
+  font-size: 9px;
+}
+
+.capabilityList,
+.evidenceGrid {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--hv-ivory) 5.5%, transparent);
+}
+
+.capabilityList > div,
+.evidenceGrid > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--hv-panel-strong);
+  padding: 12px;
+  border-bottom: 1px solid var(--hvm2-border-soft);
+}
+
+.capabilityList > div:last-child,
+.evidenceGrid > div:last-child {
+  border-bottom: 0;
+}
+
+.capabilityList span {
+  color: var(--hv-text-secondary);
+  font-size: 11px;
+}
+
+.capabilityList strong,
+.evidenceGrid strong {
+  color: var(--hv-text-primary);
+  font-size: 10px;
+  font-weight: 750;
+  text-align: right;
+}
+
+.libraryControls {
+  display: grid;
+  gap: 10px;
+}
+
+.libraryControls label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--hv-text-muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.libraryControls input {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 12px;
+  outline: none;
+  background: var(--hv-panel);
+  padding: 0 13px;
+  color: var(--hv-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.libraryControls input:focus {
+  border-color: color-mix(in srgb, var(--hv-gold) 56%, transparent);
+}
+
+.evidenceGrid {
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 14px;
+}
+
+.evidenceGrid > div {
+  display: block;
+  min-width: 0;
+}
+
+.evidenceGrid strong {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-transform: capitalize;
+}
+
+.moduleSection {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+.moduleSection > span {
+  color: color-mix(in srgb, var(--hv-gold) 55%, transparent);
+  font-size: 10px;
+  padding-top: 2px;
+}
+
+.moduleSection h4 {
+  margin: 0;
+  color: var(--hv-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.moduleSection p {
+  margin: 5px 0 0;
+  white-space: pre-wrap;
+  color: var(--hv-text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.limitations {
+  border-top: 1px solid var(--hvm2-border-soft);
+  padding-top: 12px;
+  color: var(--hv-text-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.limitations summary {
+  cursor: pointer;
+  color: color-mix(in srgb, var(--hv-gold) 67%, transparent);
+  font-weight: 750;
+}
+
+.limitations ul {
+  margin: 9px 0 0;
+  padding-left: 17px;
+}
+
+.limitations li + li {
+  margin-top: 6px;
+}
+
+@media (min-width: 700px) {
+  .summaryGrid {
+    max-width: 600px;
+  }
+
+  .actionGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .impactCard,
+  .pathCard,
+  .practiceCard,
+  .moduleDetail {
+    padding: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabs,
+  .goalScroller {
+    scroll-behavior: auto;
+  }
+}
