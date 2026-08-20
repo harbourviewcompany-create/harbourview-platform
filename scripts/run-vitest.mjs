@@ -15,6 +15,7 @@
  * Usage: node scripts/run-vitest.mjs --quarantined [extra vitest args...]
  */
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const runQuarantined = args.includes('--quarantined')
@@ -22,7 +23,10 @@ const vitestArgs = args.filter((arg) => arg !== '--quarantined')
 
 const child = spawn(
   process.execPath,
-  [new URL('../node_modules/vitest/vitest.mjs', import.meta.url).pathname, 'run', ...vitestArgs],
+  // fileURLToPath, not .pathname: on Windows .pathname yields '/C:/...' which
+  // Node cannot execute. This wrapper exists for Windows portability, so getting
+  // this wrong would defeat its purpose.
+  [fileURLToPath(new URL('../node_modules/vitest/vitest.mjs', import.meta.url)), 'run', ...vitestArgs],
   {
     stdio: 'inherit',
     env: {

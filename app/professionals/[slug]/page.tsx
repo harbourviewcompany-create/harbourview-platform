@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 // ISR: directory data
 export const revalidate = 3600
@@ -55,13 +56,14 @@ async function getProfessional(slug: string): Promise<Professional | null> {
   if (!url || !key) return null
 
   const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const { data } = await svc
+  const { data, error } = await svc
     .from('hv_professionals')
     .select('id, profile_slug, full_name, title, credential_type, specialties, countries, languages, bio_public, institution, institution_country, accepts_referrals, consultation_available, clinical_focus')
     .eq('profile_slug', slug)
     .eq('status', 'active')
     .eq('verification_status', 'verified')
     .maybeSingle()
+  guardIsrQuery(error, 'professionals/[slug]: hv_professionals')
 
   return data as Professional | null
 }

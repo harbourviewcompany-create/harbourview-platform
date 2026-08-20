@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 // ISR: directory data
 export const revalidate = 3600
@@ -95,12 +96,13 @@ async function getApprovedSupplier(id: string): Promise<PublicSupplier | null> {
   })
 
   // Public-safe columns only — never contact_email / contact_name / contact_phone.
-  const { data } = await svc
+  const { data, error } = await svc
     .from('supplier_profiles')
     .select('id, company_name, seller_type, region, categories, description, capabilities')
     .eq('id', id)
     .eq('status', 'approved')
     .maybeSingle()
+  guardIsrQuery(error, 'supplier-directory/[id]: supplier_profiles')
 
   return data as PublicSupplier | null
 }

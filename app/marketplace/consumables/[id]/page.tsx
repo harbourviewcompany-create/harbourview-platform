@@ -2,19 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
-// ISR: marketplace listing data
-export const revalidate = 1800
-
-/**
- * Opts this dynamic segment into ISR. Exporting `revalidate` alone does not:
- * an unenumerated dynamic segment stays server-rendered per request with no
- * revalidation window. Returning no paths prerenders nothing at build time
- * while still letting each `id` be rendered once and then cached for the
- * window above — this route renders no per-request server data.
- */
-export async function generateStaticParams() {
-  return []
-}
+// Deliberately dynamic, not ISR. This route validates nothing and renders a
+// placeholder for whatever `id` it is given, so opting it into on-demand ISR
+// would let any caller mint an unbounded set of cache entries
+// (/marketplace/consumables/<anything>) with no upper bound on storage. It
+// fetches no data, so there is nothing to gain by caching it either.
+export const dynamic = 'force-dynamic'
 
 type PageProps = { params: Promise<{ id: string }> }
 

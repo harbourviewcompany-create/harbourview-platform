@@ -18,8 +18,12 @@ on:
       - 'lib/marketplace/**'
       - 'components/marketplace/**'
       - 'tests/marketplace/**'
-      # Shared rendering dependencies of the scanned route
-      - 'components/PublicUi.tsx'
+      # Shared rendering dependencies of the scanned route. Broadened to the
+      # whole component tree rather than an enumerated list: the chain is
+      # transitive (app/layout.tsx -> ShellWrapper -> Nav/Footer;
+      # PublicUi.tsx -> ui/HarbourviewPanel.tsx), so any hand-maintained
+      # enumeration goes stale the first time someone adds an import.
+      - 'components/**'
       - 'app/layout.tsx'
       - 'app/globals.css'
       - 'proxy.ts'

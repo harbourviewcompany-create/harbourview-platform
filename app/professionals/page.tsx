@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Clinical Professionals Directory — Cannabis Medicine | Harbourview',
@@ -54,12 +55,13 @@ async function getVerifiedProfessionals(): Promise<Professional[]> {
   if (!url || !key) return []
 
   const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const { data } = await svc
+  const { data, error } = await svc
     .from('hv_professionals')
     .select('id, profile_slug, full_name, title, credential_type, specialties, countries, languages, bio_public, institution, institution_country, accepts_referrals, consultation_available, clinical_focus')
     .eq('status', 'active')
     .eq('verification_status', 'verified')
     .order('full_name', { ascending: true })
+  guardIsrQuery(error, 'professionals: hv_professionals')
 
   return (data ?? []) as Professional[]
 }

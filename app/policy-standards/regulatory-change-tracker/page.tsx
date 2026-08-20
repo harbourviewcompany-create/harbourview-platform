@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Regulatory Change Tracker | Harbourview Policy Standards',
@@ -24,7 +25,7 @@ async function getRegChangeSignals(): Promise<Signal[]> {
   if (!url || !key) return []
   const cutoff = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10)
   const client = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const { data } = await client
+  const { data, error } = await client
     .from('signals')
     .select('id,headline,country,date,top_lane,cat')
     .eq('reviewed', true)
@@ -32,6 +33,7 @@ async function getRegChangeSignals(): Promise<Signal[]> {
     .or('top_lane.ilike.%regulat%,top_lane.ilike.%legislat%,top_lane.ilike.%policy%,top_lane.ilike.%law%,cat.ilike.%regulat%,cat.ilike.%policy%,cat.ilike.%reform%')
     .order('date', { ascending: false })
     .limit(40)
+  guardIsrQuery(error, 'regulatory-change-tracker: signals')
   return (data ?? []) as Signal[]
 }
 

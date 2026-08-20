@@ -1,12 +1,31 @@
 name: Regulatory Signals Verify
 
 on:
-  # The `pull_request:` trigger here carried no branch or path filter, so this
-  # ran `npm ci` + typecheck + a full `next build` on every pull request in the
-  # repository. Its steps are generic — `ci.yml` already runs the same
-  # typecheck and build — and the only output unique to this workflow is the
-  # captured build log, which is specific to the regulatory-signals work.
-  # It stays wired to its own branch and to manual dispatch.
+  # The `pull_request:` trigger here originally carried no branch or path
+  # filter, so this ran `npm ci` + typecheck + a full `next build` on every
+  # pull request in the repository.
+  #
+  # It is scoped rather than removed: this workflow is the ONLY place that runs
+  # `npm run test:live-source-intake` (tests/regulatory-sources/watcher.test.ts),
+  # `test:visibility`, `test:listing-quality` and
+  # `test:regulatory-signals-public-leakage` on a pull request. `ci.yml` runs
+  # none of those and does not run the full `npm test` either, so disabling the
+  # trigger outright dropped that coverage from PR validation.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lib/regulatory-sources/**'
+      - 'lib/intelligence-engine/**'
+      - 'lib/intelligence/**'
+      - 'lib/network/**'
+      - 'lib/server/listingsQuery.ts'
+      - 'app/signals/**'
+      - 'app/policy-standards/**'
+      - 'tests/regulatory-sources/**'
+      - 'tests/network/**'
+      - 'tests/marketplace/**'
+      - '.github/workflows/regulatory-signals-verify.yml'
   workflow_dispatch:
   push:
     branches:
