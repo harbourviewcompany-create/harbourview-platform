@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import {
+  planReplayContentPatches,
   planReplayExclusions,
   planReplayRelocations,
   planReplaySyntheticFoundations,
@@ -20,6 +21,7 @@ const excludedVersions = new Set(exclusions.map((item) => item.version))
 const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
 const relocations = planReplayRelocations({ migrationFiles })
 const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
+const contentPatches = planReplayContentPatches({ migrationFiles })
 
 test('replay handles duplicate aliases only while their repository files still exist', () => {
   for (const [aliasVersion, canonicalVersion] of [
@@ -270,4 +272,24 @@ test('synthetic education policy foundation fails closed when its boundary or pr
   assert.deepEqual(planReplaySyntheticFoundations({ migrationFiles: [prerequisite] }), [])
   assert.deepEqual(planReplaySyntheticFoundations({ migrationFiles: [prerequisite, boundary, destination] }), [])
   assert.equal(planReplaySyntheticFoundations({ migrationFiles: [prerequisite, boundary] }).length, 1)
+})
+
+test('replay hardens extant tables while guarding absent production-local staging relations', () => {
+  const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
+  assert.equal(contentPatches.length, 1)
+  assert.equal(contentPatches[0].file, file)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(contentPatches[0].anchor), true)
+  assert.equal(original.includes(contentPatches[0].replacement), false)
+
+  const replayCopy = original.replace(contentPatches[0].anchor, contentPatches[0].replacement)
+  assert.match(replayCopy, /to_regclass\(format\('public\.%I', t\)\) is null/i)
+  assert.match(replayCopy, /alter table public\.%I enable row level security/i)
+  assert.match(replayCopy, /revoke all on public\.%I from anon, authenticated/i)
+  assert.match(replayCopy, /'country_name_aliases'/i)
+})
+
+test('production-local relation guard is suppressed when the exact migration is absent', () => {
+  assert.deepEqual(planReplayContentPatches({ migrationFiles: [] }), [])
 })

@@ -71,6 +71,28 @@ const REPLAY_SYNTHETIC_FOUNDATIONS = [
   },
 ]
 
+// Production's one-off staging/job tables were present when the recorded
+// 20260723183914 hardening migration ran, but several have no create migration
+// in repository history. On a zero-state replay, retain the hardening for every
+// table that does exist and skip only absent production-local relations. The
+// checked-in reconstructed migration and the production ledger stay unchanged.
+const REPLAY_CONTENT_PATCHES = [
+  {
+    file: '20260723183914_lock_down_21_anon_exposed_public_tables.sql',
+    anchor: `  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  END LOOP;`,
+    replacement: `  LOOP
+    IF to_regclass(format('public.%I', t)) IS NULL THEN
+      CONTINUE;
+    END IF;
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  END LOOP;`,
+  },
+]
+
 function migrationVersion(file) {
   const match = /^(\d{14})_.+\.sql$/.exec(file)
   return match?.[1] ?? null
@@ -144,6 +166,11 @@ export function planReplaySyntheticFoundations({ migrationFiles }) {
   })
 }
 
+export function planReplayContentPatches({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_CONTENT_PATCHES.filter((item) => fileSet.has(item.file))
+}
+
 export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = false } = {}) {
   const decisions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, DECISIONS_FILE), 'utf8'))
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
@@ -152,6 +179,7 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
   const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
+  const contentPatches = planReplayContentPatches({ migrationFiles })
 
   if (apply) {
     for (const item of exclusions) {
@@ -183,16 +211,26 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       }
       fs.writeFileSync(destination, item.content, 'utf8')
     }
+    for (const item of contentPatches) {
+      const target = path.join(migrationDirectory, item.file)
+      const original = fs.readFileSync(target, 'utf8')
+      const first = original.indexOf(item.anchor)
+      const last = original.lastIndexOf(item.anchor)
+      if (first === -1 || first !== last) {
+        throw new Error(`Replay content patch anchor mismatch: ${item.file}`)
+      }
+      fs.writeFileSync(target, original.replace(item.anchor, item.replacement), 'utf8')
+    }
   }
 
-  return { exclusions, zeroStateSkips, relocations, syntheticFoundations }
+  return { exclusions, zeroStateSkips, relocations, syntheticFoundations, contentPatches }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const { exclusions, zeroStateSkips, relocations, syntheticFoundations } = runReplayPreparation({ apply })
+    const { exclusions, zeroStateSkips, relocations, syntheticFoundations, contentPatches } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
@@ -222,6 +260,12 @@ if (isDirect) {
       for (const item of syntheticFoundations) {
         console.log(`- ${item.destination} before ${item.before}`)
       }
+    }
+    if (contentPatches.length === 0) {
+      console.log('Production-faithful replay: no production-local relation guards are required.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'guarded' : 'would guard'} ${contentPatches.length} migration(s) against absent production-local relations:`)
+      for (const item of contentPatches) console.log(`- ${item.file}`)
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
