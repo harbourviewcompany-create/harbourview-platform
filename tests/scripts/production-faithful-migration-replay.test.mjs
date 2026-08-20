@@ -159,6 +159,11 @@ test('replay relocates only evidenced reconstruction files before their first de
       destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
       before: '20260730211147_create_supply_catalog_public_view.sql',
     },
+    {
+      source: '20260819100621_clinical_evidence_spine_reconcile.sql',
+      destination: '20260818212759_replay_clinical_evidence_spine_reconcile.sql',
+      before: '20260818212800_clinical_prescriber_governance_preflight.sql',
+    },
   ])
 
   const corridorSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260701230000_corridor_intelligence_tables_stub.sql'), 'utf8')
@@ -168,6 +173,20 @@ test('replay relocates only evidenced reconstruction files before their first de
   const listingsSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260730220050_reconcile_listings_production_columns.sql'), 'utf8')
   assert.match(listingsSource, /shape was established entirely outside recorded history/i)
   assert.match(listingsSource, /below is taken from the live catalog \(pg_attribute \/ pg_get_expr\), not\s*-- inferred/i)
+
+  const clinicalSource = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260819100621_clinical_evidence_spine_reconcile.sql'),
+    'utf8',
+  )
+  const clinicalPreflight = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260818212800_clinical_prescriber_governance_preflight.sql'),
+    'utf8',
+  )
+  assert.match(clinicalSource, /production-shape reconciliation/i)
+  assert.match(clinicalSource, /create table if not exists public\.clinical_evidence_snapshots/i)
+  assert.match(clinicalSource, /create table if not exists public\.clinical_grade_assessments/i)
+  assert.match(clinicalPreflight, /represented by 20260819100621_clinical_evidence_spine_reconcile\.sql/i)
+  assert.match(clinicalPreflight, /clinical prescriber os governance preflight failed/i)
 })
 
 test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {

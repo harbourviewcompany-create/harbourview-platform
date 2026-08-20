@@ -42,6 +42,11 @@ const REPLAY_RELOCATIONS = [
     destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
     before: '20260730211147_create_supply_catalog_public_view.sql',
   },
+  {
+    source: '20260819100621_clinical_evidence_spine_reconcile.sql',
+    destination: '20260818212759_replay_clinical_evidence_spine_reconcile.sql',
+    before: '20260818212800_clinical_prescriber_governance_preflight.sql',
+  },
 ]
 
 // Supabase's migration ledger keys on the fourteen-digit version, so independent
