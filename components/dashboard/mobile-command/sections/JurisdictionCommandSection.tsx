@@ -468,7 +468,7 @@ export function JurisdictionSection(props: Props) {
               </article>
             ))}
           </div>
-          {data && data.counterparties.length > 0 ? <Link className={styles.sourceLink} href={props.commandHref('directories')}>Open directories →</Link> : null}
+          {data && data.counterparties.length > 0 ? <Link className={styles.sourceLink} href={props.commandHref('network')}>Open Network →</Link> : null}
         </div>
 
         <div className={styles.panel} aria-labelledby="jurisdiction-evidence-title">
