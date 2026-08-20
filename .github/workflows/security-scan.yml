@@ -1,0 +1,81 @@
+name: Security Scan (Trivy + OPA)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 06:00 UTC
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  trivy-opa:
+    name: Trivy + OPA Policy Enforcement
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan (JSON)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: json
+          output: trivy-results.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          cache-dir: ${{ github.workspace }}/.cache/trivy
+          exit-code: '0'  # We evaluate with OPA instead of failing here
+
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: .cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
+      - name: Evaluate with OPA
+        uses: open-policy-agent/setup-opa@v2
+        with:
+          version: latest
+
+      - name: Run OPA policy against Trivy results
+        run: |
+          opa eval \
+            --data policies/trivy-vuln-policy.rego \
+            --input trivy-results.json \
+            --fail-defined \
+            "data.harbourview.trivy.deny" \
+            -f pretty || {
+              echo "::error::OPA policy violations detected"
+              exit 1
+            }
+
+      - name: Upload Trivy results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-results
+          path: trivy-results.json
+
+      - name: Publish SARIF
+        uses: aquasecurity/trivy-action@0.28.0
+        if: always()
+        with:
+          scan-type: fs
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
