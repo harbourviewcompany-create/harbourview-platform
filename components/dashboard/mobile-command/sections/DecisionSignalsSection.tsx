@@ -54,6 +54,51 @@ function clampText(value: string, max = 220) {
   return `${trimmed.slice(0, max - 1).trimEnd()}…`
 }
 
+/** Prefer English display title; surface a distinct original-language line when present. */
+function resolveTitles(signal: Signal) {
+  const item = asRecord(signal)
+  const analysis = asRecord(item.analysis)
+  const englishTitle =
+    readString(item, ['title_en', 'headline_en'], '')
+    || readString(item, ['title', 'headline'], 'Untitled signal')
+
+  const candidates = [
+    readString(item, [
+      'title_original',
+      'original_title',
+      'headline_original',
+      'originalHeadline',
+      'title_src',
+      'source_title',
+      'headline_src',
+      'originalLanguageTitle',
+    ], ''),
+    readString(analysis, [
+      'original_title',
+      'title_original',
+      'source_title',
+      'headline_original',
+      'title_src',
+    ], ''),
+  ]
+
+  // Common pattern: translated=true means `title` is source language and title_en is English.
+  if (item.translated === true) {
+    const sourceTitle = readString(item, ['title', 'headline'], '')
+    if (sourceTitle) candidates.unshift(sourceTitle)
+  }
+
+  let originalLine = ''
+  for (const candidate of candidates) {
+    if (candidate && candidate !== englishTitle) {
+      originalLine = candidate
+      break
+    }
+  }
+
+  return { englishTitle, originalLine }
+}
+
 /**
  * Canonical mobile signal list after layout cleanup.
  * Feed cards are lean decision surfaces; deep evidence lives in the dossier.
@@ -88,20 +133,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
           {orderedSignals.map(({ signal, contextual }, listIndex) => {
             const analysis = asRecord(asRecord(signal).analysis)
-            const englishTitle = readString(signal, ['title_en', 'headline_en'], '')
-              || readString(signal, ['title'], 'Untitled signal')
-            const originalLine = readString(signal, [
-              'title_original',
-              'original_title',
-              'headline_original',
-              'title_src',
-              'headline',
-            ], '')
-            const showOriginal = Boolean(
-              originalLine
-              && originalLine !== englishTitle
-              && originalLine !== readString(signal, ['title'], ''),
-            )
+            const { englishTitle, originalLine } = resolveTitles(signal)
             const summaryRaw = signal.summary
               || readString(analysis, ['what_changed'], '')
               || (signal.commercialImpact && signal.commercialImpact !== englishTitle ? signal.commercialImpact : '')
@@ -135,7 +167,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
                   ) : null}
                 </div>
                 <h3>{englishTitle}</h3>
-                {showOriginal ? <p className="hvm2-intel-original">{originalLine}</p> : null}
+                {originalLine ? <p className="hvm2-intel-original">{originalLine}</p> : null}
                 {summary ? <p className="hvm2-intel-summary">{summary}</p> : null}
                 <div className="hvm2-intel-meta-row">
                   {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
