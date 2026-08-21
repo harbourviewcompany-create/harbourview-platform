@@ -4,6 +4,8 @@
  * Source-metadata only. Never publishes clinical-synthesis or bypasses D4.
  */
 
+import { errorMessage } from './errorMessage'
+
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   type EvidenceRow,
@@ -323,9 +325,9 @@ export async function runSourceCurrentness(options: RunOptions = {}): Promise<Ru
       console.log(`${row.slug || row.id}: ${result.status} — ${result.reason.slice(0, 120)}`)
       await new Promise((r) => setTimeout(r, PER_RECORD_DELAY_MS))
       return result
-    } catch (err: any) {
-      console.error(`${row.slug || row.id}: ERROR ${err?.message || err}`)
-      return { status: 'source-degraded' as FreshnessStatus, reason: String(err?.message || err) }
+    } catch (err) {
+      console.error(`${row.slug || row.id}: ERROR ${errorMessage(err)}`)
+      return { status: 'source-degraded' as FreshnessStatus, reason: errorMessage(err) }
     }
   })
 

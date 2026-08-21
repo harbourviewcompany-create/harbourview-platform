@@ -334,8 +334,50 @@
       "cloudflare": {"intelligenceHealthWorker": "Not used", "nextWebPreview": "Settings → Variables and Secrets → Secret"}
     },
     {
+      "id": "clinical-source-currentness-plain",
+      "names": ["CROSSREF_MAILTO"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "crossref/harbourview",
+      "requirement": "Optional contact address for Crossref's polite pool; the DOI probe works without it but is rate-limited harder",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Optional Settings \u2192 Variables and Secrets \u2192 Variable when clinical source-currentness runs in preview scope"
+      }
+    },
+    {
+      "id": "clinical-source-currentness-secret",
+      "names": ["NCBI_API_KEY"],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "ncbi",
+      "requirement": "Optional NCBI E-utilities key; raises the PMID probe's rate limit and is not required for correctness",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings \u2192 Variables and Secrets \u2192 Secret when clinical source-currentness runs in preview scope"
+      }
+    },
+    {
+      "id": "public-app-feature-flags",
+      "names": ["NEXT_PUBLIC_ENABLE_SW", "NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL"],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional browser-visible toggles outside the globe set: service-worker registration and the financing BNPL embed target. Current code defaults apply when absent",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Build Variables & Secrets \u2192 Variable AND Settings \u2192 Variables and Secrets \u2192 Variable when overriding defaults"
+      }
+    },
+    {
       "id": "resend-routing",
-      "names": ["HARBOURVIEW_TO_EMAIL", "HARBOURVIEW_FROM_EMAIL", "HARBOURVIEW_MARKETPLACE_NOTIFY_EMAIL", "HARBOURVIEW_ORG_NOTIFY_EMAIL", "HARBOURVIEW_PIPELINE_REVIEW_NOTIFY_EMAIL"],
+      "names": ["HARBOURVIEW_TO_EMAIL", "HARBOURVIEW_FROM_EMAIL", "HARBOURVIEW_MARKETPLACE_NOTIFY_EMAIL", "HARBOURVIEW_ORG_NOTIFY_EMAIL", "HARBOURVIEW_PIPELINE_REVIEW_NOTIFY_EMAIL", "HARBOURVIEW_OPS_EMAIL", "MARKET_ACCESS_ALERT_EMAIL"],
       "stage": "Runtime only",
       "sensitivity": "Plain variable",
       "provider": "resend/harbourview",
