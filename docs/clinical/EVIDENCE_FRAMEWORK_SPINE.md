@@ -22,7 +22,7 @@ Map the commercial evidence strategy (IMDRF three-pillar clinical evaluation, DT
    - `frameworkAlignment` is metadata for commercial / regulatory readiness; it does **not** replace GRADE-style certainty, claim provenance, or primary-source links.
    - Product remains professional clinical reference, not SaMD or patient-specific advice.
 
-## Phase B — DONE (this update)
+## Phase B — DONE
 
 1. **Claim map fixtures** — `lib/fixtures/clinical/claim-map.ts` (Dravet CBD, neuropathic pain, MS spasticity samples).
 
@@ -46,13 +46,27 @@ Map the commercial evidence strategy (IMDRF three-pillar clinical evaluation, DT
 - Prefer supersession + new review over silent mutation of published clinical meaning.
 - Store draft alignment in fixtures or intake notes until migration is applied and write path wired.
 
-## Phase C (next)
+## Phase C — DONE
 
-Read-only Framework Alignment block on Clinical Command detail pages (only when data present).
+1. **Read-only block** — `components/clinical/FrameworkAlignmentBlock.tsx`
+   - IMDRF pillars, DTA domains, DTx RWE phase, FDA RWE relevance/reliability, ALCOA+, stage-gate / priority
+   - Renders only when `frameworkAlignment` is present
 
-## Phase D
+2. **Clinical Command integration** — `ClinicalWorkspacePage` Evidence tab
+   - Under each citation, fixture lookup by `evidenceRecordId`
+   - Shows compact Framework Alignment block when the matching evidence fixture is annotated
+   - No clinical inference; graded strength and primary sources remain authoritative
 
-Evidence Readiness Checker in operator tools + corridor-plan flags.
+## Phase D — DONE
+
+1. **Evidence Readiness Checker** — `lib/clinical/evidence-readiness.ts`
+   - `assessClaimMapReadiness`, `corridorEvidenceFlags`, `alignmentQuickScore`
+   - Pure helpers over claim-map fixtures / gap analysis
+
+2. **Corridor plan flags** — `CorridorPlanWorkspace`
+   - “Evidence readiness (commercial)” section with severity-tagged flags
+   - Top framework gaps for operator triage
+   - Product-class awareness (orientation only)
 
 ## Mapping cheat-sheet
 
@@ -81,6 +95,16 @@ Evidence Readiness Checker in operator tools + corridor-plan flags.
 - [x] Minimal admin form (JSON validate)
 - [x] Optional additive migration (not forced on production)
 - [ ] Live write path to `framework_alignment` column — when migration applied
+
+### Phase C
+- [x] Read-only Framework Alignment block component
+- [x] Wired into Clinical workspace Evidence citations when data present
+- [x] No change to CLINICAL_DISCLAIMER or public search
+
+### Phase D
+- [x] Evidence Readiness Checker helpers
+- [x] Corridor-plan commercial flags + top gaps
+- [x] Fixture-backed; no clinical inference
 
 ## Non-goals
 
