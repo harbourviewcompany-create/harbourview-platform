@@ -1,13 +1,16 @@
 -- Migration: Harbourview Talent Job Board foundation
 -- Date: 2026-08-21
 -- Additive only. Does not touch supplier_profiles, clinical tables, or counterparty records.
+-- organization_id is optional UUID (no hard FK) so migration applies even if org table naming differs.
 
 -- ---------------------------------------------------------------------------
 -- 1. talent_opportunities
 -- ---------------------------------------------------------------------------
 create table if not exists public.talent_opportunities (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references public.organizations(id) on delete restrict,
+  organization_id uuid,
+  company_name text not null default '',
+  company_location text,
   title text not null check (char_length(title) between 3 and 200),
   slug text not null,
   description text not null,
@@ -55,9 +58,8 @@ create table if not exists public.talent_opportunities (
     check (salary_min is null or salary_max is null or salary_min <= salary_max)
 );
 
--- Unique slug per org while not archived
-create unique index if not exists talent_opportunities_org_slug_active_idx
-  on public.talent_opportunities (organization_id, slug)
+create unique index if not exists talent_opportunities_slug_active_idx
+  on public.talent_opportunities (slug)
   where status <> 'archived';
 
 create index if not exists talent_opportunities_status_jurisdiction_idx
@@ -67,7 +69,8 @@ create index if not exists talent_opportunities_role_family_status_idx
   on public.talent_opportunities (role_family, status);
 
 create index if not exists talent_opportunities_organization_id_idx
-  on public.talent_opportunities (organization_id);
+  on public.talent_opportunities (organization_id)
+  where organization_id is not null;
 
 create index if not exists talent_opportunities_published_at_idx
   on public.talent_opportunities (published_at desc nulls last)
@@ -79,7 +82,9 @@ create index if not exists talent_opportunities_published_at_idx
 create table if not exists public.talent_applications (
   id uuid primary key default gen_random_uuid(),
   opportunity_id uuid not null references public.talent_opportunities(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  applicant_name text,
+  applicant_email text,
   status text not null default 'submitted' check (status in (
     'submitted', 'viewed', 'shortlisted', 'rejected', 'withdrawn', 'hired'
   )),
@@ -87,17 +92,15 @@ create table if not exists public.talent_applications (
   resume_url text,
   professional_profile_snapshot jsonb,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-
-  constraint talent_applications_unique_user_opportunity
-    unique (opportunity_id, user_id)
+  updated_at timestamptz not null default now()
 );
 
 create index if not exists talent_applications_opportunity_id_idx
   on public.talent_applications (opportunity_id);
 
 create index if not exists talent_applications_user_id_idx
-  on public.talent_applications (user_id);
+  on public.talent_applications (user_id)
+  where user_id is not null;
 
 -- ---------------------------------------------------------------------------
 -- 3. talent_saved_jobs
@@ -133,7 +136,7 @@ create index if not exists talent_alerts_user_id_idx
   on public.talent_alerts (user_id);
 
 -- ---------------------------------------------------------------------------
--- 5. updated_at trigger helper (reuse if already present)
+-- 5. updated_at trigger
 -- ---------------------------------------------------------------------------
 create or replace function public.set_updated_at()
 returns trigger
@@ -161,101 +164,102 @@ create trigger talent_alerts_set_updated_at
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- 6. RLS
+-- 6. Increment RPCs
+-- ---------------------------------------------------------------------------
+create or replace function public.increment_talent_view_count(opportunity_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.talent_opportunities
+  set view_count = view_count + 1
+  where id = opportunity_id and status = 'published';
+$$;
+
+create or replace function public.increment_talent_application_count(opportunity_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.talent_opportunities
+  set application_count = application_count + 1
+  where id = opportunity_id;
+$$;
+
+grant execute on function public.increment_talent_view_count(uuid) to anon, authenticated;
+grant execute on function public.increment_talent_application_count(uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 7. RLS (no organization_members dependency)
 -- ---------------------------------------------------------------------------
 alter table public.talent_opportunities enable row level security;
 alter table public.talent_applications enable row level security;
 alter table public.talent_saved_jobs enable row level security;
 alter table public.talent_alerts enable row level security;
 
--- talent_opportunities policies
--- Anyone (including anon) can read published
+-- Published readable by anyone
+drop policy if exists "talent_opportunities_select_published" on public.talent_opportunities;
 create policy "talent_opportunities_select_published"
   on public.talent_opportunities
   for select
-  using (status = 'published');
+  using (status = 'published' or created_by = auth.uid());
 
--- Authenticated users who belong to the organization can manage their own
--- (assumes a membership / org_members pattern already exists; adjust to actual table)
--- Placeholder: tighten once exact membership table is confirmed.
-create policy "talent_opportunities_org_members_all"
+-- Authenticated users can insert their own drafts
+drop policy if exists "talent_opportunities_insert_own" on public.talent_opportunities;
+create policy "talent_opportunities_insert_own"
   on public.talent_opportunities
-  for all
-  using (
-    exists (
-      select 1 from public.organization_members om
-      where om.organization_id = talent_opportunities.organization_id
-        and om.user_id = auth.uid()
-        and om.status = 'active'
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.organization_members om
-      where om.organization_id = talent_opportunities.organization_id
-        and om.user_id = auth.uid()
-        and om.status = 'active'
-    )
-  );
+  for insert
+  to authenticated
+  with check (created_by = auth.uid());
 
--- Service role / admin bypass is handled by Supabase service key; no broad policy needed.
+-- Owners can update their non-published rows (cannot self-publish)
+drop policy if exists "talent_opportunities_update_own" on public.talent_opportunities;
+create policy "talent_opportunities_update_own"
+  on public.talent_opportunities
+  for update
+  to authenticated
+  using (created_by = auth.uid() and status in ('draft', 'pending_review', 'closed'))
+  with check (created_by = auth.uid() and status in ('draft', 'pending_review', 'closed', 'archived'));
 
--- talent_applications
-create policy "talent_applications_select_own_or_org"
+-- Applications
+drop policy if exists "talent_applications_select_own" on public.talent_applications;
+create policy "talent_applications_select_own"
   on public.talent_applications
   for select
-  using (
-    user_id = auth.uid()
-    or exists (
-      select 1
-      from public.talent_opportunities o
-      join public.organization_members om on om.organization_id = o.organization_id
-      where o.id = talent_applications.opportunity_id
-        and om.user_id = auth.uid()
-        and om.status = 'active'
-    )
-  );
+  using (user_id = auth.uid());
 
+drop policy if exists "talent_applications_insert_own" on public.talent_applications;
 create policy "talent_applications_insert_own"
   on public.talent_applications
   for insert
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() or user_id is null);
 
-create policy "talent_applications_update_own_or_org"
+drop policy if exists "talent_applications_update_own" on public.talent_applications;
+create policy "talent_applications_update_own"
   on public.talent_applications
   for update
-  using (
-    user_id = auth.uid()
-    or exists (
-      select 1
-      from public.talent_opportunities o
-      join public.organization_members om on om.organization_id = o.organization_id
-      where o.id = talent_applications.opportunity_id
-        and om.user_id = auth.uid()
-        and om.status = 'active'
-    )
-  );
+  using (user_id = auth.uid());
 
--- talent_saved_jobs
+-- Saved jobs + alerts: owner only
+drop policy if exists "talent_saved_jobs_own" on public.talent_saved_jobs;
 create policy "talent_saved_jobs_own"
   on public.talent_saved_jobs
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- talent_alerts
+drop policy if exists "talent_alerts_own" on public.talent_alerts;
 create policy "talent_alerts_own"
   on public.talent_alerts
   for all
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
--- ---------------------------------------------------------------------------
--- 7. Helpful comments
--- ---------------------------------------------------------------------------
 comment on table public.talent_opportunities is
   'Reviewed job postings for the regulated cannabis industry. Separated from counterparty commercial records.';
 comment on column public.talent_opportunities.status is
-  'draft → pending_review → published | closed | archived. Publish requires review.';
-comment on column public.talent_opportunities.role_family is
-  'Must match values from lib/talent/taxonomy.ts ROLE_FAMILIES';
+  'draft → pending_review → published | closed | archived. Publish requires service-role / admin review.';
+comment on column public.talent_opportunities.company_name is
+  'Denormalized company display name so list/detail work without an organizations join.';
