@@ -2,6 +2,8 @@
  * Clinical source-currentness — URL fetch with conditional GET (Phase B)
  */
 
+import { errorMessage } from './errorMessage'
+
 const FETCH_TIMEOUT_MS = 15_000
 const MAX_REDIRECTS = 5
 const MAX_BODY_BYTES = 2_000_000
@@ -111,7 +113,7 @@ export async function checkUrl(
       contentType: null,
       error: 'Too many redirects',
     }
-  } catch (err: any) {
+  } catch (err) {
     return {
       ok: false,
       statusCode: null,
@@ -119,7 +121,7 @@ export async function checkUrl(
       redirected: redirects > 0,
       body: null,
       contentType: null,
-      error: err?.name === 'AbortError' ? 'Timeout' : String(err?.message || err),
+      error: err instanceof Error && err.name === 'AbortError' ? 'Timeout' : errorMessage(err),
     }
   } finally {
     clearTimeout(timer)

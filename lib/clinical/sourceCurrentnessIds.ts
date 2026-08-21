@@ -3,6 +3,45 @@
  * Crossref DOI, NCBI PMID, OpenAlex secondary.
  */
 
+import { errorMessage } from './errorMessage'
+
+/**
+ * Minimal shapes for the three registries' responses — only the fields this
+ * module actually reads. Deliberately partial: these are third-party payloads,
+ * so every field is optional and the code already guards each access.
+ */
+interface CrossrefResponse {
+  message?: {
+    title?: string | string[]
+    publisher?: string
+    'update-to'?: Array<{ type?: string }>
+  }
+}
+
+interface NcbiSummaryEntry {
+  error?: string
+  title?: string
+  pubtype?: string | string[]
+  fulljournalname?: string
+  source?: string
+}
+
+interface NcbiSummaryResponse {
+  result?: Record<string, NcbiSummaryEntry | undefined>
+}
+
+interface OpenAlexWork {
+  is_retracted?: boolean
+  title?: string
+  display_name?: string
+  primary_location?: { source?: { display_name?: string } }
+  host_venue?: { display_name?: string }
+}
+
+interface WaybackAvailability {
+  archived_snapshots?: { closest?: { available?: boolean } }
+}
+
 const FETCH_TIMEOUT_MS = 15_000
 
 function userAgent(): string {
@@ -27,7 +66,7 @@ export async function resolveDoi(doi: string): Promise<IdResult> {
     })
     if (res.status === 404) return { valid: false, notes: 'DOI not found in Crossref' }
     if (!res.ok) return { valid: null, notes: `Crossref HTTP ${res.status}` }
-    const msg = ((await res.json()) as any)?.message
+    const msg = ((await res.json()) as CrossrefResponse)?.message
     if (!msg) return { valid: null, notes: 'Empty Crossref message' }
     const title = Array.isArray(msg.title) ? msg.title[0] : msg.title
     const updateTo = msg['update-to'] as Array<{ type?: string }> | undefined
@@ -41,8 +80,8 @@ export async function resolveDoi(doi: string): Promise<IdResult> {
       retracted: Boolean(retracted),
       notes: retracted ? 'Crossref signals update/retraction-related status' : undefined,
     }
-  } catch (err: any) {
-    return { valid: null, notes: `Crossref error: ${err?.message || err}` }
+  } catch (err) {
+    return { valid: null, notes: `Crossref error: ${errorMessage(err)}` }
   }
 }
 
@@ -55,7 +94,7 @@ export async function resolvePmid(pmid: string): Promise<IdResult> {
       { headers: { 'User-Agent': userAgent() }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }
     )
     if (!res.ok) return { valid: null, notes: `NCBI HTTP ${res.status}` }
-    const result = ((await res.json()) as any)?.result?.[pmid]
+    const result = ((await res.json()) as NcbiSummaryResponse)?.result?.[pmid]
     if (!result || result.error) return { valid: false, notes: result?.error || 'PMID not found' }
     const pubTypes: string[] = Array.isArray(result.pubtype)
       ? result.pubtype
@@ -70,8 +109,8 @@ export async function resolvePmid(pmid: string): Promise<IdResult> {
       retracted,
       notes: retracted ? 'PubMed publication type indicates retraction' : undefined,
     }
-  } catch (err: any) {
-    return { valid: null, notes: `NCBI error: ${err?.message || err}` }
+  } catch (err) {
+    return { valid: null, notes: `NCBI error: ${errorMessage(err)}` }
   }
 }
 
@@ -87,7 +126,7 @@ export async function resolveOpenAlex(doi: string | null, pmid: string | null): 
     })
     if (res.status === 404) return { valid: false, notes: 'Not found in OpenAlex' }
     if (!res.ok) return { valid: null, notes: `OpenAlex HTTP ${res.status}` }
-    const data = (await res.json()) as any
+    const data = (await res.json()) as OpenAlexWork
     const retracted = Boolean(data?.is_retracted)
     return {
       valid: true,
@@ -96,8 +135,8 @@ export async function resolveOpenAlex(doi: string | null, pmid: string | null): 
       retracted,
       notes: retracted ? 'OpenAlex marks work as retracted' : undefined,
     }
-  } catch (err: any) {
-    return { valid: null, notes: `OpenAlex error: ${err?.message || err}` }
+  } catch (err) {
+    return { valid: null, notes: `OpenAlex error: ${errorMessage(err)}` }
   }
 }
 
@@ -111,7 +150,7 @@ export async function probeArchiveAvailability(url: string): Promise<boolean> {
       }
     )
     if (!res.ok) return false
-    const data = (await res.json()) as any
+    const data = (await res.json()) as WaybackAvailability
     return Boolean(data?.archived_snapshots?.closest?.available)
   } catch {
     return false
