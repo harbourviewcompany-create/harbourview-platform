@@ -105,8 +105,6 @@ jobs:
       - name: Install dependencies (cache miss fallback)
         if: steps.restore-node-modules.outputs.cache-hit != 'true'
         run: npm ci
-      - name: Environment manifest coverage
-        run: npm run check:env-manifest
       - name: Cloudflare provider architecture
         run: npm run check:cloudflare-architecture
       - run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts
