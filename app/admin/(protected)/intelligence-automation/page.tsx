@@ -18,10 +18,11 @@ const activeSections = [
   { key: 'evidence', title: 'Evidence Vault',    href: '/admin/intelligence-automation/evidence', eyebrow: 'Private evidence',  description: 'COAs, licences, GACP/EU-GMP certificates, and commercial evidence pending review.' },
 ] as const;
 
-// ── Reference sections: currently backed by a single seed batch (one
-// created_at timestamp across all rows) rather than an active pipeline.
+// ── Reference sections: currently backed by a single seed batch or a
+// canonical source-backed intelligence packet rather than an active pipeline.
 // Shown, but honestly labelled, so they don't read as "live" when they aren't.
 const referenceSections = [
+  { title: 'Counterparty Intelligence', href: '/admin/intelligence-automation/counterparty-intelligence', eyebrow: 'Market-access pathways', description: 'Verified companies, licences, ownership changes, route-to-market posture, commercial openings, and next triggers.' },
   { title: 'Source Registry',      href: '/admin/intelligence-automation/sources',         eyebrow: 'Data acquisition',    description: 'Intelligence sources across licence databases, regulator feeds, importer directories, and manual relationship inputs.' },
   { title: 'Relationship Memory',  href: '/admin/intelligence-automation/counterparties',  eyebrow: 'Counterparty memory', description: 'Persistent memory for buyers, sellers, importers, distributors, suppliers, and service providers.' },
   { title: 'Counterparty Scoring', href: '/admin/intelligence-automation/scoring',         eyebrow: 'Scoring engine',      description: 'Fit, readiness, and trust scores with routing priority.' },
@@ -175,10 +176,10 @@ export default async function IntelligenceAutomationHubPage() {
         })}
       </div>
 
-      {/* ── Reference sections — honestly labelled: seed data, not a live queue ── */}
+      {/* ── Reference sections — honestly labelled: seed/canonical data, not a live queue ── */}
       <div>
         <p className="mb-3 text-xs uppercase tracking-[0.22em] text-[#F5F1E8]/40">
-          Supporting data · loaded once, not yet wired to a live pipeline
+          Supporting intelligence · source-backed reference data, not a live queue
         </p>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {referenceSections.map(s => (
