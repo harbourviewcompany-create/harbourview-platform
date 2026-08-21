@@ -1,0 +1,48 @@
+name: Counterparty Intelligence Verify
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'lib/intelligence-automation/counterparty-pathways.ts'
+      - 'app/admin/(protected)/intelligence-automation/counterparty-intelligence/**'
+      - 'app/admin/(protected)/intelligence-automation/page.tsx'
+      - 'lib/admin/navConfig.ts'
+      - 'tests/intelligence-automation/counterpartyPathways.test.ts'
+      - '.github/workflows/counterparty-intelligence-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install lockfile dependencies
+        run: npm ci
+
+      - name: Counterparty intelligence provenance contracts
+        run: npx vitest run tests/intelligence-automation/counterpartyPathways.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Public leakage regression
+        run: npm run test:visibility
+
+      - name: Production build
+        run: npm run build
