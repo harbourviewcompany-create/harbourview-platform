@@ -1,66 +1,85 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import type { TalentOpportunity } from '@/types/talent';
-import { formatSalaryBand, ROLE_FAMILIES } from '@/lib/talent/taxonomy';
+import { useState } from 'react'
+import type { TalentOpportunity } from '@/types/talent'
+import { formatSalaryBand, ROLE_FAMILIES } from '@/lib/talent/taxonomy'
 
 interface TalentJobDetailProps {
-  job: TalentOpportunity;
-  onClose: () => void;
+  job: TalentOpportunity
+  onClose: () => void
 }
 
 export function TalentJobDetail({ job, onClose }: TalentJobDetailProps) {
-  const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false)
+  const [applied, setApplied] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [guestName, setGuestName] = useState('')
+  const [guestEmail, setGuestEmail] = useState('')
+  const [showGuestFields, setShowGuestFields] = useState(false)
 
   const salary = formatSalaryBand({
     min: job.salary_min,
     max: job.salary_max,
     currency: job.salary_currency,
     period: job.salary_period,
-  });
+  })
 
   const familyLabel =
-    ROLE_FAMILIES[job.role_family]?.label ?? job.role_family;
+    ROLE_FAMILIES[job.role_family]?.label ?? job.role_family
 
   async function handleApply() {
-    setApplying(true);
-    setError(null);
+    setApplying(true)
+    setError(null)
     try {
+      const payload: Record<string, string> = { opportunityId: job.id }
+      if (showGuestFields) {
+        if (!guestName.trim() || !guestEmail.trim()) {
+          throw new Error('Name and email are required')
+        }
+        payload.name = guestName.trim()
+        payload.email = guestEmail.trim()
+      }
+
       const res = await fetch('/api/talent/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opportunityId: job.id }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Application failed');
+        body: JSON.stringify(payload),
+      })
+      const body = await res.json().catch(() => ({}))
+
+      if (res.status === 401 || (res.status === 400 && String(body.error || '').includes('signed in'))) {
+        setShowGuestFields(true)
+        setError('Sign in, or enter your name and email below to apply.')
+        return
       }
-      setApplied(true);
+
+      if (!res.ok) {
+        throw new Error(body.error ?? 'Application failed')
+      }
+      setApplied(true)
     } catch (e: any) {
-      setError(e?.message ?? 'Unable to apply');
+      setError(e?.message ?? 'Unable to apply')
     } finally {
-      setApplying(false);
+      setApplying(false)
     }
   }
 
   async function handleSave() {
-    setSaving(true);
+    setSaving(true)
     try {
       const res = await fetch('/api/talent/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ opportunityId: job.id }),
-      });
-      if (!res.ok) throw new Error('Save failed');
-      setSaved(true);
-    } catch {
-      // silent for now
+      })
+      if (!res.ok) throw new Error('Save failed — sign in to save roles')
+      setSaved(true)
+    } catch (e: any) {
+      setError(e?.message ?? 'Unable to save')
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
   }
 
@@ -139,6 +158,40 @@ export function TalentJobDetail({ job, onClose }: TalentJobDetailProps) {
           </section>
         )}
 
+        {showGuestFields && !applied && (
+          <div className="flex flex-col gap-2 mb-4">
+            <label className="text-xs text-white/50">
+              Name
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white"
+                autoComplete="name"
+              />
+            </label>
+            <label className="text-xs text-white/50">
+              Email
+              <input
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                className="mt-1 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white"
+                autoComplete="email"
+              />
+            </label>
+            {/* Honeypot — hidden from users */}
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              className="hidden"
+              aria-hidden="true"
+            />
+          </div>
+        )}
+
         {error && (
           <p className="text-sm text-red-300 mb-3">{error}</p>
         )}
@@ -164,7 +217,19 @@ export function TalentJobDetail({ job, onClose }: TalentJobDetailProps) {
                 ? 'Application submitted'
                 : applying
                   ? 'Submitting…'
-                  : 'Apply with Harbourview profile'}
+                  : showGuestFields
+                    ? 'Submit application'
+                    : 'Apply with Harbourview profile'}
+            </button>
+          )}
+
+          {!showGuestFields && !applied && !job.application_url && (
+            <button
+              type="button"
+              onClick={() => setShowGuestFields(true)}
+              className="w-full text-center text-xs text-white/45 hover:text-white/70 py-1"
+            >
+              Apply with name and email instead
             </button>
           )}
 
@@ -184,5 +249,5 @@ export function TalentJobDetail({ job, onClose }: TalentJobDetailProps) {
         </p>
       </div>
     </div>
-  );
+  )
 }
