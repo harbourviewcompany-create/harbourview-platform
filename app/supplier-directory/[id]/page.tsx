@@ -4,8 +4,21 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
-export const dynamic = 'force-dynamic'
+// ISR: directory data
+export const revalidate = 3600
+
+/**
+ * Opts this dynamic segment into ISR. Exporting `revalidate` alone does not:
+ * an unenumerated dynamic segment stays server-rendered per request with no
+ * revalidation window. Returning no paths prerenders nothing at build time
+ * while still letting each `id` be rendered once and then cached for the
+ * window above — this route reads through a keyed client, not a cookie-bound one.
+ */
+export async function generateStaticParams() {
+  return []
+}
 
 type SupplierCapabilities = {
   business_type?: string
@@ -83,12 +96,13 @@ async function getApprovedSupplier(id: string): Promise<PublicSupplier | null> {
   })
 
   // Public-safe columns only — never contact_email / contact_name / contact_phone.
-  const { data } = await svc
+  const { data, error } = await svc
     .from('supplier_profiles')
     .select('id, company_name, seller_type, region, categories, description, capabilities')
     .eq('id', id)
     .eq('status', 'approved')
     .maybeSingle()
+  guardIsrQuery(error, 'supplier-directory/[id]: supplier_profiles')
 
   return data as PublicSupplier | null
 }

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Supplier Directory — Verified Cannabis Operators | Harbourview',
@@ -15,7 +16,8 @@ export const metadata: Metadata = {
   },
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: directory data
+export const revalidate = 3600
 
 type SupplierCapabilities = {
   business_type?: string
@@ -96,11 +98,12 @@ async function getApprovedSuppliers(): Promise<PublicSupplier[]> {
 
   // Public-safe columns only — never select contact_email, contact_name, contact_phone.
   // RLS on supplier_profiles is approved-only for anon/authenticated.
-  const { data } = await svc
+  const { data, error } = await svc
     .from('supplier_profiles')
     .select('id, company_name, seller_type, region, categories, description, capabilities')
     .eq('status', 'approved')
     .order('company_name', { ascending: true })
+  guardIsrQuery(error, 'supplier-directory: supplier_profiles')
 
   return (data ?? []) as PublicSupplier[]
 }

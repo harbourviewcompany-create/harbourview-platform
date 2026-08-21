@@ -5045,3 +5045,192 @@ Production pre-flight (read-only): retirement predicate matches **0** rows on fi
 **Verification.** `tsc --noEmit` clean. `npx eslint .` now completes (was crashing every time before this commit) — 6 errors remain (all in `ClinicalEvidenceCommandPage.tsx`, left for its owner), 197 pre-existing warnings, down from 9 errors. `npm run test` 168 pass. `npm run test:security` 114 pass. `npm run build` succeeded locally (full route list, exit 0) on a near-identical tree during this same investigation.
 
 **Decision:** **GO for the repository change.** Merged as `5cb9c41` (squash), verified present on live `main` post-merge by direct content check, not just trusted from the merge API response. The regulatory-signals projection-layer failure noted above is **not resolved by this PR** and needs owner attention independent of it.
+
+---
+
+**Evidence ID:** `HV-PLATFORM-OPTIMIZATION-20260820`
+
+**Scope:** repository-only across four areas — public-route render strategy, CI trigger topology, the `npm test` gate, and `CommandCentre` bundle composition. A fifth area, a `source_registry` index migration, was **investigated and withdrawn**: it is not part of this change and **no migration file exists in this tree**. No production change was made in this session and all production database access was read-only.
+
+**1. Public routes were entirely uncached.** 152 of 272 `page.tsx` files carried `export const dynamic = 'force-dynamic'` against 18 with `revalidate`. 21 of them are public, anonymous and read no per-request state, yet re-rendered and re-queried Supabase on every visitor and crawler hit — `app/markets/page.tsx` serves briefings whose own metadata says "updated every week". Converted to ISR: 15m for regulatory/daily surfaces, 30m for marketplace and market briefings, 1h for directories and reference intelligence; `/contact` and `/professionals/apply` carry no server data and are now fully static.
+
+**Two of the 21 needed a data-layer fix first, verified before changing.** `/daily` and `/marketplace/professional-services` read through the cookie-bound `createClient()`, a dynamic API that silently opted both routes into dynamic rendering regardless of `revalidate`. Before switching them to a new no-cookie `createPublicAnonClient()`, the RLS grants were checked directly rather than assumed: `daily_digest_public_read` grants `anon` SELECT on `status='published'`, and `professional_service_provider_listings` grants `{anon,authenticated}` SELECT on `status='approved'`. The rendered row set is therefore unchanged. `getApprovedProviders()` was additionally made to degrade to an empty directory instead of throwing — these pages now prerender at build time, where an unreachable Supabase would otherwise fail the whole build, a failure mode `force-dynamic` never had.
+
+**Freshness tradeoff, flagged for review.** Published compliance and regulatory copy can now be served up to its revalidate window stale. The windows above are a judgement call, deliberately shortest on the regulatory surfaces, and are the part of this work most worth a second opinion.
+
+**2. CI ran the same work up to seven times per PR.** A PR to `main` triggered `npm run typecheck` in 7 workflows and a full `next build` in 5, each preceded by its own dependency install. Reduced to 4 and 3 by removing automatic triggers from duplicates only: `typecheck.yml` (identical to `ci.yml`'s cached Type Check job), `regulatory-signals-verify.yml` (its `pull_request:` trigger carried no branch or path filter, so a branch-scoped workflow built every PR in the repository), and `pr1222-supply-visual-verification.yml` (job gated on the already-merged `feature/supply-catalog`, and pinning a dead immutable Vercel URL). `pr166-new-products-equipment-verification.yml` was scoped with `paths:` rather than disabled, because its forbidden-string leakage scan is a real safety check worth keeping. **No workflow file was deleted and no check was removed** — all four remain runnable via `workflow_dispatch`. `branch-verification`, `production-baseline-verification` and `release-safety-shadow` still overlap but each carries distinct release controls; collapsing those changes the governance posture and was left for an explicit decision.
+
+**3. The mandated QA gate was covering 7% of the suite — and was failing.** `AGENTS.md` requires `npm test` before every merge. It chained six sub-scripts covering 10 of 137 test files, and `test:mobile-intel` fails on `origin/main`, short-circuiting the `&&` chain so even the two files after it never ran.
+
+    origin/main   npm test -> exit 1    (10 files reachable)
+    this branch   npm test -> exit 0    (126 files, 1014 tests, ~12s)
+
+The full suite runs in about 13 seconds, so runtime was never the reason. 11 suites that fail on `origin/main` are quarantined in `vitest.config.ts`, listed explicitly and commented as a work queue. **The quarantine applies only to the bare `npm test` gate.** `exclude` is global in Vitest, so a first version of this change also suppressed those files for the workflows that name them directly — 10 of the 11 are requested by name by at least one workflow. That either dropped a file silently from a multi-file run (the gate still exiting 0, having tested less than it asked for: `clinical-evidence-v1-1-verify.yml` requested 6 files and ran 5) or failed outright with "No test files found" on a single-file run. The config now skips the quarantine whenever the caller names explicit test files, so every targeted gate runs exactly what it asks for. Caught in review by Codex on PR #1605. **Confirmed pre-existing, not assumed:** all 11 were run against `origin/main` in a separate clean worktree, where the same 11 files / 17 tests fail. `test:full` and `test:quarantined` expose them. Several look like genuine product defects rather than stale assertions — a globe geometry refinement asserting `>35` and getting `16.62`, and a marketplace image-enrichment timeout test that itself times out at 5000ms — and each needs its own diagnosis. **This is the most material open item from this session.**
+
+**4. Dashboard bundle.** `CommandCentre.tsx` (11,380 lines, one client component) statically imported 19 page/panel/modal components, all shipped before first paint regardless of section, modals included. Converted to `next/dynamic` after verifying each identifier appears only on its import line and as a JSX tag; SSR left at default to keep hydration unchanged. A dead `ClinicalPage` import — imported, never rendered — was removed. Measured across two clean `rm -rf .next && npm run build` runs in the same tree: largest dashboard chunk **712.4 KB → 617.1 KB (−95 KB, −13%)**; total `.next/static/chunks` **5.21 MB → 5.30 MB (+90 KB)**, the increase being per-chunk overhead for code that now loads on demand. The eight static data modules in `components/dashboard/data/` (~211 KB of source, and mostly literal data so compressing worse than component code) remain in the main chunk: they are referenced 10–14 times each through filters and `useMemo` across the render body, making their extraction a scoped refactor rather than a mechanical change. That is the larger remaining win.
+
+**5. Database, measured before acting.** `source_registry` holds 1,826 rows in 3,400 kB of which 2,040 kB is index, across 17 indexes, and had 349,242 sequential scans — the highest of any table. Five of those indexes cover `source_url` or a normalisation of it; only `source_registry_source_url_uniq` is backed by a UNIQUE constraint (confirmed via `pg_constraint contype='u'`). A migration to drop the two plain duplicates was written and then **withdrawn from this change** (see below) — it would have reclaimed ~456 kB and two index writes per registry upsert, weakening no uniqueness guarantee. **No migration file exists in this tree.** The two normalized-url indexes are deliberately retained: unused by scan count, but encoding two different normalisation rules, so dropping them changes de-duplication semantics.
+
+**Measured and deliberately not acted on.** The advisor's 78 unindexed-foreign-key notices: every referencing table is tiny — largest is `editorial_items` at 1,068 rows, most under 30 — so Postgres will sequential-scan regardless and 73 new indexes would only add write cost, recreating the 479-unused-index problem. Revisit per-table as any of them grows.
+
+**Withdrawn from this PR — migration freeze.** The migration was written, then reverted (`d986694`) after CI surfaced a control this session had not accounted for: the `contracts-and-control` job runs `git diff --exit-code <pinned-sha> HEAD -- supabase/migrations`, asserting the migration directory is byte-identical to commit `c9a172c2a8b77cf12088ab523bfa2187294395b0`. Any new migration file fails that gate by design. The freeze is deliberate and was not worked around; the index cleanup is ready to land as its own change once it lifts. Its full rationale is preserved in the reverted commit `4c1dca8`.
+
+Independently of the freeze: per `docs/control/AGENT_OPERATING_FACTS.md`, merging a migration does not apply it, and applying needs explicit sign-off. Production is unchanged.
+
+**Verification.**
+- `npm run typecheck` — exit 0.
+- `npm test` — exit 0, 126 files / 1014 tests. (`origin/main`: exit 1.)
+- `npm run build` — exit 0, 433 routes. **20 routes converted in total: 15 non-parameterised reporting `○` static with their windows, plus 4 parameterised reporting `●`.** Two earlier versions of this line were wrong and are corrected here: the first claimed all 21 were prerendered with windows; the second still counted `/marketplace/consumables/[id]` among the converted routes after it had been reverted.
+  - Exporting `revalidate` on a dynamic segment does **not** opt it into ISR on its own. `/intelligence/playbooks/[country]`, `/marketplace/listings/[slug]`, `/professionals/[slug]` and `/supplier-directory/[id]` reported `ƒ` until they were given `generateStaticParams()` returning no paths; they now report `●`.
+  - Verified at runtime against `next start`: `/marketplace/listings/[slug]` and `/supplier-directory/42` each go `x-nextjs-cache: MISS` then `HIT`, with `s-maxage=1800`/`3600` matching their windows. The playbooks and professionals routes could not be observed locally — middleware redirects them to `/login` when Supabase env vars are absent — but carry identical configuration.
+  - **`/marketplace/consumables/[id]` is NOT converted.** It was briefly given `generateStaticParams()` and did show `MISS`→`HIT` at `s-maxage=1800`, but that was reverted: the route validates nothing and renders a placeholder for any `id`, so on-demand ISR let any caller mint unbounded cache entries. It is `force-dynamic`, reports `ƒ`, and fetches no data.
+  - `/marketplace/genetics/[slug]` is likewise deliberately `force-dynamic`: its query path uses the cookie-bound `createClient()`, so no window would apply.
+  - All of the above caught in review by Codex on PR #1605.
+- `npm run lint` — exit 1, **13 errors, all pre-existing and in files this work did not touch** (`lib/clinical/*`, `CrossBorderCheck.tsx`, `DecisionSignalsSection.tsx`). Confirmed by running lint on `origin/main` in a clean worktree: 208 problems / 13 errors there vs 207 / 13 here, the one-problem difference being the dead import removed in item 4.
+
+**Two pre-existing failures found while verifying, neither caused nor fixed here.**
+- `npm run lint` and `npm test` both exit 1 on `origin/main`. Two of the four QA commands `AGENTS.md` mandates before merge are red on the default branch. This change turns `npm test` green; lint is untouched.
+- `node scripts/check-pending-production-migration-decisions.mjs` exits 1 on `origin/main`, reporting Git blob mismatches for `20260730220050_reconcile_listings_production_columns.sql` and `20260810222500_harden_edge_function_cron_auth.sql` — both edited after being hash-bound in the ledger, one of them a security-hardening migration. **The hashes were deliberately not rewritten**: re-binding them to edited content is exactly the decision the control exists to force, and belongs to a human. (Both mismatches are pre-existing and unrelated to this change, which adds no migration.)
+
+**Security finding, reported not fixed.** While checking RLS grants for item 1, `anon` was found to hold INSERT/UPDATE/DELETE on ~130 updatable views in the `api` schema, including `user_roles`, `subscriptions`, `stripe_webhook_events`, `user_profiles` and `deal_rooms`. **Assessed as not currently exploitable**, and the assessment is the point: all 157 `api` views set `security_invoker` (140 as `'true'`, 17 as `'on'` — an earlier reading of the count as "17 unset" was wrong and was corrected by querying `pg_options_to_table` directly), so they execute as the caller and base-table RLS still applies; only 3 public tables have RLS disabled (`hv_gemini_embed_queue`, `source_discovery_attempts`, `source_discovery_jobs`) and none is exposed through those views. It is a defence-in-depth gap rather than a live breach — the grants would become directly exploitable the moment any one base table had RLS disabled, or any view were recreated without `security_invoker`. Revoking them is a security change and is left for explicit sign-off.
+
+**Also noted:** `data/globe/natural-earth-countries.ts` is regenerated by `prebuild` with an embedded `generatedAt` timestamp, so every build dirties the working tree with a one-line diff. Excluded from these commits; worth making deterministic.
+
+**Decision:** **GO for the repository change.** No production action taken and **this change contains no migration** — the index cleanup was withdrawn (see above) and must be reproposed as its own change once the `supabase/migrations` freeze lifts. Any move on the `anon` write grants likewise needs sign-off. Opened as a draft PR rather than merged — the ISR freshness windows and the test quarantine both warrant review before this lands.
+
+## 2026-08-21 — Production migration apply attempted, stopped on four verified blockers
+
+**Scope.** Apply the two migrations authorized on 2026-08-21 to production
+`zvxdgdkukjrrwamdpqrg`: `20260820120000_clinical_pilot_local_authorities_au_gb_br.sql`
+and `20260820120000_heatmap_conflict_freeze_seed.sql`. The pipeline migration
+`20260820180000` was explicitly excluded and was not touched.
+
+**Result: nothing applied. No write of any kind was issued to the project.**
+Every check was `select`-only. Full detail in
+`docs/control/MIGRATION_APPLY_BLOCKERS_2026-08-21.md`.
+
+**1. The heat-map migration would fail.** Its prerequisite
+`20260816120000_auto_heatmap_from_signals.sql` is not applied: `mig1_recorded`
+= 0, `market_access_events` / `market_access_proposals` /
+`platform_feature_flags` all `null` via `to_regclass`, `api_rpc_count` = 0,
+and `countries.regulatory_tier_auto_frozen` does not exist. Line 318 of the
+freeze/seed migration is a top-level `update public.countries set
+regulatory_tier_auto_frozen = true`, so it errors `42703` at that statement.
+
+**2. Applying that prerequisite is not the authorized "no pipeline impact"
+change.** It seeds `platform_feature_flags.market_access_auto_apply_enabled`
+to `true`, and `vercel.json` registers `/api/cron/market-access-promote` at
+`0 11 * * *` calling `api.promote_market_access_from_signals`. Applying it
+arms a daily loop that can rewrite `countries.regulatory_tier`. The
+"no cron pause needed" reading was correct only about pg_cron —
+`select ... from cron.job where command ilike '%market_access%'` returns 0
+rows; the exposure is the Vercel cron. Not applied.
+
+**3. The clinical migration adds no coverage and would insert duplicates.**
+Its `where not exists` guard matches `authority_name` exactly. Production
+already holds AU 2 / GB 2 / BR 2 authorities. AU and MHRA match exactly and
+no-op; GB `Home Office` vs live `Home Office (UK)`, and BR
+`Agência Nacional de Vigilância Sanitária (ANVISA)` vs live
+`ANVISA (Agência Nacional de Vigilância Sanitária)`, would each insert a
+second row for a body already covered, on a clinician-facing surface. The
+file claims alignment with `lib/clinical/authorityRegistry.ts`, which uses
+`'MHRA / Home Office'` and `'ANVISA'` and so settles neither long form.
+Picking canonical labels for published authority records is a content
+decision; the guard was not silently rewritten.
+
+**4. Both files share version `20260820120000`, so neither apply is
+recordable.** `schema_migrations.version` is the primary key, and the ledger
+tooling closes the alias route: `loadLiveVersionEquivalences` throws on a
+duplicate `repository_version`, and `evaluateLiveVersionEquivalences`
+recognizes an equivalence only when `files.length === 1`. An MCP
+`apply_migration` (which stamps its own version) would therefore land in
+`applied_not_committed` — the one condition `migration-drift-check.yml` fails
+on, hourly, on `main`. This already blocks the activation gate via
+`no_pending_duplicate_versions`. The same defect exists at `20260813010000`
+(`baseline_capture_pipeline_task_queue` + `extend_supply_catalog_equipment_to_australia`),
+pre-existing and flagged not fixed.
+
+**Why the one-line fix was not made.** Renaming one file per pair is a single
+`git mv`, but `global-reg-os-phase0-replacement.yml` runs
+`git diff --exit-code <base.sha> HEAD -- supabase/migrations` on any PR that
+touches `EVIDENCE_LOG.md`, `DATABASE_CONTROL.md`, `scripts/global-reg-os/**`
+or `docs/control/global-regulatory-os/**`, while `AGENTS.md` §4 requires an
+`EVIDENCE_LOG.md` entry for migration changes. The two controls are mutually
+exclusive for this change, which is a governance decision, not a workaround
+to route around. **Correction to the 2026-08-20 entry:** that gate is not
+pinned to commit `c9a172c2` — it diffs against the PR's own base SHA. Same
+practical effect, but the earlier description was inaccurate.
+
+**Decision: HOLD on all production application.** Three decisions are needed
+first — the version-collision fix (and the control conflict blocking it),
+whether to arm the heat-map loop by applying `20260816120000` together with
+its freeze/seed follow-up, and the canonical GB/BR authority labels.
+
+**Addendum, same day — one CI failure on this PR was mine and is fixed.**
+`npm run check:env-manifest` ("Security / Leakage") reported
+`NEXT_PHASE: lib/isr/isrQueryGuard.ts, lib/marketplace/professionalServices.ts`.
+Both references were introduced by this PR's ISR work and the variable was
+never declared. Added to the `framework-runtime-markers` group in
+`config/environment-manifest.json`, which is the correct classification: Next.js
+sets `NEXT_PHASE` itself during `next build`, it is read only to separate
+build-time from runtime query failures, and it is never operator-configured.
+
+The check still exits 1 on **19** other entries — `BASE_*`, `CLAUSE_*`,
+`DEBR_*`, `NEGATION_*`, `PROSE_*`, `PGCONNECT_TIMEOUT`, `PHASE`,
+`CROSSREF_MAILTO`, `NCBI_API_KEY`, `HARBOURVIEW_OPS_EMAIL`,
+`MARKET_ACCESS_ALERT_EMAIL`, `NEXT_PUBLIC_ENABLE_SW`,
+`NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL` — every one of them in a file this PR
+does not touch. Verified pre-existing by running the same script against
+`origin/main` in a clean worktree: it prints the identical 19-entry list. Those
+are left alone rather than swept into a performance PR.
+
+**The other failing checks at `4137a467` were each verified against an earlier
+head or against `main` before concluding anything.** Trivy + OPA cannot resolve
+`aquasecurity/trivy-action@0.28.0` and has failed all 22 of its runs on `main`
+since the workflow was added. Production Baseline Verification dies at the
+action-SHA-pinning scan over ~30 untouched workflow files. Decision Intel
+Completion Hardening Verify was green at `1f73c013` and red from `d129b907`,
+the commit that merged `origin/main` — the same stale `decisionDossier.ts`
+source-text assertion as the quarantined `decisionIntelIaFallback` suite.
+Cloudflare Workers Builds fail with `started_at == completed_at`, external to
+repository CI and not compared against a prior head.
+
+**One red check is this PR working as intended.** Branch Verification's
+`verify` and the `Intake & Listings` job both run `test:public-images`, which
+names `tests/dashboard/dashboardMarketplaceRows.test.ts` explicitly. Before the
+quarantine-scope fix in `1f73c013` that file was silently dropped and the gate
+exited 0 having tested 6 of 7 files; it now runs and fails on a pre-existing
+5s fake-timers timeout at line 170. Branch Verification has in fact been red on
+all 8 runs of this branch, including the two that predate that fix. Surfacing
+the failure is the point of the change; fixing that test belongs with the
+quarantine work queue, not here.
+
+**Verification of this addendum:** `npm run check:env-manifest` no longer
+reports `NEXT_PHASE`; `npm run typecheck` exit 0; `npm test` exit 0, 125 files
+/ 1011 tests.
+
+**Correction to the paragraph above, same day.** It said the other failing
+checks "were each verified against an earlier head or against `main`". That was
+written having checked four of them, and five more failures arrived in the same
+CI round that it did not cover. Those five are now checked, and the sentence
+should have been narrower until they were:
+
+- `decision-intel-first-slice-verify.yml` and
+  `decision-intel-stage0-review-fixes-verify.yml` both run
+  `npx vitest run tests/intel/decisionIntelFirstSlice.test.ts …`. That suite is
+  on the quarantine list as a confirmed `origin/main` failure, and naming it
+  explicitly is what the `1f73c013` scope fix stopped silently dropping. Same
+  family as Branch Verification and `Intake & Listings` — the PR working as
+  designed, exposing a pre-existing failure.
+- `elite-digest-boundary-hardening-verification.yml`,
+  `elite-digest-forward-repair-verification.yml` and
+  `regional-routing-verification.yml` each run `npm run lint` as an early step.
+  Lint exits 1 here and on `origin/main`, so none of them can reach green
+  regardless of this PR. Confirmed directly for Regional Routing: **failed on
+  all 9 runs of this branch**, including `4d5c8e43`, the first, which predates
+  every code change in this PR.
+
+Also: the older entry recorded lint as 13 errors / 207-208 problems. The current
+tree reports **12 errors / 206 problems** after `origin/main` was merged in. The
+count moved; the status did not. What matters for these three checks is that
+lint exits 1 on base, which it still does.

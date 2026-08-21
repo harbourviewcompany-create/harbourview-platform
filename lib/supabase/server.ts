@@ -37,6 +37,22 @@ export async function createClient() {
 /** Alias for createClient — used by passport and org routes */
 export const createSupabaseServerClient = createClient
 
+// ── Anonymous public client (no cookies, respects RLS as `anon`) ─────────────
+// Use this for public pages that render the same content for every visitor.
+// It reads with the anon key and never touches `next/headers`, so the page
+// stays statically renderable and can use ISR (`export const revalidate`).
+// Reaching for createClient() on such a page silently opts the whole route
+// into dynamic rendering, because cookies() is a dynamic API.
+//
+// Only for data an anonymous visitor is already allowed to read — RLS still
+// applies, so a row the public cannot SELECT will not appear here either.
+export function createPublicAnonClient() {
+  return createRawClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
+    auth: { autoRefreshToken: false, persistSession: false },
+    db: { schema: SUPABASE_DB_SCHEMA },
+  })
+}
+
 // ── Service-role client (bypasses RLS — server-only, privileged operations) ──
 // Use only where RLS must be bypassed (admin queues, cron jobs, seeding).
 // Always gate call sites with an explicit auth check (requireAdminAuth, CRON_SECRET, etc.)

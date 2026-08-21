@@ -17,25 +17,24 @@ import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { getModuleContent } from '@/lib/dashboard/educationModuleContent'
 import { getRoleNavRank } from '@/lib/dashboard/roleNavPriority'
-import { ListingDetailModal } from './ListingDetailModal'
-import SignalSemanticSearch from '@/components/dashboard/SignalSemanticSearch'
+const ListingDetailModal = dynamic(() => import('./ListingDetailModal').then(m => ({ default: m.ListingDetailModal })))
+const SignalSemanticSearch = dynamic(() => import('@/components/dashboard/SignalSemanticSearch'))
 import type { UserTier } from '@/lib/stripe/tier'
-import { DesktopDecisionIntelBridge } from '@/components/dashboard/DesktopDecisionIntelBridge'
+const DesktopDecisionIntelBridge = dynamic(() => import('@/components/dashboard/DesktopDecisionIntelBridge').then(m => ({ default: m.DesktopDecisionIntelBridge })))
 import { TIER_DISPLAY } from '@/lib/stripe/tierDisplay'
 import UpgradeButton from '@/components/stripe/UpgradeButton'
 import ManageBillingButton from '@/components/stripe/ManageBillingButton'
-import { CultivarPassportModal } from '@/components/dashboard/CultivarPassportModal'
-import { MyBriefingsPanel } from '@/components/dashboard/MyBriefingsPanel'
-import { WantedDetailModal } from './WantedDetailModal'
-import { GeneticsRequestModal } from './GeneticsRequestModal'
-import { GeneticsProgramModal } from './GeneticsProgramModal'
-import { QuoteModal } from './QuoteModal'
-import { MySubmissionsPanel } from './MySubmissionsPanel'
-import { ConsumablesRequestModal } from './ConsumablesRequestModal'
-import { DealRoomsPanel as DealRoomsSidebarWidget } from './DealRoomsPanel'
-import { AssistantPage } from './pages/AssistantPage'
-import ClinicalPage from './pages/ClinicalPage'
-import ClinicalEvidenceCommandPage from './pages/ClinicalEvidenceCommandPage'
+const CultivarPassportModal = dynamic(() => import('@/components/dashboard/CultivarPassportModal').then(m => ({ default: m.CultivarPassportModal })))
+const MyBriefingsPanel = dynamic(() => import('@/components/dashboard/MyBriefingsPanel').then(m => ({ default: m.MyBriefingsPanel })))
+const WantedDetailModal = dynamic(() => import('./WantedDetailModal').then(m => ({ default: m.WantedDetailModal })))
+const GeneticsRequestModal = dynamic(() => import('./GeneticsRequestModal').then(m => ({ default: m.GeneticsRequestModal })))
+const GeneticsProgramModal = dynamic(() => import('./GeneticsProgramModal').then(m => ({ default: m.GeneticsProgramModal })))
+const QuoteModal = dynamic(() => import('./QuoteModal').then(m => ({ default: m.QuoteModal })))
+const MySubmissionsPanel = dynamic(() => import('./MySubmissionsPanel').then(m => ({ default: m.MySubmissionsPanel })))
+const ConsumablesRequestModal = dynamic(() => import('./ConsumablesRequestModal').then(m => ({ default: m.ConsumablesRequestModal })))
+const DealRoomsSidebarWidget = dynamic(() => import('./DealRoomsPanel').then(m => ({ default: m.DealRoomsPanel })))
+const AssistantPage = dynamic(() => import('./pages/AssistantPage').then(m => ({ default: m.AssistantPage })))
+const ClinicalEvidenceCommandPage = dynamic(() => import('./pages/ClinicalEvidenceCommandPage'))
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
@@ -44,15 +43,15 @@ import { LOGISTICS_PROVIDERS, LOGISTICS_TYPE_LABELS, LOGISTICS_TYPE_COLORS, type
 import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type JobType, type JobSector } from './data/jobsBoard'
 import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
 import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
-import { WatchlistPage } from './pages/WatchlistPage'
+const WatchlistPage = dynamic(() => import('./pages/WatchlistPage').then(m => ({ default: m.WatchlistPage })))
 import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
-import { DealRoomsPanel } from './pages/DealRoomsPanel'
-import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
-import QuoteRequestForm from '@/app/marketplace/quote/QuoteRequestForm'
-import { MyListingsClient } from '@/app/marketplace/my-listings/MyListingsClient'
+const DealRoomsPanel = dynamic(() => import('./pages/DealRoomsPanel').then(m => ({ default: m.DealRoomsPanel })))
+const DynamicMarketplaceIntakeForm = dynamic(() => import('@/components/marketplace/DynamicMarketplaceIntakeForm').then(m => ({ default: m.DynamicMarketplaceIntakeForm })))
+const QuoteRequestForm = dynamic(() => import('@/app/marketplace/quote/QuoteRequestForm'))
+const MyListingsClient = dynamic(() => import('@/app/marketplace/my-listings/MyListingsClient').then(m => ({ default: m.MyListingsClient })))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

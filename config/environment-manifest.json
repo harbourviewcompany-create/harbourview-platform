@@ -186,15 +186,15 @@
     },
     {
       "id": "framework-runtime-markers",
-      "names": ["NODE_ENV", "NEXT_RUNTIME"],
+      "names": ["NODE_ENV", "NEXT_RUNTIME", "NEXT_PHASE"],
       "stage": "Build + Runtime",
       "sensitivity": "Plain variable",
       "provider": "platform/nextjs",
-      "requirement": "Framework/platform provided; NODE_ENV must resolve to production in production runtime",
+      "requirement": "Framework/platform provided; NODE_ENV must resolve to production in production runtime. NEXT_PHASE is set by Next.js itself during `next build` (phase-production-build) and is read only to distinguish build-time from runtime query failures; it is never operator-configured",
       "targets": ["next-app", "cloudflare-intelligence-worker"],
       "status": "platform-provided",
       "cloudflare": {
-        "intelligenceHealthWorker": "NODE_ENV is committed in wrangler.toml [vars]; NEXT_RUNTIME not used",
+        "intelligenceHealthWorker": "NODE_ENV is committed in wrangler.toml [vars]; NEXT_RUNTIME and NEXT_PHASE not used",
         "nextWebPreview": "Framework/platform provided"
       }
     },

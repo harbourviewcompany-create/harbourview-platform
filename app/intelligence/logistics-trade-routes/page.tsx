@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
+import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Logistics & Trade Routes — Cannabis Corridor Intelligence | Harbourview',
@@ -13,7 +14,8 @@ export const metadata: Metadata = {
     'Trade corridor context and market status for regulated cannabis export and import. Live permit processing benchmarks, corridor regulatory alerts, and documentation frameworks across 20+ markets — sourced from Harbourview\'s 516-source registry.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 // ── Static corridor reference (endpoint linking, ISO2 required for playbook hrefs) ─────────
 const CORRIDORS = [
@@ -100,6 +102,13 @@ async function getData() {
       .order('alert_date', { ascending: false })
       .limit(20),
   ])
+
+  // Under ISR a swallowed query error would cache an empty page for the whole
+  // window; surface it at runtime so the last good page is served instead.
+  guardIsrQuery(bRes.error, 'logistics-trade-routes: jurisdiction_briefings')
+  guardIsrQuery(sRes.error, 'logistics-trade-routes: signals')
+  guardIsrQuery(ptRes.error, 'logistics-trade-routes: corridor_processing_times')
+  guardIsrQuery(caRes.error, 'logistics-trade-routes: corridor_regulatory_alerts')
 
   // Dedupe briefings (keep latest per country)
   const seen = new Set<string>()

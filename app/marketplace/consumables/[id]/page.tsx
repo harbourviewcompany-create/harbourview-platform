@@ -2,6 +2,11 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
+// Deliberately dynamic, not ISR. This route validates nothing and renders a
+// placeholder for whatever `id` it is given, so opting it into on-demand ISR
+// would let any caller mint an unbounded set of cache entries
+// (/marketplace/consumables/<anything>) with no upper bound on storage. It
+// fetches no data, so there is nothing to gain by caching it either.
 export const dynamic = 'force-dynamic'
 
 type PageProps = { params: Promise<{ id: string }> }
