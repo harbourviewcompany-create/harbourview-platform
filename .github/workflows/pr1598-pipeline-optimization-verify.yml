@@ -52,4 +52,6 @@ jobs:
       - name: Replay and verify repaired PR1598 migrations
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/pr1598_pipeline_optimization_dry_run.sql
       - name: Replay and verify canonical P0-P2 finish
-        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/p0_p2_canonical_finish_dry_run.sql
+        run: |
+          createdb p0p2_finish
+          PGDATABASE=p0p2_finish psql -X -v ON_ERROR_STOP=1 -f tests/sql/p0_p2_canonical_finish_dry_run.sql
