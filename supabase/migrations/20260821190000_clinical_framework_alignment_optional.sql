@@ -30,3 +30,18 @@ COMMENT ON TABLE public.clinical_evidence_claim_map IS
 
 CREATE INDEX IF NOT EXISTS clinical_evidence_claim_map_status_idx
   ON public.clinical_evidence_claim_map (status);
+
+-- RLS. Every other table in public carries it, and the api-schema views grant
+-- anon INSERT/UPDATE/DELETE on the assumption that base-table RLS is what
+-- actually holds. Shipping a new public table without it would make this the
+-- fourth RLS-disabled public table and would widen that gap.
+--
+-- Enabled with no permissive policy on purpose: nothing reads or writes this
+-- table yet (app/admin/(protected)/clinical-review/claim-map renders from
+-- CLAIM_MAP_FIXTURES, not from the database), so deny-by-default costs nothing
+-- today and is the safe starting point. The service role bypasses RLS, so
+-- operator tooling still works.
+--
+-- Whoever wires the Claim Map UI to this table adds the explicit policies then,
+-- as a reviewed security change, rather than inheriting an open table.
+ALTER TABLE public.clinical_evidence_claim_map ENABLE ROW LEVEL SECURITY;
