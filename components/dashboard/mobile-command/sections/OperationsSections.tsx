@@ -1,4 +1,4 @@
-import { JOB_LISTINGS, JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
+import { JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
 import {
   MOBILE_COMMAND_COPY,
   formatStatus,
@@ -6,8 +6,8 @@ import {
   type SubmissionRecord,
 } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { TalentLiveSection } from '@/components/command-centre/talent/TalentLiveSection'
 
-type TalentRecord = (typeof JOB_LISTINGS)[number]
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
 /** Structural shape of the `cc_pathway_steps` rows carried on `pathwayData.steps`. */
@@ -128,15 +128,36 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, sourceC
   )
 }
 
-export function TalentSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: TalentRecord[]; commandHref: CommandHref }) {
+/**
+ * Live Talent section — fetches from /api/talent instead of static JOB_LISTINGS.
+ * Falls back to empty state when the table is empty or the API is unavailable.
+ * `records` prop kept for call-site compatibility; ignored in favour of live data.
+ */
+export function TalentSection({
+  sectionRef,
+  records: _records,
+  commandHref,
+  jurisdiction,
+}: {
+  sectionRef: SectionRef
+  records?: unknown[]
+  commandHref: CommandHref
+  jurisdiction?: string | null
+}) {
   void commandHref
+  void _records
   return (
-    <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description={MOBILE_COMMAND_COPY.talentDescription}>
-      {records.length > 0 ? (
-        <div className="hvm2-horizontal-deck">
-          {records.map(job => <article className="hvm2-directory-card" key={job.id}><span>{JOB_SECTOR_LABELS[job.sector]} · {job.country}</span><h3>{job.title}</h3><p>{job.company} · {job.city}{job.remote ? ' · Remote' : ''}</p><div className="hvm2-card-meta"><span>{JOB_TYPE_LABELS[job.type]}</span>{job.salary && <span>{job.salary}</span>}</div></article>)}
-        </div>
-      ) : <EmptyState title="No talent opportunities loaded" detail={MOBILE_COMMAND_COPY.talentEmptyDetail} />}
+    <SectionShell
+      id="talent"
+      sectionRef={sectionRef}
+      eyebrow="Talent"
+      title="Roles and operating capability"
+      description={MOBILE_COMMAND_COPY.talentDescription}
+    >
+      <TalentLiveSection jurisdiction={jurisdiction ?? null} />
     </SectionShell>
   )
 }
+
+// Re-export labels for any remaining consumers
+export { JOB_SECTOR_LABELS, JOB_TYPE_LABELS }
