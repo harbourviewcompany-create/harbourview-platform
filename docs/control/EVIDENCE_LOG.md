@@ -5165,3 +5165,46 @@ practical effect, but the earlier description was inaccurate.
 first — the version-collision fix (and the control conflict blocking it),
 whether to arm the heat-map loop by applying `20260816120000` together with
 its freeze/seed follow-up, and the canonical GB/BR authority labels.
+
+**Addendum, same day — one CI failure on this PR was mine and is fixed.**
+`npm run check:env-manifest` ("Security / Leakage") reported
+`NEXT_PHASE: lib/isr/isrQueryGuard.ts, lib/marketplace/professionalServices.ts`.
+Both references were introduced by this PR's ISR work and the variable was
+never declared. Added to the `framework-runtime-markers` group in
+`config/environment-manifest.json`, which is the correct classification: Next.js
+sets `NEXT_PHASE` itself during `next build`, it is read only to separate
+build-time from runtime query failures, and it is never operator-configured.
+
+The check still exits 1 on **19** other entries — `BASE_*`, `CLAUSE_*`,
+`DEBR_*`, `NEGATION_*`, `PROSE_*`, `PGCONNECT_TIMEOUT`, `PHASE`,
+`CROSSREF_MAILTO`, `NCBI_API_KEY`, `HARBOURVIEW_OPS_EMAIL`,
+`MARKET_ACCESS_ALERT_EMAIL`, `NEXT_PUBLIC_ENABLE_SW`,
+`NEXT_PUBLIC_HARBOURVIEW_BNPL_EMBED_URL` — every one of them in a file this PR
+does not touch. Verified pre-existing by running the same script against
+`origin/main` in a clean worktree: it prints the identical 19-entry list. Those
+are left alone rather than swept into a performance PR.
+
+**The other failing checks at `4137a467` were each verified against an earlier
+head or against `main` before concluding anything.** Trivy + OPA cannot resolve
+`aquasecurity/trivy-action@0.28.0` and has failed all 22 of its runs on `main`
+since the workflow was added. Production Baseline Verification dies at the
+action-SHA-pinning scan over ~30 untouched workflow files. Decision Intel
+Completion Hardening Verify was green at `1f73c013` and red from `d129b907`,
+the commit that merged `origin/main` — the same stale `decisionDossier.ts`
+source-text assertion as the quarantined `decisionIntelIaFallback` suite.
+Cloudflare Workers Builds fail with `started_at == completed_at`, external to
+repository CI and not compared against a prior head.
+
+**One red check is this PR working as intended.** Branch Verification's
+`verify` and the `Intake & Listings` job both run `test:public-images`, which
+names `tests/dashboard/dashboardMarketplaceRows.test.ts` explicitly. Before the
+quarantine-scope fix in `1f73c013` that file was silently dropped and the gate
+exited 0 having tested 6 of 7 files; it now runs and fails on a pre-existing
+5s fake-timers timeout at line 170. Branch Verification has in fact been red on
+all 8 runs of this branch, including the two that predate that fix. Surfacing
+the failure is the point of the change; fixing that test belongs with the
+quarantine work queue, not here.
+
+**Verification of this addendum:** `npm run check:env-manifest` no longer
+reports `NEXT_PHASE`; `npm run typecheck` exit 0; `npm test` exit 0, 125 files
+/ 1011 tests.
