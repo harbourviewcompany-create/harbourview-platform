@@ -8,6 +8,7 @@ import { canadaProvinces } from '@/data/globe/canada-provinces'
 import { usStates } from '@/data/globe/us-states'
 import { germanyBundeslaender } from '@/data/globe/germany-bundeslaender'
 import { australiaStates } from '@/data/globe/australia-states'
+import { resolveRegulatoryTierForEntry } from '@/data/globe/subnational-regulatory-tiers'
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { type GlobeTierPalette, type RegulatoryTier } from '@/lib/globe/globe-materials'
 import {
@@ -385,11 +386,12 @@ export function CountryPolygonMeshLayer({
             ? 'focused'
             : 'idle'
 
-        const tierIso2 = (entry as { parentIso2?: string }).parentIso2 ?? entry.iso2
+        const parentIso2 = (entry as { parentIso2?: string }).parentIso2
+        const regulatoryTier = resolveRegulatoryTierForEntry(entry.iso2, parentIso2, tierByIso2)
         const material = resolveIntroPlateMaterial({
           visualState,
           layerId: activeLayerId,
-          regulatoryTier: tierByIso2?.[tierIso2] ?? null,
+          regulatoryTier,
           palette: tierPalette,
           blend: introTierBlend,
         })

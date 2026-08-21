@@ -7,6 +7,7 @@ import { OrbitControls, Stars } from '@react-three/drei'
 import { ACESFilmicToneMapping, PMREMGenerator } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
+import { buildRegulatoryTierMap } from '@/data/globe/subnational-regulatory-tiers'
 import { OceanSphere } from './OceanSphere'
 import { AtmosphereGlow } from './AtmosphereGlow'
 import { CountryBorderLayer } from './CountryBorderLayer'
@@ -16,7 +17,7 @@ import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './Camera
 import { DataVizLayer } from './DataVizLayer'
 import { useGlobe } from '../GlobeProvider'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
-import type { GlobeTierPalette, RegulatoryTier } from '@/lib/globe/globe-materials'
+import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import {
   GLOBE_INTRO,
@@ -224,11 +225,7 @@ export function GlobeCanvas({
   const tierByIso2 = useMemo(() => {
     if (forceGold) return undefined
     if (!featureFlags.globeRegulatoryTiers) return undefined
-    const map: Record<string, RegulatoryTier> = {}
-    for (const country of liveData.countries) {
-      if (country.regulatoryTier) map[country.iso2] = country.regulatoryTier
-    }
-    return map
+    return buildRegulatoryTierMap(liveData.countries)
   }, [liveData.countries, forceGold])
 
   const isCountryState = routerStep === 'country' || !selectedCountryIso2
