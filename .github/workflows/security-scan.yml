@@ -52,7 +52,7 @@ jobs:
             --data policies/trivy-vuln-policy.rego \
             --input trivy-results.json \
             --fail-defined \
-            "data.harbourview.trivy.deny" \
+            "data.harbourview.trivy.deny[_]" \
             -f pretty || {
               echo "::error::OPA policy violations detected"
               exit 1
