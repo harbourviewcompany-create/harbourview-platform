@@ -9,8 +9,11 @@ import {
   LocalIntelSection,
   RegulatoryWatchSection,
   SearchSection,
-  WeeklySignalsSection,
 } from '@/components/dashboard/mobile-command/sections/IntelligenceSections'
+// WeeklySignalsSection lives in DecisionSignalsSection, not IntelligenceSections.
+// Importing it from the latter resolved to undefined and React failed with
+// "Element type is invalid ... got: undefined".
+import { WeeklySignalsSection } from '@/components/dashboard/mobile-command/sections/DecisionSignalsSection'
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard',
@@ -139,10 +142,18 @@ describe('Mobile Intel institutional remediation', () => {
 
     expect(cards).toHaveLength(2)
     expect(cards[0]?.textContent).toContain('German import requirements updated')
-    expect(cards[0]?.textContent).toContain('Context match')
+    // 06f9cce3 ("decision-first weekly signal cards") made the context-match
+    // label render only for off-jurisdiction signals — "context match only when
+    // off-jurisdiction", in its own words. cards[0] is the direct Germany match,
+    // so its absence here is the intended behaviour, and "Context match" no
+    // longer appears anywhere in source. The ordering contract this test exists
+    // to protect is still fully asserted by the lines around this one.
     expect(cards[1]?.textContent).toContain('Kenya cannabis court proceeding')
     expect(cards[1]?.textContent).toContain('Broader watch')
-    expect(cards[1]?.textContent).toContain('No direct Germany match')
+    // Same change as above: 06f9cce3 replaced the "No direct <country> match"
+    // sentence with the neutral "Broader watch" pill plus a monitoring line.
+    // The pill is asserted on the line above; this asserts the surviving copy.
+    expect(cards[1]?.textContent).toContain('Monitor for developing relevance')
   })
 
   it('renders all regulatory watch items with discrete metric label/value elements', () => {
@@ -180,7 +191,11 @@ describe('Mobile Intel institutional remediation', () => {
     const text = document.body.textContent || ''
     const firstAuthorityCard = document.querySelector('.hvm2-local-intel-groups section .hvm2-intel-record-card')
 
-    expect(text).toContain('Jurisdiction intelligence for Germany')
+    // c9a172c2 ("stop overlapping briefings, clipped headers, raw labels")
+    // deliberately retitled this section from "Jurisdiction intelligence for X"
+    // to "Local intelligence · X" and dropped the eyebrow. The assertion is
+    // updated to the shipped copy rather than the component reverted.
+    expect(text).toContain('Local intelligence · Germany')
     expect(firstAuthorityCard?.querySelector('.hvm2-intel-record-type')?.textContent).toBe('Authority')
     expect(firstAuthorityCard?.querySelector('strong')?.textContent).toBe('Federal Institute for Drugs and Medical Devices (BfArM)')
     expect(firstAuthorityCard?.querySelector('p')?.textContent).toBe('National medical cannabis regulator')
