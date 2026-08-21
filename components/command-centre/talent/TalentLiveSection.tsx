@@ -3,7 +3,6 @@
 /**
  * Live talent list for mobile Command Talent section.
  * Fetches published opportunities from /api/talent.
- * Keeps the existing horizontal-deck visual language when possible.
  */
 
 import { useEffect, useState } from 'react'
@@ -20,6 +19,8 @@ export function TalentLiveSection({ jurisdiction = null }: TalentLiveSectionProp
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<TalentOpportunity | null>(null)
+  const [alertState, setAlertState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [alertMsg, setAlertMsg] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -49,6 +50,34 @@ export function TalentLiveSection({ jurisdiction = null }: TalentLiveSectionProp
     }
   }, [jurisdiction])
 
+  async function handleSetAlert() {
+    setAlertState('loading')
+    setAlertMsg(null)
+    try {
+      const res = await fetch('/api/talent/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: jurisdiction ? `Roles in ${jurisdiction}` : 'All open roles',
+          jurisdictions: jurisdiction ? [jurisdiction] : [],
+          frequency: 'daily',
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        setAlertState('error')
+        setAlertMsg('Sign in to set a talent alert.')
+        return
+      }
+      if (!res.ok) throw new Error(body.error ?? 'Could not create alert')
+      setAlertState('done')
+      setAlertMsg('Alert saved.')
+    } catch (e: any) {
+      setAlertState('error')
+      setAlertMsg(e?.message ?? 'Could not create alert')
+    }
+  }
+
   if (loading) {
     return (
       <p className="text-sm text-white/40 py-6 text-center">Loading opportunities…</p>
@@ -65,11 +94,32 @@ export function TalentLiveSection({ jurisdiction = null }: TalentLiveSectionProp
     return (
       <div className="rounded-xl border border-white/8 bg-white/[0.03] p-5 text-center">
         <p className="text-white/80 font-medium mb-1">No talent opportunities loaded</p>
-        <p className="text-sm text-white/45">
+        <p className="text-sm text-white/45 mb-4">
           {jurisdiction
-            ? `No published roles in ${jurisdiction} yet. Broaden jurisdiction or check back soon.`
-            : 'Published roles will appear here after review. Check back soon.'}
+            ? `No published roles in ${jurisdiction} yet. Broaden jurisdiction or set an alert.`
+            : 'Published roles will appear here after review. Set an alert to be notified.'}
         </p>
+        <button
+          type="button"
+          disabled={alertState === 'loading' || alertState === 'done'}
+          onClick={handleSetAlert}
+          className="rounded-xl bg-amber-600/90 hover:bg-amber-500 disabled:opacity-50 text-black font-medium px-4 py-2 text-sm"
+        >
+          {alertState === 'done'
+            ? 'Alert set'
+            : alertState === 'loading'
+              ? 'Saving…'
+              : 'Set alert'}
+        </button>
+        {alertMsg && (
+          <p
+            className={`text-xs mt-2 ${
+              alertState === 'error' ? 'text-red-300' : 'text-white/50'
+            }`}
+          >
+            {alertMsg}
+          </p>
+        )}
       </div>
     )
   }

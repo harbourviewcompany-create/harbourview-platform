@@ -1,6 +1,6 @@
 -- Sample published talent rows for local / preview verification.
 -- Run with service role after applying talent migrations.
--- Replace company names only with real operators you have permission to list.
+-- Idempotent via slug unique index (active rows).
 
 insert into public.talent_opportunities (
   company_name,
@@ -68,4 +68,10 @@ insert into public.talent_opportunities (
   now(),
   'manual'
 )
-on conflict do nothing;
+on conflict (slug) where (status <> 'archived') do update set
+  title = excluded.title,
+  description = excluded.description,
+  company_name = excluded.company_name,
+  published_at = coalesce(talent_opportunities.published_at, now()),
+  status = 'published',
+  updated_at = now();
