@@ -39,6 +39,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: 'Intelligence',
     items: [
       { label: 'Intelligence automation', href: '/admin/intelligence-automation' },
+      { label: 'Counterparty intelligence', href: '/admin/intelligence-automation/counterparty-intelligence' },
       { label: 'Sources', href: '/admin/sources' },
       { label: 'Candidates', href: '/admin/candidates' },
       { label: 'Signals', href: '/admin/signals' },
