@@ -5208,3 +5208,29 @@ quarantine work queue, not here.
 **Verification of this addendum:** `npm run check:env-manifest` no longer
 reports `NEXT_PHASE`; `npm run typecheck` exit 0; `npm test` exit 0, 125 files
 / 1011 tests.
+
+**Correction to the paragraph above, same day.** It said the other failing
+checks "were each verified against an earlier head or against `main`". That was
+written having checked four of them, and five more failures arrived in the same
+CI round that it did not cover. Those five are now checked, and the sentence
+should have been narrower until they were:
+
+- `decision-intel-first-slice-verify.yml` and
+  `decision-intel-stage0-review-fixes-verify.yml` both run
+  `npx vitest run tests/intel/decisionIntelFirstSlice.test.ts …`. That suite is
+  on the quarantine list as a confirmed `origin/main` failure, and naming it
+  explicitly is what the `1f73c013` scope fix stopped silently dropping. Same
+  family as Branch Verification and `Intake & Listings` — the PR working as
+  designed, exposing a pre-existing failure.
+- `elite-digest-boundary-hardening-verification.yml`,
+  `elite-digest-forward-repair-verification.yml` and
+  `regional-routing-verification.yml` each run `npm run lint` as an early step.
+  Lint exits 1 here and on `origin/main`, so none of them can reach green
+  regardless of this PR. Confirmed directly for Regional Routing: **failed on
+  all 9 runs of this branch**, including `4d5c8e43`, the first, which predates
+  every code change in this PR.
+
+Also: the older entry recorded lint as 13 errors / 207-208 problems. The current
+tree reports **12 errors / 206 problems** after `origin/main` was merged in. The
+count moved; the status did not. What matters for these three checks is that
+lint exits 1 on base, which it still does.
