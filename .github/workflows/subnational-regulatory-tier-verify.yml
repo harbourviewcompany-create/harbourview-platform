@@ -15,7 +15,7 @@ on:
       - data/globe/canada-provinces.ts
       - data/globe/germany-bundeslaender.ts
       - data/globe/australia-states.ts
-      - supabase/migrations/20260820130000_seed_subnational_regulatory_tiers.sql
+      - supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql
       - tests/globe/subnational-regulatory-tiers.test.ts
       - .github/workflows/subnational-regulatory-tier-verify.yml
   workflow_dispatch:
@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           eval "$(supabase status -o env)"
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260820130000_seed_subnational_regulatory_tiers.sql
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql
           counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%') || '|' || count(*) filter (where iso_alpha2 like 'CA-%') || '|' || count(*) filter (where iso_alpha2 like 'DE-%') || '|' || count(*) filter (where iso_alpha2 like 'AU-%') || '|' || count(*) filter (where iso_alpha2 ~ '^(US|CA|DE|AU)-' and regulatory_tier is not null and lat is not null and lng is not null) from public.countries;")"
           test "$counts" = "51|13|16|8|88"
           tier_counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='medical_limited_trade') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='cbd_hemp_only') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='prohibited') || '|' || count(*) filter (where iso_alpha2 like 'CA-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'DE-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'AU-%' and regulatory_tier='medical_limited_trade') from public.countries;")"

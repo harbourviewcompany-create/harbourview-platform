@@ -95,7 +95,7 @@ describe('subnational regulatory tiers', () => {
 
   it('keeps migration identifiers, centroids and tiers aligned with geometry', () => {
     const migration = readFileSync(
-      join(process.cwd(), 'supabase/migrations/20260820130000_seed_subnational_regulatory_tiers.sql'),
+      join(process.cwd(), 'supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql'),
       'utf8',
     )
     const rowPattern = /\('([^']+)', '((?:US|CA|DE|AU)-[A-Z]{2,3})', '[^']+', (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), '([^']+)'\)/g
