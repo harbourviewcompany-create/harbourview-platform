@@ -30,6 +30,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
   const searchParams = useSearchParams()
   const [enrichedSignals, setEnrichedSignals] = useState<MobileCommandCentreProps['signals'] | null>(null)
+  const countryParam = model.currentCountry ?? 'CA'
 
   useEffect(() => {
     setEnrichedSignals(null)
@@ -63,7 +64,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const commandReturnTo = useMemo(() => {
     const params = new URLSearchParams()
-    params.set('country', model.currentCountry)
+    params.set('country', countryParam)
     if (model.currentRole) params.set('role', model.currentRole)
 
     for (const key of COMMAND_RETURN_PARAM_KEYS) {
@@ -74,7 +75,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     if (!params.has('page')) params.set('page', 'briefing')
     if (!params.has('section')) params.set('section', model.activeSection)
     return `/dashboard?${params.toString()}`
-  }, [model.activeSection, model.currentCountry, model.currentRole, searchParams])
+  }, [countryParam, model.activeSection, model.currentRole, searchParams])
 
   const organizationActions = useMemo(() => {
     const organizationAction = model.nextActions.find(action => action.id === 'organization')
@@ -87,7 +88,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         id: 'organization-create',
         label: 'Create an organization profile',
         detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-        href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`,
+        href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
       },
       {
         ...organizationAction,
@@ -102,7 +103,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       ...onboarding,
       ...model.nextActions.filter(action => action.id !== 'organization'),
     ]
-  }, [commandReturnTo, model.currentCountry, model.nextActions])
+  }, [commandReturnTo, countryParam, model.nextActions])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
     effectiveSignals.map(signal => ({
@@ -141,7 +142,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
 
   const corridorActions = useMemo(() => {
-    const origin = model.currentCountry || 'CA'
+    const origin = countryParam
     const destination = origin === 'DE' ? 'CA' : 'DE'
     return [
       {
@@ -173,7 +174,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         tone: 'gold' as const,
       },
     ]
-  }, [commandReturnTo, model.currentCountry, model.currentRole])
+  }, [commandReturnTo, countryParam, model.currentRole])
 
   return {
     ...model,
