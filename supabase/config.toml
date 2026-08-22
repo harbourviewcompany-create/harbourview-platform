@@ -144,8 +144,29 @@ max_catalogs = 2
 # [storage.analytics.buckets.my-warehouse]
 
 # Store vector embeddings in S3 for large and durable datasets
+#
+# Disabled deliberately. Vector Buckets are a Pro-plan feature (see the note
+# below) and this organization is on the free plan, so requesting them makes
+# branch provisioning fail outright:
+#
+#   unexpected status 402: {"message":"Please upgrade the project to a paid
+#   tier to enable vector buckets"}
+#
+# That 402 lands during the Configurations task, before Migrations runs, so
+# every Supabase Preview branch died without applying a single migration --
+# on any PR touching supabase/migrations, regardless of its contents.
+#
+# Nothing here used the feature: no vector bucket is declared, and the string
+# appears nowhere in the codebase outside this file. `[storage.analytics]`
+# above is the same kind of Pro-only feature and is already `false`; this line
+# was the odd one out.
+#
+# If this organization moves to Pro and actually wants S3-backed embeddings,
+# flip this back to `true` and declare the buckets. Note that pgvector -- what
+# the embedding columns in supabase/migrations actually use -- is a Postgres
+# extension and is entirely unrelated to this setting.
 [storage.vector]
-enabled = true
+enabled = false
 max_buckets = 10
 max_indexes = 5
 
