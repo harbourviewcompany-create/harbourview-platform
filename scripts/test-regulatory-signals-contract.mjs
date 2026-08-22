@@ -1,29 +1,7 @@
 import fs from 'fs'
+import { spawnSync } from 'node:child_process'
 
-const publicLayer = fs.readFileSync('./lib/regulatory-signals/public.ts','utf-8')
-// Originally checked for `toPublicRegulatorySignal` (added 2026-05-05,
-// "Enforce public regulatory signal projection"). That function still exists
-// in ./safety.ts, fully intact, but public.ts's actual live data paths
-// (mapApprovedRow for the editorial-reviewed view, mapSignalRow for the
-// automated-intake path) never called it or anything equivalent — this test
-// had been failing against production main for some time as a result.
-// toPublicRegulatorySignal itself can't be dropped in as-is: it requires
-// review_status/public_safe/publish_to_public on its input, and the
-// `regulatory_signals.public_signals` view doesn't expose those columns by
-// design (a row can't appear in the view unless it already passed the gate
-// at the database layer — see the view definition in
-// 20260312000000_regulatory_signals_v1.sql). What both paths were actually
-// missing was the *content* leak-scan half of that function:
-// assertPublicRegulatorySignalSafe, which re-serializes the shaped signal
-// and throws if any forbidden internal/marketplace term appears in it. That
-// is now wired into both mapApprovedRow and mapSignalRow (fail-open per row,
-// not per feed — one bad signal is excluded and logged, not a 500).
-if (!publicLayer.includes('assertPublicRegulatorySignalSafe')) {
-  console.error('Projection layer not enforced')
-  process.exit(1)
-}
-
-const schema = fs.readFileSync('./supabase/migrations/20260312000000_regulatory_signals_v1.sql','utf-8')
+const schema = fs.readFileSync('./supabase/migrations/20260312000000_regulatory_signals_v1.sql', 'utf-8')
 if (!schema.includes('regulatory_signals.signals')) {
   console.error('Schema missing')
   process.exit(1)
@@ -41,6 +19,26 @@ const regulatorySurface = [
 if (regulatorySurface.includes('deal') || regulatorySurface.includes('supplier')) {
   console.error('Marketplace signal contamination detected')
   process.exit(1)
+}
+
+// The public projection contract is behavioral, not a source-text grep. This
+// suite exercises both live feed paths, canonical_source_url, normalized content
+// leakage, and exact forbidden structural fields. Because this script is run by
+// CI's Domain Logic job, a regression blocks the protected Next.js Build chain.
+const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+const result = spawnSync(
+  npx,
+  ['vitest', 'run', 'tests/regulatory-signals/public-safety.test.ts'],
+  { stdio: 'inherit' },
+)
+
+if (result.error) {
+  console.error('Unable to execute regulatory signals behavioral contract:', result.error.message)
+  process.exit(1)
+}
+
+if (result.status !== 0) {
+  process.exit(result.status ?? 1)
 }
 
 console.log('regulatory signals contract ok')
