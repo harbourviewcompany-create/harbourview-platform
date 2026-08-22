@@ -1,9 +1,24 @@
 # HANDOFF — Harbourview Platform
 
 > **New agent? Read the top four sections before touching anything.**
-> Last updated: Aug 20 2026 · Claude (chat)
+> Last updated: Aug 22 2026 · Claude (chat)
 
 ---
+
+## FIXED — clinical_cross_border_formulary_check match_kind bug (2026-08-22)
+
+Self-audit on a routine "is anything missing" pass caught a real bug in a function this
+session had already reported as verified: `match_kind` silently stayed `no-match` on a genuine
+match whenever the matched row had a null `brand_name` (the common case — brand data is
+unpopulated in both formulary feeds). Root cause was deriving found/not-found from whole-record
+`v_match IS NULL`/`IS NOT NULL`, which both evaluate false for a row with mixed null/non-null
+fields per the SQL-standard row-comparison rule. `portability_verdict` was accidentally correct
+throughout (different, narrower check), which is exactly why this wasn't caught the first time.
+Fixed in `20260822130000_fix_clinical_cross_border_match_kind.sql` using a single non-nullable
+sentinel column instead. Re-verified live post-fix. Full writeup, including the exact repro, is
+in `docs/control/CLINICAL_PRESCRIBER_OS_DIFFERENTIATION_20260819.md`'s correction note — read
+that before touching this function again, and treat "record IS NULL" as unsafe for found/
+not-found logic anywhere else in this codebase too.
 
 ## SHIPPED — Prescriber OS differentiation: supply-continuity + cross-border check (2026-08-19/20)
 

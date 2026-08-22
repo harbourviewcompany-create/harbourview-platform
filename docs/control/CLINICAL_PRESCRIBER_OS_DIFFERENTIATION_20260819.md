@@ -87,10 +87,24 @@ and tested but currently has no live data to match against — `brand_name` is u
 formulary feeds today. Not a blocker: cannabinoid-profile matching already covers the working
 case, and brand matching activates automatically once the feed starts populating it.
 
-Exposed via `/api/clinical/cross-border-check?destination=XX&brand=...&profile=...`. UI wiring
-deliberately left undone this round — no natural existing insertion point yet (no "compare
-destination" affordance exists in the workspace UI), and one shouldn't be forced in without a
-design pass.
+Exposed via `/api/clinical/cross-border-check?destination=XX&brand=...&profile=...`. UI wired
+in (per-product "Check destination" control on the Products tab formulary cards).
+
+**Correction (2026-08-22):** the "verified" claim above was only half true. `portability_verdict`
+was correct in both cases, but `match_kind` was silently wrong on the AU case — it read
+`no-match` instead of `equivalent-profile`, even though a real match had been found and
+`matched_product_name` etc. were populated correctly. Root cause: the function derived
+"was a match found" from whole-record `v_match IS NULL`/`IS NOT NULL` checks. Per the
+SQL-standard row-comparison rule, a row with a MIX of null and non-null fields (the AU match's
+`brand_name` was null) makes BOTH predicates evaluate to false — so `if v_match is not null then
+v_match_kind := ...` never ran. `portability_verdict`'s logic happened to only check the negative
+case (`v_match IS NULL`), so it was accidentally unaffected. Fixed in
+`20260822130000_fix_clinical_cross_border_match_kind.sql` by using
+`v_match.source_type IS NULL` (a field that's always a non-null literal when a row is found) as
+the sentinel instead of whole-record nullity. Re-verified live after the fix — both fields now
+agree in all three cases (AU match, DE no-match, insufficient-input). Flagging this class of bug
+because it's easy to reintroduce: never derive a found/not-found flag from `record IS NULL` or
+`IS NOT NULL` in plpgsql when any field in that record can legitimately be null on a real match.
 
 ## Compliance framing (a positioning point, not a new build)
 
