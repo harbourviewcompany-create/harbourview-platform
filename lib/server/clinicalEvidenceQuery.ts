@@ -19,6 +19,8 @@ import { getExpectedSupabaseHost, isExplicitLocalSupabaseUrl } from '@/lib/supab
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+/** Server-only. Prefer for clinical reads after anon EXECUTE was revoked on search RPCs. */
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const CHANGE_SELECT = [
   'id','evidence_record_id','event_type','title','summary','materiality','jurisdictions','profession_relevance',
   'occurred_at','verified_at','primary_source_title','primary_source_publisher','primary_source_url','primary_source_id',
@@ -35,6 +37,8 @@ type ClinicalSupabaseConfig = {
     Authorization: string
     Accept: string
     'Content-Type': string
+    'Accept-Profile': string
+    'Content-Profile': string
   }
 }
 
@@ -228,7 +232,10 @@ function mapCorpus(row: Row): ClinicalCorpusProfileDTO {
 }
 
 function clinicalSupabaseConfig(): ClinicalSupabaseConfig {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  // Prefer service role on the server: production revoked anon EXECUTE on search RPCs
+  // (20260819100621) while this module previously always used the anon key.
+  const key = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY
+  if (!SUPABASE_URL || !key) {
     throw new ClinicalEvidenceQueryError('clinical_evidence_not_configured', 'configuration')
   }
 
@@ -246,10 +253,13 @@ function clinicalSupabaseConfig(): ClinicalSupabaseConfig {
   return {
     url: SUPABASE_URL,
     headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      apikey: key,
+      Authorization: `Bearer ${key}`,
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      // PostgREST on this project exposes the api schema (see lib/supabase/env.ts).
+      'Accept-Profile': 'api',
+      'Content-Profile': 'api',
     },
   }
 }
