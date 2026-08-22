@@ -92,6 +92,50 @@
         "commit": "a293d56",
         "production_apply_evidence": "Production ledger version 20260820100423 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = acfeef2a39d8e894f5e5602a5efb5496 over 5199 characters, equal to md5sum and byte count of the file. The apply-time version was minted by supabase apply_migration and does not correspond to any repository filename; 20260820100000 is an unrelated migration (network_command_p1_introduction_status) that is not applied."
       }
+    },
+    {
+      "live_version": "20260821220328",
+      "repository_version": "20260820140000",
+      "file": "20260820140000_seed_subnational_regulatory_tiers.sql",
+      "git_blob_sha": "a5644571f51553fed52d5c62a06930c9780d91ec",
+      "provenance": {
+        "type": "direct_commit_content_match",
+        "commit": "fadb4efd04ed7b939a1a2898bfe7c56c660c8e61",
+        "production_apply_evidence": "Read-only production ledger verification on 2026-08-21 found live version 20260821220328 named seed_subnational_regulatory_tiers with one applied statement matching the canonical repository migration. Production statement md5 d0747bbda2368d7d027b810099e56374; the canonical file is pinned by Git blob a5644571f51553fed52d5c62a06930c9780d91ec. The live version is an apply-time alias, not a missing repository migration."
+      }
+    },
+    {
+      "live_version": "20260821220419",
+      "repository_version": "20260821120000",
+      "file": "20260821120000_talent_job_board.sql",
+      "git_blob_sha": "40008867d865a1cdbfba4934468583e600d78d10",
+      "provenance": {
+        "type": "direct_commit_content_match",
+        "commit": "3ccf786d7e81cd1da8827faf48af3f8f75192d9c",
+        "production_apply_evidence": "Read-only production ledger verification on 2026-08-21 found live version 20260821220419 named talent_job_board with one applied statement matching the canonical repository migration. Production statement md5 260aec508da7490e8ecdead17f3cd80b; the canonical file is pinned by Git blob 40008867d865a1cdbfba4934468583e600d78d10. The live version is an apply-time alias, not a missing repository migration."
+      }
+    },
+    {
+      "live_version": "20260821220431",
+      "repository_version": "20260821121000",
+      "file": "20260821121000_talent_applications_unique.sql",
+      "git_blob_sha": "81b5eb2d54d18fc813410bf6df6732b59e6a4cb1",
+      "provenance": {
+        "type": "direct_commit_content_match",
+        "commit": "3ccf786d7e81cd1da8827faf48af3f8f75192d9c",
+        "production_apply_evidence": "Read-only production ledger verification on 2026-08-21 found live version 20260821220431 named talent_applications_unique. Its single 243-byte statement is the canonical four-line partial unique-index migration, with production md5 244a0afa6a9c344b19af41efb14118e1 and repository Git blob 81b5eb2d54d18fc813410bf6df6732b59e6a4cb1. The live version is an apply-time alias, not a missing repository migration."
+      }
+    },
+    {
+      "live_version": "20260821220443",
+      "repository_version": "20260821190000",
+      "file": "20260821190000_clinical_framework_alignment_optional.sql",
+      "git_blob_sha": "564f91b1d700394a9f217422d909147db2901858",
+      "provenance": {
+        "type": "direct_commit_content_match",
+        "commit": "467fa7b3d74111b89b07e84c95bfe5337ada510b",
+        "production_apply_evidence": "Read-only production ledger verification on 2026-08-21 found live version 20260821220443 named clinical_framework_alignment_optional with one applied statement matching the canonical optional framework-alignment migration. Production statement md5 52a1a07a704426c9663056063b34320c; the canonical file is pinned by Git blob 564f91b1d700394a9f217422d909147db2901858. The live version is an apply-time alias, not a missing repository migration."
+      }
     }
   ]
 }
