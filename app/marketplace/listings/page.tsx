@@ -5,8 +5,8 @@ import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy
 import { getPublicListings, type PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// ISR: marketplace listing data
+export const revalidate = 1800
 
 export const metadata: Metadata = {
   title: 'Exchange Listings | Harbourview',

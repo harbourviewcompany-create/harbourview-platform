@@ -11,7 +11,8 @@ export const metadata: Metadata = {
     'Which tracked trade corridors have published playbooks on both ends and can build an execution plan. Orientation transparency only.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 export default async function CorridorCoveragePage() {
   const report = await getCorridorCoverageReport()

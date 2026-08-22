@@ -1,0 +1,73 @@
+name: Subnational Regulatory Tier Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - components/globe/r3f/CountryPolygonMeshLayer.tsx
+      - components/globe/r3f/GlobeCanvas.tsx
+      - data/globe/us-state-tiers.ts
+      - data/globe/canada-province-tiers.ts
+      - data/globe/germany-state-tiers.ts
+      - data/globe/australia-state-tiers.ts
+      - data/globe/subnational-regulatory-tiers.ts
+      - data/globe/us-states.ts
+      - data/globe/canada-provinces.ts
+      - data/globe/germany-bundeslaender.ts
+      - data/globe/australia-states.ts
+      - supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql
+      - tests/globe/subnational-regulatory-tiers.test.ts
+      - .github/workflows/subnational-regulatory-tier-verify.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: subnational-regulatory-tier-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Geometry, coverage and precedence contracts
+        run: npx vitest run tests/globe/subnational-regulatory-tiers.test.ts
+      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: 2.109.1
+      - name: Prepare production-faithful migration replay
+        run: node scripts/prepare-production-faithful-migration-replay.mjs --apply
+      - name: Zero-state migration replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start
+          supabase db reset --local
+          eval "$(supabase status -o env)"
+          counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%') || '|' || count(*) filter (where iso_alpha2 like 'CA-%') || '|' || count(*) filter (where iso_alpha2 like 'DE-%') || '|' || count(*) filter (where iso_alpha2 like 'AU-%') || '|' || count(*) filter (where iso_alpha2 ~ '^(US|CA|DE|AU)-' and regulatory_tier is not null and lat is not null and lng is not null) from public.countries;")"
+          test "$counts" = "51|13|16|8|88"
+      - name: Idempotent migration replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          eval "$(supabase status -o env)"
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql
+          counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%') || '|' || count(*) filter (where iso_alpha2 like 'CA-%') || '|' || count(*) filter (where iso_alpha2 like 'DE-%') || '|' || count(*) filter (where iso_alpha2 like 'AU-%') || '|' || count(*) filter (where iso_alpha2 ~ '^(US|CA|DE|AU)-' and regulatory_tier is not null and lat is not null and lng is not null) from public.countries;")"
+          test "$counts" = "51|13|16|8|88"
+          tier_counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='medical_limited_trade') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='cbd_hemp_only') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='prohibited') || '|' || count(*) filter (where iso_alpha2 like 'CA-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'DE-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'AU-%' and regulatory_tier='medical_limited_trade') from public.countries;")"
+          test "$tier_counts" = "25|17|8|1|13|16|8"
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup || true

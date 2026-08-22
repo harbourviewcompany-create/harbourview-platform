@@ -222,6 +222,25 @@ export const SECTION_TO_GROUP: Record<SectionId, PrimarySectionId> = (() => {
 })()
 
 export const SECTION_IDS = new Set<SectionId>(SECTION_NAV.map(section => section.id))
+
+/** Retired mobile sections — keep deep links working without flashing overview. */
+export const LEGACY_SECTION_REMAP: Record<string, SectionId> = {
+  directories: 'network',
+  'live-status': 'overview',
+}
+
+/** Resolve ?section= to a live SectionId (canonical, legacy remap, or fallback). */
+export function resolveMobileSectionId(
+  raw: string | null | undefined,
+  fallback: SectionId = 'overview',
+): SectionId {
+  if (!raw) return fallback
+  if (SECTION_IDS.has(raw as SectionId)) return raw as SectionId
+  const remapped = LEGACY_SECTION_REMAP[raw]
+  if (remapped) return remapped
+  return fallback
+}
+
 export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'wanted-intake',
   'supply-intake',

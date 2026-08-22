@@ -14,7 +14,9 @@ vi.mock('@/lib/marketplace/images/public-query', () => ({
   pickMarketplaceCardImage: (images: unknown[]) => images[0] ?? null,
 }))
 
-const { buildDashboardCommandSources } = await import('@/lib/dashboard/buildDashboardCommandSources')
+const { buildDashboardCommandSources, MARKETPLACE_MEDIA_TIMEOUT_MS } = await import(
+  '@/lib/dashboard/buildDashboardCommandSources'
+)
 
 function listing(section: string, id: string): PublicListing {
   return {
@@ -175,7 +177,9 @@ describe('Command Centre marketplace projection', () => {
     getPublicMarketplaceImagesForItems.mockImplementation(() => new Promise(() => undefined))
 
     const pending = loadProjection()
-    await vi.advanceTimersByTimeAsync(1_500)
+    // Must land strictly past the enrichment budget — advancing to exactly the
+    // timeout is not enough to guarantee the timer callback has settled.
+    await vi.advanceTimersByTimeAsync(MARKETPLACE_MEDIA_TIMEOUT_MS + 500)
     const projection = await pending
 
     expect(projection.rows.cannabis?.[0]?.[7]).toBe('slow-media')

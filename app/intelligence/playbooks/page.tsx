@@ -8,7 +8,8 @@ export const metadata: Metadata = {
     'Reviewed, country-specific cannabis licensing pathways: licence sequence, named regulators, typical timelines and cost range for each tracked jurisdiction.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 export default async function PlaybooksIndexPage() {
   const playbooks = await getAllPlaybooks()

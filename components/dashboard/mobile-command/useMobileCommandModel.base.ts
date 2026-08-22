@@ -16,6 +16,8 @@ import {
   PAGE_TO_SECTION,
   SECTION_IDS,
   SECTION_NAV,
+  resolveMobileSectionId,
+  LEGACY_SECTION_REMAP,
   SECTION_TO_DESKTOP_PAGE,
   clampPercent,
   confidenceFractionToPercent,
@@ -319,10 +321,18 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
 
   const resolvedUrlSection = useMemo(() => {
     const requested = searchParams.get('section')
-    return requested && SECTION_IDS.has(requested as SectionId)
-      ? requested as SectionId
-      : PAGE_TO_SECTION[props.initialPage ?? 'briefing'] ?? 'overview'
+    const fallback = PAGE_TO_SECTION[props.initialPage ?? 'briefing'] ?? 'overview'
+    return resolveMobileSectionId(requested, fallback)
   }, [props.initialPage, searchParams])
+
+  // Rewrite retired section query params so bookmarks land on a live section id.
+  useEffect(() => {
+    const requested = searchParams.get('section')
+    if (!requested || SECTION_IDS.has(requested as SectionId)) return
+    if (!(requested in LEGACY_SECTION_REMAP)) return
+    const next = resolveMobileSectionId(requested, 'overview')
+    router.replace(commandHref(next), { scroll: false })
+  }, [commandHref, router, searchParams])
 
   const activeSection = resolvedUrlSection
   const highlightedSection = isNavigating && pendingSection ? pendingSection : resolvedUrlSection

@@ -4,6 +4,12 @@ import { notFound } from 'next/navigation'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { getPublicCultivarPassportBySlug } from '@/lib/genetics/queries'
 
+// Intentionally NOT ISR. getPublicCultivarPassportBySlug() reads through the
+// cookie-bound createClient(), which is a dynamic API, so this route renders
+// per request no matter what `revalidate` says — exporting a window here would
+// only be misleading. Making it cacheable means moving the genetics queries off
+// the cookie-bound client first, which is a change to a redaction-sensitive
+// surface and is deliberately left out of this pass.
 export const dynamic = 'force-dynamic'
 
 type Params = Promise<{ slug: string }>

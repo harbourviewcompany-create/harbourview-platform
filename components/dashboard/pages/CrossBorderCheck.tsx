@@ -88,7 +88,7 @@ export default function CrossBorderCheck({
         </button>
       </div>
 
-      {status === 'error' && <p className="mt-1.5 text-[11px] text-white/35">Couldn't complete the check.</p>}
+      {status === 'error' && <p className="mt-1.5 text-[11px] text-white/35">Couldn&apos;t complete the check.</p>}
 
       {result && status === 'done' && (
         <div className="mt-1.5 text-[11px] leading-relaxed">

@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   description: 'Orientation-level education for cannabis operators preparing to enter international export or import markets.',
 }
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
 
 export default async function ExportImportReadinessPage() {
   const allModules = await getPublishedEducationModules()

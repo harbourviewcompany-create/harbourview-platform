@@ -14,7 +14,74 @@ import {
   synthesizeClinicalEvidence,
 } from '@/lib/clinical/evidence'
 import { searchEvidence, EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
-import type { EvidenceRecord } from '@/lib/clinical/types'
+import type { EvidenceRecord, EvidenceStrength } from '@/lib/clinical/types'
+
+/**
+ * EvidenceStrength (fixture vocabulary) -> ClinicalEvidenceCertainty (DTO
+ * vocabulary). These are two different unions and only four of the five values
+ * line up, so the mapping has to be explicit.
+ *
+ * This previously read `(r.strength === 'very_low' ? 'very-low' : r.strength)
+ * as any`, which handled the underscore but passed 'insufficient' straight
+ * through — a value that is not in ClinicalEvidenceCertainty at all. Anything
+ * reading the DTO then saw an out-of-union string; `evidence.ts` counts a
+ * record as graded unless its strength is 'ungraded' or 'conflicted', so an
+ * 'insufficient' record was being counted as graded. Typing as Record<> makes
+ * the compiler require every EvidenceStrength key, so a new value cannot be
+ * added upstream without a decision here.
+ */
+const CERTAINTY_BY_STRENGTH: Record<EvidenceStrength, ClinicalEvidenceRecordDTO['evidenceStrength']> = {
+  high: 'high',
+  moderate: 'moderate',
+  low: 'low',
+  very_low: 'very-low',
+  insufficient: 'ungraded',
+}
+
+/**
+ * The columns this module reads off clinical_evidence_records. Partial by
+ * design — the select list is explicit and these are the fields the mapper
+ * touches.
+ */
+interface ClinicalEvidenceRow {
+  id: string
+  slug: string
+  title: string
+  summary: string
+  condition_label: string
+  condition_aliases: string[] | null
+  population: string
+  intervention: string
+  formulation: string
+  cannabinoids: string[] | null
+  intervention_class: ClinicalEvidenceRecordDTO['interventionClass']
+  comparator: string | null
+  outcome: string | null
+  evidence_type: ClinicalEvidenceRecordDTO['evidenceType']
+  evidence_strength: ClinicalEvidenceRecordDTO['evidenceStrength']
+  evidence_strength_method: string | null
+  uncertainty: string | null
+  conflict_status: ClinicalEvidenceRecordDTO['conflictStatus']
+  jurisdictions: string[] | null
+  profession_relevance: ClinicalEvidenceRecordDTO['professionRelevance'] | null
+  primary_source_title: string
+  primary_source_publisher: string
+  primary_source_url: string
+  primary_source_id: string | null
+  publication_date: string | null
+  effective_date: string | null
+  verified_at: string // NOT NULL in production
+  supersession_state: ClinicalEvidenceRecordDTO['supersessionState']
+  superseded_by_id: string | null
+  review_status: ClinicalEvidenceRecordDTO['reviewStatus']
+  source_registry_id: string | null
+  grading_method_key: string | null
+  publication_scope: ClinicalEvidenceRecordDTO['publicationScope']
+  freshness_status: ClinicalEvidenceRecordDTO['freshnessStatus']
+  review_due_at: string | null
+  source_currentness_checked_at: string | null
+  freshness_reason: string | null
+}
 
 function mapFixtureToDTO(r: EvidenceRecord): ClinicalEvidenceRecordDTO {
   return {
@@ -37,7 +104,7 @@ function mapFixtureToDTO(r: EvidenceRecord): ClinicalEvidenceRecordDTO {
         : r.domain === 'safety'
           ? 'pharmacovigilance-signal'
           : 'other',
-    evidenceStrength: (r.strength === 'very_low' ? 'very-low' : r.strength) as any,
+    evidenceStrength: CERTAINTY_BY_STRENGTH[r.strength],
     evidenceStrengthMethod: null,
     uncertainty: r.limitations?.join('; ') ?? null,
     conflictStatus: 'none',
@@ -101,7 +168,7 @@ export async function searchClinicalEvidence(opts: {
     const { data, error } = await dbQuery
     if (error) throw error
 
-    const records: ClinicalEvidenceRecordDTO[] = (data ?? []).map((row: any) => ({
+    const records: ClinicalEvidenceRecordDTO[] = (data ?? []).map((row: ClinicalEvidenceRow) => ({
       id: row.id,
       slug: row.slug,
       title: row.title,

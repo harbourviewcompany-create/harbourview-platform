@@ -3,8 +3,7 @@ import { CONTACT_EMAIL, CONTACT_MAILTO_HREF } from '@/lib/contact'
 import { FormShell, PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 import ContactForm from './ContactForm'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// Static: no server data on this page — the form is a client component.
 
 export const metadata: Metadata = {
   title: 'Contact Harbourview — Confidential Cannabis Market Inquiries',

@@ -18,8 +18,8 @@
 | Canonical status | Active — production platform |
 | Production domain | `https://harbourview.vercel.app` |
 | Production branch | `main` |
-| Vercel project ID | `prj_Of5eJx1ObwewZAk37CgA9UJDfKYJ` |
-| Vercel team | `harbourviewnetwork` |
+| Vercel project ID | `prj_Zp8HBDstqAAOCN6W7LAElahsq3qS` |
+| Vercel team | `harbourview` (`team_0rK4jTvMLlSufR0ZzX4LCKYi`) |
 | Deployment target | Vercel (auto-deploy on push to `main`) |
 | Database target | Supabase (see `docs/control/PROJECT_REGISTRY.md`) |
 | Owner | `harbourviewcompany-create` |

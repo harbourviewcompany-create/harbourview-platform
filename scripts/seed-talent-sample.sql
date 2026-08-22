@@ -1,0 +1,77 @@
+-- Sample published talent rows for local / preview verification.
+-- Run with service role after applying talent migrations.
+-- Idempotent via slug unique index (active rows).
+
+insert into public.talent_opportunities (
+  company_name,
+  company_location,
+  title,
+  slug,
+  description,
+  requirements,
+  role_family,
+  seniority,
+  employment_type,
+  location_type,
+  primary_jurisdiction,
+  jurisdictions,
+  salary_min,
+  salary_max,
+  salary_currency,
+  salary_period,
+  status,
+  is_featured,
+  published_at,
+  source
+) values
+(
+  'Cannabinoid Therapeutics GmbH',
+  'Berlin',
+  'Regulatory Affairs Manager — Cannabis (CanG)',
+  'regulatory-affairs-manager-cang-de',
+  'Lead BfArM interactions, import/export licence applications, and CanG compliance documentation. Internal expert on German narcotics law (BtMG/CanG) and EU-GMP dossiers.',
+  '5+ years pharmaceutical regulatory affairs; BtMG/CanG knowledge; German C1+; EU-GMP dossier experience',
+  'regulatory_affairs',
+  'senior',
+  'full_time',
+  'hybrid',
+  'DE',
+  array['DE'],
+  65000,
+  85000,
+  'EUR',
+  'year',
+  'published',
+  true,
+  now(),
+  'manual'
+),
+(
+  'PhytoMedical AG',
+  'Munich',
+  'QA Manager / Qualified Person — EU-GMP Cannabis',
+  'qa-manager-qp-eu-gmp-de',
+  'Act as QP for batch release of medical cannabis products under EU-GMP. Oversee QMS, supplier qualification, deviation management, and agency inspections.',
+  'EU-GMP Annex 1 experience; QP designation desirable; cannabis or pharma manufacturing background',
+  'quality_gxp',
+  'director',
+  'full_time',
+  'onsite',
+  'DE',
+  array['DE'],
+  80000,
+  105000,
+  'EUR',
+  'year',
+  'published',
+  true,
+  now(),
+  'manual'
+)
+on conflict (slug) where (status <> 'archived') do update set
+  title = excluded.title,
+  description = excluded.description,
+  company_name = excluded.company_name,
+  published_at = coalesce(talent_opportunities.published_at, now()),
+  status = 'published',
+  updated_at = now();

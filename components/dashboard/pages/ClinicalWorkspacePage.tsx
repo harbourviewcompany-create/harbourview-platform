@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { AskClinicalResponse, PrescriberWorkspaceTab } from '@/lib/clinical/prescriber'
 import type { ClinicalPrescriberWorkspaceDTO } from '@/lib/clinical/workspace'
+import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
+import { FrameworkAlignmentBlock } from '@/components/clinical/FrameworkAlignmentBlock'
 import SupplyContinuityOutlook from './SupplyContinuityOutlook'
 import CrossBorderCheck from './CrossBorderCheck'
 
@@ -42,6 +44,10 @@ function StatePanel({ title, detail }: { title: string; detail: string }) {
       <p className="mt-1 leading-5 text-white/50">{detail}</p>
     </div>
   )
+}
+
+function fixtureAlignment(evidenceRecordId: string) {
+  return EVIDENCE_FIXTURES.find((r) => r.id === evidenceRecordId)?.frameworkAlignment
 }
 
 /**
@@ -106,7 +112,6 @@ export default function ClinicalWorkspacePage({
     return () => controller.abort()
   }, [contextResolved, normalizedJurisdiction, initialQuery])
 
-  // Patients only when Documentation or History is open
   useEffect(() => {
     if (!contextResolved) return
     if (activeTab !== 'documentation' && activeTab !== 'history') return
@@ -189,7 +194,6 @@ export default function ClinicalWorkspacePage({
     [patients, normalizedJurisdiction],
   )
 
-  // Parent ClinicalSection owns the jurisdiction-required gate; this is a hard fail-closed only.
   if (!contextResolved) {
     return (
       <div className="w-full min-w-0 px-0 py-2 text-white" data-testid="clinical-workspace-context-required" role="status">
@@ -346,17 +350,31 @@ export default function ClinicalWorkspacePage({
                       <p key={item} className="mt-2 text-xs text-amber-200/70">{item}</p>
                     ))}
                   </div>
-                  {answer.citations.map((citation) => (
-                    <article key={citation.evidenceRecordId} className={subcard}>
-                      <h3 className="text-sm font-medium text-white/85">{citation.title}</h3>
-                      <p className="mt-1 text-xs text-white/45">
-                        {citation.evidenceStrength} · {citation.conflictStatus} · verified {citation.verifiedAt.slice(0, 10)}
-                      </p>
-                      <a href={citation.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#d4a853]">
-                        Inspect primary source ↗
-                      </a>
-                    </article>
-                  ))}
+                  {answer.citations.map((citation) => {
+                    const alignment = fixtureAlignment(citation.evidenceRecordId)
+                    return (
+                      <article key={citation.evidenceRecordId} className={subcard}>
+                        <h3 className="text-sm font-medium text-white/85">{citation.title}</h3>
+                        <p className="mt-1 text-xs text-white/45">
+                          {citation.evidenceStrength} · {citation.conflictStatus} · verified{' '}
+                          {citation.verifiedAt.slice(0, 10)}
+                        </p>
+                        <a
+                          href={citation.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-block text-xs text-[#d4a853]"
+                        >
+                          Inspect primary source ↗
+                        </a>
+                        {alignment && (
+                          <div className="mt-3">
+                            <FrameworkAlignmentBlock alignment={alignment} compact />
+                          </div>
+                        )}
+                      </article>
+                    )
+                  })}
                 </div>
               )}
             </section>
