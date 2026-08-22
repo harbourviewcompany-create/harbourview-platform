@@ -87,13 +87,19 @@ export function Inquiries({ api, toast }) {
     const ids = [...selected]
     if (!ids.length) return
     setBusy(true)
-    for (const id of ids) {
-      try {
-        await api.patch('marketplace_inquiries', `id=eq.${id}`, { review_status })
-      } catch { /* continue */ }
+    try {
+      const chunk = 200
+      let total = 0
+      for (let i = 0; i < ids.length; i += chunk) {
+        const slice = ids.slice(i, i + chunk)
+        await api.patchBulk('marketplace_inquiries', slice, { review_status })
+        total += slice.length
+      }
+      toast?.({ type: 'success', text: `${total} → ${review_status}` })
+    } catch (e) {
+      toast?.({ type: 'error', text: e.message || 'Bulk update failed' })
     }
     setBusy(false)
-    toast?.({ type: 'success', text: `${ids.length} → ${review_status}` })
     await load()
   }
 
