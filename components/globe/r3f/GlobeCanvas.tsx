@@ -15,6 +15,7 @@ import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import { DataVizLayer } from './DataVizLayer'
+import { HeatDensityLayer } from './HeatDensityLayer'
 import { useGlobe } from '../GlobeProvider'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
@@ -372,7 +373,14 @@ export function GlobeCanvas({
               onSelectCountry={handleSelectCountry}
             />
             {introPhase === 'ready' ? (
-              <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
+              featureFlags.globeHeatmap ? (
+                <HeatDensityLayer
+                  countries={liveData.countries}
+                  signalsByIso2={liveData.signalsByIso2}
+                />
+              ) : (
+                <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
+              )
             ) : null}
             <CountryBorderLayer />
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}

@@ -27,4 +27,11 @@ export const featureFlags = {
    * colouring without a code change if a tier turns out to be wrong.
    */
   globeRegulatoryTiers: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_REGULATORY_TIERS', true),
+  /**
+   * Continuous Gaussian heat-density surface above country plates.
+   * OFF by default until visual + performance validation. When off, the
+   * existing DataVizLayer instanced markers remain the intensity overlay.
+   * Set NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP=true to enable.
+   */
+  globeHeatmap: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP', false),
 }
