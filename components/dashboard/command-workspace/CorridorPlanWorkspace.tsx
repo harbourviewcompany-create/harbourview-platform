@@ -13,6 +13,7 @@ import {
   APPLICABLE_TRADE_JURISDICTIONS,
 } from '@/lib/intelligence/tradeCorridors'
 import { CLAIM_MAP_FIXTURES } from '@/lib/fixtures/clinical/claim-map'
+import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
 import {
   assessClaimMapReadiness,
   corridorEvidenceFlags,
@@ -73,10 +74,30 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
     return popular
   }, [chipMode, popular])
 
-  const evidenceReadiness = useMemo(() => assessClaimMapReadiness(CLAIM_MAP_FIXTURES), [])
+  const evidenceReadiness = useMemo(() => {
+    const assessments = CLAIM_MAP_FIXTURES.map((e) =>
+      assessClaimMapReadiness(e, EVIDENCE_FIXTURES),
+    )
+    const allGaps = assessments.flatMap((a) => a.gaps)
+    return {
+      claimCount: assessments.length,
+      gapClaims: assessments.filter((a) => a.status === 'gap').length,
+      partialClaims: assessments.filter((a) => a.status === 'partial').length,
+      highPriorityGaps: assessments.reduce(
+        (n, a) => n + a.summary.bySeverity.critical + a.summary.bySeverity.high,
+        0,
+      ),
+      topGaps: allGaps.slice(0, 8).map((g) => ({
+        sourceId: g.evidenceRecordId ?? g.claimMapId ?? g.id,
+        dimension: g.category,
+        status: g.severity,
+        label: g.title,
+      })),
+    }
+  }, [])
   const evidenceFlags = useMemo(
-    () => corridorEvidenceFlags(CLAIM_MAP_FIXTURES, product),
-    [product],
+    () => corridorEvidenceFlags(CLAIM_MAP_FIXTURES, EVIDENCE_FIXTURES),
+    [],
   )
 
   const setParams = useCallback(
@@ -292,25 +313,25 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
                 {evidenceFlags.map((f) => (
                   <li
-                    key={f.id}
+                    key={f.key}
                     style={{
                       borderRadius: 8,
                       border:
-                        f.severity === 'critical'
+                        f.level === 'blocked'
                           ? '1px solid rgba(248,113,113,0.35)'
-                          : f.severity === 'attention'
+                          : f.level === 'caution'
                             ? '1px solid rgba(251,191,36,0.35)'
                             : '1px solid rgba(255,255,255,0.1)',
                       background:
-                        f.severity === 'critical'
+                        f.level === 'blocked'
                           ? 'rgba(248,113,113,0.08)'
-                          : f.severity === 'attention'
+                          : f.level === 'caution'
                             ? 'rgba(251,191,36,0.08)'
                             : 'rgba(255,255,255,0.03)',
                       padding: '8px 10px',
                     }}
                   >
-                    <strong style={{ fontSize: 12 }}>{f.title}</strong>
+                    <strong style={{ fontSize: 12 }}>{f.label}</strong>
                     <div className="cc-corridor-muted" style={{ fontSize: 11, marginTop: 2 }}>
                       {f.detail}
                     </div>
