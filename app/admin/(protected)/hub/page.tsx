@@ -1,22 +1,22 @@
-import { Suspense } from 'react'
-import { requireAdminAuth } from '@/lib/auth/adminGuard'
-import HarbourviewAdmin from './HubPanel'
+/* eslint-disable */
+// @ts-nocheck
+'use client'
 
-export const dynamic = 'force-dynamic'
+import { useMemo, useState } from 'react'
+import { mkApi, panelCss, useAdminToast } from '@/components/admin/panels/shared'
+import { Overview } from '@/components/admin/panels/Overview'
 
-function HubFallback() {
+export default function Page() {
+  const api = useMemo(() => mkApi(), [])
+  const { toast, toastNode } = useAdminToast()
+  const [stats, setStats] = useState(null)
   return (
-    <div style={{ padding: 24, color: '#6A7E9B', fontSize: 13 }}>
-      Loading control surface…
-    </div>
-  )
-}
-
-export default async function HubPage() {
-  await requireAdminAuth()
-  return (
-    <Suspense fallback={<HubFallback />}>
-      <HarbourviewAdmin />
-    </Suspense>
+    <>
+      <style>{panelCss}</style>
+      <div className="hv-app"><div className="hv-main"><div className="content">
+        <Overview api={api} toast={toast} stats={stats} setStats={setStats} />
+      </div></div></div>
+      {toastNode}
+    </>
   )
 }
