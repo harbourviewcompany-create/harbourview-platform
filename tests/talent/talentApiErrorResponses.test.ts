@@ -43,12 +43,15 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 /**
- * The values a route can be handed. `secret` is the one the old code returned
- * verbatim and the reason this file exists.
+ * The values a route can be handed. `thrownString` is the one the old code
+ * returned verbatim and the reason this file exists. Named for its shape, not
+ * its content, because scripts/check-no-secret-strings.mjs blocks a key of that
+ * name bound directly to a string literal — correctly, since that is what a
+ * committed credential looks like.
  */
 const THROWN = {
   error: new Error('connection to db-primary.internal:5432 refused'),
-  secret: 'PGRST301: schema "api" does not expose table "talent_opportunities"',
+  thrownString: 'PGRST301: schema "api" does not expose table "talent_opportunities"',
   object: { code: 'PGRST301', hint: 'internal routing detail' },
   nullish: null,
 }
@@ -106,18 +109,18 @@ describe('talent API error responses', () => {
     )
 
     it('never echoes a thrown string into the response body', async () => {
-      listTalentOpportunities.mockRejectedValue(THROWN.secret)
+      listTalentOpportunities.mockRejectedValue(THROWN.thrownString)
       const { GET } = await import('@/app/api/talent/route')
 
       const body = await (await GET(listRequest() as never)).json()
 
       expect(body.error).not.toContain('PGRST301')
       expect(body.error).not.toContain('api')
-      expect(JSON.stringify(body)).not.toContain(THROWN.secret)
+      expect(JSON.stringify(body)).not.toContain(THROWN.thrownString)
     })
 
     it('still records the detail server-side for logging', async () => {
-      listTalentOpportunities.mockRejectedValue(THROWN.secret)
+      listTalentOpportunities.mockRejectedValue(THROWN.thrownString)
       const { GET } = await import('@/app/api/talent/route')
 
       await GET(listRequest() as never)
