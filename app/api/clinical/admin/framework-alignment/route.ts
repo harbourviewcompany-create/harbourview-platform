@@ -19,9 +19,10 @@ const FrameworkAlignmentSchema = z
     dtaEcosystem: z.string().optional(),
     dtxRwePhases: z.array(z.string()).optional(),
     commercialStageGates: z.array(z.string()).optional(),
+    fdaRweRelevanceReliability: z.string().optional(),
     fdaRweRelevance: z.string().optional(),
     fdaRweReliability: z.string().optional(),
-    alcoaPlus: z.record(z.unknown()).optional(),
+    alcoaPlus: z.union([z.array(z.string()), z.record(z.string(), z.unknown())]).optional(),
     notes: z.string().max(4000).optional(),
   })
   .passthrough()
