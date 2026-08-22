@@ -10,6 +10,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { runCountryCoverageTick } from '@/lib/admin/countryCoverageLoop'
+import { synthesiseJurisdictionBatch } from '@/lib/intelligence/jurisdictionSynthesis'
 
 const SCOPE_RE =
   /cannab|cannabis|marijuana|thc|cbd|nabiximols|sativex|epidiolex|hemp|gacp|gmp.?cann|narcotic.?import|bfarm|health.?canada|tga|anvisa|mhra|medical.?cannabis|phytocannabinoid|eu.?gmp|btmg|narcotics.?act/i
@@ -48,6 +49,7 @@ export type OpsAutonomyResult = {
   staging_oos_rejected: number
   staging_auto_approved: number
   coverage?: Awaited<ReturnType<typeof runCountryCoverageTick>>
+  briefs?: { iso2: string; ok: boolean; signal_count?: number; error?: string }[]
   at: string
   errors: string[]
 }
@@ -57,6 +59,7 @@ const BATCH = 400
 export async function runOpsAutonomyTick(opts?: {
   autoApproveInScope?: boolean
   runCoverage?: boolean
+  runBriefs?: boolean
 }): Promise<OpsAutonomyResult> {
   const at = new Date().toISOString()
   const errors: string[] = []
@@ -76,6 +79,7 @@ export async function runOpsAutonomyTick(opts?: {
 
   const autoApprove = opts?.autoApproveInScope !== false
   const runCoverage = opts?.runCoverage !== false
+  const runBriefs = opts?.runBriefs !== false
   const supabase = serviceClient()
 
   let signals_oos_rejected = 0
@@ -177,6 +181,16 @@ export async function runOpsAutonomyTick(opts?: {
     }
   }
 
+  let briefs: OpsAutonomyResult['briefs']
+  if (runBriefs && process.env.ANTHROPIC_API_KEY) {
+    try {
+      const batch = await synthesiseJurisdictionBatch({ limit: 4 })
+      briefs = batch.results
+    } catch (e) {
+      errors.push(`briefs: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   return {
     ok: errors.length === 0,
     signals_oos_rejected,
@@ -184,7 +198,9 @@ export async function runOpsAutonomyTick(opts?: {
     staging_oos_rejected,
     staging_auto_approved,
     coverage,
+    briefs,
     at,
     errors,
   }
 }
+
