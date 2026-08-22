@@ -11,16 +11,14 @@ export type AdminNavGroup = {
   items: AdminNavItem[];
 };
 
-// Source of truth for the top-level admin nav. Grouped by function so the
-// nav scales past a flat list. Deeper sub-routes (e.g. /admin/agents/queues,
-// /admin/enterprise/deal-rooms) are assumed reachable via each section's own
-// internal navigation once inside it -- this was NOT individually verified
-// for every section in this pass. If a section has no internal sub-nav,
-// its child routes are still effectively orphaned and need follow-up.
+/**
+ * Source of truth for the top-level admin layout nav (/admin/* outside Hub SPA).
+ * Hub Control Surface has its own NAV in HubPanel — keep Clinical group aligned.
+ */
 export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'Overview',
-    items: [{ label: 'Hub', href: '/admin/hub' }],
+    items: [{ label: 'Hub (Control Surface)', href: '/admin/hub' }],
   },
   {
     label: 'Marketplace',
@@ -44,9 +42,17 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { label: 'Signals', href: '/admin/signals' },
       { label: 'Briefings', href: '/admin/intelligence/briefings' },
       { label: 'Health Canada', href: '/admin/intelligence/health-canada' },
-      { label: 'Clinical evidence', href: '/clinical/review' },
-      { label: 'Genetics routing', href: '/admin/routing/genetics' },
+      { label: 'Agents', href: '/admin/agents' },
+    ],
+  },
+  {
+    label: 'Clinical',
+    items: [
+      { label: 'Clinical review queue', href: '/admin/clinical-review' },
+      { label: 'Claim map & framework gaps', href: '/admin/clinical-review/claim-map' },
       { label: 'Genetics review', href: '/admin/genetics/review' },
+      { label: 'Genetics routing', href: '/admin/routing/genetics' },
+      { label: 'Agent evidence actions', href: '/admin/agents/evidence-actions' },
     ],
   },
   {
@@ -55,7 +61,6 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { label: 'Enterprise', href: '/admin/enterprise' },
       { label: 'Partners', href: '/admin/partners' },
       { label: 'Prop. Intelligence', href: '/admin/proprietary-intelligence' },
-      { label: 'Agents', href: '/admin/agents' },
     ],
   },
   {
