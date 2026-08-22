@@ -7,7 +7,8 @@ import { galleryMarketplaceImageRoleRank, publicMarketplaceImageRoleRank } from 
 import type { MarketplaceItemImageRow } from './types';
 
 const TARGET_TABLE = 'marketplace_item_images';
-const ITEM_ID_BATCH_SIZE = 40;
+const CARD_MEDIA_VIEW = 'marketplace_item_card_media_v1';
+const ITEM_ID_BATCH_SIZE = 80;
 const PAGE_SIZE = 500;
 
 function getAnonKey() {
@@ -24,7 +25,7 @@ async function queryPublicImagePage(
 
   try {
     const res = await fetch(`${resolveLockedSupabaseUrl()}/rest/v1/${TARGET_TABLE}?${params.toString()}`, {
-      cache: 'no-store',
+      next: { revalidate: 300 },
       signal,
       headers: {
         apikey: anonKey,
@@ -61,11 +62,78 @@ async function queryPublicImageBatch(itemIds: string[], signal?: AbortSignal): P
   const rows: PublicMarketplaceImageDTO[] = [];
   for (let rangeStart = 0; ; rangeStart += PAGE_SIZE) {
     const page = await queryPublicImagePage(params, rangeStart, signal);
-    // Reject the complete batch so callers can distinguish degraded enrichment
-    // from a legitimate listing with no approved image rows.
     if (page === null) throw new Error('MARKETPLACE_MEDIA_QUERY_FAILED');
     rows.push(...page);
     if (page.length < PAGE_SIZE) return rows;
+  }
+}
+
+/**
+ * Fast path: one pre-ranked card row per item from marketplace_item_card_media_v1.
+ * Falls back to full image rows if the view is unavailable.
+ */
+async function queryCardMediaBatch(itemIds: string[], signal?: AbortSignal): Promise<Record<string, PublicMarketplaceImageDTO[]> | null> {
+  const anonKey = getAnonKey();
+  if (!anonKey || itemIds.length === 0) return {};
+
+  try {
+    const params = new URLSearchParams({
+      select: 'item_id,image_id,image_class,image_role,public_url,thumbnail_url,hero_url,gallery_url,alt_text,caption,is_illustrative,source_name',
+      item_id: `in.(${itemIds.join(',')})`,
+    });
+    const res = await fetch(`${resolveLockedSupabaseUrl()}/rest/v1/${CARD_MEDIA_VIEW}?${params.toString()}`, {
+      next: { revalidate: 300 },
+      signal,
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        Accept: 'application/json',
+        'Accept-Profile': SUPABASE_DB_SCHEMA,
+      },
+    });
+    if (!res.ok) return null;
+
+    const rows = (await res.json()) as Array<{
+      item_id: string
+      image_id: string
+      image_class: PublicMarketplaceImageDTO['imageClass']
+      image_role: PublicMarketplaceImageDTO['role']
+      public_url: string | null
+      thumbnail_url: string | null
+      hero_url: string | null
+      gallery_url: string | null
+      alt_text: string | null
+      caption: string | null
+      is_illustrative: boolean
+      source_name: string | null
+    }>;
+
+    return rows.reduce<Record<string, PublicMarketplaceImageDTO[]>>((acc, row) => {
+      // Skip rows with no renderable URL — same gate as toPublicMarketplaceImageDTO.
+      if (!row.public_url && !row.thumbnail_url && !row.hero_url && !row.gallery_url) {
+        return acc;
+      }
+
+      const dto: PublicMarketplaceImageDTO = {
+        id: row.image_id,
+        itemId: row.item_id,
+        imageClass: row.image_class,
+        role: row.image_role,
+        publicUrl: row.public_url,
+        thumbnailUrl: row.thumbnail_url,
+        heroUrl: row.hero_url,
+        galleryUrl: row.gallery_url,
+        socialUrl: null,
+        altText: row.alt_text || 'Harbourview marketplace image',
+        caption: row.caption,
+        isIllustrative: row.is_illustrative,
+        sourceDisplayLabel: row.source_name,
+      };
+      acc[row.item_id] = [dto];
+      return acc;
+    }, {});
+  } catch {
+    return null;
   }
 }
 
@@ -73,6 +141,17 @@ export async function getPublicMarketplaceImagesForItems(itemIds: string[], sign
   const ids = Array.from(new Set(itemIds.filter(Boolean)));
   if (!ids.length) return {};
 
+  // Prefer the card-media view (one ranked row per item).
+  const cardBatches = chunks(ids, ITEM_ID_BATCH_SIZE);
+  const cardResults = await Promise.all(cardBatches.map(batch => queryCardMediaBatch(batch, signal)));
+  if (cardResults.every(result => result !== null)) {
+    return cardResults.reduce<Record<string, PublicMarketplaceImageDTO[]>>((acc, batch) => {
+      Object.assign(acc, batch);
+      return acc;
+    }, {});
+  }
+
+  // Fallback: full image table enrichment.
   const batches = chunks(ids, ITEM_ID_BATCH_SIZE);
   const batchRows = await Promise.all(batches.map(batch => queryPublicImageBatch(batch, signal)));
 
@@ -93,6 +172,7 @@ function marketplaceImageTrustRank(image: PublicMarketplaceImageDTO) {
   return 3;
 }
 
+/** Prefer real-item evidence, then catalogue, then illustrative. */
 export function pickMarketplaceCardImage(images: PublicMarketplaceImageDTO[]) {
   return (
     [...images].sort((a, b) => {

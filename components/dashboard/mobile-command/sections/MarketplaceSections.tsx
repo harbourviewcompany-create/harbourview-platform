@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import Image from 'next/image'
 import type { MarketView } from '../../CommandCentre'
-import {
-  getRepresentativeMarketplaceMedia,
-  MARKETPLACE_MEDIA_COPY,
-} from '@/lib/dashboard/marketplaceMediaProjection'
+import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
+import { getSubjectRepresentativeMedia } from '@/lib/dashboard/marketplaceSubjectMedia'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
@@ -25,8 +24,12 @@ type MediaStage = 'primary' | 'fallback' | 'empty'
 export function resolveListingMediaStage(row: NormalizedListing, stage: MediaStage) {
   const media = row.media
   if (!media || stage === 'empty') {
-    // Always show a representative category image — never a blank "photo on inquiry" state.
-    const representative = getRepresentativeMarketplaceMedia(row.view)
+    const representative = getSubjectRepresentativeMedia(
+      row.view,
+      row.id,
+      row.title,
+      row.category,
+    )
     return {
       src: representative.src,
       altText: representative.altText,
@@ -65,12 +68,14 @@ function ListingCardMedia({ row }: { row: NormalizedListing }) {
 
   return (
     <figure className="hvm2-listing-media" data-media-kind={media.kind}>
-      <img
+      <Image
         src={media.src}
         alt={media.altText}
+        width={640}
+        height={480}
+        sizes="(max-width: 640px) 50vw, 320px"
+        quality={75}
         loading="lazy"
-        decoding="async"
-        data-fallback-src={row.media?.fallbackSrc ?? media.src}
         onError={() => {
           if (stage === 'primary' && row.media?.fallbackSrc && row.media.fallbackSrc !== media.src) {
             setStage('fallback')

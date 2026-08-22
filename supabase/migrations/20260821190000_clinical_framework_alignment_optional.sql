@@ -1,47 +1,51 @@
--- Phase B (optional): additive framework_alignment JSONB on clinical_evidence_records.
--- Safe to apply forward-only. Does not change clinical conclusions, review gates, or public search.
--- Application code may read/write this column when present; absence is treated as unmapped.
+-- Optional commercial / regulatory framework alignment on clinical evidence spine.
+-- Additive only. Does not change review_status, RLS, or clinical conclusions.
+-- framework_alignment is jsonb; claim-map is a separate operator table.
 
-ALTER TABLE public.clinical_evidence_records
-  ADD COLUMN IF NOT EXISTS framework_alignment jsonb NULL;
+alter table if exists public.clinical_evidence_records
+  add column if not exists framework_alignment jsonb;
 
-COMMENT ON COLUMN public.clinical_evidence_records.framework_alignment IS
-  'Optional commercial evidence strategy alignment (IMDRF / DTA / DTx RWE / FDA RWE / stage-gate). Metadata only; does not replace GRADE or clinical review.';
+comment on column public.clinical_evidence_records.framework_alignment is
+  'Optional FrameworkAlignment JSON (IMDRF N41, DTA domains, DTx RWE phases, commercial stage-gates, FDA RWE relevance/reliability, ALCOA+). Operator mapping only; never used for clinical inference.';
 
--- Optional child table for living claim map entries (operator dossiers).
-CREATE TABLE IF NOT EXISTS public.clinical_evidence_claim_map (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  claim_key text NOT NULL UNIQUE,
-  claim_statement text NOT NULL,
-  claim_kind text NOT NULL DEFAULT 'other',
-  framework_alignment jsonb NOT NULL DEFAULT '{}'::jsonb,
-  evidence_record_ids text[] NOT NULL DEFAULT '{}',
-  gap_owner text NULL,
-  target_date date NULL,
-  status text NOT NULL DEFAULT 'partial'
-    CHECK (status IN ('complete', 'partial', 'gap')),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  created_by_user_id uuid NULL
+create table if not exists public.clinical_evidence_claim_map (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  claim_statement text not null,
+  condition_label text not null,
+  cannabinoid_focus text[] not null default '{}',
+  -- Fixture ids (e.g. ev-dravet-cbd) or live record UUIDs as text; resolved at read time.
+  evidence_record_ids text[] not null default '{}',
+  target_stage_gates text[] not null default '{}',
+  target_imdrf_pillars text[] not null default '{}',
+  target_dta_domains text[] not null default '{}',
+  status text not null default 'gap'
+    check (status in ('supported', 'partial', 'gap', 'not_applicable')),
+  gap_summary text,
+  updated_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_by uuid
 );
 
-COMMENT ON TABLE public.clinical_evidence_claim_map IS
-  'Operator claim → framework map for commercial readiness. Not clinician-facing directives.';
+comment on table public.clinical_evidence_claim_map is
+  'Operator claim-map linking commercial/clinical claim statements to evidence records and stage-gates. Not a clinical decision surface.';
 
-CREATE INDEX IF NOT EXISTS clinical_evidence_claim_map_status_idx
-  ON public.clinical_evidence_claim_map (status);
+alter table public.clinical_evidence_claim_map enable row level security;
 
--- RLS. Every other table in public carries it, and the api-schema views grant
--- anon INSERT/UPDATE/DELETE on the assumption that base-table RLS is what
--- actually holds. Shipping a new public table without it would make this the
--- fourth RLS-disabled public table and would widen that gap.
---
--- Enabled with no permissive policy on purpose: nothing reads or writes this
--- table yet (app/admin/(protected)/clinical-review/claim-map renders from
--- CLAIM_MAP_FIXTURES, not from the database), so deny-by-default costs nothing
--- today and is the safe starting point. The service role bypasses RLS, so
--- operator tooling still works.
---
--- Whoever wires the Claim Map UI to this table adds the explicit policies then,
--- as a reviewed security change, rather than inheriting an open table.
-ALTER TABLE public.clinical_evidence_claim_map ENABLE ROW LEVEL SECURITY;
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'clinical_evidence_claim_map'
+      and policyname = 'claim_map_select_authenticated'
+  ) then
+    create policy claim_map_select_authenticated
+      on public.clinical_evidence_claim_map
+      for select
+      to authenticated
+      using (true);
+  end if;
+end $$;
+
+-- Service role used by admin API for writes; no broad authenticated write policy.

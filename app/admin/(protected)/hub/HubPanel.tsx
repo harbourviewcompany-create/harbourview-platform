@@ -173,6 +173,10 @@ const NAV = [
   { id:"signals",     label:"Signals",         icon:"◉", badgeKey:"unreviewed_signals" },
   { id:"staging",     label:"Staging Queue",   icon:"□", badgeKey:"staging_pending" },
   { id:"intel",       label:"Intel / Agents",  icon:"◆" },
+  { group: "Clinical" },
+  { id:"clinical",    label:"Clinical Review", icon:"✚" },
+  { id:"claimmap",    label:"Claim Map",       icon:"▦", href:"/admin/clinical-review/claim-map" },
+  { id:"clinreview",  label:"Evidence Queue",  icon:"◎", href:"/admin/clinical-review" },
   { group: "Data" },
   { id:"sources",     label:"Sources",         icon:"○" },
   { id:"countries",   label:"Countries",       icon:"◎" },
@@ -188,7 +192,15 @@ const PAGE_TITLES = {
   feed:"Public Feed", actions:"Actions & Triggers", inquiries:"Marketplace Inquiries",
   candidates:"Candidates", intake:"Intake Queue", deal:"Deal Board",
   intel:"Intelligence / Agents", stripe:"Stripe Setup",
+  clinical:"Clinical Evidence", claimmap:"Claim Map", clinreview:"Clinical Review",
 };
+
+/** Cannabis / medical-cannabis scope heuristic for operator hygiene (not clinical inference). */
+const SCOPE_RE = /cannab|cannabis|marijuana|thc|cbd|nabiximols|sativex|epidiolex|hemp|gacp|gmp.?cann|narcotic.?import|bfarm|health.?canada|tga|anvisa|mhra|medical.?cannabis|phytocannabinoid/i;
+function inCannabisScope(text) {
+  if (!text) return false;
+  return SCOPE_RE.test(String(text));
+}
 
 function Pill({ type="gray", children }) {
   const map = { gold:"pill-gold",red:"pill-red",green:"pill-green",blue:"pill-blue",gray:"pill-gray",warn:"pill-warn",purple:"pill-purple" };
@@ -764,6 +776,7 @@ function Signals({ api, toast }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("unreviewed");
   const [lane, setLane] = useState("all");
+  const [scopeMode, setScopeMode] = useState("all"); // all | in_scope | oos
   const [selected, setSelected] = useState(new Set());
 
   const load = useCallback(async () => {
@@ -800,7 +813,20 @@ function Signals({ api, toast }) {
   };
 
   const toggle=(id)=>setSelected(s=>{const n=new Set(s);n.has(id)?n.delete(id):n.add(id);return n;});
-  const selAll=()=>setSelected(new Set(rows.filter(r=>!r.reviewed).map(r=>r.id)));
+  const visible = rows.filter(s=>{
+    const ok = inCannabisScope(s.headline);
+    if (scopeMode==="in_scope") return ok;
+    if (scopeMode==="oos") return !ok;
+    return true;
+  });
+  const oosCount = rows.filter(s=>!inCannabisScope(s.headline)).length;
+  const selAll=()=>setSelected(new Set(visible.filter(r=>!r.reviewed).map(r=>r.id)));
+  const bulkRejectOos = async () => {
+    const oos = rows.filter(s=>!s.reviewed && !inCannabisScope(s.headline));
+    for (const s of oos) await api.patch("signals",`id=eq.${s.id}`,{reviewed:true,action:"rejected"}).catch(()=>{});
+    setRows(r=>r.map(s=>!s.reviewed && !inCannabisScope(s.headline)?{...s,reviewed:true,action:"rejected"}:s));
+    toast({type:"success",text:`Rejected ${oos.length} out-of-scope signals`});
+  };
 
   return (
     <div className="table-wrap">
@@ -817,24 +843,32 @@ function Signals({ api, toast }) {
             <option value="Economic">Economic</option>
             <option value="Trade">Trade</option>
           </select>
+          <select value={scopeMode} onChange={e=>setScopeMode(e.target.value)} title="Cannabis / medical-cannabis scope filter">
+            <option value="all">All scope</option>
+            <option value="in_scope">In scope</option>
+            <option value="oos">Out of scope</option>
+          </select>
+          {oosCount>0&&<span style={{fontSize:11,color:"#C9A84C"}}>{oosCount} possible OOS in view</span>}
         </div>
-        <div style={{display:"flex",gap:6}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {selected.size>0&&<button className="btn btn-success btn-sm" onClick={bulkApprove}>✓ Approve {selected.size}</button>}
+          {oosCount>0&&filter==="unreviewed"&&<button className="btn btn-danger btn-sm" onClick={bulkRejectOos}>✕ Reject OOS ({oosCount})</button>}
           <button className="btn btn-ghost btn-sm" onClick={selAll}>Select Unreviewed</button>
           <button className="btn btn-ghost btn-sm" onClick={load}>{loading?<div className="spinner"/>:"↻"}</button>
         </div>
       </div>
-      {loading?<div className="empty"><Spinner/></div>:rows.length===0?<div className="empty">No signals</div>:
+      {loading?<div className="empty"><Spinner/></div>:visible.length===0?<div className="empty">No signals</div>:
       <div style={{overflowX:"auto"}}>
         <table>
           <thead><tr>
-            <th style={{width:28}}></th><th>Headline</th><th>Country</th><th>Lane</th><th>Pri</th><th>Score</th><th>Date</th><th>Status</th><th>Actions</th>
+            <th style={{width:28}}></th><th>Headline</th><th>Scope</th><th>Country</th><th>Lane</th><th>Pri</th><th>Score</th><th>Date</th><th>Status</th><th>Actions</th>
           </tr></thead>
           <tbody>
-            {rows.map(s=>(
+            {visible.map(s=>(
               <tr key={s.id}>
                 <td><input type="checkbox" checked={selected.has(s.id)} onChange={()=>toggle(s.id)} style={{accentColor:"#C9A84C"}}/></td>
                 <td><span className="cell-primary">{truncate(s.headline,60)}</span></td>
+                <td>{inCannabisScope(s.headline)?<Pill type="green">in</Pill>:<Pill type="warn">OOS?</Pill>}</td>
                 <td><span className="cell-mono">{s.country||"—"}</span></td>
                 <td>{lanePill(s.top_lane)}</td>
                 <td>{priPill(s.pri)}</td>
@@ -866,6 +900,7 @@ function Signals({ api, toast }) {
 function Staging({ api, toast }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scopeMode, setScopeMode] = useState("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -886,32 +921,57 @@ function Staging({ api, toast }) {
   };
 
   const bulkApprove = async () => {
-    const pending=rows.filter(r=>r.status==="pending");
+    const pending=rows.filter(r=>r.status==="pending" && inCannabisScope(r.proposed_title));
     for(const r of pending) await api.patch("hv_import_staging",`id=eq.${r.id}`,{status:"approved"}).catch(()=>{});
-    setRows(r=>r.map(s=>s.status==="pending"?{...s,status:"approved"}:s));
-    toast({type:"success",text:`${pending.length} approved`});
+    setRows(r=>r.map(s=>s.status==="pending"&&inCannabisScope(s.proposed_title)?{...s,status:"approved"}:s));
+    toast({type:"success",text:`${pending.length} in-scope approved (OOS skipped)`});
   };
+
+  const bulkRejectOos = async () => {
+    const oos=rows.filter(r=>r.status==="pending" && !inCannabisScope(r.proposed_title));
+    for(const r of oos) await api.patch("hv_import_staging",`id=eq.${r.id}`,{status:"rejected"}).catch(()=>{});
+    setRows(r=>r.map(s=>s.status==="pending"&&!inCannabisScope(s.proposed_title)?{...s,status:"rejected"}:s));
+    toast({type:"success",text:`Rejected ${oos.length} out-of-scope staging items`});
+  };
+
+  const visible = rows.filter(r=>{
+    const ok = inCannabisScope(r.proposed_title);
+    if (scopeMode==="in_scope") return ok;
+    if (scopeMode==="oos") return !ok;
+    return true;
+  });
+  const oosPending = rows.filter(r=>r.status==="pending" && !inCannabisScope(r.proposed_title)).length;
 
   return (
     <div className="table-wrap">
       <div className="table-header">
-        <span className="section-title">Import Staging ({rows.filter(r=>r.status==="pending").length} pending)</span>
-        <div style={{display:"flex",gap:6}}>
-          <button className="btn btn-success btn-sm" onClick={bulkApprove}>✓ Approve All Pending</button>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <span className="section-title">Import Staging ({rows.filter(r=>r.status==="pending").length} pending)</span>
+          <select value={scopeMode} onChange={e=>setScopeMode(e.target.value)}>
+            <option value="all">All scope</option>
+            <option value="in_scope">In scope</option>
+            <option value="oos">Out of scope</option>
+          </select>
+          {oosPending>0&&<span style={{fontSize:11,color:"#C9A84C"}}>{oosPending} OOS pending</span>}
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <button className="btn btn-success btn-sm" onClick={bulkApprove}>✓ Approve in-scope pending</button>
+          {oosPending>0&&<button className="btn btn-danger btn-sm" onClick={bulkRejectOos}>✕ Reject OOS ({oosPending})</button>}
           <button className="btn btn-ghost btn-sm" onClick={load}>{loading?<div className="spinner"/>:"↻"}</button>
         </div>
       </div>
-      {loading?<div className="empty"><Spinner/></div>:rows.length===0?<div className="empty">Queue empty ✓</div>:
+      {loading?<div className="empty"><Spinner/></div>:visible.length===0?<div className="empty">Queue empty ✓</div>:
       <div style={{overflowX:"auto"}}>
         <table>
-          <thead><tr><th>Title</th><th>ISO</th><th>Source</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Title</th><th>Scope</th><th>ISO</th><th>Source</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody>
-            {rows.map(r=>(
+            {visible.map(r=>(
               <tr key={r.id}>
                 <td><span className="cell-primary">{truncate(r.proposed_title,55)}</span></td>
+                <td>{inCannabisScope(r.proposed_title)?<Pill type="green">in</Pill>:<Pill type="warn">OOS?</Pill>}</td>
                 <td><span className="cell-mono">{r.proposed_country_iso||"—"}</span></td>
                 <td><span style={{fontSize:11,color:"#6A7E9B"}}>{r.source_system}</span></td>
-                <td><Pill type={{pending:"warn",approved:"green",rejected:"red"}[r.status]||"gray"}>{r.status}</Pill></td>
+                <td><Pill type={{pending:"warn",approved:"green",rejected:"red",promoted:"blue"}[r.status]||"gray"}>{r.status}</Pill></td>
                 <td><span style={{fontSize:11,color:"#4A5E80"}}>{fmtDate(r.created_at)}</span></td>
                 <td>
                   {r.status==="pending"&&(
@@ -1145,6 +1205,34 @@ function Stripe({ toast }) {
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────────────
+
+// ─── CLINICAL ───────────────────────────────────────────────────────────
+function ClinicalPanel() {
+  return (
+    <div style={{display:"grid",gap:14,maxWidth:720}}>
+      <div className="card-section">
+        <div className="card-section-title">Clinical evidence spine</div>
+        <p style={{fontSize:12,color:"#6A7E9B",lineHeight:1.55,marginBottom:12}}>
+          Operator tools for graded cannabinoid clinical reference records, claim-map, and commercial
+          framework alignment (IMDRF / DTA / stage-gates). Does not change public search conclusions or disclaimer.
+        </p>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          <a className="btn btn-ghost btn-sm" href="/admin/clinical-review">Evidence review queue →</a>
+          <a className="btn btn-ghost btn-sm" href="/admin/clinical-review/claim-map">Claim map &amp; framework gaps →</a>
+          <a className="btn btn-ghost btn-sm" href="/admin/agents/evidence-actions">Agent evidence actions →</a>
+        </div>
+      </div>
+      <div className="card-section">
+        <div className="card-section-title">Scope</div>
+        <p style={{fontSize:11,color:"#4A5E80",lineHeight:1.5}}>
+          Cannabinoid / medical-cannabis clinical-reference only. Non-SaMD professional reference posture.
+          Framework alignment is optional metadata for commercial dossiers — never used for clinical inference.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Actions({ api, toast }) {
   const [results, setResults] = useState({});
   const [running, setRunning] = useState({});
@@ -1181,5 +1269,5 @@ export default function HarbourviewAdmin() {
   const toast=(msg)=>setToastMsg(msg);
   const client=mkApi();
   const badgeCounts={unreviewed_signals:stats?.unreviewed_signals||0,staging_pending:stats?.staging_pending||0,inquiry_pending:stats?.inquiry_pending||0,intake_pending:stats?.intake_pending||0};
-  return (<><style>{css}</style><div className="hv-app"><aside className="sidebar"><div className="sidebar-logo"><div className="logo-mark">Harbourview</div><div className="logo-sub">Admin Control Surface</div></div><nav className="nav">{NAV.map((n,i)=>{if(n.group)return <div className="nav-group" key={i}>{n.group}</div>;const count=n.badgeKey?badgeCounts[n.badgeKey]||0:0;return(<button key={n.id} className={`nav-item ${section===n.id?"active":""}`} onClick={()=>setSection(n.id)}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}{count>0&&<span className={`nav-badge ${n.badgeKey==="staging_pending"||n.badgeKey==="inquiry_pending"||n.badgeKey==="intake_pending"?"warn":""}`}>{count}</span>}</button>);})}</nav><div className="sidebar-status"><span className="status-dot"/><span className="status-txt">zvxdgdkukjrrwamdpqrg</span></div></aside><main className="hv-main"><div className="topbar"><span className="page-title">{PAGE_TITLES[section]||section}</span><div className="topbar-right"><span style={{fontSize:11,color:"#3A4E6A",fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleTimeString()}</span></div></div><div className="content">{section==="overview"&&<Overview api={client} stats={stats} setStats={setStats}/>}{section==="inquiries"&&<Inquiries api={client} toast={toast}/>}{section==="candidates"&&<Candidates api={client} toast={toast}/>}{section==="intake"&&<Intake api={client} toast={toast}/>}{section==="deal"&&<DealBoard api={client} toast={toast}/>}{section==="signals"&&<Signals api={client} toast={toast} stats={stats}/>}{section==="staging"&&<Staging api={client} toast={toast}/>}{section==="intel"&&<Intel api={client} toast={toast}/>}{section==="sources"&&<Sources api={client} toast={toast}/>}{section==="countries"&&<Countries api={client} toast={toast}/>}{section==="users"&&<Users api={client} toast={toast}/>}{section==="feed"&&<Feed api={client} toast={toast}/>}{section==="stripe"&&<Stripe toast={toast}/>}{section==="actions"&&<Actions api={client} toast={toast}/>}</div></main></div>{toastMsg&&<Toast msg={toastMsg} onDone={()=>setToastMsg(null)}/>}</>);
+  return (<><style>{css}</style><div className="hv-app"><aside className="sidebar"><div className="sidebar-logo"><div className="logo-mark">Harbourview</div><div className="logo-sub">Admin Control Surface</div></div><nav className="nav">{NAV.map((n,i)=>{if(n.group)return <div className="nav-group" key={i}>{n.group}</div>;const count=n.badgeKey?badgeCounts[n.badgeKey]||0:0;if(n.href)return(<a key={n.id} href={n.href} className={`nav-item ${section===n.id?"active":""}`} style={{textDecoration:"none",color:"inherit"}}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}</a>);return(<button key={n.id} className={`nav-item ${section===n.id?"active":""}`} onClick={()=>setSection(n.id)}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}{count>0&&<span className={`nav-badge ${n.badgeKey==="staging_pending"||n.badgeKey==="inquiry_pending"||n.badgeKey==="intake_pending"?"warn":""}`}>{count}</span>}</button>);})}</nav><div className="sidebar-status"><span className="status-dot"/><span className="status-txt">zvxdgdkukjrrwamdpqrg</span></div></aside><main className="hv-main"><div className="topbar"><span className="page-title">{PAGE_TITLES[section]||section}</span><div className="topbar-right"><span style={{fontSize:11,color:"#3A4E6A",fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleTimeString()}</span></div></div><div className="content">{section==="overview"&&<Overview api={client} stats={stats} setStats={setStats}/>}{section==="inquiries"&&<Inquiries api={client} toast={toast}/>}{section==="candidates"&&<Candidates api={client} toast={toast}/>}{section==="intake"&&<Intake api={client} toast={toast}/>}{section==="deal"&&<DealBoard api={client} toast={toast}/>}{section==="signals"&&<Signals api={client} toast={toast} stats={stats}/>}{section==="staging"&&<Staging api={client} toast={toast}/>}{section==="intel"&&<Intel api={client} toast={toast}/>}{section==="sources"&&<Sources api={client} toast={toast}/>}{section==="countries"&&<Countries api={client} toast={toast}/>}{section==="users"&&<Users api={client} toast={toast}/>}{section==="feed"&&<Feed api={client} toast={toast}/>}{section==="stripe"&&<Stripe toast={toast}/>}{section==="actions"&&<Actions api={client} toast={toast}/>}{section==="clinical"&&<ClinicalPanel/>}</div></main></div>{toastMsg&&<Toast msg={toastMsg} onDone={()=>setToastMsg(null)}/>}</>);
 }

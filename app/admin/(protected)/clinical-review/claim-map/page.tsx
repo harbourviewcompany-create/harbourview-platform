@@ -1,295 +1,339 @@
 'use client'
 
 /**
- * Phase B — Admin Claim Map + gap dashboard.
- * Fixture-backed until optional framework_alignment persistence ships.
- * Commercial evidence strategy only; not clinician directives.
+ * Claim-map + framework gap dashboard (operator).
+ * Loads live clinical_evidence_claim_map when migration is applied; falls back to fixtures.
+ * Persist via POST /api/clinical/admin/framework-alignment. Does not publish clinical conclusions.
  */
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { CLAIM_MAP_FIXTURES } from '@/lib/fixtures/clinical/claim-map'
 import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
 import {
-  gapsFromClaimMap,
-  gapsFromEvidenceRecords,
-  sortGapsForTriage,
-  summariseGaps,
-  type GapItem,
-} from '@/lib/clinical/framework-gap'
+  assessClaimMapReadiness,
+  corridorEvidenceFlags,
+} from '@/lib/clinical/evidence-readiness'
+import { summariseGaps, triageSort } from '@/lib/clinical/framework-gap'
+import { CorridorEvidenceFlagsPanel } from '@/components/clinical/CorridorEvidenceFlagsPanel'
 import type { EvidenceClaimMapEntry } from '@/lib/clinical/types'
 
-function statusBadgeClass(status: string) {
-  if (status === 'complete' || status === 'covered') return 'bg-emerald-700/40 text-emerald-100'
-  if (status === 'partial') return 'bg-amber-700/40 text-amber-100'
-  if (status === 'gap' || status === 'missing' || status === 'unmapped')
-    return 'bg-red-800/40 text-red-100'
-  return 'bg-white/10 text-white/70'
-}
+type LiveClaim = EvidenceClaimMapEntry & { source?: 'live' | 'fixture' }
 
 export default function ClaimMapAdminPage() {
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [filterPriority, setFilterPriority] = useState<string>('all')
-  const [draftJson, setDraftJson] = useState('')
-  const [draftMsg, setDraftMsg] = useState<string | null>(null)
-
-  const claimGaps = useMemo(() => gapsFromClaimMap(CLAIM_MAP_FIXTURES), [])
-  const evidenceGaps = useMemo(() => gapsFromEvidenceRecords(EVIDENCE_FIXTURES), [])
-  const allGaps = useMemo(
-    () => sortGapsForTriage([...claimGaps, ...evidenceGaps]),
-    [claimGaps, evidenceGaps]
+  const [filter, setFilter] = useState('')
+  const [jsonDraft, setJsonDraft] = useState('')
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [entries, setEntries] = useState<LiveClaim[]>(
+    CLAIM_MAP_FIXTURES.map((e) => ({ ...e, source: 'fixture' as const })),
   )
-  const summary = useMemo(() => summariseGaps(allGaps), [allGaps])
+  const [liveAvailable, setLiveAvailable] = useState<boolean | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
-  const filteredGaps = useMemo(() => {
-    return allGaps.filter((g) => {
-      if (filterStatus !== 'all' && g.status !== filterStatus) return false
-      if (filterPriority !== 'all' && (g.commercialPriority ?? 'low') !== filterPriority)
-        return false
-      return true
-    })
-  }, [allGaps, filterStatus, filterPriority])
-
-  function validateDraft() {
-    setDraftMsg(null)
+  const load = useCallback(async () => {
+    setLoadError(null)
     try {
-      const parsed = JSON.parse(draftJson) as EvidenceClaimMapEntry
-      if (!parsed.id || !parsed.claimStatement || !parsed.frameworkAlignment) {
-        setDraftMsg('Missing id, claimStatement, or frameworkAlignment')
+      const res = await fetch('/api/clinical/admin/framework-alignment')
+      if (res.status === 401 || res.status === 403) {
+        setLiveAvailable(false)
+        setLoadError('Admin auth required for live claim-map. Showing fixtures.')
         return
       }
-      setDraftMsg(
-        `Valid claim map shape for “${parsed.id}”. Copy into claim-map fixtures or store in intake notes until DB persistence.`
-      )
+      if (!res.ok) {
+        setLiveAvailable(false)
+        setLoadError(`Live load failed (${res.status}). Showing fixtures.`)
+        return
+      }
+      const data = await res.json()
+      setLiveAvailable(Boolean(data.liveAvailable))
+      const liveRows = (data.claimMap ?? []) as EvidenceClaimMapEntry[]
+      if (liveRows.length > 0) {
+        setEntries(liveRows.map((e) => ({ ...e, source: 'live' as const })))
+      } else {
+        // Merge: fixtures as baseline when table empty
+        setEntries(CLAIM_MAP_FIXTURES.map((e) => ({ ...e, source: 'fixture' as const })))
+      }
+      if (data.errors?.claimMap) {
+        setLoadError(`DB: ${data.errors.claimMap} — fixtures in use until migration applied.`)
+        setLiveAvailable(false)
+      }
+    } catch {
+      setLiveAvailable(false)
+      setLoadError('Network error loading live claim-map. Showing fixtures.')
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    if (!q) return entries
+    return entries.filter(
+      (e) =>
+        e.condition.toLowerCase().includes(q) ||
+        e.claimStatement.toLowerCase().includes(q) ||
+        e.id.toLowerCase().includes(q),
+    )
+  }, [filter, entries])
+
+  const assessments = useMemo(
+    () => filtered.map((e) => assessClaimMapReadiness(e, EVIDENCE_FIXTURES)),
+    [filtered],
+  )
+
+  const allGaps = useMemo(
+    () => triageSort(assessments.flatMap((a) => a.gaps)),
+    [assessments],
+  )
+  const gapSummary = useMemo(() => summariseGaps(allGaps), [allGaps])
+  const corridorFlags = useMemo(
+    () => corridorEvidenceFlags(filtered, EVIDENCE_FIXTURES),
+    [filtered],
+  )
+
+  async function persistEntry(entry: EvidenceClaimMapEntry) {
+    setBusy(true)
+    setSaveMsg(null)
+    setParseError(null)
+    try {
+      const res = await fetch('/api/clinical/admin/framework-alignment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'upsert_claim_map',
+          slug: entry.id,
+          claimStatement: entry.claimStatement,
+          conditionLabel: entry.condition,
+          cannabinoidFocus: entry.cannabinoidFocus ?? [],
+          evidenceRecordIds: entry.evidenceRecordIds ?? [],
+          targetStageGates: entry.targetStageGates ?? [],
+          targetImdrfPillars: entry.targetImdrfPillars ?? [],
+          targetDtaDomains: entry.targetDtaDomains ?? [],
+          status: entry.status,
+          gapSummary: entry.gapSummary ?? null,
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setParseError(body.error ?? `Save failed (${res.status})`)
+        // Still keep local for operator work
+        setEntries((prev) => {
+          const without = prev.filter((p) => p.id !== entry.id)
+          return [...without, { ...entry, source: 'fixture' as const }]
+        })
+        return
+      }
+      setSaveMsg(`Saved ${entry.id} to clinical_evidence_claim_map`)
+      setLiveAvailable(true)
+      await load()
     } catch (e) {
-      setDraftMsg(e instanceof Error ? e.message : 'Invalid JSON')
+      setParseError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function addFromJson() {
+    setParseError(null)
+    setSaveMsg(null)
+    try {
+      const parsed = JSON.parse(jsonDraft) as EvidenceClaimMapEntry
+      if (!parsed.id || !parsed.claimStatement) {
+        setParseError('Requires id and claimStatement')
+        return
+      }
+      const entry: EvidenceClaimMapEntry = {
+        ...parsed,
+        condition: parsed.condition ?? (parsed as { conditionLabel?: string }).conditionLabel ?? '',
+        updatedAt: parsed.updatedAt ?? new Date().toISOString().slice(0, 10),
+      }
+      setEntries((prev) => {
+        const without = prev.filter((p) => p.id !== entry.id)
+        return [...without, { ...entry, source: 'fixture' as const }]
+      })
+      setJsonDraft('')
+      void persistEntry(entry)
+    } catch (e) {
+      setParseError(e instanceof Error ? e.message : 'Invalid JSON')
+    }
+  }
+
+  async function seedFixturesToLive() {
+    setBusy(true)
+    setSaveMsg(null)
+    try {
+      for (const f of CLAIM_MAP_FIXTURES) {
+        await persistEntry(f)
+      }
+      setSaveMsg(`Seeded ${CLAIM_MAP_FIXTURES.length} fixture claim-map rows`)
+      await load()
+    } finally {
+      setBusy(false)
     }
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-4xl space-y-8 px-4 py-6 pb-24 text-sm text-[#f5f1e8] sm:px-6">
-      <header className="space-y-2 border-b border-white/10 pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#c6a55a]">
-              Admin · Clinical · Phase B
-            </p>
-            <h1 className="text-xl font-semibold sm:text-2xl">Evidence Claim Map</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin/clinical-review"
-              className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white/80"
-            >
-              Review queue
-            </Link>
-            <Link
-              href="/admin/hub"
-              className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white/80"
-            >
-              Admin hub
-            </Link>
-          </div>
+    <div className="mx-auto max-w-5xl space-y-8 p-6 text-sm">
+      <header className="space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/clinical-review" className="text-xs text-neutral-500 hover:underline">
+            ← Clinical review
+          </Link>
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] uppercase ${
+              liveAvailable
+                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
+                : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+            }`}
+          >
+            {liveAvailable === null ? 'checking…' : liveAvailable ? 'live DB' : 'fixtures'}
+          </span>
         </div>
-        <p className="text-xs leading-5 text-white/55">
-          Map commercial evidence strategy claims (IMDRF / DTA / DTx RWE / FDA RWE) to clinical
-          evidence records. Fixture-backed; optional DB persistence documented. Not medical advice;
-          not SaMD.
+        <h1 className="text-xl font-semibold">Claim map & framework gaps</h1>
+        <p className="text-neutral-500">
+          Operator view of commercial claim statements, stage-gate readiness, and IMDRF/DTA/ALCOA+/FDA
+          RWE gaps. Live persistence via{' '}
+          <code className="text-xs">clinical_evidence_claim_map</code> +{' '}
+          <code className="text-xs">framework_alignment</code>. Not medical advice.
         </p>
+        {loadError && <p className="text-xs text-amber-700 dark:text-amber-300">{loadError}</p>}
+        {saveMsg && <p className="text-xs text-emerald-700 dark:text-emerald-300">{saveMsg}</p>}
       </header>
 
-      {/* Gap dashboard */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-white/90">Gap dashboard</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Total gaps" value={String(summary.totalGaps)} />
-          <StatCard label="Missing" value={String(summary.byStatus.missing ?? 0)} tone="red" />
-          <StatCard label="Partial" value={String(summary.byStatus.partial ?? 0)} tone="amber" />
-          <StatCard label="High priority" value={String(summary.highPriority)} tone="gold" />
+      <CorridorEvidenceFlagsPanel flags={corridorFlags} />
+
+      <section className="space-y-2">
+        <h2 className="font-medium">Gap summary</h2>
+        <div className="flex flex-wrap gap-3 text-xs">
+          <span>Total {gapSummary.total}</span>
+          <span className="text-red-700">Critical {gapSummary.bySeverity.critical}</span>
+          <span className="text-amber-700">High {gapSummary.bySeverity.high}</span>
+          <span>Medium {gapSummary.bySeverity.medium}</span>
+          <span className="text-neutral-500">Low {gapSummary.bySeverity.low}</span>
         </div>
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[11px] text-white/55">
-          <div className="mb-1 font-medium text-white/70">By dimension</div>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(summary.byDimensionPrefix).map(([k, v]) => (
-              <span key={k} className="rounded-md bg-white/5 px-2 py-1">
-                {k}: {v}
-              </span>
-            ))}
+        {allGaps.slice(0, 12).map((g) => (
+          <div key={g.id} className="rounded border border-neutral-200 px-2 py-1 text-xs dark:border-neutral-700">
+            <span className="font-medium uppercase text-neutral-500">{g.severity}</span> · {g.framework} ·{' '}
+            {g.message}
           </div>
-          <p className="mt-2">
-            Unmapped evidence fixtures: {summary.unmappedEvidence} (of {EVIDENCE_FIXTURES.length})
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <select
-            className="rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-xs"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="missing">Missing</option>
-            <option value="unmapped">Unmapped</option>
-            <option value="partial">Partial</option>
-          </select>
-          <select
-            className="rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-xs"
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-            aria-label="Filter by priority"
-          >
-            <option value="all">All priorities</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-        </div>
-
-        <ul className="max-h-80 space-y-2 overflow-y-auto">
-          {filteredGaps.slice(0, 40).map((g: GapItem, idx) => (
-            <li
-              key={`${g.sourceId}-${g.dimension}-${idx}`}
-              className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded px-1.5 py-0.5 text-[10px] ${statusBadgeClass(g.status)}`}>
-                  {g.status}
-                </span>
-                <span className="text-[10px] uppercase tracking-wide text-white/40">{g.source}</span>
-                <span className="text-[11px] text-[#c6a55a]">{g.dimension}</span>
-                {g.commercialPriority && (
-                  <span className="text-[10px] text-white/45">pri:{g.commercialPriority}</span>
-                )}
-              </div>
-              <div className="mt-1 text-xs text-white/80">{g.label}</div>
-              {g.notes && <div className="mt-0.5 text-[11px] text-white/45">{g.notes}</div>}
-              {(g.gapOwner || g.targetDate) && (
-                <div className="mt-0.5 text-[10px] text-white/35">
-                  {g.gapOwner ? `owner: ${g.gapOwner}` : ''}{' '}
-                  {g.targetDate ? `· target ${g.targetDate}` : ''}
-                </div>
-              )}
-            </li>
-          ))}
-          {filteredGaps.length === 0 && (
-            <p className="text-xs text-white/45">No gaps match filters.</p>
-          )}
-        </ul>
+        ))}
       </section>
 
-      {/* Claim map table */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-white/90">
-          Claim map ({CLAIM_MAP_FIXTURES.length})
-        </h2>
-        <ul className="space-y-3">
-          {CLAIM_MAP_FIXTURES.map((c) => (
-            <li
-              key={c.id}
-              className="rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded px-1.5 py-0.5 text-[10px] ${statusBadgeClass(c.status)}`}>
-                  {c.status}
-                </span>
-                <span className="text-[10px] text-white/40">{c.claimKind}</span>
-                {c.frameworkAlignment.commercialStageGate && (
-                  <span className="text-[10px] text-[#c6a55a]">
-                    gate: {c.frameworkAlignment.commercialStageGate}
-                  </span>
-                )}
-                {c.frameworkAlignment.commercialPriority && (
-                  <span className="text-[10px] text-white/45">
-                    pri: {c.frameworkAlignment.commercialPriority}
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 font-medium leading-snug">{c.claimStatement}</div>
-              <div className="mt-1 break-all text-[11px] text-white/45">
-                {c.id} · evidence: {c.evidenceRecordIds.join(', ')}
-                {c.gapOwner ? ` · owner ${c.gapOwner}` : ''}
-                {c.targetDate ? ` · target ${c.targetDate}` : ''}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[10px]">
-                {c.frameworkAlignment.imdrfPillars &&
-                  Object.entries(c.frameworkAlignment.imdrfPillars).map(([k, v]) => (
-                    <span
-                      key={k}
-                      className={`rounded px-1.5 py-0.5 ${statusBadgeClass(v.status)}`}
-                      title={v.notes}
-                    >
-                      imdrf:{k}={v.status}
-                    </span>
-                  ))}
-                {(c.frameworkAlignment.dtaDomains ?? []).map((d, i) => (
-                  <span
-                    key={`${d.domain}-${d.ecosystem}-${i}`}
-                    className={`rounded px-1.5 py-0.5 ${statusBadgeClass(d.status)}`}
-                    title={d.notes}
-                  >
-                    dta:{d.domain}/{d.ecosystem}={d.status}
-                  </span>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Minimal admin form — validate claim map JSON */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium text-white/90">Minimal form · claim map JSON</h2>
-        <p className="text-[11px] text-white/45">
-          Paste an <code className="text-white/70">EvidenceClaimMapEntry</code> JSON object to
-          validate shape. Until optional persistence migration is applied, store validated drafts in
-          intake notes or commit to{' '}
-          <code className="text-white/70">lib/fixtures/clinical/claim-map.ts</code>.
-        </p>
-        <textarea
-          className="min-h-40 w-full rounded-xl border border-white/15 bg-black/40 p-3 font-mono text-[11px] text-white/90"
-          placeholder='{"id":"claim-...","claimStatement":"...","claimKind":"efficacy","frameworkAlignment":{...},"evidenceRecordIds":[],"status":"partial"}'
-          value={draftJson}
-          onChange={(e) => setDraftJson(e.target.value)}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          placeholder="Filter condition / claim / id"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="min-w-[200px] flex-1 rounded border border-neutral-300 px-2 py-1 text-sm dark:border-neutral-600 dark:bg-neutral-900"
         />
         <button
           type="button"
-          onClick={validateDraft}
-          className="rounded-lg border border-[#c6a55a]/40 bg-[#c6a55a]/10 px-3 py-2 text-xs text-[#e6c979]"
+          disabled={busy}
+          onClick={() => void load()}
+          className="rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-600"
         >
-          Validate claim map JSON
+          Refresh
         </button>
-        {draftMsg && (
-          <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-white/70">
-            {draftMsg}
-          </p>
-        )}
-      </section>
-    </div>
-  )
-}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void seedFixturesToLive()}
+          className="rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-600"
+          title="Upsert fixture claim-map rows into live table"
+        >
+          Seed fixtures → live
+        </button>
+      </div>
 
-function StatCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone?: 'red' | 'amber' | 'gold'
-}) {
-  const toneClass =
-    tone === 'red'
-      ? 'border-red-500/30 text-red-100'
-      : tone === 'amber'
-        ? 'border-amber-500/30 text-amber-100'
-        : tone === 'gold'
-          ? 'border-[#c6a55a]/40 text-[#e6c979]'
-          : 'border-white/10 text-white/90'
-  return (
-    <div className={`rounded-xl border bg-white/[0.03] p-3 ${toneClass}`}>
-      <div className="text-[10px] uppercase tracking-wide text-white/45">{label}</div>
-      <div className="mt-1 text-lg font-semibold">{value}</div>
+      <section className="space-y-3">
+        <h2 className="font-medium">Claim-map entries ({filtered.length})</h2>
+        <ul className="space-y-3">
+          {assessments.map((a) => {
+            const entry = entries.find((e) => e.id === a.claimId)
+            if (!entry) return null
+            return (
+              <li
+                key={a.claimId}
+                className="rounded border border-neutral-200 p-3 dark:border-neutral-700"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium">{entry.condition}</div>
+                    <div className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-400">
+                      {entry.claimStatement}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <div className="font-medium capitalize">{a.status}</div>
+                    <div>Score {a.score}</div>
+                    <div className="text-[10px] text-neutral-500">{entry.source ?? '—'}</div>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
+                  {entry.targetStageGates.map((g) => (
+                    <span
+                      key={g}
+                      className={`rounded border px-1.5 py-0.5 ${
+                        a.stageGatesReady.includes(g)
+                          ? 'border-emerald-300 text-emerald-800'
+                          : 'border-neutral-300 text-neutral-500'
+                      }`}
+                    >
+                      {g.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-1 text-[11px] text-neutral-500">
+                  Evidence: {a.supportingRecordIds.join(', ') || '—'} · Gaps {a.summary.total} (crit{' '}
+                  {a.summary.bySeverity.critical})
+                </div>
+                {entry.gapSummary && (
+                  <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">{entry.gapSummary}</p>
+                )}
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    className="rounded bg-neutral-800 px-2 py-1 text-[11px] text-white disabled:opacity-50 dark:bg-neutral-200 dark:text-neutral-900"
+                    onClick={() => void persistEntry(entry)}
+                  >
+                    Persist to live
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-medium">Add / update claim (JSON → live)</h2>
+        <p className="text-xs text-neutral-500">
+          Parses JSON, updates local list, then POSTs upsert to clinical_evidence_claim_map when
+          migration is applied.
+        </p>
+        <textarea
+          value={jsonDraft}
+          onChange={(e) => setJsonDraft(e.target.value)}
+          rows={6}
+          placeholder='{"id":"claim-…","claimStatement":"…","condition":"…","cannabinoidFocus":["CBD"],"evidenceRecordIds":["ev-…"],"targetStageGates":["pilot_corridor"],"status":"partial","updatedAt":"2026-08-21"}'
+          className="w-full rounded border border-neutral-300 p-2 font-mono text-xs dark:border-neutral-600 dark:bg-neutral-900"
+        />
+        {parseError && <p className="text-xs text-red-600">{parseError}</p>}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={addFromJson}
+          className="rounded bg-neutral-900 px-3 py-1.5 text-xs text-white disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+        >
+          Apply &amp; persist
+        </button>
+      </section>
     </div>
   )
 }
