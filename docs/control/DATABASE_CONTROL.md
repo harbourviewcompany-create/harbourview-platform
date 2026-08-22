@@ -116,6 +116,71 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Required tests: `npm run lint` / `npm run typecheck` / `npm run test` / `npm run build` all clean on this change (see Evidence Log)
 - Human approval status: Tyler approved scope (3-tier fallback on both digest functions + manual-review bucket with daily email notification) via explicit go-ahead in-session before any migration was applied
 
+## 2026-08-20 — PR #1598 classifier pre-filter and authoritative review queue
+
+- Environment: repository/local verification only. Production was inspected
+  read-only for current function/cron authority; no SQL write, migration apply,
+  cron change, deployment or merge was performed.
+- Tables: proposed internal
+  `public.hv_signal_review_queue`,
+  `public.hv_classify_prefilter_dispositions` and
+  `public.hv_pipeline_stage_log`.
+- RLS/ACL: all three tables enable RLS; `anon` and `authenticated` receive no
+  privileges; `service_role` receives read-only table access. Queue DML occurs
+  through service-role-only `SECURITY DEFINER` RPCs. Classifier dispatch and
+  promotion do not gain service-role execution.
+- Functions changed:
+  `hv_classify_corpus_dispatch(integer,integer)` extends the exact August 14
+  budget/five-attempt/manual-review path with translated-text pre-filtering;
+  `hv_promote_signals(numeric)` adds borderline queueing while retaining the
+  `classifier_validation` gate; review approve/reject/list and pre-filter helper
+  functions are added.
+- Functions deliberately unchanged: `hv_classify_corpus_harvest`,
+  `hv_dedup_assign`, `hv_pipeline_tick` and `hv_quality_promote_tick`. This
+  preserves HNSW KNN, `pg_catalog, public, extensions` operator resolution and
+  the pending-embedding exclusion.
+- Indexes: no new vector index. `idx_signals_embedding_1024_hnsw` remains the
+  sole canonical index; the draft duplicate
+  `signals_embedding_1024_hnsw_idx` was removed from the migration.
+- Cron state: read-only 2026-08-20 evidence records
+  `hv-quality-pipeline = */30 * * * * / active` and
+  `hv-quality-promote = 10,40 * * * * / active`. The migrations contain no cron
+  mutation and the apply checklist requires pre/post equality.
+- Public API/routes: none. The new objects contain internal operational
+  dispositions and review state; no public DTO or customer-visible field is
+  added.
+- Migration files:
+  `20260820130000_hv_pipeline_optimization.sql` and
+  `20260820131000_hv_review_queue_resolve.sql`, ordered as listed.
+- Backward compatibility: current function signatures remain callable; the
+  classifier adds only a bounded selection gate. Filtered inputs receive an
+  explicit stored disposition and changed translated input is re-evaluated.
+  Human rejection writes an authoritative marker and blocks later automatic
+  promotion.
+- Forward-fix: use a new migration based on
+  `20260814180000_bound_classify_retries.sql` (dispatch/harvest),
+  `20260814143000_fix_hv_dedup_assign_search_path.sql` (dedup),
+  `20260730184257_fix_duplicate_dispatch_translate_and_embed.sql` (tick), or
+  `20260723084602_stage_c_classifier_validation_gate.sql` (promotion). Do not
+  restore the stale July baseline or drop the additive audit tables.
+- Replay fidelity: the temporary verification workspace alone restores the
+  missing `pg_trgm` prerequisite and policy identities, skips absent
+  production-local staging relations while hardening every extant relation,
+  evaluates the reconstructed `source_registry.content_type text[]` shape
+  correctly, places the recorded production-shape Clinical reconciliation before
+  its fail-closed preflight, additively reconciles the recorded legacy and
+  Prescriber OS concept, alias and claims-table contracts, resolves hard-coded
+  cron IDs through the recorded by-name successor and gives each exact duplicate
+  repository version a unique replay-only version. No checked migration
+  filename/body or production-ledger row is changed.
+- Required tests: full production-faithful zero-state replay through both files,
+  same-database idempotent replay, PostgreSQL 17 targeted behavior,
+  multilingual fixture recall, RLS/ACL assertions, SQL parse/static contracts,
+  typecheck, build and security suites. Exact results are recorded in
+  `EVIDENCE_LOG.md` and the PR body.
+- Human approval status: authorized to repair and verify PR #1598 only.
+  Production apply, cron mutation, deployment and merge remain unapproved.
+
 ## Remaining historical control entries
 
 Historical database-control entries below this line are preserved in git history from prior DATABASE_CONTROL commits and in `docs/control/EVIDENCE_LOG.md`. New Decision Intel Stage 0 work is governed by the Stage 0 product boundary section above plus `INTEL_DECISION_OS_RLS_MIGRATION.md`.

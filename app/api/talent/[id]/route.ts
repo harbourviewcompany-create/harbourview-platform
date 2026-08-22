@@ -8,6 +8,7 @@ import {
   getTalentOpportunity,
   incrementTalentViewCount,
 } from '@/lib/server/talentQuery';
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +28,10 @@ export async function GET(
     incrementTalentViewCount(id).catch(() => {});
 
     return NextResponse.json(opportunity);
-  } catch (err: any) {
-    console.error('[api/talent/[id]] GET error', err);
-    return NextResponse.json(
-      { error: err?.message ?? 'Internal error' },
-      { status: 500 }
-    );
+  } catch (err) {
+    // Detail stays server-side. The client gets a fixed string: a thrown
+    // value can carry internals, and this is an HTTP response body.
+    console.error('[api/talent/[id]] GET error', errorMessage(err), err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

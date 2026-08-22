@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { TalentOpportunity } from '@/types/talent'
 import { formatSalaryBand, ROLE_FAMILIES } from '@/lib/talent/taxonomy'
+import { errorMessage } from '@/lib/errorMessage'
 
 interface TalentJobDetailProps {
   job: TalentOpportunity
@@ -59,8 +60,8 @@ export function TalentJobDetail({ job, onClose }: TalentJobDetailProps) {
         throw new Error(body.error ?? 'Application failed')
       }
       setApplied(true)
-    } catch (e: any) {
-      setError(e?.message ?? 'Unable to apply')
+    } catch (e) {
+      setError(errorMessage(e, 'Unable to apply'))
     } finally {
       setApplying(false)
     }
@@ -76,8 +77,8 @@ export function TalentJobDetail({ job, onClose }: TalentJobDetailProps) {
       })
       if (!res.ok) throw new Error('Save failed — sign in to save roles')
       setSaved(true)
-    } catch (e: any) {
-      setError(e?.message ?? 'Unable to save')
+    } catch (e) {
+      setError(errorMessage(e, 'Unable to save'))
     } finally {
       setSaving(false)
     }

@@ -20,12 +20,15 @@ const REPLAY_ZERO_STATE_SKIPS = [
   '20260714224152_create_intel_eval_set_stage0.sql',
   '20260714225601_expose_intel_eval_set_via_api_schema.sql',
   '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
+  // Production recorded job IDs 47/48, but replay-created pg_cron IDs are
+  // database-local. The immediately-following 20260722185015 migration resolves
+  // the same two jobs by name and applies the same active=true state.
+  '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
 ]
 
-// Repository-only reconciliation migrations can occasionally have a timestamp
-// later than the first historical migration that depends on the production
-// state they reconstruct. Relocate only an explicitly evidenced, production-
-// unapplied reconstruction/reconciliation file for zero-state replay; the
+// A recorded reconstruction/reconciliation can have a timestamp later than the
+// first historical migration that explicitly depends on the state it restores.
+// Relocate only an exact evidenced file inside the zero-state workspace; the
 // checked-in file and production migration ledger remain unchanged.
 const REPLAY_RELOCATIONS = [
   {
@@ -38,6 +41,31 @@ const REPLAY_RELOCATIONS = [
     destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
     before: '20260730211147_create_supply_catalog_public_view.sql',
   },
+  {
+    source: '20260819100621_clinical_evidence_spine_reconcile.sql',
+    destination: '20260818212759_replay_clinical_evidence_spine_reconcile.sql',
+    before: '20260818212800_clinical_prescriber_governance_preflight.sql',
+  },
+]
+
+// Supabase's migration ledger keys on the fourteen-digit version, so independent
+// checked-in files with the same version cannot all replay. Keep every body and
+// move only the later-sorted member of each exact collision to an unused adjacent
+// version in the temporary workspace. No source file or production-ledger row is
+// renamed.
+const REPLAY_VERSION_COLLISION_RENAMES = [
+  {
+    source: '20260813010000_extend_supply_catalog_equipment_to_australia.sql',
+    sibling: '20260813010000_baseline_capture_pipeline_task_queue.sql',
+    destination: '20260813010001_replay_extend_supply_catalog_equipment_to_australia.sql',
+    before: '20260813020000_baseline_capture_reporting_and_triggers.sql',
+  },
+  {
+    source: '20260820120000_heatmap_conflict_freeze_seed.sql',
+    sibling: '20260820120000_clinical_pilot_local_authorities_au_gb_br.sql',
+    destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
+    before: '20260820130000_hv_pipeline_optimization.sql',
+  },
 ]
 
 // Production had these named RLS policies before the reconstructed 20260719083306
@@ -49,6 +77,14 @@ const REPLAY_RELOCATIONS = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260719140825_replay_pg_trgm_extension.sql',
+    before: '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+    required: [
+      '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+    ],
+    content: `-- Replay-only restoration of production's pg_trgm prerequisite.\n-- The immediately-following reconstructed migration calls similarity(text, text),\n-- but no recorded repository migration installs pg_trgm. This file exists only in\n-- the temporary production-faithful replay workspace and is never a production\n-- migration or migration-ledger entry.\n\ncreate schema if not exists extensions;\ncreate extension if not exists pg_trgm with schema extensions;\n`,
+  },
+  {
     destination: '20260719083305_replay_education_policy_identities.sql',
     before: '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
     required: [
@@ -56,6 +92,128 @@ const REPLAY_SYNTHETIC_FOUNDATIONS = [
       '20260719083306_enforce_clinical_signoff_gate_in_rls.sql',
     ],
     content: `-- Replay-only fail-closed reconstruction of policy identities that existed in production\n-- before 20260719083306. The next migration immediately replaces both USING clauses\n-- with the exact production-recorded predicates. This file exists only in the temporary\n-- production-faithful replay workspace and is never a production migration.\n\ndo $replay_policy_identity$\nbegin\n  if not exists (\n    select 1\n    from pg_policies\n    where schemaname = 'public'\n      and tablename = 'education_modules'\n      and policyname = 'education_modules_public_select'\n  ) then\n    create policy \"education_modules_public_select\"\n      on public.education_modules\n      for select\n      using (false);\n  end if;\n\n  if not exists (\n    select 1\n    from pg_policies\n    where schemaname = 'public'\n      and tablename = 'education_module_sections'\n      and policyname = 'public read sections of published modules'\n  ) then\n    create policy \"public read sections of published modules\"\n      on public.education_module_sections\n      for select\n      using (false);\n  end if;\nend\n$replay_policy_identity$;\n`,
+  },
+]
+
+// Exact historical statements can depend on production-local relations or a
+// catalog shape that differs from the repository's reconstructed zero state.
+// Patch only the temporary replay copy with a type/absence-correct equivalent;
+// checked migrations and the production ledger stay unchanged.
+const REPLAY_CONTENT_PATCHES = [
+  {
+    file: '20260723183914_lock_down_21_anon_exposed_public_tables.sql',
+    anchor: `  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  END LOOP;`,
+    replacement: `  LOOP
+    IF to_regclass(format('public.%I', t)) IS NULL THEN
+      CONTINUE;
+    END IF;
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  END LOOP;`,
+  },
+  {
+    file: '20260816120000_auto_heatmap_from_signals.sql',
+    anchor: `        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')`,
+    replacement: `        or coalesce(s.content_type, '{}'::text[]) && array['regulatory', 'legislation', 'official_notice']::text[]`,
+  },
+  {
+    file: '20260818213000_clinical_prescriber_os_reconciliation.sql',
+    anchor: `create index if not exists clinical_evidence_claim_record_idx
+  on public.clinical_evidence_claims (evidence_record_id, status);`,
+    replacement: `-- Replay-only reconciliation of the legacy Clinical Evidence OS and
+-- Prescriber OS concept contracts. CREATE TABLE IF NOT EXISTS cannot add the
+-- lifecycle columns used by the policies below. Preserve the earlier review
+-- gate when mapping its existing rows: only published concepts/aliases become
+-- active in the later lifecycle vocabulary.
+alter table public.clinical_concepts
+  add column if not exists status text not null default 'active'
+    check (status in ('active','superseded','retired')),
+  add column if not exists superseded_by_id uuid
+    references public.clinical_concepts(id) on delete set null;
+
+update public.clinical_concepts
+set status = case when review_status = 'published' then 'active' else 'retired' end;
+
+alter table public.clinical_concept_aliases
+  add column if not exists status text not null default 'active'
+    check (status in ('active','retired'));
+
+update public.clinical_concept_aliases
+set status = case when review_status = 'published' then 'active' else 'retired' end;
+
+-- Replay-only reconciliation of the two checked-in claim contracts. The
+-- earlier operating-system migration creates the legacy columns but explicitly
+-- seeds no rows; this later migration says it is additive yet CREATE TABLE IF
+-- NOT EXISTS alone cannot add the Prescriber OS columns used below.
+alter table public.clinical_evidence_claims
+  add column if not exists concept_id uuid references public.clinical_concepts(id) on delete set null,
+  add column if not exists claim_text text not null,
+  add column if not exists population text,
+  add column if not exists intervention text,
+  add column if not exists comparator text,
+  add column if not exists outcome text,
+  add column if not exists timeframe text,
+  add column if not exists direction text not null default 'uncertain'
+    check (direction in ('benefit','harm','neutral','uncertain')),
+  add column if not exists effect_measure text,
+  add column if not exists effect_value numeric,
+  add column if not exists effect_unit text,
+  add column if not exists ci_lower numeric,
+  add column if not exists ci_upper numeric,
+  add column if not exists absolute_effect text,
+  add column if not exists relative_effect text,
+  add column if not exists clinically_important_difference text,
+  add column if not exists certainty text not null default 'ungraded'
+    check (certainty in ('high','moderate','low','very-low','ungraded','conflicted')),
+  add column if not exists applicability text,
+  add column if not exists publication_family_id text,
+  add column if not exists independence_group_id text,
+  add column if not exists status text not null default 'review-required'
+    check (status in ('current','superseded','retracted','review-required')),
+  add column if not exists superseded_by_id uuid
+    references public.clinical_evidence_claims(id) on delete set null,
+  add column if not exists primary_source_url text not null,
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists reviewed_by uuid;
+
+-- The newer contract replaces these legacy mandatory inputs. Zero-state has no
+-- claim rows, so this changes no data and lets future Prescriber OS writes use
+-- the later authoritative fields.
+alter table public.clinical_evidence_claims
+  alter column claim_key drop not null,
+  alter column claim_kind drop not null,
+  alter column statement drop not null,
+  alter column verified_at drop not null,
+  alter column source_locator set not null;
+
+do $replay_claim_contract$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.clinical_evidence_claims'::regclass
+      and conname = 'clinical_evidence_claim_source_https'
+  ) then
+    alter table public.clinical_evidence_claims
+      add constraint clinical_evidence_claim_source_https
+      check (primary_source_url ~ '^https://');
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.clinical_evidence_claims'::regclass
+      and conname = 'clinical_evidence_claim_locator_nonempty'
+  ) then
+    alter table public.clinical_evidence_claims
+      add constraint clinical_evidence_claim_locator_nonempty
+      check (length(btrim(source_locator)) > 0);
+  end if;
+end
+$replay_claim_contract$;
+
+create index if not exists clinical_evidence_claim_record_idx
+  on public.clinical_evidence_claims (evidence_record_id, status);`,
   },
 ]
 
@@ -121,6 +279,37 @@ export function planReplayRelocations({ migrationFiles }) {
   })
 }
 
+export function planReplayVersionCollisionRenames({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_VERSION_COLLISION_RENAMES.filter((item) => {
+    if (
+      !fileSet.has(item.source) ||
+      !fileSet.has(item.sibling) ||
+      !fileSet.has(item.before) ||
+      fileSet.has(item.destination)
+    ) return false
+
+    const sourceVersion = migrationVersion(item.source)
+    const siblingVersion = migrationVersion(item.sibling)
+    const destinationVersion = migrationVersion(item.destination)
+    const beforeVersion = migrationVersion(item.before)
+    const collisionFiles = migrationFiles.filter(
+      (file) => migrationVersion(file) === sourceVersion,
+    )
+    return Boolean(
+      sourceVersion &&
+        sourceVersion === siblingVersion &&
+        destinationVersion &&
+        beforeVersion &&
+        sourceVersion < destinationVersion &&
+        destinationVersion < beforeVersion &&
+        collisionFiles.length === 2 &&
+        collisionFiles.includes(item.source) &&
+        collisionFiles.includes(item.sibling),
+    )
+  })
+}
+
 export function planReplaySyntheticFoundations({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_SYNTHETIC_FOUNDATIONS.filter((item) => {
@@ -132,6 +321,11 @@ export function planReplaySyntheticFoundations({ migrationFiles }) {
   })
 }
 
+export function planReplayContentPatches({ migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  return REPLAY_CONTENT_PATCHES.filter((item) => fileSet.has(item.file))
+}
+
 export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = false } = {}) {
   const decisions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, DECISIONS_FILE), 'utf8'))
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
@@ -139,7 +333,9 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
   const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
+  const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
   const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
+  const contentPatches = planReplayContentPatches({ migrationFiles })
 
   if (apply) {
     for (const item of exclusions) {
@@ -163,6 +359,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (fs.existsSync(destination)) throw new Error(`Replay relocation destination already exists: ${item.destination}`)
       fs.renameSync(source, destination)
     }
+    for (const item of versionCollisionRenames) {
+      const source = path.join(migrationDirectory, item.source)
+      const destination = path.join(migrationDirectory, item.destination)
+      if (!fs.existsSync(source)) throw new Error(`Replay version-collision source disappeared: ${item.source}`)
+      if (fs.existsSync(destination)) throw new Error(`Replay version-collision destination already exists: ${item.destination}`)
+      fs.renameSync(source, destination)
+    }
     for (const item of syntheticFoundations) {
       const destination = path.join(migrationDirectory, item.destination)
       if (fs.existsSync(destination)) throw new Error(`Replay synthetic foundation already exists: ${item.destination}`)
@@ -171,16 +374,40 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       }
       fs.writeFileSync(destination, item.content, 'utf8')
     }
+    for (const item of contentPatches) {
+      const target = path.join(migrationDirectory, item.file)
+      const original = fs.readFileSync(target, 'utf8')
+      const first = original.indexOf(item.anchor)
+      const last = original.lastIndexOf(item.anchor)
+      if (first === -1 || first !== last) {
+        throw new Error(`Replay content patch anchor mismatch: ${item.file}`)
+      }
+      fs.writeFileSync(target, original.replace(item.anchor, item.replacement), 'utf8')
+    }
   }
 
-  return { exclusions, zeroStateSkips, relocations, syntheticFoundations }
+  return {
+    exclusions,
+    zeroStateSkips,
+    relocations,
+    versionCollisionRenames,
+    syntheticFoundations,
+    contentPatches,
+  }
 }
 
 const isDirect = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 if (isDirect) {
   try {
     const apply = process.argv.includes('--apply')
-    const { exclusions, zeroStateSkips, relocations, syntheticFoundations } = runReplayPreparation({ apply })
+    const {
+      exclusions,
+      zeroStateSkips,
+      relocations,
+      versionCollisionRenames,
+      syntheticFoundations,
+      contentPatches,
+    } = runReplayPreparation({ apply })
     if (exclusions.length === 0) {
       console.log('Production-faithful replay: no version-alias duplicate files require exclusion.')
     } else {
@@ -196,11 +423,19 @@ if (isDirect) {
       for (const file of zeroStateSkips) console.log(`- ${file}`)
     }
     if (relocations.length === 0) {
-      console.log('Production-faithful replay: no repository-only reconstruction/reconciliation files require earlier replay ordering.')
+      console.log('Production-faithful replay: no reconstruction/reconciliation files require earlier replay ordering.')
     } else {
-      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} repository-only reconstruction/reconciliation file(s):`)
+      console.log(`Production-faithful replay: ${apply ? 'relocated' : 'would relocate'} ${relocations.length} reconstruction/reconciliation file(s):`)
       for (const item of relocations) {
         console.log(`- ${item.source} -> ${item.destination} before ${item.before}`)
+      }
+    }
+    if (versionCollisionRenames.length === 0) {
+      console.log('Production-faithful replay: no duplicate migration versions require temporary disambiguation.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'disambiguated' : 'would disambiguate'} ${versionCollisionRenames.length} duplicate migration version(s):`)
+      for (const item of versionCollisionRenames) {
+        console.log(`- ${item.source} -> ${item.destination}; sibling ${item.sibling}`)
       }
     }
     if (syntheticFoundations.length === 0) {
@@ -210,6 +445,12 @@ if (isDirect) {
       for (const item of syntheticFoundations) {
         console.log(`- ${item.destination} before ${item.before}`)
       }
+    }
+    if (contentPatches.length === 0) {
+      console.log('Production-faithful replay: no zero-state-only SQL corrections are required.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'corrected' : 'would correct'} ${contentPatches.length} migration(s) for zero-state-only catalog differences:`)
+      for (const item of contentPatches) console.log(`- ${item.file}`)
     }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error))

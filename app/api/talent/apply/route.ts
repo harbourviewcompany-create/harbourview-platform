@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,11 +186,10 @@ export async function POST(req: NextRequest) {
       message:
         'Application received. The operator will follow up directly if there is a fit.',
     })
-  } catch (err: any) {
-    console.error('[api/talent/apply] error', err)
-    return NextResponse.json(
-      { error: err?.message ?? 'Application failed' },
-      { status: 500 }
-    )
+  } catch (err) {
+    // Detail stays server-side. The client gets a fixed string: a thrown
+    // value can carry internals, and this is an HTTP response body.
+    console.error('[api/talent/apply] error', errorMessage(err), err)
+    return NextResponse.json({ error: 'Application failed' }, { status: 500 })
   }
 }

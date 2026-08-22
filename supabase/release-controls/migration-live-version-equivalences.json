@@ -7,91 +7,84 @@
       "repository_version": "20260807000900",
       "file": "20260807000900_revoke_data_api_execute_on_secret_accessors.sql",
       "git_blob_sha": "01ff55e434af1b433c95a795ca03576fd1765d49",
-      "provenance": {
-        "type": "merged_pull_request",
-        "pull_request": 1284,
-        "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e"
-      }
+      "provenance": { "type": "merged_pull_request", "pull_request": 1284, "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e" }
     },
     {
       "live_version": "20260807181907",
       "repository_version": "20260807001000",
       "file": "20260807001000_revoke_data_api_default_privileges_on_public.sql",
       "git_blob_sha": "b235b3118b64335ed994c917db81db1117958e73",
-      "provenance": {
-        "type": "merged_pull_request",
-        "pull_request": 1284,
-        "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e"
-      }
+      "provenance": { "type": "merged_pull_request", "pull_request": 1284, "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e" }
     },
     {
       "live_version": "20260807182104",
       "repository_version": "20260807001100",
       "file": "20260807001100_fix_promote_staging_null_object_class.sql",
       "git_blob_sha": "0527ddb7e6c0f87ff7909070524d3af2af011be7",
-      "provenance": {
-        "type": "merged_pull_request",
-        "pull_request": 1284,
-        "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e"
-      }
+      "provenance": { "type": "merged_pull_request", "pull_request": 1284, "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e" }
     },
     {
       "live_version": "20260808202814",
       "repository_version": "20260808190400",
       "file": "20260808190400_restore_harbourview_admin_guard.sql",
       "git_blob_sha": "f2d1a6ede55443160162d01a2cf9be5379e99122",
-      "provenance": {
-        "type": "pull_request_source",
-        "pull_request": 1307,
-        "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d",
-        "production_apply_evidence": "PR #1307 production migration evidence"
-      }
+      "provenance": { "type": "pull_request_source", "pull_request": 1307, "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d", "production_apply_evidence": "PR #1307 production migration evidence" }
     },
     {
       "live_version": "20260808203859",
       "repository_version": "20260808190500",
       "file": "20260808190500_reconcile_marketplace_image_trust_contract.sql",
       "git_blob_sha": "b20378b5262345e66d2bc85152e9658b887c310e",
-      "provenance": {
-        "type": "pull_request_source",
-        "pull_request": 1307,
-        "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d",
-        "production_apply_evidence": "PR #1307 production migration evidence"
-      }
+      "provenance": { "type": "pull_request_source", "pull_request": 1307, "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d", "production_apply_evidence": "PR #1307 production migration evidence" }
     },
     {
       "live_version": "20260812143733",
       "repository_version": "20260812090000",
       "file": "20260812090000_structured_tabular_authority_sources.sql",
       "git_blob_sha": "b6d993f6201135c20442bd8fdbbaa0fc1a3f2c7d",
-      "provenance": {
-        "type": "pull_request_source",
-        "pull_request": 1351,
-        "source_head": "9d04dea46a3691cf56714993237dd59e86cd4120",
-        "production_apply_evidence": "Production migration ledger version 20260812143733 matched the exact PR #1351 migration statement content by read-only verification on 2026-08-12"
-      }
+      "provenance": { "type": "pull_request_source", "pull_request": 1351, "source_head": "9d04dea46a3691cf56714993237dd59e86cd4120", "production_apply_evidence": "Production migration ledger version 20260812143733 matched the exact PR #1351 migration statement content by read-only verification on 2026-08-12" }
     },
     {
       "live_version": "20260819232736",
       "repository_version": "20260819160000",
       "file": "20260819160000_clinical_jurisdiction_supply_outlook.sql",
       "git_blob_sha": "d5778b84281064ae561081b51b94c725486f0705",
-      "provenance": {
-        "type": "direct_commit_content_match",
-        "commit": "3ca3d327129d2ea93fedac690d19f562e5f182d6",
-        "production_apply_evidence": "Production ledger version 20260819232736 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = 456e6aa3ca90458775f1a83675eed96c, equal to md5sum of the file. The apply preceded the commit by three minutes, so supabase apply_migration minted its own timestamp version instead of the canonical one."
-      }
+      "provenance": { "type": "direct_commit_content_match", "commit": "3ca3d327129d2ea93fedac690d19f562e5f182d6", "production_apply_evidence": "Production ledger version 20260819232736 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = 456e6aa3ca90458775f1a83675eed96c, equal to md5sum of the file. The apply preceded the commit by three minutes, so supabase apply_migration minted its own timestamp version instead of the canonical one." }
     },
     {
       "live_version": "20260820100423",
       "repository_version": "20260819190000",
       "file": "20260819190000_clinical_cross_border_formulary_check.sql",
       "git_blob_sha": "c0ee6a1a6edc8976a249839d59a1aed163abe86e",
-      "provenance": {
-        "type": "direct_commit_content_match",
-        "commit": "a293d56",
-        "production_apply_evidence": "Production ledger version 20260820100423 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = acfeef2a39d8e894f5e5602a5efb5496 over 5199 characters, equal to md5sum and byte count of the file. The apply-time version was minted by supabase apply_migration and does not correspond to any repository filename; 20260820100000 is an unrelated migration (network_command_p1_introduction_status) that is not applied."
-      }
+      "provenance": { "type": "direct_commit_content_match", "commit": "a293d56", "production_apply_evidence": "Production ledger version 20260820100423 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = acfeef2a39d8e894f5e5602a5efb5496 over 5199 characters, equal to md5sum and byte count of the file. The apply-time version was minted by supabase apply_migration and does not correspond to any repository filename; 20260820100000 is an unrelated migration (network_command_p1_introduction_status) that is not applied." }
+    },
+    {
+      "live_version": "20260821220328",
+      "repository_version": "20260820140000",
+      "file": "20260820140000_seed_subnational_regulatory_tiers.sql",
+      "git_blob_sha": "a5644571f51553fed52d5c62a06930c9780d91ec",
+      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "seed_subnational_regulatory_tiers", "production_statement_count": 1, "production_statement_md5": "d0747bbda2368d7d027b810099e56374", "production_statement_chars": 9507, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-22 identified live version 20260821220328 as seed_subnational_regulatory_tiers. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed." }
+    },
+    {
+      "live_version": "20260821220419",
+      "repository_version": "20260821120000",
+      "file": "20260821120000_talent_job_board.sql",
+      "git_blob_sha": "40008867d865a1cdbfba4934468583e600d78d10",
+      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "talent_job_board", "production_statement_count": 1, "production_statement_md5": "260aec508da7490e8ecdead17f3cd80b", "production_statement_chars": 10745, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-22 identified live version 20260821220419 as talent_job_board. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed." }
+    },
+    {
+      "live_version": "20260821220431",
+      "repository_version": "20260821121000",
+      "file": "20260821121000_talent_applications_unique.sql",
+      "git_blob_sha": "81b5eb2d54d18fc813410bf6df6732b59e6a4cb1",
+      "provenance": { "type": "direct_content_match_read_only", "production_name": "talent_applications_unique", "production_statement_count": 1, "production_statement_md5": "244a0afa6a9c344b19af41efb14118e1", "production_statement_chars": 243, "production_apply_evidence": "Read-only production statement MD5 and character count exactly match the canonical 243-character repository migration (md5 244a0afa6a9c344b19af41efb14118e1), verified 2026-08-22. No production write or migration repair was performed." }
+    },
+    {
+      "live_version": "20260821220443",
+      "repository_version": "20260821190000",
+      "file": "20260821190000_clinical_framework_alignment_optional.sql",
+      "git_blob_sha": "564f91b1d700394a9f217422d909147db2901858",
+      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "clinical_framework_alignment_optional", "production_statement_count": 1, "production_statement_md5": "52a1a07a704426c9663056063b34320c", "production_statement_chars": 2442, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-22 identified live version 20260821220443 as clinical_framework_alignment_optional. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed." }
     }
   ]
 }
