@@ -163,28 +163,30 @@ const css = `
 
 const NAV = [
   { group: "Platform" },
-  { id:"overview",    label:"Overview",        icon:"⬡" },
-  { id:"actions",     label:"Actions",         icon:"▶" },
+  { id:"overview",    label:"Overview",         icon:"⬡" },
+  { id:"actions",     label:"Actions",          icon:"▶" },
   { group: "Marketplace" },
-  { id:"inquiries",   label:"Inquiries",       icon:"✉", badgeKey:"inquiry_pending" },
-  { id:"candidates",  label:"Candidates",      icon:"◈" },
-  { id:"intake",      label:"Intake Queue",    icon:"↓", badgeKey:"intake_pending" },
-  { id:"deal",        label:"Deal Board",      icon:"⇄" },
+  { id:"inquiries",   label:"Inquiries",        icon:"✉", badgeKey:"inquiry_pending" },
+  { id:"candidates",  label:"Candidates",       icon:"◈" },
+  { id:"intake",      label:"Intake Queue",     icon:"↓", badgeKey:"intake_pending" },
+  { id:"deal",        label:"Deal Board",       icon:"⇄" },
   { group: "Intelligence" },
-  { id:"signals",     label:"Signals",         icon:"◉", badgeKey:"unreviewed_signals" },
-  { id:"staging",     label:"Staging Queue",   icon:"□", badgeKey:"staging_pending" },
-  { id:"intel",       label:"Intel / Agents",  icon:"◆" },
+  { id:"signals",     label:"Signals",          icon:"◉", badgeKey:"unreviewed_signals" },
+  { id:"staging",     label:"Staging Queue",    icon:"□", badgeKey:"staging_pending" },
+  { id:"intel",       label:"Intel / Agents",   icon:"◆" },
+  { id:"agents",      label:"Agent Console",    icon:"⚙", href:"/admin/agents" },
   { group: "Clinical" },
-  { id:"clinical",    label:"Clinical Review", icon:"✚" },
-  { id:"claimmap",    label:"Claim Map",       icon:"▦", href:"/admin/clinical-review/claim-map" },
-  { id:"clinreview",  label:"Evidence Queue",  icon:"◎", href:"/admin/clinical-review" },
+  { id:"clinical",    label:"Clinical Home",    icon:"✚" },
+  { id:"clinreview",  label:"Evidence Queue",   icon:"◎", href:"/admin/clinical-review" },
+  { id:"claimmap",    label:"Claim Map",        icon:"▦", href:"/admin/clinical-review/claim-map" },
+  { id:"genetics",    label:"Genetics Review",  icon:"🧬", href:"/admin/genetics/review" },
   { group: "Data" },
-  { id:"sources",     label:"Sources",         icon:"○" },
-  { id:"countries",   label:"Countries",       icon:"◎" },
+  { id:"sources",     label:"Sources",          icon:"○" },
+  { id:"countries",   label:"Countries",        icon:"◎" },
   { group: "System" },
-  { id:"users",       label:"Users",           icon:"◷" },
-  { id:"feed",        label:"Public Feed",     icon:"⊕" },
-  { id:"stripe",      label:"Stripe",          icon:"$" },
+  { id:"users",       label:"Users",            icon:"◷" },
+  { id:"feed",        label:"Public Feed",      icon:"⊕" },
+  { id:"stripe",      label:"Stripe",           icon:"$" },
 ];
 
 const PAGE_TITLES = {
@@ -193,14 +195,23 @@ const PAGE_TITLES = {
   feed:"Public Feed", actions:"Actions & Triggers", inquiries:"Marketplace Inquiries",
   candidates:"Candidates", intake:"Intake Queue", deal:"Deal Board",
   intel:"Intelligence / Agents", stripe:"Stripe Setup",
-  clinical:"Clinical Evidence", claimmap:"Claim Map", clinreview:"Clinical Review",
+  clinical:"Clinical Home", claimmap:"Claim Map", clinreview:"Evidence Queue",
+  agents:"Agent Console", genetics:"Genetics Review",
 };
 
 /** Cannabis / medical-cannabis scope heuristic for operator hygiene (not clinical inference). */
-const SCOPE_RE = /cannab|cannabis|marijuana|thc|cbd|nabiximols|sativex|epidiolex|hemp|gacp|gmp.?cann|narcotic.?import|bfarm|health.?canada|tga|anvisa|mhra|medical.?cannabis|phytocannabinoid/i;
+SCOPE_RE = /cannab|cannabis|marijuana|thc|cbd|nabiximols|sativex|epidiolex|hemp|gacp|gmp.?cann|narcotic.?import|bfarm|health.?canada|tga|anvisa|mhra|medical.?cannabis|phytocannabinoid|eu.?gmp|gacp|btmg|narcotics.?act/i;
+/** Consumer / SEO / retail noise — not commercial corridor intel */
+const CONSUMER_SPAM_RE = /weedmaps|how to buy|order weed|buy weed|visitor'?s? guide|dispensary near|recreational tourism|delivery near me|strain review|best edibles|smoke shop|is weed legal in|is cannabis legal in|is marijuana legal in|business guide 20\d\d|cannabis laws? (in )?(cyprus|dominica|austria|malta|luxembourg)/i;
 function inCannabisScope(text) {
   if (!text) return false;
-  return SCOPE_RE.test(String(text));
+  const t = String(text);
+  if (CONSUMER_SPAM_RE.test(t)) return false;
+  // Generic "is X legal" tourist SEO without regulatory agency context
+  if (/\bis (weed|cannabis|marijuana) legal\b/i.test(t) && !/\b(bfarm|tga|anvisa|mhra|health canada|eu-?gmp|import permit|narcotic)\b/i.test(t)) {
+    return false;
+  }
+  return SCOPE_RE.test(t);
 }
 
 function Pill({ type="gray", children }) {
@@ -777,7 +788,7 @@ function Signals({ api, toast }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("unreviewed");
   const [lane, setLane] = useState("all");
-  const [scopeMode, setScopeMode] = useState("all"); // all | in_scope | oos
+  const [scopeMode, setScopeMode] = useState("in_scope"); // all | in_scope | oos
   const [selected, setSelected] = useState(new Set());
 
   const load = useCallback(async () => {
@@ -1210,24 +1221,50 @@ function Stripe({ toast }) {
 // ─── CLINICAL ───────────────────────────────────────────────────────────
 function ClinicalPanel() {
   return (
-    <div style={{display:"grid",gap:14,maxWidth:720}}>
+    <div style={{display:"grid",gap:14,maxWidth:800}}>
       <div className="card-section">
         <div className="card-section-title">Clinical evidence spine</div>
         <p style={{fontSize:12,color:"#6A7E9B",lineHeight:1.55,marginBottom:12}}>
-          Operator tools for graded cannabinoid clinical reference records, claim-map, and commercial
-          framework alignment (IMDRF / DTA / stage-gates). Does not change public search conclusions or disclaimer.
+          Graded cannabinoid clinical reference, claim-map, and commercial framework alignment
+          (IMDRF / DTA / stage-gates). Operator tools only — not clinical advice; does not change
+          public search conclusions or the platform disclaimer.
         </p>
-        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-          <a className="btn btn-ghost btn-sm" href="/admin/clinical-review">Evidence review queue →</a>
-          <a className="btn btn-ghost btn-sm" href="/admin/clinical-review/claim-map">Claim map &amp; framework gaps →</a>
-          <a className="btn btn-ghost btn-sm" href="/admin/agents/evidence-actions">Agent evidence actions →</a>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <a className="action-card" href="/admin/clinical-review" style={{textDecoration:"none",color:"inherit",display:"block"}}>
+            <div className="action-card-title">Evidence review queue</div>
+            <div className="action-card-desc">Publish / retire graded evidence and formulary rows. Human-gated.</div>
+          </a>
+          <a className="action-card" href="/admin/clinical-review/claim-map" style={{textDecoration:"none",color:"inherit",display:"block"}}>
+            <div className="action-card-title">Claim map &amp; framework gaps</div>
+            <div className="action-card-desc">Stage-gate readiness, IMDRF/DTA/ALCOA+ gaps, corridor flags. Live persist when migration applied.</div>
+          </a>
+          <a className="action-card" href="/admin/genetics/review" style={{textDecoration:"none",color:"inherit",display:"block"}}>
+            <div className="action-card-title">Genetics review</div>
+            <div className="action-card-desc">Cultivar / passport review queue for genetics programme.</div>
+          </a>
+          <a className="action-card" href="/admin/agents/evidence-actions" style={{textDecoration:"none",color:"inherit",display:"block"}}>
+            <div className="action-card-title">Agent evidence actions</div>
+            <div className="action-card-desc">Intelligence-automation evidence actions for operators.</div>
+          </a>
         </div>
+      </div>
+      <div className="card-section">
+        <div className="card-section-title">Wiring map</div>
+        <table>
+          <thead><tr><th>Surface</th><th>Route</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td>Evidence queue</td><td className="cell-mono">/admin/clinical-review</td><td>Publish gate</td></tr>
+            <tr><td>Claim map</td><td className="cell-mono">/admin/clinical-review/claim-map</td><td>Commercial orientation</td></tr>
+            <tr><td>API</td><td className="cell-mono">/api/clinical/admin/framework-alignment</td><td>Persist alignment</td></tr>
+            <tr><td>Command Centre</td><td className="cell-mono">Access Pathway → Corridors</td><td>Corridor flags</td></tr>
+          </tbody>
+        </table>
       </div>
       <div className="card-section">
         <div className="card-section-title">Scope</div>
         <p style={{fontSize:11,color:"#4A5E80",lineHeight:1.5}}>
-          Cannabinoid / medical-cannabis clinical-reference only. Non-SaMD professional reference posture.
-          Framework alignment is optional metadata for commercial dossiers — never used for clinical inference.
+          Cannabinoid / medical-cannabis clinical-reference only. Non-SaMD professional reference.
+          Framework alignment is optional metadata for dossiers — never used for clinical inference.
         </p>
       </div>
     </div>
