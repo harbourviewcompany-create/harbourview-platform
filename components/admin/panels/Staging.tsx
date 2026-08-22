@@ -78,6 +78,15 @@ export function Staging({ api, toast }) {
 
   const patchMany = async (ids, status) => {
     if (!ids.length) return
+    const idSet = new Set(ids)
+    const snapshot = rows
+    setRows((prev) =>
+      prev.map((r) => (idSet.has(r.id) ? { ...r, status } : r)),
+    )
+    setSelected(new Set())
+    if (detail && idSet.has(detail.id)) {
+      setDetail({ ...detail, status })
+    }
     setBusy(true)
     try {
       const chunk = 200
@@ -88,11 +97,12 @@ export function Staging({ api, toast }) {
         total += slice.length
       }
       toast?.({ type: 'success', text: `Set ${total} → ${status}` })
+      load()
     } catch (e) {
-      toast?.({ type: 'error', text: e.message || 'Bulk update failed' })
+      setRows(snapshot)
+      toast?.({ type: 'error', text: e.message || 'Bulk update failed — reverted' })
     }
     setBusy(false)
-    await load()
   }
 
   const approveSelected = () => patchMany([...selected], 'approved')
