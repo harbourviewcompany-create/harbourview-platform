@@ -8,6 +8,7 @@ import {
   getTalentOpportunity,
   incrementTalentViewCount,
 } from '@/lib/server/talentQuery';
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
 
@@ -27,10 +28,10 @@ export async function GET(
     incrementTalentViewCount(id).catch(() => {});
 
     return NextResponse.json(opportunity);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[api/talent/[id]] GET error', err);
     return NextResponse.json(
-      { error: err?.message ?? 'Internal error' },
+      { error: errorMessage(err, 'Internal error') },
       { status: 500 }
     );
   }

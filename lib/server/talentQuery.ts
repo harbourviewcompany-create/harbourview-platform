@@ -14,7 +14,27 @@ import type {
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
 
-function mapRow(row: any): TalentOpportunity {
+/**
+ * The `talent_opportunities` row as it comes back from Postgres, before
+ * `mapRow` normalises it.
+ *
+ * Derived from `TalentOpportunity` rather than restated, so a field added to
+ * the DTO cannot silently drift from the row shape. Only the columns that
+ * genuinely differ are overridden: the three the mapper defaults or renames,
+ * plus the denormalised company columns the migration stores in place of an
+ * `organizations` join (see the comment on `talent_opportunities.company_name`).
+ */
+type TalentOpportunityRow = Omit<
+  TalentOpportunity,
+  'organization_id' | 'jurisdictions' | 'organization_name' | 'organization_slug' | 'organization_location'
+> & {
+  organization_id: string | null
+  jurisdictions: string[] | null
+  company_name: string | null
+  company_location: string | null
+}
+
+function mapRow(row: TalentOpportunityRow): TalentOpportunity {
   return {
     id: row.id,
     organization_id: row.organization_id ?? '',

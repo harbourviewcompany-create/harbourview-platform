@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listTalentOpportunities } from '@/lib/server/talentQuery';
 import type { RoleFamily, LocationType, Seniority, EmploymentType } from '@/types/talent';
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
 
@@ -28,10 +29,10 @@ export async function GET(req: NextRequest) {
 
     const result = await listTalentOpportunities(params);
     return NextResponse.json(result);
-  } catch (err: any) {
+  } catch (err) {
     console.error('[api/talent] GET error', err);
     return NextResponse.json(
-      { error: err?.message ?? 'Internal error' },
+      { error: errorMessage(err, 'Internal error') },
       { status: 500 }
     );
   }

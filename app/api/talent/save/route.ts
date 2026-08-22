@@ -9,6 +9,7 @@ import {
   saveTalentJob,
   unsaveTalentJob,
 } from '@/lib/server/talentOperations';
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +25,10 @@ export async function POST(req: NextRequest) {
     }
     await saveTalentJob(opportunityId);
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    const status = err?.message?.includes('Authentication') ? 401 : 500;
+  } catch (err) {
+    const status = errorMessage(err).includes('Authentication') ? 401 : 500;
     return NextResponse.json(
-      { error: err?.message ?? 'Save failed' },
+      { error: errorMessage(err, 'Save failed') },
       { status }
     );
   }
@@ -45,10 +46,10 @@ export async function DELETE(req: NextRequest) {
     }
     await unsaveTalentJob(opportunityId);
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    const status = err?.message?.includes('Authentication') ? 401 : 500;
+  } catch (err) {
+    const status = errorMessage(err).includes('Authentication') ? 401 : 500;
     return NextResponse.json(
-      { error: err?.message ?? 'Unsave failed' },
+      { error: errorMessage(err, 'Unsave failed') },
       { status }
     );
   }

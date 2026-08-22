@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import type { TalentOpportunity } from '@/types/talent'
 import { formatSalaryBand, ROLE_FAMILIES } from '@/lib/talent/taxonomy'
 import { TalentJobDetail } from './TalentJobDetail'
+import { errorMessage } from '@/lib/errorMessage'
 
 interface TalentLiveSectionProps {
   jurisdiction?: string | null
@@ -35,9 +36,9 @@ export function TalentLiveSection({ jurisdiction = null }: TalentLiveSectionProp
         if (!res.ok) throw new Error('Failed to load opportunities')
         const data = await res.json()
         if (!cancelled) setItems(data.items ?? [])
-      } catch (e: any) {
+      } catch (e) {
         if (!cancelled) {
-          setError(e?.message ?? 'Unable to load talent opportunities')
+          setError(errorMessage(e, 'Unable to load talent opportunities'))
           setItems([])
         }
       } finally {
@@ -72,9 +73,9 @@ export function TalentLiveSection({ jurisdiction = null }: TalentLiveSectionProp
       if (!res.ok) throw new Error(body.error ?? 'Could not create alert')
       setAlertState('done')
       setAlertMsg('Alert saved.')
-    } catch (e: any) {
+    } catch (e) {
       setAlertState('error')
-      setAlertMsg(e?.message ?? 'Could not create alert')
+      setAlertMsg(errorMessage(e, 'Could not create alert'))
     }
   }
 

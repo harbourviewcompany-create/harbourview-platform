@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,10 +186,10 @@ export async function POST(req: NextRequest) {
       message:
         'Application received. The operator will follow up directly if there is a fit.',
     })
-  } catch (err: any) {
+  } catch (err) {
     console.error('[api/talent/apply] error', err)
     return NextResponse.json(
-      { error: err?.message ?? 'Application failed' },
+      { error: errorMessage(err, 'Application failed') },
       { status: 500 }
     )
   }

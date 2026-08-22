@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createTalentAlert } from '@/lib/server/talentOperations';
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +21,10 @@ export async function POST(req: NextRequest) {
       frequency: body?.frequency ?? 'daily',
     });
     return NextResponse.json({ ok: true, alertId: result.id });
-  } catch (err: any) {
-    const status = err?.message?.includes('Authentication') ? 401 : 500;
+  } catch (err) {
+    const status = errorMessage(err).includes('Authentication') ? 401 : 500;
     return NextResponse.json(
-      { error: err?.message ?? 'Alert creation failed' },
+      { error: errorMessage(err, 'Alert creation failed') },
       { status }
     );
   }
