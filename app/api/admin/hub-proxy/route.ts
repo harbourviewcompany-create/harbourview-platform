@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminApiAuth } from '@/lib/auth/adminApiAuth';
 import { getAdminDataClient } from '@/lib/supabase/adminDataClient';
 
-type ProxyOp = 'get' | 'patch' | 'post' | 'delete' | 'rpc';
+type ProxyOp = 'get' | 'patch' | 'post' | 'delete' | 'rpc' | 'bulk_patch';
 
 type ProxyPayload = {
   op: ProxyOp;
@@ -10,6 +10,10 @@ type ProxyPayload = {
   qs?: string;
   fn?: string;
   body?: Record<string, unknown>;
+  /** bulk_patch: list of row ids (uuid or text) */
+  ids?: string[];
+  /** bulk_patch: column used for in-filter (default id) */
+  idColumn?: string;
 };
 
 // Server-side proxy for the admin hub control surface (app/admin/(protected)/hub).
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid json body' }, { status: 400 });
   }
 
-  const { op, table, qs, fn, body } = payload || ({} as ProxyPayload);
+  const { op, table, qs, fn, body, ids, idColumn } = payload || ({} as ProxyPayload);
   if (!op) return NextResponse.json({ error: 'missing op' }, { status: 400 });
   if (op !== 'rpc' && !table) return NextResponse.json({ error: 'missing table' }, { status: 400 });
   if (op === 'rpc' && !fn) return NextResponse.json({ error: 'missing fn' }, { status: 400 });
@@ -58,6 +62,22 @@ export async function POST(req: Request) {
       headers.Prefer = 'return=representation';
       fetchBody = JSON.stringify(body || {});
       break;
+    case 'bulk_patch': {
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return NextResponse.json({ error: 'bulk_patch requires non-empty ids[]' }, { status: 400 });
+      }
+      if (ids.length > 500) {
+        return NextResponse.json({ error: 'bulk_patch max 500 ids' }, { status: 400 });
+      }
+      const col = idColumn || 'id';
+      // PostgREST in-filter: id=in.(uuid1,uuid2)
+      const list = ids.map((id) => `"${String(id).replace(/"/g, '')}"`).join(',');
+      target = `${url}/rest/v1/${table}?${col}=in.(${list})`;
+      method = 'PATCH';
+      headers.Prefer = 'return=representation';
+      fetchBody = JSON.stringify(body || {});
+      break;
+    }
     case 'post':
       target = `${url}/rest/v1/${table}`;
       method = 'POST';
