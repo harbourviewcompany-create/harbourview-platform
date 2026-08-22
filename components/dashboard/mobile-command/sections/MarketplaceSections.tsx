@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import type { MarketView } from '../../CommandCentre'
-import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
+import {
+  getRepresentativeMarketplaceMedia,
+  MARKETPLACE_MEDIA_COPY,
+} from '@/lib/dashboard/marketplaceMediaProjection'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
@@ -19,19 +22,19 @@ import '../MarketplaceInventoryFirst.css'
 
 type MediaStage = 'primary' | 'fallback' | 'empty'
 
-const VIEW_GLYPH: Record<MarketView, string> = {
-  cannabis: '✦',
-  wanted: '◎',
-  opportunities: '◇',
-  equipment: '▣',
-  consumables: '▤',
-  services: '◈',
-  'new-products': '⊕',
-}
-
 export function resolveListingMediaStage(row: NormalizedListing, stage: MediaStage) {
   const media = row.media
-  if (!media || stage === 'empty') return null
+  if (!media || stage === 'empty') {
+    // Always show a representative category image — never a blank "photo on inquiry" state.
+    const representative = getRepresentativeMarketplaceMedia(row.view)
+    return {
+      src: representative.src,
+      altText: representative.altText,
+      kind: 'representative' as const,
+      badgeLabel: MARKETPLACE_MEDIA_COPY.representativeBadge,
+      caption: representative.caption,
+    }
+  }
   if (stage === 'fallback') {
     return {
       src: media.fallbackSrc,
@@ -60,23 +63,6 @@ function ListingCardMedia({ row }: { row: NormalizedListing }) {
 
   const media = resolveListingMediaStage(row, stage)
 
-  if (!media) {
-    const category = MARKET_TABS.find((tab) => tab.id === row.view)?.label ?? row.category ?? 'Listing'
-    return (
-      <figure
-        className="hvm2-listing-media hvm2-listing-media-empty"
-        data-media-kind="none"
-        data-market-view={row.view}
-      >
-        <div role="img" aria-label={`${category} preview — approved photo not loaded`}>
-          <span aria-hidden="true">{VIEW_GLYPH[row.view] ?? '◇'}</span>
-          <strong>{category}</strong>
-          <small>Preview · photo on inquiry</small>
-        </div>
-      </figure>
-    )
-  }
-
   return (
     <figure className="hvm2-listing-media" data-media-kind={media.kind}>
       <img
@@ -84,13 +70,15 @@ function ListingCardMedia({ row }: { row: NormalizedListing }) {
         alt={media.altText}
         loading="lazy"
         decoding="async"
-        data-fallback-src={row.media?.fallbackSrc}
+        data-fallback-src={row.media?.fallbackSrc ?? media.src}
         onError={() => {
           if (stage === 'primary' && row.media?.fallbackSrc && row.media.fallbackSrc !== media.src) {
             setStage('fallback')
             return
           }
-          setStage('empty')
+          if (stage !== 'empty') {
+            setStage('empty')
+          }
         }}
       />
       {media.badgeLabel && <span className="hvm2-listing-media-badge">{media.badgeLabel}</span>}

@@ -124,21 +124,22 @@ describe('mobile marketplace listing media', () => {
       badgeLabel: 'Representative image',
       caption: 'Representative category image.',
     })
-    expect(resolveListingMediaStage(row, 'empty')).toBeNull()
+    const emptyStage = resolveListingMediaStage(row, 'empty')
+    expect(emptyStage?.kind).toBe('representative')
+    expect(emptyStage?.src).toBe('/marketplace/images/product-inventory.webp')
   })
 
-  it('preserves an accessible stable category preview when a row has no projected media', () => {
+  it('uses representative category image when a row has no projected media', () => {
     const document = renderMarket(listing({ media: null }))
     const media = document.querySelector('.hvm2-listing-media')
-    const unavailable = media?.querySelector('[role="img"]')
+    const image = media?.querySelector('img')
 
     expect(media).not.toBeNull()
-    expect(media?.getAttribute('data-media-kind')).toBe('none')
-    expect(media?.getAttribute('data-market-view')).toBe('cannabis')
-    expect(media?.textContent).toContain('Cannabis')
-    expect(media?.textContent).toContain('Preview · photo on inquiry')
-    expect(media?.querySelector('img')).toBeNull()
-    expect(unavailable?.getAttribute('aria-label')).toBe('Cannabis preview — approved photo not loaded')
+    expect(media?.getAttribute('data-media-kind')).toBe('representative')
+    expect(image).not.toBeNull()
+    expect(image?.getAttribute('src')).toBe('/marketplace/images/product-inventory.webp')
+    expect(document.querySelector('.hvm2-listing-media-badge')?.textContent).toBe('Representative image')
+    expect(media?.textContent).not.toContain('photo on inquiry')
   })
 
   it('defines a representative fallback for every marketplace category', () => {
