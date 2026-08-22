@@ -72,21 +72,20 @@ describe('Cultivar Passport Network P0 DTO boundaries', () => {
     expect(JSON.stringify(passport)).not.toContain('genotype-placeholder')
   })
 
-  it('redirects the public passport route to the Command Centre genetics panel with the cultivar slug preserved', async () => {
-    // The standalone page now redirects into the CC genetics panel (see
-    // commit 73f8a851, "add cultivar passport detail view to desktop +
-    // mobile genetics panel"). The panel renders selectedPassport, which is
-    // populated from the same getPublicCultivarPassports() array already
-    // covered by the DTO-boundary tests above and below -- no new data path
-    // to verify here, just that the slug survives the redirect so the panel
-    // can resolve which passport to show.
+  it('redirects the public passport route to the marketplace genetics catalog with the cultivar slug preserved', async () => {
+    // Public /genetics routes now redirect into the marketplace genetics
+    // catalog rather than the Command Centre panel (see commit b824dfe31c,
+    // "feat(phase2): public /genetics -> marketplace catalog + proxy
+    // exception", which updated all five app/genetics/** routes together).
+    // This superseded the earlier CC-panel redirect from 73f8a851 -- this
+    // test's expectation was stale against that change until fixed here.
     capturedRedirectUrl = undefined
     try {
       await CultivarPassportPage({ params: Promise.resolve({ slug: 'demo-cultivar-alpha' }) })
     } catch {
       // redirect() throws by design; we only care about the captured target
     }
-    expect(capturedRedirectUrl).toBe('/dashboard?page=genetics&cultivar=demo-cultivar-alpha')
+    expect(capturedRedirectUrl).toBe('/marketplace/genetics/demo-cultivar-alpha')
   })
 
   it('does not treat approved access requests as evidence access without explicit grants', () => {
