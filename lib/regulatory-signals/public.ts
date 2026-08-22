@@ -1,5 +1,6 @@
 import 'server-only'
 import type { PublicRegulatorySignal, RegulatorySignalType, RegulatoryContentType } from './types'
+import { assertPublicRegulatorySignalSafe } from './safety'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
@@ -86,7 +87,7 @@ function mapSignalRow(
   const country = resolveCountry(r.country)
   const contentType = resolveContentType(row)
 
-  return {
+  const signal: PublicRegulatorySignal = {
     id,
     slug: id,
     headline,
@@ -117,6 +118,23 @@ function mapSignalRow(
     translated: isTranslated(row),
     country_slug: country?.slug ?? null,
   }
+
+  // This is currently the active public path — the editorial `public_signals`
+  // view (mapApprovedRow, above) has 0 rows until the editorial pipeline
+  // publishes, per getPublicRegulatorySignalFeed's own priority-fallback
+  // comment. `reviewed=true` on `public.signals` is a human flag on an
+  // automated-intake row, not an editorial safety review — nothing here was
+  // re-checking the content itself for a leaked internal/marketplace term
+  // before this session. Same fail-open-per-row pattern as mapApprovedRow:
+  // exclude the one signal, don't break the whole feed.
+  try {
+    assertPublicRegulatorySignalSafe(signal)
+  } catch (err) {
+    console.error('[regulatory-signals] leakage check failed for reviewed row, excluding:', err)
+    return null
+  }
+
+  return signal
 }
 
 
@@ -140,7 +158,7 @@ function mapApprovedRow(r: Record<string, unknown>): PublicRegulatorySignal | nu
     : rawImpact === 'moderate' || rawImpact === 'medium' ? 'moderate'
     : 'low'
 
-  return {
+  const signal: PublicRegulatorySignal = {
     id:                   typeof r.id === 'string'                    ? r.id                    : String(r.id ?? ''),
     slug:                 typeof r.slug === 'string'                  ? r.slug                  : String(r.id ?? ''),
     headline,
@@ -173,6 +191,25 @@ function mapApprovedRow(r: Record<string, unknown>): PublicRegulatorySignal | nu
     translated:              false,
     country_slug:            resolveCountry(r.country_name)?.slug ?? null,
   }
+
+  // The `regulatory_signals.public_signals` view is already RLS-gated and
+  // pre-filtered at the database layer (a row can't appear here unless it
+  // already passed review_status/public_safe/publish_to_public — those
+  // columns aren't even exposed by the view, by design). What was missing:
+  // no application-layer re-verification that the *content itself* doesn't
+  // contain a forbidden internal/marketplace term. A reviewer typo or a
+  // view-definition gap would previously reach the public API with nothing
+  // to catch it. assertPublicRegulatorySignalSafe throws on a match; treat
+  // that as "exclude this one signal", not "break the whole feed" — matches
+  // this file's existing never-fail-the-whole-request pattern.
+  try {
+    assertPublicRegulatorySignalSafe(signal)
+  } catch (err) {
+    console.error('[regulatory-signals] leakage check failed for approved row, excluding:', err)
+    return null
+  }
+
+  return signal
 }
 
 // ── Priority 1: regulatory_signals.public_signals (reviewed, public-safe) ─────
