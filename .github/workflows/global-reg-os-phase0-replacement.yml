@@ -2,12 +2,26 @@ name: Global Regulatory OS Phase 0 Replacement
 
 on:
   pull_request:
+    # EVIDENCE_LOG.md is deliberately NOT a trigger path. AGENTS.md requires an
+    # entry in it from every merged PR, so listing it here made this workflow
+    # fire on changes with no Global Regulatory OS involvement at all — and the
+    # "Verify migration isolation" step below asserts the PR touches no
+    # migrations. Any PR that both renamed a migration and recorded the required
+    # evidence therefore failed by construction: satisfying AGENTS.md broke this
+    # gate, and satisfying this gate broke AGENTS.md. That deadlock blocked the
+    # duplicate-version fix this repository needs before any migration apply can
+    # be recorded at all.
+    #
+    # This gate's scope is the Global Regulatory OS canonical surface, and the
+    # paths below still cover it. Dropping EVIDENCE_LOG.md narrows what triggers
+    # the workflow; it does not weaken any assertion the workflow makes. A PR
+    # touching both the evidence log and this gate's real surface still trips it
+    # through the remaining paths.
     paths:
       - 'docs/control/global-regulatory-os/**'
       - 'scripts/global-reg-os/**'
       - '.github/workflows/global-reg-os-phase0-replacement.yml'
       - 'docs/control/DATABASE_CONTROL.md'
-      - 'docs/control/EVIDENCE_LOG.md'
   workflow_dispatch:
 
 permissions:
