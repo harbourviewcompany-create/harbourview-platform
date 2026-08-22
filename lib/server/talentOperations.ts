@@ -16,12 +16,12 @@ export const TALENT_AUTH_ERROR_MESSAGE = 'Authentication required'
 /**
  * True only for the authentication failure this module raises.
  *
- * Deliberately requires an actual `Error`. A thrown *string* containing the word
- * "Authentication" is not one of ours — it could carry anything — and must fall
- * through to the generic 500 path rather than being echoed back as a 401.
+ * Deliberately requires an actual Error with the exact marker. Arbitrary thrown
+ * strings, error-like objects, or Errors that merely contain this text are not
+ * our authentication signal and must stay on the generic 500 path.
  */
 export function isTalentAuthError(err: unknown): boolean {
-  return err instanceof Error && err.message.includes(TALENT_AUTH_ERROR_MESSAGE)
+  return err instanceof Error && err.message === TALENT_AUTH_ERROR_MESSAGE
 }
 
 export async function saveTalentJob(opportunityId: string): Promise<void> {
@@ -32,7 +32,7 @@ export async function saveTalentJob(opportunityId: string): Promise<void> {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    throw new Error('Authentication required')
+    throw new Error(TALENT_AUTH_ERROR_MESSAGE)
   }
 
   const { error } = await supabase.from('talent_saved_jobs').upsert({
@@ -54,7 +54,7 @@ export async function unsaveTalentJob(opportunityId: string): Promise<void> {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    throw new Error('Authentication required')
+    throw new Error(TALENT_AUTH_ERROR_MESSAGE)
   }
 
   const { error } = await supabase
@@ -84,7 +84,7 @@ export async function createTalentAlert(opts: {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    throw new Error('Authentication required')
+    throw new Error(TALENT_AUTH_ERROR_MESSAGE)
   }
 
   const { data, error } = await supabase
