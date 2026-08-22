@@ -69,3 +69,5 @@ export function CorridorEvidenceFlagsFromFixtures({
   )
   return <CorridorEvidenceFlagsPanel flags={flags} title={title} compact={compact} />
 }
+
+export default CorridorEvidenceFlagsPanel;
