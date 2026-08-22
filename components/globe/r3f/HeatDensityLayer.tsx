@@ -1,15 +1,12 @@
 'use client'
 
 /**
- * HeatDensityLayer
+ * HeatDensityLayer — continuous spherical density heatmap.
  *
- * Continuous spherical density heatmap that can replace discrete instanced
- * markers in DataVizLayer for the primary intensity signal.
- *
- * - Sits just above the country plates
- * - Precomputed equirectangular density texture (see lib/globe/heat-density.ts)
- * - Custom shader: color ramp + soft altitude + emissive contribution
- * - Mount only when introPhase === 'ready' (same gate as DataVizLayer)
+ * - Equirect density texture from lib/globe/heat-density.ts
+ * - Shader: color ramp + soft altitude + emissive + subtle breathe
+ * - Quality / reduced-motion: lower res, zero altitude, no breathe
+ * - Reports global heat boost via onHeatBoost for AtmosphereGlow
  */
 
 import { useEffect, useMemo, useRef } from 'react'
@@ -27,16 +24,23 @@ import {
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
 import {
   HEAT_CONFIG,
+  HEAT_RESOLUTION,
+  type HeatQuality,
   buildHeatPoints,
   computeDensityField,
   densityToUint8,
+  meanTopHeat,
+  resolveHeatQuality,
 } from '@/lib/globe/heat-density'
 
 type HeatDensityLayerProps = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
-  /** 0–1 global intensity multiplier. */
   intensity?: number
+  prefersReducedMotion?: boolean
+  /** Optional override; otherwise resolved from motion / deviceMemory. */
+  quality?: HeatQuality
+  onHeatBoost?: (boost: number) => void
 }
 
 const VERT = /* glsl */ `
@@ -84,6 +88,7 @@ const FRAG = /* glsl */ `
   uniform float uOpacity;
   uniform float uHeatInfluence;
   uniform float uTime;
+  uniform float uBreathe;
 
   varying vec2 vUv;
   varying float vDensity;
@@ -101,8 +106,10 @@ const FRAG = /* glsl */ `
 
   void main() {
     float d = vDensity * uHeatInfluence;
-    float breathe = 0.97 + 0.03 * sin(uTime * 0.7 + vUv.x * 6.0);
-    d *= breathe;
+    if (uBreathe > 0.5) {
+      float breathe = 0.97 + 0.03 * sin(uTime * 0.7 + vUv.x * 6.0);
+      d *= breathe;
+    }
 
     if (d < 0.02) discard;
 
@@ -123,25 +130,38 @@ export function HeatDensityLayer({
   countries,
   signalsByIso2,
   intensity = 1,
+  prefersReducedMotion = false,
+  quality: qualityProp,
+  onHeatBoost,
 }: HeatDensityLayerProps) {
   const meshRef = useRef<Mesh>(null)
   const matRef = useRef<ShaderMaterial | null>(null)
 
-  const { texture, geometry } = useMemo(() => {
-    const points = buildHeatPoints(countries, signalsByIso2)
-    const field = computeDensityField(points)
-    const data = densityToUint8(field)
+  const quality = qualityProp ?? resolveHeatQuality({ prefersReducedMotion })
+  const res = HEAT_RESOLUTION[quality]
+  const maxAltitude = prefersReducedMotion || quality === 'low' ? 0 : HEAT_CONFIG.maxAltitude
+  const breathe = prefersReducedMotion || quality === 'low' ? 0 : 1
 
-    const tex = new DataTexture(data, HEAT_CONFIG.width, HEAT_CONFIG.height, RedFormat)
+  const { texture, geometry, boost } = useMemo(() => {
+    const points = buildHeatPoints(countries, signalsByIso2)
+    const field = computeDensityField(points, res.width, res.height)
+    const data = densityToUint8(field)
+    const boostValue = meanTopHeat(points)
+
+    const tex = new DataTexture(data, res.width, res.height, RedFormat)
     tex.colorSpace = SRGBColorSpace
     tex.minFilter = LinearFilter
     tex.magFilter = LinearFilter
     tex.needsUpdate = true
     tex.flipY = false
 
-    const geo = new SphereGeometry(1, 96, 64)
-    return { texture: tex, geometry: geo }
-  }, [countries, signalsByIso2])
+    const geo = new SphereGeometry(1, res.segmentsW, res.segmentsH)
+    return { texture: tex, geometry: geo, boost: boostValue }
+  }, [countries, signalsByIso2, res.width, res.height, res.segmentsW, res.segmentsH])
+
+  useEffect(() => {
+    onHeatBoost?.(boost)
+  }, [boost, onHeatBoost])
 
   useEffect(() => {
     return () => {
@@ -161,11 +181,12 @@ export function HeatDensityLayer({
         uColorHot: { value: new Color('#e8c547') },
         uColorPeak: { value: new Color('#f5f0e0') },
         uOpacity: { value: 0.82 },
-        uMaxAltitude: { value: HEAT_CONFIG.maxAltitude },
+        uMaxAltitude: { value: maxAltitude },
         uSurfaceRadius: { value: HEAT_CONFIG.surfaceRadius },
         uDensityFloor: { value: HEAT_CONFIG.densityFloor },
         uTime: { value: 0 },
         uHeatInfluence: { value: intensity },
+        uBreathe: { value: breathe },
       },
       transparent: true,
       depthWrite: false,
@@ -173,16 +194,19 @@ export function HeatDensityLayer({
     })
     matRef.current = mat
     return mat
-  }, [texture, intensity])
+  }, [texture, intensity, maxAltitude, breathe])
 
   useEffect(() => {
     if (matRef.current) {
       matRef.current.uniforms.uHeatInfluence.value = intensity
+      matRef.current.uniforms.uMaxAltitude.value = maxAltitude
+      matRef.current.uniforms.uBreathe.value = breathe
     }
-  }, [intensity])
+  }, [intensity, maxAltitude, breathe])
 
   useFrame((state) => {
-    if (matRef.current) {
+    if (!matRef.current) return
+    if (breathe > 0.5) {
       matRef.current.uniforms.uTime.value = state.clock.elapsedTime
       state.invalidate()
     }

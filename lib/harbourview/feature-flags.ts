@@ -14,24 +14,24 @@ export const featureFlags = {
    * globe communicates market access on first load rather than rendering as
    * undifferentiated gold.
    *
-   * What this publishes: each plate's colour is an assertion about cannabis law
-   * in that jurisdiction. 195 tiers were auto-derived from each country's own
-   * `cc_jurisdiction_briefings.program_status` text; 8 (RU, PR, FK, VA, FM, SC,
-   * TO, EH) were set manually. Every row stores a `regulatory_tier_rationale`
-   * quoting its source, and `regulatory_tier_reviewed_at` is still NULL on all
-   * of them — no human has signed off yet. That review is worth doing; the
-   * legend deliberately describes tiers in terms of trade pathways rather than
-   * legality per se, which keeps the claim narrower than "X is legal here".
-   *
    * Set NEXT_PUBLIC_HARBOURVIEW_GLOBE_REGULATORY_TIERS=false to kill the
    * colouring without a code change if a tier turns out to be wrong.
    */
   globeRegulatoryTiers: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_REGULATORY_TIERS', true),
   /**
    * Continuous Gaussian heat-density surface above country plates.
-   * OFF by default until visual + performance validation. When off, the
-   * existing DataVizLayer instanced markers remain the intensity overlay.
-   * Set NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP=true to enable.
+   * OFF by default until visual + performance validation.
+   * NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP=true to enable.
    */
   globeHeatmap: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP', false),
+  /**
+   * Selective bloom + vignette when heatmap is active.
+   * Requires globeHeatmap. NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM=true
+   */
+  globeHeatBloom: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM', false),
+  /**
+   * Atmosphere limb reacts to global heat metric (warm tint + intensity).
+   * Requires globeHeatmap. NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE=true
+   */
+  globeHeatAtmosphere: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE', true),
 }

@@ -1,21 +1,27 @@
 /**
  * lib/globe/heat-density.ts
  *
- * Builds an equirectangular density texture from GlobeCountryMarker[] + signals.
- * Uses spherical Gaussian kernels (great-arc via haversine).
- *
- * Intended for infrequent updates (data load / throttled realtime), not per-frame.
- * Default resolution is 512×256 for main-thread safety; raise to 1024×512 once
- * validated on target devices.
+ * Spherical Gaussian KDE density field for the globe heat overlay.
+ * Event-driven (data load / throttled realtime) — not per-frame.
  */
 
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
 import { PLATE_LIFT, IDLE_EXTRUSION } from '@/lib/globe/globe-plate-config'
 
+export type HeatQuality = 'full' | 'medium' | 'low'
+
+export const HEAT_RESOLUTION: Record<
+  HeatQuality,
+  { width: number; height: number; segmentsW: number; segmentsH: number }
+> = {
+  full: { width: 1024, height: 512, segmentsW: 96, segmentsH: 64 },
+  medium: { width: 512, height: 256, segmentsW: 64, segmentsH: 48 },
+  low: { width: 256, height: 128, segmentsW: 48, segmentsH: 32 },
+}
+
 export const HEAT_CONFIG = {
-  /** Equirectangular resolution. 512×256 keeps first paint fast on main thread. */
-  width: 512,
-  height: 256,
+  /** Default quality for desktop when motion is allowed. */
+  defaultQuality: 'medium' as HeatQuality,
 
   /** Angular bandwidth of each Gaussian kernel (degrees). */
   bandwidthDeg: 3.2,
@@ -59,6 +65,16 @@ export function buildHeatPoints(
     .filter((p) => p.weight > 0.02)
 }
 
+/** Mean of the top quartile of point weights — drives atmosphere heat boost (0–1). */
+export function meanTopHeat(points: HeatPoint[]): number {
+  if (points.length === 0) return 0
+  const weights = points.map((p) => p.weight).sort((a, b) => b - a)
+  const n = Math.max(1, Math.ceil(weights.length * 0.25))
+  let sum = 0
+  for (let i = 0; i < n; i++) sum += weights[i]
+  return Math.min(1, sum / n)
+}
+
 /** Great-arc angular distance in degrees (haversine). */
 function angularDistanceDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = Math.PI / 180
@@ -76,8 +92,8 @@ function angularDistanceDeg(lat1: number, lng1: number, lat2: number, lng2: numb
  */
 export function computeDensityField(
   points: HeatPoint[],
-  width = HEAT_CONFIG.width,
-  height = HEAT_CONFIG.height,
+  width: number,
+  height: number,
   bandwidthDeg = HEAT_CONFIG.bandwidthDeg,
 ): Float32Array {
   const field = new Float32Array(width * height)
@@ -122,4 +138,17 @@ export function densityToUint8(field: Float32Array): Uint8Array {
     out[i] = Math.round(Math.min(1, Math.max(0, field[i])) * 255)
   }
   return out
+}
+
+/** Resolve quality from motion preference / coarse device heuristic. */
+export function resolveHeatQuality(opts: {
+  prefersReducedMotion: boolean
+  forceLow?: boolean
+}): HeatQuality {
+  if (opts.prefersReducedMotion || opts.forceLow) return 'low'
+  if (typeof navigator !== 'undefined') {
+    const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+    if (typeof mem === 'number' && mem > 0 && mem <= 4) return 'low'
+  }
+  return HEAT_CONFIG.defaultQuality
 }
