@@ -145,11 +145,11 @@ const requestBodyReference = /^body\.[A-Za-z_][A-Za-z0-9_]*$/;
 /**
  * True for `env(SOME_NAME)` where the inner text is genuinely a variable name.
  *
- * The shape check alone is not enough. An AWS access key ID
- * (`AKIAIOSFODNN7EXAMPLE`) is uppercase alphanumeric and fits
- * SCREAMING_SNAKE_CASE exactly, so the pattern would wave it through. Running
- * the vendor signatures over the inner text closes that: anything the scanner
- * would flag as a secret on its own is still a secret inside `env(...)`.
+ * The shape check alone is not enough. An AWS access key ID is uppercase
+ * alphanumeric and fits SCREAMING_SNAKE_CASE exactly, so the pattern would wave
+ * one through. Running the vendor signatures over the inner text closes that:
+ * anything the scanner would flag as a secret on its own is still a secret
+ * inside `env(...)`.
  */
 function isSupabaseEnvReference(literal) {
   if (!supabaseEnvInterpolation.test(literal)) return false;
@@ -255,6 +255,26 @@ function scanLine(line, source) {
   return findings;
 }
 
+/**
+ * Vendor-shaped values for the negative self-tests below, assembled at runtime.
+ *
+ * They have to be real matches for `patterns` to prove the checks fire, which
+ * makes them real matches when this file is itself a changed file -- and this
+ * scanner reads its own added diff lines. Writing them as literals made the
+ * scanner reject the commit that introduced them:
+ *
+ *   - scripts/check-no-secret-strings.mjs:271: openai-style-api-key
+ *   - scripts/check-no-secret-strings.mjs:273: aws-access-key
+ *
+ * Splitting each across a concatenation keeps the assembled value identical --
+ * the tests are exactly as strong -- while no single line matches. Do not
+ * "tidy" these back into literals; that reintroduces the self-rejection.
+ */
+const vendorFixture = {
+  aws: 'AKIA' + 'IOSFODNN7EXAMPLE',
+  openai: 'sk-' + 'live-9f3c2a1b8d7e6f5a4b3c2d1e',
+};
+
 function runSelfTest() {
   const cases = [
     ['shell secret reference', 'SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}', 0],
@@ -268,9 +288,9 @@ function runSelfTest() {
     ['supabase env interpolation', 'openai_api_key = "env(OPENAI_API_KEY)"', 0],
     ['supabase env interpolation, commented', '# secret_key = "env(SECRET_VALUE)"', 0],
     ['supabase env interpolation, s3', 's3_secret_key = "env(S3_SECRET_KEY)"', 0],
-    ["value disguised as env interpolation", 'secret_key = "env(SECRET_NAME) sk-live-9f3c2a1b8d7e6f5a4b3c2d1e"', 2],
+    ['value disguised as env interpolation', `secret_key = "env(SECRET_NAME) ${vendorFixture.openai}"`, 2],
     ['jwt disguised as env interpolation', 'auth_token = "env(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9)"', 1],
-    ['aws key disguised as env interpolation', 'aws_secret_key = "env(AKIAIOSFODNN7EXAMPLE)"', 2],
+    ['aws key disguised as env interpolation', `aws_secret_key = "env(${vendorFixture.aws})"`, 2],
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
