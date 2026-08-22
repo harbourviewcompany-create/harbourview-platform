@@ -4,10 +4,10 @@
 
 import { useState, useEffect } from 'react'
 
-const WS_ID  = "a85840b4-c522-4cb8-9097-2f6c30a78417";
+const WS_ID = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
 export function mkApi() {
-  const req = async (payload: Record<string, unknown>) => {
+  const req = async (payload) => {
     const r = await fetch("/api/admin/hub-proxy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -19,13 +19,13 @@ export function mkApi() {
     return d;
   };
   return {
-    get:   (t: string, qs="")    => req({ op:"get", table:t, qs }),
-    patch: (t: string, qs: string, body: unknown) => req({ op:"patch", table:t, qs, body }),
-    post:  (t: string, body: unknown)     => req({ op:"post", table:t, body }),
-    del:   (t: string, qs: string)       => req({ op:"delete", table:t, qs }),
-    rpc:   (fn: string, body: Record<string, unknown>={}) => req({ op:"rpc", fn, body }),
+    get:   (t, qs="")    => req({ op:"get", table:t, qs }),
+    patch: (t, qs, body) => req({ op:"patch", table:t, qs, body }),
+    post:  (t, body)     => req({ op:"post", table:t, body }),
+    del:   (t, qs)       => req({ op:"delete", table:t, qs }),
+    rpc:   (fn, body={}) => req({ op:"rpc", fn, body }),
   };
-
+}
 
 const SCOPE_RE = /cannab|cannabis|marijuana|thc|cbd|nabiximols|sativex|epidiolex|hemp|gacp|gmp.?cann|narcotic.?import|bfarm|health.?canada|tga|anvisa|mhra|medical.?cannabis|phytocannabinoid|eu.?gmp|btmg|narcotics.?act/i;
 const CONSUMER_SPAM_RE = /weedmaps|how to buy|order weed|buy weed|visitor'?s? guide|dispensary near|recreational tourism|delivery near me|strain review|best edibles|smoke shop|is weed legal in|is cannabis legal in|is marijuana legal in|business guide 20\d\d|cannabis laws? (in )?(cyprus|dominica|austria|malta|luxembourg)/i;
@@ -37,7 +37,6 @@ export function inCannabisScope(text) {
     return false;
   }
   return SCOPE_RE.test(t);
-}
 }
 
 export const panelCss = `
