@@ -92,9 +92,15 @@ export function Signals({ api, toast }) {
 
   const patchMany = async (ids, body) => {
     if (!ids.length) return
+    const idSet = new Set(ids)
+    const snapshot = rows
+    // Optimistic: apply body to matching rows immediately
+    setRows((prev) =>
+      prev.map((r) => (idSet.has(r.id) ? { ...r, ...body } : r)),
+    )
+    setSelected(new Set())
     setBusy(true)
     try {
-      // Chunk to stay under bulk_patch max 500
       const chunk = 200
       let total = 0
       for (let i = 0; i < ids.length; i += chunk) {
@@ -103,11 +109,13 @@ export function Signals({ api, toast }) {
         total += slice.length
       }
       toast?.({ type: 'success', text: `Updated ${total} signal(s)` })
+      // Soft refresh in background to stay consistent with server
+      load()
     } catch (e) {
-      toast?.({ type: 'error', text: e.message || 'Bulk update failed' })
+      setRows(snapshot)
+      toast?.({ type: 'error', text: e.message || 'Bulk update failed — reverted' })
     }
     setBusy(false)
-    await load()
   }
 
   const approveSelected = () =>
