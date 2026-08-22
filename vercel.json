@@ -91,6 +91,10 @@
     {
       "path": "/api/cron/synthesize-jurisdictions",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/ops-autonomy-tick",
+      "schedule": "0 */4 * * *"
     }
   ]
 }
