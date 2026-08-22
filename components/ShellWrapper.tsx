@@ -8,7 +8,7 @@ import Footer from '@/components/Footer'
 // /dashboard: operator dashboard
 // /country: Command Centre segment-based jurisdiction routes
 // /organization: authenticated organization onboarding and management workflows
-const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization']
+const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization', '/admin']
 
 // Routes where neither nav nor footer renders — page provides its own chrome.
 const NO_CHROME_ROUTES = ['/']
