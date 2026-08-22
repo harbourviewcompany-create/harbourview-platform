@@ -1,34 +1,6 @@
-/** Auto-generated from PR1307_MARKETPLACE_MEDIA_FINAL.csv — do not hand-edit. */
+import { LISTING_SUBJECT_ASSETS as GENERATED_ASSETS } from './listingSubjectAssets.generated'
 
-export const LISTING_SUBJECT_ASSETS: Record<string, string> = {
-  "0004dc44-c8e3-4339-b40a-2827ea04f68d": "representative/v2/advisory-services.png",
-  "0097cc5c-a36f-4242-a795-8f2f19ca239e": "representative/v2/advisory-services.png",
-  "0122f5e3-40ec-4305-977a-737c1fc04688": "representative/v3/cultivation-hardware.png",
-  "026fc061-2e40-4304-a36a-936ba23d6397": "representative/v2/packaging-pouches.png",
-  "075954a9-c9e1-4205-8963-6df38d546ad8": "representative/v3/shipping-supplies.png",
-  "08e59baa-69fc-41d9-8fe8-678d632ad114": "representative/v6/dried-flower.png",
-  "0a6ed9d8-0e57-44b9-ac69-802355bf5fef": "representative/v3/cultivation-hardware.png",
-  "0b8baad3-9e11-45dd-8e2d-adf0a88f095e": "representative/v4/capping-machine.png",
-  "0c39cc61-13c3-4f2d-98e4-7a46d76acf2c": "representative/v4/cultivation-facility.png",
-  "0ea40b97-526b-4932-8a15-373e6f3015ae": "representative/v3/precision-scale.png",
-  "0f084ffc-d59e-4329-9d60-c20075e2c052": "representative/v4/flower-extract-import.png",
-  "0f30cf53-5aa5-475c-a1a0-3aec1dfab95a": "representative/v4/impulse-sealer.png",
-  "0fc97c1d-fc6a-4b3a-877a-3324b198d89a": "representative/v3/medical-vaporiser.png",
-  "10c0d4ab-67f7-4478-816a-8f8469c8a182": "representative/v2/cultivation-inputs.png",
-  "11a07916-3306-454d-b143-bee208399d6a": "representative/v6/ethanol-extraction-system.png",
-  "11aafa0c-510d-4a9f-bfc7-01e4dd403d1a": "representative/v6/moisture-analyzer.png",
-  "11eecb63-7e8d-4906-bf71-6f542c95c2dd": "representative/v4/cloning-gel.png",
-  "130ad019-a165-4a19-9f46-77d41332d57e": "representative/v3/edible-packaging.png",
-  "14f0e8c1-6b2a-4d3e-9c5f-8a1b2c3d4e5f": "representative/v6/dried-flower.png",
-  "3a22e325-0da3-4c35-a7c9-9f140d30b948": "representative/v3/vape-hardware.png",
-  "625011fd-c012-4ec9-978d-c0b4e6f142b3": "representative/v3/vape-hardware.png",
-  "7cbd53a8-75cf-43af-8dc3-03f2f03fd67a": "representative/v5/co2-extraction-system.png",
-  "3546171e-cd0f-4178-93ab-f101fcfd295b": "representative/v4/pre-roll-packaging.png",
-  "6c0b4dbf-54db-4e2c-bfcb-2adf19544385": "representative/v2/packaging-pouches.png",
-  "bf92a3c3-56d5-4c97-b38d-66e0594ed354": "representative/v2/packaging-pouches.png",
-  "b0959d9f-8a20-4d64-be2d-07841c21eead": "representative/v6/dried-flower.png",
-  "a6b55ae7-deaa-4b05-b4e6-88f87e0c0564": "representative/v6/dried-flower.png",
-}
+export const LISTING_SUBJECT_ASSETS = GENERATED_ASSETS
 
 export type SubjectMediaRule = { terms: string[]; asset: string }
 
