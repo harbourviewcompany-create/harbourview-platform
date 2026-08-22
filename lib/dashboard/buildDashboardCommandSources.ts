@@ -56,13 +56,7 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
 }
 
 const ROWS_PER_VIEW = 8
-/**
- * How long the optional marketplace image enrichment is allowed to run before
- * the projection gives up and returns the listing rows it already has.
- *
- * Raised from 3s → 8s so Supabase public image rows can complete under cold start
- * without forcing every card onto category fallbacks.
- */
+/** Raised so Supabase public image rows can complete under cold start. */
 export const MARKETPLACE_MEDIA_TIMEOUT_MS = 8_000
 
 function safeText(value: string | null | undefined, fallback: string): string {
@@ -119,8 +113,14 @@ function firstRenderableMarketplaceMediaSrc(selected: PublicMarketplaceImageDTO)
 export function resolveListingMedia(
   view: MarketView,
   images: PublicMarketplaceImageDTO[] | undefined,
+  listing?: { id?: string; title?: string; category?: string } | null,
 ): MarketplaceProjectionMedia {
-  const fallback = getRepresentativeMarketplaceMedia(view)
+  const fallback = getRepresentativeMarketplaceMedia(
+    view,
+    listing?.id,
+    listing?.title,
+    listing?.category,
+  )
   const renderable = (images ?? []).filter(image => firstRenderableMarketplaceMediaSrc(image) !== null)
   const selected = pickMarketplaceCardImage(renderable)
   if (!selected) return fallback
@@ -200,7 +200,11 @@ export async function getDashboardMarketplaceProjection(
     if (listings.length === 0) continue
     rows[view] = listings.map(baseDashboardRow)
     for (const listing of listings) {
-      mediaById[marketplaceMediaKey(view, listing.id)] = resolveListingMedia(view, imagesByItem[listing.id])
+      mediaById[marketplaceMediaKey(view, listing.id)] = resolveListingMedia(view, imagesByItem[listing.id], {
+        id: listing.id,
+        title: listing.title,
+        category: listing.subcategory ?? listing.product_type ?? listing.category,
+      })
     }
   }
 
@@ -248,8 +252,6 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       load: () => getDashboardMarketplaceProjection(countryIso2),
       fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
       isEmpty: projection => Object.keys(projection.rows).length === 0,
-      // Listing rows are the verified source of truth. Media timeout/failure uses
-      // category silhouettes on the card; that is not a Command Centre data failure.
       classify: projection => Object.keys(projection.rows).length === 0 ? 'empty' : 'live',
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
