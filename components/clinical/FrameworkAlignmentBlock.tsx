@@ -1,149 +1,145 @@
-'use client'
-
 /**
- * Phase C — Read-only Framework Alignment block.
- * Commercial evidence strategy metadata only. Does not alter clinical conclusions,
- * GRADE-style strength, or liability posture. Render only when data is present.
+ * Read-only framework alignment block for operator / clinical workspace.
+ * Displays IMDRF pillars, DTA domains, RWE phases, stage-gates, ALCOA+, FDA RWE.
+ * Never presents as clinical advice.
  */
 
-import type { FrameworkAlignment } from '@/lib/clinical/types'
+import type { ReactNode } from "react";
+import type { EvidenceRecord, FrameworkAlignment } from "@/lib/clinical/types";
+import { alignmentQuickScore } from "@/lib/clinical/framework-gap";
 
-const statusClass = (status: string) => {
-  if (status === 'covered' || status === 'strong' || status === 'adequate')
-    return 'bg-emerald-700/35 text-emerald-100'
-  if (status === 'partial') return 'bg-amber-700/35 text-amber-100'
-  if (status === 'missing' || status === 'not_assessed') return 'bg-red-800/35 text-red-100'
-  return 'bg-white/10 text-white/70'
+function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "ok" | "warn" }) {
+  const cls =
+    tone === "ok"
+      ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800"
+      : tone === "warn"
+        ? "bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-800"
+        : "bg-neutral-50 text-neutral-700 border-neutral-200 dark:bg-neutral-900 dark:text-neutral-300 dark:border-neutral-700";
+  return (
+    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>
+      {children}
+    </span>
+  );
 }
 
-const labelPillar: Record<string, string> = {
-  valid_clinical_association: 'Valid clinical association',
-  analytical_validation: 'Analytical validation',
-  clinical_validation: 'Clinical validation',
-}
-
-const labelDomain: Record<string, string> = {
-  safety: 'Safety',
-  benefit: 'Benefit',
-  durability: 'Durability',
-  usability_accessibility: 'Usability / accessibility',
-  user_engagement: 'User engagement',
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{title}</div>
+      <div className="flex flex-wrap gap-1">{children}</div>
+    </div>
+  );
 }
 
 export function FrameworkAlignmentBlock({
   alignment,
+  evidenceId,
   compact = false,
 }: {
-  alignment: FrameworkAlignment
-  compact?: boolean
+  alignment?: FrameworkAlignment | null;
+  evidenceId?: string;
+  compact?: boolean;
 }) {
-  const pillars = alignment.imdrfPillars
-    ? Object.entries(alignment.imdrfPillars)
-    : []
-  const domains = alignment.dtaDomains ?? []
-  const rr = alignment.relevanceReliability
+  if (!alignment) {
+    return (
+      <div className="rounded border border-dashed border-neutral-300 p-3 text-xs text-neutral-500 dark:border-neutral-600">
+        No framework alignment mapped{evidenceId ? ` for ${evidenceId}` : ""}. Operator mapping optional.
+      </div>
+    );
+  }
+
+  const score = alignmentQuickScore(alignment);
+  const rwe = alignment.fdaRweRelevanceReliability ?? "not_assessed";
 
   return (
-    <div
-      className="rounded-lg border border-[#c6a55a]/25 bg-[#c6a55a]/[0.06] p-3"
-      data-testid="framework-alignment-block"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#d4a853]">
+    <div className="space-y-3 rounded border border-neutral-200 bg-neutral-50/50 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-900/40">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium text-neutral-800 dark:text-neutral-100">
           Framework alignment
-        </p>
-        {alignment.commercialStageGate && (
-          <span className="rounded px-1.5 py-0.5 text-[10px] bg-white/10 text-white/70">
-            gate: {alignment.commercialStageGate}
-          </span>
-        )}
-        {alignment.commercialPriority && (
-          <span className="rounded px-1.5 py-0.5 text-[10px] bg-white/10 text-white/70">
-            pri: {alignment.commercialPriority}
-          </span>
-        )}
-        {alignment.dtxRwePhase && (
-          <span className="rounded px-1.5 py-0.5 text-[10px] bg-white/10 text-white/70">
-            DTx RWE: {alignment.dtxRwePhase}
-          </span>
-        )}
-        {typeof alignment.alcoaPlusComplete === 'boolean' && (
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] ${
-              alignment.alcoaPlusComplete
-                ? 'bg-emerald-700/35 text-emerald-100'
-                : 'bg-amber-700/35 text-amber-100'
-            }`}
-          >
-            ALCOA+ {alignment.alcoaPlusComplete ? 'complete' : 'incomplete'}
-          </span>
-        )}
+          {evidenceId ? (
+            <span className="ml-1 font-normal text-neutral-500">· {evidenceId}</span>
+          ) : null}
+        </span>
+        <Pill tone={score >= 70 ? "ok" : score >= 40 ? "warn" : "neutral"}>Score {score}/100</Pill>
       </div>
 
       {!compact && (
-        <p className="mt-1.5 text-[11px] leading-4 text-white/45">
-          Commercial / regulatory readiness metadata. Does not replace graded strength, limitations,
-          or primary sources.
-        </p>
+        <>
+          {alignment.imdrfPillars?.length ? (
+            <Section title="IMDRF N41 pillars">
+              {alignment.imdrfPillars.map((p) => (
+                <Pill key={p}>{p.replace(/_/g, " ")}</Pill>
+              ))}
+            </Section>
+          ) : null}
+
+          {alignment.dtaDomains?.length ? (
+            <Section title="DTA domains">
+              {alignment.dtaDomains.map((d) => (
+                <Pill key={d}>{d.replace(/_/g, " ")}</Pill>
+              ))}
+            </Section>
+          ) : null}
+
+          {alignment.dtxRwePhases?.length ? (
+            <Section title="DTx RWE phases">
+              {alignment.dtxRwePhases.map((p) => (
+                <Pill key={p}>{p.replace(/_/g, " ")}</Pill>
+              ))}
+            </Section>
+          ) : null}
+
+          {alignment.commercialStageGates?.length ? (
+            <Section title="Commercial stage-gates">
+              {alignment.commercialStageGates.map((g) => (
+                <Pill key={g} tone="ok">
+                  {g.replace(/_/g, " ")}
+                </Pill>
+              ))}
+            </Section>
+          ) : null}
+
+          <Section title="FDA RWE relevance/reliability">
+            <Pill tone={rwe === "relevant_reliable" ? "ok" : rwe === "relevant_limited" ? "warn" : "neutral"}>
+              {rwe.replace(/_/g, " ")}
+            </Pill>
+          </Section>
+
+          {alignment.alcoaPlus?.length ? (
+            <Section title="ALCOA+">
+              {alignment.alcoaPlus.map((a) => (
+                <Pill key={a}>{a}</Pill>
+              ))}
+            </Section>
+          ) : null}
+
+          {alignment.operatorNotes ? (
+            <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+              {alignment.operatorNotes}
+            </p>
+          ) : null}
+
+          {alignment.frameworkMappedAt ? (
+            <p className="text-[10px] text-neutral-400">Mapped {alignment.frameworkMappedAt}</p>
+          ) : null}
+        </>
       )}
 
-      {pillars.length > 0 && (
-        <div className="mt-2">
-          <p className="text-[10px] uppercase tracking-wide text-white/40">IMDRF pillars</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {pillars.map(([key, val]) => (
-              <span
-                key={key}
-                className={`rounded px-1.5 py-0.5 text-[10px] ${statusClass(val.status)}`}
-                title={val.notes}
-              >
-                {labelPillar[key] ?? key}: {val.status}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {domains.length > 0 && (
-        <div className="mt-2">
-          <p className="text-[10px] uppercase tracking-wide text-white/40">DTA domains</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {domains.map((d, i) => (
-              <span
-                key={`${d.domain}-${d.ecosystem}-${i}`}
-                className={`rounded px-1.5 py-0.5 text-[10px] ${statusClass(d.status)}`}
-                title={d.notes}
-              >
-                {labelDomain[d.domain] ?? d.domain}/{d.ecosystem}: {d.status}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {rr && (
-        <div className="mt-2">
-          <p className="text-[10px] uppercase tracking-wide text-white/40">FDA RWE relevance / reliability</p>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {(
-              [
-                'availability',
-                'generalizability',
-                'accuracy',
-                'completeness',
-                'provenance',
-              ] as const
-            ).map((k) => (
-              <span key={k} className={`rounded px-1.5 py-0.5 text-[10px] ${statusClass(rr[k])}`}>
-                {k}: {rr[k]}
-              </span>
-            ))}
-          </div>
-          {rr.overallNotes && (
-            <p className="mt-1 text-[11px] text-white/45">{rr.overallNotes}</p>
-          )}
+      {compact && (
+        <div className="flex flex-wrap gap-1">
+          {(alignment.commercialStageGates ?? []).slice(0, 4).map((g) => (
+            <Pill key={g}>{g.replace(/_/g, " ")}</Pill>
+          ))}
+          <Pill tone={rwe === "relevant_reliable" ? "ok" : "neutral"}>{rwe.replace(/_/g, " ")}</Pill>
         </div>
       )}
     </div>
-  )
+  );
+}
+
+/** Resolve alignment from an EvidenceRecord (fixture or live). */
+export function FrameworkAlignmentFromRecord({ record }: { record: EvidenceRecord }) {
+  return (
+    <FrameworkAlignmentBlock alignment={record.frameworkAlignment} evidenceId={record.id} />
+  );
 }
