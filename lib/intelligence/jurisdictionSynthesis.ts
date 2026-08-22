@@ -17,6 +17,7 @@ export const SYNTHESIS_MARKETS: { iso2: string; name: string }[] = [
   { iso2: 'GB', name: 'United Kingdom' },
   { iso2: 'AU', name: 'Australia' },
   { iso2: 'CA', name: 'Canada' },
+  { iso2: 'US', name: 'United States' },
   { iso2: 'NL', name: 'Netherlands' },
   { iso2: 'PT', name: 'Portugal' },
   { iso2: 'TH', name: 'Thailand' },
@@ -33,6 +34,15 @@ export const SYNTHESIS_MARKETS: { iso2: string; name: string }[] = [
   { iso2: 'FR', name: 'France' },
   { iso2: 'ES', name: 'Spain' },
   { iso2: 'PL', name: 'Poland' },
+  { iso2: 'IT', name: 'Italy' },
+  { iso2: 'DK', name: 'Denmark' },
+  { iso2: 'SE', name: 'Sweden' },
+  { iso2: 'NO', name: 'Norway' },
+  { iso2: 'AT', name: 'Austria' },
+  { iso2: 'BE', name: 'Belgium' },
+  { iso2: 'IE', name: 'Ireland' },
+  { iso2: 'JP', name: 'Japan' },
+  { iso2: 'KR', name: 'South Korea' },
 ]
 
 export type JurisdictionBriefing = {
@@ -258,4 +268,43 @@ export async function getLatestBriefing(
 
   if (error || !data) return null
   return data as JurisdictionBriefing & { week_ending: string; signal_count: number }
+}
+
+/**
+ * Auto-generate published briefs for a slice of SYNTHESIS_MARKETS (no human review).
+ * Rotates by UTC hour so continuous ticks cover the full list over a day.
+ */
+export async function synthesiseJurisdictionBatch(opts?: {
+  limit?: number
+  offset?: number
+}): Promise<{
+  ok: boolean
+  results: { iso2: string; ok: boolean; signal_count?: number; error?: string }[]
+}> {
+  const limit = Math.min(opts?.limit ?? 5, 15)
+  const hour = new Date().getUTCHours()
+  const base = opts?.offset ?? (hour * limit) % SYNTHESIS_MARKETS.length
+  const slice: typeof SYNTHESIS_MARKETS = []
+  for (let i = 0; i < limit; i++) {
+    slice.push(SYNTHESIS_MARKETS[(base + i) % SYNTHESIS_MARKETS.length])
+  }
+  const results: { iso2: string; ok: boolean; signal_count?: number; error?: string }[] = []
+  for (const market of slice) {
+    try {
+      const result = await synthesiseJurisdiction(market.iso2, market.name)
+      results.push({
+        iso2: market.iso2,
+        ok: result.ok,
+        signal_count: result.ok ? result.signal_count : undefined,
+        error: result.ok ? undefined : result.error,
+      })
+    } catch (e) {
+      results.push({
+        iso2: market.iso2,
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+      })
+    }
+  }
+  return { ok: results.some((r) => r.ok), results }
 }
