@@ -1,54 +1,41 @@
-/**
- * Talent API error responses must not leak thrown detail to the client.
- *
- * Written in response to review feedback on PR #1621. That PR replaced
- * `err?.message ?? '<generic>'` with `errorMessage(err, '<generic>')` across the
- * talent routes. The two differ for a thrown *string*: the old expression read
- * `.message` off it, got `undefined`, and fell back to the generic text, while
- * the helper returns the string itself. In a UI banner that is an improvement.
- * In an HTTP response body it is a server-to-client disclosure path, because a
- * thrown string can carry anything the throwing code put in it.
- *
- * These tests pin the contract at the boundary that matters: whatever is thrown,
- * the response body is one of a fixed set of strings.
- */
-
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const saveTalentJob = vi.fn()
 const unsaveTalentJob = vi.fn()
 const createTalentAlert = vi.fn()
 const listTalentOpportunities = vi.fn()
+const getTalentOpportunity = vi.fn()
+const incrementTalentViewCount = vi.fn(() => Promise.resolve())
+const createClient = vi.fn()
 
 const TALENT_AUTH_ERROR_MESSAGE = 'Authentication required'
 function isTalentAuthError(err: unknown): boolean {
-  return err instanceof Error && err.message.includes(TALENT_AUTH_ERROR_MESSAGE)
+  return err instanceof Error && err.message === TALENT_AUTH_ERROR_MESSAGE
 }
 
 vi.mock('@/lib/server/talentOperations', () => ({
-  saveTalentJob: (...a: unknown[]) => saveTalentJob(...a),
-  unsaveTalentJob: (...a: unknown[]) => unsaveTalentJob(...a),
-  createTalentAlert: (...a: unknown[]) => createTalentAlert(...a),
+  saveTalentJob: (...args: unknown[]) => saveTalentJob(...args),
+  unsaveTalentJob: (...args: unknown[]) => unsaveTalentJob(...args),
+  createTalentAlert: (...args: unknown[]) => createTalentAlert(...args),
   isTalentAuthError,
   TALENT_AUTH_ERROR_MESSAGE,
 }))
 
 vi.mock('@/lib/server/talentQuery', () => ({
-  listTalentOpportunities: (...a: unknown[]) => listTalentOpportunities(...a),
-  getTalentOpportunity: vi.fn(),
+  listTalentOpportunities: (...args: unknown[]) => listTalentOpportunities(...args),
+  getTalentOpportunity: (...args: unknown[]) => getTalentOpportunity(...args),
+  incrementTalentViewCount: (...args: unknown[]) => incrementTalentViewCount(...args),
 }))
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(async () => ({})),
+  createClient: (...args: unknown[]) => createClient(...args),
 }))
 
-/**
- * The values a route can be handed. `thrownString` is the one the old code
- * returned verbatim and the reason this file exists. Named for its shape, not
- * its content, because scripts/check-no-secret-strings.mjs blocks a key of that
- * name bound directly to a string literal — correctly, since that is what a
- * committed credential looks like.
- */
+vi.mock('@/lib/network/rateLimit', () => ({
+  enforceRateLimit: vi.fn(async () => ({ allowed: true })),
+  getClientIp: vi.fn(() => '127.0.0.1'),
+}))
+
 const THROWN = {
   error: new Error('connection to db-primary.internal:5432 refused'),
   thrownString: 'PGRST301: schema "api" does not expose table "talent_opportunities"',
@@ -56,155 +43,150 @@ const THROWN = {
   nullish: null,
 }
 
-/** Every string these routes are allowed to put in a response body. */
-const ALLOWED_BODIES = new Set([
-  'Internal error',
-  'Application failed',
-  'Alert creation failed',
-  'Save failed',
-  'Unsave failed',
-  TALENT_AUTH_ERROR_MESSAGE,
-])
-
-function jsonRequest(body: unknown, method = 'POST') {
-  return new Request('http://localhost/api/talent/save', {
+function jsonRequest(body: unknown, method = 'POST', path = '/api/talent/save') {
+  return new Request(`http://localhost${path}`, {
     method,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
 }
 
-/**
- * The GET route reads `req.nextUrl.searchParams`, which a plain `Request` does
- * not have. Passing one made the route throw a TypeError *before* reaching the
- * query layer — so the generic-body assertions still passed, but for the wrong
- * reason, and the logging assertion caught it. This stub reaches the mocked
- * query layer for real.
- */
 function listRequest(search = '') {
   const url = new URL(`http://localhost/api/talent${search}`)
   return { nextUrl: url, url: url.toString(), method: 'GET' }
 }
 
-describe('talent API error responses', () => {
+async function expectGenericError(response: Response, status: number, message: string, thrown: unknown) {
+  expect(response.status).toBe(status)
+  const body = await response.json()
+  expect(body.error).toBe(message)
+  expect(JSON.stringify(body)).not.toContain(String(thrown))
+}
+
+describe('talent API public error contract', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
   })
 
-  describe('GET /api/talent', () => {
-    it.each(Object.entries(THROWN))(
-      'returns a generic 500 body when the query layer throws %s',
-      async (_label, thrown) => {
-        listTalentOpportunities.mockRejectedValue(thrown)
-        const { GET } = await import('@/app/api/talent/route')
-
-        const res = await GET(listRequest() as never)
-        const body = await res.json()
-
-        expect(res.status).toBe(500)
-        expect(body.error).toBe('Internal error')
-        expect(ALLOWED_BODIES.has(body.error)).toBe(true)
-      },
-    )
-
-    it('never echoes a thrown string into the response body', async () => {
-      listTalentOpportunities.mockRejectedValue(THROWN.thrownString)
-      const { GET } = await import('@/app/api/talent/route')
-
-      const body = await (await GET(listRequest() as never)).json()
-
-      expect(body.error).not.toContain('PGRST301')
-      expect(body.error).not.toContain('api')
-      expect(JSON.stringify(body)).not.toContain(THROWN.thrownString)
-    })
-
-    it('still records the detail server-side for logging', async () => {
-      listTalentOpportunities.mockRejectedValue(THROWN.thrownString)
-      const { GET } = await import('@/app/api/talent/route')
-
-      await GET(listRequest() as never)
-
-      const logged = (console.error as unknown as ReturnType<typeof vi.fn>).mock.calls.flat().join(' ')
-      expect(logged).toContain('PGRST301')
-    })
+  it.each(Object.entries(THROWN))('GET /api/talent hides %s detail', async (_label, thrown) => {
+    listTalentOpportunities.mockRejectedValue(thrown)
+    const { GET } = await import('@/app/api/talent/route')
+    await expectGenericError(await GET(listRequest() as never), 500, 'Internal error', thrown)
   })
 
-  describe('POST /api/talent/save', () => {
-    it('maps our own authentication Error to 401', async () => {
-      saveTalentJob.mockRejectedValue(new Error(TALENT_AUTH_ERROR_MESSAGE))
-      const { POST } = await import('@/app/api/talent/save/route')
-
-      const res = await POST(jsonRequest({ opportunityId: 'abc' }) as never)
-      const body = await res.json()
-
-      expect(res.status).toBe(401)
-      expect(body.error).toBe(TALENT_AUTH_ERROR_MESSAGE)
-    })
-
-    it('does NOT treat a thrown string mentioning Authentication as our 401', async () => {
-      // The pre-PR behaviour: `err?.message?.includes(...)` is false for a string.
-      // A string is not our signal and must not be able to force a 401 or be echoed.
-      saveTalentJob.mockRejectedValue('Authentication bypassed for user 42 via internal token')
-      const { POST } = await import('@/app/api/talent/save/route')
-
-      const res = await POST(jsonRequest({ opportunityId: 'abc' }) as never)
-      const body = await res.json()
-
-      expect(res.status).toBe(500)
-      expect(body.error).toBe('Save failed')
-      expect(JSON.stringify(body)).not.toContain('internal token')
-    })
-
-    it.each(Object.entries(THROWN))(
-      'returns a generic 500 body for %s',
-      async (_label, thrown) => {
-        saveTalentJob.mockRejectedValue(thrown)
-        const { POST } = await import('@/app/api/talent/save/route')
-
-        const res = await POST(jsonRequest({ opportunityId: 'abc' }) as never)
-        const body = await res.json()
-
-        expect(res.status).toBe(500)
-        expect(body.error).toBe('Save failed')
-      },
+  it.each(Object.entries(THROWN))('GET /api/talent/[id] hides %s detail', async (_label, thrown) => {
+    getTalentOpportunity.mockRejectedValue(thrown)
+    const { GET } = await import('@/app/api/talent/[id]/route')
+    await expectGenericError(
+      await GET(new Request('http://localhost/api/talent/abc') as never, {
+        params: Promise.resolve({ id: 'abc' }),
+      }),
+      500,
+      'Internal error',
+      thrown,
     )
   })
 
-  describe('POST /api/talent/alerts', () => {
-    it('maps our own authentication Error to 401', async () => {
-      createTalentAlert.mockRejectedValue(new Error(TALENT_AUTH_ERROR_MESSAGE))
-      const { POST } = await import('@/app/api/talent/alerts/route')
-
-      const res = await POST(jsonRequest({ roleFamily: 'cultivation' }) as never)
-
-      expect(res.status).toBe(401)
-      expect((await res.json()).error).toBe(TALENT_AUTH_ERROR_MESSAGE)
-    })
-
-    it.each(Object.entries(THROWN))(
-      'returns a generic 500 body for %s',
-      async (_label, thrown) => {
-        createTalentAlert.mockRejectedValue(thrown)
-        const { POST } = await import('@/app/api/talent/alerts/route')
-
-        const res = await POST(jsonRequest({ roleFamily: 'cultivation' }) as never)
-        const body = await res.json()
-
-        expect(res.status).toBe(500)
-        expect(body.error).toBe('Alert creation failed')
-        expect(ALLOWED_BODIES.has(body.error)).toBe(true)
-      },
+  it.each(Object.entries(THROWN))('POST /api/talent/apply hides %s detail', async (_label, thrown) => {
+    createClient.mockRejectedValue(thrown)
+    const { POST } = await import('@/app/api/talent/apply/route')
+    await expectGenericError(
+      await POST(jsonRequest({ opportunityId: 'abc', name: 'Applicant', email: 'applicant@example.com' }, 'POST', '/api/talent/apply') as never),
+      500,
+      'Application failed',
+      thrown,
     )
   })
 
-  describe('isTalentAuthError', () => {
-    it('is true only for a real Error carrying our message', () => {
-      expect(isTalentAuthError(new Error(TALENT_AUTH_ERROR_MESSAGE))).toBe(true)
-      expect(isTalentAuthError(TALENT_AUTH_ERROR_MESSAGE)).toBe(false)
-      expect(isTalentAuthError({ message: TALENT_AUTH_ERROR_MESSAGE })).toBe(false)
-      expect(isTalentAuthError(new Error('something else'))).toBe(false)
-      expect(isTalentAuthError(null)).toBe(false)
-    })
+  it.each(Object.entries(THROWN))('POST /api/talent/save hides %s detail', async (_label, thrown) => {
+    saveTalentJob.mockRejectedValue(thrown)
+    const { POST } = await import('@/app/api/talent/save/route')
+    await expectGenericError(
+      await POST(jsonRequest({ opportunityId: 'abc' }) as never),
+      500,
+      'Save failed',
+      thrown,
+    )
+  })
+
+  it.each(Object.entries(THROWN))('DELETE /api/talent/save hides %s detail', async (_label, thrown) => {
+    unsaveTalentJob.mockRejectedValue(thrown)
+    const { DELETE } = await import('@/app/api/talent/save/route')
+    await expectGenericError(
+      await DELETE(jsonRequest({ opportunityId: 'abc' }, 'DELETE') as never),
+      500,
+      'Unsave failed',
+      thrown,
+    )
+  })
+
+  it.each(Object.entries(THROWN))('POST /api/talent/alerts hides %s detail', async (_label, thrown) => {
+    createTalentAlert.mockRejectedValue(thrown)
+    const { POST } = await import('@/app/api/talent/alerts/route')
+    await expectGenericError(
+      await POST(jsonRequest({ roleFamily: 'cultivation' }, 'POST', '/api/talent/alerts') as never),
+      500,
+      'Alert creation failed',
+      thrown,
+    )
+  })
+
+  it('keeps thrown detail server-side for diagnostics', async () => {
+    listTalentOpportunities.mockRejectedValue(THROWN.thrownString)
+    const { GET } = await import('@/app/api/talent/route')
+    await GET(listRequest() as never)
+    const logged = (console.error as unknown as ReturnType<typeof vi.fn>).mock.calls.flat().join(' ')
+    expect(logged).toContain('PGRST301')
+  })
+
+  it('maps only the exact module authentication Error to 401', async () => {
+    const { POST } = await import('@/app/api/talent/save/route')
+
+    saveTalentJob.mockRejectedValueOnce(new Error(TALENT_AUTH_ERROR_MESSAGE))
+    const authResponse = await POST(jsonRequest({ opportunityId: 'abc' }) as never)
+    expect(authResponse.status).toBe(401)
+    expect((await authResponse.json()).error).toBe(TALENT_AUTH_ERROR_MESSAGE)
+
+    saveTalentJob.mockRejectedValueOnce(TALENT_AUTH_ERROR_MESSAGE)
+    await expectGenericError(
+      await POST(jsonRequest({ opportunityId: 'abc' }) as never),
+      500,
+      'Save failed',
+      TALENT_AUTH_ERROR_MESSAGE,
+    )
+
+    const containingError = new Error(`${TALENT_AUTH_ERROR_MESSAGE}: upstream detail`)
+    saveTalentJob.mockRejectedValueOnce(containingError)
+    await expectGenericError(
+      await POST(jsonRequest({ opportunityId: 'abc' }) as never),
+      500,
+      'Save failed',
+      containingError,
+    )
+  })
+
+  it('uses the same exact auth contract for alerts and unsave', async () => {
+    const { POST: alertsPost } = await import('@/app/api/talent/alerts/route')
+    const { DELETE: saveDelete } = await import('@/app/api/talent/save/route')
+
+    createTalentAlert.mockRejectedValue(new Error(TALENT_AUTH_ERROR_MESSAGE))
+    const alertResponse = await alertsPost(jsonRequest({}, 'POST', '/api/talent/alerts') as never)
+    expect(alertResponse.status).toBe(401)
+    expect((await alertResponse.json()).error).toBe(TALENT_AUTH_ERROR_MESSAGE)
+
+    unsaveTalentJob.mockRejectedValue(new Error(TALENT_AUTH_ERROR_MESSAGE))
+    const deleteResponse = await saveDelete(jsonRequest({ opportunityId: 'abc' }, 'DELETE') as never)
+    expect(deleteResponse.status).toBe(401)
+    expect((await deleteResponse.json()).error).toBe(TALENT_AUTH_ERROR_MESSAGE)
+  })
+
+  it('auth predicate accepts only an exact Error marker', () => {
+    expect(isTalentAuthError(new Error(TALENT_AUTH_ERROR_MESSAGE))).toBe(true)
+    expect(isTalentAuthError(TALENT_AUTH_ERROR_MESSAGE)).toBe(false)
+    expect(isTalentAuthError({ message: TALENT_AUTH_ERROR_MESSAGE })).toBe(false)
+    expect(isTalentAuthError(new Error(`${TALENT_AUTH_ERROR_MESSAGE}: detail`))).toBe(false)
+    expect(isTalentAuthError(new Error('something else'))).toBe(false)
+    expect(isTalentAuthError(null)).toBe(false)
   })
 })
