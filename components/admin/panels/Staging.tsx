@@ -79,15 +79,19 @@ export function Staging({ api, toast }) {
   const patchMany = async (ids, status) => {
     if (!ids.length) return
     setBusy(true)
-    let ok = 0
-    for (const id of ids) {
-      try {
-        await api.patch('hv_import_staging', `id=eq.${id}`, { status })
-        ok++
-      } catch { /* continue */ }
+    try {
+      const chunk = 200
+      let total = 0
+      for (let i = 0; i < ids.length; i += chunk) {
+        const slice = ids.slice(i, i + chunk)
+        await api.patchBulk('hv_import_staging', slice, { status })
+        total += slice.length
+      }
+      toast?.({ type: 'success', text: `Set ${total} → ${status}` })
+    } catch (e) {
+      toast?.({ type: 'error', text: e.message || 'Bulk update failed' })
     }
     setBusy(false)
-    toast?.({ type: 'success', text: `Set ${ok} → ${status}` })
     await load()
   }
 
