@@ -71,6 +71,7 @@ export function Countries({ api, toast }) {
   const [editing, setEditing] = useState(null)
   const [editVal, setEditVal] = useState({})
   const [busy, setBusy] = useState(false)
+  const [lastRun, setLastRun] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -184,20 +185,55 @@ export function Countries({ api, toast }) {
     }
   }
 
+
+  const runContinuous = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/country-coverage/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applyPriority: true, enqueueEnrichment: true }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Coverage run failed')
+      setLastRun(data)
+      toast?.({
+        type: 'success',
+        text: `Coverage tick: ${data.result?.priority_updated ?? 0} priority updated; enrichment ${data.result?.enrichment_enqueued ? 'queued' : 'skip'}`,
+      })
+      await load()
+    } catch (e) {
+      toast?.({ type: 'error', text: e.message || 'Continuous refresh failed' })
+    }
+    setBusy(false)
+  }
+
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div className="card-section">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
           <div className="card-section-title" style={{ margin: 0, flex: 1 }}>Country coverage</div>
           <button className="btn btn-ghost btn-sm" onClick={load} disabled={loading}>Refresh</button>
-          <button className="btn btn-gold btn-sm" onClick={applyPriorityPack} disabled={busy || loading}>
-            Apply priority pack
+          <button className="btn btn-gold btn-sm" onClick={runContinuous} disabled={busy || loading}>
+            Run continuous refresh
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={applyPriorityPack} disabled={busy || loading}>
+            Priority pack only
           </button>
         </div>
         <p style={{ fontSize: 12, color: '#6A7E9B', marginBottom: 10, lineHeight: 1.5 }}>
-          Registry of market maturity — not full legal text. Edit completeness, access, medical posture, and score.
-          <strong> Priority pack</strong> sets partial baselines for core corridor markets (DE, CA, AU, GB, …).
+          Registry of market maturity — not full legal text. <strong>Run continuous refresh</strong> applies
+          priority floors, seeds fixture depth, and enqueues regulatory enrichment jobs for agents
+          (same loop as the daily cron). Agents process the queue; this keeps data moving.
         </p>
+        {lastRun?.result && (
+          <div style={{ fontSize: 11, color: '#8A9BB5', marginBottom: 10, fontFamily: 'ui-monospace, monospace' }}>
+            Last run {lastRun.result.at}: updated {lastRun.result.priority_updated},
+            skipped {lastRun.result.priority_skipped},
+            enrichment {lastRun.result.enrichment_enqueued ? 'queued' : (lastRun.result.enrichment_error || 'n/a')},
+            coverage stub={lastRun.result.coverage?.stub} seed={lastRun.result.coverage?.seed} partial={lastRun.result.coverage?.partial} full={lastRun.result.coverage?.full}
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           {[
