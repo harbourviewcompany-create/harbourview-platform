@@ -21,6 +21,9 @@ export function mkApi() {
   return {
     get:   (t, qs="")    => req({ op:"get", table:t, qs }),
     patch: (t, qs, body) => req({ op:"patch", table:t, qs, body }),
+    /** Single request multi-row update via PostgREST id=in.(...) */
+    patchBulk: (t, ids, body, idColumn="id") =>
+      req({ op:"bulk_patch", table:t, ids, body, idColumn }),
     post:  (t, body)     => req({ op:"post", table:t, body }),
     del:   (t, qs)       => req({ op:"delete", table:t, qs }),
     rpc:   (fn, body={}) => req({ op:"rpc", fn, body }),
