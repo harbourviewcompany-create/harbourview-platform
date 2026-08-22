@@ -11,6 +11,7 @@ import { TalentJobCard } from './TalentJobCard';
 import { TalentJobDetail } from './TalentJobDetail';
 import { TalentFilters } from './TalentFilters';
 import { TalentEmptyState } from './TalentEmptyState';
+import { errorMessage } from '@/lib/errorMessage'
 
 interface TalentTabProps {
   /** Active jurisdiction from Command selector (e.g. "DE") */
@@ -63,8 +64,8 @@ export function TalentTab({
       const data = await res.json();
       setItems(data.items ?? []);
       setTotal(data.total ?? 0);
-    } catch (e: any) {
-      setError(e?.message ?? 'Unable to load talent opportunities');
+    } catch (e) {
+      setError(errorMessage(e, 'Unable to load talent opportunities'));
       setItems([]);
       setTotal(0);
     } finally {

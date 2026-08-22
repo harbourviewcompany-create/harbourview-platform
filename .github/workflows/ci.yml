@@ -109,6 +109,8 @@ jobs:
         run: npm run check:env-manifest
       - name: Cloudflare provider architecture
         run: npm run check:cloudflare-architecture
+      - name: Talent public error contract
+        run: npx vitest run tests/talent/talentApiErrorResponses.test.ts
       - run: npx vitest run tests/harbourview/public-dom-forbidden-strings.test.tsx tests/harbourview/public-route-smoke.test.ts tests/network/public-projection-leakage.test.ts
       - run: npx vitest run tests/marketplace/publicProjection.test.ts
       - name: Public leakage fuzz

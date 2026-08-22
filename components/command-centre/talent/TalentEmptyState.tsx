@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { errorMessage } from '@/lib/errorMessage'
 
 interface TalentEmptyStateProps {
   jurisdiction?: string | null
@@ -38,9 +39,9 @@ export function TalentEmptyState({
       }
       setAlertState('done')
       setAlertMsg('Alert saved. We will notify you when matching roles appear.')
-    } catch (e: any) {
+    } catch (e) {
       setAlertState('error')
-      setAlertMsg(e?.message ?? 'Could not create alert')
+      setAlertMsg(errorMessage(e, 'Could not create alert'))
     }
   }
 

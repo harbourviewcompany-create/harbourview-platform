@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listTalentOpportunities } from '@/lib/server/talentQuery';
 import type { RoleFamily, LocationType, Seniority, EmploymentType } from '@/types/talent';
+import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +29,10 @@ export async function GET(req: NextRequest) {
 
     const result = await listTalentOpportunities(params);
     return NextResponse.json(result);
-  } catch (err: any) {
-    console.error('[api/talent] GET error', err);
-    return NextResponse.json(
-      { error: err?.message ?? 'Internal error' },
-      { status: 500 }
-    );
+  } catch (err) {
+    // Detail stays server-side. The client gets a fixed string: a thrown
+    // value can carry internals, and this is an HTTP response body.
+    console.error('[api/talent] GET error', errorMessage(err), err);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
