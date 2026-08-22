@@ -35,7 +35,6 @@ const ConsumablesRequestModal = dynamic(() => import('./ConsumablesRequestModal'
 const DealRoomsSidebarWidget = dynamic(() => import('./DealRoomsPanel').then(m => ({ default: m.DealRoomsPanel })))
 const AssistantPage = dynamic(() => import('./pages/AssistantPage').then(m => ({ default: m.AssistantPage })))
 const ClinicalEvidenceCommandPage = dynamic(() => import('./pages/ClinicalEvidenceCommandPage'))
-import { CorridorEvidenceFlagsFromFixtures } from '@/components/clinical/CorridorEvidenceFlagsPanel'
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
 import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
@@ -49,6 +48,7 @@ import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
+import { CorridorEvidenceFlagsFromFixtures } from '@/components/clinical/CorridorEvidenceFlagsPanel'
 const DealRoomsPanel = dynamic(() => import('./pages/DealRoomsPanel').then(m => ({ default: m.DealRoomsPanel })))
 const DynamicMarketplaceIntakeForm = dynamic(() => import('@/components/marketplace/DynamicMarketplaceIntakeForm').then(m => ({ default: m.DynamicMarketplaceIntakeForm })))
 const QuoteRequestForm = dynamic(() => import('@/app/marketplace/quote/QuoteRequestForm'))
