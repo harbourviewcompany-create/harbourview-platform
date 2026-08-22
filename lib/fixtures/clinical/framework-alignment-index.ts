@@ -1,6 +1,7 @@
 /**
  * Lightweight frameworkAlignment lookup for client surfaces.
  * Avoids pulling full evidence fixture narratives into Command bundles.
+ * Shape must match FrameworkAlignment in lib/clinical/types.ts.
  */
 import type { FrameworkAlignment } from "@/lib/clinical/types";
 
@@ -10,6 +11,18 @@ export type AlignmentIndexEntry = {
   alignment: FrameworkAlignment;
 };
 
+const ALCOA_FULL = [
+  "attributable",
+  "legible",
+  "contemporaneous",
+  "original",
+  "accurate",
+  "complete",
+  "consistent",
+  "enduring",
+  "available",
+] as const;
+
 /** High-traffic annotated records only */
 export const FRAMEWORK_ALIGNMENT_INDEX: AlignmentIndexEntry[] = [
   {
@@ -17,23 +30,14 @@ export const FRAMEWORK_ALIGNMENT_INDEX: AlignmentIndexEntry[] = [
     condition: "Dravet syndrome",
     alignment: {
       imdrfPillars: ["clinical_association", "clinical_validation"],
-      dtaDomains: ["clinical_evidence"],
-      dtaEcosystem: "evidence_generation",
-      dtxRwePhases: ["confirmatory", "lifecycle"],
+      dtaDomains: ["clinical_evidence", "product_design"],
+      dtaEcosystem: ["clinician_facing", "regulator_facing"],
+      dtxRwePhases: ["development", "launch", "post_market"],
       commercialStageGates: ["label_support", "payer_dossier", "scale_corridor"],
-      fdaRweRelevance: "relevant_reliable",
-      fdaRweReliability: "relevant_reliable",
-      alcoaPlus: {
-        attributable: true,
-        legible: true,
-        contemporaneous: true,
-        original: true,
-        accurate: true,
-        complete: true,
-        consistent: true,
-        enduring: true,
-        available: true,
-      },
+      fdaRweRelevanceReliability: "relevant_reliable",
+      alcoaPlus: [...ALCOA_FULL],
+      operatorNotes: "High-certainty pivotal CBD Dravet programme mapping.",
+      frameworkMappedAt: "2026-08-20",
     },
   },
   {
@@ -41,23 +45,13 @@ export const FRAMEWORK_ALIGNMENT_INDEX: AlignmentIndexEntry[] = [
     condition: "Lennox-Gastaut syndrome",
     alignment: {
       imdrfPillars: ["clinical_association", "clinical_validation"],
-      dtaDomains: ["clinical_evidence"],
-      dtaEcosystem: "evidence_generation",
-      dtxRwePhases: ["confirmatory", "lifecycle"],
+      dtaDomains: ["clinical_evidence", "product_design"],
+      dtaEcosystem: ["clinician_facing", "regulator_facing"],
+      dtxRwePhases: ["development", "launch", "post_market"],
       commercialStageGates: ["label_support", "payer_dossier", "scale_corridor"],
-      fdaRweRelevance: "relevant_reliable",
-      fdaRweReliability: "relevant_reliable",
-      alcoaPlus: {
-        attributable: true,
-        legible: true,
-        contemporaneous: true,
-        original: true,
-        accurate: true,
-        complete: true,
-        consistent: true,
-        enduring: true,
-        available: true,
-      },
+      fdaRweRelevanceReliability: "relevant_reliable",
+      alcoaPlus: [...ALCOA_FULL],
+      frameworkMappedAt: "2026-08-20",
     },
   },
   {
@@ -66,22 +60,22 @@ export const FRAMEWORK_ALIGNMENT_INDEX: AlignmentIndexEntry[] = [
     alignment: {
       imdrfPillars: ["clinical_association", "clinical_validation"],
       dtaDomains: ["clinical_evidence"],
-      dtaEcosystem: "evidence_generation",
-      dtxRwePhases: ["exploratory", "lifecycle"],
+      dtaEcosystem: ["clinician_facing", "payer_facing"],
+      dtxRwePhases: ["launch", "post_market", "lifecycle"],
       commercialStageGates: ["scale_corridor", "payer_dossier", "post_market_rwe"],
-      fdaRweRelevance: "relevant_limited",
-      fdaRweReliability: "relevant_limited",
-      alcoaPlus: {
-        attributable: true,
-        legible: true,
-        contemporaneous: false,
-        original: true,
-        accurate: true,
-        complete: true,
-        consistent: true,
-        enduring: true,
-        available: true,
-      },
+      fdaRweRelevanceReliability: "relevant_limited",
+      alcoaPlus: [
+        "attributable",
+        "legible",
+        "original",
+        "accurate",
+        "complete",
+        "consistent",
+        "enduring",
+        "available",
+      ],
+      operatorNotes: "Enrichment designs limit generalisability; not first-line.",
+      frameworkMappedAt: "2026-08-20",
     },
   },
   {
@@ -90,22 +84,21 @@ export const FRAMEWORK_ALIGNMENT_INDEX: AlignmentIndexEntry[] = [
     alignment: {
       imdrfPillars: ["clinical_association"],
       dtaDomains: ["clinical_evidence"],
-      dtaEcosystem: "evidence_generation",
-      dtxRwePhases: ["exploratory"],
+      dtaEcosystem: ["clinician_facing", "operator_internal"],
+      dtxRwePhases: ["discovery", "development"],
       commercialStageGates: ["pre_clinical_ref", "pilot_corridor"],
-      fdaRweRelevance: "relevant_limited",
-      fdaRweReliability: "insufficient",
-      alcoaPlus: {
-        attributable: true,
-        legible: true,
-        contemporaneous: false,
-        original: true,
-        accurate: true,
-        complete: false,
-        consistent: true,
-        enduring: true,
-        available: true,
-      },
+      fdaRweRelevanceReliability: "relevant_limited",
+      alcoaPlus: [
+        "attributable",
+        "legible",
+        "original",
+        "accurate",
+        "consistent",
+        "enduring",
+        "available",
+      ],
+      operatorNotes: "Low certainty; not for label-support without additional primary evidence.",
+      frameworkMappedAt: "2026-08-20",
     },
   },
 ];
@@ -116,7 +109,10 @@ export function findAlignmentForCondition(condition: string | null | undefined) 
   if (!q) return null;
   return (
     FRAMEWORK_ALIGNMENT_INDEX.find(
-      (e) => e.condition.toLowerCase() === q || q.includes(e.condition.toLowerCase()) || e.condition.toLowerCase().includes(q),
+      (e) =>
+        e.condition.toLowerCase() === q ||
+        q.includes(e.condition.toLowerCase()) ||
+        e.condition.toLowerCase().includes(q),
     ) ?? null
   );
 }
