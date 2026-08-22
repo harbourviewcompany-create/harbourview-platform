@@ -272,3 +272,6 @@ export function alignmentQuickScore(fa: FrameworkAlignment | undefined): number 
 }
 
 export type { FrameworkAlignment, CommercialStageGate, RelevanceReliabilityStatus };
+
+/** @deprecated alias — prefer triageSort */
+export const sortGapsForTriage = triageSort;
