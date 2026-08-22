@@ -56,7 +56,17 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
 }
 
 const ROWS_PER_VIEW = 8
-const MARKETPLACE_MEDIA_TIMEOUT_MS = 3_000
+/**
+ * How long the optional marketplace image enrichment is allowed to run before
+ * the projection gives up and returns the listing rows it already has.
+ *
+ * Exported so the test that exercises the timeout advances its fake clock past
+ * the real value instead of a second hardcoded copy. Those two numbers had
+ * already drifted apart: the test advanced 1,500ms against this 3,000ms budget,
+ * so the timer never fired, the projection never resolved, and the test hung
+ * until vitest killed it at 5,000ms.
+ */
+export const MARKETPLACE_MEDIA_TIMEOUT_MS = 3_000
 
 function safeText(value: string | null | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback
