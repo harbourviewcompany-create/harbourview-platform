@@ -25,6 +25,19 @@ export function mkApi() {
     del:   (t: string, qs: string)       => req({ op:"delete", table:t, qs }),
     rpc:   (fn: string, body: Record<string, unknown>={}) => req({ op:"rpc", fn, body }),
   };
+
+
+const SCOPE_RE = /cannab|cannabis|marijuana|thc|cbd|nabiximols|sativex|epidiolex|hemp|gacp|gmp.?cann|narcotic.?import|bfarm|health.?canada|tga|anvisa|mhra|medical.?cannabis|phytocannabinoid|eu.?gmp|btmg|narcotics.?act/i;
+const CONSUMER_SPAM_RE = /weedmaps|how to buy|order weed|buy weed|visitor'?s? guide|dispensary near|recreational tourism|delivery near me|strain review|best edibles|smoke shop|is weed legal in|is cannabis legal in|is marijuana legal in|business guide 20\d\d|cannabis laws? (in )?(cyprus|dominica|austria|malta|luxembourg)/i;
+export function inCannabisScope(text) {
+  if (!text) return false;
+  const t = String(text);
+  if (CONSUMER_SPAM_RE.test(t)) return false;
+  if (/\bis (weed|cannabis|marijuana) legal\b/i.test(t) && !/\b(bfarm|tga|anvisa|mhra|health canada|eu-?gmp|import permit|narcotic)\b/i.test(t)) {
+    return false;
+  }
+  return SCOPE_RE.test(t);
+}
 }
 
 export const panelCss = `
