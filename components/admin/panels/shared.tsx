@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react'
 
-const WS_ID = "a85840b4-c522-4cb8-9097-2f6c30a78417";
+export const WS_ID = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
 export function mkApi() {
   const req = async (payload) => {
