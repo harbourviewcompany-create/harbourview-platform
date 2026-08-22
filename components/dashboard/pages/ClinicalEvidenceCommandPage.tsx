@@ -20,7 +20,7 @@ import {
 } from '@/lib/clinical/dosing'
 import type { FormularyProductDTO } from '@/lib/clinical/formulary'
 import type { ClinicalEvidenceRecordDTO } from '@/lib/clinical/evidence'
-import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
+import { findAlignmentForCondition } from '@/lib/fixtures/clinical/framework-alignment-index'
 import { FrameworkAlignmentBlock } from '@/components/clinical/FrameworkAlignmentBlock'
 
 export type ClinicalEvidenceCommandPageProps = {
@@ -309,20 +309,13 @@ export default function ClinicalEvidenceCommandPage({
                 )}
               </div>
               {(() => {
-                const cond = (r.condition ?? '').toLowerCase()
-                const fixture = EVIDENCE_FIXTURES.find(
-                  (f) =>
-                    f.frameworkAlignment &&
-                    (f.condition.toLowerCase() === cond ||
-                      f.condition.toLowerCase().includes(cond) ||
-                      cond.includes(f.condition.toLowerCase())),
-                )
-                if (!fixture?.frameworkAlignment) return null
+                const hit = findAlignmentForCondition(r.condition)
+                if (!hit) return null
                 return (
                   <div className="pt-1">
                     <FrameworkAlignmentBlock
-                      alignment={fixture.frameworkAlignment}
-                      evidenceId={fixture.id}
+                      alignment={hit.alignment}
+                      evidenceId={hit.id}
                       compact
                     />
                   </div>
