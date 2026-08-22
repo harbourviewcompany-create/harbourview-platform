@@ -1,10 +1,6 @@
 /**
  * Harbourview Clinical — core types
  * Evidence Engine + Jurisdiction Briefing + Professional Pathway
- *
- * Framework alignment types (IMDRF / DTA / DTx RWE / FDA RWE) are additive and
- * optional. They support commercial evidence strategy without expanding product
- * scope beyond cannabinoid / medical-cannabis clinical reference.
  */
 
 export type EvidenceStrength = "high" | "moderate" | "low" | "very_low" | "insufficient";
@@ -27,104 +23,105 @@ export type Population =
   | "renal_impairment"
   | "general";
 
-// ---------------------------------------------------------------------------
-// Evidence Framework Spine (Phase A — commercial evidence strategy alignment)
-// ---------------------------------------------------------------------------
+/**
+ * Commercial / regulatory framework alignment (optional metadata).
+ * Additive only — never changes clinical conclusions, search, or CLINICAL_DISCLAIMER.
+ * Scope: cannabinoid / medical-cannabis clinical-reference; non-SaMD professional reference.
+ */
 
-/** IMDRF SaMD Clinical Evaluation (N41) pillars */
+/** IMDRF N41 clinical evaluation pillars (software/device-oriented; used as mapping only). */
 export type ImdrfPillar =
-  | "valid_clinical_association"
+  | "clinical_association"
   | "analytical_validation"
   | "clinical_validation";
 
-/** DTA Clinical Evidence Quality domains */
+/** Digital Therapeutics Alliance five-domain quality model. */
 export type DtaDomain =
-  | "safety"
-  | "benefit"
-  | "durability"
+  | "product_design"
+  | "clinical_evidence"
+  | "cybersecurity_privacy"
   | "usability_accessibility"
-  | "user_engagement";
+  | "interoperability_data";
 
-/** DTA ecosystems against which domains are assessed */
-export type DtaEcosystem = "regulatory" | "payment" | "clinical_acceptance";
+/** DTA ecosystem role tags (optional). */
+export type DtaEcosystem =
+  | "clinician_facing"
+  | "patient_facing"
+  | "payer_facing"
+  | "regulator_facing"
+  | "operator_internal";
 
-/** DTx Real-World Evidence Framework phases */
-export type DtxRwePhase = "design" | "develop" | "test" | "monitor";
+/** DTx real-world evidence framework phases. */
+export type DtxRwePhase =
+  | "discovery"
+  | "development"
+  | "launch"
+  | "post_market"
+  | "lifecycle";
 
-/** Commercial stage-gates for prioritisation */
+/** Commercial stage-gates for evidence readiness (operator corridor plans). */
 export type CommercialStageGate =
-  | "pre_seed"
-  | "series_a"
-  | "pivotal"
-  | "pre_launch"
-  | "scale";
+  | "pre_clinical_ref"
+  | "pilot_corridor"
+  | "scale_corridor"
+  | "label_support"
+  | "payer_dossier"
+  | "post_market_rwe";
 
-/** FDA 2025 Device RWE relevance/reliability style status */
+/** FDA 2025 Device RWE relevance / reliability status (mapping only; not a regulatory claim). */
 export type RelevanceReliabilityStatus =
   | "not_assessed"
-  | "partial"
-  | "adequate"
-  | "strong";
+  | "relevant_reliable"
+  | "relevant_limited"
+  | "insufficient"
+  | "not_applicable";
 
-export type FrameworkCoverageStatus = "covered" | "partial" | "missing";
+/** ALCOA+ provenance completeness for source-backed records. */
+export type AlcoaPlusDimension =
+  | "attributable"
+  | "legible"
+  | "contemporaneous"
+  | "original"
+  | "accurate"
+  | "complete"
+  | "consistent"
+  | "enduring"
+  | "available";
 
-export interface FrameworkPillarStatus {
-  status: FrameworkCoverageStatus;
-  notes?: string;
-}
-
-export interface FrameworkDomainStatus {
-  domain: DtaDomain;
-  ecosystem: DtaEcosystem;
-  status: FrameworkCoverageStatus;
-  notes?: string;
-}
-
-export interface RelevanceReliabilityAssessment {
-  availability: RelevanceReliabilityStatus;
-  generalizability: RelevanceReliabilityStatus;
-  accuracy: RelevanceReliabilityStatus;
-  completeness: RelevanceReliabilityStatus;
-  provenance: RelevanceReliabilityStatus;
-  overallNotes?: string;
-}
-
-/**
- * Optional alignment of a clinical evidence record (or claim package) to the
- * commercial evidence strategy frameworks. All fields optional; absence means
- * "not yet mapped". Does not change clinical conclusions or liability posture.
- */
 export interface FrameworkAlignment {
-  imdrfPillars?: Partial<Record<ImdrfPillar, FrameworkPillarStatus>>;
-  dtaDomains?: FrameworkDomainStatus[];
-  dtxRwePhase?: DtxRwePhase;
-  relevanceReliability?: RelevanceReliabilityAssessment;
-  /** Whether ALCOA+ style integrity / provenance is considered complete for this package */
-  alcoaPlusComplete?: boolean;
-  commercialStageGate?: CommercialStageGate;
-  commercialPriority?: "high" | "medium" | "low";
+  /** IMDRF N41 pillars this record contributes to (reference mapping). */
+  imdrfPillars?: ImdrfPillar[];
+  /** DTA quality domains touched. */
+  dtaDomains?: DtaDomain[];
+  /** DTA ecosystem roles. */
+  dtaEcosystem?: DtaEcosystem[];
+  /** DTx RWE phase(s). */
+  dtxRwePhases?: DtxRwePhase[];
+  /** Commercial stage-gate(s) this evidence can support. */
+  commercialStageGates?: CommercialStageGate[];
+  /** FDA Device RWE relevance/reliability mapping (non-claim). */
+  fdaRweRelevanceReliability?: RelevanceReliabilityStatus;
+  /** ALCOA+ dimensions demonstrated by provenance on this record. */
+  alcoaPlus?: AlcoaPlusDimension[];
+  /** Free-text operator notes (never shown as clinical advice). */
+  operatorNotes?: string;
+  /** Last framework mapping review (ISO date). */
+  frameworkMappedAt?: string;
 }
 
-/**
- * Living claim → framework map entry (for admin / operator use).
- * Not required on every EvidenceRecord; used when building dossiers.
- */
+/** Claim-map entry: links a commercial/clinical claim statement to evidence IDs + gaps. */
 export interface EvidenceClaimMapEntry {
   id: string;
   claimStatement: string;
-  claimKind:
-    | "indication"
-    | "efficacy"
-    | "safety"
-    | "durability"
-    | "engagement"
-    | "usability"
-    | "other";
-  frameworkAlignment: FrameworkAlignment;
+  condition: string;
+  cannabinoidFocus: string[];
   evidenceRecordIds: string[];
-  gapOwner?: string;
-  targetDate?: string;
-  status: "complete" | "partial" | "gap";
+  targetStageGates: CommercialStageGate[];
+  targetImdrfPillars?: ImdrfPillar[];
+  targetDtaDomains?: DtaDomain[];
+  status: "supported" | "partial" | "gap" | "not_applicable";
+  gapSummary?: string;
+  updatedAt: string;
 }
 
 export interface EvidenceRecord {
@@ -145,7 +142,7 @@ export interface EvidenceRecord {
   reviewedAt: string;
   jurisdictions: string[];
   applicabilityNotes?: string;
-  /** Optional commercial / regulatory framework alignment (Phase A) */
+  /** Optional commercial / regulatory framework alignment (additive). */
   frameworkAlignment?: FrameworkAlignment;
 }
 
