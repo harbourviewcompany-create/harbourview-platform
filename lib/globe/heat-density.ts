@@ -87,7 +87,7 @@ export function computeDensityField(
   points: HeatPoint[],
   width: number,
   height: number,
-  bandwidthDeg = HEAT_CONFIG.bandwidthDeg,
+  bandwidthDeg: number = HEAT_CONFIG.bandwidthDeg,
 ): Float32Array {
   const field = new Float32Array(width * height)
   if (points.length === 0) return field
