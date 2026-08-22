@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const result = await runOpsAutonomyTick({
       autoApproveInScope: true,
       runCoverage: true,
+      runBriefs: true,
     })
     return NextResponse.json({ ok: true, result })
   } catch (e) {
