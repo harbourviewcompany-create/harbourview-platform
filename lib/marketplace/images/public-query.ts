@@ -109,6 +109,11 @@ async function queryCardMediaBatch(itemIds: string[], signal?: AbortSignal): Pro
     }>;
 
     return rows.reduce<Record<string, PublicMarketplaceImageDTO[]>>((acc, row) => {
+      // Skip rows with no renderable URL — same gate as toPublicMarketplaceImageDTO.
+      if (!row.public_url && !row.thumbnail_url && !row.hero_url && !row.gallery_url) {
+        return acc;
+      }
+
       const dto: PublicMarketplaceImageDTO = {
         id: row.image_id,
         itemId: row.item_id,
@@ -118,7 +123,8 @@ async function queryCardMediaBatch(itemIds: string[], signal?: AbortSignal): Pro
         thumbnailUrl: row.thumbnail_url,
         heroUrl: row.hero_url,
         galleryUrl: row.gallery_url,
-        altText: row.alt_text,
+        socialUrl: null,
+        altText: row.alt_text || 'Harbourview marketplace image',
         caption: row.caption,
         isIllustrative: row.is_illustrative,
         sourceDisplayLabel: row.source_name,
