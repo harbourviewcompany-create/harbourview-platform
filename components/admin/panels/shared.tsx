@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 
 const WS_ID  = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
-function mkApi() {
+export function mkApi() {
   const req = async (payload: Record<string, unknown>) => {
     const r = await fetch("/api/admin/hub-proxy", {
       method: "POST",
