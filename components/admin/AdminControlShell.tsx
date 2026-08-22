@@ -85,9 +85,9 @@ function ShellInner({ children }: { children: React.ReactNode }) {
         <div className="acs-main">
           <div className="acs-topbar">
             <span className="acs-title">{title}</span>
-            <span style={{ fontSize: 11, color: '#3A4E6A', fontFamily: 'ui-monospace, monospace' }}>
-              {typeof window !== 'undefined' ? '' : ''}
-            </span>
+            <Link href="/admin/hub" style={{ fontSize: 11, color: '#4A5E80', textDecoration: 'none' }}>
+              Control surface
+            </Link>
           </div>
           <div className={`acs-content${isHubSpa ? ' acs-flush' : ''}`}>{children}</div>
         </div>
