@@ -5234,3 +5234,83 @@ Also: the older entry recorded lint as 13 errors / 207-208 problems. The current
 tree reports **12 errors / 206 problems** after `origin/main` was merged in. The
 count moved; the status did not. What matters for these three checks is that
 lint exits 1 on base, which it still does.
+
+## 2026-08-22 — Corridor "operator triage" gap list surfaced the least severe gaps
+
+**Scope.** One-line ordering fix in `CorridorPlanWorkspace.tsx` plus first test
+coverage for the clinical evidence-readiness helpers. No schema, migration,
+production data, cron, or deployment change.
+
+**Context — what this entry is *not* claiming.** `main` was found failing
+`npm run build` earlier today with 19 TypeScript errors (three consumer/API
+mismatches in the clinical/admin surfaces). **That breakage was fixed
+independently, not by this work**, in six commits pushed directly to `main`
+between 18:25 and 18:29 UTC: `7f6cd234`, `0de3b2b7`, `6bdc15e4`, `9ea5032d`,
+`47d8a732`, `01a8ae18`. Verified on `01a8ae18`: `npx tsc --noEmit` = **0
+errors**, `npm run build` = **exit 0**, 151 static pages. A parallel fix for the
+same 19 errors was prepared on `claude/review-merge-open-prs-b5fra6` and has
+been **discarded as redundant** rather than merged; only the two findings below
+survive from it. Recording this because a prior draft of this entry credited the
+build repair to that branch, which would have been a false record in a control
+document.
+
+Those six commits were, again, direct pushes to `main` with no PR and no
+evidence entry — the third instance of the Merge Discipline violation now
+recorded in this log. `.github/workflows/ci.yml`'s own concurrency comment
+documents an earlier cost of the same pattern: four PRs merged within 20
+seconds, three CI runs cancelled while pending, and `main` left "broken and
+undeployable for ~2.5 hours".
+
+**Finding 1 — ordering defect, typechecks cleanly, wrong output.**
+`CorridorPlanWorkspace` renders a list headed *"Top framework gaps (operator
+triage)"*. `assessClaimMapReadiness` triage-sorts gaps **within** each claim, so
+`assessments.flatMap((a) => a.gaps)` yields sorted runs concatenated end to end,
+not a globally sorted list. Slicing that concatenation took the first claim's
+tail. Measured against the current fixtures:
+
+```
+displayed (before): low, info, info, info, low, info, info, info
+correct   (after) : high, high, high, high, medium, medium, medium, medium
+```
+
+Every `high`-severity gap was invisible to the operator on a triage surface.
+Fixed by re-sorting across all claims before slicing. This is a display-ordering
+defect only — no score, gate decision, claim status, or clinical conclusion
+changes.
+
+**Finding 2 — zero test coverage on the helpers.**
+`lib/clinical/evidence-readiness.ts` and `lib/clinical/framework-gap.ts` had **no
+tests**, which is how both consumers came to be written against a nonexistent
+API and how Finding 1 shipped. Added
+`tests/clinical/evidenceReadinessContract.test.ts` — 14 behavioural assertions
+covering claim scoring, stage-gate ready/blocked invariants, per-claim triage
+order, the corridor roll-up, and the flag contract.
+
+The ordering assertion was verified to be a real guard, not decoration: reverting
+the fix turns it red (1 failed / 13 passed), restoring it turns it green (14
+passed). Tests assert behaviour against fixtures rather than source text,
+deliberately — several suites in this repo grep source and have drifted from the
+components they describe.
+
+**Verification, on `claude/review-merge-open-prs-b5fra6` rebased onto `01a8ae18`:**
+
+| Command | Result |
+|---|---|
+| `npx tsc --noEmit` | 0 errors, exit 0 (unchanged from `main`) |
+| `npm run build` | exit 0, 151 static pages (unchanged from `main`) |
+| `npx vitest run` | 3 files / 7 tests failing — **identical to `main`** — plus 14 new passing |
+| `npx eslint .` | 6 errors / 202 warnings — **identical to `main`** |
+| `node scripts/check-no-secret-strings.mjs` | GO |
+
+**Still open, untouched.** The same 7 pre-existing test failures across 3 files,
+none of which are on the `vitest.config.ts` quarantine list and therefore
+regressed after 2026-08-20: 5 are stale source-text greps
+(`prescriberOSReconciliation` ×4, `publicImageQueryContract` ×1) and 2 are a real
+behaviour change (`mobileMarketplaceMedia` expects a raw Supabase URL, receives a
+`/_next/image?url=…` optimised one). The `prescriberOSReconciliation` assertions
+cover compliance guardrails — "does not silently substitute Brazil or another
+jurisdiction" — so they must not be repaired by editing the assertion to match
+current source; a red result there is either a genuinely removed guard or a
+drifted grep, and separating the two is the actual work.
+
+**Status: current.** Verified green on the branch head at time of writing.

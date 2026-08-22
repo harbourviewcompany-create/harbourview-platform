@@ -18,6 +18,7 @@ import {
   assessClaimMapReadiness,
   corridorEvidenceFlags,
 } from '@/lib/clinical/evidence-readiness'
+import { triageSort } from '@/lib/clinical/framework-gap'
 
 type PlanPayload = {
   origin: { iso2: string; name: string; difficulty: string }
@@ -78,7 +79,11 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
     const assessments = CLAIM_MAP_FIXTURES.map((e) =>
       assessClaimMapReadiness(e, EVIDENCE_FIXTURES),
     )
-    const allGaps = assessments.flatMap((a) => a.gaps)
+    // assessClaimMapReadiness triage-sorts within each claim, so flatMap yields
+    // sorted runs concatenated end to end, not a globally sorted list. Slicing
+    // that directly surfaced claim 1's least severe gaps under a heading that
+    // promises operator triage; re-sort across all claims before slicing.
+    const allGaps = triageSort(assessments.flatMap((a) => a.gaps))
     return {
       claimCount: assessments.length,
       gapClaims: assessments.filter((a) => a.status === 'gap').length,
