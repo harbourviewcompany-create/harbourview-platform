@@ -2,6 +2,7 @@
 // @ts-nocheck -- admin control surface, intentionally untyped runtime-driven UI
 'use client';
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const WS_ID  = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
@@ -43,7 +44,7 @@ const css = `
   table{border-collapse:collapse;width:100%;}
   code{font-family:'DM Mono',monospace;}
 
-  .hv-app{display:grid;grid-template-columns:220px 1fr;height:100vh;overflow:hidden;position:fixed;inset:0;z-index:50;background:#080E1C;}
+  .hv-app{display:grid;grid-template-columns:220px 1fr;height:100vh;overflow:hidden;position:fixed;inset:0;z-index:50;background:#080E1C;}.hv-app.content-only{grid-template-columns:1fr;position:relative;inset:auto;height:auto;min-height:100%;z-index:1;}.hv-app.content-only .sidebar{display:none;}.hv-app.content-only .hv-main{min-height:100%;}.hv-app.content-only .topbar{display:none;}
   .sidebar{background:#060C1A;border-right:1px solid #1A2640;display:flex;flex-direction:column;overflow:hidden;}
   .sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid #1A2640;}
   .logo-mark{font-size:11px;font-weight:600;letter-spacing:.25em;color:#C9A84C;text-transform:uppercase;}
@@ -1301,11 +1302,27 @@ function Actions({ api, toast }) {
 
 // ─── APP SHELL ───────────────────────────────────────────────────────
 export default function HarbourviewAdmin() {
-  const [section, setSection] = useState("overview");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const sectionFromUrl = searchParams?.get("section") || "overview";
+  const [section, setSection] = useState(sectionFromUrl);
+  useEffect(() => {
+    const s = searchParams?.get("section") || "overview";
+    setSection(s);
+  }, [searchParams]);
+  const goSection = (id) => {
+    setSection(id);
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    if (id === "overview") params.delete("section");
+    else params.set("section", id);
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  };
   const [toastMsg, setToastMsg] = useState(null);
   const [stats, setStats] = useState(null);
   const toast=(msg)=>setToastMsg(msg);
   const client=mkApi();
   const badgeCounts={unreviewed_signals:stats?.unreviewed_signals||0,staging_pending:stats?.staging_pending||0,inquiry_pending:stats?.inquiry_pending||0,intake_pending:stats?.intake_pending||0};
-  return (<><style>{css}</style><div className="hv-app"><aside className="sidebar"><div className="sidebar-logo"><div className="logo-mark">Harbourview</div><div className="logo-sub">Admin Control Surface</div></div><nav className="nav">{NAV.map((n,i)=>{if(n.group)return <div className="nav-group" key={i}>{n.group}</div>;const count=n.badgeKey?badgeCounts[n.badgeKey]||0:0;if(n.href)return(<a key={n.id} href={n.href} className={`nav-item ${section===n.id?"active":""}`} style={{textDecoration:"none",color:"inherit"}}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}</a>);return(<button key={n.id} className={`nav-item ${section===n.id?"active":""}`} onClick={()=>setSection(n.id)}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}{count>0&&<span className={`nav-badge ${n.badgeKey==="staging_pending"||n.badgeKey==="inquiry_pending"||n.badgeKey==="intake_pending"?"warn":""}`}>{count}</span>}</button>);})}</nav><div className="sidebar-status"><span className="status-dot"/><span className="status-txt">zvxdgdkukjrrwamdpqrg</span></div></aside><main className="hv-main"><div className="topbar"><span className="page-title">{PAGE_TITLES[section]||section}</span><div className="topbar-right"><span style={{fontSize:11,color:"#3A4E6A",fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleTimeString()}</span></div></div><div className="content">{section==="overview"&&<Overview api={client} stats={stats} setStats={setStats}/>}{section==="inquiries"&&<Inquiries api={client} toast={toast}/>}{section==="candidates"&&<Candidates api={client} toast={toast}/>}{section==="intake"&&<Intake api={client} toast={toast}/>}{section==="deal"&&<DealBoard api={client} toast={toast}/>}{section==="signals"&&<Signals api={client} toast={toast} stats={stats}/>}{section==="staging"&&<Staging api={client} toast={toast}/>}{section==="intel"&&<Intel api={client} toast={toast}/>}{section==="sources"&&<Sources api={client} toast={toast}/>}{section==="countries"&&<Countries api={client} toast={toast}/>}{section==="users"&&<Users api={client} toast={toast}/>}{section==="feed"&&<Feed api={client} toast={toast}/>}{section==="stripe"&&<Stripe toast={toast}/>}{section==="actions"&&<Actions api={client} toast={toast}/>}{section==="clinical"&&<ClinicalPanel/>}</div></main></div>{toastMsg&&<Toast msg={toastMsg} onDone={()=>setToastMsg(null)}/>}</>);
+  return (<><style>{css}</style><div className="hv-app content-only"><aside className="sidebar"><div className="sidebar-logo"><div className="logo-mark">Harbourview</div><div className="logo-sub">Admin Control Surface</div></div><nav className="nav">{NAV.map((n,i)=>{if(n.group)return <div className="nav-group" key={i}>{n.group}</div>;const count=n.badgeKey?badgeCounts[n.badgeKey]||0:0;if(n.href)return(<a key={n.id} href={n.href} className={`nav-item ${section===n.id?"active":""}`} style={{textDecoration:"none",color:"inherit"}}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}</a>);return(<button key={n.id} className={`nav-item ${section===n.id?"active":""}`} onClick={()=>goSection(n.id)}><span style={{fontSize:12,width:14,textAlign:"center",flexShrink:0}}>{n.icon}</span>{n.label}{count>0&&<span className={`nav-badge ${n.badgeKey==="staging_pending"||n.badgeKey==="inquiry_pending"||n.badgeKey==="intake_pending"?"warn":""}`}>{count}</span>}</button>);})}</nav><div className="sidebar-status"><span className="status-dot"/><span className="status-txt">zvxdgdkukjrrwamdpqrg</span></div></aside><main className="hv-main"><div className="topbar"><span className="page-title">{PAGE_TITLES[section]||section}</span><div className="topbar-right"><span style={{fontSize:11,color:"#3A4E6A",fontFamily:"'DM Mono',monospace"}}>{new Date().toLocaleTimeString()}</span></div></div><div className="content">{section==="overview"&&<Overview api={client} stats={stats} setStats={setStats}/>}{section==="inquiries"&&<Inquiries api={client} toast={toast}/>}{section==="candidates"&&<Candidates api={client} toast={toast}/>}{section==="intake"&&<Intake api={client} toast={toast}/>}{section==="deal"&&<DealBoard api={client} toast={toast}/>}{section==="signals"&&<Signals api={client} toast={toast} stats={stats}/>}{section==="staging"&&<Staging api={client} toast={toast}/>}{section==="intel"&&<Intel api={client} toast={toast}/>}{section==="sources"&&<Sources api={client} toast={toast}/>}{section==="countries"&&<Countries api={client} toast={toast}/>}{section==="users"&&<Users api={client} toast={toast}/>}{section==="feed"&&<Feed api={client} toast={toast}/>}{section==="stripe"&&<Stripe toast={toast}/>}{section==="actions"&&<Actions api={client} toast={toast}/>}{section==="clinical"&&<ClinicalPanel/>}</div></main></div>{toastMsg&&<Toast msg={toastMsg} onDone={()=>setToastMsg(null)}/>}</>);
 }
