@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import type { MarketView } from '../../CommandCentre'
-import {
-  getRepresentativeMarketplaceMedia,
-  MARKETPLACE_MEDIA_COPY,
-} from '@/lib/dashboard/marketplaceMediaProjection'
+import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
+import { getSubjectRepresentativeMedia } from '@/lib/dashboard/marketplaceSubjectMedia'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
@@ -25,8 +23,12 @@ type MediaStage = 'primary' | 'fallback' | 'empty'
 export function resolveListingMediaStage(row: NormalizedListing, stage: MediaStage) {
   const media = row.media
   if (!media || stage === 'empty') {
-    // Always show a representative category image — never a blank "photo on inquiry" state.
-    const representative = getRepresentativeMarketplaceMedia(row.view)
+    const representative = getSubjectRepresentativeMedia(
+      row.view,
+      row.id,
+      row.title,
+      row.category,
+    )
     return {
       src: representative.src,
       altText: representative.altText,
