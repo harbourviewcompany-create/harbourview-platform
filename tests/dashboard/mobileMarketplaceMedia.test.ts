@@ -24,6 +24,9 @@ import {
   resolveListingMediaStage,
 } from '@/components/dashboard/mobile-command/sections/MarketplaceSections'
 
+const DRIED_FLOWER_SRC =
+  'https://zvxdgdkukjrrwamdpqrg.supabase.co/storage/v1/object/public/marketplace-item-public/representative/v6/dried-flower.png'
+
 function listing(overrides: Partial<NormalizedListing> = {}): NormalizedListing {
   return {
     id: 'listing-123',
@@ -41,8 +44,8 @@ function listing(overrides: Partial<NormalizedListing> = {}): NormalizedListing 
       kind: 'actual',
       badgeLabel: null,
       caption: 'Approved listing image.',
-      fallbackSrc: '/marketplace/images/product-inventory.svg',
-      fallbackAltText: 'Representative cannabis product inventory image',
+      fallbackSrc: DRIED_FLOWER_SRC,
+      fallbackAltText: 'Representative dried medicinal flower in stainless sample tray with bulk pouch and amber jar',
       fallbackCaption: 'Representative category image.',
     },
     ...overrides,
@@ -78,7 +81,7 @@ describe('mobile marketplace listing media', () => {
     expect(media?.getAttribute('data-media-kind')).toBe('actual')
     expect(image?.getAttribute('src')).toBe(row.media?.src)
     expect(image?.getAttribute('alt')).toBe('Sealed EU-GMP dried flower lot prepared for export')
-    expect(image?.getAttribute('data-fallback-src')).toBe('/marketplace/images/product-inventory.svg')
+    expect(image?.getAttribute('data-fallback-src')).toBe(DRIED_FLOWER_SRC)
     expect(image?.getAttribute('loading')).toBe('lazy')
     expect(document.querySelector('.hvm2-listing-media-badge')).toBeNull()
     expect(document.body.textContent).toContain('Approved listing image.')
@@ -118,15 +121,15 @@ describe('mobile marketplace listing media', () => {
       badgeLabel: null,
     })
     expect(resolveListingMediaStage(row, 'fallback')).toEqual({
-      src: '/marketplace/images/product-inventory.svg',
-      altText: 'Representative cannabis product inventory image',
+      src: DRIED_FLOWER_SRC,
+      altText: 'Representative dried medicinal flower in stainless sample tray with bulk pouch and amber jar',
       kind: 'representative',
       badgeLabel: 'Representative image',
       caption: 'Representative category image.',
     })
     const emptyStage = resolveListingMediaStage(row, 'empty')
     expect(emptyStage?.kind).toBe('representative')
-    expect(emptyStage?.src).toBe('/marketplace/images/product-inventory.svg')
+    expect(emptyStage?.src).toBe(DRIED_FLOWER_SRC)
   })
 
   it('uses representative category image when a row has no projected media', () => {
@@ -137,7 +140,7 @@ describe('mobile marketplace listing media', () => {
     expect(media).not.toBeNull()
     expect(media?.getAttribute('data-media-kind')).toBe('representative')
     expect(image).not.toBeNull()
-    expect(image?.getAttribute('src')).toBe('/marketplace/images/product-inventory.svg')
+    expect(image?.getAttribute('src')).toBe(DRIED_FLOWER_SRC)
     expect(document.querySelector('.hvm2-listing-media-badge')?.textContent).toBe('Representative image')
     expect(media?.textContent).not.toContain('photo on inquiry')
   })
@@ -147,7 +150,7 @@ describe('mobile marketplace listing media', () => {
       const media = getRepresentativeMarketplaceMedia(tab.id)
       expect(media.kind).toBe('representative')
       expect(media.badgeLabel).toBe('Representative image')
-      expect(media.src).toMatch(/^\/marketplace\/images\/.+\.svg$/)
+      expect(media.src).toContain('/storage/v1/object/public/marketplace-item-public/representative/')
       expect(media.altText.length).toBeGreaterThan(10)
       expect(media.fallbackSrc).toBe(media.src)
     }

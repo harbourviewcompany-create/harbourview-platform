@@ -32,44 +32,45 @@ export const MARKETPLACE_MEDIA_COPY = Object.freeze({
 const REPRESENTATIVE_CAPTION = MARKETPLACE_MEDIA_COPY.representativeCaption
 const LOCKED_SUPABASE_HOST = 'zvxdgdkukjrrwamdpqrg.supabase.co'
 const PUBLIC_MARKETPLACE_STORAGE_PREFIX = '/storage/v1/object/public/marketplace-item-public/'
+const PUBLIC_MEDIA_BASE = `https://${LOCKED_SUPABASE_HOST}${PUBLIC_MARKETPLACE_STORAGE_PREFIX}`
 const HARBOURVIEW_ASSET_HOSTS = new Set(['harbourview.vercel.app', 'harbourview-platform.vercel.app', 'ourview.vercel.app'])
 const LOCAL_ASSET_PREFIXES = ['/marketplace/images/', '/images/consumables/']
 
-// Use SVG — the committed .webp files are invalid/corrupt (sub-1KB, undecodable).
+// Approved illustrative assets from PR1307 media final (public marketplace-item-public bucket).
 const REPRESENTATIVE_MEDIA: Record<MarketView, Pick<MarketplaceProjectionMedia, 'src' | 'altText' | 'caption'>> = {
   cannabis: {
-    src: '/marketplace/images/product-inventory.svg',
-    altText: 'Representative cannabis product inventory image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v6/dried-flower.png`,
+    altText: 'Representative dried medicinal flower in stainless sample tray with bulk pouch and amber jar',
     caption: REPRESENTATIVE_CAPTION,
   },
   wanted: {
-    src: '/marketplace/images/product-inventory.svg',
-    altText: 'Representative marketplace demand image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v6/dried-flower.png`,
+    altText: 'Representative marketplace demand image — dried medicinal flower product class',
     caption: REPRESENTATIVE_CAPTION,
   },
   opportunities: {
-    src: '/marketplace/images/retail-facility.svg',
-    altText: 'Representative commercial opportunity image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v5/retail-facility.png`,
+    altText: 'Representative regulated dispensary or commercial facility interior',
     caption: REPRESENTATIVE_CAPTION,
   },
   equipment: {
-    src: '/marketplace/images/extraction-equipment.svg',
-    altText: 'Representative commercial equipment image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v5/co2-extraction-system.png`,
+    altText: 'Representative commercial extraction equipment',
     caption: REPRESENTATIVE_CAPTION,
   },
   consumables: {
-    src: '/marketplace/images/packaging-pouches.svg',
-    altText: 'Representative marketplace consumables image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v2/packaging-pouches.png`,
+    altText: 'Representative child-resistant packaging pouches',
     caption: REPRESENTATIVE_CAPTION,
   },
   services: {
-    src: '/marketplace/images/advisory-services.svg',
-    altText: 'Representative professional services image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v2/advisory-services.png`,
+    altText: 'Representative professional advisory services workspace',
     caption: REPRESENTATIVE_CAPTION,
   },
   'new-products': {
-    src: '/marketplace/images/grow-lighting.svg',
-    altText: 'Representative new product image',
+    src: `${PUBLIC_MEDIA_BASE}representative/v2/grow-lighting.png`,
+    altText: 'Representative commercial horticultural LED lighting',
     caption: REPRESENTATIVE_CAPTION,
   },
 }
