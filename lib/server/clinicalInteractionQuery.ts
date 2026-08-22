@@ -1,5 +1,5 @@
 import 'server-only'
-import { createClient } from '@/lib/supabase/server'
+import { createSupabaseServiceClient } from '@/lib/supabase/server'
 import { isInspectableClinicalSource } from '@/lib/clinical/prescriber'
 import { searchInteractionFixtures } from '@/lib/fixtures/clinical/interactions'
 import type {
@@ -87,7 +87,9 @@ export async function searchClinicalInteractions(opts: {
   limit?: number
 }): Promise<ClinicalInteractionQueryResult> {
   try {
-    const supabase = await createClient()
+    // Service role: api.clinical_medication_interactions is not granted to anon.
+    // Application still filters to published + inspectable provenance only.
+    const supabase = await createSupabaseServiceClient()
     let query = supabase
       .from('clinical_medication_interactions')
       .select(
