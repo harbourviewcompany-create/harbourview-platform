@@ -10,6 +10,7 @@ import { getAdminAuthCheck } from '@/lib/auth/adminGuard'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 const FrameworkAlignmentSchema = z
   .object({
