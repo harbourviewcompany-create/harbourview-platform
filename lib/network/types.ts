@@ -14,6 +14,9 @@ export type NetworkCandidateKind = 'professional' | 'operator' | 'service_provid
 export type NetworkFitVerdict = 'meets' | 'partial' | 'blocked' | 'unknown'
 export type NetworkDataState = 'live' | 'partial' | 'empty' | 'permission_required' | 'error'
 
+/** Re-export P1-A introduction status union for DTO consumers. */
+export type { NetworkIntroductionStatus } from './introductionStatus'
+
 export type NetworkRequirementDTO = {
   id: string
   requirementType: string
@@ -110,7 +113,7 @@ export type NetworkCandidateDTO = {
   }>
   unknowns: string[]
   warnings: string[]
-  availableActions: Array<'view' | 'watch' | 'unwatch' | 'request_introduction' | 'log_interaction'>
+  availableActions: Array<'view' | 'watch' | 'unwatch' | 'request_introduction' | 'log_interaction' | 'advance_introduction'>
 }
 
 export type NetworkCoverageDTO = {

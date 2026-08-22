@@ -127,16 +127,18 @@ describe('mobile marketplace listing media', () => {
     expect(resolveListingMediaStage(row, 'empty')).toBeNull()
   })
 
-  it('preserves an accessible stable image region when a row has no projected media', () => {
+  it('preserves an accessible stable category preview when a row has no projected media', () => {
     const document = renderMarket(listing({ media: null }))
     const media = document.querySelector('.hvm2-listing-media')
     const unavailable = media?.querySelector('[role="img"]')
 
     expect(media).not.toBeNull()
     expect(media?.getAttribute('data-media-kind')).toBe('none')
-    expect(media?.textContent).toContain('Image unavailable')
+    expect(media?.getAttribute('data-market-view')).toBe('cannabis')
+    expect(media?.textContent).toContain('Cannabis')
+    expect(media?.textContent).toContain('Preview · photo on inquiry')
     expect(media?.querySelector('img')).toBeNull()
-    expect(unavailable?.getAttribute('aria-label')).toBe('Listing image unavailable')
+    expect(unavailable?.getAttribute('aria-label')).toBe('Cannabis preview — approved photo not loaded')
   })
 
   it('defines a representative fallback for every marketplace category', () => {

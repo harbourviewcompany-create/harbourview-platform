@@ -3,7 +3,19 @@ import { notFound } from 'next/navigation'
 import { PublicHero, PublicSection, SectionHeader, PublicCard, FooterCta } from '@/components/PublicUi'
 import { getPlaybook, DIFFICULTY_LABEL } from '@/lib/intelligence/jurisdictionPlaybooks'
 
-export const dynamic = 'force-dynamic'
+// ISR: reference intelligence surface
+export const revalidate = 3600
+
+/**
+ * Opts this dynamic segment into ISR. Exporting `revalidate` alone does not:
+ * an unenumerated dynamic segment stays server-rendered per request with no
+ * revalidation window. Returning no paths prerenders nothing at build time
+ * while still letting each `country` be rendered once and then cached for the
+ * window above — getPlaybook() reads via fetch() with the anon key, so this route has no request-scoped input.
+ */
+export async function generateStaticParams() {
+  return []
+}
 
 type Props = { params: Promise<{ country: string }> }
 

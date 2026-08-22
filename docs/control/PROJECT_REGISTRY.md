@@ -1,6 +1,10 @@
-Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; Vercel team ID and project ID corrected by operator confirmation 2026-06-23. Scoped residual systems catch-up 2026-07-28 (code-presence only). Phase 2 personal briefings slice started 2026-07-28. Intelligence Productization Board control doc registered 2026-08-10 (docs-only; no production verification claim).  
-Scope: GitHub, Vercel and Supabase assets visible in connected audits, plus the 2026-05-17 verified Vercel connector state recorded in Notion dispatch `DSP-10` / `HAR-16 / HAR-22`.  
+Status: Canonical registry with verified Harbourview Vercel production mapping as of 2026-05-17; Vercel team ID and project ID corrected by operator confirmation 2026-06-23. Scoped residual systems catch-up 2026-07-28 (code-presence only). Phase 2 personal briefings slice started 2026-07-28. Intelligence Productization Board control doc registered 2026-08-10 (docs-only; no production verification claim). Intelligence pipeline optimization control rows filed 2026-08-20 in `docs/control/INTEL_PIPELINE_OPTIMIZATION_REGISTRY_ROWS.md` (PR #1598; repository-only; no production application or cron change by this PR).
+Scope: GitHub, Vercel and Supabase assets visible in connected audits, plus the 2026-05-17 verified Vercel connector state recorded in Notion dispatch `DSP-10` / `HAR-16 / HAR-22`.
 Change policy: This document is a control register. It is not approval to delete, pause, merge, deploy, reconfigure domains, change branch protection, change secrets, modify Supabase, modify runtime code, modify middleware, modify auth, modify dependencies or migrate anything without a separate approved cleanup PR or operator confirmation.
+
+## Intelligence pipeline optimization — 2026-08-20 (pointer)
+
+See `docs/control/INTEL_PIPELINE_OPTIMIZATION_REGISTRY_ROWS.md` for the PR #1598 object inventory, preserved pipeline invariants, verification evidence, and unchanged active cron state. The two migrations remain unapplied to production.
 
 ## Supplier Directory
 

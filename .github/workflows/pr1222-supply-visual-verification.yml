@@ -1,9 +1,13 @@
 name: PR 1222 Supply Visual Verification
 
 on:
-  pull_request:
-    branches:
-      - main
+  # Automatic trigger removed. The job body is gated on
+  # `github.head_ref == 'feature/supply-catalog'`, a branch that has already
+  # merged, so on every other PR this only ever queued a job that immediately
+  # skipped. It also pins a specific immutable Vercel deployment URL from that
+  # PR, which will not resolve for any later change.
+  # Kept dispatchable so the supply-catalog visual capture can still be re-run
+  # deliberately; re-point VERCEL_IMMUTABLE_BASE_URL before doing so.
   workflow_dispatch:
 
 permissions:

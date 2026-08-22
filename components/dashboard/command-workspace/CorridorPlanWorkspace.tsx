@@ -12,6 +12,11 @@ import {
   getPopularCorridors,
   APPLICABLE_TRADE_JURISDICTIONS,
 } from '@/lib/intelligence/tradeCorridors'
+import { CLAIM_MAP_FIXTURES } from '@/lib/fixtures/clinical/claim-map'
+import {
+  assessClaimMapReadiness,
+  corridorEvidenceFlags,
+} from '@/lib/clinical/evidence-readiness'
 
 type PlanPayload = {
   origin: { iso2: string; name: string; difficulty: string }
@@ -67,6 +72,12 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
     if (chipMode === 'from-ca') return TRADE_CORRIDORS.filter((c) => c.from === 'CA')
     return popular
   }, [chipMode, popular])
+
+  const evidenceReadiness = useMemo(() => assessClaimMapReadiness(CLAIM_MAP_FIXTURES), [])
+  const evidenceFlags = useMemo(
+    () => corridorEvidenceFlags(CLAIM_MAP_FIXTURES, product),
+    [product],
+  )
 
   const setParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -269,6 +280,58 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
                 </button>
               </div>
             </div>
+
+            {/* Phase D — Evidence Readiness Checker (commercial orientation) */}
+            <section className="cc-corridor-block" data-testid="corridor-evidence-readiness">
+              <h4>Evidence readiness (commercial)</h4>
+              <p className="cc-corridor-muted" style={{ marginBottom: 8 }}>
+                Claim-map orientation only — not clinical advice. {evidenceReadiness.claimCount} living
+                claims · {evidenceReadiness.gapClaims} gap · {evidenceReadiness.partialClaims} partial ·{' '}
+                {evidenceReadiness.highPriorityGaps} high-priority dimension gaps.
+              </p>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+                {evidenceFlags.map((f) => (
+                  <li
+                    key={f.id}
+                    style={{
+                      borderRadius: 8,
+                      border:
+                        f.severity === 'critical'
+                          ? '1px solid rgba(248,113,113,0.35)'
+                          : f.severity === 'attention'
+                            ? '1px solid rgba(251,191,36,0.35)'
+                            : '1px solid rgba(255,255,255,0.1)',
+                      background:
+                        f.severity === 'critical'
+                          ? 'rgba(248,113,113,0.08)'
+                          : f.severity === 'attention'
+                            ? 'rgba(251,191,36,0.08)'
+                            : 'rgba(255,255,255,0.03)',
+                      padding: '8px 10px',
+                    }}
+                  >
+                    <strong style={{ fontSize: 12 }}>{f.title}</strong>
+                    <div className="cc-corridor-muted" style={{ fontSize: 11, marginTop: 2 }}>
+                      {f.detail}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {evidenceReadiness.topGaps.length > 0 && (
+                <details style={{ marginTop: 10 }}>
+                  <summary className="cc-corridor-muted" style={{ cursor: 'pointer', fontSize: 12 }}>
+                    Top framework gaps (operator triage)
+                  </summary>
+                  <ul style={{ marginTop: 6, paddingLeft: 16, fontSize: 11 }}>
+                    {evidenceReadiness.topGaps.slice(0, 5).map((g, i) => (
+                      <li key={`${g.sourceId}-${g.dimension}-${i}`} className="cc-corridor-muted">
+                        [{g.status}] {g.dimension} — {g.label.slice(0, 80)}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </section>
 
             {plan.notes.length > 0 && (
               <ul className="cc-corridor-notes">

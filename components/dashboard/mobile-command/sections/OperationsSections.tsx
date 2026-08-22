@@ -1,15 +1,13 @@
-import Link from 'next/link'
-import { JOB_LISTINGS, JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
+import { JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
 import {
   MOBILE_COMMAND_COPY,
   formatStatus,
-  type DirectoryRecord,
   type SectionId,
   type SubmissionRecord,
 } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { TalentLiveSection } from '@/components/command-centre/talent/TalentLiveSection'
 
-type TalentRecord = (typeof JOB_LISTINGS)[number]
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
 /** Structural shape of the `cc_pathway_steps` rows carried on `pathwayData.steps`. */
@@ -42,8 +40,9 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
   pathwayIsGeneric: boolean
   commandHref: CommandHref
 }) {
+  void commandHref
   return (
-    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description={MOBILE_COMMAND_COPY.jurisdictionDescription} action={<Link className="hvm2-text-link" href={commandHref('jurisdiction', { page: 'countries' })}>Country command</Link>}>
+    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description={MOBILE_COMMAND_COPY.jurisdictionDescription}>
       <article className="hvm2-jurisdiction-card">
         <div className="hvm2-jurisdiction-title"><span aria-hidden="true">{flag}</span><div><h3>{countryLabel}</h3><p>{region || 'Global regulated market'}</p></div></div>
         <p>{outlook?.trim() || pathway?.trim() || MOBILE_COMMAND_COPY.jurisdictionFallback}</p>
@@ -56,11 +55,6 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
           <div><span>Evidence</span><strong>{reviewStatus}</strong></div>
         </div>
       </article>
-      {/* The access pathway reached this surface as nothing at all: the section
-          mapped to the access-pathway page and its data was fetched, but no
-          part of it was rendered. Where a pathway exists its provenance is now
-          stated, and where none exists the absence is stated rather than left
-          as blank space. */}
       <h3 className="hvm2-subhead">{MOBILE_COMMAND_COPY.pathwayStepsTitle}</h3>
       {pathwaySteps.length > 0 ? (
         <div className="hvm2-pathway-steps" data-pathway-origin={pathwayIsGeneric ? 'generic' : 'curated'}>
@@ -94,12 +88,6 @@ export function MarketStatusSection({ sectionRef, wanted, inquiry, proofReview, 
   )
 }
 
-/**
- * Structural shape of `hv_evidence_documents` rows as they arrive on
- * `evidenceData.orgDocs`. Declared locally rather than imported from
- * `lib/dashboard/dashboardLiveData` so this presentational module does not take
- * a compile-time dependency on the data layer for four fields it only reads.
- */
 export type EvidenceDocument = {
   id: string
   display_name: string
@@ -118,20 +106,12 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, sourceC
 }) {
   return (
     <SectionShell id="review-gates" sectionRef={sectionRef} eyebrow="Review / gate status" title="Evidence and release controls" description={MOBILE_COMMAND_COPY.reviewDescription}>
-      {/* The second metric was "Data coverage", valued from
-          `countries.data_completeness` — a raw enum rendering as "Stub" /
-          "Seed" / "Partial" and inverted against the underlying data. The
-          source-lane count it used as its detail line is the part that was
-          actually measured, so it becomes the metric and the enum is gone. */}
       <div className="hvm2-gate-grid">
         <Metric label="Country review" value={reviewStatus} detail="Jurisdiction intelligence state" tone={approved ? 'ok' : 'warn'} />
         <Metric label="Source coverage" value={sourceCoverageCount} detail="Registered evidence source lanes" />
         <Metric label="Proof review" value={proofReview} detail="Marketplace records awaiting evidence" tone={proofReview > 0 ? 'warn' : 'ok'} />
         <Metric label="My submissions" value={submissionCount} detail="Private records in review workflow" />
       </div>
-      {/* `hv_evidence_documents` is empty in production, so this panel rendered
-          nothing at all and the surface read as broken rather than as new. It
-          now states what is absent and what would fill it. */}
       <h3 className="hvm2-subhead">{MOBILE_COMMAND_COPY.evidenceDocumentsTitle}</h3>
       {evidenceDocuments.length > 0 ? (
         <div className="hvm2-submission-list">
@@ -148,26 +128,36 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, sourceC
   )
 }
 
-export function DirectoriesSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: DirectoryRecord[]; commandHref: CommandHref }) {
+/**
+ * Live Talent section — fetches from /api/talent instead of static JOB_LISTINGS.
+ * Falls back to empty state when the table is empty or the API is unavailable.
+ * `records` prop kept for call-site compatibility; ignored in favour of live data.
+ */
+export function TalentSection({
+  sectionRef,
+  records: _records,
+  commandHref,
+  jurisdiction,
+}: {
+  sectionRef: SectionRef
+  records?: unknown[]
+  commandHref: CommandHref
+  jurisdiction?: string | null
+}) {
+  void commandHref
+  void _records
   return (
-    <SectionShell id="directories" sectionRef={sectionRef} eyebrow="Directories" title="Reviewed professionals, providers and operators" description={MOBILE_COMMAND_COPY.directoryDescription} action={<Link className="hvm2-text-link" href={commandHref('directories')}>Directory command</Link>}>
-      {records.length > 0 ? (
-        <div className="hvm2-horizontal-deck">
-          {records.map(item => <article className="hvm2-directory-card" key={`${item.kind}-${item.id}`}><span>{item.kind}</span><h3>{item.title}</h3><p>{item.subtitle}</p><StatusPill>{formatStatus(item.status)}</StatusPill></article>)}
-        </div>
-      ) : <EmptyState title="No reviewed directory records loaded" detail={MOBILE_COMMAND_COPY.directoryEmptyDetail} />}
+    <SectionShell
+      id="talent"
+      sectionRef={sectionRef}
+      eyebrow="Talent"
+      title="Roles and operating capability"
+      description={MOBILE_COMMAND_COPY.talentDescription}
+    >
+      <TalentLiveSection jurisdiction={jurisdiction ?? null} />
     </SectionShell>
   )
 }
 
-export function TalentSection({ sectionRef, records, commandHref }: { sectionRef: SectionRef; records: TalentRecord[]; commandHref: CommandHref }) {
-  return (
-    <SectionShell id="talent" sectionRef={sectionRef} eyebrow="Talent" title="Roles and operating capability" description={MOBILE_COMMAND_COPY.talentDescription} action={<Link className="hvm2-text-link" href={commandHref('talent')}>Jobs command</Link>}>
-      {records.length > 0 ? (
-        <div className="hvm2-horizontal-deck">
-          {records.map(job => <article className="hvm2-directory-card" key={job.id}><span>{JOB_SECTOR_LABELS[job.sector]} · {job.country}</span><h3>{job.title}</h3><p>{job.company} · {job.city}{job.remote ? ' · Remote' : ''}</p><div className="hvm2-card-meta"><span>{JOB_TYPE_LABELS[job.type]}</span>{job.salary && <span>{job.salary}</span>}</div></article>)}
-        </div>
-      ) : <EmptyState title="No talent opportunities loaded" detail={MOBILE_COMMAND_COPY.talentEmptyDetail} />}
-    </SectionShell>
-  )
-}
+// Re-export labels for any remaining consumers
+export { JOB_SECTOR_LABELS, JOB_TYPE_LABELS }

@@ -1,9 +1,11 @@
+import { EXTRA_CLINICAL_AUTHORITY_PACKS, EXTRA_CLINICAL_COUNTRY_ALIASES } from './authorityRegistry.extra'
+
 /**
  * Global clinical authority registry for medical-cannabis prescribing markets.
  * Links only — not clinical claims. Never fall back across countries.
  *
- * Full seed data is loaded from the sibling module committed on the original PR branch.
- * Temporary thin wrapper until full pack is reapplied.
+ * Authority links only — never fall back across countries. Regions without a pack
+ * return an empty list so callers show limited-coverage rather than foreign law.
  */
 
 export type ClinicalAuthorityId =
@@ -120,6 +122,7 @@ const CORE_PACKS: ClinicalAuthorityRecord[] = [
 export const CLINICAL_AUTHORITY_SEED: readonly ClinicalAuthorityRecord[] = [
   ...CANADA_PACK,
   ...CORE_PACKS,
+  ...EXTRA_CLINICAL_AUTHORITY_PACKS,
 ]
 
 export const CLINICAL_COUNTRY_ALIASES: Record<string, string> = {
@@ -144,6 +147,7 @@ export const CLINICAL_COUNTRY_ALIASES: Record<string, string> = {
   IN: 'IN', INDIA: 'IN',
   KR: 'KR', 'SOUTH KOREA': 'KR', KOREA: 'KR',
   TR: 'TR', TURKEY: 'TR', TÜRKIYE: 'TR', TURKIYE: 'TR',
+  ...EXTRA_CLINICAL_COUNTRY_ALIASES,
 }
 
 export const CLINICAL_JURISDICTION_LABELS: Record<string, string> = Object.fromEntries(

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import type { EducationCommandModule, EducationCommandResponse, EducationCommandView, EducationGoal } from '@/lib/education/command'
+import { parseEducationCountry, type EducationCommandModule, type EducationCommandResponse, type EducationCommandView, type EducationGoal } from '@/lib/education/command'
 import type { MobileCommandCentreProps } from '../props'
 import type { SectionId } from '../contracts'
 import { SectionShell, type SectionRef } from '../SectionUI'
+import { HarbourviewCard } from '@/components/ui/HarbourviewPanel'
 import styles from './EducationCommandSection.module.css'
 
 type EducationTile = MobileCommandCentreProps['eduCategories'][number] | NonNullable<MobileCommandCentreProps['liveTiles']>[number]
@@ -79,7 +80,7 @@ function Status({ state }: { state: EducationCommandModule['evidenceState'] }) {
 function ModuleCard({ module, commandHref }: { module: EducationCommandModule; commandHref: Props['commandHref'] }) {
   const verifiedDate = formatDate(module.lastReviewedAt)
   return (
-    <article className={styles.moduleCard} data-education-module={module.slug}>
+    <HarbourviewCard tone="default" className={styles.moduleCard} data-education-module={module.slug}>
       <div className={styles.cardTopline}>
         <span>{module.trackLabel}</span>
         <Status state={module.evidenceState} />
@@ -103,13 +104,13 @@ function ModuleCard({ module, commandHref }: { module: EducationCommandModule; c
         {module.goal === 'regulatory' ? <Link href={commandHref('regulatory')} className={styles.secondaryAction}>Regulatory watch</Link> : null}
         {module.goal === 'quality' ? <Link href={commandHref('compliance')} className={styles.secondaryAction}>Compliance</Link> : null}
       </div>
-    </article>
+    </HarbourviewCard>
   )
 }
 
 export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: Props) {
   const searchParams = useSearchParams()
-  const country = (searchParams.get('country') || 'CA').toUpperCase()
+  const country = parseEducationCountry(searchParams.get('country'))
   const role = searchParams.get('role')
   const selectedModuleSlug = searchParams.get('module')
   const [view, setView] = useState<EducationCommandView>(() => validView(searchParams.get('educationView')))
@@ -126,6 +127,11 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
   const load = useCallback(async (signal: AbortSignal) => {
     setLoadState('loading')
     try {
+      if (!country) {
+        setLoadState('error')
+        setData(null)
+        return
+      }
       const params = new URLSearchParams({ country })
       if (role) params.set('role', role)
       const response = await fetch(`/api/dashboard/education-command?${params.toString()}`, {
@@ -228,9 +234,13 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
         {loadState === 'error' ? (
           <div className={styles.stack} data-testid="education-error">
             <div className={styles.stateCard} role="alert">
-              <strong>Education Command could not load</strong>
-              <p>Live context is unavailable. Retry without losing the selected market or role.</p>
-              <button type="button" className={styles.primaryAction} onClick={() => setRetryNonce(value => value + 1)}>Retry</button>
+              <strong>{country ? 'Education Command could not load' : 'Select a market to load Education Command'}</strong>
+              <p>{country
+                ? 'Live context is unavailable. Retry without losing the selected market or role.'
+                : 'Education Command does not invent a default jurisdiction. Choose a country in Command, then return here.'}</p>
+              {country ? (
+                <button type="button" className={styles.primaryAction} onClick={() => setRetryNonce(value => value + 1)}>Retry</button>
+              ) : null}
             </div>
             {fallbackLibrary}
           </div>

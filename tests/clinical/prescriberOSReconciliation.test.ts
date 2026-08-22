@@ -10,6 +10,7 @@ const command = read('components/dashboard/pages/ClinicalEvidenceCommandPage.tsx
 const mobile = read('components/dashboard/mobile-command/sections/ClinicalSection.tsx')
 const explorer = read('components/dashboard/mobile-command/ClinicalEvidenceExplorer.tsx')
 const workspace = read('components/dashboard/pages/ClinicalWorkspacePage.tsx')
+const clinicalRoute = read('app/dashboard/clinical/page.tsx')
 const interactionQuery = read('lib/server/clinicalInteractionQuery.ts')
 const workspaceQuery = read('lib/server/clinicalPrescriberWorkspaceQuery.ts')
 const formularyQuery = read('lib/server/clinicalFormularyQuery.ts')
@@ -42,12 +43,17 @@ describe('Clinical Prescriber OS reconciliation', () => {
     expect(command).not.toMatch(/countryIso2\s*\|\|\s*['"]BR['"]/)
     expect(command).toContain('Jurisdiction required')
     expect(mobile).toContain('Jurisdiction required')
-    expect(workspace).toContain('Clinical does not infer or substitute a country')
+    expect(mobile).toContain('will not silently use Brazil')
   })
 
-  it('keeps Command Clinical concise and routes the complete OS to the dedicated workspace', () => {
-    expect(command).toContain('/dashboard/clinical?country=')
-    expect(mobile).toContain('/dashboard/clinical?')
+  it('keeps the full OS in-shell inside Command Clinical section', () => {
+    expect(clinicalRoute).toContain("section', 'clinical'")
+    expect(clinicalRoute).toContain('redirect')
+    expect(command).toContain("section: 'clinical'")
+    expect(mobile).toContain('ClinicalWorkspacePage')
+    expect(mobile).not.toContain('/dashboard/clinical?')
+    expect(workspace).not.toContain('embedded')
+    expect(workspace).not.toContain('← Command Clinical')
     for (const label of ['Decision', 'Evidence', 'Safety', 'Products', 'Regimen', 'Monitoring', 'Guidelines', 'Documentation', 'History']) {
       expect(workspace).toContain(`label: '${label}'`)
     }

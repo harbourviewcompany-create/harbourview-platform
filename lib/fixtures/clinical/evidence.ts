@@ -2,6 +2,9 @@
  * Harbourview Clinical — Evidence fixtures
  * Graded, reviewed records. Expand over time from primary sources.
  * Boundaries: not patient-specific advice; always show strength + limitations.
+ *
+ * frameworkAlignment is optional (Phase A). Absence means not yet mapped to the
+ * commercial evidence strategy frameworks.
  */
 
 import type { EvidenceRecord } from "@/lib/clinical/types";
@@ -31,6 +34,67 @@ export const EVIDENCE_FIXTURES: EvidenceRecord[] = [
     sourceDate: "2017-05-01",
     reviewedAt: "2026-08-15",
     jurisdictions: ["global", "US", "CA", "GB", "BR", "AU"],
+    frameworkAlignment: {
+      imdrfPillars: {
+        valid_clinical_association: {
+          status: "covered",
+          notes: "Established association between purified CBD and convulsive seizure reduction in Dravet; supported by pivotal programmes and labels.",
+        },
+        analytical_validation: {
+          status: "partial",
+          notes: "Pharmaceutical product manufacturing and assay controls apply; not a software/algorithm validation context.",
+        },
+        clinical_validation: {
+          status: "covered",
+          notes: "Pivotal RCTs demonstrated clinically meaningful reduction in convulsive seizure frequency vs placebo in target population.",
+        },
+      },
+      dtaDomains: [
+        {
+          domain: "safety",
+          ecosystem: "regulatory",
+          status: "covered",
+          notes: "Labelled AEs and monitoring (sedation, clobazam interaction) well characterised.",
+        },
+        {
+          domain: "benefit",
+          ecosystem: "regulatory",
+          status: "covered",
+          notes: "Efficacy on convulsive seizure frequency established in pivotal trials.",
+        },
+        {
+          domain: "durability",
+          ecosystem: "clinical_acceptance",
+          status: "partial",
+          notes: "Long-term developmental and durability data still accumulating.",
+        },
+        {
+          domain: "usability_accessibility",
+          ecosystem: "clinical_acceptance",
+          status: "partial",
+          notes: "Oral pharmaceutical formulation; access depends on jurisdiction and product authorisation.",
+        },
+        {
+          domain: "user_engagement",
+          ecosystem: "payment",
+          status: "missing",
+          notes: "Not a digital therapeutic; engagement metrics not applicable in the DTx sense.",
+        },
+      ],
+      dtxRwePhase: "monitor",
+      relevanceReliability: {
+        availability: "strong",
+        generalizability: "adequate",
+        accuracy: "strong",
+        completeness: "adequate",
+        provenance: "strong",
+        overallNotes:
+          "Evidence package rests on pivotal RCTs and regulatory assessments with clear provenance to primary sources.",
+      },
+      alcoaPlusComplete: true,
+      commercialStageGate: "scale",
+      commercialPriority: "high",
+    },
   },
   {
     id: "ev-lgs-cbd",

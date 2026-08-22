@@ -26,6 +26,17 @@ function statusLabel(authority: ClinicalProfessionalAuthorityDTO | null): string
   return 'Authority source unavailable'
 }
 
+function clinicalSectionHref(jurisdiction: string, roleLabel: string, q?: string) {
+  const params = new URLSearchParams({
+    section: 'clinical',
+    page: 'clinical',
+    country: jurisdiction,
+  })
+  if (roleLabel) params.set('role', roleLabel)
+  if (q) params.set('q', q)
+  return `/dashboard?${params.toString()}`
+}
+
 export default function ClinicalEvidenceCommandPage({
   countryLabel,
   countryIso2 = null,
@@ -99,7 +110,7 @@ export default function ClinicalEvidenceCommandPage({
     )
   }
 
-  const workspaceHref = `/dashboard/clinical?country=${encodeURIComponent(jurisdiction)}${roleLabel ? `&role=${encodeURIComponent(roleLabel)}` : ''}`
+  const workspaceHref = clinicalSectionHref(jurisdiction, roleLabel)
   const authority = summary?.authority ?? null
   const safetyCount = summary?.safety.length ?? 0
   const interactionCount = summary?.interactions.length ?? 0
@@ -115,7 +126,7 @@ export default function ClinicalEvidenceCommandPage({
             <p className="mt-1 text-sm text-white/55">{roleLabel || 'Professional role unresolved'} · {jurisdiction}</p>
           </div>
           <Link href={workspaceHref} className="rounded-lg border border-[#d4a853]/45 bg-[#d4a853]/10 px-3 py-2 text-xs font-semibold text-[#e4be6a]">
-            Open Clinical workspace →
+            Open Clinical section →
           </Link>
         </div>
 
@@ -138,7 +149,7 @@ export default function ClinicalEvidenceCommandPage({
           <article className="rounded-lg border border-white/8 bg-white/[0.025] p-3">
             <p className="text-[10px] uppercase tracking-[0.12em] text-white/40">Products</p>
             <p className="mt-1 text-sm font-medium text-white/85">{summary ? `${productCount} formulary record${productCount === 1 ? '' : 's'}` : summaryError ? 'Unavailable' : 'Checking…'}</p>
-            <p className="mt-1 text-xs text-white/45">Open workspace for product/regimen detail.</p>
+            <p className="mt-1 text-xs text-white/45">Open Clinical section for product/regimen detail.</p>
           </article>
         </div>
 
@@ -169,17 +180,17 @@ export default function ClinicalEvidenceCommandPage({
           </button>
         </form>
         {!answer && !loadingAnswer && (
-          <p className="mt-3 text-xs leading-5 text-white/45">No evidence answer is generated before you submit a clinical question. The complete Decision, Evidence, Safety, Products, Regimen, Monitoring, Guidelines, Documentation and History experience remains in the Clinical workspace.</p>
+          <p className="mt-3 text-xs leading-5 text-white/45">No evidence answer is generated before you submit a clinical question. The complete Decision, Evidence, Safety, Products, Regimen, Monitoring, Guidelines, Documentation and History experience remains in the Clinical Command section.</p>
         )}
         {answer && (
           <div className="mt-3 rounded-lg border border-white/8 bg-white/[0.025] p-3" data-testid="clinical-command-answer">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/45">Governed evidence · {answer.state}</p>
-              <Link href={`${workspaceHref}&q=${encodeURIComponent(answer.question)}`} className="text-xs text-[#d4a853]">Inspect in workspace →</Link>
+              <Link href={clinicalSectionHref(jurisdiction, roleLabel, answer.question)} className="text-xs text-[#d4a853]">Inspect in Clinical section →</Link>
             </div>
             <p className="mt-2 text-sm leading-6 text-white/75">{answer.answer}</p>
             {answer.citations.length > 0 && (
-              <p className="mt-2 text-xs text-white/45">{answer.citations.length} inspectable source citation{answer.citations.length === 1 ? '' : 's'} available in the workspace.</p>
+              <p className="mt-2 text-xs text-white/45">{answer.citations.length} inspectable source citation{answer.citations.length === 1 ? '' : 's'} available in Clinical section.</p>
             )}
           </div>
         )}

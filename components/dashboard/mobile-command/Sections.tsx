@@ -1,6 +1,5 @@
 export {
   OverviewSection,
-  LiveStatusSection,
   MarketIntelligenceSection,
 } from './sections/CoreSections'
 
@@ -26,7 +25,6 @@ export { NetworkSection } from './sections/NetworkCommandSection'
 export {
   MarketStatusSection,
   ReviewGatesSection,
-  DirectoriesSection,
   TalentSection,
 } from './sections/OperationsSections'
 

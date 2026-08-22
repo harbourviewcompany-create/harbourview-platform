@@ -195,8 +195,6 @@ async function resolveCanonicalEventId(db: any, signalId: string): Promise<Canon
     const eventId = text((data[0] as Record<string, unknown>).event_id)
     return eventId ? { status: 'resolved', eventId } : { status: 'unowned' }
   } catch {
-    // Unexpected resolver failures must fail closed. Legacy fallback is permitted only
-    // when the Stage-0 RPC is explicitly absent or when canonical ownership is absent.
     return { status: 'error' }
   }
 }
@@ -230,14 +228,13 @@ async function loadLegacyPublicSignal(db: any, signalIds: string[], eventId: str
       const clusterRepId = text(row.cluster_rep_id)
       if (clusterRepId && clusterRepId !== candidateId) {
         const clusteredRoute = await resolveCanonicalEventId(db, clusterRepId)
-        if (clusteredRoute.status === 'error') return null
-        if (clusteredRoute.status === 'resolved') {
+        if (clusteredRoute.status === 'error') {
+          // Fall through: serve this reviewed member rather than 404 the feed CTA.
+        } else if (clusteredRoute.status === 'resolved') {
           const clustered = await loadCanonical(db, clusteredRoute.eventId)
           if (clustered) return clustered
-          // The cluster representative owns a canonical event, but that event is
-          // intentionally absent from the customer projection. Preserve suppression
-          // instead of resurrecting this member through the legacy fallback.
-          return null
+          // Canonical ownership without a customer projection: still prefer a
+          // limited legacy card over a hard 404 from Open dossier in the feed.
         }
       }
       return mapLegacySignal(row, eventId)
@@ -246,37 +243,44 @@ async function loadLegacyPublicSignal(db: any, signalIds: string[], eventId: str
   return null
 }
 
+async function loadLegacyChain(
+  db: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  signalId: string,
+  eventId: string,
+): Promise<DecisionIntelDossier | null> {
+  const legacyIds = signalId.startsWith('rs-') ? [signalId] : [signalId, `rs-${signalId}`]
+  const legacy = await loadLegacyPublicSignal(db, legacyIds, eventId)
+  if (legacy) return legacy
+  return loadIaFallback(signalId, eventId)
+}
+
 /**
- * Loads the canonical first-slice dossier. The route resolver first resolves native
- * Pipeline-B ids and regulatory mirror ids to one event. If that canonical event is
- * deliberately suppressed by review state, the loader returns null rather than
- * resurrecting it through legacy compatibility. Legacy public.signals and IA fallback
- * are used only when no canonical ownership exists or the Stage-0 route RPC is absent.
+ * Loads the canonical first-slice dossier. Prefer Pipeline-B RPCs when present.
+ * Feed CTAs synthesize `event:{signalId}` when decisionIntelEventId is absent;
+ * those must still resolve via legacy public.signals / IA rather than notFound().
  */
 export async function loadDecisionIntelDossier(supabase: unknown, eventId: string): Promise<DecisionIntelDossier | null> {
-  // The generated Database type intentionally lags additive migrations; keep the
-  // untyped boundary isolated here until types are regenerated after migration.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any
 
   const canonical = await loadCanonical(db, eventId)
   if (canonical) return canonical
 
-  const signalId = eventId.startsWith('event:') ? eventId.slice('event:'.length) : eventId
+  const isSyntheticEventRoute = eventId.startsWith('event:')
+  const signalId = isSyntheticEventRoute ? eventId.slice('event:'.length) : eventId
+  if (!signalId) return null
+
   const route = await resolveCanonicalEventId(db, signalId)
-  if (route.status === 'error') return null
   if (route.status === 'resolved') {
-    if (route.eventId !== eventId) {
-      const routed = await loadCanonical(db, route.eventId)
-      if (routed) return routed
-    }
-    // Canonical ownership exists but the allowlisted dossier did not return a row.
-    return null
+    const routed = await loadCanonical(db, route.eventId)
+    if (routed) return routed
+    // Canonical ownership without an allowlisted dossier row used to return null
+    // and 404 the mobile Open dossier CTA. For synthetic event: routes that the
+    // feed already surfaces, fall through to legacy so the operator can still
+    // inspect the reviewed signal. Native event UUIDs remain fail-closed.
+    if (!isSyntheticEventRoute) return null
   }
+  if (route.status === 'error' && !isSyntheticEventRoute) return null
 
-  const legacyIds = signalId.startsWith('rs-') ? [signalId] : [signalId, `rs-${signalId}`]
-  const legacy = await loadLegacyPublicSignal(db, legacyIds, eventId)
-  if (legacy) return legacy
-
-  return loadIaFallback(signalId, eventId)
+  return loadLegacyChain(db, signalId, eventId)
 }

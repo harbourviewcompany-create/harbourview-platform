@@ -3,9 +3,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import {
+  planReplayContentPatches,
   planReplayExclusions,
   planReplayRelocations,
   planReplaySyntheticFoundations,
+  planReplayVersionCollisionRenames,
   planReplayZeroStateSkips,
 } from '../../scripts/prepare-production-faithful-migration-replay.mjs'
 
@@ -19,7 +21,9 @@ const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
 const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
 const relocations = planReplayRelocations({ migrationFiles })
+const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
 const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
+const contentPatches = planReplayContentPatches({ migrationFiles })
 
 test('replay handles duplicate aliases only while their repository files still exist', () => {
   for (const [aliasVersion, canonicalVersion] of [
@@ -73,12 +77,13 @@ test('every exclusion is backed by exact-live-name-different-version control evi
   }
 })
 
-test('zero-state replay skips only evidenced production-only repair and duplicate registration files', () => {
+test('zero-state replay skips only evidenced production-only, duplicate, and local-ID files', () => {
   assert.deepEqual(zeroStateSkips, [
     '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
     '20260714224152_create_intel_eval_set_stage0.sql',
     '20260714225601_expose_intel_eval_set_via_api_schema.sql',
     '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
+    '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
   ])
 
   const originalRegulatory = fs.readFileSync(path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'), 'utf8')
@@ -125,6 +130,23 @@ test('zero-state skips are suppressed when their exact historical files are abse
   )
 })
 
+test('zero-state skips the production-local cron IDs only when the by-name successor remains', () => {
+  const hardcoded = '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql'
+  const byName = '20260722185015_resolve_quality_crons_by_name.sql'
+  const planned = planReplayZeroStateSkips({ migrationFiles })
+
+  assert.ok(planned.includes(hardcoded))
+
+  const hardcodedSql = fs.readFileSync(path.join(root, 'supabase/migrations', hardcoded), 'utf8')
+  const byNameSql = fs.readFileSync(path.join(root, 'supabase/migrations', byName), 'utf8')
+  assert.match(hardcodedSql, /cron\.alter_job\(47, active => true\)/i)
+  assert.match(hardcodedSql, /cron\.alter_job\(48, active => true\)/i)
+  assert.match(byNameSql, /where jobname = 'hv-quality-pipeline'/i)
+  assert.match(byNameSql, /where jobname = 'hv-quality-promote'/i)
+  assert.match(byNameSql, /cron\.alter_job\(v_pipeline_id, active => true\)/i)
+  assert.match(byNameSql, /cron\.alter_job\(v_promote_id, active => true\)/i)
+})
+
 test('replay relocates only evidenced reconstruction files before their first dependencies', () => {
   assert.deepEqual(relocations, [
     {
@@ -137,6 +159,11 @@ test('replay relocates only evidenced reconstruction files before their first de
       destination: '20260730211140_replay_reconcile_listings_production_columns.sql',
       before: '20260730211147_create_supply_catalog_public_view.sql',
     },
+    {
+      source: '20260819100621_clinical_evidence_spine_reconcile.sql',
+      destination: '20260818212759_replay_clinical_evidence_spine_reconcile.sql',
+      before: '20260818212800_clinical_prescriber_governance_preflight.sql',
+    },
   ])
 
   const corridorSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260701230000_corridor_intelligence_tables_stub.sql'), 'utf8')
@@ -146,6 +173,20 @@ test('replay relocates only evidenced reconstruction files before their first de
   const listingsSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260730220050_reconcile_listings_production_columns.sql'), 'utf8')
   assert.match(listingsSource, /shape was established entirely outside recorded history/i)
   assert.match(listingsSource, /below is taken from the live catalog \(pg_attribute \/ pg_get_expr\), not\s*-- inferred/i)
+
+  const clinicalSource = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260819100621_clinical_evidence_spine_reconcile.sql'),
+    'utf8',
+  )
+  const clinicalPreflight = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260818212800_clinical_prescriber_governance_preflight.sql'),
+    'utf8',
+  )
+  assert.match(clinicalSource, /production-shape reconciliation/i)
+  assert.match(clinicalSource, /create table if not exists public\.clinical_evidence_snapshots/i)
+  assert.match(clinicalSource, /create table if not exists public\.clinical_grade_assessments/i)
+  assert.match(clinicalPreflight, /represented by 20260819100621_clinical_evidence_spine_reconcile\.sql/i)
+  assert.match(clinicalPreflight, /clinical prescriber os governance preflight failed/i)
 })
 
 test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {
@@ -172,9 +213,79 @@ test('replay relocation is suppressed unless source, destination boundary and or
   )
 })
 
-test('replay materializes only the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 1)
-  const [foundation] = syntheticFoundations
+test('replay disambiguates independent duplicate-version migrations without dropping any body', () => {
+  assert.deepEqual(versionCollisionRenames, [
+    {
+      source: '20260813010000_extend_supply_catalog_equipment_to_australia.sql',
+      sibling: '20260813010000_baseline_capture_pipeline_task_queue.sql',
+      destination: '20260813010001_replay_extend_supply_catalog_equipment_to_australia.sql',
+      before: '20260813020000_baseline_capture_reporting_and_triggers.sql',
+    },
+    {
+      source: '20260820120000_heatmap_conflict_freeze_seed.sql',
+      sibling: '20260820120000_clinical_pilot_local_authorities_au_gb_br.sql',
+      destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
+      before: '20260820130000_hv_pipeline_optimization.sql',
+    },
+  ])
+
+  const source = fs.readFileSync(
+    path.join(root, 'supabase/migrations', versionCollisionRenames[0].source),
+    'utf8',
+  )
+  const sibling = fs.readFileSync(
+    path.join(root, 'supabase/migrations', versionCollisionRenames[0].sibling),
+    'utf8',
+  )
+  assert.match(source, /update public\.listings/i)
+  assert.match(source, /repository-only pending/i)
+  assert.match(sibling, /create table public\.pipeline_tasks/i)
+  assert.match(sibling, /create table public\.dead_letter_tasks/i)
+
+  const heatmap = fs.readFileSync(
+    path.join(root, 'supabase/migrations', versionCollisionRenames[1].source),
+    'utf8',
+  )
+  const clinical = fs.readFileSync(
+    path.join(root, 'supabase/migrations', versionCollisionRenames[1].sibling),
+    'utf8',
+  )
+  assert.match(heatmap, /create or replace function public\.roll_up_market_access_status/i)
+  assert.match(heatmap, /rejected_conflict/i)
+  assert.match(clinical, /insert into public\.local_authorities/i)
+  assert.match(clinical, /'AU'.*'GB'.*'BR'/s)
+})
+
+test('duplicate-version replay rename fails closed unless the exact two-file collision and boundary remain', () => {
+  const source = '20260813010000_extend_supply_catalog_equipment_to_australia.sql'
+  const sibling = '20260813010000_baseline_capture_pipeline_task_queue.sql'
+  const boundary = '20260813020000_baseline_capture_reporting_and_triggers.sql'
+
+  assert.deepEqual(planReplayVersionCollisionRenames({ migrationFiles: [] }), [])
+  assert.deepEqual(planReplayVersionCollisionRenames({ migrationFiles: [source, sibling] }), [])
+  assert.equal(
+    planReplayVersionCollisionRenames({ migrationFiles: [source, sibling, boundary] }).length,
+    1,
+  )
+  assert.deepEqual(
+    planReplayVersionCollisionRenames({
+      migrationFiles: [
+        source,
+        sibling,
+        boundary,
+        '20260813010000_unexpected_third_collision.sql',
+      ],
+    }),
+    [],
+  )
+})
+
+test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
+  assert.equal(syntheticFoundations.length, 2)
+  const foundation = syntheticFoundations.find(
+    (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
+  )
+  assert.ok(foundation)
   assert.equal(foundation.destination, '20260719083305_replay_education_policy_identities.sql')
   assert.equal(foundation.before, '20260719083306_enforce_clinical_signoff_gate_in_rls.sql')
   assert.match(foundation.content, /policyname = 'education_modules_public_select'/i)
@@ -193,6 +304,52 @@ test('replay materializes only the missing education policy identities immediate
   assert.match(productionAlter, /requires_clinical_signoff = false or reviewed_by is not null/i)
 })
 
+test('replay restores pg_trgm only in the temporary workspace before similarity() is called', () => {
+  const foundation = syntheticFoundations.find(
+    (item) => item.destination === '20260719140825_replay_pg_trgm_extension.sql',
+  )
+  assert.ok(foundation)
+  assert.equal(
+    foundation.before,
+    '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+  )
+  assert.deepEqual(foundation.required, [
+    '20260719140826_stage4_dedup_near_duplicate_signals.sql',
+  ])
+  assert.match(foundation.content, /temporary production-faithful replay workspace/i)
+  assert.match(foundation.content, /create extension if not exists pg_trgm with schema extensions/i)
+
+  const dedup = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260719140826_stage4_dedup_near_duplicate_signals.sql'),
+    'utf8',
+  )
+  assert.match(dedup, /similarity\(left\(a\.headline,80\), left\(b\.headline,80\)\)/i)
+})
+
+test('pg_trgm replay foundation fails closed when its boundary is absent or already materialized', () => {
+  const boundary = '20260719140826_stage4_dedup_near_duplicate_signals.sql'
+  const destination = '20260719140825_replay_pg_trgm_extension.sql'
+
+  assert.equal(
+    planReplaySyntheticFoundations({ migrationFiles: [] }).some(
+      (item) => item.destination === destination,
+    ),
+    false,
+  )
+  assert.equal(
+    planReplaySyntheticFoundations({ migrationFiles: [boundary] }).some(
+      (item) => item.destination === destination,
+    ),
+    true,
+  )
+  assert.equal(
+    planReplaySyntheticFoundations({ migrationFiles: [boundary, destination] }).some(
+      (item) => item.destination === destination,
+    ),
+    false,
+  )
+})
+
 test('synthetic education policy foundation fails closed when its boundary or prerequisite is absent', () => {
   const boundary = '20260719083306_enforce_clinical_signoff_gate_in_rls.sql'
   const prerequisite = '20260719083250_add_clinical_signoff_gate_to_education_modules.sql'
@@ -203,4 +360,67 @@ test('synthetic education policy foundation fails closed when its boundary or pr
   assert.deepEqual(planReplaySyntheticFoundations({ migrationFiles: [prerequisite] }), [])
   assert.deepEqual(planReplaySyntheticFoundations({ migrationFiles: [prerequisite, boundary, destination] }), [])
   assert.equal(planReplaySyntheticFoundations({ migrationFiles: [prerequisite, boundary] }).length, 1)
+})
+
+test('replay hardens extant tables while guarding absent production-local staging relations', () => {
+  const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
+  assert.equal(contentPatches.length, 3)
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+
+  const replayCopy = original.replace(patch.anchor, patch.replacement)
+  assert.match(replayCopy, /to_regclass\(format\('public\.%I', t\)\) is null/i)
+  assert.match(replayCopy, /alter table public\.%I enable row level security/i)
+  assert.match(replayCopy, /revoke all on public\.%I from anon, authenticated/i)
+  assert.match(replayCopy, /'country_name_aliases'/i)
+})
+
+test('replay evaluates source_registry content_type using its reconstructed text-array type', () => {
+  const file = '20260816120000_auto_heatmap_from_signals.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  const columnMigration = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260715130000_stage1_add_content_type_to_source_registry.sql'),
+    'utf8',
+  )
+  assert.match(columnMigration, /content_type text\[\]/i)
+  assert.equal(original.includes(patch.anchor), true)
+  assert.match(patch.replacement, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
+  assert.match(patch.replacement, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
+})
+
+test('replay reconciles the legacy and Prescriber OS clinical contracts additively', () => {
+  const file = '20260818213000_clinical_prescriber_os_reconciliation.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const legacy = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260816150000_clinical_evidence_operating_system.sql'),
+    'utf8',
+  )
+  const prescriber = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.match(legacy, /No claim rows are inferred or seeded by this migration/i)
+  assert.match(legacy, /claim_key text not null/i)
+  assert.match(legacy, /statement text not null/i)
+  assert.match(prescriber, /create table if not exists public\.clinical_evidence_claims/i)
+  assert.match(prescriber, /concept_id uuid references public\.clinical_concepts/i)
+  assert.match(prescriber, /status text not null default 'review-required'/i)
+  assert.equal(prescriber.includes(patch.anchor), true)
+  assert.match(patch.replacement, /alter table public\.clinical_concepts/i)
+  assert.match(patch.replacement, /review_status = 'published' then 'active' else 'retired'/i)
+  assert.match(patch.replacement, /alter table public\.clinical_concept_aliases/i)
+  assert.match(patch.replacement, /add column if not exists claim_text text not null/i)
+  assert.match(patch.replacement, /add column if not exists primary_source_url text not null/i)
+  assert.match(patch.replacement, /alter column claim_key drop not null/i)
+  assert.match(patch.replacement, /alter column source_locator set not null/i)
+})
+
+test('production-local relation guard is suppressed when the exact migration is absent', () => {
+  assert.deepEqual(planReplayContentPatches({ migrationFiles: [] }), [])
 })

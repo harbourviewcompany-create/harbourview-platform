@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { getPublicListingsByCategory, type PublicListing } from '@/lib/server/listingsQuery'
 import { EmptyState, FooterCta, PublicCard, PublicCta, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
+// ISR: marketplace listing data
+export const revalidate = 1800
 
 export const metadata: Metadata = {
   title: 'Wanted Requests | Harbourview',

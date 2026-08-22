@@ -9,19 +9,45 @@ import { asRecord, readString } from '../contracts'
 import { EmptyState, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 
 type Signal = MobileCommandCentreProps['signals'][number]
+type PillTone = 'neutral' | 'gold' | 'ok' | 'warn'
 
-function recommendationLabel(signal: Signal) {
+type Posture = {
+  label: string
+  tone: PillTone
+}
+
+function humanizeLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function postureFor(signal: Signal): Posture | null {
   const state = signal.decisionRecommendationState
-  if (state === 'act_now') return 'Act now'
-  if (state === 'investigate') return 'Investigate'
-  if (state === 'no_action') return 'No action'
-  if (state === 'monitor') return 'Monitor'
-  return 'Open dossier'
+  if (state === 'act_now') return { label: 'Act now', tone: 'warn' }
+  if (state === 'investigate') return { label: 'Investigate', tone: 'gold' }
+  if (state === 'no_action') return { label: 'No action', tone: 'neutral' }
+  if (state === 'monitor') return { label: 'Monitor', tone: 'neutral' }
+  return null
+}
+
+function signalMarketLabel(signal: Signal): string {
+  const primary = readString(signal, ['market', 'jurisdiction', 'country'], '')
+  if (primary && !/^(global|unknown|n\/?a)$/i.test(primary)) return primary
+  const jurisdictions = Array.isArray(signal.jurisdictions) ? signal.jurisdictions : []
+  const first = jurisdictions.find(j => typeof j === 'string' && j.trim())
+  return first?.trim() || primary || 'Global'
 }
 
 function signalContextMatches(signal: Signal, countryLabel: string) {
-  const market = readString(signal, ['market', 'jurisdiction', 'country'], '')
-  return Boolean(market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0)
+  const market = signalMarketLabel(signal)
+  if (market && market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0) return true
+  const jurisdictions = Array.isArray(signal.jurisdictions) ? signal.jurisdictions : []
+  return jurisdictions.some(
+    j => typeof j === 'string' && j.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0,
+  )
 }
 
 function signalConfidence(signal: Signal) {
@@ -30,43 +56,108 @@ function signalConfidence(signal: Signal) {
   return Math.max(0, Math.min(100, Math.round(raw)))
 }
 
-function signalEvidence(signal: Signal) {
-  const source = readString(signal, ['sourceName', 'source_name', 'sourceLabel', 'source_label'], '')
-  const observed = readString(signal, ['publishedAt', 'published_at', 'observed_at', 'updated_at', 'timeAgo'], '')
-  return { source, observed }
+function formatObserved(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed)
+  if (iso) return iso[1]
+  return trimmed
 }
 
-function signalQualityBits(signal: Signal): string[] {
+function clampText(value: string, max = 180) {
+  const trimmed = value.trim()
+  if (trimmed.length <= max) return trimmed
+  return `${trimmed.slice(0, max - 1).trimEnd()}…`
+}
+
+function resolveTitles(signal: Signal) {
   const item = asRecord(signal)
-  const bits: string[] = []
-  const corr = item.corroborationCount ?? item.corroboration_count
-  if (typeof corr === 'number' && corr > 1) bits.push(`${Math.round(corr)} sources`)
+  const analysis = asRecord(item.analysis)
+  const englishTitle =
+    readString(item, ['title_en', 'headline_en'], '')
+    || readString(item, ['title', 'headline'], 'Untitled signal')
+
+  const candidates = [
+    readString(item, [
+      'title_original',
+      'original_title',
+      'headline_original',
+      'originalHeadline',
+      'title_src',
+      'source_title',
+      'headline_src',
+    ], ''),
+    readString(analysis, [
+      'original_title',
+      'title_original',
+      'source_title',
+      'headline_original',
+      'title_src',
+    ], ''),
+  ]
+
   if (item.translated === true) {
-    const lang = readString(item, ['originalLanguageLabel', 'original_language_label'], '')
-    bits.push(lang ? `via ${lang}` : 'Translated')
+    const sourceTitle = readString(item, ['title', 'headline'], '')
+    if (sourceTitle) candidates.unshift(sourceTitle)
   }
-  if (signal.verificationStatus) bits.push(`Verification ${signal.verificationStatus}`)
-  return bits
+
+  let originalLine = ''
+  for (const candidate of candidates) {
+    if (candidate && candidate !== englishTitle) {
+      originalLine = candidate
+      break
+    }
+  }
+
+  return { englishTitle, originalLine }
 }
 
-function displayList(label: string, values?: string[]) {
-  if (!values?.length) return null
-  return <p><strong>{label}:</strong> {values.join(' · ')}</p>
+function buildImplication(signal: Signal, englishTitle: string): string {
+  const analysis = asRecord(asRecord(signal).analysis)
+  const what = readString(analysis, ['what_changed'], '')
+  const who = readString(analysis, ['who_is_affected'], '')
+  const action = readString(analysis, ['recommended_action'], '')
+  const impact = (signal.commercialImpact || '').trim()
+
+  const parts: string[] = []
+  if (what) parts.push(what)
+  if (who && who.toLowerCase() !== what.toLowerCase()) parts.push(who)
+  if (action && !parts.some(p => p.toLowerCase().includes(action.toLowerCase().slice(0, 24)))) {
+    parts.push(action)
+  }
+
+  let line = parts.join(' · ').trim()
+  if (!line && impact && impact !== englishTitle) line = impact
+  if (!line) return ''
+  return clampText(line, 200)
 }
 
-function imageStatusLabel(status?: string) {
-  if (!status || status === 'not_applicable') return ''
-  if (status === 'source_page_contains_image_not_ingested') return 'Image available at source'
-  if (status === 'not_captured') return 'Image not captured'
-  return status.replace(/_/g, ' ')
+function buildMetaChips(signal: Signal): string[] {
+  const chips: string[] = []
+  const confidence = signalConfidence(signal)
+  if (confidence != null) chips.push(`${confidence}% confidence`)
+
+  const source = readString(signal, ['sourceName', 'source_name', 'sourceLabel', 'source_label'], '')
+  if (source) chips.push(source)
+
+  const observed = formatObserved(
+    readString(signal, ['publishedAt', 'published_at', 'observed_at', 'updated_at', 'timeAgo'], ''),
+  )
+  if (observed) chips.push(observed)
+
+  const corr = asRecord(signal).corroborationCount ?? asRecord(signal).corroboration_count
+  if (typeof corr === 'number' && corr > 1 && chips.length < 3) {
+    chips.push(`${Math.round(corr)} sources`)
+  }
+
+  if (asRecord(signal).translated === true && chips.length < 3) {
+    const lang = readString(asRecord(signal), ['originalLanguageLabel', 'original_language_label'], '')
+    chips.push(lang ? `via ${lang}` : 'Translated')
+  }
+
+  return chips.slice(0, 3)
 }
 
-/**
- * Canonical mobile signal renderer after the #1402 reconciliation.
- * Keeps Decision Intelligence dossier routing from current main while exposing
- * only the explicit authenticated presentation fields projected by
- * /api/dashboard/signals. Raw analysis/provenance payloads are never rendered.
- */
 export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access }: {
   sectionRef: SectionRef
   signals: Signal[]
@@ -89,103 +180,107 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
     <SectionShell
       id="weekly-signals"
       sectionRef={sectionRef}
-      eyebrow="Intel / material changes"
-      title="Intelligence requiring a decision"
-      description="Jurisdiction matches for the active context appear first. Open supported events for evidence, unknowns and a reasoned decision posture."
+      eyebrow="Intel"
+      title="Weekly signals"
+      description="Jurisdiction matches first. Open a dossier for evidence and unknowns."
     >
       {orderedSignals.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">
-          {orderedSignals.map(({ signal, contextual }) => {
-            const analysis = asRecord(asRecord(signal).analysis)
-            const whatChanged = signal.summary
-              || readString(analysis, ['what_changed'], readString(signal, ['commercialImpact', 'commercial_impact'], ''))
-            const recommendedAction = readString(analysis, ['recommended_action'], '')
-            const market = readString(signal, ['market', 'jurisdiction', 'country'], 'Global')
-            const confidence = signalConfidence(signal)
-            const evidence = signalEvidence(signal)
-            const quality = signalQualityBits(signal)
-            const imageStatus = imageStatusLabel(signal.image?.status)
-            const hasSafeEvidenceDetails = Boolean(
-              signal.jurisdictions?.length
-              || signal.counterparties?.length
-              || signal.facilities?.length
-              || signal.licencesCertifications?.length
-              || signal.products?.length
-              || signal.marketAccess?.length
-              || signal.verifiedFacts?.length
-              || signal.inferences?.length
-              || signal.transactionStage
-              || imageStatus,
-            )
+          {orderedSignals.map(({ signal, contextual }, listIndex) => {
+            const { englishTitle, originalLine } = resolveTitles(signal)
+            const implication = buildImplication(signal, englishTitle)
+            const summaryFallback = !implication
+              ? clampText(
+                  signal.summary
+                  || (signal.commercialImpact && signal.commercialImpact !== englishTitle
+                    ? signal.commercialImpact
+                    : ''),
+                  180,
+                )
+              : ''
+            const market = signalMarketLabel(signal)
+            const meta = buildMetaChips(signal)
+            const posture = postureFor(signal)
             const isEditorial = signal.contentType === 'editorial'
             const isPublishedDigest = signal.sourceLabel === 'Harbourview Daily'
             const isLegacyStory = signal.signalContentType === 'story' || signal.signalContentType === 'research'
             const canSynthesizeLegacyRoute = !isEditorial && !isPublishedDigest && !isLegacyStory
-            const dossierEventId = signal.decisionIntelEventId ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
+            const dossierEventId = signal.decisionIntelEventId
+              ?? (canSynthesizeLegacyRoute && signal.id ? `event:${signal.id}` : undefined)
             const hasDossier = Boolean(dossierEventId)
             const dossierHref = hasDossier
               ? `/dashboard/intel/events/${encodeURIComponent(dossierEventId!)}?returnTo=${encodeURIComponent(returnTo)}`
               : null
+            const isPrimary = listIndex === 0
+            const typeRaw = readString(signal, ['type', 'tag.label'], '')
+            const typeLabel = typeRaw ? humanizeLabel(typeRaw) : ''
 
             const article = (
-              <article className="hvm2-intel-signal-card">
+              <article className={`hvm2-intel-signal-card${isPrimary ? ' hvm2-intel-primary' : ''}`}>
                 <div className="hvm2-card-topline">
-                  <StatusPill>{hasDossier ? recommendationLabel(signal) : readString(signal, ['type'], 'Signal')}</StatusPill>
-                  <span>{market}</span>
+                  <div className="hvm2-intel-topline-left">
+                    {posture ? (
+                      <StatusPill tone={posture.tone}>{posture.label}</StatusPill>
+                    ) : typeLabel ? (
+                      <StatusPill>{typeLabel}</StatusPill>
+                    ) : null}
+                    {!contextual ? (
+                      <StatusPill tone="neutral">Broader watch</StatusPill>
+                    ) : null}
+                  </div>
+                  <span className="hvm2-intel-market">{market}</span>
                 </div>
-                <div className="hvm2-intel-context-row">
-                  <StatusPill tone={contextual ? 'ok' : 'neutral'}>{contextual ? 'Context match' : 'Broader watch'}</StatusPill>
-                  {!contextual ? <small>No direct {countryLabel} match is recorded in this signal&apos;s jurisdiction metadata.</small> : null}
-                </div>
-                <h3>{readString(signal, ['title_en', 'headline_en', 'title'], 'Untitled signal')}</h3>
-                {whatChanged ? <p>{whatChanged}</p> : <p className="hvm2-intel-unknown">Change summary not recorded in the loaded signal.</p>}
-                <div className="hvm2-intel-meta-row">
-                  {confidence != null ? <span>Confidence {confidence}%</span> : <span>Confidence Unknown</span>}
-                  {quality.map(bit => <span key={bit}>{bit}</span>)}
-                  {evidence.source ? <span>Source {evidence.source}</span> : <span>Source Unknown</span>}
-                  {evidence.observed ? <span>{evidence.observed}</span> : null}
-                </div>
-                {signal.commercialImpact && signal.commercialImpact !== whatChanged ? (
-                  <div className="hvm2-intel-action"><span>Commercial implication</span><p>{signal.commercialImpact}</p></div>
+
+                <h3>{englishTitle}</h3>
+                {originalLine ? <p className="hvm2-intel-original">{originalLine}</p> : null}
+
+                {implication ? (
+                  <p className="hvm2-intel-implication">{implication}</p>
+                ) : summaryFallback ? (
+                  <p className="hvm2-intel-summary">{summaryFallback}</p>
                 ) : null}
-                {recommendedAction ? <div className="hvm2-intel-action"><span>Action</span><p>{recommendedAction}</p></div> : null}
-                {hasSafeEvidenceDetails ? (
-                  <div className="hvm2-note hvm2-signal-evidence-details" aria-label="Evidence and market-access details">
-                    {signal.transactionStage ? <p><strong>Stage:</strong> {signal.transactionStage}</p> : null}
-                    {displayList('Jurisdictions', signal.jurisdictions)}
-                    {displayList('Counterparties', signal.counterparties)}
-                    {displayList('Facilities', signal.facilities)}
-                    {displayList('Licences / certifications', signal.licencesCertifications)}
-                    {displayList('Products', signal.products)}
-                    {displayList('Market access', signal.marketAccess)}
-                    {imageStatus ? <p><strong>Image:</strong> {imageStatus}</p> : null}
-                    {displayList('Verified facts', signal.verifiedFacts)}
-                    {displayList('Inference', signal.inferences)}
+
+                {meta.length > 0 ? (
+                  <div className="hvm2-intel-meta-row" aria-label="Signal metadata">
+                    {meta.map(bit => <span key={bit}>{bit}</span>)}
                   </div>
                 ) : null}
-                {hasDossier ? <div className="hvm2-signal-footer"><strong>{canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}</strong></div> : null}
+
+                {hasDossier ? (
+                  <div className="hvm2-signal-footer">
+                    <strong className="hvm2-intel-cta">
+                      {canOpenDossiers ? 'Open dossier →' : 'Upgrade to Intel →'}
+                    </strong>
+                  </div>
+                ) : null}
               </article>
             )
 
-            const key = readString(signal, ['id'], `${market}-${readString(signal, ['title'], 'signal')}`)
+            const key = readString(signal, ['id'], `${market}-${englishTitle}`)
             if (dossierHref) {
               return (
                 <Link
-                  className="hvm2-signal-card hvm2-intel-event-row"
+                  className="hvm2-intel-event-link"
                   key={key}
                   href={canOpenDossiers ? dossierHref : '/account/upgrade'}
-                  aria-label={canOpenDossiers ? `Open intelligence dossier: ${readString(signal, ['title'], 'signal')}` : `Upgrade to Intel to open intelligence dossier: ${readString(signal, ['title'], 'signal')}`}
-                  style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}
+                  aria-label={
+                    canOpenDossiers
+                      ? `Open intelligence dossier: ${englishTitle}`
+                      : `Upgrade to Intel to open intelligence dossier: ${englishTitle}`
+                  }
                 >
                   {article}
                 </Link>
               )
             }
-            return <div className="hvm2-signal-card hvm2-intel-event-row" key={key}>{article}</div>
+            return <div className="hvm2-intel-event-link" key={key}>{article}</div>
           })}
         </div>
       ) : (
-        <EmptyState title="No reviewed signals loaded" detail="The intelligence surface is available, but no current signal records are loaded for review." />
+        <EmptyState
+          title="No reviewed signals for this context"
+          detail="Nothing is loaded for the active jurisdiction yet. Switch market, or wait for the next reviewed promotion cycle."
+        />
       )}
     </SectionShell>
   )

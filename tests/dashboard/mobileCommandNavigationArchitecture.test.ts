@@ -23,9 +23,9 @@ describe('mobile Command information architecture', () => {
       'clinical',
       'compliance',
       'education',
-      'directories',
       'network',
     ]))
+    expect(SECTION_GROUPS.overview).not.toEqual(expect.arrayContaining(['directories']))
     expect(SECTION_GROUPS.marketplace).not.toEqual(expect.arrayContaining(['genetics', 'talent', 'clinical']))
   })
 
@@ -35,7 +35,7 @@ describe('mobile Command information architecture', () => {
     expect(PAGE_TO_SECTION.jobs).toBe('talent')
     expect(PAGE_TO_SECTION.clinical).toBe('clinical')
     expect(PAGE_TO_SECTION.compliance).toBe('compliance')
-    expect(PAGE_TO_SECTION.experts).toBe('directories')
+    expect(PAGE_TO_SECTION.experts).toBe('network')
   })
 
   it('assigns every grouped section to exactly one persistent destination', () => {

@@ -1,3 +1,4 @@
+import { resolveMarketCountryIso2 } from '@/lib/market/marketCode'
 import {
   CLINICAL_AUTHORITY_SEED,
   CLINICAL_COUNTRY_ALIASES,
@@ -25,14 +26,18 @@ export const CANADA_CLINICAL_AUTHORITIES: readonly ClinicalAuthorityRecord[] =
   CLINICAL_AUTHORITY_SEED.filter(a => a.countryIso2 === 'CA')
 
 export function normalizeClinicalCountryIso2(raw: string | null | undefined): string | null {
-  const key = raw?.trim().toUpperCase()
-  if (!key) return null
+  if (!raw?.trim()) return null
+  // Subdivision codes (US-KS, CA-ON) resolve to the parent country.
+  const fromMarket = resolveMarketCountryIso2(raw)
+  if (fromMarket) return fromMarket
+  const key = raw.trim().toUpperCase()
   return CLINICAL_COUNTRY_ALIASES[key] ?? (key.length === 2 ? key : null)
 }
 
 export function clinicalJurisdictionLabel(iso2: string | null): string {
-  if (!iso2) return 'Unknown jurisdiction'
-  return CLINICAL_JURISDICTION_LABELS[iso2] ?? iso2
+  if (!iso2) return 'Select jurisdiction'
+  const key = iso2.trim().toUpperCase()
+  return CLINICAL_JURISDICTION_LABELS[key] ?? CLINICAL_JURISDICTION_LABELS[normalizeClinicalCountryIso2(key) ?? ''] ?? key
 }
 
 export function countryIso2FromCommandHref(commandHref: string): string | null {

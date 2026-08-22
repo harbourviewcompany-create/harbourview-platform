@@ -1,0 +1,85 @@
+name: P0-P2 Pipeline Canonical Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/20260820130000_hv_pipeline_optimization.sql'
+      - 'supabase/migrations/20260820131000_hv_review_queue_resolve.sql'
+      - 'supabase/migrations/20260821100000_p0_p2_canonical_finish.sql'
+      - 'tests/sql/pr1598_pipeline_optimization_dry_run.sql'
+      - 'tests/sql/p0_p2_canonical_finish_dry_run.sql'
+      - 'tests/supabase/pr1598PipelineOptimization.test.ts'
+      - 'tests/supabase/p0p2CanonicalFinish.test.ts'
+      - '.github/workflows/pr1598-pipeline-optimization-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-p2-pipeline-canonical-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  postgres-17:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Replay and verify repaired PR1598 migrations
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/pr1598_pipeline_optimization_dry_run.sql
+      - name: Replay and verify canonical P0-P2 finish
+        run: |
+          createdb p0p2_finish
+          PGDATABASE=p0p2_finish psql -X -v ON_ERROR_STOP=1 -f tests/sql/p0_p2_canonical_finish_dry_run.sql
+
+  exact-head-node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies from lockfile
+        run: npm ci
+      - name: Targeted P0-P2 contracts
+        run: npx vitest run tests/supabase/pr1598PipelineOptimization.test.ts tests/supabase/p0p2CanonicalFinish.test.ts
+      - name: Typecheck exact head
+        run: npm run typecheck
+      - name: Next.js build exact head
+        run: npm run build

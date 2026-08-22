@@ -4,8 +4,8 @@ import { getLatestDailyDigest, formatDigestDateLabel } from '@/lib/harbourview/d
 import type { HvDigestHeadlineDto, HvEditorialHeadlineDto, HvDigestPriorityDomain } from '@/lib/harbourview/dto'
 import { PublicCard, PublicHero, PublicSection, SectionHeader } from '@/components/PublicUi'
 
-// Force dynamic rendering — page fetches live Supabase data at request time
-export const dynamic = 'force-dynamic'
+// ISR: daily digest — short window
+export const revalidate = 900
 
 export const metadata: Metadata = {
   title: 'Daily Cannabis Intelligence Briefing — Regulatory & Market Headlines',

@@ -6,7 +6,6 @@ export { MOBILE_COMMAND_COPY }
 
 export type SectionId =
   | 'overview'
-  | 'live-status'
   | 'market-intelligence'
   | 'marketplace'
   | 'supply'
@@ -18,7 +17,6 @@ export type SectionId =
   | 'jurisdiction'
   | 'market-status'
   | 'review-gates'
-  | 'directories'
   | 'talent'
   | 'genetics'
   | 'clinical'
@@ -103,7 +101,6 @@ export const PRIMARY_NAV: NavDestination[] = [
 
 const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   overview: { id: 'overview', label: 'Command', icon: '◎' },
-  'live-status': { id: 'live-status', label: 'Operating state', icon: '◷' },
   'market-intelligence': { id: 'market-intelligence', label: 'Market intelligence', icon: '≈' },
   marketplace: { id: 'marketplace', label: 'Marketplace control', icon: '⊞' },
   supply: { id: 'supply', label: 'Supply', icon: '▤' },
@@ -115,7 +112,6 @@ const SECTION_NAV_BY_ID: Record<SectionId, NavDestination> = {
   jurisdiction: { id: 'jurisdiction', label: 'Jurisdiction', icon: '◉' },
   'market-status': { id: 'market-status', label: 'Marketplace status', icon: '◫' },
   'review-gates': { id: 'review-gates', label: 'Review gates', icon: '◆' },
-  directories: { id: 'directories', label: 'Directories', icon: '⊚' },
   talent: { id: 'talent', label: 'Talent', icon: '✦' },
   genetics: { id: 'genetics', label: 'Genetics', icon: '⊕' },
   clinical: { id: 'clinical', label: 'Clinical', icon: '⚕' },
@@ -132,7 +128,6 @@ export const SECTION_NAV: NavDestination[] = Object.values(SECTION_NAV_BY_ID)
 
 export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   overview: 'briefing',
-  'live-status': 'briefing',
   'market-intelligence': 'prices',
   marketplace: 'marketplace',
   supply: 'marketplace',
@@ -144,7 +139,6 @@ export const SECTION_TO_DESKTOP_PAGE: Record<SectionId, CommandPage> = {
   jurisdiction: 'access-pathway',
   'market-status': 'marketplace',
   'review-gates': 'evidence',
-  directories: 'experts',
   talent: 'jobs',
   genetics: 'genetics',
   clinical: 'clinical',
@@ -177,7 +171,7 @@ export const PAGE_TO_SECTION: Partial<Record<CommandPage, SectionId>> = {
   clinical: 'clinical',
   compliance: 'compliance',
   licences: 'compliance',
-  experts: 'directories',
+  experts: 'network',
   banking: 'financing',
   'trade-calc': 'financing',
   insurance: 'financing',
@@ -199,13 +193,11 @@ export type PrimarySectionId =
 export const SECTION_GROUPS: Record<PrimarySectionId, SectionId[]> = {
   overview: [
     'overview',
-    'live-status',
     'genetics',
     'talent',
     'clinical',
     'compliance',
     'education',
-    'directories',
     'network',
     'jurisdiction',
     'settings',
@@ -230,6 +222,25 @@ export const SECTION_TO_GROUP: Record<SectionId, PrimarySectionId> = (() => {
 })()
 
 export const SECTION_IDS = new Set<SectionId>(SECTION_NAV.map(section => section.id))
+
+/** Retired mobile sections — keep deep links working without flashing overview. */
+export const LEGACY_SECTION_REMAP: Record<string, SectionId> = {
+  directories: 'network',
+  'live-status': 'overview',
+}
+
+/** Resolve ?section= to a live SectionId (canonical, legacy remap, or fallback). */
+export function resolveMobileSectionId(
+  raw: string | null | undefined,
+  fallback: SectionId = 'overview',
+): SectionId {
+  if (!raw) return fallback
+  if (SECTION_IDS.has(raw as SectionId)) return raw as SectionId
+  const remapped = LEGACY_SECTION_REMAP[raw]
+  if (remapped) return remapped
+  return fallback
+}
+
 export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'wanted-intake',
   'supply-intake',

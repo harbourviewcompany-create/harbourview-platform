@@ -292,10 +292,11 @@ export function ComplianceSection({ sectionRef, regulatoryTier, outlook, playboo
   pathway?: string | null
   commandHref: CommandHref
 }) {
+  void commandHref
   const sourcingNote = playbookSourcing.trim()
 
   return (
-    <SectionShell id="compliance" sectionRef={sectionRef} eyebrow="Compliance" title="Regulatory and quality control" description={MOBILE_COMMAND_COPY.complianceDescription} action={<Link className="hvm2-text-link" href={commandHref('compliance')}>Compliance command</Link>}>
+    <SectionShell id="compliance" sectionRef={sectionRef} eyebrow="Compliance" title="Regulatory and quality control" description={MOBILE_COMMAND_COPY.complianceDescription}>
       <div className="hvm2-compliance-grid">
         <article><span>Regulatory tier</span><strong>{formatStatus(regulatoryTier)}</strong><p>{outlook || MOBILE_COMMAND_COPY.complianceOutlookFallback}</p></article>
         <article><span>Access pathway</span><strong>{formatStatus(marketAccessStatus)}</strong><p>{pathway || MOBILE_COMMAND_COPY.compliancePathwayFallback}</p></article>
@@ -303,26 +304,6 @@ export function ComplianceSection({ sectionRef, regulatoryTier, outlook, playboo
       <div className="hvm2-sourcing-note" data-sourcing={sourcingNote ? 'recorded' : 'absent'}>
         <strong>{MOBILE_COMMAND_COPY.playbookSourcingTitle}</strong>
         <p>{sourcingNote || MOBILE_COMMAND_COPY.playbookSourcingAbsent}</p>
-      </div>
-    </SectionShell>
-  )
-}
-
-export function NetworkSection({ sectionRef, professionalCount, providerCount, operatorCount, collaborationCount, commandHref }: {
-  sectionRef: SectionRef
-  professionalCount: number
-  providerCount: number
-  operatorCount: number
-  collaborationCount: number
-  commandHref: CommandHref
-}) {
-  return (
-    <SectionShell id="network" sectionRef={sectionRef} eyebrow="Network" title="Reviewed commercial network" description={MOBILE_COMMAND_COPY.networkDescription} action={<Link className="hvm2-text-link" href={commandHref('network')}>Network command</Link>}>
-      <div className="hvm2-metric-grid">
-        <Metric label="Professionals" value={professionalCount} detail="Reviewed professional records" />
-        <Metric label="Service providers" value={providerCount} detail="Approved capability records" />
-        <Metric label="Licensed operators" value={operatorCount} detail="Operator records in context" />
-        <Metric label="Collaborations" value={collaborationCount} detail="Controlled project opportunities" />
       </div>
     </SectionShell>
   )

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: 'Apply to join the verified Harbourview cannabis medicine professionals directory. For physicians, pharmacists, researchers, and regulatory specialists in regulated markets.',
 }
 
-export const dynamic = 'force-dynamic'
+// Static: no server data on this page — the form is a client component.
 
 export default function ProfessionalApplyPage() {
   return (
