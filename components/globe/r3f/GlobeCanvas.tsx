@@ -15,6 +15,8 @@ import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
 import { CountryGlobeLabel } from './CountryGlobeLabel'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
 import { DataVizLayer } from './DataVizLayer'
+import { HeatDensityLayer } from './HeatDensityLayer'
+import { GlobeHeatEffects } from './GlobeHeatEffects'
 import { useGlobe } from '../GlobeProvider'
 import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
 import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
@@ -39,11 +41,6 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   return null
 }
 
-/**
- * Accumulates OrbitControls azimuth while auto-rotating so the intro completes
- * after a real ~360° turn (not only a wall-clock estimate).
- * Also eases autoRotateSpeed in the final orbit fraction for a settled stop.
- */
 function IntroOrbitTracker({
   active,
   controlsRef,
@@ -197,6 +194,7 @@ export function GlobeCanvas({
   const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
+  const [heatBoost, setHeatBoost] = useState(0)
   const spinElapsedMsRef = useRef(0)
   const azimuthAccumRadRef = useRef(0)
   const lastRevealStepRef = useRef(-1)
@@ -253,6 +251,10 @@ export function GlobeCanvas({
     },
     [onSelectCountry, interactionLocked],
   )
+
+  const handleHeatBoost = useCallback((boost: number) => {
+    setHeatBoost(boost)
+  }, [])
 
   const tryAdvanceFromSpin = useCallback(() => {
     if (introPhase !== 'spinning') return
@@ -320,6 +322,17 @@ export function GlobeCanvas({
       ? GLOBE_CAMERA_CONFIG.autoRotateSpeed * 2.4
       : GLOBE_CAMERA_CONFIG.autoRotateSpeed
 
+  // Heat only when explicitly enabled, intro ready, and not force-fallback.
+  // Landing already uses CSS fallback on low-end; this guards in-canvas path.
+  const heatEnabled =
+    featureFlags.globeHeatmap &&
+    !featureFlags.globeForceFallback &&
+    introPhase === 'ready'
+  const atmosphereBoost =
+    heatEnabled && featureFlags.globeHeatAtmosphere && !prefersReducedMotion ? heatBoost : 0
+  const bloomEnabled =
+    heatEnabled && featureFlags.globeHeatBloom && !prefersReducedMotion
+
   return (
     <div
       className={className ?? 'absolute inset-0 pointer-events-none'}
@@ -327,6 +340,7 @@ export function GlobeCanvas({
       data-globe-intro={introPhase}
       data-globe-force-gold={forceGold ? 'true' : 'false'}
       data-globe-tier-blend={tierBlend.toFixed(3)}
+      data-globe-heatmap={heatEnabled ? 'true' : 'false'}
     >
       <Canvas
         className="h-full w-full pointer-events-auto"
@@ -357,7 +371,7 @@ export function GlobeCanvas({
           <Stars radius={30} depth={10} count={3500} factor={1.2} saturation={0} fade speed={0} />
 
           <group rotation={[0.08, 0.3, 0]}>
-            <AtmosphereGlow />
+            <AtmosphereGlow heatBoost={atmosphereBoost} />
             <OceanSphere />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
@@ -372,7 +386,16 @@ export function GlobeCanvas({
               onSelectCountry={handleSelectCountry}
             />
             {introPhase === 'ready' ? (
-              <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
+              heatEnabled ? (
+                <HeatDensityLayer
+                  countries={liveData.countries}
+                  signalsByIso2={liveData.signalsByIso2}
+                  prefersReducedMotion={prefersReducedMotion}
+                  onHeatBoost={handleHeatBoost}
+                />
+              ) : (
+                <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
+              )
             ) : null}
             <CountryBorderLayer />
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
@@ -382,6 +405,7 @@ export function GlobeCanvas({
             routerStep={routerStep}
             controlsRef={controlsRef as RefObject<CameraFlyOrbitControlsLike | null>}
           />
+          <GlobeHeatEffects enabled={bloomEnabled} />
         </Suspense>
 
         <AutoRotateInvalidator active={shouldAutoRotate} />
