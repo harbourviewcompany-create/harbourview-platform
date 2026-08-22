@@ -50,6 +50,7 @@ const css = `
   .logo-sub{font-size:10px;color:#4A5E80;margin-top:2px;letter-spacing:.1em;}
   .nav{flex:1;padding:10px 0;overflow-y:auto;}
   .nav-group{padding:8px 18px 4px;font-size:9px;font-weight:600;letter-spacing:.15em;color:#2A3A5C;text-transform:uppercase;}
+  a.nav-item{text-decoration:none;color:inherit;}
   .nav-item{display:flex;align-items:center;gap:10px;padding:8px 18px;font-size:12.5px;color:#6A7E9B;cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:color .15s,background .15s;border-left:2px solid transparent;}
   .nav-item:hover{color:#D4C9B8;background:#0D1527;}
   .nav-item.active{color:#C9A84C;background:#0D1527;border-left-color:#C9A84C;}
