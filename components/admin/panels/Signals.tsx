@@ -93,21 +93,20 @@ export function Signals({ api, toast }) {
   const patchMany = async (ids, body) => {
     if (!ids.length) return
     setBusy(true)
-    let ok = 0
-    let fail = 0
-    for (const id of ids) {
-      try {
-        await api.patch('signals', `id=eq.${id}`, body)
-        ok++
-      } catch {
-        fail++
+    try {
+      // Chunk to stay under bulk_patch max 500
+      const chunk = 200
+      let total = 0
+      for (let i = 0; i < ids.length; i += chunk) {
+        const slice = ids.slice(i, i + chunk)
+        await api.patchBulk('signals', slice, body)
+        total += slice.length
       }
+      toast?.({ type: 'success', text: `Updated ${total} signal(s)` })
+    } catch (e) {
+      toast?.({ type: 'error', text: e.message || 'Bulk update failed' })
     }
     setBusy(false)
-    toast?.({
-      type: fail ? 'error' : 'success',
-      text: `Updated ${ok}${fail ? `, failed ${fail}` : ''}`,
-    })
     await load()
   }
 
