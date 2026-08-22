@@ -20,7 +20,16 @@ export function Actions({ api, toast }) {
       setRunning(r => ({...r, [key]: false}));
     }
   };
+  const runAutonomy = async () => {
+    const res = await fetch('/api/admin/ops-autonomy/run', { method: 'POST' })
+    const data = await res.json()
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Autonomy failed')
+    return data.result
+  }
+
   const actions = [
+    {key:"autonomy",title:"Run ops autonomy (no human review)",desc:"Auto-reject OOS signals/staging, auto-approve HIGH/URGENT in-scope, country coverage tick + enrichment queue",fn:()=>runAutonomy()},
+
     {key:"promote",title:"Promote Extracted Snapshots",desc:"promote_all_extracted_snapshots()",fn:()=>api.rpc("promote_all_extracted_snapshots")},
     {key:"ingest",title:"Ingest Staging Batch",desc:"hv_ingest_snapshot_to_staging()",fn:()=>api.rpc("hv_ingest_snapshot_to_staging",{p_batch_size:400,p_workspace_id:WS_ID})},
     {key:"extract",title:"Run Signal Extraction",desc:"hv_extract_signals_from_captured_text()",fn:()=>api.rpc("hv_extract_signals_from_captured_text",{p_batch_size:400})},
