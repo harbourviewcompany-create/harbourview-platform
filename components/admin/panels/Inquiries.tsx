@@ -74,18 +74,34 @@ export function Inquiries({ api, toast }) {
   }
 
   const setReview = async (id, review_status) => {
+    const snapshot = rows
+    setRows((r) => r.map((x) => (x.id === id ? { ...x, review_status } : x)))
+    if (detail && detail.id === id) setDetail({ ...detail, review_status })
     try {
       await api.patch('marketplace_inquiries', `id=eq.${id}`, { review_status })
-      setRows((r) => r.map((x) => (x.id === id ? { ...x, review_status } : x)))
       toast?.({ type: 'success', text: `→ ${review_status}` })
     } catch (e) {
-      toast?.({ type: 'error', text: e.message })
+      setRows(snapshot)
+      if (detail && detail.id === id) {
+        const prev = snapshot.find((x) => x.id === id)
+        if (prev) setDetail(prev)
+      }
+      toast?.({ type: 'error', text: e.message || 'Update failed — reverted' })
     }
   }
 
   const bulk = async (review_status) => {
     const ids = [...selected]
     if (!ids.length) return
+    const idSet = new Set(ids)
+    const snapshot = rows
+    setRows((prev) =>
+      prev.map((r) => (idSet.has(r.id) ? { ...r, review_status } : r)),
+    )
+    setSelected(new Set())
+    if (detail && idSet.has(detail.id)) {
+      setDetail({ ...detail, review_status })
+    }
     setBusy(true)
     try {
       const chunk = 200
@@ -96,11 +112,12 @@ export function Inquiries({ api, toast }) {
         total += slice.length
       }
       toast?.({ type: 'success', text: `${total} → ${review_status}` })
+      load()
     } catch (e) {
-      toast?.({ type: 'error', text: e.message || 'Bulk update failed' })
+      setRows(snapshot)
+      toast?.({ type: 'error', text: e.message || 'Bulk update failed — reverted' })
     }
     setBusy(false)
-    await load()
   }
 
   return (
