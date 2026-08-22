@@ -188,7 +188,7 @@ show timezone;
 select current_timestamp, current_date;
 ```
 
-Require `TimeZone = UTC`. Any other effective database/cron timezone is HOLD until the accounting-day semantics are explicitly reconciled.
+Require the effective database/cron timezone to be UTC. Any non-UTC accounting day is HOLD until the budget-day semantics are explicitly reconciled.
 
 Capture only the two relevant cron jobs by exact jobname:
 
@@ -201,19 +201,29 @@ order by jobname;
 
 Require exactly one row for each jobname. Preserve both command hashes. This release may change only schedule and active state; it must not rewrite command bodies.
 
-Capture current budget state:
+Capture current stage budget state:
 
 ```sql
 select stage, budget_date, calls_used, daily_ceiling
 from public.hv_dispatch_budget
 order by stage;
+```
 
+First check whether the aggregate table exists:
+
+```sql
+select to_regclass('public.hv_pipeline_cost_budget') as aggregate_budget_table;
+```
+
+If it exists, capture it:
+
+```sql
 select budget_date, dispatch_units, hard_cap, updated_at
 from public.hv_pipeline_cost_budget
 where budget_date = current_date;
 ```
 
-The aggregate table may be absent before `20260821100000` in a valid earlier resume state. Its existence with removed-PR columns is HOLD.
+If it is absent before `20260821100000`, record `absent` as expected for that valid resume state. If it exists before `20260821100000`, its schema must pass the object/remnant gate in section 2; removed-PR columns are HOLD.
 
 Capture current HNSW indexes:
 
@@ -368,7 +378,12 @@ select
   p.prosecdef,
   pg_get_userbyid(p.proowner) as owner,
   p.proconfig,
-  has_function_privilege('PUBLIC', p.oid, 'EXECUTE') as public_execute,
+  exists (
+    select 1
+    from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    where a.grantee = 0
+      and a.privilege_type = 'EXECUTE'
+  ) as public_execute,
   has_function_privilege('anon', p.oid, 'EXECUTE') as anon_execute,
   has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute,
   has_function_privilege('service_role', p.oid, 'EXECUTE') as service_role_execute
@@ -377,7 +392,7 @@ left join pg_proc p on p.oid = to_regprocedure(f.sig)
 order by f.sig;
 ```
 
-Required browser result: `PUBLIC`, `anon` and `authenticated` must not have EXECUTE on the internal P0–P2 SECURITY DEFINER RPCs. Service-role execution must match the explicit canonical grants; do not broaden it to make a smoke pass.
+Required browser result: direct/effective `PUBLIC`, `anon` and `authenticated` EXECUTE must be false for the internal P0–P2 SECURITY DEFINER RPCs. Service-role execution must match the explicit canonical grants; do not broaden it to make a smoke pass.
 
 ### Gate snapshot
 
