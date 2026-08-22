@@ -2,43 +2,21 @@
 
 /**
  * HeatDensityLayer — continuous spherical density heatmap.
- *
- * - Equirect density texture from lib/globe/heat-density.ts
- * - Shader: color ramp + soft altitude + emissive + subtle breathe
- * - Quality / reduced-motion: lower res, zero altitude, no breathe
- * - Reports global heat boost via onHeatBoost for AtmosphereGlow
+ * Texture build is owned by useHeatDensityTexture (worker + throttle + reuse).
  */
 
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import {
-  Color,
-  DataTexture,
-  LinearFilter,
-  Mesh,
-  RedFormat,
-  ShaderMaterial,
-  SphereGeometry,
-  SRGBColorSpace,
-} from 'three'
+import { Color, Mesh, ShaderMaterial, SphereGeometry } from 'three'
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
-import {
-  HEAT_CONFIG,
-  HEAT_RESOLUTION,
-  type HeatQuality,
-  buildHeatPoints,
-  computeDensityField,
-  densityToUint8,
-  meanTopHeat,
-  resolveHeatQuality,
-} from '@/lib/globe/heat-density'
+import { HEAT_CONFIG, HEAT_RESOLUTION, type HeatQuality, resolveHeatQuality } from '@/lib/globe/heat-density'
+import { useHeatDensityTexture } from '@/lib/globe/useHeatDensityTexture'
 
 type HeatDensityLayerProps = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
   intensity?: number
   prefersReducedMotion?: boolean
-  /** Optional override; otherwise resolved from motion / deviceMemory. */
   quality?: HeatQuality
   onHeatBoost?: (boost: number) => void
 }
@@ -137,38 +115,34 @@ export function HeatDensityLayer({
   const meshRef = useRef<Mesh>(null)
   const matRef = useRef<ShaderMaterial | null>(null)
 
-  const quality = qualityProp ?? resolveHeatQuality({ prefersReducedMotion })
+  const quality =
+    qualityProp ?? resolveHeatQuality({ prefersReducedMotion })
   const res = HEAT_RESOLUTION[quality]
   const maxAltitude = prefersReducedMotion || quality === 'low' ? 0 : HEAT_CONFIG.maxAltitude
   const breathe = prefersReducedMotion || quality === 'low' ? 0 : 1
 
-  const { texture, geometry, boost } = useMemo(() => {
-    const points = buildHeatPoints(countries, signalsByIso2)
-    const field = computeDensityField(points, res.width, res.height)
-    const data = densityToUint8(field)
-    const boostValue = meanTopHeat(points)
-
-    const tex = new DataTexture(data, res.width, res.height, RedFormat)
-    tex.colorSpace = SRGBColorSpace
-    tex.minFilter = LinearFilter
-    tex.magFilter = LinearFilter
-    tex.needsUpdate = true
-    tex.flipY = false
-
-    const geo = new SphereGeometry(1, res.segmentsW, res.segmentsH)
-    return { texture: tex, geometry: geo, boost: boostValue }
-  }, [countries, signalsByIso2, res.width, res.height, res.segmentsW, res.segmentsH])
+  const { texture, boost, ready } = useHeatDensityTexture({
+    countries,
+    signalsByIso2,
+    prefersReducedMotion,
+    quality,
+  })
 
   useEffect(() => {
     onHeatBoost?.(boost)
   }, [boost, onHeatBoost])
 
+  // Geometry only depends on quality segment counts — not on data weights
+  const geometry = useMemo(
+    () => new SphereGeometry(1, res.segmentsW, res.segmentsH),
+    [res.segmentsW, res.segmentsH],
+  )
+
   useEffect(() => {
     return () => {
-      texture.dispose()
       geometry.dispose()
     }
-  }, [texture, geometry])
+  }, [geometry])
 
   const material = useMemo(() => {
     const mat = new ShaderMaterial({
@@ -194,23 +168,24 @@ export function HeatDensityLayer({
     })
     matRef.current = mat
     return mat
-  }, [texture, intensity, maxAltitude, breathe])
+  }, []) // stable material; uniforms patched below
 
   useEffect(() => {
-    if (matRef.current) {
-      matRef.current.uniforms.uHeatInfluence.value = intensity
-      matRef.current.uniforms.uMaxAltitude.value = maxAltitude
-      matRef.current.uniforms.uBreathe.value = breathe
-    }
-  }, [intensity, maxAltitude, breathe])
+    const mat = matRef.current
+    if (!mat) return
+    mat.uniforms.uDensityMap.value = texture
+    mat.uniforms.uHeatInfluence.value = intensity
+    mat.uniforms.uMaxAltitude.value = maxAltitude
+    mat.uniforms.uBreathe.value = breathe
+  }, [texture, intensity, maxAltitude, breathe])
 
   useFrame((state) => {
-    if (!matRef.current) return
-    if (breathe > 0.5) {
-      matRef.current.uniforms.uTime.value = state.clock.elapsedTime
-      state.invalidate()
-    }
+    if (!matRef.current || breathe < 0.5) return
+    matRef.current.uniforms.uTime.value = state.clock.elapsedTime
+    state.invalidate()
   })
+
+  if (!ready || !texture) return null
 
   return (
     <mesh

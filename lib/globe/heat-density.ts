@@ -1,8 +1,9 @@
 /**
  * lib/globe/heat-density.ts
  *
- * Spherical Gaussian KDE density field for the globe heat overlay.
- * Event-driven (data load / throttled realtime) — not per-frame.
+ * Spherical Gaussian KDE for the globe heat overlay.
+ * Heavy compute is intended to run in heat-density.worker.ts; this module
+ * remains the shared pure API for tests and main-thread fallback.
  */
 
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
@@ -19,23 +20,15 @@ export const HEAT_RESOLUTION: Record<
   low: { width: 256, height: 128, segmentsW: 48, segmentsH: 32 },
 }
 
+/** Min ms between density rebuilds on realtime churn. */
+export const HEAT_REBUILD_THROTTLE_MS = 1500
+
 export const HEAT_CONFIG = {
-  /** Default quality for desktop when motion is allowed. */
   defaultQuality: 'medium' as HeatQuality,
-
-  /** Angular bandwidth of each Gaussian kernel (degrees). */
   bandwidthDeg: 3.2,
-
-  /** Max altitude of heat surface above plate top (world units). */
   maxAltitude: 0.14,
-
-  /** Plate-surface radius — must stay in sync with DataVizLayer / plates. */
   surfaceRadius: 2.35 + PLATE_LIFT + IDLE_EXTRUSION,
-
-  /** Soft floor so zero-activity areas stay almost invisible. */
   densityFloor: 0.04,
-
-  /** Saturation multiplier before color mapping (dampens outliers). */
   saturation: 0.85,
 } as const
 
@@ -45,10 +38,6 @@ export type HeatPoint = {
   weight: number
 }
 
-/**
- * Convert live data into weighted points.
- * weight = max(opportunityScore/100, signalCount/10) clamped 0–1.
- */
 export function buildHeatPoints(
   countries: GlobeCountryMarker[],
   signalsByIso2: Record<string, GlobeSignal[]>,
@@ -65,7 +54,16 @@ export function buildHeatPoints(
     .filter((p) => p.weight > 0.02)
 }
 
-/** Mean of the top quartile of point weights — drives atmosphere heat boost (0–1). */
+/** Stable fingerprint so identical weight sets skip rebuild. */
+export function heatPointsFingerprint(points: HeatPoint[]): string {
+  if (points.length === 0) return 'empty'
+  // Quantize to avoid float noise thrashing the throttle key
+  return points
+    .map((p) => `${p.lat.toFixed(2)},${p.lng.toFixed(2)},${p.weight.toFixed(3)}`)
+    .sort()
+    .join('|')
+}
+
 export function meanTopHeat(points: HeatPoint[]): number {
   if (points.length === 0) return 0
   const weights = points.map((p) => p.weight).sort((a, b) => b - a)
@@ -75,7 +73,6 @@ export function meanTopHeat(points: HeatPoint[]): number {
   return Math.min(1, sum / n)
 }
 
-/** Great-arc angular distance in degrees (haversine). */
 function angularDistanceDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const toRad = Math.PI / 180
   const dLat = (lat2 - lat1) * toRad
@@ -86,10 +83,6 @@ function angularDistanceDeg(lat1: number, lng1: number, lat2: number, lng2: numb
   return (2 * Math.asin(Math.min(1, Math.sqrt(a))) * 180) / Math.PI
 }
 
-/**
- * Generate a single-channel density field (Float32, 0–1).
- * Length = width * height.
- */
 export function computeDensityField(
   points: HeatPoint[],
   width: number,
@@ -112,8 +105,7 @@ export function computeDensityField(
       for (const p of points) {
         const d = angularDistanceDeg(lat, lng, p.lat, p.lng)
         if (d > cutoff) continue
-        const g = invNorm * Math.exp(-(d * d) / twoSigmaSq)
-        sum += g * p.weight
+        sum += invNorm * Math.exp(-(d * d) / twoSigmaSq) * p.weight
       }
       field[y * width + x] = sum
     }
@@ -131,24 +123,31 @@ export function computeDensityField(
   return field
 }
 
-/** Pack Float32 density into Uint8Array for DataTexture (R channel). */
-export function densityToUint8(field: Float32Array): Uint8Array {
-  const out = new Uint8Array(field.length)
+export function densityToUint8(field: Float32Array, out?: Uint8Array): Uint8Array {
+  const dest = out && out.length === field.length ? out : new Uint8Array(field.length)
   for (let i = 0; i < field.length; i++) {
-    out[i] = Math.round(Math.min(1, Math.max(0, field[i])) * 255)
+    dest[i] = Math.round(Math.min(1, Math.max(0, field[i])) * 255)
   }
-  return out
+  return dest
 }
 
-/** Resolve quality from motion preference / coarse device heuristic. */
+/**
+ * Align with GlobeSameScreenRouterLanding performance protection:
+ * cores <= 2 or deviceMemory <= 2 → low (landing would use static fallback;
+ * if interactive path still mounts, heat must stay cheapest).
+ */
 export function resolveHeatQuality(opts: {
   prefersReducedMotion: boolean
   forceLow?: boolean
 }): HeatQuality {
   if (opts.prefersReducedMotion || opts.forceLow) return 'low'
+
   if (typeof navigator !== 'undefined') {
-    const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
-    if (typeof mem === 'number' && mem > 0 && mem <= 4) return 'low'
+    const cores = navigator.hardwareConcurrency ?? 4
+    const mem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
+    if (cores <= 2 || mem <= 2) return 'low'
+    if (cores <= 4 || mem <= 4) return 'medium'
   }
+
   return HEAT_CONFIG.defaultQuality
 }

@@ -3,6 +3,7 @@ import {
   buildHeatPoints,
   computeDensityField,
   densityToUint8,
+  heatPointsFingerprint,
   meanTopHeat,
   resolveHeatQuality,
   type HeatPoint,
@@ -39,10 +40,8 @@ describe('buildHeatPoints', () => {
       })),
     }
     const points = buildHeatPoints(countries, signals)
-    const de = points.find((p) => p.lat === 51.1)
-    const us = points.find((p) => p.lat === 39)
-    expect(de?.weight).toBeCloseTo(0.8, 5)
-    expect(us?.weight).toBeCloseTo(0.8, 5) // 8/10 signals
+    expect(points.find((p) => p.lat === 51.1)?.weight).toBeCloseTo(0.8, 5)
+    expect(points.find((p) => p.lat === 39)?.weight).toBeCloseTo(0.8, 5)
   })
 
   it('drops near-zero and invalid coords', () => {
@@ -51,6 +50,26 @@ describe('buildHeatPoints', () => {
       marker({ iso2: 'YY', lat: 0, lng: 0, opportunityScore: 1 }),
     ]
     expect(buildHeatPoints(countries, {})).toHaveLength(0)
+  })
+})
+
+describe('heatPointsFingerprint', () => {
+  it('is stable under reordering', () => {
+    const a: HeatPoint[] = [
+      { lat: 1, lng: 2, weight: 0.5 },
+      { lat: 3, lng: 4, weight: 0.9 },
+    ]
+    const b: HeatPoint[] = [
+      { lat: 3, lng: 4, weight: 0.9 },
+      { lat: 1, lng: 2, weight: 0.5 },
+    ]
+    expect(heatPointsFingerprint(a)).toBe(heatPointsFingerprint(b))
+  })
+
+  it('changes when weight changes', () => {
+    const a: HeatPoint[] = [{ lat: 1, lng: 2, weight: 0.5 }]
+    const b: HeatPoint[] = [{ lat: 1, lng: 2, weight: 0.6 }]
+    expect(heatPointsFingerprint(a)).not.toBe(heatPointsFingerprint(b))
   })
 })
 
@@ -66,7 +85,6 @@ describe('meanTopHeat', () => {
       { lat: 0, lng: 2, weight: 0.25 },
       { lat: 0, lng: 3, weight: 0.1 },
     ]
-    // top 25% of 4 = 1 value → 1
     expect(meanTopHeat(points)).toBeCloseTo(1, 5)
   })
 })
@@ -75,24 +93,22 @@ describe('computeDensityField', () => {
   it('peaks near a single high-weight point', () => {
     const points: HeatPoint[] = [{ lat: 0, lng: 0, weight: 1 }]
     const field = computeDensityField(points, 64, 32)
-    // equirect: lat 0 → mid row, lng 0 → mid col
     const midY = Math.floor(32 / 2)
     const midX = Math.floor(64 / 2)
-    const peak = field[midY * 64 + midX]
-    const corner = field[0]
-    expect(peak).toBeGreaterThan(corner)
-    expect(peak).toBeGreaterThan(0.2)
+    expect(field[midY * 64 + midX]).toBeGreaterThan(field[0])
+    expect(field[midY * 64 + midX]).toBeGreaterThan(0.2)
   })
 
   it('returns zeros for empty points', () => {
-    const field = computeDensityField([], 16, 8)
-    expect(field.every((v) => v === 0)).toBe(true)
+    expect(computeDensityField([], 16, 8).every((v) => v === 0)).toBe(true)
   })
 })
 
 describe('densityToUint8', () => {
-  it('maps 0–1 to 0–255', () => {
-    const out = densityToUint8(new Float32Array([0, 0.5, 1, 1.5, -0.1]))
+  it('maps 0–1 to 0–255 and reuses buffer', () => {
+    const buf = new Uint8Array(5)
+    const out = densityToUint8(new Float32Array([0, 0.5, 1, 1.5, -0.1]), buf)
+    expect(out).toBe(buf)
     expect([...out]).toEqual([0, 128, 255, 255, 0])
   })
 })
@@ -102,7 +118,7 @@ describe('resolveHeatQuality', () => {
     expect(resolveHeatQuality({ prefersReducedMotion: true })).toBe('low')
   })
 
-  it('defaults to medium when motion allowed', () => {
-    expect(resolveHeatQuality({ prefersReducedMotion: false, forceLow: false })).toBe('medium')
+  it('forces low when forceLow is set', () => {
+    expect(resolveHeatQuality({ prefersReducedMotion: false, forceLow: true })).toBe('low')
   })
 })
