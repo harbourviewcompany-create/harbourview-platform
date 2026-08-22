@@ -2,9 +2,6 @@
  * Harbourview Clinical — Evidence fixtures
  * Graded, reviewed records. Expand over time from primary sources.
  * Boundaries: not patient-specific advice; always show strength + limitations.
- *
- * frameworkAlignment is optional (Phase A). Absence means not yet mapped to the
- * commercial evidence strategy frameworks.
  */
 
 import type { EvidenceRecord } from "@/lib/clinical/types";
@@ -35,65 +32,26 @@ export const EVIDENCE_FIXTURES: EvidenceRecord[] = [
     reviewedAt: "2026-08-15",
     jurisdictions: ["global", "US", "CA", "GB", "BR", "AU"],
     frameworkAlignment: {
-      imdrfPillars: {
-        valid_clinical_association: {
-          status: "covered",
-          notes: "Established association between purified CBD and convulsive seizure reduction in Dravet; supported by pivotal programmes and labels.",
-        },
-        analytical_validation: {
-          status: "partial",
-          notes: "Pharmaceutical product manufacturing and assay controls apply; not a software/algorithm validation context.",
-        },
-        clinical_validation: {
-          status: "covered",
-          notes: "Pivotal RCTs demonstrated clinically meaningful reduction in convulsive seizure frequency vs placebo in target population.",
-        },
-      },
-      dtaDomains: [
-        {
-          domain: "safety",
-          ecosystem: "regulatory",
-          status: "covered",
-          notes: "Labelled AEs and monitoring (sedation, clobazam interaction) well characterised.",
-        },
-        {
-          domain: "benefit",
-          ecosystem: "regulatory",
-          status: "covered",
-          notes: "Efficacy on convulsive seizure frequency established in pivotal trials.",
-        },
-        {
-          domain: "durability",
-          ecosystem: "clinical_acceptance",
-          status: "partial",
-          notes: "Long-term developmental and durability data still accumulating.",
-        },
-        {
-          domain: "usability_accessibility",
-          ecosystem: "clinical_acceptance",
-          status: "partial",
-          notes: "Oral pharmaceutical formulation; access depends on jurisdiction and product authorisation.",
-        },
-        {
-          domain: "user_engagement",
-          ecosystem: "payment",
-          status: "missing",
-          notes: "Not a digital therapeutic; engagement metrics not applicable in the DTx sense.",
-        },
+      imdrfPillars: ["clinical_association", "clinical_validation"],
+      dtaDomains: ["clinical_evidence", "product_design"],
+      dtaEcosystem: ["clinician_facing", "regulator_facing"],
+      dtxRwePhases: ["development", "launch", "post_market"],
+      commercialStageGates: ["label_support", "payer_dossier", "scale_corridor"],
+      fdaRweRelevanceReliability: "relevant_reliable",
+      alcoaPlus: [
+        "attributable",
+        "legible",
+        "contemporaneous",
+        "original",
+        "accurate",
+        "complete",
+        "consistent",
+        "enduring",
+        "available",
       ],
-      dtxRwePhase: "monitor",
-      relevanceReliability: {
-        availability: "strong",
-        generalizability: "adequate",
-        accuracy: "strong",
-        completeness: "adequate",
-        provenance: "strong",
-        overallNotes:
-          "Evidence package rests on pivotal RCTs and regulatory assessments with clear provenance to primary sources.",
-      },
-      alcoaPlusComplete: true,
-      commercialStageGate: "scale",
-      commercialPriority: "high",
+      operatorNotes:
+        "High-certainty purified CBD Dravet programme; maps cleanly to clinical validation and label-support stage-gates. Non-SaMD clinical reference only.",
+      frameworkMappedAt: "2026-08-20",
     },
   },
   {
@@ -116,6 +74,28 @@ export const EVIDENCE_FIXTURES: EvidenceRecord[] = [
     sourceDate: "2018-01-01",
     reviewedAt: "2026-08-15",
     jurisdictions: ["global", "US", "CA", "GB", "BR", "AU"],
+    frameworkAlignment: {
+      imdrfPillars: ["clinical_association", "clinical_validation"],
+      dtaDomains: ["clinical_evidence"],
+      dtaEcosystem: ["clinician_facing", "regulator_facing"],
+      dtxRwePhases: ["development", "launch", "post_market"],
+      commercialStageGates: ["label_support", "payer_dossier", "scale_corridor"],
+      fdaRweRelevanceReliability: "relevant_reliable",
+      alcoaPlus: [
+        "attributable",
+        "legible",
+        "contemporaneous",
+        "original",
+        "accurate",
+        "complete",
+        "consistent",
+        "enduring",
+        "available",
+      ],
+      operatorNotes:
+        "LGS purified CBD pivotal programme; strong clinical validation mapping. Non-SaMD reference posture.",
+      frameworkMappedAt: "2026-08-20",
+    },
   },
   {
     id: "ev-ms-spasticity",
@@ -137,6 +117,26 @@ export const EVIDENCE_FIXTURES: EvidenceRecord[] = [
     sourceDate: "2011-01-01",
     reviewedAt: "2026-08-15",
     jurisdictions: ["global", "CA", "GB", "EU", "AU"],
+    frameworkAlignment: {
+      imdrfPillars: ["clinical_association", "clinical_validation"],
+      dtaDomains: ["clinical_evidence", "usability_accessibility"],
+      dtaEcosystem: ["clinician_facing", "payer_facing"],
+      dtxRwePhases: ["launch", "post_market", "lifecycle"],
+      commercialStageGates: ["scale_corridor", "payer_dossier", "post_market_rwe"],
+      fdaRweRelevanceReliability: "relevant_limited",
+      alcoaPlus: [
+        "attributable",
+        "legible",
+        "original",
+        "accurate",
+        "complete",
+        "enduring",
+        "available",
+      ],
+      operatorNotes:
+        "Nabiximols-class MS spasticity; moderate certainty, enrichment designs. Suitable for scale-corridor and payer dossier with limitations disclosed.",
+      frameworkMappedAt: "2026-08-20",
+    },
   },
   {
     id: "ev-cinv-thc",
@@ -176,6 +176,24 @@ export const EVIDENCE_FIXTURES: EvidenceRecord[] = [
     sourceDate: "2023-01-01",
     reviewedAt: "2026-08-10",
     jurisdictions: ["global", "CA", "AU", "GB", "DE", "BR"],
+    frameworkAlignment: {
+      imdrfPillars: ["clinical_association"],
+      dtaDomains: ["clinical_evidence"],
+      dtaEcosystem: ["clinician_facing"],
+      dtxRwePhases: ["discovery", "development"],
+      commercialStageGates: ["pre_clinical_ref", "pilot_corridor"],
+      fdaRweRelevanceReliability: "relevant_limited",
+      alcoaPlus: [
+        "attributable",
+        "legible",
+        "accurate",
+        "consistent",
+        "available",
+      ],
+      operatorNotes:
+        "Heterogeneous products; low–moderate certainty. Supports pilot corridor and pre-clinical reference only; not label-support grade.",
+      frameworkMappedAt: "2026-08-20",
+    },
   },
   {
     id: "ev-cbd-hepatic",
