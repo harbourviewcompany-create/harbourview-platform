@@ -68,7 +68,6 @@ jobs:
             psql --version
             exit 0
           fi
-          # Prefer binary tarball over apt (apt often stalls on GH runners).
           curl -fsSL -o /tmp/psql-client.tgz \
             "https://github.com/nicklasaven/psql-static/releases/download/v16.3/psql-16.3-linux-x86_64.tar.gz" \
             || true
@@ -187,7 +186,8 @@ jobs:
           psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
             select coalesce(regulatory_tier, 'null') || '=' || count(*)::text
             from public.countries
-            group by 1 order by 1;
+            group by regulatory_tier
+            order by 1;
           " | tee artifacts/before-distribution.txt
 
           psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
@@ -398,7 +398,8 @@ jobs:
           psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
             select coalesce(regulatory_tier, 'null') || '=' || count(*)::text
             from public.countries
-            group by 1 order by 1;
+            group by regulatory_tier
+            order by 1;
           " | tee artifacts/after-distribution.txt
 
           psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
