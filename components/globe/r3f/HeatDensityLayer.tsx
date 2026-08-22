@@ -115,8 +115,7 @@ export function HeatDensityLayer({
   const meshRef = useRef<Mesh>(null)
   const matRef = useRef<ShaderMaterial | null>(null)
 
-  const quality =
-    qualityProp ?? resolveHeatQuality({ prefersReducedMotion })
+  const quality = qualityProp ?? resolveHeatQuality({ prefersReducedMotion })
   const res = HEAT_RESOLUTION[quality]
   const maxAltitude = prefersReducedMotion || quality === 'low' ? 0 : HEAT_CONFIG.maxAltitude
   const breathe = prefersReducedMotion || quality === 'low' ? 0 : 1
@@ -132,7 +131,6 @@ export function HeatDensityLayer({
     onHeatBoost?.(boost)
   }, [boost, onHeatBoost])
 
-  // Geometry only depends on quality segment counts — not on data weights
   const geometry = useMemo(
     () => new SphereGeometry(1, res.segmentsW, res.segmentsH),
     [res.segmentsW, res.segmentsH],
@@ -149,7 +147,7 @@ export function HeatDensityLayer({
       vertexShader: VERT,
       fragmentShader: FRAG,
       uniforms: {
-        uDensityMap: { value: texture },
+        uDensityMap: { value: null },
         uColorLow: { value: new Color('#0a1628') },
         uColorMid: { value: new Color('#1a7a5c') },
         uColorHot: { value: new Color('#e8c547') },
@@ -168,7 +166,13 @@ export function HeatDensityLayer({
     })
     matRef.current = mat
     return mat
-  }, []) // stable material; uniforms patched below
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      material.dispose()
+    }
+  }, [material])
 
   useEffect(() => {
     const mat = matRef.current

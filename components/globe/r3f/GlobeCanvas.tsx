@@ -322,11 +322,16 @@ export function GlobeCanvas({
       ? GLOBE_CAMERA_CONFIG.autoRotateSpeed * 2.4
       : GLOBE_CAMERA_CONFIG.autoRotateSpeed
 
-  const heatActive = featureFlags.globeHeatmap && introPhase === 'ready'
+  // Heat only when explicitly enabled, intro ready, and not force-fallback.
+  // Landing already uses CSS fallback on low-end; this guards in-canvas path.
+  const heatEnabled =
+    featureFlags.globeHeatmap &&
+    !featureFlags.globeForceFallback &&
+    introPhase === 'ready'
   const atmosphereBoost =
-    heatActive && featureFlags.globeHeatAtmosphere && !prefersReducedMotion ? heatBoost : 0
+    heatEnabled && featureFlags.globeHeatAtmosphere && !prefersReducedMotion ? heatBoost : 0
   const bloomEnabled =
-    heatActive && featureFlags.globeHeatBloom && !prefersReducedMotion
+    heatEnabled && featureFlags.globeHeatBloom && !prefersReducedMotion
 
   return (
     <div
@@ -335,7 +340,7 @@ export function GlobeCanvas({
       data-globe-intro={introPhase}
       data-globe-force-gold={forceGold ? 'true' : 'false'}
       data-globe-tier-blend={tierBlend.toFixed(3)}
-      data-globe-heatmap={heatActive ? 'true' : 'false'}
+      data-globe-heatmap={heatEnabled ? 'true' : 'false'}
     >
       <Canvas
         className="h-full w-full pointer-events-auto"
@@ -381,7 +386,7 @@ export function GlobeCanvas({
               onSelectCountry={handleSelectCountry}
             />
             {introPhase === 'ready' ? (
-              featureFlags.globeHeatmap ? (
+              heatEnabled ? (
                 <HeatDensityLayer
                   countries={liveData.countries}
                   signalsByIso2={liveData.signalsByIso2}

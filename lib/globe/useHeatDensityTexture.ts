@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { useThree } from '@react-three/fiber'
 import { DataTexture, LinearFilter, RedFormat, SRGBColorSpace } from 'three'
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
 import {
@@ -48,6 +49,7 @@ export function useHeatDensityTexture(opts: {
   prefersReducedMotion?: boolean
   quality?: HeatQuality
 }): HeatDensityTextureState {
+  const { invalidate } = useThree()
   const quality =
     opts.quality ??
     resolveHeatQuality({ prefersReducedMotion: opts.prefersReducedMotion ?? false })
@@ -63,10 +65,14 @@ export function useHeatDensityTexture(opts: {
   const reqIdRef = useRef(0)
   const lastFingerprintRef = useRef<string>('')
   const lastBuildAtRef = useRef(0)
-  const pendingPointsRef = useRef<ReturnType<typeof buildHeatPoints> | null>(null)
+  const pendingRef = useRef<{
+    points: ReturnType<typeof buildHeatPoints>
+    quality: HeatQuality
+    width: number
+    height: number
+  } | null>(null)
   const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Own the worker for this hook instance
   useEffect(() => {
     workerRef.current = createWorker()
     return () => {
@@ -83,22 +89,27 @@ export function useHeatDensityTexture(opts: {
     const fp = `${quality}:${res.width}x${res.height}:${heatPointsFingerprint(points)}`
     if (fp === lastFingerprintRef.current) return
 
-    const runBuild = (pts: typeof points) => {
-      lastFingerprintRef.current = fp
+    const runBuild = (
+      pts: ReturnType<typeof buildHeatPoints>,
+      q: HeatQuality,
+      width: number,
+      height: number,
+    ) => {
+      const buildFp = `${q}:${width}x${height}:${heatPointsFingerprint(pts)}`
+      lastFingerprintRef.current = buildFp
       lastBuildAtRef.current = Date.now()
       setBoost(meanTopHeat(pts))
 
-      const applyUint8 = (data: Uint8Array, width: number, height: number) => {
-        // Reuse buffer storage when size matches
+      const applyUint8 = (data: Uint8Array, w: number, h: number) => {
         if (!bufferRef.current || bufferRef.current.length !== data.length) {
           bufferRef.current = new Uint8Array(data.length)
         }
         bufferRef.current.set(data)
 
         let tex = textureRef.current
-        if (!tex || tex.image.width !== width || tex.image.height !== height) {
+        if (!tex || tex.image.width !== w || tex.image.height !== h) {
           tex?.dispose()
-          tex = new DataTexture(bufferRef.current, width, height, RedFormat)
+          tex = new DataTexture(bufferRef.current, w, h, RedFormat)
           tex.colorSpace = SRGBColorSpace
           tex.minFilter = LinearFilter
           tex.magFilter = LinearFilter
@@ -110,6 +121,7 @@ export function useHeatDensityTexture(opts: {
           tex.needsUpdate = true
         }
         setReady(true)
+        invalidate()
       }
 
       const worker = workerRef.current
@@ -124,20 +136,19 @@ export function useHeatDensityTexture(opts: {
         const msg: HeatWorkerRequest = {
           id,
           points: pts,
-          width: res.width,
-          height: res.height,
+          width,
+          height,
           bandwidthDeg: HEAT_CONFIG.bandwidthDeg,
         }
         worker.postMessage(msg)
         return
       }
 
-      // Main-thread fallback (idle if available)
       const compute = () => {
-        const field = computeDensityField(pts, res.width, res.height)
+        const field = computeDensityField(pts, width, height)
         const data = densityToUint8(field, bufferRef.current ?? undefined)
         bufferRef.current = data
-        applyUint8(data, res.width, res.height)
+        applyUint8(data, width, height)
       }
       if (typeof requestIdleCallback !== 'undefined') {
         requestIdleCallback(() => compute(), { timeout: 120 })
@@ -148,18 +159,25 @@ export function useHeatDensityTexture(opts: {
 
     const elapsed = Date.now() - lastBuildAtRef.current
     if (lastBuildAtRef.current > 0 && elapsed < HEAT_REBUILD_THROTTLE_MS) {
-      pendingPointsRef.current = points
+      pendingRef.current = {
+        points,
+        quality,
+        width: res.width,
+        height: res.height,
+      }
       if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current)
       throttleTimerRef.current = setTimeout(() => {
-        const pending = pendingPointsRef.current
-        pendingPointsRef.current = null
-        if (pending) runBuild(pending)
+        const pending = pendingRef.current
+        pendingRef.current = null
+        if (pending) {
+          runBuild(pending.points, pending.quality, pending.width, pending.height)
+        }
       }, HEAT_REBUILD_THROTTLE_MS - elapsed)
       return
     }
 
-    runBuild(points)
-  }, [opts.countries, opts.signalsByIso2, quality, res.width, res.height])
+    runBuild(points, quality, res.width, res.height)
+  }, [opts.countries, opts.signalsByIso2, quality, res.width, res.height, invalidate])
 
   return {
     texture,

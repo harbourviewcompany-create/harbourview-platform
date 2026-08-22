@@ -16,7 +16,7 @@ export function GlobeHeatEffects({ enabled }: GlobeHeatEffectsProps) {
   if (!enabled) return null
 
   return (
-    <EffectComposer multisampling={0} enableNormalPass={false}>
+    <EffectComposer multisampling={0}>
       <Bloom
         intensity={0.55}
         luminanceThreshold={0.35}
