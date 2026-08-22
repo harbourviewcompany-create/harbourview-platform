@@ -10,6 +10,17 @@ import {
 export function Overview({ api, stats, setStats }) {
   useEffect(() => {
     if (stats) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled && !stats) {
+        setStats({
+          signals_total: 0, unreviewed_signals: 0, urgent_signals: 0,
+          sources_active: 0, sources_total: 0, pending_snapshots: 0,
+          staging_pending: 0, users: 0, inquiries_pending: 0, candidates: 0,
+          countries_full: 0, countries_total: 0, load_error: "timeout",
+        });
+      }
+    }, 12000);
     (async () => {
       try {
         const [snaps, sigs, srcs, ctries, staging, users, inqs, cands] = await Promise.all([
@@ -22,108 +33,84 @@ export function Overview({ api, stats, setStats }) {
           api.get("marketplace_inquiries", "select=review_status&limit=500").catch(()=>[]),
           api.get("marketplace_candidates", "select=status&limit=500").catch(()=>[]),
         ]);
-        const byKey = (arr,k) => arr.reduce((a,r)=>{a[r[k]]=(a[r[k]]||0)+1;return a;},{});
+        if (cancelled) return;
+        const arr = (x) => Array.isArray(x) ? x : [];
+        const byKey = (a,k) => arr(a).reduce((acc,r)=>{acc[r[k]]=(acc[r[k]]||0)+1;return acc;},{});
         const snapMap = byKey(snaps,"processing_status");
         const stageMap = byKey(staging,"status");
         const cMap = byKey(ctries,"data_completeness");
         setStats({
-          signals_total: sigs.length,
-          unreviewed_signals: sigs.filter(s=>!s.reviewed).length,
-          urgent_signals: sigs.filter(s=>s.pri==="URGENT").length,
-          sources_active: srcs.filter(s=>s.is_active).length,
-          sources_total: srcs.length,
+          signals_total: arr(sigs).length,
+          unreviewed_signals: arr(sigs).filter(s=>!s.reviewed).length,
+          urgent_signals: arr(sigs).filter(s=>s.pri==="URGENT").length,
+          sources_active: arr(srcs).filter(s=>s.is_active).length,
+          sources_total: arr(srcs).length,
           pending_snapshots: snapMap.pending||0,
-          extracted_snapshots: snapMap.extracted||0,
-          staging_pending: stageMap.pending||0,
-          countries_total: ctries.length,
-          countries_populated: (cMap.full||0)+(cMap.partial||0),
-          user_count: users.length,
-          inquiry_pending: inqs.filter(i=>i.review_status==="new"||i.review_status==="open").length,
-          intake_pending: cands.filter(c=>c.status==="needs_review").length,
+          staging_pending: stageMap.pending||stageMap.queued||0,
+          users: arr(users).length,
+          inquiries_pending: arr(inqs).filter(i=>i.review_status==="pending"||!i.review_status).length,
+          candidates: arr(cands).length,
+          countries_full: cMap.full||cMap.complete||0,
+          countries_total: arr(ctries).length,
         });
-      } catch(e) {
-        console.error('[overview]', e);
-        setStats({signals_total:0,unreviewed_signals:0,urgent_signals:0,sources_active:0,sources_total:0,pending_snapshots:0,extracted_snapshots:0,staging_pending:0,countries_total:0,countries_populated:0,user_count:0,inquiry_pending:0,intake_pending:0});
+      } catch (e) {
+        if (!cancelled) {
+          setStats({
+            signals_total: 0, unreviewed_signals: 0, urgent_signals: 0,
+            sources_active: 0, sources_total: 0, pending_snapshots: 0,
+            staging_pending: 0, users: 0, inquiries_pending: 0, candidates: 0,
+            countries_full: 0, countries_total: 0,
+            load_error: e.message || "load failed",
+          });
+        }
+      } finally {
+        clearTimeout(timer);
       }
     })();
-  }, []);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [api, stats, setStats]);
 
-  if (!stats) return <div className="empty"><Spinner size={24}/></div>;
+  if (!stats) {
+    return (
+      <div style={{padding:40,textAlign:"center"}}>
+        <div className="spinner" style={{width:28,height:28,margin:"0 auto 12px"}} />
+        <div style={{fontSize:12,color:"#6A7E9B"}}>Loading control surface stats…</div>
+      </div>
+    );
+  }
 
-  const pop = stats.countries_total ? Math.round(stats.countries_populated/stats.countries_total*100) : 0;
-  const rev = stats.signals_total ? Math.round((stats.signals_total-stats.unreviewed_signals)/stats.signals_total*100) : 0;
-
-  const kpis = [
-    {val:stats.signals_total,      label:"Total Signals"},
-    {val:stats.unreviewed_signals, label:"Unreviewed",       cls:stats.unreviewed_signals>50?"danger":"warn"},
-    {val:stats.urgent_signals,     label:"Urgent",           cls:stats.urgent_signals>0?"danger":""},
-    {val:stats.pending_snapshots,  label:"Pending Snapshots",cls:stats.pending_snapshots>0?"warn":"success"},
-    {val:stats.sources_active,     label:"Active Sources"},
-    {val:stats.staging_pending,    label:"Staging Pending",  cls:stats.staging_pending>0?"warn":""},
-    {val:stats.inquiry_pending,    label:"Inquiries Pending",cls:stats.inquiry_pending>0?"warn":""},
-    {val:stats.intake_pending,     label:"Intake Pending",   cls:stats.intake_pending>0?"warn":""},
-    {val:stats.countries_total,    label:"Countries"},
-    {val:stats.user_count,         label:"Users"},
+  const cards = [
+    {label:"Unreviewed signals",value:stats.unreviewed_signals,href:"/admin/signals"},
+    {label:"Staging pending",value:stats.staging_pending,href:"/admin/staging"},
+    {label:"Active sources",value:stats.sources_active,href:"/admin/sources"},
+    {label:"Inquiries",value:stats.inquiries_pending,href:"/admin/inquiries"},
+    {label:"Candidates",value:stats.candidates,href:"/admin/candidates"},
+    {label:"Countries",value:stats.countries_total,href:"/admin/countries"},
   ];
 
   return (
-    <>
-      <div className="kpi-grid">
-        {kpis.map(k => (
-          <div className="kpi" key={k.label}>
-            <div className={`kpi-val ${k.cls||""}`}>{k.val}</div>
-            <div className="kpi-label">{k.label}</div>
-          </div>
+    <div style={{display:"grid",gap:16,maxWidth:900}}>
+      {stats.load_error && (
+        <div className="alert alert-error" style={{fontSize:12}}>Stats partial: {stats.load_error}</div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10}}>
+        {cards.map(c => (
+          <a key={c.label} href={c.href} className="stat-card" style={{textDecoration:"none",color:"inherit",display:"block"}}>
+            <div className="stat-val">{c.value ?? "—"}</div>
+            <div className="stat-label">{c.label}</div>
+          </a>
         ))}
       </div>
-      <div className="grid-2">
-        <div className="card-section">
-          <div className="card-section-title">Pipeline Health</div>
-          {[
-            ["Signals reviewed", `${rev}%`, rev===100?"success":"warn"],
-            ["Country coverage", `${pop}% (${stats.countries_populated}/${stats.countries_total})`, pop>50?"success":"warn"],
-            ["Snapshot queue", stats.pending_snapshots===0?"Clear ✓":`${stats.pending_snapshots} pending`, stats.pending_snapshots===0?"success":"danger"],
-            ["Sources active", `${stats.sources_active} / ${stats.sources_total}`, ""],
-            ["Staging queue", stats.staging_pending===0?"Clear":`${stats.staging_pending} pending`, stats.staging_pending>0?"warn":""],
-            ["Marketplace inquiries", stats.inquiry_pending===0?"None pending":`${stats.inquiry_pending} open`, stats.inquiry_pending>0?"warn":""],
-            ["Intake queue", stats.intake_pending===0?"Clear":`${stats.intake_pending} to review`, stats.intake_pending>0?"warn":""],
-          ].map(([l,v,cls])=>(
-            <div className="pipeline-row" key={l}>
-              <span className="pipeline-label">{l}</span>
-              <span className="pipeline-val" style={{color:cls==="success"?"#6DD89A":cls==="danger"?"#EF7070":cls==="warn"?"#EFA050":"#D4C9B8"}}>{v}</span>
-            </div>
-          ))}
-          <div style={{marginTop:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#4A5E80",marginBottom:3}}><span>Signal review</span><span>{rev}%</span></div>
-            <div className="prog-bar"><div className="prog-fill" style={{width:`${rev}%`}} /></div>
-          </div>
-          <div style={{marginTop:8}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#4A5E80",marginBottom:3}}><span>Country coverage</span><span>{pop}%</span></div>
-            <div className="prog-bar"><div className="prog-fill" style={{width:`${pop}%`}} /></div>
-          </div>
-        </div>
-        <div className="card-section">
-          <div className="card-section-title">Cron Schedule (UTC)</div>
-          {[
-            ["06:00","source-engine-pass-1","50 sources"],
-            ["06:15","source-engine-pass-2","50 sources"],
-            ["06:30","source-engine-pass-3","32 sources"],
-            ["06:45","source-engine-pass-4","22 sources"],
-            ["06:50","source-engine-extract","batch 400"],
-            ["07:00","source-engine-promote","all extracted"],
-          ].map(([t,n,d])=>(
-            <div className="pipeline-row" key={t}>
-              <span style={{display:"flex",gap:8,alignItems:"baseline"}}>
-                <code style={{color:"#C9A84C",fontSize:11}}>{t}</code>
-                <span className="pipeline-label" style={{fontSize:11}}>{n}</span>
-              </span>
-              <span style={{fontSize:10,color:"#3A4E6A"}}>{d}</span>
-            </div>
-          ))}
+      <div className="card-section">
+        <div className="card-section-title">Quick links</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+          <a className="btn btn-ghost btn-sm" href="/admin/signals">Signals →</a>
+          <a className="btn btn-ghost btn-sm" href="/admin/staging">Staging →</a>
+          <a className="btn btn-ghost btn-sm" href="/admin/clinical-home">Clinical →</a>
+          <a className="btn btn-ghost btn-sm" href="/admin/clinical-review/claim-map">Claim map →</a>
+          <a className="btn btn-ghost btn-sm" href="/admin/actions">Actions →</a>
         </div>
       </div>
-    </>
+    </div>
   );
 }
-
-// ─── INQUIRIES ──────────────────────────────
