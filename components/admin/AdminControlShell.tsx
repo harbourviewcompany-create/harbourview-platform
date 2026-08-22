@@ -33,7 +33,10 @@ const shellCss = `
   .acs-status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#34d399;margin-right:6px;}
   @media (max-width:900px){
     .acs-root{grid-template-columns:1fr;}
-    .acs-sidebar{position:relative;height:auto;max-height:40vh;}
+    .acs-sidebar{position:relative;height:auto;max-height:none;border-right:none;border-bottom:1px solid #1A2640;}
+    .acs-nav{display:flex;flex-wrap:wrap;gap:4px;padding:8px;max-height:none;overflow:visible;}
+    .acs-nav-group{width:100%;padding:8px 6px 2px;}
+    .acs-nav-item{width:auto;padding:6px 10px;font-size:12px;}
   }
 `
 
