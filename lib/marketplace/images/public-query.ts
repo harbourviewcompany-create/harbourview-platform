@@ -7,7 +7,7 @@ import { galleryMarketplaceImageRoleRank, publicMarketplaceImageRoleRank } from 
 import type { MarketplaceItemImageRow } from './types';
 
 const TARGET_TABLE = 'marketplace_item_images';
-const ITEM_ID_BATCH_SIZE = 40;
+const ITEM_ID_BATCH_SIZE = 80;
 const PAGE_SIZE = 500;
 
 function getAnonKey() {
@@ -24,7 +24,8 @@ async function queryPublicImagePage(
 
   try {
     const res = await fetch(`${resolveLockedSupabaseUrl()}/rest/v1/${TARGET_TABLE}?${params.toString()}`, {
-      cache: 'no-store',
+      // Align with public listings cache — image rows change only on admin publish.
+      next: { revalidate: 300 },
       signal,
       headers: {
         apikey: anonKey,
@@ -61,8 +62,6 @@ async function queryPublicImageBatch(itemIds: string[], signal?: AbortSignal): P
   const rows: PublicMarketplaceImageDTO[] = [];
   for (let rangeStart = 0; ; rangeStart += PAGE_SIZE) {
     const page = await queryPublicImagePage(params, rangeStart, signal);
-    // Reject the complete batch so callers can distinguish degraded enrichment
-    // from a legitimate listing with no approved image rows.
     if (page === null) throw new Error('MARKETPLACE_MEDIA_QUERY_FAILED');
     rows.push(...page);
     if (page.length < PAGE_SIZE) return rows;
@@ -93,6 +92,7 @@ function marketplaceImageTrustRank(image: PublicMarketplaceImageDTO) {
   return 3;
 }
 
+/** Prefer real-item evidence, then catalogue, then illustrative. */
 export function pickMarketplaceCardImage(images: PublicMarketplaceImageDTO[]) {
   return (
     [...images].sort((a, b) => {
