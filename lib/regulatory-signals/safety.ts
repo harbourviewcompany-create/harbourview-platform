@@ -76,36 +76,75 @@ export const FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS = [
   'availabilityStatus',
 ] as const
 
-function buildForbiddenRegulatorySignalTermPattern(term: string): RegExp {
-  const withCamelBoundaries = term.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-  const parts = withCamelBoundaries
-    .split(/[\s_-]+/)
-    .filter(Boolean)
-    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+function normalizeRegulatorySignalLeakageText(value: string): string {
+  return value
+    .normalize('NFKC')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, ' ')
+    .trim()
+}
 
-  if (parts.length === 0) {
-    return /(?!)/
-  }
+function normalizeRegulatorySignalFieldName(value: string): string {
+  return normalizeRegulatorySignalLeakageText(value).replace(/[^a-z0-9]/g, '')
+}
 
-  const body = parts.join('[\\s_-]*')
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function buildNormalizedTermPattern(term: string): RegExp {
+  const normalized = normalizeRegulatorySignalLeakageText(term)
+  if (!normalized) return /(?!)/
+  const body = normalized.split(' ').filter(Boolean).map(escapeRegExp).join('\\s*')
   return new RegExp(`(?:^|[^a-z0-9])${body}(?:[^a-z0-9]|$)`, 'i')
 }
 
-const FORBIDDEN_REGULATORY_SIGNAL_TERM_PATTERNS = [
+const FORBIDDEN_FIELD_NAMES = new Set(
+  FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS.map(normalizeRegulatorySignalFieldName),
+)
+
+const FORBIDDEN_STRING_PATTERNS = FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS.map(buildNormalizedTermPattern)
+const ALL_FORBIDDEN_TERM_PATTERNS = [
   ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS,
   ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS,
-].map(buildForbiddenRegulatorySignalTermPattern)
+].map(buildNormalizedTermPattern)
 
 export function containsForbiddenRegulatorySignalLeakage(value: string) {
-  return FORBIDDEN_REGULATORY_SIGNAL_TERM_PATTERNS.some((pattern) => pattern.test(value))
+  const normalized = normalizeRegulatorySignalLeakageText(value)
+  return ALL_FORBIDDEN_TERM_PATTERNS.some((pattern) => pattern.test(normalized))
+}
+
+function findForbiddenStructuredLeakage(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const normalized = normalizeRegulatorySignalLeakageText(value)
+    const index = FORBIDDEN_STRING_PATTERNS.findIndex((pattern) => pattern.test(normalized))
+    return index >= 0 ? FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS[index] : null
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const leaked = findForbiddenStructuredLeakage(item)
+      if (leaked) return leaked
+    }
+    return null
+  }
+
+  if (value && typeof value === 'object') {
+    for (const [key, nested] of Object.entries(value)) {
+      if (FORBIDDEN_FIELD_NAMES.has(normalizeRegulatorySignalFieldName(key))) {
+        return key
+      }
+      const leaked = findForbiddenStructuredLeakage(nested)
+      if (leaked) return leaked
+    }
+  }
+
+  return null
 }
 
 export function assertPublicRegulatorySignalSafe(signal: PublicRegulatorySignal) {
-  const serialized = JSON.stringify(signal)
-  const leaked = [...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_FIELDS, ...FORBIDDEN_REGULATORY_SIGNAL_PUBLIC_STRINGS].find((term) =>
-    serialized.toLowerCase().includes(term.toLowerCase()),
-  )
-
+  const leaked = findForbiddenStructuredLeakage(signal)
   if (leaked) {
     throw new Error(`Forbidden regulatory Signal public leakage detected: ${leaked}`)
   }
@@ -142,9 +181,6 @@ export function toPublicRegulatorySignal(record: RegulatorySignalRecord): Public
     public_implication: record.public_implication,
     published_at: record.published_at,
     last_reviewed_at: record.last_reviewed_at,
-
-    // Editorial records are human-authored and carry no Pipeline B classifier
-    // output; see the equivalent note in `public.ts#mapApprovedRow`.
     content_type: 'regulatory',
     confidence_score: null,
     corroboration_count: 1,
