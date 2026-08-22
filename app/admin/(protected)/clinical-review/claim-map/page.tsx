@@ -217,8 +217,8 @@ export default function ClaimMapAdminPage() {
         </div>
         {allGaps.slice(0, 12).map((g) => (
           <div key={g.id} className="rounded border border-neutral-200 px-2 py-1 text-xs dark:border-neutral-700">
-            <span className="font-medium uppercase text-neutral-500">{g.severity}</span> · {g.framework} ·{' '}
-            {g.message}
+            <span className="font-medium uppercase text-neutral-500">{g.severity}</span> · {g.category} ·{' '}
+            {g.title}
           </div>
         ))}
       </section>
