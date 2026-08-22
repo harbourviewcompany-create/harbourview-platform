@@ -6,6 +6,24 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 
+/**
+ * The message every unauthenticated path in this module throws. Exported so the
+ * route handlers can map it to 401 without each of them restating the literal
+ * and drifting from it.
+ */
+export const TALENT_AUTH_ERROR_MESSAGE = 'Authentication required'
+
+/**
+ * True only for the authentication failure this module raises.
+ *
+ * Deliberately requires an actual `Error`. A thrown *string* containing the word
+ * "Authentication" is not one of ours — it could carry anything — and must fall
+ * through to the generic 500 path rather than being echoed back as a 401.
+ */
+export function isTalentAuthError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes(TALENT_AUTH_ERROR_MESSAGE)
+}
+
 export async function saveTalentJob(opportunityId: string): Promise<void> {
   const supabase = await createClient()
   const {

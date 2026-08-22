@@ -4,7 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createTalentAlert } from '@/lib/server/talentOperations';
+import {
+  createTalentAlert,
+  isTalentAuthError,
+  TALENT_AUTH_ERROR_MESSAGE,
+} from '@/lib/server/talentOperations';
 import { errorMessage } from '@/lib/errorMessage'
 
 export const dynamic = 'force-dynamic';
@@ -22,10 +26,13 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, alertId: result.id });
   } catch (err) {
-    const status = errorMessage(err).includes('Authentication') ? 401 : 500;
-    return NextResponse.json(
-      { error: errorMessage(err, 'Alert creation failed') },
-      { status }
-    );
+    // Our own 401 signal, and only ours: isTalentAuthError requires a real
+    // Error, so a thrown string mentioning "Authentication" cannot reach here.
+    if (isTalentAuthError(err)) {
+      return NextResponse.json({ error: TALENT_AUTH_ERROR_MESSAGE }, { status: 401 });
+    }
+    // Detail stays server-side; the client gets a fixed string.
+    console.error('[api/talent/alerts] error', errorMessage(err), err);
+    return NextResponse.json({ error: 'Alert creation failed' }, { status: 500 });
   }
 }

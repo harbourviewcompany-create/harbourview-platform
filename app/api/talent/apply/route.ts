@@ -187,10 +187,9 @@ export async function POST(req: NextRequest) {
         'Application received. The operator will follow up directly if there is a fit.',
     })
   } catch (err) {
-    console.error('[api/talent/apply] error', err)
-    return NextResponse.json(
-      { error: errorMessage(err, 'Application failed') },
-      { status: 500 }
-    )
+    // Detail stays server-side. The client gets a fixed string: a thrown
+    // value can carry internals, and this is an HTTP response body.
+    console.error('[api/talent/apply] error', errorMessage(err), err)
+    return NextResponse.json({ error: 'Application failed' }, { status: 500 })
   }
 }
