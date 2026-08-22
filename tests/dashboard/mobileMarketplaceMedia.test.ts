@@ -41,7 +41,7 @@ function listing(overrides: Partial<NormalizedListing> = {}): NormalizedListing 
       kind: 'actual',
       badgeLabel: null,
       caption: 'Approved listing image.',
-      fallbackSrc: '/marketplace/images/product-inventory.webp',
+      fallbackSrc: '/marketplace/images/product-inventory.svg',
       fallbackAltText: 'Representative cannabis product inventory image',
       fallbackCaption: 'Representative category image.',
     },
@@ -78,7 +78,7 @@ describe('mobile marketplace listing media', () => {
     expect(media?.getAttribute('data-media-kind')).toBe('actual')
     expect(image?.getAttribute('src')).toBe(row.media?.src)
     expect(image?.getAttribute('alt')).toBe('Sealed EU-GMP dried flower lot prepared for export')
-    expect(image?.getAttribute('data-fallback-src')).toBe('/marketplace/images/product-inventory.webp')
+    expect(image?.getAttribute('data-fallback-src')).toBe('/marketplace/images/product-inventory.svg')
     expect(image?.getAttribute('loading')).toBe('lazy')
     expect(document.querySelector('.hvm2-listing-media-badge')).toBeNull()
     expect(document.body.textContent).toContain('Approved listing image.')
@@ -118,7 +118,7 @@ describe('mobile marketplace listing media', () => {
       badgeLabel: null,
     })
     expect(resolveListingMediaStage(row, 'fallback')).toEqual({
-      src: '/marketplace/images/product-inventory.webp',
+      src: '/marketplace/images/product-inventory.svg',
       altText: 'Representative cannabis product inventory image',
       kind: 'representative',
       badgeLabel: 'Representative image',
@@ -126,7 +126,7 @@ describe('mobile marketplace listing media', () => {
     })
     const emptyStage = resolveListingMediaStage(row, 'empty')
     expect(emptyStage?.kind).toBe('representative')
-    expect(emptyStage?.src).toBe('/marketplace/images/product-inventory.webp')
+    expect(emptyStage?.src).toBe('/marketplace/images/product-inventory.svg')
   })
 
   it('uses representative category image when a row has no projected media', () => {
@@ -137,7 +137,7 @@ describe('mobile marketplace listing media', () => {
     expect(media).not.toBeNull()
     expect(media?.getAttribute('data-media-kind')).toBe('representative')
     expect(image).not.toBeNull()
-    expect(image?.getAttribute('src')).toBe('/marketplace/images/product-inventory.webp')
+    expect(image?.getAttribute('src')).toBe('/marketplace/images/product-inventory.svg')
     expect(document.querySelector('.hvm2-listing-media-badge')?.textContent).toBe('Representative image')
     expect(media?.textContent).not.toContain('photo on inquiry')
   })
@@ -147,7 +147,7 @@ describe('mobile marketplace listing media', () => {
       const media = getRepresentativeMarketplaceMedia(tab.id)
       expect(media.kind).toBe('representative')
       expect(media.badgeLabel).toBe('Representative image')
-      expect(media.src).toMatch(/^\/marketplace\/images\/.+\.webp$/)
+      expect(media.src).toMatch(/^\/marketplace\/images\/.+\.svg$/)
       expect(media.altText.length).toBeGreaterThan(10)
       expect(media.fallbackSrc).toBe(media.src)
     }
