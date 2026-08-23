@@ -1,8 +1,9 @@
 # API Source Integration (Legal-Tech & Regulatory)
 
-**Status:** Live on `feat/api-adapter-legal-tech` · **Owner:** Harbourview Intelligence
+**Status:** Merged via PR #1202 (2026-07-30) · **Follow-up:** ETag / unchanged on `feat/api-adapter-etag-unchanged`  
+**Owner:** Harbourview Intelligence
 
-The Intelligence Engine already routes `source_registry.adapter = 'api'` to `APIDataAdapter`. This document describes how to register cannabis legal-tech and regulatory APIs so they flow through the same snapshot → extract → classify → promote pipeline as HTML/RSS sources.
+The Intelligence Engine routes `source_registry.adapter = 'api'` to `APIDataAdapter`. API sources flow through the same snapshot → extract → classify → promote pipeline as HTML/RSS sources.
 
 ## Adapter contract
 
@@ -26,7 +27,8 @@ The Intelligence Engine already routes `source_registry.adapter = 'api'` to `API
   },
   "accept": "application/json",
   "timeout_ms": 20000,
-  "auth_env": "CANNABIZ_API_KEY"
+  "auth_env": "CANNABIZ_API_KEY",
+  "last_etag": "\"W/\\\"abc123\\\"\""
 }
 ```
 
@@ -34,6 +36,21 @@ The Intelligence Engine already routes `source_registry.adapter = 'api'` to `API
 - **`auth_env`** — name of a process.env variable. The adapter injects `Authorization: Bearer ${process.env[auth_env]}`. Secrets stay in Vercel/Supabase env, never in the registry.
 - **`timeout_ms`** — capped at 60 s; default 15 s.
 - **`accept`** — overrides the default `application/json`.
+- **`last_etag`** — written by the orchestrator after a successful API crawl that returned an `ETag` header. Sent as `If-None-Match` on the next request.
+
+Orchestrator-injected per request (not stored):
+
+- **`previous_hash`** — last successful `source_snapshots.raw_html_hash`; adapter returns `status: 'unchanged'` when body hash matches. Stripped before any metadata write-back.
+
+### Change detection
+
+| Result | Meaning |
+|--------|---------|
+| `success` | Valid JSON, body differs from previous hash → snapshot with `pending_extraction`; response ETag persisted to `metadata.last_etag` when present |
+| `unchanged` | 304 or hash match → schedule advanced, **no** extraction queue; ETag refreshed when the server returns one |
+| `failed` | HTTP error, invalid JSON, missing `auth_env` secret |
+
+`unchanged` is treated as a successful crawl for circuit-breaker and cadence backoff (1.5× base when content does not change).
 
 ## Seeded public API rows (migration `20260729130000`)
 
@@ -73,7 +90,7 @@ INSERT INTO public.source_registry (
 );
 ```
 
-After insert, the next `intelligence-ingest` cron run will pick the row up via `acquire_crawl_targets` (or the fallback path). Snapshots land in `source_snapshots` with `processing_status = 'pending_extraction'` and continue through the existing quality brain.
+After insert, the next `intelligence-ingest` cron run will pick the row up via `acquire_crawl_targets` (or the fallback path).
 
 ## What this deliberately does *not* do
 
@@ -81,19 +98,21 @@ After insert, the next `intelligence-ingest` cron run will pick the row up via `
 - No storage of API keys in `source_registry`.
 - No separate pipeline — API sources use the same hash → extract → classify → promote path.
 - Metrc Connect and other gated track-and-trace systems require formal integrator status before any production seed.
+- No distributed per-source rate limiter (serverless-local only is unreliable); rely on circuit breaker + `Retry-After`.
 
 ## Verification checklist
 
-1. Adapter returns `status: 'success'` and a stable `content_hash` for unchanged payloads.
-2. `source_snapshots.changed` is true only when the JSON body changes.
-3. Downstream signals receive correct `source_id` / provenance.
-4. Per-source yield metrics (Source Expansion Plan §4) include the new API rows.
-5. No private headers or secrets appear in public DTOs or logs.
+1. Adapter returns `status: 'success'` and a stable `content_hash` for unchanged payloads; second run returns `unchanged` when body is identical.
+2. `source_snapshots.changed` is true only when the JSON body changes; unchanged does not enqueue `pending_extraction`.
+3. After a 200 with `ETag`, `source_registry.metadata.last_etag` is set; the next crawl sends `If-None-Match`.
+4. Downstream signals receive correct `source_id` / provenance.
+5. Per-source yield metrics (Source Expansion Plan §4) include the new API rows.
+6. No private headers or secrets appear in public DTOs or logs.
 
 ## Related code
 
 - `lib/intelligence-engine/adapters/api-fetcher.ts`
-- `lib/intelligence-engine/orchestrator.ts` (`selectAdapter` → `'api'`)
+- `lib/intelligence-engine/orchestrator.ts` (`selectAdapter` → `'api'`, previous_hash injection, last_etag persist)
 - `lib/intelligence-engine/queue/task-queue.ts` (passes `metadata`)
 - `docs/SOURCE_EXPANSION_PLAN.md` (Tier-1 primary sources)
 - Migration: `supabase/migrations/20260729130000_source_registry_metadata_and_api_seeds.sql`

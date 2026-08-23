@@ -14,10 +14,12 @@ import crypto from 'crypto';
  *
  * Metadata contract (source_registry.metadata JSON, optional):
  * {
- *   "headers": { "Authorization": "Bearer …", "X-API-Key": "…", … },
+ *   "headers": { "X-API-Key": "…", … },
  *   "accept": "application/json",          // override Accept header
- *   "timeout_ms": 20000,                   // default 15000
- *   "auth_env": "CANNABIZ_API_KEY"         // if set, injects Authorization: Bearer ${process.env[auth_env]}
+ *   "timeout_ms": 20000,                   // default 15000, max 60000
+ *   "auth_env": "CANNABIZ_API_KEY",        // injects Authorization: Bearer ${env}
+ *   "last_etag": "\"abc\"",                 // If-None-Match (set by orchestrator)
+ *   "previous_hash": "sha256hex…"          // post-download early-abort (orchestrator)
  * }
  *
  * Credentials must never be stored in the registry row. Use env vars
@@ -41,11 +43,15 @@ export class APIDataAdapter implements IDataAdapter {
         }
       }
 
+      // Conditional request when orchestrator supplies last ETag.
+      if (typeof meta.last_etag === 'string' && meta.last_etag.length > 0) {
+        headers['If-None-Match'] = meta.last_etag;
+      }
+
       // Env-backed auth: never store the secret in source_registry.
       if (typeof meta.auth_env === 'string' && meta.auth_env.length > 0) {
         const secret = process.env[meta.auth_env];
         if (secret) {
-          // Prefer explicit Authorization if already set; otherwise Bearer.
           if (!headers['Authorization'] && !headers['authorization']) {
             headers['Authorization'] = `Bearer ${secret}`;
           }
@@ -71,6 +77,24 @@ export class APIDataAdapter implements IDataAdapter {
         signal: AbortSignal.timeout(timeoutMs),
       });
 
+      // Server supports conditional GET — body unchanged, no transfer cost.
+      if (response.status === 304) {
+        const previousHash =
+          typeof meta.previous_hash === 'string' ? meta.previous_hash : '';
+        const etag =
+          response.headers.get('etag') ??
+          (typeof meta.last_etag === 'string' ? meta.last_etag : undefined);
+        return {
+          target_id: target.id,
+          timestamp,
+          raw_content: '',
+          content_hash: previousHash,
+          status: 'unchanged',
+          http_status: 304,
+          etag: etag || undefined,
+        };
+      }
+
       if (!response.ok) {
         return {
           target_id: target.id,
@@ -87,13 +111,31 @@ export class APIDataAdapter implements IDataAdapter {
       const text = await response.text();
       const contentHash = crypto.createHash('sha256').update(text).digest('hex');
 
+      // Post-download hash match (when server has no ETag support).
+      if (
+        typeof meta.previous_hash === 'string' &&
+        meta.previous_hash.length > 0 &&
+        contentHash === meta.previous_hash
+      ) {
+        const etag = response.headers.get('etag') ?? undefined;
+        return {
+          target_id: target.id,
+          timestamp,
+          raw_content: '',
+          content_hash: contentHash,
+          status: 'unchanged',
+          http_status: response.status,
+          etag: etag || undefined,
+        };
+      }
+
       try {
         JSON.parse(text);
       } catch {
         return {
           target_id: target.id,
           timestamp,
-          raw_content: text.slice(0, 2000), // keep a short sample for diagnostics
+          raw_content: text.slice(0, 2000),
           content_hash: contentHash,
           status: 'failed',
           error_message: 'Response was not valid JSON.',
@@ -101,6 +143,7 @@ export class APIDataAdapter implements IDataAdapter {
         };
       }
 
+      const etag = response.headers.get('etag') ?? undefined;
       return {
         target_id: target.id,
         timestamp,
@@ -108,6 +151,7 @@ export class APIDataAdapter implements IDataAdapter {
         content_hash: contentHash,
         status: 'success',
         http_status: response.status,
+        etag: etag || undefined,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

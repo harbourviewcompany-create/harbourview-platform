@@ -146,6 +146,61 @@ export class IntelligenceOrchestrator {
     throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 
+  /**
+   * Inject previous snapshot hash into target.metadata so adapters can
+   * short-circuit (ETag / content-hash) without a second DB round-trip.
+   * last_etag already rides in from source_registry.metadata when present.
+   */
+  private async withPreviousHash(target: ScrapeTarget): Promise<ScrapeTarget> {
+    const { data: last } = await this.supabase
+      .from('source_snapshots')
+      .select('raw_html_hash')
+      .eq('source_id', target.id)
+      .order('captured_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const previousHash =
+      last && typeof last.raw_html_hash === 'string' ? last.raw_html_hash : null;
+    if (!previousHash) return target;
+
+    return {
+      ...target,
+      metadata: {
+        ...(target.metadata ?? {}),
+        previous_hash: previousHash,
+      },
+    };
+  }
+
+  /**
+   * Merge response ETag into source_registry.metadata so the next crawl can
+   * send If-None-Match. Best-effort; never fails the crawl on write error.
+   */
+  private async persistLastEtag(
+    target: ScrapeTarget,
+    etag: string,
+  ): Promise<void> {
+    const nextMeta: Record<string, unknown> = {
+      ...(target.metadata ?? {}),
+      last_etag: etag,
+    };
+    // previous_hash is orchestrator-injected only for this request — do not persist.
+    delete nextMeta.previous_hash;
+
+    const { error } = await this.supabase
+      .from('source_registry')
+      .update({ metadata: nextMeta })
+      .eq('id', target.id);
+
+    if (error) {
+      console.warn(
+        `[${this.runId}] last_etag persist soft-fail for ${target.id}:`,
+        error.message,
+      );
+    }
+  }
+
   private async processTarget(
     target: ScrapeTarget,
   ): Promise<{ changed: boolean; failed: boolean; circuitOpen: boolean }> {
@@ -163,13 +218,17 @@ export class IntelligenceOrchestrator {
       return { changed: false, failed: false, circuitOpen: true };
     }
 
+    // Enrich API (and other) targets with last content hash for early-abort.
+    const enriched =
+      target.adapter_type === 'api' ? await this.withPreviousHash(target) : target;
+
     let result: ScraperResult;
     try {
       if (target.adapter_type === 'playwright_full') {
         // Graceful degradation: many JS-rendered regulatory sites still serve
         // indexable server-side content. Attempt HTML adapter first; only fall
         // back to blocked if it yields insufficient content (<500 chars).
-        const fallback = await this.fetchWithRetry(this.htmlAdapter, target);
+        const fallback = await this.fetchWithRetry(this.htmlAdapter, enriched);
         if (fallback.status === 'success' && (fallback.raw_content?.length ?? 0) > 500) {
           result = fallback;
         } else {
@@ -195,7 +254,7 @@ export class IntelligenceOrchestrator {
             error_message: `No adapter for adapter_type "${target.adapter_type}".`,
           };
         } else {
-          result = await this.fetchWithRetry(adapter, target);
+          result = await this.fetchWithRetry(adapter, enriched);
         }
       }
     } catch (err: unknown) {
@@ -212,9 +271,17 @@ export class IntelligenceOrchestrator {
 
     const contentChanged = await this.saveSnapshot(result, target);
 
-    if (result.status === 'success') {
+    // success AND unchanged both advance the crawl schedule without failure backoff.
+    if (result.status === 'success' || result.status === 'unchanged') {
       await this.circuitBreaker.recordSuccess(domain);
       await this.queue.markSuccess(target.id, target.cadence_hours, contentChanged);
+      if (
+        target.adapter_type === 'api' &&
+        typeof result.etag === 'string' &&
+        result.etag.length > 0
+      ) {
+        await this.persistLastEtag(target, result.etag);
+      }
       console.log(
         `[${this.runId}] ✓ ${target.source_name} [${target.adapter_type}]${contentChanged ? ' (changed)' : ' (unchanged)'}`,
       );
@@ -253,10 +320,49 @@ export class IntelligenceOrchestrator {
       .maybeSingle();
 
     const previousHash = last?.raw_html_hash ?? null;
+
+    // Adapter-reported unchanged, or success with identical hash.
     const contentChanged =
       result.status === 'success' &&
       !!result.content_hash &&
       result.content_hash !== previousHash;
+
+    if (result.status === 'unchanged') {
+      // Record a lightweight crawl observation without queuing extraction.
+      const { error } = await this.supabase.from('source_snapshots').insert({
+        source_id:         result.target_id,
+        captured_url:      target.base_url,
+        captured_at:       result.timestamp,
+        captured_text:     null,
+        raw_html_hash:     result.content_hash || previousHash,
+        processing_status: 'skipped_unchanged',
+        error_message:     null,
+        fetch_status:      'ok',
+        previous_hash:     previousHash,
+        changed:           false,
+      });
+      if (error) {
+        // Column may not accept skipped_unchanged yet — fall back to failed-path metadata
+        // without pending_extraction so we still don't re-run AI.
+        console.warn(
+          `[${this.runId}] unchanged snapshot insert soft-fail for ${result.target_id}:`,
+          error.message,
+        );
+        await this.supabase.from('source_snapshots').insert({
+          source_id:         result.target_id,
+          captured_url:      target.base_url,
+          captured_at:       result.timestamp,
+          captured_text:     null,
+          raw_html_hash:     result.content_hash || previousHash,
+          processing_status: 'failed',
+          error_message:     'unchanged (no extraction needed)',
+          fetch_status:      'ok',
+          previous_hash:     previousHash,
+          changed:           false,
+        });
+      }
+      return false;
+    }
 
     const { error } = await this.supabase.from('source_snapshots').insert({
       source_id:         result.target_id,
