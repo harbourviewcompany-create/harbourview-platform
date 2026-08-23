@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const saveTalentJob = vi.fn()
@@ -188,5 +190,71 @@ describe('talent API public error contract', () => {
     expect(isTalentAuthError(new Error(`${TALENT_AUTH_ERROR_MESSAGE}: detail`))).toBe(false)
     expect(isTalentAuthError(new Error('something else'))).toBe(false)
     expect(isTalentAuthError(null)).toBe(false)
+  })
+})
+
+describe('talent production integration migration contract', () => {
+  const migration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/20260822172000_talent_production_integration_repair.sql'),
+    'utf8',
+  )
+  const apiSchemaMigration = readFileSync(
+    join(process.cwd(), 'supabase/migrations/20260822174500_talent_api_schema_exposure.sql'),
+    'utf8',
+  )
+  const applyRoute = readFileSync(
+    join(process.cwd(), 'app/api/talent/apply/route.ts'),
+    'utf8',
+  )
+
+  it('grants the required Talent Data API access without exposing application reads to anon', () => {
+    expect(migration).toContain('grant select on table public.talent_opportunities to anon, authenticated;')
+    expect(migration).toContain('grant insert on table public.talent_applications to anon;')
+    expect(migration).toContain('grant select, insert on table public.talent_applications to authenticated;')
+    expect(migration).not.toContain('grant select on table public.talent_applications to anon')
+  })
+
+  it('keeps anonymous view counts while removing anonymous application-count execution', () => {
+    expect(migration).toContain('revoke execute on function public.increment_talent_view_count(uuid)\n  from public, anon, authenticated;')
+    expect(migration).toContain('revoke execute on function public.increment_talent_application_count(uuid)\n  from public, anon, authenticated;')
+    expect(migration).toContain('grant execute on function public.increment_talent_view_count(uuid)\n  to anon, authenticated;')
+    expect(migration).toContain('grant execute on function public.increment_talent_application_count(uuid)\n  to authenticated;')
+    expect(migration).not.toContain('grant execute on function public.increment_talent_application_count(uuid)\n  to anon')
+  })
+
+  it('closes self-publish and non-submitted application insert paths', () => {
+    expect(migration).toContain("and status = 'draft'")
+    expect(migration).toContain("status = 'submitted'")
+    expect(migration).toContain('((select auth.uid()) is null and user_id is null)')
+  })
+
+  it('uses an insert trigger for application counts and keeps the trigger helper non-callable', () => {
+    expect(migration).toContain('create trigger talent_applications_increment_count')
+    expect(migration).toContain('after insert on public.talent_applications')
+    expect(migration).toContain('revoke execute on function public.talent_application_count_after_insert()\n  from public, anon, authenticated;')
+  })
+
+  it('exposes Talent through the canonical api schema without weakening RLS or RPC boundaries', () => {
+    for (const table of ['talent_opportunities', 'talent_applications', 'talent_saved_jobs', 'talent_alerts']) {
+      expect(apiSchemaMigration).toContain(`create or replace view api.${table}`)
+    }
+    expect(apiSchemaMigration.match(/with \(security_invoker = on\)/g)?.length).toBe(4)
+    expect(apiSchemaMigration).toContain('grant select on api.talent_opportunities to anon, authenticated;')
+    expect(apiSchemaMigration).toContain('grant insert on api.talent_applications to anon;')
+    expect(apiSchemaMigration).toContain('grant select, insert on api.talent_applications to authenticated;')
+    expect(apiSchemaMigration).not.toContain('grant select on api.talent_applications to anon')
+    expect(apiSchemaMigration).toContain('security invoker\nset search_path = pg_catalog, public')
+    expect(apiSchemaMigration).toContain('grant execute on function api.increment_talent_view_count(uuid)\n  to anon, authenticated;')
+    expect(apiSchemaMigration).toContain('grant execute on function api.increment_talent_application_count(uuid)\n  to authenticated;')
+    expect(apiSchemaMigration).not.toContain('grant execute on function api.increment_talent_application_count(uuid)\n  to anon')
+  })
+
+  it('allows guest apply without selecting the inserted private application row', () => {
+    expect(applyRoute).toContain("import { randomUUID } from 'node:crypto'")
+    expect(applyRoute).toContain('const applicationId = randomUUID()')
+    expect(applyRoute).toContain('id: applicationId,')
+    expect(applyRoute).toContain(".from('talent_applications')\n      .insert(insertPayload)")
+    expect(applyRoute).not.toContain(".from('talent_applications')\n      .insert(insertPayload)\n      .select('id')")
+    expect(applyRoute).not.toContain('increment_talent_application_count')
   })
 })

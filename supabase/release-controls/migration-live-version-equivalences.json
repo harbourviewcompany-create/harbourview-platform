@@ -85,6 +85,20 @@
       "file": "20260821190000_clinical_framework_alignment_optional.sql",
       "git_blob_sha": "564f91b1d700394a9f217422d909147db2901858",
       "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "clinical_framework_alignment_optional", "production_statement_count": 1, "production_statement_md5": "52a1a07a704426c9663056063b34320c", "production_statement_chars": 2442, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-22 identified live version 20260821220443 as clinical_framework_alignment_optional. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed." }
+    },
+    {
+      "live_version": "20260822173834",
+      "repository_version": "20260822172000",
+      "file": "20260822172000_talent_production_integration_repair.sql",
+      "git_blob_sha": "bca03e36e026f52d9df29373d8ef48bbd14ea1d8",
+      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1629, "production_name": "talent_production_integration_repair", "production_statement_count": 1, "production_statement_md5": "5fec7a468b6c571e3b1de9f18612bd13", "production_statement_chars": 4318, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback syntax, dependency, privilege and RLS behavior verification. Supabase minted live version 20260822173834 for canonical repository migration 20260822172000." }
+    },
+    {
+      "live_version": "20260822214001",
+      "repository_version": "20260822174500",
+      "file": "20260822174500_talent_api_schema_exposure.sql",
+      "git_blob_sha": "160d7de785ad60e8833512e7acbba440b27252a8",
+      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1629, "production_name": "talent_api_schema_exposure", "production_statement_count": 1, "production_statement_md5": "f5731ecbe2e311a3b24921b779a3db4c", "production_statement_chars": 2284, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback API-schema privilege and behavior verification. Supabase minted live version 20260822214001 for canonical repository migration 20260822174500." }
     }
   ]
 }

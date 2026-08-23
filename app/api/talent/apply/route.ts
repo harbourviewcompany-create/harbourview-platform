@@ -4,6 +4,7 @@
  * Restores rate limiting + honeypot from the previous production route.
  */
 
+import { randomUUID } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
@@ -141,7 +142,12 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // Generate the identifier before insert. Guest callers intentionally do not
+    // have SELECT access to talent_applications, so a returning SELECT would turn
+    // an otherwise valid guest insert into a permission error.
+    const applicationId = randomUUID()
     const insertPayload: Record<string, unknown> = {
+      id: applicationId,
       opportunity_id: opportunityId,
       user_id: user?.id ?? null,
       applicant_name: name || null,
@@ -151,11 +157,9 @@ export async function POST(req: NextRequest) {
       resume_url: resumeUrl || null,
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('talent_applications')
       .insert(insertPayload)
-      .select('id')
-      .single()
 
     if (error) {
       // Unique violation for logged-in re-apply
@@ -172,17 +176,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    try {
-      await supabase.rpc('increment_talent_application_count', {
-        opportunity_id: opportunityId,
-      })
-    } catch {
-      // non-fatal
-    }
-
+    // application_count is maintained by a database AFTER INSERT trigger so a
+    // guest apply never needs anonymous EXECUTE on the counter RPC.
     return NextResponse.json({
       ok: true,
-      applicationId: data.id,
+      applicationId,
       message:
         'Application received. The operator will follow up directly if there is a fit.',
     })

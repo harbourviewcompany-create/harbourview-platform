@@ -15,6 +15,12 @@ See `docs/control/INTEL_PIPELINE_OPTIMIZATION_REGISTRY_ROWS.md` for the PR #1598
 | Intake | Server action `submitSupplierApplication` + form | Complete |
 | Admin | Pending review flow (via applicationsQuery + `/admin/(protected)/applications`) | Active |
 
+## Talent Job Board
+
+| Surface / Module | Status | Owner / Notes | Related files |
+|------------------|--------|---------------|---------------|
+| Talent Job Board (Command → Talent) | Active — Phase 0/1 foundation | Review-gated job board for regulated cannabis roles. Separated from counterparty records. Production Data API/RPC/guest-apply integration repaired 2026-08-22. | `supabase/migrations/20260821120000_talent_job_board.sql`, `supabase/migrations/20260822172000_talent_production_integration_repair.sql`, `supabase/migrations/20260822174500_talent_api_schema_exposure.sql`, `lib/server/talentQuery.ts`, `lib/server/talentOperations.ts`, `components/command-centre/talent/*`, `app/api/talent/*`, `docs/control/TALENT_JOB_BOARD_SPEC.md` |
+
 ## Residual systems catch-up — 2026-07-28 (code-presence)
 
 **Status:** Scoped registry rows for systems closed in the Phase 0–1 residual pass. Confirmed paths exist on `main` at commit `03f1f3ea`. This is **not** a full live RLS / production-deployment re-verification.
