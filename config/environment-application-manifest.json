@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "parentManifest": "config/environment-manifest.json",
+  "scope": "Application/runtime environment variables added after the parent manifest audit. These entries retain the parent manifest classification model and are included in the same fail-closed static-reference gate.",
+  "groups": [
+    {
+      "id": "public-globe-heat-feature-flags",
+      "names": [
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE",
+        "NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM"
+      ],
+      "stage": "Build + Runtime",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional browser-visible globe heat controls; current code defaults apply when absent",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Build Variables & Secrets → Variable AND Settings → Variables and Secrets → Variable when overriding defaults"
+      }
+    },
+    {
+      "id": "ops-autonomy-control",
+      "names": ["OPS_AUTONOMY_ENABLED"],
+      "stage": "Runtime only",
+      "sensitivity": "Plain variable",
+      "provider": "harbourview",
+      "requirement": "Optional ops-autonomy kill switch; current loop is enabled unless explicitly set to false",
+      "targets": ["next-app"],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings → Variables and Secrets → Variable only when the ops-autonomy route is in preview scope"
+      }
+    }
+  ]
+}
