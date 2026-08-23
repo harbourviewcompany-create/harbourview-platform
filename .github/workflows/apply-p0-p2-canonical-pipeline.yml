@@ -1,0 +1,435 @@
+name: Apply P0–P2 canonical pipeline (version-scoped)
+
+# Scaffold: controlled production apply for ONLY the three canonical P0–P2
+# migrations. Never uses `supabase db push --include-all` (that path would pull
+# ~100+ unrelated pending versions).
+#
+# Canonical set:
+#   20260820130000_hv_pipeline_optimization.sql
+#   20260820131000_hv_review_queue_resolve.sql
+#   20260821100000_p0_p2_canonical_finish.sql
+#
+# Forbidden: 20260820180000 (removed PR #1606 path).
+#
+# Full procedure: docs/control/INTEL_PIPELINE_P0_P2_LIVE_RUNBOOK.md
+# Checklist:     docs/control/INTEL_PIPELINE_P0_P2_APPLY_CHECKLIST.md
+# Ops pointer:   docs/ops/APPLY_P0_P2_CANONICAL_PIPELINE.md
+#
+# After a successful APPLY, quality crons remain PAUSED. Staggered restore is
+# intentionally not automated in this scaffold — follow the runbook §10–11.
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: 'Explicit production authorization'
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - PREFLIGHT_ONLY
+          - APPLY_PRODUCTION_MIGRATIONS
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apply-p0-p2-canonical-pipeline
+  cancel-in-progress: false
+
+env:
+  M1_VERSION: '20260820130000'
+  M1_NAME: hv_pipeline_optimization
+  M1_FILE: supabase/migrations/20260820130000_hv_pipeline_optimization.sql
+  M1_BLOB: '6ae416933e669df5d1f303fd85a91438c66fec26'
+  M2_VERSION: '20260820131000'
+  M2_NAME: hv_review_queue_resolve
+  M2_FILE: supabase/migrations/20260820131000_hv_review_queue_resolve.sql
+  M2_BLOB: '0c9cf6ebd19801767b305c4fb9a61f1b114f593f'
+  M3_VERSION: '20260821100000'
+  M3_NAME: p0_p2_canonical_finish
+  M3_FILE: supabase/migrations/20260821100000_p0_p2_canonical_finish.sql
+  M3_BLOB: 'c262859bfb6b79aa4d9ced469159b3563fbe2a06'
+  FORBIDDEN_VERSION: '20260820180000'
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  hold:
+    name: HOLD — no production action
+    if: inputs.production_action == 'HOLD'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Document hold
+        run: |
+          echo "::notice::HOLD selected. No production database access."
+          echo "Dispatch with PREFLIGHT_ONLY or APPLY_PRODUCTION_MIGRATIONS from main after runbook gates are green."
+
+  apply:
+    name: Preflight and optional apply
+    if: inputs.production_action == 'PREFLIGHT_ONLY' || inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+    runs-on: ubuntu-latest
+    environment: production-database
+    timeout-minutes: 40
+    steps:
+      - name: Require main branch dispatch
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Must be dispatched from main. Current ref: $GITHUB_REF"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Verify pinned migration blobs
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          verify_blob() {
+            local file="$1" expected="$2" label="$3"
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing migration file $file"
+              exit 1
+            fi
+            actual=$(git hash-object "$file")
+            echo "$label file=$file expected=$expected actual=$actual" | tee -a artifacts/blob-pins.txt
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::Blob mismatch for $label. Re-review SQL before production."
+              exit 1
+            fi
+          }
+          verify_blob "$M1_FILE" "$M1_BLOB" "M1"
+          verify_blob "$M2_FILE" "$M2_BLOB" "M2"
+          verify_blob "$M3_FILE" "$M3_BLOB" "M3"
+          if [ -f "supabase/migrations/20260820180000_p0_p2_pipeline_optimization.sql" ]; then
+            echo "::error::Forbidden migration file 20260820180000 is present in the tree."
+            exit 1
+          fi
+          echo "FORBIDDEN_FILE_ABSENT=1" | tee -a artifacts/blob-pins.txt
+
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          if command -v psql >/dev/null 2>&1; then
+            psql --version
+            exit 0
+          fi
+          sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends postgresql-client
+          psql --version
+
+      - name: Build masked connection string
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD=$(python3 - <<'PY'
+          import os, urllib.parse
+          print(urllib.parse.quote(os.environ['SUPABASE_DB_PASSWORD'], safe=''))
+          PY
+          )
+          DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::$DB_URL"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Preflight — ledger, remnants, UTC, resume state
+        run: |
+          set -euo pipefail
+          query() { psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "$1"; }
+
+          TZ=$(query "show timezone;")
+          echo "timezone=$TZ" | tee artifacts/preflight-timezone.txt
+          if [ "$TZ" != "UTC" ] && [ "$TZ" != "Etc/UTC" ]; then
+            echo "::error::Database timezone must be UTC for budget-day accounting. Got: $TZ"
+            exit 1
+          fi
+
+          query "
+            select version || '=' || coalesce(name, '')
+            from supabase_migrations.schema_migrations
+            where version in (
+              '${M1_VERSION}', '${M2_VERSION}', '${M3_VERSION}', '${FORBIDDEN_VERSION}'
+            )
+            order by version;
+          " | tee artifacts/ledger-focused-before.txt
+
+          FORBIDDEN=$(query "select count(*) from supabase_migrations.schema_migrations where version='${FORBIDDEN_VERSION}';")
+          if [ "$FORBIDDEN" != "0" ]; then
+            echo "::error::Forbidden version ${FORBIDDEN_VERSION} is present in live ledger. HOLD."
+            exit 1
+          fi
+
+          query "
+            select
+              coalesce(to_regclass('public.hv_pipeline_stage_metrics')::text, 'null') as unsafe_stage_metrics,
+              coalesce(to_regprocedure('public.hv_pipeline_budget_consume(integer)')::text, 'null') as unsafe_budget_consume,
+              coalesce(to_regprocedure('public.hv_pre_filter_documents(integer)')::text, 'null') as unsafe_pre_filter,
+              coalesce(to_regprocedure('public.hv_review_queue_enqueue_medium(numeric,numeric,integer)')::text, 'null') as unsafe_review_enqueue;
+          " | tee artifacts/remnant-gate.txt
+
+          if grep -v 'null|' artifacts/remnant-gate.txt | grep -vq '^null$' 2>/dev/null; then
+            # row is four fields; any non-null is contamination
+            if ! grep -q '^null|null|null|null$' artifacts/remnant-gate.txt; then
+              echo "::error::PR #1606 remnant objects detected. HOLD for separate reconciliation."
+              cat artifacts/remnant-gate.txt
+              exit 1
+            fi
+          fi
+          if ! grep -q '^null|null|null|null$' artifacts/remnant-gate.txt; then
+            echo "::error::PR #1606 remnant objects detected. HOLD."
+            exit 1
+          fi
+
+          M1=$(query "select count(*) from supabase_migrations.schema_migrations where version='${M1_VERSION}';")
+          M2=$(query "select count(*) from supabase_migrations.schema_migrations where version='${M2_VERSION}';")
+          M3=$(query "select count(*) from supabase_migrations.schema_migrations where version='${M3_VERSION}';")
+
+          for c in "$M1" "$M2" "$M3"; do
+            if [ "$c" -gt 1 ]; then
+              echo "::error::Duplicate canonical ledger rows. HOLD."
+              exit 1
+            fi
+          done
+
+          if [ "$M2" = "1" ] && [ "$M1" = "0" ]; then
+            echo "::error::Impossible resume: M2 without M1. HOLD."
+            exit 1
+          fi
+          if [ "$M3" = "1" ] && { [ "$M1" = "0" ] || [ "$M2" = "0" ]; }; then
+            echo "::error::Impossible resume: M3 without both prerequisites. HOLD."
+            exit 1
+          fi
+
+          if [ "$M1" = "1" ] && [ "$M2" = "1" ] && [ "$M3" = "1" ]; then
+            echo "RESUME=complete" | tee artifacts/resume-state.txt
+            echo "APPLY_M1=0" >> "$GITHUB_ENV"
+            echo "APPLY_M2=0" >> "$GITHUB_ENV"
+            echo "APPLY_M3=0" >> "$GITHUB_ENV"
+            echo "::notice::All three canonical versions already ledgered. Apply is a no-op; verification only."
+          elif [ "$M1" = "0" ]; then
+            echo "RESUME=zero" | tee artifacts/resume-state.txt
+            echo "APPLY_M1=1" >> "$GITHUB_ENV"
+            echo "APPLY_M2=1" >> "$GITHUB_ENV"
+            echo "APPLY_M3=1" >> "$GITHUB_ENV"
+          elif [ "$M2" = "0" ]; then
+            echo "RESUME=m1_only" | tee artifacts/resume-state.txt
+            echo "APPLY_M1=0" >> "$GITHUB_ENV"
+            echo "APPLY_M2=1" >> "$GITHUB_ENV"
+            echo "APPLY_M3=1" >> "$GITHUB_ENV"
+          else
+            echo "RESUME=m1_m2" | tee artifacts/resume-state.txt
+            echo "APPLY_M1=0" >> "$GITHUB_ENV"
+            echo "APPLY_M2=0" >> "$GITHUB_ENV"
+            echo "APPLY_M3=1" >> "$GITHUB_ENV"
+          fi
+
+          {
+            echo "m1_count=$M1"
+            echo "m2_count=$M2"
+            echo "m3_count=$M3"
+            echo "forbidden_count=$FORBIDDEN"
+          } | tee artifacts/ledger-counts-before.txt
+
+      - name: Preflight — cron identity, pause readiness
+        run: |
+          set -euo pipefail
+          query() { psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "$1"; }
+
+          query "
+            select jobname || '|' || schedule || '|' || active::text || '|' || md5(command)
+            from cron.job
+            where jobname in ('hv-quality-pipeline','hv-quality-promote')
+            order by jobname;
+          " | tee artifacts/cron-before.txt
+
+          PIPE_N=$(query "select count(*) from cron.job where jobname='hv-quality-pipeline';")
+          PROMOTE_N=$(query "select count(*) from cron.job where jobname='hv-quality-promote';")
+          if [ "$PIPE_N" != "1" ] || [ "$PROMOTE_N" != "1" ]; then
+            echo "::error::Expected exactly one row per quality jobname. pipeline=$PIPE_N promote=$PROMOTE_N"
+            exit 1
+          fi
+
+      - name: Stop after preflight when PREFLIGHT_ONLY
+        if: inputs.production_action == 'PREFLIGHT_ONLY'
+        run: |
+          echo "::notice::PREFLIGHT_ONLY complete. Artifacts capture resume state. No DDL, no cron mutation."
+          echo "Next: dispatch APPLY_PRODUCTION_MIGRATIONS only when resume state is valid and operator has signed the checklist."
+
+      - name: Pause and drain quality crons
+        if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+        run: |
+          set -euo pipefail
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+          select cron.alter_job(job_id := j.jobid, active := false)
+          from cron.job j where j.jobname = 'hv-quality-pipeline';
+          select cron.alter_job(job_id := j.jobid, active := false)
+          from cron.job j where j.jobname = 'hv-quality-promote';
+          SQL
+
+          ACTIVE=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select count(*) from cron.job
+            where jobname in ('hv-quality-pipeline','hv-quality-promote')
+              and active = true;
+          ")
+          if [ "$ACTIVE" != "0" ]; then
+            echo "::error::Failed to pause both quality jobs."
+            exit 1
+          fi
+
+          RUNNING=$(psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "
+            select count(*)
+            from cron.job j
+            join cron.job_run_details r on r.jobid = j.jobid
+            where j.jobname in ('hv-quality-pipeline','hv-quality-promote')
+              and r.end_time is null;
+          ")
+          if [ "$RUNNING" != "0" ]; then
+            echo "::error::Quality cron still running. Drain barrier failed. Keep paused and retry."
+            exit 1
+          fi
+          echo "paused_and_drained=1" | tee artifacts/cron-pause.txt
+
+      - name: Apply only missing canonical migrations
+        if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+        run: |
+          set -euo pipefail
+
+          if [ "${APPLY_M1:-0}" = "0" ] && [ "${APPLY_M2:-0}" = "0" ] && [ "${APPLY_M3:-0}" = "0" ]; then
+            echo "::notice::Nothing to apply; running post verification only."
+            exit 0
+          fi
+
+          {
+            echo '\set ON_ERROR_STOP on'
+            echo 'begin;'
+            if [ "${APPLY_M1}" = "1" ]; then
+              echo "\\i ${M1_FILE}"
+              echo "insert into supabase_migrations.schema_migrations (version, name) values ('${M1_VERSION}', '${M1_NAME}');"
+            fi
+            if [ "${APPLY_M2}" = "1" ]; then
+              echo "\\i ${M2_FILE}"
+              echo "insert into supabase_migrations.schema_migrations (version, name) values ('${M2_VERSION}', '${M2_NAME}');"
+            fi
+            if [ "${APPLY_M3}" = "1" ]; then
+              echo "\\i ${M3_FILE}"
+              echo "insert into supabase_migrations.schema_migrations (version, name) values ('${M3_VERSION}', '${M3_NAME}');"
+            fi
+            echo 'commit;'
+          } > artifacts/apply-transaction.sql
+
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 -f artifacts/apply-transaction.sql \
+            2>&1 | tee artifacts/apply.log
+
+      - name: Post-apply structural gates
+        if: inputs.production_action == 'APPLY_PRODUCTION_MIGRATIONS'
+        run: |
+          set -euo pipefail
+          query() { psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 -c "$1"; }
+
+          query "
+            select version || '=' || coalesce(name, '')
+            from supabase_migrations.schema_migrations
+            where version in ('${M1_VERSION}', '${M2_VERSION}', '${M3_VERSION}', '${FORBIDDEN_VERSION}')
+            order by version;
+          " | tee artifacts/ledger-focused-after.txt
+
+          FORBIDDEN=$(query "select count(*) from supabase_migrations.schema_migrations where version='${FORBIDDEN_VERSION}';")
+          if [ "$FORBIDDEN" != "0" ]; then
+            echo "::error::Forbidden version appeared after apply."
+            exit 1
+          fi
+
+          NEED=$(query "
+            select count(*) from (
+              select 1 from supabase_migrations.schema_migrations where version='${M1_VERSION}'
+              union all select 1 from supabase_migrations.schema_migrations where version='${M2_VERSION}'
+              union all select 1 from supabase_migrations.schema_migrations where version='${M3_VERSION}'
+            ) t;
+          ")
+          if [ "$NEED" != "3" ]; then
+            echo "::error::Expected all three canonical versions ledgered; got count=$NEED"
+            exit 1
+          fi
+
+          # Gate snapshot exists only after M3; require when M3 present
+          if [ "$(query "select count(*) from supabase_migrations.schema_migrations where version='${M3_VERSION}';")" = "1" ]; then
+            query "select public.hv_eval_gate_snapshot()::text;" | tee artifacts/gate-snapshot.txt || {
+              echo "::error::hv_eval_gate_snapshot() failed"
+              exit 1
+            }
+          fi
+
+          query "
+            select c.relname || '|rls=' || c.relrowsecurity::text || '|force=' || c.relforcerowsecurity::text
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public'
+              and c.relname in (
+                'hv_signal_review_queue',
+                'hv_classify_prefilter_dispositions',
+                'hv_pipeline_stage_log',
+                'hv_pipeline_cost_budget'
+              )
+            order by c.relname;
+          " | tee artifacts/rls-matrix.txt
+
+          query "
+            select jobname || '|' || active::text
+            from cron.job
+            where jobname in ('hv-quality-pipeline','hv-quality-promote')
+            order by jobname;
+          " | tee artifacts/cron-after-apply.txt
+
+          STILL_ACTIVE=$(query "
+            select count(*) from cron.job
+            where jobname in ('hv-quality-pipeline','hv-quality-promote') and active;
+          ")
+          if [ "$STILL_ACTIVE" != "0" ]; then
+            echo "::error::Quality crons must remain paused after apply (scaffold does not auto-restore)."
+            exit 1
+          fi
+
+          echo "::notice::Apply path finished. Crons remain PAUSED. Restore per runbook §10–11 only after structural GO."
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo '## P0–P2 canonical apply (version-scoped scaffold)'
+            echo
+            echo "Action: \`${{ inputs.production_action }}\`"
+            echo
+            echo '### Resume state'
+            echo '```'
+            cat artifacts/resume-state.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### Ledger before'
+            echo '```'
+            cat artifacts/ledger-focused-before.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### Remnant gate'
+            echo '```'
+            cat artifacts/remnant-gate.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### Ledger after'
+            echo '```'
+            cat artifacts/ledger-focused-after.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo '### Cron after apply (must stay paused)'
+            echo '```'
+            cat artifacts/cron-after-apply.txt 2>/dev/null || echo 'n/a'
+            echo '```'
+            echo
+            echo 'Staggered cron restore is **not** performed by this workflow. Use the live runbook.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-p2-canonical-apply-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 90
