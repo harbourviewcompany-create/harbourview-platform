@@ -71,6 +71,14 @@ function renderMarket(row: NormalizedListing) {
   return parseHTML(`<!doctype html><html><body>${markup}</body></html>`).document
 }
 
+function expectOptimizedImageSource(image: Element | null | undefined, expectedSource: string) {
+  const renderedSource = image?.getAttribute('src')
+  expect(renderedSource).toBeTruthy()
+  const optimized = new URL(renderedSource!, 'https://harbourview.test')
+  expect(optimized.pathname).toBe('/_next/image')
+  expect(optimized.searchParams.get('url')).toBe(expectedSource)
+}
+
 describe('mobile marketplace listing media', () => {
   it('renders approved real-item evidence without a representative or catalogue qualifier', () => {
     const row = listing()
@@ -79,9 +87,8 @@ describe('mobile marketplace listing media', () => {
     const image = media?.querySelector('img')
 
     expect(media?.getAttribute('data-media-kind')).toBe('actual')
-    expect(image?.getAttribute('src')).toBe(row.media?.src)
+    expectOptimizedImageSource(image, row.media!.src)
     expect(image?.getAttribute('alt')).toBe('Sealed EU-GMP dried flower lot prepared for export')
-    expect(image?.getAttribute('data-fallback-src')).toBe(DRIED_FLOWER_SRC)
     expect(image?.getAttribute('loading')).toBe('lazy')
     expect(document.querySelector('.hvm2-listing-media-badge')).toBeNull()
     expect(document.body.textContent).toContain('Approved listing image.')
@@ -140,7 +147,7 @@ describe('mobile marketplace listing media', () => {
     expect(media).not.toBeNull()
     expect(media?.getAttribute('data-media-kind')).toBe('representative')
     expect(image).not.toBeNull()
-    expect(image?.getAttribute('src')).toBe(DRIED_FLOWER_SRC)
+    expectOptimizedImageSource(image, DRIED_FLOWER_SRC)
     expect(document.querySelector('.hvm2-listing-media-badge')?.textContent).toBe('Representative image')
     expect(media?.textContent).not.toContain('photo on inquiry')
   })
