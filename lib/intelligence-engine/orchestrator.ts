@@ -149,6 +149,7 @@ export class IntelligenceOrchestrator {
   /**
    * Inject previous snapshot hash into target.metadata so adapters can
    * short-circuit (ETag / content-hash) without a second DB round-trip.
+   * last_etag already rides in from source_registry.metadata when present.
    */
   private async withPreviousHash(target: ScrapeTarget): Promise<ScrapeTarget> {
     const { data: last } = await this.supabase
@@ -170,6 +171,34 @@ export class IntelligenceOrchestrator {
         previous_hash: previousHash,
       },
     };
+  }
+
+  /**
+   * Merge response ETag into source_registry.metadata so the next crawl can
+   * send If-None-Match. Best-effort; never fails the crawl on write error.
+   */
+  private async persistLastEtag(
+    target: ScrapeTarget,
+    etag: string,
+  ): Promise<void> {
+    const nextMeta: Record<string, unknown> = {
+      ...(target.metadata ?? {}),
+      last_etag: etag,
+    };
+    // previous_hash is orchestrator-injected only for this request — do not persist.
+    delete nextMeta.previous_hash;
+
+    const { error } = await this.supabase
+      .from('source_registry')
+      .update({ metadata: nextMeta })
+      .eq('id', target.id);
+
+    if (error) {
+      console.warn(
+        `[${this.runId}] last_etag persist soft-fail for ${target.id}:`,
+        error.message,
+      );
+    }
   }
 
   private async processTarget(
@@ -246,6 +275,13 @@ export class IntelligenceOrchestrator {
     if (result.status === 'success' || result.status === 'unchanged') {
       await this.circuitBreaker.recordSuccess(domain);
       await this.queue.markSuccess(target.id, target.cadence_hours, contentChanged);
+      if (
+        target.adapter_type === 'api' &&
+        typeof result.etag === 'string' &&
+        result.etag.length > 0
+      ) {
+        await this.persistLastEtag(target, result.etag);
+      }
       console.log(
         `[${this.runId}] ✓ ${target.source_name} [${target.adapter_type}]${contentChanged ? ' (changed)' : ' (unchanged)'}`,
       );

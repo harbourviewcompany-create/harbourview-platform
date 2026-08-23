@@ -41,6 +41,8 @@ export const ScraperResultSchema = z.object({
   error_message: z.string().optional(),
   http_status: z.number().optional(),
   retry_after_seconds: z.number().optional(),
+  /** Response ETag when present; orchestrator may persist as metadata.last_etag. */
+  etag: z.string().optional(),
 });
 
 export type ScraperResult = z.infer<typeof ScraperResultSchema>;

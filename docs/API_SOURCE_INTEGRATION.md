@@ -27,7 +27,8 @@ The Intelligence Engine routes `source_registry.adapter = 'api'` to `APIDataAdap
   },
   "accept": "application/json",
   "timeout_ms": 20000,
-  "auth_env": "CANNABIZ_API_KEY"
+  "auth_env": "CANNABIZ_API_KEY",
+  "last_etag": "\"W/\\\"abc123\\\"\""
 }
 ```
 
@@ -35,18 +36,18 @@ The Intelligence Engine routes `source_registry.adapter = 'api'` to `APIDataAdap
 - **`auth_env`** — name of a process.env variable. The adapter injects `Authorization: Bearer ${process.env[auth_env]}`. Secrets stay in Vercel/Supabase env, never in the registry.
 - **`timeout_ms`** — capped at 60 s; default 15 s.
 - **`accept`** — overrides the default `application/json`.
+- **`last_etag`** — written by the orchestrator after a successful API crawl that returned an `ETag` header. Sent as `If-None-Match` on the next request.
 
-Orchestrator-injected (not stored in registry):
+Orchestrator-injected per request (not stored):
 
-- **`previous_hash`** — last successful `source_snapshots.raw_html_hash`; adapter returns `status: 'unchanged'` when body hash matches.
-- **`last_etag`** — when set, sent as `If-None-Match`; HTTP 304 → `unchanged`.
+- **`previous_hash`** — last successful `source_snapshots.raw_html_hash`; adapter returns `status: 'unchanged'` when body hash matches. Stripped before any metadata write-back.
 
 ### Change detection
 
 | Result | Meaning |
 |--------|---------|
-| `success` | Valid JSON, body differs from previous hash → snapshot with `pending_extraction` |
-| `unchanged` | 304 or hash match → schedule advanced, **no** extraction queue |
+| `success` | Valid JSON, body differs from previous hash → snapshot with `pending_extraction`; response ETag persisted to `metadata.last_etag` when present |
+| `unchanged` | 304 or hash match → schedule advanced, **no** extraction queue; ETag refreshed when the server returns one |
 | `failed` | HTTP error, invalid JSON, missing `auth_env` secret |
 
 `unchanged` is treated as a successful crawl for circuit-breaker and cadence backoff (1.5× base when content does not change).
@@ -103,14 +104,15 @@ After insert, the next `intelligence-ingest` cron run will pick the row up via `
 
 1. Adapter returns `status: 'success'` and a stable `content_hash` for unchanged payloads; second run returns `unchanged` when body is identical.
 2. `source_snapshots.changed` is true only when the JSON body changes; unchanged does not enqueue `pending_extraction`.
-3. Downstream signals receive correct `source_id` / provenance.
-4. Per-source yield metrics (Source Expansion Plan §4) include the new API rows.
-5. No private headers or secrets appear in public DTOs or logs.
+3. After a 200 with `ETag`, `source_registry.metadata.last_etag` is set; the next crawl sends `If-None-Match`.
+4. Downstream signals receive correct `source_id` / provenance.
+5. Per-source yield metrics (Source Expansion Plan §4) include the new API rows.
+6. No private headers or secrets appear in public DTOs or logs.
 
 ## Related code
 
 - `lib/intelligence-engine/adapters/api-fetcher.ts`
-- `lib/intelligence-engine/orchestrator.ts` (`selectAdapter` → `'api'`, previous_hash injection)
+- `lib/intelligence-engine/orchestrator.ts` (`selectAdapter` → `'api'`, previous_hash injection, last_etag persist)
 - `lib/intelligence-engine/queue/task-queue.ts` (passes `metadata`)
 - `docs/SOURCE_EXPANSION_PLAN.md` (Tier-1 primary sources)
 - Migration: `supabase/migrations/20260729130000_source_registry_metadata_and_api_seeds.sql`

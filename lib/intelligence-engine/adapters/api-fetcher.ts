@@ -81,6 +81,9 @@ export class APIDataAdapter implements IDataAdapter {
       if (response.status === 304) {
         const previousHash =
           typeof meta.previous_hash === 'string' ? meta.previous_hash : '';
+        const etag =
+          response.headers.get('etag') ??
+          (typeof meta.last_etag === 'string' ? meta.last_etag : undefined);
         return {
           target_id: target.id,
           timestamp,
@@ -88,6 +91,7 @@ export class APIDataAdapter implements IDataAdapter {
           content_hash: previousHash,
           status: 'unchanged',
           http_status: 304,
+          etag: etag || undefined,
         };
       }
 
@@ -113,6 +117,7 @@ export class APIDataAdapter implements IDataAdapter {
         meta.previous_hash.length > 0 &&
         contentHash === meta.previous_hash
       ) {
+        const etag = response.headers.get('etag') ?? undefined;
         return {
           target_id: target.id,
           timestamp,
@@ -120,6 +125,7 @@ export class APIDataAdapter implements IDataAdapter {
           content_hash: contentHash,
           status: 'unchanged',
           http_status: response.status,
+          etag: etag || undefined,
         };
       }
 
@@ -137,21 +143,16 @@ export class APIDataAdapter implements IDataAdapter {
         };
       }
 
-      // Prefer response ETag for next conditional request (stored by orchestrator if desired).
-      const etag = response.headers.get('etag');
-      const result: ScraperResult = {
+      const etag = response.headers.get('etag') ?? undefined;
+      return {
         target_id: target.id,
         timestamp,
         raw_content: text,
         content_hash: contentHash,
         status: 'success',
         http_status: response.status,
+        etag: etag || undefined,
       };
-      // Attach etag in error_message-free path via a non-schema field is not allowed;
-      // orchestrator uses content_hash for change detection. ETag can be re-fetched
-      // from response if we extend ScraperResult later.
-      void etag;
-      return result;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return {
