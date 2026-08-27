@@ -1,3 +1,4 @@
+# Verification-only no-op change used to capture the current-main security assertion baseline.
 name: Production Security Hardening
 
 on:
