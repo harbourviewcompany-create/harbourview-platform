@@ -145,7 +145,7 @@ describe('Harbourview P0 identity, organization, membership and operating contex
 
   it('keeps organization onboarding out of the public marketing shell', () => {
     expect(shellWrapper).toContain("'/organization'")
-    expect(shellWrapper).toContain("const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization']")
+    expect(shellWrapper).toContain("const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization', '/admin']")
   })
 
   it('provides Personal, multi-organization switching, join and stale-context recovery in Command', () => {
