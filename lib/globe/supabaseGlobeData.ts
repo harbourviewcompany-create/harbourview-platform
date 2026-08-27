@@ -34,7 +34,7 @@ export type GlobeCountryMarker = {
    * `regulatoryTier` instead.
    */
   marketAccessStatus: string | null
-  /** Reviewed tier from countries.regulatory_tier. null = unreviewed → renders neutral. */
+  /** Live tier from countries.regulatory_tier. null = unresolved → renders neutral. */
   regulatoryTier: RegulatoryTier | null
 }
 
@@ -57,14 +57,15 @@ export type GlobeLiveData = {
 }
 
 /**
- * Fetch the globe payload. Accepts an injected Supabase client so the same query
- * can run under the browser client (default, client-side realtime path) or a
- * server-side anon client (cached route handler — see lib/globe/globeDataServer.ts).
+ * Fetch only current jurisdiction marker/tier rows.
+ *
+ * The heatmap uses this lightweight query on initial browser load so it never
+ * depends on a stale cached /api/globe snapshot for regulatory colour. Realtime
+ * country events then keep the same collection current while the page is open.
  */
-export async function getGlobeLiveData(
+export async function getGlobeCountryMarkers(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
-): Promise<GlobeLiveData> {
-
+): Promise<GlobeCountryMarker[]> {
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
     .select(
@@ -74,11 +75,10 @@ export async function getGlobeLiveData(
     .not('lng', 'is', null)
 
   if (countriesError) {
-    // Fail loud — do not return an empty globe silently.
-    throw new Error(`getGlobeLiveData: countries query failed: ${countriesError.message}`)
+    throw new Error(`getGlobeCountryMarkers: countries query failed: ${countriesError.message}`)
   }
 
-  const countries: GlobeCountryMarker[] = (countryRows ?? []).map((c) => ({
+  return (countryRows ?? []).map((c) => ({
     iso2: c.iso_alpha2,
     name: c.country_name,
     lat: c.lat,
@@ -88,6 +88,19 @@ export async function getGlobeLiveData(
     marketAccessStatus: c.market_access_status,
     regulatoryTier: (c.regulatory_tier as RegulatoryTier | null) ?? null,
   }))
+}
+
+/**
+ * Fetch the complete globe payload. Accepts an injected Supabase client so the
+ * same query can run under the browser client or a server-side anon client.
+ * The server route caches this complete payload for signal/read-load efficiency;
+ * GlobeProvider separately reconciles the countries array from the fresh helper
+ * above before publishing the initial heatmap state.
+ */
+export async function getGlobeLiveData(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeLiveData> {
+  const countries = await getGlobeCountryMarkers(supabase)
 
   const { data: signalRows, error: signalsError } = await supabase
     .from('signals')
@@ -179,7 +192,7 @@ export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeR
     ...prev,
     signalsByIso2: {
       ...prev.signalsByIso2,
-      [iso2]: [signal, ...existing.filter((s) => s.id !== signal.id)].slice(0, 50), // cap per-country
+      [iso2]: [signal, ...existing.filter((s) => s.id !== signal.id)].slice(0, 50),
     },
   }
 }

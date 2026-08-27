@@ -2,10 +2,10 @@
  * components/globe/GlobeProvider.tsx
  *
  * Wires the real schema (countries / signals / market_metrics) into context.
- * Realtime deltas are merged into state here. `signals.country_iso2` is
- * resolved server-side by the `trg_signals_resolve_geo` trigger before the
- * row commits, so `payload.new.country_iso2` is already correct — no
- * client-side country→iso2 lookup needed.
+ * Regulatory heatmap colours are loaded directly from the current countries
+ * rows on every initial browser load, then kept current by Realtime changes.
+ * The heavier signal payload may still bootstrap from the cached /api/globe
+ * route; cached country tiers are never used as the authoritative first paint.
  */
 'use client'
 
@@ -20,6 +20,7 @@ import {
 } from 'react'
 import { useGlobeRealtime, type RealtimeStatus } from './useGlobeRealtime'
 import {
+  getGlobeCountryMarkers,
   mergeSignalRealtimeRow,
   type GlobeLiveData,
   type GlobeCountryMarker,
@@ -27,14 +28,11 @@ import {
 } from '@/lib/globe/supabaseGlobeData'
 
 /**
- * Fetches the globe payload from the cached server route (`/api/globe`) instead
- * of querying PostgREST directly from every visitor's browser. The route caches
- * the query for 5 minutes, so this removes per-visitor load from the database
- * and serves cached data through a transient DB blip. Realtime deltas below keep
- * the view live after the initial load. A `degraded` payload (DB unreachable)
- * is a normal empty result here — the sphere still renders, just without markers.
+ * Cached bootstrap for signal data. Country rows returned by this route are
+ * deliberately replaced by a direct live countries query before state is
+ * published, so a CDN/Next cache cannot keep a stale regulatory colour alive.
  */
-async function fetchGlobeLiveData(): Promise<GlobeLiveData> {
+async function fetchGlobeBootstrapData(): Promise<GlobeLiveData> {
   const res = await fetch('/api/globe', { cache: 'no-store' })
   if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
   const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
@@ -45,13 +43,6 @@ async function fetchGlobeLiveData(): Promise<GlobeLiveData> {
   }
 }
 
-/**
- * Retries a promise-returning fn with backoff. The diagnosed cause of the
- * "Could not load regulatory data" / uncoloured-gold globe was transient
- * database latency that recovers within seconds; a retry turns a blip into a
- * brief reload instead of a dead-end. Each attempt is independently
- * timeout-guarded by the caller where applicable.
- */
 async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly number[]): Promise<T> {
   let lastErr: unknown
   for (let i = 0; i <= backoffsMs.length; i++) {
@@ -91,9 +82,31 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    withRetry(() => fetchGlobeLiveData(), FETCH_RETRY_BACKOFFS_MS)
-      .then((data) => {
-        if (!cancelled) setLiveData(data)
+
+    const bootstrapPromise = withRetry(() => fetchGlobeBootstrapData(), FETCH_RETRY_BACKOFFS_MS)
+    const liveCountriesPromise = withRetry(() => getGlobeCountryMarkers(), FETCH_RETRY_BACKOFFS_MS)
+
+    Promise.allSettled([bootstrapPromise, liveCountriesPromise])
+      .then(([bootstrapResult, countriesResult]) => {
+        if (cancelled) return
+
+        if (bootstrapResult.status === 'rejected' && countriesResult.status === 'rejected') {
+          throw bootstrapResult.reason ?? countriesResult.reason
+        }
+
+        const bootstrap = bootstrapResult.status === 'fulfilled' ? bootstrapResult.value : EMPTY_DATA
+
+        if (countriesResult.status === 'fulfilled') {
+          setLiveData({ ...bootstrap, countries: countriesResult.value })
+          return
+        }
+
+        // Regulatory claims fail closed. A cached countries array may be stale,
+        // so if the direct live tier query fails we keep countries empty/neutral
+        // rather than painting a possibly obsolete legal status.
+        console.error('[GlobeProvider] live countries query failed; rendering regulatory tiers neutral:', countriesResult.reason)
+        setLiveData({ ...bootstrap, countries: [] })
+        setLoadError('Live regulatory tier data is temporarily unavailable.')
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err))
@@ -101,6 +114,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+
     return () => {
       cancelled = true
     }
@@ -143,14 +157,10 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         }
 
         if (payload.table === 'signals') {
-          if (payload.eventType === 'DELETE') return prev // out of scope for this pass
-
+          if (payload.eventType === 'DELETE') return prev
           return mergeSignalRealtimeRow(prev, payload.new as unknown as SignalRealtimeRow)
         }
 
-        // market_metrics: currently loaded on init only; live updates here
-        // are intentionally not merged yet — no UI consumes them live. Add
-        // a case here when an overlay actually reads from this table.
         return prev
       })
     },
