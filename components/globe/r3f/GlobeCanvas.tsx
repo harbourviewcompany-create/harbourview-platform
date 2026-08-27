@@ -171,7 +171,7 @@ export function GlobeCanvas({
   focusedCountryIso2,
   activeLayerId,
   routerStep,
-  subNationalIso2s = [],
+  subNationalIso2s = ['DE', 'AU'],
   tierPalette = 'metal',
   onHoverCountry,
   onSelectCountry,
