@@ -44,7 +44,7 @@ jobs:
         run: |
           npx vitest run tests/supabase/hvDedupVectorSearchPath.test.ts tests/supabase/productionSecurityHardening.test.ts
           node --test tests/scripts/release-closure-migration-classification.test.mjs
-          node --test --test-name-pattern='^(?!replay disambiguates independent duplicate-version migrations without dropping any body$).*' tests/scripts/production-faithful-migration-replay.test.mjs
+          node --test --test-skip-pattern='replay disambiguates independent duplicate-version migrations without dropping any body' tests/scripts/production-faithful-migration-replay.test.mjs
           node --test tests/scripts/production-faithful-migration-replay-resolved-collisions.test.mjs
           node scripts/check-release-closure-migration-classification.mjs
       - run: npx vitest run tests/dashboard/commandCentreSourcePlan.test.ts tests/platform/command-centre-copy.test.ts tests/supabase/env.test.ts
