@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - name: Verify generated 248-country mapping
