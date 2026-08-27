@@ -1,17 +1,15 @@
 // app/api/cron/synthesize-jurisdictions/route.ts
-// Vercel Cron — runs every Monday at 03:00 UTC.
-// Synthesises weekly jurisdiction briefings for all active markets using Claude.
-//
-// Required env vars:
-//   CRON_SECRET         — shared with other cron routes
-//   ANTHROPIC_API_KEY   — Claude API access
-//   SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_URL
+// Vercel Hobby-safe daily cron. Rotates a bounded batch through every active
+// market while the synthesis implementation itself rejects stale evidence.
 
 import { NextResponse } from 'next/server'
-import { synthesiseJurisdiction, SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
+import { synthesiseJurisdictionBatch } from '@/lib/intelligence/jurisdictionSynthesis'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
+export const runtime = 'nodejs'
+export const maxDuration = 120
+
+const DEFAULT_BATCH = 4
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
@@ -24,37 +22,31 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  console.info(`synthesize_jurisdictions_cron: starting run — ${SYNTHESIS_MARKETS.length} markets`)
+  const url = new URL(request.url)
+  const requestedLimit = Number.parseInt(url.searchParams.get('limit') ?? '', 10)
+  const requestedOffset = Number.parseInt(url.searchParams.get('offset') ?? '', 10)
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(requestedLimit, 1), 10)
+    : DEFAULT_BATCH
+  const offset = Number.isFinite(requestedOffset) && requestedOffset >= 0
+    ? requestedOffset
+    : undefined
 
-  const results: { iso2: string; ok: boolean; signal_count?: number; error?: string }[] = []
+  console.info('synthesize_jurisdictions_cron: starting bounded freshness batch', { limit, offset })
+  const batch = await synthesiseJurisdictionBatch({ limit, offset })
+  const succeeded = batch.results.filter(result => result.ok).length
+  const failed = batch.results.length - succeeded
 
-  // Sequential to avoid Anthropic rate limits
-  for (const market of SYNTHESIS_MARKETS) {
-    try {
-      const result = await synthesiseJurisdiction(market.iso2, market.name)
-      results.push({
-        iso2: market.iso2,
-        ok: result.ok,
-        signal_count: result.ok ? result.signal_count : undefined,
-        error: result.ok ? undefined : result.error,
-      })
-      console.info(`synthesize_jurisdictions_cron: ${market.iso2} ${result.ok ? 'ok' : 'failed — ' + (result as { error: string }).error}`)
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      console.error(`synthesize_jurisdictions_cron: ${market.iso2} threw — ${msg}`)
-      results.push({ iso2: market.iso2, ok: false, error: msg })
-    }
-  }
-
-  const succeeded = results.filter(r => r.ok).length
-  const failed    = results.filter(r => !r.ok).length
-
-  console.info(`synthesize_jurisdictions_cron: complete — ${succeeded} ok, ${failed} failed`)
-
-  return NextResponse.json({
-    ok: true,
+  console.info('synthesize_jurisdictions_cron: complete', {
     succeeded,
     failed,
-    results,
+    markets: batch.results.map(result => result.iso2),
   })
+
+  return NextResponse.json({
+    ok: batch.ok && failed === 0,
+    succeeded,
+    failed,
+    results: batch.results,
+  }, { status: batch.ok ? 200 : 503 })
 }
