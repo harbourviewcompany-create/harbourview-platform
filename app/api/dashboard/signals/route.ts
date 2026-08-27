@@ -1,15 +1,22 @@
 /**
  * GET /api/dashboard/signals
  *
- * Live paginated signals for CommandCentre. Reads `signals_with_quality` and
- * projects an explicit authenticated presentation DTO. Raw analysis/provenance
- * JSON is never returned to the client.
+ * Canonical live Weekly Signals feed for the authenticated Command Centre.
+ * Reads `signals_with_quality`, projects an explicit safe DTO, then applies one
+ * freshness/dedup/ranking contract shared with the mobile realtime hook.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { buildSafeSignalPresentation } from '@/lib/dashboard/signalPresentation'
+import {
+  canonicalizeDashboardSignals,
+  formatSignalAge,
+  isGlobalSignalScope,
+  resolveSignalFreshness,
+  WEEKLY_SIGNAL_WINDOW_DAYS,
+} from '@/lib/dashboard/signalFreshness'
 import { flagForMarket } from '@/lib/utils/flagEmoji'
 import {
   SIGNAL_QUALITY_SELECT,
@@ -25,7 +32,9 @@ import {
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 
-const PRESENTATION_SELECT = `id, headline, summary, source, url, verification, commercial_impact, analysis, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const TIMELINE_FIELDS = 'source_published_at, event_effective_at, observed_at, ingested_at' as const
+const PRESENTATION_SELECT = `id, headline, summary, source, url, verification, commercial_impact, analysis, cat, top_lane, pri, country, date, created_at, ${TIMELINE_FIELDS}, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const LEGACY_PRESENTATION_SELECT = `id, headline, summary, source, url, verification, commercial_impact, analysis, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 const LEGACY_SELECT = `id, headline, cat, top_lane, pri, country, date, created_at, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 
 const LANE_TOP_LANES: Record<string, string[]> = {
@@ -38,8 +47,8 @@ const SIGNAL_TAG_MAP: Record<string, { label: string; color: string; bg: string;
   regulatory_change:    { label: 'REGULATION',   color: '#D9A441', bg: 'rgba(217,164,65,0.15)',  border: 'rgba(217,164,65,0.35)'  },
   importer_activity:    { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
   buyer_demand:         { label: 'MARKET',       color: '#6FCF7D', bg: 'rgba(111,207,125,0.12)', border: 'rgba(111,207,125,0.30)' },
-  new_product_category: { label: 'TRADE',        color: '#B07ED4', bg: 'rgba(139,95,168,0.15)',  border: 'rgba(139,95,168,0.30)'  },
-  distressed_asset:     { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)'  },
+  new_product_category: { label: 'TRADE',        color: '#B07ED4', bg: 'rgba(139,95,168,0.15)',  border: 'rgba(139,95,168,0.30)' },
+  distressed_asset:     { label: 'SUPPLY CHAIN', color: '#D49560', bg: 'rgba(184,115,51,0.15)',  border: 'rgba(184,115,51,0.30)' },
   facility_expansion:   { label: 'INVESTMENT',   color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
   story:                { label: 'STORY',        color: '#E8C87A', bg: 'rgba(232,200,122,0.12)',  border: 'rgba(232,200,122,0.30)' },
   research:             { label: 'RESEARCH',     color: '#8AAFE8', bg: 'rgba(100,149,237,0.12)', border: 'rgba(100,149,237,0.25)' },
@@ -77,21 +86,6 @@ function stripHtml(raw: string): string {
     .slice(0, 240)
 }
 
-function timeAgo(dateStr: string | null | undefined): string {
-  if (!dateStr) return 'Recently'
-  try {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const h = Math.floor(diff / 3_600_000)
-    if (h < 1) return 'Just now'
-    if (h < 24) return `${h}h ago`
-    const d = Math.floor(h / 24)
-    if (d < 7) return `${d}d ago`
-    return `${Math.floor(d / 7)}w ago`
-  } catch {
-    return 'Recently'
-  }
-}
-
 type SignalRow = SignalQualityRow & {
   id: string
   headline: string
@@ -107,15 +101,26 @@ type SignalRow = SignalQualityRow & {
   country: string | null
   date: string | null
   created_at: string
+  source_published_at?: string | null
+  event_effective_at?: string | null
+  observed_at?: string | null
+  ingested_at?: string | null
 }
 
 type QueryError = { code?: string; message?: string }
 
-function isPresentationSchemaGap(error: QueryError): boolean {
+function isSchemaGap(error: QueryError, columns: string[]) {
   if (error.code === '42703' || error.code === 'PGRST204') return true
   const message = (error.message ?? '').toLowerCase()
-  return ['summary', 'source', 'url', 'verification', 'commercial_impact', 'analysis']
-    .some(column => message.includes(column) && (message.includes('column') || message.includes('schema cache')))
+  return columns.some(column => message.includes(column) && (message.includes('column') || message.includes('schema cache')))
+}
+
+function isTimelineSchemaGap(error: QueryError) {
+  return isSchemaGap(error, ['source_published_at', 'event_effective_at', 'observed_at', 'ingested_at'])
+}
+
+function isPresentationSchemaGap(error: QueryError) {
+  return isSchemaGap(error, ['summary', 'source', 'url', 'verification', 'commercial_impact', 'analysis'])
 }
 
 export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSignal {
@@ -134,7 +139,7 @@ export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number
   const title = displayHeadline(s) ?? s.headline
   const safe = buildSafeSignalPresentation(s)
 
-  return {
+  const base: DashboardSignal = {
     ...safe,
     id: s.id,
     slug: undefined,
@@ -142,7 +147,7 @@ export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number
     type: tagKey,
     market,
     tag,
-    timeAgo: timeAgo(s.date ?? s.created_at),
+    timeAgo: 'Date unknown',
     confidence: resolveConfidence(s) ?? 50,
     commercialImpact: safe.commercialImpact ?? `${urgency} ${laneKey || 'regulatory'} signal${market ? ` · ${market}` : ''}${corrNote}.`,
     sourceLabel: safe.sourceLabel ?? 'Harbourview Intelligence',
@@ -153,12 +158,20 @@ export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number
     originalLanguageLabel: originalLanguageLabel(s),
     signalContentType: resolveContentType(s),
   }
+
+  const freshness = resolveSignalFreshness(base)
+  return {
+    ...base,
+    freshnessAt: freshness.at,
+    freshnessBasis: freshness.basis,
+    timeAgo: formatSignalAge(freshness.at),
+  }
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
 
-  const countryParam = (searchParams.get('country') ?? '').trim().replace(/[,()]/g, '')
+  const countryParam = (searchParams.get('country') ?? 'all').trim().replace(/[,()]/g, '') || 'all'
   const lane = (searchParams.get('lane') ?? 'all').toLowerCase()
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '25', 10), 1), 100)
   const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10), 0)
@@ -168,8 +181,10 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
 
-    const isCountryFiltered = Boolean(countryParam && countryParam !== 'all')
-    const fetchLimit = isCountryFiltered ? Math.min(limit * 4, 400) : limit
+    const isCountryFiltered = !isGlobalSignalScope(countryParam)
+    // Fetch a candidate pool large enough for the 7-day freshness gate and
+    // duplicate suppression to operate before the final limit is applied.
+    const fetchLimit = Math.min(Math.max(limit * 8, 80), 400)
 
     const executeQuery = async (selectFields: string) => {
       let query = supabase
@@ -178,8 +193,10 @@ export async function GET(req: NextRequest) {
         .eq('reviewed', true)
         .or(NOT_REJECTED_OR_FILTER)
         .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
+        // Recency is the primary candidate order. Confidence breaks ties only.
+        .order('date', { ascending: false, nullsFirst: false })
         .order('quality_confidence', { ascending: false, nullsFirst: false })
-        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (isCountryFiltered) query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
       if (lane !== 'all' && LANE_TOP_LANES[lane]) query = query.in('top_lane', LANE_TOP_LANES[lane])
@@ -188,11 +205,10 @@ export async function GET(req: NextRequest) {
     }
 
     let result = await executeQuery(PRESENTATION_SELECT)
+    if (result.error && isTimelineSchemaGap(result.error)) {
+      result = await executeQuery(LEGACY_PRESENTATION_SELECT)
+    }
     if (result.error && isPresentationSchemaGap(result.error)) {
-      // Isolated CI and staged schema transitions can legitimately expose the
-      // legacy quality view before presentation columns are available. Fall
-      // back to the historical allowlist rather than turning Command into a
-      // 500 surface. The DTO projector receives no raw analysis in this path.
       result = await executeQuery(LEGACY_SELECT)
     }
 
@@ -202,21 +218,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ signals: [], total: 0, source: 'error', error: error.message }, { status: 500 })
     }
 
-    let rows = (data ?? []) as unknown as SignalRow[]
+    const rows = (data ?? []) as unknown as SignalRow[]
     const corrIndex = buildCorroborationIndex(rows)
-
-    if (isCountryFiltered) {
-      const needle = countryParam.toLowerCase()
-      const countrySpecific = rows.filter(r => r.country?.toLowerCase().includes(needle))
-      const global = rows.filter(r => !r.country?.toLowerCase().includes(needle))
-      rows = [...countrySpecific, ...global].slice(0, limit)
-    }
-
-    const signals = rows.map(r => rowToDashboardSignal(r, corrIndex))
+    const scope = isCountryFiltered ? countryParam : 'all'
+    const signals = canonicalizeDashboardSignals(
+      rows.map(row => rowToDashboardSignal(row, corrIndex)),
+      scope,
+      { windowDays: WEEKLY_SIGNAL_WINDOW_DAYS, limit },
+    )
 
     return NextResponse.json(
-      { signals, total: count ?? signals.length, source: 'live' },
-      { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=30' } },
+      {
+        signals,
+        total: signals.length,
+        candidateTotal: count ?? rows.length,
+        source: 'live',
+        windowDays: WEEKLY_SIGNAL_WINDOW_DAYS,
+      },
+      { headers: { 'Cache-Control': 'private, no-store, max-age=0' } },
     )
   } catch (err) {
     console.error('[/api/dashboard/signals] unexpected error:', err)
