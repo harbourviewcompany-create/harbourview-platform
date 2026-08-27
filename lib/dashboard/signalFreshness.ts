@@ -68,12 +68,29 @@ export function inferEventEffectiveAt(title: string): string | undefined {
   return toIso(ms)
 }
 
+function relativeAgeTimestamp(value: string | undefined, nowMs: number): number | null {
+  const text = (value ?? '').trim().toLowerCase()
+  if (!text) return null
+  if (text === 'just now' || text === 'recently') return nowMs
+  const match = text.match(/^(\d+)\s*(h|hr|hrs|hour|hours|d|day|days|w|wk|wks|week|weeks)\s+ago$/)
+  if (!match) return null
+  const amount = Number(match[1])
+  const unit = match[2]
+  if (!Number.isFinite(amount)) return null
+  const multiplier = unit.startsWith('h')
+    ? 3_600_000
+    : unit.startsWith('d')
+      ? DAY_MS
+      : 7 * DAY_MS
+  return nowMs - amount * multiplier
+}
+
 export type SignalFreshnessResolution = {
   at?: string
   basis?: DashboardSignal['freshnessBasis']
 }
 
-export function resolveSignalFreshness(signal: DashboardSignal): SignalFreshnessResolution {
+export function resolveSignalFreshness(signal: DashboardSignal, nowMs = Date.now()): SignalFreshnessResolution {
   const explicitSource = timestamp(signal.sourcePublishedAt)
   if (explicitSource != null) return { at: toIso(explicitSource), basis: 'source_published' }
 
@@ -102,6 +119,12 @@ export function resolveSignalFreshness(signal: DashboardSignal): SignalFreshness
 
   const ingested = timestamp(signal.ingestedAt)
   if (ingested != null) return { at: toIso(ingested), basis: 'ingested' }
+
+  // Older server DTOs and deterministic fixtures may only carry a rendered age.
+  // Preserve them without inventing a publication date, while explicit/inferred
+  // event dates above still override misleading rediscovery labels.
+  const relative = relativeAgeTimestamp(signal.timeAgo, nowMs)
+  if (relative != null) return { at: toIso(relative), basis: 'relative_age' }
 
   return {}
 }
@@ -161,7 +184,7 @@ export function canonicalizeDashboardSignals(
 
   const prepared = input
     .map((signal, index) => {
-      const freshness = resolveSignalFreshness(signal)
+      const freshness = resolveSignalFreshness(signal, nowMs)
       const freshnessMs = timestamp(freshness.at)
       return {
         signal: {
