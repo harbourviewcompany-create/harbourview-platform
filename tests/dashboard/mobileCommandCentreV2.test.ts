@@ -78,6 +78,9 @@ function mobileProps(overrides: Partial<MobileCommandCentreProps> = {}): MobileC
       market: 'Germany',
       type: 'Regulatory',
       commercialImpact: 'Review export pathway implications.',
+      timeAgo: '2h ago',
+      confidence: 90,
+      tag: { label: 'REGULATION', color: '#D9A441', bg: 'rgba(217,164,65,0.15)', border: 'rgba(217,164,65,0.35)' },
     }] as unknown as MobileCommandCentreProps['signals'],
     eduCategories: [],
     initialCountryIso2: 'CA',
@@ -178,7 +181,7 @@ describe('Mobile Command Centre operator architecture', () => {
     const document = renderMobileCommand()
     const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
 
-    expect(pulse).toEqual(['3', '1', '1'])
+    expect(pulse).toEqual(['5', '1', '1'])
     expect(document.body.textContent).toContain('Review 1 active inquiry')
     expect(document.body.textContent).toContain('German import requirements updated')
     expect(document.body.textContent).toContain('EU-GMP export requirement')
