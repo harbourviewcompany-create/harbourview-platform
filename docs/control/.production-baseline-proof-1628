@@ -1,0 +1,2 @@
+Non-semantic verification marker for exact current-main Production Baseline comparison against Harbourview PR #1628.
+No runtime, database, migration, auth, RLS, marketplace, deployment, or public/private boundary behavior is changed.
