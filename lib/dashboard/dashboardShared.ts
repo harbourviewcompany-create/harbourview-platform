@@ -31,7 +31,7 @@ export type DashboardSignal = {
   ingestedAt?: string
   /** Canonical timestamp used to rank the live Weekly Signals surface. */
   freshnessAt?: string
-  freshnessBasis?: 'source_published' | 'event_effective' | 'legacy_date' | 'observed' | 'ingested'
+  freshnessBasis?: 'source_published' | 'event_effective' | 'legacy_date' | 'observed' | 'ingested' | 'relative_age'
   verificationStatus?: string
   jurisdictions?: string[]
   counterparties?: string[]
