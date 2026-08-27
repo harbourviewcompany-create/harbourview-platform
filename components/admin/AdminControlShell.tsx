@@ -5,7 +5,7 @@
  */
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   CONTROL_SURFACE_NAV,
   matchControlNav,
@@ -41,7 +41,7 @@ const shellCss = `
   }
 `
 
-function ShellInner({ children }) {
+function ShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname() || ''
   const searchParams = useSearchParams()
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : ''
@@ -49,7 +49,7 @@ function ShellInner({ children }) {
   const title =
     CONTROL_SURFACE_NAV.flatMap((g) => g.items).find((i) => i.id === activeId)?.label || 'Admin'
 
-  const [badges, setBadges] = useState({})
+  const [badges, setBadges] = useState<Record<string, number>>({})
 
   useEffect(() => {
     let cancelled = false
@@ -62,7 +62,7 @@ function ShellInner({ children }) {
           client.get('marketplace_inquiries', 'select=id,review_status&limit=200').catch(() => []),
         ])
         if (cancelled) return
-        const arr = (x) => (Array.isArray(x) ? x : [])
+        const arr = (x: any) => (Array.isArray(x) ? x : [])
         const pendingStage = arr(staging).filter(
           (s) => !s.status || s.status === 'pending' || s.status === 'queued',
         ).length
@@ -135,7 +135,7 @@ function ShellInner({ children }) {
   )
 }
 
-export function AdminControlShell({ children }) {
+export function AdminControlShell({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={
