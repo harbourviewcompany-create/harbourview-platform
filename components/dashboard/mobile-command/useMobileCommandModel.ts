@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { MobileCommandCentreProps } from './props'
 import { useMobileCommandModel as useBaseMobileCommandModel } from './useMobileCommandModel.base'
+import { useDashboardSignalsRealtime } from '@/components/dashboard/useDashboardSignalsRealtime'
 import { buildCommercialNextActions } from '@/lib/dashboard/buildCommercialActions'
 import {
   buildCorridorPlanToolHref,
@@ -22,49 +23,24 @@ const COMMAND_RETURN_PARAM_KEYS = [
 
 /**
  * Canonical activation wrapper over the current-main Command Centre model.
- * Preserves organization onboarding and Genetics behavior, adds the authenticated
- * safe signal-presentation refresh, then derives jurisdiction-matched commercial follow-ups.
- * Raw signal analysis/provenance JSON never crosses this client boundary.
+ * The mobile Intel surface deliberately uses `props.signals` as its initial
+ * source rather than `model.signals`, because the base model may substitute a
+ * daily digest for the live feed. From first paint onward the existing realtime
+ * hook owns one country-scoped, freshness-gated signal array.
  */
 export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
   const searchParams = useSearchParams()
-  const [enrichedSignals, setEnrichedSignals] = useState<MobileCommandCentreProps['signals'] | null>(null)
+  const signalScope = model.currentCountry ? model.countryLabel : 'all'
+  const { signals: effectiveSignals, status: signalsStatus } = useDashboardSignalsRealtime(
+    props.signals,
+    signalScope,
+  )
   const countryParam = model.currentCountry ?? 'CA'
-
-  useEffect(() => {
-    setEnrichedSignals(null)
-    if (model.signals.length === 0) return
-
-    const controller = new AbortController()
-    const params = new URLSearchParams({ country: model.countryLabel, limit: '25' })
-
-    void fetch(`/api/dashboard/signals?${params.toString()}`, {
-      method: 'GET',
-      credentials: 'same-origin',
-      signal: controller.signal,
-      headers: { Accept: 'application/json' },
-    })
-      .then(async response => {
-        if (!response.ok) return null
-        const payload = await response.json() as { signals?: unknown }
-        return Array.isArray(payload.signals) ? payload.signals as MobileCommandCentreProps['signals'] : null
-      })
-      .then(signals => {
-        if (!controller.signal.aborted && signals && signals.length > 0) setEnrichedSignals(signals)
-      })
-      .catch(() => {
-        // Preserve the SSR/session payload on network or auth refresh failure.
-      })
-
-    return () => controller.abort()
-  }, [model.signals.length, model.countryLabel])
-
-  const effectiveSignals = enrichedSignals ?? model.signals
 
   const commandReturnTo = useMemo(() => {
     const params = new URLSearchParams()
-    params.set('country', countryParam)
+    if (model.currentCountry) params.set('country', model.currentCountry)
     if (model.currentRole) params.set('role', model.currentRole)
 
     for (const key of COMMAND_RETURN_PARAM_KEYS) {
@@ -75,7 +51,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     if (!params.has('page')) params.set('page', 'briefing')
     if (!params.has('section')) params.set('section', model.activeSection)
     return `/dashboard?${params.toString()}`
-  }, [countryParam, model.activeSection, model.currentRole, searchParams])
+  }, [model.currentCountry, model.activeSection, model.currentRole, searchParams])
 
   const organizationActions = useMemo(() => {
     const organizationAction = model.nextActions.find(action => action.id === 'organization')
@@ -88,7 +64,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         id: 'organization-create',
         label: 'Create an organization profile',
         detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-        href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
+        href: `/organization/new?country=${encodeURIComponent(model.currentCountry ?? '')}&returnTo=${returnParam}`,
       },
       {
         ...organizationAction,
@@ -103,7 +79,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       ...onboarding,
       ...model.nextActions.filter(action => action.id !== 'organization'),
     ]
-  }, [commandReturnTo, countryParam, model.nextActions])
+  }, [commandReturnTo, model.currentCountry, model.nextActions])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
     effectiveSignals.map(signal => ({
@@ -179,6 +155,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   return {
     ...model,
     signals: effectiveSignals,
+    signalsStatus,
     geneticsRecords,
     nextActions: [...corridorActions, ...organizationActions, ...commercialActions],
   }
