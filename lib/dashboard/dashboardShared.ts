@@ -19,7 +19,19 @@ export type DashboardSignal = {
   summary?: string
   sourceLabel?: string   // source attribution (regulator name or 'Harbourview Intelligence'); optional — not all signal sources supply it
   sourceUrl?: string     // link to the original article for editorial content; optional
+  /** Backward-compatible publication/event timestamp used by older callers. */
   publishedAt?: string
+  /** Explicit source publication timestamp when known. */
+  sourcePublishedAt?: string
+  /** Explicit effective/event timestamp when known. */
+  eventEffectiveAt?: string
+  /** When Harbourview observed the source. This is never equivalent to publication by itself. */
+  observedAt?: string
+  /** When Harbourview persisted the signal. This is never equivalent to publication by itself. */
+  ingestedAt?: string
+  /** Canonical timestamp used to rank the live Weekly Signals surface. */
+  freshnessAt?: string
+  freshnessBasis?: 'source_published' | 'event_effective' | 'legacy_date' | 'observed' | 'ingested'
   verificationStatus?: string
   jurisdictions?: string[]
   counterparties?: string[]
