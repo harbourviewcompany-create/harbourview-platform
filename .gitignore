@@ -51,3 +51,7 @@ supabase/.temp/
 # diff past the review bots' size limits, costing the PR its review.
 playwright-report/
 test-results/
+
+# Local Claude Code overrides -- never commit.
+# Carries a production Supabase write grant scoped to this machine.
+.claude/settings.local.json

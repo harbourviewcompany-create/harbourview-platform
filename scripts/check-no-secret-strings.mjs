@@ -118,10 +118,44 @@ const placeholderSecret =
 const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*(.+)$/;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
+/**
+ * Supabase's `config.toml` interpolation form: `secret_key = "env(SECRET_NAME)"`
+ * names an environment variable, exactly like `${VAR}` or `process.env.VAR`
+ * above. It is a reference, never a value -- the whole point of the syntax is
+ * that the secret stays out of the file.
+ *
+ * It needs its own pattern because the reference sits *inside* quotes, so it
+ * reaches `unwrapDirectQuotedLiteral` and is judged as a direct literal, while
+ * the other reference forms are unquoted and match earlier.
+ *
+ * Deliberately narrow: SCREAMING_SNAKE_CASE only, bounded length. An earlier
+ * draft allowed any `[A-Za-z_][A-Za-z0-9_]*` and the self-test below caught it
+ * accepting `env(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9)` -- a JWT header segment
+ * is pure alphanumeric, so a mixed-case pattern turns this allowance into a
+ * wrapper for smuggling a real token past the scanner. Every environment name
+ * Supabase's own config uses is uppercase, so requiring it costs nothing and
+ * closes that door.
+ */
+const supabaseEnvInterpolation = /^env\([A-Z_][A-Z0-9_]{0,63}\)$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
 const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
 const knownLocalTestPlaceholder = /^(?:postgres|local-test-(?:anon|service)-key)$/;
 const requestBodyReference = /^body\.[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * True for `env(SOME_NAME)` where the inner text is genuinely a variable name.
+ *
+ * The shape check alone is not enough. An AWS access key ID is uppercase
+ * alphanumeric and fits SCREAMING_SNAKE_CASE exactly, so the pattern would wave
+ * one through. Running the vendor signatures over the inner text closes that:
+ * anything the scanner would flag as a secret on its own is still a secret
+ * inside `env(...)`.
+ */
+function isSupabaseEnvReference(literal) {
+  if (!supabaseEnvInterpolation.test(literal)) return false;
+  const name = literal.slice(4, -1);
+  return !patterns.some((pattern) => pattern.regex.test(name));
+}
 
 function normalizeIdentifier(identifier) {
   return identifier
@@ -171,6 +205,7 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
     if (generatedVisualTestPassword.test(directLiteral)) return true;
     if (placeholderSecret.test(directLiteral)) return true;
     if (knownLocalTestPlaceholder.test(directLiteral)) return true;
+    if (isSupabaseEnvReference(directLiteral)) return true;
     return directLiteral.length < 8;
   }
 
@@ -220,6 +255,26 @@ function scanLine(line, source) {
   return findings;
 }
 
+/**
+ * Vendor-shaped values for the negative self-tests below, assembled at runtime.
+ *
+ * They have to be real matches for `patterns` to prove the checks fire, which
+ * makes them real matches when this file is itself a changed file -- and this
+ * scanner reads its own added diff lines. Writing them as literals made the
+ * scanner reject the commit that introduced them:
+ *
+ *   - scripts/check-no-secret-strings.mjs:271: openai-style-api-key
+ *   - scripts/check-no-secret-strings.mjs:273: aws-access-key
+ *
+ * Splitting each across a concatenation keeps the assembled value identical --
+ * the tests are exactly as strong -- while no single line matches. Do not
+ * "tidy" these back into literals; that reintroduces the self-rejection.
+ */
+const vendorFixture = {
+  aws: 'AKIA' + 'IOSFODNN7EXAMPLE',
+  openai: 'sk-' + 'live-9f3c2a1b8d7e6f5a4b3c2d1e',
+};
+
 function runSelfTest() {
   const cases = [
     ['shell secret reference', 'SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}', 0],
@@ -227,6 +282,15 @@ function runSelfTest() {
     ['node environment secret reference', 'const API_KEY = process.env.API_KEY', 0],
     ['deno environment secret reference', 'const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""', 0],
     ['deno bypass secret reference', 'const DEV_BYPASS_SECRET = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? ""', 0],
+    // Supabase config.toml interpolation. The negative cases matter more than
+    // the positive ones: the allowance must cover a bare variable name and
+    // nothing else, or it becomes a wrapper for smuggling a real value through.
+    ['supabase env interpolation', 'openai_api_key = "env(OPENAI_API_KEY)"', 0],
+    ['supabase env interpolation, commented', '# secret_key = "env(SECRET_VALUE)"', 0],
+    ['supabase env interpolation, s3', 's3_secret_key = "env(S3_SECRET_KEY)"', 0],
+    ['value disguised as env interpolation', `secret_key = "env(SECRET_NAME) ${vendorFixture.openai}"`, 2],
+    ['jwt disguised as env interpolation', 'auth_token = "env(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9)"', 1],
+    ['aws key disguised as env interpolation', `aws_secret_key = "env(${vendorFixture.aws})"`, 2],
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],

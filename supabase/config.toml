@@ -143,9 +143,19 @@ max_catalogs = 2
 # Analytics Buckets is available to Supabase Pro plan.
 # [storage.analytics.buckets.my-warehouse]
 
-# Store vector embeddings in S3 for large and durable datasets
+# Store vector embeddings in S3 for large and durable datasets.
+# Disabled: Vector Buckets are Pro-plan only; org is on free plan, so Preview
+# provisioning returned 402 on every migration PR. No vector buckets are declared
+# and the string appears nowhere in the codebase outside this file. `[storage.analytics]`
+# above is the same kind of Pro-only feature and is already `false`; this line
+# was the odd one out.
+#
+# If this organization moves to Pro and actually wants S3-backed embeddings,
+# flip this back to `true` and declare the buckets. Note that pgvector -- what
+# the embedding columns in supabase/migrations actually use -- is a Postgres
+# extension and is entirely unrelated to this setting.
 [storage.vector]
-enabled = true
+enabled = false
 max_buckets = 10
 max_indexes = 5
 
