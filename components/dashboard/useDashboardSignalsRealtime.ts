@@ -1,22 +1,10 @@
 /**
- * components/dashboard/useDashboardSignalsRealtime.ts
- *
  * Keeps the Command Centre signal feed live and scoped to the selected country.
  *
- * The dashboard SSRs a single global signals list (`fetchDashboardSignals`) that
- * never changed after load, regardless of which country the user selected. This
- * hook:
- *   1. Re-scopes the feed to the active country (global stays global) via the
- *      existing auth-gated, DTO-safe `/api/dashboard/signals` endpoint — so no
- *      raw signal columns or private fields are ever mapped client-side.
- *   2. Subscribes to Supabase Realtime INSERTs on the `signals` table and
- *      refreshes the (scoped) feed when new intelligence lands, debounced so a
- *      burst of inserts triggers one refetch, not dozens.
- *
- * Requires the `signals` table to be in the Realtime publication (the same
- * migration the globe realtime relies on). If Realtime is unavailable the hook
- * degrades to the initial SSR feed plus country-scoped refetch on selection —
- * it never throws or blanks the feed.
+ * The first render is canonicalized locally with the same freshness/dedup rules
+ * as the API, then every mount performs an authenticated no-store refresh. This
+ * prevents the previous SSR/digest -> client-feed swap from flashing stale or
+ * unrelated intelligence while still keeping a useful first paint.
  */
 'use client'
 
@@ -24,47 +12,65 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import {
+  canonicalizeDashboardSignals,
+  isGlobalSignalScope,
+  WEEKLY_SIGNAL_WINDOW_DAYS,
+} from '@/lib/dashboard/signalFreshness'
 
 export type SignalsRealtimeStatus = 'live' | 'connecting' | 'degraded'
 
-const REFRESH_DEBOUNCE_MS = 1500
+const REFRESH_DEBOUNCE_MS = 1200
 const FEED_LIMIT = 30
-
-function isGlobal(label: string): boolean {
-  const l = label.trim().toLowerCase()
-  return !l || l === 'global' || l === 'global market'
-}
 
 export function useDashboardSignalsRealtime(
   initialSignals: DashboardSignal[],
   countryLabel: string,
 ): { signals: DashboardSignal[]; status: SignalsRealtimeStatus } {
-  const [signals, setSignals] = useState<DashboardSignal[]>(initialSignals)
+  const initialScope = isGlobalSignalScope(countryLabel) ? 'all' : countryLabel
+  const [signals, setSignals] = useState<DashboardSignal[]>(() =>
+    canonicalizeDashboardSignals(initialSignals, initialScope, {
+      windowDays: WEEKLY_SIGNAL_WINDOW_DAYS,
+      limit: FEED_LIMIT,
+    }),
+  )
   const [status, setStatus] = useState<SignalsRealtimeStatus>('connecting')
 
-  const countryRef = useRef(countryLabel)
-  countryRef.current = countryLabel
+  const countryRef = useRef(initialScope)
+  countryRef.current = isGlobalSignalScope(countryLabel) ? 'all' : countryLabel
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlightRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
 
   const refresh = useCallback(async () => {
-    const label = countryRef.current
-    const scope = isGlobal(label) ? 'all' : label
+    const scope = countryRef.current
     inFlightRef.current?.abort()
     const controller = new AbortController()
     inFlightRef.current = controller
     try {
       const res = await fetch(
         `/api/dashboard/signals?country=${encodeURIComponent(scope)}&limit=${FEED_LIMIT}`,
-        { signal: controller.signal, cache: 'no-store' },
+        {
+          signal: controller.signal,
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        },
       )
-      if (!res.ok) return // keep the current feed; never blank it on error
+      if (!res.ok) {
+        if (!controller.signal.aborted) setStatus('degraded')
+        return
+      }
       const data = (await res.json()) as { signals?: DashboardSignal[] }
       if (!mountedRef.current || controller.signal.aborted) return
-      if (Array.isArray(data.signals)) setSignals(data.signals)
+      if (Array.isArray(data.signals)) {
+        setSignals(canonicalizeDashboardSignals(data.signals, scope, {
+          windowDays: WEEKLY_SIGNAL_WINDOW_DAYS,
+          limit: FEED_LIMIT,
+        }))
+      }
     } catch {
-      // network/abort — keep the existing feed
+      if (!controller.signal.aborted && mountedRef.current) setStatus('degraded')
     }
   }, [])
 
@@ -75,18 +81,21 @@ export function useDashboardSignalsRealtime(
     }, REFRESH_DEBOUNCE_MS)
   }, [refresh])
 
-  // Re-scope immediately when the selected country changes. For the global view
-  // we already have the SSR feed, so avoid an unnecessary refetch on first mount.
-  const firstRunRef = useRef(true)
+  // Canonicalize the server/session payload immediately for this scope and then
+  // refresh from the one authoritative endpoint on every mount/context change.
   useEffect(() => {
-    if (firstRunRef.current) {
-      firstRunRef.current = false
-      if (isGlobal(countryLabel)) return // SSR feed is already global
-    }
+    const scope = isGlobalSignalScope(countryLabel) ? 'all' : countryLabel
+    countryRef.current = scope
+    setStatus('connecting')
+    setSignals(canonicalizeDashboardSignals(initialSignals, scope, {
+      windowDays: WEEKLY_SIGNAL_WINDOW_DAYS,
+      limit: FEED_LIMIT,
+    }))
     void refresh()
-  }, [countryLabel, refresh])
+  }, [countryLabel, initialSignals, refresh])
 
-  // Realtime subscription — refresh the scoped feed on new signal inserts.
+  // Refresh when a signal is inserted OR later updated into reviewed/published
+  // state. INSERT-only subscriptions missed the common review/promotion path.
   useEffect(() => {
     mountedRef.current = true
     const supabase = createClient()
@@ -94,7 +103,7 @@ export function useDashboardSignalsRealtime(
       .channel('dashboard-signals-realtime')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'signals' },
+        { event: '*', schema: 'public', table: 'signals' },
         () => scheduleRefresh(),
       )
       .subscribe((subStatus) => {
