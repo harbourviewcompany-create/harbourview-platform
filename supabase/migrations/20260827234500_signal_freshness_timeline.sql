@@ -17,23 +17,23 @@ set
 where observed_at is null or ingested_at is null;
 
 -- Harvest explicit structured timestamps when upstream analysis already carries
--- them. Invalid/non-ISO strings are deliberately ignored rather than guessed.
+-- them. pg_input_is_valid keeps malformed source strings from aborting replay.
 update public.signals
 set source_published_at = (analysis->>'source_published_at')::timestamptz
 where source_published_at is null
   and analysis is not null
-  and coalesce(analysis->>'source_published_at','') ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}';
+  and pg_input_is_valid(coalesce(analysis->>'source_published_at',''), 'timestamp with time zone');
 
 update public.signals
 set event_effective_at = (analysis->>'event_effective_at')::timestamptz
 where event_effective_at is null
   and analysis is not null
-  and coalesce(analysis->>'event_effective_at','') ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}';
+  and pg_input_is_valid(coalesce(analysis->>'event_effective_at',''), 'timestamp with time zone');
 
--- Verified historical correction: this source was rediscovered in 2026 but the
--- article was published 2025-08-22 and describes a law effective 2025-08-20.
--- Preserve the records for historical search; the Weekly Signals 7-day gate will
--- no longer misrepresent rediscovery time as event freshness.
+-- Verified historical correction: the Sibiz page itself is dated 2025-08-22 and
+-- describes the law as effective 2025-08-20. Preserve both rediscovered signal
+-- rows for historical search; the Weekly Signals freshness gate suppresses them
+-- from the current 7-day surface and URL dedupe prevents double presentation.
 update public.signals
 set
   source_published_at = '2025-08-22T00:00:00Z'::timestamptz,
@@ -56,23 +56,15 @@ begin
   if new.analysis is not null then
     if new.source_published_at is null then
       v_source := nullif(new.analysis->>'source_published_at', '');
-      if v_source ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}' then
-        begin
-          new.source_published_at := v_source::timestamptz;
-        exception when others then
-          new.source_published_at := null;
-        end;
+      if v_source is not null and pg_input_is_valid(v_source, 'timestamp with time zone') then
+        new.source_published_at := v_source::timestamptz;
       end if;
     end if;
 
     if new.event_effective_at is null then
       v_event := nullif(new.analysis->>'event_effective_at', '');
-      if v_event ~ '^20[0-9]{2}-[0-9]{2}-[0-9]{2}' then
-        begin
-          new.event_effective_at := v_event::timestamptz;
-        exception when others then
-          new.event_effective_at := null;
-        end;
+      if v_event is not null and pg_input_is_valid(v_event, 'timestamp with time zone') then
+        new.event_effective_at := v_event::timestamptz;
       end if;
     end if;
   end if;
@@ -97,6 +89,9 @@ create index if not exists signals_event_effective_at_idx
   on public.signals (event_effective_at desc)
   where reviewed = true;
 
+-- CREATE OR REPLACE VIEW may append columns but cannot reorder/rename existing
+-- positions. Keep every pre-existing api.signals_with_quality column in its
+-- canonical order and append the timeline fields at the end.
 create or replace view api.signals_with_quality
 with (security_invoker = true)
 as
@@ -104,12 +99,12 @@ select
   id, date, cat, pri, score, headline, summary, source, url, verification,
   tier, lang, company, country, in_network, lane_r, lane_e, lane_t, top_lane,
   query_pack, commercial_impact, reviewed, action, created_at,
-  source_published_at, event_effective_at, observed_at, ingested_at,
   embedding_1024, embedding_model, embedded_at, reviewed_by, reviewed_at,
   editorial_title, editorial_blurb, country_iso2,
   quality_label, quality_confidence, content_type, impact,
   title_en, summary_en, lang_detected, is_representative, cluster_rep_id,
-  analysis
+  analysis,
+  source_published_at, event_effective_at, observed_at, ingested_at
 from public.signals;
 
 revoke all on api.signals_with_quality from public, anon;
