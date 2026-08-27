@@ -5,12 +5,16 @@
  */
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   CONTROL_SURFACE_NAV,
   matchControlNav,
+  type ControlNavItem,
 } from '@/lib/admin/controlSurfaceNav'
 import { mkApi } from '@/components/admin/panels/shared'
+
+type BadgeKey = NonNullable<ControlNavItem['badgeKey']>
+type BadgeCounts = Partial<Record<BadgeKey, number>>
 
 const shellCss = `
   .acs-root{display:grid;grid-template-columns:220px 1fr;min-height:100vh;background:#080E1C;color:#D4C9B8;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;}
@@ -41,7 +45,7 @@ const shellCss = `
   }
 `
 
-function ShellInner({ children }) {
+function ShellInner({ children }: { children: ReactNode }) {
   const pathname = usePathname() || ''
   const searchParams = useSearchParams()
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : ''
@@ -49,7 +53,7 @@ function ShellInner({ children }) {
   const title =
     CONTROL_SURFACE_NAV.flatMap((g) => g.items).find((i) => i.id === activeId)?.label || 'Admin'
 
-  const [badges, setBadges] = useState({})
+  const [badges, setBadges] = useState<BadgeCounts>({})
 
   useEffect(() => {
     let cancelled = false
@@ -62,7 +66,7 @@ function ShellInner({ children }) {
           client.get('marketplace_inquiries', 'select=id,review_status&limit=200').catch(() => []),
         ])
         if (cancelled) return
-        const arr = (x) => (Array.isArray(x) ? x : [])
+        const arr = (value: unknown) => (Array.isArray(value) ? value : [])
         const pendingStage = arr(staging).filter(
           (s) => !s.status || s.status === 'pending' || s.status === 'queued',
         ).length
@@ -135,7 +139,7 @@ function ShellInner({ children }) {
   )
 }
 
-export function AdminControlShell({ children }) {
+export function AdminControlShell({ children }: { children: ReactNode }) {
   return (
     <Suspense
       fallback={

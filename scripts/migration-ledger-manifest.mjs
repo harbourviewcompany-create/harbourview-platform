@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 const VERSION_RE = /^\d{14}$/
 const GIT_BLOB_SHA_RE = /^[0-9a-f]{40}$/
+const MD5_RE = /^[0-9a-f]{32}$/
 const DEFAULT_EQUIVALENCE_FILE = path.join(
   process.cwd(),
   'supabase/release-controls/migration-live-version-equivalences.json',
@@ -188,6 +189,34 @@ export function loadLiveVersionEquivalences(equivalencePath, { allowMissing = fa
     if (typeof entry.git_blob_sha !== 'string' || !GIT_BLOB_SHA_RE.test(entry.git_blob_sha)) {
       throw new Error(`Equivalence git_blob_sha is required and invalid for ${entry.file}`)
     }
+
+    const repositoryVersionState = entry.repository_version_state ?? null
+    if (repositoryVersionState !== null && repositoryVersionState !== 'history_placeholder') {
+      throw new Error(
+        `Unsupported repository_version_state for ${entry.live_version}: ${repositoryVersionState}`,
+      )
+    }
+    if (repositoryVersionState === 'history_placeholder') {
+      const provenance = entry.provenance ?? {}
+      if (
+        provenance.repository_history_name_null !== true ||
+        provenance.repository_history_statements_null !== true
+      ) {
+        throw new Error(
+          `History-placeholder equivalence requires read-only null name/statements evidence for ${entry.live_version}`,
+        )
+      }
+      if (
+        !MD5_RE.test(provenance.production_statement_md5 ?? '') ||
+        !Number.isInteger(provenance.production_statement_chars) ||
+        provenance.production_statement_chars <= 0
+      ) {
+        throw new Error(
+          `History-placeholder equivalence requires production statement content evidence for ${entry.live_version}`,
+        )
+      }
+    }
+
     if (liveVersions.has(entry.live_version)) {
       throw new Error(`Duplicate live migration equivalence: ${entry.live_version}`)
     }
@@ -213,15 +242,19 @@ function evaluateLiveVersionEquivalences({ repository, remoteSet, equivalences }
     const files = repository.filesByVersion[entry.repository_version] ?? []
     const actualBlobSha = repository.gitBlobShaByFile[entry.file] ?? null
     const directRepositoryVersionAlsoApplied = remoteSet.has(entry.repository_version)
+    const repositoryHistoryPlaceholder = entry.repository_version_state === 'history_placeholder'
+    const directRepositoryVersionAllowed =
+      !directRepositoryVersionAlsoApplied || repositoryHistoryPlaceholder
     const fileExact =
       files.length === 1 &&
       files[0] === entry.file &&
       actualBlobSha === entry.git_blob_sha
 
-    if (!fileExact || directRepositoryVersionAlsoApplied) {
+    if (!fileExact || !directRepositoryVersionAllowed) {
       equivalenceMismatches.push({
         live_version: entry.live_version,
         repository_version: entry.repository_version,
+        repository_version_state: entry.repository_version_state ?? null,
         expected_file: entry.file,
         actual_files: files,
         expected_git_blob_sha: entry.git_blob_sha,
@@ -236,6 +269,7 @@ function evaluateLiveVersionEquivalences({ repository, remoteSet, equivalences }
     historicalAliases.push({
       live_version: entry.live_version,
       repository_version: entry.repository_version,
+      repository_version_state: entry.repository_version_state ?? null,
       file: entry.file,
       git_blob_sha: entry.git_blob_sha,
       provenance: entry.provenance ?? null,

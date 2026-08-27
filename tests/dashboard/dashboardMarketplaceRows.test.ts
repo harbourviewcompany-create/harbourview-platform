@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import type { PublicListing } from '@/lib/server/listingsQuery'
-import { marketplaceMediaKey } from '@/lib/dashboard/marketplaceMediaProjection'
+import {
+  getRepresentativeMarketplaceMedia,
+  marketplaceMediaKey,
+} from '@/lib/dashboard/marketplaceMediaProjection'
 
 const getListingsBySections = vi.fn()
 const getPublicMarketplaceImagesForItems = vi.fn(async () => ({}))
@@ -161,12 +164,15 @@ describe('Command Centre marketplace projection', () => {
     const projection = await loadProjection()
     const wanted = projection.mediaById[marketplaceMediaKey('wanted', 'shared-demand')]
     const opportunity = projection.mediaById[marketplaceMediaKey('opportunities', 'shared-demand')]
+    const opportunityDefault = getRepresentativeMarketplaceMedia('opportunities')
 
     expect(wanted).toBeDefined()
     expect(opportunity).toBeDefined()
-    expect(wanted.altText).toContain('demand')
-    expect(opportunity.altText).toContain('commercial opportunity')
+    expect(wanted.kind).toBe('representative')
+    expect(opportunity.kind).toBe('representative')
+    expect(opportunity.src).toBe(opportunityDefault.src)
     expect(wanted.src).not.toBe(opportunity.src)
+    expect(wanted.altText).not.toBe(opportunity.altText)
   })
 
   it('returns already-loaded rows when optional image enrichment exceeds its timeout', async () => {

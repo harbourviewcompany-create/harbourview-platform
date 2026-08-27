@@ -40,8 +40,9 @@ describe('public marketplace image query contract', () => {
   })
 
   it('chunks and paginates large listing sets instead of imposing an aggregate row cap', () => {
-    expect(source).toContain('ITEM_ID_BATCH_SIZE = 40')
+    expect(source).toContain('ITEM_ID_BATCH_SIZE = 80')
     expect(source).toContain('PAGE_SIZE = 500')
+    expect(source).toContain('const cardBatches = chunks(ids, ITEM_ID_BATCH_SIZE)')
     expect(source).toContain('const batches = chunks(ids, ITEM_ID_BATCH_SIZE)')
     expect(source).toContain('Promise.all(batches.map(batch => queryPublicImageBatch(batch, signal)))')
     expect(source).toContain('Range: `${rangeStart}-${rangeStart + PAGE_SIZE - 1}`')

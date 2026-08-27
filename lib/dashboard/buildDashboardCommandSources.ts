@@ -113,14 +113,19 @@ function firstRenderableMarketplaceMediaSrc(selected: PublicMarketplaceImageDTO)
 export function resolveListingMedia(
   view: MarketView,
   images: PublicMarketplaceImageDTO[] | undefined,
-  listing?: { id?: string; title?: string; category?: string } | null,
+  listing?: { id?: string; title?: string; category?: string; marketplaceSection?: string } | null,
 ): MarketplaceProjectionMedia {
-  const fallback = getRepresentativeMarketplaceMedia(
-    view,
-    listing?.id,
-    listing?.title,
-    listing?.category,
-  )
+  const isWantedCrossListedAsOpportunity =
+    view === 'opportunities'
+    && (listing?.marketplaceSection === 'wanted_requests' || listing?.marketplaceSection === 'wanted')
+  const fallback = isWantedCrossListedAsOpportunity
+    ? getRepresentativeMarketplaceMedia(view)
+    : getRepresentativeMarketplaceMedia(
+      view,
+      listing?.id,
+      listing?.title,
+      listing?.category,
+    )
   const renderable = (images ?? []).filter(image => firstRenderableMarketplaceMediaSrc(image) !== null)
   const selected = pickMarketplaceCardImage(renderable)
   if (!selected) return fallback
@@ -204,6 +209,7 @@ export async function getDashboardMarketplaceProjection(
         id: listing.id,
         title: listing.title,
         category: listing.subcategory ?? listing.product_type ?? listing.category,
+        marketplaceSection: listing.marketplace_section,
       })
     }
   }
