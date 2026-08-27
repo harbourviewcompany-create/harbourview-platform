@@ -39,6 +39,6 @@ Imports present for `ClinicalPage` (shim) and `ClinicalEvidenceCommandPage`.
 
 ## Residual work (not wiring)
 
-- Pilot `local_authorities` rows for markets not in batch1 — see `CLINICAL_PILOT_AUTHORITY_INVENTORY.md` and migration `20260820120000_clinical_pilot_local_authorities_au_gb_br.sql`.
+- Pilot `local_authorities` rows for markets not in batch1 — see `CLINICAL_PILOT_AUTHORITY_INVENTORY.md`. The AU/GB/BR migration that previously backed this line (`20260820120000_clinical_pilot_local_authorities_au_gb_br.sql`) was **withdrawn on 2026-08-22** and is no longer in the tree: production already holds all three countries, and the migration's exact-string guard would have inserted duplicate rows for GB and BR rather than new coverage. See the `HV-MIGRATION-COLLISION-RESOLUTION-20260822` entry in `EVIDENCE_LOG.md` for the verified before/after labels. AU/GB/BR need no authority rows; markets genuinely outside batch1 still do.
 - Production application of clinical DDL / seeds remains owner-gated (do not self-apply).
 - Formal clinical reviewer appointment remains a publish gate for synthesis content.
