@@ -2,8 +2,14 @@ import 'server-only'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
-import { inferEventEffectiveAt } from '@/lib/dashboard/signalFreshness'
+import { jurisdictionValueMatches } from '@/lib/dashboard/signalFreshness'
 import { marketAliases } from '@/lib/utils/flagEmoji'
+import {
+  classifySynthesisTimeline,
+  SYNTHESIS_PRIMARY_WINDOW_DAYS,
+  SYNTHESIS_FALLBACK_WINDOW_DAYS,
+  SYNTHESIS_UPCOMING_WINDOW_DAYS,
+} from '@/lib/intelligence/jurisdictionSynthesisTimeline'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
@@ -13,9 +19,6 @@ import {
 
 const TIMELINE_SELECT = `headline, country, company, query_pack, url, date, created_at, source_published_at, event_effective_at, observed_at, ingested_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 const LEGACY_SELECT = `headline, country, company, query_pack, url, date, created_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
-const PRIMARY_WINDOW_DAYS = 30
-const FALLBACK_WINDOW_DAYS = 45
-const UPCOMING_WINDOW_DAYS = 90
 const DAY_MS = 86_400_000
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const DETERMINISTIC_MODEL = 'deterministic-bounded-v1'
@@ -103,48 +106,6 @@ type CountrySignalContext = {
   upcoming: SignalRow[]
 }
 
-function ms(value: string | null | undefined): number | null {
-  if (!value) return null
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function explicitContentDateMs(row: SignalRow): number | null {
-  const text = [row.title_en, row.headline, row.summary_en]
-    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-    .join(' ')
-
-  const updated = text.match(/\bupdated\s+(?:on\s+)?([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b/i)?.[1]
-  if (updated) {
-    const parsed = ms(updated)
-    if (parsed != null) return parsed
-  }
-
-  const published = text.match(/\bpublished\s+(?:on\s+)?([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b/i)?.[1]
-  if (published) {
-    const parsed = ms(published)
-    if (parsed != null) return parsed
-  }
-
-  const leading = text.match(/^\s*([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b/)?.[1]
-  return leading ? ms(leading) : null
-}
-
-function rowFreshnessMs(row: SignalRow) {
-  const source = ms(row.source_published_at)
-  if (source != null) return source
-
-  const embedded = explicitContentDateMs(row)
-  if (embedded != null) return embedded
-
-  const event = ms(row.event_effective_at) ?? ms(inferEventEffectiveAt(row.headline))
-  const legacy = ms(row.date)
-  if (event != null && legacy != null && legacy - event > FALLBACK_WINDOW_DAYS * DAY_MS) return event
-  if (legacy != null) return legacy
-  if (event != null) return event
-  return ms(row.observed_at) ?? ms(row.ingested_at) ?? ms(row.created_at)
-}
-
 function isTimelineGap(message: string | undefined) {
   const value = (message ?? '').toLowerCase()
   return ['source_published_at', 'event_effective_at', 'observed_at', 'ingested_at']
@@ -199,6 +160,10 @@ function dedupeSynthesisRows(rows: SignalRow[]) {
 }
 
 function isSynthesisRelevant(row: SignalRow, countryName: string) {
+  // The DB query is only a candidate prefilter because country values may be
+  // composite. This delimiter-aware check is the authoritative scope boundary.
+  if (!jurisdictionValueMatches(row.country, countryName)) return false
+
   const text = [
     row.headline,
     row.title_en,
@@ -225,8 +190,8 @@ function isSynthesisRelevant(row: SignalRow, countryName: string) {
     .some(market => marketAliases(market.name).some(alias => mentionsAlias(text, alias)))
 
   if (selectedMentioned) return true
-  if (foreignMentioned) return false
-  return curatedCommercialSignal
+  if (foreignMentioned && !curatedCommercialSignal) return false
+  return curatedCommercialSignal || strongCannabisContext
 }
 
 async function fetchSignalsForCountry(
@@ -235,14 +200,16 @@ async function fetchSignalsForCountry(
   countryName: string,
 ): Promise<CountrySignalContext> {
   const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const createdCutoff = new Date(Date.now() - FALLBACK_WINDOW_DAYS * DAY_MS).toISOString()
+  const createdCutoff = new Date(Date.now() - SYNTHESIS_FALLBACK_WINDOW_DAYS * DAY_MS).toISOString()
 
   const run = (selectFields: string) => svc
     .from('signals_with_quality')
     .select(selectFields)
     .eq('reviewed', true)
     .gte('created_at', createdCutoff)
-    .ilike('country', countryName)
+    // Candidate prefilter only. Strict delimiter-aware scope is enforced in
+    // isSynthesisRelevant so composite country values remain eligible.
+    .ilike('country', `%${countryName}%`)
     .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
     .order('date', { ascending: false, nullsFirst: false })
     .order('quality_confidence', { ascending: false, nullsFirst: false })
@@ -255,21 +222,25 @@ async function fetchSignalsForCountry(
   const rows = dedupeSynthesisRows(((result.data ?? []) as unknown as SignalRow[])
     .filter(row => isSynthesisRelevant(row, countryName)))
   const now = Date.now()
-  const primaryCutoff = now - PRIMARY_WINDOW_DAYS * DAY_MS
-  const fallbackCutoff = now - FALLBACK_WINDOW_DAYS * DAY_MS
-  const upcomingCutoff = now + UPCOMING_WINDOW_DAYS * DAY_MS
-  const bounded = rows
-    .map(row => ({ row, freshness: rowFreshnessMs(row) }))
-    .filter(entry => entry.freshness != null && entry.freshness >= fallbackCutoff && entry.freshness <= upcomingCutoff)
+  const primaryCutoff = now - SYNTHESIS_PRIMARY_WINDOW_DAYS * DAY_MS
 
-  const recentBounded = bounded
-    .filter(entry => (entry.freshness ?? 0) <= now)
-    .sort((a, b) => (b.freshness ?? 0) - (a.freshness ?? 0) || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
-  const primary = recentBounded.filter(entry => (entry.freshness ?? 0) >= primaryCutoff)
+  const classified = rows.map(row => ({
+    row,
+    timeline: classifySynthesisTimeline(row, now),
+  }))
+
+  const recentBounded = classified
+    .filter(entry => entry.timeline.kind === 'recent')
+    .sort((a, b) => (b.timeline.evidenceAt ?? 0) - (a.timeline.evidenceAt ?? 0)
+      || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
+  const primary = recentBounded.filter(entry => (entry.timeline.evidenceAt ?? 0) >= primaryCutoff)
   const chosenRecent = primary.length >= 3 ? primary : recentBounded
-  const upcoming = bounded
-    .filter(entry => (entry.freshness ?? 0) > now)
-    .sort((a, b) => (a.freshness ?? 0) - (b.freshness ?? 0) || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
+
+  const upcoming = classified
+    .filter(entry => entry.timeline.kind === 'upcoming')
+    .sort((a, b) => (a.timeline.eventAt ?? Number.MAX_SAFE_INTEGER) - (b.timeline.eventAt ?? Number.MAX_SAFE_INTEGER)
+      || (b.timeline.evidenceAt ?? 0) - (a.timeline.evidenceAt ?? 0)
+      || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
 
   return {
     recent: chosenRecent.slice(0, 30).map(entry => entry.row),
@@ -293,11 +264,11 @@ function formatSignalRows(signals: SignalRow[], emptyText: string): string {
 function formatSignalsForPrompt(context: CountrySignalContext): string {
   const recent = formatSignalRows(
     context.recent,
-    `No qualifying reviewed past-or-present cannabis-domain signals were found in the bounded ${FALLBACK_WINDOW_DAYS}-day freshness window. Treat this as sparse evidence, not permission to reuse older developments.`,
+    `No qualifying reviewed past-or-present cannabis-domain signals were found in the bounded ${SYNTHESIS_FALLBACK_WINDOW_DAYS}-day evidence window. Treat this as sparse evidence, not permission to reuse older developments.`,
   )
   const upcoming = formatSignalRows(
     context.upcoming,
-    `No qualifying future-effective cannabis-domain events were found in the next ${UPCOMING_WINDOW_DAYS} days.`,
+    `No qualifying future-effective cannabis-domain events were found in the next ${SYNTHESIS_UPCOMING_WINDOW_DAYS} days.`,
   )
   return `PAST OR PRESENT EVIDENCE:\n${recent}\n\nUPCOMING SCHEDULED EVENTS:\n${upcoming}`
 }
@@ -327,6 +298,7 @@ Produce a JSON object with EXACTLY these fields — no extra fields, no markdown
 
 Rules:
 - Never import an older event merely because it has high confidence.
+- Evidence freshness and event-effective time are separate clocks: publication/observation can make evidence current while a future effective date still restricts that item to whats_coming.
 - Never treat observation/ingestion time as source publication or event-effective time.
 - Future-effective events belong in whats_coming and must never be represented as what_changed.
 - Do not invent regulations, counterparties, dates, or market status.
@@ -341,10 +313,10 @@ function deterministicBriefing(countryName: string, context: CountrySignalContex
   const keySignals = [...context.recent, ...context.upcoming].slice(0, 5).map(signal => signal.headline)
   if (signals.length === 0) {
     return {
-      headline: `${countryName}: no qualifying reviewed past-or-present signals in the current ${FALLBACK_WINDOW_DAYS}-day evidence window.`,
+      headline: `${countryName}: no qualifying reviewed past-or-present signals in the current ${SYNTHESIS_FALLBACK_WINDOW_DAYS}-day evidence window.`,
       legal_status: 'unknown',
       market_maturity: 'unknown',
-      summary: `No qualifying reviewed ${countryName} cannabis-domain past-or-present signals were found inside the bounded freshness window. Older or off-domain developments were intentionally not reused.`,
+      summary: `No qualifying reviewed ${countryName} cannabis-domain past-or-present signals were found inside the bounded evidence window. Older or off-domain developments were intentionally not reused.`,
       what_changed: null,
       operator_implications: `Current evidence is sparse. Verify the jurisdiction directly before relying on an older briefing; automated language-model synthesis is unavailable (${reason}).`,
       whats_coming: context.upcoming[0]?.headline ?? null,
@@ -362,7 +334,7 @@ function deterministicBriefing(countryName: string, context: CountrySignalContex
     headline: top.headline,
     legal_status: 'unknown',
     market_maturity: 'unknown',
-    summary: `This current ${countryName} briefing is based on ${signals.length} reviewed past-or-present signal${signals.length === 1 ? '' : 's'} inside the bounded ${FALLBACK_WINDOW_DAYS}-day evidence window. ${evidenceSummary}`,
+    summary: `This current ${countryName} briefing is based on ${signals.length} reviewed past-or-present signal${signals.length === 1 ? '' : 's'} inside the bounded ${SYNTHESIS_FALLBACK_WINDOW_DAYS}-day evidence window. ${evidenceSummary}`,
     what_changed: top.headline,
     operator_implications: top.commercial_impact
       ? `${top.commercial_impact} Automated language-model synthesis is unavailable (${reason}); use the cited current evidence for verification.`
