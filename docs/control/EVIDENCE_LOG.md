@@ -5316,3 +5316,74 @@ current source; a red result there is either a genuinely removed guard or a
 drifted grep, and separating the two is the actual work.
 
 **Status: current.** Verified green on the branch head at time of writing.
+
+---
+
+## 2026-08-28 — Phase 0 gate: `DATABASE_CONTROL.md` removed from trigger paths (the second half of the #1622 deadlock)
+
+**The defect.** `.github/workflows/global-reg-os-phase0-replacement.yml` listed
+`docs/control/DATABASE_CONTROL.md` as a `pull_request` trigger path, while its
+`Verify migration isolation` step asserts:
+
+```
+git diff --exit-code "$BASE_SHA" HEAD -- supabase/migrations
+```
+
+`AGENTS.md`'s "Required QA Commands by Change Type" §4 requires every migration
+PR to update `docs/control/DATABASE_CONTROL.md`. Doing so fired this workflow,
+which then failed because the PR touches migrations. **Satisfying AGENTS.md broke
+the gate; satisfying the gate broke AGENTS.md.** Structurally identical to the
+`EVIDENCE_LOG.md` deadlock #1622 fixed in this same file on 2026-08-22 — one file
+over, and left behind at the time.
+
+Found on PR #1668, a one-function migration fix, where `contracts-and-control`
+was the only red check attributable to the PR itself.
+
+**Evidence the trigger was over-scoped, not load-bearing.**
+
+1. **Nothing under `scripts/global-reg-os/` references `DATABASE_CONTROL.md`** —
+   verified by `grep -rn "DATABASE_CONTROL" scripts/global-reg-os/`, which returns
+   nothing. Every step in the `contracts-and-control` job validates the Global
+   Regulatory OS canonical package, its secrets, its manifest determinism,
+   migration isolation, and its OpenAPI/AsyncAPI contracts. None reads that file.
+2. **The cost was already being paid silently.** Zero of the twelve most recent
+   merged commits touching `supabase/migrations/` updated `DATABASE_CONTROL.md`.
+   The repository had routed around this gate by skipping the AGENTS.md
+   requirement every time, rather than by fixing the trigger — which means the
+   control document has not been updated by a migration PR in at least twelve
+   migrations.
+
+**The change.** One trigger path removed. Three remain
+(`docs/control/global-regulatory-os/**`, `scripts/global-reg-os/**`, and the
+workflow itself), and they still cover this gate's real surface: a PR touching
+both `DATABASE_CONTROL.md` and that surface still trips the gate through them.
+**No assertion the workflow makes was altered, weakened, or removed.** The
+`Verify migration isolation` step is untouched and still fails any PR that both
+trips the gate and carries a migration.
+
+**Verification, on `fix/phase0-gate-database-control-scope` at `172c069d`:**
+
+| Gate step (run locally, exactly as CI runs it) | Result |
+|---|---|
+| YAML re-parses; trigger paths | 3 paths, jobs `contracts-and-control` + `postgres-17` intact |
+| `python scripts/global-reg-os/validate_phase0_package.py` | PASS — source archive, canonical manifest, 12 Phase 0 tickets, 249 ISO records, 13-migration package |
+| `python scripts/global-reg-os/check_secrets.py` | PASS — no secret-like values, 203 items incl. ZIP members |
+| manifest determinism (`regenerate_manifest.py` + `diff -u`) | PASS — byte-identical |
+| `git diff --exit-code … -- supabase/migrations` | PASS — this PR touches no migrations |
+| `node --test tests/scripts/migration-ledger-manifest.test.mjs` | 14/14 pass |
+| `npm run typecheck` | 0 errors |
+| `node scripts/check-no-secret-strings.mjs` | GO |
+
+Because this PR edits the workflow file itself — still a trigger path — the gate
+runs on this PR. Its going green **is** the proof that removing the
+`DATABASE_CONTROL.md` path weakens nothing.
+
+**Scope.** One `paths:` list, plus the comment recording why. No application code,
+no migrations, no other workflow, no change to any job, step or assertion.
+
+**Rollback.** Re-add the single line `- 'docs/control/DATABASE_CONTROL.md'` to the
+`paths:` list. That restores the deadlock, so the rollback is only appropriate if
+the AGENTS.md §4 requirement is withdrawn at the same time.
+
+**Status: open PR, not merged.** Merge requires owner sign-off per `CLAUDE.md`
+Rule 3c.
