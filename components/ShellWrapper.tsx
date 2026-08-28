@@ -11,7 +11,7 @@ import Footer from '@/components/Footer'
 const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization', '/admin']
 
 // Routes where neither nav nor footer renders — page provides its own chrome.
-const NO_CHROME_ROUTES = ['/']
+const NO_CHROME_ROUTES = ['/', '/market-selection']
 
 export function ShellWrapper({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname()
