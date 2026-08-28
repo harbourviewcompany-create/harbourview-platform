@@ -103,6 +103,13 @@
       "file": "20260822174500_talent_api_schema_exposure.sql",
       "git_blob_sha": "160d7de785ad60e8833512e7acbba440b27252a8",
       "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1629, "production_name": "talent_api_schema_exposure", "production_statement_count": 1, "production_statement_md5": "f5731ecbe2e311a3b24921b779a3db4c", "production_statement_chars": 2284, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback API-schema privilege and behavior verification. Supabase minted live version 20260822214001 for canonical repository migration 20260822174500." }
+    },
+    {
+      "live_version": "20260828111619",
+      "repository_version": "20260828022000",
+      "file": "20260828022000_fix_counterparty_extraction_cte_scope.sql",
+      "git_blob_sha": "f4571c461361e29575d2827fa883f1517a3bd34c",
+      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1668, "merge_commit": "a3bb47afd8fb41e29fb30af893f00d9d25c09de4", "production_name": "fix_counterparty_extraction_cte_scope", "production_statement_count": 1, "production_statement_md5": "024560c6423ec70bb4e62c96fe65ff04", "production_statement_chars": 2008, "production_apply_evidence": "Read-only production ledger verification on 2026-08-28 confirmed Supabase apply-time version 20260828111619 is the fix_counterparty_extraction_cte_scope repair from merged PR #1668; the canonical repository migration is pinned by Git blob SHA." }
     }
   ]
 }
