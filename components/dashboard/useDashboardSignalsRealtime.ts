@@ -37,7 +37,6 @@ export function useDashboardSignalsRealtime(
   const [status, setStatus] = useState<SignalsRealtimeStatus>('connecting')
 
   const countryRef = useRef(initialScope)
-  countryRef.current = isGlobalSignalScope(countryLabel) ? 'all' : countryLabel
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlightRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
