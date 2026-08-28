@@ -1,0 +1,79 @@
+name: Intel Freshness Vercel Preview
+
+on:
+  push:
+    branches:
+      - preview/intel-freshness-briefings
+    paths:
+      - '.github/workflows/intel-freshness-vercel-preview.yml'
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  preview:
+    name: Deploy exact repair head to Vercel preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact repair head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 62dcf07b19e091a8026b5d4623dd7badd1bbe814
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck exact candidate
+        run: npm run typecheck
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Require Vercel deployment credentials
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          for key in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::$key is not configured"
+              exit 1
+            fi
+          done
+      - name: Pull Vercel preview environment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - name: Build exact Vercel output
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --token="$VERCEL_TOKEN"
+      - name: Deploy prebuilt Vercel preview
+        id: deploy
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          URL="$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")"
+          echo "deployment_url=$URL" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$URL" | tee vercel-preview-url.txt
+          echo "### Exact Intel freshness Vercel preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "Repair head: 62dcf07b19e091a8026b5d4623dd7badd1bbe814" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployment: $URL" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload preview URL evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: intel-freshness-vercel-preview
+          path: vercel-preview-url.txt
+          if-no-files-found: error
+          retention-days: 14
