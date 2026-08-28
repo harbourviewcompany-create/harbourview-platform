@@ -2,6 +2,9 @@ name: Intel Freshness Production Closeout
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - fix/intel-freshness-briefings
 
 concurrency:
   group: intel-freshness-production-closeout
@@ -12,6 +15,7 @@ permissions:
 
 jobs:
   closeout:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[intel-production-closeout]')
     name: Exact-head gate and bounded briefing regeneration
     runs-on: ubuntu-latest
     timeout-minutes: 45
