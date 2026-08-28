@@ -57,7 +57,7 @@ describe('marketplace media post-merge corrective contracts', () => {
   it('records degradation separately from legitimate no-image fallback', () => {
     const source = read('lib/dashboard/buildDashboardCommandSources.ts')
     expect(source).toContain("mediaStatus: degraded ? 'degraded' : 'live'")
-    expect(source).toContain("projection.mediaStatus === 'degraded' ? 'fallback' : 'live'")
+    expect(source).toMatch(/projection\.mediaStatus === 'degraded'\s*\?\s*'fallback'\s*:\s*'live'/)
     expect(source).toContain('controller.abort()')
     expect(source).toContain('() => {\n        controller.abort()\n        finish({}, true)')
   })
