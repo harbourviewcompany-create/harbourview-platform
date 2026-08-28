@@ -138,14 +138,14 @@ describe('Harbourview P0 identity, organization, membership and operating contex
   it('routes the Command organization attention state into explicit create and join onboarding choices', () => {
     expect(mobileCommandModel).toContain("id: 'organization-create'")
     expect(mobileCommandModel).toContain("id: 'organization-join'")
-    expect(mobileCommandModel).toContain("href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`")
+    expect(mobileCommandModel).toContain("href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`")
     expect(mobileCommandModel).toContain("href: `/organization/join?returnTo=${returnParam}`")
     expect(mobileCommandModel).toContain("if (!params.has('section')) params.set('section', model.activeSection)")
   })
 
   it('keeps organization onboarding out of the public marketing shell', () => {
     expect(shellWrapper).toContain("'/organization'")
-    expect(shellWrapper).toContain("const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization', '/admin']")
+    expect(shellWrapper).toContain("const NO_SHELL_PREFIXES = ['/dashboard', '/country', '/organization']")
   })
 
   it('provides Personal, multi-organization switching, join and stale-context recovery in Command', () => {
