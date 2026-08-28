@@ -1,0 +1,83 @@
+name: Temporary Network P1 HTTP Verification
+
+on:
+  push:
+    branches:
+      - verify/network-p1-http-20260828
+
+permissions:
+  contents: read
+
+jobs:
+  unauthenticated-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Execute live unauthenticated PATCH and verify response
+        shell: bash
+        run: |
+          set -uo pipefail
+          target='https://harbourview.vercel.app/api/network/introduction-requests/00000000-0000-4000-8000-000000000000'
+          body_file="$RUNNER_TEMP/network-p1-body.json"
+          headers_file="$RUNNER_TEMP/network-p1-headers.txt"
+
+          status="$(curl --silent --show-error --location \
+            --retry 2 --retry-all-errors --max-time 30 \
+            --request PATCH \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json' \
+            --data '{"toStatus":"review","detail":{"verification":"network-p1-unauthenticated-smoke"}}' \
+            --dump-header "$headers_file" \
+            --output "$body_file" \
+            --write-out '%{http_code}' \
+            "$target")"
+
+          echo '=== LIVE HTTP EVIDENCE ==='
+          echo "TARGET=$target"
+          echo "HTTP_STATUS=$status"
+          echo '--- response status/header subset ---'
+          awk 'NR==1 || tolower($1) ~ /^(content-type:|cache-control:|date:|server:|x-vercel-id:|x-vercel-cache:)$/ {print}' "$headers_file" | tr -d '\r'
+          echo '--- exact response body ---'
+          cat "$body_file"
+          echo
+          echo "BODY_BYTES=$(wc -c < "$body_file" | tr -d ' ')"
+          echo "BODY_SHA256=$(sha256sum "$body_file" | awk '{print $1}')"
+
+          export HTTP_STATUS="$status"
+          export BODY_FILE="$body_file"
+          python3 - <<'PY'
+          import json, os, re, sys
+          status = os.environ['HTTP_STATUS']
+          body_path = os.environ['BODY_FILE']
+          body = open(body_path, 'r', encoding='utf-8').read()
+          failures = []
+          if status != '401':
+              failures.append(f'expected HTTP 401, got {status}')
+          try:
+              parsed = json.loads(body)
+          except Exception as exc:
+              failures.append(f'body is not valid JSON: {exc}')
+              parsed = None
+          if parsed != {'error': 'Unauthorized'}:
+              failures.append(f'unexpected body: {body!r}')
+
+          forbidden = [
+              'sourceUrl', 'sourceName', 'Evidence captured', 'provenanceSummary',
+              'sourceEvidence', 'verificationStatus', 'availabilityStatus',
+              'sellerAuthorizationStatus', 'internalReviewNotes', 'reviewedBy',
+              'lastReviewedAt', 'nextReviewDueAt', 'SUPABASE_SERVICE_ROLE_KEY',
+              'service_role', 'postgresql://', 'DATABASE_URL', 'workspace_id',
+              'user_id', 'auth.uid', 'NETWORK_INTRODUCTION_', 'stack trace',
+          ]
+          lowered = body.lower()
+          leaked = [item for item in forbidden if item.lower() in lowered]
+          if leaked:
+              failures.append('sensitive/internal leakage terms present: ' + ', '.join(leaked))
+          if re.search(r'eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}', body):
+              failures.append('JWT-like token present in response body')
+          if failures:
+              for failure in failures:
+                  print('FAIL:', failure)
+              sys.exit(1)
+          print('PASS: live unauthenticated PATCH returned exact Unauthorized JSON with no tested sensitive leakage.')
+          PY
