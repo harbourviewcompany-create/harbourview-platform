@@ -12,11 +12,17 @@ permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: candidate-b-exact-verification
+  cancel-in-progress: true
+
 jobs:
   verify-candidate-b:
     name: Verify Candidate B at exact SHA
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 25
+    env:
+      HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
 
     steps:
       - name: Checkout exact Candidate B SHA
@@ -57,13 +63,51 @@ jobs:
         if: always()
         run: npx playwright install --with-deps chromium
 
+      - name: Build exact Candidate B checkout for local Playwright
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/harbourview-candidate-b-build.log
+          status=${PIPESTATUS[0]}
+          echo "BUILD_EXIT=${status}" >> "$GITHUB_ENV"
+          echo "build_exit=${status}" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
+          exit 0
+
+      - name: Start local production server
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if [ "${BUILD_EXIT:-999}" -ne 0 ]; then
+            echo "Build failed; skipping local server start" | tee /tmp/harbourview-candidate-b-server.log
+            echo "SERVER_EXIT=999" >> "$GITHUB_ENV"
+            echo "server_exit=999" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
+            exit 0
+          fi
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-candidate-b-server.log 2>&1 &
+          echo $! > /tmp/harbourview-candidate-b-server.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/market-selection >/dev/null; then
+              echo "SERVER_EXIT=0" >> "$GITHUB_ENV"
+              echo "server_exit=0" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/harbourview-candidate-b-server.log
+          echo "SERVER_EXIT=1" >> "$GITHUB_ENV"
+          echo "server_exit=1" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
+          exit 0
+
       - name: Run Candidate B Playwright screenshots
         if: always()
         shell: bash
         run: |
           set +e
           set -o pipefail
-          npx playwright test tests/e2e/market-selection-candidate-b.spec.ts 2>&1 | tee /tmp/harbourview-candidate-b-playwright.log
+          timeout 10m npx playwright test tests/e2e/market-selection-candidate-b.spec.ts 2>&1 | tee /tmp/harbourview-candidate-b-playwright.log
           status=${PIPESTATUS[0]}
           echo "PLAYWRIGHT_EXIT=${status}" >> "$GITHUB_ENV"
           echo "playwright_exit=${status}" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
@@ -88,6 +132,8 @@ jobs:
           path: |
             /tmp/harbourview-candidate-b-runtime.log
             /tmp/harbourview-candidate-b-vitest.log
+            /tmp/harbourview-candidate-b-build.log
+            /tmp/harbourview-candidate-b-server.log
             /tmp/harbourview-candidate-b-playwright.log
             /tmp/harbourview-candidate-b-exit-codes.txt
             /tmp/harbourview-candidate-b-screenshots.txt
@@ -105,12 +151,22 @@ jobs:
         shell: bash
         run: |
           vitest_exit="${VITEST_EXIT:-999}"
+          build_exit="${BUILD_EXIT:-999}"
+          server_exit="${SERVER_EXIT:-999}"
           playwright_exit="${PLAYWRIGHT_EXIT:-999}"
           screenshot_count="${SCREENSHOT_COUNT:-0}"
           echo "VITEST_EXIT=${vitest_exit}"
+          echo "BUILD_EXIT=${build_exit}"
+          echo "SERVER_EXIT=${server_exit}"
           echo "PLAYWRIGHT_EXIT=${playwright_exit}"
           echo "SCREENSHOT_COUNT=${screenshot_count}"
           if [ "$vitest_exit" -ne 0 ]; then
+            exit 1
+          fi
+          if [ "$build_exit" -ne 0 ]; then
+            exit 1
+          fi
+          if [ "$server_exit" -ne 0 ]; then
             exit 1
           fi
           if [ "$playwright_exit" -ne 0 ]; then
