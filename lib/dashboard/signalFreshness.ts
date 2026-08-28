@@ -1,4 +1,5 @@
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
+import { canonicalMarketId } from '@/lib/utils/flagEmoji'
 
 const DAY_MS = 86_400_000
 export const WEEKLY_SIGNAL_WINDOW_DAYS = 7
@@ -145,15 +146,12 @@ export function formatSignalAge(value: string | undefined, nowMs = Date.now()): 
   return `${Math.floor(days / 7)}w ago`
 }
 
-function contextMatches(signal: DashboardSignal, countryLabel: string) {
+export function signalMatchesJurisdiction(signal: DashboardSignal, countryLabel: string) {
   if (isGlobalSignalScope(countryLabel)) return false
-  const target = normalizedScope(countryLabel)
-  const market = normalizedScope(signal.market ?? '')
-  if (market === target || market.includes(target)) return true
-  return (signal.jurisdictions ?? []).some((jurisdiction) => {
-    const value = normalizedScope(jurisdiction)
-    return value === target || value.includes(target)
-  })
+  const target = canonicalMarketId(countryLabel)
+  if (!target) return false
+  if (canonicalMarketId(signal.market) === target) return true
+  return (signal.jurisdictions ?? []).some(jurisdiction => canonicalMarketId(jurisdiction) === target)
 }
 
 function dedupeKey(signal: DashboardSignal) {
@@ -161,14 +159,17 @@ function dedupeKey(signal: DashboardSignal) {
     try {
       const url = new URL(signal.sourceUrl)
       url.hash = ''
-      url.search = ''
-      return `url:${url.toString().replace(/\/$/, '').toLowerCase()}`
+      for (const key of [...url.searchParams.keys()]) {
+        if (/^(utm_.+|fbclid|gclid)$/i.test(key)) url.searchParams.delete(key)
+      }
+      url.searchParams.sort()
+      return `url:${url.toString().replace(/\/$/, '')}`
     } catch {
       // Fall through to the title key.
     }
   }
   const title = signal.title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  const market = (signal.market ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const market = (canonicalMarketId(signal.market) ?? '').replace(/[^a-z0-9:]+/g, ' ').trim()
   return `title:${market}:${title}`
 }
 
@@ -195,7 +196,7 @@ export function canonicalizeDashboardSignals(
         },
         index,
         freshnessMs,
-        contextual: contextMatches(signal, countryLabel),
+        contextual: signalMatchesJurisdiction(signal, countryLabel),
       }
     })
     .filter((entry) => entry.freshnessMs != null && entry.freshnessMs >= lowerBound && entry.freshnessMs <= upperBound)
