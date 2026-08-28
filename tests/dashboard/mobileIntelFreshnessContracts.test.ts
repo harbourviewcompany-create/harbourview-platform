@@ -12,7 +12,7 @@ const synthTimeline = readFileSync('lib/intelligence/jurisdictionSynthesisTimeli
 const synthBridge = readFileSync('lib/intelligence/jurisdictionSynthesis.ts', 'utf8')
 const synthCron = readFileSync('app/api/cron/synthesize-jurisdictions/route.ts', 'utf8')
 const migration = readFileSync('supabase/migrations/20260827234500_signal_freshness_timeline.sql', 'utf8')
-const populationMigration = readFileSync('supabase/migrations/20260828130000_signal_timeline_population_hardening.sql', 'utf8')
+const populationMigration = readFileSync('supabase/migrations/20260828143000_signal_timeline_population_hardening.sql', 'utf8')
 
 describe('Mobile Intel freshness and briefing contracts', () => {
   it('uses one canonical realtime signal feed instead of an enriched second-pass swap', () => {
