@@ -138,7 +138,7 @@ describe('Harbourview P0 identity, organization, membership and operating contex
   it('routes the Command organization attention state into explicit create and join onboarding choices', () => {
     expect(mobileCommandModel).toContain("id: 'organization-create'")
     expect(mobileCommandModel).toContain("id: 'organization-join'")
-    expect(mobileCommandModel).toContain("href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`")
+    expect(mobileCommandModel).toContain("href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`")
     expect(mobileCommandModel).toContain("href: `/organization/join?returnTo=${returnParam}`")
     expect(mobileCommandModel).toContain("if (!params.has('section')) params.set('section', model.activeSection)")
   })
