@@ -15,6 +15,10 @@ const LEGACY_SELECT = `headline, country, date, created_at, top_lane, cat, comme
 const PRIMARY_WINDOW_DAYS = 30
 const FALLBACK_WINDOW_DAYS = 45
 const DAY_MS = 86_400_000
+const CLAUDE_MODEL = 'claude-sonnet-4-6'
+const DETERMINISTIC_MODEL = 'deterministic-bounded-v1'
+
+let claudeCircuitOpen = false
 
 export const SYNTHESIS_MARKETS: { iso2: string; name: string }[] = [
   { iso2: 'DE', name: 'Germany' },
@@ -157,7 +161,7 @@ function formatSignalsForPrompt(signals: SignalRow[]): string {
     .join('\n\n')
 }
 
-const PROMPT_VERSION = 2
+const PROMPT_VERSION = 3
 
 function buildPrompt(countryName: string, signalText: string): string {
   return `You are an expert analyst at Harbourview, the global cannabis industry intelligence platform.
@@ -189,42 +193,102 @@ Rules:
 - Respond with valid JSON only.`
 }
 
+function deterministicBriefing(countryName: string, signals: SignalRow[], reason: string): JurisdictionBriefing {
+  const keySignals = signals.slice(0, 5).map(signal => signal.headline)
+  if (signals.length === 0) {
+    return {
+      headline: `${countryName}: no qualifying reviewed signals in the current ${FALLBACK_WINDOW_DAYS}-day evidence window.`,
+      legal_status: 'unknown',
+      market_maturity: 'unknown',
+      summary: `No qualifying reviewed ${countryName} signals were found inside the bounded freshness window. Older developments were intentionally not reused.`,
+      what_changed: null,
+      operator_implications: `Current evidence is sparse. Verify the jurisdiction directly before relying on an older briefing; automated language-model synthesis is unavailable (${reason}).`,
+      whats_coming: null,
+      key_signals: [],
+    }
+  }
+
+  const top = signals[0]
+  const second = signals[1]
+  const evidenceSummary = second
+    ? `The two most recent qualifying reviewed signals are: ${top.headline} ${second.headline}`
+    : `The most recent qualifying reviewed signal is: ${top.headline}`
+
+  return {
+    headline: top.headline,
+    legal_status: 'unknown',
+    market_maturity: 'unknown',
+    summary: `This current ${countryName} briefing is based on ${signals.length} reviewed signal${signals.length === 1 ? '' : 's'} inside the bounded ${FALLBACK_WINDOW_DAYS}-day evidence window. ${evidenceSummary}`,
+    what_changed: top.headline,
+    operator_implications: top.commercial_impact
+      ? `${top.commercial_impact} Automated language-model synthesis is unavailable (${reason}); use the cited current evidence for verification.`
+      : `Review the cited current evidence before taking jurisdiction-specific action. Automated language-model synthesis is unavailable (${reason}), so no additional interpretation has been invented.`,
+    whats_coming: null,
+    key_signals: keySignals,
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function shouldOpenClaudeCircuit(message: string): boolean {
+  const value = message.toLowerCase()
+  return [
+    'credit balance is too low',
+    'plans & billing',
+    'authentication_error',
+    'invalid x-api-key',
+    'permission_error',
+  ].some(marker => value.includes(marker))
+}
+
 async function synthesiseWithClaude(prompt: string): Promise<JurisdictionBriefing | null> {
+  if (claudeCircuitOpen) return null
+
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    console.error('jurisdiction_synthesis: ANTHROPIC_API_KEY not configured')
+    claudeCircuitOpen = true
+    console.warn('jurisdiction_synthesis: ANTHROPIC_API_KEY not configured; deterministic bounded fallback active')
     return null
   }
 
-  const client = new Anthropic({ apiKey })
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const text = message.content
-    .filter(block => block.type === 'text')
-    .map(block => (block as { type: 'text'; text: string }).text)
-    .join('')
-    .trim()
-  const clean = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
-
   try {
-    const parsed = JSON.parse(clean)
-    if (typeof parsed.headline !== 'string' || typeof parsed.summary !== 'string') return null
-    return {
-      headline: String(parsed.headline ?? '').trim(),
-      legal_status: String(parsed.legal_status ?? 'unknown').trim(),
-      market_maturity: String(parsed.market_maturity ?? 'unknown').trim(),
-      summary: String(parsed.summary ?? '').trim(),
-      what_changed: parsed.what_changed ? String(parsed.what_changed).trim() : null,
-      operator_implications: parsed.operator_implications ? String(parsed.operator_implications).trim() : null,
-      whats_coming: parsed.whats_coming ? String(parsed.whats_coming).trim() : null,
-      key_signals: Array.isArray(parsed.key_signals) ? parsed.key_signals.map(String).slice(0, 5) : [],
+    const client = new Anthropic({ apiKey })
+    const message = await client.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const text = message.content
+      .filter(block => block.type === 'text')
+      .map(block => (block as { type: 'text'; text: string }).text)
+      .join('')
+      .trim()
+    const clean = text.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim()
+
+    try {
+      const parsed = JSON.parse(clean)
+      if (typeof parsed.headline !== 'string' || typeof parsed.summary !== 'string') return null
+      return {
+        headline: String(parsed.headline ?? '').trim(),
+        legal_status: String(parsed.legal_status ?? 'unknown').trim(),
+        market_maturity: String(parsed.market_maturity ?? 'unknown').trim(),
+        summary: String(parsed.summary ?? '').trim(),
+        what_changed: parsed.what_changed ? String(parsed.what_changed).trim() : null,
+        operator_implications: parsed.operator_implications ? String(parsed.operator_implications).trim() : null,
+        whats_coming: parsed.whats_coming ? String(parsed.whats_coming).trim() : null,
+        key_signals: Array.isArray(parsed.key_signals) ? parsed.key_signals.map(String).slice(0, 5) : [],
+      }
+    } catch (error) {
+      console.error('jurisdiction_synthesis: JSON parse error; deterministic bounded fallback active', error, 'raw:', clean.slice(0, 200))
+      return null
     }
   } catch (error) {
-    console.error('jurisdiction_synthesis: JSON parse error', error, 'raw:', clean.slice(0, 200))
+    const message = errorMessage(error)
+    if (shouldOpenClaudeCircuit(message)) claudeCircuitOpen = true
+    console.error('jurisdiction_synthesis: Claude unavailable; deterministic bounded fallback active', message)
     return null
   }
 }
@@ -232,15 +296,20 @@ async function synthesiseWithClaude(prompt: string): Promise<JurisdictionBriefin
 export async function synthesiseJurisdiction(
   countryIso2: string,
   countryName: string,
-): Promise<{ ok: true; briefing: JurisdictionBriefing; signal_count: number } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; briefing: JurisdictionBriefing; signal_count: number; model_used: string }
+  | { ok: false; error: string }
+> {
   const svcUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!svcUrl || !svcKey) return { ok: false, error: 'Supabase env vars missing' }
 
   const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const signals = await fetchSignalsForCountry(svcUrl, svcKey, countryName)
-  const briefing = await synthesiseWithClaude(buildPrompt(countryName, formatSignalsForPrompt(signals)))
-  if (!briefing) return { ok: false, error: 'Claude synthesis failed' }
+  const claudeBriefing = await synthesiseWithClaude(buildPrompt(countryName, formatSignalsForPrompt(signals)))
+  const providerReason = claudeCircuitOpen ? 'provider billing/authentication unavailable' : 'provider response unavailable'
+  const briefing = claudeBriefing ?? deterministicBriefing(countryName, signals, providerReason)
+  const modelUsed = claudeBriefing ? CLAUDE_MODEL : DETERMINISTIC_MODEL
 
   const now = new Date()
   const weekEnding = new Date(Date.UTC(
@@ -265,14 +334,14 @@ export async function synthesiseJurisdiction(
       operator_implications: briefing.operator_implications,
       whats_coming: briefing.whats_coming,
       key_signals: briefing.key_signals,
-      model_used: 'claude-sonnet-4-6',
+      model_used: modelUsed,
       prompt_version: PROMPT_VERSION,
       generated_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'country_iso2,week_ending' })
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, briefing, signal_count: signals.length }
+  return { ok: true, briefing, signal_count: signals.length, model_used: modelUsed }
 }
 
 export async function getLatestBriefing(countryIso2: string): Promise<StoredJurisdictionBriefing | null> {
@@ -299,7 +368,7 @@ export async function synthesiseJurisdictionBatch(opts?: {
   offset?: number
 }): Promise<{
   ok: boolean
-  results: { iso2: string; ok: boolean; signal_count?: number; error?: string }[]
+  results: { iso2: string; ok: boolean; signal_count?: number; model_used?: string; error?: string }[]
 }> {
   const limit = Math.min(Math.max(opts?.limit ?? 6, 1), 10)
   const dayIndex = Math.floor(Date.now() / DAY_MS)
@@ -307,7 +376,7 @@ export async function synthesiseJurisdictionBatch(opts?: {
   const slice: typeof SYNTHESIS_MARKETS = []
   for (let i = 0; i < limit; i++) slice.push(SYNTHESIS_MARKETS[(base + i) % SYNTHESIS_MARKETS.length])
 
-  const results: { iso2: string; ok: boolean; signal_count?: number; error?: string }[] = []
+  const results: { iso2: string; ok: boolean; signal_count?: number; model_used?: string; error?: string }[] = []
   for (const market of slice) {
     try {
       const result = await synthesiseJurisdiction(market.iso2, market.name)
@@ -315,6 +384,7 @@ export async function synthesiseJurisdictionBatch(opts?: {
         iso2: market.iso2,
         ok: result.ok,
         signal_count: result.ok ? result.signal_count : undefined,
+        model_used: result.ok ? result.model_used : undefined,
         error: result.ok ? undefined : result.error,
       })
     } catch (error) {
