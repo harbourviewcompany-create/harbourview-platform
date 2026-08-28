@@ -146,12 +146,40 @@ export function formatSignalAge(value: string | undefined, nowMs = Date.now()): 
   return `${Math.floor(days / 7)}w ago`
 }
 
+/**
+ * Convert a persisted jurisdiction value into canonical tokens without using
+ * substring semantics. Public signals commonly store multi-jurisdiction values
+ * such as `United States; Michigan`; those must remain matchable while `US`
+ * must never match `Australia`.
+ */
+export function jurisdictionTokens(value: string | null | undefined): string[] {
+  const raw = value?.trim()
+  if (!raw) return []
+  const parts = raw.split(/\s*(?:;|\||\/)\s*/).map(part => part.trim()).filter(Boolean)
+  const tokens = parts
+    .map(part => canonicalMarketId(part))
+    .filter((token): token is string => Boolean(token))
+  return [...new Set(tokens)]
+}
+
+export function jurisdictionValueMatches(value: string | null | undefined, target: string) {
+  const targetId = canonicalMarketId(target)
+  if (!targetId) return false
+  return jurisdictionTokens(value).includes(targetId)
+}
+
+function isGlobalSignal(signal: DashboardSignal) {
+  const values = [signal.market, ...(signal.jurisdictions ?? [])]
+  return values.some(value => {
+    const normalized = value?.trim().toLowerCase()
+    return normalized === 'global' || normalized === 'global market'
+  })
+}
+
 export function signalMatchesJurisdiction(signal: DashboardSignal, countryLabel: string) {
   if (isGlobalSignalScope(countryLabel)) return false
-  const target = canonicalMarketId(countryLabel)
-  if (!target) return false
-  if (canonicalMarketId(signal.market) === target) return true
-  return (signal.jurisdictions ?? []).some(jurisdiction => canonicalMarketId(jurisdiction) === target)
+  if (jurisdictionValueMatches(signal.market, countryLabel)) return true
+  return (signal.jurisdictions ?? []).some(jurisdiction => jurisdictionValueMatches(jurisdiction, countryLabel))
 }
 
 function dedupeKey(signal: DashboardSignal) {
@@ -169,7 +197,8 @@ function dedupeKey(signal: DashboardSignal) {
     }
   }
   const title = signal.title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-  const market = (canonicalMarketId(signal.market) ?? '').replace(/[^a-z0-9:]+/g, ' ').trim()
+  const market = jurisdictionTokens(signal.market).join('|')
+    || (canonicalMarketId(signal.market) ?? '').replace(/[^a-z0-9:]+/g, ' ').trim()
   return `title:${market}:${title}`
 }
 
@@ -181,7 +210,7 @@ export function canonicalizeDashboardSignals(
   const nowMs = options.nowMs ?? Date.now()
   const windowDays = options.windowDays ?? WEEKLY_SIGNAL_WINDOW_DAYS
   const lowerBound = nowMs - windowDays * DAY_MS
-  const upperBound = nowMs + 90 * DAY_MS
+  const globalScope = isGlobalSignalScope(countryLabel)
 
   const prepared = input
     .map((signal, index) => {
@@ -197,11 +226,17 @@ export function canonicalizeDashboardSignals(
         index,
         freshnessMs,
         contextual: signalMatchesJurisdiction(signal, countryLabel),
+        global: isGlobalSignal(signal),
       }
     })
-    .filter((entry) => entry.freshnessMs != null && entry.freshnessMs >= lowerBound && entry.freshnessMs <= upperBound)
+    // Weekly Signals is a current-development surface. A future-only effective
+    // date is not current evidence and belongs in forward-looking briefing data.
+    .filter(entry => entry.freshnessMs != null && entry.freshnessMs >= lowerBound && entry.freshnessMs <= nowMs)
+    // A selected jurisdiction is a strict scope, not a ranking hint. Keep exact
+    // selected-jurisdiction rows plus genuinely Global rows only.
+    .filter(entry => globalScope || entry.contextual || entry.global)
     .sort((a, b) => {
-      if (!isGlobalSignalScope(countryLabel) && a.contextual !== b.contextual) {
+      if (!globalScope && a.contextual !== b.contextual) {
         return Number(b.contextual) - Number(a.contextual)
       }
       const recency = (b.freshnessMs ?? 0) - (a.freshnessMs ?? 0)
