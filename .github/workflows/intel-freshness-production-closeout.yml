@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   closeout:
-    name: Exact-head gate, timeline migration, bounded briefing regeneration
+    name: Exact-head gate and bounded briefing regeneration
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -22,8 +22,6 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
       SUPABASE_DB_SCHEMA: api
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -51,42 +49,16 @@ jobs:
         run: npm run typecheck
       - name: Production build gate
         run: npm run build
-      - name: Require production closeout secrets
+      - name: Require synthesis secrets
         shell: bash
         run: |
           set -euo pipefail
-          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_ACCESS_TOKEN CRON_SECRET ANTHROPIC_API_KEY; do
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY CRON_SECRET ANTHROPIC_API_KEY; do
             if [ -z "${!key:-}" ]; then
-              echo "::error::$key is not configured; refusing production closeout."
+              echo "::error::$key is not configured; refusing briefing regeneration."
               exit 1
             fi
           done
-      - name: Set up Supabase CLI
-        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
-        with:
-          version: 2.109.1
-      - name: Link production Supabase
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
-      - name: Prove only the timeline migration is pending
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase db push --linked --include-all --dry-run 2>&1 | tee /tmp/intel-migration-dry-run.txt
-          grep -q '20260827234500_signal_freshness_timeline.sql' /tmp/intel-migration-dry-run.txt
-          pending="$(grep -Eo '[0-9]{14}_[A-Za-z0-9_]+\.sql' /tmp/intel-migration-dry-run.txt | sort -u || true)"
-          if [ "$pending" != '20260827234500_signal_freshness_timeline.sql' ]; then
-            echo "::error::Unexpected pending migration set:"
-            printf '%s\n' "$pending"
-            exit 1
-          fi
-      - name: Apply canonical timeline migration to production
-        run: supabase db push --linked --include-all --yes
-      - name: Verify canonical migration ledger entry
-        shell: bash
-        run: |
-          set -euo pipefail
-          supabase migration list --linked | tee /tmp/intel-migrations-after.txt
-          grep -q '20260827234500' /tmp/intel-migrations-after.txt
       - name: Start exact built app for bounded synthesis
         shell: bash
         run: |
@@ -118,8 +90,6 @@ jobs:
         run: |
           mkdir -p artifacts/intel-freshness-closeout
           git rev-parse HEAD > artifacts/intel-freshness-closeout/exact-head.txt
-          cp /tmp/intel-migration-dry-run.txt artifacts/intel-freshness-closeout/migration-dry-run.txt 2>/dev/null || true
-          cp /tmp/intel-migrations-after.txt artifacts/intel-freshness-closeout/migrations-after.txt 2>/dev/null || true
           cp /tmp/intel-closeout-next.log artifacts/intel-freshness-closeout/server.log 2>/dev/null || true
       - name: Upload closeout evidence
         if: always()
