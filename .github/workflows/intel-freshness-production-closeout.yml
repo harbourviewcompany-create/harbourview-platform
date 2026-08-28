@@ -78,13 +78,13 @@ jobs:
         run: |
           set -euo pipefail
           test -f supabase/migrations/20260827234500_signal_freshness_timeline.sql
-          test -f supabase/migrations/20260828130000_signal_timeline_population_hardening.sql
+          test -f supabase/migrations/20260828143000_signal_timeline_population_hardening.sql
           node <<'NODE'
           const fs = require('fs')
           const p = 'supabase/release-controls/pending-production-migration-decisions.json'
           if (!fs.existsSync(p)) process.exit(0)
           const data = JSON.parse(fs.readFileSync(p, 'utf8'))
-          for (const version of ['20260827234500', '20260828130000']) {
+          for (const version of ['20260827234500', '20260828143000']) {
             const row = (data.repository_only_decisions || []).find((entry) => String(entry.version) === version)
             if (row && row.classification !== 'approved' && row.classification !== 'separately_authorized') {
               console.error(`::error::Timeline migration ${version} is release-controlled as ${row.classification} (${row.reason_code || 'no reason code'}).`)
