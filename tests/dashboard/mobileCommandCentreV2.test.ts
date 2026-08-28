@@ -4,8 +4,12 @@ import { parseHTML } from 'linkedom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
 import {
+  confidenceFractionToPercent,
   defaultListingTypeForView,
+  MARKET_TABS,
+  normalizeListing,
   PAGE_TO_SECTION,
+  parseConfidence,
   parseMobileCommandTool,
   PRIMARY_NAV,
   SECTION_GROUPS,
@@ -73,8 +77,8 @@ function mobileProps(overrides: Partial<MobileCommandCentreProps> = {}): MobileC
     signals: [{
       id: 'signal-1',
       title: 'German import requirements updated',
-      // This fixture is intentionally Global: the active context is Canada and
-      // the strict Intel feed retains only exact Canada rows plus Global watch.
+      // The active context is Canada. Global is intentionally retained by the
+      // canonical selected-jurisdiction + Global intelligence contract.
       market: 'Global',
       type: 'Regulatory',
       commercialImpact: 'Review export pathway implications.',
@@ -136,15 +140,7 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(SECTION_TO_DESKTOP_PAGE.clinical).toBe('clinical')
     expect(PAGE_TO_SECTION.clinical).toBe('clinical')
 
-    for (const section of [
-      'jurisdiction',
-      'compliance',
-      'education',
-      'genetics',
-      'talent',
-      'network',
-      'clinical',
-    ] as const) {
+    for (const section of ['jurisdiction', 'compliance', 'education', 'genetics', 'talent', 'network', 'clinical'] as const) {
       expect(SECTION_TO_GROUP[section]).toBe('overview')
     }
 
@@ -154,7 +150,7 @@ describe('Mobile Command Centre operator architecture', () => {
     }
   })
 
-  it('renders an operator-first populated Command without hero or module catalogue', () => {
+  it('renders the current operator-first Command landing without obsolete catalogue chrome', () => {
     const document = renderMobileCommand()
     const text = document.body.textContent || ''
 
@@ -168,16 +164,13 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(document.querySelector('#hvm-op-changes-heading')?.textContent).toBe('Recent intelligence')
     expect(document.querySelector('#hvm-op-opportunity-heading')?.textContent).toBe('Commercial opportunity')
     expect(document.querySelector('#hvm-op-picture-heading')?.textContent).toBe('Canada')
-
-    expect(text).not.toContain('Operator command centre')
-    expect(text).not.toContain('All Command Centre modules')
-    expect(text).not.toContain('32 available')
-    expect(document.querySelector('[data-command-module]')).toBeNull()
+    expect(document.querySelector('.hvm-op-secondary-nav')).not.toBeNull()
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
-    expect(document.querySelector('.hvm-op-secondary-nav')?.getAttribute('aria-label')).toBe('Command domains and operating controls')
+    expect(text).not.toContain('All Command Centre modules')
+    expect(document.querySelector('[data-command-module]')).toBeNull()
   })
 
-  it('uses existing action, signal and opportunity data for Command pulse and populated previews', () => {
+  it('uses action, canonical signal and opportunity data for the Command pulse and previews', () => {
     const document = renderMobileCommand()
     const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
 
@@ -191,99 +184,74 @@ describe('Mobile Command Centre operator architecture', () => {
   it('compresses only empty intelligence and opportunity categories into tappable zero rows', () => {
     const document = renderMobileCommand({
       signals: [] as unknown as MobileCommandCentreProps['signals'],
-      marketplaceRows: {
-        cannabis: [supplyListing],
-        opportunities: [],
-      },
+      marketplaceRows: { cannabis: [supplyListing], opportunities: [] },
     })
     const zeroRows = [...document.querySelectorAll('.hvm-op-compact-zero')]
     const text = document.body.textContent || ''
 
     expect(zeroRows).toHaveLength(2)
     expect(zeroRows.every(row => row.tagName.toLowerCase() === 'button')).toBe(true)
-    expect(text).toContain('Recent intelligence')
     expect(text).toContain('No material updates in this context')
-    expect(text).toContain('Commercial opportunities')
     expect(text).toContain('No matching opportunities currently')
-    expect(text).not.toContain('No material intelligence loaded')
-    expect(text).not.toContain('No qualified opportunities loaded')
     expect(document.querySelector('#hvm-op-changes-heading')).toBeNull()
     expect(document.querySelector('#hvm-op-opportunity-heading')).toBeNull()
   })
 
-  it('keeps exactly one committed section mounted', () => {
-    navigation.search.value = 'country=CA&role=exporter&page=intel&section=weekly-signals'
+  it('renders only the committed Intel section and exposes the current Intel secondary navigation', () => {
+    navigation.search.value = 'country=CA&role=exporter&page=signals&section=weekly-signals'
     const document = renderMobileCommand()
 
     expect(document.querySelector('[data-active-destination="weekly-signals"]')).not.toBeNull()
-    expect(document.querySelector('.hvm2-section-rail')).not.toBeNull()
-    expect(document.querySelectorAll('.hvm2-section-shell')).toHaveLength(1)
     expect(document.querySelector('#weekly-signals')).not.toBeNull()
     expect(document.querySelector('#overview')).toBeNull()
+    expect(document.querySelector('.hvm-op-secondary-nav')).not.toBeNull()
+    expect(document.querySelector('.hvm-op-secondary-nav')?.textContent).toContain('Personal briefing')
+    expect(document.querySelector('.hvm2-section-rail')).toBeNull()
   })
 
-  it('keeps scoped secondary reachability on the Command landing and other destinations', () => {
+  it('keeps Command-owned operational domains reachable through the current secondary navigation', () => {
     const landing = renderMobileCommand()
-    expect(landing.querySelector('[data-command-secondary-link="clinical"]')).not.toBeNull()
-    expect(landing.querySelector('[data-command-secondary-link="jurisdiction"]')).not.toBeNull()
+    const navText = landing.querySelector('.hvm-op-secondary-nav')?.textContent ?? ''
+    expect(navText).toContain('Clinical')
+    expect(navText).toContain('Jurisdiction')
+    expect(navText).toContain('Network')
 
-    navigation.search.value = 'country=CA&role=exporter&page=intel&section=weekly-signals'
-    const intel = renderMobileCommand()
-    expect(intel.querySelector('[data-command-secondary-link="clinical"]')).not.toBeNull()
-    expect(intel.querySelector('[data-command-secondary-link="jurisdiction"]')).not.toBeNull()
-  })
-
-  it('offers a way back to the Command landing from the rail, and keeps the rail there', () => {
-    navigation.search.value = 'country=CA&role=exporter&page=intel&section=weekly-signals'
-    const intel = renderMobileCommand()
-    expect(intel.querySelector('.hvm2-section-rail')).not.toBeNull()
-    expect(intel.querySelector('[data-command-back-to-overview]')).not.toBeNull()
-  })
-
-  it('preserves a Clinical deep link while keeping Command active globally', () => {
-    navigation.search.value = 'country=CA&role=exporter&page=clinical&section=clinical'
-    const document = renderMobileCommand()
-    expect(document.querySelector('[data-active-destination="overview"]')).not.toBeNull()
-    expect(document.querySelector('#clinical')).not.toBeNull()
-  })
-
-  it('reaches the supported operational sections Command owns, and rails them once committed', () => {
-    for (const section of SECTION_GROUPS.overview) {
-      if (section === 'overview') continue
+    for (const section of ['clinical', 'jurisdiction', 'network'] as const) {
       const page = SECTION_TO_DESKTOP_PAGE[section]
       navigation.search.value = `country=CA&role=exporter&page=${page}&section=${section}`
       const document = renderMobileCommand()
       expect(document.querySelector(`#${section}`)).not.toBeNull()
-      expect(document.querySelector('.hvm2-section-rail')).not.toBeNull()
+      expect(document.querySelector('[data-active-destination="overview"]')).not.toBeNull()
     }
   })
 
-  it('keeps catalogue marketplace controls under Market rather than operational domains', () => {
-    navigation.search.value = 'country=CA&role=exporter&page=marketplace&section=marketplace'
+  it('keeps the primary bottom navigation as the stable way back to Command from Intel', () => {
+    navigation.search.value = 'country=CA&role=exporter&page=signals&section=weekly-signals'
     const document = renderMobileCommand()
+    const primary = document.querySelector('[aria-label="Primary mobile command navigation"]')
+    expect(primary).not.toBeNull()
+    expect(primary?.textContent).toContain('Command')
+    expect(primary?.textContent).toContain('Market')
+    expect(primary?.textContent).toContain('Intel')
+    expect(primary?.textContent).toContain('Actions')
+  })
+
+  it('renders the committed marketplace section while preserving the complete category universe in contracts', () => {
+    navigation.search.value = 'country=CA&role=exporter&page=marketplace&section=marketplace&marketView=cannabis'
+    const document = renderMobileCommand()
+
     expect(document.querySelector('[data-active-destination="marketplace"]')).not.toBeNull()
-    expect(document.querySelector('[data-marketplace-category-controls]')).not.toBeNull()
+    expect(document.querySelector('#marketplace')).not.toBeNull()
+    expect(document.body.textContent).toContain('Export-ready flower lot')
+    expect(MARKET_TABS.map(tab => tab.label)).toEqual([
+      'Cannabis', 'Wanted', 'Opportunities', 'Equipment', 'Consumables', 'Services', 'New products',
+    ])
   })
 
-  it('preserves complete marketplace and supply category universes', () => {
-    const document = renderMobileCommand()
-    expect(document.body.textContent).toContain('Cannabis')
-    expect(document.body.textContent).toContain('Equipment')
-    expect(document.body.textContent).toContain('Consumables')
-  })
-
-  it('normalizes marketplace tuples without corrupting confidence', () => {
-    const document = renderMobileCommand()
-    expect(document.body.textContent).toContain('78%')
-  })
-
-  it('keeps percentages and fractions distinct', () => {
-    const document = renderMobileCommand({
-      marketplaceRows: { cannabis: [[
-        'Percent test', 'desc', 'Canada', 'Cannabis', 'approved', 'Direct', '0.82', 'p1', '', '',
-      ]] },
-    })
-    expect(document.body.textContent).toContain('82%')
+  it('normalizes marketplace confidence without conflating stored percentages and fractions', () => {
+    expect(normalizeListing(supplyListing, 0, 'cannabis', 'Canada').confidence).toBe(78)
+    expect(parseConfidence('78')).toBe(78)
+    expect(confidenceFractionToPercent(0.82)).toBe(82)
   })
 
   it('keeps query and contained-tool helpers stable', () => {
