@@ -43,10 +43,11 @@ export async function GET(request: Request) {
     markets: batch.results.map(result => result.iso2),
   })
 
+  const ok = batch.ok && failed === 0
   return NextResponse.json({
-    ok: batch.ok && failed === 0,
+    ok,
     succeeded,
     failed,
     results: batch.results,
-  }, { status: batch.ok ? 200 : 503 })
+  }, { status: ok ? 200 : 503 })
 }
