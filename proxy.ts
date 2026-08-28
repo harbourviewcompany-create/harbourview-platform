@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { getSupabasePublicClientKey, getSupabaseUrl } from '@/lib/supabase/env'
+import {
+  findProtectedRoute,
+  isPublicException,
+  LEGACY_REDIRECTS,
+  type SubscriptionTier,
+} from '@/lib/auth/routeProtection'
 
 function applyNoStoreHeaders(response: NextResponse) {
   const NO_STORE = 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0'
@@ -13,18 +19,7 @@ function applyNoStoreHeaders(response: NextResponse) {
   return response
 }
 
-type SubscriptionTier = 'free' | 'intel' | 'operator'
-
 const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
-
-const TIER_GATED_PREFIXES: Record<string, SubscriptionTier> = {
-  '/signals':       'intel',
-  '/intelligence':  'intel',
-  '/genetics':      'operator',
-  '/network':       'intel',
-  '/vault':         'intel',
-  '/opportunities': 'intel',
-}
 
 function tierMeetsMinimum(
   actual: SubscriptionTier | string | undefined,
@@ -37,51 +32,19 @@ function tierMeetsMinimum(
 
 function normaliseTier(raw: string): SubscriptionTier {
   switch (raw) {
-    case 'intel':        return 'intel'
-    case 'operator':     return 'operator'
-    case 'professional': return 'operator'
-    case 'enterprise':   return 'operator'
-    case 'starter':      return 'intel'
-    default:             return 'free'
+    case 'intel':
+      return 'intel'
+    case 'operator':
+      return 'operator'
+    case 'professional':
+      return 'operator'
+    case 'enterprise':
+      return 'operator'
+    case 'starter':
+      return 'intel'
+    default:
+      return 'free'
   }
-}
-
-const PROTECTED_PREFIXES = [
-  '/account',
-  '/vault',
-  '/admin',
-  '/dashboard',
-  '/intake',
-  '/marketplace/sell',
-  '/marketplace/my-listings',
-  '/signals',
-  '/intelligence',
-  '/genetics',
-  '/network',
-  '/opportunities',
-  '/reviewed-connections',
-  '/professionals',
-  '/assessments',
-  '/compliance',
-  '/education',
-  '/marketplace/intake',
-]
-
-const PUBLIC_AUTH_EXCEPTIONS = [
-  '/intelligence/watchlists',
-  '/intelligence/corridor-plan',
-  '/intelligence/corridor-coverage',
-  '/intelligence/landed-cost',
-  '/intelligence/logistics-simulator',
-  '/intelligence/logistics-trade-routes',
-  '/genetics',
-  '/education/cpd',
-]
-
-function isPublicAuthException(pathname: string): boolean {
-  return PUBLIC_AUTH_EXCEPTIONS.some(
-    (path) => pathname === path || pathname.startsWith(path + '/'),
-  )
 }
 
 export async function proxy(request: NextRequest) {
@@ -90,115 +53,121 @@ export async function proxy(request: NextRequest) {
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
 
-  const legacyRedirects: Record<string, string> = {
-    '/marketplace/submit-listing': '/marketplace/sell',
-    '/marketplace/wanted-requests': '/marketplace/wanted',
-    '/commercial-intelligence':     '/intelligence',
-  }
-  const redirectTo = legacyRedirects[normalizedPathname]
+  const redirectTo = LEGACY_REDIRECTS[normalizedPathname]
   if (redirectTo) {
-    const url = request.nextUrl.clone()
-    url.pathname = redirectTo
+    const url = new URL(redirectTo, request.url)
     url.search = ''
     return applyNoStoreHeaders(NextResponse.redirect(url, 308))
   }
 
-  if (isPublicAuthException(normalizedPathname)) {
+  if (isPublicException(normalizedPathname)) {
     return NextResponse.next()
   }
 
-  const isProtected = PROTECTED_PREFIXES.some(
-    (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/'),
-  )
-
-  if (isProtected) {
-    let supabaseUrl = ''
-    let supabasePublicKey = ''
-
-    try {
-      supabaseUrl = getSupabaseUrl()
-      supabasePublicKey = getSupabasePublicClientKey()
-    } catch (error) {
-      console.error('[harbourview:auth] Supabase public auth configuration rejected', {
-        message: error instanceof Error ? error.message : 'Unknown Supabase configuration error',
-      })
-      const loginUrl = request.nextUrl.clone()
-      loginUrl.pathname = '/login'
-      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
-      return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
-    }
-
-    let response = NextResponse.next({ request })
-
-    const supabase = createServerClient(supabaseUrl, supabasePublicKey, {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          )
-        },
-      },
-    })
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      const loginUrl = request.nextUrl.clone()
-      loginUrl.pathname = '/login'
-      loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
-      return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
-    }
-
-    const rawTier = user.app_metadata?.subscription_tier as string | undefined
-    const tier    = normaliseTier(rawTier ?? 'free')
-
-    const matchedTierPrefix = Object.keys(TIER_GATED_PREFIXES).find(
-      (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(prefix + '/'),
-    )
-
-    if (matchedTierPrefix) {
-      const required = TIER_GATED_PREFIXES[matchedTierPrefix]
-      if (!tierMeetsMinimum(tier, required)) {
-        const upgradeUrl = request.nextUrl.clone()
-        upgradeUrl.pathname = '/account/upgrade'
-        upgradeUrl.search = `?feature=${encodeURIComponent(matchedTierPrefix.slice(1))}&required=${required}&current=${tier}`
-        return applyNoStoreHeaders(NextResponse.redirect(upgradeUrl))
-      }
-    }
-
-    return applyNoStoreHeaders(response)
+  const route = findProtectedRoute(normalizedPathname)
+  if (!route) {
+    return NextResponse.next()
   }
 
-  return NextResponse.next()
+  let supabaseUrl = ''
+  let supabasePublicKey = ''
+
+  try {
+    supabaseUrl = getSupabaseUrl()
+    supabasePublicKey = getSupabasePublicClientKey()
+  } catch (error) {
+    console.error('[harbourview:auth] Supabase public auth configuration rejected', {
+      message: error instanceof Error ? error.message : 'Unknown Supabase configuration error',
+    })
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
+    return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
+  }
+
+  let response = NextResponse.next({ request })
+
+  const supabase = createServerClient(supabaseUrl, supabasePublicKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        response = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) =>
+          response.cookies.set(name, value, options),
+        )
+      },
+    },
+  })
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
+    return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
+  }
+
+  if (route.minTier) {
+    const rawTier = user.app_metadata?.subscription_tier as string | undefined
+    const tier = normaliseTier(rawTier ?? 'free')
+    if (!tierMeetsMinimum(tier, route.minTier)) {
+      const upgradeUrl = request.nextUrl.clone()
+      upgradeUrl.pathname = '/account/upgrade'
+      upgradeUrl.search = `?feature=${encodeURIComponent(route.prefix.slice(1))}&required=${route.minTier}&current=${tier}`
+      return applyNoStoreHeaders(NextResponse.redirect(upgradeUrl))
+    }
+  }
+
+  return applyNoStoreHeaders(response)
 }
 
+// Next.js statically parses matcher at build time; function calls/imported values are rejected.
+// The route-protection contract test requires this literal array to equal buildMatcher(), so the
+// runtime policy and compile-time matcher cannot silently drift.
 export const config = {
   matcher: [
+    '/account',
+    '/account/:path*',
     '/admin',
     '/admin/:path*',
-    '/dashboard/:path*',
-    '/account/:path*',
-    '/vault/:path*',
-    '/intake/:path*',
-    '/signals',
-    '/signals/:path*',
-    '/intelligence/:path*',
-    '/genetics',
-    '/genetics/:path*',
-    '/network/:path*',
-    '/opportunities/:path*',
-    '/reviewed-connections/:path*',
-    '/professionals/:path*',
+    '/assessments',
     '/assessments/:path*',
+    '/commercial-intelligence',
+    '/compliance',
     '/compliance/:path*',
+    '/dashboard',
+    '/dashboard/:path*',
+    '/education',
     '/education/:path*',
-    '/marketplace/sell/:path*',
+    '/intake',
+    '/intake/:path*',
+    '/intelligence',
+    '/intelligence/:path*',
+    '/marketplace/intake',
+    '/marketplace/intake/:path*',
+    '/marketplace/my-listings',
     '/marketplace/my-listings/:path*',
+    '/marketplace/sell',
+    '/marketplace/sell/:path*',
     '/marketplace/submit-listing',
     '/marketplace/wanted-requests',
-    '/commercial-intelligence',
+    '/network',
+    '/network/:path*',
+    '/opportunities',
+    '/opportunities/:path*',
+    '/professionals',
+    '/professionals/:path*',
+    '/reviewed-connections',
+    '/reviewed-connections/:path*',
+    '/signals',
+    '/signals/:path*',
+    '/vault',
+    '/vault/:path*',
   ],
 }
