@@ -33,7 +33,10 @@ export default async function MarketSelectionPage({ searchParams }: PageProps) {
 
   return (
     <Suspense fallback={null}>
-      <MobileCountrySelection initialCountry={market?.code ?? CANDIDATE_B_DEFAULT_COUNTRY} />
+      <MobileCountrySelection
+        initialCountry={market?.code ?? CANDIDATE_B_DEFAULT_COUNTRY}
+        enableWebGL={false}
+      />
     </Suspense>
   )
 }
