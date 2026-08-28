@@ -181,6 +181,73 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Human approval status: authorized to repair and verify PR #1598 only.
   Production apply, cron mutation, deployment and merge remain unapproved.
 
+## 2026-08-28 — run_signal_counterparty_extraction() CTE-scope defect
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`). **Not applied.** Migration is
+  committed and awaiting apply sign-off; production still carries the defect.
+- Tables/columns: none. No schema object is created, altered or dropped. The only
+  effect is the text of one function body.
+- Defect: the collect branch of `public.run_signal_counterparty_extraction()`
+  ends its `WITH resp -> parsed -> ok -> extracted -> ins -> mark_used -> done`
+  chain with `select count(*) from ins into v_inserted;`, then references
+  `(select provider from parsed)` from a *separate* `RETURN` statement. CTEs are
+  scoped to the statement that defines them, so every collect-phase call raises
+  `ERROR: relation "parsed" does not exist`, aborting the transaction and rolling
+  back the `ia_counterparties` upserts, the `ia_signals.counterparty_extracted_at`
+  marks and the `_counterparty_jobs.collected` flag written by the same statement.
+- Observed impact (read-only `cron.job_run_details` query, 2026-08-28): the
+  `counterparty-extraction` cron failed **161 consecutive runs**, every run since
+  2026-08-24 18:10 UTC. Last success 2026-08-24 17:40 UTC. No counterparties were
+  extracted in that window.
+- Functions replaced: `public.run_signal_counterparty_extraction()` only. Signature,
+  return shape and JSON keys are unchanged — `provider` is still returned, now via a
+  variable resolved inside the CTE's own statement.
+- Explicitly NOT changed: `run_daily_digest()` and `run_editorial_digest()` were both
+  inspected and neither carries this defect. Both already resolve
+  `(select provider from parsed)` inside their `select ... into v_signals` /
+  `into v_items` statement and return the variable — which is the shape this fix
+  adopts. Leaving them untouched is deliberate.
+- Repository/production drift (pre-existing, NOT resolved here): the committed body
+  in `20260704135057_fix_unprotected_http_content_cast.sql` returns no `provider`
+  key at all and therefore has no defect. Production's live body has diverged — it
+  carries a Gemini fallback, a provider-degradation check and a
+  `pipeline_manual_review_queue` path that appear in no migration in this
+  repository, and the `provider` key arrived with them. Closing that drift means
+  adopting a body this repository has never reviewed; that is a separate decision
+  with a separate blast radius and is not taken here.
+- Migration file: `20260828022000_fix_counterparty_extraction_cte_scope.sql`. It is a
+  targeted patch over `pg_get_functiondef()` (house pattern from
+  `20260815234000_daily_brief_lineage_hardening.sql`), not a restated body —
+  restating would silently revert the drifted live behaviour. It converges from
+  either starting body: it patches the live body, no-ops on the committed body
+  (which is already correct), and raises on anything else.
+- Grants: unchanged. Current ACL is `postgres=X/postgres` — no `service_role` grant
+  and no PUBLIC. `CREATE OR REPLACE` preserves the existing ACL, so the migration
+  neither widens nor narrows it. The house `grant execute ... to service_role` line
+  used by sibling digest migrations was deliberately **not** copied, because here it
+  would be a privilege widening.
+- Backward compatibility: the returned JSON keys and their meanings are identical.
+  Callers see a successful collect phase where they previously saw an exception.
+- Rollback: write a **new forward migration** applying the two replacements in
+  reverse (`v_old` and `v_new` swapped). Do **not** edit and re-run the original
+  file: once applied its version is recorded in
+  `supabase_migrations.schema_migrations`, so it will not re-run, and editing a
+  recorded migration breaks its content-hash binding under
+  `check-pending-production-migration-decisions`. Reversal is mechanically
+  possible because the marker the file guards on,
+  `(select provider from parsed)`, survives the patch -- it moves into the
+  `select ... into v_inserted, v_collect_provider` statement rather than being
+  deleted -- so a reverse patch is not blocked by the guard; verified on a local
+  PostgreSQL 16 cluster. No data is written; no object is created or dropped.
+- Required tests: verified on a throwaway local PostgreSQL 16 cluster against a
+  structurally faithful reproduction — production's failure reproduced
+  byte-identically, the migration applied, the same call then returned
+  `{"ok": true, "phase": "collect", "provider": "anthropic", "counterparties_touched": 1}`,
+  and the previously-rolled-back side effects committed. Replay path and fail-loud
+  path also verified. Full results in `EVIDENCE_LOG.md` and the PR body.
+- Human approval status: Tyler approved the fix in-session after being shown the
+  diagnosis. **Apply to production and merge remain unapproved.**
+
 ## Remaining historical control entries
 
 Historical database-control entries below this line are preserved in git history from prior DATABASE_CONTROL commits and in `docs/control/EVIDENCE_LOG.md`. New Decision Intel Stage 0 work is governed by the Stage 0 product boundary section above plus `INTEL_DECISION_OS_RLS_MIGRATION.md`.

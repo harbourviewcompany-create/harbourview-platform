@@ -136,8 +136,8 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .summaryGrid button {
@@ -283,8 +283,8 @@
 }
 
 .status_conflicting {
-  border-color: rgba(218, 126, 126, 0.4);
-  color: rgba(238, 169, 169, 0.92);
+  border-color: color-mix(in srgb, var(--destructive) 40%, transparent);
+  color: color-mix(in srgb, var(--destructive) 72%, var(--hv-ivory));
 }
 
 .status_unknown {
