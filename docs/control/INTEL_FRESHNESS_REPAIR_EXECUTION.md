@@ -1,3 +1,29 @@
 # Intel freshness and briefing repair
 
-Execution branch marker. Preserve existing implementation first; changes in this branch are limited to the Intel freshness, briefing synthesis, scheduler, tests, and concrete build blockers required to deploy them.
+As of 2026-08-28 UTC, this branch is the bounded repair path for the mobile Intel first-paint swap, signal freshness semantics, jurisdiction ranking, briefing binding, jurisdiction synthesis freshness, scheduler delivery, and the concrete build/deployment blockers required to ship those changes.
+
+## Scope control
+
+In scope: canonical signal timeline semantics; seven-day Weekly Signals freshness; duplicate suppression; exact jurisdiction identity; mobile realtime wiring; Personal Briefing binding to live briefing payloads; bounded jurisdiction synthesis; off-domain/cross-jurisdiction synthesis rejection; synthesis scheduling; targeted tests; production schema preflight; exact-head build/deployment verification.
+
+Out of scope: unrelated marketplace behavior, unrelated database migrations, broad source-engine redesign, changes to `daily_digest`, and unrelated product surfaces.
+
+## Execution boundary
+
+Routine branch verification is read-only against production. Production briefing regeneration is permitted only through the explicit `Intel Freshness Production Closeout` gate after the timeline migration is confirmed applied. The closeout workflow does not expose production credentials to dependency installation, tests, or build steps. A push runs the production-write job only when the commit message contains `[intel-production-closeout]`; manual dispatch remains available after the workflow is present on the default branch.
+
+## Verification required for GO
+
+- Targeted freshness/mobile tests green.
+- Typecheck green.
+- Isolated CI build green.
+- Production-configuration build green.
+- Timeline migration confirmed in production and timeline columns queryable through the canonical API schema.
+- Final exact-head bounded regeneration green across all configured synthesis markets.
+- Vercel preview admitted and READY for the exact repair head.
+- Mobile Intel verifies no stale first-paint swap and excludes the historical Slovenia/Texas examples as current developments.
+- Production deployment READY after merge, with synthesis cron registered and current briefing timestamps re-queried.
+
+## Current decision
+
+HOLD until the final exact-head regeneration, Vercel READY preview, review closeout, merge, and live production verification are complete.
