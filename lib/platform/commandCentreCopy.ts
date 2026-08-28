@@ -4,9 +4,11 @@
  */
 export const COMMAND_CENTRE_COPY = {
   dataBoundary: {
+    available: 'Marketplace data is available.',
+    availableDetail: 'Showing verified public marketplace records and approved media.',
     live: 'All requested Command Centre sources loaded successfully.',
     partial: 'Some requested sources are temporarily degraded. Available verified data remains accessible.',
-    fallback: 'A controlled fallback is being shown while a requested live source is unavailable.',
+    fallback: 'An approved fallback is being shown while a requested live source is unavailable.',
     empty: 'No records match the current jurisdiction and role context.',
     error: 'Requested Command Centre data is temporarily unavailable. Retry without changing submitted information.',
     stale: 'Some requested records are older than their configured freshness window and are labelled accordingly.',
