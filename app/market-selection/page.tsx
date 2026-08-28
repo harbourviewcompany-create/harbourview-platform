@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { MobileCountrySelection } from '@/components/harbourview/MobileCountrySelection'
 import { resolveMarket } from '@/lib/dashboard/resolveMarket'
+import { CANDIDATE_B_DEFAULT_COUNTRY } from '@/lib/harbourview/countries'
 
 export const metadata: Metadata = {
   title: 'Harbourview | Select Your Market',
@@ -13,35 +14,26 @@ export const metadata: Metadata = {
   },
 }
 
-// Next.js 15: searchParams is now a Promise
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }
 
-function firstParam(v: string | string[] | undefined): string | null {
-  if (Array.isArray(v)) return v[0] ?? null
-  return typeof v === 'string' && v.trim() ? v.trim() : null
+function firstParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 export default async function MarketSelectionPage({ searchParams }: PageProps) {
   const params = await searchParams
-
-  // Resolve market from URL params — never fall back to a hardcoded country.
-  // country= takes priority; fall back to the first entry of countries=
   const rawCountry =
     firstParam(params.country) ??
     firstParam(params.countries)?.split(',')[0]?.trim() ??
-    null
-
+    CANDIDATE_B_DEFAULT_COUNTRY
   const market = rawCountry ? resolveMarket(rawCountry) : null
 
-  // Pass the canonical code (uppercased, validated) or undefined (no pre-selection).
-  // MobileCountrySelection will handle navigation on Continue via its own router.
   return (
     <Suspense fallback={null}>
-      <MobileCountrySelection
-        initialCountry={market?.code ?? undefined}
-      />
+      <MobileCountrySelection initialCountry={market?.code ?? CANDIDATE_B_DEFAULT_COUNTRY} />
     </Suspense>
   )
 }
