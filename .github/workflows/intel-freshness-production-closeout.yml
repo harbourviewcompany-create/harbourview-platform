@@ -1,15 +1,14 @@
 name: Intel Freshness Production Closeout
 
 on:
-  push:
-    branches:
-      - fix/intel-freshness-briefings
-    paths:
-      - '.github/workflows/intel-freshness-production-closeout.yml'
+  workflow_dispatch:
 
 concurrency:
   group: intel-freshness-production-closeout
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   closeout:
@@ -19,12 +18,7 @@ jobs:
     env:
       CI: '1'
       NEXT_TELEMETRY_DISABLED: '1'
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_DB_SCHEMA: api
-      CRON_SECRET: ${{ secrets.CRON_SECRET }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       HARBOURVIEW_LOCAL_TEST_BUILD: '1'
       NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
       HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
@@ -47,10 +41,23 @@ jobs:
         run: npx vitest run tests/dashboard/signalFreshness.test.ts tests/dashboard/mobileIntelFreshnessContracts.test.ts tests/dashboard/mobileCommandCentreV2.test.ts
       - name: Typecheck gate
         run: npm run typecheck
-      - name: Production build gate
-        run: npm run build
+      - name: Production-config build gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          env \
+            -u HARBOURVIEW_LOCAL_TEST_BUILD \
+            -u NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD \
+            -u HARBOURVIEW_ALLOW_LOCAL_SUPABASE \
+            -u NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE \
+            npm run build
       - name: Require synthesis infrastructure secrets
         shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
           for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY CRON_SECRET; do
@@ -59,13 +66,49 @@ jobs:
               exit 1
             fi
           done
+      - name: Verify production timeline migration contract
+        shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          test -f supabase/migrations/20260827234500_signal_freshness_timeline.sql
+          node <<'NODE'
+          const fs = require('fs')
+          const p = 'supabase/release-controls/pending-production-migration-decisions.json'
+          if (!fs.existsSync(p)) process.exit(0)
+          const data = JSON.parse(fs.readFileSync(p, 'utf8'))
+          const row = (data.repository_only_decisions || []).find((entry) => String(entry.version) === '20260827234500')
+          if (row && row.classification !== 'approved' && row.classification !== 'separately_authorized') {
+            console.error(`::error::Timeline migration is release-controlled as ${row.classification} (${row.reason_code || 'no reason code'}).`)
+            process.exit(1)
+          }
+          NODE
+          code="$(curl --show-error --silent --max-time 30 \
+            -o /tmp/timeline-preflight.json -w '%{http_code}' \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H 'Accept-Profile: api' \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/signals_with_quality?select=source_published_at,event_effective_at,observed_at,ingested_at&limit=1" || true)"
+          cat /tmp/timeline-preflight.json || true
+          if [ "$code" != '200' ]; then
+            echo "::error::Production timeline columns are not queryable through the canonical API schema (HTTP $code); refusing briefing regeneration."
+            exit 1
+          fi
       - name: Start exact built app for bounded synthesis
         shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
           npm start > /tmp/intel-closeout-next.log 2>&1 &
           echo $! > /tmp/intel-closeout-next.pid
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/cron/synthesize-jurisdictions || true)"
             if [ "$code" = '401' ]; then exit 0; fi
             sleep 1
@@ -74,11 +117,18 @@ jobs:
           exit 1
       - name: Regenerate all synthesis markets in bounded batches
         shell: bash
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
           mkdir -p artifacts/intel-freshness-closeout
+          market_count="$(grep -c '^  { iso2:' lib/intelligence/jurisdictionSynthesisFresh.ts)"
+          if ! [[ "$market_count" =~ ^[1-9][0-9]*$ ]]; then
+            echo '::error::Could not derive synthesis market count.'
+            exit 1
+          fi
           overall_fail=0
-          for offset in 0 10 20; do
+          for offset in $(seq 0 10 $((market_count - 1))); do
             success=0
             for attempt in 1 2 3; do
               body="artifacts/intel-freshness-closeout/synthesis-${offset}-attempt-${attempt}.json"
