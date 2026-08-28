@@ -26,6 +26,21 @@ const MissionSchema = z.object({
   requirements: z.array(RequirementSchema).max(50).optional().default([]),
 })
 
+function mapMissionError(message: string | undefined): { status: number; error: string } {
+  const text = message ?? ''
+  if (text.includes('NETWORK_MISSION_UNAUTHENTICATED')) return { status: 401, error: 'Unauthorized' }
+  if (text.includes('NETWORK_MISSION_FORBIDDEN')) return { status: 403, error: 'Active organization membership required.' }
+  if (text.includes('NETWORK_MISSION_INVALID_NAME')) return { status: 400, error: 'Invalid mission name.' }
+  if (text.includes('NETWORK_MISSION_INVALID_OBJECTIVE')) return { status: 400, error: 'Invalid mission objective.' }
+  if (text.includes('NETWORK_MISSION_INVALID_COUNTRY') || text.includes('NETWORK_MISSION_INVALID_TARGET_COUNTRY')) {
+    return { status: 400, error: 'Invalid mission jurisdiction.' }
+  }
+  if (text.includes('NETWORK_MISSION_INVALID_CONFIDENTIALITY')) return { status: 400, error: 'Invalid mission confidentiality.' }
+  if (text.includes('NETWORK_MISSION_INVALID_REQUIREMENT')) return { status: 400, error: 'Invalid mission requirement.' }
+  if (text.includes('NETWORK_MISSION_INVALID_REQUIREMENTS')) return { status: 400, error: 'Invalid mission requirements.' }
+  return { status: 400, error: 'Mission creation failed.' }
+}
+
 export async function POST(req: NextRequest) {
   const context = await resolveActiveNetworkContext()
   if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -59,56 +74,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid mission payload.', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const countryIso2 = parsed.data.countryIso2?.toUpperCase() ?? context.countryIso2
-  const { data: mission, error: missionError } = await context.supabase
-    .from('network_missions')
-    .insert({
-      workspace_id: context.workspaceId,
-      created_by: context.userId,
-      name: parsed.data.name,
-      objective: parsed.data.objective,
-      country_iso2: countryIso2,
-      target_country_iso2s: parsed.data.targetCountryIso2s.map(value => value.toUpperCase()),
-      target_date: parsed.data.targetDate ?? null,
-      confidentiality: parsed.data.confidentiality,
-      status: 'active',
-    })
-    .select('id,name,objective,status,country_iso2,target_country_iso2s,target_date,confidentiality,created_at,updated_at')
-    .single()
+  const { data, error } = await context.supabase.rpc('hv_network_create_mission', {
+    p_workspace_id: context.workspaceId,
+    p_name: parsed.data.name,
+    p_objective: parsed.data.objective,
+    p_country_iso2: parsed.data.countryIso2?.toUpperCase() ?? context.countryIso2,
+    p_target_country_iso2s: parsed.data.targetCountryIso2s.map(value => value.toUpperCase()),
+    p_target_date: parsed.data.targetDate ?? null,
+    p_confidentiality: parsed.data.confidentiality,
+    p_requirements: parsed.data.requirements,
+  })
 
-  if (missionError || !mission) {
-    return NextResponse.json({ error: missionError?.message ?? 'Mission creation failed.' }, { status: 400 })
+  if (error) {
+    const mapped = mapMissionError(error.message)
+    return NextResponse.json({ error: mapped.error }, { status: mapped.status })
   }
 
-  if (parsed.data.requirements.length > 0) {
-    const rows = parsed.data.requirements.map((requirement, index) => ({
-      mission_id: mission.id,
-      created_by: context.userId,
-      requirement_type: requirement.requirementType,
-      label: requirement.label,
-      description: requirement.description ?? null,
-      hard_requirement: requirement.hardRequirement,
-      capability_code: requirement.capabilityCode ?? null,
-      licence_activity: requirement.licenceActivity ?? null,
-      country_iso2: requirement.countryIso2?.toUpperCase() ?? null,
-      expected_value: requirement.expectedValue,
-      status: 'active',
-      sort_order: index,
-    }))
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) return NextResponse.json({ error: 'Mission creation returned no row.' }, { status: 500 })
 
-    const { error: requirementError } = await context.supabase
-      .from('network_mission_requirements')
-      .insert(rows)
-
-    if (requirementError) {
-      await context.supabase
-        .from('network_missions')
-        .update({ status: 'archived' })
-        .eq('id', mission.id)
-        .eq('workspace_id', context.workspaceId)
-      return NextResponse.json({ error: requirementError.message }, { status: 400 })
-    }
-  }
-
-  return NextResponse.json({ mission }, { status: 201 })
+  return NextResponse.json(
+    { mission: row },
+    { status: 201, headers: { 'Cache-Control': 'private, no-store' } },
+  )
 }

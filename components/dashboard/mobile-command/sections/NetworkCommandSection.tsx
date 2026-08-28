@@ -1,6 +1,7 @@
 'use client'
 
 import NetworkCommandClient from '@/components/network/NetworkCommandClient'
+import NetworkIntroductionLifecycle from '@/components/network/NetworkIntroductionLifecycle'
 import { SectionShell, type SectionRef } from '../SectionUI'
 import type { SectionId } from '../contracts'
 
@@ -36,6 +37,7 @@ export function NetworkSection({
       description="Resolve the best reviewed counterparties, requirements, relationship state and next action for the active commercial objective."
     >
       <NetworkCommandClient compact />
+      <NetworkIntroductionLifecycle />
     </SectionShell>
   )
 }
