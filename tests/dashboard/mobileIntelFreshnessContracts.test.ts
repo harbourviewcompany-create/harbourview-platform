@@ -55,6 +55,19 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(synthCron).toContain('DEFAULT_BATCH = 4')
   })
 
+  it('fails closed on incidental crime, stale reference guides and source-location mis-tagging', () => {
+    expect(synth).toContain('CANNABIS_CHANGE_RE')
+    expect(synth).toContain('INCIDENTAL_HARM_RE')
+    expect(synth).toContain('REFERENCE_GUIDE_RE')
+    expect(synth).toContain('explicitContentDateMs')
+    expect(synth).toContain('dedupeSynthesisRows')
+    expect(synth).toContain('isFeedLikeUrl')
+    expect(synth).toContain('if (selectedMentioned) return true')
+    expect(synth).toContain('if (foreignMentioned) return false')
+    expect(synth).toContain('return curatedCommercialSignal')
+    expect(synth).toContain('const PROMPT_VERSION = 6')
+  })
+
   it('keeps current briefings publishable without inventing facts when the LLM provider is unavailable', () => {
     expect(synth).toContain("DETERMINISTIC_MODEL = 'deterministic-bounded-v1'")
     expect(synth).toContain('deterministicBriefing')
