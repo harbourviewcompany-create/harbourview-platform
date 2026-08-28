@@ -64,7 +64,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         id: 'organization-create',
         label: 'Create an organization profile',
         detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-        href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
+        href: `/organization/new?country=${encodeURIComponent(model.currentCountry)}&returnTo=${returnParam}`,
       },
       {
         ...organizationAction,
@@ -79,7 +79,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
       ...onboarding,
       ...model.nextActions.filter(action => action.id !== 'organization'),
     ]
-  }, [commandReturnTo, countryParam, model.nextActions])
+  }, [commandReturnTo, model.currentCountry, model.nextActions])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
     effectiveSignals.map(signal => ({
