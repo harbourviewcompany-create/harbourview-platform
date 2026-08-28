@@ -64,7 +64,7 @@ export const FORBIDDEN_PUBLIC_FIELD_NAMES = [
 
 export const FORBIDDEN_PUBLIC_STRING_PATTERNS = [
   /sourceUrl/i,
-  /source_url/i,
+  /(?:^|[^A-Za-z0-9_])source_url(?:[^A-Za-z0-9_]|$)/i,
   /sourceName/i,
   /source_name/i,
   /sourceCandidateId/i,
