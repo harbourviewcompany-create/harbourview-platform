@@ -61,9 +61,19 @@
 -- `postgres=X/postgres` -- no service_role grant, no PUBLIC. CREATE OR REPLACE
 -- preserves the existing ACL, so this migration neither widens nor narrows it.
 --
--- Rollback: swap v_old and v_new in the two replace blocks below and re-run. No
--- data is written and no schema object is created or dropped; the only effect is
--- the text of one function body.
+-- Rollback: write a NEW forward migration that applies the two replacements in
+-- reverse (v_old and v_new swapped). Do NOT edit and re-run this file: its version
+-- is recorded in supabase_migrations.schema_migrations once applied, so it will not
+-- re-run, and editing a recorded migration breaks its content-hash binding.
+--
+-- Reversal is mechanically possible because the marker this file guards on,
+-- `(select provider from parsed)`, SURVIVES the patch -- it moves into the
+-- `select ... into v_inserted, v_collect_provider` statement rather than being
+-- deleted -- so a reverse patch is not blocked by the guard above. Verified on a
+-- local PostgreSQL 16 cluster.
+--
+-- No data is written and no schema object is created or dropped; the only effect
+-- is the text of one function body.
 
 do $do$
 declare
@@ -74,9 +84,17 @@ begin
   select pg_get_functiondef('public.run_signal_counterparty_extraction()'::regprocedure) into v_def;
 
   if position('(select provider from parsed)' in v_def) = 0 then
-    -- Committed repository body: the collect-phase return carries no `provider`
-    -- key, so there is no out-of-scope CTE reference to correct.
-    raise notice 'run_signal_counterparty_extraction: collect-phase return has no out-of-scope CTE reference; nothing to fix';
+    -- Not the drifted production body. The ONLY acceptable no-op is the committed
+    -- repository body, whose collect-phase return carries no `provider` key and
+    -- therefore has no out-of-scope CTE reference. Verify that positively rather
+    -- than treating every marker-free body as known-good: a body edited again
+    -- out-of-band, or one carrying the same defect with different whitespace or
+    -- capitalization, must NOT be silently recorded as applied while the cron
+    -- stays broken.
+    if position($ok$    return jsonb_build_object('ok', true, 'phase', 'collect', 'counterparties_touched', coalesce(v_inserted,0));$ok$ in v_def) = 0 then
+      raise exception 'counterparty extraction CTE-scope fix: unrecognized function body -- it is neither the drifted production body nor the committed repository body, so this migration refuses to record itself as applied. Inspect pg_get_functiondef(''public.run_signal_counterparty_extraction()''::regprocedure) and reconcile before retrying.';
+    end if;
+    raise notice 'run_signal_counterparty_extraction: committed repository body confirmed; collect-phase return has no out-of-scope CTE reference; nothing to fix';
     return;
   end if;
 
