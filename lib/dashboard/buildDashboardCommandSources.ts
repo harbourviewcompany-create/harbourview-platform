@@ -258,7 +258,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       load: () => getDashboardMarketplaceProjection(countryIso2),
       fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
       isEmpty: projection => Object.keys(projection.rows).length === 0,
-      classify: projection => Object.keys(projection.rows).length === 0 ? 'empty' : 'live',
+      classify: projection => Object.keys(projection.rows).length === 0 ? 'empty' : projection.mediaStatus === 'degraded' ? 'fallback' : 'live',
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },
