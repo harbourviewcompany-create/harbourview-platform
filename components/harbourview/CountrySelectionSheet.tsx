@@ -1,8 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { allCountryAndProvinceOptions as existingCountryOptions } from '@/config/globe/country-role-profiles'
-import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { candidateBCountryOptions } from '@/lib/harbourview/countries'
 import { HarbourviewBottomSheet } from '@/components/ui/HarbourviewPanel'
 import { CheckCircleIcon, GlobeIcon, QuestionCircleIcon, SearchIcon } from './icons'
@@ -21,6 +19,14 @@ interface CountrySelectionSheetProps {
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ')
+}
+
+function matchesCandidateBCountry(query: string, country: (typeof candidateBCountryOptions)[number]) {
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return false
+  return [country.name, country.iso2, country.region]
+    .filter(Boolean)
+    .some((value) => value.toLowerCase().includes(normalizedQuery))
 }
 
 const optionButtonBase =
@@ -42,22 +48,13 @@ export function CountrySelectionSheet({
   onContinue,
 }: CountrySelectionSheetProps) {
   const [query, setQuery] = useState('')
-  const sourceOptions =
-    Array.isArray(existingCountryOptions) && existingCountryOptions.length > 0
-      ? existingCountryOptions
-      : candidateBCountryOptions
 
   const matches = useMemo(() => {
     if (!query.trim()) return []
-    return sourceOptions
-      .filter((country) =>
-        tokenMatchesSearch(
-          query,
-          [country.name, country.iso2, country.region].filter(Boolean) as string[],
-        ),
-      )
+    return candidateBCountryOptions
+      .filter((country) => matchesCandidateBCountry(query, country))
       .slice(0, 6)
-  }, [query, sourceOptions])
+  }, [query])
 
   const canContinue = Boolean(selectedCountryIso2 || selectedPath === 'not_sure' || selectedPath === 'multi_market')
   const selectedDisplayName = selectedCountryName ?? (selectedCountryIso2 === 'DE' ? 'Germany' : null)
