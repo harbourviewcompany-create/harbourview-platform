@@ -49,12 +49,18 @@ export const FORBIDDEN_PUBLIC_FIELD_NAMES = [
   'next_operator_action',
   'fitScore',
   'riskScore',
-  'confidence_score',
+  // confidence_score is the public-safe Pipeline B instrument (0–100 from
+  // signals.quality_confidence). See docs/HARBOURVIEW_PUBLIC_PRIVATE_DTO_ALLOWLIST.md.
+  // Do not re-add it here.
   'commercial_relevance_score',
   'compliance_risk_score',
   'supportingSignals',
-  'recommendedAction'
-] as const;
+  'recommendedAction',
+  // Legacy inverted keyword-density scorer — never project publicly under this key.
+  'score',
+  // Internal column name; public DTOs must expose confidence_score instead.
+  'quality_confidence',
+] as const
 
 export const FORBIDDEN_PUBLIC_STRING_PATTERNS = [
   /sourceUrl/i,
@@ -100,45 +106,49 @@ export const FORBIDDEN_PUBLIC_STRING_PATTERNS = [
   /next_operator_action/i,
   /fitScore/i,
   /riskScore/i,
-  /confidence_score/i,
+  // confidence_score intentionally omitted — public-safe.
   /commercial_relevance_score/i,
   /compliance_risk_score/i,
   /supportingSignals/i,
-  /recommendedAction/i
-] as const;
+  /recommendedAction/i,
+] as const
 
 export function findForbiddenPublicFieldNames(value: unknown): string[] {
-  const found = new Set<string>();
+  const found = new Set<string>()
 
   function visit(input: unknown): void {
-    if (!input || typeof input !== 'object') return;
+    if (!input || typeof input !== 'object') return
 
     if (Array.isArray(input)) {
-      for (const item of input) visit(item);
-      return;
+      for (const item of input) visit(item)
+      return
     }
 
     for (const [key, nested] of Object.entries(input as Record<string, unknown>)) {
       if ((FORBIDDEN_PUBLIC_FIELD_NAMES as readonly string[]).includes(key)) {
-        found.add(key);
+        found.add(key)
       }
-      visit(nested);
+      visit(nested)
     }
   }
 
-  visit(value);
-  return [...found].sort();
+  visit(value)
+  return [...found].sort()
 }
 
 export function findForbiddenPublicStrings(value: unknown): string[] {
-  const body = typeof value === 'string' ? value : JSON.stringify(value);
-  return FORBIDDEN_PUBLIC_STRING_PATTERNS.filter((pattern) => pattern.test(body)).map((pattern) => String(pattern));
+  const body = typeof value === 'string' ? value : JSON.stringify(value)
+  return FORBIDDEN_PUBLIC_STRING_PATTERNS.filter((pattern) => pattern.test(body)).map((pattern) =>
+    String(pattern),
+  )
 }
 
 export function assertPublicSafe(value: unknown): void {
-  const fields = findForbiddenPublicFieldNames(value);
-  const strings = findForbiddenPublicStrings(value);
+  const fields = findForbiddenPublicFieldNames(value)
+  const strings = findForbiddenPublicStrings(value)
   if (fields.length || strings.length) {
-    throw new Error(`Public projection contains forbidden content: fields=${fields.join(',')} patterns=${strings.join(',')}`);
+    throw new Error(
+      `Public projection contains forbidden content: fields=${fields.join(',')} patterns=${strings.join(',')}`,
+    )
   }
 }

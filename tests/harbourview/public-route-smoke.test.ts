@@ -96,8 +96,10 @@ describe('public route smoke coverage', () => {
 
   it('keeps marketplace sell fallback redirect wired in middleware', () => {
     const middlewareSource = readRepoFile('proxy.ts')
+    const routeProtectionSource = readRepoFile('lib/auth/routeProtection.ts')
 
-    expect(middlewareSource).toContain("'/marketplace/submit-listing': '/marketplace/sell'")
+    expect(middlewareSource).toContain('LEGACY_REDIRECTS')
+    expect(routeProtectionSource).toContain("'/marketplace/submit-listing': '/marketplace/sell'")
 
     const hasDedicatedFallbackRoute = existsSync(join(repoRoot, 'app/marketplace/submit-listing/page.tsx'))
     if (hasDedicatedFallbackRoute) {
