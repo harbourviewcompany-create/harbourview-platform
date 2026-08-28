@@ -44,7 +44,7 @@ jobs:
       - run: npm ci
       - name: Geometry, coverage and precedence contracts
         run: npx vitest run tests/globe/subnational-regulatory-tiers.test.ts
-      - uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: 2.109.1
       - name: Prepare production-faithful migration replay
