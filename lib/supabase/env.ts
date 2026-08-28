@@ -3,12 +3,13 @@ const EXPECTED_SUPABASE_HOST = `${EXPECTED_SUPABASE_PROJECT_REF}.supabase.co`
 const LOCKED_SUPABASE_URL = `https://${EXPECTED_SUPABASE_HOST}`
 const LOCAL_SUPABASE_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
-// PostgREST on this project only exposes the `api` schema (Settings → Data API
-// → Exposed schemas). It does NOT expose `public`, even though every table
-// physically lives in `public`. supabase-js defaults to `public` schema if not
-// told otherwise, which produces PGRST106 "Invalid schema" 406 errors on every
-// REST call. Every Supabase client in this codebase — browser, server, and
-// service-role — must pass `db: { schema: SUPABASE_DB_SCHEMA }`.
+// Production PostgREST currently exposes both `api` and `public` (plus other
+// explicitly configured schemas). Harbourview application clients are pinned to
+// `api` as the stable application contract, but security must never depend on
+// `public` being hidden: base-table grants and RLS remain authoritative there.
+// Every Supabase client in this codebase — browser, server, and service-role —
+// must therefore pass `db: { schema: SUPABASE_DB_SCHEMA }` for app queries while
+// migrations continue to harden every externally exposed underlying object.
 export const SUPABASE_DB_SCHEMA = 'api' as const
 
 function readEnv(name: string) {
