@@ -1,0 +1,52 @@
+name: Intel Freshness and Briefing Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/api/cron/synthesize-jurisdictions/**'
+      - 'app/api/dashboard/signals/**'
+      - 'components/dashboard/mobile-command/**'
+      - 'components/dashboard/useDashboardSignalsRealtime.ts'
+      - 'lib/dashboard/**'
+      - 'lib/intelligence/jurisdictionSynthesis*.ts'
+      - 'supabase/migrations/*signal_freshness_timeline.sql'
+      - 'tests/dashboard/signalFreshness.test.ts'
+      - 'tests/dashboard/mobileIntelFreshnessContracts.test.ts'
+      - '.github/workflows/intel-freshness-verify.yml'
+
+concurrency:
+  group: intel-freshness-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Exact-head freshness, briefing, typecheck and build
+    runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Freshness and mobile binding regressions
+        run: npx vitest run tests/dashboard/signalFreshness.test.ts tests/dashboard/mobileIntelFreshnessContracts.test.ts tests/dashboard/mobileCommandCentreV2.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
