@@ -1,36 +1,47 @@
 'use client'
 
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { resolveMarket } from '@/lib/dashboard/resolveMarket'
+import { CANDIDATE_B_DEFAULT_COUNTRY } from '@/lib/harbourview/countries'
+import { candidateBGlobeConfig } from '@/lib/harbourview/globeConfig'
 import { HarbourviewWordmark } from './HarbourviewWordmark'
 import { HamburgerIcon } from './icons'
 import { CountryLabel } from './CountryLabel'
-import { CountrySelectionSheet } from './CountrySelectionSheet'
+import { CountrySelectionSheet, type CandidateBSelectedPath } from './CountrySelectionSheet'
 
-const CandidateBGlobe = dynamic(
-  () => import('./CandidateBGlobe').then((m) => ({ default: m.CandidateBGlobe })),
+const HarbourviewGlobe = dynamic(
+  () => import('./HarbourviewGlobe').then((module) => ({ default: module.HarbourviewGlobe })),
   { ssr: false, loading: () => null },
 )
 
-type SelectedPath = 'country'
-
 type State = {
   selectedCountryIso2: string | null
+  selectedPath: CandidateBSelectedPath
   labelVisible: boolean
 }
 
 type Action =
   | { type: 'SELECT_COUNTRY'; iso2: string }
+  | { type: 'SELECT_PATH'; path: CandidateBSelectedPath }
   | { type: 'HIDE_LABEL' }
   | { type: 'SHOW_LABEL' }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SELECT_COUNTRY':
-      return { ...state, selectedCountryIso2: action.iso2, labelVisible: true }
+      return {
+        ...state,
+        selectedCountryIso2: action.iso2,
+        selectedPath: 'country',
+        labelVisible: true,
+      }
+    case 'SELECT_PATH':
+      return {
+        ...state,
+        selectedPath: action.path,
+        labelVisible: action.path === 'country' ? state.labelVisible : false,
+      }
     case 'HIDE_LABEL':
       return { ...state, labelVisible: false }
     case 'SHOW_LABEL':
@@ -41,10 +52,30 @@ function reducer(state: State, action: Action): State {
 }
 
 interface MobileCountrySelectionProps {
-  /** Pre-selected market code from URL. No default — undefined means unselected. */
   initialCountry?: string | null
-  onContinue?: (iso2: string | null, path: SelectedPath) => void
+  onContinue?: (iso2: string | null, path: CandidateBSelectedPath) => void
   enableWebGL?: boolean
+}
+
+function resolveInitialCountry(initialCountry?: string | null): string {
+  const requestedCountry = initialCountry?.trim() || CANDIDATE_B_DEFAULT_COUNTRY
+  return resolveMarket(requestedCountry)?.code ?? CANDIDATE_B_DEFAULT_COUNTRY
+}
+
+function StaticCandidateBGlobe() {
+  return (
+    <div
+      aria-hidden="true"
+      data-testid="candidate-b-static-globe"
+      className="absolute left-1/2 top-[7svh] z-[1] aspect-square w-[118vw] max-w-[560px] -translate-x-1/2 overflow-hidden rounded-full bg-[radial-gradient(circle_at_36%_24%,rgba(52,78,102,0.28),transparent_18%),radial-gradient(circle_at_44%_34%,rgba(24,39,53,0.92),rgba(6,21,37,0.97)_55%,rgba(3,7,13,1)_100%)] shadow-[0_0_90px_rgba(0,0,0,0.74),inset_0_0_64px_rgba(0,0,0,0.52)]"
+    >
+      <div className="absolute inset-x-8 top-10 h-px bg-[linear-gradient(90deg,transparent,rgba(240,211,154,0.22),transparent)]" />
+      <div className="absolute left-[42%] top-[32%] h-9 w-7 rounded-[55%_45%_52%_48%] border border-[color:var(--hv-globe-selected-edge)]/80 bg-[color:var(--hv-globe-selected-fill)] shadow-[0_0_14px_rgba(240,211,154,0.2)]" />
+      <div className="absolute left-[24%] top-[27%] h-24 w-32 rounded-[46%_54%_45%_55%] border border-[color:var(--hv-globe-border)]/28 bg-[color:var(--hv-globe-land)]/58" />
+      <div className="absolute left-[48%] top-[22%] h-36 w-40 rounded-[48%_52%_58%_42%] border border-[color:var(--hv-globe-border)]/24 bg-[color:var(--hv-globe-land)]/62" />
+      <div className="absolute left-[50%] top-[44%] h-40 w-24 rounded-[54%_46%_48%_52%] border border-[color:var(--hv-globe-border)]/18 bg-[color:var(--hv-globe-land)]/42" />
+    </div>
+  )
 }
 
 export function MobileCountrySelection({
@@ -52,185 +83,110 @@ export function MobileCountrySelection({
   onContinue,
   enableWebGL = true,
 }: MobileCountrySelectionProps) {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-
+  const initialIso2 = useMemo(() => resolveInitialCountry(initialCountry), [initialCountry])
   const [state, dispatch] = useReducer(reducer, {
-    // No stale default — undefined means nothing pre-selected
-    selectedCountryIso2: initialCountry ?? null,
-    labelVisible: initialCountry != null,
+    selectedCountryIso2: initialIso2,
+    selectedPath: 'country',
+    labelVisible: true,
   })
 
   const [reducedMotion, setReducedMotion] = useState(false)
   const labelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Detect reduced motion
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReducedMotion(mq.matches)
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setReducedMotion(motionQuery.matches)
+
+    const handleChange = () => setReducedMotion(motionQuery.matches)
+    motionQuery.addEventListener?.('change', handleChange)
+    return () => motionQuery.removeEventListener?.('change', handleChange)
   }, [])
 
-  // Auto-hide label after 2200ms
   useEffect(() => {
-    if (state.labelVisible) {
-      labelTimerRef.current = setTimeout(() => dispatch({ type: 'HIDE_LABEL' }), 2200)
-    }
+    if (!state.labelVisible) return undefined
+
+    labelTimerRef.current = setTimeout(
+      () => dispatch({ type: 'HIDE_LABEL' }),
+      candidateBGlobeConfig.label.visibleMs,
+    )
+
     return () => {
       if (labelTimerRef.current) clearTimeout(labelTimerRef.current)
     }
   }, [state.labelVisible])
 
-  // Resolve label for any market code (country or subnational)
   const resolvedMarket = state.selectedCountryIso2
     ? resolveMarket(state.selectedCountryIso2)
     : null
   const selectedCountryName = resolvedMarket?.label ?? null
-
-  const handleContinue = useCallback(() => {
-    const iso2 = state.selectedCountryIso2
-    if (!iso2) return
-
-    if (onContinue) {
-      onContinue(iso2, 'country')
-      return
-    }
-
-    // Default behaviour: navigate to command-centre dashboard preserving all
-    // URL context (source, mode, role, layer) and the selected market code.
-    const params = new URLSearchParams()
-    params.set('source', searchParams.get('source') ?? 'globe_router')
-    params.set('mode',   searchParams.get('mode')   ?? 'single_market')
-    params.set('country',  iso2)
-    params.set('countries', iso2)
-
-    const role  = searchParams.get('role')
-    const layer = searchParams.get('layer')
-    if (role)  params.set('role',  role)
-    if (layer) params.set('layer', layer)
-
-    router.push(`/dashboard?${params.toString()}`)
-  }, [state.selectedCountryIso2, onContinue, router, searchParams])
-
-  // Determine whether a subnational market is involved (affects sheet copy)
   const isSubnational =
     resolvedMarket?.type === 'state' || resolvedMarket?.type === 'province'
+  const showEnhancedGlobe = enableWebGL && !reducedMotion
+
+  const handleSelectCountry = useCallback((iso2: string) => {
+    dispatch({ type: 'SELECT_COUNTRY', iso2 })
+  }, [])
+
+  const handleContinue = useCallback(() => {
+    onContinue?.(state.selectedCountryIso2, state.selectedPath)
+  }, [onContinue, state.selectedCountryIso2, state.selectedPath])
 
   return (
     <main
-      style={{
-        position: 'relative',
-        minHeight: '100svh',
-        overflow: 'hidden',
-        background: 'var(--hv-bg-950)',
-        color: 'var(--hv-text-primary)',
-      }}
+      data-testid="candidate-b-market-selection"
+      className="relative min-h-[100svh] overflow-hidden bg-[color:var(--hv-bg-950)] text-[color:var(--hv-text-primary)]"
     >
-      {/* Background atmosphere */}
       <div
         aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'radial-gradient(ellipse 90% 60% at 50% 30%, rgba(12,27,42,0.9), transparent 70%), linear-gradient(180deg, #03070D 0%, #06101B 60%, #03070D 100%)',
-          zIndex: 0,
-        }}
+        className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_30%,rgba(12,27,42,0.88),transparent_70%),linear-gradient(180deg,#03070D_0%,#06101B_60%,#03070D_100%)]"
       />
 
-      {/* Globe layer */}
-      {enableWebGL && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
-          <CandidateBGlobe
+      <StaticCandidateBGlobe />
+
+      {showEnhancedGlobe ? (
+        <div className="absolute inset-0 z-[2]" data-testid="candidate-b-globe-layer">
+          <HarbourviewGlobe
             selectedCountryIso2={state.selectedCountryIso2 ?? undefined}
-            onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
+            onSelectCountry={handleSelectCountry}
+            reducedMotion={reducedMotion}
           />
         </div>
-      )}
+      ) : null}
 
-      {/* Static CSS globe fallback if WebGL disabled */}
-      {!enableWebGL && (
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-5 pt-8">
         <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: '5%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '92vw',
-            maxWidth: 480,
-            aspectRatio: '1',
-            borderRadius: '50%',
-            background:
-              'radial-gradient(circle at 35% 38%, rgba(34,50,65,0.9), rgba(6,21,37,0.95) 60%, rgba(3,7,13,1) 100%)',
-            boxShadow: '0 0 80px rgba(0,0,0,0.7), inset 0 0 60px rgba(0,0,0,0.5)',
-            zIndex: 1,
-          }}
-        />
-      )}
-
-      {/* Header */}
-      <header
-        style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0,
-          zIndex: 40,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '32px 20px 0',
-          pointerEvents: 'none',
-        }}
-      >
-        <Link
-          href="/"
-          style={{
-            fontSize: 19,
-            color: 'var(--hv-champagne-300)',
-            textDecoration: 'none',
-            pointerEvents: 'auto',
-          }}
+          className="pointer-events-auto text-[19px] text-[color:var(--hv-champagne-300)] [text-shadow:0_12px_28px_rgba(0,0,0,0.5)]"
+          aria-label="HARBOURVIEW"
         >
           <HarbourviewWordmark />
-        </Link>
+        </div>
 
         <button
           type="button"
           aria-label="Open navigation menu"
-          style={{
-            width: 44, height: 44,
-            borderRadius: '50%',
-            border: '1px solid rgba(214,177,105,0.22)',
-            background: 'rgba(5,10,16,0.55)',
-            backdropFilter: 'blur(8px)',
-            color: 'var(--hv-champagne-300)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            pointerEvents: 'auto',
-          }}
+          className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--hv-panel-border-warm)] bg-[rgba(5,10,16,0.52)] text-[color:var(--hv-champagne-300)] shadow-[0_16px_36px_rgba(0,0,0,0.28)] backdrop-blur-md transition hover:border-[color:var(--hv-champagne-300)]/48 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hv-focus-ring)]"
         >
           <HamburgerIcon />
         </button>
       </header>
 
-      {/* Temporary market label */}
-      {selectedCountryName && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 15, pointerEvents: 'none' }}>
+      {selectedCountryName ? (
+        <div className="pointer-events-none fixed inset-0 z-20">
           <CountryLabel
             countryName={selectedCountryName}
-            visible={state.labelVisible}
+            visible={state.labelVisible && state.selectedPath === 'country'}
             reducedMotion={reducedMotion}
           />
         </div>
-      )}
+      ) : null}
 
-      {/* Bottom sheet */}
       <CountrySelectionSheet
         selectedCountryIso2={state.selectedCountryIso2}
         selectedCountryName={selectedCountryName}
+        selectedPath={state.selectedPath}
         isSubnational={isSubnational}
-        onSelectCountry={(iso2) => dispatch({ type: 'SELECT_COUNTRY', iso2 })}
+        onSelectCountry={handleSelectCountry}
+        onSelectPath={(path) => dispatch({ type: 'SELECT_PATH', path })}
         onContinue={handleContinue}
       />
     </main>
