@@ -4,13 +4,14 @@ import { parseHTML } from 'linkedom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MobileCommandCentreRebuild } from '@/components/dashboard/MobileCommandCentreRebuild'
 import {
+  PAGE_TO_SECTION,
   PRIMARY_NAV,
   SECTION_GROUPS,
+  SECTION_NAV,
   SECTION_TO_DESKTOP_PAGE,
   SECTION_TO_GROUP,
   type PrimarySectionId,
-} from '@/components/dashboard/mobile-command/navigation'
-import { PAGE_TO_SECTION } from '@/components/dashboard/mobile-command/contracts'
+} from '@/components/dashboard/mobile-command/contracts'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import type { MarketRow } from '@/components/dashboard/CommandCentre'
 import { defaultListingTypeForView, parseMobileCommandTool } from '@/components/dashboard/mobile-command/toolQuery'
