@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { allCountryAndProvinceOptions as existingCountryOptions } from '@/config/globe/country-role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { candidateBCountryOptions } from '@/lib/harbourview/countries'
+import { HarbourviewBottomSheet } from '@/components/ui/HarbourviewPanel'
 import { CheckCircleIcon, GlobeIcon, QuestionCircleIcon, SearchIcon } from './icons'
 
 export type CandidateBSelectedPath = 'country' | 'not_sure' | 'multi_market'
@@ -29,7 +30,7 @@ const activeOptionClass =
   'border-[color:var(--hv-champagne-300)]/44 bg-[color:var(--hv-champagne-300)]/10 text-[color:var(--hv-text-primary)]'
 
 const idleOptionClass =
-  'border-white/12 bg-white/[0.035] hover:border-[color:var(--hv-champagne-300)]/30 hover:bg-white/[0.055]'
+  'border-[color:var(--hv-panel-border-warm)] bg-white/[0.035] hover:border-[color:var(--hv-champagne-300)]/30 hover:bg-white/[0.055]'
 
 export function CountrySelectionSheet({
   selectedCountryIso2,
@@ -41,12 +42,20 @@ export function CountrySelectionSheet({
   onContinue,
 }: CountrySelectionSheetProps) {
   const [query, setQuery] = useState('')
-  const sourceOptions = existingCountryOptions.length > 0 ? existingCountryOptions : candidateBCountryOptions
+  const sourceOptions =
+    Array.isArray(existingCountryOptions) && existingCountryOptions.length > 0
+      ? existingCountryOptions
+      : candidateBCountryOptions
 
   const matches = useMemo(() => {
     if (!query.trim()) return []
     return sourceOptions
-      .filter((country) => tokenMatchesSearch(query, [country.name, country.iso2, country.region]))
+      .filter((country) =>
+        tokenMatchesSearch(
+          query,
+          [country.name, country.iso2, country.region].filter(Boolean) as string[],
+        ),
+      )
       .slice(0, 6)
   }, [query, sourceOptions])
 
@@ -54,13 +63,13 @@ export function CountrySelectionSheet({
   const selectedDisplayName = selectedCountryName ?? (selectedCountryIso2 === 'DE' ? 'Germany' : null)
 
   return (
-    <section
-      aria-label="Select your country to begin."
+    <HarbourviewBottomSheet
+      title="Select your country to begin."
+      size="search"
+      hideHeader
+      className="inset-x-4 bottom-5 max-h-none rounded-[28px] border-[color:var(--hv-panel-border-warm)] bg-[linear-gradient(180deg,rgba(11,24,38,0.92),rgba(5,12,21,0.94))] p-6 pb-[max(1.375rem,env(safe-area-inset-bottom))] text-[color:var(--hv-text-primary)] shadow-[0_28px_80px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-[18px] sm:bottom-5 sm:left-1/2 sm:top-auto sm:w-[430px] sm:-translate-x-1/2 sm:translate-y-0"
       data-testid="candidate-b-country-sheet"
-      className="pointer-events-auto fixed inset-x-4 bottom-5 z-30 rounded-[28px] border border-[rgba(220,231,242,0.14)] bg-[linear-gradient(180deg,rgba(11,24,38,0.92),rgba(5,12,21,0.94))] p-6 pb-[max(1.375rem,env(safe-area-inset-bottom))] text-[color:var(--hv-text-primary)] shadow-[0_28px_80px_rgba(0,0,0,0.48),inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-[18px] sm:inset-x-auto sm:left-1/2 sm:w-[430px] sm:-translate-x-1/2"
     >
-      <div className="mx-auto mb-5 h-1 w-[34px] rounded-full bg-white/22" aria-hidden="true" />
-
       <h1 className="font-serif text-[clamp(2rem,8vw,2.45rem)] leading-[1.08] tracking-[-0.025em] text-[color:var(--hv-text-primary)]">
         Select your country <span className="text-[color:var(--hv-champagne-muted)]">to begin.</span>
       </h1>
@@ -75,14 +84,14 @@ export function CountrySelectionSheet({
             placeholder="Search countries"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="h-[60px] w-full rounded-[18px] border border-white/15 bg-white/[0.035] pl-11 pr-4 text-base text-[color:var(--hv-text-primary)] outline-none placeholder:text-[color:var(--hv-text-muted)] focus-visible:ring-2 focus-visible:ring-[color:var(--hv-focus-ring)]"
+            className="h-[60px] w-full rounded-[18px] border border-[color:var(--hv-panel-border-warm)] bg-white/[0.035] pl-11 pr-4 text-base text-[color:var(--hv-text-primary)] outline-none placeholder:text-[color:var(--hv-text-muted)] focus-visible:ring-2 focus-visible:ring-[color:var(--hv-focus-ring)]"
           />
 
           {matches.length > 0 ? (
             <ul
               role="listbox"
               aria-label="Country suggestions"
-              className="absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-xl border border-white/15 bg-[color:var(--hv-panel-strong)] shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+              className="absolute left-0 right-0 top-full z-40 mt-1.5 overflow-hidden rounded-xl border border-[color:var(--hv-panel-border-warm)] bg-[color:var(--hv-panel-strong)] shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl"
             >
               {matches.map((country) => (
                 <li key={country.iso2} role="option" aria-selected={selectedCountryIso2 === country.iso2}>
@@ -149,11 +158,11 @@ export function CountrySelectionSheet({
           type="button"
           disabled={!canContinue}
           onClick={onContinue}
-          className="mt-1 flex h-[64px] w-full items-center justify-center rounded-[18px] bg-[linear-gradient(180deg,#F0D39A_0%,#D6A95F_100%)] px-5 text-center text-[20px] font-semibold text-[#07101A] shadow-[0_18px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.28)] transition hover:brightness-[1.02] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hv-focus-ring)]"
+          className="mt-1 flex h-[64px] w-full items-center justify-center rounded-[18px] bg-[linear-gradient(180deg,var(--hv-champagne-300)_0%,var(--hv-gold)_100%)] px-5 text-center text-[20px] font-semibold text-[color:var(--hv-navy-deep)] shadow-[0_18px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.28)] transition hover:brightness-[1.02] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--hv-focus-ring)]"
         >
           Continue
         </button>
       </div>
-    </section>
+    </HarbourviewBottomSheet>
   )
 }
