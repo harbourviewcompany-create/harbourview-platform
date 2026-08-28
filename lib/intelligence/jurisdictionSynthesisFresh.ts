@@ -14,11 +14,15 @@ const TIMELINE_SELECT = `headline, country, date, created_at, source_published_a
 const LEGACY_SELECT = `headline, country, date, created_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 const PRIMARY_WINDOW_DAYS = 30
 const FALLBACK_WINDOW_DAYS = 45
+const UPCOMING_WINDOW_DAYS = 90
 const DAY_MS = 86_400_000
 const CLAUDE_MODEL = 'claude-sonnet-4-6'
 const DETERMINISTIC_MODEL = 'deterministic-bounded-v1'
+const CLAUDE_CIRCUIT_COOLDOWN_MS = 15 * 60_000
+const LEGAL_STATUSES = ['medical_only', 'adult_use', 'decrim', 'illegal', 'mixed', 'transitional', 'unknown'] as const
+const MARKET_MATURITIES = ['emerging', 'developing', 'maturing', 'mature', 'restricted', 'unknown'] as const
 
-let claudeCircuitOpen = false
+let claudeCircuitOpenUntil = 0
 
 export const SYNTHESIS_MARKETS: { iso2: string; name: string }[] = [
   { iso2: 'DE', name: 'Germany' },
@@ -85,6 +89,11 @@ type SignalRow = SignalQualityRow & {
   pri: string | null
 }
 
+type CountrySignalContext = {
+  recent: SignalRow[]
+  upcoming: SignalRow[]
+}
+
 function ms(value: string | null | undefined): number | null {
   if (!value) return null
   const parsed = Date.parse(value)
@@ -113,7 +122,7 @@ async function fetchSignalsForCountry(
   svcUrl: string,
   svcKey: string,
   countryName: string,
-): Promise<SignalRow[]> {
+): Promise<CountrySignalContext> {
   const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
   const createdCutoff = new Date(Date.now() - FALLBACK_WINDOW_DAYS * DAY_MS).toISOString()
 
@@ -122,7 +131,7 @@ async function fetchSignalsForCountry(
     .select(selectFields)
     .eq('reviewed', true)
     .gte('created_at', createdCutoff)
-    .ilike('country', `%${countryName}%`)
+    .ilike('country', countryName)
     .not('quality_label', 'in', QUALITY_LABEL_NOT_IN)
     .order('date', { ascending: false, nullsFirst: false })
     .order('quality_confidence', { ascending: false, nullsFirst: false })
@@ -136,20 +145,28 @@ async function fetchSignalsForCountry(
   const now = Date.now()
   const primaryCutoff = now - PRIMARY_WINDOW_DAYS * DAY_MS
   const fallbackCutoff = now - FALLBACK_WINDOW_DAYS * DAY_MS
+  const upcomingCutoff = now + UPCOMING_WINDOW_DAYS * DAY_MS
   const bounded = rows
     .map(row => ({ row, freshness: rowFreshnessMs(row) }))
-    .filter(entry => entry.freshness != null && entry.freshness >= fallbackCutoff && entry.freshness <= now + 90 * DAY_MS)
-    .sort((a, b) => (b.freshness ?? 0) - (a.freshness ?? 0) || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
+    .filter(entry => entry.freshness != null && entry.freshness >= fallbackCutoff && entry.freshness <= upcomingCutoff)
 
-  const primary = bounded.filter(entry => (entry.freshness ?? 0) >= primaryCutoff)
-  const chosen = primary.length >= 3 ? primary : bounded
-  return chosen.slice(0, 30).map(entry => entry.row)
+  const recentBounded = bounded
+    .filter(entry => (entry.freshness ?? 0) <= now)
+    .sort((a, b) => (b.freshness ?? 0) - (a.freshness ?? 0) || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
+  const primary = recentBounded.filter(entry => (entry.freshness ?? 0) >= primaryCutoff)
+  const chosenRecent = primary.length >= 3 ? primary : recentBounded
+  const upcoming = bounded
+    .filter(entry => (entry.freshness ?? 0) > now)
+    .sort((a, b) => (a.freshness ?? 0) - (b.freshness ?? 0) || (resolveConfidence(b.row) ?? 0) - (resolveConfidence(a.row) ?? 0))
+
+  return {
+    recent: chosenRecent.slice(0, 30).map(entry => entry.row),
+    upcoming: upcoming.slice(0, 10).map(entry => entry.row),
+  }
 }
 
-function formatSignalsForPrompt(signals: SignalRow[]): string {
-  if (signals.length === 0) {
-    return `No qualifying reviewed signals were found in the bounded ${FALLBACK_WINDOW_DAYS}-day freshness window. Treat this as sparse evidence, not permission to reuse older developments.`
-  }
+function formatSignalRows(signals: SignalRow[], emptyText: string): string {
+  if (signals.length === 0) return emptyText
   return signals
     .map((s, i) => {
       const conf = resolveConfidence(s as SignalQualityRow)
@@ -161,15 +178,27 @@ function formatSignalsForPrompt(signals: SignalRow[]): string {
     .join('\n\n')
 }
 
-const PROMPT_VERSION = 3
+function formatSignalsForPrompt(context: CountrySignalContext): string {
+  const recent = formatSignalRows(
+    context.recent,
+    `No qualifying reviewed past-or-present signals were found in the bounded ${FALLBACK_WINDOW_DAYS}-day freshness window. Treat this as sparse evidence, not permission to reuse older developments.`,
+  )
+  const upcoming = formatSignalRows(
+    context.upcoming,
+    `No qualifying future-effective events were found in the next ${UPCOMING_WINDOW_DAYS} days.`,
+  )
+  return `PAST OR PRESENT EVIDENCE:\n${recent}\n\nUPCOMING SCHEDULED EVENTS:\n${upcoming}`
+}
+
+const PROMPT_VERSION = 4
 
 function buildPrompt(countryName: string, signalText: string): string {
   return `You are an expert analyst at Harbourview, the global cannabis industry intelligence platform.
-Your task: synthesise a current jurisdiction intelligence briefing for ${countryName} using only the bounded recent evidence below.
+Your task: synthesise a current jurisdiction intelligence briefing for ${countryName} using only the bounded evidence below.
 
 Audience: licensed cannabis operators, importers/exporters, compliance professionals, clinicians, and investors.
 
-RECENT REVIEWED SIGNALS FOR ${countryName.toUpperCase()}:
+EVIDENCE FOR ${countryName.toUpperCase()}:
 ${signalText}
 
 Produce a JSON object with EXACTLY these fields — no extra fields, no markdown fences:
@@ -178,33 +207,35 @@ Produce a JSON object with EXACTLY these fields — no extra fields, no markdown
   "legal_status": "EXACTLY one of: medical_only | adult_use | decrim | illegal | mixed | transitional | unknown",
   "market_maturity": "EXACTLY one of: emerging | developing | maturing | mature | restricted | unknown",
   "summary": "2–3 sentences describing only what the supplied recent evidence supports.",
-  "what_changed": "1–2 sentences on meaningful change in the supplied evidence window, or null when there is no supported change.",
+  "what_changed": "1–2 sentences on meaningful past-or-present change in the supplied evidence window, or null when there is no supported change.",
   "operator_implications": "2–3 sentences of evidence-grounded operator implications, or a sparse-evidence statement when appropriate.",
-  "whats_coming": "1–2 sentences on evidenced near-term developments, or null if insufficient.",
-  "key_signals": ["0–5 exact signal headlines from the supplied list, verbatim"]
+  "whats_coming": "1–2 sentences on evidenced future-effective developments, or null if insufficient.",
+  "key_signals": ["0–5 exact signal headlines from the supplied lists, verbatim"]
 }
 
 Rules:
 - Never import an older event merely because it has high confidence.
 - Never treat observation/ingestion time as source publication or event-effective time.
+- Future-effective events belong in whats_coming and must never be represented as what_changed.
 - Do not invent regulations, counterparties, dates, or market status.
 - If the evidence window is sparse or empty, say so plainly instead of filling gaps from general knowledge.
-- key_signals must be exact strings from the list when present.
+- key_signals must be exact strings from the supplied lists when present.
 - Respond with valid JSON only.`
 }
 
-function deterministicBriefing(countryName: string, signals: SignalRow[], reason: string): JurisdictionBriefing {
-  const keySignals = signals.slice(0, 5).map(signal => signal.headline)
+function deterministicBriefing(countryName: string, context: CountrySignalContext, reason: string): JurisdictionBriefing {
+  const signals = context.recent
+  const keySignals = [...context.recent, ...context.upcoming].slice(0, 5).map(signal => signal.headline)
   if (signals.length === 0) {
     return {
-      headline: `${countryName}: no qualifying reviewed signals in the current ${FALLBACK_WINDOW_DAYS}-day evidence window.`,
+      headline: `${countryName}: no qualifying reviewed past-or-present signals in the current ${FALLBACK_WINDOW_DAYS}-day evidence window.`,
       legal_status: 'unknown',
       market_maturity: 'unknown',
-      summary: `No qualifying reviewed ${countryName} signals were found inside the bounded freshness window. Older developments were intentionally not reused.`,
+      summary: `No qualifying reviewed ${countryName} past-or-present signals were found inside the bounded freshness window. Older developments were intentionally not reused.`,
       what_changed: null,
       operator_implications: `Current evidence is sparse. Verify the jurisdiction directly before relying on an older briefing; automated language-model synthesis is unavailable (${reason}).`,
-      whats_coming: null,
-      key_signals: [],
+      whats_coming: context.upcoming[0]?.headline ?? null,
+      key_signals: keySignals,
     }
   }
 
@@ -218,12 +249,12 @@ function deterministicBriefing(countryName: string, signals: SignalRow[], reason
     headline: top.headline,
     legal_status: 'unknown',
     market_maturity: 'unknown',
-    summary: `This current ${countryName} briefing is based on ${signals.length} reviewed signal${signals.length === 1 ? '' : 's'} inside the bounded ${FALLBACK_WINDOW_DAYS}-day evidence window. ${evidenceSummary}`,
+    summary: `This current ${countryName} briefing is based on ${signals.length} reviewed past-or-present signal${signals.length === 1 ? '' : 's'} inside the bounded ${FALLBACK_WINDOW_DAYS}-day evidence window. ${evidenceSummary}`,
     what_changed: top.headline,
     operator_implications: top.commercial_impact
       ? `${top.commercial_impact} Automated language-model synthesis is unavailable (${reason}); use the cited current evidence for verification.`
       : `Review the cited current evidence before taking jurisdiction-specific action. Automated language-model synthesis is unavailable (${reason}), so no additional interpretation has been invented.`,
-    whats_coming: null,
+    whats_coming: context.upcoming[0]?.headline ?? null,
     key_signals: keySignals,
   }
 }
@@ -243,12 +274,25 @@ function shouldOpenClaudeCircuit(message: string): boolean {
   ].some(marker => value.includes(marker))
 }
 
+function isClaudeCircuitOpen() {
+  return Date.now() < claudeCircuitOpenUntil
+}
+
+function openClaudeCircuit() {
+  claudeCircuitOpenUntil = Date.now() + CLAUDE_CIRCUIT_COOLDOWN_MS
+}
+
+function enumValue<T extends readonly string[]>(value: unknown, allowed: T, fallback: T[number]): T[number] {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+  return (allowed as readonly string[]).includes(normalized) ? normalized as T[number] : fallback
+}
+
 async function synthesiseWithClaude(prompt: string): Promise<JurisdictionBriefing | null> {
-  if (claudeCircuitOpen) return null
+  if (isClaudeCircuitOpen()) return null
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    claudeCircuitOpen = true
+    openClaudeCircuit()
     console.warn('jurisdiction_synthesis: ANTHROPIC_API_KEY not configured; deterministic bounded fallback active')
     return null
   }
@@ -273,8 +317,8 @@ async function synthesiseWithClaude(prompt: string): Promise<JurisdictionBriefin
       if (typeof parsed.headline !== 'string' || typeof parsed.summary !== 'string') return null
       return {
         headline: String(parsed.headline ?? '').trim(),
-        legal_status: String(parsed.legal_status ?? 'unknown').trim(),
-        market_maturity: String(parsed.market_maturity ?? 'unknown').trim(),
+        legal_status: enumValue(parsed.legal_status, LEGAL_STATUSES, 'unknown'),
+        market_maturity: enumValue(parsed.market_maturity, MARKET_MATURITIES, 'unknown'),
         summary: String(parsed.summary ?? '').trim(),
         what_changed: parsed.what_changed ? String(parsed.what_changed).trim() : null,
         operator_implications: parsed.operator_implications ? String(parsed.operator_implications).trim() : null,
@@ -287,7 +331,7 @@ async function synthesiseWithClaude(prompt: string): Promise<JurisdictionBriefin
     }
   } catch (error) {
     const message = errorMessage(error)
-    if (shouldOpenClaudeCircuit(message)) claudeCircuitOpen = true
+    if (shouldOpenClaudeCircuit(message)) openClaudeCircuit()
     console.error('jurisdiction_synthesis: Claude unavailable; deterministic bounded fallback active', message)
     return null
   }
@@ -305,18 +349,24 @@ export async function synthesiseJurisdiction(
   if (!svcUrl || !svcKey) return { ok: false, error: 'Supabase env vars missing' }
 
   const svc = createClient(svcUrl, svcKey, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const signals = await fetchSignalsForCountry(svcUrl, svcKey, countryName)
-  const claudeBriefing = await synthesiseWithClaude(buildPrompt(countryName, formatSignalsForPrompt(signals)))
-  const providerReason = claudeCircuitOpen ? 'provider billing/authentication unavailable' : 'provider response unavailable'
-  const briefing = claudeBriefing ?? deterministicBriefing(countryName, signals, providerReason)
+  const context = await fetchSignalsForCountry(svcUrl, svcKey, countryName)
+  const claudeBriefing = await synthesiseWithClaude(buildPrompt(countryName, formatSignalsForPrompt(context)))
+  const providerReason = !process.env.ANTHROPIC_API_KEY
+    ? 'provider not configured'
+    : isClaudeCircuitOpen()
+      ? 'provider billing/authentication unavailable; retry cooldown active'
+      : 'provider response unavailable'
+  const briefing = claudeBriefing ?? deterministicBriefing(countryName, context, providerReason)
   const modelUsed = claudeBriefing ? CLAUDE_MODEL : DETERMINISTIC_MODEL
 
   const now = new Date()
+  const mondayOffset = (now.getUTCDay() + 6) % 7
   const weekEnding = new Date(Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),
-    now.getUTCDate() - ((now.getUTCDay() + 6) % 7),
+    now.getUTCDate() - mondayOffset + 6,
   )).toISOString().slice(0, 10)
+  const signalCount = context.recent.length + context.upcoming.length
 
   const { error } = await svc
     .from('jurisdiction_briefings')
@@ -325,7 +375,7 @@ export async function synthesiseJurisdiction(
       country_name: countryName,
       week_ending: weekEnding,
       status: 'published',
-      signal_count: signals.length,
+      signal_count: signalCount,
       headline: briefing.headline,
       legal_status: briefing.legal_status,
       market_maturity: briefing.market_maturity,
@@ -341,7 +391,7 @@ export async function synthesiseJurisdiction(
     }, { onConflict: 'country_iso2,week_ending' })
 
   if (error) return { ok: false, error: error.message }
-  return { ok: true, briefing, signal_count: signals.length, model_used: modelUsed }
+  return { ok: true, briefing, signal_count: signalCount, model_used: modelUsed }
 }
 
 export async function getLatestBriefing(countryIso2: string): Promise<StoredJurisdictionBriefing | null> {
@@ -396,5 +446,5 @@ export async function synthesiseJurisdictionBatch(opts?: {
     }
   }
 
-  return { ok: results.some(result => result.ok), results }
+  return { ok: results.length > 0 && results.every(result => result.ok), results }
 }
