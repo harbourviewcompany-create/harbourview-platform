@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
 import { resolveMarketplaceListingTypeOption } from '@/lib/marketplace/listingTypeOptions'
+import { MARKETPLACE_TIER_A_PUBLISHING_CAVEAT } from '@/lib/content/complianceCopy'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ export default async function SellPage({
             : 'Submit consumables, equipment, used or surplus assets, distressed opportunities, services or other marketplace supply for Harbourview operator review.'}
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
-          Submissions remain private by default. Public visibility, seller exposure and buyer introductions are never automatic.
+          {MARKETPLACE_TIER_A_PUBLISHING_CAVEAT}
         </p>
       </PublicHero>
 

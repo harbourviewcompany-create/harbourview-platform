@@ -56,6 +56,94 @@ const VIEW_SECTIONS: Record<MarketView, string[]> = {
 }
 
 const ROWS_PER_VIEW = 8
+
+/** Map taxonomy category keys → MarketView for Tier A live candidates. */
+const TIER_A_CATEGORY_TO_VIEW: Record<string, MarketView> = {
+  consumables: 'consumables',
+  packaging: 'consumables',
+  cultivation_equipment: 'equipment',
+  processing_equipment: 'equipment',
+  used_surplus: 'equipment',
+  new_products: 'new-products',
+  services: 'services',
+  professional_services: 'services',
+  lab_testing: 'services',
+  logistics: 'services',
+}
+
+type LiveCandidateRow = {
+  id: string
+  title_public_draft: string | null
+  description_public_draft: string | null
+  marketplace_category: string | null
+  country: string | null
+  price_raw: string | null
+  status: string | null
+  created_at: string | null
+}
+
+function candidateToPublicListing(c: LiveCandidateRow): PublicListing {
+  const category = (c.marketplace_category || 'consumables').replace(/-/g, '_')
+  const title = safeText(c.title_public_draft, 'Marketplace listing')
+  const description = safeText(c.description_public_draft, title)
+  return {
+    id: c.id,
+    slug: null,
+    title,
+    description,
+    category,
+    subcategory: null,
+    marketplace_section: category,
+    product_type: null,
+    region: c.country || 'global',
+    condition: null,
+    location_country: c.country,
+    location_region: null,
+    price_amount: null,
+    price_currency: 'USD',
+    price_display: c.price_raw?.trim() || 'Request quote',
+    seller_type: 'self_serve',
+    is_featured: false,
+    high_level_specs: { auto_published: true },
+    created_at: c.created_at || new Date().toISOString(),
+    average_rating: null,
+    review_count: null,
+  }
+}
+
+async function loadTierAApprovedCandidates(limit = 24): Promise<LiveCandidateRow[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return []
+
+  const categories = Object.keys(TIER_A_CATEGORY_TO_VIEW)
+  const params = new URLSearchParams({
+    select: 'id,title_public_draft,description_public_draft,marketplace_category,country,price_raw,status,created_at',
+    status: 'eq.approved_draft',
+    order: 'created_at.desc',
+    limit: String(limit),
+  })
+  // PostgREST in filter for categories
+  params.set('marketplace_category', `in.(${categories.join(',')})`)
+
+  try {
+    const res = await fetch(`${url}/rest/v1/marketplace_candidates?${params.toString()}`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+      },
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return []
+    return (await res.json()) as LiveCandidateRow[]
+  } catch {
+    return []
+  }
+}
+
 /** Raised so Supabase public image rows can complete under cold start. */
 export const MARKETPLACE_MEDIA_TIMEOUT_MS = 8_000
 
@@ -71,28 +159,51 @@ function formatTitle(input: string): string {
     .join(' ')
 }
 
+function formatListingPrice(listing: PublicListing): string {
+  if (listing.price_display?.trim()) return listing.price_display.trim()
+  if (listing.price_amount != null && Number.isFinite(Number(listing.price_amount))) {
+    const currency = listing.price_currency || 'USD'
+    return `${currency} ${Number(listing.price_amount)}`
+  }
+  const specs = (listing.high_level_specs || {}) as Record<string, unknown>
+  if (typeof specs.price_display === 'string' && specs.price_display.trim()) return specs.price_display.trim()
+  return ''
+}
+
 function baseDashboardRow(listing: PublicListing): MarketRow {
   const categoryLabel = formatTitle(listing.subcategory ?? listing.product_type ?? listing.category)
   const regionLabel = listing.location_region ?? listing.location_country ?? listing.region
   const sellerType = listing.seller_type ?? ''
   const isVerified = sellerType === 'verified_seller' || sellerType === 'licensed_operator'
+  const isSelfServe = sellerType === 'self_serve'
+  const autoPublished = Boolean((listing.high_level_specs as Record<string, unknown> | null)?.auto_published)
   const rawScore = typeof (listing.high_level_specs as Record<string, unknown>)?.score === 'number'
     ? (listing.high_level_specs as Record<string, unknown>).score as number
     : 0
   const confidence = rawScore > 0 ? String(rawScore) : isVerified ? '78' : '62'
   const averageRating = Number(listing.average_rating) || 0
   const reviewCount = Number(listing.review_count) || 0
+  const priceDisplay = formatListingPrice(listing)
+  const statusLabel = isVerified
+    ? 'Verified'
+    : autoPublished || isSelfServe
+      ? 'Open'
+      : 'Pending Review'
+  const channelLabel = isVerified
+    ? 'Licensed Direct'
+    : priceDisplay || (autoPublished || isSelfServe ? 'Contact seller' : 'Mediated')
 
   return [
     listing.title,
     safeText(listing.description, `${categoryLabel} listing${regionLabel ? ` — ${regionLabel}` : ''}.`),
     listing.location_country ?? listing.region ?? '',
     categoryLabel,
-    isVerified ? 'Verified' : 'Pending Review',
-    isVerified ? 'Licensed Direct' : 'Mediated',
+    statusLabel,
+    channelLabel,
     confidence,
     listing.id,
-    averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : '',
+    // Slot 8: prefer price for market cards; fall back to rating when present
+    priceDisplay || (averageRating > 0 && reviewCount > 0 ? averageRating.toFixed(1) : ''),
     reviewCount > 0 ? String(reviewCount) : '',
   ]
 }
@@ -188,12 +299,24 @@ export async function getDashboardMarketplaceProjection(
 ): Promise<DashboardMarketplaceProjection> {
   const views = Object.entries(VIEW_SECTIONS) as [MarketView, string[]][]
 
-  const listingsByView = await Promise.all(
-    views.map(async ([view, sections]) => {
-      const listings = await getListingsBySections(sections, countryIso2, ROWS_PER_VIEW)
-      return [view, listings] as const
-    }),
-  )
+  const [listingsByViewRaw, tierACandidates] = await Promise.all([
+    Promise.all(
+      views.map(async ([view, sections]) => {
+        const listings = await getListingsBySections(sections, countryIso2, ROWS_PER_VIEW)
+        return [view, listings] as const
+      }),
+    ),
+    loadTierAApprovedCandidates(ROWS_PER_VIEW * 3),
+  ])
+
+  // Merge Tier A approved_draft candidates into the matching MarketView (dedupe by id).
+  const listingsByView = listingsByViewRaw.map(([view, listings]) => {
+    const extras = tierACandidates
+      .filter(c => TIER_A_CATEGORY_TO_VIEW[(c.marketplace_category || '').replace(/-/g, '_')] === view)
+      .map(candidateToPublicListing)
+      .filter(extra => !listings.some(l => l.id === extra.id))
+    return [view, [...extras, ...listings].slice(0, ROWS_PER_VIEW)] as const
+  })
 
   const itemIds = Array.from(new Set(listingsByView.flatMap(([, listings]) => listings.map(listing => listing.id))))
   const { imagesByItem, degraded } = await loadMarketplaceMedia(itemIds)

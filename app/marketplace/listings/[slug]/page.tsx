@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PublicCard, PublicHero, PublicSection } from '@/components/PublicUi'
+import { getMarketplaceCategory, isMarketplaceCategoryKey } from '@/lib/marketplace/taxonomy'
 import { getPublicListingBySlug } from '@/lib/server/listingsQuery'
 
 // ISR: marketplace listing data
@@ -37,13 +38,24 @@ export default async function PublicListingDetailPage({ params }: PageProps) {
   const listing = await getPublicListingBySlug(slug).catch(() => null)
   if (!listing) notFound()
 
+  const category = isMarketplaceCategoryKey(listing.category)
+    ? getMarketplaceCategory(listing.category)
+    : undefined
+  const isOpenCommercial = Boolean(
+    category &&
+      category.publicVisibilityMode === 'public_allowed' &&
+      !category.requiresLicenseReview &&
+      !category.restrictedByDefault,
+  )
+  const primaryCta = isOpenCommercial ? category?.defaultCtaLabel ?? 'Contact seller' : 'Request review'
+
   return (
     <>
       <PublicHero
         eyebrow="Reviewed listing"
         title={listing.title}
         actions={[
-          { label: 'Request review', href: `/marketplace/quote?listing=${encodeURIComponent(listing.title)}` },
+          { label: primaryCta, href: `/marketplace/quote?listing=${encodeURIComponent(listing.title)}` },
           { label: 'All listings', href: '/marketplace/listings', variant: 'secondary' },
         ]}
       >

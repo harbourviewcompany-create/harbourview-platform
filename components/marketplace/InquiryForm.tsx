@@ -36,7 +36,7 @@ function buildListingInquiryMessage(fields: {
   ].join('\n')
 }
 
-export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryFormProps) {
+export function InquiryForm({ listingSlug, listingTitle, ctaLabel, listingId }: InquiryFormProps & { listingId?: string | null }) {
   const [state, setState] = useState<FormState>('idle')
   const [message, setMessage] = useState('')
   const [diagnosticMessage, setDiagnosticMessage] = useState('')
@@ -89,7 +89,7 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
 
     const result = await submitMarketplaceInquiryDirect(
       {
-        listing_id: null,
+        listing_id: listingId && /^[0-9a-f-]{36}$/i.test(listingId) ? listingId : null,
         buyer_request_id: null,
         contact_name: name,
         contact_email: email,
@@ -97,6 +97,7 @@ export function InquiryForm({ listingSlug, listingTitle, ctaLabel }: InquiryForm
         contact_phone: phone || null,
         inquiry_type: inquiryType,
         message: submissionMessage,
+        listing_title: listingTitle,
       },
       'Inquiry received. Harbourview will review the request before any introduction or seller contact. [INQUIRY_OK]',
       'QUOTE',

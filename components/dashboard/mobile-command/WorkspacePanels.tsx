@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, type RefObject } from 'react'
 import { DynamicMarketplaceIntakeForm } from '@/components/marketplace/DynamicMarketplaceIntakeForm'
+import { SellerContactForm } from './SellerContactForm'
 import FinancingInquiryForm from '@/app/marketplace/financing/FinancingInquiryForm'
 import type { MarketView } from '../CommandCentre'
 import {
@@ -61,20 +62,36 @@ export function MarketplaceWorkspacePanel({
     : tool === 'supply-intake'
       ? {
           eyebrow: 'Marketplace command / supply intake',
-          title: 'Submit supply for controlled review',
+          title: (activeMarketView === 'equipment' || activeMarketView === 'consumables' || activeMarketView === 'new-products' || activeMarketView === 'services')
+            ? 'List consumables or equipment'
+            : 'Submit supply for controlled review',
           description: MOBILE_COMMAND_COPY.supplyIntakeDescription,
           defaultType: defaultListingTypeForView(activeMarketView),
           defaultHeadline: '',
           defaultMarkets: '',
         }
-      : {
-          eyebrow: 'Marketplace command / reviewed introduction',
-          title: selectedListing ? `Request access to ${selectedListing.title}` : 'Request a reviewed introduction',
-          description: MOBILE_COMMAND_COPY.introductionDescription,
-          defaultType: 'Qualified Access Request',
-          defaultHeadline: selectedListing ? `Reviewed introduction request: ${selectedListing.title}` : '',
-          defaultMarkets: selectedListing?.jurisdiction ?? '',
-        }
+      : (() => {
+          const view = selectedListing?.view ?? activeMarketView
+          const openTier = view === 'equipment' || view === 'consumables' || view === 'new-products' || view === 'services'
+          return {
+            eyebrow: openTier
+              ? 'Marketplace command / contact seller'
+              : 'Marketplace command / reviewed introduction',
+            title: selectedListing
+              ? (openTier ? `Contact seller — ${selectedListing.title}` : `Request access to ${selectedListing.title}`)
+              : (openTier ? 'Contact seller' : 'Request a reviewed introduction'),
+            description: openTier
+              ? 'Send a structured inquiry. Harbourview delivers it to the listing owner; contact details stay private until they respond.'
+              : MOBILE_COMMAND_COPY.introductionDescription,
+            defaultType: openTier ? 'Service' : 'Qualified Access Request',
+            defaultHeadline: selectedListing
+              ? (openTier
+                  ? `Seller inquiry: ${selectedListing.title}`
+                  : `Reviewed introduction request: ${selectedListing.title}`)
+              : '',
+            defaultMarkets: selectedListing?.jurisdiction ?? '',
+          }
+        })()
 
   const formKey = [
     tool,
@@ -110,13 +127,22 @@ export function MarketplaceWorkspacePanel({
         </article>
       )}
 
-      <DynamicMarketplaceIntakeForm
-        key={formKey}
-        defaultType={config.defaultType}
-        defaultHeadline={config.defaultHeadline}
-        defaultMarkets={config.defaultMarkets}
-        onViewSubmissions={onViewSubmissions}
-      />
+      {tool === 'introduction' && selectedListing && (
+        (selectedListing.view === 'equipment' ||
+          selectedListing.view === 'consumables' ||
+          selectedListing.view === 'new-products' ||
+          selectedListing.view === 'services')
+      ) ? (
+        <SellerContactForm listing={selectedListing} onDone={onClose} />
+      ) : (
+        <DynamicMarketplaceIntakeForm
+          key={formKey}
+          defaultType={config.defaultType}
+          defaultHeadline={config.defaultHeadline}
+          defaultMarkets={config.defaultMarkets}
+          onViewSubmissions={onViewSubmissions}
+        />
+      )}
     </section>
   )
 }

@@ -6,3 +6,6 @@ export const INTAKE_REVIEW_GATING_TEXT =
 
 export const MARKETPLACE_CONFIDENTIALITY_CAVEAT =
   'Contact details are private, inquiries are reviewed before routing and submissions do not guarantee introductions, availability, transaction terms or regulatory outcomes.'
+
+export const MARKETPLACE_TIER_A_PUBLISHING_CAVEAT =
+  'Contact details stay private. Eligible non-licensed consumables and equipment may publish after automated safety checks; categories requiring licence review or restricted handling remain review-gated.'

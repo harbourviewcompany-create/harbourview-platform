@@ -51,7 +51,7 @@ export function toPublicMarketplaceListing(input: PrivateMarketplaceListing): Pu
     location_region: input.location_region ?? null,
     price_amount: input.price_amount != null ? Number(input.price_amount) : null,
     price_currency: input.price_currency || 'USD',
-    price_display: input.price_display ?? 'Request qualification',
+    price_display: input.price_display ?? 'Request quote',
     seller_type: input.seller_type || 'controlled_review',
     is_featured: Boolean(input.is_featured),
     high_level_specs: filterPublicSpecs(input.high_level_specs),
