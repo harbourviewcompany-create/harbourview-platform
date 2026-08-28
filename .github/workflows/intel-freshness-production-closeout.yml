@@ -77,13 +77,32 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/intel-freshness-closeout
+          overall_fail=0
           for offset in 0 10 20; do
-            curl --fail --show-error --silent --max-time 900 \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              "http://127.0.0.1:3000/api/cron/synthesize-jurisdictions?limit=10&offset=$offset" \
-              | tee "artifacts/intel-freshness-closeout/synthesis-$offset.json"
-            echo
+            success=0
+            for attempt in 1 2 3; do
+              body="artifacts/intel-freshness-closeout/synthesis-${offset}-attempt-${attempt}.json"
+              code="$(curl --show-error --silent --max-time 900 \
+                -o "$body" -w '%{http_code}' \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                "http://127.0.0.1:3000/api/cron/synthesize-jurisdictions?limit=10&offset=$offset" || true)"
+              echo "batch offset=$offset attempt=$attempt http=$code"
+              cat "$body" || true
+              echo
+              if [ "$code" = '200' ] && jq -e '.ok == true and ((.failed // 0) == 0)' "$body" >/dev/null 2>&1; then
+                success=1
+                break
+              fi
+              sleep $((attempt * 2))
+            done
+            if [ "$success" != '1' ]; then
+              overall_fail=1
+            fi
           done
+          if [ "$overall_fail" != '0' ]; then
+            echo '::error::One or more bounded jurisdiction synthesis batches failed after retries.'
+            exit 1
+          fi
       - name: Capture exact-head closeout evidence
         if: always()
         shell: bash
