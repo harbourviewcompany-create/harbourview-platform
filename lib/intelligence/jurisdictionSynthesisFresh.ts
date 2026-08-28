@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { inferEventEffectiveAt } from '@/lib/dashboard/signalFreshness'
+import { marketAliases } from '@/lib/utils/flagEmoji'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
@@ -10,8 +11,8 @@ import {
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 
-const TIMELINE_SELECT = `headline, country, date, created_at, source_published_at, event_effective_at, observed_at, ingested_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
-const LEGACY_SELECT = `headline, country, date, created_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const TIMELINE_SELECT = `headline, country, company, query_pack, date, created_at, source_published_at, event_effective_at, observed_at, ingested_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const LEGACY_SELECT = `headline, country, company, query_pack, date, created_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 const PRIMARY_WINDOW_DAYS = 30
 const FALLBACK_WINDOW_DAYS = 45
 const UPCOMING_WINDOW_DAYS = 90
@@ -21,6 +22,7 @@ const DETERMINISTIC_MODEL = 'deterministic-bounded-v1'
 const CLAUDE_CIRCUIT_COOLDOWN_MS = 15 * 60_000
 const LEGAL_STATUSES = ['medical_only', 'adult_use', 'decrim', 'illegal', 'mixed', 'transitional', 'unknown'] as const
 const MARKET_MATURITIES = ['emerging', 'developing', 'maturing', 'mature', 'restricted', 'unknown'] as const
+const CANNABIS_DOMAIN_RE = /\b(cannabis|marijuana|marihuana|maconha|hemp|chanvre|cáñamo|cannabinoid|cannabinoids|cannabidiol|tetrahydrocannabinol|thc|cbd|cbpm|cbpms|medcang|curaleaf|tilray|trulieve|organigram|cronos|green thumb|village farms|canopy growth|aurora cannabis)\b/i
 
 let claudeCircuitOpenUntil = 0
 
@@ -77,6 +79,8 @@ export type StoredJurisdictionBriefing = JurisdictionBriefing & {
 type SignalRow = SignalQualityRow & {
   headline: string
   country: string | null
+  company?: string | null
+  query_pack?: string | null
   date: string | null
   created_at: string | null
   source_published_at?: string | null
@@ -118,6 +122,41 @@ function isTimelineGap(message: string | undefined) {
     .some(column => value.includes(column) && (value.includes('column') || value.includes('schema cache')))
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function mentionsAlias(text: string, alias: string) {
+  const trimmed = alias.trim()
+  if (!trimmed) return false
+  if (trimmed.length <= 2) return new RegExp(`\\b${escapeRegExp(trimmed.toUpperCase())}\\b`).test(text)
+  return new RegExp(`\\b${escapeRegExp(trimmed)}\\b`, 'i').test(text)
+}
+
+function isSynthesisRelevant(row: SignalRow, countryName: string) {
+  const text = [
+    row.headline,
+    row.title_en,
+    row.summary_en,
+    row.commercial_impact,
+    row.company,
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0).join(' ')
+
+  const explicitlyCannabis = CANNABIS_DOMAIN_RE.test(text)
+  const curatedCommercialSignal = !row.query_pack
+    && Boolean(row.company?.trim())
+    && Boolean(row.commercial_impact?.trim())
+    && !/^monitor for developing relevance$/i.test(row.commercial_impact?.trim() ?? '')
+  if (!explicitlyCannabis && !curatedCommercialSignal) return false
+
+  const selectedMentioned = marketAliases(countryName).some(alias => mentionsAlias(text, alias))
+  const foreignMentioned = SYNTHESIS_MARKETS
+    .filter(market => market.name !== countryName)
+    .some(market => marketAliases(market.name).some(alias => mentionsAlias(text, alias)))
+
+  return selectedMentioned || !foreignMentioned
+}
+
 async function fetchSignalsForCountry(
   svcUrl: string,
   svcKey: string,
@@ -141,7 +180,8 @@ async function fetchSignalsForCountry(
   if (result.error && isTimelineGap(result.error.message)) result = await run(LEGACY_SELECT)
   if (result.error) throw new Error(result.error.message)
 
-  const rows = (result.data ?? []) as unknown as SignalRow[]
+  const rows = ((result.data ?? []) as unknown as SignalRow[])
+    .filter(row => isSynthesisRelevant(row, countryName))
   const now = Date.now()
   const primaryCutoff = now - PRIMARY_WINDOW_DAYS * DAY_MS
   const fallbackCutoff = now - FALLBACK_WINDOW_DAYS * DAY_MS
@@ -181,16 +221,16 @@ function formatSignalRows(signals: SignalRow[], emptyText: string): string {
 function formatSignalsForPrompt(context: CountrySignalContext): string {
   const recent = formatSignalRows(
     context.recent,
-    `No qualifying reviewed past-or-present signals were found in the bounded ${FALLBACK_WINDOW_DAYS}-day freshness window. Treat this as sparse evidence, not permission to reuse older developments.`,
+    `No qualifying reviewed past-or-present cannabis-domain signals were found in the bounded ${FALLBACK_WINDOW_DAYS}-day freshness window. Treat this as sparse evidence, not permission to reuse older developments.`,
   )
   const upcoming = formatSignalRows(
     context.upcoming,
-    `No qualifying future-effective events were found in the next ${UPCOMING_WINDOW_DAYS} days.`,
+    `No qualifying future-effective cannabis-domain events were found in the next ${UPCOMING_WINDOW_DAYS} days.`,
   )
   return `PAST OR PRESENT EVIDENCE:\n${recent}\n\nUPCOMING SCHEDULED EVENTS:\n${upcoming}`
 }
 
-const PROMPT_VERSION = 4
+const PROMPT_VERSION = 5
 
 function buildPrompt(countryName: string, signalText: string): string {
   return `You are an expert analyst at Harbourview, the global cannabis industry intelligence platform.
@@ -218,6 +258,7 @@ Rules:
 - Never treat observation/ingestion time as source publication or event-effective time.
 - Future-effective events belong in whats_coming and must never be represented as what_changed.
 - Do not invent regulations, counterparties, dates, or market status.
+- Do not treat an article about another named jurisdiction as evidence for ${countryName} merely because its source feed was tagged ${countryName}.
 - If the evidence window is sparse or empty, say so plainly instead of filling gaps from general knowledge.
 - key_signals must be exact strings from the supplied lists when present.
 - Respond with valid JSON only.`
@@ -231,7 +272,7 @@ function deterministicBriefing(countryName: string, context: CountrySignalContex
       headline: `${countryName}: no qualifying reviewed past-or-present signals in the current ${FALLBACK_WINDOW_DAYS}-day evidence window.`,
       legal_status: 'unknown',
       market_maturity: 'unknown',
-      summary: `No qualifying reviewed ${countryName} past-or-present signals were found inside the bounded freshness window. Older developments were intentionally not reused.`,
+      summary: `No qualifying reviewed ${countryName} cannabis-domain past-or-present signals were found inside the bounded freshness window. Older or off-domain developments were intentionally not reused.`,
       what_changed: null,
       operator_implications: `Current evidence is sparse. Verify the jurisdiction directly before relying on an older briefing; automated language-model synthesis is unavailable (${reason}).`,
       whats_coming: context.upcoming[0]?.headline ?? null,
