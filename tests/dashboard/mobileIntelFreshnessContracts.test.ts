@@ -4,12 +4,15 @@ import { describe, expect, it } from 'vitest'
 const mobileModel = readFileSync('components/dashboard/mobile-command/useMobileCommandModel.ts', 'utf8')
 const realtimeHook = readFileSync('components/dashboard/useDashboardSignalsRealtime.ts', 'utf8')
 const signalRoute = readFileSync('app/api/dashboard/signals/route.ts', 'utf8')
+const signalFreshness = readFileSync('lib/dashboard/signalFreshness.ts', 'utf8')
 const sections = readFileSync('components/dashboard/mobile-command/Sections.tsx', 'utf8')
 const personal = readFileSync('components/dashboard/mobile-command/sections/PersonalBriefingLiveSection.tsx', 'utf8')
 const synth = readFileSync('lib/intelligence/jurisdictionSynthesisFresh.ts', 'utf8')
+const synthTimeline = readFileSync('lib/intelligence/jurisdictionSynthesisTimeline.ts', 'utf8')
 const synthBridge = readFileSync('lib/intelligence/jurisdictionSynthesis.ts', 'utf8')
 const synthCron = readFileSync('app/api/cron/synthesize-jurisdictions/route.ts', 'utf8')
 const migration = readFileSync('supabase/migrations/20260827234500_signal_freshness_timeline.sql', 'utf8')
+const populationMigration = readFileSync('supabase/migrations/20260828130000_signal_timeline_population_hardening.sql', 'utf8')
 
 describe('Mobile Intel freshness and briefing contracts', () => {
   it('uses one canonical realtime signal feed instead of an enriched second-pass swap', () => {
@@ -22,13 +25,18 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(realtimeHook).toContain("{ event: '*', schema: 'public', table: 'signals' }")
   })
 
-  it('keeps API candidate order recency-first and final selection freshness-gated', () => {
+  it('keeps API candidate order recency-first and final selection current, strict and freshness-gated', () => {
     const dateOrder = signalRoute.indexOf(".order('date'")
     const confidenceOrder = signalRoute.indexOf(".order('quality_confidence'")
     expect(dateOrder).toBeGreaterThan(-1)
     expect(confidenceOrder).toBeGreaterThan(dateOrder)
     expect(signalRoute).toContain('canonicalizeDashboardSignals')
+    expect(signalRoute).toContain('candidateCountryFilter')
     expect(signalRoute).toContain('WEEKLY_SIGNAL_WINDOW_DAYS')
+    expect(signalFreshness).toContain('entry.freshnessMs <= nowMs')
+    expect(signalFreshness).toContain('entry.contextual || entry.global')
+    expect(signalFreshness).toContain('jurisdictionTokens')
+    expect(signalFreshness).toContain('jurisdictionValueMatches')
     expect(signalRoute).toContain("'Cache-Control': 'private, no-store, max-age=0'")
   })
 
@@ -43,11 +51,17 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(personal).toContain("isStale ? 'Stale' : 'Current'")
   })
 
-  it('bounds synthesis evidence and rotates fixed-time daily cron batches by day rather than hour', () => {
+  it('bounds synthesis evidence, separates event time and rotates fixed-time daily cron batches by day', () => {
     expect(synthBridge).toContain("export * from './jurisdictionSynthesisFresh'")
-    expect(synth).toContain('PRIMARY_WINDOW_DAYS = 30')
-    expect(synth).toContain('FALLBACK_WINDOW_DAYS = 45')
+    expect(synthTimeline).toContain('SYNTHESIS_PRIMARY_WINDOW_DAYS = 30')
+    expect(synthTimeline).toContain('SYNTHESIS_FALLBACK_WINDOW_DAYS = 45')
+    expect(synthTimeline).toContain('SYNTHESIS_UPCOMING_WINDOW_DAYS = 90')
+    expect(synthTimeline).toContain('classifySynthesisTimeline')
+    expect(synthTimeline).toContain("kind: eventAt <= upcomingUpperBound ? 'upcoming' : 'out_of_window'")
     expect(synth).toContain(".gte('created_at', createdCutoff)")
+    expect(synth).toContain('classifySynthesisTimeline(row, now)')
+    expect(synth).toContain("entry.timeline.kind === 'recent'")
+    expect(synth).toContain("entry.timeline.kind === 'upcoming'")
     expect(synth).not.toContain('regardless of date')
     expect(synth).toContain('const dayIndex = Math.floor(Date.now() / DAY_MS)')
     expect(synth).not.toContain('new Date().getUTCHours()')
@@ -59,12 +73,12 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(synth).toContain('CANNABIS_CHANGE_RE')
     expect(synth).toContain('INCIDENTAL_HARM_RE')
     expect(synth).toContain('REFERENCE_GUIDE_RE')
-    expect(synth).toContain('explicitContentDateMs')
     expect(synth).toContain('dedupeSynthesisRows')
     expect(synth).toContain('isFeedLikeUrl')
+    expect(synth).toContain('jurisdictionValueMatches(row.country, countryName)')
     expect(synth).toContain('if (selectedMentioned) return true')
-    expect(synth).toContain('if (foreignMentioned) return false')
-    expect(synth).toContain('return curatedCommercialSignal')
+    expect(synth).toContain('if (foreignMentioned && !curatedCommercialSignal) return false')
+    expect(synth).toContain('return curatedCommercialSignal || strongCannabisContext')
     expect(synth).toContain('const PROMPT_VERSION = 6')
   })
 
@@ -80,7 +94,7 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(synth).toContain('model_used: modelUsed')
   })
 
-  it('adds separate publication, event, observation and ingestion timestamps without deleting history', () => {
+  it('adds separate timeline fields and promotes existing structured producer dates without deleting history', () => {
     for (const column of ['source_published_at', 'event_effective_at', 'observed_at', 'ingested_at']) {
       expect(migration).toContain(column)
     }
@@ -89,5 +103,11 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(migration).toContain("event_effective_at = '2025-08-20T00:00:00Z'")
     expect(migration).not.toContain('delete from public.signals')
     expect(migration).toContain('create or replace view api.signals_with_quality')
+
+    expect(populationMigration).toContain("analysis->>'publication_date'")
+    expect(populationMigration).toContain("analysis->>'effective_date'")
+    expect(populationMigration).toContain('pg_input_is_valid')
+    expect(populationMigration).toContain('create or replace function public.hv_signal_timeline_defaults()')
+    expect(populationMigration).not.toContain('delete from public.signals')
   })
 })
