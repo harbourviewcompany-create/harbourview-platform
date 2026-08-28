@@ -49,6 +49,17 @@ export function marketToIso2(market: string | null | undefined): string | null {
   return NORMALIZED_NAME_TO_ISO2.get(value.toLowerCase()) ?? null
 }
 
+export function marketAliases(market: string | null | undefined): string[] {
+  const value = market?.trim()
+  if (!value) return []
+  const iso2 = marketToIso2(value)
+  if (!iso2) return [value]
+  const aliases = Object.entries(NAME_TO_ISO2)
+    .filter(([, mapped]) => mapped === iso2)
+    .map(([name]) => name)
+  return [...new Set([iso2, ...aliases])]
+}
+
 export function canonicalMarketId(market: string | null | undefined): string | null {
   const value = market?.trim()
   if (!value) return null
