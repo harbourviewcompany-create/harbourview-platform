@@ -10,14 +10,19 @@ on:
       - 'components/dashboard/useDashboardSignalsRealtime.ts'
       - 'lib/dashboard/**'
       - 'lib/intelligence/jurisdictionSynthesis*.ts'
+      - 'lib/utils/flagEmoji.ts'
       - 'supabase/migrations/*signal_freshness_timeline.sql'
       - 'tests/dashboard/signalFreshness.test.ts'
       - 'tests/dashboard/mobileIntelFreshnessContracts.test.ts'
+      - 'tests/dashboard/mobileCommandCentreV2.test.ts'
       - '.github/workflows/intel-freshness-verify.yml'
 
 concurrency:
   group: intel-freshness-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   verify:
@@ -48,5 +53,16 @@ jobs:
         run: npx vitest run tests/dashboard/signalFreshness.test.ts tests/dashboard/mobileIntelFreshnessContracts.test.ts tests/dashboard/mobileCommandCentreV2.test.ts
       - name: Typecheck
         run: npm run typecheck
-      - name: Production build
+      - name: Isolated CI build
         run: npm run build
+      - name: Production-config build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .next
+          env \
+            -u HARBOURVIEW_LOCAL_TEST_BUILD \
+            -u NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD \
+            -u HARBOURVIEW_ALLOW_LOCAL_SUPABASE \
+            -u NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE \
+            npm run build
