@@ -155,8 +155,10 @@ const COMPLIANCE_ROLE_FOCUS: Record<string, { icon: string; items: string[] }> =
     items: ['GDP (Good Distribution Practice) certification', 'Cold-chain monitoring and temperature excursion protocols', 'Controlled drug wholesale licence requirements', 'Chain-of-custody and batch traceability obligations'] },
 }
 
-
-
+function fmtStatus(v: string | null | undefined, fallback = '\u2014'): string {
+  if (!v) return fallback
+  return v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
 
 export {
   deriveSignalGroup,
@@ -166,4 +168,5 @@ export {
   buildAuthorities,
   CustomSelect,
   COMPLIANCE_ROLE_FOCUS,
+  fmtStatus,
 }
