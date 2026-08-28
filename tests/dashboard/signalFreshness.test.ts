@@ -3,6 +3,7 @@ import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import {
   canonicalizeDashboardSignals,
   inferEventEffectiveAt,
+  jurisdictionValueMatches,
   resolveSignalFreshness,
 } from '@/lib/dashboard/signalFreshness'
 
@@ -103,7 +104,7 @@ describe('canonical signal freshness', () => {
     expect(result.map(item => item.id)).toEqual(['article-1', 'article-2'])
   })
 
-  it('places direct jurisdiction matches before broader watch, then recency, then confidence', () => {
+  it('keeps direct jurisdiction matches ahead of Global watch items', () => {
     const germany = signal({
       id: 'de',
       title: 'Germany development',
@@ -134,7 +135,7 @@ describe('canonical signal freshness', () => {
     expect(result.map(item => item.id)).toEqual(['de-high', 'de', 'global'])
   })
 
-  it('uses exact canonical jurisdiction identity so US never matches Australia', () => {
+  it('uses strict canonical jurisdiction scope so US never admits Australia', () => {
     const australia = signal({
       id: 'au',
       title: 'Australia development',
@@ -154,6 +155,41 @@ describe('canonical signal freshness', () => {
       nowMs: NOW,
       windowDays: 7,
     })
-    expect(result.map(item => item.id)).toEqual(['us', 'au'])
+    expect(result.map(item => item.id)).toEqual(['us'])
+  })
+
+  it('matches delimiter-separated multi-jurisdiction country values exactly', () => {
+    expect(jurisdictionValueMatches('Canada; Germany; United Kingdom', 'Germany')).toBe(true)
+    expect(jurisdictionValueMatches('United States; Michigan', 'US')).toBe(true)
+    expect(jurisdictionValueMatches('Australia', 'US')).toBe(false)
+
+    const composite = signal({
+      id: 'composite',
+      title: 'Cross-border Germany development',
+      market: 'Canada; Germany; United Kingdom',
+      publishedAt: '2026-08-27T10:00:00Z',
+    })
+    expect(canonicalizeDashboardSignals([composite], 'Germany', { nowMs: NOW, windowDays: 7 }))
+      .toEqual([expect.objectContaining({ id: 'composite' })])
+  })
+
+  it('excludes future-only event dates from current Weekly Signals', () => {
+    const futureOnly = signal({
+      id: 'future-only',
+      title: 'Germany rule effective September 15, 2026',
+      market: 'Germany',
+      eventEffectiveAt: '2026-09-15T00:00:00Z',
+    })
+    const currentArticleAboutFutureRule = signal({
+      id: 'published-now-future-event',
+      title: 'Germany publishes rule effective September 15, 2026',
+      market: 'Germany',
+      sourcePublishedAt: '2026-08-27T12:00:00Z',
+      eventEffectiveAt: '2026-09-15T00:00:00Z',
+    })
+
+    expect(canonicalizeDashboardSignals([futureOnly], 'Germany', { nowMs: NOW, windowDays: 7 })).toEqual([])
+    expect(canonicalizeDashboardSignals([currentArticleAboutFutureRule], 'Germany', { nowMs: NOW, windowDays: 7 }))
+      .toEqual([expect.objectContaining({ id: 'published-now-future-event' })])
   })
 })
