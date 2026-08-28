@@ -4,7 +4,9 @@
  */
 
 import { getMarketplaceCategory } from './taxonomy'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { createSupabaseServiceClient } from '@/lib/supabase/server'
+
+type MarketplaceServiceClient = Awaited<ReturnType<typeof createSupabaseServiceClient>>
 
 function slugify(text: string) {
   return text
@@ -42,7 +44,7 @@ function parsePrice(priceRaw: string | null | undefined): number | null {
  * Insert a public-approved listing row for an auto-published Tier A candidate.
  */
 export async function promoteTierACandidateToListing(
-  svc: SupabaseClient,
+  svc: MarketplaceServiceClient,
   input: PromoteTierAInput,
 ): Promise<PromoteTierAResult> {
   const category = getMarketplaceCategory(input.categoryKey)
