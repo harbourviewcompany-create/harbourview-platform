@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react'
 
 /** Shared helpers for modular CommandCentre split */
 
-type SelectOpt = { value: string; label: string }
+export type SelectOpt = { value: string; label: string }
 
 export type SignalGroup = 'REGULATORY' | 'MARKET ACCESS' | 'SUPPLY CHAIN' | 'TESTING & COMPLIANCE' | 'EXPORT / BUYER MOVEMENT' | 'EVIDENCE UPDATES'
 
