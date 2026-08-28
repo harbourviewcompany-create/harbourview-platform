@@ -18,7 +18,6 @@ export type {
   MarketTier,
 } from './marketTypes'
 export {
-  TIER_A_CATEGORY_KEYS,
   defaultCtaForTier,
   resolveMarketTier,
 } from './marketTypes'
