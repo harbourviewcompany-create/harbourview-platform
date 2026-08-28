@@ -10,11 +10,11 @@ export {
 
 export {
   NextActionsSection,
-  PersonalBriefingSection,
   SearchSection,
   LocalIntelSection,
 } from './sections/IntelligenceSections'
 
+export { PersonalBriefingSection } from './sections/PersonalBriefingLiveSection'
 export { WeeklySignalsSection } from './sections/DecisionSignalsSection'
 export { EducationSection } from './sections/EducationCommandSection'
 

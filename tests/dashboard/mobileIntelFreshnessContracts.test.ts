@@ -1,0 +1,113 @@
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+const mobileModel = readFileSync('components/dashboard/mobile-command/useMobileCommandModel.ts', 'utf8')
+const realtimeHook = readFileSync('components/dashboard/useDashboardSignalsRealtime.ts', 'utf8')
+const signalRoute = readFileSync('app/api/dashboard/signals/route.ts', 'utf8')
+const signalFreshness = readFileSync('lib/dashboard/signalFreshness.ts', 'utf8')
+const sections = readFileSync('components/dashboard/mobile-command/Sections.tsx', 'utf8')
+const personal = readFileSync('components/dashboard/mobile-command/sections/PersonalBriefingLiveSection.tsx', 'utf8')
+const synth = readFileSync('lib/intelligence/jurisdictionSynthesisFresh.ts', 'utf8')
+const synthTimeline = readFileSync('lib/intelligence/jurisdictionSynthesisTimeline.ts', 'utf8')
+const synthBridge = readFileSync('lib/intelligence/jurisdictionSynthesis.ts', 'utf8')
+const synthCron = readFileSync('app/api/cron/synthesize-jurisdictions/route.ts', 'utf8')
+const migration = readFileSync('supabase/migrations/20260827234500_signal_freshness_timeline.sql', 'utf8')
+const populationMigration = readFileSync('supabase/migrations/20260828143000_signal_timeline_population_hardening.sql', 'utf8')
+
+describe('Mobile Intel freshness and briefing contracts', () => {
+  it('uses one canonical realtime signal feed instead of an enriched second-pass swap', () => {
+    expect(mobileModel).toContain('useDashboardSignalsRealtime')
+    expect(mobileModel).toContain('props.signals')
+    expect(mobileModel).not.toContain('setEnrichedSignals')
+    expect(mobileModel).not.toContain("fetch(`/api/dashboard/signals")
+    expect(realtimeHook).toContain('canonicalizeDashboardSignals')
+    expect(realtimeHook).toContain("cache: 'no-store'")
+    expect(realtimeHook).toContain("{ event: '*', schema: 'public', table: 'signals' }")
+  })
+
+  it('keeps API candidate order recency-first and final selection current, strict and freshness-gated', () => {
+    const dateOrder = signalRoute.indexOf(".order('date'")
+    const confidenceOrder = signalRoute.indexOf(".order('quality_confidence'")
+    expect(dateOrder).toBeGreaterThan(-1)
+    expect(confidenceOrder).toBeGreaterThan(dateOrder)
+    expect(signalRoute).toContain('canonicalizeDashboardSignals')
+    expect(signalRoute).toContain('candidateCountryFilter')
+    expect(signalRoute).toContain('WEEKLY_SIGNAL_WINDOW_DAYS')
+    expect(signalFreshness).toContain('entry.freshnessMs <= nowMs')
+    expect(signalFreshness).toContain('entry.contextual || entry.global')
+    expect(signalFreshness).toContain('jurisdictionTokens')
+    expect(signalFreshness).toContain('jurisdictionValueMatches')
+    expect(signalRoute).toContain("'Cache-Control': 'private, no-store, max-age=0'")
+  })
+
+  it('binds the mobile Personal briefing route to actual personal, synth and static API outputs', () => {
+    expect(sections).toContain("export { PersonalBriefingSection } from './sections/PersonalBriefingLiveSection'")
+    expect(personal).toContain("fetch('/api/dashboard/my-briefings'")
+    expect(personal).toContain('state.data?.personal?.narrative')
+    expect(personal).toContain('state.data?.synthBriefings')
+    expect(personal).toContain('state.data?.staticBriefings')
+    expect(personal).toContain('generated_at')
+    expect(personal).toContain('week_ending')
+    expect(personal).toContain("isStale ? 'Stale' : 'Current'")
+  })
+
+  it('bounds synthesis evidence, separates event time and rotates fixed-time daily cron batches by day', () => {
+    expect(synthBridge).toContain("export * from './jurisdictionSynthesisFresh'")
+    expect(synthTimeline).toContain('SYNTHESIS_PRIMARY_WINDOW_DAYS = 30')
+    expect(synthTimeline).toContain('SYNTHESIS_FALLBACK_WINDOW_DAYS = 45')
+    expect(synthTimeline).toContain('SYNTHESIS_UPCOMING_WINDOW_DAYS = 90')
+    expect(synthTimeline).toContain('classifySynthesisTimeline')
+    expect(synthTimeline).toContain("kind: eventAt <= upcomingUpperBound ? 'upcoming' : 'out_of_window'")
+    expect(synth).toContain(".gte('created_at', createdCutoff)")
+    expect(synth).toContain('classifySynthesisTimeline(row, now)')
+    expect(synth).toContain("entry.timeline.kind === 'recent'")
+    expect(synth).toContain("entry.timeline.kind === 'upcoming'")
+    expect(synth).not.toContain('regardless of date')
+    expect(synth).toContain('const dayIndex = Math.floor(Date.now() / DAY_MS)')
+    expect(synth).not.toContain('new Date().getUTCHours()')
+    expect(synthCron).toContain('synthesiseJurisdictionBatch')
+    expect(synthCron).toContain('DEFAULT_BATCH = 4')
+  })
+
+  it('fails closed on incidental crime, stale reference guides and source-location mis-tagging', () => {
+    expect(synth).toContain('CANNABIS_CHANGE_RE')
+    expect(synth).toContain('INCIDENTAL_HARM_RE')
+    expect(synth).toContain('REFERENCE_GUIDE_RE')
+    expect(synth).toContain('dedupeSynthesisRows')
+    expect(synth).toContain('isFeedLikeUrl')
+    expect(synth).toContain('jurisdictionValueMatches(row.country, countryName)')
+    expect(synth).toContain('if (selectedMentioned) return true')
+    expect(synth).toContain('if (foreignMentioned && !curatedCommercialSignal) return false')
+    expect(synth).toContain('return curatedCommercialSignal || strongCannabisContext')
+    expect(synth).toContain('const PROMPT_VERSION = 6')
+  })
+
+  it('keeps current briefings publishable without inventing facts when the LLM provider is unavailable', () => {
+    expect(synth).toContain("DETERMINISTIC_MODEL = 'deterministic-bounded-v1'")
+    expect(synth).toContain('deterministicBriefing')
+    expect(synth).toContain("legal_status: 'unknown'")
+    expect(synth).toContain("market_maturity: 'unknown'")
+    expect(synth).toContain('Older or off-domain developments were intentionally not reused')
+    expect(synth).toContain('CANNABIS_DOMAIN_RE')
+    expect(synth).toContain('isSynthesisRelevant')
+    expect(synth).toContain('claudeCircuitOpen')
+    expect(synth).toContain('model_used: modelUsed')
+  })
+
+  it('adds separate timeline fields and promotes existing structured producer dates without deleting history', () => {
+    for (const column of ['source_published_at', 'event_effective_at', 'observed_at', 'ingested_at']) {
+      expect(migration).toContain(column)
+    }
+    expect(migration).toContain('https://sibiz.eu/slovenia-legalizes-medical-cannabis-marijuana-new-law-effective-from-august-20-2025/')
+    expect(migration).toContain("source_published_at = '2025-08-22T00:00:00Z'")
+    expect(migration).toContain("event_effective_at = '2025-08-20T00:00:00Z'")
+    expect(migration).not.toContain('delete from public.signals')
+    expect(migration).toContain('create or replace view api.signals_with_quality')
+
+    expect(populationMigration).toContain("analysis->>'publication_date'")
+    expect(populationMigration).toContain("analysis->>'effective_date'")
+    expect(populationMigration).toContain('pg_input_is_valid')
+    expect(populationMigration).toContain('create or replace function public.hv_signal_timeline_defaults()')
+    expect(populationMigration).not.toContain('delete from public.signals')
+  })
+})

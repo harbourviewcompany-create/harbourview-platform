@@ -38,9 +38,36 @@ const NAME_TO_ISO2: Record<string, string> = {
   'European Union': 'EU',
 }
 
+const NORMALIZED_NAME_TO_ISO2 = new Map(
+  Object.entries(NAME_TO_ISO2).map(([name, iso2]) => [name.trim().toLowerCase(), iso2]),
+)
+
+export function marketToIso2(market: string | null | undefined): string | null {
+  const value = market?.trim()
+  if (!value) return null
+  if (/^[A-Za-z]{2}$/.test(value)) return value.toUpperCase()
+  return NORMALIZED_NAME_TO_ISO2.get(value.toLowerCase()) ?? null
+}
+
+export function marketAliases(market: string | null | undefined): string[] {
+  const value = market?.trim()
+  if (!value) return []
+  const iso2 = marketToIso2(value)
+  if (!iso2) return [value]
+  const aliases = Object.entries(NAME_TO_ISO2)
+    .filter(([, mapped]) => mapped === iso2)
+    .map(([name]) => name)
+  return [...new Set([iso2, ...aliases])]
+}
+
+export function canonicalMarketId(market: string | null | undefined): string | null {
+  const value = market?.trim()
+  if (!value) return null
+  const iso2 = marketToIso2(value)
+  return iso2 ? `iso:${iso2}` : `name:${value.toLowerCase()}`
+}
+
 export function flagForMarket(market: string | null | undefined): string {
-  if (!market) return '🌐'
-  if (market.length === 2) return flagEmoji(market)
-  const iso2 = NAME_TO_ISO2[market]
+  const iso2 = marketToIso2(market)
   return iso2 ? flagEmoji(iso2) : '🌐'
 }
