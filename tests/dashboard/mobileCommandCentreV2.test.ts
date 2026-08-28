@@ -2,9 +2,11 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { parseHTML } from 'linkedom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MobileCommandCentreRebuild } from '@/components/dashboard/MobileCommandCentreRebuild'
+import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
 import {
+  defaultListingTypeForView,
   PAGE_TO_SECTION,
+  parseMobileCommandTool,
   PRIMARY_NAV,
   SECTION_GROUPS,
   SECTION_NAV,
@@ -14,7 +16,6 @@ import {
 } from '@/components/dashboard/mobile-command/contracts'
 import type { MobileCommandCentreProps } from '@/components/dashboard/mobile-command/props'
 import type { MarketRow } from '@/components/dashboard/CommandCentre'
-import { defaultListingTypeForView, parseMobileCommandTool } from '@/components/dashboard/mobile-command/toolQuery'
 
 const navigation = vi.hoisted(() => ({
   push: vi.fn(),
