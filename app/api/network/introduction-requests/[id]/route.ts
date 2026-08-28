@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import {
+  allowedIntroductionTransitions,
   isIntroductionTransitionAllowed,
   isNetworkIntroductionStatus,
   NETWORK_INTRODUCTION_STATUSES,
@@ -15,6 +16,10 @@ const AdvanceSchema = z.object({
   outcome: z.string().trim().max(1000).optional().nullable(),
   detail: z.record(z.string(), z.unknown()).optional(),
 })
+
+function validIntroductionId(id: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+}
 
 function mapAdvanceError(message: string | undefined): { status: number; error: string } {
   const text = message ?? ''
@@ -36,12 +41,64 @@ function mapAdvanceError(message: string | undefined): { status: number; error: 
   return { status: 400, error: text || 'Introduction advancement failed.' }
 }
 
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+) {
+  const { id } = await ctx.params
+  if (!validIntroductionId(id)) {
+    return NextResponse.json({ error: 'Invalid introduction id.' }, { status: 400 })
+  }
+
+  const context = await resolveActiveNetworkContext()
+  if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!context.workspaceId) {
+    return NextResponse.json(
+      { error: 'Select an active organization before managing an introduction.' },
+      { status: 409 },
+    )
+  }
+
+  const [{ data: existing, error: loadError }, { data: staffData, error: staffError }] = await Promise.all([
+    context.supabase
+      .from('network_introductions')
+      .select('id,status,outcome,introduced_at,updated_at')
+      .eq('id', id)
+      .eq('workspace_id', context.workspaceId)
+      .maybeSingle(),
+    context.supabase.rpc('hv_network_is_staff'),
+  ])
+
+  if (loadError) return NextResponse.json({ error: loadError.message }, { status: 400 })
+  if (staffError) return NextResponse.json({ error: 'Introduction permissions are temporarily unavailable.' }, { status: 503 })
+  if (!existing) return NextResponse.json({ error: 'Introduction not found in the active organization.' }, { status: 404 })
+  if (!isNetworkIntroductionStatus(existing.status)) {
+    return NextResponse.json({ error: 'Introduction has an invalid lifecycle status.' }, { status: 409 })
+  }
+
+  const isStaff = staffData === true
+  return NextResponse.json(
+    {
+      introduction: {
+        id: existing.id,
+        status: existing.status,
+        outcome: existing.outcome ?? null,
+        introducedAt: existing.introduced_at ?? null,
+        updatedAt: existing.updated_at,
+      },
+      allowedTransitions: allowedIntroductionTransitions(existing.status, isStaff),
+      transitionAuthority: isStaff ? 'staff' : 'member',
+    },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  )
+}
+
 export async function PATCH(
   req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+  if (!validIntroductionId(id)) {
     return NextResponse.json({ error: 'Invalid introduction id.' }, { status: 400 })
   }
 
@@ -87,7 +144,6 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid target status.' }, { status: 400 })
   }
 
-  // Pre-check existence + workspace tenancy with the session client (RLS).
   const { data: existing, error: loadError } = await context.supabase
     .from('network_introductions')
     .select('id,workspace_id,status')
@@ -102,9 +158,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Introduction not found in the active organization.' }, { status: 404 })
   }
 
-  // Optimistic client-side matrix check (member path). Staff path is enforced in SQL.
-  // We cannot know staff role here without an extra query; invalid member jumps still
-  // fail inside hv_network_advance_introduction.
+  // Fast structural check only. Actor-specific member/staff authorization remains
+  // authoritative in public.hv_network_advance_introduction.
   if (
     !isIntroductionTransitionAllowed(existing.status, parsed.data.toStatus, true)
     && !isIntroductionTransitionAllowed(existing.status, parsed.data.toStatus, false)

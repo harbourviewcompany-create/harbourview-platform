@@ -103,6 +103,20 @@
       "file": "20260822174500_talent_api_schema_exposure.sql",
       "git_blob_sha": "160d7de785ad60e8833512e7acbba440b27252a8",
       "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1629, "production_name": "talent_api_schema_exposure", "production_statement_count": 1, "production_statement_md5": "f5731ecbe2e311a3b24921b779a3db4c", "production_statement_chars": 2284, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback API-schema privilege and behavior verification. Supabase minted live version 20260822214001 for canonical repository migration 20260822174500." }
+    },
+    {
+      "live_version": "20260828111619",
+      "repository_version": "20260828022000",
+      "file": "20260828022000_fix_counterparty_extraction_cte_scope.sql",
+      "git_blob_sha": "f4571c461361e29575d2827fa883f1517a3bd34c",
+      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "fix_counterparty_extraction_cte_scope", "production_statement_count": 1, "production_statement_md5": "024560c6423ec70bb4e62c96fe65ff04", "production_statement_chars": 2008, "production_apply_evidence": "Read-only production ledger verification on 2026-08-28 confirmed live version 20260828111619 stores the executable DO block of canonical repository migration 20260828022000. The canonical file is pinned by Git blob f4571c461361e29575d2827fa883f1517a3bd34c; the live row is an apply-time alias rather than a distinct migration. No production history row was changed." }
+    },
+    {
+      "live_version": "20260828140346",
+      "repository_version": "20260828143000",
+      "file": "20260828143000_signal_timeline_population_hardening.sql",
+      "git_blob_sha": "7ead22876aead1bfd567d228c5441d5ffce1abff",
+      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1662, "production_name": "signal_timeline_population_hardening", "production_statement_count": 1, "production_statement_md5": "99ec72c53b3cd36570b85ef00e3022d9", "production_statement_chars": 2802, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-28 after exact-head freshness tests, typecheck, isolated build, production-config build, SQL parse, and migration-drift verification passed. Supabase minted live version 20260828140346 for canonical repository migration 20260828143000." }
     }
   ]
 }

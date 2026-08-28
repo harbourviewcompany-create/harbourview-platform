@@ -11,6 +11,10 @@ export type SafeSignalPresentationRow = {
   analysis?: unknown
   date?: unknown
   created_at?: unknown
+  source_published_at?: unknown
+  event_effective_at?: unknown
+  observed_at?: unknown
+  ingested_at?: unknown
 }
 
 function asRecord(value: unknown): UnknownRecord {
@@ -49,10 +53,11 @@ function mergeLists(...lists: Array<string[] | undefined>): string[] | undefined
   return deduped.length ? deduped : undefined
 }
 
-function publishedAt(row: SafeSignalPresentationRow, analysis: UnknownRecord): string | undefined {
-  return cleanText(analysis.source_published_at, 80)
-    ?? cleanText(row.date, 80)
-    ?? cleanText(row.created_at, 80)
+function cleanTimestamp(value: unknown): string | undefined {
+  const raw = cleanText(value, 80)
+  if (!raw) return undefined
+  const ms = Date.parse(raw)
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined
 }
 
 /**
@@ -85,12 +90,28 @@ export function buildSafeSignalPresentation(row: SafeSignalPresentationRow): Par
   const imageUrl = cleanUrl(analysis.image_url)
   const imageStatus = cleanText(analysis.image_status, 120)
 
+  const sourcePublishedAt = cleanTimestamp(row.source_published_at)
+    ?? cleanTimestamp(analysis.source_published_at)
+  const eventEffectiveAt = cleanTimestamp(row.event_effective_at)
+    ?? cleanTimestamp(analysis.event_effective_at)
+  const observedAt = cleanTimestamp(row.observed_at)
+    ?? cleanTimestamp(analysis.observed_at)
+  const ingestedAt = cleanTimestamp(row.ingested_at)
+    ?? cleanTimestamp(row.created_at)
+  const legacyDate = cleanTimestamp(row.date)
+
   return {
     summary,
     commercialImpact,
     sourceLabel: cleanText(row.source, 300),
     sourceUrl,
-    publishedAt: publishedAt(row, analysis),
+    // Preserve the old field for downstream compatibility, but never collapse
+    // the explicit timeline fields into observation/ingestion time.
+    publishedAt: sourcePublishedAt ?? legacyDate ?? eventEffectiveAt ?? observedAt ?? ingestedAt,
+    sourcePublishedAt,
+    eventEffectiveAt,
+    observedAt,
+    ingestedAt,
     verificationStatus: cleanText(row.verification, 160),
     jurisdictions,
     counterparties,
