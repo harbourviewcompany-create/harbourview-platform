@@ -19,6 +19,22 @@ const IntroductionSchema = z.object({
   requestedDisclosureScope: z.string().trim().min(1).max(160).optional().default('identity_and_business_context'),
 })
 
+function mapRequestError(message: string | undefined): { status: number; error: string } {
+  const text = message ?? ''
+  if (text.includes('NETWORK_INTRODUCTION_UNAUTHENTICATED')) return { status: 401, error: 'Unauthorized' }
+  if (text.includes('NETWORK_INTRODUCTION_FORBIDDEN')) return { status: 403, error: 'Active organization membership required.' }
+  if (text.includes('NETWORK_MISSION_WORKSPACE_MISMATCH')) return { status: 404, error: 'Mission is not available in the active organization.' }
+  if (text.includes('NETWORK_INTRODUCTION_TARGET_NOT_FOUND')) return { status: 404, error: 'Introduction target was not found.' }
+  if (text.includes('NETWORK_INTRODUCTION_TARGET_MISMATCH')) return { status: 409, error: 'Introduction target does not match the resolved Network identity.' }
+  if (text.includes('NETWORK_INTRODUCTION_INVALID_TARGET')) return { status: 400, error: 'Invalid introduction target.' }
+  if (text.includes('NETWORK_INTRODUCTION_INVALID_REASON')) return { status: 400, error: 'Invalid introduction reason.' }
+  if (text.includes('NETWORK_INTRODUCTION_INVALID_DISCLOSURE_SCOPE')) return { status: 400, error: 'Invalid disclosure scope.' }
+  if (text.includes('NETWORK_INTRODUCTION_INVALID_SOURCE_KIND') || text.includes('NETWORK_INTRODUCTION_INVALID_SOURCE_ID')) {
+    return { status: 400, error: 'Invalid introduction source reference.' }
+  }
+  return { status: 400, error: 'Introduction request failed.' }
+}
+
 export async function POST(req: NextRequest) {
   const context = await resolveActiveNetworkContext()
   if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -51,52 +67,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid introduction request.', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  if (parsed.data.missionId) {
-    const { data: mission } = await context.supabase
-      .from('network_missions')
-      .select('id')
-      .eq('id', parsed.data.missionId)
-      .eq('workspace_id', context.workspaceId)
-      .maybeSingle()
-    if (!mission) return NextResponse.json({ error: 'Mission is not available in the active organization.' }, { status: 404 })
+  const { data, error } = await context.supabase.rpc('hv_network_request_introduction', {
+    p_workspace_id: context.workspaceId,
+    p_reason: parsed.data.reason,
+    p_requested_disclosure_scope: parsed.data.requestedDisclosureScope,
+    p_mission_id: parsed.data.missionId ?? null,
+    p_target_entity_id: parsed.data.target.entityId ?? null,
+    p_target_source_kind: parsed.data.target.sourceKind ?? null,
+    p_target_source_id: parsed.data.target.sourceId ?? null,
+  })
+
+  if (error) {
+    const mapped = mapRequestError(error.message)
+    return NextResponse.json({ error: mapped.error }, { status: mapped.status })
   }
 
-  const { data: introduction, error } = await context.supabase
-    .from('network_introductions')
-    .insert({
-      workspace_id: context.workspaceId,
-      mission_id: parsed.data.missionId ?? null,
-      requester_user_id: context.userId,
-      target_entity_id: parsed.data.target.entityId ?? null,
-      target_source_kind: parsed.data.target.sourceKind ?? null,
-      target_source_id: parsed.data.target.sourceId ?? null,
-      reason: parsed.data.reason,
-      requested_disclosure_scope: parsed.data.requestedDisclosureScope,
-      status: 'review',
-      consent_required: true,
-    })
-    .select('id,status,created_at')
-    .single()
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) return NextResponse.json({ error: 'Introduction request returned no row.' }, { status: 500 })
 
-  if (error || !introduction) {
-    return NextResponse.json({ error: error?.message ?? 'Introduction request failed.' }, { status: 400 })
-  }
-
-  const { error: eventError } = await context.supabase
-    .from('network_introduction_events')
-    .insert({
-      introduction_id: introduction.id,
-      workspace_id: context.workspaceId,
-      actor_user_id: context.userId,
-      event_type: 'requested',
-      from_status: null,
-      to_status: 'review',
-      detail: { requested_disclosure_scope: parsed.data.requestedDisclosureScope },
-    })
-
-  if (eventError) {
-    console.error('[network] introduction event insert failed', eventError.message)
-  }
-
-  return NextResponse.json({ introduction }, { status: 201 })
+  return NextResponse.json(
+    {
+      introduction: {
+        id: row.id,
+        status: row.status,
+        created_at: row.created_at,
+      },
+    },
+    { status: 201, headers: { 'Cache-Control': 'private, no-store' } },
+  )
 }
