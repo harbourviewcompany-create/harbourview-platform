@@ -1,9 +1,11 @@
-# Vercel Ignored Build Step Verification Note
+# Vercel Git Deployment Admission Verification Note
 
-This documentation-only commit exists to verify that ordinary non-deploy branches skip Vercel preview deployments while GitHub Actions still run.
+The quota boundary is `git.deploymentEnabled` in `vercel.json`, not the ignored-build command.
 
 Expected result:
-- Branch: `verify/vercel-ignore-nondeploy-branch`
-- No deploy-intent marker in branch name or commit message
-- Vercel preview build should be skipped by `scripts/vercel-ignore-wbcc-only.sh`
-- GitHub Actions should still run normally
+- `main` creates the automatic production deployment.
+- `preview/*` creates deliberate preview deployments used by `.github/workflows/deploy-preview.yml`.
+- Every other branch is denied before Vercel creates a deployment record, including `sync/*`, nested Dependabot branches, `feat/*`, `fix/*`, agent branches, and previously unseen branch prefixes.
+- `scripts/vercel-ignore-wbcc-only.sh` remains a second-layer build control for deployments that were intentionally admitted; it is not relied on to protect the daily deployment quota.
+
+The contract is covered by `tests/deployment/vercelDeploymentPolicy.test.ts` and mirrors Vercel's documented `git.deploymentEnabled` behavior: unmatched branches default to enabled, matching rules use minimatch patterns, and any matching `true` rule enables deployment. The fail-closed policy therefore uses a catch-all deny rule plus explicit `main` and `preview/*` allow rules.
