@@ -83,6 +83,26 @@ describe('canonical signal freshness', () => {
     expect(result[0]?.id).toBe('newer')
   })
 
+  it('preserves identity query parameters while removing tracking parameters', () => {
+    const first = signal({
+      id: 'article-1',
+      title: 'Same publisher route',
+      market: 'Germany',
+      sourceUrl: 'https://example.com/article?id=1&utm_source=feed',
+      publishedAt: '2026-08-27T10:00:00Z',
+    })
+    const second = signal({
+      id: 'article-2',
+      title: 'Same publisher route',
+      market: 'Germany',
+      sourceUrl: 'https://example.com/article?id=2&utm_source=feed',
+      publishedAt: '2026-08-27T09:00:00Z',
+    })
+
+    const result = canonicalizeDashboardSignals([first, second], 'Germany', { nowMs: NOW, windowDays: 7 })
+    expect(result.map(item => item.id)).toEqual(['article-1', 'article-2'])
+  })
+
   it('places direct jurisdiction matches before broader watch, then recency, then confidence', () => {
     const germany = signal({
       id: 'de',
@@ -112,5 +132,28 @@ describe('canonical signal freshness', () => {
       { nowMs: NOW, windowDays: 7 },
     )
     expect(result.map(item => item.id)).toEqual(['de-high', 'de', 'global'])
+  })
+
+  it('uses exact canonical jurisdiction identity so US never matches Australia', () => {
+    const australia = signal({
+      id: 'au',
+      title: 'Australia development',
+      market: 'Australia',
+      confidence: 99,
+      publishedAt: '2026-08-27T20:00:00Z',
+    })
+    const unitedStates = signal({
+      id: 'us',
+      title: 'United States development',
+      market: 'United States',
+      confidence: 80,
+      publishedAt: '2026-08-26T08:00:00Z',
+    })
+
+    const result = canonicalizeDashboardSignals([australia, unitedStates], 'US', {
+      nowMs: NOW,
+      windowDays: 7,
+    })
+    expect(result.map(item => item.id)).toEqual(['us', 'au'])
   })
 })
