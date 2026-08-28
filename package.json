@@ -64,7 +64,7 @@
     "test:quarantined": "vitest run tests/clinical/clinicalInteractionQuerySource.test.ts tests/clinical/corpusDepthRelease.test.ts tests/clinical/evidenceOperatingSystem.test.ts tests/clinical/evidenceV11Operations.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/dashboard/mobileCommandCentreV2.test.ts tests/dashboard/mobileIntelInstitutional.test.tsx tests/globe-russia-radial-clearance.test.ts tests/harbourview/p0-identity-org-context.test.ts tests/intel/decisionIntelFirstSlice.test.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
+    "@anthropic-ai/sdk": "^0.120.0",
     "@google/genai": "^2.17.1",
     "@googleapis/drive": "^21.0.0",
     "@react-three/drei": "^10.7.8",
