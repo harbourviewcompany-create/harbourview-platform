@@ -55,6 +55,16 @@ describe('Mobile Intel freshness and briefing contracts', () => {
     expect(synthCron).toContain('DEFAULT_BATCH = 4')
   })
 
+  it('keeps current briefings publishable without inventing facts when the LLM provider is unavailable', () => {
+    expect(synth).toContain("DETERMINISTIC_MODEL = 'deterministic-bounded-v1'")
+    expect(synth).toContain('deterministicBriefing')
+    expect(synth).toContain("legal_status: 'unknown'")
+    expect(synth).toContain("market_maturity: 'unknown'")
+    expect(synth).toContain('Older developments were intentionally not reused')
+    expect(synth).toContain('claudeCircuitOpen')
+    expect(synth).toContain('model_used: modelUsed')
+  })
+
   it('adds separate publication, event, observation and ingestion timestamps without deleting history', () => {
     for (const column of ['source_published_at', 'event_effective_at', 'observed_at', 'ingested_at']) {
       expect(migration).toContain(column)
