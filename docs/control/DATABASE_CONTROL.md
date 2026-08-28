@@ -228,8 +228,17 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
   would be a privilege widening.
 - Backward compatibility: the returned JSON keys and their meanings are identical.
   Callers see a successful collect phase where they previously saw an exception.
-- Rollback: swap `v_old` and `v_new` in the two replace blocks and re-run. No data
-  is written; no object is created or dropped.
+- Rollback: write a **new forward migration** applying the two replacements in
+  reverse (`v_old` and `v_new` swapped). Do **not** edit and re-run the original
+  file: once applied its version is recorded in
+  `supabase_migrations.schema_migrations`, so it will not re-run, and editing a
+  recorded migration breaks its content-hash binding under
+  `check-pending-production-migration-decisions`. Reversal is mechanically
+  possible because the marker the file guards on,
+  `(select provider from parsed)`, survives the patch -- it moves into the
+  `select ... into v_inserted, v_collect_provider` statement rather than being
+  deleted -- so a reverse patch is not blocked by the guard; verified on a local
+  PostgreSQL 16 cluster. No data is written; no object is created or dropped.
 - Required tests: verified on a throwaway local PostgreSQL 16 cluster against a
   structurally faithful reproduction — production's failure reproduced
   byte-identically, the migration applied, the same call then returned
