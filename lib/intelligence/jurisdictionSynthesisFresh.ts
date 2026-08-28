@@ -11,8 +11,8 @@ import {
   type SignalQualityRow,
 } from '@/lib/signals/quality'
 
-const TIMELINE_SELECT = `headline, country, company, query_pack, date, created_at, source_published_at, event_effective_at, observed_at, ingested_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
-const LEGACY_SELECT = `headline, country, company, query_pack, date, created_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const TIMELINE_SELECT = `headline, country, company, query_pack, url, date, created_at, source_published_at, event_effective_at, observed_at, ingested_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
+const LEGACY_SELECT = `headline, country, company, query_pack, url, date, created_at, top_lane, cat, commercial_impact, pri, reviewed, ${SIGNAL_QUALITY_SELECT}` as const
 const PRIMARY_WINDOW_DAYS = 30
 const FALLBACK_WINDOW_DAYS = 45
 const UPCOMING_WINDOW_DAYS = 90
@@ -23,6 +23,10 @@ const CLAUDE_CIRCUIT_COOLDOWN_MS = 15 * 60_000
 const LEGAL_STATUSES = ['medical_only', 'adult_use', 'decrim', 'illegal', 'mixed', 'transitional', 'unknown'] as const
 const MARKET_MATURITIES = ['emerging', 'developing', 'maturing', 'mature', 'restricted', 'unknown'] as const
 const CANNABIS_DOMAIN_RE = /\b(cannabis|marijuana|marihuana|maconha|hemp|chanvre|cáñamo|cannabinoid|cannabinoids|cannabidiol|tetrahydrocannabinol|thc|cbd|cbpm|cbpms|medcang|curaleaf|tilray|trulieve|organigram|cronos|green thumb|village farms|canopy growth|aurora cannabis)\b/i
+const CANNABIS_CHANGE_RE = /\b(legal|law|regulat|licen[cs]|permit|reimbursement|prescrib|pharmac|medical|clinical|trial|fda|dea|mhra|bfarm|efsa|echa|import|export|supply|distribution|wholesale|retail|sales|revenue|market|cultivat|production|manufactur|facility|acquir|acquisition|merger|bid|investment|funding|launch|approval|authori[sz]|ban|hemp|thc|cbd|cannabinoid)\w*/i
+const INCIDENTAL_HARM_RE = /\b(stabb(?:ed|ing)?|murder(?:ed)?|homicide|boyfriend|girlfriend|found body|fatal(?:ly)?|shooting)\b/i
+const REFERENCE_GUIDE_RE = /\b(is (?:weed|cannabis|marijuana) legal|understanding [^.!?]{0,80}(?:cannabis|marijuana) laws|complete (?:cannabis|marijuana|hemp) guide|what(?:'s| is) legal now)\b/i
+const GENERIC_IMPACT_RE = /^(monitor for developing relevance|likely trade or market-access relevance)$/i
 
 let claudeCircuitOpenUntil = 0
 
@@ -81,6 +85,7 @@ type SignalRow = SignalQualityRow & {
   country: string | null
   company?: string | null
   query_pack?: string | null
+  url?: string | null
   date: string | null
   created_at: string | null
   source_published_at?: string | null
@@ -104,9 +109,33 @@ function ms(value: string | null | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function explicitContentDateMs(row: SignalRow): number | null {
+  const text = [row.title_en, row.headline, row.summary_en]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(' ')
+
+  const updated = text.match(/\bupdated\s+(?:on\s+)?([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b/i)?.[1]
+  if (updated) {
+    const parsed = ms(updated)
+    if (parsed != null) return parsed
+  }
+
+  const published = text.match(/\bpublished\s+(?:on\s+)?([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b/i)?.[1]
+  if (published) {
+    const parsed = ms(published)
+    if (parsed != null) return parsed
+  }
+
+  const leading = text.match(/^\s*([A-Z][a-z]{2,8}\s+\d{1,2},\s+\d{4})\b/)?.[1]
+  return leading ? ms(leading) : null
+}
+
 function rowFreshnessMs(row: SignalRow) {
   const source = ms(row.source_published_at)
   if (source != null) return source
+
+  const embedded = explicitContentDateMs(row)
+  if (embedded != null) return embedded
 
   const event = ms(row.event_effective_at) ?? ms(inferEventEffectiveAt(row.headline))
   const legacy = ms(row.date)
@@ -133,6 +162,42 @@ function mentionsAlias(text: string, alias: string) {
   return new RegExp(`\\b${escapeRegExp(trimmed)}\\b`, 'i').test(text)
 }
 
+function normalizedEvidenceUrl(value: string | null | undefined): string | null {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    url.hash = ''
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(utm_|fbclid$|gclid$)/i.test(key)) url.searchParams.delete(key)
+    }
+    url.searchParams.sort()
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    return value.trim() || null
+  }
+}
+
+function isFeedLikeUrl(value: string) {
+  try {
+    const url = new URL(value)
+    const path = url.pathname.toLowerCase().replace(/\/$/, '')
+    return path.endsWith('/feed') || path.endsWith('/rss') || path.endsWith('.rss') || path.endsWith('.xml') || path.endsWith('.atom')
+  } catch {
+    return false
+  }
+}
+
+function dedupeSynthesisRows(rows: SignalRow[]) {
+  const seen = new Set<string>()
+  return rows.filter(row => {
+    const normalized = normalizedEvidenceUrl(row.url)
+    if (!normalized || isFeedLikeUrl(normalized)) return true
+    if (seen.has(normalized)) return false
+    seen.add(normalized)
+    return true
+  })
+}
+
 function isSynthesisRelevant(row: SignalRow, countryName: string) {
   const text = [
     row.headline,
@@ -143,18 +208,25 @@ function isSynthesisRelevant(row: SignalRow, countryName: string) {
   ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0).join(' ')
 
   const explicitlyCannabis = CANNABIS_DOMAIN_RE.test(text)
+  const strongCannabisContext = explicitlyCannabis && CANNABIS_CHANGE_RE.test(text)
+  const genericImpact = !row.commercial_impact?.trim() || GENERIC_IMPACT_RE.test(row.commercial_impact.trim())
   const curatedCommercialSignal = !row.query_pack
     && Boolean(row.company?.trim())
     && Boolean(row.commercial_impact?.trim())
-    && !/^monitor for developing relevance$/i.test(row.commercial_impact?.trim() ?? '')
-  if (!explicitlyCannabis && !curatedCommercialSignal) return false
+    && !genericImpact
+
+  if (INCIDENTAL_HARM_RE.test(text) && genericImpact) return false
+  if (REFERENCE_GUIDE_RE.test(text) && genericImpact) return false
+  if (!strongCannabisContext && !curatedCommercialSignal) return false
 
   const selectedMentioned = marketAliases(countryName).some(alias => mentionsAlias(text, alias))
   const foreignMentioned = SYNTHESIS_MARKETS
     .filter(market => market.name !== countryName)
     .some(market => marketAliases(market.name).some(alias => mentionsAlias(text, alias)))
 
-  return selectedMentioned || !foreignMentioned
+  if (selectedMentioned) return true
+  if (foreignMentioned) return false
+  return curatedCommercialSignal
 }
 
 async function fetchSignalsForCountry(
@@ -180,8 +252,8 @@ async function fetchSignalsForCountry(
   if (result.error && isTimelineGap(result.error.message)) result = await run(LEGACY_SELECT)
   if (result.error) throw new Error(result.error.message)
 
-  const rows = ((result.data ?? []) as unknown as SignalRow[])
-    .filter(row => isSynthesisRelevant(row, countryName))
+  const rows = dedupeSynthesisRows(((result.data ?? []) as unknown as SignalRow[])
+    .filter(row => isSynthesisRelevant(row, countryName)))
   const now = Date.now()
   const primaryCutoff = now - PRIMARY_WINDOW_DAYS * DAY_MS
   const fallbackCutoff = now - FALLBACK_WINDOW_DAYS * DAY_MS
@@ -230,7 +302,7 @@ function formatSignalsForPrompt(context: CountrySignalContext): string {
   return `PAST OR PRESENT EVIDENCE:\n${recent}\n\nUPCOMING SCHEDULED EVENTS:\n${upcoming}`
 }
 
-const PROMPT_VERSION = 5
+const PROMPT_VERSION = 6
 
 function buildPrompt(countryName: string, signalText: string): string {
   return `You are an expert analyst at Harbourview, the global cannabis industry intelligence platform.
