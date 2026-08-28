@@ -89,8 +89,7 @@ function latestSynthesis(rows: SynthBriefing[]) {
 
 function pickContextSynthesis(rows: SynthBriefing[], countryIso2: string | undefined) {
   if (countryIso2) {
-    const exact = rows.find(row => row.iso2.toUpperCase() === countryIso2.toUpperCase())
-    if (exact) return exact
+    return rows.find(row => row.iso2.toUpperCase() === countryIso2.toUpperCase())
   }
   return latestSynthesis(rows)
 }
@@ -166,8 +165,7 @@ export function PersonalBriefingSection({
     () => pickContextSynthesis(synthBriefings, countryIso2),
     [countryIso2, synthBriefings],
   )
-  const newestSynthesis = useMemo(() => latestSynthesis(synthBriefings), [synthBriefings])
-  const newestAt = newestSynthesis?.briefing.generated_at ?? newestSynthesis?.briefing.week_ending
+  const newestAt = contextSynthesis?.briefing.generated_at ?? contextSynthesis?.briefing.week_ending
   const newestMs = timestamp(newestAt)
   const isStale = state.status !== 'done' || newestMs == null || Date.now() - newestMs > STALE_AFTER_MS
 
@@ -215,9 +213,11 @@ export function PersonalBriefingSection({
         <StatusPill tone="neutral">
           {state.status === 'loading'
             ? 'Refreshing…'
-            : newestSynthesis
-              ? `Generated ${dateLabel(newestSynthesis.briefing.generated_at)} · week ${newestSynthesis.briefing.week_ending}`
-              : 'No generated synthesis'}
+            : contextSynthesis
+              ? `Generated ${dateLabel(contextSynthesis.briefing.generated_at)} · week ${contextSynthesis.briefing.week_ending}`
+              : countryIso2
+                ? `No generated ${countryIso2.toUpperCase()} synthesis`
+                : 'No generated synthesis'}
         </StatusPill>
       </div>
 
