@@ -5,6 +5,8 @@ import type { CommandPage, MarketView, MarketRow, DashboardMarketplaceRows } fro
 import { CustomSelect } from '../sharedHelpers'
 import { ListingDetailModal } from '../../ListingDetailModal'
 import { WantedDetailModal } from '../../WantedDetailModal'
+import { ConsumablesRequestModal } from '../../ConsumablesRequestModal'
+import { MySubmissionsPanel } from '../../MySubmissionsPanel'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 
 const MKT_TABS: { id: MarketView; label: string }[] = [
@@ -17,8 +19,10 @@ const MKT_TABS: { id: MarketView; label: string }[] = [
   { id: 'new-products', label: 'Opportunities' },
 ]
 
+type MarketSubView = 'browse' | 'submit' | 'quote' | 'deals' | 'my-listings'
+
 export const MarketplacePage = React.memo(function MarketplacePage({
-  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, pipeline, onPageChange, mySubmissions = [],
+  country, region, role, marketplaceRows, wantedListings, wantedCount, pathwayData, cannabisOperators = [], pipeline, onPageChange, mySubmissions = [],
 }: {
   country: { iso2: string; label: string }
   region: string
@@ -35,15 +39,30 @@ export const MarketplacePage = React.memo(function MarketplacePage({
   userEmail?: string | null
 }) {
   const [activeTab, setActiveTab] = useState<MarketView>('cannabis')
+  const [search, setSearch] = useState('')
+  const [subView, setSubView] = useState<MarketSubView>('browse')
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
   const [selectedWantedId, setSelectedWantedId] = useState<string | null>(null)
+  const [consumablesOpen, setConsumablesOpen] = useState(false)
+
+  const selectedWanted = useMemo(
+    () => (selectedWantedId ? (wantedListings?.find(w => w.id === selectedWantedId) ?? null) : null),
+    [selectedWantedId, wantedListings],
+  )
 
   const rows = useMemo(() => {
     if (activeTab === 'wanted' && wantedListings?.length) {
-      return wantedListings.map(w => [w.title, w.summary ?? '', w.location_country ?? country.iso2, 'Wanted', '', '', '', w.id] as MarketRow)
+      return wantedListings
+        .filter(w => !search || w.title.toLowerCase().includes(search.toLowerCase()))
+        .map(w => [w.title, w.summary ?? '', w.location_country ?? country.iso2, 'Wanted', '', '', '', w.id] as MarketRow)
     }
-    return marketplaceRows?.[activeTab] ?? []
-  }, [activeTab, marketplaceRows, wantedListings, country.iso2])
+    let r: MarketRow[] = marketplaceRows?.[activeTab] ?? []
+    if (search) {
+      const q = search.toLowerCase()
+      r = r.filter(row => String(row[0] ?? '').toLowerCase().includes(q) || String(row[1] ?? '').toLowerCase().includes(q))
+    }
+    return r
+  }, [activeTab, marketplaceRows, wantedListings, search, country.iso2])
 
   return (
     <div className="cc-marketplace">
@@ -51,43 +70,74 @@ export const MarketplacePage = React.memo(function MarketplacePage({
         <h1 className="cc-page-title">Marketplace</h1>
         <p className="cc-page-sub">{flagEmoji(country.iso2)} {country.label}{region ? ` · ${region}` : ''}</p>
       </div>
-      <div className="cc-mkt-tabs">
-        {MKT_TABS.map(t => (
-          <button key={t.id} type="button" className={activeTab === t.id ? 'cc-tab-on' : 'cc-tab'} onClick={() => setActiveTab(t.id)}>
-            {t.label}
-            <span className="cc-tab-count">
-              {t.id === 'wanted' ? (wantedListings?.length ?? wantedCount ?? 0) : (marketplaceRows?.[t.id]?.length ?? 0)}
-            </span>
-          </button>
-        ))}
+
+      <div className="cc-mkt-actions">
+        <button type="button" className={subView === 'browse' ? 'cc-tab-on' : 'cc-tab'} onClick={() => setSubView('browse')}>Browse</button>
+        <button type="button" className={subView === 'my-listings' ? 'cc-tab-on' : 'cc-tab'} onClick={() => setSubView('my-listings')}>My Listings</button>
+        <button type="button" className="cc-tab" onClick={() => setConsumablesOpen(true)}>Request consumables</button>
       </div>
-      <div className="cc-mkt-list">
-        {rows.slice(0, 20).map((r, i) => (
-          <button
-            key={String(r[7] ?? i)}
-            type="button"
-            className="cc-mkt-row"
-            onClick={() => activeTab === 'wanted' ? setSelectedWantedId(String(r[7])) : setSelectedListingId(String(r[7]))}
-          >
-            <div className="cc-mkt-title">{r[0]}</div>
-            <div className="cc-mkt-meta">{r[2]} · {r[3]}</div>
-          </button>
-        ))}
-        {rows.length === 0 && <div className="cc-muted">No listings for this tab.</div>}
-      </div>
-      {pipeline && (
-        <div className="cc-mkt-pipeline">
-          <span>Wanted {pipeline.wanted}</span>
-          <span>Matched {pipeline.matched}</span>
-          <span>Deal room {pipeline.deal_room}</span>
-        </div>
+
+      {subView === 'my-listings' ? (
+        <MySubmissionsPanel />
+      ) : (
+        <>
+          <div className="cc-mkt-tabs">
+            {MKT_TABS.map(t => (
+              <button key={t.id} type="button" className={activeTab === t.id ? 'cc-tab-on' : 'cc-tab'} onClick={() => setActiveTab(t.id)}>
+                {t.label}
+                <span className="cc-tab-count">
+                  {t.id === 'wanted' ? (wantedListings?.length ?? wantedCount ?? 0) : (marketplaceRows?.[t.id]?.length ?? 0)}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="cc-mkt-toolbar">
+            <input className="cc-search" placeholder="Search listings…" value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <div className="cc-mkt-list">
+            {rows.slice(0, 30).map((r, i) => (
+              <button
+                key={String(r[7] ?? i)}
+                type="button"
+                className="cc-mkt-row"
+                onClick={() => activeTab === 'wanted' ? setSelectedWantedId(String(r[7])) : setSelectedListingId(String(r[7]))}
+              >
+                <div className="cc-mkt-title">{r[0]}</div>
+                <div className="cc-mkt-meta">{r[2]} · {r[3]}</div>
+                {r[1] && <div className="cc-mkt-desc">{String(r[1]).slice(0, 120)}</div>}
+              </button>
+            ))}
+            {rows.length === 0 && <div className="cc-muted">No listings for this tab.</div>}
+          </div>
+          {pipeline && (
+            <div className="cc-mkt-pipeline">
+              <span>Wanted {pipeline.wanted}</span>
+              <span>Matched {pipeline.matched}</span>
+              <span>Proof {pipeline.proof_review}</span>
+              <span>Inquiry {pipeline.inquiry}</span>
+              <span>Deal room {pipeline.deal_room}</span>
+            </div>
+          )}
+          {cannabisOperators && cannabisOperators.length > 0 && (
+            <section className="cc-mkt-ops">
+              <div className="cc-card-head">OPERATORS</div>
+              <ul>
+                {cannabisOperators.slice(0, 6).map((op, i) => (
+                  <li key={i}>{(op as any).name ?? (op as any).operator_name ?? 'Operator'}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
       )}
+
       {selectedListingId && (
         <ListingDetailModal listingId={selectedListingId} onClose={() => setSelectedListingId(null)} />
       )}
-      {selectedWantedId && (
-        <WantedDetailModal wantedId={selectedWantedId} onClose={() => setSelectedWantedId(null)} />
+      {selectedWanted && (
+        <WantedDetailModal listing={selectedWanted} onClose={() => setSelectedWantedId(null)} />
       )}
+      <ConsumablesRequestModal open={consumablesOpen} onClose={() => setConsumablesOpen(false)} />
     </div>
   )
 })
