@@ -1,0 +1,121 @@
+name: Candidate B Exact Verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/harbourview-mobile-country-selection-candidate-b
+    paths:
+      - .github/workflows/candidate-b-verification.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-candidate-b:
+    name: Verify Candidate B at exact SHA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact Candidate B SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: harbourviewcompany-create/harbourview-platform
+          ref: b61165c252521bfd88036013966c2a8f2c9ae546
+          persist-credentials: false
+
+      - name: Setup Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Record runtime
+        run: |
+          node --version | tee /tmp/harbourview-candidate-b-runtime.log
+          npm --version | tee -a /tmp/harbourview-candidate-b-runtime.log
+          npx playwright --version | tee -a /tmp/harbourview-candidate-b-runtime.log
+          git log -1 --format=%H | tee -a /tmp/harbourview-candidate-b-runtime.log
+
+      - name: Run Vitest repository suite
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          npm test -- --run 2>&1 | tee /tmp/harbourview-candidate-b-vitest.log
+          status=${PIPESTATUS[0]}
+          echo "VITEST_EXIT=${status}" >> "$GITHUB_ENV"
+          echo "vitest_exit=${status}" | tee /tmp/harbourview-candidate-b-exit-codes.txt
+          exit 0
+
+      - name: Install Playwright Chromium
+        if: always()
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Candidate B Playwright screenshots
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          npx playwright test tests/e2e/market-selection-candidate-b.spec.ts 2>&1 | tee /tmp/harbourview-candidate-b-playwright.log
+          status=${PIPESTATUS[0]}
+          echo "PLAYWRIGHT_EXIT=${status}" >> "$GITHUB_ENV"
+          echo "playwright_exit=${status}" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
+          exit 0
+
+      - name: List Candidate B screenshot files
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p test-results
+          find test-results -maxdepth 1 -type f -name 'market-selection-candidate-b-*.png' -print | sort | tee /tmp/harbourview-candidate-b-screenshots.txt
+          count=$(find test-results -maxdepth 1 -type f -name 'market-selection-candidate-b-*.png' | wc -l | tr -d ' ')
+          echo "SCREENSHOT_COUNT=${count}" >> "$GITHUB_ENV"
+          echo "screenshot_count=${count}" | tee -a /tmp/harbourview-candidate-b-exit-codes.txt
+
+      - name: Upload Candidate B logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-b-exact-verification-logs
+          if-no-files-found: error
+          path: |
+            /tmp/harbourview-candidate-b-runtime.log
+            /tmp/harbourview-candidate-b-vitest.log
+            /tmp/harbourview-candidate-b-playwright.log
+            /tmp/harbourview-candidate-b-exit-codes.txt
+            /tmp/harbourview-candidate-b-screenshots.txt
+
+      - name: Upload Candidate B screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-b-exact-verification-screenshots
+          if-no-files-found: warn
+          path: test-results/market-selection-candidate-b-*.png
+
+      - name: Enforce exact verification result
+        if: always()
+        shell: bash
+        run: |
+          vitest_exit="${VITEST_EXIT:-999}"
+          playwright_exit="${PLAYWRIGHT_EXIT:-999}"
+          screenshot_count="${SCREENSHOT_COUNT:-0}"
+          echo "VITEST_EXIT=${vitest_exit}"
+          echo "PLAYWRIGHT_EXIT=${playwright_exit}"
+          echo "SCREENSHOT_COUNT=${screenshot_count}"
+          if [ "$vitest_exit" -ne 0 ]; then
+            exit 1
+          fi
+          if [ "$playwright_exit" -ne 0 ]; then
+            exit 1
+          fi
+          if [ "$screenshot_count" -ne 6 ]; then
+            exit 1
+          fi
