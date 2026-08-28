@@ -14,8 +14,28 @@ if (!pkg.scripts?.['test:e2e']) note('warning', 'missing-e2e', 'package.json has
 if (!pkg.scripts?.['test:security']) note('warning', 'missing-security', 'package.json has no test:security script')
 
 const vercel = fs.existsSync('vercel.json') ? JSON.parse(fs.readFileSync('vercel.json', 'utf8')) : null
-if (!vercel) note('error', 'missing-vercel-config', 'vercel.json is missing')
-else if (vercel.git?.deploymentEnabled !== true) note('warning', 'vercel-git-disabled', 'Vercel Git deployment is not explicitly enabled')
+const expectedDeploymentRules = {
+  '**': false,
+  main: true,
+  'preview/*': true,
+}
+const hasExactFailClosedDeploymentPolicy = (rules) => {
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules)) return false
+  const keys = Object.keys(rules)
+  const expectedKeys = Object.keys(expectedDeploymentRules)
+  return keys.length === expectedKeys.length
+    && expectedKeys.every((key) => rules[key] === expectedDeploymentRules[key])
+}
+
+if (!vercel) {
+  note('error', 'missing-vercel-config', 'vercel.json is missing')
+} else if (!hasExactFailClosedDeploymentPolicy(vercel.git?.deploymentEnabled)) {
+  note(
+    'error',
+    'vercel-git-policy-not-fail-closed',
+    'Vercel Git deployment admission must deny all branches by default and allow only main plus preview/*',
+  )
+}
 
 if (!fs.existsSync('playwright.config.js') && !fs.existsSync('playwright.config.ts')) {
   note('error', 'missing-playwright-config', 'Playwright config is missing')

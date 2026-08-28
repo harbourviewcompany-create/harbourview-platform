@@ -2,28 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
+      "**": false,
       "main": true,
-      "preview/*": true,
-      "fix/*": false,
-      "feat/*": false,
-      "feature/*": false,
-      "claude/*": false,
-      "docs/*": false,
-      "tmp/*": false,
-      "agent/*": false,
-      "dependabot/*": false,
-      "ops/*": false,
-      "codex/*": false,
-      "kimi/*": false,
-      "perf/*": false,
-      "audit/*": false,
-      "repair/*": false,
-      "chore/*": false,
-      "hv/*": false,
-      "deps/*": false,
-      "build/*": false,
-      "test/*": false,
-      "verify/*": false
+      "preview/*": true
     }
   },
   "ignoreCommand": "bash scripts/vercel-ignore-wbcc-only.sh",
