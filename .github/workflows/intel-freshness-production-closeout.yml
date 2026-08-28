@@ -49,11 +49,11 @@ jobs:
         run: npm run typecheck
       - name: Production build gate
         run: npm run build
-      - name: Require synthesis secrets
+      - name: Require synthesis infrastructure secrets
         shell: bash
         run: |
           set -euo pipefail
-          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY CRON_SECRET ANTHROPIC_API_KEY; do
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY CRON_SECRET; do
             if [ -z "${!key:-}" ]; then
               echo "::error::$key is not configured; refusing briefing regeneration."
               exit 1
