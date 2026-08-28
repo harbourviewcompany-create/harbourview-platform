@@ -7,8 +7,11 @@ export const SYNTHESIS_UPCOMING_WINDOW_DAYS = 90
 
 export type SynthesisTimelineRow = {
   headline: string
-  title_en?: string | null
-  summary_en?: string | null
+  // Quality-layer DTOs deliberately type translated fields as unknown at their
+  // boundary. Timeline extraction narrows them before use rather than requiring
+  // every caller to cast a partially trusted PostgREST row.
+  title_en?: unknown
+  summary_en?: unknown
   date?: string | null
   created_at?: string | null
   source_published_at?: string | null
