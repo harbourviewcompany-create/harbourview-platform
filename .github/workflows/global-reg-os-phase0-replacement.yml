@@ -17,11 +17,31 @@ on:
     # the workflow; it does not weaken any assertion the workflow makes. A PR
     # touching both the evidence log and this gate's real surface still trips it
     # through the remaining paths.
+    #
+    # DATABASE_CONTROL.md is deliberately NOT a trigger path either, for exactly
+    # the same reason and by exactly the same argument. AGENTS.md's "Required QA
+    # Commands by Change Type" §4 requires every migration PR to update
+    # docs/control/DATABASE_CONTROL.md. Listing it here fired this workflow on
+    # every such PR, and the "Verify migration isolation" step below then failed
+    # by construction, because a migration PR touches migrations. The same
+    # deadlock, one file over.
+    #
+    # The evidence that this trigger was over-scoped rather than load-bearing:
+    # nothing under scripts/global-reg-os/ references DATABASE_CONTROL.md at all.
+    # Every step in this job validates the Global Regulatory OS canonical package,
+    # its secrets, its manifest determinism, migration isolation, and its OpenAPI
+    # and AsyncAPI contracts. Not one of them reads that file. Removing it changes
+    # no assertion this workflow makes.
+    #
+    # The cost of leaving it was being paid silently: zero of the twelve most
+    # recent merged commits touching supabase/migrations/ updated
+    # DATABASE_CONTROL.md. The repository had already routed around this gate by
+    # skipping the AGENTS.md requirement every time, rather than by fixing the
+    # trigger. This makes the documented rule followable again.
     paths:
       - 'docs/control/global-regulatory-os/**'
       - 'scripts/global-reg-os/**'
       - '.github/workflows/global-reg-os-phase0-replacement.yml'
-      - 'docs/control/DATABASE_CONTROL.md'
   workflow_dispatch:
 
 permissions:
