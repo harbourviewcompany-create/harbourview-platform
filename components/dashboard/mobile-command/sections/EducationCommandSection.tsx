@@ -184,12 +184,12 @@ export function EducationSection({ sectionRef, roleShort, tiles, commandHref }: 
         <p>The richer command projection could not be loaded. Published module links remain available below without qualification or currentness claims.</p>
       </div>
       {tiles.map((tile, index) => (
-        <article className={styles.moduleCard} key={`${fallbackSlug(tile)}-${index}`}>
+        <HarbourviewCard tone="default" className={styles.moduleCard} key={`${fallbackSlug(tile)}-${index}`}>
           <div className={styles.cardTopline}><span>Published module</span><span className={styles.status}>Metadata unavailable</span></div>
           <h3>{fallbackTitle(tile)}</h3>
           <p>{fallbackDescription(tile)}</p>
           <Link href={commandHref('education', { module: fallbackSlug(tile), educationView: 'library' })} className={styles.primaryAction}>Open module</Link>
-        </article>
+        </HarbourviewCard>
       ))}
     </div>
   )
