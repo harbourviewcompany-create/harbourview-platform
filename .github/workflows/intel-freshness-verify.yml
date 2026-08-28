@@ -11,8 +11,9 @@ on:
       - 'lib/dashboard/**'
       - 'lib/intelligence/jurisdictionSynthesis*.ts'
       - 'lib/utils/flagEmoji.ts'
-      - 'supabase/migrations/*signal_freshness_timeline.sql'
+      - 'supabase/migrations/*signal*timeline*.sql'
       - 'tests/dashboard/signalFreshness.test.ts'
+      - 'tests/dashboard/jurisdictionSynthesisTimeline.test.ts'
       - 'tests/dashboard/mobileIntelFreshnessContracts.test.ts'
       - 'tests/dashboard/mobileCommandCentreV2.test.ts'
       - '.github/workflows/intel-freshness-verify.yml'
@@ -50,7 +51,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Freshness and mobile binding regressions
-        run: npx vitest run tests/dashboard/signalFreshness.test.ts tests/dashboard/mobileIntelFreshnessContracts.test.ts tests/dashboard/mobileCommandCentreV2.test.ts
+        run: npx vitest run tests/dashboard/signalFreshness.test.ts tests/dashboard/jurisdictionSynthesisTimeline.test.ts tests/dashboard/mobileIntelFreshnessContracts.test.ts tests/dashboard/mobileCommandCentreV2.test.ts
       - name: Typecheck
         run: npm run typecheck
       - name: Isolated CI build
