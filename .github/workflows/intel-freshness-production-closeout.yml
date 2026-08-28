@@ -1,0 +1,136 @@
+name: Intel Freshness Production Closeout
+
+on:
+  push:
+    branches:
+      - fix/intel-freshness-briefings
+    paths:
+      - '.github/workflows/intel-freshness-production-closeout.yml'
+
+concurrency:
+  group: intel-freshness-production-closeout
+  cancel-in-progress: false
+
+jobs:
+  closeout:
+    name: Exact-head gate, timeline migration, bounded briefing regeneration
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+      SUPABASE_DB_SCHEMA: api
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      NEXT_PUBLIC_HARBOURVIEW_LOCAL_TEST_BUILD: '1'
+      HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+      NEXT_PUBLIC_HARBOURVIEW_ALLOW_LOCAL_SUPABASE: '1'
+    steps:
+      - name: Checkout exact production candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Intel freshness regression gate
+        run: npx vitest run tests/dashboard/signalFreshness.test.ts tests/dashboard/mobileIntelFreshnessContracts.test.ts tests/dashboard/mobileCommandCentreV2.test.ts
+      - name: Typecheck gate
+        run: npm run typecheck
+      - name: Production build gate
+        run: npm run build
+      - name: Require production closeout secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_ACCESS_TOKEN CRON_SECRET ANTHROPIC_API_KEY; do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::$key is not configured; refusing production closeout."
+              exit 1
+            fi
+          done
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@ab058987d8d6c725971f6cf9d0b5c98467e30bd1
+        with:
+          version: 2.109.1
+      - name: Link production Supabase
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Prove only the timeline migration is pending
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push --linked --include-all --dry-run 2>&1 | tee /tmp/intel-migration-dry-run.txt
+          grep -q '20260827234500_signal_freshness_timeline.sql' /tmp/intel-migration-dry-run.txt
+          pending="$(grep -Eo '[0-9]{14}_[A-Za-z0-9_]+\.sql' /tmp/intel-migration-dry-run.txt | sort -u || true)"
+          if [ "$pending" != '20260827234500_signal_freshness_timeline.sql' ]; then
+            echo "::error::Unexpected pending migration set:"
+            printf '%s\n' "$pending"
+            exit 1
+          fi
+      - name: Apply canonical timeline migration to production
+        run: supabase db push --linked --include-all --yes
+      - name: Verify canonical migration ledger entry
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked | tee /tmp/intel-migrations-after.txt
+          grep -q '20260827234500' /tmp/intel-migrations-after.txt
+      - name: Start exact built app for bounded synthesis
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm start > /tmp/intel-closeout-next.log 2>&1 &
+          echo $! > /tmp/intel-closeout-next.pid
+          for attempt in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/cron/synthesize-jurisdictions || true)"
+            if [ "$code" = '401' ]; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/intel-closeout-next.log
+          exit 1
+      - name: Regenerate all synthesis markets in bounded batches
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/intel-freshness-closeout
+          for offset in 0 10 20; do
+            curl --fail --show-error --silent --max-time 900 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "http://127.0.0.1:3000/api/cron/synthesize-jurisdictions?limit=10&offset=$offset" \
+              | tee "artifacts/intel-freshness-closeout/synthesis-$offset.json"
+            echo
+          done
+      - name: Capture exact-head closeout evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/intel-freshness-closeout
+          git rev-parse HEAD > artifacts/intel-freshness-closeout/exact-head.txt
+          cp /tmp/intel-migration-dry-run.txt artifacts/intel-freshness-closeout/migration-dry-run.txt 2>/dev/null || true
+          cp /tmp/intel-migrations-after.txt artifacts/intel-freshness-closeout/migrations-after.txt 2>/dev/null || true
+          cp /tmp/intel-closeout-next.log artifacts/intel-freshness-closeout/server.log 2>/dev/null || true
+      - name: Upload closeout evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: intel-freshness-production-closeout-${{ github.sha }}
+          path: artifacts/intel-freshness-closeout/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Stop local server
+        if: always()
+        shell: bash
+        run: |
+          if [ -f /tmp/intel-closeout-next.pid ]; then kill "$(cat /tmp/intel-closeout-next.pid)" 2>/dev/null || true; fi
