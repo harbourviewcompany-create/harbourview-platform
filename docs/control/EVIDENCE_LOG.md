@@ -5316,3 +5316,120 @@ current source; a red result there is either a genuinely removed guard or a
 drifted grep, and separating the two is the actual work.
 
 **Status: current.** Verified green on the branch head at time of writing.
+
+---
+
+## 2026-08-28 — `counterparty-extraction` cron dead 3.5 days: CTE-scope defect in `run_signal_counterparty_extraction()`
+
+**How it was found.** A read-only sweep of `cron.job` / `cron.job_run_details`
+while re-verifying live state after PR #1623 merged. Of 33 jobs, one was failing
+every single run.
+
+**The defect.** The collect branch of `public.run_signal_counterparty_extraction()`
+builds a `WITH resp → parsed → ok → extracted → ins → mark_used → done` chain,
+closes it with `select count(*) from ins into v_inserted;`, and then — in a
+*separate* statement — returns
+`jsonb_build_object(..., 'provider', (select provider from parsed), ...)`.
+Common table expressions are scoped to the single statement that defines them, so
+`parsed` is gone by the time the `RETURN` runs:
+
+```
+ERROR:  relation "parsed" does not exist
+CONTEXT:  PL/pgSQL function run_signal_counterparty_extraction() line 45 at RETURN
+```
+
+Because the exception aborts the transaction, the `ia_counterparties` upserts, the
+`ia_signals.counterparty_extracted_at` marks and the `_counterparty_jobs.collected`
+flag written by that same statement were all rolled back. The job was not
+degraded — it was a complete no-op that reported failure.
+
+**Blast radius.** 161 consecutive failed runs; every run since 2026-08-24 18:10
+UTC. Last success 2026-08-24 17:40 UTC. Zero counterparties extracted in that
+window. All other 32 cron jobs were healthy at the time of the sweep — notably
+`hv-quality-pipeline` and `hv-quality-promote` at 12/12 runs and 0 failures over
+6 hours, confirming the earlier quality-cron incident stayed resolved.
+
+**Two functions were checked and cleared, not assumed.** A first pass with a
+regex over `pg_get_functiondef` flagged `run_daily_digest()` and
+`run_editorial_digest()` as carrying the same pattern. Reading their actual source
+showed the opposite: both place `(select provider from parsed)` *inside* their
+`select jsonb_build_object(...) into v_signals` / `into v_items` statement, where
+the CTE is in scope, and then return the variable. That is correct, and it is the
+shape this fix adopts. Both are left untouched. Guardrail #1 of
+`INTELLIGENCE_ARCHITECTURE_SPEC.md` — verify before changing — is what caught the
+false positive; the scope of the change dropped from three functions to one.
+
+**Repository/production drift found along the way (pre-existing, not resolved).**
+The committed body in `20260704135057_fix_unprotected_http_content_cast.sql`
+returns no `provider` key and therefore has no defect. Production's live body has
+diverged: it carries a Gemini fallback, a provider-degradation check and a
+`pipeline_manual_review_queue` path that exist in no migration in this repository.
+The `provider` key — and the defect — arrived with that uncommitted rewrite. This
+is the Guardrail #4 failure mode ("applying via `execute_sql` without committing
+the file"). Closing it means adopting ~7.8 KB of never-reviewed production code
+into the repository; that is a separate decision and is deliberately not taken in
+this PR. The migration is written so it does not depend on which body it meets.
+
+**The fix.** Resolve the CTE reference inside the statement that owns it, and
+return a variable — a two-line change plus one declaration:
+
+```sql
+select (select count(*) from ins), (select provider from parsed)
+  into v_inserted, v_collect_provider;
+
+return jsonb_build_object('ok', true, 'phase', 'collect',
+  'provider', v_collect_provider,
+  'counterparties_touched', coalesce(v_inserted,0));
+```
+
+Applied as a targeted patch over `pg_get_functiondef()` (house pattern from
+`20260815234000_daily_brief_lineage_hardening.sql`) rather than a restated body,
+because restating would silently revert the drifted live behaviour.
+
+**Migration dry-run — throwaway local PostgreSQL 16.13 cluster, structurally
+faithful reproduction of the collect branch with the declare line and the two
+defective statements copied byte-for-byte from production:**
+
+| Path | Starting body | Result |
+|---|---|---|
+| A | production-shaped (defective) | `ERROR: relation "parsed" does not exist` reproduced **byte-identically to production**; migration applied; same call then returned `{"ok": true, "phase": "collect", "provider": "anthropic", "counterparties_touched": 1}` |
+| A (side effects) | — | `ia_counterparties` 1 row (`Acme Cannabis Co / distributor / Canada`), `counterparty_extracted_at` set, `collected` true — all previously rolled back |
+| A (idempotency) | — | second call with no pending job correctly fell through to `{"ok": true, "phase": "fire"}`; no double-processing |
+| B | committed repository body | `NOTICE: ... nothing to fix`; body md5 `b9ef32ab…c133` **identical before and after** — `supabase db reset --local` replay is a true no-op |
+| C | unexpected body | `ERROR: ... declare anchor not found`, exit 3 — fails loudly rather than silently no-opping |
+
+**Anchor verification against live production (read-only, no execution):** both
+replacement anchors matched exactly; definition length 7831 → 7913 characters,
+consistent with the intended edit and nothing else.
+
+**Verification, on `claude/platform-optimization-qdn8tx` at `9d68bccd`:**
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | 0 errors, exit 0 |
+| `npm run build` | exit 0 |
+| `npm run test` | 4 failed / 1094 passed / 15 todo — **byte-identical to clean `origin/main`** (`prescriberOSReconciliation`, pre-existing) |
+| `npm run lint` | 212 problems, 6 errors / 206 warnings — **byte-identical to clean `origin/main`** |
+| `node --test tests/scripts/migration-ledger-manifest.test.mjs` | 14/14 pass |
+| `node scripts/check-no-secret-strings.mjs` | GO |
+| migration version uniqueness | 991 files / 991 unique versions, zero collisions |
+| `node scripts/check-pending-production-migration-decisions.mjs` | 2 blob mismatches (`20260730220050`, `20260810222500`) — **reproduced byte-identically on a clean `origin/main` worktree**, pre-existing, untouched by this change |
+
+**Grants.** Unchanged and deliberately so. The function's ACL is
+`postgres=X/postgres` — no `service_role` grant, no PUBLIC. `CREATE OR REPLACE`
+preserves it. The `grant execute ... to service_role` line that sibling digest
+migrations carry was **not** copied, because on this function it would be a
+privilege widening rather than a restatement (Guardrail #6).
+
+**Status: committed, not applied.** Production still carries the defect and the
+cron is still failing. Applying this migration requires apply sign-off per
+`CLAUDE.md` Rule 3c; no production write was made in the course of this work.
+
+**Also observed, separate and unowned by this change.** `20260827234500_signal_freshness_timeline`
+is applied in production but exists only on the `fix/intel-freshness-briefings`
+branch (open PR #1662) — absent from `main` and from both release-control ledgers,
+so it is a live `applied_not_committed` entry that clears when that PR merges.
+Separately, scheduled runs of `migration-drift-check.yml` have stopped firing
+hourly; the last `schedule`-triggered run was 2026-08-27 19:45 UTC. Push-triggered
+runs still work, so the gate is not blind, but it no longer catches drift between
+pushes.
