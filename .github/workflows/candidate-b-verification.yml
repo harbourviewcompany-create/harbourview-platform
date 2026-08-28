@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: harbourviewcompany-create/harbourview-platform
-          ref: b61165c252521bfd88036013966c2a8f2c9ae546
+          ref: 0deb215ac9c21c46f1133a02e75cb07133ba979c
           persist-credentials: false
 
       - name: Setup Node 22
