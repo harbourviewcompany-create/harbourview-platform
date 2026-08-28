@@ -100,6 +100,7 @@ export function HarbourviewBottomSheet({
   size = 'role',
   onBack,
   className,
+  hideHeader = false,
 }: {
   title: string
   eyebrow?: string
@@ -108,6 +109,7 @@ export function HarbourviewBottomSheet({
   size?: HarbourviewBottomSheetSize
   onBack?: () => void
   className?: string
+  hideHeader?: boolean
 }) {
   return (
     <section
@@ -122,17 +124,21 @@ export function HarbourviewBottomSheet({
     >
       <div className={cx('mx-auto mb-3', hvPanelHairlineClass)} aria-hidden="true" />
 
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          {eyebrow ? <p className={hvPanelEyebrowClass}>{eyebrow}</p> : null}
-          <h2 className={hvPanelTitleClass}>{title}</h2>
+      {hideHeader ? (
+        <h2 className="sr-only">{title}</h2>
+      ) : (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            {eyebrow ? <p className={hvPanelEyebrowClass}>{eyebrow}</p> : null}
+            <h2 className={hvPanelTitleClass}>{title}</h2>
+          </div>
+          {onBack ? (
+            <button type="button" onClick={onBack} className={hvPanelBackButtonClass}>
+              Back
+            </button>
+          ) : null}
         </div>
-        {onBack ? (
-          <button type="button" onClick={onBack} className={hvPanelBackButtonClass}>
-            Back
-          </button>
-        ) : null}
-      </div>
+      )}
 
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-color:var(--hv-gold)_rgba(2,9,19,0.92)] [scrollbar-width:thin] [-webkit-overflow-scrolling:touch]">
         {children}
