@@ -9,30 +9,19 @@ import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countri
 import { createCountryBufferGeometry } from '@/lib/globe/polygon-buffer-geometry'
 import { extractCountryHit } from '@/lib/globe/country-hit-testing'
 import { lonLatToVector3, vector3ToArray, BORDER_OFFSET } from '@/lib/globe/globe-geometry'
+import { candidateBGlobeColors, candidateBGlobeConfig } from '@/lib/harbourview/globeConfig'
 import { CameraFlyToController, type CameraFlyOrbitControlsLike } from '@/components/globe/r3f/CameraFlyToController'
 
-// Candidate B visual constants — dark, restrained, intelligence surface
-const OCEAN_BASE = '#040d18'
-const OCEAN_EMISSIVE = '#071525'
-const LAND_BASE = '#0d1e2d'
-const BORDER_COLOR = '#c6a55a'
-const SELECTED_LAND = '#183048'
-const SELECTED_EMISSIVE = '#c8a85e'
+const {
+  oceanBase: OCEAN_BASE,
+  oceanEmissive: OCEAN_EMISSIVE,
+  landBase: LAND_BASE,
+  border: BORDER_COLOR,
+  selectedLand: SELECTED_LAND,
+  selectedEmissive: SELECTED_EMISSIVE,
+} = candidateBGlobeColors
 
-const PLATE_LIFT = 0.022
-const IDLE_EXTRUSION = 0.052
-const SELECTED_EXTRUSION = 0.088
-
-// Europe-forward camera aimed at Central Europe / Germany
-const CANDIDATE_B_CAMERA = {
-  fov: 28,
-  near: 0.1,
-  far: 100,
-  position: [0.62, 4.8, 4.6] as [number, number, number],
-}
-
-// Slight tilt + minimal y-rotation to bring Germany to center
-const GLOBE_ROTATION: [number, number, number] = [0.08, -0.18, 0]
+const { geometry, camera, rotation } = candidateBGlobeConfig
 
 function CandidateBOcean() {
   return (
@@ -40,9 +29,9 @@ function CandidateBOcean() {
       <meshStandardMaterial
         color={OCEAN_BASE}
         emissive={OCEAN_EMISSIVE}
-        emissiveIntensity={0.14}
-        roughness={0.72}
-        metalness={0.38}
+        emissiveIntensity={0.1}
+        roughness={0.84}
+        metalness={0.04}
       />
     </Sphere>
   )
@@ -69,9 +58,9 @@ function CandidateBBorders() {
           key={key}
           points={points}
           color={BORDER_COLOR}
-          lineWidth={isOuter ? 0.72 : 0.32}
+          lineWidth={isOuter ? 0.48 : 0.22}
           transparent
-          opacity={isOuter ? 0.52 : 0.28}
+          opacity={isOuter ? 0.34 : 0.16}
         />
       ))}
     </group>
@@ -89,8 +78,8 @@ function CandidateBCountries({
     naturalEarthCountriesPayload.countries.map((country) => ({
       country,
       geometry: createCountryBufferGeometry(country, {
-        plateLift: PLATE_LIFT,
-        extrusionHeight: IDLE_EXTRUSION,
+        plateLift: geometry.plateLift,
+        extrusionHeight: geometry.idleExtrusion,
         geometryMode: 'surface',
       }),
     })), [])
@@ -104,8 +93,8 @@ function CandidateBCountries({
     return {
       iso2: selectedCountryIso2,
       geometry: createCountryBufferGeometry(country, {
-        plateLift: PLATE_LIFT + 0.002,
-        extrusionHeight: SELECTED_EXTRUSION,
+        plateLift: geometry.plateLift + 0.001,
+        extrusionHeight: geometry.selectedExtrusion,
         geometryMode: 'surface',
       }),
     }
@@ -113,7 +102,7 @@ function CandidateBCountries({
 
   useEffect(() => {
     return () => {
-      idleGeometries.forEach(({ geometry }) => geometry.dispose())
+      idleGeometries.forEach(({ geometry: countryGeometry }) => countryGeometry.dispose())
     }
   }, [idleGeometries])
 
@@ -125,27 +114,27 @@ function CandidateBCountries({
 
   return (
     <group userData={{ layer: 'candidate-b-countries' }}>
-      {idleGeometries.map(({ country, geometry }) => {
+      {idleGeometries.map(({ country, geometry: countryGeometry }) => {
         const isSelected = selectedCountryIso2 === country.iso2
-        const activeGeometry = isSelected && selectedGeometry ? selectedGeometry.geometry : geometry
+        const activeGeometry = isSelected && selectedGeometry ? selectedGeometry.geometry : countryGeometry
 
         return (
           <mesh
             key={country.iso3}
             geometry={activeGeometry}
             userData={{ iso2: country.iso2 }}
-            onClick={(e) => {
-              e.stopPropagation()
-              const hit = extractCountryHit(e)
+            onClick={(event) => {
+              event.stopPropagation()
+              const hit = extractCountryHit(event)
               if (hit) onSelectCountry?.(hit.iso2)
             }}
           >
             <meshStandardMaterial
               color={isSelected ? SELECTED_LAND : LAND_BASE}
-              emissive={isSelected ? SELECTED_EMISSIVE : '#0a1a28'}
-              emissiveIntensity={isSelected ? 0.26 : 0.06}
-              roughness={isSelected ? 0.52 : 0.76}
-              metalness={isSelected ? 0.28 : 0.18}
+              emissive={isSelected ? SELECTED_EMISSIVE : '#081827'}
+              emissiveIntensity={isSelected ? 0.14 : 0.025}
+              roughness={isSelected ? 0.76 : 0.88}
+              metalness={0.04}
               side={DoubleSide}
             />
           </mesh>
@@ -158,30 +147,35 @@ function CandidateBCountries({
 interface CandidateBGlobeProps {
   selectedCountryIso2?: string
   onSelectCountry?: (iso2: string) => void
+  reducedMotion?: boolean
 }
 
-export function CandidateBGlobe({ selectedCountryIso2, onSelectCountry }: CandidateBGlobeProps) {
+export function CandidateBGlobe({
+  selectedCountryIso2,
+  onSelectCountry,
+  reducedMotion = false,
+}: CandidateBGlobeProps) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
+    <div className="absolute inset-0 pointer-events-none" data-testid="candidate-b-webgl-globe">
       <Canvas
         className="h-full w-full pointer-events-auto"
         dpr={[1, 1.5]}
         aria-label="Harbourview country globe"
         camera={{
-          fov: CANDIDATE_B_CAMERA.fov,
-          near: CANDIDATE_B_CAMERA.near,
-          far: CANDIDATE_B_CAMERA.far,
-          position: CANDIDATE_B_CAMERA.position,
+          fov: camera.fov,
+          near: camera.near,
+          far: camera.far,
+          position: camera.position,
         }}
       >
         <color attach="background" args={['#03070D']} />
-        <ambientLight intensity={0.28} color="#c8deff" />
-        <directionalLight position={[3, 4, 5]} intensity={0.9} color="#fff4e0" />
+        <ambientLight intensity={0.24} color="#c8deff" />
+        <directionalLight position={[3, 4, 5]} intensity={0.72} color="#fff4e0" />
 
         <Suspense fallback={null}>
-          <group rotation={GLOBE_ROTATION}>
+          <group rotation={rotation}>
             <CandidateBOcean />
             <CandidateBBorders />
             <CandidateBCountries
@@ -203,13 +197,13 @@ export function CandidateBGlobe({ selectedCountryIso2, onSelectCountry }: Candid
           enableZoom={false}
           enableDamping
           dampingFactor={0.072}
-          rotateSpeed={0.44}
+          rotateSpeed={0.36}
           minDistance={5.2}
           maxDistance={8.4}
           minPolarAngle={Math.PI * 0.28}
           maxPolarAngle={Math.PI * 0.66}
-          autoRotate
-          autoRotateSpeed={0.18}
+          autoRotate={!reducedMotion}
+          autoRotateSpeed={0.08}
         />
       </Canvas>
     </div>
