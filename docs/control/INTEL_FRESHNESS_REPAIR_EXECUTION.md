@@ -24,6 +24,12 @@ Routine branch verification is read-only against production. Production briefing
 - Mobile Intel verifies no stale first-paint swap and excludes the historical Slovenia/Texas examples as current developments.
 - Production deployment READY after merge, with synthesis cron registered and current briefing timestamps re-queried.
 
+## Exact-head closeout trigger — 2026-08-28 04:01 UTC
+
+The immediately preceding repair head `e89e67f95a1e5515a3f7042a29bf116ea6fd9b31` passed `Intel Freshness and Briefing Verify` run `33138103527`, including the targeted freshness/mobile regressions, typecheck, isolated CI build, and production-configuration build. `Project Registry Discipline` subsequently passed in run `33138203761`, and all inline CodeRabbit review threads on PR #1662 were resolved after verifying the current branch implementations.
+
+This documentation-only checkpoint intentionally carries the `[intel-production-closeout]` commit marker so the guarded branch workflow reruns the same exact-head gates, re-confirms the production timeline contract, and only then performs the bounded prompt-v5 jurisdiction briefing regeneration. This checkpoint is a trigger/evidence record, not a claim that production closeout has already passed.
+
 ## Current decision
 
-HOLD until the final exact-head regeneration, Vercel READY preview, review closeout, merge, and live production verification are complete.
+HOLD until the final exact-head regeneration, Vercel READY preview, merge, and live production verification are complete.
