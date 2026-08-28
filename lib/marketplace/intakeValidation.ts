@@ -31,6 +31,8 @@ export const marketplaceCaptureSchema = z.object({
   inquiry_type: captureInquiryTypeSchema,
   message: z.string().trim().min(1).max(3500),
   success_message: z.string().trim().max(220).optional(),
+  listing_id: z.string().uuid().nullable().optional(),
+  listing_title: shortText(280).nullable().optional(),
   ...botFrictionFields,
 })
 

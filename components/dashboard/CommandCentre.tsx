@@ -1,5 +1,6 @@
 'use client'
 import './CommandCentre.css'
+import './market/Market.css'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'

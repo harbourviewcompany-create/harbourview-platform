@@ -1,25 +1,148 @@
 'use client'
 
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
-import Image from 'next/image'
+import { useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import type { MarketView } from '../../CommandCentre'
 import { MARKETPLACE_MEDIA_COPY } from '@/lib/dashboard/marketplaceMediaProjection'
 import { getSubjectRepresentativeMedia } from '@/lib/dashboard/marketplaceSubjectMedia'
 import {
   MARKET_TABS,
   MOBILE_COMMAND_COPY,
-  SUPPLY_TABS,
   formatStatus,
   type MobileCommandTool,
   type NormalizedListing,
   type SectionId,
 } from '../contracts'
 import { MarketplaceWorkspacePanel } from '../WorkspacePanels'
-import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
+import { EmptyState, SectionShell, type SectionRef } from '../SectionUI'
+import {
+  MarketDetailSheet,
+  MarketFeed,
+  type MarketCardModel,
+  type MarketFeedRow,
+  type MarketTier,
+  resolveMarketTier,
+  defaultCtaForTier,
+} from '../../market'
 import '../MarketplaceListingMedia.css'
 import '../MarketplaceInventoryFirst.css'
+import '../../market/Market.css'
 
 type MediaStage = 'primary' | 'fallback' | 'empty'
+
+const TIER_A_VIEWS = new Set<MarketView>([
+  'equipment',
+  'consumables',
+  'new-products',
+  'services',
+])
+
+function tierForView(view: MarketView): MarketTier {
+  return TIER_A_VIEWS.has(view) ? 'A' : 'B'
+}
+
+function tierForListing(row: NormalizedListing): MarketTier {
+  const fromCategory = resolveMarketTier(
+    row.category.toLowerCase().replace(/\s+/g, '_').replace(/&/g, ''),
+  )
+  if (fromCategory === 'A') return 'A'
+  return tierForView(row.view)
+}
+
+function listingImage(row: NormalizedListing): string | null {
+  if (row.media?.src) return row.media.src
+  const representative = getSubjectRepresentativeMedia(row.view, row.id, row.title, row.category)
+  return representative.src || null
+}
+
+function toMarketCardModel(row: NormalizedListing): MarketCardModel {
+  const tier = tierForListing(row)
+  const isCatalogue = (row.status || '').toLowerCase().includes('illustrative')
+    || (row.status || '').toLowerCase().includes('catalogue')
+    || (row.channel || '').toLowerCase().includes('catalogue')
+  const variant = isCatalogue
+    ? 'catalogue'
+    : tier === 'A'
+      ? 'tierA-compact'
+      : 'tierB-teaser'
+
+  return {
+    id: `${row.view}-${row.id}`,
+    title: row.title,
+    description: row.summary,
+    priceDisplay: row.priceDisplay?.trim() || (tier === 'A' ? 'Request quote' : 'Confirm through Harbourview'),
+    imageUrl: listingImage(row),
+    country: row.jurisdiction,
+    category: row.category,
+    condition: formatStatus(row.status),
+    badge: tier === 'A' ? 'Open' : isCatalogue ? 'Catalogue' : 'Review',
+    badgeTone: tier === 'A' ? 'ok' : isCatalogue ? 'muted' : 'warn',
+    variant,
+    tier,
+    ctaLabel: isCatalogue ? 'View details' : defaultCtaForTier(tier),
+  }
+}
+
+function relatedFor(row: NormalizedListing, pool: NormalizedListing[], limit = 6): MarketCardModel[] {
+  const sameCategory = pool.filter(
+    r => r.id !== row.id && r.category === row.category,
+  )
+  const sameView = pool.filter(
+    r => r.id !== row.id && r.view === row.view && r.category !== row.category,
+  )
+  const merged = [...sameCategory, ...sameView].slice(0, limit)
+  return merged.map(toMarketCardModel)
+}
+
+function complementsFor(row: NormalizedListing, pool: NormalizedListing[], limit = 6): MarketCardModel[] {
+  // Cross-category upsell: equipment ↔ consumables ↔ services
+  const complementViews: MarketView[] =
+    row.view === 'equipment'
+      ? ['consumables', 'services']
+      : row.view === 'consumables'
+        ? ['equipment', 'services']
+        : row.view === 'services'
+          ? ['equipment', 'consumables']
+          : ['equipment', 'consumables', 'services']
+  return pool
+    .filter(r => r.id !== row.id && complementViews.includes(r.view))
+    .slice(0, limit)
+    .map(toMarketCardModel)
+}
+
+function buildFeedRows(filtered: NormalizedListing[], all: NormalizedListing[]): MarketFeedRow[] {
+  if (!filtered.length) return []
+
+  const cards = filtered.map(toMarketCardModel)
+  const rows: MarketFeedRow[] = []
+
+  // First 4 as grid
+  const head = cards.slice(0, 4)
+  if (head.length) {
+    rows.push({ type: 'grid', id: 'grid-head', items: head })
+  }
+
+  // Related rail from remaining same-view inventory (buy more)
+  const railSource = all
+    .filter(r => !filtered.slice(0, 4).some(f => f.id === r.id && f.view === r.view))
+    .slice(0, 8)
+    .map(toMarketCardModel)
+  if (railSource.length >= 2) {
+    rows.push({
+      type: 'rail',
+      id: 'rail-more',
+      title: 'Often viewed with these',
+      items: railSource,
+    })
+  }
+
+  // Rest of grid
+  const tail = cards.slice(4)
+  if (tail.length) {
+    rows.push({ type: 'grid', id: 'grid-tail', items: tail })
+  }
+
+  return rows
+}
 
 export function resolveListingMediaStage(row: NormalizedListing, stage: MediaStage) {
   const media = row.media
@@ -56,57 +179,8 @@ export function resolveListingMediaStage(row: NormalizedListing, stage: MediaSta
   }
 }
 
-function ListingCardMedia({ row }: { row: NormalizedListing }) {
-  const [stage, setStage] = useState<MediaStage>('primary')
-  const mediaSignature = row.media ? `${row.media.src}|${row.media.fallbackSrc}` : 'none'
-
-  useEffect(() => {
-    setStage('primary')
-  }, [row.id, row.view, mediaSignature])
-
-  const media = resolveListingMediaStage(row, stage)
-
-  return (
-    <figure className="hvm2-listing-media" data-media-kind={media.kind}>
-      <Image
-        src={media.src}
-        alt={media.altText}
-        width={640}
-        height={480}
-        sizes="(max-width: 640px) 50vw, 320px"
-        quality={75}
-        loading="lazy"
-        onError={() => {
-          if (stage === 'primary' && row.media?.fallbackSrc && row.media.fallbackSrc !== media.src) {
-            setStage('fallback')
-            return
-          }
-          if (stage !== 'empty') {
-            setStage('empty')
-          }
-        }}
-      />
-      {media.badgeLabel && <span className="hvm2-listing-media-badge">{media.badgeLabel}</span>}
-      {media.caption && <figcaption>{media.caption}</figcaption>}
-    </figure>
-  )
-}
-
-function ListingCard({ row, cta, onSelect }: { row: NormalizedListing; cta: string; onSelect: () => void }) {
-  return (
-    <article className="hvm2-listing-card">
-      <ListingCardMedia row={row} />
-      <div className="hvm2-card-topline"><StatusPill tone="gold">{row.category}</StatusPill><span>{row.jurisdiction}</span></div>
-      <h3>{row.title}</h3>
-      <p>{row.summary}</p>
-      <div className="hvm2-card-meta">
-        <span>{formatStatus(row.status)}</span>
-        <span>{row.channel || MOBILE_COMMAND_COPY.listingChannel}</span>
-        {row.confidence != null && <span>{row.confidence}% confidence</span>}
-      </div>
-      <button type="button" className="hvm2-inline-cta" onClick={onSelect}>{cta}</button>
-    </article>
-  )
+function findListing(id: string, rows: NormalizedListing[]): NormalizedListing | null {
+  return rows.find(r => `${r.view}-${r.id}` === id) || null
 }
 
 export function MarketplaceSection({
@@ -142,8 +216,25 @@ export function MarketplaceSection({
   const searchLabel = `Search ${MARKET_TABS.find(tab => tab.id === activeMarketView)?.label.toLowerCase() ?? 'marketplace'}`
   const supplyView = activeMarketView === 'wanted' ? 'cannabis' : activeMarketView
 
+  const [detailId, setDetailId] = useState<string | null>(null)
+
+  const detailListing = useMemo(
+    () => (detailId ? findListing(detailId, marketRows) : null),
+    [detailId, marketRows],
+  )
+  const detailCard = useMemo(
+    () => (detailListing ? toMarketCardModel(detailListing) : null),
+    [detailListing],
+  )
+
+  const feedRows = useMemo(
+    () => buildFeedRows(filteredRows, marketRows),
+    [filteredRows, marketRows],
+  )
+
   function selectAndFocus(view: MarketView) {
     onMarketViewChange(view)
+    setDetailId(null)
     window.requestAnimationFrame(() => tabRefs.current.get(view)?.focus())
   }
 
@@ -171,12 +262,23 @@ export function MarketplaceSection({
     onOpenTool(tool, options)
   }
 
+  function openDetail(id: string) {
+    setDetailId(id)
+  }
+
+  function openInquiry(id: string) {
+    const listing = findListing(id, marketRows)
+    if (!listing) return
+    setDetailId(null)
+    onOpenTool('introduction', { listing, marketView: listing.view })
+  }
+
   return (
     <SectionShell id="marketplace" sectionRef={sectionRef} eyebrow="Marketplace control" title="Demand, supply and commercial routes" description={MOBILE_COMMAND_COPY.marketplaceDescription} className="hvm2-market-section">
       <div className="hvm2-quick-actions">
         <a href={commandHref('marketplace', { tool: 'wanted-intake', marketView: 'wanted' })} onClick={event => keepInCommand(event, 'wanted-intake', { marketView: 'wanted' })}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></a>
-        <a href={commandHref('marketplace', { tool: 'supply-intake', marketView: supplyView })} onClick={event => keepInCommand(event, 'supply-intake', { marketView: supplyView })}><span>↗</span><strong>Submit supply</strong><small>Controlled review intake</small></a>
-        <a href={commandHref('financing', { tool: 'financing-intake', marketView: activeMarketView })} onClick={event => keepInCommand(event, 'financing-intake')}><span>¤</span><strong>Request financing</strong><small>Trade structure review</small></a>
+        <a href={commandHref('marketplace', { tool: 'supply-intake', marketView: supplyView })} onClick={event => keepInCommand(event, 'supply-intake', { marketView: supplyView })}><span>↗</span><strong>Submit supply</strong><small>Consumables &amp; equipment open; licensed routes reviewed</small></a>
+        <a href={commandHref('financing', { tool: 'financing-intake', marketView: activeMarketView })} onClick={event => keepInCommand(event, 'financing-intake', { marketView: activeMarketView })}><span>¤</span><strong>Trade financing</strong><small>Structured inquiry</small></a>
       </div>
 
       <MarketplaceWorkspacePanel
@@ -206,7 +308,7 @@ export function MarketplaceSection({
                 aria-label={`${tab.label}, ${count} records`}
                 tabIndex={activeMarketView === tab.id ? 0 : -1}
                 className={activeMarketView === tab.id ? 'active' : ''}
-                onClick={() => onMarketViewChange(tab.id)}
+                onClick={() => selectAndFocus(tab.id)}
                 onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
               >
                 {tab.label}<span aria-hidden="true">{count}</span>
@@ -219,11 +321,14 @@ export function MarketplaceSection({
           <input value={marketQuery} onChange={event => onMarketQueryChange(event.target.value)} aria-label={searchLabel} placeholder={searchLabel} />
         </label>
       </div>
+
       <div id="hvm2-market-panel" role="tabpanel" aria-labelledby={`hvm2-tab-${activeMarketView}`} tabIndex={0}>
         {filteredRows.length > 0 ? (
-          <div className="hvm2-listing-grid">
-            {filteredRows.map(row => <ListingCard key={`${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.reviewedIntroduction} />)}
-          </div>
+          <MarketFeed
+            rows={feedRows}
+            onOpen={openDetail}
+            onCta={openInquiry}
+          />
         ) : (
           <EmptyState
             title={marketQuery.trim() ? 'No records match this search' : 'No reviewed records in this category yet'}
@@ -235,6 +340,25 @@ export function MarketplaceSection({
           />
         )}
       </div>
+
+      {detailCard && detailListing ? (
+        <MarketDetailSheet
+          listing={detailCard}
+          description={detailListing.summary}
+          specs={[
+            { label: 'Category', value: detailListing.category },
+            { label: 'Jurisdiction', value: detailListing.jurisdiction },
+            { label: 'Status', value: formatStatus(detailListing.status) },
+            { label: 'Channel', value: detailListing.channel || MOBILE_COMMAND_COPY.listingChannel },
+          ]}
+          related={relatedFor(detailListing, marketRows)}
+          complements={complementsFor(detailListing, marketRows)}
+          tier={detailCard.tier}
+          onCta={() => openInquiry(detailCard.id)}
+          onOpenRelated={openDetail}
+          onClose={() => setDetailId(null)}
+        />
+      ) : null}
     </SectionShell>
   )
 }
@@ -248,38 +372,65 @@ export function SupplySection({
   supplyRows: NormalizedListing[]
   onOpenTool: (tool: MobileCommandTool, options?: { listing?: NormalizedListing; marketView?: MarketView }) => void
 }) {
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const detailListing = useMemo(
+    () => (detailId ? findListing(detailId, supplyRows) : null),
+    [detailId, supplyRows],
+  )
+  const detailCard = useMemo(
+    () => (detailListing ? toMarketCardModel(detailListing) : null),
+    [detailListing],
+  )
+
+  const feedRows = useMemo(() => {
+    const cards = supplyRows.map(toMarketCardModel)
+    const rows: MarketFeedRow[] = []
+    if (cards.length) rows.push({ type: 'grid', id: 'supply-grid', items: cards })
+    return rows
+  }, [supplyRows])
+
   return (
     <SectionShell
       id="supply"
       sectionRef={sectionRef}
       eyebrow="Supply"
       title="Products, consumables, equipment and services"
-      description={MOBILE_COMMAND_COPY.supplyDescription}
-      action={<button type="button" className="hvm2-text-link" onClick={() => onOpenTool('supply-intake', { marketView: 'cannabis' })}>Submit supply</button>}
+      description="Open commercial supply for consumables and equipment. Licensed inventory remains review-gated."
+      className="hvm2-market-section"
     >
-      <div className="hvm2-metric-grid">
-        {SUPPLY_TABS.map((tab) => {
-          const count = supplyRows.filter((row) => row.view === tab.id).length
-          return (
-            <Metric
-              key={tab.id}
-              label={tab.label}
-              value={count}
-              detail={count === 0 ? 'No approved records yet' : 'Approved loaded records'}
-            />
-          )
-        })}
-      </div>
       {supplyRows.length > 0 ? (
-        <div className="hvm2-horizontal-deck hvm2-deck-spaced">
-          {supplyRows.map(row => <ListingCard key={`supply-${row.view}-${row.id}`} row={row} onSelect={() => onOpenTool('introduction', { listing: row })} cta={MOBILE_COMMAND_COPY.supplyReview} />)}
-        </div>
-      ) : (
-        <EmptyState
-          title="No reviewed supply records yet"
-          detail={MOBILE_COMMAND_COPY.supplyEmptyDetail}
+        <MarketFeed
+          rows={feedRows}
+          onOpen={setDetailId}
+          onCta={(id) => {
+            const listing = findListing(id, supplyRows)
+            if (listing) onOpenTool('introduction', { listing, marketView: listing.view })
+          }}
         />
+      ) : (
+        <EmptyState title="No supply records yet" detail={MOBILE_COMMAND_COPY.marketplaceEmptyDetail} />
       )}
+
+      {detailCard && detailListing ? (
+        <MarketDetailSheet
+          listing={detailCard}
+          description={detailListing.summary}
+          specs={[
+            { label: 'Category', value: detailListing.category },
+            { label: 'Jurisdiction', value: detailListing.jurisdiction },
+            { label: 'Status', value: formatStatus(detailListing.status) },
+          ]}
+          related={relatedFor(detailListing, supplyRows)}
+          complements={complementsFor(detailListing, supplyRows)}
+          tier={detailCard.tier}
+          onCta={() => {
+            onOpenTool('introduction', { listing: detailListing, marketView: detailListing.view })
+            setDetailId(null)
+          }}
+          onOpenRelated={setDetailId}
+          onClose={() => setDetailId(null)}
+        />
+      ) : null}
     </SectionShell>
   )
 }

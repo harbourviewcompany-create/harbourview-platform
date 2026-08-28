@@ -53,6 +53,8 @@ export type NormalizedListing = {
   status: string
   channel: string
   confidence: number | null
+  /** Public price label when available (Tier A open listings). */
+  priceDisplay?: string | null
   view: MarketView
   media?: MarketplaceProjectionMedia | null
 }
@@ -351,6 +353,14 @@ export function normalizeListing(
     status: String(status || 'Pending review'),
     channel: String(channel || MOBILE_COMMAND_COPY.listingChannel),
     confidence: parseConfidence(confidence),
+    // MarketRow[8] carries price_display when set by baseDashboardRow
+    priceDisplay: (() => {
+      const ratingOrPrice = String(row[8] || '').trim()
+      if (!ratingOrPrice) return null
+      // Heuristic: pure decimals are ratings; everything else is treated as price label
+      if (/^\d+(\.\d+)?$/.test(ratingOrPrice)) return null
+      return ratingOrPrice
+    })(),
     view,
     ...(media ? { media } : {}),
   }

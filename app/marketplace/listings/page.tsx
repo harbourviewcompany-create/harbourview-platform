@@ -4,6 +4,7 @@ import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } 
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
 import { getPublicListings, type PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
+import { getMarketplaceCategory, isMarketplaceCategoryKey } from '@/lib/marketplace/taxonomy'
 
 // ISR: marketplace listing data
 export const revalidate = 1800
@@ -78,9 +79,26 @@ function getStringSpec(listing: PublicListing, key: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function getListingCtaLabel(listing: PublicListing) {
+  const definition = isMarketplaceCategoryKey(listing.category)
+    ? getMarketplaceCategory(listing.category)
+    : undefined
+  const isOpenCommercial = Boolean(
+    definition &&
+      definition.publicVisibilityMode === 'public_allowed' &&
+      !definition.requiresLicenseReview &&
+      !definition.restrictedByDefault,
+  )
+
+  if (isOpenCommercial) {
+    return getStringSpec(listing, 'cta_label') ?? definition?.defaultCtaLabel ?? 'Contact seller'
+  }
+  return listing.slug ? 'View reviewed listing' : 'Request Harbourview review'
+}
+
 function ListingGridCard({ listing }: { listing: PublicListing }) {
   const href = getPublicListingHref(listing, listing.category || 'listing')
-  const ctaLabel = getStringSpec(listing, 'cta_label') ?? (listing.slug ? 'View reviewed listing' : 'Request Harbourview review')
+  const ctaLabel = getListingCtaLabel(listing)
   const category = formatPublicLabel(listing.category, CATEGORY_LABELS) ?? 'Marketplace listing'
   const region = listing.location_country || formatPublicLabel(listing.region, REGION_LABELS)
 

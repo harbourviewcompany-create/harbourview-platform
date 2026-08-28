@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { notifyMarketplaceInquiry } from '@/lib/marketplace/notification';
+import { notifyMarketplaceInquiry, notifySellerOfListingInquiry } from '@/lib/marketplace/notification';
+import { resolveListingSellerEmail } from '@/lib/marketplace/resolveListingSeller';
 import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 import { marketplaceCaptureSchema } from '@/lib/marketplace/intakeValidation';
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit';
@@ -189,7 +190,7 @@ export async function POST(request: Request) {
 
   const payload: Record<(typeof CAPTURE_FIELD_ALLOWLIST)[number], string | null> = {
     id: globalThis.crypto.randomUUID(),
-    listing_id: null,
+    listing_id: parsed.data.listing_id ?? null,
     buyer_request_id: null,
     contact_name: contactName,
     contact_email: contactEmail,
@@ -239,7 +240,10 @@ export async function POST(request: Request) {
     return json('error', SAFE_CAPTURE_ERROR, 502);
   }
 
-  await notifyMarketplaceInquiry({
+  const listingId = parsed.data.listing_id ?? null;
+  const listingTitle = parsed.data.listing_title ?? null;
+
+  const inquiryNotifyPayload = {
     inquiry_type: inquiryType,
     contact_name: contactName,
     contact_email: contactEmail,
@@ -248,13 +252,45 @@ export async function POST(request: Request) {
     message: message,
     id: payload.id,
     created_at: new Date().toISOString(),
-    priority: 'medium',
-  }).catch((error) => {
+    priority: 'medium' as const,
+    listing_id: listingId,
+    listing_title: listingTitle,
+  };
+
+  await notifyMarketplaceInquiry(inquiryNotifyPayload).catch((error) => {
     console.info('harbourview_marketplace_notification_failed', {
       requestId,
       errorName: error instanceof Error ? error.name : 'unknown',
     });
   });
+
+  // Tier A: deliver inquiry to listing seller when we can resolve their email
+  if (listingId) {
+    try {
+      const sellerEmail = await resolveListingSellerEmail(listingId);
+      if (sellerEmail) {
+        const sellerResult = await notifySellerOfListingInquiry(sellerEmail, inquiryNotifyPayload);
+        console.info('harbourview_marketplace_seller_notify', {
+          requestId,
+          listingId,
+          status: sellerResult.status,
+        });
+      } else {
+        console.info('harbourview_marketplace_seller_notify', {
+          requestId,
+          listingId,
+          status: 'skipped',
+          reason: 'seller_email_unresolved',
+        });
+      }
+    } catch (error) {
+      console.info('harbourview_marketplace_seller_notify_failed', {
+        requestId,
+        errorName: error instanceof Error ? error.name : 'unknown',
+      });
+    }
+  }
+
   logCaptureDiagnostic('CAPTURE_OK', requestId, { submittedFieldKeys, insertFieldKeys, inquiryType });
   return json('success', successMessage);
 }

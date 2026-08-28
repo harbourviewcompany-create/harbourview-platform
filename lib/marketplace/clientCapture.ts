@@ -12,6 +12,7 @@ type MarketplaceInquiryInsert = {
   contact_phone: string | null
   inquiry_type: string
   message: string
+  listing_title?: string | null
 }
 
 const SAFE_LISTING_CAPTURE_ERROR = 'Listing submission could not be saved. Please try again or contact Harbourview directly.'

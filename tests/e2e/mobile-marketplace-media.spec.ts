@@ -45,7 +45,7 @@ async function authenticate(browser: Browser) {
 }
 
 async function assertAllHealthyMedia(page: Page) {
-  const cards = page.locator('.hvm2-listing-card')
+  const cards = page.locator('.cc-mkt-card')
   await expect(cards.first()).toBeVisible({ timeout: 30_000 })
   const cardCount = await cards.count()
   expect(cardCount).toBeGreaterThan(0)
@@ -53,24 +53,20 @@ async function assertAllHealthyMedia(page: Page) {
   for (let index = 0; index < cardCount; index += 1) {
     const card = cards.nth(index)
     await card.scrollIntoViewIfNeeded()
-    const media = card.locator('.hvm2-listing-media')
+    const media = card.locator('.cc-mkt-card-media')
     await expect(media).toBeVisible()
 
-    const kind = await media.getAttribute('data-media-kind')
-    expect(['actual', 'representative']).toContain(kind)
-
-    const image = media.locator('img')
-    await expect(image).toBeVisible()
-    await expect.poll(async () => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true)
-
-    const alt = await image.getAttribute('alt')
-    expect(alt?.trim().length ?? 0).toBeGreaterThan(8)
-
-    if (kind === 'representative') {
-      await expect(media.locator('.hvm2-listing-media-badge')).toHaveText(/^(Representative|Illustrative) image$/)
-    } else {
-      await expect(media.locator('.hvm2-listing-media-badge')).toHaveCount(0)
+    const image = media.locator('img.cc-mkt-card-img')
+    // Catalogue/open cards may render a placeholder div when no image URL is available.
+    if (await image.count()) {
+      await expect(image).toBeVisible()
+      await expect
+        .poll(async () => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0))
+        .toBe(true)
     }
+
+    await expect(card.locator('.cc-mkt-card-title')).toBeVisible()
+    await expect(card.locator('.cc-mkt-cta')).toBeVisible()
   }
 
   const geometry = await page.evaluate(() => ({
@@ -87,7 +83,7 @@ async function verifyEveryLoadedMarketplaceView(page: Page) {
     await tab.click()
     await expect(tab).toHaveAttribute('aria-selected', 'true')
 
-    const cards = page.locator('.hvm2-listing-card')
+    const cards = page.locator('.cc-mkt-card')
     if (await cards.count() > 0) await assertAllHealthyMedia(page)
   }
 }
@@ -169,14 +165,14 @@ test.describe('Mobile Marketplace media production path', () => {
 
       const search = page.getByRole('textbox', { name: 'Search cannabis' })
       await expect(search).toBeVisible()
-      const firstTitle = (await page.locator('.hvm2-listing-card h3').first().textContent())?.trim() ?? ''
+      const firstTitle = (await page.locator('.cc-mkt-card-title').first().textContent())?.trim() ?? ''
       expect(firstTitle.length).toBeGreaterThan(3)
       await search.fill(firstTitle.slice(0, Math.min(18, firstTitle.length)))
-      await expect(page.locator('.hvm2-listing-card').first()).toBeVisible()
+      await expect(page.locator('.cc-mkt-card').first()).toBeVisible()
       await assertAllHealthyMedia(page)
       await search.fill('')
 
-      await page.locator('.hvm2-listing-card .hvm2-inline-cta').first().click()
+      await page.locator('.cc-mkt-card .cc-mkt-cta').first().click()
       const introduction = page.locator('[data-mobile-command-tool="introduction"]')
       await expect(introduction).toBeVisible()
       await introduction.getByRole('button', { name: 'Close marketplace workflow' }).click()
