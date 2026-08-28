@@ -17,7 +17,7 @@ import {
   resolveSignalFreshness,
   WEEKLY_SIGNAL_WINDOW_DAYS,
 } from '@/lib/dashboard/signalFreshness'
-import { flagForMarket } from '@/lib/utils/flagEmoji'
+import { flagForMarket, marketAliases } from '@/lib/utils/flagEmoji'
 import {
   SIGNAL_QUALITY_SELECT,
   QUALITY_LABEL_NOT_IN,
@@ -123,6 +123,13 @@ function isPresentationSchemaGap(error: QueryError) {
   return isSchemaGap(error, ['summary', 'source', 'url', 'verification', 'commercial_impact', 'analysis'])
 }
 
+function exactCountryFilter(country: string) {
+  const aliases = marketAliases(country)
+    .map(alias => alias.replace(/[,.()]/g, '').trim())
+    .filter(Boolean)
+  return [...aliases.map(alias => `country.ilike.${alias}`), 'country.eq.Global'].join(',')
+}
+
 export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSignal {
   const contentType = typeof s.content_type === 'string' ? s.content_type.toLowerCase() : ''
   const laneKey = (contentType || s.top_lane || s.cat || '').toLowerCase()
@@ -198,7 +205,7 @@ export async function GET(req: NextRequest) {
         .order('quality_confidence', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
 
-      if (isCountryFiltered) query = query.or(`country.ilike.%${countryParam}%,country.eq.Global`)
+      if (isCountryFiltered) query = query.or(exactCountryFilter(countryParam))
       if (lane !== 'all' && LANE_TOP_LANES[lane]) query = query.in('top_lane', LANE_TOP_LANES[lane])
 
       return query.range(offset, offset + fetchLimit - 1)
