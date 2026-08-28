@@ -123,11 +123,19 @@ function isPresentationSchemaGap(error: QueryError) {
   return isSchemaGap(error, ['summary', 'source', 'url', 'verification', 'commercial_impact', 'analysis'])
 }
 
-function exactCountryFilter(country: string) {
+/**
+ * The database prefilter is intentionally broad enough to retain composite
+ * values such as `United States; Michigan`. The shared canonicalizer performs
+ * the final delimiter-aware exact-jurisdiction check, so short aliases can
+ * never promote unrelated values such as US -> Australia.
+ */
+function candidateCountryFilter(country: string) {
   const aliases = marketAliases(country)
     .map(alias => alias.replace(/[,.()]/g, '').trim())
     .filter(Boolean)
-  return [...aliases.map(alias => `country.ilike.${alias}`), 'country.eq.Global'].join(',')
+  const descriptiveAliases = aliases.filter(alias => alias.length > 2)
+  const candidates = descriptiveAliases.length > 0 ? descriptiveAliases : aliases
+  return [...candidates.map(alias => `country.ilike.%${alias}%`), 'country.eq.Global'].join(',')
 }
 
 export function rowToDashboardSignal(s: SignalRow, corrIndex: Map<string, number>): DashboardSignal {
@@ -205,7 +213,7 @@ export async function GET(req: NextRequest) {
         .order('quality_confidence', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
 
-      if (isCountryFiltered) query = query.or(exactCountryFilter(countryParam))
+      if (isCountryFiltered) query = query.or(candidateCountryFilter(countryParam))
       if (lane !== 'all' && LANE_TOP_LANES[lane]) query = query.in('top_lane', LANE_TOP_LANES[lane])
 
       return query.range(offset, offset + fetchLimit - 1)
