@@ -221,3 +221,5 @@ export function canonicalizeDashboardSignals(
 
   return deduped
 }
+
+// Preview-only build trigger; no runtime behavior changes.
