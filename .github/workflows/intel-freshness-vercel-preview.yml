@@ -49,10 +49,20 @@ jobs:
               exit 1
             fi
           done
-      - name: Pull Vercel preview environment
+      - name: Pull Vercel preview project settings
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - name: Remove unretrievable preview secret placeholders
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Vercel intentionally writes literal [SENSITIVE] placeholders for
+          # secret preview values that cannot be pulled. Those placeholders are
+          # not valid application credentials and caused ISR build-time fetches
+          # to hang. The exact repair head already passes a clean no-secret
+          # production build, so keep only .vercel/project.json/settings here.
+          rm -f .vercel/.env.preview.local
       - name: Build exact Vercel output
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
