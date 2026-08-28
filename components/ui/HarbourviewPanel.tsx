@@ -101,6 +101,7 @@ export function HarbourviewBottomSheet({
   onBack,
   className,
   hideHeader = false,
+  ...rest
 }: {
   title: string
   eyebrow?: string
@@ -110,7 +111,7 @@ export function HarbourviewBottomSheet({
   onBack?: () => void
   className?: string
   hideHeader?: boolean
-}) {
+} & Omit<HTMLAttributes<HTMLElement>, 'children' | 'className'>) {
   return (
     <section
       aria-label={title}
@@ -121,6 +122,7 @@ export function HarbourviewBottomSheet({
         SHEET_SIZE_CLASS[size],
         className,
       )}
+      {...rest}
     >
       <div className={cx('mx-auto mb-3', hvPanelHairlineClass)} aria-hidden="true" />
 
