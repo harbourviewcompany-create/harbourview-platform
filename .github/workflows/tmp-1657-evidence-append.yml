@@ -1,0 +1,41 @@
+name: Temporary PR 1657 Evidence Append
+
+on:
+  push:
+    branches:
+      - feat/market-tier-a-open-commerce
+
+permissions:
+  contents: write
+
+jobs:
+  append-and-remove-self:
+    if: ${{ !contains(github.event.head_commit.message, '[evidence-appended]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/market-tier-a-open-commerce
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Append controlled evidence and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >> docs/control/EVIDENCE_LOG.md <<'EOF'
+
+## 2026-08-28 — Tier A marketplace open-commerce verification (#1657)
+
+- Scope: canonical taxonomy gating, Tier A self-serve publication, protected seller-inquiry routing, live public marketplace CTA wiring, controlled compliance copy, and shared Market UI.
+- Public/private boundary: seller contact details remain private; open publication is limited to taxonomy categories that are `public_allowed`, do not require licence review, and are not restricted by default. Licensed/restricted categories remain review-gated.
+- Controlled copy: `MARKETPLACE_TIER_A_PUBLISHING_CAVEAT` in `lib/content/complianceCopy.ts` is the canonical public publishing caveat for this change.
+- Production boundary: this PR does not apply production migrations.
+- Required verification before merge: exact-head Type Check, Next.js Build, Security / Leakage, Critical Env Secrets, marketplace Tier A contract tests, public leakage tests, Registry Discipline, and migration-ledger reconciliation. Existing repository-level failures may be classified only with exact baseline evidence.
+- Rollback: revert PR #1657; no production database rollback is required by this PR.
+EOF
+          git rm .github/workflows/tmp-1657-evidence-append.yml
+          git config user.name 'harbourview-ci'
+          git config user.email 'harbourviewcompany@gmail.com'
+          git add docs/control/EVIDENCE_LOG.md
+          git commit -m 'docs(control): record Tier A marketplace verification [evidence-appended]'
+          git push origin HEAD:feat/market-tier-a-open-commerce
