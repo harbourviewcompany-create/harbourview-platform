@@ -1,0 +1,77 @@
+name: Temporary closeout evidence append
+
+on:
+  push:
+    branches:
+      - docs/harden-1661-1659-closeout-20260827
+
+permissions:
+  contents: write
+
+jobs:
+  append-evidence:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Append canonical closeout evidence without rewriting history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch docs/harden-1661-1659-closeout-20260827 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" repo
+          cd repo
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('docs/control/EVIDENCE_LOG.md')
+          text = p.read_text(encoding='utf-8')
+          evidence_id = 'HV-1661-1659-CLOSEOUT-20260827'
+          if evidence_id in text:
+              raise SystemExit('closeout evidence already present; refusing duplicate append')
+          block = r'''
+
+---
+
+## 2026-08-27 — #1661/#1659 closeout hardening and fixed 120-version migration activation HOLD
+
+**Evidence ID:** `HV-1661-1659-CLOSEOUT-20260827`
+
+**Scope:** Documentation/control closeout only. No application behavior, migration file, release-control logic, deployment configuration, production SQL, database object, grant, RLS policy, or secret changed by this closeout.
+
+### Repair chain
+
+- PR #1661 merged at `87c171309f6c74f5ddb22848cebd4db67785fb51`. It committed the exact live SQL bodies for remote versions `20260827185123` and `20260827185517` so the repository/live ledger gate could prove the already-existing production state. No SQL was replayed or re-applied.
+- PR #1659 merged at `e702f875458fcceee927fe753ad50f561beceefe`. Its original production repair deployment was `dpl_9A4c3uwKnrWX3RJkPWghhpvkr23D`, READY on that SHA and verified HTTP 200.
+
+### Fixed migration-drift evidence
+
+- Manifest source SHA: `4501e84d80847839e2f7bf02f93262a982f4edf3`.
+- Fixed universe: `committed_not_applied = 120`, `applied_not_committed = 0`, `equivalence_mismatches = 0`, `approved_pending = 0`; all 3 explicitly approved migrations are applied.
+- Direct read-only production-ledger verification of those 120 versions found 0 applied.
+- Complete classification is recorded in `docs/control/MIGRATION_PENDING_AUDIT_20260827.md`: 115 awaiting explicit production approval; 5 superseded/withdrawn; 0 intentionally unapplied/historical; 0 genuinely required in production.
+- Drift/execution repair is GO. This is not authorization to activate any of the 120.
+
+### Current production evidence at closeout capture
+
+- Protected `main`: `9d68bccd45b820302b68f8bb269a6906a13d87d1`.
+- READY Vercel production deployment: `dpl_6c695cr6gMzKJYqdgTHWzmuWKSZi`, Git SHA exactly `9d68bccd45b820302b68f8bb269a6906a13d87d1`.
+- Canonical `https://harbourview.vercel.app/`: HTTP 200; ETag `W/"8ade790100fe3cc75a6abd2988f50e5a"`.
+- Vercel runtime-error query for the preceding 24 hours: no runtime errors.
+- The original #1659 deployment above proves the repair event; this refreshed deployment proves the subsequent current production state at evidence capture.
+
+### Control-model finding
+
+The current migration-ledger manifest models production activation approval but does not consume the durable deferred/retired dispositions used by the release-closure classification. As a result, repository-only migrations that are deliberately retained but not approved can appear as `unexpected_pending`. Adding those versions to `approved_migrations` merely to suppress that count would incorrectly convert non-activation status into production approval. A future control-model change should introduce a first-class non-activation disposition; no control-model code or release-control JSON is changed by this closeout.
+
+### Decision
+
+- **REPAIR GO** — #1661 migration-ledger reconciliation and #1659 Vercel deployment repair are complete and verified.
+- **BROADER MIGRATION ACTIVATION HOLD** — none of the 120 repository-only versions is authorized for production activation by this closeout.
+'''
+          p.write_text(text + block, encoding='utf-8')
+          PY
+          rm .github/workflows/_temp-closeout-evidence-append.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/control/EVIDENCE_LOG.md .github/workflows/_temp-closeout-evidence-append.yml
+          git commit -m 'docs(control): append #1661/#1659 closeout evidence'
+          git push origin HEAD:docs/harden-1661-1659-closeout-20260827
