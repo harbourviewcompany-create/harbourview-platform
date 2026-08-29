@@ -136,7 +136,7 @@ describe('public route smoke coverage', () => {
     expect(verifier).toContain("expected: 'redirect'")
     expect(verifier).toContain('expectedStatus: 307')
     expect(verifier).toContain("expectedLocation: '/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake'")
-    expect(wantedPage).toContain('export default async function WantedPage()')
+    expect(wantedPage).toContain("redirect('/dashboard?page=marketplace&section=marketplace&marketView=wanted&tool=wanted-intake')")
     expect(protectedPrefixes).not.toContain("'/marketplace/wanted'")
     expect(matcher).not.toContain("'/marketplace/wanted'")
     expect(matcher).not.toContain("'/marketplace/wanted/:path*'")
