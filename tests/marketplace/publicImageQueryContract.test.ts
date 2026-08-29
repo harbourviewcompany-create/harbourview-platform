@@ -8,9 +8,11 @@ const source = fs.readFileSync(
 )
 
 describe('public marketplace image query contract', () => {
-  it('targets the configured exposed API schema', () => {
-    expect(source).toContain("'Accept-Profile': SUPABASE_DB_SCHEMA")
-    expect(source).toContain('SUPABASE_DB_SCHEMA')
+  it('targets the public PostgREST profile for marketplace image rows and card media', () => {
+    expect(source).toContain("const TARGET_TABLE = 'marketplace_item_images'")
+    expect(source).toContain("const CARD_MEDIA_VIEW = 'marketplace_item_card_media_v1'")
+    expect(source).toContain("'Accept-Profile': 'public'")
+    expect(source).not.toContain("'Accept-Profile': SUPABASE_DB_SCHEMA")
   })
 
   it('selects only the public DTO allowlist and never admin provenance columns', () => {
