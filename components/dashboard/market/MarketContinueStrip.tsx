@@ -22,7 +22,11 @@ export function MarketContinueStrip({ recent, onOpen }: Props) {
           >
             {r.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={r.imageUrl} alt="" />
+              <img
+                src={r.media?.src ?? r.imageUrl}
+                alt={r.media?.altText ?? r.title}
+                data-media-kind={r.media?.kind}
+              />
             ) : (
               <span
                 style={{
