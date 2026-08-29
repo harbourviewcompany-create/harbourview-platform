@@ -54,10 +54,11 @@ describe('marketplace media post-merge corrective contracts', () => {
     expect(media.src).toBe('/marketplace/images/product-inventory.webp')
   })
 
-  it('records degradation separately from legitimate no-image fallback', () => {
+  it('records optional media degradation without promoting it to a source fallback', () => {
     const source = read('lib/dashboard/buildDashboardCommandSources.ts')
     expect(source).toContain("mediaStatus: degraded ? 'degraded' : 'live'")
-    expect(source).toMatch(/projection\.mediaStatus === 'degraded'\s*\?\s*'fallback'\s*:\s*'live'/)
+    expect(source).toMatch(/classify: projection => Object\.keys\(projection\.rows\)\.length === 0 \? 'empty' : 'live'/)
+    expect(source).not.toMatch(/projection\.mediaStatus === 'degraded'\s*\?\s*'fallback'/)
     expect(source).toContain('controller.abort()')
     expect(source).toContain('() => {\n        controller.abort()\n        finish({}, true)')
   })
