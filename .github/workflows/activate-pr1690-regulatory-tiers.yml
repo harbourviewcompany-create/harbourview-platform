@@ -21,8 +21,6 @@ concurrency:
 
 env:
   CONTROL_FILE: supabase/release-controls/pr1690-regulatory-tier-activation.json
-  PREFLIGHT_FILE: tests/sql/pr1690_regulatory_tier_preflight_read_only.sql
-  POSTFLIGHT_FILE: tests/sql/pr1690_regulatory_tier_postflight_read_only.sql
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
   PGHOST: aws-1-us-west-2.pooler.supabase.com
   PGPORT: '5432'
@@ -75,7 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/pr1690-regulatory-tier-activation
-          psql -X -qAt -f "$PREFLIGHT_FILE" > artifacts/pr1690-regulatory-tier-activation/preflight.txt
+          psql -X -qAt -f tests/sql/pr1690_regulatory_tier_preflight_read_only.sql > artifacts/pr1690-regulatory-tier-activation/preflight.txt
           cat artifacts/pr1690-regulatory-tier-activation/preflight.txt
           grep -q '^STRUCTURAL|PASS$' artifacts/pr1690-regulatory-tier-activation/preflight.txt
           grep -q '^LEDGER|0$' artifacts/pr1690-regulatory-tier-activation/preflight.txt
@@ -158,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/pr1690-regulatory-tier-activation-apply
-          psql -X -qAt -f "$PREFLIGHT_FILE" > artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+          psql -X -qAt -f tests/sql/pr1690_regulatory_tier_preflight_read_only.sql > artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
           cat artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
           grep -q '^STRUCTURAL|PASS$' artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
           grep -q '^LEDGER|0$' artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
@@ -186,7 +184,7 @@ jobs:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
-          psql -X -qAt -f "$POSTFLIGHT_FILE" > artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          psql -X -qAt -f tests/sql/pr1690_regulatory_tier_postflight_read_only.sql > artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
           cat artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
           grep -q '^POSTFLIGHT|PASS$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
           grep -q '^LEDGER|3$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
