@@ -248,6 +248,67 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Human approval status: Tyler approved the fix in-session after being shown the
   diagnosis. **Apply to production and merge remain unapproved.**
 
+## 2026-08-28 — counterparty extraction: unreachable degradation alarm + silent success
+
+- Environment: production (`zvxdgdkukjrrwamdpqrg`). **Not applied.** Committed and
+  awaiting apply sign-off.
+- Tables/columns: none created, altered or dropped. The only effect is the text of
+  one function body. One new row *type* may now appear in the existing
+  `public.pipeline_manual_review_queue` (`pipeline = 'counterparty_extraction'`),
+  which that table already accommodates.
+- Defect 1 — **the all-providers-degraded alarm was unreachable.** The fire branch
+  of `run_signal_counterparty_extraction()` measures the recent failure rate for
+  `anthropic` only, then selects `gemini` unconditionally whenever a gemini key
+  exists. `v_provider` is therefore never null while that key is configured, so the
+  `all_configured_llm_providers_degraded` insert below it cannot fire — precisely
+  the condition it exists to catch. Verified live 2026-08-28: Anthropic returning
+  HTTP 400 "credit balance is too low" and Gemini returning HTTP 429 quota
+  exceeded, simultaneously, with no queue row and no notification.
+- Defect 2 — **the collect phase reported success when it did nothing.** On a
+  non-200 the chain yields no rows, nothing is written, the job is still marked
+  collected, and the function returns a bare `ok: true`. Before
+  `20260828022000` a broken pipeline at least showed red in
+  `cron.job_run_details`; afterwards the identical broken pipeline shows green.
+- Functions replaced: `public.run_signal_counterparty_extraction()` only. Signature
+  unchanged. The collect-phase return gains `llm_status_code` and `degraded`;
+  existing keys and their meanings are unchanged.
+- Alerting: **no new cron and no new delivery channel.** The fix makes the existing
+  `pipeline_manual_review_queue` insert reachable, and the existing daily cron at
+  `app/api/cron/pipeline-manual-review-notify` already emails any unnotified row
+  regardless of pipeline name (verified: it filters only on `notified_at is null`).
+  `INTELLIGENCE_ARCHITECTURE_SPEC.md` Stage G warns against "adding a new always-on
+  cron to solve an always-on-cron problem" and leaves the delivery-channel choice
+  as an open owner decision; this reuses what is already built and wired.
+  `lib/pipeline/manualReviewNotification.ts` gains a `counterparty_extraction`
+  label so the alert renders a name rather than the raw key.
+- Repository/production drift (pre-existing, NOT resolved here): no committed
+  migration gives this function a gemini fallback, a provider-degradation check or
+  the `all_configured_llm_providers_degraded` path — verified across all three
+  migrations that define it (`20260704133107`, `20260704135057`, `20260828022000`).
+  That logic exists only in an uncommitted production rewrite. Closing the drift
+  means adopting a body this repository has never reviewed; that remains a separate
+  owner decision. The migration therefore patches the production body, emits a
+  NOTICE naming the drift on the committed body (which has no provider-selection
+  block to correct), and raises on any third body.
+- Migration file: `20260828153000_counterparty_extraction_degradation_visibility.sql`.
+- Coverage: `tests/sql/counterparty_extraction_degradation_dry_run.sql`, run by
+  `.github/workflows/counterparty-extraction-degradation-dry-run.yml` on
+  PostgreSQL 17. It builds a production-shaped function from scratch, reproduces
+  both defects, applies the migration and asserts both are closed — the only
+  automated coverage of the production-only patch path, since a repository-backed
+  reset never produces that body.
+- Grants: unchanged. ACL is `postgres=X/postgres`; `CREATE OR REPLACE` preserves it.
+- Backward compatibility: additive to the returned JSON. A healthy provider is still
+  selected exactly as before (asserted).
+- Rollback: a NEW forward migration applying both replacements in reverse. Do not
+  edit and re-run the original file — its version is recorded once applied and it
+  will not re-run, and editing a recorded migration breaks its content-hash binding.
+- Required tests: dry run green on PostgreSQL 16 locally (4/4 assertions) plus the
+  repository-body no-op and unrecognized-body raise paths; full results in
+  `EVIDENCE_LOG.md` and the PR body.
+- Human approval status: Tyler approved this scope in-session after being shown the
+  diagnosis. **Apply to production and merge remain unapproved.**
+
 ## Remaining historical control entries
 
 Historical database-control entries below this line are preserved in git history from prior DATABASE_CONTROL commits and in `docs/control/EVIDENCE_LOG.md`. New Decision Intel Stage 0 work is governed by the Stage 0 product boundary section above plus `INTEL_DECISION_OS_RLS_MIGRATION.md`.

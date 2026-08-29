@@ -1,0 +1,44 @@
+name: Counterparty Extraction Degradation Dry Run
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20260828153000_counterparty_extraction_degradation_visibility.sql'
+      - 'tests/sql/counterparty_extraction_degradation_dry_run.sql'
+      - '.github/workflows/counterparty-extraction-degradation-dry-run.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-17:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # Builds a production-shaped run_signal_counterparty_extraction() from
+      # scratch, reproduces the unreachable-alarm and silent-success defects,
+      # applies the migration, and asserts both are closed with no regression to
+      # healthy-provider selection. This is the only automated coverage of the
+      # production-only patch path: a repository-backed reset produces a body
+      # without the provider-selection block, so replay alone never exercises it.
+      - name: Apply and verify counterparty degradation fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/counterparty_extraction_degradation_dry_run.sql

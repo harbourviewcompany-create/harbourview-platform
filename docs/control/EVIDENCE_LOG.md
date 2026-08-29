@@ -5504,3 +5504,104 @@ the AGENTS.md §4 requirement is withdrawn at the same time.
 
 **Status: open PR, not merged.** Merge requires owner sign-off per `CLAUDE.md`
 Rule 3c.
+
+---
+
+## 2026-08-28 — counterparty extraction: the alarm that could not fire, and the success that meant nothing
+
+**How it was found.** Post-merge verification of `20260828022000`. That fix removed
+the `relation "parsed" does not exist` crash and the cron went green — 17 failures
+in the preceding 8 hours, then 7 clean runs. But `ia_counterparties` had no write
+since **2026-07-13**, six weeks earlier, despite **236 eligible unprocessed
+signals**. Green cron, empty pipeline.
+
+**Root cause — both LLM providers billing-blocked, and nothing said so.**
+
+| Provider | HTTP | Body |
+|---|---|---|
+| Anthropic | 400 | `Your credit balance is too low to access the Anthropic API.` |
+| Gemini | 429 | `You exceeded your current quota, please check your plan and billing details.` |
+
+Two independent defects kept that invisible.
+
+**Defect 1 — the all-providers-degraded alarm was unreachable.** The fire branch
+measures the recent failure rate for `anthropic` only:
+
+```sql
+if v_anthropic_key is not null then
+  select ... count(*) filter (where r.status_code <> 200) ... provider='anthropic' ...
+  if ... < 0.5 then v_provider := 'anthropic'; end if;
+end if;
+if v_provider is null and v_gemini_key is not null then v_provider := 'gemini'; end if;
+```
+
+Gemini is selected unconditionally whenever a key exists, so `v_provider` is never
+null while one is configured, and the `all_configured_llm_providers_degraded` insert
+below it cannot fire — in exactly the situation it was built for. Both providers
+were degraded for hours with no queue row and no notification.
+
+**Defect 2 — the collect phase reported success when it did nothing.** On a non-200
+the chain yields no rows, nothing is written, the job is still marked collected, and
+the function returns a bare `ok: true`. Stated plainly because it cuts against the
+previous fix: before `20260828022000` a broken pipeline showed red in
+`cron.job_run_details`; afterwards the identical broken pipeline shows green. The
+crash had been the only signal. This is the case Guardrail #5 exists for.
+
+**The fix, and what it deliberately does not do.** Gemini gets the same
+recent-failure-rate check anthropic already has — a faithful mirror: same 2-hour
+window, same 10-attempt sample, same 0.5 threshold. When both are degraded
+`v_provider` is null, the existing insert fires, and the existing daily cron at
+`app/api/cron/pipeline-manual-review-notify` emails it. The collect-phase return
+gains `llm_status_code` and `degraded`.
+
+**No new cron and no new delivery channel.** Stage G of
+`INTELLIGENCE_ARCHITECTURE_SPEC.md` warns against "adding a new always-on cron to
+solve an always-on-cron problem" and leaves the channel choice as an open owner
+decision. The notify route was checked before relying on it (Guardrail #1): it
+filters only on `notified_at is null` and does **not** filter by pipeline name, so
+a `counterparty_extraction` row is picked up as-is. Only a display label was added.
+
+**Repository/production drift — still not resolved.** No committed migration gives
+this function a gemini fallback, a provider-degradation check, or the
+`all_configured_llm_providers_degraded` path, verified across all three migrations
+that define it (`20260704133107`, `20260704135057`, `20260828022000`). That logic
+exists only in an uncommitted production rewrite. Closing the drift means adopting
+a body this repository has never reviewed — a separate owner decision, deliberately
+not taken here. The migration patches the production body, emits a NOTICE naming
+the drift on the committed body, and raises on any third body.
+
+**Coverage — this closes the gap flagged on #1668.** A review finding there noted
+that no committed fixture exercises the production-only patch path, since a
+repository-backed reset produces a body without it, and that the only evidence was
+a throwaway cluster whose source could not be re-run from the commit. That is now
+`tests/sql/counterparty_extraction_degradation_dry_run.sql`, run by
+`.github/workflows/counterparty-extraction-degradation-dry-run.yml` on
+PostgreSQL 17. It builds a production-shaped function from scratch — sanitized,
+invented names, stubbed HTTP, placeholder key values — reproduces both defects,
+applies the migration, and asserts they are closed.
+
+**Dry run, PostgreSQL 16 local, migration applied mid-script:**
+
+| Assertion | Result |
+|---|---|
+| 1 — defect reproduced | both providers degraded → `provider=gemini`, manual-review rows **0** |
+| 2 — alarm now reachable | `provider=null` → `degraded=true`, `all_configured_llm_providers_degraded`, rows **1** |
+| 3 — silent success closed | non-200 collect → `llm_status_code=500`, `degraded=true` |
+| 4 — no regression | healthy anthropic → `provider=anthropic`, `phase=fire` |
+
+**Convergence paths, same as the previous migration:**
+
+| Path | Starting body | Result |
+|---|---|---|
+| A | production-shaped | both fixes applied; 4/4 assertions above |
+| B | committed repository body | NOTICE naming the drift; body md5 identical before and after — true no-op |
+| C | unrecognized | raises, exit 3 — refuses to record itself as applied |
+
+**Anchor verification against live production (read-only, no execution):** all four
+anchors matched — declare, collect capture, collect return, gemini selection —
+against the current 7913-character definition.
+
+**Status: committed, not applied.** Production still carries both defects. The
+billing block itself is an account action and is not fixed by this change: until
+credits and quota are restored, the pipeline will correctly *report* that it is
+degraded rather than silently claiming success.
