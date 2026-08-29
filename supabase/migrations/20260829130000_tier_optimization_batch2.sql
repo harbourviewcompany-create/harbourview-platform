@@ -101,11 +101,11 @@ begin
   end loop;
 end $$;
 
+-- Reclassify remaining auto-origin rows from briefings
+select * from api.reclassify_auto_tiers('ops-batch2');
+
 -- Flag suspicious greens for review (do not auto-green without briefing)
 update public.countries set
   regulatory_tier_needs_review = true
 where iso_alpha2 in ('ET', 'GR', 'KE', 'UG', 'ZW')
   and regulatory_tier = 'legal_commercial_access';
-
--- Reclassify remaining auto-origin rows from briefings
-select * from api.reclassify_auto_tiers('ops-batch2');
