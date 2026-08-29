@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { resolveLockedSupabaseUrl, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env';
+import { resolveLockedSupabaseUrl } from '@/lib/supabase/env';
 import type { PublicMarketplaceImageDTO } from './dto';
 import { PUBLIC_MARKETPLACE_IMAGE_COLUMNS, toPublicMarketplaceImageDTO } from './dto';
 import { galleryMarketplaceImageRoleRank, publicMarketplaceImageRoleRank } from './rules';
@@ -10,6 +10,18 @@ const TARGET_TABLE = 'marketplace_item_images';
 const CARD_MEDIA_VIEW = 'marketplace_item_card_media_v1';
 const ITEM_ID_BATCH_SIZE = 80;
 const PAGE_SIZE = 500;
+
+/**
+ * marketplace_item_images and marketplace_item_card_media_v1 live in the
+ * `public` schema (see trust-layer + card-media migrations). Do not send
+ * Accept-Profile: api here — that schema does not expose these objects and
+ * PostgREST returns empty/404, which the caller treats as degraded media.
+ * listingsQuery uses the same public-default pattern for marketplace_public_listings_v1.
+ */
+const PUBLIC_REST_HEADERS = {
+  Accept: 'application/json',
+  'Accept-Profile': 'public',
+} as const;
 
 function getAnonKey() {
   return process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
@@ -30,8 +42,7 @@ async function queryPublicImagePage(
       headers: {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
-        Accept: 'application/json',
-        'Accept-Profile': SUPABASE_DB_SCHEMA,
+        ...PUBLIC_REST_HEADERS,
         Range: `${rangeStart}-${rangeStart + PAGE_SIZE - 1}`,
       },
     });
@@ -70,7 +81,7 @@ async function queryPublicImageBatch(itemIds: string[], signal?: AbortSignal): P
 
 /**
  * Fast path: one pre-ranked card row per item from marketplace_item_card_media_v1.
- * Falls back to full image rows if the view is unavailable.
+ * Falls back to full image rows if the view is unavailable (migration not applied).
  */
 async function queryCardMediaBatch(itemIds: string[], signal?: AbortSignal): Promise<Record<string, PublicMarketplaceImageDTO[]> | null> {
   const anonKey = getAnonKey();
@@ -87,8 +98,7 @@ async function queryCardMediaBatch(itemIds: string[], signal?: AbortSignal): Pro
       headers: {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
-        Accept: 'application/json',
-        'Accept-Profile': SUPABASE_DB_SCHEMA,
+        ...PUBLIC_REST_HEADERS,
       },
     });
     if (!res.ok) return null;
@@ -109,7 +119,6 @@ async function queryCardMediaBatch(itemIds: string[], signal?: AbortSignal): Pro
     }>;
 
     return rows.reduce<Record<string, PublicMarketplaceImageDTO[]>>((acc, row) => {
-      // Skip rows with no renderable URL — same gate as toPublicMarketplaceImageDTO.
       if (!row.public_url && !row.thumbnail_url && !row.hero_url && !row.gallery_url) {
         return acc;
       }
@@ -141,7 +150,6 @@ export async function getPublicMarketplaceImagesForItems(itemIds: string[], sign
   const ids = Array.from(new Set(itemIds.filter(Boolean)));
   if (!ids.length) return {};
 
-  // Prefer the card-media view (one ranked row per item).
   const cardBatches = chunks(ids, ITEM_ID_BATCH_SIZE);
   const cardResults = await Promise.all(cardBatches.map(batch => queryCardMediaBatch(batch, signal)));
   if (cardResults.every(result => result !== null)) {
@@ -151,7 +159,6 @@ export async function getPublicMarketplaceImagesForItems(itemIds: string[], sign
     }, {});
   }
 
-  // Fallback: full image table enrichment.
   const batches = chunks(ids, ITEM_ID_BATCH_SIZE);
   const batchRows = await Promise.all(batches.map(batch => queryPublicImageBatch(batch, signal)));
 
