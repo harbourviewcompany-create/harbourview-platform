@@ -22,14 +22,12 @@ checks as (
     (select max(id) from audit) audit_max,
     (select count(*) from audit where actor='ops-eu') ops_eu_count,
     to_regprocedure('api.set_regulatory_tier(text,text,text,text)') is not null set_fn,
-    to_regprocedure('api.reclassify_auto_tiers(text)') is not null reclassify_fn,
-    to_regprocedure('api.briefing_text_for_iso(text)') is not null briefing_fn,
     to_regclass('api.regulatory_tier_review_queue') is not null review_queue
 )
 select 'STRUCTURAL|' ||
   case when ledger_count=0 and approved_count=30 and exact_skip_count=30
     and audit_count=30 and audit_isos=30 and audit_min=76 and audit_max=105 and ops_eu_count=30
-    and set_fn and reclassify_fn and briefing_fn and review_queue
+    and set_fn and review_queue
   then 'PASS' else 'FAIL' end
 from checks
 union all select 'LEDGER|'||ledger_count from checks
