@@ -19,7 +19,7 @@
       "version": "20260829160000",
       "name": "fix_europe_regulatory_tiers",
       "file": "supabase/migrations/20260829160000_fix_europe_regulatory_tiers.sql",
-      "git_blob_sha": "6d8e29d67b3f9458e9926d1525bfc5dd3fe7c9dc"
+      "git_blob_sha": "73bb84eb598c933dcbc12cffdd4aac7f138b6bbd"
     }
   ],
   "preflight": {
