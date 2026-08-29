@@ -120,7 +120,7 @@ $$;
 comment on function api.reclassify_auto_tiers(text) is
   'Re-derive regulatory_tier from briefings for origin=auto only. Overrides are never touched. Audited.';
 
-revoke all on function api.reclassify_auto_tiers(text) from public, anon;
+revoke all on function api.reclassify_auto_tiers(text) from public, anon, authenticated;
 grant execute on function api.reclassify_auto_tiers(text) to service_role;
 
 -- 3. Review queue: all rows that need review OR differ from classifier (incl. subnational)
@@ -168,6 +168,12 @@ declare
   v_row public.countries;
   v_ps  text;
 begin
+  -- Preserve the existing runtime admin authorization boundary. Direct postgres
+  -- migration sessions are trusted schema-owner operations and have no auth.uid().
+  if session_user <> 'postgres' and not public.is_regulatory_tier_admin() then
+    raise exception 'insufficient privileges: admin role required' using errcode = '42501';
+  end if;
+
   if p_tier is not null and p_tier not in (
     'legal_commercial_access',
     'medical_limited_trade',
@@ -207,8 +213,9 @@ begin
 end;
 $$;
 
-revoke all on function api.set_regulatory_tier(text, text, text, text) from public, anon;
-grant execute on function api.set_regulatory_tier(text, text, text, text) to authenticated, service_role;
+revoke all on function api.set_regulatory_tier(text, text, text, text)
+  from public, anon, authenticated, service_role;
+grant execute on function api.set_regulatory_tier(text, text, text, text) to postgres;
 
 -- 5. Priority live corrections via audited set path (legend-aligned)
 -- medical_limited_trade: lawful medical, no full commercial cross-border
