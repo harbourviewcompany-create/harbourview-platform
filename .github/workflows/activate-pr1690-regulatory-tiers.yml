@@ -1,0 +1,217 @@
+name: PR1690 Regulatory Tier Production Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_action:
+        description: Explicit production authorization
+        required: true
+        type: choice
+        default: HOLD
+        options:
+          - HOLD
+          - APPLY_PR1690_REGULATORY_TIERS
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr1690-regulatory-tier-production-activation
+  cancel-in-progress: false
+
+env:
+  CONTROL_FILE: supabase/release-controls/pr1690-regulatory-tier-activation.json
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  preflight:
+    name: Read-only three-version preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Require current main
+        id: source
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main" || { echo "::error::Dispatch from main only."; exit 1; }
+          echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact dispatch SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prove dispatch SHA is still current main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)" || { echo "::error::main moved after dispatch."; exit 1; }
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Verify immutable three-migration binding
+        run: |
+          set -euo pipefail
+          node scripts/pr1690-regulatory-tier-activation-control.mjs verify --control "$CONTROL_FILE"
+          node --test tests/scripts/pr1690-regulatory-tier-activation-control.test.mjs
+
+      - name: Run fully read-only production preflight
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/pr1690-regulatory-tier-activation
+          psql -X -qAt -f tests/sql/pr1690_regulatory_tier_preflight_read_only.sql > artifacts/pr1690-regulatory-tier-activation/preflight.txt
+          cat artifacts/pr1690-regulatory-tier-activation/preflight.txt
+          grep -q '^STRUCTURAL|PASS$' artifacts/pr1690-regulatory-tier-activation/preflight.txt
+          grep -q '^LEDGER|0$' artifacts/pr1690-regulatory-tier-activation/preflight.txt
+          grep -q '^EU|30|30$' artifacts/pr1690-regulatory-tier-activation/preflight.txt
+          grep -q '^AUDIT|30|30|76|105|30$' artifacts/pr1690-regulatory-tier-activation/preflight.txt
+
+      - name: Generate but do not execute exact three-transaction stream
+        run: |
+          set -euo pipefail
+          node scripts/pr1690-regulatory-tier-activation-control.mjs generate --control "$CONTROL_FILE" --out artifacts/pr1690-regulatory-tier-activation/activation.sql
+          git hash-object \
+            supabase/migrations/20260829120000_live_tier_pipeline_hardening.sql \
+            supabase/migrations/20260829130000_tier_optimization_batch2.sql \
+            supabase/migrations/20260829160000_fix_europe_regulatory_tiers.sql \
+            > artifacts/pr1690-regulatory-tier-activation/git-blobs.txt
+          sha256sum \
+            supabase/migrations/20260829120000_live_tier_pipeline_hardening.sql \
+            supabase/migrations/20260829130000_tier_optimization_batch2.sql \
+            supabase/migrations/20260829160000_fix_europe_regulatory_tiers.sql \
+            artifacts/pr1690-regulatory-tier-activation/activation.sql \
+            > artifacts/pr1690-regulatory-tier-activation/sha256.txt
+          cp "$CONTROL_FILE" artifacts/pr1690-regulatory-tier-activation/release-control.json
+          git show -s --format=fuller "$GITHUB_SHA" > artifacts/pr1690-regulatory-tier-activation/source-commit.txt
+
+      - name: Upload read-only preflight evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr1690-regulatory-tier-preflight-${{ github.sha }}
+          path: artifacts/pr1690-regulatory-tier-activation/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish preflight disposition
+        run: |
+          {
+            echo "## PR #1690 regulatory-tier activation preflight"
+            echo "- Source SHA: \`$GITHUB_SHA\`"
+            echo "- 20260829120000 blob: \`$(git hash-object supabase/migrations/20260829120000_live_tier_pipeline_hardening.sql)\`"
+            echo "- 20260829130000 blob: \`$(git hash-object supabase/migrations/20260829130000_tier_optimization_batch2.sql)\`"
+            echo "- 20260829160000 blob: \`$(git hash-object supabase/migrations/20260829160000_fix_europe_regulatory_tiers.sql)\`"
+            echo "- Migration ledger: all three versions absent"
+            echo "- Europe approved state: 30/30 exact skip"
+            echo "- Historical ops-eu audit: IDs 76-105, 30/30 jurisdictions"
+            echo "- Production write: none"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: Apply exact three-version activation
+    needs: preflight
+    if: needs.preflight.result == 'success' && inputs.production_action == 'APPLY_PR1690_REGULATORY_TIERS'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production-database
+    steps:
+      - name: Checkout exact authorized SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Recheck source and immutable bindings after protected approval
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_SHA" = "${{ needs.preflight.outputs.source_sha }}"
+          git fetch --no-tags origin main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)" || { echo "::error::main moved after preflight; start a new run."; exit 1; }
+          node scripts/pr1690-regulatory-tier-activation-control.mjs verify --control "$CONTROL_FILE"
+
+      - name: Re-run exact read-only preflight immediately before write
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/pr1690-regulatory-tier-activation-apply
+          psql -X -qAt -f tests/sql/pr1690_regulatory_tier_preflight_read_only.sql > artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+          cat artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+          grep -q '^STRUCTURAL|PASS$' artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+          grep -q '^LEDGER|0$' artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+          grep -q '^EU|30|30$' artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+          grep -q '^AUDIT|30|30|76|105|30$' artifacts/pr1690-regulatory-tier-activation-apply/preflight.txt
+
+      - name: Generate the only authorized SQL stream
+        run: |
+          set -euo pipefail
+          node scripts/pr1690-regulatory-tier-activation-control.mjs generate --control "$CONTROL_FILE" --out artifacts/pr1690-regulatory-tier-activation-apply/activation.sql
+          ! grep -Eiq 'supabase[[:space:]]+db[[:space:]]+push|--include-all' artifacts/pr1690-regulatory-tier-activation-apply/activation.sql
+          test "$(grep -c '^BEGIN;$' artifacts/pr1690-regulatory-tier-activation-apply/activation.sql)" = "3"
+          test "$(grep -c '^COMMIT;$' artifacts/pr1690-regulatory-tier-activation-apply/activation.sql)" = "3"
+
+      - name: Apply three ordered atomic migration and ledger transactions
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f artifacts/pr1690-regulatory-tier-activation-apply/activation.sql \
+            | tee artifacts/pr1690-regulatory-tier-activation-apply/apply-output.txt
+
+      - name: Run comprehensive read-only production postflight
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -qAt -f tests/sql/pr1690_regulatory_tier_postflight_read_only.sql > artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          cat artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^POSTFLIGHT|PASS$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^LEDGER|3$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^COUNTRIES|43|43$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^CANADA|13|13$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^EU|30|30$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^AUDIT|30|30|30$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^ACL|true$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+          grep -q '^SUSPICIOUS_GREEN_UNREVIEWED|0$' artifacts/pr1690-regulatory-tier-activation-apply/postflight.txt
+
+      - name: Preserve activation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr1690-regulatory-tier-activation-${{ github.sha }}
+          path: artifacts/pr1690-regulatory-tier-activation-apply/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish activation disposition
+        if: always()
+        run: |
+          {
+            echo "## PR #1690 regulatory-tier production activation"
+            echo "- Source SHA: \`$GITHUB_SHA\`"
+            echo "- Execution scope: three immutable migration bodies, each atomically paired with its canonical ledger row"
+            echo "- Order: 20260829120000 -> 20260829130000 -> 20260829160000"
+            echo "- Protected environment: production-database"
+            echo "- Recovery after any committed unit: preserve ledger history and use forward repair"
+          } >> "$GITHUB_STEP_SUMMARY"
