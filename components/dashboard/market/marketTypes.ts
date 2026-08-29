@@ -14,6 +14,19 @@ export type MarketCardVariant =
 
 export type MarketTier = 'A' | 'B'
 
+export type MarketCardMediaKind = 'actual' | 'catalogue' | 'representative'
+
+export type MarketCardMedia = {
+  src: string
+  altText: string
+  kind: MarketCardMediaKind
+  badgeLabel: string | null
+  caption: string | null
+  fallbackSrc: string
+  fallbackAltText: string
+  fallbackCaption: string | null
+}
+
 export type MarketFeedRow =
   | { type: 'grid'; id: string; items: MarketCardModel[] }
   | { type: 'rail'; id: string; title: string; items: MarketCardModel[] }
@@ -26,6 +39,7 @@ export type MarketCardModel = {
   description?: string | null
   priceDisplay: string
   imageUrl?: string | null
+  media?: MarketCardMedia | null
   country?: string | null
   countryIso2?: string | null
   condition?: string | null

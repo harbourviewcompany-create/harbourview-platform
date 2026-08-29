@@ -48,14 +48,20 @@ function tierForListing(row: NormalizedListing): MarketTier {
   return tierForView(row.view)
 }
 
-function listingImage(row: NormalizedListing): string | null {
-  if (row.media?.src) return row.media.src
-  const representative = getSubjectRepresentativeMedia(row.view, row.id, row.title, row.category)
-  return representative.src || null
+function listingMedia(row: NormalizedListing): NonNullable<MarketCardModel['media']> {
+  const primary = resolveListingMediaStage(row, 'primary')
+  const fallback = resolveListingMediaStage(row, 'fallback')
+  return {
+    ...primary,
+    fallbackSrc: fallback.src,
+    fallbackAltText: fallback.altText,
+    fallbackCaption: fallback.caption,
+  }
 }
 
 function toMarketCardModel(row: NormalizedListing): MarketCardModel {
   const tier = tierForListing(row)
+  const media = listingMedia(row)
   const isCatalogue = (row.status || '').toLowerCase().includes('illustrative')
     || (row.status || '').toLowerCase().includes('catalogue')
     || (row.channel || '').toLowerCase().includes('catalogue')
@@ -70,7 +76,8 @@ function toMarketCardModel(row: NormalizedListing): MarketCardModel {
     title: row.title,
     description: row.summary,
     priceDisplay: row.priceDisplay?.trim() || (tier === 'A' ? 'Request quote' : 'Confirm through Harbourview'),
-    imageUrl: listingImage(row),
+    imageUrl: media.src,
+    media,
     country: row.jurisdiction,
     category: row.category,
     condition: formatStatus(row.status),
