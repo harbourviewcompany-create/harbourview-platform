@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { getPublicMarketplaceImagesForItems } from '@/lib/marketplace/images/public-query'
 
 const source = fs.readFileSync(
   path.join(process.cwd(), 'lib/marketplace/images/public-query.ts'),
@@ -13,6 +15,43 @@ describe('public marketplace image query contract', () => {
     expect(source).toContain("const CARD_MEDIA_VIEW = 'marketplace_item_card_media_v1'")
     expect(source).toContain("'Accept-Profile': 'public'")
     expect(source).not.toContain("'Accept-Profile': SUPABASE_DB_SCHEMA")
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('sends the public profile when querying the card-media view', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'public-test-key')
+    const fetchMock = vi.fn().mockResolvedValue(new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getPublicMarketplaceImagesForItems(['00000000-0000-0000-0000-000000000001'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toContain('/rest/v1/marketplace_item_card_media_v1?')
+    expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({
+      Accept: 'application/json',
+      'Accept-Profile': 'public',
+    })
+  })
+
+  it('retains the public profile when the card-media view falls back to image rows', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'public-test-key')
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response('[]', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getPublicMarketplaceImagesForItems(['00000000-0000-0000-0000-000000000001'])
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1][0]).toContain('/rest/v1/marketplace_item_images?')
+    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({
+      Accept: 'application/json',
+      'Accept-Profile': 'public',
+    })
   })
 
   it('selects only the public DTO allowlist and never admin provenance columns', () => {
