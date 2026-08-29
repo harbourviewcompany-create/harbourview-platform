@@ -4,14 +4,24 @@
 
 .hvm2-listing-media {
   position: relative;
-  width: calc(100% + 28px);
-  margin: -14px -14px 16px;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   border-bottom: 1px solid var(--hvm2-border-soft);
   background:
     radial-gradient(circle at 24% 20%, rgba(198, 165, 90, 0.16), transparent 34%),
     linear-gradient(145deg, rgba(18, 37, 57, 0.98), rgba(4, 13, 24, 0.98));
+}
+
+/*
+ * Bleed sizing (width/margin) assumes .hvm2-listing-card's own padding and is
+ * only correct there -- scoped to that ancestor so it can't cross-contaminate
+ * any other card type that reuses .hvm2-listing-media for its shared badge/
+ * figcaption/vignette styling (e.g. MarketCard.tsx's .cc-mkt-card-media,
+ * which sits inside a zero-padding .cc-mkt-card and sets its own aspect-ratio).
+ */
+.hvm2-listing-card .hvm2-listing-media {
+  width: calc(100% + 28px);
+  margin: -14px -14px 16px;
 }
 
 .hvm2-listing-media::after {
@@ -104,7 +114,7 @@
 }
 
 @media (min-width: 390px) {
-  .hvm2-listing-media {
+  .hvm2-listing-card .hvm2-listing-media {
     aspect-ratio: 1.72 / 1;
   }
 }

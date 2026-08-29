@@ -98,8 +98,16 @@
  * the negative margins pull it flush. .hvm2-listing-card in
  * MarketplaceListingMedia.css already sets overflow:hidden, so the bleed stays
  * inside the card's border-radius and cannot widen the grid track.
+ *
+ * Scoped to .hvm2-listing-card specifically, not just .hvm2-market-section:
+ * MarketCard.tsx's figure also carries the hvm2-listing-media class (for the
+ * shared badge/figcaption/vignette styling in MarketplaceListingMedia.css),
+ * but that figure lives inside .cc-mkt-card, which has padding: 0 -- these
+ * bleed values are sized for .hvm2-listing-card's 10px/12px padding and were
+ * bleeding a zero-padding card's media 10-12px past its own edges, cropping
+ * and shifting every card image in the live .cc-mkt-grid feed.
  */
-.hvm2-market-section .hvm2-listing-media {
+.hvm2-market-section .hvm2-listing-card .hvm2-listing-media {
   width: calc(100% + 20px);
   margin: -10px -10px 10px;
   aspect-ratio: 1 / 1;

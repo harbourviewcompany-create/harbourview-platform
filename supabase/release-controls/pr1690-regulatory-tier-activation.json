@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "release": "pr1690-regulatory-tier-production-activation",
+  "production_project_ref": "zvxdgdkukjrrwamdpqrg",
+  "migrations": [
+    {
+      "version": "20260829120000",
+      "name": "live_tier_pipeline_hardening",
+      "file": "supabase/migrations/20260829120000_live_tier_pipeline_hardening.sql",
+      "git_blob_sha": "8a791744e923596ddc9cd6b1d9848bcb60dc7081"
+    },
+    {
+      "version": "20260829130000",
+      "name": "tier_optimization_batch2",
+      "file": "supabase/migrations/20260829130000_tier_optimization_batch2.sql",
+      "git_blob_sha": "cd9c7b9b96bcbb52a0dd551684de488afa18feda"
+    },
+    {
+      "version": "20260829160000",
+      "name": "fix_europe_regulatory_tiers",
+      "file": "supabase/migrations/20260829160000_fix_europe_regulatory_tiers.sql",
+      "git_blob_sha": "73bb84eb598c933dcbc12cffdd4aac7f138b6bbd"
+    }
+  ],
+  "preflight": {
+    "required_ledger_count": 0,
+    "required_europe_rows": 30,
+    "required_europe_exact_skip_rows": 30,
+    "required_ops_eu_audit_ids": {
+      "first": 76,
+      "last": 105,
+      "count": 30,
+      "distinct_jurisdictions": 30,
+      "actor": "ops-eu"
+    }
+  },
+  "activation": {
+    "required_dispatch_action": "APPLY_PR1690_REGULATORY_TIERS",
+    "required_environment": "production-database",
+    "ledger_created_by": "harbourview-pr1690-controlled-activation"
+  }
+}

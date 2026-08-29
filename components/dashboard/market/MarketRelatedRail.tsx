@@ -32,7 +32,13 @@ export function MarketRelatedRail({ title, items, href, onOpen }: Props) {
           >
             {item.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img className="cc-mkt-rail-img" src={item.imageUrl} alt="" loading="lazy" />
+              <img
+                className="cc-mkt-rail-img"
+                src={item.media?.src ?? item.imageUrl}
+                alt={item.media?.altText ?? item.title}
+                loading="lazy"
+                data-media-kind={item.media?.kind}
+              />
             ) : (
               <div className="cc-mkt-rail-img" />
             )}

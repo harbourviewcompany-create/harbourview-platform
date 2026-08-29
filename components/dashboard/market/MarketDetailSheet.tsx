@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import type { MarketCardModel, MarketTier } from './marketTypes'
 import { MarketRelatedRail } from './MarketRelatedRail'
 
@@ -45,12 +46,25 @@ export function MarketDetailSheet({
       </button>
 
       <div className="cc-mkt-sheet-scroll">
-        <div className="cc-mkt-sheet-gallery">
-          {listing.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={listing.imageUrl} alt="" />
+        <figure
+          className="cc-mkt-sheet-gallery"
+          data-media-kind={listing.media?.kind}
+        >
+          {listing.media || listing.imageUrl ? (
+            <Image
+              src={listing.media?.src ?? listing.imageUrl!}
+              alt={listing.media?.altText ?? listing.title}
+              width={800}
+              height={600}
+              sizes="(max-width: 640px) 100vw, 640px"
+              quality={80}
+            />
           ) : null}
-        </div>
+          {listing.media?.badgeLabel ? (
+            <span className="hvm2-listing-media-badge">{listing.media.badgeLabel}</span>
+          ) : null}
+          {listing.media?.caption ? <figcaption>{listing.media.caption}</figcaption> : null}
+        </figure>
 
         <div className="cc-mkt-sheet-head">
           <h2 id="cc-mkt-sheet-title">{listing.title}</h2>
