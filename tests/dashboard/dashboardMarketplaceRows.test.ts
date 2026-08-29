@@ -8,6 +8,13 @@ import {
 const getListingsBySections = vi.fn()
 const getPublicMarketplaceImagesForItems = vi.fn(async () => ({}))
 
+// Keep this projection test hermetic. Developer shells may provide production
+// Supabase credentials, but Tier A candidate loading is outside this suite's
+// contract and must never make a live request from a unit test.
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '')
+vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '')
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', '')
+
 vi.mock('@/lib/server/listingsQuery', () => ({
   getListingsBySections: (...args: unknown[]) => getListingsBySections(...args),
 }))

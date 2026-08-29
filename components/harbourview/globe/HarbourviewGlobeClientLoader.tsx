@@ -413,7 +413,9 @@ export function HarbourviewGlobeClientLoader({
   const selectedQuality = useMemo(() => {
     if (featureFlags.globeForceFallback) return 'fallback'
 
-    const nav = navigator as Navigator & { deviceMemory?: number; hardwareConcurrency?: number }
+    const nav = typeof navigator === 'undefined'
+      ? undefined
+      : navigator as Navigator & { deviceMemory?: number; hardwareConcurrency?: number }
     const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
     const gl = canvas?.getContext('webgl') ?? null
     const renderer = gl?.getExtension('WEBGL_debug_renderer_info')
@@ -424,8 +426,8 @@ export function HarbourviewGlobeClientLoader({
     return selectQualityLevel({
       reducedMotion: prefersReducedMotion(),
       supportsWebGL: browserSupportsWebGL(),
-      deviceMemoryGb: nav.deviceMemory,
-      hardwareConcurrency: nav.hardwareConcurrency,
+      deviceMemoryGb: nav?.deviceMemory,
+      hardwareConcurrency: nav?.hardwareConcurrency,
       gpuHint: classifyGpuHint(typeof rendererName === 'string' ? rendererName : undefined),
     })
   }, [])
