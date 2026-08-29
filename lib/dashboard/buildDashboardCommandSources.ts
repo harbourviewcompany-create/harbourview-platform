@@ -381,11 +381,10 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       load: () => getDashboardMarketplaceProjection(countryIso2),
       fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
       isEmpty: projection => Object.keys(projection.rows).length === 0,
-      classify: projection => Object.keys(projection.rows).length === 0
-        ? 'empty'
-        : projection.mediaStatus === 'degraded'
-          ? 'fallback'
-          : 'live',
+      // Listing rows are the verified source of truth. Approved-media enrichment
+      // is optional and already falls back to controlled representative media,
+      // so its timeout/failure must not degrade the whole Command Centre session.
+      classify: projection => Object.keys(projection.rows).length === 0 ? 'empty' : 'live',
       sourceLabel: 'Public marketplace rows and approved media projection',
       access: 'public',
     },

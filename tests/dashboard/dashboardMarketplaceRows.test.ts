@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import type { MarketRow } from '@/components/dashboard/CommandCentre'
 import type { PublicListing } from '@/lib/server/listingsQuery'
 import {
   getRepresentativeMarketplaceMedia,
@@ -207,6 +208,22 @@ describe('Command Centre marketplace projection', () => {
       rows: { cannabis: [['title', 'summary', 'CA', 'Flower', 'Verified', 'Mediated', '80', 'id', '', '']] },
       mediaById: {},
     })).toBe(false)
+  })
+
+  it('keeps Command Centre health live when only optional media enrichment is degraded', () => {
+    const source = marketplaceSource()
+    const row: MarketRow = ['title', 'summary', 'CA', 'Flower', 'Verified', 'Mediated', '80', 'id', '', '']
+
+    expect(source.classify?.({
+      rows: { cannabis: [row] },
+      mediaById: {},
+      mediaStatus: 'degraded',
+    })).toBe('live')
+    expect(source.classify?.({
+      rows: {},
+      mediaById: {},
+      mediaStatus: 'degraded',
+    })).toBe('empty')
   })
 
   it('omits views that have no rows instead of emitting empty buckets', async () => {

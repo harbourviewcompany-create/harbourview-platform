@@ -12,6 +12,7 @@ import type {
 } from '@/lib/dashboard/commandCentreDataTypes'
 
 const DEFAULT_SOURCE_TIMEOUT_MS = 8_000
+const MARKETPLACE_SOURCE_TIMEOUT_MS = 12_000
 
 class CommandCentreSourceFailure extends Error {
   readonly durationMs: number
@@ -121,10 +122,11 @@ export async function loadCommandCentreData<TDefinitions extends CommandCentreSo
 
       const sourceStartedAt = Date.now()
       try {
-        const data = await withTimeout(
-          definition.load,
-          definition.timeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS,
-        )
+        // Marketplace projection owns an 8s approved-media timeout. Preserve a
+        // bounded outer margin so live listing rows can return after media degrades.
+        const timeoutMs = definition.timeoutMs
+          ?? (String(key) === 'marketplaceRows' ? MARKETPLACE_SOURCE_TIMEOUT_MS : DEFAULT_SOURCE_TIMEOUT_MS)
+        const data = await withTimeout(definition.load, timeoutMs)
         return { key, data, durationMs: Date.now() - sourceStartedAt, requested: true }
       } catch (error) {
         throw new CommandCentreSourceFailure(error, Date.now() - sourceStartedAt)
