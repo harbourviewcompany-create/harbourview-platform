@@ -32,30 +32,15 @@
 .cc-mkt-seg-count { margin-left: 6px; font-style: normal; color: var(--cc-dim); }
 .cc-mkt-seg.active .cc-mkt-seg-count { color: var(--cc-gold2); }
 
-.cc-mkt-toolbar {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 16px 4px; flex-shrink: 0;
-}
-
-.cc-mkt-search-wrap {
-  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px;
-  border-radius: 10px; border: 1px solid var(--cc-line2);
-  background: rgba(255, 255, 255, 0.04);
-}
-.cc-mkt-search-wrap:focus-within {
-  border-color: var(--cc-border-gold);
-  box-shadow: 0 0 0 1px rgba(217, 164, 65, 0.2);
-}
-.cc-mkt-search-input {
-  flex: 1; min-width: 0; border: none; background: transparent;
-  color: var(--cc-ink); font-size: 13px; outline: none;
-}
-.cc-mkt-search-input::placeholder { color: var(--cc-dim); }
-.cc-mkt-search-icon { color: var(--cc-dim); font-size: 14px; }
-.cc-mkt-search-clear {
-  border: none; background: transparent; color: var(--cc-muted);
-  cursor: pointer; font-size: 16px; line-height: 1;
-}
+/*
+ * .cc-mkt-toolbar / .cc-mkt-search-* (search wrap, input, icon, clear) were
+ * removed here 2026-08-29: only MarketSearchBar.tsx used them, and that
+ * component was never imported anywhere in the app -- confirmed dead code,
+ * found while auditing for the class of cross-file CSS collision that
+ * caused the marketplace row-overlap bug earlier this session. It shared
+ * .cc-mkt-search-wrap with CommandCentre.tsx's live desktop search box;
+ * that class is still defined and used there, in CommandCentre.css.
+ */
 
 .cc-mkt-chips {
   display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory;

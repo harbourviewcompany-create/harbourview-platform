@@ -6,7 +6,6 @@ export { MarketEmptyState } from './MarketEmptyState'
 export { MarketFeed } from './MarketFeed'
 export { MarketFilterChips } from './MarketFilterChips'
 export { MarketRelatedRail } from './MarketRelatedRail'
-export { MarketSearchBar } from './MarketSearchBar'
 export { MarketSegmentTabs } from './MarketSegmentTabs'
 export { MarketStickyHeader } from './MarketStickyHeader'
 export type {
