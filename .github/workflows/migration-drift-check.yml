@@ -29,6 +29,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
@@ -78,6 +79,7 @@ jobs:
           node --test
           tests/scripts/migration-ledger-manifest.test.mjs
           tests/scripts/historical-migration-attestations.test.mjs
+          tests/scripts/notify-new-migration-drift.test.mjs
 
   check-drift:
     name: Compare repository and live migration ledgers
@@ -155,6 +157,22 @@ jobs:
             --json-out artifacts/migration-drift/manifest.json \
             --markdown-out artifacts/migration-drift/manifest.md \
             --mode drift \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Notify on new migration drift
+        # Only meaningful once a manifest actually exists; the manifest step
+        # above already runs continue-on-error, so this must not assume it
+        # succeeded. This step's own failure must not fail the job -- gate
+        # enforcement below already covers manifest.outcome directly, and a
+        # notification bug should never block or pass a merge on its own.
+        if: always() && steps.manifest.outcome == 'success'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/notify-new-migration-drift.mjs \
+            --manifest artifacts/migration-drift/manifest.json \
+            --baseline supabase/release-controls/migration-drift-watch-baseline.json \
             --source-sha "$GITHUB_SHA"
 
       - name: Publish manifest summary
