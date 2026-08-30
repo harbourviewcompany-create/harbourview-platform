@@ -12,6 +12,7 @@ on:
       - supabase/migrations/20260830141000_subnational_regulatory_tier_evidence_alignment.sql
       - supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql
       - supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql
+      - supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql
       - supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql
       - .github/workflows/regulatory-tier-authority-verify.yml
   workflow_dispatch:
@@ -30,7 +31,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
 
@@ -70,8 +70,8 @@ jobs:
           market_parity="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) from public.countries where market_access_status::text is distinct from case regulatory_tier when 'legal_commercial_access' then 'open' when 'medical_limited_trade' then 'regulated' when 'domestic_only' then 'emerging' when 'cbd_hemp_only' then 'limited' when 'prohibited' then 'restricted' else 'unknown' end;")"
           test "$market_parity" = "0"
 
-          ledger="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select string_agg(version,',' order by version) from supabase_migrations.schema_migrations where version in ('20260822134500','20260822134600','20260830140000','20260830141000','20260830184434','20260830185137','20260830192000');")"
-          test "$ledger" = "20260822134500,20260822134600,20260830140000,20260830141000,20260830184434,20260830185137,20260830192000"
+          ledger="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select string_agg(version,',' order by version) from supabase_migrations.schema_migrations where version in ('20260822134500','20260822134600','20260830140000','20260830141000','20260830184434','20260830185137','20260830191900','20260830192000');")"
+          test "$ledger" = "20260822134500,20260822134600,20260830140000,20260830141000,20260830184434,20260830185137,20260830191900,20260830192000"
 
       - name: Stop local Supabase
         if: always()
