@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'
-import MarketplaceMediaStatus from '@/components/dashboard/MarketplaceMediaStatus'
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
@@ -213,9 +212,6 @@ export default async function DashboardPage({
       sources={commandData.sources}
       loadedAt={commandData.loadedAt}
     >
-      {commandData.sources.marketplaceRows.requested && commandData.sources.marketplaceRows.errorCode === null && (
-        <MarketplaceMediaStatus mediaStatus={marketplaceProjection.mediaStatus} />
-      )}
       <DashboardResponsiveShell
         key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${activeWorkspaceId ?? 'personal'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
@@ -232,6 +228,9 @@ export default async function DashboardPage({
         wantedCount={wantedCount}
         marketplaceRows={marketplaceProjection.rows}
         marketplaceMediaById={marketplaceProjection.mediaById}
+        marketplaceMediaStatus={commandData.sources.marketplaceRows.requested && commandData.sources.marketplaceRows.errorCode === null
+          ? marketplaceProjection.mediaStatus
+          : undefined}
         pipeline={pipeline}
         wantedListings={wantedListings}
         countryIntel={countryIntel ?? undefined}

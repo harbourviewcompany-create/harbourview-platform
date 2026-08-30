@@ -11,6 +11,7 @@ import { buildCommandSearchIndex } from './mobile-command/intelSearch'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import OrganizationContextControl from './OrganizationContextControl'
+import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import {
   ClinicalSection,
   ComplianceSection,
@@ -277,6 +278,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
       )}
 
       <main className="hvm2-main hvm-op-main">
+        {model.activeGroup === 'marketplace' && <MarketplaceMediaStatus mediaStatus={props.marketplaceMediaStatus ?? 'live'} />}
         {model.visibleSections.map(id => <Fragment key={id}>{sectionElements[id]}</Fragment>)}
       </main>
 
