@@ -1,291 +1,404 @@
--- Full regulatory-tier coverage for every country on the globe.
---
--- Goal: every countries.iso_alpha2 row that has a renderable plate receives a
--- reviewed regulatory_tier (no nulls left for the heatmap). Subnational rows
--- already seeded (US/CA/AU/DE) remain; this migration only touches country ISO2.
---
--- Uses api.set_regulatory_tier so origin=override, needs_review=false, and the
--- audit trail stays canonical. Idempotent: skips rows that already match.
---
--- Tier meanings (legend):
---   legal_commercial_access — lawful cross-border commercial pathway
---   medical_limited_trade   — lawful medical; narrow/no commercial cross-border
---   domestic_only           — legal internally; no lawful cross-border commercial
---   cbd_hemp_only            — hemp/CBD only; cannabis otherwise restricted
---   prohibited              — no lawful commercial pathway
---
--- Assignments reflect public regulatory posture as of 2026-08 (reviewed seed).
--- Future reclassify_auto_tiers will not overwrite these overrides.
+-- ============================================================
+-- Full regulatory-tier coverage — evidence-backed + live
+-- ============================================================
+-- Contract:
+--   * countries.regulatory_tier remains the sole heatmap colour source.
+--   * Every existing country/territory and supported US/CA/AU/DE subnational
+--     row remains non-null.
+--   * Country/territory rows with canonical briefing evidence are reviewed
+--     against the current classifier and stored as source-versioned overrides.
+--   * A later canonical briefing change automatically expires a reviewed
+--     override when the newly derived tier differs.
+--   * Country briefing changes also recompute child subnational jurisdictions.
+--   * Rows lacking canonical classifier evidence keep their existing non-null
+--     tier and are explicitly flagged for analyst review; they are never
+--     fabricated as reviewed evidence.
+-- ============================================================
 
-do $$
+-- Normalize a briefing row to the ISO key used by the live map.
+create or replace function api.regulatory_tier_target_iso2(
+  jurisdiction_type text,
+  country_iso2 text,
+  state_iso2 text
+)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when jurisdiction_type = 'country' then upper(country_iso2)
+    when jurisdiction_type = 'state'
+      and upper(state_iso2) in (
+        'US-AS','US-GU','US-MP','US-PR','US-VI',
+        'FR-GF','FR-GP','FR-MQ','FR-NC','FR-PF','FR-RE'
+      )
+      then split_part(upper(state_iso2), '-', 2)
+    when jurisdiction_type = 'state' then upper(state_iso2)
+    else null
+  end;
+$$;
+
+revoke all on function api.regulatory_tier_target_iso2(text,text,text) from public, anon, authenticated;
+
+-- Canonical classifier text for one briefing. State rows include the parent
+-- country's trade-access evidence so subnational colours follow the same
+-- cross-border market-access ontology as countries.
+create or replace function api.regulatory_classifier_text_for_briefing(
+  p_jurisdiction_type text,
+  p_country_iso2 text,
+  p_program_status text,
+  p_public_summary text,
+  p_market_dynamics text,
+  p_regulatory_outlook text
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
 declare
-  r record;
+  v_local text;
+  v_parent text;
 begin
-  for r in
-    select *
-    from (values
-      ('AD', 'prohibited', 'Andorra: restricted'),
-      ('AE', 'prohibited', 'United Arab Emirates: prohibited'),
-      ('AF', 'prohibited', 'Afghanistan: prohibited'),
-      ('AG', 'prohibited', 'Antigua and Barbuda: prohibited'),
-      ('AL', 'prohibited', 'Albania: restricted'),
-      ('AM', 'prohibited', 'Armenia: prohibited'),
-      ('AO', 'prohibited', 'Angola: prohibited'),
-      ('AR', 'medical_limited_trade', 'Argentina: medical'),
-      ('AS', 'prohibited', 'American Samoa: prohibited'),
-      ('AT', 'medical_limited_trade', 'Austria: medical'),
-      ('AU', 'medical_limited_trade', 'Australia: medical national; adult-use limited (ACT)'),
-      ('AW', 'prohibited', 'Aruba: prohibited'),
-      ('AX', 'medical_limited_trade', 'Åland: follows FI'),
-      ('AZ', 'prohibited', 'Azerbaijan: prohibited'),
-      ('BA', 'prohibited', 'Bosnia and Herzegovina: restricted'),
-      ('BB', 'medical_limited_trade', 'Barbados: medical pathway'),
-      ('BD', 'prohibited', 'Bangladesh: prohibited'),
-      ('BE', 'medical_limited_trade', 'Belgium: medical'),
-      ('BF', 'prohibited', 'Burkina Faso: prohibited'),
-      ('BG', 'medical_limited_trade', 'Bulgaria: medical'),
-      ('BH', 'prohibited', 'Bahrain: prohibited'),
-      ('BI', 'prohibited', 'Burundi: prohibited'),
-      ('BJ', 'prohibited', 'Benin: prohibited'),
-      ('BN', 'prohibited', 'Brunei: prohibited'),
-      ('BO', 'prohibited', 'Bolivia: prohibited'),
-      ('BR', 'medical_limited_trade', 'Brazil: medical (ANVISA); no adult-use commercial'),
-      ('BS', 'prohibited', 'Bahamas: prohibited'),
-      ('BT', 'prohibited', 'Bhutan: prohibited'),
-      ('BV', 'prohibited', 'Bouvet Island: restricted'),
-      ('BW', 'prohibited', 'Botswana: prohibited'),
-      ('BY', 'prohibited', 'Belarus: prohibited'),
-      ('BZ', 'prohibited', 'Belize: prohibited'),
-      ('CA', 'legal_commercial_access', 'Canada: national commercial adult-use + medical market with export pathways'),
-      ('CD', 'prohibited', 'DR Congo: prohibited'),
-      ('CF', 'prohibited', 'Central African Republic: prohibited'),
-      ('CG', 'prohibited', 'Congo: prohibited'),
-      ('CH', 'medical_limited_trade', 'Switzerland: medical + pilots'),
-      ('CI', 'prohibited', 'Côte d''Ivoire: prohibited'),
-      ('CL', 'medical_limited_trade', 'Chile: medical'),
-      ('CM', 'prohibited', 'Cameroon: prohibited'),
-      ('CN', 'prohibited', 'China: prohibited (industrial hemp separate)'),
-      ('CO', 'medical_limited_trade', 'Colombia: medical + licensed export pathways (limited commercial)'),
-      ('CR', 'cbd_hemp_only', 'Costa Rica: hemp/CBD pathway'),
-      ('CU', 'prohibited', 'Cuba: prohibited'),
-      ('CV', 'prohibited', 'Cabo Verde: prohibited'),
-      ('CW', 'prohibited', 'Curaçao: prohibited'),
-      ('CY', 'medical_limited_trade', 'Cyprus: medical'),
-      ('CZ', 'domestic_only', 'Czech Republic: adult personal legal 2026; no commercial retail'),
-      ('DE', 'medical_limited_trade', 'Germany: CanG adult personal + medical; commercial pillar limited'),
-      ('DJ', 'prohibited', 'Djibouti: prohibited'),
-      ('DK', 'medical_limited_trade', 'Denmark: medical'),
-      ('DM', 'prohibited', 'Dominica: prohibited'),
-      ('DO', 'prohibited', 'Dominican Republic: prohibited'),
-      ('DZ', 'prohibited', 'Algeria: prohibited'),
-      ('EC', 'cbd_hemp_only', 'Ecuador: hemp/CBD'),
-      ('EE', 'medical_limited_trade', 'Estonia: medical'),
-      ('EG', 'prohibited', 'Egypt: prohibited'),
-      ('EH', 'prohibited', 'Western Sahara: prohibited'),
-      ('ER', 'prohibited', 'Eritrea: prohibited'),
-      ('ES', 'domestic_only', 'Spain: private/clubs; no full commercial cross-border'),
-      ('ET', 'prohibited', 'Ethiopia: prohibited'),
-      ('FI', 'medical_limited_trade', 'Finland: medical'),
-      ('FJ', 'prohibited', 'Fiji: prohibited'),
-      ('FK', 'prohibited', 'Falkland Islands: prohibited'),
-      ('FM', 'prohibited', 'Micronesia: prohibited'),
-      ('FO', 'prohibited', 'Faroe Islands: restricted'),
-      ('FR', 'medical_limited_trade', 'France: medical pilots/controls'),
-      ('GA', 'prohibited', 'Gabon: prohibited'),
-      ('GB', 'medical_limited_trade', 'United Kingdom: specialist medical only'),
-      ('GD', 'prohibited', 'Grenada: prohibited'),
-      ('GE', 'cbd_hemp_only', 'Georgia: limited'),
-      ('GF', 'medical_limited_trade', 'French Guiana: follows FR medical'),
-      ('GH', 'cbd_hemp_only', 'Ghana: hemp limited'),
-      ('GL', 'prohibited', 'Greenland: restricted'),
-      ('GM', 'prohibited', 'Gambia: prohibited'),
-      ('GN', 'prohibited', 'Guinea: prohibited'),
-      ('GQ', 'prohibited', 'Equatorial Guinea: prohibited'),
-      ('GR', 'medical_limited_trade', 'Greece: medical'),
-      ('GS', 'prohibited', 'South Georgia: restricted'),
-      ('GT', 'prohibited', 'Guatemala: prohibited'),
-      ('GU', 'domestic_only', 'Guam: territorial adult-use under federal constraints'),
-      ('GW', 'prohibited', 'Guinea-Bissau: prohibited'),
-      ('GY', 'prohibited', 'Guyana: prohibited'),
-      ('HK', 'prohibited', 'Hong Kong: prohibited'),
-      ('HM', 'prohibited', 'Heard Island: N/A restricted'),
-      ('HN', 'prohibited', 'Honduras: prohibited'),
-      ('HR', 'medical_limited_trade', 'Croatia: medical'),
-      ('HT', 'prohibited', 'Haiti: prohibited'),
-      ('HU', 'medical_limited_trade', 'Hungary: medical'),
-      ('ID', 'prohibited', 'Indonesia: prohibited'),
-      ('IE', 'medical_limited_trade', 'Ireland: medical'),
-      ('IL', 'legal_commercial_access', 'Israel: medical commercial + export pathways'),
-      ('IM', 'medical_limited_trade', 'Isle of Man: medical'),
-      ('IN', 'cbd_hemp_only', 'India: NDPS restricted; limited medical/hemp'),
-      ('IO', 'prohibited', 'British Indian Ocean Territory: restricted'),
-      ('IQ', 'prohibited', 'Iraq: prohibited'),
-      ('IR', 'prohibited', 'Iran: prohibited'),
-      ('IS', 'medical_limited_trade', 'Iceland: medical'),
-      ('IT', 'medical_limited_trade', 'Italy: medical'),
-      ('JE', 'medical_limited_trade', 'Jersey: medical'),
-      ('JM', 'medical_limited_trade', 'Jamaica: medical + limited commercial'),
-      ('JO', 'prohibited', 'Jordan: prohibited'),
-      ('JP', 'medical_limited_trade', 'Japan: medical limited'),
-      ('KE', 'cbd_hemp_only', 'Kenya: hemp limited'),
-      ('KG', 'prohibited', 'Kyrgyzstan: prohibited'),
-      ('KH', 'prohibited', 'Cambodia: prohibited'),
-      ('KI', 'prohibited', 'Kiribati: prohibited'),
-      ('KM', 'prohibited', 'Comoros: prohibited'),
-      ('KN', 'prohibited', 'Saint Kitts and Nevis: prohibited'),
-      ('KP', 'prohibited', 'North Korea: prohibited'),
-      ('KR', 'medical_limited_trade', 'South Korea: medical limited'),
-      ('KW', 'prohibited', 'Kuwait: prohibited'),
-      ('KY', 'prohibited', 'Cayman Islands: restricted'),
-      ('KZ', 'prohibited', 'Kazakhstan: prohibited'),
-      ('LA', 'prohibited', 'Laos: prohibited'),
-      ('LB', 'prohibited', 'Lebanon: prohibited'),
-      ('LC', 'prohibited', 'Saint Lucia: prohibited'),
-      ('LI', 'prohibited', 'Liechtenstein: restricted'),
-      ('LK', 'medical_limited_trade', 'Sri Lanka: medical limited'),
-      ('LR', 'prohibited', 'Liberia: prohibited'),
-      ('LS', 'prohibited', 'Lesotho: medical/export limited → treat as limited'),
-      ('LT', 'medical_limited_trade', 'Lithuania: medical'),
-      ('LU', 'legal_commercial_access', 'Luxembourg: lawful pathway with commercial elements'),
-      ('LV', 'medical_limited_trade', 'Latvia: medical'),
-      ('LY', 'prohibited', 'Libya: prohibited'),
-      ('MA', 'cbd_hemp_only', 'Morocco: hemp/traditional limited'),
-      ('MD', 'prohibited', 'Moldova: restricted'),
-      ('ME', 'prohibited', 'Montenegro: restricted'),
-      ('MG', 'prohibited', 'Madagascar: prohibited'),
-      ('MH', 'prohibited', 'Marshall Islands: prohibited'),
-      ('MK', 'prohibited', 'North Macedonia: restricted'),
-      ('ML', 'prohibited', 'Mali: prohibited'),
-      ('MM', 'prohibited', 'Myanmar: prohibited'),
-      ('MN', 'prohibited', 'Mongolia: prohibited'),
-      ('MO', 'prohibited', 'Macau: prohibited'),
-      ('MP', 'prohibited', 'Northern Mariana Islands: restricted'),
-      ('MR', 'prohibited', 'Mauritania: prohibited'),
-      ('MT', 'domestic_only', 'Malta: adult associations + medical; limited commercial'),
-      ('MU', 'medical_limited_trade', 'Mauritius: medical'),
-      ('MV', 'prohibited', 'Maldives: prohibited'),
-      ('MW', 'medical_limited_trade', 'Malawi: medical export pathway'),
-      ('MX', 'medical_limited_trade', 'Mexico: medical framework; adult-use limited/pending full commercial'),
-      ('MY', 'prohibited', 'Malaysia: prohibited'),
-      ('MZ', 'prohibited', 'Mozambique: prohibited'),
-      ('NA', 'cbd_hemp_only', 'Namibia: hemp limited'),
-      ('NC', 'medical_limited_trade', 'New Caledonia: follows FR'),
-      ('NE', 'prohibited', 'Niger: prohibited'),
-      ('NG', 'cbd_hemp_only', 'Nigeria: hemp limited'),
-      ('NI', 'prohibited', 'Nicaragua: prohibited'),
-      ('NL', 'domestic_only', 'Netherlands: tolerated retail; no full lawful cross-border commercial'),
-      ('NO', 'medical_limited_trade', 'Norway: medical'),
-      ('NP', 'prohibited', 'Nepal: restricted'),
-      ('NR', 'prohibited', 'Nauru: prohibited'),
-      ('NU', 'prohibited', 'Niue: prohibited'),
-      ('NZ', 'medical_limited_trade', 'New Zealand: medical'),
-      ('OM', 'prohibited', 'Oman: prohibited'),
-      ('PA', 'cbd_hemp_only', 'Panama: medical/hemp limited'),
-      ('PE', 'medical_limited_trade', 'Peru: medical'),
-      ('PF', 'medical_limited_trade', 'French Polynesia: follows FR'),
-      ('PG', 'prohibited', 'Papua New Guinea: prohibited'),
-      ('PH', 'prohibited', 'Philippines: prohibited'),
-      ('PK', 'prohibited', 'Pakistan: prohibited'),
-      ('PL', 'medical_limited_trade', 'Poland: medical'),
-      ('PM', 'prohibited', 'Saint Pierre and Miquelon: restricted'),
-      ('PN', 'prohibited', 'Pitcairn: restricted'),
-      ('PR', 'domestic_only', 'Puerto Rico: medical/adult frameworks under US federal constraints'),
-      ('PS', 'prohibited', 'Palestine: prohibited'),
-      ('PT', 'legal_commercial_access', 'Portugal: medical + commercial export pathways'),
-      ('PW', 'prohibited', 'Palau: prohibited'),
-      ('PY', 'cbd_hemp_only', 'Paraguay: hemp'),
-      ('QA', 'prohibited', 'Qatar: prohibited'),
-      ('RE', 'medical_limited_trade', 'Réunion: follows FR'),
-      ('RO', 'cbd_hemp_only', 'Romania: hemp/CBD'),
-      ('RS', 'medical_limited_trade', 'Serbia: medical'),
-      ('RU', 'prohibited', 'Russia: prohibited'),
-      ('RW', 'prohibited', 'Rwanda: prohibited'),
-      ('SA', 'prohibited', 'Saudi Arabia: prohibited'),
-      ('SB', 'prohibited', 'Solomon Islands: prohibited'),
-      ('SC', 'prohibited', 'Seychelles: prohibited'),
-      ('SD', 'prohibited', 'Sudan: prohibited'),
-      ('SE', 'medical_limited_trade', 'Sweden: medical'),
-      ('SG', 'prohibited', 'Singapore: prohibited'),
-      ('SH', 'prohibited', 'Saint Helena: restricted'),
-      ('SI', 'medical_limited_trade', 'Slovenia: medical'),
-      ('SJ', 'prohibited', 'Svalbard and Jan Mayen: restricted'),
-      ('SK', 'medical_limited_trade', 'Slovakia: medical'),
-      ('SL', 'prohibited', 'Sierra Leone: prohibited'),
-      ('SM', 'prohibited', 'San Marino: restricted'),
-      ('SN', 'prohibited', 'Senegal: prohibited'),
-      ('SO', 'prohibited', 'Somalia: prohibited'),
-      ('SR', 'prohibited', 'Suriname: prohibited'),
-      ('SS', 'prohibited', 'South Sudan: prohibited'),
-      ('ST', 'prohibited', 'São Tomé and Príncipe: prohibited'),
-      ('SV', 'prohibited', 'El Salvador: prohibited'),
-      ('SX', 'prohibited', 'Sint Maarten: restricted'),
-      ('SY', 'prohibited', 'Syria: prohibited'),
-      ('SZ', 'prohibited', 'Eswatini: prohibited'),
-      ('TC', 'prohibited', 'Turks and Caicos: restricted'),
-      ('TD', 'prohibited', 'Chad: prohibited'),
-      ('TF', 'prohibited', 'French Southern Territories: restricted'),
-      ('TG', 'prohibited', 'Togo: prohibited'),
-      ('TH', 'medical_limited_trade', 'Thailand: medical after 2025 re-restriction'),
-      ('TJ', 'prohibited', 'Tajikistan: prohibited'),
-      ('TK', 'prohibited', 'Tokelau: restricted'),
-      ('TL', 'prohibited', 'Timor-Leste: prohibited'),
-      ('TM', 'prohibited', 'Turkmenistan: prohibited'),
-      ('TN', 'prohibited', 'Tunisia: prohibited'),
-      ('TO', 'prohibited', 'Tonga: prohibited'),
-      ('TR', 'cbd_hemp_only', 'Turkey: hemp/CBD'),
-      ('TT', 'medical_limited_trade', 'Trinidad and Tobago: medical'),
-      ('TV', 'prohibited', 'Tuvalu: prohibited'),
-      ('TW', 'cbd_hemp_only', 'Taiwan: hemp/CBD limited'),
-      ('TZ', 'prohibited', 'Tanzania: prohibited'),
-      ('UA', 'cbd_hemp_only', 'Ukraine: hemp/CBD medical limited'),
-      ('UG', 'prohibited', 'Uganda: prohibited'),
-      ('UM', 'prohibited', 'US Minor Outlying Islands: restricted'),
-      ('US', 'domestic_only', 'United States: federal Schedule constraints; state markets domestic-only'),
-      ('UY', 'legal_commercial_access', 'Uruguay: national regulated adult-use + medical commercial market'),
-      ('UZ', 'prohibited', 'Uzbekistan: prohibited'),
-      ('VA', 'prohibited', 'Vatican: prohibited'),
-      ('VC', 'medical_limited_trade', 'Saint Vincent: medical/export limited'),
-      ('VE', 'prohibited', 'Venezuela: prohibited'),
-      ('VI', 'domestic_only', 'US Virgin Islands: territorial adult-use/medical under federal constraints'),
-      ('VN', 'prohibited', 'Vietnam: prohibited'),
-      ('VU', 'prohibited', 'Vanuatu: prohibited'),
-      ('WF', 'prohibited', 'Wallis and Futuna: restricted'),
-      ('WS', 'prohibited', 'Samoa: prohibited'),
-      ('XK', 'prohibited', 'Kosovo: restricted'),
-      ('YE', 'prohibited', 'Yemen: prohibited'),
-      ('YT', 'medical_limited_trade', 'Mayotte: follows FR'),
-      ('ZA', 'domestic_only', 'South Africa: private use + medical; commercial limited'),
-      ('ZM', 'prohibited', 'Zambia: prohibited'),
-      ('ZW', 'medical_limited_trade', 'Zimbabwe: medical/export limited')
-    ) as accepted(iso, tier, note)
-  loop
-    if exists (
-      select 1
-      from public.countries c
-      where c.iso_alpha2 = r.iso
-        and c.regulatory_tier is not distinct from r.tier
-        and c.regulatory_tier_origin = 'override'
-        and c.regulatory_tier_needs_review = false
-        and c.regulatory_tier_rationale is not distinct from r.note
-    ) then
-      continue;
+  v_local := api.briefing_classifier_text(
+    p_program_status,
+    p_public_summary,
+    p_market_dynamics,
+    p_regulatory_outlook
+  );
+
+  if p_jurisdiction_type is distinct from 'state' then
+    return v_local;
+  end if;
+
+  select api.briefing_classifier_text(
+           b.program_status,
+           b.public_summary,
+           b.market_dynamics,
+           b.regulatory_outlook
+         )
+    into v_parent
+    from public.cc_jurisdiction_briefings b
+   where b.jurisdiction_type = 'country'
+     and b.country_iso2 = p_country_iso2
+   order by b.updated_at desc
+   limit 1;
+
+  return nullif(trim(both from concat_ws(' | ', v_local, v_parent)), '');
+end;
+$$;
+
+revoke all on function api.regulatory_classifier_text_for_briefing(text,text,text,text,text,text)
+  from public, anon, authenticated;
+
+-- Apply one canonical classifier result to one live map row. Reviewed overrides
+-- are source-versioned, not permanent. Once the underlying canonical source
+-- changes, an override is retained only if the new classifier still agrees.
+create or replace function public.recompute_regulatory_tier_row(
+  p_target_iso2 text,
+  p_program_status text,
+  p_classifier_text text,
+  p_trigger_source text,
+  p_allow_override_expiry boolean default true
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_old_tier text;
+  v_old_origin text;
+  v_old_hash text;
+  v_new_tier text;
+  v_new_hash text;
+  v_changed boolean := false;
+begin
+  if p_target_iso2 is null or p_classifier_text is null then
+    return false;
+  end if;
+
+  v_new_hash := md5(p_classifier_text);
+  v_new_tier := api.derive_regulatory_tier(p_classifier_text);
+  if v_new_tier is null then
+    return false;
+  end if;
+
+  select regulatory_tier, regulatory_tier_origin, regulatory_tier_source_hash
+    into v_old_tier, v_old_origin, v_old_hash
+    from public.countries
+   where iso_alpha2 = p_target_iso2
+   for update;
+
+  if not found then
+    return false;
+  end if;
+
+  if v_old_origin = 'override' then
+    if v_old_hash is null then
+      update public.countries set
+        regulatory_tier_source_hash = v_new_hash,
+        regulatory_tier_last_derived_at = now()
+      where iso_alpha2 = p_target_iso2;
+      return false;
     end if;
 
-    -- Only apply when the country row exists (avoids errors on sparse envs)
-    if exists (select 1 from public.countries c where c.iso_alpha2 = r.iso) then
-      perform api.set_regulatory_tier(r.iso, r.tier, 'ops-full-coverage', r.note);
+    if v_old_hash = v_new_hash then
+      return false;
+    end if;
+
+    if v_new_tier is not distinct from v_old_tier then
+      update public.countries set
+        regulatory_tier_source_hash = v_new_hash,
+        regulatory_tier_last_derived_at = now(),
+        regulatory_tier_needs_review = false
+      where iso_alpha2 = p_target_iso2;
+      return false;
+    end if;
+
+    if not p_allow_override_expiry then
+      update public.countries set
+        regulatory_tier_source_hash = v_new_hash,
+        regulatory_tier_last_derived_at = now(),
+        regulatory_tier_needs_review = true
+      where iso_alpha2 = p_target_iso2;
+      return false;
+    end if;
+
+    update public.countries set
+      regulatory_tier = v_new_tier,
+      regulatory_tier_origin = 'auto',
+      regulatory_tier_reviewed_at = null,
+      regulatory_tier_source = 'canonical briefing change (live auto)',
+      regulatory_tier_rationale = 'Derived from canonical briefing prose: "' || left(p_classifier_text, 500) || '"',
+      regulatory_tier_source_hash = v_new_hash,
+      regulatory_tier_last_derived_at = now(),
+      regulatory_tier_needs_review = true,
+      updated_at = now()
+    where iso_alpha2 = p_target_iso2;
+
+    insert into public.regulatory_tier_audit
+      (country_iso2, old_tier, new_tier, origin, trigger_source, program_status, actor, note)
+    values
+      (p_target_iso2, v_old_tier, v_new_tier, 'auto', p_trigger_source,
+       p_program_status, 'system',
+       'Canonical briefing changed after a reviewed source baseline and now derives a different tier; stale override expired automatically.');
+
+    return true;
+  end if;
+
+  v_changed := v_new_tier is distinct from v_old_tier;
+
+  update public.countries set
+    regulatory_tier = v_new_tier,
+    regulatory_tier_origin = 'auto',
+    regulatory_tier_source = 'canonical briefing (live auto)',
+    regulatory_tier_rationale = 'Derived from canonical briefing prose: "' || left(p_classifier_text, 500) || '"',
+    regulatory_tier_source_hash = v_new_hash,
+    regulatory_tier_last_derived_at = now(),
+    regulatory_tier_needs_review = case when v_changed then true else regulatory_tier_needs_review end,
+    updated_at = now()
+  where iso_alpha2 = p_target_iso2;
+
+  if v_changed then
+    insert into public.regulatory_tier_audit
+      (country_iso2, old_tier, new_tier, origin, trigger_source, program_status, actor, note)
+    values
+      (p_target_iso2, v_old_tier, v_new_tier, 'auto', p_trigger_source,
+       p_program_status, 'system',
+       'Live regulatory tier re-derived from canonical full briefing prose.');
+  end if;
+
+  return v_changed;
+end;
+$$;
+
+revoke all on function public.recompute_regulatory_tier_row(text,text,text,text,boolean)
+  from public, anon, authenticated;
+
+-- Replace the override-freezing trigger from 20260829120000. A country change
+-- also fans out to every child state because national trade access is part of
+-- the subnational classification contract.
+create or replace function public.sync_regulatory_tier_from_briefing()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_target text;
+  v_text text;
+  child record;
+begin
+  if new.jurisdiction_type not in ('country', 'state') then
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+     and old.program_status is not distinct from new.program_status
+     and old.public_summary is not distinct from new.public_summary
+     and old.market_dynamics is not distinct from new.market_dynamics
+     and old.regulatory_outlook is not distinct from new.regulatory_outlook
+  then
+    return new;
+  end if;
+
+  v_target := api.regulatory_tier_target_iso2(new.jurisdiction_type, new.country_iso2, new.state_iso2);
+  v_text := api.regulatory_classifier_text_for_briefing(
+    new.jurisdiction_type,
+    new.country_iso2,
+    new.program_status,
+    new.public_summary,
+    new.market_dynamics,
+    new.regulatory_outlook
+  );
+
+  perform public.recompute_regulatory_tier_row(
+    v_target,
+    new.program_status,
+    v_text,
+    'briefing_change_live',
+    true
+  );
+
+  if new.jurisdiction_type = 'country' then
+    for child in
+      select jurisdiction_type, country_iso2, state_iso2, program_status,
+             public_summary, market_dynamics, regulatory_outlook
+        from public.cc_jurisdiction_briefings
+       where jurisdiction_type = 'state'
+         and country_iso2 = new.country_iso2
+    loop
+      v_target := api.regulatory_tier_target_iso2(child.jurisdiction_type, child.country_iso2, child.state_iso2);
+      v_text := api.regulatory_classifier_text_for_briefing(
+        child.jurisdiction_type,
+        child.country_iso2,
+        child.program_status,
+        child.public_summary,
+        child.market_dynamics,
+        child.regulatory_outlook
+      );
+
+      perform public.recompute_regulatory_tier_row(
+        v_target,
+        child.program_status,
+        v_text,
+        'parent_briefing_change_live',
+        true
+      );
+    end loop;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_sync_regulatory_tier on public.cc_jurisdiction_briefings;
+create trigger trg_sync_regulatory_tier
+after insert or update of program_status, public_summary, market_dynamics, regulatory_outlook
+on public.cc_jurisdiction_briefings
+for each row execute function public.sync_regulatory_tier_from_briefing();
+
+-- Evidence-backed reviewed seed for every country/territory row with current
+-- canonical classifier evidence. This intentionally replaces the previous
+-- hand-authored static list: the canonical briefings are the authority, so
+-- Lesotho, Morocco, Colombia, Kenya and every other row cannot diverge from the
+-- evidence at seed time.
+do $$
+declare
+  c record;
+  v_text text;
+  v_tier text;
+begin
+  for c in
+    select iso_alpha2, regulatory_tier
+      from public.countries
+     where length(iso_alpha2) = 2
+     order by iso_alpha2
+  loop
+    v_text := api.briefing_text_for_iso(c.iso_alpha2);
+    v_tier := api.derive_regulatory_tier(v_text);
+
+    if v_tier is not null then
+      perform api.set_regulatory_tier(
+        c.iso_alpha2,
+        v_tier,
+        'ops-full-coverage-evidence-20260830',
+        'Reviewed against canonical briefing evidence: ' || left(v_text, 450)
+      );
+    else
+      -- No canonical classifier evidence: preserve the existing non-null tier,
+      -- but never mislabel it as reviewed evidence.
+      update public.countries set
+        regulatory_tier = coalesce(regulatory_tier, 'prohibited'),
+        regulatory_tier_needs_review = true,
+        regulatory_tier_source = 'full-coverage fallback; canonical briefing evidence unavailable 2026-08-30',
+        regulatory_tier_last_derived_at = now(),
+        regulatory_tier_rationale = coalesce(
+          regulatory_tier_rationale,
+          'Coverage preserved pending canonical briefing evidence review'
+        )
+      where iso_alpha2 = c.iso_alpha2;
     end if;
   end loop;
 end $$;
 
--- Ensure any remaining null tiers default to prohibited so the heatmap has no gaps.
--- Marked needs_review so analysts can correct later.
+-- Preserve complete coverage for any future sparse/subnational row while making
+-- unsupported fallback explicit and reviewable.
 update public.countries
 set
   regulatory_tier = 'prohibited',
-  regulatory_tier_origin = 'override',
+  regulatory_tier_origin = coalesce(regulatory_tier_origin, 'auto'),
   regulatory_tier_needs_review = true,
-  regulatory_tier_rationale = coalesce(regulatory_tier_rationale, 'Auto-filled prohibited for full heatmap coverage; pending analyst review'),
-  regulatory_tier_source = 'ops-full-coverage-null-fill 2026-08-30',
+  regulatory_tier_rationale = coalesce(
+    regulatory_tier_rationale,
+    'Coverage fallback pending canonical briefing evidence review'
+  ),
+  regulatory_tier_source = 'full-coverage-null-fallback 2026-08-30',
   regulatory_tier_last_derived_at = now()
 where regulatory_tier is null;
+
+-- Hard postconditions. These fail the migration atomically rather than leaving a
+-- partially coloured globe.
+do $$
+declare
+  v_total integer;
+  v_null integer;
+  v_subnational integer;
+  v_subnational_tiered integer;
+  v_bad_evidence integer;
+begin
+  select count(*), count(*) filter (where regulatory_tier is null)
+    into v_total, v_null
+    from public.countries;
+
+  if v_total <> 291 then
+    raise exception 'Expected 291 current country/territory/subnational rows, found %', v_total;
+  end if;
+
+  if v_null <> 0 then
+    raise exception 'Expected zero null regulatory tiers, found %', v_null;
+  end if;
+
+  select count(*), count(*) filter (where regulatory_tier is not null)
+    into v_subnational, v_subnational_tiered
+    from public.countries
+   where iso_alpha2 ~ '^(US|CA|DE|AU)-';
+
+  if v_subnational <> 88 or v_subnational_tiered <> 88 then
+    raise exception 'Expected 88/88 tiered US/CA/DE/AU subnational rows, found %/%',
+      v_subnational, v_subnational_tiered;
+  end if;
+
+  select count(*)
+    into v_bad_evidence
+    from public.countries c
+   where c.iso_alpha2 in ('LS','MA','CO','KE')
+     and c.regulatory_tier is distinct from api.derive_regulatory_tier(api.briefing_text_for_iso(c.iso_alpha2));
+
+  if v_bad_evidence <> 0 then
+    raise exception 'Canonical evidence regression for LS/MA/CO/KE: % mismatches', v_bad_evidence;
+  end if;
+end $$;
