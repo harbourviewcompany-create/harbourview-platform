@@ -1,4 +1,5 @@
 import 'server-only'
+import { withTimeout } from '@/lib/dashboard/loadCommandCentreData'
 
 import type { CommandPage, DashboardMarketplaceRows, MarketRow, MarketView } from '@/components/dashboard/CommandCentre'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -146,6 +147,9 @@ async function loadTierAApprovedCandidates(limit = 24): Promise<LiveCandidateRow
 
 /** Raised so Supabase public image rows can complete under cold start. */
 export const MARKETPLACE_MEDIA_TIMEOUT_MS = 8_000
+// Listing and Tier A retrieval share one bounded phase before optional media.
+export const MARKETPLACE_LISTINGS_TIMEOUT_MS = 8_000
+export const MARKETPLACE_SOURCE_TIMEOUT_MS = MARKETPLACE_LISTINGS_TIMEOUT_MS + MARKETPLACE_MEDIA_TIMEOUT_MS + 1_000
 
 function safeText(value: string | null | undefined, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback
@@ -299,7 +303,7 @@ export async function getDashboardMarketplaceProjection(
 ): Promise<DashboardMarketplaceProjection> {
   const views = Object.entries(VIEW_SECTIONS) as [MarketView, string[]][]
 
-  const [listingsByViewRaw, tierACandidates] = await Promise.all([
+  const [listingsByViewRaw, tierACandidates] = await withTimeout(() => Promise.all([
     Promise.all(
       views.map(async ([view, sections]) => {
         const listings = await getListingsBySections(sections, countryIso2, ROWS_PER_VIEW)
@@ -307,7 +311,7 @@ export async function getDashboardMarketplaceProjection(
       }),
     ),
     loadTierAApprovedCandidates(ROWS_PER_VIEW * 3),
-  ])
+  ]), MARKETPLACE_LISTINGS_TIMEOUT_MS)
 
   // Merge Tier A approved_draft candidates into the matching MarketView (dedupe by id).
   const listingsByView = listingsByViewRaw.map(([view, listings]) => {
@@ -379,6 +383,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
     marketplaceRows: {
       enabled: enabled('marketplaceRows'),
       load: () => getDashboardMarketplaceProjection(countryIso2),
+      timeoutMs: MARKETPLACE_SOURCE_TIMEOUT_MS,
       fallback: { rows: {}, mediaById: {}, mediaStatus: 'degraded' as const },
       isEmpty: projection => Object.keys(projection.rows).length === 0,
       // Listing rows are the verified source of truth. Approved-media enrichment

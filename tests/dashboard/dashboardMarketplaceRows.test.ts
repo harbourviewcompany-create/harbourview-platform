@@ -25,9 +25,16 @@ vi.mock('@/lib/marketplace/images/public-query', () => ({
   pickMarketplaceCardImage: (images: unknown[]) => images[0] ?? null,
 }))
 
-const { buildDashboardCommandSources, MARKETPLACE_MEDIA_TIMEOUT_MS } = await import(
+const { buildDashboardCommandSources, MARKETPLACE_MEDIA_TIMEOUT_MS, MARKETPLACE_LISTINGS_TIMEOUT_MS, MARKETPLACE_SOURCE_TIMEOUT_MS } = await import(
   '@/lib/dashboard/buildDashboardCommandSources'
 )
+const { loadCommandCentreData } = await import('@/lib/dashboard/loadCommandCentreData')
+
+function loadMarketplaceBundle() {
+  return loadCommandCentreData({
+    countryIso2: 'CA', roleId: 'exporter', userId: null, page: 'marketplace', hasOrganization: false,
+  }, { marketplaceRows: marketplaceSource() })
+}
 
 function listing(section: string, id: string): PublicListing {
   return {
@@ -234,5 +241,52 @@ describe('Command Centre marketplace projection', () => {
     expect(Object.keys(projection.rows)).toHaveLength(0)
     expect(projection.mediaById).toEqual({})
     expect(getPublicMarketplaceImagesForItems).not.toHaveBeenCalled()
+  })
+
+  it.each([5_000, MARKETPLACE_LISTINGS_TIMEOUT_MS - 1])('retains live rows after %i ms listing latency and a full media timeout through the real loader', async (listingLatency) => {
+    vi.useFakeTimers()
+    getListingsBySections.mockImplementation((sections: string[]) => new Promise(resolve => {
+      setTimeout(() => resolve(sections.includes('cannabis_inventory') ? [listing('cannabis_inventory', 'slow-listing')] : []), listingLatency)
+    }))
+    getPublicMarketplaceImagesForItems.mockImplementation(() => new Promise(() => undefined))
+
+    const pending = loadMarketplaceBundle()
+    await vi.advanceTimersByTimeAsync(listingLatency + MARKETPLACE_MEDIA_TIMEOUT_MS)
+    const bundle = await pending
+
+    expect(marketplaceSource().timeoutMs).toBe(MARKETPLACE_SOURCE_TIMEOUT_MS)
+    expect(bundle.data.marketplaceRows.rows.cannabis?.[0]?.[7]).toBe('slow-listing')
+    expect(bundle.data.marketplaceRows.mediaStatus).toBe('degraded')
+    expect(bundle.sources.marketplaceRows.state).toBe('live')
+    expect(bundle.sources.marketplaceRows.errorCode).toBeNull()
+    expect(bundle.state).toBe('live')
+    expect((getPublicMarketplaceImagesForItems.mock.calls[0][1] as AbortSignal).aborted).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('bounds a late listing phase and does not start media enrichment after the phase has failed', async () => {
+    vi.useFakeTimers()
+    getListingsBySections.mockImplementation(() => new Promise(resolve => {
+      setTimeout(() => resolve([listing('cannabis_inventory', 'too-late')]), MARKETPLACE_LISTINGS_TIMEOUT_MS + 100)
+    }))
+    const pending = loadMarketplaceBundle()
+    await vi.advanceTimersByTimeAsync(MARKETPLACE_LISTINGS_TIMEOUT_MS)
+    const bundle = await pending
+    expect(bundle.sources.marketplaceRows.errorCode).toBe('SOURCE_TIMEOUT')
+    expect(bundle.sources.marketplaceRows.state).toBe('fallback')
+    expect(bundle.data.marketplaceRows.rows).toEqual({})
+    await vi.advanceTimersByTimeAsync(200)
+    expect(getPublicMarketplaceImagesForItems).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('keeps legitimate no-image results live and marks only failed media retrieval degraded', async () => {
+    getListingsBySections.mockResolvedValue([listing('cannabis_inventory', 'no-image')])
+    const noImage = await loadMarketplaceBundle()
+    expect(noImage.data.marketplaceRows.mediaStatus).toBe('live')
+    getPublicMarketplaceImagesForItems.mockRejectedValue(new Error('media unavailable'))
+    const failedMedia = await loadMarketplaceBundle()
+    expect(failedMedia.data.marketplaceRows.mediaStatus).toBe('degraded')
+    expect(failedMedia.state).toBe('live')
   })
 })
