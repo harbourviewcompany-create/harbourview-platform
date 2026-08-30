@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "release": "full-regulatory-tier-coverage-20260830",
+  "production_project_ref": "zvxdgdkukjrrwamdpqrg",
+  "current_row_contract": {
+    "countries_total": 291,
+    "supported_subnational_us_ca_de_au": 88,
+    "null_regulatory_tiers": 0
+  },
+  "history_reconciliation": {
+    "version": "20260822134500",
+    "file": "supabase/migrations/20260822134500_live_regulatory_heatmap_all_jurisdictions.sql",
+    "repository_git_blob_sha": "676c6ca4d27eade1c7bb557329416133b0f3fdfd",
+    "disposition": "history_placeholder_superseded_by_20260830140000",
+    "reason": "Byte-for-byte replay is not safe against the current canonical 291-row production shape: the historical migration inserts AS, GU, MP, VI, NC and PF as additional two-letter rows, producing 297 rows. Activation run 33315349675 proved this inside one transaction and rolled back. Its required live classifier, source-hash override-expiry, target mapping and country-to-child propagation semantics are restated by 20260830140000 before this historical version is registered as superseded history.",
+    "must_not_execute_body": true,
+    "required_preconditions": [
+      "20260822134500 is absent from production ledger",
+      "20260830140000 is absent from production ledger",
+      "production has exactly 291 countries rows",
+      "production has zero null regulatory_tier rows",
+      "production has exactly 88 tiered US/CA/DE/AU subnational rows",
+      "20260829120000, 20260829130000 and 20260829160000 are present"
+    ]
+  },
+  "executable_migration": {
+    "version": "20260830140000",
+    "file": "supabase/migrations/20260830140000_full_regulatory_tier_coverage.sql",
+    "git_blob_sha": "2d21eb9fb4039fe6c5cc55cca6c40a32ac2d127f",
+    "required_behavior": [
+      "canonical-evidence-derived reviewed tiers",
+      "source-hash-versioned override expiry",
+      "country-to-child subnational propagation",
+      "zero-null full coverage",
+      "LS/MA/CO/KE canonical evidence equality",
+      "preserve unsupported no-canonical rows as needs_review"
+    ]
+  },
+  "failed_activation_evidence": {
+    "run_id": 33315349675,
+    "artifact_id": 9733262490,
+    "result": "rolled_back",
+    "error": "Expected 291 current country/territory/subnational rows, found 297"
+  }
+}
