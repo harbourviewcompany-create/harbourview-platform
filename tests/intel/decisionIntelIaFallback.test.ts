@@ -18,10 +18,11 @@ describe('Decision Intelligence IA fallback compatibility', () => {
     expect(dossierLoader).toContain('return mapIaSignal(result.data, eventId)')
   })
 
-  it('fails closed on unexpected canonical route-resolution errors', () => {
+  it('fails closed on native canonical route-resolution errors, falls through to legacy for synthetic feed routes', () => {
     expect(dossierLoader).toContain("code === 'PGRST202' || code === '42883'")
     expect(dossierLoader).toContain("return isMissingStage0Rpc(error) ? { status: 'missing_rpc' } : { status: 'error' }")
-    expect(dossierLoader).toContain("if (route.status === 'error') return null")
-    expect(dossierLoader).toContain("if (clusteredRoute.status === 'error') return null")
+    expect(dossierLoader).toContain("if (route.status === 'error' && !isSyntheticEventRoute) return null")
+    expect(dossierLoader).toContain("if (clusteredRoute.status === 'error') {")
+    expect(dossierLoader).toContain('Fall through: serve this reviewed member rather than 404 the feed CTA')
   })
 })
