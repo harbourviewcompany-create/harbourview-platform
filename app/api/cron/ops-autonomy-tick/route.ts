@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 import { runOpsAutonomyTick } from '@/lib/admin/opsAutonomyLoop'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300 // bumped from 60: coverage tick + 4x LLM jurisdiction synthesis routinely exceeds 60s on hobby/Fluid (300s ceiling)
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
