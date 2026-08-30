@@ -160,7 +160,7 @@ const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export async function getSupplyCatalog(
   filters: SupplyCatalogFilters = {},
-  limit = 100,
+  limit = 300,
 ): Promise<SupplyListing[]> {
   const p = baseParams(limit)
 
