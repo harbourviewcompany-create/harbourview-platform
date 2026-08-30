@@ -8,6 +8,7 @@ on:
       - supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql
       - supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql
       - supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql
+      - supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql
       - supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql
       - tests/sql/full_regulatory_tier_coverage_regression.sql
       - .github/workflows/activate-full-regulatory-tier-coverage.yml
@@ -45,6 +46,7 @@ jobs:
           test -f supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql
           test -f supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql
           test -f supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql
+          test -f supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql
           test -f supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql
           test -f tests/sql/full_regulatory_tier_coverage_regression.sql
           mkdir -p artifacts/full-regulatory-tier-coverage
@@ -52,6 +54,7 @@ jobs:
             supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql \
             supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql \
             supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql \
+            supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql \
             supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql \
             tests/sql/full_regulatory_tier_coverage_regression.sql \
             | tee artifacts/full-regulatory-tier-coverage/source-sha256.txt
@@ -68,7 +71,7 @@ jobs:
           psql -X -qAt <<'SQL' | tee artifacts/full-regulatory-tier-coverage/preflight.txt
           select 'LEDGER|' || version || '|' || coalesce(name,'NULL')
           from supabase_migrations.schema_migrations
-          where version in ('20260822134500','20260822134600','20260830140000','20260830141000','20260830184434','20260830185137','20260830192000')
+          where version in ('20260822134500','20260822134600','20260830140000','20260830141000','20260830184434','20260830185137','20260830191900','20260830192000')
           order by version;
           select 'COUNTRIES|' || count(*) || '|' || count(*) filter (where regulatory_tier is null) from public.countries;
           select 'SUBNATIONAL|' || count(*) || '|' || count(*) filter (where regulatory_tier is not null)
@@ -87,12 +90,13 @@ jobs:
           grep -q '^COUNTRIES|291|0$' artifacts/full-regulatory-tier-coverage/preflight.txt
           grep -q '^SUBNATIONAL|88|88$' artifacts/full-regulatory-tier-coverage/preflight.txt
 
-          has_bridge=0; has_repair=0
+          has_bridge=0; has_trigger_fix=0; has_repair=0
           grep -q '^LEDGER|20260822134600|' artifacts/full-regulatory-tier-coverage/preflight.txt && has_bridge=1 || true
+          grep -q '^LEDGER|20260830191900|' artifacts/full-regulatory-tier-coverage/preflight.txt && has_trigger_fix=1 || true
           grep -q '^LEDGER|20260830192000|' artifacts/full-regulatory-tier-coverage/preflight.txt && has_repair=1 || true
-          if [ "$has_bridge" = 0 ] && [ "$has_repair" = 0 ]; then
+          if [ "$has_bridge" = 0 ] && [ "$has_trigger_fix" = 0 ] && [ "$has_repair" = 0 ]; then
             echo 'mode=apply' >> "$GITHUB_OUTPUT"
-          elif [ "$has_bridge" = 1 ] && [ "$has_repair" = 1 ]; then
+          elif [ "$has_bridge" = 1 ] && [ "$has_trigger_fix" = 1 ] && [ "$has_repair" = 1 ]; then
             echo 'mode=verify' >> "$GITHUB_OUTPUT"
           else
             echo '::error::Partial authority-repair ledger state; refusing continuation.'
@@ -107,6 +111,7 @@ jobs:
           const fs = require('fs')
           const migrations = [
             ['20260822134600','reconcile_legacy_heatmap_territory_rows','supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql'],
+            ['20260830191900','fix_market_access_status_trigger_type_resolution','supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql'],
             ['20260830192000','regulatory_tier_authority_write_guard','supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql'],
           ]
           const lit = s => "'" + s.replaceAll("'", "''") + "'"
@@ -145,7 +150,7 @@ jobs:
           psql -X -qAt <<'SQL' | tee artifacts/full-regulatory-tier-coverage/postflight.txt
           select 'LEDGER|' || version || '|' || coalesce(name,'NULL') || '|' || coalesce(cardinality(statements)::text,'NULL')
           from supabase_migrations.schema_migrations
-          where version in ('20260822134600','20260830184434','20260830185137','20260830192000') order by version;
+          where version in ('20260822134600','20260830184434','20260830185137','20260830191900','20260830192000') order by version;
           select 'COUNTRIES|' || count(*) || '|' || count(*) filter (where regulatory_tier is null) from public.countries;
           select 'SUBNATIONAL|' || count(*) || '|' || count(*) filter (where regulatory_tier is not null)
           from public.countries where iso_alpha2 ~ '^(US|CA|DE|AU)-';
@@ -171,6 +176,7 @@ jobs:
           grep -q '^LEDGER|20260822134600|reconcile_legacy_heatmap_territory_rows|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
           grep -q '^LEDGER|20260830184434|resync_market_access_status_from_regulatory_tier|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
           grep -q '^LEDGER|20260830185137|fix_regulatory_tier_rationale_mismatches|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^LEDGER|20260830191900|fix_market_access_status_trigger_type_resolution|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
           grep -q '^LEDGER|20260830192000|regulatory_tier_authority_write_guard|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
           grep -q '^COUNTRIES|291|0$' artifacts/full-regulatory-tier-coverage/postflight.txt
           grep -q '^SUBNATIONAL|88|88$' artifacts/full-regulatory-tier-coverage/postflight.txt
