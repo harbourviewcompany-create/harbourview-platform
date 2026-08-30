@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveMarketCountryIso2 } from '@/lib/market/marketCode'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 15 // fail fast: was inheriting the 300s fluid default and hung a live user request for 5 minutes
 
 const ALLOWED_HEATMAP_LAYERS = new Set(['opportunity', 'regulatory', 'activity', 'none'])
 
