@@ -34,7 +34,7 @@ jobs:
           exit-code: '0'  # We evaluate with OPA instead of failing here
 
       - name: Cache Trivy DB
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/trivy
           key: trivy-db-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
