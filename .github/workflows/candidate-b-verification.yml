@@ -125,7 +125,7 @@ jobs:
 
       - name: Upload Candidate B logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: candidate-b-exact-verification-logs
           if-no-files-found: error
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload Candidate B screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: candidate-b-exact-verification-screenshots
           if-no-files-found: warn
