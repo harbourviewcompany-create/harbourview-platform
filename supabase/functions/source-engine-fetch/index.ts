@@ -129,7 +129,17 @@ function stripSiteSuffix(title: string, sourceName: string | null | undefined): 
   if (!match) return title;
   const suffix = match[1].trim().toLowerCase();
   const source = sourceName.trim().toLowerCase();
-  if (source.length >= 3 && (suffix === source || suffix.includes(source) || source.includes(suffix))) {
+  // source_name is sometimes itself "{Brand} - {article title}" -- ~940
+  // rows in source_registry follow this pattern, mostly one-off
+  // single-article sources where whoever registered it used the article's
+  // own headline as the source_name instead of just the site's brand. Also
+  // try matching against the portion before source_name's own separator.
+  const sourceBrand = source.split(/\s+[-|\u2013\u2014]\s+/)[0].trim();
+  const candidates = [source, sourceBrand];
+  const matchesAny = candidates.some(
+    (c) => c.length >= 3 && (suffix === c || suffix.includes(c) || c.includes(suffix)),
+  );
+  if (matchesAny) {
     return title.slice(0, match.index).trim();
   }
   return title;
