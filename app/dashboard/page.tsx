@@ -228,6 +228,9 @@ export default async function DashboardPage({
         wantedCount={wantedCount}
         marketplaceRows={marketplaceProjection.rows}
         marketplaceMediaById={marketplaceProjection.mediaById}
+        marketplaceMediaStatus={commandData.sources.marketplaceRows.requested && commandData.sources.marketplaceRows.errorCode === null
+          ? marketplaceProjection.mediaStatus
+          : undefined}
         pipeline={pipeline}
         wantedListings={wantedListings}
         countryIntel={countryIntel ?? undefined}
