@@ -24,6 +24,7 @@ const PIPELINE_LABEL: Record<string, string> = {
   daily_digest: 'Daily Digest (trade signals)',
   editorial_digest: 'Daily Digest (editorial)',
   signal_extraction: 'Signal Extraction',
+  counterparty_extraction: 'Counterparty Extraction',
 }
 
 function escHtml(str: string): string {
