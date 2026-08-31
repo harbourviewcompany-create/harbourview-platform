@@ -134,6 +134,17 @@ on conflict (evidence_key) do update set tier=excluded.tier,rationale=excluded.r
  authority_url=excluded.authority_url,source_effective_date=excluded.source_effective_date,verified_at=excluded.verified_at,expires_at=excluded.expires_at,
  parent_iso2=excluded.parent_iso2,inheritance_scope=excluded.inheritance_scope,active=true;
 
+-- National US evidence is direct-only: it MUST NOT cascade into state rows.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at)
+values ('ncsl-us-national-20260831','US','medical_limited_trade',
+  'State medical cannabis markets operate across most of the United States, but no lawful nationwide interstate commercial cannabis pathway is verified; state rows are classified independently.',
+  'National Conference of State Legislatures — State Medical Cannabis Laws',
+  'https://www.ncsl.org/health/state-medical-cannabis-laws',null,
+  '2026-08-31 12:10:00+00','2027-03-01 00:00:00+00')
+on conflict (evidence_key) do update set tier=excluded.tier,rationale=excluded.rationale,authority_name=excluded.authority_name,
+ authority_url=excluded.authority_url,verified_at=excluded.verified_at,expires_at=excluded.expires_at,active=true;
+
 -- US state market status from NCSL 2026 tables. State adult-use retail => domestic_only because interstate cannabis commerce is not verified.
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at)
