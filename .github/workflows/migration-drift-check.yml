@@ -80,6 +80,7 @@ jobs:
           tests/scripts/migration-ledger-manifest.test.mjs
           tests/scripts/historical-migration-attestations.test.mjs
           tests/scripts/notify-new-migration-drift.test.mjs
+          tests/scripts/lint-workflow-continue-on-error-guards.test.mjs
 
   check-drift:
     name: Compare repository and live migration ledgers
