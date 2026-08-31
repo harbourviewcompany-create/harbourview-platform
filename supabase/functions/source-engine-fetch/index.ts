@@ -113,6 +113,28 @@ function stripTags(input: string): string {
     .trim();
 }
 
+// Most sites append their own name to the <title> tag via SEO plugins
+// (e.g. "Article Headline - Site Name Inc." or "Article | Site Name"). Taking
+// that tag verbatim leaks the site's own branding into captured_title, which
+// flows straight into the signal headline downstream (promote_snapshot_to_signals).
+// Only strip a trailing " - X" / " | X" / " -- X" segment when X is clearly the
+// site's own name (matches source_name either way, substring-wise) -- never
+// strip a dash-separated clause just because it sits at the end, since that
+// could be legitimate title content.
+const TITLE_SUFFIX_PATTERN = /\s+[-|\u2013\u2014]\s+([^-|\u2013\u2014]{2,60})$/;
+
+function stripSiteSuffix(title: string, sourceName: string | null | undefined): string {
+  if (!sourceName) return title;
+  const match = title.match(TITLE_SUFFIX_PATTERN);
+  if (!match) return title;
+  const suffix = match[1].trim().toLowerCase();
+  const source = sourceName.trim().toLowerCase();
+  if (source.length >= 3 && (suffix === source || suffix.includes(source) || source.includes(suffix))) {
+    return title.slice(0, match.index).trim();
+  }
+  return title;
+}
+
 function extractTag(xml: string, tag: string): string {
   const re = new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i");
   return stripTags(xml.match(re)?.[1] ?? "");
@@ -122,14 +144,15 @@ function extractAtomLink(entry: string): string {
   return decodeEntities(entry.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i)?.[1] ?? "").trim();
 }
 
-function parseFeed(raw: string, fallbackUrl: string): SnapshotCandidate[] {
+function parseFeed(raw: string, fallbackUrl: string, sourceName?: string | null): SnapshotCandidate[] {
   const items = [...raw.matchAll(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi)]
     .map((m) => ({ kind: "rss_item", block: m[0] }));
   const entries = [...raw.matchAll(/<entry(?:\s[^>]*)?>[\s\S]*?<\/entry>/gi)]
     .map((m) => ({ kind: "atom_entry", block: m[0] }));
 
   return [...items, ...entries].slice(0, 12).map(({ kind, block }) => {
-    const title = extractTag(block, "title") || "Untitled feed item";
+    const rawTitle = extractTag(block, "title") || "Untitled feed item";
+    const title = stripSiteSuffix(rawTitle, sourceName);
     const link = kind === "atom_entry" ? extractAtomLink(block) : extractTag(block, "link");
     const summary = extractTag(block, "description") || extractTag(block, "summary") || extractTag(block, "content") || "";
     return {
@@ -140,8 +163,9 @@ function parseFeed(raw: string, fallbackUrl: string): SnapshotCandidate[] {
   });
 }
 
-function parseHtml(raw: string, url: string): SnapshotCandidate[] {
-  const title = stripTags(raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "") || "Untitled source snapshot";
+function parseHtml(raw: string, url: string, sourceName?: string | null): SnapshotCandidate[] {
+  const rawTitle = stripTags(raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "") || "Untitled source snapshot";
+  const title = stripSiteSuffix(rawTitle, sourceName);
   const meta = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["'][^>]*>/i)?.[1] ?? "";
   const text = stripTags(raw).slice(0, 24000);
   return [{
@@ -371,7 +395,7 @@ Deno.serve(async (req: Request) => {
       let candidates: SnapshotCandidate[];
 
       if (isFeed) {
-        candidates = parseFeed(raw, finalUrl);
+        candidates = parseFeed(raw, finalUrl, source.source_name);
       } else if (isTabular && sourceTabularFormat) {
         try {
           candidates = parseStructuredTabular(raw, finalUrl, tabularMetadata(source, sourceTabularFormat));
@@ -387,7 +411,7 @@ Deno.serve(async (req: Request) => {
           throw new Error(`invalid_json: ${errorMessage(error)}`);
         }
       } else {
-        candidates = parseHtml(raw, finalUrl);
+        candidates = parseHtml(raw, finalUrl, source.source_name);
       }
 
       let sourceSkipped = 0;
