@@ -5607,3 +5607,39 @@ against the current 7913-character definition.
 billing block itself is an account action and is not fixed by this change: until
 credits and quota are restored, the pipeline will correctly *report* that it is
 degraded rather than silently claiming success.
+
+## 2026-08-31 — Reconstructed-migration idempotency: three confirmed defects surfaced during PR #1703/#1702/#1688 review
+
+**Evidence ID:** `HV-RECON-MIGRATION-IDEMPOTENCY-20260831`
+
+**Scope:** repository-only. Two files fixed and pushed to PR #1703
+(`20260701180751_remote_applied_repair.sql`,
+`20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql`); a
+third confirmed defect (`20260714224152_create_intel_eval_set_stage0.sql`) and
+six heuristic candidates left open. **Not applied to production.**
+
+**Context.** GO/HOLD review of three open PRs (#1703, #1702, #1688) found
+#1703's Supabase Preview check failing on a from-scratch migration replay.
+Diagnosis traced it to the same risk `HV-PR1430-STUB-RECONSTRUCTION-20260814`
+named on 2026-08-14: files produced by
+`scripts/reconstruct-stub-migrations.mjs` carry verbatim production statements
+that assumed production's state at the time they ran, not a clean replay's
+state. Fixing the first instance (`corridor_processing_times` referenced
+before its creating migration, by filename order) let replay progress further
+and immediately surface a second, structurally identical instance
+(`regulatory_signals` constraints re-added when v1 already defines them), then
+a third (`intel_eval_set` table created twice). Stopped there rather than
+continuing to patch one-by-one -- full detail, verification steps, and a
+repo-wide heuristic scan of all 165 reconstructed files (six more candidates,
+unverified) is in
+`docs/control/RECONSTRUCTED_MIGRATION_IDEMPOTENCY_AUDIT_2026-08-31.md`.
+
+**Verification on the two fixed files:** both replayed successfully against a
+clean local Postgres 16 database, in filename order, with the exact
+downstream fidelity checks (corridor stub's seed-row counts) still passing.
+Full detail in the audit doc.
+
+**Decision:** **GO for the two fixes**, already on PR #1703. **Open** for the
+third confirmed defect and the six heuristic candidates -- recommend a full
+`supabase db reset --local` replay (the tool that found the original
+167-placeholder problem) rather than continuing to patch by inspection.
