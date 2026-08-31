@@ -1,439 +1,257 @@
-'use client'
-
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ComponentRef, RefObject } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stars } from '@react-three/drei'
-import { ACESFilmicToneMapping, PMREMGenerator } from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { GLOBE_CAMERA_CONFIG } from '@/config/globe/camera'
-import { buildRegulatoryTierMap } from '@/data/globe/subnational-regulatory-tiers'
-import { OceanSphere } from './OceanSphere'
-import { AtmosphereGlow } from './AtmosphereGlow'
-import { CountryBorderLayer } from './CountryBorderLayer'
-import { CountryPolygonMeshLayer } from './CountryPolygonMeshLayer'
-import { CountryGlobeLabel } from './CountryGlobeLabel'
-import { CameraFlyToController, type CameraFlyOrbitControlsLike } from './CameraFlyToController'
-import { DataVizLayer } from './DataVizLayer'
-import { HeatDensityLayer } from './HeatDensityLayer'
-import { GlobeHeatEffects } from './GlobeHeatEffects'
-import { useGlobe } from '../GlobeProvider'
-import type { GlobeLayerId, GlobeRouterStep } from '@/types/globe-router'
-import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
-import { featureFlags } from '@/lib/harbourview/feature-flags'
-import {
-  GLOBE_INTRO,
-  introSpinAutoRotateSpeed,
-  introTierBlend,
-  isIntroInteractionLocked,
-  shouldFinishReveal,
-  shouldForceGoldPlates,
-  shouldStartReveal,
-  type GlobeIntroPhase,
-} from '@/lib/globe/globe-intro'
-
-const REVEAL_BLEND_STEPS = 40
-
-function AutoRotateInvalidator({ active }: { active: boolean }) {
-  useFrame((state) => {
-    if (active) state.invalidate()
-  })
-  return null
-}
-
-function IntroOrbitTracker({
-  active,
-  controlsRef,
-  onProgress,
-}: {
-  active: boolean
-  controlsRef: RefObject<ComponentRef<typeof OrbitControls> | null>
-  onProgress: (progress: { azimuthAccumRad: number; elapsedMs: number }) => void
-}) {
-  const startedAtRef = useRef<number | null>(null)
-  const lastAzimuthRef = useRef<number | null>(null)
-  const accumRef = useRef(0)
-
-  useFrame(() => {
-    if (!active) return
-    const controls = controlsRef.current as {
-      getAzimuthalAngle?: () => number
-      autoRotateSpeed?: number
-    } | null
-    if (!controls?.getAzimuthalAngle) return
-
-    const now = performance.now()
-    if (startedAtRef.current === null) {
-      startedAtRef.current = now
-      lastAzimuthRef.current = controls.getAzimuthalAngle()
-      accumRef.current = 0
-    }
-
-    const az = controls.getAzimuthalAngle()
-    const prev = lastAzimuthRef.current ?? az
-    let delta = az - prev
-    if (delta > Math.PI) delta -= Math.PI * 2
-    if (delta < -Math.PI) delta += Math.PI * 2
-    accumRef.current += Math.abs(delta)
-    lastAzimuthRef.current = az
-
-    if (typeof controls.autoRotateSpeed === 'number') {
-      controls.autoRotateSpeed = introSpinAutoRotateSpeed(accumRef.current)
-    }
-
-    onProgress({
-      azimuthAccumRad: accumRef.current,
-      elapsedMs: now - startedAtRef.current,
-    })
-  })
-
-  useEffect(() => {
-    if (!active) {
-      startedAtRef.current = null
-      lastAzimuthRef.current = null
-      accumRef.current = 0
-    }
-  }, [active])
-
-  return null
-}
-
-function IntroRevealClock({
-  active,
-  onElapsed,
-}: {
-  active: boolean
-  onElapsed: (elapsedMs: number) => void
-}) {
-  const startedAtRef = useRef<number | null>(null)
-
-  useFrame((state) => {
-    if (!active) return
-    const now = performance.now()
-    if (startedAtRef.current === null) startedAtRef.current = now
-    onElapsed(now - startedAtRef.current)
-    state.invalidate()
-  })
-
-  useEffect(() => {
-    if (!active) startedAtRef.current = null
-  }, [active])
-
-  return null
-}
-
-function MetallicEnvironment() {
-  const { gl, scene } = useThree()
-
-  useEffect(() => {
-    const pmremGenerator = new PMREMGenerator(gl)
-    const roomEnvironment = new RoomEnvironment()
-    const environmentMap = pmremGenerator.fromScene(roomEnvironment, 0.04).texture
-    const previousEnvironment = scene.environment
-
-    scene.environment = environmentMap
-
-    return () => {
-      scene.environment = previousEnvironment
-      environmentMap.dispose()
-      roomEnvironment.dispose()
-      pmremGenerator.dispose()
-    }
-  }, [gl, scene])
-
-  return null
-}
-
-export function getOrbitControlsMotionConfig(prefersReducedMotion: boolean) {
-  if (prefersReducedMotion) {
-    return {
-      autoRotate: false,
-      autoRotateSpeed: 0,
-      enableDamping: false,
-      dampingFactor: 1,
-      rotateSpeed: 0.2,
-    }
-  }
-
-  return {
-    autoRotate: true,
-    autoRotateSpeed: 0.2,
-    enableDamping: true,
-    dampingFactor: GLOBE_CAMERA_CONFIG.dampingFactor,
-    rotateSpeed: GLOBE_CAMERA_CONFIG.rotateSpeed,
-  }
-}
-
-export function GlobeCanvas({
-  className,
-  selectedCountryIso2,
-  selectedCountryIso2s,
-  focusedCountryIso2,
-  activeLayerId,
-  routerStep,
-  subNationalIso2s = ['DE', 'AU'],
-  tierPalette = 'metal',
-  onHoverCountry,
-  onSelectCountry,
-  onIntroPhaseChange,
-}: {
-  className?: string
-  selectedCountryIso2?: string
-  selectedCountryIso2s: string[]
-  focusedCountryIso2?: string
-  activeLayerId: GlobeLayerId
-  routerStep?: GlobeRouterStep
-  subNationalIso2s?: string[]
-  tierPalette?: GlobeTierPalette
-  onHoverCountry?: (countryIso2?: string) => void
-  onSelectCountry?: (countryIso2: string) => void
-  onIntroPhaseChange?: (phase: GlobeIntroPhase) => void
-}) {
-  const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
-  const { liveData, loading } = useGlobe()
-  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
-  const [revealElapsedMs, setRevealElapsedMs] = useState(0)
-  const [heatBoost, setHeatBoost] = useState(0)
-  const spinElapsedMsRef = useRef(0)
-  const azimuthAccumRadRef = useRef(0)
-  const lastRevealStepRef = useRef(-1)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const apply = () => setPrefersReducedMotion(mq.matches)
-    apply()
-    mq.addEventListener('change', apply)
-    return () => mq.removeEventListener('change', apply)
-  }, [])
-
-  useEffect(() => {
-    onIntroPhaseChange?.(introPhase)
-  }, [introPhase, onIntroPhaseChange])
-
-  const forceGold = shouldForceGoldPlates({ introPhase, prefersReducedMotion })
-  const interactionLocked = isIntroInteractionLocked({ introPhase, prefersReducedMotion })
-  const tierBlend = introTierBlend({
-    introPhase,
-    revealElapsedMs,
-    prefersReducedMotion,
-  })
-
-  const tierByIso2 = useMemo(() => {
-    if (forceGold) return undefined
-    if (!featureFlags.globeRegulatoryTiers) return undefined
-    return buildRegulatoryTierMap(liveData.countries)
-  }, [liveData.countries, forceGold])
-
-  const isCountryState = routerStep === 'country' || !selectedCountryIso2
-  const distanceLimits = isCountryState
-    ? GLOBE_CAMERA_CONFIG.distanceByState.country
-    : GLOBE_CAMERA_CONFIG.distanceByState.selected
-  const polarLimits = isCountryState
-    ? GLOBE_CAMERA_CONFIG.polarByState.country
-    : GLOBE_CAMERA_CONFIG.polarByState.selected
-
-  const invalidateRef = useRef<(() => void) | null>(null)
-  const handleHoverCountry = useCallback(
-    (iso2?: string) => {
-      if (interactionLocked) return
-      invalidateRef.current?.()
-      onHoverCountry?.(iso2)
-    },
-    [onHoverCountry, interactionLocked],
-  )
-
-  const handleSelectCountry = useCallback(
-    (iso2: string) => {
-      if (interactionLocked) return
-      onSelectCountry?.(iso2)
-    },
-    [onSelectCountry, interactionLocked],
-  )
-
-  const handleHeatBoost = useCallback((boost: number) => {
-    setHeatBoost(boost)
-  }, [])
-
-  const tryAdvanceFromSpin = useCallback(() => {
-    if (introPhase !== 'spinning') return
-    if (
-      !shouldStartReveal({
-        azimuthAccumRad: azimuthAccumRadRef.current,
-        spinElapsedMs: spinElapsedMsRef.current,
-        loading,
-        prefersReducedMotion,
-      })
-    ) {
-      return
-    }
-    if (prefersReducedMotion) {
-      setIntroPhase('ready')
-      return
-    }
-    lastRevealStepRef.current = -1
-    setRevealElapsedMs(0)
-    setIntroPhase('revealing')
-  }, [introPhase, loading, prefersReducedMotion])
-
-  useEffect(() => {
-    tryAdvanceFromSpin()
-  }, [tryAdvanceFromSpin, loading])
-
-  const handleOrbitProgress = useCallback(
-    ({ azimuthAccumRad, elapsedMs }: { azimuthAccumRad: number; elapsedMs: number }) => {
-      azimuthAccumRadRef.current = azimuthAccumRad
-      spinElapsedMsRef.current = elapsedMs
-      tryAdvanceFromSpin()
-    },
-    [tryAdvanceFromSpin],
-  )
-
-  const handleRevealElapsed = useCallback(
-    (elapsedMs: number) => {
-      if (introPhase !== 'revealing') return
-
-      const step = Math.min(
-        REVEAL_BLEND_STEPS,
-        Math.floor((elapsedMs / GLOBE_INTRO.revealDurationMs) * REVEAL_BLEND_STEPS),
-      )
-      const finished = shouldFinishReveal({ revealElapsedMs: elapsedMs, prefersReducedMotion })
-
-      if (step !== lastRevealStepRef.current || finished) {
-        lastRevealStepRef.current = step
-        setRevealElapsedMs(elapsedMs)
-      }
-
-      if (finished) setIntroPhase('ready')
-    },
-    [introPhase, prefersReducedMotion],
-  )
-
-  const isHovering = !!focusedCountryIso2
-  const isSelected = !!selectedCountryIso2
-  const introSpinning = introPhase === 'spinning' && !prefersReducedMotion
-  const introRevealing = introPhase === 'revealing' && !prefersReducedMotion
-  const shouldAutoRotate =
-    introSpinning || introRevealing || (!isHovering && !isSelected && introPhase === 'ready')
-  const autoRotateSpeed = introSpinning
-    ? GLOBE_INTRO.spinAutoRotateSpeed
-    : introRevealing
-      ? GLOBE_CAMERA_CONFIG.autoRotateSpeed * 2.4
-      : GLOBE_CAMERA_CONFIG.autoRotateSpeed
-
-  // Heat only when explicitly enabled, intro ready, and not force-fallback.
-  // Landing already uses CSS fallback on low-end; this guards in-canvas path.
-  const heatEnabled =
-    featureFlags.globeHeatmap &&
-    !featureFlags.globeForceFallback &&
-    introPhase === 'ready'
-  const atmosphereBoost =
-    heatEnabled && featureFlags.globeHeatAtmosphere && !prefersReducedMotion ? heatBoost : 0
-  const bloomEnabled =
-    heatEnabled && featureFlags.globeHeatBloom && !prefersReducedMotion
-
-  return (
-    <div
-      className={className ?? 'absolute inset-0 pointer-events-none'}
-      style={{ cursor: !interactionLocked && isHovering ? 'pointer' : 'default' }}
-      data-globe-intro={introPhase}
-      data-globe-force-gold={forceGold ? 'true' : 'false'}
-      data-globe-tier-blend={tierBlend.toFixed(3)}
-      data-globe-heatmap={heatEnabled ? 'true' : 'false'}
-    >
-      <Canvas
-        className="h-full w-full pointer-events-auto"
-        frameloop="demand"
-        dpr={[1, 1.75]}
-        aria-label="Harbourview country globe"
-        camera={{
-          fov: GLOBE_CAMERA_CONFIG.fov,
-          near: GLOBE_CAMERA_CONFIG.near,
-          far: GLOBE_CAMERA_CONFIG.far,
-          position: GLOBE_CAMERA_CONFIG.initialPosition,
-        }}
-        onCreated={(state) => {
-          state.gl.toneMapping = ACESFilmicToneMapping
-          state.gl.toneMappingExposure = 0.54
-          invalidateRef.current = state.invalidate
-        }}
-      >
-        <color attach="background" args={['#010810']} />
-        <MetallicEnvironment />
-
-        <ambientLight intensity={0.22} color="#f4dfad" />
-        <directionalLight position={[4.5, 0.6, 4.2]} intensity={0.62} color="#fff3c4" />
-        <directionalLight position={[-4.8, -0.4, -3.5]} intensity={0.26} color="#c99f4a" />
-        <hemisphereLight args={['#243b5e', '#080409', 0.26]} />
-
-        <Suspense fallback={null}>
-          <Stars radius={30} depth={10} count={3500} factor={1.2} saturation={0} fade speed={0} />
-
-          <group rotation={[0.08, 0.3, 0]}>
-            <AtmosphereGlow heatBoost={atmosphereBoost} />
-            <OceanSphere />
-            <CountryPolygonMeshLayer
-              selectedCountryIso2={selectedCountryIso2}
-              subNationalIso2s={subNationalIso2s}
-              selectedCountryIso2s={selectedCountryIso2s}
-              focusedCountryIso2={interactionLocked ? undefined : focusedCountryIso2}
-              activeLayerId={activeLayerId}
-              tierByIso2={tierByIso2}
-              tierPalette={tierPalette}
-              introTierBlend={tierBlend}
-              onHoverCountry={handleHoverCountry}
-              onSelectCountry={handleSelectCountry}
-            />
-            {introPhase === 'ready' ? (
-              heatEnabled ? (
-                <HeatDensityLayer
-                  countries={liveData.countries}
-                  signalsByIso2={liveData.signalsByIso2}
-                  prefersReducedMotion={prefersReducedMotion}
-                  onHeatBoost={handleHeatBoost}
-                />
-              ) : (
-                <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
-              )
-            ) : null}
-            <CountryBorderLayer />
-            {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
-          </group>
-          <CameraFlyToController
-            selectedCountryIso2={selectedCountryIso2}
-            routerStep={routerStep}
-            controlsRef={controlsRef as RefObject<CameraFlyOrbitControlsLike | null>}
-          />
-          <GlobeHeatEffects enabled={bloomEnabled} />
-        </Suspense>
-
-        <AutoRotateInvalidator active={shouldAutoRotate} />
-        <IntroOrbitTracker
-          active={introSpinning}
-          controlsRef={controlsRef}
-          onProgress={handleOrbitProgress}
-        />
-        <IntroRevealClock active={introRevealing} onElapsed={handleRevealElapsed} />
-        <OrbitControls
-          ref={controlsRef}
-          enablePan={GLOBE_CAMERA_CONFIG.enablePan}
-          enableDamping
-          dampingFactor={GLOBE_CAMERA_CONFIG.dampingFactor}
-          rotateSpeed={GLOBE_CAMERA_CONFIG.rotateSpeed}
-          zoomSpeed={GLOBE_CAMERA_CONFIG.zoomSpeed}
-          minDistance={distanceLimits.min}
-          maxDistance={distanceLimits.max}
-          minPolarAngle={polarLimits.min}
-          maxPolarAngle={polarLimits.max}
-          autoRotate={shouldAutoRotate}
-          autoRotateSpeed={autoRotateSpeed}
-          enableZoom={!interactionLocked && GLOBE_CAMERA_CONFIG.enableZoom}
-          enableRotate={!interactionLocked}
-          minAzimuthAngle={GLOBE_CAMERA_CONFIG.minAzimuthAngle}
-          maxAzimuthAngle={GLOBE_CAMERA_CONFIG.maxAzimuthAngle}
-        />
-      </Canvas>
-    </div>
-  )
-}
+J3VzZSBjbGllbnQnCgppbXBvcnQgeyBTdXNwZW5zZSwgdXNlQ2FsbGJhY2ssIHVzZUVmZmVjdCwg
+dXNlTWVtbywgdXNlUmVmLCB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JwppbXBvcnQgdHlwZSB7IENv
+bXBvbmVudFJlZiwgUmVmT2JqZWN0IH0gZnJvbSAncmVhY3QnCmltcG9ydCB7IENhbnZhcywgdXNl
+RnJhbWUsIHVzZVRocmVlIH0gZnJvbSAnQHJlYWN0LXRocmVlL2ZpYmVyJwppbXBvcnQgeyBPcmJp
+dENvbnRyb2xzLCBTdGFycyB9IGZyb20gJ0ByZWFjdC10aHJlZS9kcmVpJwppbXBvcnQgeyBBQ0VT
+RmlsbWljVG9uZU1hcHBpbmcsIFBNUkVNR2VuZXJhdG9yIH0gZnJvbSAndGhyZWUnCmltcG9ydCB7
+IFJvb21FbnZpcm9ubWVudCB9IGZyb20gJ3RocmVlL2V4YW1wbGVzL2pzbS9lbnZpcm9ubWVudHMv
+Um9vbUVudmlyb25tZW50LmpzJwppbXBvcnQgeyBHTE9CRV9DQU1FUkFfQ09ORklHIH0gZnJvbSAn
+QC9jb25maWcvZ2xvYmUvY2FtZXJhJwppbXBvcnQgeyBidWlsZFJlZ3VsYXRvcnlUaWVyTWFwIH0g
+ZnJvbSAnQC9kYXRhL2dsb2JlL3N1Ym5hdGlvbmFsLXJlZ3VsYXRvcnktdGllcnMnCmltcG9ydCB7
+IE9jZWFuU3BoZXJlIH0gZnJvbSAnLi9PY2VhblNwaGVyZScKaW1wb3J0IHsgQXRtb3NwaGVyZUds
+b3cgfSBmcm9tICcuL0F0bW9zcGhlcmVHbG93JwppbXBvcnQgeyBDb3VudHJ5Qm9yZGVyTGF5ZXIg
+fSBmcm9tICcuL0NvdW50cnlCb3JkZXJMYXllcicKaW1wb3J0IHsgQ291bnRyeVBvbHlnb25NZXNo
+TGF5ZXIgfSBmcm9tICcuL0NvdW50cnlQb2x5Z29uTWVzaExheWVyJwppbXBvcnQgeyBDb3VudHJ5
+R2xvYmVMYWJlbCB9IGZyb20gJy4vQ291bnRyeUdsb2JlTGFiZWwnCmltcG9ydCB7IENhbWVyYUZs
+eVRvQ29udHJvbGxlciwgdHlwZSBDYW1lcmFGbHlPcmJpdENvbnRyb2xzTGlrZSB9IGZyb20gJy4v
+Q2FtZXJhRmx5VG9Db250cm9sbGVyJwppbXBvcnQgeyBEYXRhVml6TGF5ZXIgfSBmcm9tICcuL0Rh
+dGFWaXpMYXllcicKaW1wb3J0IHsgSGVhdERlbnNpdHlMYXllciB9IGZyb20gJy4vSGVhdERlbnNp
+dHlMYXllcicKaW1wb3J0IHsgR2xvYmVIZWF0RWZmZWN0cyB9IGZyb20gJy4vR2xvYmVIZWF0RWZm
+ZWN0cycKaW1wb3J0IHsgdXNlR2xvYmUgfSBmcm9tICcuLi9HbG9iZVByb3ZpZGVyJwppbXBvcnQg
+dHlwZSB7IEdsb2JlTGF5ZXJJZCwgR2xvYmVSb3V0ZXJTdGVwIH0gZnJvbSAnQC90eXBlcy9nbG9i
+ZS1yb3V0ZXInCmltcG9ydCB0eXBlIHsgR2xvYmVUaWVyUGFsZXR0ZSB9IGZyb20gJ0AvbGliL2ds
+b2JlL2dsb2JlLW1hdGVyaWFscycKaW1wb3J0IHsgZmVhdHVyZUZsYWdzIH0gZnJvbSAnQC9saWIv
+aGFyYm91cnZpZXcvZmVhdHVyZS1mbGFncycKaW1wb3J0IHsKICBHTE9CRV9JTlRSTywKICBpbnRy
+b1NwaW5BdXRvUm90YXRlU3BlZWQsCiAgaW50cm9UaWVyQmxlbmQsCiAgaXNJbnRyb0ludGVyYWN0
+aW9uTG9ja2VkLAogIHNob3VsZEZpbmlzaFJldmVhbCwKICBzaG91bGRGb3JjZUdvbGRQbGF0ZXMs
+CiAgc2hvdWxkU3RhcnRSZXZlYWwsCiAgdHlwZSBHbG9iZUludHJvUGhhc2UsCn0gZnJvbSAnQC9s
+aWIvZ2xvYmUvZ2xvYmUtaW50cm8nCgpjb25zdCBSRVZFQUxfQkxFTkRfU1RFUFMgPSA0MAoKZnVu
+Y3Rpb24gQXV0b1JvdGF0ZUludmFsaWRhdG9yKHsgYWN0aXZlIH06IHsgYWN0aXZlOiBib29sZWFu
+IH0pIHsKICB1c2VGcmFtZSgoc3RhdGUpID0+IHsKICAgIGlmIChhY3RpdmUpIHN0YXRlLmludmFs
+aWRhdGUoKQogIH0pCiAgcmV0dXJuIG51bGwKfQoKZnVuY3Rpb24gSW50cm9PcmJpdFRyYWNrZXIo
+ewogIGFjdGl2ZSwKICBjb250cm9sc1JlZiwKICBvblByb2dyZXNzLAp9OiB7CiAgYWN0aXZlOiBi
+b29sZWFuCiAgY29udHJvbHNSZWY6IFJlZk9iamVjdDxDb21wb25lbnRSZWY8dHlwZW9mIE9yYml0
+Q29udHJvbHM+IHwgbnVsbD4KICBvblByb2dyZXNzOiAocHJvZ3Jlc3M6IHsgYXppbXV0aEFjY3Vt
+UmFkOiBudW1iZXI7IGVsYXBzZWRNczogbnVtYmVyIH0pID0+IHZvaWQKfSkgewogIGNvbnN0IHN0
+YXJ0ZWRBdFJlZiA9IHVzZVJlZjxudW1iZXIgfCBudWxsPihudWxsKQogIGNvbnN0IGxhc3RBemlt
+dXRoUmVmID0gdXNlUmVmPG51bWJlciB8IG51bGw+KG51bGwpCiAgY29uc3QgYWNjdW1SZWYgPSB1
+c2VSZWYoMCkKCiAgdXNlRnJhbWUoKCkgPT4gewogICAgaWYgKCFhY3RpdmUpIHJldHVybgogICAg
+Y29uc3QgY29udHJvbHMgPSBjb250cm9sc1JlZi5jdXJyZW50IGFzIHsKICAgICAgZ2V0QXppbXV0
+aGFsQW5nbGU/OiAoKSA9PiBudW1iZXIKICAgICAgYXV0b1JvdGF0ZVNwZWVkPzogbnVtYmVyCiAg
+ICB9IHwgbnVsbAogICAgaWYgKCFjb250cm9scz8uZ2V0QXppbXV0aGFsQW5nbGUpIHJldHVybgoK
+ICAgIGNvbnN0IG5vdyA9IHBlcmZvcm1hbmNlLm5vdygpCiAgICBpZiAoc3RhcnRlZEF0UmVmLmN1
+cnJlbnQgPT09IG51bGwpIHsKICAgICAgc3RhcnRlZEF0UmVmLmN1cnJlbnQgPSBub3cKICAgICAg
+bGFzdEF6aW11dGhSZWYuY3VycmVudCA9IGNvbnRyb2xzLmdldEF6aW11dGhhbEFuZ2xlKCkKICAg
+ICAgYWNjdW1SZWYuY3VycmVudCA9IDAKICAgIH0KCiAgICBjb25zdCBheiA9IGNvbnRyb2xzLmdl
+dEF6aW11dGhhbEFuZ2xlKCkKICAgIGNvbnN0IHByZXYgPSBsYXN0QXppbXV0aFJlZi5jdXJyZW50
+ID8/IGF6CiAgICBsZXQgZGVsdGEgPSBheiAtIHByZXYKICAgIGlmIChkZWx0YSA+IE1hdGguUEkp
+IGRlbHRhIC09IE1hdGguUEkgKiAyCiAgICBpZiAoZGVsdGEgPCAtTWF0aC5QSSkgZGVsdGEgKz0g
+TWF0aC5QSSAqIDIKICAgIGFjY3VtUmVmLmN1cnJlbnQgKz0gTWF0aC5hYnMoZGVsdGEpCiAgICBs
+YXN0QXppbXV0aFJlZi5jdXJyZW50ID0gYXoKCiAgICBpZiAodHlwZW9mIGNvbnRyb2xzLmF1dG9S
+b3RhdGVTcGVlZCA9PT0gJ251bWJlcicpIHsKICAgICAgY29udHJvbHMuYXV0b1JvdGF0ZVNwZWVk
+ID0gaW50cm9TcGluQXV0b1JvdGF0ZVNwZWVkKGFjY3VtUmVmLmN1cnJlbnQpCiAgICB9CgogICAg
+b25Qcm9ncmVzcyh7CiAgICAgIGF6aW11dGhBY2N1bVJhZDogYWNjdW1SZWYuY3VycmVudCwKICAg
+ICAgZWxhcHNlZE1zOiBub3cgLSBzdGFydGVkQXRSZWYuY3VycmVudCwKICAgIH0pCiAgfSkKCiAg
+dXNlRWZmZWN0KCgpID0+IHsKICAgIGlmICghYWN0aXZlKSB7CiAgICAgIHN0YXJ0ZWRBdFJlZi5j
+dXJyZW50ID0gbnVsbAogICAgICBsYXN0QXppbXV0aFJlZi5jdXJyZW50ID0gbnVsbAogICAgICBh
+Y2N1bVJlZi5jdXJyZW50ID0gMAogICAgfQogIH0sIFthY3RpdmVdKQoKICByZXR1cm4gbnVsbAp9
+CgpmdW5jdGlvbiBJbnRyb1JldmVhbENsb2NrKHsKICBhY3RpdmUsCiAgb25FbGFwc2VkLAp9OiB7
+CiAgYWN0aXZlOiBib29sZWFuCiAgb25FbGFwc2VkOiAoZWxhcHNlZE1zOiBudW1iZXIpID0+IHZv
+aWQKfSkgewogIGNvbnN0IHN0YXJ0ZWRBdFJlZiA9IHVzZVJlZjxudW1iZXIgfCBudWxsPihudWxs
+KQoKICB1c2VGcmFtZSgoc3RhdGUpID0+IHsKICAgIGlmICghYWN0aXZlKSByZXR1cm4KICAgIGNv
+bnN0IG5vdyA9IHBlcmZvcm1hbmNlLm5vdygpCiAgICBpZiAoc3RhcnRlZEF0UmVmLmN1cnJlbnQg
+PT09IG51bGwpIHN0YXJ0ZWRBdFJlZi5jdXJyZW50ID0gbm93CiAgICBvbkVsYXBzZWQobm93IC0g
+c3RhcnRlZEF0UmVmLmN1cnJlbnQpCiAgICBzdGF0ZS5pbnZhbGlkYXRlKCkKICB9KQoKICB1c2VF
+ZmZlY3QoKCkgPT4gewogICAgaWYgKCFhY3RpdmUpIHN0YXJ0ZWRBdFJlZi5jdXJyZW50ID0gbnVs
+bAogIH0sIFthY3RpdmVdKQoKICByZXR1cm4gbnVsbAp9CgpmdW5jdGlvbiBNZXRhbGxpY0Vudmly
+b25tZW50KCkgewogIGNvbnN0IHsgZ2wsIHNjZW5lIH0gPSB1c2VUaHJlZSgpCgogIHVzZUVmZmVj
+dCgoKSA9PiB7CiAgICBjb25zdCBwbXJlbUdlbmVyYXRvciA9IG5ldyBQTVJFTUdlbmVyYXRvcihn
+bCkKICAgIGNvbnN0IHJvb21FbnZpcm9ubWVudCA9IG5ldyBSb29tRW52aXJvbm1lbnQoKQogICAg
+Y29uc3QgZW52aXJvbm1lbnRNYXAgPSBwbXJlbUdlbmVyYXRvci5mcm9tU2NlbmUocm9vbUVudmly
+b25tZW50LCAwLjA0KS50ZXh0dXJlCiAgICBjb25zdCBwcmV2aW91c0Vudmlyb25tZW50ID0gc2Nl
+bmUuZW52aXJvbm1lbnQKCiAgICBzY2VuZS5lbnZpcm9ubWVudCA9IGVudmlyb25tZW50TWFwCgog
+ICAgcmV0dXJuICgpID0+IHsKICAgICAgc2NlbmUuZW52aXJvbm1lbnQgPSBwcmV2aW91c0Vudmly
+b25tZW50CiAgICAgIGVudmlyb25tZW50TWFwLmRpc3Bvc2UoKQogICAgICByb29tRW52aXJvbm1l
+bnQuZGlzcG9zZSgpCiAgICAgIHBtcmVtR2VuZXJhdG9yLmRpc3Bvc2UoKQogICAgfQogIH0sIFtn
+bCwgc2NlbmVdKQoKICByZXR1cm4gbnVsbAp9CgpleHBvcnQgZnVuY3Rpb24gZ2V0T3JiaXRDb250
+cm9sc01vdGlvbkNvbmZpZyhwcmVmZXJzUmVkdWNlZE1vdGlvbjogYm9vbGVhbikgewogIGlmIChw
+cmVmZXJzUmVkdWNlZE1vdGlvbikgewogICAgcmV0dXJuIHsKICAgICAgYXV0b1JvdGF0ZTogZmFs
+c2UsCiAgICAgIGF1dG9Sb3RhdGVTcGVlZDogMCwKICAgICAgZW5hYmxlRGFtcGluZzogZmFsc2Us
+CiAgICAgIGRhbXBpbmdGYWN0b3I6IDEsCiAgICAgIHJvdGF0ZVNwZWVkOiAwLjIsCiAgICB9CiAg
+fQoKICByZXR1cm4gewogICAgYXV0b1JvdGF0ZTogdHJ1ZSwKICAgIGF1dG9Sb3RhdGVTcGVlZDog
+MC4yLAogICAgZW5hYmxlRGFtcGluZzogdHJ1ZSwKICAgIGRhbXBpbmdGYWN0b3I6IEdMT0JFX0NB
+TUVSQV9DT05GSUcuZGFtcGluZ0ZhY3RvciwKICAgIHJvdGF0ZVNwZWVkOiBHTE9CRV9DQU1FUkFf
+Q09ORklHLnJvdGF0ZVNwZWVkLAogIH0KfQoKZXhwb3J0IGZ1bmN0aW9uIEdsb2JlQ2FudmFzKHsK
+ICBjbGFzc05hbWUsCiAgc2VsZWN0ZWRDb3VudHJ5SXNvMiwKICBzZWxlY3RlZENvdW50cnlJc28y
+cywKICBmb2N1c2VkQ291bnRyeUlzbzIsCiAgYWN0aXZlTGF5ZXJJZCwKICByb3V0ZXJTdGVwLAog
+IHN1Yk5hdGlvbmFsSXNvMnMgPSBbJ1VTJywgJ0RFJywgJ0NBJywgJ0FVJ10sCiAgdGllclBhbGV0
+dGUgPSAnbWV0YWwnLAogIG9uSG92ZXJDb3VudHJ5LAogIG9uU2VsZWN0Q291bnRyeSwKICBvbklu
+dHJvUGhhc2VDaGFuZ2UsCn06IHsKICBjbGFzc05hbWU/OiBzdHJpbmcKICBzZWxlY3RlZENvdW50
+cnlJc28yPzogc3RyaW5nCiAgc2VsZWN0ZWRDb3VudHJ5SXNvMnM6IHN0cmluZ1tdCiAgZm9jdXNl
+ZENvdW50cnlJc28yPzogc3RyaW5nCiAgYWN0aXZlTGF5ZXJJZDogR2xvYmVMYXllcklkCiAgcm91
+dGVyU3RlcD86IEdsb2JlUm91dGVyU3RlcAogIHN1Yk5hdGlvbmFsSXNvMnM/OiBzdHJpbmdbXQog
+IHRpZXJQYWxldHRlPzogR2xvYmVUaWVyUGFsZXR0ZQogIG9uSG92ZXJDb3VudHJ5PzogKGNvdW50
+cnlJc28yPzogc3RyaW5nKSA9PiB2b2lkCiAgb25TZWxlY3RDb3VudHJ5PzogKGNvdW50cnlJc28y
+OiBzdHJpbmcpID0+IHZvaWQKICBvbkludHJvUGhhc2VDaGFuZ2U/OiAocGhhc2U6IEdsb2JlSW50
+cm9QaGFzZSkgPT4gdm9pZAp9KSB7CiAgY29uc3QgY29udHJvbHNSZWYgPSB1c2VSZWY8Q29tcG9u
+ZW50UmVmPHR5cGVvZiBPcmJpdENvbnRyb2xzPiB8IG51bGw+KG51bGwpCiAgY29uc3QgeyBsaXZl
+RGF0YSwgbG9hZGluZyB9ID0gdXNlR2xvYmUoKQogIGNvbnN0IFtpbnRyb1BoYXNlLCBzZXRJbnRy
+b1BoYXNlXSA9IHVzZVN0YXRlPEdsb2JlSW50cm9QaGFzZT4oJ3NwaW5uaW5nJykKICBjb25zdCBb
+cHJlZmVyc1JlZHVjZWRNb3Rpb24sIHNldFByZWZlcnNSZWR1Y2VkTW90aW9uXSA9IHVzZVN0YXRl
+KGZhbHNlKQogIGNvbnN0IFtyZXZlYWxFbGFwc2VkTXMsIHNldFJldmVhbEVsYXBzZWRNc10gPSB1
+c2VTdGF0ZSgwKQogIGNvbnN0IFtoZWF0Qm9vc3QsIHNldEhlYXRCb29zdF0gPSB1c2VTdGF0ZSgw
+KQogIGNvbnN0IHNwaW5FbGFwc2VkTXNSZWYgPSB1c2VSZWYoMCkKICBjb25zdCBhemltdXRoQWNj
+dW1SYWRSZWYgPSB1c2VSZWYoMCkKICBjb25zdCBsYXN0UmV2ZWFsU3RlcFJlZiA9IHVzZVJlZigt
+MSkKCiAgdXNlRWZmZWN0KCgpID0+IHsKICAgIGlmICh0eXBlb2Ygd2luZG93ID09PSAndW5kZWZp
+bmVkJykgcmV0dXJuCiAgICBjb25zdCBtcSA9IHdpbmRvdy5tYXRjaE1lZGlhKCcocHJlZmVycy1y
+ZWR1Y2VkLW1vdGlvbjogcmVkdWNlKScpCiAgICBjb25zdCBhcHBseSA9ICgpID0+IHNldFByZWZl
+cnNSZWR1Y2VkTW90aW9uKG1xLm1hdGNoZXMpCiAgICBhcHBseSgpCiAgICBtcS5hZGRFdmVudExp
+c3RlbmVyKCdjaGFuZ2UnLCBhcHBseSkKICAgIHJldHVybiAoKSA9PiBtcS5yZW1vdmVFdmVudExp
+c3RlbmVyKCdjaGFuZ2UnLCBhcHBseSkKICB9LCBbXSkKCiAgdXNlRWZmZWN0KCgpID0+IHsKICAg
+IG9uSW50cm9QaGFzZUNoYW5nZT8uKGludHJvUGhhc2UpCiAgfSwgW2ludHJvUGhhc2UsIG9uSW50
+cm9QaGFzZUNoYW5nZV0pCgogIGNvbnN0IGZvcmNlR29sZCA9IHNob3VsZEZvcmNlR29sZFBsYXRl
+cyh7IGludHJvUGhhc2UsIHByZWZlcnNSZWR1Y2VkTW90aW9uIH0pCiAgY29uc3QgaW50ZXJhY3Rp
+b25Mb2NrZWQgPSBpc0ludHJvSW50ZXJhY3Rpb25Mb2NrZWQoeyBpbnRyb1BoYXNlLCBwcmVmZXJz
+UmVkdWNlZE1vdGlvbiB9KQogIGNvbnN0IHRpZXJCbGVuZCA9IGludHJvVGllckJsZW5kKHsKICAg
+IGludHJvUGhhc2UsCiAgICByZXZlYWxFbGFwc2VkTXMsCiAgICBwcmVmZXJzUmVkdWNlZE1vdGlv
+biwKICB9KQoKICBjb25zdCB0aWVyQnlJc28yID0gdXNlTWVtbygoKSA9PiB7CiAgICBpZiAoZm9y
+Y2VHb2xkKSByZXR1cm4gdW5kZWZpbmVkCiAgICBpZiAoIWZlYXR1cmVGbGFncy5nbG9iZVJlZ3Vs
+YXRvcnlUaWVycykgcmV0dXJuIHVuZGVmaW5lZAogICAgcmV0dXJuIGJ1aWxkUmVndWxhdG9yeVRp
+ZXJNYXAobGl2ZURhdGEuY291bnRyaWVzKQogIH0sIFtsaXZlRGF0YS5jb3VudHJpZXMsIGZvcmNl
+R29sZF0pCgogIGNvbnN0IGlzQ291bnRyeVN0YXRlID0gcm91dGVyU3RlcCA9PT0gJ2NvdW50cnkn
+IHx8ICFzZWxlY3RlZENvdW50cnlJc28yCiAgY29uc3QgZGlzdGFuY2VMaW1pdHMgPSBpc0NvdW50
+cnlTdGF0ZQogICAgPyBHTE9CRV9DQU1FUkFfQ09ORklHLmRpc3RhbmNlQnlTdGF0ZS5jb3VudHJ5
+CiAgICA6IEdMT0JFX0NBTUVSQV9DT05GSUcuZGlzdGFuY2VCeVN0YXRlLnNlbGVjdGVkCiAgY29u
+c3QgcG9sYXJMaW1pdHMgPSBpc0NvdW50cnlTdGF0ZQogICAgPyBHTE9CRV9DQU1FUkFfQ09ORklH
+LnBvbGFyQnlTdGF0ZS5jb3VudHJ5CiAgICA6IEdMT0JFX0NBTUVSQV9DT05GSUcucG9sYXJCeVN0
+YXRlLnNlbGVjdGVkCgogIGNvbnN0IGludmFsaWRhdGVSZWYgPSB1c2VSZWY8KCgpID0+IHZvaWQp
+IHwgbnVsbD4obnVsbCkKICBjb25zdCBoYW5kbGVIb3ZlckNvdW50cnkgPSB1c2VDYWxsYmFjaygK
+ICAgIChpc28yPzogc3RyaW5nKSA9PiB7CiAgICAgIGlmIChpbnRlcmFjdGlvbkxvY2tlZCkgcmV0
+dXJuCiAgICAgIGludmFsaWRhdGVSZWYuY3VycmVudD8uKCkKICAgICAgb25Ib3ZlckNvdW50cnk/
+Lihpc28yKQogICAgfSwKICAgIFtvbkhvdmVyQ291bnRyeSwgaW50ZXJhY3Rpb25Mb2NrZWRdLAog
+ICkKCiAgY29uc3QgaGFuZGxlU2VsZWN0Q291bnRyeSA9IHVzZUNhbGxiYWNrKAogICAgKGlzbzI6
+IHN0cmluZykgPT4gewogICAgICBpZiAoaW50ZXJhY3Rpb25Mb2NrZWQpIHJldHVybgogICAgICBv
+blNlbGVjdENvdW50cnk/Lihpc28yKQogICAgfSwKICAgIFtvblNlbGVjdENvdW50cnksIGludGVy
+YWN0aW9uTG9ja2VkXSwKICApCgogIGNvbnN0IGhhbmRsZUhlYXRCb29zdCA9IHVzZUNhbGxiYWNr
+KChib29zdDogbnVtYmVyKSA9PiB7CiAgICBzZXRIZWF0Qm9vc3QoYm9vc3QpCiAgfSwgW10pCgog
+IGNvbnN0IHRyeUFkdmFuY2VGcm9tU3BpbiA9IHVzZUNhbGxiYWNrKCgpID0+IHsKICAgIGlmIChp
+bnRyb1BoYXNlICE9PSAnc3Bpbm5pbmcnKSByZXR1cm4KICAgIGlmICgKICAgICAgIXNob3VsZFN0
+YXJ0UmV2ZWFsKHsKICAgICAgICBhemltdXRoQWNjdW1SYWQ6IGF6aW11dGhBY2N1bVJhZFJlZi5j
+dXJyZW50LAogICAgICAgIHNwaW5FbGFwc2VkTXM6IHNwaW5FbGFwc2VkTXNSZWYuY3VycmVudCwK
+ICAgICAgICBsb2FkaW5nLAogICAgICAgIHByZWZlcnNSZWR1Y2VkTW90aW9uLAogICAgICB9KQog
+ICAgKSB7CiAgICAgIHJldHVybgogICAgfQogICAgaWYgKHByZWZlcnNSZWR1Y2VkTW90aW9uKSB7
+CiAgICAgIHNldEludHJvUGhhc2UoJ3JlYWR5JykKICAgICAgcmV0dXJuCiAgICB9CiAgICBsYXN0
+UmV2ZWFsU3RlcFJlZi5jdXJyZW50ID0gLTEKICAgIHNldFJldmVhbEVsYXBzZWRNcygwKQogICAg
+c2V0SW50cm9QaGFzZSgncmV2ZWFsaW5nJykKICB9LCBbaW50cm9QaGFzZSwgbG9hZGluZywgcHJl
+ZmVyc1JlZHVjZWRNb3Rpb25dKQoKICB1c2VFZmZlY3QoKCkgPT4gewogICAgdHJ5QWR2YW5jZUZy
+b21TcGluKCkKICB9LCBbdHJ5QWR2YW5jZUZyb21TcGluLCBsb2FkaW5nXSkKCiAgY29uc3QgaGFu
+ZGxlT3JiaXRQcm9ncmVzcyA9IHVzZUNhbGxiYWNrKAogICAgKHsgYXppbXV0aEFjY3VtUmFkLCBl
+bGFwc2VkTXMgfTogeyBhemltdXRoQWNjdW1SYWQ6IG51bWJlcjsgZWxhcHNlZE1zOiBudW1iZXIg
+fSkgPT4gewogICAgICBhemltdXRoQWNjdW1SYWRSZWYuY3VycmVudCA9IGF6aW11dGhBY2N1bVJh
+ZAogICAgICBzcGluRWxhcHNlZE1zUmVmLmN1cnJlbnQgPSBlbGFwc2VkTXMKICAgICAgdHJ5QWR2
+YW5jZUZyb21TcGluKCkKICAgIH0sCiAgICBbdHJ5QWR2YW5jZUZyb21TcGluXSwKICApCgogIGNv
+bnN0IGhhbmRsZVJldmVhbEVsYXBzZWQgPSB1c2VDYWxsYmFjaygKICAgIChlbGFwc2VkTXM6IG51
+bWJlcikgPT4gewogICAgICBpZiAoaW50cm9QaGFzZSAhPT0gJ3JldmVhbGluZycpIHJldHVybgoK
+ICAgICAgY29uc3Qgc3RlcCA9IE1hdGgubWluKAogICAgICAgIFJFVkVBTF9CTEVORF9TVEVQUywK
+ICAgICAgICBNYXRoLmZsb29yKChlbGFwc2VkTXMgLyBHTE9CRV9JTlRSTy5yZXZlYWxEdXJhdGlv
+bk1zKSAqIFJFVkVBTF9CTEVORF9TVEVQUyksCiAgICAgICkKICAgICAgY29uc3QgZmluaXNoZWQg
+PSBzaG91bGRGaW5pc2hSZXZlYWwoeyByZXZlYWxFbGFwc2VkTXM6IGVsYXBzZWRNcywgcHJlZmVy
+c1JlZHVjZWRNb3Rpb24gfSkKCiAgICAgIGlmIChzdGVwICE9PSBsYXN0UmV2ZWFsU3RlcFJlZi5j
+dXJyZW50IHx8IGZpbmlzaGVkKSB7CiAgICAgICAgbGFzdFJldmVhbFN0ZXBSZWYuY3VycmVudCA9
+IHN0ZXAKICAgICAgICBzZXRSZXZlYWxFbGFwc2VkTXMoZWxhcHNlZE1zKQogICAgICB9CgogICAg
+ICBpZiAoZmluaXNoZWQpIHNldEludHJvUGhhc2UoJ3JlYWR5JykKICAgIH0sCiAgICBbaW50cm9Q
+aGFzZSwgcHJlZmVyc1JlZHVjZWRNb3Rpb25dLAogICkKCiAgY29uc3QgaXNIb3ZlcmluZyA9ICEh
+Zm9jdXNlZENvdW50cnlJc28yCiAgY29uc3QgaXNTZWxlY3RlZCA9ICEhc2VsZWN0ZWRDb3VudHJ5
+SXNvMgogIGNvbnN0IGludHJvU3Bpbm5pbmcgPSBpbnRyb1BoYXNlID09PSAnc3Bpbm5pbmcnICYm
+ICFwcmVmZXJzUmVkdWNlZE1vdGlvbgogIGNvbnN0IGludHJvUmV2ZWFsaW5nID0gaW50cm9QaGFz
+ZSA9PT0gJ3JldmVhbGluZycgJiYgIXByZWZlcnNSZWR1Y2VkTW90aW9uCiAgY29uc3Qgc2hvdWxk
+QXV0b1JvdGF0ZSA9CiAgICBpbnRyb1NwaW5uaW5nIHx8IGludHJvUmV2ZWFsaW5nIHx8ICghaXNI
+b3ZlcmluZyAmJiAhaXNTZWxlY3RlZCAmJiBpbnRyb1BoYXNlID09PSAncmVhZHknKQogIGNvbnN0
+IGF1dG9Sb3RhdGVTcGVlZCA9IGludHJvU3Bpbm5pbmcKICAgID8gR0xPQkVfSU5UUk8uc3BpbkF1
+dG9Sb3RhdGVTcGVlZAogICAgOiBpbnRyb1JldmVhbGluZwogICAgICA/IEdMT0JFX0NBTUVSQV9D
+T05GSUcuYXV0b1JvdGF0ZVNwZWVkICogMi40CiAgICAgIDogR0xPQkVfQ0FNRVJBX0NPTkZJRy5h
+dXRvUm90YXRlU3BlZWQKCiAgLy8gSGVhdCBvbmx5IHdoZW4gZXhwbGljaXRseSBlbmFibGVkLCBp
+bnRybyByZWFkeSwgYW5kIG5vdCBmb3JjZS1mYWxsYmFjay4KICAvLyBMYW5kaW5nIGFscmVhZHkg
+dXNlcyBDU1MgZmFsbGJhY2sgb24gbG93LWVuZDsgdGhpcyBndWFyZHMgaW4tY2FudmFzIHBhdGgu
+CiAgY29uc3QgaGVhdEVuYWJsZWQgPQogICAgZmVhdHVyZUZsYWdzLmdsb2JlSGVhdG1hcCAmJgog
+ICAgIWZlYXR1cmVGbGFncy5nbG9iZUZvcmNlRmFsbGJhY2sgJiYKICAgIGludHJvUGhhc2UgPT09
+ICdyZWFkeScKICBjb25zdCBhdG1vc3BoZXJlQm9vc3QgPQogICAgaGVhdEVuYWJsZWQgJiYgZmVh
+dHVyZUZsYWdzLmdsb2JlSGVhdEF0bW9zcGhlcmUgJiYgIXByZWZlcnNSZWR1Y2VkTW90aW9uID8g
+aGVhdEJvb3N0IDogMAogIGNvbnN0IGJsb29tRW5hYmxlZCA9CiAgICBoZWF0RW5hYmxlZCAmJiBm
+ZWF0dXJlRmxhZ3MuZ2xvYmVIZWF0Qmxvb20gJiYgIXByZWZlcnNSZWR1Y2VkTW90aW9uCgogIHJl
+dHVybiAoCiAgICA8ZGl2CiAgICAgIGNsYXNzTmFtZT17Y2xhc3NOYW1lID8/ICdhYnNvbHV0ZSBp
+bnNldC0wIHBvaW50ZXItZXZlbnRzLW5vbmUnfQogICAgICBzdHlsZT17eyBjdXJzb3I6ICFpbnRl
+cmFjdGlvbkxvY2tlZCAmJiBpc0hvdmVyaW5nID8gJ3BvaW50ZXInIDogJ2RlZmF1bHQnIH19CiAg
+ICAgIGRhdGEtZ2xvYmUtaW50cm89e2ludHJvUGhhc2V9CiAgICAgIGRhdGEtZ2xvYmUtZm9yY2Ut
+Z29sZD17Zm9yY2VHb2xkID8gJ3RydWUnIDogJ2ZhbHNlJ30KICAgICAgZGF0YS1nbG9iZS10aWVy
+LWJsZW5kPXt0aWVyQmxlbmQudG9GaXhlZCgzKX0KICAgICAgZGF0YS1nbG9iZS1oZWF0bWFwPXto
+ZWF0RW5hYmxlZCA/ICd0cnVlJyA6ICdmYWxzZSd9CiAgICA+CiAgICAgIDxDYW52YXMKICAgICAg
+ICBjbGFzc05hbWU9ImgtZnVsbCB3LWZ1bGwgcG9pbnRlci1ldmVudHMtYXV0byIKICAgICAgICBm
+cmFtZWxvb3A9ImRlbWFuZCIKICAgICAgICBkcHI9e1sxLCAxLjc1XX0KICAgICAgICBhcmlhLWxh
+YmVsPSJIYXJib3VydmlldyBjb3VudHJ5IGdsb2JlIgogICAgICAgIGNhbWVyYT17ewogICAgICAg
+ICAgZm92OiBHTE9CRV9DQU1FUkFfQ09ORklHLmZvdiwKICAgICAgICAgIG5lYXI6IEdMT0JFX0NB
+TUVSQV9DT05GSUcubmVhciwKICAgICAgICAgIGZhcjogR0xPQkVfQ0FNRVJBX0NPTkZJRy5mYXIs
+CiAgICAgICAgICBwb3NpdGlvbjogR0xPQkVfQ0FNRVJBX0NPTkZJRy5pbml0aWFsUG9zaXRpb24s
+CiAgICAgICAgfX0KICAgICAgICBvbkNyZWF0ZWQ9eyhzdGF0ZSkgPT4gewogICAgICAgICAgc3Rh
+dGUuZ2wudG9uZU1hcHBpbmcgPSBBQ0VTRmlsbWljVG9uZU1hcHBpbmcKICAgICAgICAgIHN0YXRl
+LmdsLnRvbmVNYXBwaW5nRXhwb3N1cmUgPSAwLjU0CiAgICAgICAgICBpbnZhbGlkYXRlUmVmLmN1
+cnJlbnQgPSBzdGF0ZS5pbnZhbGlkYXRlCiAgICAgICAgfX0KICAgICAgPgogICAgICAgIDxjb2xv
+ciBhdHRhY2g9ImJhY2tncm91bmQiIGFyZ3M9e1snIzAxMDgxMCddfSAvPgogICAgICAgIDxNZXRh
+bGxpY0Vudmlyb25tZW50IC8+CgogICAgICAgIDxhbWJpZW50TGlnaHQgaW50ZW5zaXR5PXswLjIy
+fSBjb2xvcj0iI2Y0ZGZhZCIgLz4KICAgICAgICA8ZGlyZWN0aW9uYWxMaWdodCBwb3NpdGlvbj17
+WzQuNSwgMC42LCA0LjJdfSBpbnRlbnNpdHk9ezAuNjJ9IGNvbG9yPSIjZmZmM2M0IiAvPgogICAg
+ICAgIDxkaXJlY3Rpb25hbExpZ2h0IHBvc2l0aW9uPXtbLTQuOCwgLTAuNCwgLTMuNV19IGludGVu
+c2l0eT17MC4yNn0gY29sb3I9IiNjOTlmNGEiIC8+CiAgICAgICAgPGhlbWlzcGhlcmVMaWdodCBh
+cmdzPXtbJyMyNDNiNWUnLCAnIzA4MDQwOScsIDAuMjZdfSAvPgoKICAgICAgICA8U3VzcGVuc2Ug
+ZmFsbGJhY2s9e251bGx9PgogICAgICAgICAgPFN0YXJzIHJhZGl1cz17MzB9IGRlcHRoPXsxMH0g
+Y291bnQ9ezM1MDB9IGZhY3Rvcj17MS4yfSBzYXR1cmF0aW9uPXswfSBmYWRlIHNwZWVkPXswfSAv
+PgoKICAgICAgICAgIDxncm91cCByb3RhdGlvbj17WzAuMDgsIDAuMywgMF19PgogICAgICAgICAg
+ICA8QXRtb3NwaGVyZUdsb3cgaGVhdEJvb3N0PXthdG1vc3BoZXJlQm9vc3R9IC8+CiAgICAgICAg
+ICAgIDxPY2VhblNwaGVyZSAvPgogICAgICAgICAgICA8Q291bnRyeVBvbHlnb25NZXNoTGF5ZXIK
+ICAgICAgICAgICAgICBzZWxlY3RlZENvdW50cnlJc28yPXtzZWxlY3RlZENvdW50cnlJc28yfQog
+ICAgICAgICAgICAgIHN1Yk5hdGlvbmFsSXNvMnM9e3N1Yk5hdGlvbmFsSXNvMnN9CiAgICAgICAg
+ICAgICAgc2VsZWN0ZWRDb3VudHJ5SXNvMnM9e3NlbGVjdGVkQ291bnRyeUlzbzJzfQogICAgICAg
+ICAgICAgIGZvY3VzZWRDb3VudHJ5SXNvMj17aW50ZXJhY3Rpb25Mb2NrZWQgPyB1bmRlZmluZWQg
+OiBmb2N1c2VkQ291bnRyeUlzbzJ9CiAgICAgICAgICAgICAgYWN0aXZlTGF5ZXJJZD17YWN0aXZl
+TGF5ZXJJZH0KICAgICAgICAgICAgICB0aWVyQnlJc28yPXt0aWVyQnlJc28yfQogICAgICAgICAg
+ICAgIHRpZXJQYWxldHRlPXt0aWVyUGFsZXR0ZX0KICAgICAgICAgICAgICBpbnRyb1RpZXJCbGVu
+ZD17dGllckJsZW5kfQogICAgICAgICAgICAgIG9uSG92ZXJDb3VudHJ5PXtoYW5kbGVIb3ZlckNv
+dW50cnl9CiAgICAgICAgICAgICAgb25TZWxlY3RDb3VudHJ5PXtoYW5kbGVTZWxlY3RDb3VudHJ5
+fQogICAgICAgICAgICAvPgogICAgICAgICAgICB7aW50cm9QaGFzZSA9PT0gJ3JlYWR5JyA/ICgK
+ICAgICAgICAgICAgICBoZWF0RW5hYmxlZCA/ICgKICAgICAgICAgICAgICAgIDxIZWF0RGVuc2l0
+eUxheWVyCiAgICAgICAgICAgICAgICAgIGNvdW50cmllcz17bGl2ZURhdGEuY291bnRyaWVzfQog
+ICAgICAgICAgICAgICAgICBzaWduYWxzQnlJc28yPXtsaXZlRGF0YS5zaWduYWxzQnlJc28yfQog
+ICAgICAgICAgICAgICAgICBwcmVmZXJzUmVkdWNlZE1vdGlvbj17cHJlZmVyc1JlZHVjZWRNb3Rp
+b259CiAgICAgICAgICAgICAgICAgIG9uSGVhdEJvb3N0PXtoYW5kbGVIZWF0Qm9vc3R9CiAgICAg
+ICAgICAgICAgICAvPgogICAgICAgICAgICAgICkgOiAoCiAgICAgICAgICAgICAgICA8RGF0YVZp
+ekxheWVyIGNvdW50cmllcz17bGl2ZURhdGEuY291bnRyaWVzfSBzaWduYWxzQnlJc28yPXtsaXZl
+RGF0YS5zaWduYWxzQnlJc28yfSAvPgogICAgICAgICAgICAgICkKICAgICAgICAgICAgKSA6IG51
+bGx9CiAgICAgICAgICAgIDxDb3VudHJ5Qm9yZGVyTGF5ZXIgLz4KICAgICAgICAgICAgeyFpbnRl
+cmFjdGlvbkxvY2tlZCAmJiBmb2N1c2VkQ291bnRyeUlzbzIgJiYgPENvdW50cnlHbG9iZUxhYmVs
+IGlzbzI9e2ZvY3VzZWRDb3VudHJ5SXNvMn0gLz59CiAgICAgICAgICA8L2dyb3VwPgogICAgICAg
+ICAgPENhbWVyYUZseVRvQ29udHJvbGxlcgogICAgICAgICAgICBzZWxlY3RlZENvdW50cnlJc28y
+PXtzZWxlY3RlZENvdW50cnlJc28yfQogICAgICAgICAgICByb3V0ZXJTdGVwPXtyb3V0ZXJTdGVw
+fQogICAgICAgICAgICBjb250cm9sc1JlZj17Y29udHJvbHNSZWYgYXMgUmVmT2JqZWN0PENhbWVy
+YUZseU9yYml0Q29udHJvbHNMaWtlIHwgbnVsbD59CiAgICAgICAgICAvPgogICAgICAgICAgPEds
+b2JlSGVhdEVmZmVjdHMgZW5hYmxlZD17Ymxvb21FbmFibGVkfSAvPgogICAgICAgIDwvU3VzcGVu
+c2U+CgogICAgICAgIDxBdXRvUm90YXRlSW52YWxpZGF0b3IgYWN0aXZlPXtzaG91bGRBdXRvUm90
+YXRlfSAvPgogICAgICAgIDxJbnRyb09yYml0VHJhY2tlcgogICAgICAgICAgYWN0aXZlPXtpbnRy
+b1NwaW5uaW5nfQogICAgICAgICAgY29udHJvbHNSZWY9e2NvbnRyb2xzUmVmfQogICAgICAgICAg
+b25Qcm9ncmVzcz17aGFuZGxlT3JiaXRQcm9ncmVzc30KICAgICAgICAvPgogICAgICAgIDxJbnRy
+b1JldmVhbENsb2NrIGFjdGl2ZT17aW50cm9SZXZlYWxpbmd9IG9uRWxhcHNlZD17aGFuZGxlUmV2
+ZWFsRWxhcHNlZH0gLz4KICAgICAgICA8T3JiaXRDb250cm9scwogICAgICAgICAgcmVmPXtjb250
+cm9sc1JlZn0KICAgICAgICAgIGVuYWJsZVBhbj17R0xPQkVfQ0FNRVJBX0NPTkZJRy5lbmFibGVQ
+YW59CiAgICAgICAgICBlbmFibGVEYW1waW5nCiAgICAgICAgICBkYW1waW5nRmFjdG9yPXtHTE9C
+RV9DQU1FUkFfQ09ORklHLmRhbXBpbmdGYWN0b3J9CiAgICAgICAgICByb3RhdGVTcGVlZD17R0xP
+QkVfQ0FNRVJBX0NPTkZJRy5yb3RhdGVTcGVlZH0KICAgICAgICAgIHpvb21TcGVlZD17R0xPQkVf
+Q0FNRVJBX0NPTkZJRy56b29tU3BlZWR9CiAgICAgICAgICBtaW5EaXN0YW5jZT17ZGlzdGFuY2VM
+aW1pdHMubWlufQogICAgICAgICAgbWF4RGlzdGFuY2U9e2Rpc3RhbmNlTGltaXRzLm1heH0KICAg
+ICAgICAgIG1pblBvbGFyQW5nbGU9e3BvbGFyTGltaXRzLm1pbn0KICAgICAgICAgIG1heFBvbGFy
+QW5nbGU9e3BvbGFyTGltaXRzLm1heH0KICAgICAgICAgIGF1dG9Sb3RhdGU9e3Nob3VsZEF1dG9S
+b3RhdGV9CiAgICAgICAgICBhdXRvUm90YXRlU3BlZWQ9e2F1dG9Sb3RhdGVTcGVlZH0KICAgICAg
+ICAgIGVuYWJsZVpvb209eyFpbnRlcmFjdGlvbkxvY2tlZCAmJiBHTE9CRV9DQU1FUkFfQ09ORklH
+LmVuYWJsZVpvb219CiAgICAgICAgICBlbmFibGVSb3RhdGU9eyFpbnRlcmFjdGlvbkxvY2tlZH0K
+ICAgICAgICAgIG1pbkF6aW11dGhBbmdsZT17R0xPQkVfQ0FNRVJBX0NPTkZJRy5taW5BemltdXRo
+QW5nbGV9CiAgICAgICAgICBtYXhBemltdXRoQW5nbGU9e0dMT0JFX0NBTUVSQV9DT05GSUcubWF4
+QXppbXV0aEFuZ2xlfQogICAgICAgIC8+CiAgICAgIDwvQ2FudmFzPgogICAgPC9kaXY+CiAgKQp9
+Cg==
