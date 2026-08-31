@@ -95,12 +95,12 @@ describe('subnational regulatory tiers', () => {
     }
   })
 
-  it('expands Germany and Australia by default so all 88 supported regions render globally', () => {
+  it('expands US, Germany, Canada and Australia by default so all 88 supported regions render globally', () => {
     const globeCanvas = readFileSync(
       join(process.cwd(), 'components/globe/r3f/GlobeCanvas.tsx'),
       'utf8',
     )
 
-    expect(globeCanvas).toMatch(/subNationalIso2s\s*=\s*\['DE',\s*'AU'\]/)
+    expect(globeCanvas).toMatch(/subNationalIso2s\s*=\s*\['US',\s*'DE',\s*'CA',\s*'AU'\]/)
   })
 })
