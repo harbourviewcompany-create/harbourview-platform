@@ -39,8 +39,8 @@ describe('evidence-backed Market Access publication', () => {
 
   it('contains all 51 US state/DC evidence rows exactly once', () => {
     const migration = readFileSync('supabase/migrations/20260831130000_evidence_backed_market_access_authority.sql', 'utf8')
-    const matches = [...migration.matchAll(/\('US-[A-Z]{2}','(?:domestic_only|medical_limited_trade|cbd_hemp_only)'\)/g)]
-    const iso = matches.map((m) => m[0].slice(2, 7))
+    const matches = [...migration.matchAll(/\(\s*'(US-[A-Z]{2})'\s*,\s*'(?:domestic_only|medical_limited_trade|cbd_hemp_only)'\s*\)/g)]
+    const iso = matches.map((m) => m[1])
     expect(iso).toHaveLength(51)
     expect(new Set(iso).size).toBe(51)
   })
