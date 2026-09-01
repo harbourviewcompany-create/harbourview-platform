@@ -1,8 +1,10 @@
 # Reconstructed-migration idempotency audit, 2026-08-31
 
-**Status: three confirmed defects, two fixed and verified; a repo-wide heuristic
-scan flags six more candidates, unverified. Nothing in this document has been
-applied to production.**
+**Status: three confirmed defects, all three now fixed and verified; a
+repo-wide heuristic scan flags six more DDL candidates, unverified, plus an
+open question about how many other files had a documented manual fix
+silently clobbered by a reconstruction re-run (see instance 3). Nothing in
+this document has been applied to production.**
 
 ## Background
 
@@ -56,10 +58,43 @@ statements succeed.
 **3. `20260714224152_create_intel_eval_set_stage0.sql`** — bare
 `CREATE TABLE public.intel_eval_set`, which a later migration also creates.
 Surfaced by PR #1703's Supabase Preview check *after* fixes 1 and 2 let replay
-get further. **Not yet fixed** — this is where the fixing stopped, once it
-became clear the first two were instances of a repo-wide pattern rather than
-isolated bugs, and continuing to patch one-by-one without a scoped survey
-risked missing siblings while looking authoritative.
+get further. **Fixed** in PR #1703, but this one is not a fresh idempotency
+bug like the first two — it's a **regression**. The companion file,
+`20260714120000_create_intel_eval_set_stage0.sql`, already documents the
+whole situation in its own header: on 2026-08-05 (commit `3d4041a6 fix(db):
+restore intel eval set creator at its replay-correct version`) it was
+deliberately edited to hold the real `CREATE TABLE`, with `20260714224152`
+intentionally left as a `SELECT 1;` no-op, specifically so replay would find
+the table already created before reaching `20260714224152`. A later,
+unrelated re-run of `scripts/reconstruct-stub-migrations.mjs` mechanically
+reconstructed every remaining `SELECT 1;` placeholder from production's
+statement history — including this one — with no awareness that it had been
+deliberately left that way for a documented reason, and silently overwrote
+the fix with a second, duplicate `CREATE TABLE`. Restored to the no-op, with
+a comment pointing back at both the 2026-08-05 fix and this document.
+Verified by replaying both files in order against a minimal `signals`-table
+fixture: table created once by `20260714120000`, `20260714224152` a true
+no-op.
+
+**This changes what the audit is actually for.** It's not only "find files
+whose DDL isn't guarded against replay order" — it's also "find files whose
+placeholder status was deliberately chosen for a documented reason, and check
+whether a later reconstruction re-run silently undid that choice." A `git log
+--oneline --all -- <file>` on any reconstructed file showing a `restore ...
+for replay` / `restore ... at replay-correct version` commit *older* than the
+most recent `reconstruct N placeholder migrations` bulk commit is a candidate
+for exactly this regression, independent of whether the current DDL happens
+to match one of the three heuristic shapes below. A non-exhaustive scan of
+commit history for this pattern turned up several more `restore ... for
+replay`-style commits worth checking the same way:
+`54407a72 fix(migrations): restore corridor replay seed fidelity`,
+`f10a9d37 fix(migrations): restore corridor tables at original replay
+version`, `1eedb485 Restore corridor stats functions for replay`,
+`f031b255 Restore trajectory and entity foundation for replay`, and
+`0cd9af8b fix(migrations): restore production-faithful historical replay
+(#1458)` — none of these have been checked against the current file state as
+part of this pass; listed here so the next person doesn't have to
+re-discover the pattern from scratch.
 
 ## Repo-wide heuristic scan
 
@@ -105,13 +140,34 @@ failures rather than a fresh guess.
 
 ## Recommended next step
 
-Full `supabase db reset --local` (or equivalent from-scratch replay) is the
-only check that actually answers this — the same tool PR #1423/#1430 used to
-find the original 167-placeholder problem. Short of that: work the six-row
-table above, verify each against the actual creating/guarding migration nearby
-(same technique used for the three confirmed fixes — reproduce the specific
-statements against a throwaway local Postgres, not just read the SQL), and
-extend the heuristic script if a fourth non-idempotent shape turns up.
+Two separate things need doing, and they don't substitute for each other:
+
+1. **The DDL heuristic candidates.** Full `supabase db reset --local` (or
+   equivalent from-scratch replay) is the only check that actually answers
+   this — the same tool PR #1423/#1430 used to find the original
+   167-placeholder problem. Short of that: work the six-row table above,
+   verify each against the actual creating/guarding migration nearby (same
+   technique used for the three confirmed fixes — reproduce the specific
+   statements against a throwaway local Postgres, not just read the SQL), and
+   extend the heuristic script if a fourth non-idempotent shape turns up.
+
+2. **The clobbering question.** For each of the five `restore ... for
+   replay`-style commits listed under instance 3, `git log --oneline --all --
+   <file>` the file(s) that commit touched and check whether a later
+   `reconstruct N placeholder migrations` bulk commit (or a bare re-run of
+   `scripts/reconstruct-stub-migrations.mjs` with no distinguishing commit
+   message) touched the same file afterward. If so, diff the current content
+   against what the restore commit left behind — same shape of check that
+   caught instance 3. Structurally, this points at a gap in
+   `scripts/reconstruct-stub-migrations.mjs` itself: it has no way to know a
+   given placeholder was intentionally left as `SELECT 1;` for a replay
+   reason rather than simply not-yet-reconstructed, so it will keep
+   re-clobbering any such file every time it's re-run, including the two
+   files fixed by this document's own instances 1 and 2 above if that script
+   is ever re-run again. Worth a follow-up decision on the script itself
+   (e.g., skip files with a leading `-- DO NOT RECONSTRUCT` marker, or check
+   for one before overwriting) rather than relying on every future session
+   noticing the diff by hand.
 
 ## Evidence
 

@@ -5643,3 +5643,34 @@ Full detail in the audit doc.
 third confirmed defect and the six heuristic candidates -- recommend a full
 `supabase db reset --local` replay (the tool that found the original
 167-placeholder problem) rather than continuing to patch by inspection.
+
+## 2026-08-31 (update) — Third defect on PR #1703 was a regression, not a fresh bug: reconstruction re-run clobbered a documented manual fix
+
+**Evidence ID:** `HV-RECON-MIGRATION-IDEMPOTENCY-20260831` (continued)
+
+Fixed the third defect flagged above
+(`20260714224152_create_intel_eval_set_stage0.sql`, now pushed to PR #1703).
+Root cause is more specific than "non-idempotent DDL": the companion file
+`20260714120000_create_intel_eval_set_stage0.sql` documents in its own header
+that it was deliberately edited on 2026-08-05 (`3d4041a6 fix(db): restore
+intel eval set creator at its replay-correct version`) to hold the real
+`CREATE TABLE`, with `20260714224152` intentionally left as a `SELECT 1;`
+no-op for a documented replay-ordering reason. A later, unrelated re-run of
+`scripts/reconstruct-stub-migrations.mjs` had no awareness of that and
+mechanically reconstructed `20260714224152` back into a second, duplicate
+`CREATE TABLE`, silently undoing the fix. Restored to the no-op; verified by
+replaying both files in order against a minimal fixture.
+
+This means the audit's scope is broader than the DDL-shape heuristic already
+documented: any file with a `restore ... for replay` / `restore ... at
+replay-correct version` commit in its history is a candidate for the same
+regression on the *next* re-run of that script, regardless of its current DDL
+shape. Five more such commits identified (not yet checked against current
+file state) and the structural gap in the reconstruction script itself are
+detailed in
+`docs/control/RECONSTRUCTED_MIGRATION_IDEMPOTENCY_AUDIT_2026-08-31.md`.
+
+**Decision:** **GO** for this fix, on PR #1703. **Open**, and now flagged as
+higher-priority than originally scoped: the reconstruction script has no
+guard against re-clobbering a deliberate fix, which puts today's fixes
+(including the two from earlier in this entry) at risk on its next run.
