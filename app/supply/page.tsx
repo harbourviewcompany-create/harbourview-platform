@@ -173,7 +173,7 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
           directly by Harbourview.
         </p>
         <p className="mt-4 text-sm leading-7 text-white/54">
-          Consumer packaging is currently Canada-only, with compliance metadata mapped to the Cannabis Act's
+          Consumer packaging is currently Canada-only, with compliance metadata mapped to the Cannabis Act&apos;s
           plain-packaging and child-resistant requirements. Equipment, cultivation, and lab/testing supplies also
           ship to Germany and Australia. Additional markets are rolling out on an ongoing basis.
         </p>
