@@ -1,24 +1,6 @@
--- Manual pass fallback: when all three configured LLM providers
--- (openai, anthropic, gemini) are degraded, run_daily_digest() previously
--- just logged to pipeline_manual_review_queue and did nothing -- which is
--- why nobody noticed anything was wrong for 3 days straight (Aug 28-30):
--- the queue existed but nothing was actively reading it, and no digest
--- went out.
---
--- Now, on top of the review-queue log (kept for audit visibility), it
--- also publishes a deterministic digest built directly from the same
--- ranked/diversified candidate set the LLM would have received: top 10 by
--- rank_score, title as the headline, the signal's own summary as
--- why_it_matters (templated fallback line if summary is empty). No LLM
--- call, no cost, no dependency on any provider being up. Published under
--- a distinct status ('published_manual', added to the daily_digest check
--- constraint) so downstream consumers can flag it as algorithmic rather
--- than editorially curated, and it still marks signals used_in_digest_at
--- so they don't get reused.
-
-ALTER TABLE public.daily_digest DROP CONSTRAINT daily_digest_status_check;
-ALTER TABLE public.daily_digest ADD CONSTRAINT daily_digest_status_check
-  CHECK (status = ANY (ARRAY['draft'::text, 'published'::text, 'published_manual'::text]));
+-- Reconstructed from production. Supersedes 20260831020000_fix_daily_digest_provider_health_durability.sql
+-- (wrong version number vs. actual production apply time). Old file removed in this commit.
+-- Verbatim statements from supabase_migrations.schema_migrations for version 20260830203038.
 
 CREATE OR REPLACE FUNCTION public.run_daily_digest()
  RETURNS jsonb
@@ -35,18 +17,17 @@ declare
   v_provider text := null;
   v_attempts int;
   v_failures int;
-  v_manual jsonb;
   v_pre text := $prompt$
 You are the senior editor of Harbourview Daily, a B2B cannabis market-intelligence briefing for licensed operators, importers, investors, and compliance officers.
 
-Below is a JSON array of QUALITY-GATED intelligence signals. Each already passed a validated classifier (precision ~ 1.0). Prefer signals that are:
+Below is a JSON array of QUALITY-GATED intelligence signals. Each already passed a validated classifier (precision ≈ 1.0). Prefer signals that are:
 - commercially actionable (licensing, import/export, taxation, market access, M&A, capacity)
 - geographically diverse (do not fill the brief with only US/CA/DE/UK)
 - corroborated (higher corroboration_count = multiple independent sources)
 - high impact / high confidence
 
 Select up to 10 of the most important items (fewer if fewer qualify). For each:
-- Rewrite a sharp headline (max 110 chars, your own words -- do not copy boilerplate)
+- Rewrite a sharp headline (max 110 chars, your own words — do not copy boilerplate)
 - Write ONE "why_it_matters" sentence a commercial operator would act on
 - Keep the market as the country name from the input (or "Global")
 - Echo signal_id exactly from the input
@@ -124,6 +105,11 @@ begin
         and exists (select 1 from ins)
       returning s.id
     ),
+    -- Persist status_code onto the job row itself. Previously only
+    -- `collected` was set here, so once net._http_response expired/was
+    -- pruned, this attempt's outcome became invisible to the provider
+    -- health-check below — which is why openai kept getting retried every
+    -- cycle for days despite failing every single time.
     mark_collected as (
       update _digest_jobs j set collected = true, status_code = p.status_code
       from parsed p where j.request_id = p.request_id
@@ -240,7 +226,10 @@ begin
   end if;
 
   -- Provider health checks now read the durably-persisted status_code column
-  -- on _digest_jobs directly, instead of live-joining net._http_response.
+  -- on _digest_jobs directly, instead of live-joining net._http_response
+  -- (which does not retain rows long enough for this to work across cron
+  -- cycles — that gap is exactly why openai kept getting picked every 15
+  -- minutes for days despite failing every single attempt).
   if v_openai_key is not null then
     select count(*), count(*) filter (where status_code is distinct from 200)
       into v_attempts, v_failures
@@ -283,15 +272,6 @@ begin
     end if;
   end if;
 
-  -- All providers degraded (or none configured to try): fall back to a
-  -- deterministic, non-LLM "manual pass" instead of just logging and doing
-  -- nothing. Uses the same ranked/diversified candidate set already
-  -- computed above (top_n), taking the top 10 as-is: title becomes the
-  -- headline, the signal's own summary becomes why_it_matters (falling
-  -- back to a templated line only if summary is empty). Published under a
-  -- distinct status ('published_manual') so downstream consumers (email,
-  -- dashboard) can flag it as unreviewed/algorithmic rather than
-  -- editorially curated.
   if v_provider is null then
     insert into pipeline_manual_review_queue (pipeline, reference_date, reason, detail)
     values (
@@ -301,60 +281,13 @@ begin
       jsonb_build_object('available_signals', jsonb_array_length(v_signals), 'source', 'pipeline_b')
     )
     on conflict (pipeline, reference_date) do nothing;
-
-    with cand as (
-      select elem, ord
-      from jsonb_array_elements(v_signals) with ordinality as t(elem, ord)
-      where ord <= 10
-    ),
-    manual_headlines as (
-      select jsonb_agg(
-        jsonb_build_object(
-          'headline', left(coalesce(nullif(elem->>'title',''), 'Untitled'), 110),
-          'why_it_matters', case
-            when length(trim(coalesce(elem->>'summary',''))) > 0
-              then left(elem->>'summary', 240)
-            else format('%s-impact %s signal for %s.',
-              initcap(coalesce(elem->>'commercial_impact','medium')),
-              coalesce(elem->>'type','regulatory'),
-              coalesce(elem->>'market','Global'))
-          end,
-          'market', coalesce(elem->>'market','Global'),
-          'signal_id', elem->>'id'
-        ) order by ord
-      ) as headlines
-      from cand
-    ),
-    ins as (
-      insert into daily_digest (digest_date, headlines, markets, status, generated_at)
-      select current_date, mh.headlines,
-        (select coalesce(array_agg(distinct h->>'market'), '{}') from jsonb_array_elements(mh.headlines) h),
-        'published_manual', now()
-      from manual_headlines mh
-      on conflict (digest_date) do update
-        set headlines = excluded.headlines,
-            markets = excluded.markets,
-            status = 'published_manual',
-            updated_at = now()
-      returning id
-    ),
-    mark_used as (
-      update public.signals s set used_in_digest_at = now()
-      from cand c
-      where s.id = (c.elem->>'id')
-        and exists (select 1 from ins)
-      returning s.id
-    )
-    select jsonb_build_object(
+    return jsonb_build_object(
       'ok', true,
-      'phase', 'manual_fallback',
+      'degraded', true,
       'reason', 'all_configured_llm_providers_degraded',
-      'published', exists(select 1 from ins),
-      'signals_marked', (select count(*) from mark_used),
+      'available', jsonb_array_length(v_signals),
       'source', 'pipeline_b'
-    ) into v_manual;
-
-    return v_manual;
+    );
   end if;
 
   if v_provider = 'openai' then
