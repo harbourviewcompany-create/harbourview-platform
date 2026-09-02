@@ -1,25 +1,11 @@
--- Fix: run_daily_digest() provider health-check was not durable across cron
--- cycles. It live-joined _digest_jobs -> net._http_response to compute
--- recent failure rate per provider, but net._http_response does not retain
--- rows long enough for that join to still find them on the next 15-minute
--- cron tick. Result: a provider's failure vanished before it could ever be
--- counted, so the "is this provider degraded" check always saw 0 attempts
--- and picked openai first every single cycle -- even after openai had
--- already failed on literally every prior attempt that day.
---
--- Fix: persist status_code onto _digest_jobs directly at collect time
--- (mark_collected), including a -1 sentinel for jobs whose response never
--- arrived within 1h (previously these silently vanished with no failure
--- recorded at all). The three provider health checks now read
--- _digest_jobs.status_code directly instead of joining to
--- net._http_response, so failure history survives regardless of
--- net._http_response's retention window.
---
--- Root cause of the 3-day digest outage itself (Aug 28-30) was that all
--- three configured LLM providers (openai, anthropic, gemini) were out of
--- credits/quota -- that is a billing issue, not something this migration
--- fixes. This migration only fixes the pipeline's ability to detect and
--- fail over quickly instead of blindly hammering a dead provider.
+-- Reconstructed from production. Supersedes 20260831021500_daily_digest_manual_fallback.sql
+-- (wrong version number vs. actual production apply time). Old file removed in this commit.
+-- Verbatim statements from supabase_migrations.schema_migrations for version 20260831021320.
+
+-- Allow a distinct status for auto-published deterministic (non-LLM) digests
+ALTER TABLE public.daily_digest DROP CONSTRAINT daily_digest_status_check;
+ALTER TABLE public.daily_digest ADD CONSTRAINT daily_digest_status_check
+  CHECK (status = ANY (ARRAY['draft'::text, 'published'::text, 'published_manual'::text]));
 
 CREATE OR REPLACE FUNCTION public.run_daily_digest()
  RETURNS jsonb
@@ -36,6 +22,7 @@ declare
   v_provider text := null;
   v_attempts int;
   v_failures int;
+  v_manual jsonb;
   v_pre text := $prompt$
 You are the senior editor of Harbourview Daily, a B2B cannabis market-intelligence briefing for licensed operators, importers, investors, and compliance officers.
 
@@ -64,10 +51,6 @@ begin
     return jsonb_build_object('ok',true,'skipped','digest exists for today');
   end if;
 
-  -- Give up on jobs whose async HTTP response never showed up within 1h.
-  -- Record status_code = -1 (timeout/no-response sentinel) so this failure
-  -- is durably visible to the provider health-check below, instead of
-  -- silently vanishing (previously these never counted as a failure at all).
   update _digest_jobs j set collected = true, status_code = coalesce(j.status_code, -1)
   where j.digest_date = current_date and not j.collected
     and j.created_at < now() - interval '1 hour'
@@ -239,8 +222,6 @@ begin
     );
   end if;
 
-  -- Provider health checks now read the durably-persisted status_code column
-  -- on _digest_jobs directly, instead of live-joining net._http_response.
   if v_openai_key is not null then
     select count(*), count(*) filter (where status_code is distinct from 200)
       into v_attempts, v_failures
@@ -283,6 +264,15 @@ begin
     end if;
   end if;
 
+  -- All providers degraded (or none configured to try): fall back to a
+  -- deterministic, non-LLM "manual pass" instead of just logging and doing
+  -- nothing. Uses the same ranked/diversified candidate set already
+  -- computed above (top_n), taking the top 10 as-is: title becomes the
+  -- headline, the signal's own summary becomes why_it_matters (falling
+  -- back to a templated line only if summary is empty). Published under a
+  -- distinct status ('published_manual') so downstream consumers (email,
+  -- dashboard) can flag it as unreviewed/algorithmic rather than
+  -- editorially curated.
   if v_provider is null then
     insert into pipeline_manual_review_queue (pipeline, reference_date, reason, detail)
     values (
@@ -292,13 +282,60 @@ begin
       jsonb_build_object('available_signals', jsonb_array_length(v_signals), 'source', 'pipeline_b')
     )
     on conflict (pipeline, reference_date) do nothing;
-    return jsonb_build_object(
+
+    with cand as (
+      select elem, ord
+      from jsonb_array_elements(v_signals) with ordinality as t(elem, ord)
+      where ord <= 10
+    ),
+    manual_headlines as (
+      select jsonb_agg(
+        jsonb_build_object(
+          'headline', left(coalesce(nullif(elem->>'title',''), 'Untitled'), 110),
+          'why_it_matters', case
+            when length(trim(coalesce(elem->>'summary',''))) > 0
+              then left(elem->>'summary', 240)
+            else format('%s-impact %s signal for %s.',
+              initcap(coalesce(elem->>'commercial_impact','medium')),
+              coalesce(elem->>'type','regulatory'),
+              coalesce(elem->>'market','Global'))
+          end,
+          'market', coalesce(elem->>'market','Global'),
+          'signal_id', elem->>'id'
+        ) order by ord
+      ) as headlines
+      from cand
+    ),
+    ins as (
+      insert into daily_digest (digest_date, headlines, markets, status, generated_at)
+      select current_date, mh.headlines,
+        (select coalesce(array_agg(distinct h->>'market'), '{}') from jsonb_array_elements(mh.headlines) h),
+        'published_manual', now()
+      from manual_headlines mh
+      on conflict (digest_date) do update
+        set headlines = excluded.headlines,
+            markets = excluded.markets,
+            status = 'published_manual',
+            updated_at = now()
+      returning id
+    ),
+    mark_used as (
+      update public.signals s set used_in_digest_at = now()
+      from cand c
+      where s.id = (c.elem->>'id')
+        and exists (select 1 from ins)
+      returning s.id
+    )
+    select jsonb_build_object(
       'ok', true,
-      'degraded', true,
+      'phase', 'manual_fallback',
       'reason', 'all_configured_llm_providers_degraded',
-      'available', jsonb_array_length(v_signals),
+      'published', exists(select 1 from ins),
+      'signals_marked', (select count(*) from mark_used),
       'source', 'pipeline_b'
-    );
+    ) into v_manual;
+
+    return v_manual;
   end if;
 
   if v_provider = 'openai' then
