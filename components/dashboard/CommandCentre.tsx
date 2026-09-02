@@ -10,6 +10,8 @@ import type { CountryIntelProfile, PipelineCounts, WantedListing, EvidenceData, 
 import { buildConfidenceLanes, overallConfidence as computeOverallConfidence, type ConfidenceLane } from '@/lib/dashboard/confidenceScoring'
 import { useDashboardSignalsRealtime } from '@/components/dashboard/useDashboardSignalsRealtime'
 import type { DashboardSignal, DigestWindow } from '@/lib/dashboard/dashboardShared'
+import type { DashboardMarketplaceProjection } from '@/lib/dashboard/marketplaceMediaProjection'
+import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
@@ -148,6 +150,7 @@ type Props = {
   decisionIntelAccess?: FeatureAccess
   wantedCount?:     number
   marketplaceRows?: Partial<DashboardMarketplaceRows>
+  marketplaceMediaStatus?: DashboardMarketplaceProjection['mediaStatus']
   pipeline?:        PipelineCounts
   wantedListings?:  WantedListing[]
   countryIntel?:    CountryIntelProfile | null
@@ -10988,6 +10991,7 @@ export default function CommandCentre({
   decisionIntelAccess,
   wantedCount = 0,
   marketplaceRows,
+  marketplaceMediaStatus = 'live',
   pipeline,
   wantedListings = [],
   countryIntel,
@@ -11350,6 +11354,7 @@ export default function CommandCentre({
 
       {/* ── Main content ──────────────────────────────────────────── */}
       <main className="cc-main">
+        {activePage === 'marketplace' && <MarketplaceMediaStatus mediaStatus={marketplaceMediaStatus} />}
         {renderPage()}
       </main>
 
@@ -11378,7 +11383,6 @@ export default function CommandCentre({
     </div>
   )
 }
-
 
 
 

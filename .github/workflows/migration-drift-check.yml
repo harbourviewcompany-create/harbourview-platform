@@ -29,6 +29,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write
 
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
@@ -78,6 +79,8 @@ jobs:
           node --test
           tests/scripts/migration-ledger-manifest.test.mjs
           tests/scripts/historical-migration-attestations.test.mjs
+          tests/scripts/notify-new-migration-drift.test.mjs
+          tests/scripts/lint-workflow-continue-on-error-guards.test.mjs
 
   check-drift:
     name: Compare repository and live migration ledgers
@@ -155,6 +158,31 @@ jobs:
             --json-out artifacts/migration-drift/manifest.json \
             --markdown-out artifacts/migration-drift/manifest.md \
             --mode drift \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Notify on new migration drift
+        # steps.manifest.outcome is unusable as a guard here: the manifest
+        # script deliberately throws in --mode drift whenever
+        # applied_not_committed is nonempty (that throw is what makes this
+        # job's overall check fail), and continue-on-error only overrides the
+        # step's displayed *conclusion* to success -- steps.<id>.outcome in
+        # if: expressions still reflects the raw pre-override result, so it
+        # reads 'failure' on the exact runs this step exists to act on. The
+        # manifest JSON is written unconditionally before that throw (see
+        # migration-ledger-manifest.mjs -- writeOutput happens before the
+        # `if (args.mode === 'drift')` throw), so check for the file instead.
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f artifacts/migration-drift/manifest.json ]; then
+            echo "No manifest.json produced (manifest step failed before writing output) -- nothing to notify on."
+            exit 0
+          fi
+          node scripts/notify-new-migration-drift.mjs \
+            --manifest artifacts/migration-drift/manifest.json \
+            --baseline supabase/release-controls/migration-drift-watch-baseline.json \
             --source-sha "$GITHUB_SHA"
 
       - name: Publish manifest summary

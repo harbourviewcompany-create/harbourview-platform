@@ -42,6 +42,9 @@ Pass 1 created/updated control documentation only. It did not run build, test, d
 
 | Date | Check | Command / source | Result | Link / artifact | Status |
 |---|---|---|---|---|---|
+| 2026-09-02 | Security advisories `GHSA-c83g-rgw3-j3cx` / `GHSA-73wf-gq98-2v4g` (browserslist) and `GHSA-x5fp-wj9c-mxmx` / `GHSA-4mjr-xmp4-gh2g` (qs) broke CI repo-wide; pinned both via `overrides` | `npm ci`; `npm audit --omit=dev` (reproduced the exact CI failure first); `npx npm@11 install` to regenerate the lockfile; `npm run typecheck`; `npm run lint`; `npm run test`; `npm run build` | PASS. Failure reproduced locally byte-for-byte before fixing: `2 vulnerabilities (1 moderate, 1 high)`, exit 1 — identical to CI job 100413093011. Both are transitive (`browserslist@4.28.5` via `@sentry/nextjs`→`@babel/core`→`@babel/helper-compilation-targets`; `qs@6.15.3` via `@googleapis/drive`→`googleapis-common`), so they were pinned through the existing `overrides` block rather than as new direct dependencies, matching the `undici` precedent already there. After: `npm audit --omit=dev` reports **found 0 vulnerabilities**, exit 0; typecheck exit 0; lint 0 errors / 209 warnings (unchanged baseline); 1,169 tests passed across 142 files + 2 skipped, 15 todo; production build exit 0. **Lockfile regenerated with npm 11.19.1, not the local npm 10.9.7**: npm 10 silently strips the `libc` metadata npm 11 writes for optional platform binaries, which turned a 26-line diff into an 86-line one touching unrelated musl/glibc entries. Final diff is 26 insertions / 26 deletions across exactly 7 packages. Generated `data/globe/natural-earth-countries.ts` build timestamp restored and is absent from the diff. **Also corrects `NPM_INSTALL_ENVIRONMENT_HOLD.md`**, which is stale: `npm ci` completes in ~25s and the zustand tarball it records as HTTP 403 now returns 200. That stale hold had been cited to skip the AGENTS.md QA gate entirely | Branch `chore/bump-browserslist-qs-security-advisories`; base `9d6d365`; blocked CI on PR #1746 and would have blocked every subsequent PR and `main` push | Current — no production or database change; dependency and docs only |
+| 2026-08-30 | PR #1702 review: keep media disclosure inside responsive content shells | Node 22: `npm run lint`; `npm run typecheck`; `npm run test`; `vitest run tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/loadCommandCentreData.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/dashboard/marketplaceMediaStatus.test.tsx tests/dashboard/dashboardResponsiveShell.behavior.test.ts tests/security/command-centre-boundaries.test.ts`; `env -u SENTRY_AUTH_TOKEN npm run build`; `git diff --check` | PASS locally: 42 targeted tests / 6 files; default suite 1,169 passed + 15 TODO, 142 passed files + 2 skipped; typecheck exit 0; lint 0 errors / 209 existing warnings; build 151/151 static pages. Addressed review r3889565308: route passes successful requested projection status into the responsive shell; desktop notice renders inside scrollable `.cc-app > .cc-main`, mobile notice inside the Market destination's main content (including Supply). Real desktop/mobile render tests assert notice containment and single occurrence; live/absent status remains silent. No deployment settings, workflows, auth, RLS, migrations, or canonical copy changed. Generated globe timestamp restored. | PR #1702; prior checked head `b13ebaff`: 36 successful checks, 3 failures, 2 skips. Visual job 99268190276: 12 browser tests passed (both marketplace tests included); failures are countries REST 404s at 768/820/1024/1440, Clinical workspace 403 at 1440, and missing legacy Clinical heading. Worker checks 99268122552 (`harbourview-platform`, build `3e7791c3-35fc-4443-b1d9-634142c090eb`) and 99268121230 (`harbourview`, build `9945152b-1946-47e1-a3f8-8db051ec5eff`) report failure while bot comments say deployment skipped; no error text or annotations. Cloudflare dashboard blocked by human verification, so exact skip causes remain unverified. | Local fix verified; refreshed exact-head CI/review and separate visual/Workers blockers remain. Unmerged; no deployment-setting changes. |
+| 2026-08-30 | PR #1692 follow-up: bounded listing/media phases and authenticated dashboard media disclosure | Node 22.23.2 via `npx --yes --package=node@22 -c`; `npm ci --ignore-scripts --no-audit --no-fund`; `npm run lint`; `npm run typecheck`; `npm run test`; `vitest run tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/loadCommandCentreData.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/dashboard/marketplaceMediaStatus.test.tsx tests/security/command-centre-boundaries.test.ts`; `npm run build`; `git diff --check` | PASS locally: targeted 38/38 across 5 files, default suite 1,167 passed + 15 TODO across 142 passed files + 2 skipped (existing quarantine unchanged), typecheck exit 0, lint 0 errors / 209 warnings, build 151/151 static pages. Listing and Tier A phase capped at 8s; media capped at 8s; source definition owns a derived 17s outer budget. Real-loader tests preserve rows at 5,000ms and 7,999ms listing latency plus full media timeout; late listing completion cannot start media after phase failure. Canonical visible polite notice renders on `/dashboard` only for requested, successfully loaded projections with degraded media, without degrading global source health. Successful no-image responses remain live. Local build only suppressed Sentry telemetry/source-map uploads; temporary config and generated timestamp were restored. No DB, auth, RLS, DTO, deployment settings, or canonical copy changes. | Branch `fix/marketplace-timeout-disclosure`; base `56c83fcc`; follow-up to #1692 | Local verification complete; exact-head CI and authenticated visual evidence pending |
 | 2026-08-29 | Command Centre marketplace media-health regression — keep verified listing rows live when optional approved-media enrichment degrades | `npx vitest run tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/loadCommandCentreData.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/security/command-centre-boundaries.test.ts`; `npm run lint`; `npm run typecheck`; `npm run test`; `npm run build` with Sentry telemetry/source-map upload disabled for the local verification process only | PASS — root cause traced to #1662 reintroducing the classifier previously removed by #1563. Restored row-authoritative classification: non-empty marketplace rows remain `live`; zero row buckets remain `empty`; `mediaStatus: degraded` remains available for the controlled representative-media path without raising a full-session degradation banner. Exact-head verification after rebasing onto current `main`: targeted 31/31; lint 0 errors / 209 warnings; typecheck 0 errors; full Vitest 141 files passed + 2 skipped, 1,162 tests passed + 15 TODO; Next production build passed and generated 151/151 static pages. Temporary local Sentry upload suppression and generated timestamp were restored and are absent from the diff. No database, auth, RLS, grant, private-data, or marketplace row/media DTO change. | Branch `fix/command-centre-media-health-regression`; base `4d87896a`; PR #1692 | Current — verified branch head |
 | 2026-08-29 | Marketplace media review remediation: hermetic dashboard projection tests, runtime verification of both public PostgREST profile paths, and SSR-safe globe quality detection | `npm run test:public-images`; `npm run lint`; `npm run typecheck`; `npm run test`; `npm run build` | PASS — public-image suite 50/50; lint 0 errors (209 existing warnings); typecheck exit 0; default suite 1164 passed / 2 files skipped / 15 todo; production build completed with 151 static pages. Tests now clear inherited Supabase credentials so Tier A loading cannot reach a live service; fetch assertions verify `Accept-Profile: public` on card-view and fallback-table requests. Full-suite review also exposed and fixed an SSR `navigator` reference in globe fallback rendering. No database writes, secrets, private data, or public copy changes. | Follow-up to PR #1691; branch `work` | Current |
 | 2026-08-22 | Duplicate migration versions eliminated — `supabase/migrations` is now 986 files across 986 unique versions | `mcp supabase execute_sql` against `supabase_migrations.schema_migrations`, `local_authorities`, `information_schema.columns`, `pg_proc`, `cron.job` (all read-only); `git ls-tree origin/main | uniq -d`; `node --test tests/scripts/migration-ledger-manifest.test.mjs`; `npm run lint`; `npm run typecheck`; `npm run test`; `npm run build` | PASS — `schema_migrations.version` is the primary key, so two files sharing a version can never both be recorded; `no_pending_duplicate_versions` is an `activation_gate` requirement and both pairs qualified. **Live state was re-verified before acting rather than trusted from the 2026-08-21 blockers document**, because four migrations were applied out-of-band at 22:03–22:04 UTC on 2026-08-21 (`20260821220328`, `20260821220419`, `20260821220431`, `20260821220443`) after that document was written. Every finding still held: `20260816120000` / `20260820120000` / `20260813010000` all still unrecorded; `market_access_events`, `market_access_proposals`, `platform_feature_flags` still absent; `countries.regulatory_tier_auto_frozen` absent; `api` RPC count 0; `cron.job` matching `%market_access%` 0. **`20260813010000`** — `extend_supply_catalog_equipment_to_australia.sql` renamed to `20260813010001`; `baseline_capture_pipeline_task_queue.sql` keeps the version because it belongs to the contiguous `baseline_capture_*` series (`…000000`, `…010000`, `…020000`, `…030000`) and the supply-catalog file was the interloper. Order preserved — it still runs after the task queue and before `20260813020000`. Independence confirmed: the task queue creates `queue_status`, `pipeline_tasks`, `dead_letter_tasks`; the Australia file creates no objects. **`20260820120000`** — resolved by withdrawing `clinical_pilot_local_authorities_au_gb_br.sql` rather than renaming. Re-checked against production first: AU already holds `Therapeutic Goods Administration (TGA)` and `Office of Drug Control (ODC)` (migration inserts identical strings, no-op); GB holds `Home Office (UK)` where the migration inserts `Home Office`, and `Medicines and Healthcare products Regulatory Agency (MHRA)` (identical, no-op); BR holds `ANVISA (Agência Nacional de Vigilância Sanitária)` where the migration inserts `Agência Nacional de Vigilância Sanitária (ANVISA)`. Its guard is an exact string match, so net effect would be zero new authorities, two duplicate rows on a clinician-facing surface, and a `local_intel_coverage.last_reviewed_at` restamp misrepresenting review recency on a compliance surface. Production labels kept as canonical. Neither pair is bound in `pending-production-migration-decisions.json` or `pending-production-migration-integrity.json` (snapshot predates them at 841 files), so no content hash was broken. lint 0 errors, tsc exit 0, `npm test` 1016 passed / 126 files, build exit 0, ledger parser 14/14 | Branch `fix/migration-version-collisions`, **stacked on `fix/phase0-gate-scope` (PR #1622) and not landable before it** — this PR touches `supabase/migrations`, which the Phase 0 gate forbids in any PR that also carries its evidence row. **Nothing applied to production**; the heat-map decision (`20260816120000` + `heatmap_conflict_freeze_seed`) is deliberately still held and remains owner-gated, though `20260820120000` now belongs uniquely to the freeze/seed file so it is finally recordable. `DATABASE_CONTROL.md` deliberately not updated: it is a policy document plus dated entries for actual database changes, and this PR changes no production schema, RLS or data | Current |
@@ -5504,3 +5507,171 @@ the AGENTS.md §4 requirement is withdrawn at the same time.
 
 **Status: open PR, not merged.** Merge requires owner sign-off per `CLAUDE.md`
 Rule 3c.
+
+---
+
+## 2026-08-28 — counterparty extraction: the alarm that could not fire, and the success that meant nothing
+
+**How it was found.** Post-merge verification of `20260828022000`. That fix removed
+the `relation "parsed" does not exist` crash and the cron went green — 17 failures
+in the preceding 8 hours, then 7 clean runs. But `ia_counterparties` had no write
+since **2026-07-13**, six weeks earlier, despite **236 eligible unprocessed
+signals**. Green cron, empty pipeline.
+
+**Root cause — both LLM providers billing-blocked, and nothing said so.**
+
+| Provider | HTTP | Body |
+|---|---|---|
+| Anthropic | 400 | `Your credit balance is too low to access the Anthropic API.` |
+| Gemini | 429 | `You exceeded your current quota, please check your plan and billing details.` |
+
+Two independent defects kept that invisible.
+
+**Defect 1 — the all-providers-degraded alarm was unreachable.** The fire branch
+measures the recent failure rate for `anthropic` only:
+
+```sql
+if v_anthropic_key is not null then
+  select ... count(*) filter (where r.status_code <> 200) ... provider='anthropic' ...
+  if ... < 0.5 then v_provider := 'anthropic'; end if;
+end if;
+if v_provider is null and v_gemini_key is not null then v_provider := 'gemini'; end if;
+```
+
+Gemini is selected unconditionally whenever a key exists, so `v_provider` is never
+null while one is configured, and the `all_configured_llm_providers_degraded` insert
+below it cannot fire — in exactly the situation it was built for. Both providers
+were degraded for hours with no queue row and no notification.
+
+**Defect 2 — the collect phase reported success when it did nothing.** On a non-200
+the chain yields no rows, nothing is written, the job is still marked collected, and
+the function returns a bare `ok: true`. Stated plainly because it cuts against the
+previous fix: before `20260828022000` a broken pipeline showed red in
+`cron.job_run_details`; afterwards the identical broken pipeline shows green. The
+crash had been the only signal. This is the case Guardrail #5 exists for.
+
+**The fix, and what it deliberately does not do.** Gemini gets the same
+recent-failure-rate check anthropic already has — a faithful mirror: same 2-hour
+window, same 10-attempt sample, same 0.5 threshold. When both are degraded
+`v_provider` is null, the existing insert fires, and the existing daily cron at
+`app/api/cron/pipeline-manual-review-notify` emails it. The collect-phase return
+gains `llm_status_code` and `degraded`.
+
+**No new cron and no new delivery channel.** Stage G of
+`INTELLIGENCE_ARCHITECTURE_SPEC.md` warns against "adding a new always-on cron to
+solve an always-on-cron problem" and leaves the channel choice as an open owner
+decision. The notify route was checked before relying on it (Guardrail #1): it
+filters only on `notified_at is null` and does **not** filter by pipeline name, so
+a `counterparty_extraction` row is picked up as-is. Only a display label was added.
+
+**Repository/production drift — still not resolved.** No committed migration gives
+this function a gemini fallback, a provider-degradation check, or the
+`all_configured_llm_providers_degraded` path, verified across all three migrations
+that define it (`20260704133107`, `20260704135057`, `20260828022000`). That logic
+exists only in an uncommitted production rewrite. Closing the drift means adopting
+a body this repository has never reviewed — a separate owner decision, deliberately
+not taken here. The migration patches the production body, emits a NOTICE naming
+the drift on the committed body, and raises on any third body.
+
+**Coverage — this closes the gap flagged on #1668.** A review finding there noted
+that no committed fixture exercises the production-only patch path, since a
+repository-backed reset produces a body without it, and that the only evidence was
+a throwaway cluster whose source could not be re-run from the commit. That is now
+`tests/sql/counterparty_extraction_degradation_dry_run.sql`, run by
+`.github/workflows/counterparty-extraction-degradation-dry-run.yml` on
+PostgreSQL 17. It builds a production-shaped function from scratch — sanitized,
+invented names, stubbed HTTP, placeholder key values — reproduces both defects,
+applies the migration, and asserts they are closed.
+
+**Dry run, PostgreSQL 16 local, migration applied mid-script:**
+
+| Assertion | Result |
+|---|---|
+| 1 — defect reproduced | both providers degraded → `provider=gemini`, manual-review rows **0** |
+| 2 — alarm now reachable | `provider=null` → `degraded=true`, `all_configured_llm_providers_degraded`, rows **1** |
+| 3 — silent success closed | non-200 collect → `llm_status_code=500`, `degraded=true` |
+| 4 — no regression | healthy anthropic → `provider=anthropic`, `phase=fire` |
+
+**Convergence paths, same as the previous migration:**
+
+| Path | Starting body | Result |
+|---|---|---|
+| A | production-shaped | both fixes applied; 4/4 assertions above |
+| B | committed repository body | NOTICE naming the drift; body md5 identical before and after — true no-op |
+| C | unrecognized | raises, exit 3 — refuses to record itself as applied |
+
+**Anchor verification against live production (read-only, no execution):** all four
+anchors matched — declare, collect capture, collect return, gemini selection —
+against the current 7913-character definition.
+
+**Status: committed, not applied.** Production still carries both defects. The
+billing block itself is an account action and is not fixed by this change: until
+credits and quota are restored, the pipeline will correctly *report* that it is
+degraded rather than silently claiming success.
+
+## 2026-08-31 — Reconstructed-migration idempotency: three confirmed defects surfaced during PR #1703/#1702/#1688 review
+
+**Evidence ID:** `HV-RECON-MIGRATION-IDEMPOTENCY-20260831`
+
+**Scope:** repository-only. Two files fixed and pushed to PR #1703
+(`20260701180751_remote_applied_repair.sql`,
+`20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql`); a
+third confirmed defect (`20260714224152_create_intel_eval_set_stage0.sql`) and
+six heuristic candidates left open. **Not applied to production.**
+
+**Context.** GO/HOLD review of three open PRs (#1703, #1702, #1688) found
+#1703's Supabase Preview check failing on a from-scratch migration replay.
+Diagnosis traced it to the same risk `HV-PR1430-STUB-RECONSTRUCTION-20260814`
+named on 2026-08-14: files produced by
+`scripts/reconstruct-stub-migrations.mjs` carry verbatim production statements
+that assumed production's state at the time they ran, not a clean replay's
+state. Fixing the first instance (`corridor_processing_times` referenced
+before its creating migration, by filename order) let replay progress further
+and immediately surface a second, structurally identical instance
+(`regulatory_signals` constraints re-added when v1 already defines them), then
+a third (`intel_eval_set` table created twice). Stopped there rather than
+continuing to patch one-by-one -- full detail, verification steps, and a
+repo-wide heuristic scan of all 165 reconstructed files (six more candidates,
+unverified) is in
+`docs/control/RECONSTRUCTED_MIGRATION_IDEMPOTENCY_AUDIT_2026-08-31.md`.
+
+**Verification on the two fixed files:** both replayed successfully against a
+clean local Postgres 16 database, in filename order, with the exact
+downstream fidelity checks (corridor stub's seed-row counts) still passing.
+Full detail in the audit doc.
+
+**Decision:** **GO for the two fixes**, already on PR #1703. **Open** for the
+third confirmed defect and the six heuristic candidates -- recommend a full
+`supabase db reset --local` replay (the tool that found the original
+167-placeholder problem) rather than continuing to patch by inspection.
+
+## 2026-08-31 (update) — Third defect on PR #1703 was a regression, not a fresh bug: reconstruction re-run clobbered a documented manual fix
+
+**Evidence ID:** `HV-RECON-MIGRATION-IDEMPOTENCY-20260831` (continued)
+
+Fixed the third defect flagged above
+(`20260714224152_create_intel_eval_set_stage0.sql`, now pushed to PR #1703).
+Root cause is more specific than "non-idempotent DDL": the companion file
+`20260714120000_create_intel_eval_set_stage0.sql` documents in its own header
+that it was deliberately edited on 2026-08-05 (`3d4041a6 fix(db): restore
+intel eval set creator at its replay-correct version`) to hold the real
+`CREATE TABLE`, with `20260714224152` intentionally left as a `SELECT 1;`
+no-op for a documented replay-ordering reason. A later, unrelated re-run of
+`scripts/reconstruct-stub-migrations.mjs` had no awareness of that and
+mechanically reconstructed `20260714224152` back into a second, duplicate
+`CREATE TABLE`, silently undoing the fix. Restored to the no-op; verified by
+replaying both files in order against a minimal fixture.
+
+This means the audit's scope is broader than the DDL-shape heuristic already
+documented: any file with a `restore ... for replay` / `restore ... at
+replay-correct version` commit in its history is a candidate for the same
+regression on the *next* re-run of that script, regardless of its current DDL
+shape. Five more such commits identified (not yet checked against current
+file state) and the structural gap in the reconstruction script itself are
+detailed in
+`docs/control/RECONSTRUCTED_MIGRATION_IDEMPOTENCY_AUDIT_2026-08-31.md`.
+
+**Decision:** **GO** for this fix, on PR #1703. **Open**, and now flagged as
+higher-priority than originally scoped: the reconstruction script has no
+guard against re-clobbering a deliberate fix, which puts today's fixes
+(including the two from earlier in this entry) at risk on its next run.

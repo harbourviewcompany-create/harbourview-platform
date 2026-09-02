@@ -279,17 +279,41 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
     // returns a single object for an exact branch name and is not subject to
     // this ambiguity.
     case 'create_ref': {
+      // v18 fix (2026-08-31): op.branch was never validated. A call missing
+      // it built `refs/heads/undefined`, which succeeded ONCE (creating a
+      // real branch literally named "undefined") and then 422d "Reference
+      // already exists" on every later call regardless of the branch name
+      // or sha actually passed -- a genuinely misleading error for what is
+      // just a missing required param. Fail fast with a specific message
+      // instead of letting GitHub's ref-collision error stand in for it.
+      const branch = op.branch as string | undefined
+      if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
       const fromRef = (op.from_ref as string) ?? 'main'
       const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
       const baseSha = baseBranch.commit?.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,
-        body: JSON.stringify({ ref: `refs/heads/${op.branch}`, sha: baseSha })
+        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(`GitHub POST git/refs ${res.status}: ${JSON.stringify(data)}`)
       return { ok: true, ref: data.ref, sha: data.object?.sha }
+    }
+
+    // Delete a branch. op.branch: branch name, without refs/heads/ prefix.
+    // Added 2026-08-31 alongside the create_ref fix above -- there was
+    // previously no way to remove a stray branch (e.g. one created by the
+    // exact bug just fixed) without leaving the API for the GitHub UI.
+    case 'delete_ref': {
+      const branch = op.branch as string | undefined
+      if (!branch) throw new Error('delete_ref requires op.branch (branch name, without refs/heads/ prefix)')
+      const res = await fetch(`${BASE}/git/refs/heads/${encodeURIComponent(branch)}`, {
+        method: 'DELETE', headers: h,
+      })
+      if (res.status === 204) return { ok: true, deleted: `refs/heads/${branch}` }
+      const data = await res.json().catch(() => ({}))
+      throw new Error(`GitHub DELETE git/refs/heads/${branch} ${res.status}: ${JSON.stringify(data)}`)
     }
 
     case 'merge_pr': {

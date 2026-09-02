@@ -112,9 +112,33 @@ export function classifySignalType(text: string): RegulatorySignalType {
   return 'regulatory_guidance'
 }
 
+// Most sites append their own name to the <title> tag via SEO plugins
+// (e.g. "Article Headline - Site Name Inc." or "Article | Site Name"). Taking
+// that tag verbatim leaks the site's own branding into what should be a
+// clean signal headline. Only strip a trailing " - X" / " | X" / " — X"
+// segment when X is clearly the site's own name (matches source_name either
+// way, substring-wise) -- never strip a dash-separated clause just because
+// it's at the end, since that could be legitimate title content.
+const TITLE_SUFFIX_PATTERN = /\s+[-|\u2013\u2014]\s+([^-|\u2013\u2014]{2,60})$/
+
+export function stripSiteSuffix(title: string, sourceName: string): string {
+  const match = title.match(TITLE_SUFFIX_PATTERN)
+  if (!match) return title
+  const suffix = match[1].trim().toLowerCase()
+  const source = sourceName.trim().toLowerCase()
+  if (
+    source.length >= 3 &&
+    (suffix === source || suffix.includes(source) || source.includes(suffix))
+  ) {
+    return title.slice(0, match.index).trim()
+  }
+  return title
+}
+
 function titleFromHtml(html: string, fallback: string) {
   const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]
-  return normalizeWhitespace(stripHtml(title || fallback)).slice(0, 180)
+  const cleaned = normalizeWhitespace(stripHtml(title || fallback)).slice(0, 180)
+  return stripSiteSuffix(cleaned, fallback)
 }
 
 function extractRssItems(xml: string, source: WatchableRegulatorySource): ExtractedSourceItem[] {
