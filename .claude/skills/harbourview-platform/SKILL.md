@@ -75,7 +75,27 @@ Confirmed-missing/required vars to check whenever debugging runtime errors (`Ver
 `HF_TOKEN_SERVER`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, Stripe price IDs, email config vars.
 
 ## 4. Supabase MCP usage
+
+> **`apply_migration` writes to production and does NOT write a repository file.**
+> Every call creates a `supabase_migrations.schema_migrations` row that exists in
+> production and nowhere else — this is the single largest source of migration
+> drift in this repo. On 2026-09-02 the drift gate was red with 30 such versions,
+> 25 of them stamped `created_by = harbourviewcompany@gmail.com` (i.e. applied
+> through this tool). **Applying a migration is only half the change.** The other
+> half — committing the identical SQL to `supabase/migrations/<version>_<name>.sql`
+> on a branch, in a PR — is not optional and is not a follow-up task. Do both in
+> the same session or do neither.
+>
+> If you find yourself about to apply something to production that you have not
+> already written to a file, stop and write the file first. Recovery afterwards is
+> possible (`select statements[1] from supabase_migrations.schema_migrations where
+> version = '<version>'` returns the applied SQL verbatim) but it is strictly worse:
+> it costs a separate reconciliation PR, and comment/rationale content has been
+> lost that way before.
+
 - `execute_sql` and `apply_migration` are both reliable; **prefer `apply_migration`** for creating/replacing RPCs since it handles idempotency. It requires a `name` parameter.
+- Use the **same** `version`/`name` for the committed file as the applied migration, so the drift gate reconciles them.
+- Before pinning `search_path` on any function, check whether it depends on a type or operator from another schema (pgvector's `vector` lives in `extensions`). Pinning such a function to `public` alone breaks it at call time, not at apply time. Write the list unquoted — `set search_path to public, extensions` — since `set search_path = 'public, extensions'` quotes the whole list as one identifier and silently does not work. Both mistakes were made in production on 2026-09-01/02.
 - Cron jobs: `SELECT cron.schedule(...)`.
 - REST API base: `https://zvxdgdkukjrrwamdpqrg.supabase.co/rest/v1/`
   - Headers: `apikey: <service_role_key>` AND `Authorization: Bearer <service_role_key>`
