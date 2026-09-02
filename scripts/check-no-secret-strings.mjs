@@ -138,7 +138,44 @@ const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
  */
 const supabaseEnvInterpolation = /^env\([A-Z_][A-Z0-9_]{0,63}\)$/;
 const postgresAclShorthand = /^[A-Za-z*=]+\/[A-Za-z_][A-Za-z0-9_]*[},]?$/;
-const generatedVisualTestPassword = new RegExp('^HvMobile-\\$\\{GITHUB_RUN_ID\\}-Aa9!$');
+/**
+ * E2E workflows across this repo generate a throwaway per-run test-user
+ * password by embedding a GitHub run-scoped context variable in an
+ * otherwise-literal string, e.g.
+ * TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!" -- masked with
+ * ::add-mask:: on the next line before use, never the same value twice,
+ * never committed as a fixed literal.
+ *
+ * The previous version of this allowance was a single hardcoded literal
+ * (^HvMobile-\$\{GITHUB_RUN_ID\}-Aa9!$), copy-pasted correctly into six
+ * *-visual.yml workflows that all happened to reuse the exact "HvMobile"
+ * prefix regardless of their own name, but false-flagged the one
+ * workflow (jurisdiction-command-visual.yml) whose author used a
+ * context-appropriate prefix ("HvJurisdiction") instead of copying
+ * "HvMobile" verbatim -- ironically breaking on the one instance that
+ * followed better naming practice.
+ *
+ * Generalizing to "any value containing ${GITHUB_RUN_ID}" (or the other
+ * GitHub-provided run-scoped context variables below) would reopen the
+ * exact smuggling shape the supabaseEnvInterpolation note above already
+ * warns about: a real static secret with a decorative
+ * -${GITHUB_RUN_ID} suffix appended purely to dodge this scanner would
+ * pass, since the check only looks for presence, not exclusivity. Two
+ * guardrails close that instead of one:
+ *
+ * 1. The identifier itself must still look like a test fixture (contain
+ *    TEST after normalization) -- a real secret name (SERVICE_ROLE_KEY,
+ *    a vendor API_KEY) never legitimately needs a run-scoped suffix, so
+ *    this can never apply to one regardless of its value.
+ * 2. The embedded variable must be one of the specific GitHub-provided
+ *    context variables that are guaranteed unique per run (GITHUB_RUN_ID,
+ *    GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT, GITHUB_SHA) -- not an
+ *    arbitrary ${ANYTHING}, which could be a static config value someone
+ *    else set, not a genuinely run-unique one.
+ */
+const testFixtureIdentifier = /(?:^|_)TEST(?:_|$)/;
+const runScopedGithubContextVariable =
+  /\$\{(?:GITHUB_RUN_ID|GITHUB_RUN_NUMBER|GITHUB_RUN_ATTEMPT|GITHUB_SHA)\}/;
 const knownLocalTestPlaceholder = /^(?:postgres|local-test-(?:anon|service)-key)$/;
 const requestBodyReference = /^body\.[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -169,6 +206,12 @@ function isSensitiveIdentifier(identifier) {
   return /(?:^|_)(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|SERVICE_ROLE|API_KEY)(?:_|$)/.test(normalized);
 }
 
+// See the block comment above testFixtureIdentifier/runScopedGithubContextVariable
+// for why this needs both the identifier and the value, not just the value alone.
+function isTestFixtureRunScopedValue(identifier, value) {
+  return testFixtureIdentifier.test(normalizeIdentifier(identifier)) && runScopedGithubContextVariable.test(value);
+}
+
 function stripAssignmentTerminator(value) {
   return value.trim().replace(/[;,]$/, '').trim();
 }
@@ -193,7 +236,7 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
   if (safeAssignmentValue.test(value)) return true;
   if (shellVariableReference.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
-  if (generatedVisualTestPassword.test(value)) return true;
+  if (isTestFixtureRunScopedValue(identifier, value)) return true;
   if (requestBodyReference.test(value)) return true;
   // A command substitution computes a value at runtime; there is nothing
   // committed to leak. supabase-migrate.yml opens one to URL-encode the database
@@ -202,7 +245,18 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
 
   const directLiteral = unwrapDirectQuotedLiteral(value);
   if (directLiteral !== null) {
-    if (generatedVisualTestPassword.test(directLiteral)) return true;
+    // shellVariableReference above only matches an UNQUOTED bare reference
+    // (`$VAR` / `${VAR}`); it never reaches a quoted one, because the
+    // surrounding quote characters are still attached at that point and
+    // don't match the pattern. "${VAR}" (quoted) is at least as common in
+    // real shell usage as the unquoted form -- quoting is the normal way
+    // to safely handle a value that might contain spaces -- and carries
+    // the exact same safety property: nothing is committed here, the
+    // value is entirely a reference to some other variable. Re-testing
+    // against the unwrapped literal closes that gap the same way the
+    // three checks below it already do for their own patterns.
+    if (shellVariableReference.test(directLiteral)) return true;
+    if (isTestFixtureRunScopedValue(identifier, directLiteral)) return true;
     if (placeholderSecret.test(directLiteral)) return true;
     if (knownLocalTestPlaceholder.test(directLiteral)) return true;
     if (isSupabaseEnvReference(directLiteral)) return true;
@@ -292,6 +346,24 @@ function runSelfTest() {
     ['jwt disguised as env interpolation', 'auth_token = "env(eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9)"', 1],
     ['aws key disguised as env interpolation', `aws_secret_key = "env(${vendorFixture.aws})"`, 2],
     ['generated isolated password', 'TEST_PASSWORD="HvMobile-${GITHUB_RUN_ID}-Aa9!"', 0],
+    // The actual false positive this generalization fixes: same shape, a
+    // different (more appropriate) literal prefix than every other copy of
+    // this line in the repo happened to use.
+    ['generated isolated password, different prefix', 'TEST_PASSWORD="HvJurisdiction-${GITHUB_RUN_ID}-Aa9!"', 0],
+    ['generated isolated password, other run-scoped vars', 'TEST_PASSWORD="Hv-${GITHUB_RUN_NUMBER}-${GITHUB_SHA}"', 0],
+    // Both guardrails from the block comment above testFixtureIdentifier,
+    // each tested in isolation: satisfying only one must still flag.
+    [
+      'run-scoped suffix on a non-test-named secret must still flag',
+      'SERVICE_ROLE_KEY="reallyStaticSecretValue1234-${GITHUB_RUN_ID}"',
+      1,
+    ],
+    ['test-named identifier with a non-run-scoped variable must still flag', 'TEST_PASSWORD="${SOME_OTHER_VAR}-Aa9!"', 1],
+    // The second real false positive from the same investigation: a quoted
+    // reference to another already-established shell variable two lines
+    // below the password assignment above -- same file, same real bug.
+    ['quoted reference to another shell variable', 'export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"', 0],
+    ['quoted reference, unquoted form still matches too', 'export E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
     ['dynamic request token', 'const token = body.token', 0],
