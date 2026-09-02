@@ -80,6 +80,7 @@ jobs:
           tests/scripts/migration-ledger-manifest.test.mjs
           tests/scripts/historical-migration-attestations.test.mjs
           tests/scripts/notify-new-migration-drift.test.mjs
+          tests/scripts/lint-workflow-continue-on-error-guards.test.mjs
 
   check-drift:
     name: Compare repository and live migration ledgers
@@ -160,16 +161,25 @@ jobs:
             --source-sha "$GITHUB_SHA"
 
       - name: Notify on new migration drift
-        # Only meaningful once a manifest actually exists; the manifest step
-        # above already runs continue-on-error, so this must not assume it
-        # succeeded. This step's own failure must not fail the job -- gate
-        # enforcement below already covers manifest.outcome directly, and a
-        # notification bug should never block or pass a merge on its own.
-        if: always() && steps.manifest.outcome == 'success'
+        # steps.manifest.outcome is unusable as a guard here: the manifest
+        # script deliberately throws in --mode drift whenever
+        # applied_not_committed is nonempty (that throw is what makes this
+        # job's overall check fail), and continue-on-error only overrides the
+        # step's displayed *conclusion* to success -- steps.<id>.outcome in
+        # if: expressions still reflects the raw pre-override result, so it
+        # reads 'failure' on the exact runs this step exists to act on. The
+        # manifest JSON is written unconditionally before that throw (see
+        # migration-ledger-manifest.mjs -- writeOutput happens before the
+        # `if (args.mode === 'drift')` throw), so check for the file instead.
+        if: always()
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          if [ ! -f artifacts/migration-drift/manifest.json ]; then
+            echo "No manifest.json produced (manifest step failed before writing output) -- nothing to notify on."
+            exit 0
+          fi
           node scripts/notify-new-migration-drift.mjs \
             --manifest artifacts/migration-drift/manifest.json \
             --baseline supabase/release-controls/migration-drift-watch-baseline.json \
