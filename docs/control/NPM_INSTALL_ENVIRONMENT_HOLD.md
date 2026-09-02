@@ -1,5 +1,26 @@
 # NPM Install Environment HOLD
 
+> **SUPERSEDED 2026-09-02 — verified live. The hold described below is not current.**
+> `npm ci` completes in this repository in ~25 seconds (674 packages), and the exact
+> tarball recorded below as the first failure now returns HTTP 200:
+>
+> ```
+> $ curl -sS -o /dev/null -w "%{http_code}" https://registry.npmjs.org/zustand/-/zustand-5.0.12.tgz
+> 200
+> $ npm ci --no-audit --no-fund
+> added 674 packages in 25s
+> ```
+>
+> This matters because the document below has been cited to skip the `AGENTS.md` QA gate —
+> lint, typecheck, test and build were reported as "unavailable" on the strength of it,
+> without anyone re-testing. The classification below ("environment / proxy / registry
+> access policy issue") was accurate when written and is kept as history. **Re-verify
+> before citing it again**; do not use it as standing justification for an unrun QA suite.
+>
+> Full QA run on 2026-09-02 under this correction: lint 0 errors / 209 warnings,
+> typecheck exit 0, 1,169 tests passed across 142 files, production build 0 errors.
+
+
 ## Scope
 
 This document records the current Harbourview production stabilization HOLD related to deterministic npm dependency installation.
