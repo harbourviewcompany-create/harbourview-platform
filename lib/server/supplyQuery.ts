@@ -1,14 +1,20 @@
 import 'server-only'
 
+// EXPLICIT PRODUCT DECISION, STATED TWICE: the supply catalog must show
+// full real data (stock, MOQ, lead time, brand/model, real compliance
+// flags) rather than redacted placeholders. A prior version of this file
+// pointed at the redacted api.supply_catalog_public_v1 DTO; that was
+// reverted back to this full-detail contract after direct instruction.
+// Do not re-redact this without checking with the product owner first --
+// this has already been reverted back and forth once.
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const TARGET_PUBLIC_VIEW = 'supply_catalog_public_v1'
 
-export type PublicSupplyAttribute = {
-  key: string
-  label: string
-  value: string
-}
+// Dedicated, isolated public view for the Harbourview-direct supply
+// catalog -- deliberately NOT api.marketplace_public_listings_v1 (the
+// shared canonical contract for every other /marketplace/* public page)
+// and deliberately NOT api.supply_catalog_public_v1 (the redacted DTO).
+const TARGET_PUBLIC_VIEW = 'supply_catalog_detail_v1'
 
 export type SupplyListing = {
   id: string
@@ -19,33 +25,36 @@ export type SupplyListing = {
   marketplace_section: string
   product_type: string | null
   region: string
-  price_currency: string
-  price_display: string
-  is_featured: boolean
-  created_at: string
-  sku: string
+  condition: string | null
+  sku: string | null
+  brand: string | null
+  model: string | null
+  quantity: number | null
   unit: string | null
-  moq_display: string | null
-  lead_time_display: string | null
-  availability_status: string
+  price_amount: number | null
+  price_currency: string
+  price_display: string | null
+  is_featured: boolean
+  stock_qty: number | null
+  lead_time_days: number | null
+  moq: number | null
+  compliance_flags: Record<string, Record<string, unknown>>
   target_countries: string[]
-  public_attributes: PublicSupplyAttribute[]
-  review_note: string
+  high_level_specs: Record<string, unknown>
+  created_at: string
 }
 
 const SELECT_COLS =
-  'id,slug,title,description,category,marketplace_section,product_type,region,' +
-  'price_currency,price_display,is_featured,created_at,sku,unit,moq_display,' +
-  'lead_time_display,availability_status,target_countries,public_attributes,review_note'
+  'id,slug,title,description,category,marketplace_section,product_type,region,condition,' +
+  'sku,brand,model,quantity,unit,price_amount,price_currency,price_display,is_featured,' +
+  'stock_qty,lead_time_days,moq,compliance_flags,target_countries,high_level_specs,created_at'
 
 const PUBLIC_LISTING_CACHE: RequestInit = { next: { revalidate: 300 } }
 
-function isPublicSupplyAttribute(value: unknown): value is PublicSupplyAttribute {
-  if (!value || typeof value !== 'object') return false
-  const row = value as Record<string, unknown>
-  return typeof row.key === 'string' && typeof row.label === 'string' && typeof row.value === 'string'
-}
-
+// Runtime validation on every row before it reaches a page -- adopted from
+// the redacted DTO's approach (worth keeping regardless of the
+// full-vs-redacted data decision): a malformed/partial row from PostgREST
+// should be dropped, not rendered with undefined fields.
 function toSupplyListing(value: unknown): SupplyListing | null {
   if (!value || typeof value !== 'object') return null
   const row = value as Record<string, unknown>
@@ -58,12 +67,8 @@ function toSupplyListing(value: unknown): SupplyListing | null {
     typeof row.marketplace_section !== 'string' ||
     typeof row.region !== 'string' ||
     typeof row.price_currency !== 'string' ||
-    typeof row.price_display !== 'string' ||
     typeof row.is_featured !== 'boolean' ||
-    typeof row.created_at !== 'string' ||
-    typeof row.sku !== 'string' ||
-    typeof row.availability_status !== 'string' ||
-    typeof row.review_note !== 'string'
+    typeof row.created_at !== 'string'
   ) {
     return null
   }
@@ -77,22 +82,31 @@ function toSupplyListing(value: unknown): SupplyListing | null {
     marketplace_section: row.marketplace_section,
     product_type: typeof row.product_type === 'string' ? row.product_type : null,
     region: row.region,
-    price_currency: row.price_currency,
-    price_display: row.price_display,
-    is_featured: row.is_featured,
-    created_at: row.created_at,
-    sku: row.sku,
+    condition: typeof row.condition === 'string' ? row.condition : null,
+    sku: typeof row.sku === 'string' ? row.sku : null,
+    brand: typeof row.brand === 'string' ? row.brand : null,
+    model: typeof row.model === 'string' ? row.model : null,
+    quantity: typeof row.quantity === 'number' ? row.quantity : null,
     unit: typeof row.unit === 'string' ? row.unit : null,
-    moq_display: typeof row.moq_display === 'string' ? row.moq_display : null,
-    lead_time_display: typeof row.lead_time_display === 'string' ? row.lead_time_display : null,
-    availability_status: row.availability_status,
+    price_amount: typeof row.price_amount === 'number' ? row.price_amount : null,
+    price_currency: row.price_currency,
+    price_display: typeof row.price_display === 'string' ? row.price_display : null,
+    is_featured: row.is_featured,
+    stock_qty: typeof row.stock_qty === 'number' ? row.stock_qty : null,
+    lead_time_days: typeof row.lead_time_days === 'number' ? row.lead_time_days : null,
+    moq: typeof row.moq === 'number' ? row.moq : null,
+    compliance_flags:
+      row.compliance_flags && typeof row.compliance_flags === 'object'
+        ? (row.compliance_flags as Record<string, Record<string, unknown>>)
+        : {},
     target_countries: Array.isArray(row.target_countries)
-      ? row.target_countries.filter((country): country is string => typeof country === 'string')
+      ? row.target_countries.filter((c): c is string => typeof c === 'string')
       : [],
-    public_attributes: Array.isArray(row.public_attributes)
-      ? row.public_attributes.filter(isPublicSupplyAttribute)
-      : [],
-    review_note: row.review_note,
+    high_level_specs:
+      row.high_level_specs && typeof row.high_level_specs === 'object'
+        ? (row.high_level_specs as Record<string, unknown>)
+        : {},
+    created_at: row.created_at,
   }
 }
 
@@ -111,7 +125,7 @@ async function queryListings(params: URLSearchParams): Promise<SupplyListing[]> 
     })
 
     if (!res.ok) {
-      console.error('Supply catalog public query failed', { status: res.status, view: TARGET_PUBLIC_VIEW })
+      console.error('Supply catalog query failed', { status: res.status, view: TARGET_PUBLIC_VIEW })
       return []
     }
 
@@ -119,7 +133,7 @@ async function queryListings(params: URLSearchParams): Promise<SupplyListing[]> 
     if (!Array.isArray(payload)) return []
     return payload.map(toSupplyListing).filter((listing): listing is SupplyListing => listing !== null)
   } catch (error) {
-    console.error('Supply catalog public query failed', {
+    console.error('Supply catalog query failed', {
       view: TARGET_PUBLIC_VIEW,
       message: error instanceof Error ? error.message : 'unknown error',
     })
@@ -127,7 +141,7 @@ async function queryListings(params: URLSearchParams): Promise<SupplyListing[]> 
   }
 }
 
-function baseParams(limit = 100): URLSearchParams {
+function baseParams(limit = 300): URLSearchParams {
   return new URLSearchParams({
     select: SELECT_COLS,
     order: 'is_featured.desc,title.asc',
@@ -160,7 +174,7 @@ const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export async function getSupplyCatalog(
   filters: SupplyCatalogFilters = {},
-  limit = 100,
+  limit = 300,
 ): Promise<SupplyListing[]> {
   const p = baseParams(limit)
 
@@ -176,8 +190,10 @@ export async function getSupplyCatalog(
 
   const search = filters.search?.trim()
   if (search) {
+    // Escape PostgREST filter-syntax special characters before interpolating
+    // into an `or=` expression -- same defensive pattern as the redacted DTO.
     const escaped = search.replace(/[,*()]/g, ' ').replace(/\s+/g, ' ').trim()
-    if (escaped) p.set('or', `(title.ilike.*${escaped}*,sku.ilike.*${escaped}*)`)
+    if (escaped) p.set('or', `(title.ilike.*${escaped}*,sku.ilike.*${escaped}*,brand.ilike.*${escaped}*)`)
   }
 
   return queryListings(p)

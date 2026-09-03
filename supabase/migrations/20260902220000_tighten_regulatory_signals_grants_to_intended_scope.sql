@@ -1,0 +1,44 @@
+-- Follow-up to 20260829181346_fix_regulatory_signals_missing_grants.sql
+-- (renamed from 20260830000000 by #1701).
+--
+-- Live inspection (2026-08-31) found anon and authenticated both holding
+-- INSERT, UPDATE, and DELETE on regulatory_signals.sources and
+-- regulatory_signals.source_snapshots. Before writing a blanket revoke,
+-- checked every migration in this repository's history that touches
+-- either table's grants (schema_migrations.statements holds the real,
+-- complete SQL for every applied migration -- see below), to avoid
+-- reverting something intentional:
+--
+--   20260613040315_fresh_regulatory_sources_engine.sql grants authenticated
+--   (not anon) SELECT/INSERT/UPDATE/DELETE on source_snapshots
+--   specifically, deliberately, alongside its own dedicated policy
+--   (regulatory_source_snapshots_admin_operator_only, for all to
+--   authenticated, admin/operator check) as the enforcement mechanism.
+--   That grant is real, intentional, and load-bearing: PostgREST writes
+--   as `authenticated`, and Postgres requires both grant-level
+--   permission and RLS policy passage -- revoking the grant would break
+--   every legitimate admin/operator source-snapshot write, not just
+--   close a hygiene gap. This migration does not touch it.
+--
+--   20260829181346_fix_regulatory_signals_missing_grants.sql grants
+--   anon and authenticated SELECT only, on both tables -- nothing else,
+--   for either role, on either table, anywhere else in this
+--   repository's migration history.
+--
+-- So exactly three of the four excess privilege grants found live are
+-- genuinely unaccounted for and safe to revoke; the fourth
+-- (authenticated + source_snapshots: INSERT/UPDATE/DELETE) is
+-- deliberately excluded, not overlooked.
+--
+-- Confirmed inert before writing this, same as the excluded case is
+-- confirmed load-bearing: RLS is enabled on both tables
+-- (relrowsecurity = true), and neither table's policy names anon in its
+-- roles list. Revoking anon's write privileges and authenticated's
+-- write privileges on `sources` specifically changes no currently
+-- observable query result for any role -- RLS already fully enforces
+-- the intended boundary in both cases. This closes the gap between
+-- "enforced" and "granted" so a future change to either policy's USING
+-- clause doesn't silently inherit write access nobody meant to give it.
+
+revoke insert, update, delete on regulatory_signals.sources from anon, authenticated;
+revoke insert, update, delete on regulatory_signals.source_snapshots from anon;
