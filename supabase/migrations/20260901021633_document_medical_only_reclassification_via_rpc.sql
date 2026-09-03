@@ -1,15 +1,14 @@
--- Reconstructed from production. Verbatim statements for version 20260901021633.
 -- Documents a reclassification that was originally applied via ad-hoc
--- api.set_regulatory_tier() calls (not through apply_migration), so it never
+-- api.set_regulatory_tier() calls (not through the migration pipeline), so it never
 -- got a tracked version or a repo migration file until now. Idempotent: only
 -- touches rows that don't already have the target tier, so safe to run even
--- though the underlying data change already happened.
+-- though the underlying data change already happened in production.
 --
 -- Same class of fix as the rest of this batch: these 30 jurisdictions were
 -- tagged domestic_only (implying a real domestic legal market) when their own
 -- rationale describes a narrow medical-prescription-only program with no
 -- adult-use/decrim/home-cultivation dimension.
-DO $$
+DO $do$
 DECLARE
   iso text;
   target_isos text[] := array[
@@ -29,7 +28,7 @@ BEGIN
       );
     END IF;
   END LOOP;
-END $$;
+END $do$;
 
 UPDATE public.countries
 SET market_access_status = CASE regulatory_tier
