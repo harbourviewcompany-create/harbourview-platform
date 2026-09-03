@@ -76,12 +76,48 @@ export const intelligenceSignals: IntelligenceSignal[] = [
     id: 'signal-de-importer-demand-001',
     title: 'Importer demand signal fixture',
     country: 'Germany',
+    region: 'Europe',
     category: 'demand',
-    strength: 'medium',
-    status: 'active',
+    severity: 'review',
+    confidence: 'medium',
+    reviewStatus: 'published',
     summary: 'Private demand signal fixture for importer pathway review.',
+    analystAssessment: 'Private analyst assessment. Not public-safe by default.',
+    publicSummary: 'Importer-led demand in Germany remains contingent on documentation readiness and counterparty fit.',
     sourceIds: ['source-de-bfarm-001'],
-    internalNotes: 'Private signal notes.'
+    evidence: [
+      {
+        id: 'evidence-de-importer-001',
+        sourceUrl: 'https://example.invalid/private/source/de-bfarm-001',
+        sourceName: 'BfArM public medical cannabis page',
+        capturedAt: '2026-05-08',
+        evidenceHash: 'fixture-hash-de-001',
+        excerpt: 'Fixture excerpt retained privately for provenance.',
+        privateNotes: 'Fixture only. No live fetch performed.'
+      }
+    ],
+    provenanceSummary: 'Single government-source fixture, captured for provenance testing only.',
+    internalNotes: 'Private signal notes.',
+    createdAt: '2026-05-08',
+    reviewedAt: '2026-05-08',
+    publishedAt: '2026-05-08'
+  },
+  {
+    id: 'signal-uk-policy-watch-001',
+    title: 'UK policy watch signal fixture',
+    country: 'United Kingdom',
+    region: 'Europe',
+    category: 'policy',
+    severity: 'watch',
+    confidence: 'low',
+    reviewStatus: 'under_review',
+    summary: 'Private policy watch fixture; deliberately unpublished so projection tests have a negative case.',
+    analystAssessment: 'Private under-review assessment. Must not reach the public projection.',
+    sourceIds: ['source-uk-policy-001'],
+    evidence: [],
+    provenanceSummary: 'No captured evidence yet; retained as an unpublished negative fixture.',
+    internalNotes: 'Private under-review notes.',
+    createdAt: '2026-05-08'
   }
 ];
 
@@ -89,10 +125,13 @@ export const counterparties: CounterpartyRecord[] = [
   {
     id: 'counterparty-de-importer-001',
     name: 'Private German importer fixture',
+    entityType: 'importer',
     country: 'Germany',
-    role: 'importer',
-    verificationStatus: 'unverified',
-    website: 'https://example.invalid/private/importer',
+    region: 'Europe',
+    capabilities: ['import', 'distribution'],
+    relationshipStatus: 'screening',
+    diligenceStatus: 'needs_review',
+    contactEmail: 'private.importer@example.invalid',
     linkedinUrl: 'https://example.invalid/private/linkedin',
     gatekeepers: ['private gatekeeper fixture'],
     redFlags: ['unverified fixture only'],
