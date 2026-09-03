@@ -1,4 +1,3 @@
--- Reconstructed from production. Verbatim statements for version 20260830184434.
 -- Root cause: market_access_status (drives the globe choropleth legend: MARKET ACCESS)
 -- had drifted out of sync with regulatory_tier (the actively-reviewed, always-populated
 -- source of truth: 0 NULLs across 291 countries, tracked with review/source metadata).
@@ -24,7 +23,7 @@ WHERE regulatory_tier IS NOT NULL;
 CREATE OR REPLACE FUNCTION public.sync_market_access_status()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $$
+AS $func$
 BEGIN
   NEW.market_access_status := CASE NEW.regulatory_tier
     WHEN 'legal_commercial_access' THEN 'open'
@@ -36,7 +35,7 @@ BEGIN
   END::market_access_status;
   RETURN NEW;
 END;
-$$;
+$func$;
 
 DROP TRIGGER IF EXISTS trg_sync_market_access_status ON public.countries;
 CREATE TRIGGER trg_sync_market_access_status
