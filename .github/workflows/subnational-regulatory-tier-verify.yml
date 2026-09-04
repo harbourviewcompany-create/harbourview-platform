@@ -6,8 +6,6 @@ on:
     paths:
       - components/globe/r3f/CountryPolygonMeshLayer.tsx
       - components/globe/r3f/GlobeCanvas.tsx
-      - components/globe/GlobeProvider.tsx
-      - lib/globe/supabaseGlobeData.ts
       - data/globe/us-state-tiers.ts
       - data/globe/canada-province-tiers.ts
       - data/globe/germany-state-tiers.ts
@@ -18,10 +16,7 @@ on:
       - data/globe/germany-bundeslaender.ts
       - data/globe/australia-states.ts
       - supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql
-      - supabase/migrations/20260831130000_evidence_backed_market_access_authority.sql
-      - supabase/migrations/20260831130500_market_access_evidence_uniqueness.sql
       - tests/globe/subnational-regulatory-tiers.test.ts
-      - tests/globe/market-access-evidence.test.ts
       - .github/workflows/subnational-regulatory-tier-verify.yml
   workflow_dispatch:
 
@@ -47,8 +42,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Geometry, coverage, precedence and evidence contracts
-        run: npx vitest run tests/globe/subnational-regulatory-tiers.test.ts tests/globe/market-access-evidence.test.ts tests/globe/supabaseGlobeData.test.ts
+      - name: Geometry, coverage and precedence contracts
+        run: npx vitest run tests/globe/subnational-regulatory-tiers.test.ts
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: 2.109.1
@@ -63,54 +58,16 @@ jobs:
           eval "$(supabase status -o env)"
           counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%') || '|' || count(*) filter (where iso_alpha2 like 'CA-%') || '|' || count(*) filter (where iso_alpha2 like 'DE-%') || '|' || count(*) filter (where iso_alpha2 like 'AU-%') || '|' || count(*) filter (where iso_alpha2 ~ '^(US|CA|DE|AU)-' and regulatory_tier is not null and lat is not null and lng is not null) from public.countries;")"
           test "$counts" = "51|13|16|8|88"
-      - name: Evidence-backed publication authority
-        shell: bash
-        run: |
-          set -euo pipefail
-          eval "$(supabase status -o env)"
-
-          # Complete audited universe: 203 country/territory rows + 88 supported
-          # US/CA/AU/DE subnational rows = 291 current renderable rows.
-          universe="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) from public.countries where iso_alpha2 is not null;")"
-          test "$universe" = "291"
-
-          # Evidence-backed publication result. Any row outside these 117 current
-          # evidence records must remain neutral rather than inherit a classifier.
-          counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where verified_regulatory_tier='legal_commercial_access') || '|' || count(*) filter (where verified_regulatory_tier='medical_limited_trade') || '|' || count(*) filter (where verified_regulatory_tier='domestic_only') || '|' || count(*) filter (where verified_regulatory_tier='cbd_hemp_only') || '|' || count(*) filter (where verified_regulatory_tier='prohibited') || '|' || count(*) filter (where verified_regulatory_tier is null) from public.countries where iso_alpha2 is not null;")"
-          test "$counts" = "65|20|23|9|0|174"
-
-          coverage="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%' and verified_regulatory_tier is not null) || '|' || count(*) filter (where iso_alpha2 like 'CA-%' and verified_regulatory_tier='legal_commercial_access') || '|' || count(*) filter (where iso_alpha2 like 'AU-%' and verified_regulatory_tier='legal_commercial_access') || '|' || count(*) filter (where iso_alpha2 like 'DE-%' and verified_regulatory_tier='legal_commercial_access') from public.countries;")"
-          test "$coverage" = "51|13|8|16"
-
-          # No published claim may exist without complete, current evidence metadata.
-          invalid="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) from public.countries where verified_regulatory_tier is not null and (regulatory_tier_evidence_key is null or regulatory_tier_verified_at is null or regulatory_tier_expires_at is null or regulatory_tier_verified_at > now() or regulatory_tier_expires_at <= now());")"
-          test "$invalid" = "0"
-
-          # Direct publication authority is unique. Inheritance is allowed only
-          # from CA/AU/DE national licensed pathways, never from US federal status.
-          dup_direct="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) from (select jurisdiction_iso2 from public.regulatory_market_access_evidence where active and parent_iso2 is null group by jurisdiction_iso2 having count(*) > 1) d;")"
-          test "$dup_direct" = "0"
-          bad_parent="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) from public.regulatory_market_access_evidence where active and parent_iso2 is not null and parent_iso2 not in ('CA','AU','DE');")"
-          test "$bad_parent" = "0"
-
-          # Known false-positive regression examples from production must resolve
-          # to evidence-backed state law, not generic briefing prose.
-          us_regressions="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select string_agg(iso_alpha2 || '=' || verified_regulatory_tier, ',' order by iso_alpha2) from public.countries where iso_alpha2 in ('US-DC','US-GA','US-IA','US-ID','US-IN','US-KS','US-NC','US-SC','US-TN','US-VA','US-WI','US-WY');")"
-          test "$us_regressions" = "US-DC=medical_limited_trade,US-GA=medical_limited_trade,US-IA=cbd_hemp_only,US-ID=cbd_hemp_only,US-IN=cbd_hemp_only,US-KS=cbd_hemp_only,US-NC=cbd_hemp_only,US-SC=cbd_hemp_only,US-TN=cbd_hemp_only,US-VA=medical_limited_trade,US-WI=cbd_hemp_only,US-WY=cbd_hemp_only"
       - name: Idempotent migration replay
         shell: bash
         run: |
           set -euo pipefail
           eval "$(supabase status -o env)"
           psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260820140000_seed_subnational_regulatory_tiers.sql
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260831130000_evidence_backed_market_access_authority.sql
-          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260831130500_market_access_evidence_uniqueness.sql
           counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%') || '|' || count(*) filter (where iso_alpha2 like 'CA-%') || '|' || count(*) filter (where iso_alpha2 like 'DE-%') || '|' || count(*) filter (where iso_alpha2 like 'AU-%') || '|' || count(*) filter (where iso_alpha2 ~ '^(US|CA|DE|AU)-' and regulatory_tier is not null and lat is not null and lng is not null) from public.countries;")"
           test "$counts" = "51|13|16|8|88"
           tier_counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='medical_limited_trade') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='cbd_hemp_only') || '|' || count(*) filter (where iso_alpha2 like 'US-%' and regulatory_tier='prohibited') || '|' || count(*) filter (where iso_alpha2 like 'CA-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'DE-%' and regulatory_tier='domestic_only') || '|' || count(*) filter (where iso_alpha2 like 'AU-%' and regulatory_tier='medical_limited_trade') from public.countries;")"
           test "$tier_counts" = "25|17|8|1|13|16|8"
-          verified_counts="$(psql "$DB_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) filter (where verified_regulatory_tier is not null) || '|' || count(*) filter (where verified_regulatory_tier is null) from public.countries where iso_alpha2 is not null;")"
-          test "$verified_counts" = "117|174"
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup || true

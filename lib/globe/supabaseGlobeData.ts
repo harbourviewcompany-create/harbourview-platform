@@ -1,9 +1,19 @@
 /**
  * lib/globe/supabaseGlobeData.ts
  *
- * Public Market Access colour is sourced from countries.verified_regulatory_tier,
- * which is populated only by structured regulatory evidence. The legacy
- * countries.regulatory_tier field is intentionally not read for colouring.
+ * Real schema, verified live against the database on 2026-07-21:
+ * - `countries` has lat/lng + iso_alpha2 — this is the actual marker source
+ *   (there is no `suppliers` table with geo fields; do not reintroduce one).
+ * - `signals.country` is free text, but as of migration
+ *   `20260716195743_signals_country_iso_resolution`, `signals.country_iso2`
+ *   is resolved server-side by the `trg_signals_resolve_geo` trigger on every
+ *   insert/update (direct match, `country_name_aliases`, or a regional/global
+ *   bucket via `signal_geo_labels`) — read it directly, do not re-resolve
+ *   client-side.
+ * - `market_metrics` has country_iso2 (real column) for market-size/opportunity
+ *   overlays if needed later.
+ * - There is no `realtime_metrics` table. If telemetry is wanted, that's a
+ *   separate migration + decision, not assumed here.
  */
 import { createClient } from '@/lib/supabase/client'
 import type { RegulatoryTier } from './globe-materials'
@@ -16,12 +26,16 @@ export type GlobeCountryMarker = {
   lng: number
   opportunityScore: number | null
   signalsStatus: string | null
+  /**
+   * Legacy, unsourced. Retained because other code reads it. Do NOT use it to
+   * colour the globe: it grades the UK (lawful Schedule 2 medical market) the
+   * same as Saudi Arabia (prohibited, death penalty), and `import_status` /
+   * `export_status` claim the US actively imports and exports. Use
+   * `regulatoryTier` instead.
+   */
   marketAccessStatus: string | null
-  /** Evidence-backed published tier. null = unresolved/stale -> neutral. */
+  /** Live tier from countries.regulatory_tier. null = unresolved → renders neutral. */
   regulatoryTier: RegulatoryTier | null
-  regulatoryTierEvidenceKey: string | null
-  regulatoryTierVerifiedAt: string | null
-  regulatoryTierExpiresAt: string | null
 }
 
 export type GlobeSignal = {
@@ -30,45 +44,32 @@ export type GlobeSignal = {
   score: number | null
   cat: string | null
   createdAt: string
-  countryIso2: string | null
+  countryIso2: string | null // null = regional/unmapped, see unmappedSignalCountries
 }
 
 export type GlobeLiveData = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
+  /** Signals whose `country` value didn't resolve to a plottable ISO2 —
+   *  surfaced so this doesn't fail silently. Includes regional buckets
+   *  ("Global", "Europe", etc.) and genuinely unmapped country strings. */
   unmappedSignalCountries: Record<string, number>
 }
 
-export type PublishedTierRow = {
-  verified_regulatory_tier?: string | null
-  regulatory_tier_evidence_key?: string | null
-  regulatory_tier_verified_at?: string | null
-  regulatory_tier_expires_at?: string | null
-}
-
-/** Fail closed unless tier + evidence + verification + unexpired freshness all agree. */
-export function resolvePublishedRegulatoryTier(
-  row: PublishedTierRow,
-  nowMs: number = Date.now(),
-): RegulatoryTier | null {
-  const tier = row.verified_regulatory_tier as RegulatoryTier | null | undefined
-  if (!tier || !row.regulatory_tier_evidence_key || !row.regulatory_tier_verified_at || !row.regulatory_tier_expires_at) {
-    return null
-  }
-  const verifiedMs = Date.parse(row.regulatory_tier_verified_at)
-  const expiresMs = Date.parse(row.regulatory_tier_expires_at)
-  if (!Number.isFinite(verifiedMs) || !Number.isFinite(expiresMs)) return null
-  if (verifiedMs > nowMs || expiresMs <= nowMs) return null
-  return tier
-}
-
+/**
+ * Fetch only current jurisdiction marker/tier rows.
+ *
+ * The heatmap uses this lightweight query on initial browser load so it never
+ * depends on a stale cached /api/globe snapshot for regulatory colour. Realtime
+ * country events then keep the same collection current while the page is open.
+ */
 export async function getGlobeCountryMarkers(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeCountryMarker[]> {
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
     .select(
-      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
+      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, regulatory_tier'
     )
     .not('lat', 'is', null)
     .not('lng', 'is', null)
@@ -77,7 +78,6 @@ export async function getGlobeCountryMarkers(
     throw new Error(`getGlobeCountryMarkers: countries query failed: ${countriesError.message}`)
   }
 
-  const nowMs = Date.now()
   return (countryRows ?? []).map((c) => ({
     iso2: c.iso_alpha2,
     name: c.country_name,
@@ -86,13 +86,17 @@ export async function getGlobeCountryMarkers(
     opportunityScore: c.opportunity_score,
     signalsStatus: c.signals_status,
     marketAccessStatus: c.market_access_status,
-    regulatoryTier: resolvePublishedRegulatoryTier(c, nowMs),
-    regulatoryTierEvidenceKey: c.regulatory_tier_evidence_key ?? null,
-    regulatoryTierVerifiedAt: c.regulatory_tier_verified_at ?? null,
-    regulatoryTierExpiresAt: c.regulatory_tier_expires_at ?? null,
+    regulatoryTier: (c.regulatory_tier as RegulatoryTier | null) ?? null,
   }))
 }
 
+/**
+ * Fetch the complete globe payload. Accepts an injected Supabase client so the
+ * same query can run under the browser client or a server-side anon client.
+ * The server route caches this complete payload for signal/read-load efficiency;
+ * GlobeProvider separately reconciles the countries array from the fresh helper
+ * above before publishing the initial heatmap state.
+ */
 export async function getGlobeLiveData(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeLiveData> {
@@ -101,7 +105,10 @@ export async function getGlobeLiveData(
   const { data: signalRows, error: signalsError } = await supabase
     .from('signals')
     .select('id, headline, score, cat, country, country_iso2, created_at')
-    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .gte(
+      'created_at',
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    )
     .order('created_at', { ascending: false })
     .limit(500)
 
@@ -122,6 +129,7 @@ export async function getGlobeLiveData(
       createdAt: row.created_at,
       countryIso2: iso2,
     }
+
     if (iso2) {
       if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
       signalsByIso2[iso2].push(signal)
@@ -130,6 +138,7 @@ export async function getGlobeLiveData(
       unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
     }
   }
+
   return { countries, signalsByIso2, unmappedSignalCountries }
 }
 
@@ -143,6 +152,15 @@ export type SignalRealtimeRow = {
   created_at: string
 }
 
+/**
+ * Merges one realtime INSERT/UPDATE `signals` row into live data. Pulled out of
+ * GlobeProvider so the merge logic (iso2 bucketing, unmapped tracking, per-country
+ * cap) is unit-testable without rendering the provider.
+ *
+ * Called for both INSERT and UPDATE (GlobeProvider only skips DELETE), so a row
+ * already present — e.g. an editorial curation edit setting `reviewed`/
+ * `editorial_title` — must replace its old entry, not duplicate it.
+ */
 export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeRow): GlobeLiveData {
   const iso2 = row.country_iso2
   const signal: GlobeSignal = {
@@ -153,8 +171,13 @@ export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeR
     createdAt: row.created_at,
     countryIso2: iso2,
   }
+
   if (!iso2) {
     const key = row.country ?? '(null)'
+    // Known imprecision: an UPDATE to a signal that was already unmapped (id
+    // already counted) still increments this bucket, since the counter alone
+    // can't tell INSERT from UPDATE. Not fixed here — unmappedSignalCountries
+    // is a diagnostic surfaced nowhere in the UI yet; revisit if that changes.
     return {
       ...prev,
       unmappedSignalCountries: {
@@ -163,6 +186,7 @@ export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeR
       },
     }
   }
+
   const existing = prev.signalsByIso2[iso2] ?? []
   return {
     ...prev,
