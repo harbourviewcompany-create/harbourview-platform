@@ -5675,3 +5675,78 @@ detailed in
 higher-priority than originally scoped: the reconstruction script has no
 guard against re-clobbering a deliberate fix, which puts today's fixes
 (including the two from earlier in this entry) at risk on its next run.
+
+---
+
+## 2026-09-05 — Symmetric drift gate caught its own baseline defect on the first push
+
+**Evidence ID:** `HV-DRIFT-COMMITTED-BASELINE-CORRECTION-20260905`
+
+The `committed_not_applied` half of the migration drift gate landed on `main`
+in `8d57282` with a 124-version grandfathering baseline. On the first push
+that baseline was proved two versions short: the gate failed naming
+`20260722120002` and `20260729000000`.
+
+**Root cause — verification method, not the gate.** The baseline was checked
+by comparing *cardinalities* (797 applied pre-August vs 797 pre-August
+repository versions outside the baseline) rather than the sets themselves.
+Two equal-and-opposite errors cancelled exactly:
+
+| Direction | Versions | Why |
+|---|---|---|
+| applied, no repository file | `20260730112526`, `20260731090302` | attested remote-only (credential/PII payloads, deliberately uncommitted) |
+| committed, no applied row | `20260722120002`, `20260729000000` | genuinely unapplied |
+
+797 == 797 while the sets differed. Set equality was never asserted.
+
+**Live confirmation (read-only):**
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where version in ('20260722120002','20260729000000');
+-- 0 rows
+```
+
+Recomputed as an exact set difference against the live ledger (925 applied,
+1,037 repository): true `committed_not_applied` = **126**. All 124 existing
+baseline entries are correct; none are stale; exactly the two above were
+missing. Baseline corrected to 126 and the file now records that it is
+derived by set difference only, never by cardinality.
+
+**Reproduction and fix proof**, against a remote list rebuilt from the live
+ledger with the two attested rows filtered out exactly as CI does:
+
+- before: `Committed-but-unapplied migration drift detected: 20260722120002, 20260729000000` — byte-identical to the CI failure
+- after: that failure is gone
+
+**Regression guard added:** the shipped-baseline test now asserts every
+baselined version names a real file under `supabase/migrations`. This catches
+the phantom-entry half of the mistake offline; only the live gate can catch
+the missing-entry half, and it did.
+
+**Correction to PR #1767's body.** It claimed "Gate is green on `main`
+today." That was wrong and was asserted without reading the workflow's actual
+run history. The `Migration Drift Check` job was **already red on `main`**
+before this change — run 4326 at `763a540` failed with the same
+`Migration drift parser or remote-ledger reconciliation failed` error, on the
+pre-existing `applied_not_committed` direction. This change did not break the
+job; it added a second, correct reason on top of an existing failure.
+
+**Remaining red is not this change's and is not portable here.**
+`applied_not_committed` reports `20260903103515` and `20260903103549` —
+`create_country_cannabis_legal_status_reference` and
+`seed_country_cannabis_legal_status_known_markets`, applied to production on
+2026-09-03 with no repository file. Open draft PR #1755 carries the same
+*intent* under different versions (`20260903100000`, `20260903100100`) and a
+different statement split (a `listings` update plus a combined create+seed,
+versus create-then-seed live), so this is a reconciliation for #1755's author,
+not a mechanical port — and it is compliance-facing country legal-status copy,
+which is explicitly out of scope for autonomous edits under `CLAUDE.md`.
+
+**Validation:** lint 0 errors (211 pre-existing warnings); typecheck exit 0;
+1,179 tests passed across 143 files + 2 skipped; build exit 0; 41/41 ledger
+and parser tests.
+
+**Decision:** **GO** for the baseline correction. **Open:** the
+`applied_not_committed` drift on `20260903103515`/`20260903103549`, owned by
+PR #1755.

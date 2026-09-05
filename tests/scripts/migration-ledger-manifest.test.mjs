@@ -449,4 +449,18 @@ test('the shipped committed-not-applied baseline is well formed and loadable', (
   const raw = JSON.parse(fs.readFileSync(baselinePath, 'utf8'))
   assert.equal(raw.counts.baselined, baseline.versions.size)
   assert.equal(new Set(raw.versions).size, raw.versions.length, 'baseline must not contain duplicates')
+
+  // Every baselined version must name a real repository migration. A baseline
+  // is a claim about files that exist and are not applied; a version with no
+  // file is a derivation error, not a grandfathered migration. This cannot
+  // check the live ledger -- only the gate itself can -- but it does catch the
+  // phantom-entry half of that mistake without network access.
+  const migrationVersions = new Set(
+    fs
+      .readdirSync(path.join(repoRoot, 'supabase/migrations'))
+      .filter((file) => file.endsWith('.sql'))
+      .map((file) => file.slice(0, 14)),
+  )
+  const phantom = raw.versions.filter((version) => !migrationVersions.has(version))
+  assert.deepEqual(phantom, [], `baselined versions with no migration file: ${phantom.join(', ')}`)
 })
