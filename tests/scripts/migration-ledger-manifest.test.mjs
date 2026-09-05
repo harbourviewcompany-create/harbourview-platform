@@ -7,10 +7,12 @@ import { fileURLToPath } from 'node:url'
 
 import {
   buildManifest,
+  loadCommittedNotAppliedBaseline,
   loadLiveVersionEquivalences,
   loadReleaseControl,
   parseSupabaseMigrationList,
   readRepositoryMigrations,
+  selectNewCommittedNotApplied,
 } from '../../scripts/migration-ledger-manifest.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -394,4 +396,57 @@ comment on view api.admin_dashboard_counts is
     grantHardeningSql,
     'REVOKE INSERT, UPDATE, DELETE ON TABLE public.marketplace_item_images FROM anon;',
   )
+})
+
+test('committed-not-applied baseline grandfathers known versions and flags new ones', () => {
+  const baseline = { file: 'test', versions: new Set(['20260801150000', '20260802080000']) }
+
+  // Pre-existing backlog stays green: the gate must not go permanently red, or it
+  // becomes another ignored check.
+  assert.deepEqual(
+    selectNewCommittedNotApplied(['20260801150000', '20260802080000'], baseline),
+    [],
+  )
+
+  // A newly merged, unapplied migration is the case that broke the globe on
+  // 2026-09-04 (#1727) and must fail.
+  assert.deepEqual(
+    selectNewCommittedNotApplied(['20260801150000', '20260831130000'], baseline),
+    ['20260831130000'],
+  )
+
+  // No baseline supplied => gate disabled, preserving previous behaviour.
+  assert.deepEqual(selectNewCommittedNotApplied(['20260831130000'], null), [])
+})
+
+test('committed-not-applied baseline fails closed on a missing or malformed file', () => {
+  assert.equal(loadCommittedNotAppliedBaseline(null), null)
+
+  assert.throws(
+    () => loadCommittedNotAppliedBaseline(path.join(os.tmpdir(), 'definitely-absent-baseline.json')),
+    /baseline not found/i,
+  )
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hv-baseline-'))
+
+  const notJson = path.join(dir, 'bad.json')
+  fs.writeFileSync(notJson, '{ not json')
+  assert.throws(() => loadCommittedNotAppliedBaseline(notJson), /not valid JSON/i)
+
+  const noVersions = path.join(dir, 'no-versions.json')
+  fs.writeFileSync(noVersions, JSON.stringify({ version: 1 }))
+  assert.throws(() => loadCommittedNotAppliedBaseline(noVersions), /"versions" array/i)
+
+  const badVersion = path.join(dir, 'bad-version.json')
+  fs.writeFileSync(badVersion, JSON.stringify({ versions: ['2026'] }))
+  assert.throws(() => loadCommittedNotAppliedBaseline(badVersion), /invalid version/i)
+})
+
+test('the shipped committed-not-applied baseline is well formed and loadable', () => {
+  const baselinePath = path.join(repoRoot, 'supabase/release-controls/committed-not-applied-baseline.json')
+  const baseline = loadCommittedNotAppliedBaseline(baselinePath)
+  assert.ok(baseline.versions.size > 0)
+  const raw = JSON.parse(fs.readFileSync(baselinePath, 'utf8'))
+  assert.equal(raw.counts.baselined, baseline.versions.size)
+  assert.equal(new Set(raw.versions).size, raw.versions.length, 'baseline must not contain duplicates')
 })
