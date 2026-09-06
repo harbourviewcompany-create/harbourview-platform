@@ -5,7 +5,7 @@
   "purpose": "Pre-existing committed-but-unapplied migrations, frozen at the moment the drift gate became symmetric. The gate fails on any committed_not_applied version NOT listed here, so newly merged migrations must be applied. Listing a version here is not approval to leave it unapplied indefinitely - it is an acknowledgement that it predates the gate and still needs triage into apply / withdraw / reconcile via supabase/release-controls/pending-production-migration-decisions.json.",
   "why_this_exists": "On 2026-09-04 PR #1727 merged code reading countries.verified_regulatory_tier and public.regulatory_market_access_evidence while its own migrations were committed and never applied. getGlobeCountryMarkers throws on query error with no fallback, so the globe hard-failed in production. The drift check computed committed_not_applied and did not gate on it.",
   "counts": {
-    "baselined": 127,
+    "baselined": 128,
     "repository_versions_at_snapshot": 1037,
     "applied_versions_at_snapshot": 925
   },
@@ -136,8 +136,10 @@
     "20260831023000",
     "20260831030000",
     "20260902220000",
-    "20260903100000"
+    "20260903100000",
+    "20260906161500"
   ],
   "derivation_correction": "The first version of this baseline listed 124 versions and was verified by comparing COUNTS (797 applied pre-August vs 797 pre-August repository versions outside the baseline) rather than comparing the sets themselves. Two equal-and-opposite errors cancelled: 20260730112526 and 20260731090302 are applied with no repository file (they are attested remote-only, see historical-remote-migration-attestations.json), while 20260722120002 and 20260729000000 are committed with no applied row. The counts matched; the sets did not. The gate caught it on the first push to main. Both versions are confirmed absent from the live ledger and are now baselined. This file is derived by set difference only - never by cardinality.",
-  "newly_baselined_20260906": "20260903100000_make_supply_catalog_globally_available.sql, added with PR #1755. It is a genuinely new migration with no production counterpart: the ledger has no 20260903100000 row, and the two versions production did apply that day (20260903103515, 20260903103549) are committed separately at their real versions. Listing it here is acknowledgement that it is not applied, not approval to leave it unapplied -- it widens supply-catalog visibility to all ~195 ISO2 codes and needs a deliberate apply decision."
+  "newly_baselined_20260906": "20260903100000_make_supply_catalog_globally_available.sql, added with PR #1755. It is a genuinely new migration with no production counterpart: the ledger has no 20260903100000 row, and the two versions production did apply that day (20260903103515, 20260903103549) are committed separately at their real versions. Listing it here is acknowledgement that it is not applied, not approval to leave it unapplied -- it widens supply-catalog visibility to all ~195 ISO2 codes and needs a deliberate apply decision.",
+  "newly_baselined_20260906_globe": "20260906161500_expose_verified_regulatory_tier_in_api_countries.sql. Committed but NOT applied. It repairs a live production defect -- api.countries omits the four evidence columns the public globe reads, so every globe request 42703s and the map renders with no Market Access colour while 117 countries hold valid unexpired tiers. Baselining records that the repository is ahead of production here; it is an acknowledgement that the fix is NOT live, not approval to leave it that way. Remove this entry when applied."
 }

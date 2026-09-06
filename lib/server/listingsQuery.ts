@@ -57,6 +57,13 @@ async function queryListings(params: URLSearchParams): Promise<PublicListing[]> 
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         Accept: 'application/json',
+        // PostgREST is configured with db_schemas = "public, graphql_public,
+        // job_search, api", so the DEFAULT schema is `public`, not `api`.
+        // Without this header every request here resolved to
+        // public.marketplace_public_listings_v1, where anon and authenticated
+        // both hold no SELECT (only service_role does) -- so the Market feed
+        // returned zero rows for every visitor while api.* held 175.
+        'Accept-Profile': 'api',
       },
     })
     // A non-2xx is a query failure, not "no listings". Returning [] here made

@@ -6266,3 +6266,112 @@ contradict the separation `wrangler.toml`'s header requires. §9 updated.
 
 **Decision:** **NO CODE CHANGE.** Escalated as a dashboard action, with the
 target narrowed from the account to the `harbourview` Worker's build config.
+
+## 2026-09-06 — Two live production outages: the globe's colour and the Market feed
+
+Reported from the running app: the Market Access heatmap renders uniform gold,
+and the Market panel shows Cannabis 0 / Wanted 0 / Opportunities 0 with no
+product images. **Neither is a data problem.** Both are the same class of
+defect — the application reading through a schema or view that does not expose
+what the code asks for.
+
+### The shared root cause
+
+PostgREST on `zvxdgdkukjrrwamdpqrg` is configured as:
+
+```
+pgrst.db_schemas = "public, graphql_public, job_search, api"
+```
+
+`public` is listed first, so it is the **default** schema. `lib/supabase/client.ts`
+carried a comment asserting the opposite — that only `api` was exposed. That
+comment was wrong and load-bearing: it implied a raw `fetch` to
+`/rest/v1/<relation>` would land on `api`, so several modules omitted the schema
+header and silently resolved to `public`.
+
+### Defect 1 — the globe
+
+`lib/globe/supabaseGlobeData.ts` colours from four evidence columns and fails
+closed unless all four agree. The browser client is pinned to `api`, so it reads
+`api.countries` — which exposes the legacy `regulatory_tier` and **none** of
+`verified_regulatory_tier`, `regulatory_tier_evidence_key`,
+`regulatory_tier_verified_at`, `regulatory_tier_expires_at`. Every request 42703s,
+`getGlobeCountryMarkers` throws, and the globe renders with no markers.
+
+The data was never the problem. On `public.countries`, verified live:
+
+| | |
+| --- | --- |
+| countries with lat/lng | 269 |
+| all four columns populated | 117 |
+| expired | **0** |
+| would colour today | **117** |
+
+Earliest expiry is 2027-03-01. 117 countries were ready to colour and the view
+would not hand them over. Same shape as `MIGRATION_DRIFT_2026-08-08.md`: the code
+shipped, the schema did not.
+
+Fixed by `20260906161500_expose_verified_regulatory_tier_in_api_countries.sql`,
+which appends the four columns to `api.countries`. It grants nothing new — the
+view keeps `security_invoker = true` and anon/authenticated already hold
+column-level SELECT on all four (verified live). Exposure matches
+`REGULATORY_MARKET_ACCESS_LIVE_EFFECT_RECONCILIATION_20260831.md`, which already
+states `verified_regulatory_tier` is "the only tier the public globe may render".
+
+Verified against a fully replayed local database: applies cleanly (30 → 34
+columns), preserves `security_invoker=true`, is idempotent on re-run, and the
+globe's exact select returns 270 rows where it previously raised 42703.
+
+**This migration is committed but NOT applied.** Per `AGENT_OPERATING_FACTS.md`
+§1 merging it changes nothing; the globe stays gold until it is applied. It is
+baselined (127 → 128) as an acknowledgement of that gap, not approval of it.
+
+### Defect 2 — the Market feed
+
+`lib/server/listingsQuery.ts` fetches `/rest/v1/marketplace_public_listings_v1`
+with no `Accept-Profile`, so it resolved to `public.marketplace_public_listings_v1`.
+Grants, verified live:
+
+| relation | anon | authenticated | service_role |
+| --- | --- | --- | --- |
+| `public.listings` | ✗ | ✗ | ✓ |
+| `public.marketplace_public_listings_v1` | ✗ | ✗ | ✓ |
+| `api.marketplace_public_listings_v1` | ✓ | ✓ | ✓ |
+
+Every visitor got zero rows while `api.*` held 175. The missing product images
+are downstream of the same failure, not separate: `loadMarketplaceMedia(itemIds)`
+takes its ids from the listings, so zero listings means zero media. The media
+module itself was already correct — it is one of the few that sends the header.
+
+**This is the `public_read_contract_missing` assertion on
+`marketplace_public_listings_v1`** that the Production Security Hardening gate
+began reporting once the replay was repaired earlier today. The gate was
+describing a live outage, not a theoretical gap.
+
+**Scoped rather than blanket-fixed.** 68 files call `/rest/v1`; only two
+relations actually differ for browser roles (`listings`,
+`marketplace_public_listings_v1`), and `public_signals` exists only in `api`.
+Auditing every caller of those found exactly three browser-role offenders —
+`listingsQuery.ts`, `countriesQuery.ts`, `liveOpportunities.ts`. Admin paths
+(`adminDataClient`, `promoteToListing`, `resolveListingSeller`,
+`app/admin/marketplace/page.tsx`) use service_role, which *does* hold SELECT on
+the `public.*` views, so they were never broken and are untouched.
+
+Deliberately **not** granting anon on the `public.*` views: that would widen
+exposure to paper over a routing mistake.
+
+### The durable part
+
+`tests/supabase/restSchemaProfile.test.ts` fails if any browser-role raw-REST
+caller of an api-only relation omits `Accept-Profile: api`, and if the corrected
+schema comment ever regresses. Negative-tested: removing the header from
+`listingsQuery.ts` fails the suite with that exact file named, and restoring it
+passes.
+
+**Validation:** lint exit 0 (0 errors, 211 pre-existing warnings); typecheck exit
+0; 1,182 tests across 144 files + 2 skipped; build exit 0; 1,041/1,041 migrations
+parse; ledger-manifest suite 17/17.
+
+**Decision:** **GO** on the Market fix — code-only, no production mutation.
+**HOLD** on applying the globe migration to production, pending explicit
+sign-off; the file and its verification are ready.
