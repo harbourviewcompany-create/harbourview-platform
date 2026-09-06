@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "generated_at": "2026-09-05T18:30:00Z",
-  "source": "live supabase_migrations.schema_migrations on zvxdgdkukjrrwamdpqrg, diffed against supabase/migrations on main",
+  "generated_at": "2026-09-05T19:10:00Z",
+  "source": "live supabase_migrations.schema_migrations on zvxdgdkukjrrwamdpqrg, diffed against supabase/migrations on main as an exact set difference (repository versions minus applied versions)",
   "purpose": "Pre-existing committed-but-unapplied migrations, frozen at the moment the drift gate became symmetric. The gate fails on any committed_not_applied version NOT listed here, so newly merged migrations must be applied. Listing a version here is not approval to leave it unapplied indefinitely - it is an acknowledgement that it predates the gate and still needs triage into apply / withdraw / reconcile via supabase/release-controls/pending-production-migration-decisions.json.",
   "why_this_exists": "On 2026-09-04 PR #1727 merged code reading countries.verified_regulatory_tier and public.regulatory_market_access_evidence while its own migrations were committed and never applied. getGlobeCountryMarkers throws on query error with no fallback, so the globe hard-failed in production. The drift check computed committed_not_applied and did not gate on it.",
   "counts": {
-    "baselined": 124,
+    "baselined": 126,
     "repository_versions_at_snapshot": 1037,
     "applied_versions_at_snapshot": 925
   },
@@ -53,10 +53,12 @@
     "20260722022100",
     "20260722030000",
     "20260722031500",
+    "20260722120002",
     "20260723180000",
     "20260724000000",
     "20260727163000",
     "20260728201439",
+    "20260729000000",
     "20260729000002",
     "20260729010000",
     "20260729020000",
@@ -134,5 +136,6 @@
     "20260831023000",
     "20260831030000",
     "20260902220000"
-  ]
+  ],
+  "derivation_correction": "The first version of this baseline listed 124 versions and was verified by comparing COUNTS (797 applied pre-August vs 797 pre-August repository versions outside the baseline) rather than comparing the sets themselves. Two equal-and-opposite errors cancelled: 20260730112526 and 20260731090302 are applied with no repository file (they are attested remote-only, see historical-remote-migration-attestations.json), while 20260722120002 and 20260729000000 are committed with no applied row. The counts matched; the sets did not. The gate caught it on the first push to main. Both versions are confirmed absent from the live ledger and are now baselined. This file is derived by set difference only - never by cardinality."
 }
