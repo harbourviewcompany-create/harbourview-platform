@@ -46,6 +46,11 @@ const REPLAY_RELOCATIONS = [
     destination: '20260818212759_replay_clinical_evidence_spine_reconcile.sql',
     before: '20260818212800_clinical_prescriber_governance_preflight.sql',
   },
+  {
+    source: '20260821120000_talent_job_board.sql',
+    destination: '20260820235959_replay_talent_job_board.sql',
+    before: '20260821000000_performance_advisor_fixes.sql',
+  },
 ]
 
 // Supabase's migration ledger keys on the fourteen-digit version, so independent
@@ -76,6 +81,74 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // production-recorded migration replace both predicates. No checked-in migration
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
+  {
+    destination: '20260830135959_replay_colombia_country_briefing.sql',
+    before: '20260830140000_full_regulatory_tier_coverage.sql',
+    required: [
+      '20260613210556_create_cc_jurisdiction_briefings.sql',
+      '20260830140000_full_regulatory_tier_coverage.sql',
+    ],
+    content: `-- Replay-only reconstruction of Colombia's country briefing, verbatim from production.
+--
+-- public.cc_jurisdiction_briefings holds 302 rows in production and only 242
+-- after a zero-state repository replay (verified 2026-09-06 against project
+-- zvxdgdkukjrrwamdpqrg). Colombia is one of the sixty with no repository INSERT
+-- anywhere in migration history: the bulk americas seeds
+-- (20260621233459 / 233543 / 233640 / 233743) cover AR BB BO BR BZ CL CR CU DM
+-- DO EC GD GT GY HT SV HN JM KN MX NI PA PE PY AG BS LC SR TT US UY VC VE and
+-- skip CO, while 20260623100137_seed_content_depth_updates only UPDATEs a CO row
+-- it assumes already exists.
+--
+-- 20260830140000_full_regulatory_tier_coverage then asserts that CO's stored
+-- regulatory_tier equals api.derive_regulatory_tier(api.briefing_text_for_iso('CO')).
+-- With no briefing row that derives NULL, so the assertion fails on replay while
+-- passing in production. The text below is production's own row, read back
+-- unchanged; it derives legal_commercial_access, matching the stored tier.
+--
+-- This file exists only in the temporary production-faithful replay workspace and
+-- is never a production migration or a migration-ledger entry. The underlying gap
+-- -- sixty briefings live in production with no repository record -- is NOT fixed
+-- by this file and is tracked separately.
+
+insert into public.cc_jurisdiction_briefings (
+  jurisdiction_slug,
+  jurisdiction_type,
+  country_iso2,
+  program_status,
+  public_summary,
+  patient_access,
+  physician_access,
+  market_dynamics,
+  regulatory_outlook,
+  regulatory_body,
+  data_source_summary,
+  verification_summary,
+  update_cadence,
+  coverage_summary,
+  last_reviewed_date, watch_regions, change_notes, review_state
+)
+select
+  $hvco$colombia$hvco$,
+  $hvco$country$hvco$,
+  $hvco$CO$hvco$,
+  $hvco$Medical Legal — Export Industry Leader$hvco$,
+  $hvco$Colombia was the first country in Latin America to establish a comprehensive regulated medical cannabis framework. Law 1787 of 2016 legalised medical cannabis, and Decree 631 of 2020 created the export licensing framework that has made Colombia a significant global medical cannabis producer. Colombia benefits from ideal growing conditions (tropical climate, near-equatorial light cycles, low-cost labour), making it one of the lowest-cost producers globally. Domestic adult-use remains legally ambiguous — the Constitutional Court decriminalised personal possession (up to 20g) in 1994 (Sentence C-221/94), but selling, buying, and public use remain prohibited. A 2023 bill to legalise adult-use cannabis passed the Senate but not the House; the Petro government has expressed support for adult-use legalisation.$hvco$,
+  $hvco$Colombian medical cannabis patients access products through licensed pharmacies and medical dispensaries authorised under the Law 1787 framework. The Ministry of Health (MinSalud) administers patient access. Products include standardised oils, capsules, and dried flower. Domestic medical cannabis is very affordably priced given Colombia's low production costs. Patient registration is managed through the INVIMA regulatory framework.$hvco$,
+  $hvco$Colombian physicians may recommend medical cannabis for qualified patients under the Law 1787 framework. INVIMA oversees product approvals. The Colombian Medical Federation has engaged with cannabis prescribing guidelines. No specialist-only restriction exists at the national level.$hvco$,
+  $hvco$Colombia is primarily an export market for medical cannabis. Over 1,000 cultivation and production licences have been issued. Major Colombian cannabis companies include Clever Leaves, Khiron Life Sciences, Flora Growth, and PharmaLeaf Colombia. Export destinations include Germany, the UK, Australia, Brazil, and Mexico. Colombia's cost advantage (production cost as low as $0.10–0.30/gram dried flower) makes it highly competitive globally.$hvco$,
+  $hvco$Colombia's Petro government (2022–2026) has been the most cannabis-supportive in the country's history. Adult-use legalisation faces legislative obstacles from conservative parties. If it passes, Colombia would become the first country in South America to fully legalise cannabis. The export framework is stable and well-regarded by importing countries' regulators.$hvco$,
+  $hvco$INVIMA — invima.gov.co; Colombian Ministry of Justice; Agencia Nacional de Licencias Ambientales$hvco$,
+  $hvco$Colombia Ministry of Justice cannabis policy data; INVIMA licensing registry; Colombia Ministerio de Salud y Protección Social publications; Clever Leaves/Khiron investor disclosures; EMCDDA Colombia country data$hvco$,
+  $hvco$Current as of Q2 2026; verified against INVIMA and Colombian government official publications$hvco$,
+  $hvco$Quarterly$hvco$,
+  $hvco$National; 1,000+ licences issued; world's largest medical cannabis exporter by volume; growing domestic market$hvco$,
+  date '2026-06-22', '[]'::jsonb, '[]'::jsonb, 'reviewed'
+where not exists (
+  select 1 from public.cc_jurisdiction_briefings
+  where country_iso2 = 'CO' and jurisdiction_type = 'country'
+);
+`,
+  },
   {
     destination: '20260719140825_replay_pg_trgm_extension.sql',
     before: '20260719140826_stage4_dedup_near_duplicate_signals.sql',
@@ -118,6 +191,266 @@ const REPLAY_CONTENT_PATCHES = [
     file: '20260816120000_auto_heatmap_from_signals.sql',
     anchor: `        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')`,
     replacement: `        or coalesce(s.content_type, '{}'::text[]) && array['regulatory', 'legislation', 'official_notice']::text[]`,
+  },
+  {
+    file: '20260901022725_pin_search_path_on_mutable_functions.sql',
+    anchor: `alter function public.hv_gemini_embed_backfill_tick(integer) set search_path = 'public';`,
+    replacement: `-- Zero-state replay: public.hv_gemini_embed_backfill_tick(integer) exists only in
+-- production. No repository migration creates it -- the only three files that
+-- name it are this one and its two sibling search_path repairs, all of which
+-- only ALTER it. Pinning search_path on an absent function is a no-op, so
+-- guarding on existence changes nothing; against production, where the function
+-- exists, the ALTER runs exactly as before and the hardening is unchanged.
+do $replay_hv_gemini_embed_backfill_tick_20260901022725$
+begin
+  if to_regprocedure('public.hv_gemini_embed_backfill_tick(integer)') is not null then
+    execute 'alter function public.hv_gemini_embed_backfill_tick(integer) set search_path = ''public'';';
+  end if;
+end
+$replay_hv_gemini_embed_backfill_tick_20260901022725$;`,
+  },
+  {
+    file: '20260901022725_pin_search_path_on_mutable_functions.sql',
+    anchor: `alter function public.hv_local_classify_gate(vector) set search_path = 'public';`,
+    replacement: `-- Zero-state replay: public.hv_local_classify_gate(vector) exists only in
+-- production. No repository migration creates it -- the only three files that
+-- name it are this one and its two sibling search_path repairs, all of which
+-- only ALTER it. Pinning search_path on an absent function is a no-op, so
+-- guarding on existence changes nothing; against production, where the function
+-- exists, the ALTER runs exactly as before and the hardening is unchanged.
+do $replay_hv_local_classify_gate_20260901022725$
+begin
+  if to_regprocedure('public.hv_local_classify_gate(vector)') is not null then
+    execute 'alter function public.hv_local_classify_gate(vector) set search_path = ''public'';';
+  end if;
+end
+$replay_hv_local_classify_gate_20260901022725$;`,
+  },
+  {
+    file: '20260902021703_fix_search_path_regression_missing_extensions_schema.sql',
+    anchor: `alter function public.hv_gemini_embed_backfill_tick(integer) set search_path = 'public, extensions';`,
+    replacement: `-- Zero-state replay: public.hv_gemini_embed_backfill_tick(integer) exists only in
+-- production. No repository migration creates it -- the only three files that
+-- name it are this one and its two sibling search_path repairs, all of which
+-- only ALTER it. Pinning search_path on an absent function is a no-op, so
+-- guarding on existence changes nothing; against production, where the function
+-- exists, the ALTER runs exactly as before and the hardening is unchanged.
+do $replay_hv_gemini_embed_backfill_tick_20260902021703$
+begin
+  if to_regprocedure('public.hv_gemini_embed_backfill_tick(integer)') is not null then
+    execute 'alter function public.hv_gemini_embed_backfill_tick(integer) set search_path = ''public, extensions'';';
+  end if;
+end
+$replay_hv_gemini_embed_backfill_tick_20260902021703$;`,
+  },
+  {
+    file: '20260902021703_fix_search_path_regression_missing_extensions_schema.sql',
+    anchor: `alter function public.hv_local_classify_gate(vector) set search_path = 'public, extensions';`,
+    replacement: `-- Zero-state replay: public.hv_local_classify_gate(vector) exists only in
+-- production. No repository migration creates it -- the only three files that
+-- name it are this one and its two sibling search_path repairs, all of which
+-- only ALTER it. Pinning search_path on an absent function is a no-op, so
+-- guarding on existence changes nothing; against production, where the function
+-- exists, the ALTER runs exactly as before and the hardening is unchanged.
+do $replay_hv_local_classify_gate_20260902021703$
+begin
+  if to_regprocedure('public.hv_local_classify_gate(vector)') is not null then
+    execute 'alter function public.hv_local_classify_gate(vector) set search_path = ''public, extensions'';';
+  end if;
+end
+$replay_hv_local_classify_gate_20260902021703$;`,
+  },
+  {
+    file: '20260902021818_fix_search_path_quoting_regression.sql',
+    anchor: `alter function public.hv_gemini_embed_backfill_tick(integer) set search_path to public, extensions;`,
+    replacement: `-- Zero-state replay: public.hv_gemini_embed_backfill_tick(integer) exists only in
+-- production. No repository migration creates it -- the only three files that
+-- name it are this one and its two sibling search_path repairs, all of which
+-- only ALTER it. Pinning search_path on an absent function is a no-op, so
+-- guarding on existence changes nothing; against production, where the function
+-- exists, the ALTER runs exactly as before and the hardening is unchanged.
+do $replay_hv_gemini_embed_backfill_tick_20260902021818$
+begin
+  if to_regprocedure('public.hv_gemini_embed_backfill_tick(integer)') is not null then
+    execute 'alter function public.hv_gemini_embed_backfill_tick(integer) set search_path to public, extensions;';
+  end if;
+end
+$replay_hv_gemini_embed_backfill_tick_20260902021818$;`,
+  },
+  {
+    file: '20260902021818_fix_search_path_quoting_regression.sql',
+    anchor: `alter function public.hv_local_classify_gate(vector) set search_path to public, extensions;`,
+    replacement: `-- Zero-state replay: public.hv_local_classify_gate(vector) exists only in
+-- production. No repository migration creates it -- the only three files that
+-- name it are this one and its two sibling search_path repairs, all of which
+-- only ALTER it. Pinning search_path on an absent function is a no-op, so
+-- guarding on existence changes nothing; against production, where the function
+-- exists, the ALTER runs exactly as before and the hardening is unchanged.
+do $replay_hv_local_classify_gate_20260902021818$
+begin
+  if to_regprocedure('public.hv_local_classify_gate(vector)') is not null then
+    execute 'alter function public.hv_local_classify_gate(vector) set search_path to public, extensions;';
+  end if;
+end
+$replay_hv_local_classify_gate_20260902021818$;`,
+  },
+  {
+    file: '20260901021633_document_medical_only_reclassification_via_rpc.sql',
+    anchor: `WHERE market_access_status IS DISTINCT FROM (CASE regulatory_tier
+  WHEN 'legal_commercial_access' THEN 'open'
+  WHEN 'medical_limited_trade'   THEN 'regulated'
+  WHEN 'domestic_only'           THEN 'emerging'
+  WHEN 'cbd_hemp_only'           THEN 'limited'
+  WHEN 'prohibited'              THEN 'restricted'
+  ELSE 'unknown'
+END::market_access_status);`,
+    replacement: `-- Zero-state replay: production types countries.market_access_status as the enum
+-- public.market_access_status, but repository history types it text. The earliest
+-- creator, 20260604000000_countries_public_table_v1.sql, predates the enum (not
+-- created until 20260710114720), and whatever migration converted the column in
+-- production was applied out of band with no repository file. Against a text
+-- column the original enum-cast comparison raises
+-- "operator does not exist: text = market_access_status".
+--
+-- Comparing as text is equivalent under both column shapes, because enum labels
+-- map one-to-one onto their text spellings. Verified live 2026-09-06 against
+-- project zvxdgdkukjrrwamdpqrg: both predicates select the same 23 rows. The SET
+-- clause above is deliberately untouched -- assigning the enum-cast value
+-- resolves through an assignment cast under either shape.
+WHERE market_access_status::text IS DISTINCT FROM (CASE regulatory_tier
+  WHEN 'legal_commercial_access' THEN 'open'
+  WHEN 'medical_limited_trade'   THEN 'regulated'
+  WHEN 'domestic_only'           THEN 'emerging'
+  WHEN 'cbd_hemp_only'           THEN 'limited'
+  WHEN 'prohibited'              THEN 'restricted'
+  ELSE 'unknown'
+END);`,
+  },
+  {
+    file: '20260822134600_reconcile_legacy_heatmap_territory_rows.sql',
+    anchor: `do $reconcile_legacy_heatmap_territories$
+declare
+  v_total integer;
+  v_legacy integer;
+begin
+  select count(*) into v_total from public.countries;
+
+  select count(*) into v_legacy
+  from public.countries
+  where (iso_alpha2, iso_alpha3, country_slug) in (
+    ('AS','ASM','american-samoa'),
+    ('GU','GUM','guam'),
+    ('MP','MNP','northern-mariana-islands'),
+    ('VI','VIR','united-states-virgin-islands'),
+    ('NC','NCL','new-caledonia'),
+    ('PF','PYF','french-polynesia')
+  );
+
+  if v_total = 297 and v_legacy = 6 then
+    delete from public.countries
+    where (iso_alpha2, iso_alpha3, country_slug) in (
+      ('AS','ASM','american-samoa'),
+      ('GU','GUM','guam'),
+      ('MP','MNP','northern-mariana-islands'),
+      ('VI','VIR','united-states-virgin-islands'),
+      ('NC','NCL','new-caledonia'),
+      ('PF','PYF','french-polynesia')
+    );
+
+    if (select count(*) from public.countries) <> 291 then
+      raise exception 'Legacy heatmap reconciliation expected 291 rows after deleting six exact seed rows';
+    end if;
+  elsif v_total = 291 and v_legacy = 0 then
+    -- Canonical production state: deliberately no-op.
+    null;
+  else
+    raise exception 'Unexpected heatmap reconciliation state: total=%, exact_legacy_rows=%', v_total, v_legacy;
+  end if;
+end
+$reconcile_legacy_heatmap_territories$;`,
+    replacement: `do $reconcile_legacy_heatmap_territories$
+declare
+  v_total integer;
+  v_removed integer;
+  -- ISO codes present in a zero-state repository replay that canonical
+  -- production does not carry. Verified live 2026-09-06 against
+  -- public.countries on project zvxdgdkukjrrwamdpqrg: production holds 291 rows
+  -- and none of these eighteen codes appear among them.
+  --
+  -- Six are the legacy territory rows this migration was originally written for
+  -- (AS, GU, MP, VI, NC, PF), inserted by
+  -- 20260822134500_live_regulatory_heatmap_all_jurisdictions. The other twelve
+  -- are canonical territory identity rows added by
+  -- 20260613170000_canonical_country_reference_repair, which post-dates the
+  -- original reconciliation and pushed replay from 297 rows to 309.
+  v_replay_only constant text[] := array[
+    'AS', 'AW', 'AX', 'CW', 'GG', 'GI', 'GS', 'GU', 'HM',
+    'IM', 'JE', 'MO', 'MP', 'NC', 'PF', 'SX', 'TF', 'VI'
+  ];
+begin
+  select count(*) into v_total from public.countries;
+
+  if v_total = 291 then
+    -- Canonical production state: deliberately no-op.
+    return;
+  end if;
+
+  -- Match on iso_alpha2 alone rather than the exact (iso_alpha2, iso_alpha3,
+  -- country_slug) tuple the original used. That tuple match silently degraded:
+  -- 20260609000000 seeds VI as 'us-virgin-islands', not the
+  -- 'united-states-virgin-islands' slug the tuple named, so it found five of six.
+  -- Rows in these three tables reference the replay-only territories by ISO
+  -- code and block the delete on a foreign key. Production carries none of them
+  -- (verified live 2026-09-06: zero rows in all three for these eighteen codes),
+  -- which is expected -- it has no such country rows to reference. Any OTHER
+  -- dependent table is deliberately not swept here: a new foreign-key violation
+  -- should surface loudly rather than be silently deleted through.
+  delete from public.jurisdiction_crossref where countries_iso2 = any (v_replay_only);
+  delete from public.jurisdiction_playbooks_research_queue where country_code = any (v_replay_only);
+  delete from public.local_intel_coverage where country_code = any (v_replay_only);
+
+  delete from public.countries where iso_alpha2 = any (v_replay_only);
+  get diagnostics v_removed = row_count;
+
+  if (select count(*) from public.countries) <> 291 then
+    raise exception
+      'Legacy heatmap reconciliation expected 291 rows; started at %, removed % replay-only territory row(s), left %',
+      v_total, v_removed, (select count(*) from public.countries);
+  end if;
+end
+$reconcile_legacy_heatmap_territories$;`,
+  },
+  {
+    file: '20260822000000_service_role_policy_scoping.sql',
+    anchor: `ALTER POLICY "service role full access" ON job_search.opportunities TO service_role USING (true);`,
+    replacement: `-- Zero-state replay: job_search.opportunities exists only in production; no
+-- repository migration creates it (20260729230849 creates the job_search schema
+-- and its eight tables, and this is not one of them). Re-scoping a policy on an
+-- absent table is a no-op, so guarding on existence cannot change access: there
+-- is no table to expose. Against production, where the table and policy both
+-- exist, the ALTER runs exactly as before.
+do $replay_job_search_opportunities$
+begin
+  if to_regclass('job_search.opportunities') is not null then
+    execute 'ALTER POLICY "service role full access" ON job_search.opportunities TO service_role USING (true)';
+  end if;
+end
+$replay_job_search_opportunities$;`,
+  },
+  {
+    file: '20260822000000_service_role_policy_scoping.sql',
+    anchor: `ALTER POLICY service_role_only ON public.country_intel_backup_20260630 TO service_role USING (true);`,
+    replacement: `-- Zero-state replay: country_intel_backup_20260630 is a one-off dated backup
+-- table (20260821000000's own header calls it out as such) created out of band in
+-- production; no repository migration creates it. Same reasoning as above -- a
+-- policy re-scope on an absent table is a no-op and cannot widen access.
+do $replay_country_intel_backup$
+begin
+  if to_regclass('public.country_intel_backup_20260630') is not null then
+    execute 'ALTER POLICY service_role_only ON public.country_intel_backup_20260630 TO service_role USING (true)';
+  end if;
+end
+$replay_country_intel_backup$;`,
   },
   {
     file: '20260818213000_clinical_prescriber_os_reconciliation.sql',
