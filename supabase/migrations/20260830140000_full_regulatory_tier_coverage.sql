@@ -1,3 +1,4 @@
+-- Reconstructed from production. Verbatim statements for version 20260830140000.
 -- ============================================================
 -- Full regulatory-tier coverage — evidence-backed + live
 -- ============================================================

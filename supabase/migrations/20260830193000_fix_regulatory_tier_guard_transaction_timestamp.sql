@@ -1,3 +1,4 @@
+-- Reconstructed from production. Verbatim statements for version 20260830193000.
 -- Transaction-safe refinement of the regulatory-tier write guard installed by
 -- 20260830192000. PostgreSQL now() is transaction-stable, so two legitimate
 -- provenance-refreshing writes in one transaction can share the same timestamp.

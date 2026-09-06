@@ -1,8 +1,6 @@
--- Root cause of "still wrong" globe colors: the globe renders off countries.regulatory_tier
--- (confirmed directly in lib/globe/supabaseGlobeData.ts + lib/globe/globe-materials.ts — it
--- explicitly does NOT use market_access_status). regulatory_tier itself contains classification
--- errors where the assigned tier contradicts the tier's own stored rationale text. Found by
--- diffing regulatory_tier against the rationale headline for every row.
+-- Same headline-vs-tier consistency bug as elsewhere in this batch: the globe renders off
+-- countries.regulatory_tier directly (see lib/globe/globe-materials.ts), and a number of rows
+-- had a regulatory_tier that directly contradicted their own stored rationale text.
 --
 -- Category 1: rationale headline is flatly "Prohibited" (no legal channel of any kind
 -- described) but the row was NOT tagged prohibited. Two of these (Kenya, Kosovo) were showing
@@ -19,7 +17,7 @@ UPDATE public.countries SET regulatory_tier = 'medical_limited_trade'
 WHERE country_name IN ('Botswana','Serbia','Queensland','Tasmania','Western Australia');
 
 -- Category 3: Malta's own rationale describes full adult-use personal legalisation (2021
--- Cannabis Reform Act — possession, home cultivation, cannabis associations), which is a
+-- Cannabis Reform Act -- possession, home cultivation, cannabis associations), which is a
 -- materially broader legal domestic market than "CBD/hemp only".
 UPDATE public.countries SET regulatory_tier = 'domestic_only'
 WHERE country_name = 'Malta';

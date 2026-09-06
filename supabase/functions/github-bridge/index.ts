@@ -1,4 +1,48 @@
 /**
+ * github-bridge v21 — get_timeline pages + filters out 'committed' noise (2026-08-13)
+ *   v20's get_timeline fetched only page 1 (100 events) with no filtering. On
+ *   a long-lived branch, GitHub emits one 'committed' timeline event per
+ *   commit — a 239-commit PR returned 100 'committed' events on page 1 and
+ *   nothing else, burying the actual closed/reopened/merged/labeled events
+ *   that were the whole point of calling this. Now pages through up to 5
+ *   pages (500 raw events), drops 'committed' entries server-side, and
+ *   returns the rest newest-first, capped at op.limit (default 50, max 200).
+ *   op.per_page (v20) renamed to op.limit to reflect it now caps the
+ *   post-filter result, not the raw per-page fetch size.
+ *
+ * github-bridge v20 — added list_comments, list_reviews, get_timeline (2026-08-13)
+ *   The bridge could post comments/reviews (comment_pr, create_review) but had
+ *   no way to READ existing ones back — no way to see what a human, another
+ *   agent, or a third-party reviewer (e.g. Grok) already said on a PR, or to
+ *   see who closed a PR and why. Added three read-only ops:
+ *     - list_comments: GET /issues/{n}/comments (plain timeline comments).
+ *     - list_reviews: GET /pulls/{n}/reviews (formal review verdicts).
+ *     - get_timeline: GET /issues/{n}/timeline (closed/reopened/merged/
+ *       labeled/etc events with the actor and timestamp) — requires the
+ *       timeline preview Accept header, added only for this one call.
+ *   All three purely additive, sorted newest-first, capped at per_page.
+ *
+ * github-bridge v19 — added create_review (2026-08-04)
+ *   comment_pr only ever posts a plain issue-timeline comment (POST
+ *   /issues/{number}/comments). There was no way to submit a formal PR
+ *   review (POST /pulls/{number}/reviews) — the thing that shows up as an
+ *   actual review verdict (Comment / Approve / Request changes) in the PR's
+ *   review list, distinct from a timeline comment. Added `create_review`.
+ *   op.event: 'COMMENT' (default) | 'APPROVE' | 'REQUEST_CHANGES'.
+ *   op.commit_id is optional (GitHub defaults to the PR's current head).
+ *   op.comments is an optional array of inline review comments:
+ *   [{ path, line, side?, body }, ...]. Purely additive.
+ *
+ * github-bridge v18 — added per-request owner/repo override (2026-07-30)
+ *   BASE was a single module-level const pinned to harbourview-platform, so
+ *   the bridge could only ever touch that one repo. Any other repo in the
+ *   org (e.g. job-search-command-center) was unreachable. Changed OWNER/REPO
+ *   to DEFAULT_OWNER/DEFAULT_REPO and moved BASE construction inside
+ *   dispatch(), reading op.owner / op.repo when present and falling back to
+ *   the defaults otherwise. Non-breaking: existing callers that never pass
+ *   owner/repo keep hitting harbourview-platform exactly as before. batch
+ *   sub-ops each resolve their own BASE, so a batch can span multiple repos.
+ *
  * github-bridge v17 — added grep_file, patch_file (2026-07-28)
  *   Editing a small section of a huge file (CommandCentre.tsx / MobileCommandCentre.tsx,
  *   600KB+) previously meant fetching and reconstructing the WHOLE file through
@@ -96,9 +140,8 @@
  *   'base64'), 'UTF8')`), edit that, and push back through `push_file`.
  */
 
-const OWNER = 'harbourviewcompany-create'
-const REPO = 'harbourview-platform'
-const BASE = `https://api.github.com/repos/${OWNER}/${REPO}`
+const DEFAULT_OWNER = 'harbourviewcompany-create'
+const DEFAULT_REPO = 'harbourview-platform'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -198,6 +241,10 @@ Deno.serve(async (req: Request) => {
 })
 
 async function dispatch(op: Record<string, unknown>, h: Record<string, string>): Promise<unknown> {
+  const owner = (op.owner as string) ?? DEFAULT_OWNER
+  const repo = (op.repo as string) ?? DEFAULT_REPO
+  const BASE = `https://api.github.com/repos/${owner}/${repo}`
+
   switch (op.operation) {
 
     case 'list_prs': {
@@ -240,9 +287,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, sha: data.sha, path: data.path, size: data.size }
     }
 
-    // Returns the file's raw base64 content (untouched, straight from GitHub),
-    // plus its sha, without running it through get_file's lossy atob() decode.
-    // Callers should decode with a proper UTF-8-aware decoder on their side.
     case 'get_file_raw': {
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
@@ -250,9 +294,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, content_base64: (data.content as string).replace(/\n/g, ''), sha: data.sha, path: data.path }
     }
 
-    // Fetch a git blob directly by its sha (works regardless of which commit /
-    // branch currently points at it — useful for recovering a pre-edit version
-    // of a file). Returns raw base64, same rationale as get_file_raw.
     case 'get_blob': {
       const data = await gh(`${BASE}/git/blobs/${op.sha}`, h)
       return { ok: true, content_base64: (data.content as string).replace(/\n/g, ''), sha: data.sha, size: data.size }
@@ -267,29 +308,42 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       }
     }
 
-    // Create a new branch (ref) from an existing ref's current commit sha.
-    // op.branch: new branch name (without refs/heads/ prefix).
-    // op.from_ref: base ref to branch from, defaults to 'main'.
-    //
-    // v12 fix (2026-07-23): originally resolved the base sha via
-    // GET /git/ref/heads/<ref>, which 422s ("sha wasn't supplied") whenever
-    // GitHub treats the ref as ambiguous and returns an array instead of a
-    // single object (observed in practice even for 'main' on this repo, which
-    // has many branches). Switched to GET /branches/<branch>, which always
-    // returns a single object for an exact branch name and is not subject to
-    // this ambiguity.
     case 'create_ref': {
+      // v22 fix (2026-09-01): op.branch was never validated. A call missing
+      // it built `refs/heads/undefined`, which succeeded ONCE (creating a
+      // real branch literally named "undefined") and then 422d "Reference
+      // already exists" on every later call regardless of the branch name
+      // or sha actually passed -- a genuinely misleading error for what is
+      // just a missing required param. Fail fast with a specific message
+      // instead of letting GitHub's ref-collision error stand in for it.
+      const branch = op.branch as string | undefined
+      if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
       const fromRef = (op.from_ref as string) ?? 'main'
       const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
       const baseSha = baseBranch.commit?.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,
-        body: JSON.stringify({ ref: `refs/heads/${op.branch}`, sha: baseSha })
+        body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(`GitHub POST git/refs ${res.status}: ${JSON.stringify(data)}`)
       return { ok: true, ref: data.ref, sha: data.object?.sha }
+    }
+
+    // Delete a branch. op.branch: branch name, without refs/heads/ prefix.
+    // Added 2026-09-01 alongside the create_ref fix above -- there was
+    // previously no way to remove a stray branch (e.g. one created by the
+    // exact bug just fixed) without leaving the API for the GitHub UI.
+    case 'delete_ref': {
+      const branch = op.branch as string | undefined
+      if (!branch) throw new Error('delete_ref requires op.branch (branch name, without refs/heads/ prefix)')
+      const res = await fetch(`${BASE}/git/refs/heads/${encodeURIComponent(branch)}`, {
+        method: 'DELETE', headers: h,
+      })
+      if (res.status === 204) return { ok: true, deleted: `refs/heads/${branch}` }
+      const data = await res.json().catch(() => ({}))
+      throw new Error(`GitHub DELETE git/refs/heads/${branch} ${res.status}: ${JSON.stringify(data)}`)
     }
 
     case 'merge_pr': {
@@ -316,6 +370,77 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, id: data.id, html_url: data.html_url }
     }
 
+    // Read back existing plain timeline comments (not formal reviews).
+    case 'list_comments': {
+      const per_page = Math.min((op.per_page as number) ?? 50, 100)
+      const data = await gh(`${BASE}/issues/${op.pr_number}/comments?per_page=${per_page}&sort=created&direction=desc`, h)
+      return {
+        ok: true, count: data.length,
+        comments: (data as Record<string, unknown>[]).map(c => ({
+          id: c.id, user: (c.user as {login:string})?.login, created_at: c.created_at,
+          updated_at: c.updated_at, body: c.body, html_url: c.html_url,
+        }))
+      }
+    }
+
+    // Read back formal PR reviews (Comment/Approve/Request changes verdicts).
+    case 'list_reviews': {
+      const per_page = Math.min((op.per_page as number) ?? 50, 100)
+      const data = await gh(`${BASE}/pulls/${op.pr_number}/reviews?per_page=${per_page}`, h)
+      return {
+        ok: true, count: data.length,
+        reviews: (data as Record<string, unknown>[]).map(r => ({
+          id: r.id, user: (r.user as {login:string})?.login, state: r.state,
+          submitted_at: r.submitted_at, commit_id: r.commit_id, body: r.body, html_url: r.html_url,
+        }))
+      }
+    }
+
+    // Issue/PR timeline: closed/reopened/merged/labeled/head-ref-force-pushed
+    // etc, each with the actor and timestamp. Needs the timeline preview Accept
+    // header — applied only for this one call, not the shared default headers.
+    // v21 fix (2026-08-13): a long-lived branch racks up one 'committed'
+    // timeline event per commit, which buried the actual (closed/reopened/
+    // merged/labeled/...) events under hundreds of per-commit entries on page
+    // 1 — a 239-commit PR returned 100 'committed' events and nothing else.
+    // Now pages through up to 5 pages (500 raw events), filters out
+    // 'committed' server-side, and returns the rest newest-first.
+    case 'get_timeline': {
+      const limit = Math.min((op.limit as number) ?? 50, 200)
+      const maxPages = 5
+      const collected: Record<string, unknown>[] = []
+      for (let page = 1; page <= maxPages; page++) {
+        const res = await fetch(`${BASE}/issues/${op.pr_number}/timeline?per_page=100&page=${page}`, {
+          headers: { ...h, 'Accept': 'application/vnd.github.mockingbird-preview+json' }
+        })
+        if (!res.ok) throw new Error(`GitHub GET timeline ${res.status}: ${await res.text()}`)
+        const pageData = await res.json() as Record<string, unknown>[]
+        if (pageData.length === 0) break
+        collected.push(...pageData.filter(e => e.event !== 'committed'))
+        if (pageData.length < 100) break
+      }
+      const events = collected.reverse().slice(0, limit).map(e => ({
+        event: e.event, actor: (e.actor as {login:string})?.login, created_at: e.created_at,
+        commit_id: e.commit_id, label: (e.label as {name:string})?.name, body: e.body,
+      }))
+      return { ok: true, count: events.length, events }
+    }
+
+    case 'create_review': {
+      const res = await fetch(`${BASE}/pulls/${op.pr_number}/reviews`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({
+          commit_id: op.commit_id,
+          body: op.body,
+          event: (op.event as string) ?? 'COMMENT',
+          comments: op.comments,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub POST reviews ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, id: data.id, state: data.state, html_url: data.html_url, submitted_at: data.submitted_at }
+    }
+
     case 'close_pr': {
       const res = await fetch(`${BASE}/pulls/${op.pr_number}`, {
         method: 'PATCH', headers: h,
@@ -335,11 +460,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, name: data.name, conclusion: data.conclusion, output: data.output, annotations, html_url: data.html_url }
     }
 
-    // Server-side search — never returns the whole file. Use before patch_file
-    // to find exact, unique anchor text in a large file without paying the
-    // cost of transferring it all back to the caller.
-    // op.pattern: substring (default) or regex source if op.regex is true.
-    // op.context: lines of context above/below each match (default 2).
     case 'grep_file': {
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
@@ -362,10 +482,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, totalLines: lines.length, matchCount: matches.length, matches: matches.slice(0, 30), sha: data.sha }
     }
 
-    // Server-side patch — fetches, applies ONE old_str -> new_str replacement,
-    // pushes back. old_str must match exactly once (same contract as Claude's
-    // own str_replace tool); zero or multiple matches is rejected rather than
-    // guessing. Full file content never crosses back to the caller.
     case 'patch_file': {
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
@@ -468,5 +584,5 @@ function json(data: unknown, status = 200) {
   return new Response(data === null ? null : JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
-  }))
+  })
 }

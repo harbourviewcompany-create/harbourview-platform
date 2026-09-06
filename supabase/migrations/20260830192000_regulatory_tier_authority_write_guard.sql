@@ -1,3 +1,4 @@
+-- Reconstructed from production. Verbatim statements for version 20260830192000.
 -- ============================================================
 -- Regulatory tier authority + write guard
 -- ============================================================

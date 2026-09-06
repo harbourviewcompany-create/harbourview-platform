@@ -1,3 +1,7 @@
+-- Reconstructed from production. Supersedes 20260831020000_fix_daily_digest_provider_health_durability.sql
+-- (wrong version number vs. actual production apply time). Old file removed in this commit.
+-- Verbatim statements from supabase_migrations.schema_migrations for version 20260830203038.
+
 CREATE OR REPLACE FUNCTION public.run_daily_digest()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -298,7 +302,7 @@ begin
           'temperature', 0.2,
           'messages', jsonb_build_array(
             jsonb_build_object('role', 'system', 'content', v_pre),
-            jsonb_build_object('role', 'user', 'content', E'SIGNALS:\\n' || v_signals::text)
+            jsonb_build_object('role', 'user', 'content', E'SIGNALS:\n' || v_signals::text)
           )
         ),
         timeout_milliseconds := 60000
@@ -321,7 +325,7 @@ begin
           'model', 'claude-haiku-4-5-20251001',
           'max_tokens', 2800,
           'messages', jsonb_build_array(
-            jsonb_build_object('role', 'user', 'content', v_pre || E'\\n\\nSIGNALS:\\n' || v_signals::text)
+            jsonb_build_object('role', 'user', 'content', v_pre || E'\n\nSIGNALS:\n' || v_signals::text)
           )
         ),
         timeout_milliseconds := 60000
@@ -344,7 +348,7 @@ begin
             jsonb_build_object(
               'role', 'user',
               'parts', jsonb_build_array(
-                jsonb_build_object('text', E'SIGNALS:\\n' || v_signals::text)
+                jsonb_build_object('text', E'SIGNALS:\n' || v_signals::text)
               )
             )
           ),

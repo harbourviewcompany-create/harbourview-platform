@@ -50,6 +50,8 @@ async function assertAllHealthyMedia(page: Page) {
   const cardCount = await cards.count()
   expect(cardCount).toBeGreaterThan(0)
 
+  const boxes: { x: number; y: number; width: number; height: number }[] = []
+
   for (let index = 0; index < cardCount; index += 1) {
     const card = cards.nth(index)
     await card.scrollIntoViewIfNeeded()
@@ -67,6 +69,31 @@ async function assertAllHealthyMedia(page: Page) {
 
     await expect(card.locator('.cc-mkt-card-title')).toBeVisible()
     await expect(card.locator('.cc-mkt-cta')).toBeVisible()
+
+    const box = await card.boundingBox()
+    if (box) boxes.push(box)
+  }
+
+  // Regression guard for a real production bug (reported 2026-08-28): a
+  // negative-margin media-bleed rule leaked in from an unrelated dead card
+  // system and pulled each card's image up/out with nothing to compensate
+  // for, causing grid rows to visually bleed into each other -- ghosted,
+  // cut-off card text from one row appearing above the row below it. Cards
+  // sharing a column (overlapping X range) must never overlap vertically.
+  for (let i = 0; i < boxes.length; i += 1) {
+    for (let j = i + 1; j < boxes.length; j += 1) {
+      const a = boxes[i]
+      const b = boxes[j]
+      const sameColumn = a.x < b.x + b.width && b.x < a.x + a.width
+      if (!sameColumn) continue
+      const verticallyOverlaps = a.y < b.y + b.height && b.y < a.y + a.height
+      expect(
+        verticallyOverlaps,
+        `Cards ${i} and ${j} share a column and overlap vertically ` +
+          `(card ${i}: y ${a.y}-${a.y + a.height}, card ${j}: y ${b.y}-${b.y + b.height}) -- ` +
+          `a row is bleeding into another row.`,
+      ).toBe(false)
+    }
   }
 
   const geometry = await page.evaluate(() => ({

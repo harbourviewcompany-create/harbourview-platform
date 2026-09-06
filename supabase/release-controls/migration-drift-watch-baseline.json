@@ -1,0 +1,6 @@
+{
+  "baseline_version": "20260830141000",
+  "note": "Only applied_not_committed versions strictly greater than this are eligible for an automated drift-watch issue (see scripts/notify-new-migration-drift.mjs). This value is the highest version already accounted for by a manual reconciliation sweep -- currently docs/control/MIGRATION_DRIFT_20260830.md, which flagged 20260830140000 and 20260830141000 for owner follow-up. Bump this forward only after a version has actually been reconciled: either a matching repository migration file committed, or a reviewed entry added to migration-live-version-equivalences.json or historical-remote-migration-attestations.json. Bumping it past an unreconciled version silences drift-watch for that version without fixing anything.",
+  "last_updated": "2026-08-30",
+  "last_updated_reason": "Initial seed. See docs/control/MIGRATION_DRIFT_20260830.md for the reconciliation state this value reflects."
+}

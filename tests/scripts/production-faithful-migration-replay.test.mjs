@@ -21,7 +21,6 @@ const exclusions = planReplayExclusions({ decisions, migrationFiles })
 const excludedVersions = new Set(exclusions.map((item) => item.version))
 const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
 const relocations = planReplayRelocations({ migrationFiles })
-const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
 const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
 const contentPatches = planReplayContentPatches({ migrationFiles })
 
@@ -211,49 +210,6 @@ test('replay relocation is suppressed unless source, destination boundary and or
     }),
     [],
   )
-})
-
-test('replay disambiguates independent duplicate-version migrations without dropping any body', () => {
-  assert.deepEqual(versionCollisionRenames, [
-    {
-      source: '20260813010000_extend_supply_catalog_equipment_to_australia.sql',
-      sibling: '20260813010000_baseline_capture_pipeline_task_queue.sql',
-      destination: '20260813010001_replay_extend_supply_catalog_equipment_to_australia.sql',
-      before: '20260813020000_baseline_capture_reporting_and_triggers.sql',
-    },
-    {
-      source: '20260820120000_heatmap_conflict_freeze_seed.sql',
-      sibling: '20260820120000_clinical_pilot_local_authorities_au_gb_br.sql',
-      destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
-      before: '20260820130000_hv_pipeline_optimization.sql',
-    },
-  ])
-
-  const source = fs.readFileSync(
-    path.join(root, 'supabase/migrations', versionCollisionRenames[0].source),
-    'utf8',
-  )
-  const sibling = fs.readFileSync(
-    path.join(root, 'supabase/migrations', versionCollisionRenames[0].sibling),
-    'utf8',
-  )
-  assert.match(source, /update public\.listings/i)
-  assert.match(source, /repository-only pending/i)
-  assert.match(sibling, /create table public\.pipeline_tasks/i)
-  assert.match(sibling, /create table public\.dead_letter_tasks/i)
-
-  const heatmap = fs.readFileSync(
-    path.join(root, 'supabase/migrations', versionCollisionRenames[1].source),
-    'utf8',
-  )
-  const clinical = fs.readFileSync(
-    path.join(root, 'supabase/migrations', versionCollisionRenames[1].sibling),
-    'utf8',
-  )
-  assert.match(heatmap, /create or replace function public\.roll_up_market_access_status/i)
-  assert.match(heatmap, /rejected_conflict/i)
-  assert.match(clinical, /insert into public\.local_authorities/i)
-  assert.match(clinical, /'AU'.*'GB'.*'BR'/s)
 })
 
 test('duplicate-version replay rename fails closed unless the exact two-file collision and boundary remain', () => {

@@ -1,3 +1,4 @@
+-- Reconstructed from production. Verbatim statements for version 20260830191900.
 -- Forward fix for the production-reconciled 20260830184434 trigger body.
 -- The historical function casts to an unqualified market_access_status enum.
 -- In later trigger execution paths that resolve with a restricted search_path,

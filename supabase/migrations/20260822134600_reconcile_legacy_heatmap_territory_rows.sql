@@ -1,3 +1,4 @@
+-- Reconstructed from production. Verbatim statements for version 20260822134600.
 -- Replay-safe reconciliation for 20260822134500_live_regulatory_heatmap_all_jurisdictions.
 --
 -- That historical migration inserted six standalone territory rows (AS, GU, MP,

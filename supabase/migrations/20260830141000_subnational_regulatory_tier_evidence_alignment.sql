@@ -1,3 +1,4 @@
+-- Reconstructed from production. Verbatim statements for version 20260830141000.
 -- ============================================================
 -- Subnational regulatory-tier evidence alignment
 -- ============================================================
