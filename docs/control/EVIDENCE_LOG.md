@@ -5870,3 +5870,43 @@ passed. Migration SQL parse check → 1,037/1,037 parse as valid PostgreSQL.
 Typecheck exit 0.
 
 **Decision:** **GO**, merged via PR #1757.
+
+---
+
+## 2026-09-06 — Clinical dead code removed, deadness verified rather than assumed
+
+**Evidence ID:** `HV-CLEANUP-CLINICAL-DEAD-CODE-20260906`
+
+Removes 593 lines across four clinical modules plus the one import site that
+kept a fifth alive:
+
+| File | Disposition |
+|---|---|
+| `components/clinical/FrameworkAlignmentBlock.tsx` | deleted (145 lines) |
+| `components/dashboard/ClinicalPage.tsx` | deleted (6 lines) |
+| `components/dashboard/pages/ClinicalPage.tsx` | deleted (315 lines) |
+| `lib/clinical/clinicalQuery.ts` | deleted (115 lines) |
+| `components/dashboard/pages/ClinicalWorkspacePage.tsx` | modified — drops the import and single usage |
+
+**Deadness verified, not assumed.** On `main` before this change,
+`FrameworkAlignmentBlock` was **not** unreferenced — `ClinicalWorkspacePage.tsx`
+imported it at line 7 and rendered it at line 372. That is why this PR also
+modifies that file. Deleting the component without the companion edit would have
+broken the build, so a file-by-file "is it imported anywhere" check is not
+sufficient evidence here; the merge result has to compile.
+
+After merging `main` into the branch, a repository-wide search finds **0**
+remaining references to `FrameworkAlignmentBlock` and **0** to `clinicalQuery`.
+
+**The live clinical surface is untouched.** `ClinicalWorkspacePage` remains and
+is still reached from `ClinicalSection.tsx` and `ClinicalCommandCase.tsx`. What
+is removed is the superseded `ClinicalPage` pair and its query helper — the
+deleted `components/dashboard/ClinicalPage.tsx` header itself points at the
+`pages/` variant as the real education UI.
+
+**Validation on the merge result** (branch merged with `main` at `80a84045`,
+not the stale branch tip): typecheck exit 0; lint exit 0 (0 errors, 211
+pre-existing warnings); 1,179 tests across 143 files + 2 skipped; `npm run
+build` exit 0 with all routes prerendering.
+
+**Decision:** **GO**, merged via PR #1764.
