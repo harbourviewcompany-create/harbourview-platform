@@ -6236,7 +6236,33 @@ again on this session's own commits: `harbourview-platform` succeeded in both
 accounts on `b70f7305`; only `harbourview` on `4a7c450c` failed.
 
 Per §9's explicit instruction — *"Do not attempt an in-repo workaround"* — no
-code change was made. The fix is to disconnect the duplicate integration in the
-Cloudflare dashboard, which requires access this session does not have.
+code change was made.
 
-**Decision:** **NO CODE CHANGE.** Escalated as a dashboard action.
+**Correction to §9, found by re-checking rather than repeating it.** §9 says the
+`4a7c450c…` account "fails every build". That is not what happens. Two commits
+this session, `b70f7305` and `e3a00c01`, each produced three Workers checks with
+the same split:
+
+| worker | account | result |
+| --- | --- | --- |
+| `harbourview-platform` | `c9bde393…` (canonical) | ✅ |
+| `harbourview-platform` | `4a7c450c…` | ✅ |
+| `harbourview` | `4a7c450c…` | ❌ |
+
+The account builds `harbourview-platform` successfully on the identical commit,
+so the account is not broken. One Worker project fails: `harbourview`, which
+exists only there.
+
+And `harbourview` is not a stray duplicate — it is the name this repository's own
+`wrangler.toml` declares. So the repo's canonical health Worker is failing in the
+only account that hosts it, while the actual duplicate connection
+(`harbourview-platform`, wired into both accounts) is green in both. §9's "fix is
+to disconnect the duplicate" therefore points at the wrong object.
+
+Revised action: compare the `harbourview` Worker's dashboard build command in
+`4a7c450c…` against `wrangler.toml`'s `npm run typecheck`. A dashboard command
+still running the Next.js application build would explain the failure and would
+contradict the separation `wrangler.toml`'s header requires. §9 updated.
+
+**Decision:** **NO CODE CHANGE.** Escalated as a dashboard action, with the
+target narrowed from the account to the `harbourview` Worker's build config.
