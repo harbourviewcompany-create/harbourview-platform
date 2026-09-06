@@ -5675,3 +5675,198 @@ detailed in
 higher-priority than originally scoped: the reconstruction script has no
 guard against re-clobbering a deliberate fix, which puts today's fixes
 (including the two from earlier in this entry) at risk on its next run.
+
+---
+
+## 2026-09-05 — Symmetric drift gate caught its own baseline defect on the first push
+
+**Evidence ID:** `HV-DRIFT-COMMITTED-BASELINE-CORRECTION-20260905`
+
+The `committed_not_applied` half of the migration drift gate landed on `main`
+in `8d57282` with a 124-version grandfathering baseline. On the first push
+that baseline was proved two versions short: the gate failed naming
+`20260722120002` and `20260729000000`.
+
+**Root cause — verification method, not the gate.** The baseline was checked
+by comparing *cardinalities* (797 applied pre-August vs 797 pre-August
+repository versions outside the baseline) rather than the sets themselves.
+Two equal-and-opposite errors cancelled exactly:
+
+| Direction | Versions | Why |
+|---|---|---|
+| applied, no repository file | `20260730112526`, `20260731090302` | attested remote-only (credential/PII payloads, deliberately uncommitted) |
+| committed, no applied row | `20260722120002`, `20260729000000` | genuinely unapplied |
+
+797 == 797 while the sets differed. Set equality was never asserted.
+
+**Live confirmation (read-only):**
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where version in ('20260722120002','20260729000000');
+-- 0 rows
+```
+
+Recomputed as an exact set difference against the live ledger (925 applied,
+1,037 repository): true `committed_not_applied` = **126**. All 124 existing
+baseline entries are correct; none are stale; exactly the two above were
+missing. Baseline corrected to 126 and the file now records that it is
+derived by set difference only, never by cardinality.
+
+**Reproduction and fix proof**, against a remote list rebuilt from the live
+ledger with the two attested rows filtered out exactly as CI does:
+
+- before: `Committed-but-unapplied migration drift detected: 20260722120002, 20260729000000` — byte-identical to the CI failure
+- after: that failure is gone
+
+**Regression guard added:** the shipped-baseline test now asserts every
+baselined version names a real file under `supabase/migrations`. This catches
+the phantom-entry half of the mistake offline; only the live gate can catch
+the missing-entry half, and it did.
+
+**Correction to PR #1767's body.** It claimed "Gate is green on `main`
+today." That was wrong and was asserted without reading the workflow's actual
+run history. The `Migration Drift Check` job was **already red on `main`**
+before this change — run 4326 at `763a540` failed with the same
+`Migration drift parser or remote-ledger reconciliation failed` error, on the
+pre-existing `applied_not_committed` direction. This change did not break the
+job; it added a second, correct reason on top of an existing failure.
+
+**Remaining red is not this change's and is not portable here.**
+`applied_not_committed` reports `20260903103515` and `20260903103549` —
+`create_country_cannabis_legal_status_reference` and
+`seed_country_cannabis_legal_status_known_markets`, applied to production on
+2026-09-03 with no repository file. Open draft PR #1755 carries the same
+*intent* under different versions (`20260903100000`, `20260903100100`) and a
+different statement split (a `listings` update plus a combined create+seed,
+versus create-then-seed live), so this is a reconciliation for #1755's author,
+not a mechanical port — and it is compliance-facing country legal-status copy,
+which is explicitly out of scope for autonomous edits under `CLAUDE.md`.
+
+**Validation:** lint 0 errors (211 pre-existing warnings); typecheck exit 0;
+1,179 tests passed across 143 files + 2 skipped; build exit 0; 41/41 ledger
+and parser tests.
+
+**Decision:** **GO** for the baseline correction. **Open:** the
+`applied_not_committed` drift on `20260903103515`/`20260903103549`, owned by
+PR #1755.
+
+---
+
+## 2026-09-06 — Four HIGH CVEs cleared: fast-uri lived in the second lockfile
+
+**Evidence ID:** `HV-DEPS-FAST-URI-CVE-20260906`
+
+`Trivy + OPA Policy Enforcement` had been failing on **every** PR in this
+repository with four HIGH findings, all CVSS 7.5:
+
+```
+CVE-2026-75899, CVE-2026-75931, CVE-2026-75975, CVE-2026-76172
+in fast-uri@3.1.5 (fixed in 2.4.5, 3.1.6, 4.1.3)
+```
+
+**Why it survived so long.** The package is not in the root lockfile. It is a
+transitive dependency of `ajv` inside `tools/intelligence-engine-studio`, which
+carries its own `package-lock.json` — the second of the two lockfiles Trivy
+reports scanning (`Number of language-specific files num=2`). A root
+`package.json` override is a **no-op** for it; that was tried first and
+confirmed to change nothing. The same split explains why
+`npm audit --omit=dev` at the root never flagged it: the studio entry is marked
+`devOptional` and sits in a different project tree.
+
+**Fix:** `"fast-uri": "^3.1.6"` added to the studio's existing `overrides`
+block, resolving to **3.1.7**. This clears the gate rather than suppressing it —
+`policies/trivy-vuln-policy.rego` denies findings that are HIGH/CRITICAL with a
+non-empty `FixedVersion` and CVSS V3 > 7.0, and at 3.1.7 Trivy reports nothing.
+
+The root lockfile was deliberately left untouched: regenerating it with npm
+10.9.7 strips `libc` metadata from 20 platform-binary entries, 60 lines of
+dialect churn unrelated to the fix. The studio lockfile has zero such entries
+and regenerates cleanly, so the diff is 6 lockfile lines plus one override.
+
+**Validation:** `Trivy + OPA Policy Enforcement` **passed in CI** on the fix
+(PR #1769, job `101401653681`) — the check's first green in this repository.
+Locally: lint exit 0 (0 errors, 211 pre-existing warnings); typecheck exit 0;
+1,179 tests across 143 files + 2 skipped; build exit 0.
+
+**Decision:** **GO**, merged via PR #1769.
+
+---
+
+## 2026-09-06 — fflate advisory cleared by deduping, not upgrading
+
+**Evidence ID:** `HV-DEPS-FFLATE-GHSA-PX8P-20260906`
+
+`npm audit --omit=dev` failed the `Node 22 / TypeScript / Security / Build /
+Chromium` job on every PR:
+
+```
+fflate 0.6.0 - 0.6.10 (moderate)
+unzipSync can enter an infinite loop parsing malformed ZIP64 archives
+GHSA-px8p-9vwx-vf98 -- node_modules/three-stdlib/node_modules/fflate
+```
+
+**This was lower risk than it first appeared, and the initial assessment was
+wrong.** It was flagged in session as "a major bump under the globe renderer."
+In fact the root tree **already** resolved a safe `fflate@0.8.3` for
+`@types/three`; only `three-stdlib` nested a second, vulnerable copy at
+`0.6.10` behind its `^0.6.9` range. The override collapses the two onto the
+hoisted copy -- it removes a duplicate rather than upgrading anything that
+stood alone.
+
+**Compatibility checked, not assumed.** `three-stdlib` imports fflate in
+exactly one module, `exporters/USDZExporter`, using exactly two functions
+(`strToU8`, `zipSync`), both unchanged in 0.8.x and verified by round-tripping
+`zipSync`/`unzipSync` against the installed copy. `USDZExporter` is also
+unreachable from application code -- nothing in the repository imports
+`three-stdlib` or USDZ -- so the vulnerable `unzipSync` path was never callable
+here. The advisory was real; the exposure was not.
+
+**Lockfile handling.** Regenerating `package-lock.json` with npm 10.9.7 strips
+`libc` metadata from 20 platform-binary entries. Those were restored in place,
+preserving original key order, leaving a 6-line diff. `npm ci` then reinstalled
+cleanly and left the lockfile byte-identical -- the check that the
+hand-restored file is internally consistent, not merely parseable.
+
+**Validation (all in CI on PR #1771):** `Node 22 / TypeScript / Security /
+Build / Chromium` **success**; `npm-audit` **success**; `npm ci install-only
+check` **success**; `verify` **success**. Locally: `npm audit --omit=dev` ->
+`found 0 vulnerabilities` (was 1 moderate); lint exit 0; typecheck exit 0;
+1,179 tests; build exit 0; globe suites 22/22.
+
+**Decision:** **GO**, merged via PR #1771.
+
+---
+
+## 2026-09-06 — apply_migration pairing rule synced into the loaded skill file
+
+**Evidence ID:** `HV-SKILL-APPLY-MIGRATION-PAIRING-20260906`
+
+`.claude/skills/harbourview-platform/SKILL.md` §4 previously recommended
+`apply_migration` for creating/replacing RPCs without stating that applying is
+only half the change. That omission is the documented generator of this
+repository's migration drift: `apply_migration` writes a
+`supabase_migrations.schema_migrations` row in production and creates no
+repository file.
+
+This adds the pairing rule to the file agents actually load, alongside the
+recovery query (`select version, name from
+supabase_migrations.schema_migrations order by version desc limit 5;`) and the
+instruction to commit using that exact version as the filename timestamp rather
+than a freshly invented one.
+
+**Why it matters, measured.** `docs/control/MIGRATION_DRIFT_20260902.md` records
+30 uncommitted production versions, 25 of them applied through Supabase MCP by a
+single account. On 2026-09-05 the reverse direction was measured for the first
+time: 126 committed-but-unapplied migrations, one of which
+(`20260816120000_auto_heatmap_from_signals.sql`) cannot be applied at all as
+written — see `HV-DRIFT-COMMITTED-BASELINE-CORRECTION-20260905`.
+
+**Scope:** documentation only. No runtime code, schema, workflow, or dependency
+is touched, and nothing is applied to production.
+
+**Validation:** `npm run test` → 143 files passed, 2 skipped; 1,179 tests
+passed. Migration SQL parse check → 1,037/1,037 parse as valid PostgreSQL.
+Typecheck exit 0.
+
+**Decision:** **GO**, merged via PR #1757.

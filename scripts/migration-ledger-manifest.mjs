@@ -490,6 +490,54 @@ function parseArgs(argv) {
   return args
 }
 
+/**
+ * Baseline of committed-but-unapplied versions that are already known and triaged.
+ *
+ * The drift gate historically failed only on applied_not_committed. The opposite
+ * direction -- a migration merged into the repository and never applied -- had no
+ * gate at all, which is how #1727 shipped code reading columns that did not exist
+ * in production and hard-failed the globe. This baseline exists so the new gate can
+ * fail on *newly* introduced committed_not_applied without going permanently red on
+ * the pre-existing backlog, which would make it another ignored check.
+ *
+ * Fail-closed: if a baseline path is supplied it must parse, or the run fails.
+ */
+export function loadCommittedNotAppliedBaseline(filePath) {
+  if (!filePath) return null
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Committed-not-applied baseline not found: ${filePath}`)
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+  } catch (error) {
+    throw new Error(
+      `Committed-not-applied baseline is not valid JSON (${filePath}): ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+  if (!Array.isArray(parsed.versions)) {
+    throw new Error(`Committed-not-applied baseline must contain a "versions" array: ${filePath}`)
+  }
+  for (const version of parsed.versions) {
+    if (typeof version !== 'string' || !/^\d{14}$/.test(version)) {
+      throw new Error(
+        `Committed-not-applied baseline contains an invalid version (expected 14 digits): ${String(version)}`,
+      )
+    }
+  }
+  return { file: filePath, versions: new Set(parsed.versions) }
+}
+
+/**
+ * Committed-but-unapplied versions that are NOT grandfathered by the baseline.
+ * A null baseline disables the gate entirely, which keeps every non-drift caller
+ * and the existing test suite on their previous behaviour.
+ */
+export function selectNewCommittedNotApplied(committedNotApplied, baseline) {
+  if (!baseline) return []
+  return committedNotApplied.filter((version) => !baseline.versions.has(version))
+}
+
 function writeOutput(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, content)
@@ -512,6 +560,7 @@ export function runCli(argv = process.argv.slice(2)) {
   const equivalences = loadLiveVersionEquivalences(equivalencePath, {
     allowMissing: !args['equivalence-file'],
   })
+  const committedBaseline = loadCommittedNotAppliedBaseline(args['committed-baseline'] ?? null)
   const manifest = buildManifest({
     repository,
     remote,
@@ -522,7 +571,20 @@ export function runCli(argv = process.argv.slice(2)) {
   manifest.mode = args.mode
   manifest.equivalence_file = fs.existsSync(equivalencePath) ? equivalencePath : null
 
+  const newCommittedNotApplied = selectNewCommittedNotApplied(
+    manifest.committed_not_applied,
+    committedBaseline,
+  )
+  manifest.committed_not_applied_baseline = committedBaseline
+    ? {
+        file: committedBaseline.file,
+        baselined_versions: committedBaseline.versions.size,
+        new_versions: newCommittedNotApplied,
+      }
+    : null
+
   const remoteDrift = manifest.applied_not_committed.length > 0
+  const newCommittedDrift = newCommittedNotApplied.length > 0
   const equivalenceDrift = manifest.live_version_equivalence_mismatches.length > 0
   const approvedStillPending = manifest.approved_pending.length > 0
   const unexpectedPending = manifest.unexpected_pending.length > 0
@@ -534,7 +596,7 @@ export function runCli(argv = process.argv.slice(2)) {
   manifest.execution_gate = {
     ok:
       args.mode === 'drift'
-        ? !remoteDrift && !equivalenceDrift
+        ? !remoteDrift && !equivalenceDrift && !newCommittedDrift
         : args.mode === 'activation-preflight'
           ? manifest.activation_gate.ok
           : !remoteDrift &&
@@ -550,6 +612,14 @@ export function runCli(argv = process.argv.slice(2)) {
   writeOutput(args['markdown-out'], renderManifestMarkdown(manifest))
 
   if (args.mode === 'drift') {
+    if (newCommittedDrift) {
+      throw new Error(
+        `Committed-but-unapplied migration drift detected: ${newCommittedNotApplied.join(', ')}. ` +
+          'These versions are merged into the repository but absent from the live ledger. ' +
+          'Apply them to production, or add them to the baseline with a recorded reason if they are deliberately withheld. ' +
+          'Shipping code that depends on an unapplied migration is what broke the globe on 2026-09-04.',
+      )
+    }
     if (remoteDrift || equivalenceDrift) {
       const mismatchLiveVersions = manifest.live_version_equivalence_mismatches.map(
         (entry) => entry.live_version,
