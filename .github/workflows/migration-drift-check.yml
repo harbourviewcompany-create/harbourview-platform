@@ -158,6 +158,7 @@ jobs:
             --json-out artifacts/migration-drift/manifest.json \
             --markdown-out artifacts/migration-drift/manifest.md \
             --mode drift \
+            --committed-baseline supabase/release-controls/committed-not-applied-baseline.json \
             --source-sha "$GITHUB_SHA"
 
       - name: Notify on new migration drift
