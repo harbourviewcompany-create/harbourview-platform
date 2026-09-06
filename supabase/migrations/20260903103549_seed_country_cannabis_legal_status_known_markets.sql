@@ -1,42 +1,26 @@
--- Country-level cannabis legal framework classification -- NOT per-SKU
--- packaging/import compliance (see listings.compliance_flags for that,
--- which currently only has real, individually-researched content for CA).
+-- Reconstructed from production. Verbatim statements for version 20260903103549.
 --
--- Scope disclosure: this is a general research pass covering 41 of ~195
--- ISO2 countries -- the markets where the legal framework is well
--- documented and current as of 2026 (major recreational/medical markets,
--- a few clearly-prohibited majors). It is NOT an individually-verified
--- audit of all 190+ countries. Countries not present in this table should
--- be treated as unresearched, not assumed legal or assumed prohibited.
--- Deeper, SKU-level compliance work (the kind done for CA packaging, and
--- the equipment/lab-only extension done for DE/AU) should follow for any
--- specific market before it's treated as a fully compliance-reviewed
--- addition to the catalog.
+-- The country legal-status seed, applied to production on 2026-09-03. See the
+-- companion 20260903103515 for why this is committed at the live version rather
+-- than the invented one PR #1755 proposed.
 --
--- Already applied directly to the live project this session.
-
-create table if not exists public.country_cannabis_legal_status (
-  iso2 text primary key,
-  country_name text not null,
-  legal_status text not null check (legal_status in (
-    'recreational_retail',
-    'recreational_noncommercial',
-    'medical_only',
-    'cbd_hemp_only',
-    'prohibited',
-    'unresearched'
-  )),
-  notes text,
-  last_reviewed date not null default current_date
-);
-
-comment on table public.country_cannabis_legal_status is
-  'Country-level cannabis legal framework classification (NOT per-SKU packaging compliance -- see listings.compliance_flags for that, which currently only exists for CA). Populated from a general research pass, not individually verified per-country the way CA/DE/AU packaging rules were. Most of the ~195 ISO2 codes not present here default to unresearched in application logic, not assumed-prohibited or assumed-legal.';
+-- Scope disclosure, unchanged from the applied text: this is a general research
+-- pass covering 41 of ~195 ISO2 codes, not an individually-verified audit.
+-- Countries absent from this table are `unresearched`, not assumed legal and
+-- not assumed prohibited. It is country-level legal framework only -- NOT
+-- per-SKU packaging compliance, which lives in listings.compliance_flags and
+-- currently has individually-researched content for CA only.
+--
+-- Body is byte-identical to schema_migrations.statements[1] (6,017 bytes, md5
+-- 7d34b95fd49687d65011d96ea941ae89), verified before write. Committing already
+-- applied SQL is a repository-fidelity action; it makes no new compliance claim.
 
 insert into public.country_cannabis_legal_status (iso2, country_name, legal_status, notes) values
+-- Full commercial recreational retail
 ('CA','Canada','recreational_retail','Federally legal commercial recreational market since 2018.'),
 ('UY','Uruguay','recreational_retail','First country to fully legalize commercial recreational cannabis (2013).'),
 ('US','United States','recreational_retail','Federal law still prohibits cannabis; state-by-state patchwork -- recreational retail legal in 24 states + DC as of 2026, medical-only or fully illegal elsewhere. Treat as mixed, not uniformly legal.'),
+-- Recreational legal but non-commercial (possession/home-grow/social clubs only)
 ('DE','Germany','recreational_noncommercial','Personal possession, home cultivation, and non-profit Cannabis Social Clubs legal since 2024; no commercial retail market yet (Pillar 2 pilot still pending as of 2026).'),
 ('MT','Malta','recreational_noncommercial','Personal possession and home cultivation legal; non-profit associations distribute, no commercial retail.'),
 ('LU','Luxembourg','recreational_noncommercial','Adults may grow up to 4 plants at home and possess small amounts; commercial sales remain prohibited.'),
@@ -44,6 +28,7 @@ insert into public.country_cannabis_legal_status (iso2, country_name, legal_stat
 ('ZA','South Africa','recreational_noncommercial','Constitutional Court ruling permits private personal use and cultivation; commercial sale remains prohibited.'),
 ('GE','Georgia','recreational_noncommercial','Constitutional Court rulings mean personal consumption is not punished, but cultivation/sale remain restricted.'),
 ('NL','Netherlands','recreational_noncommercial','Sale tolerated at licensed coffeeshops under a policy of non-enforcement, not full legalization; legal grey area, not a licensed retail framework.'),
+-- Medical-only, prescription-based programs
 ('AU','Australia','medical_only','TGA-regulated medical cannabis nationwide; no legal recreational retail channel anywhere in the country.'),
 ('GB','United Kingdom','medical_only','Prescription-only medical cannabis program; recreational use illegal.'),
 ('IL','Israel','medical_only','Established medical cannabis program; recreational decriminalized for personal use in some contexts but not a commercial retail market.'),
@@ -64,7 +49,9 @@ insert into public.country_cannabis_legal_status (iso2, country_name, legal_stat
 ('JM','Jamaica','medical_only','Decriminalized small amounts and sacramental/medical use since 2015, with a licensed medical industry; full recreational retail not legal.'),
 ('LS','Lesotho','medical_only','First African nation to license cannabis cultivation (2017), medical/export-oriented; recreational use not legal.'),
 ('MX','Mexico','medical_only','Supreme Court ruled prohibition unconstitutional for personal adult use/cultivation (2021), but a regulated commercial framework has not been fully implemented; treat as personal-use tolerated, not commercial-legal.'),
+-- CBD/hemp-only
 ('CH','Switzerland','cbd_hemp_only','Low-THC (under ~1%) CBD products broadly legal and commercially sold; higher-THC cannabis remains restricted to a limited pilot-program framework.'),
+-- Prohibited / no legal framework
 ('SG','Singapore','prohibited','Cannabis fully illegal with severe penalties.'),
 ('JP','Japan','prohibited','Cannabis use/possession illegal; CBD products with zero THC narrowly permitted.'),
 ('AE','United Arab Emirates','prohibited','Cannabis fully illegal with severe penalties.'),
@@ -76,3 +63,5 @@ insert into public.country_cannabis_legal_status (iso2, country_name, legal_stat
 ('MY','Malaysia','prohibited','Cannabis fully illegal with severe penalties.'),
 ('PH','Philippines','prohibited','Cannabis fully illegal with severe penalties.')
 on conflict (iso2) do nothing;
+
+select count(*) as classified from public.country_cannabis_legal_status;
