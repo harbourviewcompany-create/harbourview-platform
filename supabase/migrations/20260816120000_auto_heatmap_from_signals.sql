@@ -137,7 +137,19 @@ as $$
       select
         coalesce(s.tier, 99) <= 1
         or coalesce(s.source_type, '') in ('regulator', 'government_official', 'gazette', 'official_gazette')
-        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')
+        -- public.source_registry.content_type is text[], not text -- it has been
+        -- an array since 20260618210850_source_registry_crawl_contract_replay.sql
+        -- and is text[] in production today. The original
+        -- `coalesce(s.content_type, '') in (...)` is a type error that raises
+        -- 22P02 ("malformed array literal") when this LANGUAGE sql body is
+        -- validated at CREATE time, so this migration could never have been
+        -- applied as written. It never was: version 20260816120000 is absent
+        -- from the production ledger and is carried in
+        -- supabase/release-controls/committed-not-applied-baseline.json, which is
+        -- why the defect went unnoticed. Expressed here as the array-overlap test
+        -- the surrounding logic intends.
+        or coalesce(s.content_type, '{}'::text[])
+             && array['regulatory', 'legislation', 'official_notice']::text[]
       from public.source_registry s
       where s.id = p_source_id
     ),

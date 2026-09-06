@@ -49,13 +49,25 @@ alter table regulatory_signals.signals add constraint regulatory_signals_confide
   check (confidence in ('low', 'medium', 'high', 'official_confirmed'));
 
 -- ── Restore missing constraints ───────────────────────────────────────────────
+-- Unlike the CHECK constraints restored above, this file's original verbatim
+-- production statements added these without a preceding drop-if-exists, because
+-- production genuinely lacked them at the time. A from-scratch replay starts
+-- from 20260312000000_regulatory_signals_v1.sql, which already defines
+-- regulatory_signals_slug_not_empty inline, so a bare `add constraint` fails
+-- with "already exists" on replay. Guard with drop-if-exists, matching the
+-- idiom already used above in this file, so this section is idempotent
+-- regardless of starting state.
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_slug_not_empty;
 alter table regulatory_signals.signals add constraint regulatory_signals_slug_not_empty
   check (length(trim(slug)) > 0);
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_private_summary_not_empty;
 alter table regulatory_signals.signals add constraint regulatory_signals_private_summary_not_empty
   check (length(trim(private_summary)) > 0);
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_source_url_not_empty;
 alter table regulatory_signals.signals add constraint regulatory_signals_source_url_not_empty
   check (length(trim(source_url)) > 0);
 
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_publication_gate;
 alter table regulatory_signals.signals add constraint regulatory_signals_publication_gate
   check (
     review_status <> 'published'

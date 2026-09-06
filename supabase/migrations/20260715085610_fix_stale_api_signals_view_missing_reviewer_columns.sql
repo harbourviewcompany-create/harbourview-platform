@@ -16,7 +16,19 @@
 --
 -- Regenerate with: node scripts/reconstruct-stub-migrations.mjs
 
-create or replace view api.signals
+-- Zero-state replay: CREATE OR REPLACE VIEW can add trailing columns but cannot
+-- drop or reorder existing ones, and on a from-scratch replay the api.signals
+-- view built by earlier history has a different column set than the one below,
+-- so the replace fails with "cannot drop columns from view". Against production
+-- the replace succeeded because the live view already matched. Drop first so the
+-- statement is correct from either starting state; the definition that follows
+-- is unchanged. Production is unaffected: 20260715085610 is already recorded in
+-- schema_migrations, so `supabase db push` skips it. Supabase's native
+-- preview-branch integration is what replays by filename order here -- it does
+-- not run scripts/prepare-production-faithful-migration-replay.mjs, whose
+-- REPLAY_ZERO_STATE_SKIPS list already names this file.
+drop view if exists api.signals;
+create view api.signals
   with (security_invoker = on)
   as
 select

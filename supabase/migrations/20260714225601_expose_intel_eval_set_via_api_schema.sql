@@ -27,6 +27,18 @@
 --   drop view if exists api.intel_eval_labeling;
 
 -- Read surface: eval rows joined to their signal content for the labeling UI.
+--
+-- Zero-state replay: 20260714120300_expose_needs_human_in_eval_view.sql runs
+-- earlier and already creates api.intel_eval_labeling, so a bare CREATE VIEW
+-- here fails with 42P07 on a from-scratch replay driven by filename order.
+-- Supabase's native preview-branch integration replays that way; it does not
+-- run scripts/prepare-production-faithful-migration-replay.mjs, whose
+-- REPLAY_ZERO_STATE_SKIPS list already names this file. Drop-then-create is the
+-- idiom 20260714120300 itself documents for this same view, and it leaves this
+-- later version's definition as the final one, matching production apply order.
+-- Production is unaffected: 20260714225601 is already recorded in
+-- schema_migrations, so `supabase db push` skips it.
+drop view if exists api.intel_eval_labeling;
 create view api.intel_eval_labeling as
 select
   e.id, e.signal_id,

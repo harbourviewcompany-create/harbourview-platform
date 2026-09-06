@@ -45,6 +45,17 @@ BEGIN
     'schema_drift_allowlist', 'signal_geo_labels'
   ]
   LOOP
+    -- Zero-state replay: several of these tables (_claude_push_staging and the
+    -- other github-bridge staging tables among them) were created out-of-band in
+    -- production and no repository migration creates them, so a from-scratch
+    -- replay driven by filename order fails here with 42P01. Supabase's native
+    -- preview-branch integration replays that way.
+    --
+    -- Skipping a table that does not exist cannot weaken this hardening: there
+    -- is nothing to expose. Against production, where all 21 exist, every
+    -- iteration runs exactly as before and the lockdown is unchanged.
+    CONTINUE WHEN to_regclass(format('public.%I', t)) IS NULL;
+
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
   END LOOP;
