@@ -1,0 +1,188 @@
+name: Full Regulatory Tier Coverage Activation
+
+on:
+  push:
+    branches:
+      - grok/full-regulatory-tier-coverage-20260830
+    paths:
+      - supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql
+      - supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql
+      - supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql
+      - supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql
+      - supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql
+      - supabase/migrations/20260830193000_fix_regulatory_tier_guard_transaction_timestamp.sql
+      - tests/sql/full_regulatory_tier_coverage_regression.sql
+      - .github/workflows/activate-full-regulatory-tier-coverage.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-regulatory-tier-coverage-production
+  cancel-in-progress: false
+
+env:
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  activate:
+    name: Canonical authority repair activation + regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production-database
+    steps:
+      - name: Checkout exact branch SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require authorized branch and canonical files
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/grok/full-regulatory-tier-coverage-20260830"
+          for f in \
+            supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql \
+            supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql \
+            supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql \
+            supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql \
+            supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql \
+            supabase/migrations/20260830193000_fix_regulatory_tier_guard_transaction_timestamp.sql \
+            tests/sql/full_regulatory_tier_coverage_regression.sql; do test -f "$f"; done
+          mkdir -p artifacts/full-regulatory-tier-coverage
+          sha256sum \
+            supabase/migrations/20260822134600_reconcile_legacy_heatmap_territory_rows.sql \
+            supabase/migrations/20260830184434_resync_market_access_status_from_regulatory_tier.sql \
+            supabase/migrations/20260830185137_fix_regulatory_tier_rationale_mismatches.sql \
+            supabase/migrations/20260830191900_fix_market_access_status_trigger_type_resolution.sql \
+            supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql \
+            supabase/migrations/20260830193000_fix_regulatory_tier_guard_transaction_timestamp.sql \
+            tests/sql/full_regulatory_tier_coverage_regression.sql \
+            | tee artifacts/full-regulatory-tier-coverage/source-sha256.txt
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Read-only production preflight
+        id: preflight
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -qAt <<'SQL' | tee artifacts/full-regulatory-tier-coverage/preflight.txt
+          select 'LEDGER|' || version || '|' || coalesce(name,'NULL')
+          from supabase_migrations.schema_migrations
+          where version in ('20260822134500','20260822134600','20260830140000','20260830141000','20260830184434','20260830185137','20260830191900','20260830192000','20260830193000')
+          order by version;
+          select 'COUNTRIES|' || count(*) || '|' || count(*) filter (where regulatory_tier is null) from public.countries;
+          select 'SUBNATIONAL|' || count(*) || '|' || count(*) filter (where regulatory_tier is not null)
+          from public.countries where iso_alpha2 ~ '^(US|CA|DE|AU)-';
+          select 'CANONICAL_MISMATCH_BEFORE|' || count(*)
+          from public.countries c
+          where api.derive_regulatory_tier(api.briefing_text_for_iso(c.iso_alpha2)) is not null
+            and c.regulatory_tier is distinct from api.derive_regulatory_tier(api.briefing_text_for_iso(c.iso_alpha2));
+          select 'TIER_BEFORE|' || regulatory_tier || '|' || count(*) from public.countries group by regulatory_tier order by regulatory_tier;
+          SQL
+          grep -q '^LEDGER|20260822134500|history_placeholder_superseded_by_20260830140000$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260822134600|reconcile_legacy_heatmap_territory_rows$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260830140000|full_regulatory_tier_coverage$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260830141000|subnational_regulatory_tier_evidence_alignment$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260830184434|resync_market_access_status_from_regulatory_tier$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260830185137|fix_regulatory_tier_rationale_mismatches$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260830191900|fix_market_access_status_trigger_type_resolution$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^LEDGER|20260830192000|regulatory_tier_authority_write_guard$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^COUNTRIES|291|0$' artifacts/full-regulatory-tier-coverage/preflight.txt
+          grep -q '^SUBNATIONAL|88|88$' artifacts/full-regulatory-tier-coverage/preflight.txt
+
+          if grep -q '^LEDGER|20260830193000|' artifacts/full-regulatory-tier-coverage/preflight.txt; then
+            grep -q '^LEDGER|20260830193000|fix_regulatory_tier_guard_transaction_timestamp$' artifacts/full-regulatory-tier-coverage/preflight.txt
+            echo 'mode=verify' >> "$GITHUB_OUTPUT"
+          else
+            echo 'mode=apply_guard_fix' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate exact guard-fix migration transaction
+        if: steps.preflight.outputs.mode == 'apply_guard_fix'
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs')
+          const version = '20260830193000'
+          const name = 'fix_regulatory_tier_guard_transaction_timestamp'
+          const path = 'supabase/migrations/20260830193000_fix_regulatory_tier_guard_transaction_timestamp.sql'
+          const sql = fs.readFileSync(path, 'utf8')
+          const lit = s => "'" + s.replaceAll("'", "''") + "'"
+          const out = `BEGIN;\n${sql}\ninsert into supabase_migrations.schema_migrations(version,name,statements) values (${lit(version)},${lit(name)},array[${lit(sql)}]::text[]);\nCOMMIT;\n`
+          fs.writeFileSync('artifacts/full-regulatory-tier-coverage/activation.sql', out)
+          NODE
+          sha256sum artifacts/full-regulatory-tier-coverage/activation.sql | tee artifacts/full-regulatory-tier-coverage/activation-sha256.txt
+
+      - name: Apply exact guard fix atomically
+        if: steps.preflight.outputs.mode == 'apply_guard_fix'
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f artifacts/full-regulatory-tier-coverage/activation.sql | tee artifacts/full-regulatory-tier-coverage/apply.txt
+
+      - name: Run full authority regression
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -v ON_ERROR_STOP=1 -f tests/sql/full_regulatory_tier_coverage_regression.sql | tee artifacts/full-regulatory-tier-coverage/regression.txt
+          grep -q 'FULL_REGULATORY_TIER_COVERAGE_REGRESSION|PASS' artifacts/full-regulatory-tier-coverage/regression.txt
+
+      - name: Read-only production postflight
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql -X -qAt <<'SQL' | tee artifacts/full-regulatory-tier-coverage/postflight.txt
+          select 'LEDGER|' || version || '|' || coalesce(name,'NULL') || '|' || coalesce(cardinality(statements)::text,'NULL')
+          from supabase_migrations.schema_migrations
+          where version in ('20260822134600','20260830184434','20260830185137','20260830191900','20260830192000','20260830193000') order by version;
+          select 'COUNTRIES|' || count(*) || '|' || count(*) filter (where regulatory_tier is null) from public.countries;
+          select 'SUBNATIONAL|' || count(*) || '|' || count(*) filter (where regulatory_tier is not null)
+          from public.countries where iso_alpha2 ~ '^(US|CA|DE|AU)-';
+          select 'CANONICAL_PARITY|' || count(*) from public.countries c
+          where api.derive_regulatory_tier(api.briefing_text_for_iso(c.iso_alpha2)) is not null
+            and c.regulatory_tier is distinct from api.derive_regulatory_tier(api.briefing_text_for_iso(c.iso_alpha2));
+          select 'MARKET_ACCESS_PARITY|' || count(*) from public.countries
+          where market_access_status::text is distinct from case regulatory_tier
+            when 'legal_commercial_access' then 'open' when 'medical_limited_trade' then 'regulated'
+            when 'domestic_only' then 'emerging' when 'cbd_hemp_only' then 'limited'
+            when 'prohibited' then 'restricted' else 'unknown' end;
+          select 'TIER_AFTER|' || regulatory_tier || '|' || count(*) from public.countries group by regulatory_tier order by regulatory_tier;
+          select 'EVIDENCE|' || iso_alpha2 || '|' || regulatory_tier || '|' || regulatory_tier_origin || '|' || regulatory_tier_needs_review
+          from public.countries
+          where iso_alpha2 in ('AD','AE','AU-QLD','AU-TAS','AU-WA','BW','BY','CN','CU','HN','KE','MT','NA','NI','RS','SV','VE','XK') order by iso_alpha2;
+          SQL
+          grep -q '^LEDGER|20260822134600|reconcile_legacy_heatmap_territory_rows|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^LEDGER|20260830184434|resync_market_access_status_from_regulatory_tier|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^LEDGER|20260830185137|fix_regulatory_tier_rationale_mismatches|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^LEDGER|20260830191900|fix_market_access_status_trigger_type_resolution|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^LEDGER|20260830192000|regulatory_tier_authority_write_guard|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^LEDGER|20260830193000|fix_regulatory_tier_guard_transaction_timestamp|1$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^COUNTRIES|291|0$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^SUBNATIONAL|88|88$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^CANONICAL_PARITY|0$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          grep -q '^MARKET_ACCESS_PARITY|0$' artifacts/full-regulatory-tier-coverage/postflight.txt
+          for expected in \
+            'AD|prohibited' 'AE|cbd_hemp_only' 'AU-QLD|legal_commercial_access' 'AU-TAS|legal_commercial_access' 'AU-WA|legal_commercial_access' \
+            'BW|legal_commercial_access' 'BY|cbd_hemp_only' 'CN|cbd_hemp_only' 'CU|prohibited' 'HN|prohibited' 'KE|prohibited' \
+            'MT|legal_commercial_access' 'NA|prohibited' 'NI|prohibited' 'RS|cbd_hemp_only' 'SV|prohibited' 'VE|prohibited' 'XK|prohibited'; do
+            grep -q "^EVIDENCE|${expected}|override|false$" artifacts/full-regulatory-tier-coverage/postflight.txt
+          done
+
+      - name: Upload activation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: full-regulatory-tier-coverage-${{ github.sha }}
+          path: artifacts/full-regulatory-tier-coverage/
+          if-no-files-found: error
+          retention-days: 90
