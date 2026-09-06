@@ -5910,3 +5910,56 @@ pre-existing warnings); 1,179 tests across 143 files + 2 skipped; `npm run
 build` exit 0 with all routes prerendering.
 
 **Decision:** **GO**, merged via PR #1764.
+
+---
+
+## 2026-09-06 — Removed a skip-patterned dead test left behind by the collision cleanup
+
+**Evidence ID:** `HV-TEST-STALE-COLLISION-RENAME-20260906`
+
+PR #1623 resolved both duplicate migration-version collisions **in the
+repository itself**: `20260813010000_extend_supply_catalog_equipment_to_australia.sql`
+was renamed (git `R100` — byte-identical) to `20260813010001_…`, and
+`20260820120000_clinical_pilot_local_authorities_au_gb_br.sql` was withdrawn as
+a redundant clinical authority seed. It added
+`tests/scripts/production-faithful-migration-replay-resolved-collisions.test.mjs`
+to assert the new state.
+
+What it did not do is delete the test the new one supersedes. Since #1623,
+`production-faithful-migration-replay.test.mjs` has carried a test asserting
+that the **planned** rename list equals the raw two-entry constant — which
+stopped being true the moment the collisions were resolved, because the planner
+filters to collisions that actually exist and now correctly returns `[]`.
+
+That test has been failing ever since, and the workflow was amended to hide it:
+
+```yaml
+node --test --test-skip-pattern='replay disambiguates independent duplicate-version migrations without dropping any body' …
+```
+
+**Correction to an in-session claim.** This was initially read as "`main`'s
+`verify` job is red." It is not, and never was — the skip pattern means CI does
+not run the test. It only fails when the file is run directly. The defect is a
+dead test plus a skip-pattern hack, not a broken gate.
+
+**Fix.** Delete the superseded test, delete the `--test-skip-pattern` argument
+that existed solely to hide it, and carry its still-meaningful body assertions
+into the replacement file as `resolving the collisions preserved every migration
+body` — checking the renamed Australia migration still contains its
+`update public.listings`, the sibling that forced the rename still creates
+`pipeline_tasks` and `dead_letter_tasks`, and the heatmap seed still defines
+`roll_up_market_access_status`. Coverage moves rather than disappearing; the
+two assertions that referenced now-deleted files are unrunnable by construction
+and are the only thing dropped.
+
+`REPLAY_VERSION_COLLISION_RENAMES` is deliberately left populated: the
+fails-closed tests in both files use those two entries as historical fixtures to
+prove the machinery still activates only for the exact old collisions.
+
+**Validation:** the `verify` job's test set, run exactly as the workflow now
+invokes it — release-closure classification 3/3; replay 17/17 (no skip
+pattern); resolved-collisions 3/3; `check-release-closure-migration-classification.mjs`
+exit 0. Plus lint exit 0, typecheck exit 0, 1,179 tests across 143 files + 2
+skipped, build exit 0, and the workflow continue-on-error guard lint exit 0.
+
+**Decision:** **GO.**
