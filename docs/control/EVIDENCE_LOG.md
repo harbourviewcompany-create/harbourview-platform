@@ -5790,3 +5790,48 @@ Locally: lint exit 0 (0 errors, 211 pre-existing warnings); typecheck exit 0;
 1,179 tests across 143 files + 2 skipped; build exit 0.
 
 **Decision:** **GO**, merged via PR #1769.
+
+---
+
+## 2026-09-06 — fflate advisory cleared by deduping, not upgrading
+
+**Evidence ID:** `HV-DEPS-FFLATE-GHSA-PX8P-20260906`
+
+`npm audit --omit=dev` failed the `Node 22 / TypeScript / Security / Build /
+Chromium` job on every PR:
+
+```
+fflate 0.6.0 - 0.6.10 (moderate)
+unzipSync can enter an infinite loop parsing malformed ZIP64 archives
+GHSA-px8p-9vwx-vf98 -- node_modules/three-stdlib/node_modules/fflate
+```
+
+**This was lower risk than it first appeared, and the initial assessment was
+wrong.** It was flagged in session as "a major bump under the globe renderer."
+In fact the root tree **already** resolved a safe `fflate@0.8.3` for
+`@types/three`; only `three-stdlib` nested a second, vulnerable copy at
+`0.6.10` behind its `^0.6.9` range. The override collapses the two onto the
+hoisted copy -- it removes a duplicate rather than upgrading anything that
+stood alone.
+
+**Compatibility checked, not assumed.** `three-stdlib` imports fflate in
+exactly one module, `exporters/USDZExporter`, using exactly two functions
+(`strToU8`, `zipSync`), both unchanged in 0.8.x and verified by round-tripping
+`zipSync`/`unzipSync` against the installed copy. `USDZExporter` is also
+unreachable from application code -- nothing in the repository imports
+`three-stdlib` or USDZ -- so the vulnerable `unzipSync` path was never callable
+here. The advisory was real; the exposure was not.
+
+**Lockfile handling.** Regenerating `package-lock.json` with npm 10.9.7 strips
+`libc` metadata from 20 platform-binary entries. Those were restored in place,
+preserving original key order, leaving a 6-line diff. `npm ci` then reinstalled
+cleanly and left the lockfile byte-identical -- the check that the
+hand-restored file is internally consistent, not merely parseable.
+
+**Validation (all in CI on PR #1771):** `Node 22 / TypeScript / Security /
+Build / Chromium` **success**; `npm-audit` **success**; `npm ci install-only
+check` **success**; `verify` **success**. Locally: `npm audit --omit=dev` ->
+`found 0 vulnerabilities` (was 1 moderate); lint exit 0; typecheck exit 0;
+1,179 tests; build exit 0; globe suites 22/22.
+
+**Decision:** **GO**, merged via PR #1771.
