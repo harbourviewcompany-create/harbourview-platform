@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -41,9 +42,26 @@ test('auth-hardening migration remains separately authorized and content-bound',
   )
   assert.ok(record)
   assert.equal(record.file, '20260810222500_harden_edge_function_cron_auth.sql')
-  assert.equal(record.git_blob_sha, 'c7174bb141a07431b020ef0c0c57a702ae44bb5a')
   assert.equal(record.classification, 'separately_authorized')
   assert.equal(record.reason_code, 'independent_release_not_authorized')
+
+  // Assert the binding against the file on disk rather than a second hardcoded
+  // literal. The literal that used to sit here held the same value the ledger
+  // carried, so when the migration body legitimately changed -- switching from a
+  // direct `update cron.job` to cron.alter_job(...), the only form postgres is
+  // granted -- both copies went stale together and neither caught it.
+  const body = fs.readFileSync(path.join(migrationDirectory, record.file))
+  const onDisk = crypto
+    .createHash('sha1')
+    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
+    .digest('hex')
+  assert.equal(record.git_blob_sha, onDisk)
+
+  // A gutted or placeholder body must not satisfy the binding silently.
+  const text = body.toString('utf8')
+  assert.match(text, /create or replace function public\.invoke_job_refresh\(\)/i)
+  assert.match(text, /vault\.decrypted_secrets/i)
+  assert.match(text, /cron\.alter_job/i)
 })
 
 test('rejects an altered Elite Digest allowlist binding', () => {
