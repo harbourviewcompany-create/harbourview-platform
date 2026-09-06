@@ -486,30 +486,33 @@
     {
       "version": "20260729000002",
       "file": "20260729000002_fix_jurisdiction_playbooks_missing_grant.sql",
-      "git_blob_sha": "384138664941eeca6c9e9c61451da1e9bad51e38",
+      "git_blob_sha": "43a3c127560bd7f901e0ffd5994cad267af8df4d",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "fresh_snapshot_requires_disposition",
-      "live_equivalent_versions": []
+      "live_equivalent_versions": [],
+      "notes": "git_blob_sha re-bound 2026-09-06. The file was retired to a documented no-op placeholder by 6b15fe50 (#1741, 'reconcile ledger-version drift for 4 files'), an ancestor of main; the real applied migration is 20260729095416. The ledger was not updated at the time, so the binding still pointed at the pre-retirement body."
     },
     {
       "version": "20260729010000",
       "file": "20260729010000_fix_missing_public_read_grants.sql",
-      "git_blob_sha": "a916fa9435d4b49d7331fc935621ff5f95f9c8c1",
+      "git_blob_sha": "852c8e6165b5c39a997a4c5136d08433a2ea611a",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "exact_live_name_different_version",
       "live_equivalent_versions": [
         "20260730103137"
-      ]
+      ],
+      "notes": "git_blob_sha re-bound 2026-09-06. Retired to a documented no-op placeholder by 6b15fe50 (#1741), an ancestor of main. Live equivalent 20260730103137 is unchanged. The ledger binding still pointed at the pre-retirement body."
     },
     {
       "version": "20260729020000",
       "file": "20260729020000_fix_candidate_review_and_pathway_template_grants.sql",
-      "git_blob_sha": "c7c915974c4945ee6e4c8031f3d56209a07e1c2a",
+      "git_blob_sha": "f26f5518461a07b76875825577630db51b04ed33",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "exact_live_name_different_version",
       "live_equivalent_versions": [
         "20260802134657"
-      ]
+      ],
+      "notes": "git_blob_sha re-bound 2026-09-06. Retired to a documented no-op placeholder by 6b15fe50 (#1741), an ancestor of main. Live equivalent 20260802134657 is unchanged. The ledger binding still pointed at the pre-retirement body."
     },
     {
       "version": "20260729130000",
@@ -572,10 +575,11 @@
     {
       "version": "20260730220050",
       "file": "20260730220050_reconcile_listings_production_columns.sql",
-      "git_blob_sha": "d881f49c620d8872ae523ec80f419b706166cab1",
+      "git_blob_sha": "b73503ac1ba5d1b439d5f30ffc7ca86a27cf4d7a",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "fresh_snapshot_requires_disposition",
-      "live_equivalent_versions": []
+      "live_equivalent_versions": [],
+      "notes": "git_blob_sha re-bound 2026-09-06. The body gained the guarded listings_listing_type_check relaxation needed for zero-state replay; the change is carried on main and predates 5ca22bd4, which is also the last commit to touch this ledger -- the two were never reconciled. Content unchanged by this re-binding."
     },
     {
       "version": "20260730220100",
@@ -748,10 +752,11 @@
     {
       "version": "20260810222500",
       "file": "20260810222500_harden_edge_function_cron_auth.sql",
-      "git_blob_sha": "c7174bb141a07431b020ef0c0c57a702ae44bb5a",
+      "git_blob_sha": "e40f5f28a10b72a6ce40190119b8164e37adc74f",
       "classification": "separately_authorized",
       "reason_code": "independent_release_not_authorized",
-      "live_equivalent_versions": []
+      "live_equivalent_versions": [],
+      "notes": "git_blob_sha re-bound 2026-09-06. The body now mutates cron jobs through cron.alter_job(...) instead of writing cron.job directly, because Supabase owns cron.job as supabase_admin and grants postgres SELECT but not UPDATE -- the recorded binding pointed at the earlier form, which could not have applied. Still separately_authorized and still unapplied; this re-binding authorises nothing."
     }
   ],
   "live_only_reconciliation": [

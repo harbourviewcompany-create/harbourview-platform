@@ -206,6 +206,43 @@ These are dashboard or account actions. Do not attempt code workarounds.
   workaround, and do not treat a red `Workers Builds` check as evidence about
   the diff until the duplicate integration is disconnected — every PR carries
   one, which trains reviewers to ignore a check that could one day be real.
+
+  > **Narrowed 2026-09-06 — "the account fails every build" is wrong, and it
+  > points the fix in the wrong direction.** Two commits this session
+  > (`b70f7305`, `e3a00c01`) each produced three Workers checks, and the split is
+  > consistent:
+  >
+  > | worker | account | result |
+  > | --- | --- | --- |
+  > | `harbourview-platform` | `c9bde393…` (canonical) | ✅ |
+  > | `harbourview-platform` | `4a7c450c…` | ✅ |
+  > | `harbourview` | `4a7c450c…` | ❌ |
+  >
+  > Account `4a7c450c…` builds `harbourview-platform` **successfully** on the
+  > identical commit, so the account is not broken. What fails is one specific
+  > Worker project — `harbourview` — which exists only in that account.
+  >
+  > That matters because `harbourview` is not a stray duplicate: it is the name
+  > this repository's own `wrangler.toml` declares (`name = "harbourview"`, the
+  > health utility on `scripts/engine/cloudflare-worker.ts`). So the repo's
+  > canonical Worker is failing to build in the only account that hosts it, while
+  > the genuine duplicate — `harbourview-platform`, connected in *both* accounts —
+  > is green in both.
+  >
+  > Still not fixable from here and still not a code defect:
+  > `npx wrangler deploy --dry-run` bundles cleanly (785.49 KiB / gzip 157.64 KiB,
+  > zero errors) using the exact `[build] command` the config declares, and the
+  > check run carries no output text — only a dashboard link. The build log is the
+  > missing evidence, and reading it needs dashboard access.
+  >
+  > Revised action: open the `harbourview` Worker's build settings in account
+  > `4a7c450c…` and compare its configured build command against `wrangler.toml`'s
+  > `npm run typecheck`. A dashboard build command that still runs the Next.js
+  > application build would explain it — and would also contradict this repo's
+  > stated architecture, which `wrangler.toml`'s own header sets out: the health
+  > Worker and any future OpenNext web preview must stay separate. The
+  > "disconnect the duplicate" advice above applies to the redundant
+  > `harbourview-platform` connection, not to `harbourview`.
 - **Vercel free-plan cap** (`api-deployments-free-per-day`, >100/day). When
   exhausted it blocks *production* deploys, not only previews.
 

@@ -6084,3 +6084,294 @@ same 5 git-blob mismatches it fails with on clean `main` — pre-existing, not
 introduced here, and flagged separately for a decision.
 
 **Decision:** **GO**, merged via PR #1755.
+
+## 2026-09-06 — The production-faithful replay completes for the first time
+
+**Context:** `Production Security Hardening` had not been green in the recorded
+window — all 15 most recent runs failed, across 8 branches, back to 2026-09-01.
+Its `supabase db reset --local` step aborted partway through the 1,023-file
+replay, which means the security assertions the workflow exists to run had never
+executed at all. The check was red for a reason nobody could see.
+
+**Method.** Reproduced locally against PostgreSQL 16 with a Supabase-shaped shim
+(auth/storage/vault/cron/net schemas, pgvector as a domain), driving the exact
+order CI drives: `prepare-production-faithful-migration-replay.mjs --apply` into
+a scratch workspace, then every file in sequence. First failure reproduced the CI
+error verbatim at file #960. A survey pass that records failures instead of
+stopping then exposed the whole landscape in one run: nine failing files, four
+distinct root causes.
+
+**All four fixed, entirely inside the replay-preparation layer.** No committed
+migration is edited and no production object is touched.
+
+1. **Ordering.** `20260821000000_performance_advisor_fixes` ALTERs four
+   `talent_*` policies; every talent table and policy is created by
+   `20260821120000_talent_job_board`, which sorts later. Relocated in the replay
+   workspace — it depends on nothing but `auth.users` and its own tables.
+
+2. **Production-only objects.** Four objects no repository migration creates are
+   now guarded on existence: `job_search.opportunities`,
+   `public.country_intel_backup_20260630`,
+   `hv_gemini_embed_backfill_tick(integer)` and `hv_local_classify_gate(vector)`.
+   Checked exhaustively rather than one at a time — of the 37 policies
+   `20260822000000` re-scopes, exactly two target absent tables; of the eight
+   function signatures the three `search_path` repairs pin, exactly two are
+   absent. Re-scoping a policy or pinning `search_path` on an absent object is a
+   no-op, so guarding cannot weaken anything.
+
+3. **A reconciliation that had silently rotted.** `20260822134600` recognises
+   only a 297-row / 6-legacy-row replay state. Two things had changed under it:
+   `20260613170000_canonical_country_reference_repair` post-dates it and adds
+   twelve more territory identity rows (309, not 297), and its exact
+   `(iso_alpha2, iso_alpha3, country_slug)` tuple match finds **five of six**
+   because `20260609000000` seeds VI as `us-virgin-islands`, not the
+   `united-states-virgin-islands` the tuple names. The replay copy now reconciles
+   all eighteen non-canonical ISO codes by code alone, sweeps the three
+   foreign-key dependents first, and stays a strict no-op on production's
+   canonical 291. Verified live: production holds 291 rows, none of the eighteen
+   codes, and zero dependent rows in all three tables.
+
+4. **A type divergence.** Production types `countries.market_access_status` as
+   the enum `public.market_access_status`; repository history types it `text`,
+   because the earliest creator predates the enum and whatever converted the
+   column in production has no repository file. The predicate in `20260901021633`
+   now compares as text — equivalent under both shapes, verified live: both forms
+   select the same 23 rows. A first attempt converted the column type instead;
+   that was abandoned because two views depend on it, and a smaller patch was
+   provably equivalent.
+
+**A real content gap found on the way.** `public.cc_jurisdiction_briefings` holds
+302 rows in production and 242 after a repository replay. Colombia is one of the
+sixty with no repository INSERT anywhere: the bulk americas seeds cover 33 ISO
+codes and skip CO, while `20260623100137` only UPDATEs a row it assumes exists.
+`20260830140000` asserts CO's stored tier equals the tier derived from its
+briefing text, which derives NULL with no row. Colombia's briefing is
+reconstructed verbatim from production **in the replay workspace only**. The
+underlying gap — sixty compliance briefings that live only in production, and
+would be lost if production were rebuilt from this repository — is **not** closed
+here.
+
+**Result:** 1,023/1,023 migrations apply cleanly in the CI-faithful order.
+
+**This does not by itself turn the check green, and that is the point.** With
+the replay completing, the assertions finally run — and return 21 rows: 19
+SECURITY DEFINER routines executable by `anon`, plus
+`marketplace_public_listings_v1` missing `security_invoker` and its public read
+contract. Every one reproduces identically against production (verified live), so
+these are real hardening gaps the gate was structurally unable to report, not
+replay artifacts. Closing them is a production security change and is held for an
+explicit decision rather than taken unilaterally.
+
+**Validation:** lint exit 0; typecheck exit 0; full vitest suite; build exit 0;
+1,040/1,040 migrations parse; replay + resolved-collisions + release-closure +
+ledger-manifest suites 44/44.
+
+**Decision:** **GO** for the replay repair. **HOLD** on the 21 hardening
+findings, pending sign-off.
+
+## 2026-09-06 — Five drifted migration bindings re-bound, and the gap that hid them closed
+
+**Context:** `check-pending-production-migration-decisions.mjs` failed on clean
+`main` with five git blob mismatches. Each pending migration is content-bound by
+hash so a governed, unapplied migration cannot be edited silently.
+
+**Every one of the five current bodies traces to a commit that is an ancestor of
+`main`, and each change is legitimate:**
+
+| version | why the hash moved | provenance |
+| --- | --- | --- |
+| `20260729000002` | retired to a documented no-op placeholder; real applied version is `20260729095416` | `6b15fe50` (#1741) |
+| `20260729010000` | retired to a no-op placeholder; live equivalent `20260730103137` | `6b15fe50` (#1741) |
+| `20260729020000` | retired to a no-op placeholder; live equivalent `20260802134657` | `6b15fe50` (#1741) |
+| `20260730220050` | gained the guarded `listings_listing_type_check` relaxation zero-state replay needs | on `main` before `5ca22bd4` |
+| `20260810222500` | switched from writing `cron.job` directly to `cron.alter_job(...)` | on `main` before `5ca22bd4` |
+
+The last is worth stating plainly: Supabase owns `cron.job` as `supabase_admin`
+and grants `postgres` SELECT but not UPDATE, so **the body the ledger was
+pinned to could not have applied.** The current body is the correct one.
+
+Re-bound to current content, each with a `notes` entry naming the provenance
+commit and the reason, so the re-binding is auditable rather than a silent reset.
+No migration body edited, no classification changed, activation stays `HOLD`, and
+`20260810222500` remains `separately_authorized` and unapplied — this authorises
+nothing.
+
+**Two root causes, both closed.**
+
+`pending-migration-decision-verification.yml` filtered on the ledger and its own
+script but **never on `supabase/migrations/**`** — so the guard ran only when the
+ledger changed, and never when a file it binds changed. That is exactly how five
+bindings drifted unnoticed. Glob added.
+
+The test asserted the hash as a hardcoded literal holding the same value the
+ledger carried, so both copies went stale together and neither caught it. It now
+derives the expected hash from the file on disk — the actual invariant — and
+separately asserts the auth-hardening body still contains its vault lookup and
+`cron.alter_job` call, so a gutted file cannot satisfy the binding silently.
+
+**Validation:** check script exit 0 (83 files / 83 versions, 54 live-only,
+activation HOLD); pending-decision suite 5/5.
+
+**Decision:** **GO**, merged via PR for `claude/updates-repo-review-kyd0vv`.
+
+## 2026-09-06 — `Workers Builds: harbourview`: re-verified, still account-side
+
+Re-checked rather than taken on faith, because §9 of
+`docs/control/AGENT_OPERATING_FACTS.md` is dated and dated facts go stale.
+
+`npx wrangler deploy --dry-run` against the committed `wrangler.toml` bundles the
+worker cleanly — 785.49 KiB / gzip 157.64 KiB, zero errors — running the exact
+`[build] command = "npm run typecheck"` the config declares. The GitHub check run
+carries no output text at all, only a dashboard link, and this environment holds
+no Cloudflare credentials (`env` shows no `CLOUDFLARE_*` / `CF_*`, no
+`~/.wrangler` state), so the build log is unreadable from here.
+
+`scripts/check-cloudflare-architecture.mjs` returns GO: the health Worker and the
+future OpenNext web-preview target remain separate.
+
+Consistent with §9's standing diagnosis — a duplicate Workers Git integration on
+account `4a7c450c9c94195aa9c338f87fb4fb04`, while canonical account
+`c9bde393b456a8311bb15a6661ebf3c2` builds the same commit successfully. Confirmed
+again on this session's own commits: `harbourview-platform` succeeded in both
+accounts on `b70f7305`; only `harbourview` on `4a7c450c` failed.
+
+Per §9's explicit instruction — *"Do not attempt an in-repo workaround"* — no
+code change was made.
+
+**Correction to §9, found by re-checking rather than repeating it.** §9 says the
+`4a7c450c…` account "fails every build". That is not what happens. Two commits
+this session, `b70f7305` and `e3a00c01`, each produced three Workers checks with
+the same split:
+
+| worker | account | result |
+| --- | --- | --- |
+| `harbourview-platform` | `c9bde393…` (canonical) | ✅ |
+| `harbourview-platform` | `4a7c450c…` | ✅ |
+| `harbourview` | `4a7c450c…` | ❌ |
+
+The account builds `harbourview-platform` successfully on the identical commit,
+so the account is not broken. One Worker project fails: `harbourview`, which
+exists only there.
+
+And `harbourview` is not a stray duplicate — it is the name this repository's own
+`wrangler.toml` declares. So the repo's canonical health Worker is failing in the
+only account that hosts it, while the actual duplicate connection
+(`harbourview-platform`, wired into both accounts) is green in both. §9's "fix is
+to disconnect the duplicate" therefore points at the wrong object.
+
+Revised action: compare the `harbourview` Worker's dashboard build command in
+`4a7c450c…` against `wrangler.toml`'s `npm run typecheck`. A dashboard command
+still running the Next.js application build would explain the failure and would
+contradict the separation `wrangler.toml`'s header requires. §9 updated.
+
+**Decision:** **NO CODE CHANGE.** Escalated as a dashboard action, with the
+target narrowed from the account to the `harbourview` Worker's build config.
+
+## 2026-09-06 — Two live production outages: the globe's colour and the Market feed
+
+Reported from the running app: the Market Access heatmap renders uniform gold,
+and the Market panel shows Cannabis 0 / Wanted 0 / Opportunities 0 with no
+product images. **Neither is a data problem.** Both are the same class of
+defect — the application reading through a schema or view that does not expose
+what the code asks for.
+
+### The shared root cause
+
+PostgREST on `zvxdgdkukjrrwamdpqrg` is configured as:
+
+```
+pgrst.db_schemas = "public, graphql_public, job_search, api"
+```
+
+`public` is listed first, so it is the **default** schema. `lib/supabase/client.ts`
+carried a comment asserting the opposite — that only `api` was exposed. That
+comment was wrong and load-bearing: it implied a raw `fetch` to
+`/rest/v1/<relation>` would land on `api`, so several modules omitted the schema
+header and silently resolved to `public`.
+
+### Defect 1 — the globe
+
+`lib/globe/supabaseGlobeData.ts` colours from four evidence columns and fails
+closed unless all four agree. The browser client is pinned to `api`, so it reads
+`api.countries` — which exposes the legacy `regulatory_tier` and **none** of
+`verified_regulatory_tier`, `regulatory_tier_evidence_key`,
+`regulatory_tier_verified_at`, `regulatory_tier_expires_at`. Every request 42703s,
+`getGlobeCountryMarkers` throws, and the globe renders with no markers.
+
+The data was never the problem. On `public.countries`, verified live:
+
+| | |
+| --- | --- |
+| countries with lat/lng | 269 |
+| all four columns populated | 117 |
+| expired | **0** |
+| would colour today | **117** |
+
+Earliest expiry is 2027-03-01. 117 countries were ready to colour and the view
+would not hand them over. Same shape as `MIGRATION_DRIFT_2026-08-08.md`: the code
+shipped, the schema did not.
+
+Fixed by `20260906161500_expose_verified_regulatory_tier_in_api_countries.sql`,
+which appends the four columns to `api.countries`. It grants nothing new — the
+view keeps `security_invoker = true` and anon/authenticated already hold
+column-level SELECT on all four (verified live). Exposure matches
+`REGULATORY_MARKET_ACCESS_LIVE_EFFECT_RECONCILIATION_20260831.md`, which already
+states `verified_regulatory_tier` is "the only tier the public globe may render".
+
+Verified against a fully replayed local database: applies cleanly (30 → 34
+columns), preserves `security_invoker=true`, is idempotent on re-run, and the
+globe's exact select returns 270 rows where it previously raised 42703.
+
+**This migration is committed but NOT applied.** Per `AGENT_OPERATING_FACTS.md`
+§1 merging it changes nothing; the globe stays gold until it is applied. It is
+baselined (127 → 128) as an acknowledgement of that gap, not approval of it.
+
+### Defect 2 — the Market feed
+
+`lib/server/listingsQuery.ts` fetches `/rest/v1/marketplace_public_listings_v1`
+with no `Accept-Profile`, so it resolved to `public.marketplace_public_listings_v1`.
+Grants, verified live:
+
+| relation | anon | authenticated | service_role |
+| --- | --- | --- | --- |
+| `public.listings` | ✗ | ✗ | ✓ |
+| `public.marketplace_public_listings_v1` | ✗ | ✗ | ✓ |
+| `api.marketplace_public_listings_v1` | ✓ | ✓ | ✓ |
+
+Every visitor got zero rows while `api.*` held 175. The missing product images
+are downstream of the same failure, not separate: `loadMarketplaceMedia(itemIds)`
+takes its ids from the listings, so zero listings means zero media. The media
+module itself was already correct — it is one of the few that sends the header.
+
+**This is the `public_read_contract_missing` assertion on
+`marketplace_public_listings_v1`** that the Production Security Hardening gate
+began reporting once the replay was repaired earlier today. The gate was
+describing a live outage, not a theoretical gap.
+
+**Scoped rather than blanket-fixed.** 68 files call `/rest/v1`; only two
+relations actually differ for browser roles (`listings`,
+`marketplace_public_listings_v1`), and `public_signals` exists only in `api`.
+Auditing every caller of those found exactly three browser-role offenders —
+`listingsQuery.ts`, `countriesQuery.ts`, `liveOpportunities.ts`. Admin paths
+(`adminDataClient`, `promoteToListing`, `resolveListingSeller`,
+`app/admin/marketplace/page.tsx`) use service_role, which *does* hold SELECT on
+the `public.*` views, so they were never broken and are untouched.
+
+Deliberately **not** granting anon on the `public.*` views: that would widen
+exposure to paper over a routing mistake.
+
+### The durable part
+
+`tests/supabase/restSchemaProfile.test.ts` fails if any browser-role raw-REST
+caller of an api-only relation omits `Accept-Profile: api`, and if the corrected
+schema comment ever regresses. Negative-tested: removing the header from
+`listingsQuery.ts` fails the suite with that exact file named, and restoring it
+passes.
+
+**Validation:** lint exit 0 (0 errors, 211 pre-existing warnings); typecheck exit
+0; 1,182 tests across 144 files + 2 skipped; build exit 0; 1,041/1,041 migrations
+parse; ledger-manifest suite 17/17.
+
+**Decision:** **GO** on the Market fix — code-only, no production mutation.
+**HOLD** on applying the globe migration to production, pending explicit
+sign-off; the file and its verification are ready.

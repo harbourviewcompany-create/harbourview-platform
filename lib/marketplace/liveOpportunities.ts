@@ -178,7 +178,15 @@ async function fromSupabaseListings(): Promise<BusinessOpportunityWithPublicSlug
     })
 
     const res = await fetch(`${url}/rest/v1/marketplace_public_listings_v1?${params}`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+      // Anon holds SELECT on api.marketplace_public_listings_v1 only; the
+      // public.* view of the same name is service_role-only, and `public` is
+      // PostgREST's default schema here.
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+        'Accept-Profile': 'api',
+      },
       next: { revalidate: 300 },
     })
 
