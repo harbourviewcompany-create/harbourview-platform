@@ -5835,3 +5835,38 @@ check` **success**; `verify` **success**. Locally: `npm audit --omit=dev` ->
 1,179 tests; build exit 0; globe suites 22/22.
 
 **Decision:** **GO**, merged via PR #1771.
+
+---
+
+## 2026-09-06 — apply_migration pairing rule synced into the loaded skill file
+
+**Evidence ID:** `HV-SKILL-APPLY-MIGRATION-PAIRING-20260906`
+
+`.claude/skills/harbourview-platform/SKILL.md` §4 previously recommended
+`apply_migration` for creating/replacing RPCs without stating that applying is
+only half the change. That omission is the documented generator of this
+repository's migration drift: `apply_migration` writes a
+`supabase_migrations.schema_migrations` row in production and creates no
+repository file.
+
+This adds the pairing rule to the file agents actually load, alongside the
+recovery query (`select version, name from
+supabase_migrations.schema_migrations order by version desc limit 5;`) and the
+instruction to commit using that exact version as the filename timestamp rather
+than a freshly invented one.
+
+**Why it matters, measured.** `docs/control/MIGRATION_DRIFT_20260902.md` records
+30 uncommitted production versions, 25 of them applied through Supabase MCP by a
+single account. On 2026-09-05 the reverse direction was measured for the first
+time: 126 committed-but-unapplied migrations, one of which
+(`20260816120000_auto_heatmap_from_signals.sql`) cannot be applied at all as
+written — see `HV-DRIFT-COMMITTED-BASELINE-CORRECTION-20260905`.
+
+**Scope:** documentation only. No runtime code, schema, workflow, or dependency
+is touched, and nothing is applied to production.
+
+**Validation:** `npm run test` → 143 files passed, 2 skipped; 1,179 tests
+passed. Migration SQL parse check → 1,037/1,037 parse as valid PostgreSQL.
+Typecheck exit 0.
+
+**Decision:** **GO**, merged via PR #1757.
