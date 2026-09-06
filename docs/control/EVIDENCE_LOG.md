@@ -6014,3 +6014,73 @@ exit 0; 1,179 tests across 143 files + 2 skipped; build exit 0; 1,037/1,037
 migrations parse; replay + resolved-collisions suites 20/20.
 
 **Decision:** **GO**, merged via PR #1703.
+
+## 2026-09-06 — Supply catalog PR renumbered to the versions production actually applied
+
+**Context:** PR #1755 (`Supply catalog: global availability + country legal-status
+reference`) shipped three migrations. Two of them —
+`20260903100000_make_supply_catalog_globally_available.sql` and
+`20260903100100_seed_country_cannabis_legal_status_reference.sql` — were written
+at invented version numbers. Production, however, had already applied the
+country legal-status work under two different versions on the same day:
+`20260903103515` and `20260903103549`.
+
+Merging the PR as authored would have cemented drift in **both** directions
+simultaneously and permanently:
+
+- `applied_not_committed` would keep `20260903103515` and `20260903103549`
+  forever, because no file in the repository would ever carry those versions —
+  and that is the direction `.github/workflows/migration-drift-check.yml`
+  actually fails on.
+- `committed_not_applied` would gain `20260903100100`, a file that can never be
+  applied, because applying it would re-run DDL production already has under a
+  different version number.
+
+**What was verified before rewriting anything.** Both production statements were
+read back from `supabase_migrations.schema_migrations.statements` and compared
+byte-for-byte against what the PR proposed:
+
+| version | bytes | md5 |
+| --- | --- | --- |
+| `20260903103515` (create) | 1,199 | `11a093d94e6666ebd5cb890947dcf1e9` |
+| `20260903103549` (seed) | 6,017 | `7d34b95fd49687d65011d96ea941ae89` |
+
+The committed files reproduce those bodies exactly, under the same
+"Reconstructed from production" header convention already used by
+`20260723183914_lock_down_21_anon_exposed_public_tables.sql`. Rewriting them
+cannot touch production: both versions are already recorded in
+`schema_migrations`, so `supabase db push` skips them. This is a repository-only
+repair of replay fidelity.
+
+`20260903100100_seed_country_cannabis_legal_status_reference.sql` was removed
+(`git rm`) rather than renamed, because its body was not what production ran.
+
+**The third migration is genuinely new and stays.**
+`20260903100000_make_supply_catalog_globally_available.sql` has no production
+counterpart — the ledger has no `20260903100000` row at all. It is baselined
+into `supabase/release-controls/committed-not-applied-baseline.json` (126 → 127)
+with an explicit note that baselining is **acknowledgement that it is not
+applied, not approval to leave it unapplied**: it widens supply-catalog
+visibility to all ~195 ISO2 codes and needs a deliberate apply decision.
+
+**Result — both drift directions clean for this change.** Recomputed by set
+difference (never by cardinality, per the correction recorded earlier today):
+
+```
+repo versions: 1040
+applied_not_committed: 12   (was 14 — 20260903103515 and 20260903103549 gone)
+committed_not_applied:  127
+committed_not_applied not in baseline: (none)
+```
+
+**Validation:** lint exit 0 (0 errors, 211 pre-existing warnings); typecheck
+exit 0; 1,180 tests across 143 files + 2 skipped; build exit 0; 1,040/1,040
+migrations parse; ledger-manifest suite 17/17; replay + resolved-collisions +
+release-closure suites 23/23;
+`check-release-closure-migration-classification.mjs` green.
+
+`scripts/check-pending-production-migration-decisions.mjs` still fails with the
+same 5 git-blob mismatches it fails with on clean `main` — pre-existing, not
+introduced here, and flagged separately for a decision.
+
+**Decision:** **GO**, merged via PR #1755.
