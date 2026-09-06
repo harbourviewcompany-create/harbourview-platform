@@ -5675,3 +5675,342 @@ detailed in
 higher-priority than originally scoped: the reconstruction script has no
 guard against re-clobbering a deliberate fix, which puts today's fixes
 (including the two from earlier in this entry) at risk on its next run.
+
+---
+
+## 2026-09-05 — Symmetric drift gate caught its own baseline defect on the first push
+
+**Evidence ID:** `HV-DRIFT-COMMITTED-BASELINE-CORRECTION-20260905`
+
+The `committed_not_applied` half of the migration drift gate landed on `main`
+in `8d57282` with a 124-version grandfathering baseline. On the first push
+that baseline was proved two versions short: the gate failed naming
+`20260722120002` and `20260729000000`.
+
+**Root cause — verification method, not the gate.** The baseline was checked
+by comparing *cardinalities* (797 applied pre-August vs 797 pre-August
+repository versions outside the baseline) rather than the sets themselves.
+Two equal-and-opposite errors cancelled exactly:
+
+| Direction | Versions | Why |
+|---|---|---|
+| applied, no repository file | `20260730112526`, `20260731090302` | attested remote-only (credential/PII payloads, deliberately uncommitted) |
+| committed, no applied row | `20260722120002`, `20260729000000` | genuinely unapplied |
+
+797 == 797 while the sets differed. Set equality was never asserted.
+
+**Live confirmation (read-only):**
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where version in ('20260722120002','20260729000000');
+-- 0 rows
+```
+
+Recomputed as an exact set difference against the live ledger (925 applied,
+1,037 repository): true `committed_not_applied` = **126**. All 124 existing
+baseline entries are correct; none are stale; exactly the two above were
+missing. Baseline corrected to 126 and the file now records that it is
+derived by set difference only, never by cardinality.
+
+**Reproduction and fix proof**, against a remote list rebuilt from the live
+ledger with the two attested rows filtered out exactly as CI does:
+
+- before: `Committed-but-unapplied migration drift detected: 20260722120002, 20260729000000` — byte-identical to the CI failure
+- after: that failure is gone
+
+**Regression guard added:** the shipped-baseline test now asserts every
+baselined version names a real file under `supabase/migrations`. This catches
+the phantom-entry half of the mistake offline; only the live gate can catch
+the missing-entry half, and it did.
+
+**Correction to PR #1767's body.** It claimed "Gate is green on `main`
+today." That was wrong and was asserted without reading the workflow's actual
+run history. The `Migration Drift Check` job was **already red on `main`**
+before this change — run 4326 at `763a540` failed with the same
+`Migration drift parser or remote-ledger reconciliation failed` error, on the
+pre-existing `applied_not_committed` direction. This change did not break the
+job; it added a second, correct reason on top of an existing failure.
+
+**Remaining red is not this change's and is not portable here.**
+`applied_not_committed` reports `20260903103515` and `20260903103549` —
+`create_country_cannabis_legal_status_reference` and
+`seed_country_cannabis_legal_status_known_markets`, applied to production on
+2026-09-03 with no repository file. Open draft PR #1755 carries the same
+*intent* under different versions (`20260903100000`, `20260903100100`) and a
+different statement split (a `listings` update plus a combined create+seed,
+versus create-then-seed live), so this is a reconciliation for #1755's author,
+not a mechanical port — and it is compliance-facing country legal-status copy,
+which is explicitly out of scope for autonomous edits under `CLAUDE.md`.
+
+**Validation:** lint 0 errors (211 pre-existing warnings); typecheck exit 0;
+1,179 tests passed across 143 files + 2 skipped; build exit 0; 41/41 ledger
+and parser tests.
+
+**Decision:** **GO** for the baseline correction. **Open:** the
+`applied_not_committed` drift on `20260903103515`/`20260903103549`, owned by
+PR #1755.
+
+---
+
+## 2026-09-06 — Four HIGH CVEs cleared: fast-uri lived in the second lockfile
+
+**Evidence ID:** `HV-DEPS-FAST-URI-CVE-20260906`
+
+`Trivy + OPA Policy Enforcement` had been failing on **every** PR in this
+repository with four HIGH findings, all CVSS 7.5:
+
+```
+CVE-2026-75899, CVE-2026-75931, CVE-2026-75975, CVE-2026-76172
+in fast-uri@3.1.5 (fixed in 2.4.5, 3.1.6, 4.1.3)
+```
+
+**Why it survived so long.** The package is not in the root lockfile. It is a
+transitive dependency of `ajv` inside `tools/intelligence-engine-studio`, which
+carries its own `package-lock.json` — the second of the two lockfiles Trivy
+reports scanning (`Number of language-specific files num=2`). A root
+`package.json` override is a **no-op** for it; that was tried first and
+confirmed to change nothing. The same split explains why
+`npm audit --omit=dev` at the root never flagged it: the studio entry is marked
+`devOptional` and sits in a different project tree.
+
+**Fix:** `"fast-uri": "^3.1.6"` added to the studio's existing `overrides`
+block, resolving to **3.1.7**. This clears the gate rather than suppressing it —
+`policies/trivy-vuln-policy.rego` denies findings that are HIGH/CRITICAL with a
+non-empty `FixedVersion` and CVSS V3 > 7.0, and at 3.1.7 Trivy reports nothing.
+
+The root lockfile was deliberately left untouched: regenerating it with npm
+10.9.7 strips `libc` metadata from 20 platform-binary entries, 60 lines of
+dialect churn unrelated to the fix. The studio lockfile has zero such entries
+and regenerates cleanly, so the diff is 6 lockfile lines plus one override.
+
+**Validation:** `Trivy + OPA Policy Enforcement` **passed in CI** on the fix
+(PR #1769, job `101401653681`) — the check's first green in this repository.
+Locally: lint exit 0 (0 errors, 211 pre-existing warnings); typecheck exit 0;
+1,179 tests across 143 files + 2 skipped; build exit 0.
+
+**Decision:** **GO**, merged via PR #1769.
+
+---
+
+## 2026-09-06 — fflate advisory cleared by deduping, not upgrading
+
+**Evidence ID:** `HV-DEPS-FFLATE-GHSA-PX8P-20260906`
+
+`npm audit --omit=dev` failed the `Node 22 / TypeScript / Security / Build /
+Chromium` job on every PR:
+
+```
+fflate 0.6.0 - 0.6.10 (moderate)
+unzipSync can enter an infinite loop parsing malformed ZIP64 archives
+GHSA-px8p-9vwx-vf98 -- node_modules/three-stdlib/node_modules/fflate
+```
+
+**This was lower risk than it first appeared, and the initial assessment was
+wrong.** It was flagged in session as "a major bump under the globe renderer."
+In fact the root tree **already** resolved a safe `fflate@0.8.3` for
+`@types/three`; only `three-stdlib` nested a second, vulnerable copy at
+`0.6.10` behind its `^0.6.9` range. The override collapses the two onto the
+hoisted copy -- it removes a duplicate rather than upgrading anything that
+stood alone.
+
+**Compatibility checked, not assumed.** `three-stdlib` imports fflate in
+exactly one module, `exporters/USDZExporter`, using exactly two functions
+(`strToU8`, `zipSync`), both unchanged in 0.8.x and verified by round-tripping
+`zipSync`/`unzipSync` against the installed copy. `USDZExporter` is also
+unreachable from application code -- nothing in the repository imports
+`three-stdlib` or USDZ -- so the vulnerable `unzipSync` path was never callable
+here. The advisory was real; the exposure was not.
+
+**Lockfile handling.** Regenerating `package-lock.json` with npm 10.9.7 strips
+`libc` metadata from 20 platform-binary entries. Those were restored in place,
+preserving original key order, leaving a 6-line diff. `npm ci` then reinstalled
+cleanly and left the lockfile byte-identical -- the check that the
+hand-restored file is internally consistent, not merely parseable.
+
+**Validation (all in CI on PR #1771):** `Node 22 / TypeScript / Security /
+Build / Chromium` **success**; `npm-audit` **success**; `npm ci install-only
+check` **success**; `verify` **success**. Locally: `npm audit --omit=dev` ->
+`found 0 vulnerabilities` (was 1 moderate); lint exit 0; typecheck exit 0;
+1,179 tests; build exit 0; globe suites 22/22.
+
+**Decision:** **GO**, merged via PR #1771.
+
+---
+
+## 2026-09-06 — apply_migration pairing rule synced into the loaded skill file
+
+**Evidence ID:** `HV-SKILL-APPLY-MIGRATION-PAIRING-20260906`
+
+`.claude/skills/harbourview-platform/SKILL.md` §4 previously recommended
+`apply_migration` for creating/replacing RPCs without stating that applying is
+only half the change. That omission is the documented generator of this
+repository's migration drift: `apply_migration` writes a
+`supabase_migrations.schema_migrations` row in production and creates no
+repository file.
+
+This adds the pairing rule to the file agents actually load, alongside the
+recovery query (`select version, name from
+supabase_migrations.schema_migrations order by version desc limit 5;`) and the
+instruction to commit using that exact version as the filename timestamp rather
+than a freshly invented one.
+
+**Why it matters, measured.** `docs/control/MIGRATION_DRIFT_20260902.md` records
+30 uncommitted production versions, 25 of them applied through Supabase MCP by a
+single account. On 2026-09-05 the reverse direction was measured for the first
+time: 126 committed-but-unapplied migrations, one of which
+(`20260816120000_auto_heatmap_from_signals.sql`) cannot be applied at all as
+written — see `HV-DRIFT-COMMITTED-BASELINE-CORRECTION-20260905`.
+
+**Scope:** documentation only. No runtime code, schema, workflow, or dependency
+is touched, and nothing is applied to production.
+
+**Validation:** `npm run test` → 143 files passed, 2 skipped; 1,179 tests
+passed. Migration SQL parse check → 1,037/1,037 parse as valid PostgreSQL.
+Typecheck exit 0.
+
+**Decision:** **GO**, merged via PR #1757.
+
+---
+
+## 2026-09-06 — Clinical dead code removed, deadness verified rather than assumed
+
+**Evidence ID:** `HV-CLEANUP-CLINICAL-DEAD-CODE-20260906`
+
+Removes 593 lines across four clinical modules plus the one import site that
+kept a fifth alive:
+
+| File | Disposition |
+|---|---|
+| `components/clinical/FrameworkAlignmentBlock.tsx` | deleted (145 lines) |
+| `components/dashboard/ClinicalPage.tsx` | deleted (6 lines) |
+| `components/dashboard/pages/ClinicalPage.tsx` | deleted (315 lines) |
+| `lib/clinical/clinicalQuery.ts` | deleted (115 lines) |
+| `components/dashboard/pages/ClinicalWorkspacePage.tsx` | modified — drops the import and single usage |
+
+**Deadness verified, not assumed.** On `main` before this change,
+`FrameworkAlignmentBlock` was **not** unreferenced — `ClinicalWorkspacePage.tsx`
+imported it at line 7 and rendered it at line 372. That is why this PR also
+modifies that file. Deleting the component without the companion edit would have
+broken the build, so a file-by-file "is it imported anywhere" check is not
+sufficient evidence here; the merge result has to compile.
+
+After merging `main` into the branch, a repository-wide search finds **0**
+remaining references to `FrameworkAlignmentBlock` and **0** to `clinicalQuery`.
+
+**The live clinical surface is untouched.** `ClinicalWorkspacePage` remains and
+is still reached from `ClinicalSection.tsx` and `ClinicalCommandCase.tsx`. What
+is removed is the superseded `ClinicalPage` pair and its query helper — the
+deleted `components/dashboard/ClinicalPage.tsx` header itself points at the
+`pages/` variant as the real education UI.
+
+**Validation on the merge result** (branch merged with `main` at `80a84045`,
+not the stale branch tip): typecheck exit 0; lint exit 0 (0 errors, 211
+pre-existing warnings); 1,179 tests across 143 files + 2 skipped; `npm run
+build` exit 0 with all routes prerendering.
+
+**Decision:** **GO**, merged via PR #1764.
+
+---
+
+## 2026-09-06 — Removed a skip-patterned dead test left behind by the collision cleanup
+
+**Evidence ID:** `HV-TEST-STALE-COLLISION-RENAME-20260906`
+
+PR #1623 resolved both duplicate migration-version collisions **in the
+repository itself**: `20260813010000_extend_supply_catalog_equipment_to_australia.sql`
+was renamed (git `R100` — byte-identical) to `20260813010001_…`, and
+`20260820120000_clinical_pilot_local_authorities_au_gb_br.sql` was withdrawn as
+a redundant clinical authority seed. It added
+`tests/scripts/production-faithful-migration-replay-resolved-collisions.test.mjs`
+to assert the new state.
+
+What it did not do is delete the test the new one supersedes. Since #1623,
+`production-faithful-migration-replay.test.mjs` has carried a test asserting
+that the **planned** rename list equals the raw two-entry constant — which
+stopped being true the moment the collisions were resolved, because the planner
+filters to collisions that actually exist and now correctly returns `[]`.
+
+That test has been failing ever since, and the workflow was amended to hide it:
+
+```yaml
+node --test --test-skip-pattern='replay disambiguates independent duplicate-version migrations without dropping any body' …
+```
+
+**Correction to an in-session claim.** This was initially read as "`main`'s
+`verify` job is red." It is not, and never was — the skip pattern means CI does
+not run the test. It only fails when the file is run directly. The defect is a
+dead test plus a skip-pattern hack, not a broken gate.
+
+**Fix.** Delete the superseded test, delete the `--test-skip-pattern` argument
+that existed solely to hide it, and carry its still-meaningful body assertions
+into the replacement file as `resolving the collisions preserved every migration
+body` — checking the renamed Australia migration still contains its
+`update public.listings`, the sibling that forced the rename still creates
+`pipeline_tasks` and `dead_letter_tasks`, and the heatmap seed still defines
+`roll_up_market_access_status`. Coverage moves rather than disappearing; the
+two assertions that referenced now-deleted files are unrunnable by construction
+and are the only thing dropped.
+
+`REPLAY_VERSION_COLLISION_RENAMES` is deliberately left populated: the
+fails-closed tests in both files use those two entries as historical fixtures to
+prove the machinery still activates only for the exact old collisions.
+
+**Validation:** the `verify` job's test set, run exactly as the workflow now
+invokes it — release-closure classification 3/3; replay 17/17 (no skip
+pattern); resolved-collisions 3/3; `check-release-closure-migration-classification.mjs`
+exit 0. Plus lint exit 0, typecheck exit 0, 1,179 tests across 143 files + 2
+skipped, build exit 0, and the workflow continue-on-error guard lint exit 0.
+
+**Decision:** **GO.**
+
+---
+
+## 2026-09-06 — Regulatory tier authority: TS mirror resynced to the applied SQL
+
+**Evidence ID:** `HV-GLOBE-TIER-MIRROR-RESYNC-20260906`
+
+PR #1703 opened carrying eleven migrations plus supporting CI. By the time it
+merged, every one of those migrations had already reached `main` through other
+PRs, so the nine add/add conflicts were resolved in favour of `main` after
+confirming the differences were **comment-only** — `main` holds the
+"Reconstructed from production" verbatim bodies, which are the ones actually
+applied, so `main` is authoritative for ledger fidelity.
+
+Three further files the PR modified were reverted to `main` deliberately:
+`20260701180751`, `20260714095121` and `20260714224152`. Those changes duplicate
+transformations `scripts/prepare-production-faithful-migration-replay.mjs`
+already performs, and the `20260714224152` change specifically contradicts a
+test on `main` requiring that file to keep its reconstructed `CREATE TABLE`.
+
+**What actually lands is the part that was missing: a real divergence fix.**
+
+`lib/globe/derive-regulatory-tier.ts` is documented as a TypeScript mirror of
+`api.derive_regulatory_tier(program_status)`. The SQL in
+`20260830192000_regulatory_tier_authority_write_guard.sql` — on `main` and
+applied in production — evaluates in this order:
+
+```
+if export_commercial or import_commercial then return 'legal_commercial_access'
+if ps ~* 'prohibited' and <cbd/hemp> then return 'cbd_hemp_only'
+```
+
+The TypeScript had those two clauses **inverted**, so a jurisdiction with an
+operational cross-border cannabis pathway *and* a local industrial-hemp mention
+classified as `cbd_hemp_only` in TS and `legal_commercial_access` in SQL. This
+reorders TS to match, with a regression test covering the parent-aware
+Australian state briefing text that exposes it.
+
+This matters because `derive-regulatory-tier.ts` feeds the globe, the surface
+that hard-failed in production on 2026-09-04.
+
+Also lands: `Regulatory Tier Authority Verify` and
+`Activate Full Regulatory Tier Coverage` workflows (path-filtered, additive —
+they gate nothing that was previously ungated),
+`full-regulatory-tier-coverage-20260830.json`, and a SQL regression fixture.
+
+**Validation:** `derive-regulatory-tier` suite 16/16; lint exit 0; typecheck
+exit 0; 1,179 tests across 143 files + 2 skipped; build exit 0; 1,037/1,037
+migrations parse; replay + resolved-collisions suites 20/20.
+
+**Decision:** **GO**, merged via PR #1703.

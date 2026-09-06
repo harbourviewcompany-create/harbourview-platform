@@ -76,6 +76,7 @@ Confirmed-missing/required vars to check whenever debugging runtime errors (`Ver
 
 ## 4. Supabase MCP usage
 - `execute_sql` and `apply_migration` are both reliable; **prefer `apply_migration`** for creating/replacing RPCs since it handles idempotency. It requires a `name` parameter.
+- **Non-negotiable, per `HANDOFF.md`'s standing ADR: every `apply_migration` call must be paired with the corresponding `.sql` file committed to `supabase/migrations/` in the same session or PR.** Applying via MCP without committing the file creates drift that blocks the next `Compare repository and live migration ledgers` CI run and has cost multiple full sessions to reconcile (see `HANDOFF.md`'s dated entries and `docs/control/MIGRATION_DRIFT_*.md` for the recurring history — this has recurred repeatedly since at least June 2026, most recently reconciled by #1740 on 2026-09-02). If you use `apply_migration`, before ending the session: `select version, name from supabase_migrations.schema_migrations order by version desc limit 5;` and commit a matching file using that exact version as the filename timestamp — never a freshly invented one.
 - Cron jobs: `SELECT cron.schedule(...)`.
 - REST API base: `https://zvxdgdkukjrrwamdpqrg.supabase.co/rest/v1/`
   - Headers: `apikey: <service_role_key>` AND `Authorization: Bearer <service_role_key>`
