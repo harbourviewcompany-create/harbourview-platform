@@ -5675,3 +5675,43 @@ detailed in
 higher-priority than originally scoped: the reconstruction script has no
 guard against re-clobbering a deliberate fix, which puts today's fixes
 (including the two from earlier in this entry) at risk on its next run.
+
+---
+
+## 2026-09-06 — Four HIGH CVEs cleared: fast-uri lived in the second lockfile
+
+**Evidence ID:** `HV-DEPS-FAST-URI-CVE-20260906`
+
+`Trivy + OPA Policy Enforcement` had been failing on **every** PR in this
+repository with four HIGH findings, all CVSS 7.5:
+
+```
+CVE-2026-75899, CVE-2026-75931, CVE-2026-75975, CVE-2026-76172
+in fast-uri@3.1.5 (fixed in 2.4.5, 3.1.6, 4.1.3)
+```
+
+**Why it survived so long.** The package is not in the root lockfile. It is a
+transitive dependency of `ajv` inside `tools/intelligence-engine-studio`, which
+carries its own `package-lock.json` — the second of the two lockfiles Trivy
+reports scanning (`Number of language-specific files num=2`). A root
+`package.json` override is a **no-op** for it; that was tried first and
+confirmed to change nothing. The same split explains why
+`npm audit --omit=dev` at the root never flagged it: the studio entry is marked
+`devOptional` and sits in a different project tree.
+
+**Fix:** `"fast-uri": "^3.1.6"` added to the studio's existing `overrides`
+block, resolving to **3.1.7**. This clears the gate rather than suppressing it —
+`policies/trivy-vuln-policy.rego` denies findings that are HIGH/CRITICAL with a
+non-empty `FixedVersion` and CVSS V3 > 7.0, and at 3.1.7 Trivy reports nothing.
+
+The root lockfile was deliberately left untouched: regenerating it with npm
+10.9.7 strips `libc` metadata from 20 platform-binary entries, 60 lines of
+dialect churn unrelated to the fix. The studio lockfile has zero such entries
+and regenerates cleanly, so the diff is 6 lockfile lines plus one override.
+
+**Validation:** `Trivy + OPA Policy Enforcement` **passed in CI** on the fix
+(PR #1769, job `101401653681`) — the check's first green in this repository.
+Locally: lint exit 0 (0 errors, 211 pre-existing warnings); typecheck exit 0;
+1,179 tests across 143 files + 2 skipped; build exit 0.
+
+**Decision:** **GO**, merged via PR #1769.
