@@ -5963,3 +5963,54 @@ exit 0. Plus lint exit 0, typecheck exit 0, 1,179 tests across 143 files + 2
 skipped, build exit 0, and the workflow continue-on-error guard lint exit 0.
 
 **Decision:** **GO.**
+
+---
+
+## 2026-09-06 — Regulatory tier authority: TS mirror resynced to the applied SQL
+
+**Evidence ID:** `HV-GLOBE-TIER-MIRROR-RESYNC-20260906`
+
+PR #1703 opened carrying eleven migrations plus supporting CI. By the time it
+merged, every one of those migrations had already reached `main` through other
+PRs, so the nine add/add conflicts were resolved in favour of `main` after
+confirming the differences were **comment-only** — `main` holds the
+"Reconstructed from production" verbatim bodies, which are the ones actually
+applied, so `main` is authoritative for ledger fidelity.
+
+Three further files the PR modified were reverted to `main` deliberately:
+`20260701180751`, `20260714095121` and `20260714224152`. Those changes duplicate
+transformations `scripts/prepare-production-faithful-migration-replay.mjs`
+already performs, and the `20260714224152` change specifically contradicts a
+test on `main` requiring that file to keep its reconstructed `CREATE TABLE`.
+
+**What actually lands is the part that was missing: a real divergence fix.**
+
+`lib/globe/derive-regulatory-tier.ts` is documented as a TypeScript mirror of
+`api.derive_regulatory_tier(program_status)`. The SQL in
+`20260830192000_regulatory_tier_authority_write_guard.sql` — on `main` and
+applied in production — evaluates in this order:
+
+```
+if export_commercial or import_commercial then return 'legal_commercial_access'
+if ps ~* 'prohibited' and <cbd/hemp> then return 'cbd_hemp_only'
+```
+
+The TypeScript had those two clauses **inverted**, so a jurisdiction with an
+operational cross-border cannabis pathway *and* a local industrial-hemp mention
+classified as `cbd_hemp_only` in TS and `legal_commercial_access` in SQL. This
+reorders TS to match, with a regression test covering the parent-aware
+Australian state briefing text that exposes it.
+
+This matters because `derive-regulatory-tier.ts` feeds the globe, the surface
+that hard-failed in production on 2026-09-04.
+
+Also lands: `Regulatory Tier Authority Verify` and
+`Activate Full Regulatory Tier Coverage` workflows (path-filtered, additive —
+they gate nothing that was previously ungated),
+`full-regulatory-tier-coverage-20260830.json`, and a SQL regression fixture.
+
+**Validation:** `derive-regulatory-tier` suite 16/16; lint exit 0; typecheck
+exit 0; 1,179 tests across 143 files + 2 skipped; build exit 0; 1,037/1,037
+migrations parse; replay + resolved-collisions suites 20/20.
+
+**Decision:** **GO**, merged via PR #1703.
