@@ -107,7 +107,14 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
   assert.match(canonicalEval, /production-recorded statement for version\s*-- 20260714224152, the duplicate registration of this same migration/i)
   assert.match(canonicalEval, /20260714224152 stays a no-op: by the time replay\s*-- reaches it the table exists/i)
   assert.match(duplicateEval, /Reconstructed from production/i)
-  assert.match(duplicateEval, /create table public\.intel_eval_set/i)
+  // The DDL must still be present -- this file must never regress to a SELECT 1
+  // stub. It is written `if not exists` on purpose: 20260714224152 is the
+  // duplicate registration of 20260714120000, and the canonical file states the
+  // intent plainly ("20260714224152 stays a no-op: by the time replay reaches it
+  // the table exists"). The CI replay realises that by skipping the file, but
+  // Supabase Preview does not run the prep script, so the file itself has to be
+  // safe to re-execute. Assert the DDL, not the non-idempotent spelling of it.
+  assert.match(duplicateEval, /create table (if not exists )?public\.intel_eval_set/i)
 
   assert.match(canonicalApi, /real work was already applied to production under\s*-- the neighboring version 20260714225601/i)
   assert.match(widenedApi, /drop view if exists api\.intel_eval_labeling/i)
