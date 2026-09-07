@@ -6489,3 +6489,58 @@ jurisdictions to neutral; `countries.regulatory_tier` is never modified.
 
 **Decision:** **NOT APPLIED to production.** Repository-only pending Tyler's
 explicit sign-off (CLAUDE.md Rule 3c) and the URL spot-check noted above.
+
+---
+
+## 2026-09-07 — Market Access evidence tranche 3 (29 jurisdictions, first `prohibited` rows)
+
+**Change:** `supabase/migrations/20260907140000_market_access_evidence_tranche_three.sql`
+inserts 29 rows and calls `api.refresh_verified_market_access_tiers`. Same
+controlling document as tranche 2.
+
+**Why:** tranche 2 prioritised by `opportunity_score`, leaving Africa, Central Asia
+and the Middle East neutral by default. Under the fail-closed contract an
+unresearched jurisdiction and a closed one render identically, so the globe could
+not distinguish "not assessed" from "closed". **This is the first tranche to
+publish `prohibited` — before it no jurisdiction on the globe carried that tier.**
+
+**Composition:** `legal_commercial_access` 4 (ZM, RW, BB, VU) · `medical_limited_trade`
+11 (CH, SI, LT, AR, CL, EC, MX, PY, LK, TT, KN) · `cbd_hemp_only` 2 (CN, IN) ·
+`prohibited` 12 (BG, SK, HU, SE, RU, BY, RS, MD, SG, NG, KE, TZ).
+
+**Two abstentions worth recording, both caught by per-country checking:**
+- **Uganda** — the 2015 Narcotic Drugs Act licensed cultivation and export, but the
+  Constitutional Court **nullified it in May 2023** on quorum grounds; the Judiciary
+  later clarified this did not legalise cannabis. Statutory basis unresolved.
+- **DR Congo** — 2021 legislation permits medical/industrial/scientific use, but
+  sources conflict on whether any programme operates.
+
+Both appear on the widely-repeated "eleven African countries with legal medical
+cannabis" list. A regional bulk assignment would have published both wrong. Also
+deferred: the Gulf states, Malaysia, Indonesia and Vietnam — prohibition is not in
+doubt, but the only sources located were aggregate journalism and advocacy
+trackers, below the bar. Deferring beats publishing under-sourced.
+
+**Same egress limitation as tranche 2:** no `authority_url` in this tranche was
+loaded and read directly. Spot-check before production apply.
+
+**Validation** (same PostgreSQL 16 harness, applied on top of tranche 2):
+
+| Check | Result |
+| --- | --- |
+| rows inserted | 29 |
+| resolved `published_from_evidence` | 29 / 29 |
+| tranche-2 rows after tranche 3 | 18 / 18 `verified_unchanged` (no interference) |
+| omitted jurisdiction (`LB`) | `neutral_unchanged` |
+
+**Live pre-state confirmed read-only:** all 29 ISO codes present in
+`public.countries`, none already publishing — no FK failure, no uniqueness
+collision. Coverage after both tranches: **29 → 76 of 203** national jurisdictions
+(Africa +10, Europe +17, Americas +12, Asia +7, Oceania +1). **127 still publish
+`NULL` and remain outstanding.**
+
+**Rollback:** identical to tranche 2 — the `hv-mkt-%-20260907` key prefix covers
+both tranches, so one delete plus a refresh reverts all 47 rows.
+
+**Decision:** **NOT APPLIED to production.** Repository-only pending explicit
+sign-off (CLAUDE.md Rule 3c).

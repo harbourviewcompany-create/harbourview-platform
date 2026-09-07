@@ -132,3 +132,80 @@ table is touched and `countries.regulatory_tier` is not modified.
 
 National jurisdictions publishing a tier: 29 → 47 of 203. The remaining 156 stay
 neutral by design until evidence exists for them.
+
+---
+
+# Tranche 3 — 29 further jurisdictions (same day)
+
+`supabase/migrations/20260907140000_market_access_evidence_tranche_three.sql`.
+
+Tranche 2 prioritised by `opportunity_score`, which left Africa, Central Asia and
+the Middle East neutral by default. That is a reporting defect, not a judgement:
+under the fail-closed contract an unresearched jurisdiction and a closed one both
+render neutral gold, so the globe could not distinguish *"we have not looked"*
+from *"this market is closed"*.
+
+Tranche 3 addresses that directly, and is the first tranche anywhere to publish
+`prohibited`. Before it, **no jurisdiction on the globe carried a published
+`prohibited` tier.**
+
+Same sourcing bar and the same egress limitation as tranche 2 — no `authority_url`
+here was loaded and read directly either.
+
+## Published
+
+**`legal_commercial_access` (4)** — Zambia (Cannabis Act 2021 No. 33 + Industrial
+Hemp Act 2021 No. 34, ZAMRA lead agency; source is ZambiaLII, the official legal
+information institute), Rwanda (Ministerial Order No 003/MoH/2021, eight licence
+types, NAEB export licence tied to a verified foreign buyer), Barbados (Medicinal
+Cannabis Industry Act 2019, BMCLA, eight licence categories including export),
+Vanuatu (Medical Cannabis and Industrial Hemp Act 2021, regulations gazetted 2023).
+
+**`medical_limited_trade` (11)** — Switzerland, Slovenia, Lithuania, Argentina,
+Chile, Ecuador, Mexico, Paraguay, Sri Lanka, Trinidad and Tobago (Cannabis Control
+Act 2022, sourced to the Parliament's own published Act), Saint Kitts and Nevis.
+
+**`cbd_hemp_only` (2)** — China (Category I narcotic with no medical exception,
+alongside one of the world's largest licensed industrial-hemp sectors) and India
+(NDPS s.14 licensed cultivation for fibre, seed, horticulture and medical research;
+four states license low-THC hemp; bhang falls outside the Act's cannabis definition).
+
+**`prohibited` (12)** — Bulgaria and Slovakia (CMS Expert Guides country pages),
+Hungary, Sweden, Russia, Belarus, Serbia, Moldova, Singapore, Nigeria, Kenya,
+Tanzania.
+
+## Abstentions in this tranche
+
+| ISO | Jurisdiction | Why no row |
+|-----|--------------|------------|
+| UG | Uganda | The Narcotic Drugs and Psychotropic Substances (Control) Act 2015 licensed cultivation, processing and export — but Uganda's Constitutional Court **nullified that Act in May 2023** on quorum grounds. The Judiciary later clarified the ruling did not legalise cannabis. Current statutory basis is unresolved; publishing either tier would misstate it. |
+| CD | DR Congo | Legislation of 27 February 2021 permits medical, industrial and scientific use, but sources conflict on whether any medicinal programme actually operates. |
+| LV | Latvia | "Limited medical access, low product availability" is too vague to map onto a tier. |
+| — | Gulf states (SA, AE, QA, KW, OM, BH) | Prohibition is not in doubt, but the sources located were aggregate journalism and advocacy trackers rather than a legal or regulatory source. Deferred rather than published below the bar. |
+| — | Malaysia, Indonesia, Vietnam | Same reason as the Gulf: sourced only through comparative death-penalty reporting. |
+
+Uganda and DR Congo are the substantive catch of this tranche. Both appear on
+widely-repeated "African countries with legal medical cannabis" lists — the
+eleven-country figure that circulates in industry reporting — and checking each
+one individually is what surfaced that neither currently supports a published tier.
+A regional bulk assignment would have got both wrong.
+
+## Verification
+
+Applied to the same PostgreSQL 16 harness on top of tranche 2:
+
+- 29 rows insert; all 29 resolve `published_from_evidence`.
+- All 18 tranche-2 rows return `verified_unchanged` — the tranches do not interfere.
+- `LB` remains `neutral_unchanged`.
+- Live pre-check: all 29 ISO codes exist in `public.countries`, none already
+  publishes a tier, so there is no FK failure and no uniqueness collision.
+
+## Coverage after tranches 2 and 3
+
+National jurisdictions publishing a tier: **29 → 76 of 203**. Counted across both
+tranches: Africa +10, Europe +17, Americas +12, Asia +7, Oceania +1.
+
+127 national jurisdictions still publish `NULL`. That is not finished work — it is
+the remaining backlog, and most of it is the deep tail (small island states, much
+of West and Central Africa, Central Asia) plus the deferred Gulf and Southeast
+Asian rows above, which need a source meeting the bar rather than more searching.
