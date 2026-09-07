@@ -24,7 +24,7 @@
 -- Additive, isolated, reversible. Rollback: DROP TABLE public.intel_eval_set;
 -- RLS enabled with NO policies => service_role/admin only (deny-by-default per DATABASE_CONTROL.md).
 
-create table public.intel_eval_set (
+create table if not exists public.intel_eval_set (
   id                 uuid primary key default gen_random_uuid(),
   signal_id          text not null unique
                        references public.signals(id) on delete cascade,
@@ -75,5 +75,5 @@ comment on column public.intel_eval_set.content_type  is 'Human ground-truth: re
 comment on column public.intel_eval_set.draft_quality_label is 'Assistant first-pass suggestion — never counts as ground truth';
 comment on column public.intel_eval_set.label_status is 'unlabeled -> drafted -> confirmed|corrected; unlabelable = dead/empty source';
 
-create index intel_eval_set_status_idx  on public.intel_eval_set (label_status);
-create index intel_eval_set_stratum_idx on public.intel_eval_set (sample_stratum);
+create index if not exists intel_eval_set_status_idx  on public.intel_eval_set (label_status);
+create index if not exists intel_eval_set_stratum_idx on public.intel_eval_set (sample_stratum);

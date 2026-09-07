@@ -107,13 +107,26 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
   assert.match(canonicalEval, /production-recorded statement for version\s*-- 20260714224152, the duplicate registration of this same migration/i)
   assert.match(canonicalEval, /20260714224152 stays a no-op: by the time replay\s*-- reaches it the table exists/i)
   assert.match(duplicateEval, /Reconstructed from production/i)
-  assert.match(duplicateEval, /create table public\.intel_eval_set/i)
+  // The DDL must still be present -- this file must never regress to a SELECT 1
+  // stub. It is written `if not exists` on purpose: 20260714224152 is the
+  // duplicate registration of 20260714120000, and the canonical file states the
+  // intent plainly ("20260714224152 stays a no-op: by the time replay reaches it
+  // the table exists"). The CI replay realises that by skipping the file, but
+  // Supabase Preview does not run the prep script, so the file itself has to be
+  // safe to re-execute. Assert the DDL, not the non-idempotent spelling of it.
+  assert.match(duplicateEval, /create table (if not exists )?public\.intel_eval_set/i)
 
   assert.match(canonicalApi, /real work was already applied to production under\s*-- the neighboring version 20260714225601/i)
   assert.match(widenedApi, /drop view if exists api\.intel_eval_labeling/i)
   assert.match(widenedApi, /create view api\.intel_eval_labeling/i)
   assert.match(duplicateApi, /Reconstructed from production/i)
-  assert.match(duplicateApi, /create view api\.intel_eval_labeling/i)
+  // `or replace` for the same reason as intel_eval_set above: Supabase Preview
+  // executes the REPLAY_ZERO_STATE_SKIPS files that the CI replay skips, against
+  // a branch database that already holds the object. Assert the DDL is present,
+  // not that it is spelled non-idempotently. Note the assertion on `widenedApi`
+  // just above deliberately still pins the bare `create view` -- that is a
+  // different, non-skipped file (20260714120300) and is not re-executed.
+  assert.match(duplicateApi, /create (or replace )?view api\.intel_eval_labeling/i)
 
   assert.match(canonicalSignalsView, /real work was already applied to production under the neighboring\s*-- version 20260715085610/i)
   assert.match(canonicalSignalsView, /cannot drop columns from view/i)
@@ -163,7 +176,21 @@ test('replay relocates only evidenced reconstruction files before their first de
       destination: '20260818212759_replay_clinical_evidence_spine_reconcile.sql',
       before: '20260818212800_clinical_prescriber_governance_preflight.sql',
     },
+    {
+      source: '20260821120000_talent_job_board.sql',
+      destination: '20260820235959_replay_talent_job_board.sql',
+      before: '20260821000000_performance_advisor_fixes.sql',
+    },
   ])
+
+  // 20260821000000 ALTERs four talent_* policies; every talent table and policy
+  // it names is created by 20260821120000, which sorts later. The relocated file
+  // depends on nothing but auth.users and its own tables, so moving it is safe.
+  const talentSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260821120000_talent_job_board.sql'), 'utf8')
+  assert.match(talentSource, /create table if not exists public\.talent_alerts/i)
+  assert.match(talentSource, /create table if not exists public\.talent_opportunities/i)
+  const advisorSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260821000000_performance_advisor_fixes.sql'), 'utf8')
+  assert.match(advisorSource, /ALTER POLICY talent_alerts_own ON public\.talent_alerts/i)
 
   const corridorSource = fs.readFileSync(path.join(root, 'supabase/migrations/20260701230000_corridor_intelligence_tables_stub.sql'), 'utf8')
   assert.match(corridorSource, /reconstructed from the live production catalog for zero-state migration replay/i)
@@ -237,7 +264,7 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
 })
 
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 2)
+  assert.equal(syntheticFoundations.length, 3)
   const foundation = syntheticFoundations.find(
     (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
   )
@@ -320,7 +347,7 @@ test('synthetic education policy foundation fails closed when its boundary or pr
 
 test('replay hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 3)
+  assert.equal(contentPatches.length, 13)
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
 
@@ -379,4 +406,96 @@ test('replay reconciles the legacy and Prescriber OS clinical contracts additive
 
 test('production-local relation guard is suppressed when the exact migration is absent', () => {
   assert.deepEqual(planReplayContentPatches({ migrationFiles: [] }), [])
+})
+
+test('replay reconstructs the Colombia briefing that no repository migration seeds', () => {
+  const foundation = syntheticFoundations.find(
+    (item) => item.destination === '20260830135959_replay_colombia_country_briefing.sql',
+  )
+  assert.ok(foundation)
+  assert.equal(foundation.before, '20260830140000_full_regulatory_tier_coverage.sql')
+
+  // The coverage migration asserts CO's stored tier equals the tier derived from
+  // its briefing text, so a replay with no CO briefing derives null and fails.
+  const coverage = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260830140000_full_regulatory_tier_coverage.sql'),
+    'utf8',
+  )
+  assert.match(coverage, /Canonical evidence regression for LS\/MA\/CO\/KE/i)
+
+  // No repository migration INSERTs a CO briefing; the americas seeds skip it and
+  // 20260623100137 only UPDATEs a row it assumes exists.
+  const americasSeeds = [
+    '20260621233459_seed_briefings_americas_a.sql',
+    '20260621233543_seed_briefings_americas_b.sql',
+    '20260621233640_seed_briefings_americas_c.sql',
+    '20260621233743_seed_briefings_americas_d.sql',
+  ]
+  for (const seed of americasSeeds) {
+    const body = fs.readFileSync(path.join(root, 'supabase/migrations', seed), 'utf8')
+    assert.equal(/,'CO',/.test(body), false, `${seed} unexpectedly seeds a CO briefing`)
+  }
+
+  assert.match(foundation.content, /insert into public\.cc_jurisdiction_briefings/i)
+  assert.match(foundation.content, /\$hvco\$CO\$hvco\$/)
+  assert.match(foundation.content, /where not exists/i)
+  assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
+})
+
+test('replay guards production-only relations and routines instead of failing on them', () => {
+  const guarded = [
+    ['20260822000000_service_role_policy_scoping.sql', /to_regclass\('job_search\.opportunities'\) is not null/i],
+    ['20260822000000_service_role_policy_scoping.sql', /to_regclass\('public\.country_intel_backup_20260630'\) is not null/i],
+    ['20260901022725_pin_search_path_on_mutable_functions.sql', /to_regprocedure\('public\.hv_gemini_embed_backfill_tick\(integer\)'\) is not null/i],
+    ['20260901022725_pin_search_path_on_mutable_functions.sql', /to_regprocedure\('public\.hv_local_classify_gate\(vector\)'\) is not null/i],
+    ['20260902021703_fix_search_path_regression_missing_extensions_schema.sql', /to_regprocedure\('public\.hv_gemini_embed_backfill_tick\(integer\)'\) is not null/i],
+    ['20260902021703_fix_search_path_regression_missing_extensions_schema.sql', /to_regprocedure\('public\.hv_local_classify_gate\(vector\)'\) is not null/i],
+    ['20260902021818_fix_search_path_quoting_regression.sql', /to_regprocedure\('public\.hv_gemini_embed_backfill_tick\(integer\)'\) is not null/i],
+    ['20260902021818_fix_search_path_quoting_regression.sql', /to_regprocedure\('public\.hv_local_classify_gate\(vector\)'\) is not null/i],
+  ]
+
+  for (const [file, guard] of guarded) {
+    const patch = contentPatches.find((item) => item.file === file && guard.test(item.replacement))
+    assert.ok(patch, `no guarding patch for ${file} matching ${guard}`)
+    const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+})
+
+test('replay reconciles every non-canonical territory row, not just the original six', () => {
+  const file = '20260822134600_reconcile_legacy_heatmap_territory_rows.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+
+  // The shipped file only recognises a 297-row/6-legacy-row replay. Repository
+  // history now produces 309 rows, and its exact (iso, iso3, slug) tuple match
+  // finds five of six because 20260609000000 seeds VI as 'us-virgin-islands'.
+  assert.match(original, /v_total = 297 and v_legacy = 6/)
+  assert.match(original, /'united-states-virgin-islands'/)
+  const seed = fs.readFileSync(path.join(root, 'supabase/migrations/20260609000000_seed_countries_all_191_v1.sql'), 'utf8')
+  assert.match(seed, /'us-virgin-islands'/)
+
+  assert.match(patch.replacement, /v_replay_only constant text\[\]/i)
+  for (const iso of ['AS', 'AW', 'AX', 'CW', 'GG', 'GI', 'GS', 'GU', 'HM', 'IM', 'JE', 'MO', 'MP', 'NC', 'PF', 'SX', 'TF', 'VI']) {
+    assert.match(patch.replacement, new RegExp(`'${iso}'`))
+  }
+  // Production's canonical shape stays a strict no-op.
+  assert.match(patch.replacement, /if v_total = 291 then/i)
+})
+
+test('replay compares market_access_status as text so either column shape works', () => {
+  const file = '20260901021633_document_medical_only_reclassification_via_rpc.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.match(patch.anchor, /WHERE market_access_status IS DISTINCT FROM \(CASE regulatory_tier/)
+  assert.match(patch.replacement, /WHERE market_access_status::text IS DISTINCT FROM \(CASE regulatory_tier/)
+  // The SET clause keeps its enum cast; only the predicate changes.
+  assert.match(original, /END::market_access_status\nWHERE/)
 })
