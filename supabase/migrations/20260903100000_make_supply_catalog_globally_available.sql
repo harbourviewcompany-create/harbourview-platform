@@ -12,7 +12,9 @@
 -- still only carry CA-specific compliance metadata (CSA Z76.1, plain
 -- packaging, etc.). No new per-country compliance claims are made here.
 --
--- Already applied directly to the live project this session.
+-- Applied to production (zvxdgdkukjrrwamdpqrg) under operator authorization
+-- 2026-09-06. Ledger hygiene follows in the same PR that removes this
+-- version from committed-not-applied-baseline.json.
 
 update public.listings
 set target_countries = array[
