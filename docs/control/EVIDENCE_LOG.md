@@ -6375,3 +6375,51 @@ parse; ledger-manifest suite 17/17.
 **Decision:** **GO** on the Market fix — code-only, no production mutation.
 **HOLD** on applying the globe migration to production, pending explicit
 sign-off; the file and its verification are ready.
+
+## 2026-09-07 — The globe migration applied to production; heatmap restored
+
+Applied `expose_verified_regulatory_tier_in_api_countries` to
+`zvxdgdkukjrrwamdpqrg`. Recorded by the live ledger as version
+**`20260907015309`**, so the committed file was renamed from the placeholder
+`20260906161500` to match — the pairing rule in `.claude/skills/harbourview-platform`
+§4 and `HANDOFF.md`'s standing ADR. It is no longer committed-but-unapplied, so it
+is removed from `committed-not-applied-baseline.json` (128 → 127).
+
+**Before, verified immediately prior to applying:**
+
+| | |
+| --- | --- |
+| `api.countries` columns | 30 |
+| of the four evidence columns exposed | **0** |
+| countries that would colour | 117 |
+
+**After:**
+
+| | |
+| --- | --- |
+| `api.countries` columns | **34** |
+| of the four evidence columns exposed | **4** |
+| `reloptions` | `security_invoker=true` (unchanged) |
+| `anon` SELECT on `api.countries` | true (unchanged) |
+| globe rows returned | 269 |
+| rows carrying a published tier | **117** |
+| distinct tiers present | `cbd_hemp_only`, `domestic_only`, `legal_commercial_access`, `medical_limited_trade` |
+
+The globe's exact select — the eleven columns `getGlobeCountryMarkers` requests
+from `api.countries` — now returns 269 rows where it previously raised 42703 on
+every request. No privilege was granted: the view keeps `security_invoker = true`
+and anon already held column-level SELECT on all four source columns.
+
+Note `prohibited` does not appear among the tiers present. That is data, not a
+defect: no country currently carries a `prohibited` tier with complete, unexpired
+evidence. The globe's fail-closed contract renders those neutral by design.
+
+**Validation after the rename:** 1,041/1,041 migrations parse;
+ledger-manifest suite 17/17; `check-pending-production-migration-decisions.mjs`
+exit 0 (83 files / 83 versions, activation HOLD);
+`check-release-closure-migration-classification.mjs` exit 0; typecheck exit 0;
+1,182 tests across 144 files + 2 skipped.
+
+**Decision:** **GO** — applied on Tyler's instruction ("Both", then "implement").
+The Market-feed half of the same incident needs no production action; it ships
+with the code in PR #1773.
