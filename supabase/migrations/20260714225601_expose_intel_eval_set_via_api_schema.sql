@@ -27,7 +27,13 @@
 --   drop view if exists api.intel_eval_labeling;
 
 -- Read surface: eval rows joined to their signal content for the labeling UI.
-create or replace view api.intel_eval_labeling as
+-- drop-then-create, not `create or replace`: 20260714120300 runs earlier and
+-- widens this view, and CREATE OR REPLACE VIEW can only append trailing
+-- columns, so replacing the widened shape with this narrower one raises
+-- 42P16. Dropping first is what 20260714120300 itself does and what this
+-- file's own rollback note above prescribes.
+drop view if exists api.intel_eval_labeling;
+create view api.intel_eval_labeling as
 select
   e.id, e.signal_id,
   s.headline, s.summary, s.source, s.url,
