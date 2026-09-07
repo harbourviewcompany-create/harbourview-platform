@@ -6423,3 +6423,69 @@ exit 0 (83 files / 83 versions, activation HOLD);
 **Decision:** **GO** — applied on Tyler's instruction ("Both", then "implement").
 The Market-feed half of the same incident needs no production action; it ships
 with the code in PR #1773.
+
+---
+
+## 2026-09-07 — Market Access evidence tranche 2 (18 national jurisdictions)
+
+**Change:** `supabase/migrations/20260907120000_market_access_evidence_tranche_two.sql`
+inserts 18 rows into `public.regulatory_market_access_evidence` and calls
+`api.refresh_verified_market_access_tiers`. Controlling document:
+`docs/control/REGULATORY_MARKET_ACCESS_EVIDENCE_TRANCHE_20260907.md`.
+
+**Why:** after `20260907015309` exposed `verified_regulatory_tier` through
+`api.countries`, the globe rendered but 174 of 203 national jurisdictions
+published `NULL` for want of evidence rows, not for want of plumbing.
+
+**Sourcing bar — stated explicitly.** The bar is the one already in force for the
+51 US state rows in `20260831130000` (a named authority plus a citable published
+source), chosen by Tyler on 2026-09-07 after the stricter primary-source-only bar
+proved unmeetable here.
+
+**Egress limitation, recorded rather than glossed:** `WebFetch` and `curl` were
+refused for every government/regulator domain tested (`cla.org.jm`, `ncc.gov.gh`,
+`ir.parliament.gh`, `gov.uk`, `hpra.ie`, `halmed.hr`). Only search was reachable.
+**No `authority_url` in this tranche was loaded and read directly** — every URL
+came from a search result and none was independently confirmed to resolve. URLs
+were not constructed or guessed. Spot-check the URLs from an unrestricted network
+before production apply.
+
+**Tier follows the source, not the legacy advisory field.** Six of eighteen
+contradict `countries.regulatory_tier`, including two two-step corrections:
+Ghana `legal_commercial_access` → `cbd_hemp_only` (0.3% THC cap under LI 2475)
+and Guyana `medical_limited_trade` → `cbd_hemp_only` (hemp only, no medical
+framework). Croatia, Cyprus, Albania and Ireland all step down from
+`legal_commercial_access` to `medical_limited_trade`.
+
+**Seven deliberate abstentions** (LB, SZ, RO, MU, PH, ME, FJ) keep publishing
+`NULL`. LB/SZ/RO/MU/PH because the framework is not operational; ME and FJ on
+source quality alone, not on the substance of the finding.
+
+**Defect caught in validation:** the first draft set `verified_at` to
+`2026-09-07 12:00:00+00` while the migration was authored at 03:49 UTC. The
+resolver requires `verified_at <= now()`, so all 18 rows applied cleanly and
+published **nothing** — a silent no-op reporting success. Corrected to
+`2026-09-07 00:05:00+00`.
+
+**Validation** (PostgreSQL 16, real DDL from `20260831130000` + `20260831130500`,
+`public.countries` stub):
+
+| Check | Result |
+| --- | --- |
+| rows inserted | 18 |
+| resolved `published_from_evidence` | 18 / 18 |
+| re-run idempotent (upsert on `evidence_key`) | yes |
+| omitted jurisdiction (`LB`) after refresh | `NULL` |
+| expired row neutralises | `neutralized_no_current_evidence`, 18 → 17 |
+| duplicate active direct row for `JM` | rejected by `..._one_active_direct` |
+
+**Live pre-state confirmed read-only:** 203 national rows, 29 publishing a tier,
+88 subnational publishing; all 18 targets present in `public.countries` and none
+already published (no unique-index collision). Coverage after apply: 29 → 47 of 203.
+
+**Rollback:** `delete from public.regulatory_market_access_evidence where
+evidence_key like 'hv-mkt-%-20260907';` then re-run the refresh. Returns the 18
+jurisdictions to neutral; `countries.regulatory_tier` is never modified.
+
+**Decision:** **NOT APPLIED to production.** Repository-only pending Tyler's
+explicit sign-off (CLAUDE.md Rule 3c) and the URL spot-check noted above.
