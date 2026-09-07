@@ -120,7 +120,13 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
   assert.match(widenedApi, /drop view if exists api\.intel_eval_labeling/i)
   assert.match(widenedApi, /create view api\.intel_eval_labeling/i)
   assert.match(duplicateApi, /Reconstructed from production/i)
-  assert.match(duplicateApi, /create view api\.intel_eval_labeling/i)
+  // `or replace` for the same reason as intel_eval_set above: Supabase Preview
+  // executes the REPLAY_ZERO_STATE_SKIPS files that the CI replay skips, against
+  // a branch database that already holds the object. Assert the DDL is present,
+  // not that it is spelled non-idempotently. Note the assertion on `widenedApi`
+  // just above deliberately still pins the bare `create view` -- that is a
+  // different, non-skipped file (20260714120300) and is not re-executed.
+  assert.match(duplicateApi, /create (or replace )?view api\.intel_eval_labeling/i)
 
   assert.match(canonicalSignalsView, /real work was already applied to production under the neighboring\s*-- version 20260715085610/i)
   assert.match(canonicalSignalsView, /cannot drop columns from view/i)

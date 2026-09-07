@@ -27,7 +27,7 @@
 --   drop view if exists api.intel_eval_labeling;
 
 -- Read surface: eval rows joined to their signal content for the labeling UI.
-create view api.intel_eval_labeling as
+create or replace view api.intel_eval_labeling as
 select
   e.id, e.signal_id,
   s.headline, s.summary, s.source, s.url,
@@ -45,7 +45,7 @@ comment on view api.intel_eval_labeling is
 -- Write surface: records a human label, derives label_status by comparing to the
 -- assistant draft so draft-vs-human agreement stays measurable. Only ever writes
 -- the human columns; never touches draft_* or the sample snapshot.
-create function api.save_intel_eval_label(
+create or replace function api.save_intel_eval_label(
   p_signal_id     text,
   p_quality_label text,
   p_content_type  text,
