@@ -243,6 +243,18 @@ These are dashboard or account actions. Do not attempt code workarounds.
   > Worker and any future OpenNext web preview must stay separate. The
   > "disconnect the duplicate" advice above applies to the redundant
   > `harbourview-platform` connection, not to `harbourview`.
+  >
+  > **Re-confirmed 2026-09-08, through the #1773 merge.** The split held on every
+  > commit of that PR (`d2c81340`, `7a0942b9`, `602c9ede`, `5e33efdb`,
+  > `65e3410e`, `c76dff80`): `harbourview` red in `4a7c450c…`, both
+  > `harbourview-platform` Workers and Cloudflare Pages green throughout. Also
+  > re-verified that this environment holds no Cloudflare credentials at all —
+  > no `CLOUDFLARE_*`/`CF_*` environment variables, and `npx wrangler whoami`
+  > returns "You are not authenticated." So this cannot be diagnosed further,
+  > let alone fixed, from a Claude session: the build log lives behind the
+  > dashboard. Treat it as operator-only until someone pastes the log or grants
+  > a scoped token. It is not a merge blocker — the check runs on
+  > `pull_request` only and never on `main`.
 - **Vercel free-plan cap** (`api-deployments-free-per-day`, >100/day). When
   exhausted it blocks *production* deploys, not only previews.
 

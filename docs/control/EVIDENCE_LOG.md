@@ -6544,3 +6544,96 @@ both tranches, so one delete plus a refresh reverts all 47 rows.
 
 **Decision:** **NOT APPLIED to production.** Repository-only pending explicit
 sign-off (CLAUDE.md Rule 3c).
+
+---
+
+## 2026-09-08 — Market Access evidence tranches 2 and 3 APPLIED to production
+
+**Change:** both tranches applied to `zvxdgdkukjrrwamdpqrg` on Tyler's explicit
+instruction ("Do all 4"). Coverage **29 → 76 of 203** national jurisdictions;
+164 of 291 rows total now publish a tier.
+
+**How, and why not `apply_migration`.** The Supabase `apply_migration` tool
+generates its own timestamp version. Using it would have recorded `20260908…`
+while the committed files stay at `20260907120000` / `20260907140000` — a phantom
+ledger version with no repository file, and the repo files left permanently
+committed-not-applied. That is precisely the drift class `AGENT_OPERATING_FACTS`
+§1 and the drift gate exist to catch, and it would have been self-inflicted.
+
+Applied instead using the pattern `apply-production-security-hardening.yml` uses:
+run the committed body, then
+
+```sql
+insert into supabase_migrations.schema_migrations (version, name)
+values ('20260907120000', 'market_access_evidence_tranche_two')
+on conflict (version) do nothing;
+```
+
+so the ledger version equals the committed filename exactly. Same for
+`20260907140000`.
+
+**Refresh results:**
+
+| tranche | published_from_evidence | verified_unchanged | neutral_unchanged |
+| --- | ---: | ---: | ---: |
+| two | 18 | 117 | 156 |
+| three | 29 | 135 | 127 |
+
+**Post-apply verification (all read-only):**
+
+| check | result |
+| --- | --- |
+| ledger rows at committed versions | 2 / 2 |
+| evidence rows `hv-mkt-%-20260907` | 47 |
+| national jurisdictions publishing | 76 (was 29) |
+| total rows publishing | 164 |
+| `verified_regulatory_tier` ≠ its evidence row's tier | 0 |
+| rows publishing with an expired `expires_at` | 0 |
+| **field-by-field diff vs the committed `.sql` files** | **ALL 47 ROWS MATCH** |
+
+The last check is the one that matters: the expected values were parsed
+mechanically out of the two committed migration files and compared in-database
+against `evidence_key`, `jurisdiction_iso2`, `tier`, `authority_url`,
+`source_effective_date` and rationale length. It returned
+`ALL 47 ROWS MATCH THE COMMITTED FILES`, so nothing was mistyped in transit.
+
+**Caveat carried forward, unresolved.** The `authority_url` spot-check named as a
+precondition when these tranches were written was **not performed** — outbound
+egress is blocked in this environment, so no URL has ever been loaded and read.
+Tyler instructed the apply knowing this. The URLs came from search results and
+none is invented, but none is independently confirmed to resolve. **This remains
+open work**, and it is now open against *published* content rather than a
+repository file.
+
+**Rollback (unchanged, one command plus a refresh):**
+
+```sql
+delete from public.regulatory_market_access_evidence where evidence_key like 'hv-mkt-%-20260907';
+select * from api.refresh_verified_market_access_tiers('rollback-tranches-two-three');
+delete from supabase_migrations.schema_migrations where version in ('20260907120000','20260907140000');
+```
+
+**Baseline:** both versions removed from `committed-not-applied-baseline.json`
+(129 → 127) — they are applied and no longer belong there.
+
+## 2026-09-08 — Supabase preview branch: nothing to reset
+
+Checked rather than assumed. `list_branches` shows the
+`claude/updates-repo-review-kyd0vv` preview branch is **gone** — Supabase deleted
+it when #1773 merged — so the close-and-reopen reset previously recommended has
+no target. The idempotency fixes merged in #1773 mean the next preview branch
+replays those files from zero state, where they are safe.
+
+Two branches remain in `MIGRATIONS_FAILED`, and **neither should be reset**:
+
+- `main` (`000d7d8a…`, `project_ref` = `zvxdgdkukjrrwamdpqrg`) is the *production*
+  project's default-branch record, stale since 2026-05-25. `reset_branch` on it
+  would reset production migrations and discard untracked schema. Do not touch.
+- `ops/baseline-remaining-workthrough` (`rdsbltckaolmwdqjjesv`) belongs to open
+  PR #1788, not to this work.
+
+**Note for #1788:** it prunes this same baseline 127 → 115 against a 127 starting
+count. The #1773 merge moved it to 129 and this change moves it to 127 by
+removing the two now-applied versions, so #1788 is currently `dirty` and will
+need a rebase. Its arithmetic still lands on 115 afterwards, since the two
+versions it removes are not among the twelve it prunes.
