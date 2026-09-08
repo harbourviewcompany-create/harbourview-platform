@@ -3,8 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { AskClinicalResponse, PrescriberWorkspaceTab } from '@/lib/clinical/prescriber'
 import type { ClinicalPrescriberWorkspaceDTO } from '@/lib/clinical/workspace'
-import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
-import { FrameworkAlignmentBlock } from '@/components/clinical/FrameworkAlignmentBlock'
 import SupplyContinuityOutlook from './SupplyContinuityOutlook'
 import CrossBorderCheck from './CrossBorderCheck'
 
@@ -44,10 +42,6 @@ function StatePanel({ title, detail }: { title: string; detail: string }) {
       <p className="mt-1 leading-5 text-white/50">{detail}</p>
     </div>
   )
-}
-
-function fixtureAlignment(evidenceRecordId: string) {
-  return EVIDENCE_FIXTURES.find((r) => r.id === evidenceRecordId)?.frameworkAlignment
 }
 
 /**
@@ -351,7 +345,6 @@ export default function ClinicalWorkspacePage({
                     ))}
                   </div>
                   {answer.citations.map((citation) => {
-                    const alignment = fixtureAlignment(citation.evidenceRecordId)
                     return (
                       <article key={citation.evidenceRecordId} className={subcard}>
                         <h3 className="text-sm font-medium text-white/85">{citation.title}</h3>
@@ -367,11 +360,6 @@ export default function ClinicalWorkspacePage({
                         >
                           Inspect primary source ↗
                         </a>
-                        {alignment && (
-                          <div className="mt-3">
-                            <FrameworkAlignmentBlock alignment={alignment} compact />
-                          </div>
-                        )}
                       </article>
                     )
                   })}

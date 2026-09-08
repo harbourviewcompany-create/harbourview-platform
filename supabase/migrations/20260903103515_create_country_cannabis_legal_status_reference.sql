@@ -1,5 +1,18 @@
--- Reconstructed from production. Applied directly, never committed.
--- Verbatim statements for version 20260903103515.
+-- Reconstructed from production. Verbatim statements for version 20260903103515.
+--
+-- Production applied this table creation on 2026-09-03 via Supabase MCP, which
+-- writes a supabase_migrations.schema_migrations row and no repository file.
+-- PR #1755 originally carried the same DDL under an invented version
+-- (20260903100100), combined with the seed below. That would have left the
+-- repository permanently out of correspondence with the live ledger in both
+-- directions: two applied-not-committed versions in production and two
+-- committed-not-applied versions here.
+--
+-- Committed at the real version instead. Body is byte-identical to
+-- schema_migrations.statements[1] (1,199 bytes, md5
+-- 11a093d94e6666ebd5cb890947dcf1e9), verified before write. Rewriting this file
+-- cannot affect production: 20260903103515 is already recorded, so
+-- `supabase db push` skips it.
 
 create table if not exists public.country_cannabis_legal_status (
   iso2 text primary key,

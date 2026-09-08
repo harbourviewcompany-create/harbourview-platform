@@ -9,10 +9,44 @@
 -- zero-state replay must reconstruct both functions before those grants can be
 -- replayed faithfully.
 --
--- The corridor tables themselves are reconstructed separately by
--- 20260701230000_corridor_intelligence_tables_stub.sql; this repair restores only
--- the reproduced missing function contracts. Production is unaffected because
--- version 20260701180751 is already recorded remotely.
+-- Tables: production version 20260701180751 created corridor_* tables and the
+-- function together. Repository reconstruction split table DDL into
+-- 20260701230000 (later filename). prepare-production-faithful-migration-replay.mjs
+-- relocates that file for internal CI replay, but Supabase Preview / Git branching
+-- applies migrations in filename order only — so this repair must create the
+-- tables first when they are absent. Production is unaffected: version
+-- 20260701180751 is already recorded remotely and is never re-executed.
+
+create table if not exists public.corridor_processing_times (
+  id uuid primary key default gen_random_uuid(),
+  corridor_key text not null,
+  permit_type text,
+  days_taken integer not null,
+  submitter_role text,
+  verified boolean default false,
+  submitted_at timestamptz default now(),
+  constraint corridor_processing_times_days_taken_check
+    check (days_taken > 0 and days_taken < 1000)
+);
+
+create index if not exists idx_cpt_key
+  on public.corridor_processing_times (corridor_key);
+
+create table if not exists public.corridor_regulatory_alerts (
+  id uuid primary key default gen_random_uuid(),
+  corridor_key text not null,
+  alert_date date not null,
+  severity text not null,
+  summary text not null,
+  detail text,
+  source text,
+  created_at timestamptz default now(),
+  constraint corridor_regulatory_alerts_severity_check
+    check (severity = any (array['major'::text, 'minor'::text, 'watch'::text]))
+);
+
+create index if not exists idx_cra_key_date
+  on public.corridor_regulatory_alerts (corridor_key, alert_date desc);
 
 -- Original production-ledger function body.
 CREATE OR REPLACE FUNCTION public.get_corridor_stats(p_key text)

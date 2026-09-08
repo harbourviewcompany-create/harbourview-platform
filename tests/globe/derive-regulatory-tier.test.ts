@@ -126,6 +126,12 @@ describe('deriveRegulatoryTier (import-aware full-prose classifier)', () => {
     ).toBe('cbd_hemp_only')
   })
 
+  it('lets an operational cannabis import/export pathway outrank a local hemp mention', () => {
+    const parentAwareAustralia =
+      'Medical Legal; Recreational Prohibited; licensed hemp cultivation | Medical Legal — Federal; licensed medical import market with licensed importers'
+    expect(deriveRegulatoryTier(parentAwareAustralia)).toBe('legal_commercial_access')
+  })
+
   it('defaults unambiguous prohibition to prohibited', () => {
     expect(deriveRegulatoryTier('Strict prohibition; no lawful commercial pathway')).toBe(
       'prohibited',

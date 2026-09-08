@@ -23,6 +23,11 @@
 -- Safe to fully revert: regulatory_signals.signals has 0 rows (confirmed
 -- live immediately before this migration), so no existing data can violate
 -- any restored NOT NULL or CHECK constraint.
+--
+-- Idempotency: v1 already defines the four not-empty / publication_gate
+-- constraints inline. On zero-state replay they exist before this file runs;
+-- bare ADD fails with 42710 (seen on Supabase Preview). DROP IF EXISTS before
+-- ADD matches the pattern used above for review_status/type/confidence.
 
 -- ── Restore NOT NULL columns ──────────────────────────────────────────────────
 alter table regulatory_signals.signals alter column slug set not null;
@@ -49,13 +54,17 @@ alter table regulatory_signals.signals add constraint regulatory_signals_confide
   check (confidence in ('low', 'medium', 'high', 'official_confirmed'));
 
 -- ── Restore missing constraints ───────────────────────────────────────────────
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_slug_not_empty;
 alter table regulatory_signals.signals add constraint regulatory_signals_slug_not_empty
   check (length(trim(slug)) > 0);
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_private_summary_not_empty;
 alter table regulatory_signals.signals add constraint regulatory_signals_private_summary_not_empty
   check (length(trim(private_summary)) > 0);
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_source_url_not_empty;
 alter table regulatory_signals.signals add constraint regulatory_signals_source_url_not_empty
   check (length(trim(source_url)) > 0);
 
+alter table regulatory_signals.signals drop constraint if exists regulatory_signals_publication_gate;
 alter table regulatory_signals.signals add constraint regulatory_signals_publication_gate
   check (
     review_status <> 'published'

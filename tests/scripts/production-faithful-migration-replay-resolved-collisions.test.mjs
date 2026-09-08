@@ -23,6 +23,33 @@ test('resolved repository tree no longer requires duplicate-version replay renam
   assert.deepEqual(planReplayVersionCollisionRenames({ migrationFiles }), [])
 })
 
+// Body assertions inherited from the superseded
+// 'replay disambiguates independent duplicate-version migrations without
+// dropping any body' test in production-faithful-migration-replay.test.mjs.
+// That test compared the PLANNED rename list against the raw constant, which
+// stopped being true once #1623 resolved both collisions in the repository
+// itself, so it was removed. Its point — that resolving the collisions moved
+// no SQL and lost no body — is still worth asserting, against the files that
+// exist after the resolution.
+test('resolving the collisions preserved every migration body', () => {
+  const read = (file) => fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+
+  // Renamed R100 by #1623 (byte-identical move from ...010000 to ...010001).
+  const australia = read(australiaResolved)
+  assert.match(australia, /update public\.listings/i)
+  assert.match(australia, /repository-only pending/i)
+
+  // The sibling that forced the rename is untouched and still creates both tables.
+  const sibling = read(australiaSibling)
+  assert.match(sibling, /create table public\.pipeline_tasks/i)
+  assert.match(sibling, /create table public\.dead_letter_tasks/i)
+
+  // The heatmap seed kept its version; its colliding partner was withdrawn.
+  const heatmap = read(heatmapSource)
+  assert.match(heatmap, /create or replace function public\.roll_up_market_access_status/i)
+  assert.match(heatmap, /rejected_conflict/i)
+})
+
 test('historical duplicate-version replay rules still activate only for the exact old collisions', () => {
   assert.deepEqual(
     planReplayVersionCollisionRenames({

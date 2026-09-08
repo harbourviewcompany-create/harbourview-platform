@@ -1,5 +1,19 @@
--- Reconstructed from production. Applied directly, never committed.
--- Verbatim statements for version 20260903103549.
+-- Reconstructed from production. Verbatim statements for version 20260903103549.
+--
+-- The country legal-status seed, applied to production on 2026-09-03. See the
+-- companion 20260903103515 for why this is committed at the live version rather
+-- than the invented one PR #1755 proposed.
+--
+-- Scope disclosure, unchanged from the applied text: this is a general research
+-- pass covering 41 of ~195 ISO2 codes, not an individually-verified audit.
+-- Countries absent from this table are `unresearched`, not assumed legal and
+-- not assumed prohibited. It is country-level legal framework only -- NOT
+-- per-SKU packaging compliance, which lives in listings.compliance_flags and
+-- currently has individually-researched content for CA only.
+--
+-- Body is byte-identical to schema_migrations.statements[1] (6,017 bytes, md5
+-- 7d34b95fd49687d65011d96ea941ae89), verified before write. Committing already
+-- applied SQL is a repository-fidelity action; it makes no new compliance claim.
 
 insert into public.country_cannabis_legal_status (iso2, country_name, legal_status, notes) values
 -- Full commercial recreational retail

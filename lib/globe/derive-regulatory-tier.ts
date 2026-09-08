@@ -2,7 +2,7 @@
  * TypeScript mirror of `api.derive_regulatory_tier(program_status)`.
  *
  * Keep behaviour aligned with:
- *   supabase/migrations/20260819153000_regulatory_tier_classifier_clause_scope_hardening.sql
+ *   supabase/migrations/20260830192000_regulatory_tier_authority_write_guard.sql
  *
  * The string passed here may be canonical full briefing text produced by
  * `api.briefing_classifier_text(...)`, which joins fields with ` | `.
@@ -84,12 +84,14 @@ export function deriveRegulatoryTier(programStatus: string | null | undefined): 
     IMPORT_UNDER_DISCUSSION,
   )
 
-  if (/prohibited/i.test(ps) && CBD_HEMP.test(ps) && !/(research (interest|developing)|informal)/i.test(ps)) {
-    return 'cbd_hemp_only'
-  }
-
+  // Operational cross-border cannabis access outranks a local industrial-hemp
+  // mention in parent-aware state/province briefing text.
   if (exportCommercial || importCommercial) {
     return 'legal_commercial_access'
+  }
+
+  if (/prohibited/i.test(ps) && CBD_HEMP.test(ps) && !/(research (interest|developing)|informal)/i.test(ps)) {
+    return 'cbd_hemp_only'
   }
 
   if (!underDiscussion) {
