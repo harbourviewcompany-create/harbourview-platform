@@ -12,9 +12,9 @@
 -- still only carry CA-specific compliance metadata (CSA Z76.1, plain
 -- packaging, etc.). No new per-country compliance claims are made here.
 --
--- Production apply: operator-authorized; Claude owns live Supabase steps
--- (see docs/control/CLAUDE_TASK_APPLY_20260903100000.md). Do not treat this
--- header as proof of apply until schema_migrations has version 20260903100000.
+-- Production apply: operator-authorized. Reconciled 2026-09-10 -- the data was
+-- already in the exact target state (92/92 rows, identical 195-element array), so
+-- only the missing ledger row was recorded at this version. See docs/control/EVIDENCE_LOG.md.
 
 update public.listings
 set target_countries = array[
