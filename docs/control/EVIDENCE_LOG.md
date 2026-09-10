@@ -6670,3 +6670,36 @@ confirmed state, and nothing acts on them.
 
 **Nothing applied.** The Decision Intel chain remains unapplied and unauthorized; the
 runbook it adds requires operator confirmation before any apply.
+## 2026-09-10 — Baseline 127 triage doc (PR #1786)
+
+**Change type:** documentation only. No schema, grant, dependency or application code
+change. Adds `docs/control/BASELINE_127_TRIAGE.md`, a disposition table for the 127
+baselined committed-not-applied migrations.
+
+**Scope correction made before merge.** As opened, this PR also added
+`docs/control/CLAUDE_TASK_APPLY_SEPARATELY_AUTHORIZED.md` at the same path as PR #1787,
+with **opposite** content: #1786 said "HOLD until operator explicitly authorizes each
+version… not auto-approved", #1787 said "Operator authorized all five on 2026-09-07".
+Whichever merged second would have conflicted, and whichever won would have silently
+decided whether five production migrations read as cleared to apply. On Tyler's
+instruction the file is dropped from this PR; #1787 carries a single reconciled status
+file instead. This PR now adds the triage table only.
+
+**Verification of the triage table's central claim.** Its "Equivalent — already applied
+(live alias)" bucket lists 12 committed versions as live under different version
+numbers. Checked directly against production rather than taken on trust:
+
+```
+committed_applied = 0 and live_applied = 1 for all 12 of 12 pairs
+```
+
+So every one of the twelve is genuinely unapplied at its committed version and genuinely
+applied at its claimed alias. The bucket is accurate.
+
+All 12 are also already present in `supabase/release-controls/migration-live-version-equivalences.json`
+on `main`, which is what keeps the drift gate green while they sit in the baseline.
+
+**Not verified.** The other buckets (5 obsolete, 5 separately authorized, 67 requiring
+forward reconciliation, 38 unclassified) were not independently checked against
+production in this pass. The document is a triage proposal, not an audit; it applies
+nothing and authorizes nothing.
