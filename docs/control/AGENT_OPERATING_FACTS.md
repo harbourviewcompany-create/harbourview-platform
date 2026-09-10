@@ -243,6 +243,18 @@ These are dashboard or account actions. Do not attempt code workarounds.
   > Worker and any future OpenNext web preview must stay separate. The
   > "disconnect the duplicate" advice above applies to the redundant
   > `harbourview-platform` connection, not to `harbourview`.
+  >
+  > **Re-confirmed 2026-09-08, through the #1773 merge.** The split held on every
+  > commit of that PR (`d2c81340`, `7a0942b9`, `602c9ede`, `5e33efdb`,
+  > `65e3410e`, `c76dff80`): `harbourview` red in `4a7c450c…`, both
+  > `harbourview-platform` Workers and Cloudflare Pages green throughout. Also
+  > re-verified that this environment holds no Cloudflare credentials at all —
+  > no `CLOUDFLARE_*`/`CF_*` environment variables, and `npx wrangler whoami`
+  > returns "You are not authenticated." So this cannot be diagnosed further,
+  > let alone fixed, from a Claude session: the build log lives behind the
+  > dashboard. Treat it as operator-only until someone pastes the log or grants
+  > a scoped token. It is not a merge blocker — the check runs on
+  > `pull_request` only and never on `main`.
 - **Vercel free-plan cap** (`api-deployments-free-per-day`, >100/day). When
   exhausted it blocks *production* deploys, not only previews.
 
@@ -386,3 +398,43 @@ rather than the branch. These gates run on pull requests, so a broken `main`
 presents as a broken branch. That is how all three of this session's `main`
 regressions were found: on #1367, which was green before being refreshed and
 showed four failures immediately after, three of which were never its own.
+
+---
+
+## 11. The legacy `regulatory_tier` column is wrong 42.7% of the time — never promote it
+
+Measured 2026-09-10 against production, by joining the 131 researched rows in
+`public.regulatory_market_access_evidence` back to `api.countries.regulatory_tier`:
+
+| | count |
+| --- | ---: |
+| researched rows that also have a legacy tier | 131 |
+| legacy **agreed** | 75 |
+| legacy **contradicted** | **56** |
+| error rate | **42.7%** |
+
+This matters because of a standing temptation. The globe renders 127 of 291
+jurisdictions on the neutral plate, and **all 127 already carry a legacy
+`regulatory_tier`**. A one-line `UPDATE` fills the map instantly. It would also
+publish roughly 54 wrong regulatory classifications onto a compliance surface.
+
+The errors include the worst direction — a tradeable-looking plate over a
+prohibited market. Sweden, Hungary, Slovakia and Bulgaria all read
+`medical_limited_trade` in the legacy column and are `prohibited` on the
+evidence. Belarus and Serbia read `cbd_hemp_only` and are `prohibited`. In the
+other direction Rwanda, Zambia and Vanuatu read `prohibited` and are
+`legal_commercial_access`.
+
+The `verified_regulatory_tier` / evidence system exists *because* this column is
+unreliable. The neutral plate is that design holding, not a bug to code around.
+Treat any proposal to backfill `verified_regulatory_tier` from `regulatory_tier`
+— or to "seed" evidence rows from it — as a defect.
+
+Full gap analysis, the 127-jurisdiction worklist, and the sourcing bar:
+`docs/control/MARKET_ACCESS_COVERAGE_GAP_20260910.md`.
+
+**Also dated 2026-09-10:** research egress is environment-dependent. This
+session reached npm and the MCP connectors but returned `000` for
+en.wikipedia.org, ncsl.org, cannigma.com, prohibitionpartners.com, unodc.org and
+cms.law. Confirm egress before committing to a research tranche — the work is
+not portable to a session that cannot load a source.
