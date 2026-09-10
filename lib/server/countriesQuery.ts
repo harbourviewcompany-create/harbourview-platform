@@ -108,7 +108,14 @@ export async function getPublicListings(): Promise<{ iso_alpha2: string; listing
     })
     const res = await fetch(`${SUPABASE_URL}/rest/v1/listings?${params}`, {
       next: { revalidate: 3600 },
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      // public.listings grants SELECT to service_role only; the anon-readable
+      // projection is api.listings. PostgREST defaults to the `public` schema
+      // on this project, so this header is required, not decorative.
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Accept-Profile': 'api',
+      },
     })
     if (!res.ok) return []
     return res.json()
