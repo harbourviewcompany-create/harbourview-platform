@@ -15,7 +15,7 @@
 -- in schema_migrations, so `supabase db push` skips it. This is a
 -- repository-only repair of replay fidelity.
 
-create table public.education_content_citations (
+create table if not exists public.education_content_citations (
   id uuid primary key default gen_random_uuid(),
   module_id uuid not null references public.education_modules(id) on delete cascade,
   section_id uuid references public.education_module_sections(id) on delete cascade,
@@ -34,12 +34,14 @@ comment on table public.education_content_citations is
 
 alter table public.education_content_citations enable row level security;
 
+drop policy if exists "education_content_citations_staff_all" on public.education_content_citations;
 create policy "education_content_citations_staff_all" on public.education_content_citations
   for all
   using (
     exists (select 1 from user_roles where user_roles.user_id = auth.uid() and user_roles.role = any(array['admin','operator','analyst']))
   );
 
+drop policy if exists "education_content_citations_service_write" on public.education_content_citations;
 create policy "education_content_citations_service_write" on public.education_content_citations
   for all
   using (auth.role() = 'service_role');

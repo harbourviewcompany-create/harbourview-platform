@@ -1,6 +1,6 @@
 # Apply import-aware regulatory tier classifier — production
 
-**Status:** PENDING production apply  
+**Status:** Applied — verified live (migration version `20260819125403` confirmed present in `supabase_migrations.schema_migrations` on 2026-09-08). This doc was never updated when it went in; do not re-dispatch this workflow.  
 **Owner for apply:** any agent with `production-database` environment approval  
 **Code:** already on `main` (migration + workflow)  
 **Symptom if not applied:** Germany / Brazil-style markets stay wrong colours on the market-access globe (import pathways treated as non-commercial).

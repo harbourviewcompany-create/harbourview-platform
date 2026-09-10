@@ -27,5 +27,19 @@
 -- hv-quality-promote  (jobid 48, */10 min): dedup + promote (hv_promote_signals(0.65)).
 --
 -- Rollback: select cron.alter_job(47, active => false); select cron.alter_job(48, active => false);
-select cron.alter_job(47, active => true);
-select cron.alter_job(48, active => true);
+-- Guarded because pg_cron job IDs are database-local. Production recorded 47/48,
+-- but a zero-state replay or a Supabase Preview branch assigns its own IDs, where
+-- a bare cron.alter_job(47, ...) raises instead of no-opping. The CI replay skips
+-- this file via REPLAY_ZERO_STATE_SKIPS; Supabase Preview does not run the prep
+-- script and executes it, so the guard has to live in the file. The immediately
+-- following 20260722185015 resolves the same two jobs by name and applies the
+-- same active=true state, so a skipped alter here loses nothing.
+do $$
+begin
+  if exists (select 1 from cron.job where jobid = 47) then
+    perform cron.alter_job(47, active => true);
+  end if;
+  if exists (select 1 from cron.job where jobid = 48) then
+    perform cron.alter_job(48, active => true);
+  end if;
+end $$;
