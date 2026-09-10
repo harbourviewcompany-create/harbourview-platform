@@ -37,7 +37,8 @@ Generated for operator/Claude disposition. **Do not bulk-apply.**
 
 ## C. Separately authorized — apply only with operator auth
 
-See `docs/control/CLAUDE_TASK_APPLY_SEPARATELY_AUTHORIZED.md`.
+See `docs/control/CLAUDE_TASK_APPLY_SEPARATELY_AUTHORIZED.md` (status) and
+`docs/control/CLAUDE_TASK_APPLY_FIVE_SEPARATELY_AUTHORIZED.md` (runbook), both added by PR #1787.
 
 - `20260727163000` — clinical_api_surface
 - `20260731120000` — signal_role_family_routing
