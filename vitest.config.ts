@@ -62,7 +62,7 @@ export default defineConfig({
     {
       name: 'vitest-pre-tsx-transform',
       enforce: 'pre',
-      async transform(code, id) {
+      async transform(code: string, id: string) {
         if (!id.endsWith('.tsx') && !id.endsWith('.jsx')) return
         if (id.includes('/node_modules/')) return
         return transformWithEsbuild(code, id, {
