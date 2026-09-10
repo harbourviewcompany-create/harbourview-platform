@@ -6637,3 +6637,36 @@ count. The #1773 merge moved it to 129 and this change moves it to 127 by
 removing the two now-applied versions, so #1788 is currently `dirty` and will
 need a rebase. Its arithmetic still lands on 115 afterwards, since the two
 versions it removes are not among the twelve it prunes.
+
+---
+
+## 2026-09-10 — Baseline deep dependency findings (PR #1789)
+
+**Change type:** documentation only. No schema, grant, dependency or application code
+change. Applies nothing.
+
+Adds `BASELINE_DEEP_DEPENDENCY_FINDINGS.md` (code ↔ migration dependency dig) and
+`CLAUDE_TASK_APPLY_DECISION_INTEL_STAGE0.md` (a runbook, explicitly gated on operator
+confirmation — it does not claim authorization).
+
+**Central claim verified against production.** The findings doc asserts Decision Intel
+stage0 is code-blocked: `lib/intelligence-os/decisionDossier.ts` calls
+`get_intel_event_dossier` and `resolve_intel_event_route`, and only three baselined
+migrations create them.
+
+```sql
+select version from supabase_migrations.schema_migrations
+where version in ('20260808190000','20260808203000','20260810202000');
+-- 0 rows
+```
+
+All three are unapplied, so the claim holds: those RPCs are not in production and the
+dossier path fails closed until the chain is applied.
+
+**Not verified in this pass.** The doc's clinical-evidence section, marketplace card
+media view, AU equipment extend and auto-heatmap sections were not independently checked
+against production. They are stated as findings with recommended preflights, not as
+confirmed state, and nothing acts on them.
+
+**Nothing applied.** The Decision Intel chain remains unapplied and unauthorized; the
+runbook it adds requires operator confirmation before any apply.
