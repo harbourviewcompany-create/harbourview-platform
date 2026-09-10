@@ -6640,6 +6640,108 @@ versions it removes are not among the twelve it prunes.
 
 ---
 
+## 2026-09-10 — Baseline deep dependency findings (PR #1789)
+
+**Change type:** documentation only. No schema, grant, dependency or application code
+change. Applies nothing.
+
+Adds `BASELINE_DEEP_DEPENDENCY_FINDINGS.md` (code ↔ migration dependency dig) and
+`CLAUDE_TASK_APPLY_DECISION_INTEL_STAGE0.md` (a runbook, explicitly gated on operator
+confirmation — it does not claim authorization).
+
+**Central claim verified against production.** The findings doc asserts Decision Intel
+stage0 is code-blocked: `lib/intelligence-os/decisionDossier.ts` calls
+`get_intel_event_dossier` and `resolve_intel_event_route`, and only three baselined
+migrations create them.
+
+```sql
+select version from supabase_migrations.schema_migrations
+where version in ('20260808190000','20260808203000','20260810202000');
+-- 0 rows
+```
+
+All three are unapplied, so the claim holds: those RPCs are not in production and the
+dossier path fails closed until the chain is applied.
+
+**Not verified in this pass.** The doc's clinical-evidence section, marketplace card
+media view, AU equipment extend and auto-heatmap sections were not independently checked
+against production. They are stated as findings with recommended preflights, not as
+confirmed state, and nothing acts on them.
+
+**Nothing applied.** The Decision Intel chain remains unapplied and unauthorized; the
+runbook it adds requires operator confirmation before any apply.
+## 2026-09-10 — Baseline 127 triage doc (PR #1786)
+
+**Change type:** documentation only. No schema, grant, dependency or application code
+change. Adds `docs/control/BASELINE_127_TRIAGE.md`, a disposition table for the 127
+baselined committed-not-applied migrations.
+
+**Scope correction made before merge.** As opened, this PR also added
+`docs/control/CLAUDE_TASK_APPLY_SEPARATELY_AUTHORIZED.md` at the same path as PR #1787,
+with **opposite** content: #1786 said "HOLD until operator explicitly authorizes each
+version… not auto-approved", #1787 said "Operator authorized all five on 2026-09-07".
+Whichever merged second would have conflicted, and whichever won would have silently
+decided whether five production migrations read as cleared to apply. On Tyler's
+instruction the file is dropped from this PR; #1787 carries a single reconciled status
+file instead. This PR now adds the triage table only.
+
+**Verification of the triage table's central claim.** Its "Equivalent — already applied
+(live alias)" bucket lists 12 committed versions as live under different version
+numbers. Checked directly against production rather than taken on trust:
+
+```
+committed_applied = 0 and live_applied = 1 for all 12 of 12 pairs
+```
+
+So every one of the twelve is genuinely unapplied at its committed version and genuinely
+applied at its claimed alias. The bucket is accurate.
+
+All 12 are also already present in `supabase/release-controls/migration-live-version-equivalences.json`
+on `main`, which is what keeps the drift gate green while they sit in the baseline.
+
+**Not verified.** The other buckets (5 obsolete, 5 separately authorized, 67 requiring
+forward reconciliation, 38 unclassified) were not independently checked against
+production in this pass. The document is a triage proposal, not an audit; it applies
+nothing and authorizes nothing.
+
+---
+
+## 2026-09-10 — Five separately-authorized migrations: runbook + reconciled status (PR #1787)
+
+**Change type:** documentation only. No schema, grant, dependency or application code
+change. Applies nothing.
+
+**Live check performed before writing the status file:**
+
+```sql
+select version from supabase_migrations.schema_migrations
+where version in ('20260727163000','20260731120000','20260801150000',
+                  '20260802080000','20260810222500');
+-- 0 rows
+```
+
+All five are unapplied. Recorded in the status file as fact rather than left implicit.
+
+**The contradiction this PR resolves.** #1786 and #1787 each created
+`docs/control/CLAUDE_TASK_APPLY_SEPARATELY_AUTHORIZED.md` with opposite content — "HOLD,
+not auto-approved" versus "Operator authorized all five on 2026-09-07". The second to
+merge would have conflicted; the winner would have silently decided whether five
+production migrations read as cleared to apply, including
+`20260810222500 harden_edge_function_cron_auth`, which hard-fails cron if three Vault
+secrets are absent.
+
+Tyler's resolution (2026-09-10): keep #1786's triage table and this PR's runbook, and
+replace the status file with one reconciled statement. The reconciled file says what is
+actually true — a "Go on" was recorded on 2026-09-07, it was never exercised, and it has
+not been re-confirmed — and therefore requires fresh per-version confirmation before any
+apply. Neither original framing was adopted: one overstated the authorization, the other
+denied it had ever existed.
+
+**Not done here.** None of the five was applied. No Vault secret was created, read or
+checked. The runbook's preflight queries have not been run.
+
+---
+
 ## 2026-09-10 — `20260903100000` global supply catalog: ledger reconciled, no data write (PR #1783)
 
 **Change type:** production ledger write + release-control edit. No schema change, no
