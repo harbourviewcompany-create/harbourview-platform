@@ -5,7 +5,7 @@
   "purpose": "Pre-existing committed-but-unapplied migrations, frozen at the moment the drift gate became symmetric. The gate fails on any committed_not_applied version NOT listed here, so newly merged migrations must be applied. Listing a version here is not approval to leave it unapplied indefinitely - it is an acknowledgement that it predates the gate and still needs triage into apply / withdraw / reconcile via supabase/release-controls/pending-production-migration-decisions.json.",
   "why_this_exists": "On 2026-09-04 PR #1727 merged code reading countries.verified_regulatory_tier and public.regulatory_market_access_evidence while its own migrations were committed and never applied. getGlobeCountryMarkers throws on query error with no fallback, so the globe hard-failed in production. The drift check computed committed_not_applied and did not gate on it.",
   "counts": {
-    "baselined": 129,
+    "baselined": 126,
     "repository_versions_at_snapshot": 1037,
     "applied_versions_at_snapshot": 925
   },
@@ -116,7 +116,6 @@
     "20260816150100",
     "20260816150200",
     "20260818110000",
-    "20260818151000",
     "20260819160000",
     "20260819190000",
     "20260820120000",
@@ -136,11 +135,10 @@
     "20260831023000",
     "20260831030000",
     "20260902220000",
-    "20260903100000",
-    "20260907120000",
-    "20260907140000"
+    "20260903100000"
   ],
   "derivation_correction": "The first version of this baseline listed 124 versions and was verified by comparing COUNTS (797 applied pre-August vs 797 pre-August repository versions outside the baseline) rather than comparing the sets themselves. Two equal-and-opposite errors cancelled: 20260730112526 and 20260731090302 are applied with no repository file (they are attested remote-only, see historical-remote-migration-attestations.json), while 20260722120002 and 20260729000000 are committed with no applied row. The counts matched; the sets did not. The gate caught it on the first push to main. Both versions are confirmed absent from the live ledger and are now baselined. This file is derived by set difference only - never by cardinality.",
   "newly_baselined_20260906": "20260903100000_make_supply_catalog_globally_available.sql, added with PR #1755. It is a genuinely new migration with no production counterpart: the ledger has no 20260903100000 row, and the two versions production did apply that day (20260903103515, 20260903103549) are committed separately at their real versions. Listing it here is acknowledgement that it is not applied, not approval to leave it unapplied -- it widens supply-catalog visibility to all ~195 ISO2 codes and needs a deliberate apply decision.",
-  "newly_baselined_20260907": "20260907120000_market_access_evidence_tranche_two.sql, added with PR #1773. It inserts 18 rows into public.regulatory_market_access_evidence and refreshes countries.verified_regulatory_tier for 18 national jurisdictions. The ledger has no 20260907120000 row. Listing it here is acknowledgement that it is not applied, not approval to leave it unapplied -- it publishes compliance-facing Market Access tiers on the public globe and needs a deliberate apply decision plus the authority_url spot-check recorded in docs/control/REGULATORY_MARKET_ACCESS_EVIDENCE_TRANCHE_20260907.md. 20260907140000_market_access_evidence_tranche_three.sql is the same change for 29 further jurisdictions and carries the first published `prohibited` tiers on the globe; it is unapplied for the same reason and needs the same decision."
+  "applied_and_removed_20260908": "20260907120000_market_access_evidence_tranche_two.sql and 20260907140000_market_access_evidence_tranche_three.sql were baselined by PR #1773 as committed-not-applied. Both were applied to production on 2026-09-08 on Tyler's instruction and are now recorded in supabase_migrations.schema_migrations at those exact versions, so they are no longer committed-not-applied and are removed here (129 -> 127). They were applied using the pattern apply-production-security-hardening.yml uses -- run the committed body, then insert the ledger row at the committed version -- and deliberately NOT via the Supabase apply_migration tool, which generates its own timestamp and would have recorded a phantom version with no matching repository file, manufacturing exactly the drift this baseline exists to track. After apply, all 47 evidence rows were verified field-by-field against the committed files. See docs/control/EVIDENCE_LOG.md.",
+  "renamed_and_applied_20260910": "20260818151000_clinical_sku_bootstrap_snapshots.sql was RENAMED on main to 20260910012108_clinical_sku_bootstrap_snapshots.sql, and 20260910012108 is APPLIED in production (supabase_migrations.schema_migrations, name clinical_sku_bootstrap_snapshots). The rename landed on main without removing the old version from this baseline, so main lists a version with no migration file and `Verify migration-list parser` fails there -- reproduced on a pristine main checkout, not introduced by this branch. Removed here (127 -> 126) because the version no longer names a file AND its replacement is applied, so it is not committed-not-applied in either identity."
 }
