@@ -361,7 +361,19 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
   return {
     signals: {
       enabled: enabled('signals'),
-      load: () => fetchDashboardSignals(30),
+      // The selected jurisdiction must be pushed into the query, not applied to
+      // the result. Without it this fetched a global top-30 that the mobile
+      // Command Centre then filtered client-side by jurisdiction -- and the
+      // global feed is 64% United States and Canada, so almost every other
+      // country rendered "No reviewed signals for this context" while its rows
+      // sat in the table. `fetchDashboardSignals` has always accepted this
+      // argument and the sibling `dailyDigest` source below already passes it;
+      // only this call site omitted it. Undefined when no country is selected,
+      // which restores the previous diversified-global behaviour exactly.
+      load: () => fetchDashboardSignals(
+        30,
+        ALL_COUNTRIES.find(country => country.iso2 === countryIso2)?.displayName,
+      ),
       fallback: [],
       sourceLabel: 'Harbourview intelligence signals',
       access: 'public',
