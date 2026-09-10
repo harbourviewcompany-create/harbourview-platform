@@ -27,6 +27,12 @@
 --   drop view if exists api.intel_eval_labeling;
 
 -- Read surface: eval rows joined to their signal content for the labeling UI.
+-- drop-then-create, not `create or replace`: 20260714120300 runs earlier and
+-- widens this view, and CREATE OR REPLACE VIEW can only append trailing
+-- columns, so replacing the widened shape with this narrower one raises
+-- 42P16. Dropping first is what 20260714120300 itself does and what this
+-- file's own rollback note above prescribes.
+drop view if exists api.intel_eval_labeling;
 create view api.intel_eval_labeling as
 select
   e.id, e.signal_id,
@@ -45,7 +51,7 @@ comment on view api.intel_eval_labeling is
 -- Write surface: records a human label, derives label_status by comparing to the
 -- assistant draft so draft-vs-human agreement stays measurable. Only ever writes
 -- the human columns; never touches draft_* or the sample snapshot.
-create function api.save_intel_eval_label(
+create or replace function api.save_intel_eval_label(
   p_signal_id     text,
   p_quality_label text,
   p_content_type  text,
