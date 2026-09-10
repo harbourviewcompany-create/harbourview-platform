@@ -2,8 +2,13 @@
 -- never merged (claude/gemini-multi-key-and-fallback-fixes-20260831,
 -- no PR opened) -- the SQL ran directly against production and was
 -- confirmed live function-for-function against this exact text, but never
--- got a tracked migration version, so migration-drift-check could not have
--- caught this gap the way it catches applied-not-committed *versions*.
+-- got a tracked migration version at the time.
+--
+-- Re-applied via apply_migration on 2026-09-08 (idempotent -- CREATE OR
+-- REPLACE / IF NOT EXISTS throughout, verified byte-identical to what was
+-- already live before re-applying) so this version is now properly
+-- tracked in supabase_migrations.schema_migrations, matching this file's
+-- name.
 --
 -- Gemini multi-key rotation, cooldown-aware selection, and a shared
 -- key-fetch RPC. Built in response to OpenAI and Anthropic both being
