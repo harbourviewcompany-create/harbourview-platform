@@ -6637,3 +6637,50 @@ count. The #1773 merge moved it to 129 and this change moves it to 127 by
 removing the two now-applied versions, so #1788 is currently `dirty` and will
 need a rebase. Its arithmetic still lands on 115 afterwards, since the two
 versions it removes are not among the twelve it prunes.
+
+---
+
+## 2026-09-10 — vitest 4.1.11 → 5.0.0 (PR #1779)
+
+**Change type:** dev-dependency major bump. Test tooling only — no runtime or production
+dependency, no schema, no application code. `vitest.config.ts` gains two type annotations.
+
+**Blocker found and fixed.** As opened, this PR did not work at all. vitest 5 moved `vite`
+from a direct dependency to an **optional peer**, so `npm install` did not bring it in and
+vitest could not start:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite'
+  imported from node_modules/vitest/dist/chunks/index.B89dZ0-N.js
+```
+
+Zero tests ran. Dependabot could not have caught this — the lockfile is internally
+consistent; the package is simply absent. Fixed by adding `vite` as an explicit
+devDependency (`^8.1.0`, resolves 8.3.0), which is what vitest 4 was pulling in
+transitively anyway.
+
+**Node floor.** vitest 5 requires `^22.12.0 || ^24.0.0 || >=26.0.0`. Checked every
+workflow: the only two pinned to Node 20 (`pr32-local-verify.yml`,
+`sync-figma-tokens.yml`) run no tests, so nothing breaks. Test workflows are on Node 22.
+
+**QA gate, after the fix:**
+
+| command | result |
+|---|---|
+| `npm run test` | **1188 passed**, 15 todo, 146 files, 2 skipped |
+| `npm run typecheck` | exit 0 |
+| `npm run lint` | 0 errors (211 pre-existing warnings) |
+| `npm run build` | exit 0 |
+
+**One flake, reported rather than buried.** The *first* full run failed 2 tests in
+`tests/harbourview/marketplace-capture-route.test.ts` — a `expect(fetchMock).not.toHaveBeenCalled()`
+that saw one call. It did **not** reproduce: the file passes alone (2/2 runs) and the full
+suite passed clean on runs 2, 3 and 4 (1188 passed each). Passing alone but failing in a
+full run points at cross-file state leakage that vitest 5's worker scheduling surfaces
+differently, not at a behavioural regression in the route.
+
+This is **not** claimed to be fixed. It is a latent order-dependency in that test that
+existed before this bump and is now slightly more likely to show. Worth hardening
+separately; it does not block the bump, which is green on 3 of 4 consecutive full runs.
+
+**Not done:** the underlying test-isolation weakness was not diagnosed or repaired here.
