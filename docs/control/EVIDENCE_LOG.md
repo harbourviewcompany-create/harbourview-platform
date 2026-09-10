@@ -6703,3 +6703,39 @@ on `main`, which is what keeps the drift gate green while they sit in the baseli
 forward reconciliation, 38 unclassified) were not independently checked against
 production in this pass. The document is a triage proposal, not an audit; it applies
 nothing and authorizes nothing.
+
+---
+
+## 2026-09-10 — Five separately-authorized migrations: runbook + reconciled status (PR #1787)
+
+**Change type:** documentation only. No schema, grant, dependency or application code
+change. Applies nothing.
+
+**Live check performed before writing the status file:**
+
+```sql
+select version from supabase_migrations.schema_migrations
+where version in ('20260727163000','20260731120000','20260801150000',
+                  '20260802080000','20260810222500');
+-- 0 rows
+```
+
+All five are unapplied. Recorded in the status file as fact rather than left implicit.
+
+**The contradiction this PR resolves.** #1786 and #1787 each created
+`docs/control/CLAUDE_TASK_APPLY_SEPARATELY_AUTHORIZED.md` with opposite content — "HOLD,
+not auto-approved" versus "Operator authorized all five on 2026-09-07". The second to
+merge would have conflicted; the winner would have silently decided whether five
+production migrations read as cleared to apply, including
+`20260810222500 harden_edge_function_cron_auth`, which hard-fails cron if three Vault
+secrets are absent.
+
+Tyler's resolution (2026-09-10): keep #1786's triage table and this PR's runbook, and
+replace the status file with one reconciled statement. The reconciled file says what is
+actually true — a "Go on" was recorded on 2026-09-07, it was never exercised, and it has
+not been re-confirmed — and therefore requires fresh per-version confirmation before any
+apply. Neither original framing was adopted: one overstated the authorization, the other
+denied it had ever existed.
+
+**Not done here.** None of the five was applied. No Vault secret was created, read or
+checked. The runbook's preflight queries have not been run.
