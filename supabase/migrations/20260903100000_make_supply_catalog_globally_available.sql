@@ -12,7 +12,9 @@
 -- still only carry CA-specific compliance metadata (CSA Z76.1, plain
 -- packaging, etc.). No new per-country compliance claims are made here.
 --
--- Already applied directly to the live project this session.
+-- Production apply: operator-authorized. Reconciled 2026-09-10 -- the data was
+-- already in the exact target state (92/92 rows, identical 195-element array), so
+-- only the missing ledger row was recorded at this version. See docs/control/EVIDENCE_LOG.md.
 
 update public.listings
 set target_countries = array[
