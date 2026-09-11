@@ -6906,3 +6906,127 @@ existed before this bump and is now slightly more likely to show. Worth hardenin
 separately; it does not block the bump, which is green on 3 of 4 consecutive full runs.
 
 **Not done:** the underlying test-isolation weakness was not diagnosed or repaired here.
+
+---
+
+## 2026-09-11 — Retired 34 `verified_regulatory_tier` publications sourced below the primary/official bar
+
+**Change type:** production data write to published compliance content. No code change.
+**Scope:** `public.regulatory_market_access_evidence` (34 rows deactivated) and
+`public.countries` (34 rows, four columns nulled). Applied directly to production
+(`zvxdgdkukjrrwamdpqrg`); there is no migration, as this is a data correction, not schema.
+
+**Why.** The sourcing bar for `verified_regulatory_tier` was set explicitly to
+primary/official sources only — the regulator, ministry, statute or gazette itself. An audit
+of the 130 active evidence rows found 96 met that bar and **34 did not**: they cited
+secondary commentary (law-firm client alerts, industry trackers, news outlets, and in one
+case a PubMed abstract). Those 34 were nonetheless publishing a tier on the globe.
+
+Re-sourcing was not possible in this session — outbound egress is blocked, so no primary
+source could be fetched to replace them. The available correction is therefore retirement:
+pull them so those jurisdictions **fail closed** (no tier shown) rather than continue to
+display a tier that does not meet the stated bar.
+
+**Why both sides had to change.** `resolvePublishedRegulatoryTier()` in
+`lib/globe/supabaseGlobeData.ts` reads **only** the four `countries` columns
+(`verified_regulatory_tier`, `regulatory_tier_evidence_key`, `regulatory_tier_verified_at`,
+`regulatory_tier_expires_at`). It never joins `regulatory_market_access_evidence.active`.
+Deactivating the evidence rows alone would have left every bad tier still rendering.
+
+**Scope verification before the write.** The 34 evidence rows mapped **1:1** to 34 countries
+(`regulatory_tier_evidence_key` matched `evidence_key` on all 34). All 34 were `active`.
+17 distinct rejected domains. The write ran inside a transaction behind a guard that aborted
+unless exactly 34 active evidence rows and 34 bound countries resolved.
+
+**The 34 (ISO2 — tier retired — source that failed the bar):**
+
+| ISO2 | Country | Tier retired | Rejected source domain |
+|---|---|---|---|
+| AL | Albania | medical_limited_trade | karanovicpartners.com |
+| AR | Argentina | medical_limited_trade | bizlatinhub.com |
+| BG | Bulgaria | prohibited | cms.law |
+| BY | Belarus | prohibited | cannigma.com |
+| CH | Switzerland | medical_limited_trade | practiceguides.chambers.com |
+| CL | Chile | medical_limited_trade | bizlatinhub.com |
+| CN | China | cbd_hemp_only | cannigma.com |
+| CY | Cyprus | medical_limited_trade | prohibitionpartners.com |
+| EC | Ecuador | medical_limited_trade | bizlatinhub.com |
+| GY | Guyana | cbd_hemp_only | harris-sliwoski.com |
+| HR | Croatia | medical_limited_trade | prohibitionpartners.com |
+| HU | Hungary | prohibited | thecannex.com |
+| IN | India | cbd_hemp_only | druglawindia.com |
+| JP | Japan | medical_limited_trade | pubmed.ncbi.nlm.nih.gov |
+| KE | Kenya | prohibited | cannigma.com |
+| KN | Saint Kitts and Nevis | medical_limited_trade | cannabisregulations.ai |
+| LK | Sri Lanka | medical_limited_trade | cannigma.com |
+| LT | Lithuania | medical_limited_trade | cannigma.com |
+| MD | Moldova | prohibited | cannigma.com |
+| MX | Mexico | medical_limited_trade | bizlatinhub.com |
+| NG | Nigeria | prohibited | cannigma.com |
+| PY | Paraguay | medical_limited_trade | bizlatinhub.com |
+| RS | Serbia | prohibited | cannigma.com |
+| RU | Russia | prohibited | cannigma.com |
+| RW | Rwanda | legal_commercial_access | ktpress.rw |
+| SE | Sweden | prohibited | cannigma.com |
+| SG | Singapore | prohibited | cannigma.com |
+| SI | Slovenia | medical_limited_trade | cannabis-europa.com |
+| SK | Slovakia | prohibited | cms.law |
+| TH | Thailand | medical_limited_trade | tilleke.com |
+| TR | Türkiye | medical_limited_trade | cbclaw.com.tr |
+| TZ | Tanzania | prohibited | cannigma.com |
+| VC | Saint Vincent and the Grenadines | medical_limited_trade | mca.vc |
+| VU | Vanuatu | legal_commercial_access | dailypost.vu |
+
+All 34 shared `evidence_key` shape `hv-mkt-{iso}-20260907`, `verified_at`
+`2026-09-07T00:05:00+00`, `expires_at` `2027-09-07T00:00:00+00`.
+
+**Verified after the write:**
+
+| check | result |
+|---|---|
+| countries publishing a verified tier | **164 → 130** (−34, as predicted) |
+| the 34 targets now fully null on all four columns | 34 / 34 |
+| legacy `regulatory_tier` preserved on those 34 | 34 / 34 (untouched) |
+| active evidence rows remaining | 96 (the audited-pass set, untouched) |
+| reject-domain evidence rows still active | 0 |
+| countries published on inactive/missing evidence | 0 |
+| reconciliation | 96 active rows = 96 distinct keys in use → 130 countries (via inheritance) |
+
+**Trigger side effects: none.** `public.countries` carries seven triggers, and the
+consequential ones are all scoped `UPDATE OF <column list>` — none of those columns is in
+this write. Notably `trg_push_regulatory_tier_to_airtable` is
+`AFTER UPDATE OF regulatory_tier, regulatory_tier_origin, regulatory_tier_needs_review,
+regulatory_tier_rationale`, so **no Airtable push fired** and nothing left the system. Only
+`countries_updated_at` and the `trg_countries_field_changes` audit trigger ran. Verified
+post-write by re-reading the three rows most at risk (CH, JP, TH) — all unchanged.
+
+> **Method note, learned here:** `information_schema.triggers` does **not** expose the
+> `UPDATE OF` column list, which makes every trigger look unconditional. Reading it alone led
+> me to predict a side effect that does not exist. Use
+> `pg_get_triggerdef(t.oid)` from `pg_trigger` instead.
+
+**Rollback.** `docs/control/rollback/20260911_retire_34_nonprimary_tiers.rollback.sql` is
+exact and sufficient. It is exact because the write did not modify `evidence.tier`,
+`evidence.verified_at` or `evidence.expires_at` — the evidence rows remain the authoritative
+source for restoring the country columns.
+
+**Separate pre-existing finding, NOT touched by this change.** Three of the 34 have
+`market_access_status` inconsistent with what `sync_market_access_status()` derives from
+`regulatory_tier`. It is latent: the next write to `regulatory_tier` on any of them will
+silently re-derive it, moving `opportunity_score` with it.
+
+| ISO2 | regulatory_tier | mas stored | mas derived | score stored → would become |
+|---|---|---|---|---|
+| CH | domestic_only | regulated | emerging | 64 → 52 |
+| JP | medical_limited_trade | limited | regulated | 36 → 64 |
+| TH | medical_limited_trade | emerging | regulated | 52 → 64 |
+
+Also worth recording: CH had `regulatory_tier = 'domestic_only'` while
+`verified_regulatory_tier` was `'medical_limited_trade'`. The two columns disagree, which is
+`AGENT_OPERATING_FACTS` §11 in the wild — the legacy column is not a proxy for the verified one.
+
+**Not done.** The 34 jurisdictions now have **no** published regulatory tier. They are not
+re-sourced, only retired. Re-sourcing all 34 against primary/official sources requires a
+session with outbound egress and is tracked in the tier-sourcing worklist; these 34 join
+that backlog and should be prioritised within it, since they are the ones that regressed
+from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR and CL.
