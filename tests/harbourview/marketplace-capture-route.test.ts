@@ -21,8 +21,11 @@ function makeRequest(payload: unknown) {
 }
 
 async function loadRoute() {
-  vi.resetModules()
-  return import('@/app/api/marketplace/capture/route')
+  let route: typeof import('@/app/api/marketplace/capture/route')
+  await vi.isolateModulesAsync(async () => {
+    route = await import('@/app/api/marketplace/capture/route')
+  })
+  return route!
 }
 
 describe('/api/marketplace/capture', () => {
@@ -38,6 +41,7 @@ describe('/api/marketplace/capture', () => {
     process.env = ORIGINAL_ENV
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    vi.resetModules()
   })
 
   it('returns success for a valid seller listing submission and inserts through service-role REST headers', async () => {
