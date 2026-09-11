@@ -6742,6 +6742,78 @@ checked. The runbook's preflight queries have not been run.
 
 ---
 
+## 2026-09-10 — `20260903100000` global supply catalog: ledger reconciled, no data write (PR #1783)
+
+**Change type:** production ledger write + release-control edit. No schema change, no
+grant change, no application code.
+
+**Authorization:** Tyler, this session, in answer to a direct question that stated the
+migration was unapplied and that the PR's own runbook forbids merging before apply.
+
+**What preflight found — and why the plan changed.** `CLAUDE_TASK_APPLY_20260903100000.md`
+assumes two cases: ledger row present (skip apply) or absent (apply). Production was in
+neither: the ledger row was **absent** but the data was **already in the exact target
+state**.
+
+```sql
+select (select count(*) from supabase_migrations.schema_migrations
+        where version='20260903100000') as ledger_row,
+       count(*) as hv_skus,
+       min(cardinality(target_countries)) as min_c,
+       max(cardinality(target_countries)) as max_c
+from public.listings where sold_by_harbourview = true;
+-- ledger_row 0 | hv_skus 92 | min_c 195 | max_c 195
+```
+
+Equal cardinality is not equal content, so set equality was checked against the
+migration's own array before concluding anything:
+
+```
+hv_skus 92 | exact_same_order 92 | same_set_any_order 92 | differing 0
+```
+
+All 92 rows already held the migration's 195-element array, same elements **in the same
+order**. The `UPDATE` was therefore a proven no-op.
+
+**Action taken.** The `UPDATE` was **deliberately not run.** Re-running it would have
+rewritten 92 production rows to the values they already held, for no effect. Only the
+missing ledger row was recorded, at the **committed** version:
+
+```sql
+insert into supabase_migrations.schema_migrations (version, name, statements)
+values ('20260903100000', 'make_supply_catalog_globally_available', array[<migration body>])
+on conflict (version) do nothing;
+```
+
+`apply_migration` was **not** used: it mints its own timestamp and would have written a
+phantom version with no matching repository file — the drift this baseline exists to
+track (`AGENT_OPERATING_FACTS` §1). Same pattern as the 2026-09-08 tranche applies.
+
+**Verification.**
+
+| check | result |
+|---|---|
+| ledger row at committed version | present, name `make_supply_catalog_globally_available`, 1 statement |
+| `avg_countries` on Harbourview SKUs | 195 |
+| `all_wide` (≥190 countries) | true |
+| `compliance_flags` non-null rows | 92 — unchanged, as the migration requires |
+| migration body: `main` vs this branch | identical (comment-only diff) |
+| unique ISO2 codes in body | 195 |
+
+**Repo hygiene.** `20260903100000` removed from `committed-not-applied-baseline.json`
+(126 → 125, `counts.baselined` reconciled to the array length). The former
+`newly_baselined_20260906` note asserted "the ledger has no 20260903100000 row" — true
+when written, false now — and was replaced rather than left to mislead.
+
+**Residual risk.** The data change's provenance before today is not established: it was
+in place with no ledger row, so some earlier session applied it without recording. This
+entry reconciles the record; it does not explain the gap.
+
+**Commands:** `check-pending-production-migration-decisions.mjs` exit 0
+(83 files / 83 versions, 54 live-only, activation HOLD).
+
+---
+
 ## 2026-09-10 — vitest 4.1.11 → 5.0.0 (PR #1779)
 
 **Change type:** dev-dependency major bump. Test tooling only — no runtime or production
