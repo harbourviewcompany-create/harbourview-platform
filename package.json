@@ -105,7 +105,8 @@
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.13",
     "typescript": "^5.4.5",
-    "vitest": "^4.1.11",
+    "vite": "^8.1.0",
+    "vitest": "^5.0.0",
     "wrangler": "^4.129.0"
   },
   "overrides": {
