@@ -6906,3 +6906,89 @@ existed before this bump and is now slightly more likely to show. Worth hardenin
 separately; it does not block the bump, which is green on 3 of 4 consecutive full runs.
 
 **Not done:** the underlying test-isolation weakness was not diagnosed or repaired here.
+
+
+---
+
+## 2026-09-11 — Repository migration replay repaired: `hv_local_classifier_centroids`
+
+**Change type:** new migration + production ledger reconciliation. No behavioural change to
+production: the table, its shape and its grants already existed exactly as written.
+
+**The defect.** Replaying the repository migration set onto an empty database died:
+
+```
+Applying migration 20260910010532_local_classifier_gate.sql...
+ERROR: relation "public.hv_local_classifier_centroids" does not exist (SQLSTATE 42P01)
+```
+
+`20260910010532` creates `hv_local_classify_gate()`, whose body selects from
+`public.hv_local_classifier_centroids`. **No repository migration created that table.** It
+was created directly against production on 2026-08-30/31 from an unmerged branch that
+never got a PR — the same branch `20260910010532` came from. The reconstruction committed
+the function and not the table.
+
+Consequence: no fresh environment could be built from the repository at all — CI's
+isolated Supabase, a local `supabase db reset`, a preview branch. Production was
+unaffected and remains so; this was a repository defect, surfaced by
+`production-security-hardening.yml`'s `verify` job, which is the only check that replays
+from empty.
+
+**Scope checked, not assumed.** Every `public.*` table referenced by the six reconstructed
+`20260908*`/`20260910*` migrations was checked for a creating migration.
+`hv_local_classifier_centroids` was the only one missing. (`ia_graph_entities` first
+appeared missing and is not — `20260531000000` creates it unqualified, which a
+schema-qualified grep misses.)
+
+**Shape read from live production, not inferred.**
+
+| column | type | null | default |
+|---|---|---|---|
+| `quality_label` | `text` | NOT NULL | — (primary key) |
+| `centroid` | `vector(1024)` (atttypmod 1024) | NOT NULL | — |
+| `n` | `integer` | NOT NULL | — |
+| `updated_at` | `timestamptz` | nullable | `now()` |
+
+Primary key is the only constraint and the only index. RLS **not** enabled. Grants to
+`postgres` and `service_role` only — none to `anon` or `authenticated`.
+
+**Versioning.** `20260910010500`, sorting immediately before the `010532` function that
+depends on it. Guarded `if not exists` because production already holds it.
+
+**Applied to production as a verified no-op**, because a new committed-not-applied version
+that is not in the baseline fails the drift gate on merge — and baselining a brand-new
+version is precisely what `committed-not-applied-baseline.json`'s own `purpose` forbids
+("newly merged migrations must be applied").
+
+| check | before | after |
+|---|---|---|
+| ledger row `20260910010500` | absent | present, 2 statements |
+| rows in table | 4 | **4** |
+| `service_role` grants | 7 | **7** |
+| `anon` / `authenticated` grants | 0 | **0** |
+| RLS enabled | false | **false** |
+
+Recorded at the **committed** version by direct insert, not `apply_migration`, which mints
+its own timestamp (`AGENT_OPERATING_FACTS` §1).
+
+**Deliberately not included: the four centroid rows.** They are trained model state, not
+reference data. `hv_local_classify_gate` degrades safely on an empty table — the `dists`
+CTE returns nothing, the `rnk = 2` join matches nothing, the function returns no row, and
+`hv_classify_corpus_dispatch` falls through to the LLM exactly as before the gate existed.
+A fresh environment gets correct behaviour without the cost saving, which is the right
+default.
+
+**Flagged, not changed: RLS is disabled on this `public` table.** That is production's
+current state and this migration matches it rather than silently hardening it. It is not
+reachable from the browser — no `anon`/`authenticated` grants, and the data API is served
+from `api` — but whether it should carry RLS is a separate decision, not one to smuggle
+into a replay fix.
+
+**Not verified here.** The end-to-end replay could not be run locally: no Docker daemon in
+this environment, so `supabase start` is unavailable. Verified instead that all 1049
+migrations parse (`check-migration-sql-parses.mjs`), filenames pass
+(`check-migration-filenames.mjs`), and ordering puts `010500` before `010532`. The real
+proof is the `verify` job in CI, which performs the replay.
+
+**Commands:** `check-migration-sql-parses.mjs` GO (1049) · `check-migration-filenames.mjs`
+passed (1049) · `check-pending-production-migration-decisions.mjs` exit 0.
