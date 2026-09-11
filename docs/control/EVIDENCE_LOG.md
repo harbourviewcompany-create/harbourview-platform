@@ -6811,3 +6811,51 @@ entry reconciles the record; it does not explain the gap.
 
 **Commands:** `check-pending-production-migration-decisions.mjs` exit 0
 (83 files / 83 versions, 54 live-only, activation HOLD).
+
+---
+
+## 2026-09-10 — Baseline prune: 12 equivalents removed (PR #1788)
+
+**Change type:** release-control ledger + documentation. No schema, migration, grant or
+application code change. No production write.
+
+**What it does.** Removes 12 versions from `committed-not-applied-baseline.json`
+(125 → 113 against current `main`). Each is applied in production under a *different*
+version number and already recorded in `migration-live-version-equivalences.json`.
+
+**Verified live before pruning**, rather than trusting the triage doc:
+
+```
+all 12 pairs: committed_applied = 0, live_applied = 1
+```
+
+Every one is genuinely unapplied at its committed version and genuinely applied at its
+claimed alias.
+
+**Why this is safe — the part worth stating precisely.** Removing a version from this
+baseline normally *arms* the gate against it, so the obvious worry is that pruning 12
+entries turns the drift check red. It does not, and not by luck:
+`scripts/migration-ledger-manifest.mjs` computes
+
+```js
+const committedNotApplied = [...localSet].filter(version =>
+  !remoteSet.has(version) && !aliasEvaluation.recognizedRepositoryVersions.has(version))
+```
+
+An equivalence-recognised repository version is excluded from `committedNotApplied`
+**outright**, before the baseline is consulted at all. These 12 therefore never counted
+against the gate while they sat here — listing them was redundant, not load-bearing.
+The prune narrows the baseline to versions that genuinely have no production counterpart,
+which is what the file is for.
+
+**Arithmetic.** The PR was authored against a 127 baseline and targeted 115. `main` has
+since moved twice — #1797 removed `20260818151000` (renamed, replacement applied) and
+#1783 removed `20260903100000` (reconciled) — so the same 12-version prune now lands on
+**113**. Resolved against `main`'s current set rather than replaying the branch's stale
+array, so neither of those two removals is resurrected. Both confirmed absent.
+
+**Not verified here.** The equivalence entries' `git_blob_sha` bindings were not
+re-checked in this pass; `migration-ledger-manifest.mjs` enforces them itself and the
+`Compare repository and live migration ledgers` check is the authority on that.
+
+**Commands:** `check-pending-production-migration-decisions.mjs` exit 0.
