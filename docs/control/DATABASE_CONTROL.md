@@ -309,6 +309,61 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Human approval status: Tyler approved this scope in-session after being shown the
   diagnosis. **Apply to production and merge remain unapproved.**
 
+## Market Access evidence tranche 2 (2026-09-07)
+
+- Migration: `supabase/migrations/20260907120000_market_access_evidence_tranche_two.sql`.
+  Controlling document:
+  `docs/control/REGULATORY_MARKET_ACCESS_EVIDENCE_TRANCHE_20260907.md`.
+- Scope: 18 rows inserted into `public.regulatory_market_access_evidence`, then
+  `api.refresh_verified_market_access_tiers` is called. No DDL. No table other than
+  the evidence table is written; `countries.regulatory_tier` (the legacy advisory
+  field) is never modified — only `verified_regulatory_tier` and its three
+  companion columns, and those only through the refresh function.
+- Grants: unchanged. The migration adds no object and alters no ACL.
+- Constraint surface exercised: `tier` check, `..._expiry` (`expires_at >
+  verified_at`), the `jurisdiction_iso2` FK to `public.countries(iso_alpha2)`, and
+  the `..._one_active_direct` partial unique index (at most one active direct
+  authority per jurisdiction). All 18 targets confirmed present in
+  `public.countries` and unpublished before apply, so no index collision.
+- Idempotency: `on conflict (evidence_key) do update`. Re-running the migration is
+  safe and was verified.
+- Fail-closed behaviour verified, not assumed: an omitted jurisdiction stays
+  `NULL`; an expired row neutralises its jurisdiction on the next refresh.
+- Known trap, now documented: `verified_at` must be backdated. The resolver
+  requires `verified_at <= now()`, so a wall-clock timestamp that is still in the
+  future when the migration runs produces a clean apply that publishes nothing.
+  This was caught in validation, not in production.
+- Rollback: `delete from public.regulatory_market_access_evidence where
+  evidence_key like 'hv-mkt-%-20260907';` then re-run the refresh. Returns the 18
+  jurisdictions to neutral.
+- Sourcing caveat carried forward: no `authority_url` in this tranche was fetched
+  and read directly (egress blocked). Spot-check the URLs from an unrestricted
+  network before applying to production.
+- Human approval status: Tyler set the sourcing bar on 2026-09-07.
+  **Apply to production and merge remain unapproved.**
+
+## Market Access evidence tranche 3 (2026-09-07)
+
+- Migration: `supabase/migrations/20260907140000_market_access_evidence_tranche_three.sql`.
+  Same controlling document as tranche 2.
+- Scope: 29 rows inserted into `public.regulatory_market_access_evidence`, then the
+  refresh function is called. No DDL, no grant change, no other table written.
+- **First `prohibited` rows on the globe.** No jurisdiction previously carried a
+  published `prohibited` tier, so this migration changes what the map renders in a
+  visible, user-facing way — a jurisdiction moves from neutral gold to an explicit
+  closed-market colour. Treat it as compliance-facing published content.
+- Constraint surface: identical to tranche 2. Verified live before commit that all
+  29 ISO codes exist in `public.countries` and none already publishes, so neither
+  the FK nor `..._one_active_direct` can fail on apply.
+- Tranche independence verified: after applying tranche 3 on top of tranche 2, all
+  18 tranche-2 rows report `verified_unchanged`.
+- Idempotency: `on conflict (evidence_key) do update`, same as tranche 2.
+- Rollback: the `hv-mkt-%-20260907` prefix covers tranches 2 and 3 together, so the
+  single documented delete plus refresh reverts all 47 rows to neutral.
+- Sourcing caveat carried forward: no `authority_url` was fetched and read directly.
+- Human approval status: scope directed by Tyler on 2026-09-07 ("All markets
+  matter"). **Apply to production and merge remain unapproved.**
+
 ## Remaining historical control entries
 
 Historical database-control entries below this line are preserved in git history from prior DATABASE_CONTROL commits and in `docs/control/EVIDENCE_LOG.md`. New Decision Intel Stage 0 work is governed by the Stage 0 product boundary section above plus `INTEL_DECISION_OS_RLS_MIGRATION.md`.
