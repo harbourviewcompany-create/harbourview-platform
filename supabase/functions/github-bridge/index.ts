@@ -1,8 +1,49 @@
 /**
- * github-bridge v21 — get_timeline pages + filters out 'committed' noise (2026-08-13)
+ * github-bridge v23 -- batch runs sub-ops sequentially, not in parallel (2026-09-02)
+ *   batch ran every sub-op concurrently via Promise.allSettled. A
+ *   multi-file commit -- the batch operation's actual primary use case,
+ *   per every comment and doc referencing it -- is a sequence of push_file
+ *   calls against the same branch. GitHub's Contents API (PUT
+ *   /repos/{owner}/{repo}/contents/{path}) does its own internal
+ *   read-current-branch-HEAD, create-commit-on-top, fast-forward-the-ref
+ *   for each call; when several of those run concurrently against the
+ *   same branch, each reads the same starting HEAD, and every request but
+ *   the one that wins the ref update races to a 409 (\"Reference update
+ *   failed\") with no automatic retry. Promise.allSettled dutifully
+ *   collected those as individual { ok: false, ... } entries in the
+ *   results array -- correctly reported, easy to miss, since the outer
+ *   batch response is still { ok: true, results: [...] } even when 7 of 8
+ *   sub-results failed. At least one real session's first batch attempt
+ *   against this exact bug landed nothing and gave no obvious signal why.
+ *   Changed to a sequential for-await loop: each sub-op's dispatch() is
+ *   awaited before the next one starts, so a push_file always sees the
+ *   branch HEAD left by the one before it, never a stale one. Same
+ *   collect-failures-without-aborting-the-batch semantics as
+ *   Promise.allSettled, same result shape, same order -- no batch caller
+ *   needs to change anything. Read-only batches (get_file, list_prs,
+ *   etc.) become marginally slower (sequential instead of concurrent);
+ *   nothing in this function's history or callers document a need for
+ *   batch-read speed, so there is no reason to keep the race available
+ *   as a mode a caller has to remember to avoid. The safe path is now
+ *   the only path.
+ *
+ * github-bridge v22 -- create_ref validates op.branch, added delete_ref (2026-09-01)
+ *   create_ref read op.branch to build `refs/heads/${op.branch}` with no
+ *   validation. A caller that passed a differently-named param (e.g. `ref`
+ *   instead of `branch`) silently built `refs/heads/undefined`. GitHub
+ *   accepted that once, creating a real branch literally named `undefined`,
+ *   then every later call -- regardless of the branch name or sha actually
+ *   passed -- 422d \"Reference already exists\", which gives zero indication
+ *   the real problem is a missing param. Now throws a specific error before
+ *   ever calling GitHub if op.branch is missing. Also added `delete_ref`
+ *   (DELETE /git/refs/heads/<branch>) -- there was previously no way to
+ *   remove a stray branch (including the one this exact bug created)
+ *   without leaving the API for the GitHub UI.
+ *
+ * github-bridge v21 -- get_timeline pages + filters out 'committed' noise (2026-08-13)
  *   v20's get_timeline fetched only page 1 (100 events) with no filtering. On
  *   a long-lived branch, GitHub emits one 'committed' timeline event per
- *   commit — a 239-commit PR returned 100 'committed' events on page 1 and
+ *   commit -- a 239-commit PR returned 100 'committed' events on page 1 and
  *   nothing else, burying the actual closed/reopened/merged/labeled events
  *   that were the whole point of calling this. Now pages through up to 5
  *   pages (500 raw events), drops 'committed' entries server-side, and
@@ -10,22 +51,22 @@
  *   op.per_page (v20) renamed to op.limit to reflect it now caps the
  *   post-filter result, not the raw per-page fetch size.
  *
- * github-bridge v20 — added list_comments, list_reviews, get_timeline (2026-08-13)
+ * github-bridge v20 -- added list_comments, list_reviews, get_timeline (2026-08-13)
  *   The bridge could post comments/reviews (comment_pr, create_review) but had
- *   no way to READ existing ones back — no way to see what a human, another
+ *   no way to READ existing ones back -- no way to see what a human, another
  *   agent, or a third-party reviewer (e.g. Grok) already said on a PR, or to
  *   see who closed a PR and why. Added three read-only ops:
  *     - list_comments: GET /issues/{n}/comments (plain timeline comments).
  *     - list_reviews: GET /pulls/{n}/reviews (formal review verdicts).
  *     - get_timeline: GET /issues/{n}/timeline (closed/reopened/merged/
- *       labeled/etc events with the actor and timestamp) — requires the
+ *       labeled/etc events with the actor and timestamp) -- requires the
  *       timeline preview Accept header, added only for this one call.
  *   All three purely additive, sorted newest-first, capped at per_page.
  *
- * github-bridge v19 — added create_review (2026-08-04)
+ * github-bridge v19 -- added create_review (2026-08-04)
  *   comment_pr only ever posts a plain issue-timeline comment (POST
  *   /issues/{number}/comments). There was no way to submit a formal PR
- *   review (POST /pulls/{number}/reviews) — the thing that shows up as an
+ *   review (POST /pulls/{number}/reviews) -- the thing that shows up as an
  *   actual review verdict (Comment / Approve / Request changes) in the PR's
  *   review list, distinct from a timeline comment. Added `create_review`.
  *   op.event: 'COMMENT' (default) | 'APPROVE' | 'REQUEST_CHANGES'.
@@ -33,7 +74,7 @@
  *   op.comments is an optional array of inline review comments:
  *   [{ path, line, side?, body }, ...]. Purely additive.
  *
- * github-bridge v18 — added per-request owner/repo override (2026-07-30)
+ * github-bridge v18 -- added per-request owner/repo override (2026-07-30)
  *   BASE was a single module-level const pinned to harbourview-platform, so
  *   the bridge could only ever touch that one repo. Any other repo in the
  *   org (e.g. job-search-command-center) was unreachable. Changed OWNER/REPO
@@ -43,10 +84,10 @@
  *   owner/repo keep hitting harbourview-platform exactly as before. batch
  *   sub-ops each resolve their own BASE, so a batch can span multiple repos.
  *
- * github-bridge v17 — added grep_file, patch_file (2026-07-28)
+ * github-bridge v17 -- added grep_file, patch_file (2026-07-28)
  *   Editing a small section of a huge file (CommandCentre.tsx / MobileCommandCentre.tsx,
  *   600KB+) previously meant fetching and reconstructing the WHOLE file through
- *   the calling agent's limited text channel just to change a few lines —
+ *   the calling agent's limited text channel just to change a few lines --
  *   expensive and error-prone. Added two server-side operations that never
  *   transfer full file content back to the caller:
  *     - grep_file: fetch a file, search line-by-line (substring or regex),
@@ -59,16 +100,16 @@
  *   Both decode with the same UTF-8-safe method as get_blob (byte array ->
  *   TextDecoder), not get_file's lossy atob().
  *
- * github-bridge v16 — added get_check_run_output (2026-07-26)
+ * github-bridge v16 -- added get_check_run_output (2026-07-26)
  *   list_check_runs slims out each run's `output` field (summary/text), which
  *   is where the actual failure reason lives for checks like a drift-detector.
  *   Added `get_check_run_output` (GET /check-runs/{id}) to fetch it. Purely
  *   additive.
  *
- * github-bridge v15 — GITHUB_PAT moved to vault (2026-07-26)
- *   The env-var GITHUB_PAT secret went bad ("Bad credentials" from GitHub) and
+ * github-bridge v15 -- GITHUB_PAT moved to vault (2026-07-26)
+ *   The env-var GITHUB_PAT secret went bad (\"Bad credentials\" from GitHub) and
  *   could only be fixed via the Supabase dashboard, which the calling agent has
- *   no tool access to — a rotation dead end. Moved the token into Postgres
+ *   no tool access to -- a rotation dead end. Moved the token into Postgres
  *   Vault (secret name `hv_github_pat`), fetched via a new SECURITY DEFINER RPC
  *   `api.hv_get_github_pat()` (service_role-only execute, same pattern as
  *   `hv_bridge_key_matches`). Rotation is now a `select vault.update_secret(...)`
@@ -76,46 +117,46 @@
  *   if the vault lookup returns nothing, so this is non-breaking if the vault
  *   secret isn't set yet.
  *
- * github-bridge v14 — added comment_pr, close_pr (2026-07-26)
- *   Added `comment_pr` (POST /issues/{number}/comments — PRs are issues in the
+ * github-bridge v14 -- added comment_pr, close_pr (2026-07-26)
+ *   Added `comment_pr` (POST /issues/{number}/comments -- PRs are issues in the
  *   GitHub API) and `close_pr` (PATCH /pulls/{number}, state=closed). Purely
  *   additive.
  *
- * github-bridge v13 — added merge_pr (2026-07-26)
- *   No operation existed to merge a PR — every merge had to happen through the
+ * github-bridge v13 -- added merge_pr (2026-07-26)
+ *   No operation existed to merge a PR -- every merge had to happen through the
  *   GitHub UI. Added `merge_pr` (PUT /pulls/{number}/merge, squash by default,
  *   matching this repo's existing merge convention). Purely additive.
  *
- * github-bridge v12 — fixed create_ref base-sha resolution (2026-07-23)
+ * github-bridge v12 -- fixed create_ref base-sha resolution (2026-07-23)
  *   create_ref (v11) resolved the base branch's sha via GET /git/ref/heads/<ref>,
- *   which returns a 422 ("sha wasn't supplied") when GitHub treats the ref as
- *   ambiguous and responds with an array instead of a single ref object — this
+ *   which returns a 422 (\"sha wasn't supplied\") when GitHub treats the ref as
+ *   ambiguous and responds with an array instead of a single ref object -- this
  *   repo hit that on its very first use, even for `main`. Switched to
  *   GET /branches/<branch>, which always returns a single object for an exact
  *   branch name.
  *
- * github-bridge v11 — added create_ref (2026-07-23)
+ * github-bridge v11 -- added create_ref (2026-07-23)
  *   No operation existed to create a branch, which blocks any edit-and-push-back
  *   workflow that needs to land work on a fresh branch + PR instead of committing
  *   to an existing one. Added `create_ref` (POST /git/refs) so callers can create
  *   `refs/heads/<branch>` from a base ref's current sha before calling `push_file`
  *   with that branch. Purely additive; no existing case changed.
  *
- * github-bridge v6 — added get_blob (raw base64, no lossy decode) (2026-07-11)
+ * github-bridge v6 -- added get_blob (raw base64, no lossy decode) (2026-07-11)
  *
- * SECURITY HISTORY — read before changing:
+ * SECURITY HISTORY -- read before changing:
  *   v4 shipped with `verify_jwt=false` and NO caller authentication of any kind.
  *   Because this function holds a server-side, admin-scoped GITHUB_PAT
  *   (admin:org, admin:enterprise, delete_repo), anyone on the public internet
- *   who knew the function URL could POST {"operation":"push_file", ...} and
+ *   who knew the function URL could POST {\"operation\":\"push_file\", ...} and
  *   commit arbitrary content to any path on any branch of this repo. The vault
  *   secret `hv_github_bridge_caller_secret` was created 2026-07-06 to close
  *   exactly this hole; the deployed function then regressed to a build with the
  *   check missing entirely.
  *
  *   Two controls are now in place. DO NOT remove either:
- *     1. verify_jwt=true      — gateway rejects callers with no project JWT.
- *     2. x-hv-bridge-key      — shared secret, checked below.
+ *     1. verify_jwt=true      -- gateway rejects callers with no project JWT.
+ *     2. x-hv-bridge-key      -- shared secret, checked below.
  *
  *   This function deliberately does NOT hold a copy of the bridge key. It calls
  *   api.hv_bridge_key_matches() (service-role-only, SECURITY DEFINER) which
@@ -126,11 +167,11 @@
  *   caller supply their own token, which served no purpose here and widened the
  *   surface. The PAT comes from the environment only.
  *
- * ENCODING BUG FOUND 2026-07-11 — read before touching get_file:
+ * ENCODING BUG FOUND 2026-07-11 -- read before touching get_file:
  *   `get_file` decodes GitHub's base64 content with `atob()`, which treats each
  *   decoded byte as one UTF-16 code unit rather than reassembling multi-byte
  *   UTF-8 sequences. Any non-ASCII character (em-dashes, curly quotes, emoji)
- *   comes back mangled ("—" becomes "Ã¢ÂÂ" once round-tripped through JSON).
+ *   comes back mangled (\"--\" becomes \"mangled\" once round-tripped through JSON).
  *   This corrupted at least one production doc (HANDOFF.md) when an agent used
  *   get_file's output as the basis for an edit-and-push-back. `get_file` is left
  *   as-is for now (existing callers may depend on its current, imperfect
@@ -146,10 +187,6 @@ const DEFAULT_REPO = 'harbourview-platform'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-/**
- * Verify the caller-supplied bridge key against the vault secret.
- * Fails closed on any error — a broken verifier must never mean "allow".
- */
 async function callerKeyIsValid(req: Request): Promise<boolean> {
   const candidate = req.headers.get('x-hv-bridge-key')
   if (!candidate) return false
@@ -180,12 +217,6 @@ async function callerKeyIsValid(req: Request): Promise<boolean> {
   }
 }
 
-/**
- * Fetch the GitHub PAT from Postgres Vault via the service-role-only RPC
- * api.hv_get_github_pat(). Falls back to the GITHUB_PAT env var if the vault
- * lookup fails or returns nothing, so this stays non-breaking during the
- * migration to vault-based rotation.
- */
 async function getGithubPat(): Promise<string | null> {
   if (SUPABASE_URL && SERVICE_ROLE_KEY) {
     try {
@@ -217,8 +248,6 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   if (!(await callerKeyIsValid(req))) {
-    // Deliberately vague: do not tell an unauthenticated caller whether the
-    // header was missing, malformed, or simply wrong.
     return json({ error: 'Unauthorized' }, 401)
   }
 
@@ -309,13 +338,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
     }
 
     case 'create_ref': {
-      // v22 fix (2026-09-01): op.branch was never validated. A call missing
-      // it built `refs/heads/undefined`, which succeeded ONCE (creating a
-      // real branch literally named "undefined") and then 422d "Reference
-      // already exists" on every later call regardless of the branch name
-      // or sha actually passed -- a genuinely misleading error for what is
-      // just a missing required param. Fail fast with a specific message
-      // instead of letting GitHub's ref-collision error stand in for it.
       const branch = op.branch as string | undefined
       if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
       const fromRef = (op.from_ref as string) ?? 'main'
@@ -331,10 +353,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, ref: data.ref, sha: data.object?.sha }
     }
 
-    // Delete a branch. op.branch: branch name, without refs/heads/ prefix.
-    // Added 2026-09-01 alongside the create_ref fix above -- there was
-    // previously no way to remove a stray branch (e.g. one created by the
-    // exact bug just fixed) without leaving the API for the GitHub UI.
     case 'delete_ref': {
       const branch = op.branch as string | undefined
       if (!branch) throw new Error('delete_ref requires op.branch (branch name, without refs/heads/ prefix)')
@@ -370,7 +388,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, id: data.id, html_url: data.html_url }
     }
 
-    // Read back existing plain timeline comments (not formal reviews).
     case 'list_comments': {
       const per_page = Math.min((op.per_page as number) ?? 50, 100)
       const data = await gh(`${BASE}/issues/${op.pr_number}/comments?per_page=${per_page}&sort=created&direction=desc`, h)
@@ -383,7 +400,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       }
     }
 
-    // Read back formal PR reviews (Comment/Approve/Request changes verdicts).
     case 'list_reviews': {
       const per_page = Math.min((op.per_page as number) ?? 50, 100)
       const data = await gh(`${BASE}/pulls/${op.pr_number}/reviews?per_page=${per_page}`, h)
@@ -396,15 +412,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       }
     }
 
-    // Issue/PR timeline: closed/reopened/merged/labeled/head-ref-force-pushed
-    // etc, each with the actor and timestamp. Needs the timeline preview Accept
-    // header — applied only for this one call, not the shared default headers.
-    // v21 fix (2026-08-13): a long-lived branch racks up one 'committed'
-    // timeline event per commit, which buried the actual (closed/reopened/
-    // merged/labeled/...) events under hundreds of per-commit entries on page
-    // 1 — a 239-commit PR returned 100 'committed' events and nothing else.
-    // Now pages through up to 5 pages (500 raw events), filters out
-    // 'committed' server-side, and returns the rest newest-first.
     case 'get_timeline': {
       const limit = Math.min((op.limit as number) ?? 50, 200)
       const maxPages = 5
@@ -548,13 +555,20 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
     case 'batch': {
       const ops = op.ops as Record<string, unknown>[]
       if (!Array.isArray(ops) || ops.length > 8) return { ok: false, error: 'batch.ops must be 1-8 operations' }
-      const results = await Promise.allSettled(ops.map(o => dispatch(o, h)))
-      return {
-        ok: true,
-        results: results.map(r =>
-          r.status === 'fulfilled' ? { ok: true, data: r.value } : { ok: false, error: (r.reason as Error)?.message ?? String(r.reason) }
-        )
+      // Sequential, not Promise.allSettled -- see the v23 header comment.
+      // Each sub-op is fully awaited before the next starts, so a push_file
+      // targeting the same branch as a prior sub-op always sees the ref
+      // that prior sub-op actually left behind, never a stale, raced HEAD.
+      const results: { ok: boolean; data?: unknown; error?: string }[] = []
+      for (const o of ops) {
+        try {
+          const data = await dispatch(o, h)
+          results.push({ ok: true, data })
+        } catch (e) {
+          results.push({ ok: false, error: e instanceof Error ? e.message : String(e) })
+        }
       }
+      return { ok: true, results }
     }
 
     default: return { error: `Unknown operation: ${op.operation}` }
@@ -578,8 +592,6 @@ function slimPr(pr: Record<string, unknown>) {
   }
 }
 
-// No wildcard CORS: this is a server-to-server function and must never be
-// reachable from a browser page on an arbitrary origin.
 function json(data: unknown, status = 200) {
   return new Response(data === null ? null : JSON.stringify(data), {
     status,
