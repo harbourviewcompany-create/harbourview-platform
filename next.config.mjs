@@ -36,7 +36,9 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Keep unsafe-inline for the current Next/Sentry runtime; remove it only
+      // after nonce/hash coverage is implemented and the full browser suite passes.
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://zvxdgdkukjrrwamdpqrg.supabase.co",
       `connect-src 'self' ${supabaseConnectSources.join(' ')} https://api.stripe.com https://vercel.live`,
