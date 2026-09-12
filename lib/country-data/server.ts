@@ -24,7 +24,7 @@ export async function getCountryBriefing(iso2: string): Promise<CountryBriefing 
   const supabase = await createSupabaseServiceClient()
   const { data: dbData, error } = await supabase
     .from('country_intel')
-    .select('country_code, country_name, commercial_pathway_summary, review_status, regulatory_tier, last_reviewed_at')
+    .select('country_code, country_name, commercial_pathway_summary, review_status, last_reviewed_at')
     .eq('country_code', normalizedIso2)
     .eq('review_status', 'active')
     .maybeSingle()
@@ -40,7 +40,7 @@ export async function getCountryBriefing(iso2: string): Promise<CountryBriefing 
     iso2: normalizedIso2,
     overview: dbData?.commercial_pathway_summary ?? 'Market-access briefing requires verified primary-source evidence before publication.',
     regulatory: {
-      status: dbData?.regulatory_tier ?? null,
+      status: null,
       lastUpdated: dbData?.last_reviewed_at ?? null,
       keyLaws: [],
     },
