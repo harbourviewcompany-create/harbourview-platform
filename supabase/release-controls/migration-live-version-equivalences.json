@@ -2,177 +2,21 @@
   "version": 1,
   "purpose": "Content-bound equivalence between production apply-time migration versions and the exact canonical repository migration artifacts that produced them. Entries are recognized only while the pinned Git blob SHA matches the local file. A repository_version_state of history_placeholder is an explicit, read-only-verified exception for a canonical version row recorded in production migration history with null name/statements; unclassified direct repository-version presence remains a hard mismatch.",
   "equivalences": [
-    {
-      "live_version": "20260807181844",
-      "repository_version": "20260807000900",
-      "file": "20260807000900_revoke_data_api_execute_on_secret_accessors.sql",
-      "git_blob_sha": "01ff55e434af1b433c95a795ca03576fd1765d49",
-      "provenance": { "type": "merged_pull_request", "pull_request": 1284, "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e" }
-    },
-    {
-      "live_version": "20260807181907",
-      "repository_version": "20260807001000",
-      "file": "20260807001000_revoke_data_api_default_privileges_on_public.sql",
-      "git_blob_sha": "b235b3118b64335ed994c917db81db1117958e73",
-      "provenance": { "type": "merged_pull_request", "pull_request": 1284, "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e" }
-    },
-    {
-      "live_version": "20260807182104",
-      "repository_version": "20260807001100",
-      "file": "20260807001100_fix_promote_staging_null_object_class.sql",
-      "git_blob_sha": "0527ddb7e6c0f87ff7909070524d3af2af011be7",
-      "provenance": { "type": "merged_pull_request", "pull_request": 1284, "merge_commit": "3379ee94a05214543fed3d90ee83875fda5aa70e" }
-    },
-    {
-      "live_version": "20260808202814",
-      "repository_version": "20260808190400",
-      "file": "20260808190400_restore_harbourview_admin_guard.sql",
-      "git_blob_sha": "f2d1a6ede55443160162d01a2cf9be5379e99122",
-      "provenance": { "type": "pull_request_source", "pull_request": 1307, "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d", "production_apply_evidence": "PR #1307 production migration evidence" }
-    },
-    {
-      "live_version": "20260808203859",
-      "repository_version": "20260808190500",
-      "file": "20260808190500_reconcile_marketplace_image_trust_contract.sql",
-      "git_blob_sha": "b20378b5262345e66d2bc85152e9658b887c310e",
-      "provenance": { "type": "pull_request_source", "pull_request": 1307, "source_head": "243dd7623fd0b33776f6eb20baf033e9f267a38d", "production_apply_evidence": "PR #1307 production migration evidence" }
-    },
-    {
-      "live_version": "20260812143733",
-      "repository_version": "20260812090000",
-      "file": "20260812090000_structured_tabular_authority_sources.sql",
-      "git_blob_sha": "b6d993f6201135c20442bd8fdbbaa0fc1a3f2c7d",
-      "provenance": { "type": "pull_request_source", "pull_request": 1351, "source_head": "9d04dea46a3691cf56714993237dd59e86cd4120", "production_apply_evidence": "Production migration ledger version 20260812143733 matched the exact PR #1351 migration statement content by read-only verification on 2026-08-12" }
-    },
-    {
-      "live_version": "20260819232736",
-      "repository_version": "20260819160000",
-      "file": "20260819160000_clinical_jurisdiction_supply_outlook.sql",
-      "git_blob_sha": "d5778b84281064ae561081b51b94c725486f0705",
-      "provenance": { "type": "direct_commit_content_match", "commit": "3ca3d327129d2ea93fedac690d19f562e5f182d6", "production_apply_evidence": "Production ledger version 20260819232736 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = 456e6aa3ca90458775f1a83675eed96c, equal to md5sum of the file. The apply preceded the commit by three minutes, so supabase apply_migration minted its own timestamp version instead of the canonical one." }
-    },
-    {
-      "live_version": "20260820100423",
-      "repository_version": "20260819190000",
-      "file": "20260819190000_clinical_cross_border_formulary_check.sql",
-      "git_blob_sha": "c0ee6a1a6edc8976a249839d59a1aed163abe86e",
-      "provenance": { "type": "direct_commit_content_match", "commit": "a293d56", "production_apply_evidence": "Production ledger version 20260820100423 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = acfeef2a39d8e894f5e5602a5efb5496 over 5199 characters, equal to md5sum and byte count of the file. The apply-time version was minted by supabase apply_migration and does not correspond to any repository filename; 20260820100000 is an unrelated migration (network_command_p1_introduction_status) that is not applied." }
-    },
-    {
-      "live_version": "20260821220328",
-      "repository_version": "20260820140000",
-      "repository_version_state": "history_placeholder",
-      "file": "20260820140000_seed_subnational_regulatory_tiers.sql",
-      "git_blob_sha": "a5644571f51553fed52d5c62a06930c9780d91ec",
-      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "seed_subnational_regulatory_tiers", "production_statement_count": 1, "production_statement_md5": "d0747bbda2368d7d027b810099e56374", "production_statement_chars": 9507, "repository_history_name_null": true, "repository_history_statements_null": true, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260820140000 is a history-only placeholder with null name/statements while live version 20260821220328 stores the seed_subnational_regulatory_tiers statement. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed." }
-    },
-    {
-      "live_version": "20260821220419",
-      "repository_version": "20260821120000",
-      "repository_version_state": "history_placeholder",
-      "file": "20260821120000_talent_job_board.sql",
-      "git_blob_sha": "40008867d865a1cdbfba4934468583e600d78d10",
-      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "talent_job_board", "production_statement_count": 1, "production_statement_md5": "260aec508da7490e8ecdead17f3cd80b", "production_statement_chars": 10745, "repository_history_name_null": true, "repository_history_statements_null": true, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260821120000 is a history-only placeholder with null name/statements while live version 20260821220419 stores the talent_job_board statement. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed." }
-    },
-    {
-      "live_version": "20260821220431",
-      "repository_version": "20260821121000",
-      "repository_version_state": "history_placeholder",
-      "file": "20260821121000_talent_applications_unique.sql",
-      "git_blob_sha": "81b5eb2d54d18fc813410bf6df6732b59e6a4cb1",
-      "provenance": { "type": "direct_content_match_read_only", "production_name": "talent_applications_unique", "production_statement_count": 1, "production_statement_md5": "244a0afa6a9c344b19af41efb14118e1", "production_statement_chars": 243, "repository_history_name_null": true, "repository_history_statements_null": true, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260821121000 is a history-only placeholder with null name/statements while live version 20260821220431 stores the byte-matched talent_applications_unique statement. No production write or migration repair was performed." }
-    },
-    {
-      "live_version": "20260821220443",
-      "repository_version": "20260821190000",
-      "repository_version_state": "history_placeholder",
-      "file": "20260821190000_clinical_framework_alignment_optional.sql",
-      "git_blob_sha": "564f91b1d700394a9f217422d909147db2901858",
-      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "clinical_framework_alignment_optional", "production_statement_count": 1, "production_statement_md5": "52a1a07a704426c9663056063b34320c", "production_statement_chars": 2442, "repository_history_name_null": true, "repository_history_statements_null": true, "production_apply_evidence": "Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260821190000 is a history-only placeholder with null name/statements while live version 20260821220443 stores the clinical_framework_alignment_optional statement. Canonical repository blob 564f91b1d700394a9f217422d909147db2901858 is byte-identical to the production payload (2442 characters; MD5 52a1a07a704426c9663056063b34320c). No production write or migration repair was performed." }
-    },
-    {
-      "live_version": "20260822173834",
-      "repository_version": "20260822172000",
-      "file": "20260822172000_talent_production_integration_repair.sql",
-      "git_blob_sha": "bca03e36e026f52d9df29373d8ef48bbd14ea1d8",
-      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1629, "production_name": "talent_production_integration_repair", "production_statement_count": 1, "production_statement_md5": "5fec7a468b6c571e3b1de9f18612bd13", "production_statement_chars": 4318, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback syntax, dependency, privilege and RLS behavior verification. Supabase minted live version 20260822173834 for canonical repository migration 20260822172000." }
-    },
-    {
-      "live_version": "20260822214001",
-      "repository_version": "20260822174500",
-      "file": "20260822174500_talent_api_schema_exposure.sql",
-      "git_blob_sha": "160d7de785ad60e8833512e7acbba440b27252a8",
-      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1629, "production_name": "talent_api_schema_exposure", "production_statement_count": 1, "production_statement_md5": "f5731ecbe2e311a3b24921b779a3db4c", "production_statement_chars": 2284, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback API-schema privilege and behavior verification. Supabase minted live version 20260822214001 for canonical repository migration 20260822174500." }
-    },
-    {
-      "live_version": "20260828111619",
-      "repository_version": "20260828022000",
-      "file": "20260828022000_fix_counterparty_extraction_cte_scope.sql",
-      "git_blob_sha": "f4571c461361e29575d2827fa883f1517a3bd34c",
-      "provenance": { "type": "apply_time_alias_read_only_verified", "production_name": "fix_counterparty_extraction_cte_scope", "production_statement_count": 1, "production_statement_md5": "024560c6423ec70bb4e62c96fe65ff04", "production_statement_chars": 2008, "production_apply_evidence": "Read-only production ledger verification on 2026-08-28 confirmed live version 20260828111619 stores the executable DO block of canonical repository migration 20260828022000. The canonical file is pinned by Git blob f4571c461361e29575d2827fa883f1517a3bd34c; the live row is an apply-time alias rather than a distinct migration. No production history row was changed." }
-    },
-    {
-      "live_version": "20260828140346",
-      "repository_version": "20260828143000",
-      "file": "20260828143000_signal_timeline_population_hardening.sql",
-      "git_blob_sha": "7ead22876aead1bfd567d228c5441d5ffce1abff",
-      "provenance": { "type": "apply_time_alias_current_repair", "pull_request": 1662, "production_name": "signal_timeline_population_hardening", "production_statement_count": 1, "production_statement_md5": "99ec72c53b3cd36570b85ef00e3022d9", "production_statement_chars": 2802, "production_apply_evidence": "Applied through the connected Supabase migration API on 2026-08-28 after exact-head freshness tests, typecheck, isolated build, production-config build, SQL parse, and migration-drift verification passed. Supabase minted live version 20260828140346 for canonical repository migration 20260828143000." }
-    },
-    {
-      "live_version": "20260911225008",
-      "repository_version": "20260808190000",
-      "file": "20260808190000_decision_intel_stage0_first_slice.sql",
-      "git_blob_sha": "4678774f319013a93f09429ab03cc04aa07b0db8",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "decision_intel_stage0_first_slice", "production_statement_count": 1, "production_statement_md5": "9c51c38602c25226c82afb90333b1596", "production_statement_chars": 18115, "comment_stripped_statement_md5": "7f4097ba61c3743a82b080910dfc933d", "comment_stripped_statement_chars": 17463, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260911225008 stores the executable payload of canonical repository migration 20260808190000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 17463 characters, md5 7f4097ba61c3743a82b080910dfc933d. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260808190000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob 4678774f319013a93f09429ab03cc04aa07b0db8; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260911225106",
-      "repository_version": "20260808203000",
-      "file": "20260808203000_decision_intel_stage0_review_fixes.sql",
-      "git_blob_sha": "01af810951a03043c098eb0632006ff37d14db22",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "decision_intel_stage0_review_fixes", "production_statement_count": 1, "production_statement_md5": "b7c2805d7e108489a73769af988808ab", "production_statement_chars": 14636, "comment_stripped_statement_md5": "d2a78ce3e600a795cb7e633c93800b6a", "comment_stripped_statement_chars": 13891, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260911225106 stores the executable payload of canonical repository migration 20260808203000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 13891 characters, md5 d2a78ce3e600a795cb7e633c93800b6a. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260808203000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob 01af810951a03043c098eb0632006ff37d14db22; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260911225151",
-      "repository_version": "20260810202000",
-      "file": "20260810202000_decision_intel_stage0_completion_hardening.sql",
-      "git_blob_sha": "b631d302548ec59d037fc5424f059acd9910f928",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "decision_intel_stage0_completion_hardening", "production_statement_count": 1, "production_statement_md5": "d2405d9b0a47ad086b40e055fe77d939", "production_statement_chars": 11304, "comment_stripped_statement_md5": "fff6267a1fb2e1887e31263cf4b34c44", "comment_stripped_statement_chars": 10628, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260911225151 stores the executable payload of canonical repository migration 20260810202000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 10628 characters, md5 fff6267a1fb2e1887e31263cf4b34c44. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260810202000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob b631d302548ec59d037fc5424f059acd9910f928; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260911225324",
-      "repository_version": "20260727163000",
-      "file": "20260727163000_clinical_api_surface.sql",
-      "git_blob_sha": "04bcea31c4720e63ee13a62ac0e5973c885aafcc",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "clinical_api_surface", "production_statement_count": 1, "production_statement_md5": "0660a96cdcaa82c89d557090e4a7dc11", "production_statement_chars": 9056, "comment_stripped_statement_md5": "66e77819378dc83b66eca308ad8af835", "comment_stripped_statement_chars": 8458, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260911225324 stores the executable payload of canonical repository migration 20260727163000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 8458 characters, md5 66e77819378dc83b66eca308ad8af835. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260727163000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob 04bcea31c4720e63ee13a62ac0e5973c885aafcc; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260912103655",
-      "repository_version": "20260731120000",
-      "file": "20260731120000_signal_role_family_routing.sql",
-      "git_blob_sha": "dffb02115fba8a05e80249d428b1f0916dba6ab5",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "signal_role_family_routing", "production_statement_count": 1, "production_statement_md5": "8a4447a6971773726fe162d59654a420", "production_statement_chars": 5247, "comment_stripped_statement_md5": "0416dc3529f2f015872149b225ca8873", "comment_stripped_statement_chars": 4800, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260912103655 stores the executable payload of canonical repository migration 20260731120000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 4800 characters, md5 0416dc3529f2f015872149b225ca8873. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260731120000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob dffb02115fba8a05e80249d428b1f0916dba6ab5; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260912103723",
-      "repository_version": "20260801150000",
-      "file": "20260801150000_api_expose_quality_and_routing_columns.sql",
-      "git_blob_sha": "e44a7748aaa2c55309ab14b2474b175d36dacb8d",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "api_expose_quality_and_routing_columns", "production_statement_count": 1, "production_statement_md5": "285c16ec191e867d2d5a04f0f5b7e90a", "production_statement_chars": 2751, "comment_stripped_statement_md5": "03b72d841c74b73c03fadb879bfd67aa", "comment_stripped_statement_chars": 2564, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260912103723 stores the executable payload of canonical repository migration 20260801150000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 2564 characters, md5 03b72d841c74b73c03fadb879bfd67aa. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260801150000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob e44a7748aaa2c55309ab14b2474b175d36dacb8d; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260912103805",
-      "repository_version": "20260802080000",
-      "file": "20260802080000_harden_eval_labels_and_alert_delivery.sql",
-      "git_blob_sha": "3672f3a0f838578aefd050fb41d1c97b24871aaf",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "harden_eval_labels_and_alert_delivery", "production_statement_count": 1, "production_statement_md5": "4603430d36b302b4ea3a660b4b325915", "production_statement_chars": 9389, "comment_stripped_statement_md5": "9bb4ff5b9572b05aa1f69eb852d93e70", "comment_stripped_statement_chars": 8322, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260912103805 stores the executable payload of canonical repository migration 20260802080000. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 8322 characters, md5 9bb4ff5b9572b05aa1f69eb852d93e70. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260802080000 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob 3672f3a0f838578aefd050fb41d1c97b24871aaf; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    },
-    {
-      "live_version": "20260912103836",
-      "repository_version": "20260810222500",
-      "file": "20260810222500_harden_edge_function_cron_auth.sql",
-      "git_blob_sha": "e40f5f28a10b72a6ce40190119b8164e37adc74f",
-      "provenance": {"type": "apply_time_alias_read_only_verified", "production_name": "harden_edge_function_cron_auth", "production_statement_count": 1, "production_statement_md5": "24cc2a291be1767cb8c1224baf694b7b", "production_statement_chars": 4071, "comment_stripped_statement_md5": "78d8d01c9e6e4a429cc8cfaeb0ac8025", "comment_stripped_statement_chars": 3835, "production_apply_evidence": "Read-only production ledger verification on 2026-09-12 confirmed live version 20260912103836 stores the executable payload of canonical repository migration 20260810222500. Equivalence was proven by content, not by name match: the live statement payload is the committed file with SQL comment lines removed and whitespace collapsed. Normalising both sides by the same rule (drop lines matching ^[[:space:]]*--, collapse whitespace runs, trim) yields byte-identical text of 3835 characters, md5 78d8d01c9e6e4a429cc8cfaeb0ac8025. That normalisation was computed independently in PostgreSQL and in Python and the two agreed on both digest and length. The canonical version 20260810222500 is NOT present in production migration history, so no history_placeholder classification applies. The canonical file is pinned by Git blob e40f5f28a10b72a6ce40190119b8164e37adc74f; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}
-    }
+    {"live_version":"20260807181844","repository_version":"20260807000900","file":"20260807000900_revoke_data_api_execute_on_secret_accessors.sql","git_blob_sha":"01ff55e434af1b433c95a795ca03576fd1765d49","provenance":{"type":"merged_pull_request","pull_request":1284,"merge_commit":"3379ee94a05214543fed3d90ee83875fda5aa70e"}},
+    {"live_version":"20260807181907","repository_version":"20260807001000","file":"20260807001000_revoke_data_api_default_privileges_on_public.sql","git_blob_sha":"b235b3118b64335ed994c917db81db1117958e73","provenance":{"type":"merged_pull_request","pull_request":1284,"merge_commit":"3379ee94a05214543fed3d90ee83875fda5aa70e"}},
+    {"live_version":"20260807182104","repository_version":"20260807001100","file":"20260807001100_fix_promote_staging_null_object_class.sql","git_blob_sha":"0527ddb7e6c0f87ff7909070524d3af2af011be7","provenance":{"type":"merged_pull_request","pull_request":1284,"merge_commit":"3379ee94a05214543fed3d90ee83875fda5aa70e"}},
+    {"live_version":"20260808202814","repository_version":"20260808190400","file":"20260808190400_restore_harbourview_admin_guard.sql","git_blob_sha":"f2d1a6ede55443160162d01a2cf9be5379e99122","provenance":{"type":"pull_request_source","pull_request":1307,"source_head":"243dd7623fd0b33776f6eb20baf033e9f267a38d","production_apply_evidence":"PR #1307 production migration evidence"}},
+    {"live_version":"20260808203859","repository_version":"20260808190500","file":"20260808190500_reconcile_marketplace_image_trust_contract.sql","git_blob_sha":"b20378b5262345e66d2bc85152e9658b887c310e","provenance":{"type":"pull_request_source","pull_request":1307,"source_head":"243dd7623fd0b33776f6eb20baf033e9f267a38d","production_apply_evidence":"PR #1307 production migration evidence"}},
+    {"live_version":"20260812143733","repository_version":"20260812090000","file":"20260812090000_structured_tabular_authority_sources.sql","git_blob_sha":"b6d993f6201135c20442bd8fdbbaa0fc1a3f2c7d","provenance":{"type":"pull_request_source","pull_request":1351,"source_head":"9d04dea46a3691cf56714993237dd59e86cd4120","production_apply_evidence":"Production migration ledger version 20260812143733 matched the exact PR #1351 migration statement content by read-only verification on 2026-08-12"}},
+    {"live_version":"20260819232736","repository_version":"20260819160000","file":"20260819160000_clinical_jurisdiction_supply_outlook.sql","git_blob_sha":"d5778b84281064ae561081b51b94c725486f0705","provenance":{"type":"direct_commit_content_match","commit":"3ca3d327129d2ea93fedac690d19f562e5f182d6","production_apply_evidence":"Production ledger version 20260819232736 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = 456e6aa3ca90458775f1a83675eed96c, equal to md5sum of the file. The apply preceded the commit by three minutes, so supabase apply_migration minted its own timestamp version instead of the canonical one."}},
+    {"live_version":"20260820100423","repository_version":"20260819190000","file":"20260819190000_clinical_cross_border_formulary_check.sql","git_blob_sha":"c0ee6a1a6edc8976a249839d59a1aed163abe86e","provenance":{"type":"direct_commit_content_match","commit":"a293d56","production_apply_evidence":"Production ledger version 20260820100423 stores a single statement byte-identical to the canonical repository file, verified read-only on 2026-08-20: md5(array_to_string(statements, E'\\n')) = acfeef2a39d8e894f5e5602a5efb5496 over 5199 characters, equal to md5sum and byte count of the file. The apply-time version was minted by supabase apply_migration and does not correspond to any repository filename; 20260820100000 is an unrelated migration (network_command_p1_introduction_status) that is not applied."}},
+    {"live_version":"20260821220328","repository_version":"20260820140000","repository_version_state":"history_placeholder","file":"20260820140000_seed_subnational_regulatory_tiers.sql","git_blob_sha":"a5644571f51553fed52d5c62a06930c9780d91ec","provenance":{"type":"apply_time_alias_read_only_verified","production_name":"seed_subnational_regulatory_tiers","production_statement_count":1,"production_statement_md5":"d0747bbda2368d7d027b810099e56374","production_statement_chars":9507,"repository_history_name_null":true,"repository_history_statements_null":true,"production_apply_evidence":"Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260820140000 is a history-only placeholder with null name/statements while live version 20260821220328 stores the seed_subnational_regulatory_tiers statement. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed."}},
+    {"live_version":"20260821220419","repository_version":"20260821120000","repository_version_state":"history_placeholder","file":"20260821120000_talent_job_board.sql","git_blob_sha":"40008867d865a1cdbfba4934468583e600d78d10","provenance":{"type":"apply_time_alias_read_only_verified","production_name":"talent_job_board","production_statement_count":1,"production_statement_md5":"260aec508da7490e8ecdead17f3cd80b","production_statement_chars":10745,"repository_history_name_null":true,"repository_history_statements_null":true,"production_apply_evidence":"Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260821120000 is a history-only placeholder with null name/statements while live version 20260821220419 stores the talent_job_board statement. The canonical repository artifact is pinned by Git blob SHA; no production write or migration repair was performed."}},
+    {"live_version":"20260821220431","repository_version":"20260821121000","repository_version_state":"history_placeholder","file":"20260821121000_talent_applications_unique.sql","git_blob_sha":"81b5eb2d54d18fc813410bf6df6732b59e6a4cb1","provenance":{"type":"direct_content_match_read_only","production_name":"talent_applications_unique","production_statement_count":1,"production_statement_md5":"244a0afa6a9c344b19af41efb14118e1","production_statement_chars":243,"repository_history_name_null":true,"repository_history_statements_null":true,"production_apply_evidence":"Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260821121000 is a history-only placeholder with null name/statements while live version 20260821220431 stores the byte-matched talent_applications_unique statement. No production history row was changed."}},
+    {"live_version":"20260821220443","repository_version":"20260821190000","repository_version_state":"history_placeholder","file":"20260821190000_clinical_framework_alignment_optional.sql","git_blob_sha":"564f91b1d700394a9f217422d909147db2901858","provenance":{"type":"apply_time_alias_read_only_verified","production_name":"clinical_framework_alignment_optional","production_statement_count":1,"production_statement_md5":"52a1a07a704426c9663056063b34320c","production_statement_chars":2442,"repository_history_name_null":true,"repository_history_statements_null":true,"production_apply_evidence":"Read-only query of supabase_migrations.schema_migrations on 2026-08-23 confirmed canonical version 20260821190000 is a history-only placeholder with null name/statements while live version 20260821220443 stores the clinical_framework_alignment_optional statement. Canonical repository blob 564f91b1d700394a9f217422d909147db2901858 is byte-identical to the production payload (2442 characters; MD5 52a1a07a704426c9663056063b34320c). No production history row was changed."}},
+    {"live_version":"20260822173834","repository_version":"20260822172000","file":"20260822172000_talent_production_integration_repair.sql","git_blob_sha":"bca03e36e026f52d9df29373d8ef48bbd14ea1d8","provenance":{"type":"apply_time_alias_current_repair","pull_request":1629,"production_name":"talent_production_integration_repair","production_statement_count":1,"production_statement_md5":"5fec7a468b6c571e3b1de9f18612bd13","production_statement_chars":4318,"production_apply_evidence":"Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback syntax, dependency, privilege and RLS behavior verification. Supabase minted live version 20260822173834 for canonical repository migration 20260822172000."}},
+    {"live_version":"20260822214001","repository_version":"20260822174500","file":"20260822174500_talent_api_schema_exposure.sql","git_blob_sha":"160d7de785ad60e8833512e7acbba440b27252a8","provenance":{"type":"apply_time_alias_current_repair","pull_request":1629,"production_name":"talent_api_schema_exposure","production_statement_count":1,"production_statement_md5":"f5731ecbe2e311a3b24921b779a3db4c","production_statement_chars":2284,"production_apply_evidence":"Applied through the connected Supabase migration API on 2026-08-22 after transaction-rollback API-schema privilege and behavior verification. Supabase minted live version 20260822214001 for canonical repository migration 20260822174500."}},
+    {"live_version":"20260828111619","repository_version":"20260828022000","file":"20260828022000_fix_counterparty_extraction_cte_scope.sql","git_blob_sha":"f4571c461361e29575d2827fa883f1517a3bd34c","provenance":{"type":"apply_time_alias_read_only_verified","production_name":"fix_counterparty_extraction_cte_scope","production_statement_count":1,"production_statement_md5":"024560c6423ec70bb4e62c96fe65ff04","production_statement_chars":2008,"production_apply_evidence":"Read-only production ledger verification on 2026-08-28 confirmed live version 20260828111619 stores the executable DO block of canonical repository migration 20260828022000. The canonical file is pinned by Git blob f4571c461361e29575d2827fa883f1517a3bd34c; the live row is an apply-time alias rather than a distinct migration. No production history row was changed."}},
+    {"live_version":"20260828140346","repository_version":"20260828143000","file":"20260828143000_signal_timeline_population_hardening.sql","git_blob_sha":"7ead22876aead1bfd567d228c5441d5ffce1abff","provenance":{"type":"apply_time_alias_current_repair","pull_request":1662,"production_name":"signal_timeline_population_hardening","production_statement_count":1,"production_statement_md5":"99ec72c53b3cd36570b85ef00e3022d9","production_statement_chars":2802,"production_apply_evidence":"Applied through the connected Supabase migration API on 2026-08-28 after exact-head freshness tests, typecheck, isolated build, production-config build, SQL parse, and migration-drift verification passed. Supabase minted live version 20260828140346 for canonical repository migration 20260828143000."}}
   ]
 }
