@@ -23,7 +23,6 @@
 | Deployment target | Vercel (auto-deploy on push to `main`) |
 | Database target | Supabase (see `docs/control/PROJECT_REGISTRY.md`) |
 | Owner | `harbourviewcompany-create` |
-| Safe next action | Push to `main`, then verify the production deployment at `https://harbourview.vercel.app` |
 
 ## Production verification rule
 
@@ -41,15 +40,14 @@ Before opening or merging a Harbourview PR, deployment task, Supabase task, Verc
 
 Run local validation in this order:
 
-1. Install dependencies: `npm ci`
-2. Typecheck: `npm run typecheck`
-3. Lint: `npm run lint`
-4. Build: `npm run build`
-5. Optional targeted suites (when your changes touch these areas): `npm run test:globe-router`, `npm run test:visibility`
+1. `npm ci`
+2. `npm run typecheck`
+3. `npm run lint`
+4. `npm run build`
+5. `npm test`
+6. Run applicable targeted suites for changed domains.
 
-Before opening a PR, the install, typecheck, lint, and build checks are required, while targeted suites are optional unless your changes directly affect those domains.
-
-Include a short note in your PR validation results indicating whether `docs/control/PROJECT_REGISTRY.md` is impacted and what row(s) were reviewed or updated.
+Record exact commands and results in the PR evidence log.
 
 ## Platform baseline
 
@@ -57,7 +55,7 @@ Include a short note in your PR validation results indicating whether `docs/cont
 - TypeScript
 - Tailwind CSS
 - Public marketplace and network pages render without requiring a database dependency for baseline page delivery
-- Redirects are managed centrally in `middleware.ts` for legacy route compatibility
+- Legacy redirects are managed centrally in `proxy.ts` for the current Next.js runtime
 - Protected admin paths remain server-guarded and must deny anonymous access
 - Production branch remains `main`
 
@@ -68,7 +66,12 @@ Include a short note in your PR validation results indicating whether `docs/cont
 - Keep public positioning consistent with: **"Market access backed by intelligence and relationships."**
 - Keep contact fallback aligned to `harbourviewcompany@gmail.com` unless verified governance docs and implementation are updated together.
 
-## Build Targets
+## Build targets
 
-- **Local / Node build path:** Use `npm run build` for standard local Next.js/Node build validation.
-- **Cloudflare / OpenNext build path:** Use `npm run preview`, `npm run deploy`, and `npm run upload` for the Cloudflare runtime packaging, preview, and deployment pipeline.
+- **Production web:** Vercel is the canonical web deployment target and production authority.
+- **Local / Node build:** Use `npm run build` for standard Next.js/Node validation.
+- **Cloudflare:** Cloudflare/OpenNext is not the canonical production web runtime. Cloudflare tooling is limited to separately governed Worker/intelligence workflows. Do not use obsolete `npm run preview`, `npm run deploy`, or `npm run upload` commands unless those scripts are present in `package.json` and the applicable Cloudflare target is explicitly documented.
+
+## Database migrations
+
+Repository migrations are the source of truth for reproducible database state. Do not apply a new production migration before its migration file is committed and reviewed. After merge, apply the migration and record the production ledger/evidence result. Production-only schema changes require explicit reconciliation.
