@@ -20,6 +20,8 @@ describe('evidence-backed Market Access publication', () => {
     ['expired evidence', { verified_regulatory_tier: 'legal_commercial_access', regulatory_tier_evidence_key: 'e1', regulatory_tier_verified_at: '2026-01-01T00:00:00Z', regulatory_tier_expires_at: '2026-08-31T12:09:59Z' }],
     ['future verification', { verified_regulatory_tier: 'legal_commercial_access', regulatory_tier_evidence_key: 'e1', regulatory_tier_verified_at: '2026-09-01T00:00:00Z', regulatory_tier_expires_at: '2027-01-01T00:00:00Z' }],
     ['malformed expiry', { verified_regulatory_tier: 'legal_commercial_access', regulatory_tier_evidence_key: 'e1', regulatory_tier_verified_at: '2026-08-30T00:00:00Z', regulatory_tier_expires_at: 'not-a-date' }],
+    ['legacy tier survives without published evidence', { regulatory_tier: 'legal_commercial_access' }],
+    ['retired publication fields are null', { verified_regulatory_tier: null, regulatory_tier_evidence_key: null, regulatory_tier_verified_at: null, regulatory_tier_expires_at: null, regulatory_tier: 'legal_commercial_access' }],
   ])('fails closed to neutral for %s', (_label, row) => {
     expect(resolvePublishedRegulatoryTier(row, now)).toBeNull()
   })
@@ -49,5 +51,12 @@ describe('evidence-backed Market Access publication', () => {
     const migration = readFileSync('supabase/migrations/20260831130000_evidence_backed_market_access_authority.sql', 'utf8')
     expect(migration).not.toContain('20260830140000_full_regulatory_tier_coverage')
     expect(migration).not.toContain('20260830141000_subnational_regulatory_tier_evidence_alignment')
+  })
+
+  it('keeps retired non-primary evidence fail-closed at the publication boundary', () => {
+    const source = readFileSync('lib/globe/supabaseGlobeData.ts', 'utf8')
+    expect(source).not.toMatch(/\brow\.regulatory_tier(?!_)/)
+    expect(source).toContain('if (!tier || !row.regulatory_tier_evidence_key')
+    expect(source).toContain('return null')
   })
 })
