@@ -87,7 +87,6 @@ async function main() {
       country_code: String(row.country_code).toUpperCase(),
       country_name: row.country_name,
       reason: 'No reviewed public/commercial summary; primary-source research required',
-      regulatory_tier: null,
       action: 'research_before_publication',
     }))
     .sort((a, b) => a.country_code.localeCompare(b.country_code))
