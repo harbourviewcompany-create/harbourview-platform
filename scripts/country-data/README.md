@@ -11,6 +11,10 @@ This tooling separates country identity/geography coverage from regulatory intel
 - Draft playbooks are not auto-created from signal presence alone.
 - Regulatory publication must use the evidence-backed path and primary-source bar already enforced by the globe data layer.
 
+## Registry and evidence boundary
+
+The identity registry is not a regulatory authority. Country presence, ISO identifiers, names, and geography may be complete even when regulatory intelligence is unresolved. An unresolved jurisdiction must remain explicitly unknown; downstream publication may use only the evidence-backed regulatory fields with a valid evidence key, verification timestamp, and unexpired freshness window.
+
 ## Dry run
 
 ```bash
