@@ -467,6 +467,18 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, name: data.name, conclusion: data.conclusion, output: data.output, annotations, html_url: data.html_url }
     }
 
+    case 'get_job_logs': {
+      const jobId = op.job_id
+      if (!jobId) throw new Error('get_job_logs requires op.job_id')
+      const res = await fetch(`${BASE}/actions/jobs/${jobId}/logs`, { headers: h })
+      if (!res.ok) throw new Error(`GitHub GET job logs ${res.status}: ${await res.text()}`)
+      const text = await res.text()
+      const maxChars = Math.min((op.max_chars as number) ?? 20000, 100000)
+      const truncated = text.length > maxChars
+      const log = truncated ? text.slice(-maxChars) : text
+      return { ok: true, truncated, totalLength: text.length, log }
+    }
+
     case 'grep_file': {
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
