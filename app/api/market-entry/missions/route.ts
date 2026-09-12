@@ -88,11 +88,8 @@ export async function POST(request: NextRequest) {
     payload: { planVersion: plan.planVersion, reproducibilityKey: plan.reproducibilityKey },
   })
   if (eventError) {
-    return NextResponse.json({
-      mission,
-      warning: 'Mission and tasks were persisted, but the audit event could not be recorded.',
-      detail: eventError.message,
-    }, { status: 207 })
+    await supabase.from('market_entry_missions').delete().eq('id', mission.id)
+    return NextResponse.json({ error: 'Unable to record the mission audit event.', detail: eventError.message }, { status: 503 })
   }
 
   return NextResponse.json({ mission, plan }, { status: 201 })
