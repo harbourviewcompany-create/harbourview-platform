@@ -50,6 +50,8 @@ function fixture(overrides: Partial<CorridorPlan> = {}): CorridorPlan {
       failureModes: [],
       openQuestions: [],
       productDocDeltas: [],
+      criticalPathNarrative: 'orientation',
+      gmpRecognition: { label: 'orientation', summary: 'orientation' },
     },
     ...overrides,
   }
@@ -63,18 +65,14 @@ describe('Market Entry OS production contracts', () => {
     const importTask = graph.tasks.find((task) => task.side === 'import')!
     expect(importTask.prerequisiteIds).toContain('export-2-quality-release')
     expect(graph.criticalPathWeeks).toBe(9)
+    expect(graph.criticalPathTaskIds.at(-1)).toBe(importTask.id)
   })
 
-  it('detects malformed prerequisite cycles instead of producing a usable path', () => {
-    const graph = buildExecutionGraph(fixture({
-      steps: [
-        { step: 1, title: 'A', required: true, description: 'A', estimated_weeks: 1, side: 'export', country_iso2: 'CA', country_name: 'Canada' },
-        { step: 2, title: 'B', required: true, description: 'B', estimated_weeks: 1, side: 'export', country_iso2: 'CA', country_name: 'Canada' },
-      ],
-    }))
-    // The generated graph itself is acyclic; this assertion protects the invariant
-    // that the engine never invents a cycle merely from a valid playbook.
+  it('preserves a zero-task graph as a valid acyclic result', () => {
+    const graph = buildExecutionGraph(fixture({ steps: [] }))
     expect(graph.cycleDetected).toBe(false)
+    expect(graph.tasks).toEqual([])
+    expect(graph.criticalPathWeeks).toBe(0)
   })
 
   it('treats playbook verification timestamps as partial evidence, never primary-source proof', () => {
