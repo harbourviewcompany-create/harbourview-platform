@@ -1,19 +1,18 @@
 // Public country/area identity profile DTO — backs app/countries/* (the
 // identity-only country directory) via lib/country-data/public-country-dto.ts.
-// Both this and CountryBriefing below now coexist in this file rather than
-// colliding (a concurrent edit had briefly replaced one with the other).
+// Both this and CountryBriefing coexist here because the briefing contract is
+// intentionally separate from the identity-only public profile.
 
-// --- Briefing Room local intel (added in 62f28cb) ---
 export interface CountryBriefing {
   iso2: string;
   overview: string;
   regulatory: {
-    status: string;
-    lastUpdated: string;
+    status: string | null;
+    lastUpdated: string | null;
     keyLaws: string[];
   };
   marketIntel: {
-    opportunityScore: number; // 0-100
+    opportunityScore: number | null;
     keyPlayers?: string[];
     risks: string[];
   };
@@ -28,9 +27,6 @@ export interface CountryBriefing {
 // Identity-only public country/area profile. Deliberately excludes any
 // regulated-market, licensing, or import/export claims — those fields are
 // always 'review_pending' here until primary-source evidence is captured.
-// See lib/country-data/public-country-dto.ts for how this is built, and
-// scripts/country-public-dto-check.ts for the allowlist enforcement this
-// type's field list backs.
 export interface PublicCountryProfileDto {
   jurisdiction_id: string;
   slug: string;
