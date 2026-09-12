@@ -1,11 +1,11 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
-import type { JurisdictionPlaybook } from '@/lib/intelligence/jurisdictionPlaybooks'
+import type { CorridorPlan } from '@/lib/intelligence/workflowEngine'
 import type { EvidenceRef, EvidenceSnapshot, EvidenceStatus } from './types'
 
 const DEFAULT_FRESHNESS_DAYS = 90
 
-function isoDate(value: string | null | undefined): string | null {
+function normaliseDate(value: string | null | undefined): string | null {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
@@ -18,47 +18,55 @@ function ageDays(value: string | null, now: Date): number | null {
   return Math.max(0, Math.floor((now.getTime() - timestamp) / 86_400_000))
 }
 
-function classifyEvidence(playbook: JurisdictionPlaybook, now: Date, freshnessDays: number): EvidenceStatus {
-  const verified = isoDate(playbook.last_verified_at)
-  if (!verified) return 'unverified'
-  const age = ageDays(verified, now)
+function classify(verifiedAt: string | null, now: Date, freshnessDays: number): EvidenceStatus {
+  if (!verifiedAt) return 'unverified'
+  const age = ageDays(verifiedAt, now)
   if (age === null) return 'unverified'
   if (age > freshnessDays) return 'stale'
-  // A playbook timestamp is provenance metadata, not primary-source proof.
-  // Until source-level claims are attached, it remains partial rather than verified.
+  // The current playbook contract supplies verification metadata but not a
+  // primary-source claim ledger. That is provenance metadata, not proof.
   return 'partial'
 }
 
-function evidenceId(jurisdictionIso2: string, status: EvidenceStatus, verifiedAt: string | null): string {
-  return createHash('sha256')
-    .update(`${jurisdictionIso2}|${status}|${verifiedAt ?? 'none'}`)
-    .digest('hex')
-    .slice(0, 24)
-}
-
 export function buildEvidenceSnapshot(
-  origin: JurisdictionPlaybook,
-  destination: JurisdictionPlaybook,
+  plan: CorridorPlan,
   options: { now?: Date; freshnessDays?: number } = {},
 ): EvidenceSnapshot {
   const now = options.now ?? new Date()
   const freshnessDays = options.freshnessDays ?? DEFAULT_FRESHNESS_DAYS
-  const playbooks = [origin, destination]
-  const references: EvidenceRef[] = playbooks.map((playbook) => {
-    const verifiedAt = isoDate(playbook.last_verified_at)
-    const status = classifyEvidence(playbook, now, freshnessDays)
-    const sourceName = playbook.key_regulators.map((r) => r.name).filter(Boolean).join(', ')
+  const pairs = [
+    {
+      iso2: plan.origin.iso2,
+      verifiedAt: normaliseDate(plan.trust.originVerifiedAt),
+      claim: `Jurisdiction playbook available for ${plan.origin.name}.`,
+      regulators: plan.regulators.find((r) => r.country_iso2 === plan.origin.iso2)?.regulators ?? [],
+    },
+    {
+      iso2: plan.destination.iso2,
+      verifiedAt: normaliseDate(plan.trust.destinationVerifiedAt),
+      claim: `Jurisdiction playbook available for ${plan.destination.name}.`,
+      regulators: plan.regulators.find((r) => r.country_iso2 === plan.destination.iso2)?.regulators ?? [],
+    },
+  ]
+
+  const references: EvidenceRef[] = pairs.map((item) => {
+    const status = classify(item.verifiedAt, now, freshnessDays)
+    const sourceName = item.regulators.map((regulator) => regulator.name).filter(Boolean).join(', ')
+    const id = createHash('sha256')
+      .update(`${item.iso2}|${status}|${item.verifiedAt ?? 'none'}|${sourceName}`)
+      .digest('hex')
+      .slice(0, 24)
     return {
-      id: evidenceId(playbook.country_iso2, status, verifiedAt),
-      jurisdictionIso2: playbook.country_iso2,
-      claim: playbook.legal_framework_summary ?? 'No structured legal-framework claim is published.',
+      id,
+      jurisdictionIso2: item.iso2,
+      claim: item.claim,
       status,
       sourceName: sourceName || 'No authoritative source attached',
       sourceUrl: null,
       effectiveAt: null,
-      verifiedAt,
-      expiresAt: verifiedAt
-        ? new Date(Date.parse(verifiedAt) + freshnessDays * 86_400_000).toISOString()
+      verifiedAt: item.verifiedAt,
+      expiresAt: item.verifiedAt
+        ? new Date(Date.parse(item.verifiedAt) + freshnessDays * 86_400_000).toISOString()
         : null,
       retrievedAt: now.toISOString(),
       hash: null,
@@ -66,13 +74,11 @@ export function buildEvidenceSnapshot(
   })
 
   const snapshotPayload = JSON.stringify(references.map(({ retrievedAt: _retrievedAt, ...ref }) => ref))
-  const snapshotId = createHash('sha256').update(snapshotPayload).digest('hex')
-
   return {
-    snapshotId,
+    snapshotId: createHash('sha256').update(snapshotPayload).digest('hex'),
     generatedAt: now.toISOString(),
     freshnessDays,
     references,
-    sourceCount: references.filter((ref) => ref.sourceUrl).length,
+    sourceCount: references.filter((ref) => Boolean(ref.sourceUrl)).length,
   }
 }
