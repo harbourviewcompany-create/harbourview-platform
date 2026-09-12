@@ -51,7 +51,17 @@ function fixture(overrides: Partial<CorridorPlan> = {}): CorridorPlan {
       openQuestions: [],
       productDocDeltas: [],
       criticalPathNarrative: 'orientation',
-      gmpRecognition: { label: 'orientation', summary: 'orientation' },
+      gmpRecognition: {
+        framework: 'ceta_protocol',
+        label: 'CETA',
+        summary: 'orientation',
+        typicalPaths: [],
+        instruments: [],
+        doesNotCover: [],
+        verifyBeforeRelying: [],
+        eudraGmdpHint: 'orientation',
+        disclaimer: 'orientation',
+      },
     },
     ...overrides,
   }
