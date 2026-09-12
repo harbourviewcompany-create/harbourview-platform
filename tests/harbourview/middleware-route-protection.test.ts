@@ -45,6 +45,8 @@ describe('route protection contract', () => {
     expect(isPublicException('/intelligence/logistics-trade-routes')).toBe(true)
     expect(isPublicException('/intelligence/watchlists')).toBe(true)
     expect(isPublicException('/intelligence/corridor-coverage')).toBe(true)
+    expect(isPublicException('/intelligence/country-briefs')).toBe(true)
+    expect(isPublicException('/intelligence/country-briefs/germany')).toBe(true)
   })
 
   it('education/cpd is public; other education requires auth', () => {
