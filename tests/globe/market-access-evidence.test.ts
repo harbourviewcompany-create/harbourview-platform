@@ -55,7 +55,7 @@ describe('evidence-backed Market Access publication', () => {
 
   it('keeps retired non-primary evidence fail-closed at the publication boundary', () => {
     const source = readFileSync('lib/globe/supabaseGlobeData.ts', 'utf8')
-    expect(source).not.toContain("row.regulatory_tier")
+    expect(source).not.toMatch(/\brow\.regulatory_tier(?!_)/)
     expect(source).toContain('if (!tier || !row.regulatory_tier_evidence_key')
     expect(source).toContain('return null')
   })
