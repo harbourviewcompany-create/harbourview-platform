@@ -40,6 +40,8 @@ export const PROTECTED_ROUTES: readonly ProtectedRouteSpec[] = [
       '/intelligence/landed-cost',
       '/intelligence/logistics-simulator',
       '/intelligence/logistics-trade-routes',
+      // Orientation-level country briefs (public-safe; no private pathway claims)
+      '/intelligence/country-briefs',
     ],
   },
   // Genetics catalog is intentionally public (Phase 2 public genetics + passport).
