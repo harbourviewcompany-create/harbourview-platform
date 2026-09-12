@@ -7,7 +7,7 @@
       "live_version": "20260912162110",
       "live_name": "expose_country_legal_status_via_api_schema",
       "repository_artifact": "supabase/migrations/20260912162110_expose_country_legal_status_via_api_schema.sql",
-      "repository_artifact_sha256": "7b2126d540d84bb16ae0c12db4277138cec35795fcafb8e29674d17267ec721f",
+      "repository_artifact_sha256": "30a32d6c4673ac971160a99d908ffb109876b4e92b59198718747e38a36a2442",
       "reconciliation": "RESTORED_EXACT_LEDGER_STATEMENTS",
       "source": "Supabase production migration ledger queried 2026-09-12",
       "ddl_reapplied": false
