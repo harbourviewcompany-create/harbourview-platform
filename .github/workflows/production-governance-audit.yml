@@ -1,6 +1,13 @@
 name: Production Governance Audit
 
 on:
+  pull_request:
+    paths:
+      - '.github/CODEOWNERS'
+      - '.github/workflows/**'
+      - 'scripts/verify-production-governance.sh'
+      - 'supabase/migrations/**'
+      - 'supabase/release-controls/**'
   workflow_dispatch:
   schedule:
     - cron: '17 3 * * *'
@@ -8,8 +15,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: production-governance-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   audit:
+    name: governance-gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -17,9 +29,12 @@ jobs:
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       GITHUB_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: '1'
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - name: Run production governance audit
+      - name: Verify governance controls
         run: bash scripts/verify-production-governance.sh
