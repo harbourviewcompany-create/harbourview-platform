@@ -35,6 +35,7 @@ export type MobileCommandTool =
   | 'financing-intake'
   | 'corridor-plan'
   | 'landed-cost'
+  | 'charts'
 
 export type Tone = 'neutral' | 'gold' | 'ok' | 'warn'
 
@@ -53,7 +54,7 @@ export type NormalizedListing = {
   status: string
   channel: string
   confidence: number | null
-  /** Public price label when available (Tier A open listings). */
+  /** Public price label when available (tier A open listings). */
   priceDisplay?: string | null
   view: MarketView
   media?: MarketplaceProjectionMedia | null
@@ -250,6 +251,7 @@ export const MOBILE_COMMAND_TOOLS = new Set<MobileCommandTool>([
   'financing-intake',
   'corridor-plan',
   'landed-cost',
+  'charts',
 ])
 
 export function asRecord(value: unknown): Record<string, unknown> {
