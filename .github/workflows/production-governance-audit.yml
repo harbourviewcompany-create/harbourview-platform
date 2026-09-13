@@ -17,8 +17,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  audit:
+  policy:
     name: governance-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify workflow and ruleset policy
+        run: bash scripts/verify-governance-policy.sh
+
+  production-audit:
+    name: production-governance-audit
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -32,22 +50,10 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-
-      - name: Verify workflow and ruleset policy
-        run: bash scripts/verify-governance-policy.sh
-
-      - name: Verify production governance and migration attribution
-        if: github.event_name != 'pull_request' && env.SUPABASE_DB_URL != ''
-        run: bash scripts/verify-production-governance.sh
-
-      - name: Record fork-safe production-audit limitation
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "Production database audit intentionally skipped for all pull-request events so PR code never receives production database credentials."
-          echo "The static governance/ruleset policy gate executed. Scheduled/manual production audits remain mandatory."
-
-      - name: Require production database audit outside pull requests
-        if: github.event_name != 'pull_request' && env.SUPABASE_DB_URL == ''
+      - name: Require production database credential
+        if: env.SUPABASE_DB_URL == ''
         run: |
           echo "::error::SUPABASE_DB_URL is required for scheduled/manual production governance audits."
           exit 1
+      - name: Verify production governance and migration attribution
+        run: bash scripts/verify-production-governance.sh
