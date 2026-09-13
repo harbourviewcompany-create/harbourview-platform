@@ -53,7 +53,7 @@ for r in main:
         if not p.get('dismiss_stale_reviews_on_push',False): errors.append(f'{name}: stale approvals are not dismissed')
         if not p.get('required_review_thread_resolution',False): errors.append(f'{name}: review-thread resolution is disabled')
     for actor in r.get('bypass_actors') or []:
-        if actor.get('actor_type') not in ('OrganizationAdmin','RepositoryAdmin'): errors.append(f'{name}: unauthorized bypass actor {actor!r}')
+        if actor.get('actor_type') != 'OrganizationAdmin': errors.append(f'{name}: unauthorized bypass actor {actor!r}')
 if errors: raise SystemExit('; '.join(errors))
 print(f'validated {len(main)} active main ruleset(s) against {len(expected)} canonical checks')
 PY
@@ -66,7 +66,6 @@ fi
 
 workflow_dir="$ROOT/.github/workflows"
 
-# External actions and reusable workflows must resolve to immutable commit SHAs.
 mutable_refs=0
 while IFS= read -r line; do
   if [[ "$line" =~ uses:[[:space:]]*([^[:space:]#]+)@([^[:space:]#]+) ]]; then
@@ -124,7 +123,7 @@ fi
 if grep -RInE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" >/tmp/governance-contents-write.txt 2>/dev/null; then
   unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$' || true)
   if [ -n "$unexpected" ]; then
-    printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved manual/controlled workflows"
+    printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved controlled workflows"
   else
     pass_check "contents: write is limited to explicitly approved controlled workflows"
   fi
