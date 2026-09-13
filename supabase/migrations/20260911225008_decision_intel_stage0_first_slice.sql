@@ -18,8 +18,6 @@ create table if not exists public.intel_evidence_refs (
   created_at timestamptz not null default now(),
   check (source_signal_id is not null or source_snapshot_id is not null or hv_evidence_id is not null)
 );
--- Snapshot identity is deliberately not unique: one acquisition snapshot may yield
--- multiple reviewed signals. Signal identity is the one-to-one legacy lineage key.
 create unique index if not exists intel_evidence_refs_signal_uq on public.intel_evidence_refs(source_signal_id) where source_signal_id is not null;
 
 create table if not exists public.intel_assertions (
@@ -120,7 +118,6 @@ create table if not exists public.intel_recommendations (
   updated_at timestamptz not null default now()
 );
 
--- Canonical base objects remain internal/staff-readable. Product users consume the allowlisted projection below.
 alter table public.intel_evidence_refs enable row level security;
 alter table public.intel_assertions enable row level security;
 alter table public.intel_assertion_evidence enable row level security;
@@ -143,9 +140,6 @@ begin
   end loop;
 end $$;
 
--- Seed a thin evidence reference from the existing acquisition estate. No raw evidence is copied.
--- source_signal_id is retained even when there is no snapshot so legacy provenance cannot cross-link
--- unrelated signals that happen to share a publisher or a null URL.
 insert into public.intel_evidence_refs (source_signal_id, source_snapshot_id, source_registry_id, source_label, source_url, evidence_kind, evidence_status, access_classification, observed_at)
 select
   s.id,
@@ -165,7 +159,6 @@ where s.reviewed = true
   and (s.content_type is null or s.content_type not in ('story','research','noise'))
 on conflict (source_signal_id) where source_signal_id is not null do nothing;
 
--- One migrated assertion per reviewed surfaceable upstream signal. Review != verified.
 insert into public.intel_assertions (assertion_type, statement, source_signal_id, confidence, review_status, valid_from, observed_at)
 select
   coalesce(nullif(s.content_type,''), nullif(s.cat,''), 'development'),
@@ -188,9 +181,6 @@ from public.intel_assertions a
 join public.intel_evidence_refs e on e.source_signal_id = a.source_signal_id
 on conflict do nothing;
 
--- Candidate event identity is deterministic and cluster-aware. source_count counts distinct
--- source references, not raw rows, so repeated observations from one URL/publisher do not
--- masquerade as independent corroboration.
 with surfaceable as (
   select s.*, coalesce(nullif(s.cluster_rep_id,''), s.id) as event_seed
   from public.signals s
@@ -231,7 +221,6 @@ from public.intel_assertions a
 join public.signals s on s.id = a.source_signal_id
 on conflict do nothing;
 
--- Reuse defensible analysis fields, but preserve migrated-review status and explicit unknowns.
 insert into public.intel_assessments (
   event_id, what_happened, what_changed, why_it_matters, commercial_implications,
   affected_entities, affected_markets, why_now, confidence, confidence_rationale,
@@ -333,9 +322,6 @@ left join public.intel_assertion_evidence ae on ae.assertion_id = ea.assertion_i
 left join public.intel_evidence_refs er on er.id = ae.evidence_ref_id
 group by e.id, a.id, r.id;
 
--- Product read is tier-scoped. security_invoker means the public view still obeys
--- underlying RLS. Explicit SELECT grants are required because production's postgres
--- default privileges grant new public tables only to postgres/service_role.
 create policy intel_events_tier_read on public.intel_events for select to authenticated
 using (review_status in ('migrated_reviewed','verified') and exists (select 1 from public.user_profiles up where up.id = auth.uid() and up.tier in ('intel','operator')));
 create policy intel_event_assertions_tier_read on public.intel_event_assertions for select to authenticated
@@ -357,8 +343,6 @@ grant select on public.intel_events, public.intel_event_assertions, public.intel
 grant select on public.intel_event_dossiers to authenticated;
 revoke all on public.intel_event_dossiers from anon;
 
--- Production Data API exposes only `api`, not `public`. Publish only the allowlisted
--- dossier projection through the exposed schema; canonical base tables stay unexposed.
 create or replace view api.intel_event_dossiers
 with (security_invoker = true)
 as select * from public.intel_event_dossiers;
