@@ -390,6 +390,21 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Rollback: revert the migration file and re-add the `REPLAY_ZERO_STATE_SKIPS` entry.
 - Regression guard: `tests/scripts/production-faithful-migration-replay.test.mjs` pins
   the ordered-prefix relationship so the narrowing cannot be reintroduced silently.
+- **Standing check added, covering the class rather than the instance.**
+  `scripts/check-view-replay-narrowing.mjs` reads every `CREATE [OR REPLACE] VIEW`
+  in replay order and enforces PostgreSQL's rule that a replacement must begin with
+  the existing column list. CI job "Verify no view narrows on replay" in
+  `migration-drift-check.yml`. A second pass re-runs with `REPLAY_ZERO_STATE_SKIPS`
+  restored and reports any narrowing the skip list is hiding — without that pass the
+  check would have reported `GO` on the very tree that carried this defect.
+  Measured across 1,033 replay-active migrations and 130 resolvable views: this was
+  the only instance.
+- **A zero-state skip is not a repair.** Per this repository's own replay tests,
+  Supabase Preview does not run the prep script and therefore executes the skipped
+  files, so every file in `REPLAY_ZERO_STATE_SKIPS` must be safe to re-execute on
+  its own. `20260715085610` was not, which means the skip hid the failure from CI
+  while leaving it live on the preview path. Do not add a file to that list to make
+  a replay go green; fix the migration.
 
 ## Remaining historical control entries
 

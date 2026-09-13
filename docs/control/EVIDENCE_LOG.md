@@ -7151,8 +7151,19 @@ were updated.
 | `node --test tests/scripts/production-faithful-migration-replay-resolved-collisions.test.mjs` | 3/3 |
 | `check-migration-sql-parses.mjs` | GO — 1049 migrations parse |
 | `check-migration-filenames.mjs` | pass — 1049 files |
-| `check-pending-production-migration-decisions.mjs` | exit 0 |
-| `check-release-closure-migration-classification.mjs` | exit 0 |
+| `check-pending-production-migration-decisions.mjs` | **exit 1 — pre-existing** (see correction below) |
+| `check-release-closure-migration-classification.mjs` | **exit 1 — pre-existing** (see correction below) |
+
+> **Correction, same session.** The two rows above were first recorded here as
+> `exit 0`. That was wrong, and the error was mine: the commands were run as
+> `node scripts/<check>.mjs | tail -5; echo "exit=$?"`, and in a pipeline `$?` is
+> the exit status of `tail`, not of the script. Both scripts print their findings
+> and then exit 1. Re-run without the pipe, they exit 1 on this branch **and
+> identically on a pristine `origin/main` checkout at `48ad51f`**, so the
+> attribution below is unchanged — they are part of the same
+> renamed-migration drift, not this branch's doing. Only the reported exit codes
+> were wrong. Recorded rather than quietly edited, because an unverified "exit 0"
+> in this log is exactly the kind of claim the log exists to prevent.
 
 **The three test failures are pre-existing and are not this branch's.** All three are
 `ENOENT` on migration files that are not in the tree:
@@ -7225,3 +7236,141 @@ No production state to roll back — none was changed.
 **Data classification:** public/internal only. No secrets, credentials or customer
 data touched; the production queries were read-only counts and source-host
 aggregates.
+
+---
+
+## 2026-09-13 (same session, follow-up) — the `api.signals` narrowing was one instance of a class; the class is now checked
+
+**Change type:** new repository check + test + one CI job. No schema, no production
+data, no application code. Branch `claude/wrangler-upgrade-vulns-tineyh`, same PR.
+
+### Why go further than the one fix
+
+The entry above repairs `20260715085610`. It does not answer two questions that
+matter more than the instance: **is there another one**, and **why did nothing
+catch it**. Both are now answered, and the second answer is worse than expected.
+
+### Is there another one? No — measured, not assumed
+
+Built a parser that reads every `CREATE [OR REPLACE] VIEW` in the tree in replay
+order, resolves each definition's output column list, and applies PostgreSQL's
+actual rule: a replacement must begin with the existing list, same names, same
+order. It models the replay by reusing the planners in
+`prepare-production-faithful-migration-replay.mjs`, so it cannot drift from what
+the replay really runs.
+
+**Result across 1,033 replay-active migrations and 130 resolvable views: one
+finding — `api.signals` — and it is the one this PR fixes.**
+
+The negative result is only worth as much as its positive control, so the control
+was run first: against a pristine `origin/main` checkout with the skip disabled,
+the scanner reports exactly
+
+```
+VIEW api.signals
+  at   20260715085610_...sql  (32 -> 29 cols)
+  prev 20260626110925_remote_applied_repair.sql
+  drops editorial_title (position 29)
+  dropped: editorial_title, editorial_blurb, country_iso2
+```
+
+Three views are defined `SELECT *` and later replaced with an explicit list —
+the shape that forced the two hand-written pins in `20260626110925`. All three
+were resolved by hand and all three are safe, each by prefix:
+
+| view | `SELECT *` resolves to | later explicit list | verdict |
+|---|---|---|---|
+| `api.signals_quality` | 27 cols (`20260704160603`, inside a `DO` block) | 47, beginning with those 27 | prefix-extension |
+| `api.marketplace_public_listings_v1` | 19 cols (`20260601000000`) | 32, beginning with those 19 | prefix-extension |
+| `api."regulatory_signals.signals"` | hand-pinned in `20260626110925` | 43 | already pinned |
+
+Safe, but safe by coincidence of column ordering, and nothing was checking it.
+
+### Why nothing caught it — the skip did not contain the defect, it moved it
+
+`REPLAY_ZERO_STATE_SKIPS` made the CI replay green by not running the migration.
+It does not make the migration correct, and it does not protect every consumer.
+This repository's own test file states the rule twice, in
+`tests/scripts/production-faithful-migration-replay.test.mjs`:
+
+> "The CI replay realises that by skipping the file, but **Supabase Preview does
+> not run the prep script, so the file itself has to be safe to re-execute**."
+
+> "**Supabase Preview executes the `REPLAY_ZERO_STATE_SKIPS` files that the CI
+> replay skips**, against a branch database that already holds the object."
+
+The other two skipped files are written `if not exists` and `or replace`
+precisely for that reason, and the test asserts it. **Nobody applied the rule to
+`20260715085610`, whose body was not safe to re-execute** — it narrows
+`api.signals` from 32 columns to 29, which is `cannot drop columns from view` on
+any path that runs it. So the skip hid the failure from CI while leaving it live
+on the Supabase Preview path. It has not been observed there only because preview
+branches for this project are at their concurrent-branch cap — the Supabase bot
+said so on this very PR ("ignored for the connected project ... due to reaching
+the limit of concurrent preview branches"). Latent, not absent.
+
+This is stated as this repository's documented behaviour, quoted from its own
+tests; Supabase's branching internals were not independently exercised here.
+
+### The check
+
+`scripts/check-view-replay-narrowing.mjs`, wired into `migration-drift-check.yml`
+as **"Verify no view narrows on replay"**, next to `Verify migration SQL parses`.
+Dependency-free, no database, no network.
+
+It runs two passes, and the second is the one that matters:
+
+1. **Replay-faithful** — fails the build on any narrowing or reordering.
+2. **Skip-list audit** — re-runs with `REPLAY_ZERO_STATE_SKIPS` put back and
+   reports any narrowing that only the skip list is hiding. Advisory, never
+   silent.
+
+Pass 1 alone would have been useless here: run against `origin/main`, which
+*has* the defect, it reports `GO` — because the file it needs to read is
+skipped. A check that models the replay inherits the replay's blindness. Pass 2
+on the same `origin/main` tree reports:
+
+```
+WARNING: 1 narrowing(s) hidden by REPLAY_ZERO_STATE_SKIPS.
+  api.signals: drops "editorial_title" at position 29
+  (skipped file 20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql)
+```
+
+That is the diagnostic that was missing. On this branch both passes are clean.
+
+**Stated limits, in the script header rather than implied:** `SELECT *` from a
+base *table* is not statically resolvable and is not compared (a `SELECT *` from
+a view already seen **is** resolved); column *type* changes are not detected,
+only names and order; views built by string-concatenated dynamic SQL are not
+parsed. Views inside `DO` blocks and `execute $tag$ ... $tag$` **are** parsed —
+that was necessary, since `public.signals_quality` is created that way.
+
+**Tests:** `tests/scripts/view-replay-narrowing.test.mjs`, 15/15. Covers drop,
+reorder, prefix-extension, `DROP` + recreate, `SELECT *` resolution in both
+directions, untracked bases, quoted dotted identifiers, `WITH` options, alias
+lists, `DO`-block extraction, and a comment that merely mentions a narrowing.
+Two of them are standing regression guards on the shipped tree: no narrowing,
+and nothing hidden behind the skip list.
+
+### QA
+
+| command | result |
+|---|---|
+| `npm run lint` | 0 errors, 211 warnings (pre-existing) |
+| `npm run typecheck` | exit 0 |
+| `npm run test` | 1195 passed, 15 todo; same 3 pre-existing failures |
+| `npm run build` | exit 0 |
+| `node --test tests/scripts/view-replay-narrowing.test.mjs` | **15/15** |
+| `node --test tests/scripts/production-faithful-migration-replay.test.mjs` | 22/22 |
+| `node --test .../production-faithful-migration-replay-resolved-collisions.test.mjs` | 3/3 |
+| `node scripts/check-view-replay-narrowing.mjs` | exit 0 |
+| `node scripts/check-migration-sql-parses.mjs` | exit 0 |
+| `node scripts/check-migration-filenames.mjs` | exit 0 |
+| `node scripts/check-pending-production-migration-decisions.mjs` | exit 1 — pre-existing, identical on `origin/main` |
+| `node scripts/check-release-closure-migration-classification.mjs` | exit 1 — pre-existing, identical on `origin/main` |
+
+**Not done.** The renamed-migration drift from #1812 that makes those last two
+exit 1 is still not repaired here — it belongs to #1822/#1827, which disagree
+with each other about the baseline contents. The new check does not attempt to
+verify column *types*, and it does not replace the real `supabase db reset`
+replay; it covers the one failure mode that replay keeps finding the hard way.
