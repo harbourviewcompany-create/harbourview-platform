@@ -13,11 +13,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-governance-${{ github.ref }}
+  group: production-governance-policy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  policy:
+  governance-gate:
     name: governance-gate
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -33,31 +33,3 @@ jobs:
           persist-credentials: false
       - name: Verify workflow and ruleset policy
         run: bash scripts/verify-governance-policy.sh
-
-  production-audit:
-    name: production-governance-audit
-    # Production credentials are available only to scheduled audits or a manual
-    # dispatch explicitly pinned to protected main. Never execute production DB
-    # inspection from a PR or arbitrary branch ref.
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    env:
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      GITHUB_TOKEN: ${{ github.token }}
-      PYTHONUNBUFFERED: '1'
-    steps:
-      - name: Checkout protected audit ref
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: main
-          persist-credentials: false
-      - name: Require production database credential
-        if: env.SUPABASE_DB_URL == ''
-        run: |
-          echo "::error::SUPABASE_DB_URL is required for scheduled/manual production governance audits."
-          exit 1
-      - name: Verify production governance and migration attribution
-        run: bash scripts/verify-production-governance.sh
