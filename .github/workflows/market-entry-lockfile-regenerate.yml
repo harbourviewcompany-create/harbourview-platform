@@ -1,0 +1,31 @@
+name: Market Entry OS dependency lockfile
+on:
+  push:
+    branches:
+      - feat/production-market-entry-os-20260912-final2
+permissions:
+  contents: write
+jobs:
+  regenerate:
+    if: ${{ !contains(github.event.head_commit.message, '[lockfile-bot]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/production-market-entry-os-20260912-final2
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: npm audit --audit-level=high
+      - run: |
+          node -e "const p=require('./package-lock.json'); const w=p.packages?.['node_modules/wrangler']?.version; const m=p.packages?.['node_modules/miniflare']?.version; const s=p.packages?.['node_modules/sharp']?.version; const v=p.packages?.['node_modules/vite']?.version; if(w!=='4.131.1'||m!=='5.20260911.0-alpha'||s!=='0.35.4'||v!=='8.3.0') throw new Error(JSON.stringify({wrangler:w,miniflare:m,sharp:s,vite:v}));"
+      - run: |
+          git config user.name harbourview-lockfile-bot
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add package-lock.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'ci: regenerate package lockfile [lockfile-bot]'
+          git push origin HEAD:feat/production-market-entry-os-20260912-final2
