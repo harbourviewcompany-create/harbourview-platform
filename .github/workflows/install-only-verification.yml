@@ -39,19 +39,6 @@ jobs:
           npm config list -l | sed -n '1,180p'
           env | grep -Ei 'npm|proxy|registry' || true
 
-      - name: Regenerate registry lockfile for this release branch
-        if: ${{ github.head_ref == 'feat/production-market-entry-os-20260912-final2' }}
-        shell: bash
-        run: npm install --package-lock-only --ignore-scripts
-
-      - name: Upload registry-generated package lockfile
-        if: ${{ github.head_ref == 'feat/production-market-entry-os-20260912-final2' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: registry-generated-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-
       - name: Install dependencies
         shell: bash
         run: npm ci --verbose
