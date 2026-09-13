@@ -1,22 +1,24 @@
 name: One-shot Governance Autofix
 
 on:
-  push:
+  pull_request:
+    types: [synchronize, opened, reopened]
     branches:
-      - remediation/platform-governance-hardening-20260912
+      - main
 
 permissions:
   contents: write
 
 jobs:
   autofix:
-    if: github.ref == 'refs/heads/remediation/platform-governance-hardening-20260912'
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'remediation/platform-governance-hardening-20260912'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout remediation branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           persist-credentials: true
 
       - name: Resolve every external action and reusable workflow ref to a commit SHA
@@ -29,9 +31,7 @@ jobs:
           import json
           import os
           import re
-          import subprocess
           from pathlib import Path
-          from urllib.error import HTTPError
           from urllib.request import Request, urlopen
 
           root = Path('.github/workflows')
@@ -67,13 +67,10 @@ jobs:
               def replace(match):
                   target = match.group('target')
                   ref = match.group('ref')
-                  if target.startswith('./') or sha_re.fullmatch(ref):
-                      return match.group(0)
-                  if target.startswith('docker://'):
+                  if target.startswith('./') or sha_re.fullmatch(ref) or target.startswith('docker://'):
                       return match.group(0)
                   if '/' not in target:
                       return match.group(0)
-                  # Actions: owner/repo@ref. Reusable workflows: owner/repo/.github/workflows/file.yml@ref.
                   repo = '/'.join(target.split('/')[:2])
                   sha = resolve(repo, ref)
                   return f"{match.group('prefix')}{target}@{sha}"
