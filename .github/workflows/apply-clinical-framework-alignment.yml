@@ -26,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
-      - uses: supabase/setup-cli@v3
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.109.1
 
@@ -46,11 +46,9 @@ jobs:
           supabase link --project-ref "$SUPABASE_PROJECT_REF"
           SQL_FILE="supabase/migrations/20260821190000_clinical_framework_alignment_optional.sql"
           test -f "$SQL_FILE"
-          # Direct apply (idempotent SQL)
           psql "postgresql://postgres.${SUPABASE_PROJECT_REF}@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require" \
             -v ON_ERROR_STOP=1 \
             -f "$SQL_FILE"
-          # Record in ledger if not present
           psql "postgresql://postgres.${SUPABASE_PROJECT_REF}@aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require" \
             -v ON_ERROR_STOP=1 \
             -c "INSERT INTO supabase_migrations.schema_migrations (version) VALUES ('20260821190000') ON CONFLICT DO NOTHING;" \

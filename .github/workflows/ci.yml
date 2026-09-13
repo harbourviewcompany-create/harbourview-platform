@@ -7,16 +7,6 @@ on:
     branches: [main]
 
 concurrency:
-  # Pull-request runs supersede earlier runs for the same PR — that is wanted.
-  #
-  # Push runs must NOT contend with each other. All main pushes previously shared
-  # one group (`ci-refs/heads/main`); GitHub keeps only the newest *pending* run
-  # per group even when cancel-in-progress is false, so a burst of merges left
-  # most commits with no CI verdict at all. On 2026-08-12 four PRs merged within
-  # 20 seconds and three of the resulting runs were cancelled while pending; the
-  # one that did complete failed, and `main` stayed broken and undeployable for
-  # ~2.5 hours. Giving each pushed commit its own group means every commit on
-  # main is verified independently.
   group: ci-${{ github.ref }}-${{ github.event_name == 'push' && github.sha || 'pr' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -34,7 +24,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - run: npm ci
-      - uses: actions/cache/save@v6
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         with:
           path: node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -49,7 +39,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -76,7 +66,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -97,7 +87,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -160,7 +150,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -185,7 +175,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -207,7 +197,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -227,7 +217,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -252,7 +242,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules
@@ -278,7 +268,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a0 # v6.1.0
         id: restore-node-modules
         with:
           path: node_modules

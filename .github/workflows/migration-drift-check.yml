@@ -1,13 +1,7 @@
 name: Migration Drift Check
 
 # Detects migrations applied outside the repository and reports repository-only
-# pending migrations. The parser accepts both ASCII and box-drawing table output
-# from Supabase CLI and fails if a nonempty linked-project result parses as zero
-# remote rows. Historical apply-time aliases are recognized only when their
-# canonical repository migration remains pinned to the exact Git blob SHA.
-# A separately pinned historical attestation manifest accounts for the exact
-# pre-existing remote-only cohort without publishing sensitive historical SQL;
-# any new remote-only version remains a hard failure.
+# pending migrations.
 
 on:
   pull_request:
@@ -19,11 +13,6 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  # Keyed on the commit rather than the ref for non-PR events: on push and
-  # schedule the old key collapsed to `refs/heads/main`, so with
-  # cancel-in-progress always true a burst of merges cancelled each other's
-  # drift check. Cancellation is now limited to pull requests, where superseding
-  # an earlier run of the same PR is the intended behaviour.
   group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -35,19 +24,6 @@ env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
 
 jobs:
-  # Nothing in this repository parsed the production migration tree until
-  # 2026-08-14. The one job that stands up a real database
-  # (mobile-command-centre-v2-visual.yml) moves supabase/migrations aside and
-  # substitutes a small hand-written schema, so two migrations that could not be
-  # replayed -- an apostrophe closing a string literal, and a CREATE FUNCTION
-  # with no statement terminator -- reached main fully green.
-  #
-  # This parses every migration with libpg-query, the real PostgreSQL grammar.
-  # It resolves no names, so vault/cron/net/auth/pgvector references and missing
-  # tables are never failures here; only genuine syntax errors are. Full replay
-  # was considered and rejected: on a clean database these migrations fail for
-  # environmental reasons the author cannot fix, and a gate that is red for
-  # unfixable reasons is one people learn to ignore.
   migration-sql-parses:
     name: Verify migration SQL parses
     runs-on: ubuntu-latest
@@ -88,25 +64,20 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
-
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@v3
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.109.1
-
       - name: Read live migration ledger
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           mkdir -p artifacts/migration-drift
           supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase migration list --linked \
-            > artifacts/migration-drift/remote-migrations.txt
-
+          supabase migration list --linked > artifacts/migration-drift/remote-migrations.txt
       - name: Verify historical remote-only attestations
         run: |
           node scripts/filter-attested-historical-migrations.mjs \
@@ -114,39 +85,16 @@ jobs:
             --attestations supabase/release-controls/historical-remote-migration-attestations.json \
             --filtered-out artifacts/migration-drift/remote-migrations-for-drift.txt \
             --audit-out artifacts/migration-drift/historical-attestations-audit.json
-
-      # The drift manifest below fails only on `applied_not_committed`. This is
-      # the reverse direction, narrowed to the one classification where "not
-      # applied" is unambiguously wrong rather than an open question: `approved`
-      # means a human already decided it must be in production.
-      #
-      # Added after three migrations approved on 2026-08-02 were found still
-      # unapplied on 2026-08-14. One of them created the two api-schema RPCs that
-      # app/api/signals/feedback/route.ts and lib/signals/feedbackScores.ts call,
-      # so operator feedback was dead in production for twelve days with nothing
-      # red anywhere. This job already reads the live ledger hourly, so it is the
-      # cheapest place to notice.
       - name: Escalate approved migrations that are not applied
         id: approved_applied
         continue-on-error: true
         run: |
-          # pipefail is required: the script reports HOLD on stderr and exits 1,
-          # and without it the pipeline would take tee's exit code and this step
-          # would pass while printing its own failure.
           set -o pipefail
           node scripts/check-approved-migrations-applied.mjs --self-test
-          # DELIBERATELY the raw remote list, not remote-migrations-for-drift.txt.
-          # The filtered file has attested remote-only rows stripped out, and this
-          # check asks the opposite question -- "is this approved version present
-          # in production?" Reading the filtered file would report an approved
-          # version as unapplied the moment it was also attested. The next step
-          # uses the filtered file for the drift manifest; that is correct there
-          # and wrong here, so do not "tidy" these two to match.
           node scripts/check-approved-migrations-applied.mjs \
             --remote-list artifacts/migration-drift/remote-migrations.txt \
             --decisions supabase/release-controls/pending-production-migration-decisions.json \
             2>&1 | tee artifacts/migration-drift/approved-migrations-applied.txt
-
       - name: Generate exact drift manifest
         id: manifest
         continue-on-error: true
@@ -160,75 +108,43 @@ jobs:
             --mode drift \
             --committed-baseline supabase/release-controls/committed-not-applied-baseline.json \
             --source-sha "$GITHUB_SHA"
-
       - name: Notify on new migration drift
-        # steps.manifest.outcome is unusable as a guard here: the manifest
-        # script deliberately throws in --mode drift whenever
-        # applied_not_committed is nonempty (that throw is what makes this
-        # job's overall check fail), and continue-on-error only overrides the
-        # step's displayed *conclusion* to success -- steps.<id>.outcome in
-        # if: expressions still reflects the raw pre-override result, so it
-        # reads 'failure' on the exact runs this step exists to act on. The
-        # manifest JSON is written unconditionally before that throw (see
-        # migration-ledger-manifest.mjs -- writeOutput happens before the
-        # `if (args.mode === 'drift')` throw), so check for the file instead.
         if: always()
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ ! -f artifacts/migration-drift/manifest.json ]; then
-            echo "No manifest.json produced (manifest step failed before writing output) -- nothing to notify on."
-            exit 0
-          fi
+          if [ ! -f artifacts/migration-drift/manifest.json ]; then exit 0; fi
           node scripts/notify-new-migration-drift.mjs \
             --manifest artifacts/migration-drift/manifest.json \
             --baseline supabase/release-controls/migration-drift-watch-baseline.json \
             --source-sha "$GITHUB_SHA"
-
       - name: Publish manifest summary
         if: always()
         run: |
           if [ -f artifacts/migration-drift/historical-attestations-audit.json ]; then
             echo "## Historical remote-only attestation gate" >> "$GITHUB_STEP_SUMMARY"
-            echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat artifacts/migration-drift/historical-attestations-audit.json >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
-          # Surfaced in the run summary, not just the step log. An escalation
-          # whose entire purpose is to be noticed is worth nothing if the reason
-          # is buried three clicks deep in a job that also does four other things.
           if [ -f artifacts/migration-drift/approved-migrations-applied.txt ]; then
             echo "## Approved migrations applied to production" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
             cat artifacts/migration-drift/approved-migrations-applied.txt >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [ -f artifacts/migration-drift/manifest.md ]; then
-            cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-
+          if [ -f artifacts/migration-drift/manifest.md ]; then cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"; fi
       - name: Upload drift evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: migration-drift-${{ github.sha }}
           path: artifacts/migration-drift/
           if-no-files-found: error
           retention-days: 14
-
       - name: Enforce drift result
         if: always()
         run: |
           FAILED=0
-          if [ "${{ steps.manifest.outcome }}" != "success" ]; then
-            echo "::error::Migration drift parser or remote-ledger reconciliation failed."
-            FAILED=1
-          fi
-          if [ "${{ steps.approved_applied.outcome }}" != "success" ]; then
-            echo "::error::An approved migration is merged but not applied to production. See the step log for the exact versions and how long they have been pending."
-            FAILED=1
-          fi
+          if [ "${{ steps.manifest.outcome }}" != "success" ]; then FAILED=1; fi
+          if [ "${{ steps.approved_applied.outcome }}" != "success" ]; then FAILED=1; fi
           exit "$FAILED"
 
   check-placeholder-landmines:
@@ -238,26 +154,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Grep for known placeholder-comment landmines
         run: |
-          PATTERNS=(
-            "Keep other functions as they were"
-            "rest of the file unchanged"
-            "\.\.\. rest stays the same"
-            "// TODO: implement"
-            "placeholder, do not ship"
-          )
+          PATTERNS=("Keep other functions as they were" "rest of the file unchanged" "\.\.\. rest stays the same" "// TODO: implement" "placeholder, do not ship")
           FOUND=0
           for p in "${PATTERNS[@]}"; do
-            if grep -rIn \
-                 --exclude-dir=node_modules --exclude-dir=.git \
-                 --exclude-dir=.next --exclude-dir=docs \
-                 --include='*.ts' --include='*.tsx' \
-                 --include='*.js' --include='*.jsx' \
-                 --include='*.sql' --include='*.mjs' --include='*.cjs' \
-                 -- "$p" .; then
-              FOUND=1
-            fi
+            if grep -rIn --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude-dir=docs --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.sql' --include='*.mjs' --include='*.cjs' -- "$p" .; then FOUND=1; fi
           done
-          if [ "$FOUND" -eq 1 ]; then
-            echo "::error::Found placeholder-comment code landmines. Replace them with complete implementations before merging."
-            exit 1
-          fi
+          if [ "$FOUND" -eq 1 ]; then echo "::error::Found placeholder-comment code landmines."; exit 1; fi
