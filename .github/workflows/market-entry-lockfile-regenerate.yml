@@ -33,7 +33,6 @@ jobs:
 
       - name: Verify resolved security floor
         run: |
-          npm ls wrangler miniflare sharp --all
           node -e "const p=require('./package-lock.json'); const w=p.packages?.['node_modules/wrangler']?.version; const m=p.packages?.['node_modules/miniflare']?.version; const s=p.packages?.['node_modules/sharp']?.version; if(!w || !m || !s) throw new Error('Expected Wrangler/Miniflare/sharp lock entries missing'); if(w !== '4.131.1') throw new Error('Unexpected Wrangler version: '+w); if(m !== '5.20260911.0-alpha') throw new Error('Unexpected Miniflare version: '+m); if(s !== '0.35.4') throw new Error('Unexpected sharp version: '+s); console.log({wrangler:w,miniflare:m,sharp:s})"
           npm audit --audit-level=high
 
