@@ -1,6 +1,3 @@
--- Clinical API surface for PostgREST (schema api only).
--- security_invoker views so underlying public RLS applies to the caller JWT.
-
 CREATE OR REPLACE VIEW api.clinical_patients
 WITH (security_invoker = true) AS
 SELECT * FROM public.clinical_patients;
@@ -41,7 +38,6 @@ CREATE OR REPLACE VIEW api.clinical_clinician_links
 WITH (security_invoker = true) AS
 SELECT * FROM public.clinical_clinician_links;
 
--- Expose verification fields needed by clinical UI (not public directory)
 CREATE OR REPLACE VIEW api.clinical_my_professional
 WITH (security_invoker = true) AS
 SELECT
@@ -60,9 +56,6 @@ SELECT
 FROM public.hv_professionals p
 WHERE p.user_id = (SELECT auth.uid());
 
--- NOTE: previously had a duplicate, weaker grant on api.clinical_patients
--- (SELECT-only) immediately before this one -- removed. Only the grant
--- below applies.
 GRANT SELECT, INSERT, UPDATE ON api.clinical_patients TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON api.clinical_care_team TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON api.clinical_consent_records TO authenticated;
@@ -87,7 +80,6 @@ GRANT ALL ON api.clinical_jurisdiction_authority TO service_role;
 GRANT ALL ON api.clinical_clinician_links TO service_role;
 GRANT ALL ON api.clinical_my_professional TO service_role;
 
--- Gate helper callable from app
 CREATE OR REPLACE FUNCTION api.is_verified_clinician(p_user_id uuid DEFAULT auth.uid())
 RETURNS boolean
 LANGUAGE sql
@@ -114,7 +106,6 @@ $$;
 REVOKE ALL ON FUNCTION api.clinical_has_active_consent(uuid, text) FROM public;
 GRANT EXECUTE ON FUNCTION api.clinical_has_active_consent(uuid, text) TO authenticated, service_role;
 
--- Clinician self-service: request clinical verification fields on linked/owned profile
 CREATE OR REPLACE FUNCTION api.clinical_request_verification(
   p_licence_number text,
   p_licence_jurisdiction text,
@@ -204,13 +195,6 @@ $$;
 REVOKE ALL ON FUNCTION api.clinical_request_verification(text, text, text, uuid) FROM public;
 GRANT EXECUTE ON FUNCTION api.clinical_request_verification(text, text, text, uuid) TO authenticated, service_role;
 
--- Admin approve. Requires the 'admin' role specifically -- NOT the generic
--- 'operator' role. Approving a clinician's medical/pharmacy licence is a
--- clinical-governance action, not a commercial/marketplace-admin action;
--- reusing the broad 'operator' role would let non-clinical ops staff
--- approve clinical credentials. If a dedicated clinical-admin role is
--- introduced later, add it here explicitly rather than widening back to
--- 'operator'.
 CREATE OR REPLACE FUNCTION api.clinical_admin_verify_professional(
   p_professional_id uuid,
   p_approve boolean,
