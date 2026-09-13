@@ -1,1 +1,11 @@
-test
+# Canonical repository ownership. Keep production-control surfaces under explicit review.
+* @harbourviewcompany-create
+
+# Production and security-sensitive surfaces
+.github/workflows/ @harbourviewcompany-create
+supabase/migrations/ @harbourviewcompany-create
+supabase/functions/ @harbourviewcompany-create
+app/api/ @harbourviewcompany-create
+middleware.* @harbourviewcompany-create
+lib/auth/ @harbourviewcompany-create
+lib/security/ @harbourviewcompany-create

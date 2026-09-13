@@ -1,0 +1,49 @@
+name: Production Governance Audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-governance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: governance-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Verify workflow and ruleset policy
+        run: bash scripts/verify-governance-policy.sh
+
+      - name: Verify production governance and migration attribution
+        if: env.SUPABASE_DB_URL != ''
+        run: bash scripts/verify-production-governance.sh
+
+      - name: Record fork-safe production-audit limitation
+        if: env.SUPABASE_DB_URL == ''
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Production database audit skipped because repository secrets are unavailable to this pull request context."
+            echo "The static governance/ruleset policy gate still executed. Scheduled/manual production audits remain mandatory."
+          else
+            echo "::error::SUPABASE_DB_URL is required for non-PR production governance audits."
+            exit 1
+          fi

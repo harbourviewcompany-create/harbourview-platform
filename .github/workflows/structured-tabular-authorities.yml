@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
       - name: Test structured record parsers
@@ -49,7 +49,4 @@ jobs:
           grep -q "'full_licence_universe', false" "$migration"
           grep -q "'availability_guaranteed', false" "$migration"
           grep -q "expected 4 active tabular sources" "$migration"
-          if grep -Eq "last_checked_at[[:space:]]*=[[:space:]]*NULL|consecutive_failures[[:space:]]*=[[:space:]]*0" "$migration"; then
-            echo 'Migration replay must preserve existing source health history.' >&2
-            exit 1
-          fi
+          if grep -Eq "last_checked_at[[:space:]]*=[[:space:]]*NULL|consecutive_failures[[:space:]]*=[[:space:]]*0" "$migration"; then echo 'Migration replay must preserve existing source health history.' >&2; exit 1; fi
