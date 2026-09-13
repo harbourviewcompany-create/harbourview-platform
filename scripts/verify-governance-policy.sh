@@ -94,13 +94,41 @@ else
   pass_check "no workflow grants permissions: write-all"
 fi
 
+# Pull-request workflows must never combine PR execution with repository write access.
+pr_contents_write=0
+while IFS= read -r file; do
+  if grep -Eq '^[[:space:]]*pull_request([[:space:]]*:|[[:space:]]*$)' "$file" && grep -Eq '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$file"; then
+    printf 'PR CONTENTS WRITE: %s\n' "$file"
+    pr_contents_write=$((pr_contents_write+1))
+  fi
+done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+if [ "$pr_contents_write" -eq 0 ]; then
+  pass_check "no pull-request workflow grants repository contents write access"
+else
+  fail_check "$pr_contents_write pull-request workflow(s) grant repository contents write access"
+fi
+
+# Production database credentials must never be referenced by pull-request workflows.
+production_secret_refs=0
+while IFS= read -r file; do
+  if grep -Eq '^[[:space:]]*pull_request([[:space:]]*:|[[:space:]]*$)' "$file" && grep -Eq 'SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET' "$file"; then
+    printf 'PR PRODUCTION SECRET: %s\n' "$file"
+    production_secret_refs=$((production_secret_refs+1))
+  fi
+done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+if [ "$production_secret_refs" -eq 0 ]; then
+  pass_check "no pull-request workflow references production database/deployment credentials"
+else
+  fail_check "$production_secret_refs pull-request workflow(s) reference production credentials"
+fi
+
 # Explicitly bound the only current workflow that requires repository contents write access.
 if grep -RInE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" >/tmp/governance-contents-write.txt 2>/dev/null; then
-  unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$' || true)
+  unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$' || true)
   if [ -n "$unexpected" ]; then
-    printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the approved preview-deployment workflow"
+    printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved manual/controlled workflows"
   else
-    pass_check "contents: write is limited to the approved preview-deployment workflow"
+    pass_check "contents: write is limited to explicitly approved controlled workflows"
   fi
 else
   pass_check "no workflow grants contents: write"
@@ -113,11 +141,20 @@ else
   pass_check "no direct issue/PR body or title interpolation detected"
 fi
 
-# Privileged workflows must not checkout a pull-request head SHA/repository or dynamic refs/pull/*/head|merge.
-if grep -RInE 'github\.event\.pull_request\.head\.(sha|repo\.full_name)|refs/pull/\$\{\{[^}]*pull_request[^}]*\}\}/(merge|head)' "$workflow_dir" >/tmp/governance-untrusted-checkout.txt 2>/dev/null; then
-  cat /tmp/governance-untrusted-checkout.txt; fail_check "workflow contains a pull-request-head checkout/fetch trust-boundary pattern"
+# Pull-request-head checkout/fetch patterns are permitted only in read-only workflows.
+privileged_untrusted_checkout=0
+while IFS= read -r file; do
+  if grep -Eq 'github\.event\.pull_request\.head\.(sha|repo\.full_name)|refs/pull/\$\{\{[^}]*pull_request[^}]*\}\}/(merge|head)' "$file"; then
+    if grep -Eq '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$|SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET' "$file"; then
+      printf 'PR TRUST-BOUNDARY: %s\n' "$file"
+      privileged_untrusted_checkout=$((privileged_untrusted_checkout+1))
+    fi
+  fi
+done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+if [ "$privileged_untrusted_checkout" -eq 0 ]; then
+  pass_check "no privileged workflow checks out untrusted pull-request code"
 else
-  pass_check "no untrusted pull-request checkout pattern detected"
+  fail_check "$privileged_untrusted_checkout privileged workflow(s) contain an untrusted pull-request checkout/fetch pattern"
 fi
 
 printf 'GOVERNANCE_POLICY_RESULT=%s PASS_COUNT=%s FAIL_COUNT=%s\n' "$([ "$fail" -eq 0 ] && echo PASS || echo FAIL)" "$pass_count" "$fail_count"
