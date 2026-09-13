@@ -1,0 +1,7 @@
+# Canonical required status checks for protected main.
+# Each line is an exact GitHub check-run name. Keep this list small, stable,
+# and limited to checks that must gate every production merge.
+governance-gate
+Type Check
+Security / Leakage
+Next.js Build
