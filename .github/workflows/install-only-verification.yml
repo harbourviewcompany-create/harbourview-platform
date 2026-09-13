@@ -42,3 +42,5 @@ jobs:
           git add package-lock.json
           git commit -m "chore: regenerate npm lockfile from registry"
           git push
+
+# Temporary registry-generation pass; restore canonical read-only verification after lockfile commit.
