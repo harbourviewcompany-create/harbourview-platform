@@ -1,5 +1,8 @@
 name: Production Security Hardening
 
+# Security verification is intentionally fail-closed: every run emits an
+# evidence artifact even when an earlier contract check fails.
+
 on:
   pull_request:
     branches:
