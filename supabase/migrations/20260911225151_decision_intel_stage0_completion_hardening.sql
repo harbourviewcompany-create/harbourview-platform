@@ -1,10 +1,3 @@
--- Decision Intelligence Stage 0 completion hardening for PR #1309.
--- First-slice only: publication boundary, upstream withdrawal propagation,
--- dashboard route eligibility, canonical jurisdiction navigation, and complete initial assessment history.
-
--- Verification and customer publication are separate decisions. Backfilled events were
--- already customer-surfaceable Pipeline-B signals, so they receive the first-slice
--- customer classification explicitly. Future events default to internal.
 alter table public.intel_events
   add column if not exists customer_visibility text not null default 'internal';
 
@@ -26,9 +19,6 @@ where customer_visibility = 'internal'
       and (s.content_type is null or s.content_type not in ('story','research','noise'))
   );
 
--- Append stable canonical jurisdiction navigation metadata to the already allowlisted
--- dossier projection. The ISO-2 value comes only from the authoritative cross-reference
--- attached to the event's canonical jurisdiction ID; unresolved events remain unlinked.
 create or replace view public.intel_event_dossiers
 with (security_invoker = true)
 as
@@ -102,10 +92,6 @@ where e.review_status in ('migrated_reviewed','verified')
   and e.consolidation_status <> 'superseded'
 group by e.id, a.id, r.id;
 
--- Customer-safe dossiers are an explicit publication projection over the already
--- allowlisted dossier shape. Verified internal analysis remains internal. A customer
--- dossier must also retain at least one accepted factual assertion; publication and
--- verification never substitute for an accepted factual basis.
 create or replace view public.intel_customer_event_dossiers
 with (security_invoker = true)
 as
@@ -123,7 +109,6 @@ where e.customer_visibility = 'intel'
 
 revoke all on public.intel_customer_event_dossiers from authenticated, anon;
 
--- Product dossier reads now use the explicit customer-publication projection.
 create or replace function api.get_intel_event_dossier(p_event_id text)
 returns setof public.intel_event_dossiers
 language plpgsql
@@ -147,9 +132,6 @@ $$;
 revoke all on function api.get_intel_event_dossier(text) from public, anon;
 grant execute on function api.get_intel_event_dossier(text) to authenticated;
 
--- Dashboard route hydration runs only on the server. Return canonical ownership,
--- customer displayability and the current canonical recommendation posture. No evidence,
--- assessment prose, private notes or canonical review metadata cross this boundary.
 drop function if exists api.resolve_intel_dashboard_routes(text[]);
 create function api.resolve_intel_dashboard_routes(p_signal_ids text[])
 returns table(signal_id text, event_id text, displayable boolean, recommendation_state text)
@@ -171,9 +153,6 @@ $$;
 revoke all on function api.resolve_intel_dashboard_routes(text[]) from public, anon, authenticated;
 grant execute on function api.resolve_intel_dashboard_routes(text[]) to service_role;
 
--- The immutable assessment ledger is written only by the controlled assessment trigger.
--- Browser-authenticated staff may read history but cannot forge/reserve arbitrary version
--- rows. SECURITY DEFINER is restricted to trigger/service execution.
 create or replace function public.append_intel_assessment_version_on_write()
 returns trigger
 language plpgsql
@@ -221,10 +200,6 @@ drop policy if exists intel_assessment_versions_staff_insert on public.intel_ass
 revoke insert, update, delete on public.intel_assessment_versions from authenticated;
 grant select on public.intel_assessment_versions to authenticated;
 
--- Upstream surfaceability is authoritative for migrated lineage. If a source signal is
--- withdrawn/rejected/unreviewed/reclassified out of the first-slice corpus, suppress
--- the entire affected canonical decision chain and require explicit review/publication
--- before it can ever be customer-visible again.
 create or replace function public.suppress_intel_chain_for_withdrawn_signal()
 returns trigger
 language plpgsql
@@ -301,8 +276,6 @@ $$;
 revoke all on function public.suppress_intel_chain_for_withdrawn_signal() from public, anon, authenticated;
 grant execute on function public.suppress_intel_chain_for_withdrawn_signal() to service_role;
 
--- AFTER triggers ensure the public signal transition succeeds first; canonical
--- suppression then happens in the same transaction.
 drop trigger if exists signals_decision_intel_withdrawal_update on public.signals;
 create trigger signals_decision_intel_withdrawal_update
 after update of reviewed, action, quality_label, content_type on public.signals
@@ -313,9 +286,6 @@ create trigger signals_decision_intel_withdrawal_delete
 after delete on public.signals
 for each row execute function public.suppress_intel_chain_for_withdrawn_signal();
 
--- Repair migration-created version 1 snapshots to the same complete canonical field
--- contract used by every subsequent version. Because this PR has not been activated in
--- production, the migration chain reaches a complete immutable ledger before release.
 drop trigger if exists intel_assessment_versions_immutable on public.intel_assessment_versions;
 
 update public.intel_assessment_versions v
