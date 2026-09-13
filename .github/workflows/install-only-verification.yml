@@ -12,7 +12,7 @@ on:
       - docs/control/NPM_INSTALL_ENVIRONMENT_HOLD.md
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   npm-ci:
@@ -23,6 +23,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: feat/production-market-entry-os-20260912-final2
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
@@ -36,8 +39,22 @@ jobs:
           node --version
           npm --version
           npm config get registry
-          npm config list -l | sed -n '1,180p'
-          env | grep -Ei 'npm|proxy|registry' || true
+
+      - name: Regenerate registry lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit registry-generated lockfile
+        shell: bash
+        run: |
+          git config user.name harbourview-lockfile-bot
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if git diff --quiet -- package-lock.json; then
+            echo 'Lockfile already current.'
+          else
+            git add package-lock.json
+            git commit -m 'ci: regenerate package lockfile [lockfile-bot]'
+            git push origin HEAD:feat/production-market-entry-os-20260912-final2
+          fi
 
       - name: Install dependencies
         shell: bash
