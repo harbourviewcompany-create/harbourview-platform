@@ -11,11 +11,8 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 })
     if (!user.email) return NextResponse.json({ error: 'Authenticated account has no email address.' }, { status: 400 })
-
     const body = await request.json() as { missionId?: string }
-    if (!body.missionId || !/^[0-9a-f-]{36}$/i.test(body.missionId)) {
-      return NextResponse.json({ error: 'A valid missionId is required.' }, { status: 400 })
-    }
+    if (!body.missionId || !/^[0-9a-f-]{36}$/i.test(body.missionId)) return NextResponse.json({ error: 'A valid missionId is required.' }, { status: 400 })
 
     const { data: mission, error: missionError } = await supabase
       .from('market_entry_missions')
@@ -24,8 +21,10 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
     if (missionError) throw new Error(`Mission lookup failed: ${missionError.message}`)
     if (!mission) return NextResponse.json({ error: 'Mission not found.' }, { status: 404 })
-    if (!['orientation', 'ready'].includes(mission.status)) {
-      return NextResponse.json({ error: 'This mission is not eligible for purchase until its readiness gates pass.' }, { status: 409 })
+
+    const decision = mission.plan_snapshot?.decision as { executable?: boolean } | null
+    if (!decision?.executable || mission.status !== 'ready') {
+      return NextResponse.json({ error: 'This mission is not executable. Complete current regulatory evidence gates before purchasing a report.' }, { status: 409 })
     }
     if (mission.payment_status === 'paid') return NextResponse.json({ error: 'This mission has already been paid.' }, { status: 409 })
 
@@ -46,13 +45,11 @@ export async function POST(request: NextRequest) {
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
     })
-
     const { error: updateError } = await supabase
       .from('market_entry_missions')
       .update({ payment_status: 'checkout_created', checkout_session_id: session.id, stripe_customer_id: customerId })
       .eq('id', mission.id)
     if (updateError) throw new Error(`Mission checkout state update failed: ${updateError.message}`)
-
     return NextResponse.json({ url: session.url })
   } catch (err) {
     console.error('[market-entry/checkout]', err)
