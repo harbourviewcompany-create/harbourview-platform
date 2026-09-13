@@ -5,6 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# This policy is intentionally fail-closed; a repository-side verification failure is never converted to PASS.
 fail=0
 pass_count=0
 fail_count=0
@@ -94,7 +95,6 @@ else
   pass_check "no workflow grants permissions: write-all"
 fi
 
-# Pull-request workflows must never combine PR execution with repository write access.
 pr_contents_write=0
 while IFS= read -r file; do
   if grep -Eq '^[[:space:]]*pull_request([[:space:]]*:|[[:space:]]*$)' "$file" && grep -Eq '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$file"; then
@@ -108,7 +108,6 @@ else
   fail_check "$pr_contents_write pull-request workflow(s) grant repository contents write access"
 fi
 
-# Production database credentials must never be referenced by pull-request workflows.
 production_secret_refs=0
 while IFS= read -r file; do
   if grep -Eq '^[[:space:]]*pull_request([[:space:]]*:|[[:space:]]*$)' "$file" && grep -Eq 'SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET' "$file"; then
@@ -122,7 +121,6 @@ else
   fail_check "$production_secret_refs pull-request workflow(s) reference production credentials"
 fi
 
-# Explicitly bound the only current workflow that requires repository contents write access.
 if grep -RInE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" >/tmp/governance-contents-write.txt 2>/dev/null; then
   unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$' || true)
   if [ -n "$unexpected" ]; then
@@ -134,14 +132,12 @@ else
   pass_check "no workflow grants contents: write"
 fi
 
-# Attacker-controlled issue/PR body and title values must never be interpolated directly into shell.
 if grep -RInE 'github\.event\.(pull_request|issue)\.(body|title)' "$workflow_dir" >/tmp/governance-body-title.txt 2>/dev/null; then
   cat /tmp/governance-body-title.txt; fail_check "workflow directly interpolates attacker-controlled issue/PR body or title data"
 else
   pass_check "no direct issue/PR body or title interpolation detected"
 fi
 
-# Pull-request-head checkout/fetch patterns are permitted only in read-only workflows.
 privileged_untrusted_checkout=0
 while IFS= read -r file; do
   if grep -Eq 'github\.event\.pull_request\.head\.(sha|repo\.full_name)|refs/pull/\$\{\{[^}]*pull_request[^}]*\}\}/(merge|head)' "$file"; then
