@@ -1,4 +1,5 @@
 # Canonical repository ownership. Keep production-control surfaces under explicit review.
+# Audited 2026-09-13.
 * @harbourviewcompany-create
 
 # Production and security-sensitive surfaces
