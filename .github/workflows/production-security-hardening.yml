@@ -40,6 +40,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Initialize evidence artifact
+        run: : > production-security-assertions.txt
       - name: Focused release-closure contract suite
         run: |
           npx vitest run tests/supabase/hvDedupVectorSearchPath.test.ts tests/supabase/productionSecurityHardening.test.ts
@@ -75,8 +77,14 @@ jobs:
         with:
           name: production-security-hardening-${{ github.run_id }}
           path: production-security-assertions.txt
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
       - name: Stop local Supabase
         if: always()
-        run: supabase stop --no-backup || true
+        shell: bash
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop --no-backup || true
+          else
+            echo 'Supabase CLI was not installed; cleanup not required.'
+          fi
