@@ -26,11 +26,13 @@ else
   echo "PASS: $rule_count repository ruleset(s) configured"
 fi
 
-# Require immutable third-party action references. A full commit SHA is the
-# only accepted reference shape; version tags are mutable even when they look
-# semver-like. Local actions (./...) are not third-party downloads.
-if grep -RInE '^[[:space:]]*uses:[[:space:]]+[^#[:space:]]+@([^[:space:]]+)[[:space:]]*(#.*)?$' .github/workflows | \
-   grep -vE '@[0-9a-f]{40}([[:space:]]|$)'; then
+# Every third-party action must be pinned to an immutable 40-character commit
+# SHA. This is intentionally strict: resolving a mutable tag at runtime is not
+# equivalent to source-level immutability. Local actions are excluded.
+mutable_refs="$(grep -RInE '^[[:space:]]*uses:[[:space:]]+[^#[:space:]]+@([^[:space:]]+)[[:space:]]*(#.*)?$' .github/workflows | \
+  grep -vE '@[0-9a-f]{40}([[:space:]]|$)' || true)"
+if [ -n "$mutable_refs" ]; then
+  printf '%s\n' "$mutable_refs"
   echo "FAIL: mutable GitHub Action reference detected"
   fail=1
 else
