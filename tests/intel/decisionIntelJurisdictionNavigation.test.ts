@@ -1,17 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const completionMigration = readFileSync('supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql', 'utf8')
+const withdrawnBaselines = readFileSync('supabase/release-controls/withdrawn-baseline-migrations.json', 'utf8')
 const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'utf8')
 const dossierPage = readFileSync('app/dashboard/intel/events/[id]/page.tsx', 'utf8')
 
 describe('Decision Intelligence canonical jurisdiction navigation', () => {
-  it('projects a stable canonical jurisdiction id and ISO-2 navigation key', () => {
-    expect(completionMigration).toContain('e.jurisdiction_id')
-    expect(completionMigration).toContain('max(jx.canonical_iso2) as jurisdiction_iso2')
-    expect(completionMigration).toContain('left join public.jurisdiction_crossref jx on jx.jurisdictions_id = e.jurisdiction_id')
-    expect(dossierLoader).toContain('jurisdictionId: text(row.jurisdiction_id)')
-    expect(dossierLoader).toContain('jurisdictionIso2: text(row.jurisdiction_iso2)')
+  it('records the historical Stage 0 completion migration as withdrawn rather than requiring an unavailable SQL body', () => {
+    expect(withdrawnBaselines).toContain('20260810202000')
+    expect(withdrawnBaselines).toContain('"disposition":"withdrawn_historical_body"')
+    expect(withdrawnBaselines).toContain('Do not reconstruct or replay')
   })
 
   it('links only canonically resolved jurisdictions into the existing country command context', () => {
