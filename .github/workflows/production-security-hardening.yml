@@ -44,7 +44,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Initialize evidence artifact
-        run: : > production-security-assertions.txt
+        run: |
+          : > production-security-assertions.txt
       - name: Focused release-closure contract suite
         run: |
           npx vitest run tests/supabase/hvDedupVectorSearchPath.test.ts tests/supabase/productionSecurityHardening.test.ts
