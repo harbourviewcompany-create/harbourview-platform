@@ -72,13 +72,16 @@ export default function DesktopCommandWorkspace() {
   return (
     <div className="desktop-command-workspace-layer" data-desktop-command-workspace={tool}>
       {tool === 'charts' ? (
-        <div className="desktop-command-workspace-panel" data-tool="charts">
-          <div className="flex items-center justify-between gap-4 px-4 pt-4 pb-2">
-            <h2 className="text-lg font-semibold tracking-tight">Interactive Charts</h2>
+        <div className="hvm2-workspace desktop-charts-workspace" data-tool="charts">
+          <div className="hvm2-workspace-header flex items-center justify-between gap-4 mb-2">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-[#c6a55a]">Command Centre</p>
+              <h3 className="text-[#f5f1e8]">Interactive Charts</h3>
+            </div>
             <button
               type="button"
               onClick={close}
-              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+              className="rounded-md border border-[#c6a55a]/40 px-3 py-1.5 text-sm text-[#c6a55a] hover:bg-[#c6a55a]/10"
             >
               Close
             </button>
