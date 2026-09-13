@@ -124,6 +124,7 @@
         "E2E_INVITER_PASSWORD",
         "HV_SIGNAL_VERIFY_TOKEN",
         "HV_SIGNAL_VERIFY_TOKEN_CONFIRM",
+        "OPENAI_KEY",
         "POSTGRES_PASSWORD",
         "SUPABASE_DB_URL",
         "TEST_PASSWORD",
@@ -132,7 +133,7 @@
       "stage": "CI/Deploy only",
       "sensitivity": "Secret",
       "provider": "github-actions/test-runtime",
-      "requirement": "Workflow-local verification/test secret; not an application production secret contract",
+      "requirement": "Workflow-local verification/test secret or AI review credential; not an application production secret contract",
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
