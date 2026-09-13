@@ -1,19 +1,10 @@
--- Decision Intelligence Stage 0 review hardening.
--- Corrective additive migration for PR #1309; no later-stage schema is introduced.
-
--- One acquisition snapshot may legitimately yield multiple signals. Signal identity,
--- not snapshot identity, is the one-to-one legacy lineage key in slice 1.
 drop index if exists public.intel_evidence_refs_snapshot_uq;
 
--- Preserve upstream signal identifiers as durable tombstone keys even if the legacy
--- signal is later deleted. Evidence and assertion lineage both retain canonical route
--- ownership for deleted cluster members and regulatory mirror aliases.
 alter table public.intel_evidence_refs
   drop constraint if exists intel_evidence_refs_source_signal_id_fkey;
 alter table public.intel_assertions
   drop constraint if exists intel_assertions_source_signal_id_fkey;
 
--- Confidence values are probabilities at the canonical boundary.
 alter table public.intel_assertions
   drop constraint if exists intel_assertions_confidence_probability_chk,
   add constraint intel_assertions_confidence_probability_chk
@@ -24,18 +15,11 @@ alter table public.intel_assessments
   add constraint intel_assessments_confidence_probability_chk
     check (confidence is null or (confidence >= 0 and confidence <= 1));
 
--- migrated_reviewed is a backfill-only state, never a default for future events.
 alter table public.intel_events alter column review_status set default 'needs_review';
 
--- One source-backed assertion has exactly one canonical event in slice 1. This makes
--- source-signal -> assertion -> event routing deterministic rather than relying on
--- arbitrary LIMIT 1 selection if an assertion is accidentally linked twice.
 create unique index if not exists intel_event_assertions_assertion_uq
   on public.intel_event_assertions(assertion_id);
 
--- Mutable canonical records must advance their recency timestamp on staff edits.
--- public.set_updated_at() is the repository-wide trigger function established by the
--- dashboard-preferences foundation migration and present before this Stage-0 slice.
 drop trigger if exists intel_assertions_updated_at on public.intel_assertions;
 create trigger intel_assertions_updated_at
 before update on public.intel_assertions
@@ -56,9 +40,6 @@ create trigger intel_recommendations_updated_at
 before update on public.intel_recommendations
 for each row execute function public.set_updated_at();
 
--- Verified event transitions must carry the timestamp of the latest verification.
--- If a caller supplies a timestamp different from the historical value, preserve it;
--- otherwise stamp every transition into verified, including re-verification.
 create or replace function public.stamp_intel_event_verification()
 returns trigger
 language plpgsql
@@ -87,11 +68,6 @@ alter table public.intel_events
   add constraint intel_events_verified_timestamp_chk
     check (review_status <> 'verified' or last_verified_at is not null);
 
--- The canonical jurisdiction cross-reference foundation historically seeded ISO-2
--- identities without filling jurisdictions_id. Repair that link first using the
--- independently canonical ISO-3 identity present on countries + jurisdictions, then
--- consume jurisdiction_crossref for the Decision Intel backfill. No jurisdiction row
--- is fabricated when either side lacks a deterministic ISO mapping.
 do $$
 begin
   if to_regclass('public.jurisdiction_crossref') is not null
@@ -115,11 +91,6 @@ begin
   end if;
 end $$;
 
--- Recover canonical jurisdiction identity from Pipeline-B country_iso2 through the
--- repository's authoritative ISO-2 -> jurisdiction cross-reference. Canonical
--- jurisdiction ids are identity keys such as country_area:DEU, not ISO-2 values.
--- If the cross-reference or jurisdiction registry has no mapping, leave the FK null
--- rather than fabricating identity.
 do $$
 begin
   if exists (
@@ -153,7 +124,6 @@ begin
   end if;
 end $$;
 
--- Assessment versions are append-only, including for privileged application paths.
 create or replace function public.prevent_intel_assessment_version_mutation()
 returns trigger
 language plpgsql
@@ -169,9 +139,6 @@ create trigger intel_assessment_versions_immutable
 before update or delete on public.intel_assessment_versions
 for each row execute function public.prevent_intel_assessment_version_mutation();
 
--- Every assessment creation and edit atomically appends the resulting canonical state
--- to the immutable ledger. The trigger is installed only after the migration backfill,
--- whose initial versions already exist, so existing rows are not duplicated.
 create or replace function public.append_intel_assessment_version_on_write()
 returns trigger
 language plpgsql
@@ -217,9 +184,6 @@ create trigger intel_assessments_append_version
 after insert or update on public.intel_assessments
 for each row execute function public.append_intel_assessment_version_on_write();
 
--- Canonical assessments/events are historical decision records. Their lifecycle is
--- review-state/consolidation-state based, not physical deletion. Prevent parent
--- deletion so immutable version history can never conflict with a cascade.
 create or replace function public.prevent_intel_canonical_delete()
 returns trigger
 language plpgsql
@@ -263,10 +227,6 @@ with check (exists (
 grant select, insert on public.intel_assessment_versions to authenticated;
 revoke update, delete on public.intel_assessment_versions from authenticated;
 
--- Canonical base tables are staff objects. Remove the product-tier SELECT policies
--- from the original migration so Intel/operator customers cannot query canonical
--- rows directly through an exposed public schema. Staff keep the existing *_staff_all
--- RLS policies and receive the DML privileges those policies are intended to govern.
 drop policy if exists intel_events_tier_read on public.intel_events;
 drop policy if exists intel_event_assertions_tier_read on public.intel_event_assertions;
 drop policy if exists intel_assertions_tier_read on public.intel_assertions;
@@ -289,12 +249,6 @@ grant select, insert, update on
   to authenticated;
 revoke delete on public.intel_events, public.intel_assessments from authenticated;
 
--- Rebuild the dossier projection through displayable event/assessment/recommendation
--- states and displayable assertions only. source_count is derived from that same
--- eligible evidence set so suppression cannot leave a stale corroboration count.
--- The generic review_status is the least-trusted state across the event, assessment
--- and recommendation layers, so a verified event cannot overstate an unverified
--- analytical or decision layer.
 create or replace view public.intel_event_dossiers
 with (security_invoker = true)
 as
@@ -365,10 +319,6 @@ where e.review_status in ('migrated_reviewed','verified')
   and e.consolidation_status <> 'superseded'
 group by e.id, a.id, r.id;
 
--- The route map is canonical ownership, not a display-state projection. Superseded
--- events intentionally retain route ownership so their legacy source signals cannot
--- fall through and resurrect as legacy dossiers. The dossier projection above hides
--- the superseded event until a future canonical redirect target is explicitly modeled.
 create or replace view public.intel_event_route_map
 with (security_invoker = true)
 as
@@ -378,10 +328,6 @@ join public.intel_assertions ia on ia.id = ea.assertion_id
 join public.intel_events e on e.id = ea.event_id
 where ia.source_signal_id is not null;
 
--- Direct relation reads are not the customer execution boundary. Revoke the views
--- created by the original migration and expose narrowly-scoped SECURITY DEFINER RPCs
--- that enforce the existing Intel/operator product-tier check before returning only
--- the allowlisted dossier/route projection. Base-table RLS remains staff-only.
 revoke all on public.intel_event_dossiers from authenticated, anon;
 revoke all on public.intel_event_route_map from authenticated, anon;
 revoke all on api.intel_event_dossiers from authenticated, anon;
