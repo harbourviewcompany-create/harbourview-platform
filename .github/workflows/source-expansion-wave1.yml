@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: denoland/setup-deno@v2
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
       - name: Test structured JSON record parser
@@ -39,11 +39,5 @@ jobs:
           grep -q "'structured_fetch', true" "$migration"
           grep -q "content_type = ARRAY\['research'\]::text\[\]" "$migration"
           grep -q "Wave 1 source assertion failed: expected 4 active structured API rows" "$migration"
-          if grep -q "last_checked_at = NULL" "$migration"; then
-            echo 'Wave 1 replay must preserve existing source health timestamps.' >&2
-            exit 1
-          fi
-          if grep -q "consecutive_failures = 0" "$migration"; then
-            echo 'Wave 1 replay must preserve existing source failure history.' >&2
-            exit 1
-          fi
+          if grep -q "last_checked_at = NULL" "$migration"; then echo 'Wave 1 replay must preserve existing source health timestamps.' >&2; exit 1; fi
+          if grep -q "consecutive_failures = 0" "$migration"; then echo 'Wave 1 replay must preserve existing source failure history.' >&2; exit 1; fi
