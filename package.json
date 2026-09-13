@@ -103,14 +103,15 @@
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.13",
     "typescript": "^5.4.5",
-    "vite": "^8.1.0",
     "vitest": "^5.0.0",
-    "wrangler": "^4.129.0"
+    "wrangler": "^4.131.0"
   },
   "overrides": {
     "undici": "7.29.0",
     "browserslist": "^4.28.7",
     "qs": "^6.16.0",
-    "fflate": "^0.8.3"
+    "fflate": "^0.8.3",
+    "sharp": "0.35.4",
+    "miniflare": "5.20260911.0-alpha"
   }
 }
