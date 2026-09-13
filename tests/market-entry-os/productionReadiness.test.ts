@@ -8,17 +8,7 @@ function fixture(overrides: Partial<CorridorPlan> = {}): CorridorPlan {
     origin: { iso2: 'CA', name: 'Canada', difficulty: 'moderate' },
     destination: { iso2: 'DE', name: 'Germany', difficulty: 'high' },
     productClass: 'flower',
-    corridorRef: {
-      id: 'CA-DE',
-      from: 'CA',
-      to: 'DE',
-      label: 'Canada → Germany',
-      notes: 'orientation',
-      productClasses: ['flower'],
-      compliance: ['eu_gmp', 'health_canada_export'],
-      riskScore: 3,
-      riskLabel: 'Permit-intensive',
-    },
+    corridorRef: { id: 'CA-DE', from: 'CA', to: 'DE', label: 'Canada → Germany', notes: 'orientation', productClasses: ['flower'], compliance: ['eu_gmp', 'health_canada_export'], riskScore: 3, riskLabel: 'Permit-intensive' },
     steps: [
       { step: 1, title: 'Export licence', required: true, description: 'Export readiness', estimated_weeks: 2, side: 'export', country_iso2: 'CA', country_name: 'Canada' },
       { step: 2, title: 'Quality release', required: true, description: 'Release', estimated_weeks: 3, side: 'export', country_iso2: 'CA', country_name: 'Canada' },
@@ -26,43 +16,11 @@ function fixture(overrides: Partial<CorridorPlan> = {}): CorridorPlan {
     ],
     totalSequentialWeeks: 9,
     criticalPathWeeksEstimate: 5,
-    estimatedCostRanges: [
-      { country_iso2: 'CA', range: 'CAD 1000-2000' },
-      { country_iso2: 'DE', range: 'EUR 500-1000' },
-    ],
-    regulators: [
-      { country_iso2: 'CA', regulators: [{ name: 'Health Canada', role: 'competent authority' }] },
-      { country_iso2: 'DE', regulators: [{ name: 'BfArM', role: 'competent authority' }] },
-    ],
-    risks: [],
-    documentationChecklist: [],
-    notes: [],
-    trust: {
-      originVerifiedAt: '2026-09-10T00:00:00.000Z',
-      destinationVerifiedAt: '2026-09-10T00:00:00.000Z',
-      confidence: 0.75,
-      confidenceLabel: 'reviewed',
-      asOf: '2026-09-12',
-      disclaimer: 'orientation',
-    },
-    depth: {
-      workstreams: [],
-      failureModes: [],
-      openQuestions: [],
-      productDocDeltas: [],
-      criticalPathNarrative: 'orientation',
-      gmpRecognition: {
-        framework: 'ceta_protocol',
-        label: 'CETA',
-        summary: 'orientation',
-        typicalPaths: [],
-        instruments: [],
-        doesNotCover: [],
-        verifyBeforeRelying: [],
-        eudraGmdpHint: 'orientation',
-        disclaimer: 'orientation',
-      },
-    },
+    estimatedCostRanges: [{ country_iso2: 'CA', range: 'CAD 1000-2000' }, { country_iso2: 'DE', range: 'EUR 500-1000' }],
+    regulators: [{ country_iso2: 'CA', regulators: [{ name: 'Health Canada', role: 'competent authority' }] }, { country_iso2: 'DE', regulators: [{ name: 'BfArM', role: 'competent authority' }] }],
+    risks: [], documentationChecklist: [], notes: [],
+    trust: { originVerifiedAt: '2026-09-10T00:00:00.000Z', destinationVerifiedAt: '2026-09-10T00:00:00.000Z', confidence: 0.75, confidenceLabel: 'reviewed', asOf: '2026-09-12', disclaimer: 'orientation' },
+    depth: { workstreams: [], failureModes: [], openQuestions: [], productDocDeltas: [], criticalPathNarrative: 'orientation', gmpRecognition: { framework: 'ceta_protocol', label: 'CETA', summary: 'orientation', typicalPaths: [], instruments: [], doesNotCover: [], verifyBeforeRelying: [], eudraGmdpHint: 'orientation', disclaimer: 'orientation' } },
     ...overrides,
   }
 }
@@ -85,18 +43,16 @@ describe('Market Entry OS production contracts', () => {
     expect(graph.criticalPathWeeks).toBe(0)
   })
 
-  it('treats playbook verification timestamps as partial evidence, never primary-source proof', () => {
-    const evidence = buildEvidenceSnapshot(fixture(), { now: new Date('2026-09-12T00:00:00.000Z') })
+  it('never promotes playbook verification timestamps into primary-source proof', async () => {
+    const evidence = await buildEvidenceSnapshot(fixture(), { now: new Date('2026-09-12T00:00:00.000Z') })
     expect(evidence.references).toHaveLength(2)
-    expect(evidence.references.every((ref) => ref.status === 'partial')).toBe(true)
+    expect(evidence.references.every((ref) => ref.status === 'unverified')).toBe(true)
     expect(evidence.sourceCount).toBe(0)
     expect(evidence.references.every((ref) => ref.sourceUrl === null)).toBe(true)
   })
 
-  it('marks missing verification as unverified', () => {
-    const evidence = buildEvidenceSnapshot(fixture({
-      trust: { ...fixture().trust, destinationVerifiedAt: null },
-    }), { now: new Date('2026-09-12T00:00:00.000Z') })
+  it('marks missing verification as unverified', async () => {
+    const evidence = await buildEvidenceSnapshot(fixture({ trust: { ...fixture().trust, destinationVerifiedAt: null } }), { now: new Date('2026-09-12T00:00:00.000Z') })
     expect(evidence.references.find((ref) => ref.jurisdictionIso2 === 'DE')?.status).toBe('unverified')
   })
 })
