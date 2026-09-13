@@ -1,30 +1,41 @@
 # Interactive Charts — Wiring Guide
 
 ## Status
-- Core components live on branch `feat/interactive-charts-complete` (PR #1832)
-- This follow-up adds dependencies + a mountable panel
+- Core components: PR #1832 / included in `feat/interactive-charts-wiring`
+- Wiring + CTA + production fixes: PR #1833
 
 ## Required dependencies
 ```bash
 npm install recharts framer-motion html-to-image jspdf
+# Commit the resulting package-lock.json before merge
 ```
 
-## Safe mount options (do not edit CommandCentre.tsx directly)
+## Production readiness (2026-09-13)
+| Item | Status |
+|------|--------|
+| Select API (native, matches `components/ui/select.tsx`) | Fixed |
+| Live data transform (`chartDataFromSignals`) | Done — pass `CommandCentreSignal[]` into panel |
+| Command Centre styling tokens | Aligned (gold/dark panel) |
+| Smoke test | `tests/dashboard/chartDataFromSignals.test.ts` |
+| package-lock.json | **Must run `npm install` locally and commit lockfile** |
 
-### Option A — DesktopCommandWorkspace tool
-1. Add `'charts'` to `WORKSPACE_TOOLS` in `DesktopCommandWorkspace.tsx`
-2. Render `<InteractiveChartsPanel />` when `tool === 'charts'`
-3. Open via `?tool=charts`
+## Mount (implemented)
+- Desktop: `/dashboard?tool=charts` → `DesktopCommandWorkspace` → `InteractiveChartsPanel`
+- CTA: Next Actions → “Open interactive charts” (`buildChartsToolHref`)
 
-### Option B — Command Centre module registry
-Add a new entry in `lib/platform/commandCentreRegistry` that points to the panel.
-
-### Option C — Temporary test mount
-Import and render the panel next to an existing workspace for visual QA, then remove.
+## Live data
+`InteractiveChartsPanel` accepts `signals?: CommandCentreSignal[]`.
+`chartDataFromSignals` aggregates public-safe fields only.
+Pass session signals into the panel; do not call service-role fetchers from the client.
 
 ## Public/private boundary
 `routeToOpportunity` only passes public-safe fields (`country`, `signalType`, `score`, `id`).
-No private provenance or contact data is exposed.
 
 ## Reduced motion
-Both charts respect `prefers-reduced-motion` via Framer Motion's `useReducedMotion`.
+Charts respect `prefers-reduced-motion` via Framer Motion `useReducedMotion`.
+
+## Evidence
+- Date: 2026-09-13
+- Scope: Interactive charts production readiness on `feat/interactive-charts-wiring`
+- Changes: native Select; live signal→chart transform; CC styling; vitest smoke; CTA + tool mount
+- Status: code complete; lockfile + full QA suite pending local `npm install` + CI
