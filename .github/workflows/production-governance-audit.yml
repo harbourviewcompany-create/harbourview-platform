@@ -2,6 +2,9 @@ name: Production Governance Audit
 
 on:
   pull_request:
+  push:
+    branches:
+      - 'remediation/**'
   workflow_dispatch:
   schedule:
     - cron: '17 3 * * *'
