@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "purpose": "Explicitly document the pre-existing committed-not-applied baseline versions whose SQL bodies are still absent from the repository. These versions remain grandfathered by committed-not-applied-baseline.json; they are not replay candidates. Any future implementation must use a new forward migration after live preflight.",
+  "verified_at": "2026-09-13T00:36:00Z",
+  "versions": [
+    {"version":"20260808190000","disposition":"withdrawn_historical_body","reason":"Pre-existing baseline entry has no repository migration body and no live ledger row. Do not reconstruct or replay; use a forward migration if the capability is still required."},
+    {"version":"20260808203000","disposition":"withdrawn_historical_body","reason":"Pre-existing baseline entry has no repository migration body and no live ledger row. Do not reconstruct or replay; use a forward migration if the capability is still required."},
+    {"version":"20260810202000","disposition":"withdrawn_historical_body","reason":"Pre-existing baseline entry has no repository migration body and no live ledger row. Do not reconstruct or replay; use a forward migration if the capability is still required."}
+  ]
+}
