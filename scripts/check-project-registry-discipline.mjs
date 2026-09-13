@@ -16,13 +16,11 @@ function parseManualChangedFiles() {
   if (trimmed.startsWith('[')) return JSON.parse(trimmed);
   return trimmed.split(/[\n,]/).map((value) => value.trim()).filter(Boolean);
 }
-
 function readEvent() {
   const eventPath = process.env.GITHUB_EVENT_PATH;
   if (!eventPath || !fs.existsSync(eventPath)) return null;
   return JSON.parse(fs.readFileSync(eventPath, 'utf8'));
 }
-
 function requestJson(path) {
   const token = process.env.GITHUB_TOKEN;
   const repository = process.env.GITHUB_REPOSITORY;
@@ -35,7 +33,6 @@ function requestJson(path) {
     req.on('error',reject); req.end();
   });
 }
-
 async function fetchPullRequestFiles(prNumber) {
   const repository = process.env.GITHUB_REPOSITORY; const files=[]; let page=1;
   while(true){const batch=await requestJson(`/repos/${repository}/pulls/${prNumber}/files?per_page=100&page=${page}`); files.push(...batch.map((file)=>file.filename)); if(batch.length<100) break; page+=1;}
@@ -45,11 +42,10 @@ function isSensitiveFile(file){if(sensitiveExactFiles.has(file)) return true; re
 function hasRegistryImpactSection(body){return /^##\s+Registry Impact\s*$/im.test(body);}
 function checkedLines(body){return body.split(/\r?\n/).map((line)=>line.trim()).filter((line)=>/^[-*]\s*\[[xX]\]\s+/.test(line));}
 function hasCheckedRegistryRow(body){const rows=['Harbourview Platform','Harbourview Network','Chatbot','Contractor Demos','Local AI Chatbot','HV Telnyx Webhook','Harbourview Marketplace Supabase','Legacy Signal Supabase','Harbourview Vercel Target','Other / new row required']; return checkedLines(body).some((line)=>rows.some((row)=>line.includes(row)));}
-function hasCheckedRegistryDecision(body){return checkedLines(body).some((line)=>(/^[-*]\s*\[[xX]\]\s*No\b/i.test(line)&&/registry change required|registry change/i.test(line))||(/^[-*]\s*\[[xX]\]\s*Yes\b/i.test(line)&&/PROJECT_REGISTRY\.md/i.test(line))||/HOLD\s+.*registry ambiguity/i.test(line));}
+function hasCheckedRegistryDecision(body){return checkedLines(body).some((line)=>(/^[-*]\s*\[[xX]\]\s*No\b/i.test(line))||(/^[-*]\s*\[[xX]\]\s*Yes\b/i.test(line)&&/PROJECT_REGISTRY\.md/i.test(line))||/HOLD\s+.*registry ambiguity/i.test(line));}
 function registryUpdated(files){return files.includes(registryPath);}
 function registryFilesPresent(){const missing=[]; if(!fs.existsSync(registryPath)) missing.push(registryPath); if(!fs.existsSync(cleanupPath)) missing.push(cleanupPath); return missing;}
 function printList(title,values){console.log(`\n${title}`); if(values.length===0){console.log('- none');return;} values.forEach((value)=>console.log(`- ${value}`));}
-
 async function main(){
   const event=readEvent(); const pr=event?.pull_request;
   let body=process.env.REGISTRY_DISCIPLINE_PR_BODY?.trim()||pr?.body||'';
