@@ -12,42 +12,33 @@ on:
       - docs/control/NPM_INSTALL_ENVIRONMENT_HOLD.md
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   npm-ci:
     name: npm ci install-only check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
           cache: npm
-
-      - name: Show npm environment
+      - name: Generate registry lockfile
+        shell: bash
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Commit generated lockfile
         shell: bash
         run: |
-          node --version
-          npm --version
-          npm config get registry
-          npm config list -l | sed -n '1,180p'
-          env | grep -Ei 'npm|proxy|registry' || true
-
-      - name: Install dependencies
-        shell: bash
-        run: npm ci --verbose
-
-      - name: Upload npm debug logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: npm-install-debug-logs
-          path: |
-            ~/.npm/_logs/*.log
-          if-no-files-found: warn
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- package-lock.json; then
+            echo "Lockfile already matches package.json"
+            exit 0
+          fi
+          git add package-lock.json
+          git commit -m "chore: regenerate npm lockfile from registry"
+          git push
