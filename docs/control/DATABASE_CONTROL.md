@@ -384,7 +384,9 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
   is a no-op widen. The skip is removed.
 - Replay verified end to end on PostgreSQL 16.13 with the `20260713070355` event
   trigger in place: 20260626110925 → 32 cols, 20260715085610 → 32, 20260720200000 → 32,
-  20260722103428 → 32, 20260912103723 → 48, `security_invoker=true` throughout.
+  20260722103428 → 32, 20260801150000 → 48, `security_invoker=true` throughout.
+  (That last version was `20260912103723` when the chain was first replayed; #1834
+  restored it to its authored number on 2026-09-13. Same file, same body.)
 - RLS impact: none directly; the fix restores rather than removes a `security_invoker`
   stamp, so the invoker posture is applied one migration earlier in replay than before.
 - Rollback: revert the migration file and re-add the `REPLAY_ZERO_STATE_SKIPS` entry.

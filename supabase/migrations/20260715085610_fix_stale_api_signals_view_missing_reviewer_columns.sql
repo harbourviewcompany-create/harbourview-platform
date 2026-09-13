@@ -55,7 +55,11 @@
 -- 20260626110925's thirty-two, so this replays as a no-op replace that still
 -- applies `security_invoker = on`. The three later definitions of this view —
 -- 20260720200000 (thirty-two, identical), 20260722103428 (thirty-two, identical)
--- and 20260912103723 (forty-eight, prefix-extension) — remain pure appends.
+-- and 20260801150000 (forty-eight, prefix-extension) — remain pure appends.
+--
+-- (That last one carried the apply-time version 20260912103723 for a day; #1834
+-- restored it to its authored version 20260801150000 on 2026-09-13. Same file,
+-- same body — only the version number moved.)
 --
 -- Production is unaffected either way: the version is already in
 -- schema_migrations and the live view has carried all three columns since

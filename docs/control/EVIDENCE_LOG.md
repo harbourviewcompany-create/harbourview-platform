@@ -7374,3 +7374,60 @@ exit 1 is still not repaired here — it belongs to #1822/#1827, which disagree
 with each other about the baseline contents. The new check does not attempt to
 verify column *types*, and it does not replace the real `supabase db reset`
 replay; it covers the one failure mode that replay keeps finding the hard way.
+
+---
+
+## 2026-09-13 (same session, third pass) — base merge; the drift this branch waited on is fixed, and `20260912103723` moved back
+
+**Change type:** merge of `origin/main` into `claude/wrangler-upgrade-vulns-tineyh`, plus
+three stale version references corrected. No schema, no production data, no new logic.
+
+### What changed on `main`
+
+`origin/main` moved `48ad51f` → `e43f28a`. The relevant commit is **#1834**,
+"resolve filename/equivalence mismatch left by a concurrent merge", which **restores all
+eight migrations #1812 had renamed to their apply-time versions back to their authored
+versions**:
+
+| apply-time version (as of #1812) | restored authored version |
+|---|---|
+| 20260911225324 | 20260727163000 clinical_api_surface |
+| 20260912103655 | 20260731120000 signal_role_family_routing |
+| **20260912103723** | **20260801150000 api_expose_quality_and_routing_columns** |
+| 20260912103805 | 20260802080000 harden_eval_labels_and_alert_delivery |
+| 20260911225008 | 20260808190000 decision_intel_stage0_first_slice |
+| 20260911225106 | 20260808203000 decision_intel_stage0_review_fixes |
+| 20260911225151 | 20260810202000 decision_intel_stage0_completion_hardening |
+| 20260912103836 | 20260810222500 harden_edge_function_cron_auth |
+
+Verified on a pristine `origin/main` checkout before merging: all eight files are present
+again, and `migration-ledger-manifest.test.mjs` now passes **17/17** — the test that
+reported "baselined versions with no migration file" for those exact eight versions
+across roughly ten red checks. **That is the blocker this branch has been waiting on.**
+
+### Correction to the two entries above
+
+The two 2026-09-13 entries above record the replayed `api.signals` chain ending at
+**`20260912103723` → 48 columns**, and describe the drift as having "moved
+`20260801150000_api_expose_quality_and_routing_columns.sql` to `20260912103723`". Both
+were accurate when written and are left as recorded. As of #1834 the version number is
+back to **`20260801150000`** — same file, same body, same 48-column definition. Only the
+filename moved; no replay conclusion changes. The migration header in
+`20260715085610_...sql` and the `DATABASE_CONTROL.md` entry have been updated to the
+current number, since those describe present state rather than history.
+
+### Re-verified after the merge
+
+| check | result |
+|---|---|
+| `check-view-replay-narrowing.mjs` (merged tree) | **exit 0** — 1,038 replay-active migrations, 132 resolvable views, GO |
+| skip-list audit pass | **clean** — the `api.signals` warning is gone, because this branch repairs the file rather than skipping it |
+| the eight restored files | present, all eight |
+
+Note the scan grew from 1,033 to 1,038 replay-active migrations and from 130 to 132
+resolvable views, so the new check now covers the restored and newly merged migrations
+as well — including `20260912162110_expose_country_legal_status_via_api_schema.sql` and
+the four Market Entry OS / outcome-check migrations that came in with this merge.
+
+**Not done:** nothing about the 34 jurisdictions changes here; they still publish no
+tier, and the sourcing-bar decision is still open.
