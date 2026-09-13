@@ -7030,3 +7030,347 @@ re-sourced, only retired. Re-sourcing all 34 against primary/official sources re
 session with outbound egress and is tracked in the tier-sourcing worklist; these 34 join
 that backlog and should be prioritised within it, since they are the ones that regressed
 from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR and CL.
+
+---
+
+## 2026-09-13 — wrangler 4.131.1 (3 HIGH vulns) + `api.signals` replay-narrowing fix; 34-jurisdiction re-sourcing blocked
+
+**Change type:** dev-dependency bump + repository-only migration replay repair + two
+control docs. **No production schema change, no production data write, nothing
+applied to production.** Branch `claude/wrangler-upgrade-vulns-tineyh`.
+
+### 1. wrangler `^4.129.0` → `^4.131.0` (resolves 4.131.1)
+
+`npm audit` before:
+
+```
+wrangler  high  <=0.0.0-7ae5dd357 || 4.16.0 - 4.130.0
+  └─ miniflare  high
+       └─ sharp  <0.35.4  GHSA-rgj7-g3m4-5g8c
+            (libheif heap overflow: GHSA-g89c-p67h-r497, GHSA-2jg2-4ch7-h545)
+3 high severity vulnerabilities
+```
+
+One advisory, three nodes: the finding is `sharp < 0.35.4` reached through
+`node_modules/miniflare/node_modules/sharp`. `npm audit` after: **`found 0
+vulnerabilities`**.
+
+Lockfile delta is tightly scoped and adds nothing — 0 packages added, 28 removed, 8
+changed:
+
+| | |
+| --- | --- |
+| changed | `wrangler` 4.129.0 → 4.131.1, `miniflare` 5.20260903.0-alpha → 5.20260911.0-alpha, `workerd` + its 5 platform binaries 1.20260903.1 → 1.20260911.1 |
+| removed | the whole nested `node_modules/miniflare/node_modules/sharp` tree (sharp 0.35.2 + 27 `@img/*` platform packages) — the new miniflare requires `sharp ^0.35.4` and dedupes onto the existing root `sharp@0.35.4` |
+| added | none |
+
+`package.json` is a one-line diff. `npm install` reformatted the `engines` block as a
+side effect and rewrote the range to `^4.131.1`; both were reverted, leaving the
+requested `^4.131.0` with the lockfile resolving 4.131.1.
+
+**Worker still bundles on the new wrangler** — `npx wrangler deploy --dry-run`
+against root `wrangler.toml`: `Total Upload: 804.42 KiB / gzip: 160.82 KiB`, both
+`[vars]` bindings present, exit 0. Its `[build] command = "npm run typecheck"` ran
+clean inside the dry-run. Nothing was deployed.
+
+### 2. `api.signals` view-narrowing replay defect — fixed, and the skip that hid it removed
+
+**The defect.** `20260626110925_remote_applied_repair.sql` cannot issue its recorded
+`SELECT * FROM public.signals` in a zero-state replay, because
+`20260618210840_public_signals_foundation_replay.sql` creates `public.signals` with
+all 53 of its final columns — `SELECT *` would build a far wider view than production
+had. It therefore pins `api.signals` to an explicit 32-column list. Its header
+anticipates the two later definitions it has to stay compatible with (20260720200000
+at 32, and the 48-column extension) — but not the one that sits between them.
+
+`20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql` re-created
+the view at the **29** columns production ran, which asks `CREATE OR REPLACE VIEW` to
+drop `editorial_title`, `editorial_blurb` and `country_iso2`.
+
+Reproduced, not asserted — PostgreSQL 16.13, 20260626110925's statement followed by
+the previous contents of that file:
+
+```
+ cols_after_20260626110925
+                        32
+ERROR:  cannot drop columns from view
+```
+
+**What was hiding it.** The file was listed in `REPLAY_ZERO_STATE_SKIPS` in
+`scripts/prepare-production-faithful-migration-replay.mjs`, so the CI replay
+(`production-security-hardening.yml` → `supabase db reset --local`) never executed it.
+Replay was green because the migration did not run — including the
+`security_invoker = on` stamp that is half its purpose.
+
+**The fix.** The recorded 29-column list is an exact *ordered prefix* of the pinned
+32, so appending the three makes the replace a legal no-op widen instead of an
+illegal narrowing. The skip is removed; the migration replays for real again.
+
+**Replayed end to end on PostgreSQL 16.13**, with the `20260713070355` event trigger
+in place, statements extracted from the committed files:
+
+| after | api.signals cols | reloptions |
+| --- | ---: | --- |
+| 20260626110925 | 32 | (none) |
+| 20260713070355 (event trigger) | 32 | (none) |
+| **20260715085610** | **32** | **security_invoker=true** |
+| 20260720200000 | 32 | security_invoker=true |
+| 20260722103428 | 32 | security_invoker=true |
+| 20260912103723 | 48 | security_invoker=true |
+
+Previously this chain aborted at row three. Note row three also shows the fix
+restoring the `security_invoker` stamp one migration earlier than the skip allowed.
+
+**Recorded while proving it:** a bare `create or replace view ... as` **resets**
+omitted `WITH` options — with the event trigger removed from the harness, reloptions
+went `security_invoker=on` → `(none)` at 20260720200000 and again at 20260912103723.
+That is the exact regression `20260713070355` exists to absorb, observed directly
+rather than inferred. No action needed; the event trigger predates all three.
+
+**Cannot affect production:** 20260715085610 is already in
+`supabase_migrations.schema_migrations`, so `supabase db push` skips it, and the live
+view has carried all three columns since 20260722103428.
+
+**Regression guard added.** A new test in
+`tests/scripts/production-faithful-migration-replay.test.mjs` parses both files and
+asserts the column lists are identical in content *and* order, that `reviewed_by` /
+`reviewed_at` survive, that `security_invoker = on` is still set, and that the file
+is no longer in the skip list. The two existing tests that pinned the old skip list
+were updated.
+
+### 3. QA gate
+
+| command | result |
+| --- | --- |
+| `npm run lint` | **0 errors**, 211 warnings (pre-existing) |
+| `npm run typecheck` | exit 0 |
+| `npm run test` | **1195 passed**, 15 todo, 1 failed + 2 suites failed to load — all three pre-existing (below) |
+| `npm run build` | exit 0 |
+| `npx wrangler deploy --dry-run` | exit 0, 804.42 KiB |
+| `node --test tests/scripts/production-faithful-migration-replay.test.mjs` | 22/22 |
+| `node --test tests/scripts/production-faithful-migration-replay-resolved-collisions.test.mjs` | 3/3 |
+| `check-migration-sql-parses.mjs` | GO — 1049 migrations parse |
+| `check-migration-filenames.mjs` | pass — 1049 files |
+| `check-pending-production-migration-decisions.mjs` | **exit 1 — pre-existing** (see correction below) |
+| `check-release-closure-migration-classification.mjs` | **exit 1 — pre-existing** (see correction below) |
+
+> **Correction, same session.** The two rows above were first recorded here as
+> `exit 0`. That was wrong, and the error was mine: the commands were run as
+> `node scripts/<check>.mjs | tail -5; echo "exit=$?"`, and in a pipeline `$?` is
+> the exit status of `tail`, not of the script. Both scripts print their findings
+> and then exit 1. Re-run without the pipe, they exit 1 on this branch **and
+> identically on a pristine `origin/main` checkout at `48ad51f`**, so the
+> attribution below is unchanged — they are part of the same
+> renamed-migration drift, not this branch's doing. Only the reported exit codes
+> were wrong. Recorded rather than quietly edited, because an unverified "exit 0"
+> in this log is exactly the kind of claim the log exists to prevent.
+
+**The three test failures are pre-existing and are not this branch's.** All three are
+`ENOENT` on migration files that are not in the tree:
+
+| test | missing file |
+| --- | --- |
+| `tests/intel/decisionIntelJurisdictionNavigation.test.ts` | `20260810202000_decision_intel_stage0_completion_hardening.sql` |
+| `tests/signals/pipeline-hardening.test.ts` | `20260802080000_harden_eval_labels_and_alert_delivery.sql` |
+| `tests/security/edge-function-auth-hardening.test.ts` | `20260810222500_harden_edge_function_cron_auth.sql` |
+
+Verified by attribution, not assumption: with this branch's five changed files
+stashed, all three fail identically on the clean tree (`3 failed (3)`, `1 failed | 10
+passed`). This branch deletes no files. The same versions surface as
+`baseline version ... is missing` / `decision file is absent` warnings from the two
+migration-classification checks, which exit 0 — the same renumbering drift that moved
+`20260801150000_api_expose_quality_and_routing_columns.sql` to `20260912103723`.
+**Not fixed here** — it is a separate, pre-existing item and repairing it would widen
+this PR into unrelated migration-ledger reconciliation.
+
+`npm run build` regenerates `data/globe/natural-earth-countries.ts` with a fresh
+`generatedAt` timestamp; that one-line artifact change was reverted so the diff
+carries only intended edits.
+
+### 4. Re-sourcing the 34 jurisdictions — **NOT DONE, blocked**
+
+Full detail: `docs/control/MARKET_ACCESS_RESOURCING_34_20260913.md`.
+
+Live state re-measured read-only and unchanged since 2026-09-11: 130 countries
+publishing, 96 active evidence rows, 34 retired, **0 of the 34 publishing**.
+
+**Blocked on egress, totally.** 18 government / regulator / gazette / treaty-body
+domains probed across five continents plus the EU and UN, by two independent paths —
+all refused (`curl` → `000`, `WebFetch` → `EGRESS_BLOCKED`), including `incb.org`,
+`eur-lex.europa.eu`, `legislation.gov.uk`, `loc.gov`, `mhlw.go.jp`, `bfarm.de`,
+`fda.moph.go.th` and `gov.br/anvisa`. Search works and returns the same secondary
+commentary that got these rows retired — for JP it returns `pubmed.ncbi.nlm.nih.gov`,
+which *is* the rejected domain on the retired JP row. Third session to hit this wall
+(2026-09-07, 2026-09-11, 2026-09-13); the probe list is now recorded so the fourth
+does not repeat it. **Nothing was written, and no row was reactivated.**
+
+Two findings from the read-only work that change the shape of the job:
+
+1. **The bar that retired these 34 is not the bar the table runs on.** Grouping the 96
+   surviving rows by `authority_url` host: `www.ncsl.org` **51**, `www.incb.org` 26,
+   19 government/regulator/gazette hosts 1 row each. More than half the published
+   table rests on a single secondary tracker — the US state rows — and
+   `REGULATORY_MARKET_ACCESS_EVIDENCE_TRANCHE_20260907.md` states plainly that
+   "primary sources only" was never this table's standing bar. Applied consistently,
+   the 2026-09-11 bar retires 85 rows, not 34, and takes every US state off the map.
+   Needs Tyler's decision before the re-sourcing can even be specified.
+2. **INCB cannot re-source 32 of the 34.** All 26 INCB rows cite one trade-statistics
+   document (*Narcotic Drugs 2024*, effective 2023-12-31), all assign
+   `legal_commercial_access`, all share one rationale. Reported licensed trade
+   supports the top tier; *absence* of reported trade is not evidence of prohibition.
+   The 34 need `prohibited` ×12, `medical_limited_trade` ×16, `cbd_hemp_only` ×3,
+   `legal_commercial_access` ×2 — INCB can speak to at most the 2, and even that is
+   unverifiable here because `incb.org` is blocked.
+
+**Files changed:** `package.json`, `package-lock.json`,
+`supabase/migrations/20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql`,
+`scripts/prepare-production-faithful-migration-replay.mjs`,
+`tests/scripts/production-faithful-migration-replay.test.mjs`,
+`docs/control/DATABASE_CONTROL.md`,
+`docs/control/MARKET_ACCESS_RESOURCING_34_20260913.md`, this entry.
+
+**Rollback.** wrangler: revert the two manifest lines and `npm ci`. Migration repair:
+revert the file and re-add the `REPLAY_ZERO_STATE_SKIPS` entry. Docs: plain revert.
+No production state to roll back — none was changed.
+
+**Data classification:** public/internal only. No secrets, credentials or customer
+data touched; the production queries were read-only counts and source-host
+aggregates.
+
+---
+
+## 2026-09-13 (same session, follow-up) — the `api.signals` narrowing was one instance of a class; the class is now checked
+
+**Change type:** new repository check + test + one CI job. No schema, no production
+data, no application code. Branch `claude/wrangler-upgrade-vulns-tineyh`, same PR.
+
+### Why go further than the one fix
+
+The entry above repairs `20260715085610`. It does not answer two questions that
+matter more than the instance: **is there another one**, and **why did nothing
+catch it**. Both are now answered, and the second answer is worse than expected.
+
+### Is there another one? No — measured, not assumed
+
+Built a parser that reads every `CREATE [OR REPLACE] VIEW` in the tree in replay
+order, resolves each definition's output column list, and applies PostgreSQL's
+actual rule: a replacement must begin with the existing list, same names, same
+order. It models the replay by reusing the planners in
+`prepare-production-faithful-migration-replay.mjs`, so it cannot drift from what
+the replay really runs.
+
+**Result across 1,033 replay-active migrations and 130 resolvable views: one
+finding — `api.signals` — and it is the one this PR fixes.**
+
+The negative result is only worth as much as its positive control, so the control
+was run first: against a pristine `origin/main` checkout with the skip disabled,
+the scanner reports exactly
+
+```
+VIEW api.signals
+  at   20260715085610_...sql  (32 -> 29 cols)
+  prev 20260626110925_remote_applied_repair.sql
+  drops editorial_title (position 29)
+  dropped: editorial_title, editorial_blurb, country_iso2
+```
+
+Three views are defined `SELECT *` and later replaced with an explicit list —
+the shape that forced the two hand-written pins in `20260626110925`. All three
+were resolved by hand and all three are safe, each by prefix:
+
+| view | `SELECT *` resolves to | later explicit list | verdict |
+|---|---|---|---|
+| `api.signals_quality` | 27 cols (`20260704160603`, inside a `DO` block) | 47, beginning with those 27 | prefix-extension |
+| `api.marketplace_public_listings_v1` | 19 cols (`20260601000000`) | 32, beginning with those 19 | prefix-extension |
+| `api."regulatory_signals.signals"` | hand-pinned in `20260626110925` | 43 | already pinned |
+
+Safe, but safe by coincidence of column ordering, and nothing was checking it.
+
+### Why nothing caught it — the skip did not contain the defect, it moved it
+
+`REPLAY_ZERO_STATE_SKIPS` made the CI replay green by not running the migration.
+It does not make the migration correct, and it does not protect every consumer.
+This repository's own test file states the rule twice, in
+`tests/scripts/production-faithful-migration-replay.test.mjs`:
+
+> "The CI replay realises that by skipping the file, but **Supabase Preview does
+> not run the prep script, so the file itself has to be safe to re-execute**."
+
+> "**Supabase Preview executes the `REPLAY_ZERO_STATE_SKIPS` files that the CI
+> replay skips**, against a branch database that already holds the object."
+
+The other two skipped files are written `if not exists` and `or replace`
+precisely for that reason, and the test asserts it. **Nobody applied the rule to
+`20260715085610`, whose body was not safe to re-execute** — it narrows
+`api.signals` from 32 columns to 29, which is `cannot drop columns from view` on
+any path that runs it. So the skip hid the failure from CI while leaving it live
+on the Supabase Preview path. It has not been observed there only because preview
+branches for this project are at their concurrent-branch cap — the Supabase bot
+said so on this very PR ("ignored for the connected project ... due to reaching
+the limit of concurrent preview branches"). Latent, not absent.
+
+This is stated as this repository's documented behaviour, quoted from its own
+tests; Supabase's branching internals were not independently exercised here.
+
+### The check
+
+`scripts/check-view-replay-narrowing.mjs`, wired into `migration-drift-check.yml`
+as **"Verify no view narrows on replay"**, next to `Verify migration SQL parses`.
+Dependency-free, no database, no network.
+
+It runs two passes, and the second is the one that matters:
+
+1. **Replay-faithful** — fails the build on any narrowing or reordering.
+2. **Skip-list audit** — re-runs with `REPLAY_ZERO_STATE_SKIPS` put back and
+   reports any narrowing that only the skip list is hiding. Advisory, never
+   silent.
+
+Pass 1 alone would have been useless here: run against `origin/main`, which
+*has* the defect, it reports `GO` — because the file it needs to read is
+skipped. A check that models the replay inherits the replay's blindness. Pass 2
+on the same `origin/main` tree reports:
+
+```
+WARNING: 1 narrowing(s) hidden by REPLAY_ZERO_STATE_SKIPS.
+  api.signals: drops "editorial_title" at position 29
+  (skipped file 20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql)
+```
+
+That is the diagnostic that was missing. On this branch both passes are clean.
+
+**Stated limits, in the script header rather than implied:** `SELECT *` from a
+base *table* is not statically resolvable and is not compared (a `SELECT *` from
+a view already seen **is** resolved); column *type* changes are not detected,
+only names and order; views built by string-concatenated dynamic SQL are not
+parsed. Views inside `DO` blocks and `execute $tag$ ... $tag$` **are** parsed —
+that was necessary, since `public.signals_quality` is created that way.
+
+**Tests:** `tests/scripts/view-replay-narrowing.test.mjs`, 15/15. Covers drop,
+reorder, prefix-extension, `DROP` + recreate, `SELECT *` resolution in both
+directions, untracked bases, quoted dotted identifiers, `WITH` options, alias
+lists, `DO`-block extraction, and a comment that merely mentions a narrowing.
+Two of them are standing regression guards on the shipped tree: no narrowing,
+and nothing hidden behind the skip list.
+
+### QA
+
+| command | result |
+|---|---|
+| `npm run lint` | 0 errors, 211 warnings (pre-existing) |
+| `npm run typecheck` | exit 0 |
+| `npm run test` | 1195 passed, 15 todo; same 3 pre-existing failures |
+| `npm run build` | exit 0 |
+| `node --test tests/scripts/view-replay-narrowing.test.mjs` | **15/15** |
+| `node --test tests/scripts/production-faithful-migration-replay.test.mjs` | 22/22 |
+| `node --test .../production-faithful-migration-replay-resolved-collisions.test.mjs` | 3/3 |
+| `node scripts/check-view-replay-narrowing.mjs` | exit 0 |
+| `node scripts/check-migration-sql-parses.mjs` | exit 0 |
+| `node scripts/check-migration-filenames.mjs` | exit 0 |
+| `node scripts/check-pending-production-migration-decisions.mjs` | exit 1 — pre-existing, identical on `origin/main` |
+| `node scripts/check-release-closure-migration-classification.mjs` | exit 1 — pre-existing, identical on `origin/main` |
+
+**Not done.** The renamed-migration drift from #1812 that makes those last two
+exit 1 is still not repaired here — it belongs to #1822/#1827, which disagree
+with each other about the baseline contents. The new check does not attempt to
+verify column *types*, and it does not replace the real `supabase db reset`
+replay; it covers the one failure mode that replay keeps finding the hard way.
