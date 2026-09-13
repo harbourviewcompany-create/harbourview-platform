@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 : "${SUPABASE_DB_URL:?SUPABASE_DB_URL is required for the production governance audit}"
 : "${GITHUB_TOKEN:?GITHUB_TOKEN is required for the GitHub governance audit}"
@@ -31,14 +31,13 @@ else
 fi
 
 # 2. Repository protection must be an active ruleset targeting main. Merely having
-#    an unrelated/inactive ruleset is not sufficient to clear the governance gate.
-rulesets="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 \
+#    an unrelated or inactive ruleset is not sufficient to clear the gate.
+if rulesets="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 \
   -H "Authorization: Bearer ${GITHUB_TOKEN}" \
   -H 'Accept: application/vnd.github+json' \
   -H 'X-GitHub-Api-Version: 2022-11-28' \
-  "https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets")"
-
-if ! python3 - "$rulesets" <<'PY'
+  "https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets")"; then
+  if python3 - "$rulesets" <<'PY'
 import json, sys
 rulesets = json.loads(sys.argv[1])
 required = []
@@ -76,10 +75,13 @@ if errors:
     raise SystemExit("; ".join(errors))
 print(f"validated {len(required)} active main ruleset(s)")
 PY
-then
-  pass_check "active main ruleset contains required pull-request governance controls"
+  then
+    pass_check "active main ruleset contains required pull-request governance controls"
+  else
+    fail_check "active main ruleset is missing or does not enforce the required pull-request controls"
+  fi
 else
-  fail_check "active main ruleset is missing or does not enforce the required pull-request controls"
+  fail_check "GitHub ruleset API could not be queried"
 fi
 
 # 3. Every external GitHub Action/workflow reference must be immutable. Local
@@ -101,15 +103,10 @@ fi
 if ! command -v psql >/dev/null 2>&1; then
   fail_check "psql is required for the production migration audit"
 else
-  migration_rows="$(psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -F $'\t' \
+  if migration_rows="$(psql "$SUPABASE_DB_URL" -X -v ON_ERROR_STOP=1 -At -F $'\t' \
     -c 'select version, name from supabase_migrations.schema_migrations order by version;' \
-    2>/dev/null)" || {
-      fail_check "production migration ledger could not be queried read-only"
-      migration_rows=""
-    }
-
-  if [ -n "$migration_rows" ]; then
-    MIGRATION_ROWS="$migration_rows" python3 <<'PY'
+    2>/dev/null)"; then
+    if MIGRATION_ROWS="$migration_rows" python3 <<'PY'
 import hashlib, json, os, re, sys
 from pathlib import Path
 
@@ -117,8 +114,11 @@ rows = []
 for line in os.environ["MIGRATION_ROWS"].splitlines():
     if not line.strip():
         continue
-    version, name = line.split("\t", 1)
-    rows.append((version, name))
+    parts = line.split("\t", 1)
+    if len(parts) != 2:
+        print(f"malformed production migration row: {line!r}")
+        sys.exit(1)
+    rows.append((parts[0], parts[1]))
 
 local = {}
 errors = []
@@ -138,7 +138,17 @@ for path in sorted(Path("supabase/release-controls").glob("*.json")):
     except Exception as exc:
         errors.append(f"invalid reconciliation JSON {path}: {exc}")
         continue
-    for entry in data.get("entries", []):
+    if not isinstance(data, dict):
+        errors.append(f"reconciliation file is not an object: {path}")
+        continue
+    entries = data.get("entries", [])
+    if not isinstance(entries, list):
+        errors.append(f"reconciliation entries must be an array: {path}")
+        continue
+    for entry in entries:
+        if not isinstance(entry, dict):
+            errors.append(f"reconciliation entry is not an object: {path}")
+            continue
         version = entry.get("live_version")
         if not version:
             errors.append(f"missing live_version in {path}")
@@ -183,8 +193,6 @@ for version, live_name in rows:
 
 for version in records:
     if version not in seen:
-        # Historical attestations are permitted, but stale records must not be
-        # mistaken for current production state. They are reported, not failed.
         print(f"WARN: reconciliation record {version} is not present in the live ledger")
 
 if errors:
@@ -195,12 +203,13 @@ if errors:
 
 print(f"PASS: {len(rows)} live migration versions have exact repository attribution")
 PY
-    if [ "$?" -eq 0 ]; then
+    then
       pass_check "production migration ledger is exactly attributed to repository artifacts"
     else
-      fail=1
-      fail_count=$((fail_count + 1))
+      fail_check "production migration attribution is not exact"
     fi
+  else
+    fail_check "production migration ledger could not be queried read-only"
   fi
 fi
 
