@@ -1,4 +1,5 @@
 import type { CommandCentreSignal } from '@/lib/dashboard/commandCentreLiveData'
+import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 
 export type TimelinePoint = {
   date: string
@@ -30,9 +31,86 @@ function riskFromScore(score: number): 'low' | 'medium' | 'high' {
   return 'high'
 }
 
+function resolveSignalDate(signal: DashboardSignal): string {
+  return (
+    signal.freshnessAt ||
+    signal.sourcePublishedAt ||
+    signal.eventEffectiveAt ||
+    signal.publishedAt ||
+    signal.observedAt ||
+    signal.ingestedAt ||
+    new Date().toISOString()
+  )
+}
+
+function resolveCountry(signal: DashboardSignal): string {
+  if (signal.jurisdiction?.trim()) return signal.jurisdiction.trim().toUpperCase()
+  if (signal.jurisdictions?.length) return String(signal.jurisdictions[0]).toUpperCase()
+  if (signal.market?.trim()) return signal.market.trim().toUpperCase()
+  return 'UNKNOWN'
+}
+
 /**
- * Pure transform: Command Centre signals → chart series.
- * Public-safe fields only (no private provenance).
+ * Live feed path: DashboardSignal[] from /api/dashboard/signals
+ * (same DTO as Command Centre Weekly Signals).
+ */
+export function chartDataFromDashboardSignals(signals: DashboardSignal[]): {
+  timeline: TimelinePoint[]
+  opportunities: OpportunityBar[]
+} {
+  const byDate = new Map<string, { count: number; scoreSum: number; country?: string; id?: string }>()
+  const byCountry = new Map<string, { count: number; scoreSum: number; id?: string }>()
+
+  for (const signal of signals) {
+    const dateKey = formatDateKey(resolveSignalDate(signal))
+    const score = Number.isFinite(signal.confidence) ? Math.round(signal.confidence) : 0
+    const country = resolveCountry(signal)
+
+    const dateBucket = byDate.get(dateKey) ?? { count: 0, scoreSum: 0 }
+    dateBucket.count += 1
+    dateBucket.scoreSum += score
+    dateBucket.country = country
+    dateBucket.id = signal.id
+    byDate.set(dateKey, dateBucket)
+
+    const countryBucket = byCountry.get(country) ?? { count: 0, scoreSum: 0 }
+    countryBucket.count += 1
+    countryBucket.scoreSum += score
+    countryBucket.id = signal.id
+    byCountry.set(country, countryBucket)
+  }
+
+  const timeline: TimelinePoint[] = [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, bucket]) => ({
+      date,
+      signals: bucket.count,
+      score: bucket.count ? Math.round(bucket.scoreSum / bucket.count) : 0,
+      country: bucket.country,
+      id: bucket.id,
+      type: 'market' as const,
+    }))
+
+  const opportunities: OpportunityBar[] = [...byCountry.entries()]
+    .map(([country, bucket]) => {
+      const score = bucket.count ? Math.round(bucket.scoreSum / bucket.count) : 0
+      return {
+        country,
+        score,
+        signals: bucket.count,
+        riskLevel: riskFromScore(score),
+        trend: 'stable' as const,
+        id: bucket.id,
+      }
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+
+  return { timeline, opportunities }
+}
+
+/**
+ * Legacy / admin path: CommandCentreSignal[] from commandCentreLiveData.
  */
 export function chartDataFromSignals(signals: CommandCentreSignal[]): {
   timeline: TimelinePoint[]
