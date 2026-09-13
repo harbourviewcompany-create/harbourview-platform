@@ -81,6 +81,7 @@
         "PLAYWRIGHT_BASE_URL",
         "POSTGRES_DB",
         "POSTGRES_HOST_AUTH_METHOD",
+        "PR_NUMBER",
         "PREVIEW_URL",
         "PRIMARY_BASE_URL",
         "PRODUCTION_URL",
