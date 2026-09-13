@@ -415,3 +415,16 @@ export function buildLandedCostToolHref(opts: {
   if (opts.returnTo) params.set('returnTo', opts.returnTo)
   return `/dashboard/tools/landed-cost?${params.toString()}`
 }
+
+/** Open Interactive Charts panel inside the Command Centre workspace. */
+export function buildChartsToolHref(opts: {
+  country?: string
+  role?: string
+  returnTo?: string
+} = {}): string {
+  const params = new URLSearchParams({ tool: 'charts' })
+  if (opts.country) params.set('country', opts.country.toUpperCase())
+  if (opts.role) params.set('role', opts.role)
+  if (opts.returnTo) params.set('returnTo', opts.returnTo)
+  return `/dashboard?${params.toString()}`
+}
