@@ -364,6 +364,33 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Human approval status: scope directed by Tyler on 2026-09-07 ("All markets
   matter"). **Apply to production and merge remain unapproved.**
 
+## `api.signals` replay narrowing — 20260715085610 (2026-09-13)
+
+- **No production schema change.** 20260715085610 is already recorded in
+  `supabase_migrations.schema_migrations`, so `supabase db push` skips it. This entry
+  covers a repository-only repair of zero-state replay fidelity.
+- Defect: 20260626110925 pins `api.signals` to an explicit 32-column list (it cannot
+  issue its recorded `SELECT *`, because 20260618210840 creates `public.signals` with
+  all 53 of its final columns). 20260715085610 then re-created the view at the
+  29 columns production ran, which asks `CREATE OR REPLACE VIEW` to drop
+  `editorial_title`, `editorial_blurb` and `country_iso2`. Postgres refuses:
+  `ERROR: cannot drop columns from view`. Reproduced on PostgreSQL 16.13.
+- Previous handling: the file was listed in `REPLAY_ZERO_STATE_SKIPS` in
+  `scripts/prepare-production-faithful-migration-replay.mjs`, so replay never executed
+  it — green replay, at the cost of skipping the migration's `security_invoker = on`
+  stamp as well.
+- Fix: the migration now appends those three columns rather than dropping them. The
+  recorded 29-column list is an exact ordered prefix of the pinned 32, so the replace
+  is a no-op widen. The skip is removed.
+- Replay verified end to end on PostgreSQL 16.13 with the `20260713070355` event
+  trigger in place: 20260626110925 → 32 cols, 20260715085610 → 32, 20260720200000 → 32,
+  20260722103428 → 32, 20260912103723 → 48, `security_invoker=true` throughout.
+- RLS impact: none directly; the fix restores rather than removes a `security_invoker`
+  stamp, so the invoker posture is applied one migration earlier in replay than before.
+- Rollback: revert the migration file and re-add the `REPLAY_ZERO_STATE_SKIPS` entry.
+- Regression guard: `tests/scripts/production-faithful-migration-replay.test.mjs` pins
+  the ordered-prefix relationship so the narrowing cannot be reintroduced silently.
+
 ## Remaining historical control entries
 
 Historical database-control entries below this line are preserved in git history from prior DATABASE_CONTROL commits and in `docs/control/EVIDENCE_LOG.md`. New Decision Intel Stage 0 work is governed by the Stage 0 product boundary section above plus `INTEL_DECISION_OS_RLS_MIGRATION.md`.

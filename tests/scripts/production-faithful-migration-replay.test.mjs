@@ -81,7 +81,6 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
     '20260714095121_revert_regulatory_signals_orphaned_constraint_drift.sql',
     '20260714224152_create_intel_eval_set_stage0.sql',
     '20260714225601_expose_intel_eval_set_via_api_schema.sql',
-    '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
     '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
   ])
 
@@ -134,11 +133,60 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
   assert.match(reconstructedSignalsView, /create or replace view api\.signals/i)
 })
 
+// 20260715085610 used to be a zero-state skip. Its recorded body re-created
+// api.signals at twenty-nine columns, which asks CREATE OR REPLACE VIEW to drop
+// the three columns 20260626110925 pins onto the view (editorial_title,
+// editorial_blurb, country_iso2) -- "cannot drop columns from view". Skipping it
+// made replay green by not running the migration at all, including the
+// `security_invoker = on` stamp that is half its purpose. The file now appends
+// those three instead, so it replays as a no-op widen and the skip is gone.
+//
+// This test is the regression guard: it pins the ordered prefix relationship
+// that makes the replace legal, so a future edit cannot quietly reintroduce the
+// narrowing.
+test('20260715085610 replays as an append, never a narrowing, of api.signals', () => {
+  const pinned = fs.readFileSync(path.join(root, 'supabase/migrations/20260626110925_remote_applied_repair.sql'), 'utf8')
+  const reconstructed = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql'),
+    'utf8',
+  )
+
+  assert.equal(zeroStateSkips.includes('20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql'), false)
+
+  const apiSignalsColumns = (sql) => {
+    const withoutComments = sql.replace(/--[^\n]*/g, '')
+    const statement = withoutComments.match(/create\s+or\s+replace\s+view\s+api\.signals\s+(?:with|as)\b[\s\S]*?;/i)
+    assert.ok(statement, 'expected exactly one CREATE OR REPLACE VIEW api.signals statement')
+    const selectList = statement[0].match(/\bselect\b([\s\S]*?)\bfrom\b/i)[1]
+    return selectList
+      .split(',')
+      .map((column) => column.trim())
+      .filter(Boolean)
+  }
+
+  const pinnedColumns = apiSignalsColumns(pinned)
+  const reconstructedColumns = apiSignalsColumns(reconstructed)
+
+  assert.deepEqual(pinnedColumns.slice(-3), ['editorial_title', 'editorial_blurb', 'country_iso2'])
+  // Equal length and identical order: the replace neither drops nor reorders.
+  assert.deepEqual(reconstructedColumns, pinnedColumns)
+  // The reviewer columns this migration exists to expose are still there.
+  assert.ok(reconstructedColumns.includes('reviewed_by'))
+  assert.ok(reconstructedColumns.includes('reviewed_at'))
+  assert.match(reconstructed, /security_invoker\s*=\s*on/i)
+})
+
 test('zero-state skips are suppressed when their exact historical files are absent', () => {
   assert.deepEqual(planReplayZeroStateSkips({ migrationFiles: [] }), [])
   assert.deepEqual(
+    planReplayZeroStateSkips({ migrationFiles: ['20260714224152_create_intel_eval_set_stage0.sql'] }),
+    ['20260714224152_create_intel_eval_set_stage0.sql'],
+  )
+  // Retired skip: this file is replay-safe on its own now, so being present no
+  // longer makes it skipped.
+  assert.deepEqual(
     planReplayZeroStateSkips({ migrationFiles: ['20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql'] }),
-    ['20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql'],
+    [],
   )
 })
 
