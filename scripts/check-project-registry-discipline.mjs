@@ -33,13 +33,8 @@ function parseManualChangedFiles() {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return [];
-  if (trimmed.startsWith('[')) {
-    return JSON.parse(trimmed);
-  }
-  return trimmed
-    .split(/[\n,]/)
-    .map((value) => value.trim())
-    .filter(Boolean);
+  if (trimmed.startsWith('[')) return JSON.parse(trimmed);
+  return trimmed.split(/[\n,]/).map((value) => value.trim()).filter(Boolean);
 }
 
 function readEvent() {
@@ -71,9 +66,7 @@ function requestJson(path) {
       (res) => {
         let body = '';
         res.setEncoding('utf8');
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
+        res.on('data', (chunk) => { body += chunk; });
         res.on('end', () => {
           if (res.statusCode < 200 || res.statusCode >= 300) {
             reject(new Error(`GitHub API request failed with ${res.statusCode}: ${body}`));
@@ -111,10 +104,7 @@ function hasRegistryImpactSection(body) {
 }
 
 function checkedLines(body) {
-  return body
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => /^-\s*\[[xX]\]\s+/.test(line));
+  return body.split(/\r?\n/).map((line) => line.trim()).filter((line) => /^-\s*\[[xX]\]\s+/.test(line));
 }
 
 function hasCheckedRegistryRow(body) {
@@ -136,8 +126,8 @@ function hasCheckedRegistryRow(body) {
 function hasCheckedRegistryDecision(body) {
   return checkedLines(body).some(
     (line) =>
-      /No\s+.*no registry change required/i.test(line) ||
-      /Yes\s+.*PROJECT_REGISTRY\.md/i.test(line) ||
+      (/^[-*]\s*\[[xX]\]\s*No\b/i.test(line) && /registry change required|registry change/i.test(line)) ||
+      (/^[-*]\s*\[[xX]\]\s*Yes\b/i.test(line) && /PROJECT_REGISTRY\.md/i.test(line)) ||
       /HOLD\s+.*registry ambiguity/i.test(line),
   );
 }
