@@ -16,9 +16,23 @@ const REQUIRED_RETIRED = new Set([
   '20260730110000',
   '20260730180000',
 ])
+
+// These historical repository versions were separately authorized and later
+// applied to production under the verified apply-time versions recorded in the
+// current committed-not-applied baseline reconciliation. The canonical authored
+// files were subsequently removed from the active migration tree. Their absence
+// is therefore evidence-preserving history, not an unresolved missing artifact.
+const VERIFIED_APPLIED_HISTORICAL_ALIASES = new Set([
+  '20260727163000',
+  '20260731120000',
+  '20260801150000',
+  '20260802080000',
+  '20260810222500',
+])
+
 // These three were part of the immutable August 14 pending baseline but current
 // main has since retired their duplicate repository files after preserving the
-// canonical live-version equivalents. Their absence must not rewrite history.
+// canonical live-version equivalents.
 const RETIRED_ALIAS_VERSIONS = new Set([
   '20260728000000',
   '20260728010000',
@@ -82,7 +96,11 @@ export function validateReleaseClosureClassification({ classification, releaseCo
   for (const version of flattened) {
     const files = byVersion.get(version) ?? []
     if (files.length > 1) errors.push(`baseline version ${version} maps to multiple repository migration files`)
-    if (files.length === 0 && !RETIRED_ALIAS_VERSIONS.has(version)) {
+    if (
+      files.length === 0 &&
+      !RETIRED_ALIAS_VERSIONS.has(version) &&
+      !VERIFIED_APPLIED_HISTORICAL_ALIASES.has(version)
+    ) {
       errors.push(`baseline version ${version} is missing without an approved historical-retirement disposition`)
     }
   }
