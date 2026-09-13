@@ -9,6 +9,7 @@ import {
 import type { MobileCommandTool } from './mobile-command/contracts'
 import { CorridorPlanWorkspace } from './command-workspace/CorridorPlanWorkspace'
 import { LandedCostWorkspace } from './command-workspace/LandedCostWorkspace'
+import InteractiveChartsPanel from './charts/InteractiveChartsPanel'
 import './DesktopCommandWorkspace.css'
 import './command-workspace/CorridorWorkspace.css'
 
@@ -28,6 +29,7 @@ const WORKSPACE_TOOLS = new Set<MobileCommandTool>([
   'financing-intake',
   'corridor-plan',
   'landed-cost',
+  'charts',
 ])
 
 function parseTool(value: string | null): MobileCommandTool | null {
@@ -69,7 +71,21 @@ export default function DesktopCommandWorkspace() {
 
   return (
     <div className="desktop-command-workspace-layer" data-desktop-command-workspace={tool}>
-      {tool === 'corridor-plan' ? (
+      {tool === 'charts' ? (
+        <div className="desktop-command-workspace-panel" data-tool="charts">
+          <div className="flex items-center justify-between gap-4 px-4 pt-4 pb-2">
+            <h2 className="text-lg font-semibold tracking-tight">Interactive Charts</h2>
+            <button
+              type="button"
+              onClick={close}
+              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted"
+            >
+              Close
+            </button>
+          </div>
+          <InteractiveChartsPanel />
+        </div>
+      ) : tool === 'corridor-plan' ? (
         <CorridorPlanWorkspace onClose={close} />
       ) : tool === 'landed-cost' ? (
         <LandedCostWorkspace onClose={close} />
