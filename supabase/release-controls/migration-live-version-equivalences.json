@@ -355,6 +355,32 @@
         "normalized_sql_chars": 3835,
         "production_apply_evidence": "Live apply-time version reconciled to its canonical repository artifact by content, not by name. Comment- and whitespace-normalized SQL (comments stripped, whitespace collapsed, lower-cased, trimmed) is byte-identical between the production statements column and the repository file: normalized_sql_md5 above matches on both sides. Raw bytes differ only in comments and formatting. Verified read-only against supabase_migrations.schema_migrations on 2026-09-13; the authored repository version is confirmed absent from the live ledger, so no direct-version collision exists. No production DDL was replayed or applied."
       }
+    },
+    {
+      "live_version": "20260914192612",
+      "repository_version": "20260913150000",
+      "file": "20260913150000_restore_34_market_access_evidence_standing_bar.sql",
+      "git_blob_sha": "23376124321abc8b6d0fa96f5d006b8e4b7a8b6c",
+      "provenance": {
+        "type": "production_apply_time_alias_current_pr",
+        "pull_request": 1862,
+        "merge_commit": null,
+        "production_name": "restore_34_market_access_evidence_standing_bar",
+        "production_apply_evidence": "Supabase applied the canonical repository migration and assigned live migration version 20260914192612 on 2026-09-14; the canonical repository version was not rewritten."
+      }
+    },
+    {
+      "live_version": "20260914192712",
+      "repository_version": "20260913154800",
+      "file": "20260913154800_market_access_evidence_complete_127.sql",
+      "git_blob_sha": "13d5acf8220cd7be16e641d7f719182b217f0095",
+      "provenance": {
+        "type": "production_apply_time_alias_current_pr",
+        "pull_request": 1862,
+        "merge_commit": null,
+        "production_name": "market_access_evidence_complete_127",
+        "production_apply_evidence": "Supabase applied the canonical repository migration and assigned live migration version 20260914192712 on 2026-09-14; the canonical repository version was not rewritten."
+      }
     }
   ]
 }
