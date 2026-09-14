@@ -18,7 +18,7 @@ function statusLabel(status: SignalsRealtimeStatus): string {
 }
 
 /**
- * Mounted via DesktopCommandWorkspace when tool=charts.
+ * Mounted via DesktopCommandWorkspace (desktop) or MobileChartsWorkspace (mobile) when tool=charts.
  * Live path: same authenticated feed as Command Centre Intel
  * (`useDashboardSignalsRealtime` → GET /api/dashboard/signals).
  */
