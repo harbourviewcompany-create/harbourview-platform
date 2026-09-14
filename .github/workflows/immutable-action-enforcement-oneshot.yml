@@ -11,7 +11,6 @@ permissions:
 
 jobs:
   pin:
-    if: github.event.head_commit.message != 'chore(security): pin workflow actions immutably'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -25,7 +24,6 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           replacements = {
               'actions/upload-artifact@v7': 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
               'supabase/setup-cli@v3': 'supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520',
@@ -36,7 +34,6 @@ jobs:
               'github/codeql-action/upload-sarif@v4': 'github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63',
               'the-pr-agent/pr-agent@main': 'the-pr-agent/pr-agent@8ac8f7aa9bb97ecf3aa050aac9f6462314206692',
           }
-
           for path in Path('.github/workflows').glob('*.y*ml'):
               text = path.read_text()
               updated = text
@@ -54,16 +51,12 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
           pattern = re.compile(r'uses:\s*([^@\s]+)@([^\s#]+)')
           bad = []
           for path in Path('.github/workflows').glob('*.y*ml'):
               for lineno, line in enumerate(path.read_text().splitlines(), 1):
                   m = pattern.search(line)
-                  if not m:
-                      continue
-                  ref = m.group(2)
-                  if not re.fullmatch(r'[0-9a-fA-F]{40}', ref):
+                  if m and not re.fullmatch(r'[0-9a-fA-F]{40}', m.group(2)):
                       bad.append(f'{path}:{lineno}: {m.group(0)}')
           if bad:
               print('REMAINING MUTABLE WORKFLOW REFERENCES:')
@@ -79,5 +72,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .github/workflows
+          if git diff --cached --quiet; then
+            echo 'No workflow pin changes required.'
+            exit 0
+          fi
           git commit -m 'chore(security): pin workflow actions immutably'
           git push origin HEAD:${{ github.ref_name }}
