@@ -75,7 +75,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.4",
     "class-variance-authority": "^0.7.1",
-    "framer-motion": "^12.23.12",
+    "framer-motion": "^13.2.0",
     "googleapis-common": "^9.0.4",
     "html-to-image": "^1.11.13",
     "jspdf": "^3.0.1",
