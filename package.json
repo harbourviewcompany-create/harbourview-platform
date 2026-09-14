@@ -89,7 +89,7 @@
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
     "stripe": "^22.6.1",
-    "three": "^0.185.1",
+    "three": "^0.186.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
