@@ -286,6 +286,7 @@ export function MarketplaceSection({
         <a href={commandHref('marketplace', { tool: 'wanted-intake', marketView: 'wanted' })} onClick={event => keepInCommand(event, 'wanted-intake', { marketView: 'wanted' })}><span>＋</span><strong>Post wanted demand</strong><small>Buyer-led requirement</small></a>
         <a href={commandHref('marketplace', { tool: 'supply-intake', marketView: supplyView })} onClick={event => keepInCommand(event, 'supply-intake', { marketView: supplyView })}><span>↗</span><strong>Submit supply</strong><small>Consumables &amp; equipment open; licensed routes reviewed</small></a>
         <a href={commandHref('financing', { tool: 'financing-intake', marketView: activeMarketView })} onClick={event => keepInCommand(event, 'financing-intake', { marketView: activeMarketView })}><span>¤</span><strong>Trade financing</strong><small>Structured inquiry</small></a>
+        <a href="/supply" target="_blank" rel="noopener noreferrer"><span>◆</span><strong>Browse Harbourview Supply</strong><small>Consumables &amp; equipment, direct from Harbourview</small></a>
       </div>
 
       <MarketplaceWorkspacePanel

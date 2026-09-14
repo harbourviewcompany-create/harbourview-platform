@@ -4,11 +4,11 @@
  * Corridor evidence readiness flags — operator / corridor-plan awareness.
  * Read-only; does not alter clinical conclusions or disclaimer.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CorridorEvidenceFlag } from '@/lib/clinical/evidence-readiness'
 import { corridorEvidenceFlags } from '@/lib/clinical/evidence-readiness'
-import { CLAIM_MAP_FIXTURES } from '@/lib/fixtures/clinical/claim-map'
-import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
+import type { EvidenceClaimMapEntry, EvidenceRecord } from '@/lib/clinical/types'
+import { adaptEvidenceDto } from '@/lib/clinical/evidenceRecordAdapter'
 
 const levelClass: Record<CorridorEvidenceFlag['level'], string> = {
   ready: 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200',
@@ -55,7 +55,7 @@ export function CorridorEvidenceFlagsPanel({
   )
 }
 
-/** Fixture-backed panel for Command Centre / Access Pathway corridor tab. */
+/** Live-data panel for Command Centre / Access Pathway corridor tab. */
 export function CorridorEvidenceFlagsFromFixtures({
   title = 'Clinical evidence readiness (claim-map)',
   compact = true,
@@ -63,9 +63,38 @@ export function CorridorEvidenceFlagsFromFixtures({
   title?: string
   compact?: boolean
 }) {
+  const [claimMap, setClaimMap] = useState<EvidenceClaimMapEntry[]>([])
+  const [evidence, setEvidence] = useState<EvidenceRecord[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void fetch('/api/clinical/claim-map', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { entries: [] }))
+      .then((body: { entries?: EvidenceClaimMapEntry[] }) => {
+        if (!cancelled) setClaimMap(body.entries ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setClaimMap([])
+      })
+
+    void fetch('/api/clinical/evidence?limit=50', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { records: [] }))
+      .then((body: { records?: Parameters<typeof adaptEvidenceDto>[0][] }) => {
+        if (!cancelled) setEvidence((body.records ?? []).map(adaptEvidenceDto))
+      })
+      .catch(() => {
+        if (!cancelled) setEvidence([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const flags = useMemo(
-    () => corridorEvidenceFlags(CLAIM_MAP_FIXTURES, EVIDENCE_FIXTURES),
-    [],
+    () => corridorEvidenceFlags(claimMap, evidence),
+    [claimMap, evidence],
   )
   return <CorridorEvidenceFlagsPanel flags={flags} title={title} compact={compact} />
 }
