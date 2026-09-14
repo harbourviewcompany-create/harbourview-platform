@@ -7634,3 +7634,74 @@ restores the deleted duplicate. No production state to unwind — nothing was ap
 Owner: Tyler.
 
 **Status: current.**
+
+---
+
+## 2026-09-14 — Dependabot PRs: four CI gates failing structurally, and a build that never ran
+
+**Scope.** Four workflow files. No application code, no migration, no production access.
+
+### Problem
+
+Every Dependabot PR failed four checks for reasons unrelated to its diff. GitHub withholds
+repository secrets from Dependabot-triggered runs, so:
+
+| check | why it could not pass |
+|---|---|
+| `Critical Env Secrets` | 7 secrets arrive empty; `check-critical-env.mjs` treats empty as absent |
+| `Compare repository and live migration ledgers` | `SUPABASE_ACCESS_TOKEN` empty; `supabase link` fails before comparing |
+| `Node 22 / TypeScript / Security / Build / Chromium` | 3 secrets empty |
+| `Enforce registry impact discipline` | Dependabot writes its own PR body and cannot add a `## Registry Impact` section |
+
+None is a signal about the change. A permanently red queue trains reviewers to ignore red.
+
+### The worse finding underneath it
+
+`build` (`Next.js Build`) declares `needs: [smoke, env-check]`. A skipped or failed dependency
+cascades, so `env-check` failing meant **`Next.js Build` never ran on any Dependabot PR** —
+confirmed on #1852, where it and `E2E` both show `skipped`. Dependency bumps were being
+evaluated with no build check, which is the single check a version bump most needs.
+
+### Fix
+
+Each of the four jobs is guarded with `if: github.actor != 'dependabot[bot]'`, with the reason
+recorded inline so it is not "tidied" away later. `check-critical-env.mjs` is deliberately
+**not** relaxed: on a human PR an empty secret is a real failure and must stay one.
+
+`build` is additionally re-gated so a legitimately skipped `env-check` no longer cascades:
+
+```
+if: always()
+    && needs.smoke.result == 'success'
+    && contains(fromJSON('["success","skipped"]'), needs['env-check'].result)
+```
+
+`failure` is absent from the accepted set, so a genuine `env-check` failure still blocks the
+build. Behaviour on human PRs is unchanged.
+
+### Verified
+
+```
+$ npm run build          # with NEXT_PUBLIC_SUPABASE_URL and _ANON_KEY unset
+BUILD_EXIT=0
+```
+
+That is the empirical basis for letting `build` run without the secrets Dependabot cannot
+receive — it passes without them, so this enables a real check rather than adding a new red one.
+
+All four workflows re-parsed after editing; the guard landed on exactly the intended job in
+each, confirmed by matching each job's `name` to the failing check.
+
+### Not fixed here
+
+`npm-audit` and `Trivy + OPA` were also red on Dependabot PRs, but for a real reason — the
+jspdf critical that arrived with #1833. #1850 fixed it; `npm audit` on main now reports
+`found 0 vulnerabilities`, and typecheck passes with jspdf 4.x. `Workers Builds: harbourview`
+remains pre-existing Cloudflare drift.
+
+### Rollback
+
+Revert the commit. Restores four red checks on every Dependabot PR and returns
+`Next.js Build` to never running on them. Owner: Tyler.
+
+**Status: current.**

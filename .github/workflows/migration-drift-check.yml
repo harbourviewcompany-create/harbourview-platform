@@ -106,6 +106,12 @@ jobs:
     name: Compare repository and live migration ledgers
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Reads the live ledger with SUPABASE_ACCESS_TOKEN, which GitHub withholds from
+    # Dependabot-triggered runs, so `supabase link` fails before any comparison
+    # happens. Dependabot PRs touch no migrations, so there is no drift for this job
+    # to find on them. The push/schedule runs on main -- which do get the secret --
+    # remain the authoritative drift gate and are unaffected.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
