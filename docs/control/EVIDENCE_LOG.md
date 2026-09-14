@@ -7033,6 +7033,92 @@ from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR a
 
 ---
 
+## 2026-09-13 — PR #1842 merged: complete jurisdiction rendering, fail-closed colour rule relaxed
+
+**Scope.** `components/globe/GlobeProvider.tsx`, `components/globe/r3f/DataVizLayer.tsx`,
+`data/globe/subnational-regulatory-tiers.ts`, `lib/globe/heat-density.ts`,
+`lib/globe/supabaseGlobeData.ts`, `tests/globe/market-access-evidence.test.ts`.
+Client rendering and data-shape only. **No migration, no schema, no production row.**
+
+Merged to `main` as `5dd1d22` (squash of head `8059916`). `main: true` in `vercel.json`, so
+this merge deploys to production.
+
+### What changed, including the part the PR title does not say
+
+Two things landed together:
+
+1. **The coordinate filter was removed** from the `countries` query. It had been dropping 22
+   of 291 ISO rows before the polygon tier map was built — polygons are keyed by ISO2 and
+   never needed `lat`/`lng`. Coordinate-less rows are now filtered only inside the
+   point-marker and heat-density layers, which genuinely require coordinates. This is a
+   straightforward defect fix.
+
+2. **The fail-closed colour rule was relaxed.** `countries.regulatory_tier` — the legacy
+   regex classifier — had been deliberately excluded from colouring. Three guards enforced
+   that and all three were removed in this PR: the test
+   `keeps retired non-primary evidence fail-closed at the publication boundary`, and the
+   fail-closed cases `legacy tier survives without published evidence` and
+   `retired publication fields are null`.
+
+`resolvePublishedRegulatoryTier()` itself remains strictly fail-closed. The new
+`resolveGlobeDisplayTier()` prefers it, and falls back to a validated legacy tier tagged
+`source: 'provisional_legacy'`.
+
+### Measured blast radius (live, read-only, 2026-09-13)
+
+Query against `zvxdgdkukjrrwamdpqrg`, `public.countries where iso_alpha2 is not null`:
+
+| metric | value |
+|---|---:|
+| total ISO rows | 291 |
+| rows with a verified tier | 130 |
+| **rows with a legacy tier and no verified tier — newly coloured** | **161** |
+
+`GlobeCountryMarker` carries `regulatoryTierSource`, but **no rendering code consumes it** —
+`git grep regulatoryTierSource` outside tests returns only the type definition and two
+assignments. A provisional tier is therefore drawn identically to an evidence-backed one,
+with no legend or tooltip distinction.
+
+**This was raised before merge and accepted as a deliberate product tradeoff** (complete map
+preferred over a strictly evidence-backed one). Recorded here so it is not re-derived as a
+defect later. Open follow-up: wire `regulatoryTierSource` into the rendering layer so
+provisional and verified are visually distinct.
+
+### QA commands run (on merged `main` at `5dd1d22`)
+
+```
+$ npx vitest run tests/globe/market-access-evidence.test.ts tests/globe/supabaseGlobeData.test.ts
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+
+$ npm run typecheck        # tsc --noEmit
+exit 0
+```
+
+`npm run lint:docs` is referenced by `AGENTS.md` but **does not exist** in `package.json`;
+the closest substitutes above are recorded in its place.
+
+### Red checks at merge — attributed, not waived
+
+| check | cause | basis |
+|---|---|---|
+| `verify` (`subnational-regulatory-tier-verify`) | **Gate's own pinned expectation is stale.** It asserts `65\|20\|23\|9\|0\|174` (117 evidence records); live is `71\|26\|23\|10\|0\|161` (130). | Read-only query, this entry. #1842 changes no migration and no row, so it cannot move these counts. Fixing the pin is separate work. |
+| `Compare repository and live migration ledgers` | Repository/live ledger drift contested across #1822 / #1823 / #1827 / #1830 / #1839 / #1841. | Red on every open PR, including ones touching no migrations. |
+| `Workers Builds: harbourview` | Pre-existing Cloudflare dashboard drift. | `docs/control/AGENT_OPERATING_FACTS.md`. |
+
+`Enforce registry impact discipline` was red at review time because the PR body had no
+`## Registry Impact` section. The section was added and the check re-ran green
+(run `34778776912`) before merge.
+
+### Rollback
+
+Revert `5dd1d22`. Restores the fail-closed boundary and the three guard tests in one step.
+No migration or production row to unwind. Owner: Tyler.
+
+**Status: current.**
+
+---
+
 ## 2026-09-13 — Migration ledger: authoritative reconciliation, `applied_not_committed` 13 → 0
 
 **Scope.** `supabase/release-controls/migration-live-version-equivalences.json` (+8 entries),
