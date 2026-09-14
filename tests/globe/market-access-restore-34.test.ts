@@ -30,3 +30,4 @@ describe('restore retired market-access evidence', () => {
 })
 
 // Registry Impact: no project identity or canonical registry mapping changes.
+// Re-run marker: 2026-09-14T15:22 ET.
