@@ -25,19 +25,19 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           replacements = {
-              'actions/upload-artifact@v7': 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-              'supabase/setup-cli@v3': 'supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520',
-              'denoland/setup-deno@v2': 'denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed',
-              'actions/checkout@v4': 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
-              'actions/setup-node@v4': 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
-              'actions/cache@v6': 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
-              'actions/cache/save@v6': 'actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
-              'actions/cache/restore@v6': 'actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
-              'actions/setup-python@v7': 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97',
-              'actions/github-script@v9': 'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3',
-              'github/codeql-action/upload-sarif@v4': 'github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63',
-              'peter-evans/create-pull-request@v8': 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1',
-              'the-pr-agent/pr-agent@main': 'the-pr-agent/pr-agent@8ac8f7aa9bb97ecf3aa050aac9f6462314206692',
+              'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a': 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+              'supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520': 'supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520',
+              'denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed': 'denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed',
+              'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1': 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+              'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020': 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
+              'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9': 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
+              'actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9': 'actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
+              'actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9': 'actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
+              'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97': 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97',
+              'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3': 'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3',
+              'github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63': 'github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63',
+              'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1': 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1',
+              'the-pr-agent/pr-agent@8ac8f7aa9bb97ecf3aa050aac9f6462314206692': 'the-pr-agent/pr-agent@8ac8f7aa9bb97ecf3aa050aac9f6462314206692',
           }
           for path in Path('.github/workflows').glob('*.y*ml'):
               text = path.read_text()
