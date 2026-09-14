@@ -31,7 +31,12 @@ jobs:
               'actions/checkout@v4': 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
               'actions/setup-node@v4': 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020',
               'actions/cache@v6': 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
+              'actions/cache/save@v6': 'actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
+              'actions/cache/restore@v6': 'actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9',
+              'actions/setup-python@v7': 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97',
+              'actions/github-script@v9': 'actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3',
               'github/codeql-action/upload-sarif@v4': 'github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63',
+              'peter-evans/create-pull-request@v8': 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1',
               'the-pr-agent/pr-agent@main': 'the-pr-agent/pr-agent@8ac8f7aa9bb97ecf3aa050aac9f6462314206692',
           }
           for path in Path('.github/workflows').glob('*.y*ml'):
@@ -51,7 +56,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          pattern = re.compile(r'uses:\s*([^@\s]+)@([^\s#]+)')
+          pattern = re.compile(r'^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)')
           bad = []
           for path in Path('.github/workflows').glob('*.y*ml'):
               for lineno, line in enumerate(path.read_text().splitlines(), 1):
