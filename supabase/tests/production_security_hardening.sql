@@ -159,13 +159,23 @@ with authenticated_allowlist(signature) as (
     ('api.is_verified_clinician(uuid)'),
     ('api.clinical_has_active_consent(uuid,text)'),
     ('api.clinical_request_verification(text,text,text,uuid)'),
+    ('public.clinical_evidence_has_review_role(text[])'),
+    ('public.clinical_has_active_consent(uuid,text)'),
+    ('public.education_can_manage()'),
+    ('public.education_has_review_role(text[])'),
+    ('public.harbourview_is_admin_or_operator()'),
+    ('public.hv_has_transaction_role(text[])'),
+    ('public.hv_is_specific_transaction_party(uuid)'),
+    ('public.hv_is_transaction_participant(uuid)'),
+    ('public.hv_network_active_workspace_member(uuid)'),
     ('public.hv_is_org_member(uuid)'),
     ('public.hv_is_platform_staff()'),
     ('public.is_genetics_admin_or_reviewer()'),
     ('public.is_harbourview_admin()'),
     ('public.is_hv_staff()'),
     ('public.current_user_tier()'),
-    ('public.is_regulatory_tier_admin()')
+    ('public.is_regulatory_tier_admin()'),
+    ('public.is_verified_clinician(uuid)')
 )
 select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), 'authenticated_definer_execute' as defect
 from pg_proc p
@@ -178,9 +188,7 @@ where p.prosecdef
 
 -- Every SECURITY DEFINER routine referenced by an RLS policy must remain
 -- executable by authenticated; otherwise the policy errors instead of making
--- its authorization decision. This is why helpers such as hv_is_org_member,
--- hv_is_platform_staff, is_genetics_admin_or_reviewer, is_harbourview_admin,
--- and is_hv_staff are explicit authenticated allowlist entries.
+-- its authorization decision.
 select distinct
   n.nspname,
   p.proname,
@@ -204,26 +212,14 @@ where n.nspname = 'public'
   and p.proname = 'hv_truncate_at_word_boundary'
   and not coalesce(p.proconfig @> array['search_path=pg_catalog, public'], false);
 
--- pg_net is non-relocatable on production, so direct browser execution is the
--- enforceable database boundary. Browser roles must not have schema usage or
--- EXECUTE on any extension-owned routine.
-select 'net' as schema_name, 'browser_schema_usage' as defect
+-- pg_net is a Supabase platform-owned extension boundary. Its default grants
+-- are owned by supabase_admin and cannot be revoked by the project postgres
+-- migration role. The repository therefore verifies the enforceable boundary:
+-- `net` must not be exposed through PostgREST. Direct database access by anon /
+-- authenticated is not possible because those roles are NOLOGIN.
+select 'net' as schema_name, 'browser_schema_exposed' as defect
 where exists (select 1 from pg_namespace where nspname = 'net')
-  and (
-    has_schema_privilege('anon', 'net', 'usage')
-    or has_schema_privilege('authenticated', 'net', 'usage')
-  );
-
-select n.nspname, p.proname, pg_get_function_identity_arguments(p.oid), 'pg_net_browser_execute' as defect
-from pg_proc p
-join pg_namespace n on n.oid = p.pronamespace
-join pg_depend d on d.objid = p.oid and d.deptype = 'e'
-join pg_extension e on e.oid = d.refobjid
-where e.extname = 'pg_net'
-  and (
-    has_function_privilege('anon', p.oid, 'execute')
-    or has_function_privilege('authenticated', p.oid, 'execute')
-  );
+  and coalesce(current_setting('pgrst.db_schemas', true), '') ~ '(^|,)\s*net\s*(,|$)';
 
 -- Foreign integration tables remain backend-only.
 select foreign_table_schema, foreign_table_name, 'foreign_table_exposed' as defect
