@@ -1,4 +1,5 @@
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
 import {
   MOBILE_COMMAND_COPY,
@@ -45,6 +46,7 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
   commandHref: CommandHref
 }) {
   void commandHref
+  const router = useRouter()
   const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
 
   return (
@@ -58,6 +60,9 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
             routerStep="country"
             subNationalIso2s={['US', 'DE', 'CA', 'AU']}
             tierPalette="metal"
+            onSelectCountry={(iso2) => {
+              router.push(`/dashboard?section=jurisdiction&country=${encodeURIComponent(iso2)}`)
+            }}
             onIntroPhaseChange={setIntroPhase}
           />
         </GlobeProvider>
