@@ -49,7 +49,7 @@ jobs:
           node-version: '22'
 
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@v3
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: 2.109.1
 
@@ -126,7 +126,7 @@ jobs:
 
       - name: Upload preflight evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: elite-digest-preflight-${{ github.sha }}
           path: artifacts/elite-digest-preflight/
@@ -165,7 +165,7 @@ jobs:
           node-version: '22'
 
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@v3
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: 2.109.1
 
@@ -305,7 +305,7 @@ jobs:
 
       - name: Upload activation evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: elite-digest-activation-${{ github.sha }}
           path: artifacts/elite-digest-activation/

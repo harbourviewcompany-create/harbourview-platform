@@ -1,0 +1,27 @@
+name: Immutable Action Enforcement
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/check-immutable-workflow-actions.mjs'
+  push:
+    branches:
+      - main
+      - 'fix/**'
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/check-immutable-workflow-actions.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Verify immutable action references
+        run: node scripts/check-immutable-workflow-actions.mjs
