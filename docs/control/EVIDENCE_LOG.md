@@ -7030,3 +7030,123 @@ re-sourced, only retired. Re-sourcing all 34 against primary/official sources re
 session with outbound egress and is tracked in the tier-sourcing worklist; these 34 join
 that backlog and should be prioritised within it, since they are the ones that regressed
 from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR and CL.
+
+---
+
+## 2026-09-13 — Migration ledger: authoritative reconciliation, `applied_not_committed` 13 → 0
+
+**Scope.** `supabase/release-controls/migration-live-version-equivalences.json` (+8 entries),
+5 new files in `supabase/migrations/`, 1 removed. **No production DDL was applied or replayed.**
+All production access was read-only against `zvxdgdkukjrrwamdpqrg`.
+
+### The problem
+
+`Compare repository and live migration ledgers` was red on **every** open PR in the repo,
+including PRs touching zero migrations. The gate fails only on `applied_not_committed`:
+a version applied in production with no repository file, no equivalence entry and no
+attestation. Measured live: **13 such versions**.
+
+Six open PRs (#1822, #1823, #1827, #1830, #1839, #1841) each proposed a different
+reconciliation, and disagreed with each other. This entry records which is correct and why.
+
+### Measurement
+
+Live ledger: 953 applied versions. Repository: 1,054 files. Only September had live > repo,
+so the drift is entirely there; the other months are `committed_not_applied`, which this gate
+tolerates by design.
+
+The 13 split into two classes:
+
+**Class A — 8 versions whose canonical artifact is already in the repository under its
+authored version.** These are the #1812 apply-time aliases.
+
+| live (apply-time) | repository (authored) | normalized SQL md5 |
+|---|---|---|
+| 20260911225008 | 20260808190000 | `b99e91edff940f7cfa7e99bec2ef9f49` |
+| 20260911225106 | 20260808203000 | `e13d26b7a90aeeca86049fbf56ac08ed` |
+| 20260911225151 | 20260810202000 | `1c748b94300ff4a908d2c79a0e05a72e` |
+| 20260911225324 | 20260727163000 | `df388c77700a8be87e29a984da88abc9` |
+| 20260912103655 | 20260731120000 | `7afae98f8e91cd7ab8dd79ebd12a7dda` |
+| 20260912103723 | 20260801150000 | `ff710c207557636e50b51312390c8b45` |
+| 20260912103805 | 20260802080000 | `68a8e26bddf6b1691f135e7a2dd4c92c` |
+| 20260912103836 | 20260810222500 | `c6125a43e1bed59cce4477af91df1271` |
+
+**All 8 verified identical by content, not by name.** With comments stripped, whitespace
+collapsed, lower-cased and trimmed, the production `statements` column and the repository
+file produce the same md5 on both sides — the column above matches in both directions.
+Raw bytes differ only in comments and formatting.
+
+Each authored version was separately confirmed **absent** from the live ledger, so no
+direct-version collision exists and the equivalence is valid under the manifest's own rule.
+
+**Class B — 5 versions with no repository artifact in any form.**
+
+| live | file added | bytes | md5 |
+|---|---|---|---|
+| 20260913114422 | `20260913114422_production_security_hardening_followup.sql` | 2479 | `8936d15e45cc14fb45772956c7098cd7` |
+| 20260913114459 | `20260913114459_pgnet_browser_boundary.sql` | 645 | `5bf1899e1452e9ba19a0051c13396b46` |
+| 20260913114553 | `20260913114553_harden_definer_execution_defaults.sql` | 1699 | `741f780d0bedca1850af67d94832c8e0` |
+| 20260913124740 | `20260913124740_market_entry_mission_workspace.sql` | 6165 | `f0489570deb9568d0002ffc3140afb14` |
+| 20260913124753 | `20260913124753_market_entry_claim_provenance_and_payments.sql` | 4799 | `1f34b51344563d8dd3760d5980b0ebbd` |
+
+Each was written **byte-exact** from `supabase_migrations.schema_migrations.statements` and
+verified: the md5 and byte length of every committed file equal the production values above.
+
+### Two findings worth keeping
+
+**1. #1834's commit message was wrong.** It states it "kept all 8 at their original filenames
+and added live-version-equivalence entries for all 8." The equivalence file contained **no
+entry for any of the 8** — all 16 pre-existing entries are 2026-08-28 or earlier. The files
+were reverted to authored names and the mapping was never added, which is precisely why the
+gate has been red since. #1830's audit called this correctly.
+
+**2. Market Entry OS was applied to production twice, with different SQL.**
+`20260913002300`/`20260913002354` (in the repository) and `20260913124740`/`20260913124753`
+(not) are both live, ~10 hours apart, and are **not** the same content — normalized md5
+`039a29fc…`/`f58f5815…` versus `a5ba9bf1…`/`1f34b513…`. Both are recorded now. Whether the
+second pair was intended to supersede the first is a product question this entry does not
+answer.
+
+### Duplicate removed
+
+`20260913113200_outcome_check_recognize_manual_digest.sql` was deleted. Its normalized SQL
+md5 is `6423a19d16eaf7671c95ecf48760bded` — identical to `20260913113111`, which **is** applied.
+The 113200 copy was never applied and duplicated an applied version.
+
+### QA commands run
+
+```
+$ node scripts/check-migration-filenames.mjs
+Migration filename check passed for 1058 migration files.
+
+$ node scripts/check-migration-sql-parses.mjs
+GO: every migration parses as valid PostgreSQL.   (1058 migrations)
+
+$ node scripts/check-pending-production-migration-decisions.mjs
+Pending migration decisions verified: 83 files / 83 versions, 54 live-only versions, activation HOLD.
+
+$ node scripts/check-release-closure-migration-classification.mjs
+Release-closure migration classification verified: 88 baseline pending = 3 approved + 80 deferred + 5 retired.
+```
+
+Equivalence manifest validated through the manifest script's own
+`loadLiveVersionEquivalences()`: 24 entries accepted, and all 8 new `git_blob_sha` values
+verified against `git hash-object` for the pinned file.
+
+Set difference recomputed against the 953 live versions:
+
+```
+live versions:             953
+repository files:         1058
+equivalence live_versions:  24
+attested live versions:      2
+APPLIED_NOT_COMMITTED:       0
+```
+
+### Rollback
+
+Revert the commit. Restores the 8-entry-shorter equivalence file, removes the 5 files and
+restores the deleted duplicate. No production state to unwind — nothing was applied.
+Owner: Tyler.
+
+**Status: current.**
