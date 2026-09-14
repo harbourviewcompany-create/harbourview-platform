@@ -152,6 +152,27 @@ Option 1 looks right. **Not done here** — `supabase/release-controls/` is hash
 governed, deleting or renaming an existing migration needs explicit confirmation, and PR #1830
 lists touching this ledger as an explicit non-goal.
 
+> ### Resolved by #1847 — option 3, not option 1
+>
+> While this was being written, **#1847 (`3cc593d`) landed on `main`** and resolved it by
+> **deleting `20260913113200`**, keeping the applied `20260913113111`. That is option 3 above,
+> not the option 1 recommended here. Verified on `origin/main`: only
+> `20260913113111_outcome_check_recognize_manual_digest.sql` remains, and no equivalence entry
+> was added for either version.
+>
+> Option 3 is a legitimate choice and the simplest one. Recording the cost so it is not
+> rediscovered later: the surviving file is the reconstructed stub whose header reads
+> *"Reconstructed from production. Applied directly, never committed."* The authored rationale
+> — which explained that `hv_intelligence_outcome_check()` had been raising false
+> `digest_stale` / `digest_missed_today` alerts every day the `published_manual` fallback ran —
+> was in the deleted file and is now only in git history. The SQL is unaffected; the two bodies
+> were identical.
+>
+> One correction to #1847's own evidence-log entry: it states *"The gate fails only on
+> `applied_not_committed`."* It does not — that is the same error corrected above, and
+> `committed_not_applied` for `20260913113200` is what was actually reddening the gate. #1847
+> fixed both, so its outcome is right even though its stated reason is not.
+
 ## Gate 9 — the five concrete items
 
 From a live security advisor sweep plus direct catalogue queries:
