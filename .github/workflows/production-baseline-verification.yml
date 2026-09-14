@@ -14,6 +14,12 @@ jobs:
     name: Node 22 / TypeScript / Security / Build / Chromium
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    # Needs NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY / STRIPE_SECRET_KEY, which GitHub
+    # withholds from Dependabot-triggered runs, so the build step fails for want of
+    # configuration rather than for anything in the diff. Typecheck and build
+    # coverage for Dependabot PRs still comes from the CI workflow's own Type Check
+    # and Next.js Build jobs, which do not require these secrets.
+    if: github.actor != 'dependabot[bot]'
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
