@@ -45,10 +45,17 @@ export function MarketplaceWorkspacePanel({
   onViewSubmissions: () => void
 }) {
   const workspaceRef = useRef<HTMLElement>(null)
-  const open = Boolean(tool && tool !== 'financing-intake')
+  // Charts / corridor / landed-cost are hosted outside marketplace intake panels.
+  const nonMarketplaceTools = new Set([
+    'financing-intake',
+    'charts',
+    'corridor-plan',
+    'landed-cost',
+  ])
+  const open = Boolean(tool && !nonMarketplaceTools.has(tool))
   useWorkspaceFocus(open, workspaceRef)
 
-  if (!tool || tool === 'financing-intake') return null
+  if (!tool || nonMarketplaceTools.has(tool)) return null
 
   const config = tool === 'wanted-intake'
     ? {
