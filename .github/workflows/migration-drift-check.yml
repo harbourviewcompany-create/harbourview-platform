@@ -65,6 +65,26 @@ jobs:
       - name: Parse every migration
         run: node scripts/check-migration-sql-parses.mjs
 
+  # Parsing proves each migration is valid SQL on its own. It does not prove the
+  # tree replays: CREATE OR REPLACE VIEW can only append columns, and a
+  # replacement that drops or reorders one parses perfectly and then dies with
+  # "cannot drop columns from view". That has happened four times here, found by
+  # hand each time. This is the standing check EVIDENCE_LOG.md kept asking for.
+  view-replay-narrowing:
+    name: Verify no view narrows on replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Self-test the checker
+        run: node --test tests/scripts/view-replay-narrowing.test.mjs
+      - name: Check every view definition in replay order
+        run: node scripts/check-view-replay-narrowing.mjs
+
   parser-contract:
     name: Verify migration-list parser
     runs-on: ubuntu-latest
