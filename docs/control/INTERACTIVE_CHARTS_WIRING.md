@@ -3,6 +3,7 @@
 ## Status
 - Core components: PR #1832 / included in `feat/interactive-charts-wiring`
 - Wiring + CTA + production fixes: PR #1833
+- Mobile mount: `feat/mobile-charts-workspace`
 
 ## Required dependencies
 ```bash
@@ -21,6 +22,9 @@ npm install recharts framer-motion html-to-image jspdf
 
 ## Mount (implemented)
 - Desktop: `/dashboard?tool=charts` → `DesktopCommandWorkspace` → `InteractiveChartsPanel`
+- Mobile: `/dashboard?tool=charts` → `MobileChartsWorkspace` → `InteractiveChartsPanel`
+  - Hosted from `DashboardResponsiveShell` when `isMobile` (max-width 767px)
+  - `MarketplaceWorkspacePanel` explicitly ignores `charts` so intake UI does not flash
 - CTA: Next Actions → “Open interactive charts” (`buildChartsToolHref`)
 
 ## Live data
@@ -35,7 +39,7 @@ Pass session signals into the panel; do not call service-role fetchers from the 
 Charts respect `prefers-reduced-motion` via Framer Motion `useReducedMotion`.
 
 ## Evidence
-- Date: 2026-09-13
-- Scope: Interactive charts production readiness on `feat/interactive-charts-wiring`
-- Changes: native Select; live signal→chart transform; CC styling; vitest smoke; CTA + tool mount
-- Status: code complete; lockfile + full QA suite pending local `npm install` + CI
+- Date: 2026-09-14
+- Scope: Mobile Interactive Charts mount parity
+- Changes: `MobileChartsWorkspace` host; shell wire; marketplace panel exclusion; docs
+- Status: code complete; visual QA on mobile viewport pending
