@@ -78,7 +78,7 @@
     "framer-motion": "^13.2.0",
     "googleapis-common": "^9.0.4",
     "html-to-image": "^1.11.13",
-    "jspdf": "^3.0.1",
+    "jspdf": "^4.2.1",
     "linkedom": "^0.18.12",
     "lucide-react": "^1.42.0",
     "next": "^16.3.4",
