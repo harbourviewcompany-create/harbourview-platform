@@ -10,7 +10,7 @@ const closureMigration = readFileSync(
   'utf8',
 )
 const dependencyRepairMigration = readFileSync(
-  'supabase/migrations/20260914210000_security_hardening_rls_dependency_repair.sql',
+  'supabase/migrations/20260914205452_security_hardening_rls_dependency_repair.sql',
   'utf8',
 )
 const assertions = readFileSync('supabase/tests/production_security_hardening.sql', 'utf8')
