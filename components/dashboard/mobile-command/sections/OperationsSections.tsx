@@ -1,3 +1,4 @@
+import dynamic from 'next/dynamic'
 import { JOB_SECTOR_LABELS, JOB_TYPE_LABELS } from '../../data/jobsBoard'
 import {
   MOBILE_COMMAND_COPY,
@@ -7,6 +8,15 @@ import {
 } from '../contracts'
 import { EmptyState, Metric, SectionShell, StatusPill, type SectionRef } from '../SectionUI'
 import { TalentLiveSection } from '@/components/command-centre/talent/TalentLiveSection'
+import { GlobeProvider } from '@/components/globe/GlobeProvider'
+import type { GlobeIntroPhase } from '@/lib/globe/globe-intro'
+import { useState } from 'react'
+import './MobileMarketAccessSection.css'
+
+const GlobeCanvas = dynamic(
+  () => import('@/components/globe/r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })),
+  { ssr: false, loading: () => <div className="mobile-market-access-globe-loading" aria-label="Loading Market Access map" /> },
+)
 
 type CommandHref = (section: SectionId, changes?: Record<string, string | null>) => string
 
@@ -31,18 +41,32 @@ export function JurisdictionSection({ sectionRef, countryLabel, flag, region, ou
   regulator?: string | null
   reviewStatus: string
   pathwaySteps: PathwayStep[]
-  /**
-   * True when the steps came from the generic role fallback rather than a
-   * hand-authored `cc_pathway_templates` row. 34 of 203 countries have a
-   * curated row, so this is the common case and must be stated — otherwise a
-   * role-level pathway reads as jurisdiction-specific guidance.
-   */
   pathwayIsGeneric: boolean
   commandHref: CommandHref
 }) {
   void commandHref
+  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
+
   return (
-    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Jurisdiction context" title={`${countryLabel} market-access context`} description={MOBILE_COMMAND_COPY.jurisdictionDescription}>
+    <SectionShell id="jurisdiction" sectionRef={sectionRef} eyebrow="Market Access" title="Global Market Access" description="Commercial cannabis market-access status across the global jurisdiction universe.">
+      <div className="mobile-market-access-globe" aria-label="Interactive Harbourview Market Access globe">
+        <GlobeProvider>
+          <GlobeCanvas
+            className="mobile-market-access-globe-canvas"
+            selectedCountryIso2s={[]}
+            activeLayerId="market_openness"
+            routerStep="country"
+            subNationalIso2s={['US', 'DE', 'CA', 'AU']}
+            tierPalette="metal"
+            onIntroPhaseChange={setIntroPhase}
+          />
+        </GlobeProvider>
+      </div>
+      <div className="mobile-market-access-note" aria-live="polite">
+        <span>Market Access</span>
+        <span>{introPhase === 'ready' ? 'Live jurisdiction layer. Select a country to continue.' : 'Loading live jurisdiction layer…'}</span>
+      </div>
+
       <article className="hvm2-jurisdiction-card">
         <div className="hvm2-jurisdiction-title"><span aria-hidden="true">{flag}</span><div><h3>{countryLabel}</h3><p>{region || 'Global regulated market'}</p></div></div>
         <p>{outlook?.trim() || pathway?.trim() || MOBILE_COMMAND_COPY.jurisdictionFallback}</p>
@@ -128,11 +152,6 @@ export function ReviewGatesSection({ sectionRef, reviewStatus, approved, sourceC
   )
 }
 
-/**
- * Live Talent section — fetches from /api/talent instead of static JOB_LISTINGS.
- * Falls back to empty state when the table is empty or the API is unavailable.
- * `records` prop kept for call-site compatibility; ignored in favour of live data.
- */
 export function TalentSection({
   sectionRef,
   records: _records,
@@ -159,5 +178,4 @@ export function TalentSection({
   )
 }
 
-// Re-export labels for any remaining consumers
 export { JOB_SECTOR_LABELS, JOB_TYPE_LABELS }
