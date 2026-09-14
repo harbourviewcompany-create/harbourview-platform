@@ -1,0 +1,82 @@
+.mobile-market-access-globe {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: clamp(360px, 72vw, 520px);
+  min-height: 360px;
+  overflow: hidden;
+  contain: layout paint;
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  border-radius: 18px;
+  background: #050b12;
+}
+
+.mobile-market-access-globe-canvas {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.mobile-market-access-globe-canvas canvas {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+}
+
+.mobile-market-access-globe-loading {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  background: #050b12;
+}
+
+.mobile-market-access-note {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: rgba(231, 237, 243, 0.68);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.mobile-market-access-note span:first-child {
+  color: #d4af37;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 600px) {
+  .mobile-market-access-globe {
+    height: min(92vw, 430px);
+    min-height: 300px;
+    border-radius: 14px;
+  }
+
+  .mobile-market-access-globe-loading {
+    min-height: 300px;
+  }
+
+  .mobile-market-access-note {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 380px) {
+  .mobile-market-access-globe {
+    height: 300px;
+  }
+
+  .mobile-market-access-note {
+    grid-template-columns: 1fr;
+  }
+}
