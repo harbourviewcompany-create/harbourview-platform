@@ -31,21 +31,24 @@ describe('subnational regulatory tiers', () => {
     expect(new Set(allCodes).size).toBe(88)
   })
 
-  it('builds the tier map from live rows only', () => {
-    expect(buildRegulatoryTierMap([])).toEqual({})
+  it('provides a tier for every supported rendered region and lets live rows override', () => {
+    const map = buildRegulatoryTierMap([])
+    const allCodes = [
+      ...usStates.map((row) => row.iso2),
+      ...canadaProvinces.map((row) => row.iso2),
+      ...germanyBundeslaender.map((row) => row.iso2),
+      ...australiaStates.map((row) => row.iso2),
+    ]
 
-    const map = buildRegulatoryTierMap([
-      { iso2: 'US-CA', regulatoryTier: 'domestic_only' },
-      { iso2: 'CA-ON', regulatoryTier: 'legal_commercial_access' },
-      { iso2: 'DE-BE', regulatoryTier: null },
+    expect(Object.keys(map)).toHaveLength(88)
+    for (const iso2 of allCodes) expect(map[iso2], iso2).toBeDefined()
+
+    const liveOverride = buildRegulatoryTierMap([
+      { iso2: 'US-CA', regulatoryTier: 'legal_commercial_access' },
+      { iso2: 'CA-ON', regulatoryTier: null },
     ])
-
-    expect(map).toEqual({
-      'US-CA': 'domestic_only',
-      'CA-ON': 'legal_commercial_access',
-    })
-    expect(map['DE-BE']).toBeUndefined()
-    expect(map['AU-NSW']).toBeUndefined()
+    expect(liveOverride['US-CA']).toBe('legal_commercial_access')
+    expect(liveOverride['CA-ON']).toBe('domestic_only')
   })
 
   it('never inherits a missing region tier from its parent country', () => {
