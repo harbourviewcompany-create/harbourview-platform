@@ -81,10 +81,76 @@ files.
 
 The last five were applied to production **today** and have no repository file at all.
 
-`applied_not_committed` is the one class the drift gate is documented to fail on. It is
-currently non-empty, and this is exactly the condition `AGENT_OPERATING_FACTS.md` warns
-about: *"Merging a migration does not apply it to production."* The inverse is now also true —
-production is being changed without the repository following.
+This is exactly the condition `AGENT_OPERATING_FACTS.md` warns about — *"Merging a migration
+does not apply it to production"* — with the inverse now also true: production is being
+changed without the repository following.
+
+> ### Correction, 2026-09-13 23:40 — which class actually fails the gate
+>
+> An earlier revision of this section asserted that **`applied_not_committed` is the one class
+> the drift gate is documented to fail on**. `CLAUDE.md` says the same thing. Measured against
+> the actual job logs, **both are wrong about the gate's present behaviour.**
+>
+> The failing step on both `main` (`bd474eb`, run 34789239183) and PR #1830 (`2a294d8`, run
+> 34789417165) is `migration-ledger-manifest.mjs`, and it exits 1 on the **opposite** class:
+>
+> ```
+> Committed-but-unapplied migration drift detected: 20260913113200.
+> ```
+>
+> The workflow passes `--committed-baseline supabase/release-controls/committed-not-applied-baseline.json`,
+> so `committed_not_applied` fails the gate unless baselined. The 13 `applied_not_committed`
+> versions are handled by `notify-new-migration-drift.mjs`, which reported
+> *"13 version(s) newer than baseline, but all already mentioned in an open migration-drift
+> issue. Nothing new to file."* and **exited 0** — informational, not gating.
+>
+> The **counts** in the table above were measured and stand. Only the claim about which
+> direction fails the build was wrong, and it was carried forward from `CLAUDE.md` rather than
+> read off a log. `CLAUDE.md`'s "The gate fails only on the former" needs the same correction.
+
+## The single version that is actually red — and why it will never go green on its own
+
+`20260913113200_outcome_check_recognize_manual_digest.sql` is committed and **not** applied.
+Confirmed directly against the live ledger:
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+where version in ('20260913113111','20260913113200');
+-- 20260913113111 | outcome_check_recognize_manual_digest
+-- (20260913113200: no row)
+```
+
+There are **two files for the same logical migration**:
+
+| file | state | header |
+|---|---|---|
+| `20260913113111_outcome_check_recognize_manual_digest.sql` | **applied** to production | *"Reconstructed from production. Applied directly, never committed."* |
+| `20260913113200_outcome_check_recognize_manual_digest.sql` | committed, never applied | the authored change, with its full rationale |
+
+**Their SQL is identical.** Stripping comments and normalising whitespace leaves a zero-line
+diff across all 128 statement lines. The `hv_intelligence_outcome_check()` fix is therefore
+**already live in production** — it went in as `113111`. `113200` is a redundant second copy
+that can never be applied (the function it defines is already defined) and so reds the drift
+gate on every commit, on `main` and on every branch, indefinitely.
+
+`20260913113200` appears in **no** file under `supabase/release-controls/` — checked directly,
+so it is neither baselined nor equivalence-mapped.
+
+This is not the #1812 drift and does not wait on #1822/#1827. It is one duplicate file.
+Resolving it is a governance decision, not a code fix, and three options exist:
+
+1. **Equivalence entry** mapping `20260913113200` → live `20260913113111`, the mechanism #1834
+   already used for its eight. Most consistent with existing practice; keeps the authored
+   rationale in the tree.
+2. **Baseline entry** in `committed-not-applied-baseline.json` with a recorded reason. What the
+   error message itself suggests, but "deliberately withheld" would be a false statement — it
+   is not withheld, it is already applied under another version.
+3. **Delete `20260913113200`** and keep the reconstructed `113111`. Smallest tree, but loses the
+   authored rationale, which is the better-documented of the two files.
+
+Option 1 looks right. **Not done here** — `supabase/release-controls/` is hash-bound and
+governed, deleting or renaming an existing migration needs explicit confirmation, and PR #1830
+lists touching this ledger as an explicit non-goal.
 
 ## Gate 9 — the five concrete items
 
