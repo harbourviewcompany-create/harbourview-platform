@@ -2,7 +2,11 @@
   position: fixed;
   inset: 0;
   z-index: 120;
+  overflow-x: clip;
   overflow-y: auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   -webkit-overflow-scrolling: touch;
   padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 0px));
   background: color-mix(in srgb, #020814 94%, transparent);
@@ -12,6 +16,7 @@
 
 .mobile-charts-workspace-layer .mobile-charts-workspace {
   width: 100%;
+  min-width: 0;
   max-width: 100%;
   margin: 0;
   padding: 14px 12px 20px;
@@ -19,6 +24,13 @@
   border-radius: 16px;
   background: linear-gradient(145deg, rgba(17, 35, 54, 0.98), rgba(3, 12, 24, 0.98));
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+
+.mobile-charts-workspace .hv-charts-card,
+.mobile-charts-workspace [data-interactive-charts-panel],
+.mobile-charts-workspace [data-interactive-charts-panel] > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mobile-charts-workspace .hv-charts-card {
@@ -29,6 +41,7 @@
 .mobile-charts-workspace [data-interactive-charts-panel] {
   padding-left: 0;
   padding-right: 0;
+  overflow-x: clip;
 }
 
 @media (min-width: 768px) {
