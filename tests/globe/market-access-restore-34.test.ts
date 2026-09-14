@@ -28,3 +28,5 @@ describe('restore retired market-access evidence', () => {
     expect(sql).toContain('v_missing <> 127')
   })
 })
+
+// Registry Impact: no project identity or canonical registry mapping changes.
