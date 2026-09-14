@@ -134,7 +134,13 @@ function stripSiteSuffix(title: string, sourceName: string | null | undefined): 
   // single-article sources where whoever registered it used the article's
   // own headline as the source_name instead of just the site's brand. Also
   // try matching against the portion before source_name's own separator.
-  const sourceBrand = source.split(/\s+[-|\u2013\u2014]\s+/)[0].trim();
+  // Separator here must also match a literal double-hyphen ("Brand --
+  // Title", a common ASCII em-dash substitute) -- the single-char class
+  // used elsewhere doesn't match "--" since \s+ can't follow immediately
+  // after the first hyphen when a second hyphen sits right there instead of
+  // whitespace, so sourceBrand silently fell back to the whole (unsplit)
+  // source_name for every source using that convention and never matched.
+  const sourceBrand = source.split(/\s+(?:-{1,2}|\||\u2013|\u2014)\s+/)[0].trim();
   const candidates = [source, sourceBrand];
   const matchesAny = candidates.some(
     (c) => c.length >= 3 && (suffix === c || suffix.includes(c) || c.includes(suffix)),
