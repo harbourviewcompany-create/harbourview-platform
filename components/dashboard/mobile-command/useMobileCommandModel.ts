@@ -7,6 +7,7 @@ import { useMobileCommandModel as useBaseMobileCommandModel } from './useMobileC
 import { useDashboardSignalsRealtime } from '@/components/dashboard/useDashboardSignalsRealtime'
 import { buildCommercialNextActions } from '@/lib/dashboard/buildCommercialActions'
 import {
+  buildChartsToolHref,
   buildCorridorPlanToolHref,
   buildLandedCostToolHref,
 } from '@/components/dashboard/mobile-command/contracts'
@@ -121,6 +122,17 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     const origin = countryParam
     const destination = origin === 'DE' ? 'CA' : 'DE'
     return [
+      {
+        id: 'charts',
+        label: 'Open interactive charts',
+        detail: 'Explore market signal timelines and opportunity scores with drill-down routing.',
+        href: buildChartsToolHref({
+          country: origin,
+          role: model.currentRole ?? undefined,
+          returnTo: commandReturnTo,
+        }),
+        tone: 'gold' as const,
+      },
       {
         id: 'corridor-plan',
         label: 'Open corridor execution plan',
