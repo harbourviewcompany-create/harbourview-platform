@@ -1,17 +1,15 @@
 /**
  * lib/globe/supabaseGlobeData.ts
  *
- * Market Access display tiers prefer the evidence-backed verified tier. Where
- * verified publication is not yet available, the existing five-tier legacy
- * classifier is exposed as a provisional display tier so the global choropleth
- * does not silently disappear. Provisional rows are explicitly marked and
- * must not be treated as verified regulatory evidence.
+ * Market Access display tiers are evidence-backed only. Jurisdictions remain
+ * geometrically rendered when evidence is unavailable, but unresolved regions
+ * are intentionally neutral rather than being assigned a legacy tier.
  */
 import { createClient } from '@/lib/supabase/client'
 import type { RegulatoryTier } from './globe-materials'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type GlobeTierSource = 'verified' | 'provisional_legacy' | 'unresolved'
+export type GlobeTierSource = 'verified' | 'unresolved'
 
 export type GlobeCountryMarker = {
   iso2: string
@@ -21,7 +19,7 @@ export type GlobeCountryMarker = {
   opportunityScore: number | null
   signalsStatus: string | null
   marketAccessStatus: string | null
-  /** Display tier. Verified evidence wins; legacy is provisional only. */
+  /** Display tier. Only currently valid evidence may produce a tier. */
   regulatoryTier: RegulatoryTier | null
   regulatoryTierSource: GlobeTierSource
   regulatoryTierEvidenceKey: string | null
@@ -40,6 +38,8 @@ export type GlobeSignal = {
 
 export type GlobeLiveData = {
   countries: GlobeCountryMarker[]
+  /** Evidence-backed tiers for both national and rendered subnational geometries. */
+  regulatoryTiersByIso2: Record<string, RegulatoryTier | null>
   signalsByIso2: Record<string, GlobeSignal[]>
   unmappedSignalCountries: Record<string, number>
 }
@@ -82,25 +82,37 @@ export function resolvePublishedRegulatoryTier(
   return tier
 }
 
-/**
- * Resolve the tier used by the public globe visual layer.
- *
- * The verified publication contract remains authoritative whenever available.
- * A non-null legacy tier is used only as a provisional visual fallback so a
- * jurisdiction remains represented on the global map. Callers receive the
- * source explicitly and can distinguish provisional from verified data.
- */
+/** Resolve only evidence-backed data for the public globe. */
 export function resolveGlobeDisplayTier(
   row: PublishedTierRow,
   nowMs: number = Date.now(),
 ): { tier: RegulatoryTier | null; source: GlobeTierSource } {
   const verified = resolvePublishedRegulatoryTier(row, nowMs)
   if (verified) return { tier: verified, source: 'verified' }
-
-  const provisional = asRegulatoryTier(row.regulatory_tier)
-  if (provisional) return { tier: provisional, source: 'provisional_legacy' }
-
   return { tier: null, source: 'unresolved' }
+}
+
+type EvidenceTierRow = {
+  jurisdiction_iso2: string | null
+  tier: string | null
+  evidence_key: string | null
+  verified_at: string | null
+  expires_at: string | null
+  active: boolean | null
+}
+
+function buildEvidenceTierMap(rows: readonly EvidenceTierRow[], nowMs: number): Record<string, RegulatoryTier | null> {
+  const map: Record<string, RegulatoryTier | null> = {}
+  for (const row of rows) {
+    if (!row.jurisdiction_iso2 || !row.active) continue
+    const tier = asRegulatoryTier(row.tier)
+    const verifiedMs = row.verified_at ? Date.parse(row.verified_at) : NaN
+    const expiresMs = row.expires_at ? Date.parse(row.expires_at) : NaN
+    if (!tier || !row.evidence_key || !Number.isFinite(verifiedMs) || !Number.isFinite(expiresMs)) continue
+    if (verifiedMs > nowMs || expiresMs <= nowMs) continue
+    if (map[row.jurisdiction_iso2] === undefined) map[row.jurisdiction_iso2] = tier
+  }
+  return map
 }
 
 export async function getGlobeCountryMarkers(
@@ -141,11 +153,27 @@ export async function getGlobeLiveData(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeLiveData> {
   const countries = await getGlobeCountryMarkers(supabase)
+  const nowMs = Date.now()
+
+  const { data: evidenceRows, error: evidenceError } = await supabase
+    .from('regulatory_market_access_evidence')
+    .select('jurisdiction_iso2, tier, evidence_key, verified_at, expires_at, active')
+    .eq('active', true)
+    .order('verified_at', { ascending: false })
+
+  if (evidenceError) {
+    throw new Error(`getGlobeLiveData: regulatory evidence query failed: ${evidenceError.message}`)
+  }
+
+  const regulatoryTiersByIso2 = buildEvidenceTierMap((evidenceRows ?? []) as EvidenceTierRow[], nowMs)
+  for (const country of countries) {
+    if (country.regulatoryTier) regulatoryTiersByIso2[country.iso2] = country.regulatoryTier
+  }
 
   const { data: signalRows, error: signalsError } = await supabase
     .from('signals')
     .select('id, headline, score, cat, country, country_iso2, created_at')
-    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .gte('created_at', new Date(nowMs - 30 * 24 * 60 * 60 * 1000).toISOString())
     .order('created_at', { ascending: false })
     .limit(500)
 
@@ -174,7 +202,7 @@ export async function getGlobeLiveData(
       unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
     }
   }
-  return { countries, signalsByIso2, unmappedSignalCountries }
+  return { countries, regulatoryTiersByIso2, signalsByIso2, unmappedSignalCountries }
 }
 
 export type SignalRealtimeRow = {

@@ -27,7 +27,7 @@ describe('evidence-backed Market Access publication', () => {
     expect(resolvePublishedRegulatoryTier(row, now)).toBeNull()
   })
 
-  it('keeps a valid verified tier ahead of the legacy display tier', () => {
+  it('keeps a valid verified tier ahead of any legacy value', () => {
     expect(resolveGlobeDisplayTier({
       verified_regulatory_tier: 'medical_limited_trade',
       regulatory_tier: 'prohibited',
@@ -37,10 +37,10 @@ describe('evidence-backed Market Access publication', () => {
     }, now)).toEqual({ tier: 'medical_limited_trade', source: 'verified' })
   })
 
-  it('uses a valid legacy tier only as an explicitly provisional display fallback', () => {
+  it('does not publish a legacy tier when verified evidence is absent', () => {
     expect(resolveGlobeDisplayTier({ regulatory_tier: 'legal_commercial_access' }, now)).toEqual({
-      tier: 'legal_commercial_access',
-      source: 'provisional_legacy',
+      tier: null,
+      source: 'unresolved',
     })
   })
 
@@ -58,12 +58,14 @@ describe('evidence-backed Market Access publication', () => {
     expect(select).toContain('regulatory_tier')
     expect(source).not.toContain(".not('lat', 'is', null)")
     expect(source).not.toContain(".not('lng', 'is', null)")
+    expect(source).toContain(".from('regulatory_market_access_evidence')")
   })
 
   it('keeps the legacy regex classifier out of the verified publication boundary', () => {
     const source = readFileSync('lib/globe/supabaseGlobeData.ts', 'utf8')
     expect(source).toContain('resolvePublishedRegulatoryTier')
     expect(source).toContain('resolveGlobeDisplayTier')
+    expect(source).not.toContain('provisional_legacy')
   })
 
   it('restricts parent inheritance to CA, AU and DE and explicitly excludes US', () => {
