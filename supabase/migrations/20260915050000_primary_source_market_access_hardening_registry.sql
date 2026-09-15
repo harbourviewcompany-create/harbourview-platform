@@ -17,6 +17,9 @@ create table if not exists public.regulatory_market_access_primary_sources (
   constraint regulatory_market_access_primary_source_snapshot check (source_snapshot_sha256 is null or source_snapshot_sha256 ~ '^[0-9a-f]{64}$')
 );
 
+create unique index if not exists regulatory_market_access_primary_sources_unique_url
+  on public.regulatory_market_access_primary_sources (authority_url);
+
 alter table public.regulatory_market_access_primary_sources enable row level security;
 drop policy if exists regulatory_market_access_primary_sources_public_read on public.regulatory_market_access_primary_sources;
 create policy regulatory_market_access_primary_sources_public_read on public.regulatory_market_access_primary_sources for select to anon, authenticated using (true);
@@ -24,7 +27,7 @@ revoke insert, update, delete on public.regulatory_market_access_primary_sources
 grant select on public.regulatory_market_access_primary_sources to anon, authenticated;
 
 comment on table public.regulatory_market_access_primary_sources is
-  'Strict provenance registry. One jurisdiction-specific primary regulator/government/legal source per published market-access jurisdiction. Secondary trackers and aggregate treaty reports do not satisfy this registry.';
+  'Strict provenance registry. One jurisdiction-specific primary regulator/government/legal source per published market-access jurisdiction. Secondary trackers and aggregate treaty reports do not satisfy this registry. The source URL is unique so one generic page cannot be reused for multiple jurisdictions.';
 
 create or replace view api.regulatory_market_access_primary_source_gaps as
 select c.iso_alpha2,c.country_name,c.verified_regulatory_tier,c.regulatory_tier_evidence_key,
