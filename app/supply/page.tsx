@@ -9,7 +9,7 @@ import {
   type SupplyListing,
 } from '@/lib/server/supplyQuery'
 import { getSupplyCategoryMedia } from '@/lib/server/supplyMedia'
-import { getCountryLegalStatus, LEGAL_STATUS_LABELS } from '@/lib/server/countryLegalStatus'
+import { getCountryLegalStatus, getAllResearchedCountries, LEGAL_STATUS_LABELS } from '@/lib/server/countryLegalStatus'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -150,7 +150,8 @@ function ProductCard({ listing }: { listing: SupplyListing }) {
 export default async function SupplyCatalogPage({ searchParams }: PageProps) {
   const { category, country, q } = await searchParams
   const activeCategory = category && isSupplyCategory(category) ? category : 'all'
-  const activeCountry = country && COUNTRY_TABS.some((t) => t.value === country) ? country : 'all'
+  const activeCountry = country && /^[A-Z]{2}$/.test(country) ? country : 'all'
+  const researchedCountries = await getAllResearchedCountries()
   const legalStatus = activeCountry !== 'all' ? await getCountryLegalStatus(activeCountry) : null
 
   const listings = await getSupplyCatalog({
@@ -204,25 +205,25 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
           })}
         </div>
 
-        <div className="mb-8 flex flex-wrap gap-2">
-          {COUNTRY_TABS.map((tab) => {
-            const isActive = tab.value === activeCountry
-            const href = buildSupplyHref({ category: activeCategory, country: tab.value, q })
-            return (
-              <Link
-                key={tab.value}
-                href={href}
-                className={
-                  isActive
-                    ? 'rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white'
-                    : 'rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/44 transition-colors hover:border-white/25 hover:text-white/70'
-                }
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
-        </div>
+        <form action="/supply" method="get" className="mb-8 flex flex-wrap items-center gap-3">
+          {activeCategory !== 'all' ? <input type="hidden" name="category" value={activeCategory} /> : null}
+          {q ? <input type="hidden" name="q" value={q} /> : null}
+          <select
+            name="country"
+            defaultValue={activeCountry}
+            className="rounded-full border border-white/10 bg-white/[0.02] px-4 py-2 text-[11px] uppercase tracking-[0.1em] text-white/70 focus:border-gold/40 focus:outline-none"
+          >
+            <option value="all">All Countries</option>
+            {researchedCountries.map((c) => (
+              <option key={c.iso2} value={c.iso2}>
+                {c.country_name}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="btn-marketplace px-5 py-2 text-[10px]">
+            View legal status
+          </button>
+        </form>
 
         {activeCountry !== 'all' ? (
           <div className="mb-6 rounded-sm border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/60">
