@@ -7,6 +7,7 @@ export const revalidate = 300
 
 const EMPTY: GlobeLiveData = {
   countries: [],
+  regulatoryTiersByIso2: {},
   signalsByIso2: {},
   unmappedSignalCountries: {},
 }

@@ -32,6 +32,7 @@ async function fetchGlobeBootstrapData(): Promise<GlobeLiveData> {
   const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
   return {
     countries: data.countries ?? [],
+    regulatoryTiersByIso2: data.regulatoryTiersByIso2 ?? {},
     signalsByIso2: data.signalsByIso2 ?? {},
     unmappedSignalCountries: data.unmappedSignalCountries ?? {},
   }
@@ -60,7 +61,7 @@ type GlobeContextType = {
 }
 
 const GlobeContext = createContext<GlobeContextType | null>(null)
-const EMPTY_DATA: GlobeLiveData = { countries: [], signalsByIso2: {}, unmappedSignalCountries: {} }
+const EMPTY_DATA: GlobeLiveData = { countries: [], regulatoryTiersByIso2: {}, signalsByIso2: {}, unmappedSignalCountries: {} }
 
 export function GlobeProvider({ children }: { children: ReactNode }) {
   const [liveData, setLiveData] = useState<GlobeLiveData>(EMPTY_DATA)
