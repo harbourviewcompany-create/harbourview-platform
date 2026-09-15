@@ -1,0 +1,5 @@
+# Bootstrap — replace with exact output of governance audit.
+# Target: 0 files.
+# Scanner detects workflows that both:
+#   - trigger on pull_request, and
+#   - request contents: write
