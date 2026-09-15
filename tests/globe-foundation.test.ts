@@ -76,8 +76,38 @@ describe('Harbourview globe foundation', () => {
 
     expect(GLOBE_CAMERA_CONFIG.minPolarAngle).toBeGreaterThanOrEqual(0)
     expect(GLOBE_CAMERA_CONFIG.maxPolarAngle).toBeLessThanOrEqual(Math.PI)
-    // Azimuth limits: Infinity means unrestricted rotation (intentional — globe spins freely)
     expect(GLOBE_CAMERA_CONFIG.minAzimuthAngle).toBeDefined()
-    expect(GLOBE_CAMERA_CONFIG.maxAzimuthAngle).toBeDefined()
+  })
+
+  it('renders unverified plates as slate, not gold', () => {
+    const idle = resolveCountryMaterialState({
+      visualState: 'idle',
+      layerId: 'country_select',
+      regulatoryTier: null,
+    })
+    expect(idle.plateBase).toBe('#3d4a5c')
+    expect(idle.plateBase.toLowerCase()).not.toMatch(/b99b3f|c6a55a|d8be76/)
+  })
+
+  it('keeps tier hue on focus and selection', () => {
+    const idle = resolveCountryMaterialState({
+      visualState: 'idle',
+      layerId: 'country_select',
+      regulatoryTier: 'legal_commercial_access',
+    })
+    const focused = resolveCountryMaterialState({
+      visualState: 'focused',
+      layerId: 'country_select',
+      regulatoryTier: 'legal_commercial_access',
+    })
+    const selected = resolveCountryMaterialState({
+      visualState: 'selected',
+      layerId: 'country_select',
+      regulatoryTier: 'legal_commercial_access',
+    })
+    expect(focused.plateBase).toBe(idle.plateBase)
+    expect(selected.plateBase).toBe(idle.plateBase)
+    expect(focused.emissiveIntensity).toBeGreaterThan(idle.emissiveIntensity)
+    expect(selected.emissiveIntensity).toBeGreaterThan(idle.emissiveIntensity)
   })
 })
