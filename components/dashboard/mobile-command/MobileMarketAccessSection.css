@@ -1,0 +1,121 @@
+.mobile-market-access-section {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mobile-market-access-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.mobile-market-access-header > div {
+  min-width: 0;
+}
+
+.mobile-market-access-header h2 {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 30px);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.mobile-market-access-header p:last-child {
+  margin: 7px 0 0;
+  max-width: 58ch;
+  color: rgba(245, 240, 232, 0.62);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mobile-market-access-state {
+  flex: 0 0 auto;
+  padding: 5px 7px;
+  border: 1px solid rgba(212, 168, 75, 0.28);
+  border-radius: 999px;
+  color: rgba(245, 240, 232, 0.72);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.mobile-market-access-state[data-intro-phase='ready'] {
+  color: #d4a84b;
+  border-color: rgba(212, 168, 75, 0.55);
+}
+
+.mobile-market-access-globe {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: min(72vw, 430px);
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid rgba(212, 168, 75, 0.18);
+  border-radius: 18px;
+  background: #070b10;
+  contain: layout paint size;
+}
+
+.mobile-market-access-globe-canvas,
+.mobile-market-access-globe-loading {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.mobile-market-access-globe-loading {
+  background: radial-gradient(circle at 50% 45%, rgba(212, 168, 75, 0.08), transparent 58%);
+}
+
+.mobile-market-access-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 10px;
+  color: rgba(245, 240, 232, 0.52);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mobile-market-access-note span:first-child {
+  flex: 0 0 auto;
+  color: rgba(245, 240, 232, 0.78);
+  font-weight: 700;
+}
+
+.mobile-market-access-note span:last-child {
+  min-width: 0;
+  text-align: right;
+}
+
+@media (max-width: 359px) {
+  .mobile-market-access-header {
+    display: block;
+  }
+
+  .mobile-market-access-state {
+    display: inline-block;
+    margin-top: 8px;
+  }
+
+  .mobile-market-access-globe {
+    height: 76vw;
+    min-height: 270px;
+  }
+
+  .mobile-market-access-note {
+    display: block;
+  }
+
+  .mobile-market-access-note span:last-child {
+    margin-top: 4px;
+    text-align: left;
+  }
+}
