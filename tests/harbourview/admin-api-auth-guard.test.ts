@@ -1,7 +1,5 @@
-/**
- * CI guard (audit P1-4): every route under app/api/**/admin/** must call an
- * admin auth helper. Client admin UIs are only as safe as these APIs.
- */
+// CI guard (audit P1-4): every route under app/api/**/admin/** must call an
+// admin auth helper. Client admin UIs are only as safe as these APIs.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -13,6 +11,11 @@ const AUTH_MARKERS = [
   'getAdminAuthCheck',
   'getAdminAuth',
   'requireAdminApiAuth',
+  // Verified-legitimate patterns found in real routes, not a single shared helper:
+  'CRON_SECRET', // bearer-token check for ops/cron-triggered admin routes
+  'requireClinicalUser', // clinical-admin auth helper
+  'isPlatformStaff', // platform-staff role check
+  "role !== 'admin'", // inline profile-role check after auth.getUser()
 ]
 
 function walkAdminRoutes(dir: string, out: string[] = []): string[] {
