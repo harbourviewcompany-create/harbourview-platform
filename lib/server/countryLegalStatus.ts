@@ -60,3 +60,34 @@ export const LEGAL_STATUS_LABELS: Record<CountryLegalStatus['legal_status'], str
   prohibited: 'Cannabis prohibited',
   unresearched: 'Not yet reviewed',
 }
+
+
+export type ResearchedCountry = { iso2: string; country_name: string }
+
+export async function getAllResearchedCountries(): Promise<ResearchedCountry[]> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return []
+  try {
+    const params = new URLSearchParams({
+      select: 'iso2,country_name',
+      order: 'country_name.asc',
+      limit: '300',
+    })
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/country_cannabis_legal_status_v1?${params.toString()}`, {
+      next: { revalidate: 3600 },
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Accept: 'application/json',
+      },
+    })
+    if (!res.ok) return []
+    const rows: unknown = await res.json()
+    if (!Array.isArray(rows)) return []
+    return rows.filter(
+      (r): r is ResearchedCountry =>
+        !!r && typeof r === 'object' && typeof (r as ResearchedCountry).iso2 === 'string' && typeof (r as ResearchedCountry).country_name === 'string',
+    )
+  } catch {
+    return []
+  }
+}
