@@ -1,0 +1,10 @@
+# Bootstrap — replace with exact output of governance audit.
+# Target: 0 files.
+# Scanner allowlist (must stay in sync with docs/control/CONTENTS_WRITE_ALLOWLIST.md):
+#   deploy-preview.yml
+#   cleanup-preview-branches.yml
+#   marketplace-browser-smoke.yml
+#   sync-figma-tokens.yml
+#   reconstruct-stub-migrations.yml
+#   apply-command-centre-repair.yml
+#   production-admin-security-probe.yml

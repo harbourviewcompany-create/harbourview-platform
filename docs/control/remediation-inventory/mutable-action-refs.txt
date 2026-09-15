@@ -1,0 +1,58 @@
+# Bootstrap inventory (pre-audit). Replace with exact output of scripts/verify-governance-policy.sh
+# after running on a full workflow tree.
+#
+# Known mutable references observed on main (non-exhaustive; full scan required):
+#
+# .github/workflows/ci.yml
+#   uses: actions/cache/save@v6
+# .github/workflows/security-scan.yml
+#   uses: actions/cache@v6
+# .github/workflows/supabase-migrate.yml
+#   uses: supabase/setup-cli@v3
+# .github/workflows/sync-figma-tokens.yml
+#   uses: peter-evans/create-pull-request@v8
+# .github/workflows/migration-drift-check.yml
+#   uses: supabase/setup-cli@v3
+# .github/workflows/promote-production.yml
+#   uses: supabase/setup-cli@v3
+# .github/workflows/source-expansion-wave1.yml
+#   uses: denoland/setup-deno@v2
+# .github/workflows/gate-1-build-evidence.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/release-safety-shadow.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/production-verification.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/cleanup-preview-branches.yml
+#   uses: actions/github-script@v9
+# .github/workflows/candidate-b-verification.yml
+#   uses: actions/upload-artifact@v7 (multiple)
+# .github/workflows/regulatory-signals-verify.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/install-only-verification.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/wbcc-windows-verification.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/supply-image-quality-audit.yml
+#   uses: actions/setup-python@v7
+# .github/workflows/reconstruct-stub-migrations.yml
+#   uses: supabase/setup-cli@v3
+# .github/workflows/regional-routing-verification.yml
+#   uses: actions/setup-python@v7
+# .github/workflows/auto-reconcile-migration-drift.yml
+#   uses: supabase/setup-cli@v3
+# .github/workflows/structured-tabular-authorities.yml
+#   uses: denoland/setup-deno@v2
+# .github/workflows/dashboard-target-verification.yml
+#   uses: actions/upload-artifact@v7 (multiple)
+# .github/workflows/production-browser-verification.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/production-runtime-verification.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/verify-production-artifact-scan.yml
+#   uses: actions/upload-artifact@v7
+# .github/workflows/global-reg-os-phase0-replacement.yml
+#   uses: actions/setup-python@v7
+#
+# Action: pin each to a full 40-char commit SHA (keep tag in trailing comment).
+# Prefer internal reusable wrappers for repeated actions (checkout, setup-node, upload-artifact, supabase/setup-cli).

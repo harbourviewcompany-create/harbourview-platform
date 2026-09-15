@@ -1,0 +1,8 @@
+# Bootstrap — replace with exact output of governance audit.
+# Target: 0 files.
+# Scanner detects files that both:
+#   - reference github.event.pull_request.head.(sha|repo.full_name) or refs/pull/.../head|merge
+#   - AND have contents: write or production credential references
+#
+# Remediation: structural split — untrusted checkout only in pure validation jobs;
+# privileged execution only on trusted events (see WORKFLOW_ISOLATION_PATTERNS.md).
