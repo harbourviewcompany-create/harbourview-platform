@@ -36,13 +36,6 @@ const FILTER_TABS: Array<{ label: string; value: 'all' | SupplyCategory }> = [
   { label: SUPPLY_CATEGORY_LABELS.labs_testing, value: 'labs_testing' },
 ]
 
-const COUNTRY_TABS: Array<{ label: string; value: 'all' | string }> = [
-  { label: 'All Countries', value: 'all' },
-  { label: 'Canada', value: 'CA' },
-  { label: 'Germany', value: 'DE' },
-  { label: 'Australia', value: 'AU' },
-]
-
 function buildSupplyHref(params: { category: string; country: string; q?: string }): string {
   const usp = new URLSearchParams()
   if (params.category !== 'all') usp.set('category', params.category)
