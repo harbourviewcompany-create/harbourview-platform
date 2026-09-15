@@ -1,17 +1,17 @@
 # Governance Remediation — Ownership, Metrics, Rollback
 
-## Named ownership (fill with actual GitHub handles / team)
+## Named ownership
 
 | Gap category | Primary owner | Backup | Target |
 |--------------|---------------|--------|--------|
-| 27 mutable action references | *TBD* | *TBD* | Eliminate all |
-| 11 PR credential exposures | *TBD* | *TBD* | Eliminate or isolate |
-| 3 unauthorized contents:write | *TBD* | *TBD* | Align to allowlist |
-| 9 privileged untrusted-code paths | *TBD* | *TBD* | Eliminate or isolate |
-| Main ruleset creation (external) | *GitHub Org Admin* | *TBD* | Live + verified |
-| Evidence & PR updates | *TBD* | *TBD* | Continuous |
+| Mutable action references | Platform / CI maintainers | Security | Eliminate all |
+| PR credential exposures | Platform / Security | — | Eliminate or isolate |
+| Unauthorized contents:write | Platform / CI maintainers | Security | Align to allowlist |
+| Privileged untrusted-code paths | Security + Platform | — | Eliminate or isolate |
+| Main ruleset creation (external) | GitHub Organization Admin | Repository admin with ruleset privileges | Live + verified |
+| Evidence & PR updates | Author of remediation PR | — | Continuous |
 
-Update this table in the same PR that performs the work.
+Fill concrete GitHub handles / team slugs when assigning.
 
 ## Success metrics (tracked in PR body / this file)
 
