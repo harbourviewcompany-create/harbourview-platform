@@ -3,15 +3,6 @@
 import { useState } from 'react'
 import type { RegulatoryTier } from '@/lib/globe/globe-materials'
 
-/**
- * Legend for the regulatory-tier globe colouring.
- *
- * The legend is not decoration — an unlabelled colour scale on a map of *law*
- * is worse than no colour at all, because a viewer will invent their own
- * meaning for it. If this component is not rendered, tier colouring should not
- * be either.
- */
-
 const TIER_ORDER: RegulatoryTier[] = [
   'legal_commercial_access',
   'medical_limited_trade',
@@ -20,44 +11,45 @@ const TIER_ORDER: RegulatoryTier[] = [
   'prohibited',
 ]
 
-const TIER_LABELS: Record<RegulatoryTier, { label: string; hint: string }> = {
+const TIER_LABELS: Record<RegulatoryTier, { short: string; label: string; hint: string }> = {
   legal_commercial_access: {
+    short: 'Commercial',
     label: 'Legal commercial access',
     hint: 'Lawful cross-border commercial pathway (import and/or export) in operation',
   },
   medical_limited_trade: {
+    short: 'Medical',
     label: 'Medical access, limited trade',
     hint: 'Lawful medical market; narrow or no commercial cross-border route',
   },
   domestic_only: {
+    short: 'Domestic',
     label: 'Domestic only',
     hint: 'Legal internally; no lawful cross-border commercial route',
   },
   cbd_hemp_only: {
+    short: 'Hemp/CBD',
     label: 'Hemp / CBD only',
     hint: 'Cannabis prohibited; licensed hemp or CBD trade permitted',
   },
   prohibited: {
+    short: 'Prohibited',
     label: 'Prohibited',
     hint: 'No lawful commercial pathway',
   },
 }
 
-// Swatch colours mirror the plate colours (TIER_FILL) in
-// lib/globe/globe-materials.ts. Kept in sync by hand; presentational only.
 const SWATCHES: Record<RegulatoryTier, string> = {
   legal_commercial_access: '#2fd46f',
   medical_limited_trade: '#f2c53d',
   domestic_only: '#f07d2e',
   cbd_hemp_only: '#2bc2c2',
-  prohibited: '#b23b3b',
+  prohibited: '#c44a4a',
 }
 
+const UNVERIFIED_SWATCH = '#3d4a5c'
+
 export function GlobeRegulatoryLegend() {
-  // Collapsed by default: on a small viewport the full panel can eat close to
-  // half the visible globe before a user has done anything. The globe itself
-  // is the point; the legend is reference material a user pulls up, not a
-  // permanent fixture.
   const [expanded, setExpanded] = useState(false)
 
   if (!expanded) {
@@ -67,19 +59,32 @@ export function GlobeRegulatoryLegend() {
         aria-expanded={false}
         aria-controls="globe-regulatory-legend-panel"
         onClick={() => setExpanded(true)}
-        className="pointer-events-auto absolute bottom-6 left-4 z-20 flex items-center gap-2 rounded-full border border-[#c6a55a]/18 bg-[#020814]/88 px-3.5 py-2 backdrop-blur-xl transition hover:border-[#c6a55a]/32 sm:left-6"
+        className="pointer-events-auto absolute bottom-6 left-4 z-20 flex max-w-[min(100vw-2rem,420px)] flex-wrap items-center gap-x-2.5 gap-y-1 rounded-2xl border border-white/12 bg-[#020814]/90 px-3 py-2 backdrop-blur-xl transition hover:border-white/20 sm:left-6"
       >
-        <span aria-hidden="true" className="flex items-center gap-1">
-          {TIER_ORDER.map((tier) => (
-            <span
-              key={tier}
-              className="h-2.5 w-2.5 shrink-0 rounded-[2px] ring-1 ring-inset ring-white/12"
-              style={{ background: SWATCHES[tier] }}
-            />
-          ))}
-        </span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d8be76]/80">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/50">
           Market access
+        </span>
+        <span aria-hidden="true" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {TIER_ORDER.map((tier) => (
+            <span key={tier} className="flex items-center gap-1">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-[2px] ring-1 ring-inset ring-white/20"
+                style={{ background: SWATCHES[tier] }}
+              />
+              <span className="text-[10px] font-medium leading-none text-[#f5f1e8]/78">
+                {TIER_LABELS[tier].short}
+              </span>
+            </span>
+          ))}
+          <span className="flex items-center gap-1">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-[2px] ring-1 ring-inset ring-white/20"
+              style={{ background: UNVERIFIED_SWATCH }}
+            />
+            <span className="text-[10px] font-medium leading-none text-[#f5f1e8]/78">
+              Unverified
+            </span>
+          </span>
         </span>
       </button>
     )
@@ -89,10 +94,10 @@ export function GlobeRegulatoryLegend() {
     <aside
       id="globe-regulatory-legend-panel"
       aria-label="Regulatory access legend"
-      className="pointer-events-auto absolute bottom-6 left-4 z-20 w-[248px] rounded-xl border border-[#c6a55a]/18 bg-[#020814]/88 p-3.5 backdrop-blur-xl sm:left-6"
+      className="pointer-events-auto absolute bottom-6 left-4 z-20 w-[min(100vw-2rem,280px)] rounded-xl border border-white/12 bg-[#020814]/92 p-3.5 backdrop-blur-xl sm:left-6"
     >
       <div className="mb-2.5 flex items-start justify-between gap-2">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d8be76]/80">
+        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
           Market access
         </h2>
         <button
@@ -114,7 +119,7 @@ export function GlobeRegulatoryLegend() {
           <li key={tier} className="flex items-start gap-2.5">
             <span
               aria-hidden="true"
-              className="mt-[3px] h-3 w-3 shrink-0 rounded-[3px] ring-1 ring-inset ring-white/12"
+              className="mt-[3px] h-3 w-3 shrink-0 rounded-[3px] ring-1 ring-inset ring-white/20"
               style={{ background: SWATCHES[tier] }}
             />
             <span className="grid gap-0.5">
@@ -127,14 +132,26 @@ export function GlobeRegulatoryLegend() {
             </span>
           </li>
         ))}
+        <li className="flex items-start gap-2.5">
+          <span
+            aria-hidden="true"
+            className="mt-[3px] h-3 w-3 shrink-0 rounded-[3px] ring-1 ring-inset ring-white/20"
+            style={{ background: UNVERIFIED_SWATCH }}
+          />
+          <span className="grid gap-0.5">
+            <span className="text-[11px] font-medium leading-4 text-[#f5f1e8]/88">
+              Unverified
+            </span>
+            <span className="text-[10px] leading-[14px] text-white/42">
+              No verified evidence yet — not a legal claim
+            </span>
+          </span>
+        </li>
       </ul>
 
-      {/* Countries with no reviewed tier keep the neutral plate. Say so, rather
-          than letting a viewer read "unreviewed" as "prohibited". */}
       <p className="mt-2.5 border-t border-white/8 pt-2 text-[9px] leading-[13px] text-white/34">
-        Unshaded countries have not yet been classified. Absence of colour is not
-        a statement about their law. Colours update when jurisdiction briefings
-        or high-confidence access signals change.
+        Slate plates are unclassified or lack verified evidence. Colours update when
+        jurisdiction evidence changes.
       </p>
     </aside>
   )
