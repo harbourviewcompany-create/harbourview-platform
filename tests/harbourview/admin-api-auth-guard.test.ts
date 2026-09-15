@@ -1,4 +1,4 @@
-/** CI guard: every route under app/api/**/admin/** must call an admin auth helper. */
+// CI guard: every route under app/api/**/admin/** must call an admin auth helper.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
