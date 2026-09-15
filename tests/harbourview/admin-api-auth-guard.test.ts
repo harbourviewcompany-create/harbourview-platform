@@ -1,10 +1,17 @@
-/** CI guard: every route under app/api/**/admin/** must call an admin auth helper. */
+// CI guard: every route under app/api/**/admin/** must call an admin auth helper.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const API_ROOT = join(process.cwd(), 'app', 'api')
-const AUTH_MARKERS = ['requireAdminAuth', 'getAdminAuthCheck', 'getAdminAuth', 'requireAdminApiAuth']
+const AUTH_MARKERS = [
+  'requireAdminAuth', 'getAdminAuthCheck', 'getAdminAuth', 'requireAdminApiAuth',
+  // Verified-legitimate patterns found in real routes, not a single shared helper:
+  'CRON_SECRET', // bearer-token check for ops/cron-triggered admin routes
+  'requireClinicalUser', // clinical-admin auth helper
+  'isPlatformStaff', // platform-staff role check
+  "role !== 'admin'", // inline profile-role check after auth.getUser()
+]
 function walkAdminRoutes(dir: string, out: string[] = []): string[] {
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return out
   for (const name of readdirSync(dir)) {
