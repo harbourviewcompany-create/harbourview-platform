@@ -25,30 +25,53 @@ button.hvm2-text-link {
   cursor: pointer;
 }
 
+/*
+ * Full-screen sheet so intake / contact forms are never clipped by the
+ * secondary rail or bottom nav (mobile production bug 2026-09-16).
+ */
 .hvm2-workspace {
-  margin: 0 0 16px;
-  padding: 14px;
-  border: 1px solid rgba(198, 165, 90, 0.28);
-  border-radius: 16px;
-  background: linear-gradient(145deg, rgba(17, 35, 54, 0.98), rgba(3, 12, 24, 0.98));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px));
+  border: 0;
+  border-radius: 0;
+  background: #02070d;
+  box-shadow: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .hvm2-workspace-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin: 0;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 16px 14px;
+  border-bottom: 1px solid transparent;
+  background:
+    linear-gradient(rgba(2, 7, 13, 0.98), rgba(2, 7, 13, 0.98)) padding-box,
+    linear-gradient(105deg, #6b4a12 0%, #b47b20 16%, #ffe9a0 34%, #c99532 50%, #fff1ad 66%, #8a6119 82%, #d9aa45 100%) border-box;
 }
 
 .hvm2-workspace-header > div {
   min-width: 0;
+  flex: 1;
 }
 
 .hvm2-workspace-header span {
   display: block;
-  color: var(--hvm2-gold);
+  color: var(--hvm2-gold-light, #e0c36a);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -57,46 +80,47 @@ button.hvm2-text-link {
 
 .hvm2-workspace-header h3 {
   margin: 6px 0 5px;
-  color: var(--hvm2-text);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 22px;
-  font-weight: 400;
-  line-height: 1.15;
+  color: var(--hvm2-text, #f5f1e8);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: clamp(18px, 5vw, 22px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .hvm2-workspace-header p,
 .hvm2-workspace-context p {
   margin: 0;
-  color: var(--hvm2-muted);
-  font-size: 11px;
-  line-height: 1.6;
+  color: var(--hvm2-muted, rgba(245, 241, 232, 0.58));
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .hvm2-workspace-header button {
   min-width: 54px;
   min-height: 44px;
   flex: 0 0 auto;
-  padding: 0 10px;
-  border: 1px solid var(--hvm2-border-soft);
+  padding: 0 12px;
+  border: 1px solid rgba(201, 149, 50, 0.4);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--hvm2-muted);
-  font-size: 10px;
+  background: rgba(201, 149, 50, 0.1);
+  color: var(--hvm2-gold-light, #ffe9a0);
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
 }
 
 .hvm2-workspace-context {
-  margin-bottom: 14px;
+  margin: 14px 16px;
   padding: 12px;
-  border: 1px solid var(--hvm2-border-soft);
+  border: 1px solid rgba(201, 149, 50, 0.22);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .hvm2-workspace-context span {
   display: block;
-  color: var(--hvm2-gold);
+  color: var(--hvm2-gold, #c9a227);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -107,16 +131,97 @@ button.hvm2-text-link {
   display: block;
   margin: 5px 0;
   font-size: 13px;
+  color: var(--hvm2-text, #f5f1e8);
+}
+
+/* Seller contact form — full width, readable, no nav collision */
+.hvm2-workspace .cc-mkt-seller-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 16px 28px;
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hvm2-workspace .cc-mkt-seller-form-lead {
+  margin: 0 0 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(247, 241, 230, 0.7);
+}
+
+.hvm2-workspace .cc-mkt-seller-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247, 241, 230, 0.45);
+}
+
+.hvm2-workspace .cc-mkt-seller-form input,
+.hvm2-workspace .cc-mkt-seller-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+  border: 1px solid rgba(201, 149, 50, 0.28);
+  border-radius: 12px;
+  background: #0a1522;
+  color: var(--hvm2-text, #f5f1e8);
+  padding: 12px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.hvm2-workspace .cc-mkt-seller-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.hvm2-workspace .cc-mkt-seller-form input:focus,
+.hvm2-workspace .cc-mkt-seller-form textarea:focus {
+  outline: none;
+  border-color: rgba(201, 149, 50, 0.65);
+  box-shadow: 0 0 0 3px rgba(201, 149, 50, 0.12);
+}
+
+/* Kill autofill yellow on dark UI */
+.hvm2-workspace .cc-mkt-seller-form input:-webkit-autofill,
+.hvm2-workspace .cc-mkt-seller-form input:-webkit-autofill:hover,
+.hvm2-workspace .cc-mkt-seller-form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f5f1e8;
+  caret-color: #f5f1e8;
+  transition: background-color 99999s ease-out;
+  box-shadow: 0 0 0 1000px #0a1522 inset;
+}
+
+.hvm2-workspace .cc-mkt-cta--block {
+  min-height: 52px;
+  margin-top: 8px;
+  border-radius: 13px;
+  border: 1px solid #8a6119;
+  background: linear-gradient(105deg, #6b4a12 0%, #b47b20 16%, #ffe9a0 34%, #c99532 50%, #fff1ad 66%, #8a6119 82%, #d9aa45 100%);
+  color: #1a1408;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 6px 18px rgba(201, 149, 50, 0.28);
 }
 
 .hvm2-workspace .rounded-3xl,
 .hvm2-workspace .fif-card {
   border-radius: 12px;
-}
-
-.hvm2-financing-workspace {
-  margin-top: 14px;
-  margin-bottom: 0;
+  margin: 0 16px 16px;
 }
 
 .hvm2-financing-workspace .fif-card {
@@ -125,10 +230,16 @@ button.hvm2-text-link {
 
 @media (max-width: 359px) {
   .hvm2-workspace-header {
-    display: grid;
+    flex-wrap: wrap;
   }
 
   .hvm2-workspace-header button {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hvm2-workspace {
+    scroll-behavior: auto;
   }
 }
