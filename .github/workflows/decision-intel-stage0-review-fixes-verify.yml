@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   review-hardening-contract:
-    name: Review fixes — current migration chain and security contracts
+    name: Review fixes — migration, lineage, RLS and immutability
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -99,3 +99,14 @@ jobs:
             if has_table_privilege('authenticated','public.intel_events','DELETE') then raise exception 'canonical event delete grant'; end if;
           end $$;
           SQL
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Type and control tests
+        run: |
+          npm run typecheck
+          npx vitest run tests/intel/decisionIntelFirstSlice.test.ts tests/security/command-centre-boundaries.test.ts
