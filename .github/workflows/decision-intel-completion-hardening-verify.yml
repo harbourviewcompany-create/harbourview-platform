@@ -100,6 +100,15 @@ jobs:
             if has_table_privilege('authenticated','public.intel_customer_event_dossiers','SELECT') then raise exception 'customer direct dossier access'; end if;
           end $$;
           SQL
+      - name: Verify publication, history and withdrawal source contracts
+        run: |
+          set -euo pipefail
+          migration=supabase/migrations/20260911225151_decision_intel_stage0_completion_hardening.sql
+          grep -Fq "'regulatory_implications'" "$migration" || { echo 'v1 missing regulatory_implications'; exit 1; }
+          grep -Fq "'affected_products'" "$migration" || { echo 'v1 missing affected_products'; exit 1; }
+          grep -Fq "'contradictions'" "$migration" || { echo 'v1 missing contradictions'; exit 1; }
+          grep -Fq 'customer_visibility = '\''internal'\''' "$migration" || { echo 'withdrawn dossier still customer-visible'; exit 1; }
+          grep -Fq 'suppress_intel_chain_for_withdrawn_signal' "$migration" || { echo 'withdrawal destroyed canonical ownership'; exit 1; }
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
