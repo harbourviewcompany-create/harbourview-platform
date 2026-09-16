@@ -63,7 +63,7 @@ from (values
 ('freight-forwarding','International Freight Forwarding','Reference international logistics service category.','logistics','logistics','freight_forwarding','Trade'),
 ('bonded-warehousing','Bonded Warehousing Services','Reference bonded warehousing category; jurisdictional eligibility requires verification.','logistics','logistics','bonded_warehouse','Trade'),
 ('courier-services','Commercial Courier & Parcel Services','Reference commercial parcel logistics category.','logistics','logistics','courier','Transportation'),
-('fleet-services','Commercial Fleet Leasing & Maintenance','Reference fleet services category.','logistics','services','fleet','Transportation'),
+('fleet-services','Commercial Fleet Leasing & Maintenance','Reference fleet services category.','services','services','fleet','Transportation'),
 ('print-packaging','Commercial Packaging Printing Services','Reference packaging/label printing service category.','packaging','services','printing','Printing'),
 ('label-inspection','Label Inspection & Verification System','Reference automated label QA category.','equipment','new_products','label_inspection','Manufacturing'),
 ('contract-manufacturing','Contract Manufacturing Services','Reference eligible contract-manufacturing category; scope and regulatory qualification require verification.','services','professional_services','contract_manufacturing','Manufacturing'),
@@ -82,4 +82,5 @@ from (values
 ('regulatory-consulting','Regulatory & Market-Access Consulting','Reference professional service category; jurisdiction and credentials require verification.','professional_services','professional_services','regulatory','Professional Services'),
 ('import-export-consulting','Import/Export Documentation Consulting','Reference trade-compliance consulting category.','professional_services','professional_services','import_export','Trade')
 ) v(slug,title,description,section,category,product_type,domain)
-where not exists (select 1 from public.listings l where l.slug=v.slug);
+where v.section in ('consumables','genetics','labs_testing','logistics','packaging','processing','professional_services','services','equipment')
+  and not exists (select 1 from public.listings l where l.slug=v.slug);
