@@ -174,7 +174,7 @@ describe('Mobile Command Centre operator architecture', () => {
     const document = renderMobileCommand()
     const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
 
-    expect(pulse).toEqual(['5', '1', '1'])
+    expect(pulse).toEqual(['6', '1', '1'])
     expect(document.body.textContent).toContain('Open corridor execution plan')
     expect(document.body.textContent).toContain('German import requirements updated')
     expect(document.body.textContent).toContain('EU-GMP export requirement')
