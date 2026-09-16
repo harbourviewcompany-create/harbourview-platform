@@ -1,0 +1,33 @@
+-- SUPERSEDED, deliberately not applied -- reviewed 2026-09-16.
+--
+-- Original content of this migration tried to insert AR/GH/LS/MW/JM as new
+-- *active* rows in regulatory_market_access_evidence. It never actually ran
+-- (this file sat committed-but-unapplied): applying it now fails outright
+-- on the one-active-row-per-jurisdiction constraint, because a Sept-7 batch
+-- (hv-mkt-{ar,gh,jm,ls,mw}-20260907) is already active for all five.
+--
+-- Comparing the two batches, not just resolving the constraint error:
+--   - Ghana:     existing = cbd_hemp_only, citing the same 0.3%-THC-cap
+--                licensing law this file cites. This file classified the
+--                identical facts as legal_commercial_access, which a 0.3%
+--                THC cap does not support -- that's a hemp/medical ceiling,
+--                not full commercial legal access.
+--   - Jamaica:   existing = medical_limited_trade, whose own rationale says
+--                "no lawful general commercial export pathway is
+--                established". This file's legal_commercial_access
+--                contradicts that in the same paragraph.
+--   - Argentina: existing = medical_limited_trade (REPROCANN patient
+--                registration + ARICCAME medical/hemp framework). This file
+--                proposed domestic_only for the same framework.
+--   - Lesotho, Malawi: this file's tier matches the existing active row
+--                exactly (legal_commercial_access both places) -- these two
+--                were never in conflict, just redundant.
+--
+-- Net: for 3 of 5 jurisdictions this file's own cited rationale doesn't
+-- support the tier it assigns, while the existing active evidence is
+-- internally consistent with its citations. Keeping the existing rows;
+-- not inserting this batch. If newer, better-sourced evidence for any of
+-- these five jurisdictions turns up, it should go through
+-- api.set_regulatory_tier-style review against the *current* active row,
+-- not a blind insert that assumes no active row exists yet.
+select 1;
