@@ -1,8 +1,7 @@
 name: Temporary lockfile refresh
 on:
-  push:
-    branches:
-      - feat/production-market-entry-os-20260912
+  pull_request:
+    types: [synchronize, opened, reopened]
 permissions:
   contents: read
 jobs:
