@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync(
-  'supabase/migrations/20260802080000_harden_eval_labels_and_alert_delivery.sql',
+  'supabase/migrations/20260912103805_harden_eval_labels_and_alert_delivery.sql',
   'utf8',
 ).toLowerCase()
 
