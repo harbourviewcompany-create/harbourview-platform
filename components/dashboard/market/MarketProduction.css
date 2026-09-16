@@ -195,28 +195,38 @@
   min-height: 18px;
 }
 
+/* Solid metallic gold fill — reads as real metal, not a dark button with gold border */
 .hvm2-root[data-active-destination="marketplace"] .cc-mkt-cta {
+  position: relative;
+  overflow: hidden;
   min-height: 42px;
-  border: 1px solid transparent;
+  border: 1px solid #8a6119;
   border-radius: 10px;
-  background:
-    linear-gradient(#151a20,#151a20) padding-box,
-    var(--hv-gold-metal) border-box;
-  background-origin: padding-box,border-box;
-  color: #ffe9a0;
-  box-shadow: inset 0 0 16px rgba(201,149,50,.06);
+  background: var(--hv-gold-metal);
+  color: #1a1408;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 4px 14px rgba(201, 149, 50, 0.28);
 }
 
 .hvm2-root[data-active-destination="marketplace"] .cc-mkt-cta:hover {
-  background:
-    linear-gradient(rgba(201,149,50,.14),rgba(201,149,50,.14)) padding-box,
-    var(--hv-gold-metal) border-box;
-  color: #fff1bd;
+  filter: brightness(1.08);
+  color: #0f0c05;
 }
 
-/* Product detail: deliberately becomes a dedicated, focused screen. The
-   original full-screen sheet could hide its own back control under the app
-   chrome; this version owns its header and makes navigation unmissable. */
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-cta--secondary {
+  border-color: rgba(201, 149, 50, 0.35);
+  background: linear-gradient(#151a20, #151a20);
+  color: #ffe9a0;
+  text-shadow: none;
+  box-shadow: inset 0 0 16px rgba(201, 149, 50, 0.06);
+  filter: none;
+}
+
+/* Product detail: dedicated focused screen with unmissable back control */
 .cc-mkt-sheet {
   position: fixed;
   inset: 0;
@@ -336,10 +346,25 @@
 }
 
 .cc-mkt-sheet-footer .cc-mkt-cta--block {
-  min-height: 50px;
+  min-height: 52px;
   border-radius: 13px;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: .04em;
+  background: var(--hv-gold-metal);
+  color: #1a1408;
+  font-weight: 800;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 6px 18px rgba(201, 149, 50, 0.32);
+}
+
+.cc-mkt-sheet-footer .cc-mkt-cta--block.cc-mkt-cta--secondary {
+  background: linear-gradient(#151a20, #151a20);
+  color: #ffe9a0;
+  text-shadow: none;
+  border: 1px solid rgba(201, 149, 50, 0.45);
 }
 
 .cc-mkt-add-basket {
@@ -354,8 +379,6 @@
   color: transparent;
 }
 
-/* Related/complete-kit rails are intentionally compact: the user should be
-   able to scan them without mistaking them for the primary purchase action. */
 .cc-mkt-rail {
   gap: 9px;
 }

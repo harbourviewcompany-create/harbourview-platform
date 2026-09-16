@@ -26,6 +26,8 @@ import {
 import '../MarketplaceListingMedia.css'
 import '../MarketplaceInventoryFirst.css'
 import '../../market/Market.css'
+import '../../market/MarketProduction.css'
+import '../../market/DashboardMetallicGold.css'
 
 type MediaStage = 'primary' | 'fallback' | 'empty'
 
@@ -101,7 +103,6 @@ function relatedFor(row: NormalizedListing, pool: NormalizedListing[], limit = 6
 }
 
 function complementsFor(row: NormalizedListing, pool: NormalizedListing[], limit = 6): MarketCardModel[] {
-  // Cross-category upsell: equipment ↔ consumables ↔ services
   const complementViews: MarketView[] =
     row.view === 'equipment'
       ? ['consumables', 'services']
@@ -122,13 +123,11 @@ function buildFeedRows(filtered: NormalizedListing[], all: NormalizedListing[]):
   const cards = filtered.map(toMarketCardModel)
   const rows: MarketFeedRow[] = []
 
-  // First 4 as grid
   const head = cards.slice(0, 4)
   if (head.length) {
     rows.push({ type: 'grid', id: 'grid-head', items: head })
   }
 
-  // Related rail from remaining same-view inventory (buy more)
   const railSource = all
     .filter(r => !filtered.slice(0, 4).some(f => f.id === r.id && f.view === r.view))
     .slice(0, 8)
@@ -142,7 +141,6 @@ function buildFeedRows(filtered: NormalizedListing[], all: NormalizedListing[]):
     })
   }
 
-  // Rest of grid
   const tail = cards.slice(4)
   if (tail.length) {
     rows.push({ type: 'grid', id: 'grid-tail', items: tail })
