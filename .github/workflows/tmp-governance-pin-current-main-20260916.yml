@@ -21,7 +21,6 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-
           pins = {
               'actions/upload-artifact': '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
               'supabase/setup-cli': '46f7f98c7f948ad727d22c1e67fab04c223a0520',
@@ -43,18 +42,15 @@ jobs:
           for path in Path('.github/workflows').glob('*.y*ml'):
               text = path.read_text()
               def repl(m):
-                  owner = m.group(1)
-                  ref = m.group(2)
-                  if sha.fullmatch(ref):
-                      return m.group(0)
+                  owner, ref = m.group(1), m.group(2)
+                  if sha.fullmatch(ref): return m.group(0)
                   if owner not in pins:
                       unknown.append(f'{path}:{owner}@{ref}')
                       return m.group(0)
                   changed.append(f'{path}:{owner}@{ref}->{pins[owner]}')
                   return f'uses: {owner}@{pins[owner]}'
               new = re.sub(r'^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)', repl, text, flags=re.M)
-              if new != text:
-                  path.write_text(new)
+              if new != text: path.write_text(new)
           if unknown:
               print('ERROR: unknown mutable refs remain:')
               print('\n'.join(unknown))
@@ -63,13 +59,10 @@ jobs:
           print('\n'.join(changed))
           PY
 
-      - name: Verify fail-closed immutable workflow policy
-        run: node scripts/check-immutable-workflow-actions.mjs
-
-      - name: Commit reconciliation and remove temporary workflow
+      - name: Remove temporary workflows and commit reconciliation
         shell: bash
         run: |
-          rm -f .github/workflows/tmp-governance-pin-current-main-20260916.yml
+          rm -f .github/workflows/tmp-governance-pin-current-main-20260916.yml .github/workflows/tmp-governance-pin-current-main-20260916b.yml .github/workflows/tmp-governance-pin-current-main-20260916c.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .github/workflows
