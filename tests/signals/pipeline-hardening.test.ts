@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync(
-  'supabase/migrations/20260802080000_harden_eval_labels_and_alert_delivery.sql',
+  'supabase/migrations/20260912103805_harden_eval_labels_and_alert_delivery.sql',
   'utf8',
 ).toLowerCase()
 
@@ -27,12 +27,9 @@ describe('pipeline hardening migration', () => {
     const queueEnd = migration.indexOf("return jsonb_build_object('ok', true", queueStart)
     expect(queueStart).toBeGreaterThan(-1)
     expect(queueEnd).toBeGreaterThan(queueStart)
-
     const queueStatement = migration.slice(queueStart, queueEnd)
     expect(migration).toContain('join net._http_response r on r.id = l.delivery_request_id')
-    expect(migration).toContain(
-      "notified_at = case when r.status_code between 200 and 299 then now() else l.notified_at end",
-    )
+    expect(migration).toContain("notified_at = case when r.status_code between 200 and 299 then now() else l.notified_at end")
     expect(queueStatement).not.toContain('notified_at = now()')
   })
 
@@ -52,9 +49,7 @@ describe('pipeline hardening migration', () => {
   })
 
   it('adds the delivery-status constraint without a blocking validation in the add statement', () => {
-    expect(migration).toContain(
-      "check (delivery_status in ('pending', 'queued', 'delivered', 'failed')) not valid",
-    )
+    expect(migration).toContain("check (delivery_status in ('pending', 'queued', 'delivered', 'failed')) not valid")
     expect(migration).toContain('validate constraint hv_alert_log_delivery_status_check')
   })
 })
