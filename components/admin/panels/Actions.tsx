@@ -1,21 +1,22 @@
 /* eslint-disable */
-// @ts-nocheck — Actions panel (admin control surface)
 'use client'
 
 import { useState } from 'react'
-import { WS_ID } from '@/components/admin/panels/shared'
+import { WS_ID, type AdminApi, type ToastMsg } from '@/components/admin/panels/shared'
 
-export function Actions({ api, toast }) {
-  const [results, setResults] = useState({});
-  const [running, setRunning] = useState({});
-  const run = async (key, fn) => {
+type ActionResult = { ok: boolean; txt: string };
+
+export function Actions({ api, toast }: { api: AdminApi; toast: (msg: ToastMsg) => void }) {
+  const [results, setResults] = useState<Record<string, ActionResult | null>>({});
+  const [running, setRunning] = useState<Record<string, boolean>>({});
+  const run = async (key: string, fn: () => Promise<any>) => {
     setRunning(r => ({...r, [key]: true}));
     setResults(r => ({...r, [key]: null}));
     try {
       const txt = JSON.stringify(await fn(), null, 2);
       setResults(r => ({...r, [key]: {ok: true, txt}}));
     } catch (e) {
-      setResults(r => ({...r, [key]: {ok: false, txt: e.message || String(e)}}));
+      setResults(r => ({...r, [key]: {ok: false, txt: (e instanceof Error ? e.message : String(e))}}));
     } finally {
       setRunning(r => ({...r, [key]: false}));
     }
@@ -35,8 +36,8 @@ export function Actions({ api, toast }) {
     {key:"extract",title:"Run Signal Extraction",desc:"hv_extract_signals_from_captured_text()",fn:()=>api.rpc("hv_extract_signals_from_captured_text",{p_batch_size:400})},
     {key:"snapstatus",title:"Snapshot Queue Status",desc:"Count snapshots by status",fn:async()=>{
       const d = await api.get("source_snapshots","select=processing_status&limit=5000");
-      const arr = Array.isArray(d) ? d : [];
-      return arr.reduce((a,r)=>{a[r.processing_status]=(a[r.processing_status]||0)+1;return a;},{});
+      const arr: any[] = Array.isArray(d) ? d : [];
+      return arr.reduce((a: Record<string, number>,r: any)=>{a[r.processing_status]=(a[r.processing_status]||0)+1;return a;},{});
     }},
   ];
   return (
@@ -58,16 +59,16 @@ export function Actions({ api, toast }) {
             >
               {running[a.key] ? "Running…" : "Run"}
             </button>
-            {results[a.key] && (
+            {(() => { const res = results[a.key]; return res && (
               <pre style={{
                 marginTop:8,fontSize:10,padding:8,borderRadius:6,
                 background:"#0D1527",border:"1px solid #1A2640",
-                color: results[a.key].ok ? "#A8C5A0" : "#E8A0A0",
+                color: res.ok ? "#A8C5A0" : "#E8A0A0",
                 overflow:"auto",maxHeight:200
               }}>
-                {results[a.key].txt}
+                {res.txt}
               </pre>
-            )}
+            ); })()}
           </div>
         ))}
       </div>
