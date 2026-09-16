@@ -17,7 +17,7 @@ const paths = {
   privatePipeline: 'supabase/functions/hv-private-pipeline-runner/index.ts',
   passport: 'supabase/functions/compute-passport-score/index.ts',
   snapshot: 'supabase/functions/generate-org-snapshot/index.ts',
-  migration: 'supabase/migrations/20260810222500_harden_edge_function_cron_auth.sql',
+  migration: 'supabase/migrations/20260912103836_harden_edge_function_cron_auth.sql',
   // The schema-drift ACL repair lives in its own migration, not in the one
   // above. It was originally appended to 20260810222500 by commit 1f9660df,
   // which broke that migration's git-blob binding in the pending-production
@@ -96,8 +96,7 @@ describe('production Edge Function authentication hardening', () => {
     expect(source).toContain('matchesRequiredSecret')
     expect(source).toContain('x-harbourview-cron-secret')
     expect(source).toContain('dry_run')
-    expect(source).not.toMatch(/ADZUNA_APP_KEY\s*=\s*['"][^'"]+['"]/)
-    expect(source).not.toMatch(/ADZUNA_APP_ID\s*=\s*['"][^'"]+['"]/)
+    expect(source).not.toMatch(/ADZUNA_APP_KEY\s*=\s*['"][^'"]+['"]/)\n    expect(source).not.toMatch(/ADZUNA_APP_ID\s*=\s*['"][^'"]+['"]/)
   })
 
   it('requires a dedicated cron secret for the schema drift monitor', () => {
@@ -127,7 +126,6 @@ describe('production Edge Function authentication hardening', () => {
     expect(sql).toContain('grant usage on schema api to service_role;')
     expect(sql).not.toMatch(/grant\s+usage\s+on\s+schema\s+api\s+to\s+(?:public|anon|authenticated)\b/)
 
-    // ACL-only repair: do not redefine either existing drift detector in this migration.
     expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_tables_missing_from_api_schema\s*\(/)
     expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_functions_missing_from_api_schema\s*\(/)
   })
