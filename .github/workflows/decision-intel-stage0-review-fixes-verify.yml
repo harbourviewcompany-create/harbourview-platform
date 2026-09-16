@@ -56,7 +56,7 @@ jobs:
           create schema auth;
           grant usage on schema public, api, auth to anon, authenticated, service_role;
           create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-          create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
+          create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new $$;
           grant execute on function auth.uid() to anon, authenticated, service_role;
           create table public.source_registry (id uuid primary key, name text);
           create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
@@ -97,6 +97,7 @@ jobs:
             if not exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'event jurisdiction missing'; end if;
             if has_table_privilege('authenticated','public.hv_evidence','SELECT') then raise exception 'raw evidence grant'; end if;
             if has_table_privilege('authenticated','public.intel_events','DELETE') then raise exception 'canonical event delete grant'; end if;
+            if not exists (select 1 from public.jurisdiction_crossref xref where xref.countries_iso2='DE' and xref.jurisdictions_id='country_area:DEU') then raise exception 'crossref repair missing'; end if;
           end $$;
           SQL
       - name: Setup Node
