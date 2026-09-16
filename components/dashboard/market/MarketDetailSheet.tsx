@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react'
 import type { MarketCardModel, MarketTier } from './marketTypes'
 import { MarketRelatedRail } from './MarketRelatedRail'
 import './MarketProduction.css'
+import './DashboardMetallicGold.css'
 
 type Spec = { label: string; value: string; icon?: string }
 
