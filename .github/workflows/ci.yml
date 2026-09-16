@@ -258,6 +258,8 @@ jobs:
           fi
       - name: Supabase E2E readiness
         id: readiness
+        if: steps.e2e-creds.outputs.configured == 'true'
+        continue-on-error: true
         run: node scripts/check-supabase-e2e-readiness.mjs
       - name: Install Playwright Chromium
         if: steps.e2e-creds.outputs.configured == 'true' && steps.readiness.outcome == 'success'
@@ -265,6 +267,9 @@ jobs:
       - name: Run E2E
         if: steps.e2e-creds.outputs.configured == 'true' && steps.readiness.outcome == 'success'
         run: npm run test:e2e
+      - name: Fail when configured E2E is not ready
+        if: steps.e2e-creds.outputs.configured == 'true' && steps.readiness.outcome != 'success'
+        run: exit 1
       - name: Report E2E not configured
         if: steps.e2e-creds.outputs.configured != 'true'
         run: echo 'E2E credentials are not configured; browser tests were skipped.'
