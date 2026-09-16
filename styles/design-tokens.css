@@ -15,16 +15,16 @@
   --hv-navy-deep: #081423;
   --hv-ocean-navy: #0a2138;
 
-  /* Metallic gold system (not flat yellow) */
-  --hv-gold-1: #f4e4a6;
-  --hv-gold-2: #e0c36a;
-  --hv-gold-3: #c9a227;
-  --hv-gold-4: #8a6b1a;
-  --hv-gold-5: #5c4810;
-  --hv-gold: #c9a227;
-  --hv-gold-deep: #8a6b1a;
+  /* Metallic gold system — canonical brand values with dimensional sheen */
+  --hv-gold-1: #f2dfab;
+  --hv-gold-2: #d8be76;
+  --hv-gold-3: #c6a55a;
+  --hv-gold-4: #a8842d;
+  --hv-gold-5: #6e551c;
+  --hv-gold: #c6a55a;
+  --hv-gold-deep: #a8842d;
   --hv-dark-gold: var(--hv-gold-deep);
-  --hv-gold-light: #e0c36a;
+  --hv-gold-light: #d8be76;
   --hv-gold-metallic: linear-gradient(
     135deg,
     var(--hv-gold-1) 0%,
@@ -43,9 +43,9 @@
   );
   --hv-gold-text: linear-gradient(
     180deg,
-    #f7e7b0 0%,
-    #e8c85a 42%,
-    #b8922a 100%
+    #f2dfab 0%,
+    #d8be76 42%,
+    #a8842d 100%
   );
   --hv-gold-sheen: linear-gradient(
     105deg,
@@ -68,7 +68,7 @@
   --hv-panel: rgba(6, 15, 25, 0.84);
   --hv-panel-strong: rgba(7, 17, 28, 0.92);
   --hv-panel-border: rgba(205, 218, 232, 0.16);
-  --hv-panel-border-warm: rgba(201, 162, 39, 0.28);
+  --hv-panel-border-warm: rgba(198, 165, 90, 0.28);
 
   /* ── Text ─────────────────────────────────────────────────── */
   --hv-text-primary: var(--hv-ivory);
@@ -95,7 +95,7 @@
   --hvm2-bg: var(--hv-black);
   --hvm2-panel: var(--hv-navy-deep);
   --hvm2-panel-2: var(--hv-navy);
-  --hvm2-border: rgba(201, 162, 39, 0.2);
+  --hvm2-border: rgba(198, 165, 90, 0.2);
   --hvm2-border-soft: rgba(255, 255, 255, 0.08);
   --hvm2-gold: var(--hv-gold);
   --hvm2-gold-light: var(--hv-gold-light);
