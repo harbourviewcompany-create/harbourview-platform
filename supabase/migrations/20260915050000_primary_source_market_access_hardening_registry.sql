@@ -23,8 +23,7 @@ create table if not exists public.regulatory_market_access_primary_sources (
   ),
   constraint regulatory_market_access_primary_source_expiry check (expires_at > verified_at),
   constraint regulatory_market_access_primary_source_url check (authority_url ~ '^https://'),
-  constraint regulatory_market_access_primary_source_snapshot check (source_snapshot_sha256 ~ '^[0-9a-f]{64}$'),
-  constraint regulatory_market_access_primary_source_effective check (source_effective_date is null or source_effective_date <= current_date)
+  constraint regulatory_market_access_primary_source_snapshot check (source_snapshot_sha256 ~ '^[0-9a-f]{64}$')
 );
 
 -- Existing development rows, if any, must meet the stricter contract too.
