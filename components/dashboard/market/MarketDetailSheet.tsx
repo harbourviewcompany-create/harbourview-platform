@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { MarketCardModel, MarketTier } from './marketTypes'
 import { MarketRelatedRail } from './MarketRelatedRail'
 import './MarketProduction.css'
@@ -34,16 +34,16 @@ export function MarketDetailSheet({
   onClose,
 }: Props) {
   const secondary = tier === 'B' || listing.variant === 'catalogue'
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
-    const previousTitle = document.title
     const previousOverflow = document.body.style.overflow
-    document.title = `${listing.title} · Harbourview Market`
     document.body.style.overflow = 'hidden'
 
-    const handlePopState = () => onClose()
+    const handlePopState = () => onCloseRef.current()
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') onCloseRef.current()
     }
 
     window.history.pushState({ harbourviewMarketDetail: true }, '', window.location.href)
@@ -51,7 +51,6 @@ export function MarketDetailSheet({
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.title = previousTitle
       document.body.style.overflow = previousOverflow
       window.removeEventListener('popstate', handlePopState)
       window.removeEventListener('keydown', handleKeyDown)
@@ -59,7 +58,7 @@ export function MarketDetailSheet({
         window.history.back()
       }
     }
-  }, [listing.title, onClose])
+  }, [])
 
   return (
     <div
