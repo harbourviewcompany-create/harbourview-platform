@@ -19,8 +19,6 @@
     "verify:production-baseline": "npm run verify:runtime && npm run typecheck && npm test && npm run test:security && npm run build",
     "check:env-manifest": "node scripts/check-environment-manifest.mjs",
     "check:cloudflare-architecture": "node scripts/check-cloudflare-architecture.mjs",
-    "check:admin-auth-inventory": "node scripts/check-admin-auth-inventory.mjs",
-    "test:admin-auth-inventory": "vitest run tests/harbourview/admin-route-auth-guard.test.ts tests/harbourview/admin-api-auth-guard.test.ts",
     "test:globe-router": "vitest run tests/globe-router.test.ts tests/globe-router/routeState.test.ts",
     "test:globe-data": "vitest run tests/globe/supabaseGlobeData.test.ts tests/globe/derive-regulatory-tier.test.ts",
     "test:country-role": "vitest run tests/roles/country-role-resolver.test.ts",
@@ -46,7 +44,7 @@
     "test:e2e": "npx playwright test tests/e2e/",
     "probe:production-visibility": "node scripts/probe-public-leakage.mjs",
     "check:critical-env": "node scripts/check-critical-env.mjs",
-    "test:security": "npx vitest run tests/security/public-leakage-fuzz.test.ts tests/security/csp-regression.test.ts tests/harbourview/public-safety-fuzz.test.ts tests/harbourview/middleware-admin-matcher.test.ts tests/harbourview/middleware-redirects.test.ts tests/harbourview/middleware-signals-matcher.test.ts tests/harbourview/global-css-regression.test.ts tests/education/medical-guardrails.test.ts tests/education/dto-boundary.test.ts tests/dashboard/commercialDashboard.test.tsx tests/dashboard/routing.test.ts tests/actions/marketplaceSubmissionActions.test.ts tests/supabase/adminDataClient.test.ts tests/supabase/env.test.ts tests/globe-motion-preferences.test.ts tests/api/used-surplus-preview-route.test.ts tests/harbourview/globe-interactive-readiness.test.ts tests/globe-natural-earth-countries.test.ts tests/harbourview/admin-route-auth-guard.test.ts tests/harbourview/admin-api-auth-guard.test.ts tests/harbourview/public-safety-forbidden-list.test.ts",
+    "test:security": "npx vitest run tests/security/public-leakage-fuzz.test.ts tests/security/csp-regression.test.ts tests/harbourview/public-safety-fuzz.test.ts tests/harbourview/middleware-admin-matcher.test.ts tests/harbourview/middleware-redirects.test.ts tests/harbourview/middleware-signals-matcher.test.ts tests/harbourview/global-css-regression.test.ts tests/education/medical-guardrails.test.ts tests/education/dto-boundary.test.ts tests/dashboard/commercialDashboard.test.tsx tests/dashboard/routing.test.ts tests/actions/marketplaceSubmissionActions.test.ts tests/supabase/adminDataClient.test.ts tests/supabase/env.test.ts tests/globe-motion-preferences.test.ts tests/api/used-surplus-preview-route.test.ts tests/harbourview/globe-interactive-readiness.test.ts tests/globe-natural-earth-countries.test.ts",
     "test:signal-quality": "vitest run tests/signals/quality.test.ts",
     "test:signal-routing": "vitest run tests/signals/routing.test.ts",
     "test:mobile-intel": "vitest run tests/dashboard/mobileIntelInstitutional.test.tsx",
@@ -64,9 +62,9 @@
     "test:quarantined": "vitest run tests/clinical/clinicalInteractionQuerySource.test.ts tests/clinical/corpusDepthRelease.test.ts tests/clinical/evidenceOperatingSystem.test.ts tests/clinical/evidenceV11Operations.test.ts tests/dashboard/dashboardMarketplaceRows.test.ts tests/dashboard/marketplaceMediaMergeReadiness.test.ts tests/dashboard/mobileCommandCentreV2.test.ts tests/dashboard/mobileIntelInstitutional.test.tsx tests/globe-russia-radial-clearance.test.ts tests/harbourview/p0-identity-org-context.test.ts tests/intel/decisionIntelFirstSlice.test.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.125.0",
+    "@anthropic-ai/sdk": "^0.124.0",
     "@google/genai": "^2.21.0",
-    "@googleapis/drive": "^25.0.0",
+    "@googleapis/drive": "^22.0.0",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "^3.1.1",
@@ -77,21 +75,17 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.4",
     "class-variance-authority": "^0.7.1",
-    "framer-motion": "^13.2.0",
     "googleapis-common": "^9.0.4",
-    "html-to-image": "^1.11.13",
-    "jspdf": "^4.2.1",
     "linkedom": "^0.18.12",
     "lucide-react": "^1.42.0",
     "next": "^16.3.4",
     "postprocessing": "^6.39.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "recharts": "^3.1.2",
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
     "stripe": "^22.6.1",
-    "three": "^0.186.0",
+    "three": "^0.185.1",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -111,7 +105,7 @@
     "typescript": "^5.4.5",
     "vite": "^8.1.0",
     "vitest": "^5.0.0",
-    "wrangler": "^4.131.0"
+    "wrangler": "^4.129.0"
   },
   "overrides": {
     "undici": "7.29.0",

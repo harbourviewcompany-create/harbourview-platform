@@ -1,0 +1,35 @@
+name: Production Governance Audit
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'remediation/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-governance-policy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  governance-gate:
+    name: governance-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify workflow and ruleset policy
+        run: bash scripts/verify-governance-policy.sh

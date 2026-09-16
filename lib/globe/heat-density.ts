@@ -20,6 +20,7 @@ export const HEAT_RESOLUTION: Record<
   low: { width: 256, height: 128, segmentsW: 48, segmentsH: 32 },
 }
 
+/** Min ms between density rebuilds on realtime churn. */
 export const HEAT_REBUILD_THROTTLE_MS = 1500
 
 export const HEAT_CONFIG = {
@@ -37,16 +38,12 @@ export type HeatPoint = {
   weight: number
 }
 
-function hasCoordinates(country: GlobeCountryMarker): country is GlobeCountryMarker & { lat: number; lng: number } {
-  return Number.isFinite(country.lat) && Number.isFinite(country.lng)
-}
-
 export function buildHeatPoints(
   countries: GlobeCountryMarker[],
   signalsByIso2: Record<string, GlobeSignal[]>,
 ): HeatPoint[] {
   return countries
-    .filter(hasCoordinates)
+    .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng))
     .map((c) => {
       const signalCount = signalsByIso2[c.iso2]?.length ?? 0
       const opportunityFrac = Math.min((c.opportunityScore ?? 0) / 100, 1)
@@ -57,8 +54,10 @@ export function buildHeatPoints(
     .filter((p) => p.weight > 0.02)
 }
 
+/** Stable fingerprint so identical weight sets skip rebuild. */
 export function heatPointsFingerprint(points: HeatPoint[]): string {
   if (points.length === 0) return 'empty'
+  // Quantize to avoid float noise thrashing the throttle key
   return points
     .map((p) => `${p.lat.toFixed(2)},${p.lng.toFixed(2)},${p.weight.toFixed(3)}`)
     .sort()
@@ -132,6 +131,11 @@ export function densityToUint8(field: Float32Array, out?: Uint8Array): Uint8Arra
   return dest
 }
 
+/**
+ * Align with GlobeSameScreenRouterLanding performance protection:
+ * cores <= 2 or deviceMemory <= 2 → low (landing would use static fallback;
+ * if interactive path still mounts, heat must stay cheapest).
+ */
 export function resolveHeatQuality(opts: {
   prefersReducedMotion: boolean
   forceLow?: boolean

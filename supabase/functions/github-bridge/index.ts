@@ -1,16 +1,4 @@
 /**
- * github-bridge v24 -- reconciles two independent v23s (2026-09-12)
- *   Git and the live deployed function each independently reached "v23"
- *   for two different, unrelated changes: this file's v23 (below) was the
- *   batch Promise.allSettled fix, committed and merged via PR #1814 but not
- *   yet deployed; the live function's v23 was get_job_logs, deployed
- *   directly on 2026-09-12 with no corresponding commit -- the same
- *   apply-without-committing pattern already tracked elsewhere in this
- *   repo's history for migrations, now confirmed for edge functions too.
- *   This version folds get_job_logs into git (see its case below, inserted
- *   after get_check_run_output) so neither change is lost, and renumbers
- *   forward from here so the two v23 labels stop colliding.
- *
  * github-bridge v23 -- batch runs sub-ops sequentially, not in parallel (2026-09-02)
  *   batch ran every sub-op concurrently via Promise.allSettled. A
  *   multi-file commit -- the batch operation's actual primary use case,
@@ -477,18 +465,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
         try { annotations = await gh(data.output.annotations_url, h) } catch { /* best-effort */ }
       }
       return { ok: true, name: data.name, conclusion: data.conclusion, output: data.output, annotations, html_url: data.html_url }
-    }
-
-    case 'get_job_logs': {
-      const jobId = op.job_id
-      if (!jobId) throw new Error('get_job_logs requires op.job_id')
-      const res = await fetch(`${BASE}/actions/jobs/${jobId}/logs`, { headers: h })
-      if (!res.ok) throw new Error(`GitHub GET job logs ${res.status}: ${await res.text()}`)
-      const text = await res.text()
-      const maxChars = Math.min((op.max_chars as number) ?? 20000, 100000)
-      const truncated = text.length > maxChars
-      const log = truncated ? text.slice(-maxChars) : text
-      return { ok: true, truncated, totalLength: text.length, log }
     }
 
     case 'grep_file': {

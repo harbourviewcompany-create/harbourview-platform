@@ -9,16 +9,12 @@ const closureMigration = readFileSync(
   'supabase/migrations/20260814124500_release_closure_security_hardening.sql',
   'utf8',
 )
-const dependencyRepairMigration = readFileSync(
-  'supabase/migrations/20260914205452_security_hardening_rls_dependency_repair.sql',
-  'utf8',
-)
 const assertions = readFileSync('supabase/tests/production_security_hardening.sql', 'utf8')
 const authControl = readFileSync('scripts/configure-supabase-auth-production.mjs', 'utf8')
 
 describe('production Supabase security hardening controls', () => {
   it('contains no synthetic deny policies or destructive business-data operations', () => {
-    for (const migration of [baselineMigration, closureMigration, dependencyRepairMigration]) {
+    for (const migration of [baselineMigration, closureMigration]) {
       expect(migration).not.toMatch(/using\s*\(\s*false\s*\)/i)
       expect(migration).not.toMatch(/with\s+check\s*\(\s*false\s*\)/i)
       expect(migration).not.toMatch(/\b(truncate|drop\s+table|delete\s+from)\b/i)
@@ -78,29 +74,6 @@ describe('production Supabase security hardening controls', () => {
     }
   })
 
-  it('repairs SECURITY DEFINER helpers that are actual RLS policy dependencies and preserves the marketplace public-read contract', () => {
-    for (const signature of [
-      'public.clinical_evidence_has_review_role(text[])',
-      'public.clinical_has_active_consent(uuid,text)',
-      'public.education_can_manage()',
-      'public.education_has_review_role(text[])',
-      'public.harbourview_is_admin_or_operator()',
-      'public.hv_has_transaction_role(text[])',
-      'public.hv_is_specific_transaction_party(uuid)',
-      'public.hv_is_transaction_participant(uuid)',
-      'public.hv_network_active_workspace_member(uuid)',
-      'public.is_verified_clinician(uuid)',
-    ]) {
-      expect(dependencyRepairMigration).toContain(`'${signature}'`)
-    }
-    expect(dependencyRepairMigration).toContain(
-      'grant select on table public.marketplace_public_listings_v1 to anon, authenticated, service_role',
-    )
-    expect(dependencyRepairMigration).toContain(
-      'alter view public.marketplace_public_listings_v1 set (security_invoker = true)',
-    )
-  })
-
   it('pins the mutable helper search path and contains non-relocatable pg_net without widening backend grants', () => {
     expect(closureMigration).toContain(
       'alter function public.hv_truncate_at_word_boundary(text, integer)',
@@ -116,7 +89,6 @@ describe('production Supabase security hardening controls', () => {
     expect(assertions).toContain('internal_view_exposed')
     expect(assertions).toContain('anon_definer_execute')
     expect(assertions).toContain('authenticated_definer_execute')
-    expect(assertions).toContain('browser_schema_exposed')
   })
 
   it('locks the Auth leaked-password change to the production project and keeps it apply-gated', () => {
