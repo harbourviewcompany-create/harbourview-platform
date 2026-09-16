@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync(
-  'supabase/migrations/20260802080000_harden_eval_labels_and_alert_delivery.sql',
+  'supabase/migrations/20260912103805_harden_eval_labels_and_alert_delivery.sql',
   'utf8',
 ).toLowerCase()
 
@@ -27,7 +27,6 @@ describe('pipeline hardening migration', () => {
     const queueEnd = migration.indexOf("return jsonb_build_object('ok', true", queueStart)
     expect(queueStart).toBeGreaterThan(-1)
     expect(queueEnd).toBeGreaterThan(queueStart)
-
     const queueStatement = migration.slice(queueStart, queueEnd)
     expect(migration).toContain('join net._http_response r on r.id = l.delivery_request_id')
     expect(migration).toContain(
