@@ -1,5 +1,4 @@
 /* eslint-disable */
-// @ts-nocheck
 'use client'
 
 import { useMemo, useState } from 'react'
@@ -8,13 +7,13 @@ import { Overview } from '@/components/admin/panels/Overview'
 
 export default function Page() {
   const api = useMemo(() => mkApi(), [])
-  const { toast, toastNode } = useAdminToast()
-  const [stats, setStats] = useState(null)
+  const { toastNode } = useAdminToast()
+  const [stats, setStats] = useState<Parameters<typeof Overview>[0]['stats']>(null)
   return (
     <>
       <style>{panelCss}</style>
       <div className="hv-app"><div className="hv-main"><div className="content">
-        <Overview api={api} toast={toast} stats={stats} setStats={setStats} />
+        <Overview api={api} stats={stats} setStats={setStats} />
       </div></div></div>
       {toastNode}
     </>
