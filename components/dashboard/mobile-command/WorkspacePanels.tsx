@@ -50,6 +50,10 @@ export function MarketplaceWorkspacePanel({
 
   if (!tool || tool === 'financing-intake') return null
 
+  // Any introduction with a selected listing uses the simple seller form
+  // (equipment, consumables, cannabis, etc.).
+  const useSellerForm = tool === 'introduction' && Boolean(selectedListing)
+
   const config = tool === 'wanted-intake'
     ? {
         eyebrow: 'Wanted demand',
@@ -58,50 +62,32 @@ export function MarketplaceWorkspacePanel({
         defaultType: 'Wanted Request',
         defaultHeadline: '',
         defaultMarkets: '',
-        useSellerForm: false,
       }
     : tool === 'supply-intake'
       ? {
           eyebrow: 'Supply intake',
-          title: (activeMarketView === 'equipment' || activeMarketView === 'consumables' || activeMarketView === 'new-products' || activeMarketView === 'services')
-            ? 'List consumables or equipment'
-            : 'Submit supply for review',
+          title:
+            activeMarketView === 'equipment' ||
+            activeMarketView === 'consumables' ||
+            activeMarketView === 'new-products' ||
+            activeMarketView === 'services'
+              ? 'List consumables or equipment'
+              : 'Submit supply for review',
           description: MOBILE_COMMAND_COPY.supplyIntakeDescription,
           defaultType: defaultListingTypeForView(activeMarketView),
           defaultHeadline: '',
           defaultMarkets: '',
-          useSellerForm: false,
         }
-      : (() => {
-          const view = selectedListing?.view ?? activeMarketView
-          const openTier = view === 'equipment' || view === 'consumables' || view === 'new-products' || view === 'services'
-          const useSellerForm = Boolean(
-            selectedListing &&
-              openTier &&
-              tool === 'introduction',
-          )
-          return {
-            eyebrow: openTier ? 'Contact seller' : 'Reviewed introduction',
-            title: useSellerForm
-              ? 'Send inquiry'
-              : selectedListing
-                ? (openTier ? 'Contact seller' : 'Request access')
-                : (openTier ? 'Contact seller' : 'Request introduction'),
-            description: useSellerForm
-              ? '' // form carries its own short lead copy
-              : openTier
-                ? 'Harbourview delivers your inquiry; contact details stay private until they respond.'
-                : MOBILE_COMMAND_COPY.introductionDescription,
-            defaultType: openTier ? 'Service' : 'Qualified Access Request',
-            defaultHeadline: selectedListing
-              ? (openTier
-                  ? `Seller inquiry: ${selectedListing.title}`
-                  : `Reviewed introduction request: ${selectedListing.title}`)
-              : '',
-            defaultMarkets: selectedListing?.jurisdiction ?? '',
-            useSellerForm,
-          }
-        })()
+      : {
+          eyebrow: 'Contact seller',
+          title: 'Send inquiry',
+          description: '',
+          defaultType: 'Service',
+          defaultHeadline: selectedListing
+            ? `Seller inquiry: ${selectedListing.title}`
+            : '',
+          defaultMarkets: selectedListing?.jurisdiction ?? '',
+        }
 
   const formKey = [
     tool,
@@ -140,7 +126,7 @@ export function MarketplaceWorkspacePanel({
         </article>
       ) : null}
 
-      {config.useSellerForm && selectedListing ? (
+      {useSellerForm && selectedListing ? (
         <SellerContactForm listing={selectedListing} onDone={onClose} />
       ) : (
         <DynamicMarketplaceIntakeForm
