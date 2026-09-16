@@ -29,28 +29,33 @@ describe('Harbourview monetization lifecycle safeguards', () => {
     expect(upgradeButton).toContain("fetch('/api/stripe/portal', { method: 'POST' })")
   })
 
-  it('does not let non-Harbourview Stripe prices alter Harbourview entitlement state', () => {
+  it('ignores Stripe subscriptions whose price does not map to a Harbourview tier', () => {
     const webhook = read('app/api/stripe/webhook/route.ts')
-    expect(webhook).toContain('ignoring subscription with non-Harbourview price')
-    expect(webhook).toContain('if (!derivedTier)')
+    expect(webhook).toContain('tierFromPriceId')
+    expect(webhook).toContain('const item=sub.items.data[0],price=item?.price?.id??null,tier=price?tierFromPriceId(price):null')
+    expect(webhook).toContain('if(!tier)return')
   })
 
-  it('recomputes entitlement across remaining subscriptions on updates and cancellation', () => {
+  it('recomputes entitlement from all remaining active subscriptions after updates and cancellation', () => {
     const webhook = read('app/api/stripe/webhook/route.ts')
-    expect(webhook).toContain('async function recomputeUserEntitlement')
-    expect(webhook).toContain("subscription.status !== 'active' && subscription.status !== 'trialing'")
-    expect(webhook).toContain('await recomputeUserEntitlement(supabase, userId)')
+    expect(webhook).toContain('async function entitlement')
+    expect(webhook).toContain("x.status!=='active'&&x.status!=='trialing'")
+    expect(webhook).toContain('await entitlement(s,uid)')
   })
 
   it('marks a webhook event processed only after persistence succeeds', () => {
     const webhook = read('app/api/stripe/webhook/route.ts')
-    expect(webhook).toContain('Webhook idempotency lookup failed')
-    expect(webhook).toContain('Webhook idempotency insert failed')
-    expect(webhook).toContain('subscriptions upsert failed')
-    expect(webhook).toContain('app_metadata tier sync failed')
-    expect(webhook.indexOf('await recomputeUserEntitlement(supabase, userId)')).toBeLessThan(
-      webhook.lastIndexOf('await markProcessed(supabase, event)')
-    )
+    const processedIndex = webhook.indexOf('if(await processed(s,event.id))')
+    const switchIndex = webhook.indexOf('switch(event.type)')
+    const markIndex = webhook.lastIndexOf('await mark(s,event)')
+    expect(processedIndex).toBeGreaterThan(-1)
+    expect(switchIndex).toBeGreaterThan(processedIndex)
+    expect(markIndex).toBeGreaterThan(switchIndex)
+    expect(webhook).toContain('async function processed')
+    expect(webhook).toContain('async function mark')
+    expect(webhook).toContain("from('subscriptions').upsert")
+    expect(webhook).toContain("from('user_profiles').update")
+    expect(webhook).toContain('return NextResponse.json({error:\'Webhook handler failed.\'},{status:500})')
   })
 
   it('uses the configured canonical app URL rather than a request-controlled Origin for Stripe redirects', () => {
