@@ -1,5 +1,4 @@
 /* eslint-disable */
-// @ts-nocheck
 'use client'
 
 import { panelCss } from '@/components/admin/panels/shared'
