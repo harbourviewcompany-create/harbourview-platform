@@ -115,7 +115,7 @@ jobs:
       # `Next.js Build`, so a new runtime dependency is what its CI is weakest
       # at catching (AGENT_OPERATING_FACTS.md §2).
       - name: Install Supabase CLI
-uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: 2.109.1
 
@@ -197,7 +197,7 @@ uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
 
       - name: Upload log
         if: always()
-uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: reconstruct-stub-migrations-${{ github.run_id }}
           path: reconstruct.log

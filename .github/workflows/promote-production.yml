@@ -256,7 +256,7 @@ jobs:
 
       - name: Install Supabase CLI for read-only post-deploy drift verification
         if: steps.freshness.outputs.deploy == 'true'
-uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: 2.109.1
 
@@ -290,7 +290,7 @@ uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
 
       - name: Upload production release evidence
         if: always() && steps.freshness.outputs.deploy == 'true'
-uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: production-release-${{ steps.release.outputs.sha }}
           path: |
