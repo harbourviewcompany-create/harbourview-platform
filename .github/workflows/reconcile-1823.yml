@@ -1,0 +1,32 @@
+name: Reconcile PR 1823 with main
+
+on:
+  push:
+    branches:
+      - remediation/platform-governance-hardening-20260912
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    if: github.event.head_commit.message == 'chore(reconcile): install one-shot PR #1823 reconciler'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reconcile branch with main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: remediation/platform-governance-hardening-20260912
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" work
+          cd work
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout "${BRANCH}"
+          git merge --no-edit origin/main
+          git rm .github/workflows/reconcile-1823.yml
+          git commit -m "chore(reconcile): remove one-shot PR #1823 reconciler"
+          git push origin "HEAD:${BRANCH}"
