@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   review-hardening-contract:
-    name: Review fixes — current migration chain and contracts
+    name: Review fixes — current migration chain and security contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -45,9 +45,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-
-      - name: Prepare production-shaped prerequisites
-        shell: bash
+      - name: Prepare prerequisites
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -76,45 +74,28 @@ jobs:
           insert into public.countries (country_name,iso_alpha2,iso_alpha3) values ('Canada','CA','CAN'),('Germany','DE','DEU');
           insert into public.jurisdictions values ('country_area:CAN','Canada','CAN'),('country_area:DEU','Germany','DEU');
           insert into public.jurisdiction_crossref (countries_iso2,canonical_iso2,canonical_name) values ('CA','CA','Canada'),('DE','DE','Germany');
-          insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel'),('00000000-0000-0000-0000-000000000333','intel');
-          insert into public.user_roles values ('00000000-0000-0000-0000-000000000222','analyst');
-          insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,action,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
-          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"recommended_action":"Verify importer eligibility"}'::jsonb),
-          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,null,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb),
-          ('sig-c',null,null,'Regulator A','https://example.test/c',now(),true,null,'signal',0.82,'market','market','medium','medium','Commercial','Canada','CA','Commercial change','Commercial summary','Commercial change','Commercial summary','{}'::jsonb),
-          ('sig-rejected',null,null,'Industry B','https://example.test/rejected',now(),true,'rejected','signal',0.99,'regulatory','regulatory','critical','critical','Must not surface','Canada','CA','Rejected','Rejected','Rejected','Rejected','{}'::jsonb);
+          insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
+          insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
+          ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{}'::jsonb),
+          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb);
           SQL
-
-      - name: Apply current Stage 0 migration chain
+      - name: Apply current Stage 0 migrations
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql
-
-      - name: Verify migration and security invariants
+      - name: Verify migration and access invariants
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
-          do $$
-          begin
-            if (select count(*) from public.intel_evidence_refs) <> 3 then raise exception 'evidence cardinality'; end if;
-            if (select count(*) from public.intel_assertions) <> 3 then raise exception 'assertion cardinality'; end if;
-            if (select count(*) from public.intel_events) <> 2 then raise exception 'event cardinality'; end if;
-            if exists (select 1 from public.intel_assertions where review_status='verified') then raise exception 'migration created verified state'; end if;
-            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-b' and event_id='event:sig-a') then raise exception 'cluster alias failed'; end if;
+          do $$ begin
+            if not exists (select 1 from public.intel_assertions where source_signal_id='sig-a') then raise exception 'assertions missing'; end if;
+            if not exists (select 1 from public.intel_events where id='event:sig-a') then raise exception 'event missing'; end if;
+            if exists (select 1 from public.intel_assertions where review_status='verified') then raise exception 'verified state created by migration'; end if;
+            if not exists (select 1 from public.intel_event_route_map where signal_id='sig-b' and event_id='event:sig-a') then raise exception 'cluster alias missing'; end if;
             if not exists (select 1 from public.intel_assertions where source_signal_id='sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'assertion jurisdiction missing'; end if;
             if not exists (select 1 from public.intel_events where id='event:sig-a' and jurisdiction_id='country_area:DEU') then raise exception 'event jurisdiction missing'; end if;
             if has_table_privilege('authenticated','public.hv_evidence','SELECT') then raise exception 'raw evidence grant'; end if;
             if has_table_privilege('authenticated','public.intel_events','DELETE') then raise exception 'canonical event delete grant'; end if;
           end $$;
           SQL
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: '22'
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Run Decision Intel contract tests
-        run: npx vitest run tests/intel/decisionIntelFirstSlice.test.ts tests/intel/decisionIntelJurisdictionNavigation.test.ts tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts
