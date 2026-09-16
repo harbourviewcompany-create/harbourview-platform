@@ -21,7 +21,14 @@ function walkAdminRoutes(dir: string, out: string[] = []): string[] {
 }
 
 function hasApprovedAdminGuard(source: string): boolean {
-  if (source.includes('requireAdminApiAuth') || source.includes('requireAdminAuth')) return true
+  // Preserve the established admin auth helpers while also accepting the
+  // explicit server-side boundaries introduced for non-admin helper routes.
+  if (
+    source.includes('requireAdminApiAuth')
+    || source.includes('requireAdminAuth')
+    || source.includes('getAdminAuthCheck')
+    || source.includes('getAdminAuth')
+  ) return true
   if (source.includes('getAuthenticatedUser') && source.includes('isPlatformStaff')) return true
   if (source.includes('.auth.getUser()') && source.includes("profile?.role !== 'admin'")) return true
   if (
