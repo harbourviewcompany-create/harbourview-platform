@@ -1,36 +1,44 @@
-/* Dashboard-wide metallic gold chrome. Semantic green/red/blue statuses remain
-   reserved for status meaning; structural lines, active states and primary
-   controls use the metallic gold system. */
+/* Dashboard-wide metallic gold chrome.
+   Gold is treated as a material: highlight, mid-tone, shadow edge and a subtle
+   brushed grain. Semantic green/red/blue statuses remain status-only. */
 :root {
-  --hv-dashboard-gold-metal: linear-gradient(105deg,#6b4a12 0%,#b47b20 16%,#ffe9a0 34%,#c99532 50%,#fff1ad 66%,#8a6119 82%,#d9aa45 100%);
-  --hv-dashboard-gold-soft: rgba(201,149,50,.30);
+  --hv-dashboard-gold-metal: linear-gradient(105deg,#5a3d0d 0%,#8b5d13 11%,#c8952f 23%,#fff0a8 34%,#d3a447 44%,#8d6218 51%,#fff5c6 60%,#d0a042 71%,#7a5312 84%,#e1b85a 94%,#5a3d0d 100%);
+  --hv-dashboard-gold-soft: rgba(201,149,50,.24);
   --hv-dashboard-gold-strong: rgba(201,149,50,.62);
+  --hv-dashboard-gold-line: linear-gradient(105deg,#704b10 0%,#c3912e 25%,#fff0a8 48%,#bd8b28 69%,#f7dfa0 82%,#6e4910 100%);
+  --hv-dashboard-gold-brush: repeating-linear-gradient(105deg,rgba(255,255,255,.11) 0 1px,rgba(255,255,255,0) 1px 4px);
 }
 
 .hvm2-root {
-  --hvm2-gold: #c99532;
-  --hvm2-gold-light: #ffe9a0;
-  --hvm2-border-soft: rgba(201,149,50,.22);
+  --hvm2-gold: #d1a447;
+  --hvm2-gold-light: #fff0a8;
+  --hvm2-border-soft: rgba(201,149,50,.24);
 }
 
+/* Structural chrome: the line itself carries the metallic treatment. */
 .hvm2-root .hvm-op-header,
 .hvm2-root .hvm-op-secondary-nav,
 .hvm2-root .hvm2-bottom-nav {
-  border-color: rgba(201,149,50,.22);
+  border-color: transparent;
+  background-image: linear-gradient(#07111d,#07111d),var(--hv-dashboard-gold-line);
+  background-origin: padding-box,border-box;
+  background-clip: padding-box,border-box;
+  border-width: 1px;
 }
 
 .hvm2-root .hvm-op-secondary-nav {
-  box-shadow: 0 -8px 16px -12px rgba(201,149,50,.28);
+  box-shadow: 0 -8px 16px -12px rgba(201,149,50,.34), inset 0 1px 0 rgba(255,239,174,.06);
 }
 
+/* Active controls use a dark material body with a bright gold edge, not a flat fill. */
 .hvm2-root .hvm-op-secondary-nav button.active,
 .hvm2-root .hvm2-bottom-nav button.active {
   border: 1px solid transparent;
   background:
-    linear-gradient(rgba(201,149,50,.10),rgba(201,149,50,.10)) padding-box,
-    var(--hv-dashboard-gold-metal) border-box;
-  color: #ffe9a0;
-  box-shadow: inset 0 0 18px rgba(201,149,50,.06);
+    linear-gradient(#101820,#101820) padding-box,
+    var(--hv-dashboard-gold-line) border-box;
+  color: #fff0b2;
+  box-shadow: inset 0 1px 0 rgba(255,245,200,.16),inset 0 0 18px rgba(201,149,50,.07),0 0 18px rgba(201,149,50,.06);
 }
 
 .hvm2-root .hvm-op-wordmark,
@@ -47,14 +55,28 @@
 .hvm2-root .hvm-op-row,
 .hvm2-root .hvm-op-operating-picture,
 .hvm2-root .hvm-op-pulse {
-  border-color: rgba(201,149,50,.18);
+  border-color: rgba(201,149,50,.20);
 }
 
 .hvm2-root .hvm2-bottom-nav.hvm-op-bottom-nav {
   border: 1px solid transparent;
   background:
     linear-gradient(#07111d,#07111d) padding-box,
-    linear-gradient(145deg,rgba(201,149,50,.58),rgba(255,233,160,.16),rgba(201,149,50,.42)) border-box;
+    var(--hv-dashboard-gold-line) border-box;
+  box-shadow: inset 0 1px 0 rgba(255,244,194,.08),0 14px 35px rgba(0,0,0,.28);
+}
+
+/* Add a very subtle brushed highlight to gold-bearing chrome without changing layout. */
+.hvm2-root .hvm-op-secondary-nav button.active::after,
+.hvm2-root .hvm2-bottom-nav button.active::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--hv-dashboard-gold-brush);
+  opacity: .22;
+  mix-blend-mode: screen;
 }
 
 /* Gold focus rings are visible without relying on a flat yellow outline. */
@@ -64,9 +86,9 @@
 .cc-app button:focus-visible,
 .cc-app a:focus-visible,
 .cc-app input:focus-visible {
-  outline: 2px solid #ffe9a0;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(201,149,50,.10);
+  outline: 1px solid #fff0a8;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(201,149,50,.14),0 0 16px rgba(201,149,50,.10);
 }
 
 @media (prefers-reduced-motion: reduce) {
