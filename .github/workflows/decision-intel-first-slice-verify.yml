@@ -19,9 +19,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: decision-intel-first-slice-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  first-slice-contract:
-    name: First slice migration and contract verification
+  migration-contract:
+    name: Production-shaped migration, lineage and RLS
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
@@ -46,7 +50,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-      - name: Prepare prerequisites
+      - name: Prepare production-shaped prerequisites
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 <<'SQL'
@@ -57,7 +61,7 @@ jobs:
           create schema auth;
           grant usage on schema public, api, auth to anon, authenticated, service_role;
           create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-          create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new; end $$;
+          create function public.set_updated_at() returns trigger language plpgsql as $$ begin new.updated_at = now(); return new $$;
           grant execute on function auth.uid() to anon, authenticated, service_role;
           create table public.source_registry (id uuid primary key, name text);
           create table public.source_snapshots (id uuid primary key, source_id uuid references public.source_registry(id), captured_at timestamptz);
