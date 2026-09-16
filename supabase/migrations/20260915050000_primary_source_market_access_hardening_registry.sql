@@ -26,7 +26,6 @@ create table if not exists public.regulatory_market_access_primary_sources (
   constraint regulatory_market_access_primary_source_snapshot check (source_snapshot_sha256 ~ '^[0-9a-f]{64}$')
 );
 
--- Existing development rows, if any, must meet the stricter contract too.
 alter table public.regulatory_market_access_primary_sources
   alter column source_snapshot_sha256 set not null;
 
@@ -45,7 +44,8 @@ grant select on public.regulatory_market_access_primary_sources to anon, authent
 comment on table public.regulatory_market_access_primary_sources is
   'Strict provenance registry. One individually reviewed, jurisdiction-specific primary regulator/government/legal source per published market-access jurisdiction. Secondary trackers, aggregate treaty reports, generic landing pages reused across jurisdictions, and inherited parent sources do not satisfy the contract.';
 
-create or replace view api.regulatory_market_access_primary_source_gaps as
+create or replace view api.regulatory_market_access_primary_source_gaps
+with (security_invoker = true) as
 with inventory as (
   select c.iso_alpha2 as jurisdiction_iso2,
          c.country_name,
