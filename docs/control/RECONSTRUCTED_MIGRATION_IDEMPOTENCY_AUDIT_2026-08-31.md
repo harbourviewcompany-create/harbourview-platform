@@ -96,6 +96,23 @@ version`, `1eedb485 Restore corridor stats functions for replay`,
 part of this pass; listed here so the next person doesn't have to
 re-discover the pattern from scratch.
 
+**4. `20260719083306_enforce_clinical_signoff_gate_in_rls.sql`** — `ALTER
+POLICY "education_modules_public_select" ON public.education_modules`,
+surfaced by PR #1859's Supabase Preview check. Unlike instances 1-3, this one
+is **not yet fixed** and its root cause is less clear: unlike the corridor and
+regulatory_signals cases, no earlier migration in the repository appears to
+create a policy of this name — `20260713120000_education_review_attribution.sql`
+only *mentions* `education_modules_public_select` in a comment, it doesn't
+`CREATE POLICY` it. Either the creating statement exists in a migration this
+scan hasn't checked yet, or the policy was created directly against
+production outside the tracked migration history (dashboard, `supabase db
+push` against a divergent local state, etc.) — in which case the correct fix
+isn't a `DROP POLICY IF EXISTS` guard like the earlier instances, it's finding
+or writing the actual `CREATE POLICY` statement so replay has something to
+alter. Not investigated further as part of this pass — #1859 doesn't touch
+migrations itself, so this was noted rather than chased down the chain the
+way instances 1-3 were on #1703.
+
 ## Repo-wide heuristic scan
 
 A regex sweep of all 165 reconstructed files for the three DDL shapes that
