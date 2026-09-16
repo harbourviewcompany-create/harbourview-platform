@@ -50,9 +50,13 @@ export function MarketplaceWorkspacePanel({
 
   if (!tool || tool === 'financing-intake') return null
 
+  // Any introduction with a selected listing uses the simple seller form
+  // (equipment, consumables, cannabis, etc.).
+  const useSellerForm = tool === 'introduction' && Boolean(selectedListing)
+
   const config = tool === 'wanted-intake'
     ? {
-        eyebrow: 'Marketplace command / wanted demand',
+        eyebrow: 'Wanted demand',
         title: 'Post a wanted requirement',
         description: MOBILE_COMMAND_COPY.wantedIntakeDescription,
         defaultType: 'Wanted Request',
@@ -61,37 +65,29 @@ export function MarketplaceWorkspacePanel({
       }
     : tool === 'supply-intake'
       ? {
-          eyebrow: 'Marketplace command / supply intake',
-          title: (activeMarketView === 'equipment' || activeMarketView === 'consumables' || activeMarketView === 'new-products' || activeMarketView === 'services')
-            ? 'List consumables or equipment'
-            : 'Submit supply for controlled review',
+          eyebrow: 'Supply intake',
+          title:
+            activeMarketView === 'equipment' ||
+            activeMarketView === 'consumables' ||
+            activeMarketView === 'new-products' ||
+            activeMarketView === 'services'
+              ? 'List consumables or equipment'
+              : 'Submit supply for review',
           description: MOBILE_COMMAND_COPY.supplyIntakeDescription,
           defaultType: defaultListingTypeForView(activeMarketView),
           defaultHeadline: '',
           defaultMarkets: '',
         }
-      : (() => {
-          const view = selectedListing?.view ?? activeMarketView
-          const openTier = view === 'equipment' || view === 'consumables' || view === 'new-products' || view === 'services'
-          return {
-            eyebrow: openTier
-              ? 'Marketplace command / contact seller'
-              : 'Marketplace command / reviewed introduction',
-            title: selectedListing
-              ? (openTier ? `Contact seller — ${selectedListing.title}` : `Request access to ${selectedListing.title}`)
-              : (openTier ? 'Contact seller' : 'Request a reviewed introduction'),
-            description: openTier
-              ? 'Send a structured inquiry. Harbourview delivers it to the listing owner; contact details stay private until they respond.'
-              : MOBILE_COMMAND_COPY.introductionDescription,
-            defaultType: openTier ? 'Service' : 'Qualified Access Request',
-            defaultHeadline: selectedListing
-              ? (openTier
-                  ? `Seller inquiry: ${selectedListing.title}`
-                  : `Reviewed introduction request: ${selectedListing.title}`)
-              : '',
-            defaultMarkets: selectedListing?.jurisdiction ?? '',
-          }
-        })()
+      : {
+          eyebrow: 'Contact seller',
+          title: 'Send inquiry',
+          description: '',
+          defaultType: 'Service',
+          defaultHeadline: selectedListing
+            ? `Seller inquiry: ${selectedListing.title}`
+            : '',
+          defaultMarkets: selectedListing?.jurisdiction ?? '',
+        }
 
   const formKey = [
     tool,
@@ -114,25 +110,23 @@ export function MarketplaceWorkspacePanel({
         <div>
           <span>{config.eyebrow}</span>
           <h3>{config.title}</h3>
-          <p>{config.description}</p>
+          {config.description ? <p>{config.description}</p> : null}
         </div>
-        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.marketplaceWorkflowClose}>Close</button>
+        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.marketplaceWorkflowClose}>
+          Close
+        </button>
       </header>
 
-      {selectedListing && tool === 'introduction' && (
+      {selectedListing && tool === 'introduction' ? (
         <article className="hvm2-workspace-context">
-          <span>{selectedListing.category} · {selectedListing.jurisdiction}</span>
+          <span>
+            {selectedListing.category} · {selectedListing.jurisdiction}
+          </span>
           <strong>{selectedListing.title}</strong>
-          <p>{selectedListing.summary}</p>
         </article>
-      )}
+      ) : null}
 
-      {tool === 'introduction' && selectedListing && (
-        (selectedListing.view === 'equipment' ||
-          selectedListing.view === 'consumables' ||
-          selectedListing.view === 'new-products' ||
-          selectedListing.view === 'services')
-      ) ? (
+      {useSellerForm && selectedListing ? (
         <SellerContactForm listing={selectedListing} onDone={onClose} />
       ) : (
         <DynamicMarketplaceIntakeForm
@@ -167,7 +161,9 @@ export function FinancingWorkspacePanel({ open, onClose }: { open: boolean; onCl
           <h3>{MOBILE_COMMAND_COPY.financingWorkflowTitle}</h3>
           <p>{MOBILE_COMMAND_COPY.financingInquiryDescription}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.financingWorkflowClose}>Close</button>
+        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.financingWorkflowClose}>
+          Close
+        </button>
       </header>
       <FinancingInquiryForm />
     </section>
