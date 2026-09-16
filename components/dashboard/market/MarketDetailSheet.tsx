@@ -69,7 +69,12 @@ export function MarketDetailSheet({
       aria-labelledby="cc-mkt-sheet-title"
     >
       <div className="cc-mkt-sheet-handle" aria-hidden />
-      <button type="button" className="cc-mkt-sheet-close" onClick={onClose}>
+      <button
+        type="button"
+        className="cc-mkt-sheet-close"
+        onClick={onClose}
+        aria-label="Back to Market"
+      >
         Market
       </button>
 
