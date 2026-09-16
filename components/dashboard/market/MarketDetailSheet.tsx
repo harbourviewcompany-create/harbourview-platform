@@ -6,6 +6,7 @@ import type { MarketCardModel, MarketTier } from './marketTypes'
 import { MarketRelatedRail } from './MarketRelatedRail'
 import './MarketProduction.css'
 import './DashboardMetallicGold.css'
+import './MarketFinalPolish.css'
 
 type Spec = { label: string; value: string; icon?: string }
 
@@ -69,8 +70,13 @@ export function MarketDetailSheet({
       aria-labelledby="cc-mkt-sheet-title"
     >
       <div className="cc-mkt-sheet-handle" aria-hidden />
-      <button type="button" className="cc-mkt-sheet-close" onClick={onClose}>
-        Market
+      <button
+        type="button"
+        className="cc-mkt-sheet-close"
+        onClick={onClose}
+        aria-label="Back to Market"
+      >
+        Back to Market
       </button>
 
       <div className="cc-mkt-sheet-scroll">
