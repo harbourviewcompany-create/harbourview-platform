@@ -52,37 +52,46 @@ export function MarketplaceWorkspacePanel({
 
   const config = tool === 'wanted-intake'
     ? {
-        eyebrow: 'Marketplace command / wanted demand',
+        eyebrow: 'Wanted demand',
         title: 'Post a wanted requirement',
         description: MOBILE_COMMAND_COPY.wantedIntakeDescription,
         defaultType: 'Wanted Request',
         defaultHeadline: '',
         defaultMarkets: '',
+        useSellerForm: false,
       }
     : tool === 'supply-intake'
       ? {
-          eyebrow: 'Marketplace command / supply intake',
+          eyebrow: 'Supply intake',
           title: (activeMarketView === 'equipment' || activeMarketView === 'consumables' || activeMarketView === 'new-products' || activeMarketView === 'services')
             ? 'List consumables or equipment'
-            : 'Submit supply for controlled review',
+            : 'Submit supply for review',
           description: MOBILE_COMMAND_COPY.supplyIntakeDescription,
           defaultType: defaultListingTypeForView(activeMarketView),
           defaultHeadline: '',
           defaultMarkets: '',
+          useSellerForm: false,
         }
       : (() => {
           const view = selectedListing?.view ?? activeMarketView
           const openTier = view === 'equipment' || view === 'consumables' || view === 'new-products' || view === 'services'
+          const useSellerForm = Boolean(
+            selectedListing &&
+              openTier &&
+              tool === 'introduction',
+          )
           return {
-            eyebrow: openTier
-              ? 'Marketplace command / contact seller'
-              : 'Marketplace command / reviewed introduction',
-            title: selectedListing
-              ? (openTier ? `Contact seller — ${selectedListing.title}` : `Request access to ${selectedListing.title}`)
-              : (openTier ? 'Contact seller' : 'Request a reviewed introduction'),
-            description: openTier
-              ? 'Send a structured inquiry. Harbourview delivers it to the listing owner; contact details stay private until they respond.'
-              : MOBILE_COMMAND_COPY.introductionDescription,
+            eyebrow: openTier ? 'Contact seller' : 'Reviewed introduction',
+            title: useSellerForm
+              ? 'Send inquiry'
+              : selectedListing
+                ? (openTier ? 'Contact seller' : 'Request access')
+                : (openTier ? 'Contact seller' : 'Request introduction'),
+            description: useSellerForm
+              ? '' // form carries its own short lead copy
+              : openTier
+                ? 'Harbourview delivers your inquiry; contact details stay private until they respond.'
+                : MOBILE_COMMAND_COPY.introductionDescription,
             defaultType: openTier ? 'Service' : 'Qualified Access Request',
             defaultHeadline: selectedListing
               ? (openTier
@@ -90,6 +99,7 @@ export function MarketplaceWorkspacePanel({
                   : `Reviewed introduction request: ${selectedListing.title}`)
               : '',
             defaultMarkets: selectedListing?.jurisdiction ?? '',
+            useSellerForm,
           }
         })()
 
@@ -114,25 +124,23 @@ export function MarketplaceWorkspacePanel({
         <div>
           <span>{config.eyebrow}</span>
           <h3>{config.title}</h3>
-          <p>{config.description}</p>
+          {config.description ? <p>{config.description}</p> : null}
         </div>
-        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.marketplaceWorkflowClose}>Close</button>
+        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.marketplaceWorkflowClose}>
+          Close
+        </button>
       </header>
 
-      {selectedListing && tool === 'introduction' && (
+      {selectedListing && tool === 'introduction' ? (
         <article className="hvm2-workspace-context">
-          <span>{selectedListing.category} · {selectedListing.jurisdiction}</span>
+          <span>
+            {selectedListing.category} · {selectedListing.jurisdiction}
+          </span>
           <strong>{selectedListing.title}</strong>
-          <p>{selectedListing.summary}</p>
         </article>
-      )}
+      ) : null}
 
-      {tool === 'introduction' && selectedListing && (
-        (selectedListing.view === 'equipment' ||
-          selectedListing.view === 'consumables' ||
-          selectedListing.view === 'new-products' ||
-          selectedListing.view === 'services')
-      ) ? (
+      {config.useSellerForm && selectedListing ? (
         <SellerContactForm listing={selectedListing} onDone={onClose} />
       ) : (
         <DynamicMarketplaceIntakeForm
@@ -167,7 +175,9 @@ export function FinancingWorkspacePanel({ open, onClose }: { open: boolean; onCl
           <h3>{MOBILE_COMMAND_COPY.financingWorkflowTitle}</h3>
           <p>{MOBILE_COMMAND_COPY.financingInquiryDescription}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.financingWorkflowClose}>Close</button>
+        <button type="button" onClick={onClose} aria-label={MOBILE_COMMAND_COPY.financingWorkflowClose}>
+          Close
+        </button>
       </header>
       <FinancingInquiryForm />
     </section>
