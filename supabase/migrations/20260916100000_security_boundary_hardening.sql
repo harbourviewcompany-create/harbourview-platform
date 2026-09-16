@@ -31,8 +31,6 @@ create table if not exists security.rls_policy_exemptions (
 
 revoke all on security.rls_policy_exemptions from public, anon, authenticated;
 
--- Snapshot every currently RLS-enabled table with zero policies. This is a
--- classification registry, not a permission grant.
 insert into security.rls_policy_exemptions (table_schema, table_name, classification, reason)
 select
   n.nspname,
@@ -53,11 +51,9 @@ where c.relkind in ('r', 'p')
 on conflict (table_schema, table_name) do nothing;
 
 -- Credential-bearing helpers must never be callable by browser roles.
--- These REVOKEs are intentionally idempotent and remain protective if a later
--- migration or grant accidentally re-exposes one of these functions.
 do $$
 declare
-  fn record;
+  fn text;
   targets constant text[] := array[
     'api.get_airtable_sync_config()',
     'api.hv_get_github_pat()',
@@ -77,8 +73,7 @@ begin
 end $$;
 
 -- Pin the search path on every SECURITY DEFINER function that is exposed to a
--- browser role and currently lacks an explicit search_path setting. Existing
--- explicitly pinned functions are left untouched.
+-- browser role and currently lacks an explicit search_path setting.
 do $$
 declare
   r record;
@@ -102,6 +97,12 @@ begin
     );
   end loop;
 end $$;
+
+-- Public corridor statistics are intentionally exposed through the API route.
+-- The wrapper is SECURITY DEFINER and returns only the aggregate contract, so
+-- allowing anon execution removes the need for the public HTTP route to hold
+-- a service-role credential.
+grant execute on function api.get_corridor_stats(text) to anon, authenticated;
 
 -- Remaining raw auth.uid() policy expressions are safe but unnecessarily
 -- re-evaluated per row. Convert only policies that actually contain the raw
@@ -145,8 +146,6 @@ begin
   end loop;
 end $$;
 
--- FK indexes identified by the production advisor. IF NOT EXISTS keeps this
--- safe when a concurrent branch has already supplied an equivalent index.
 create index if not exists idx_intel_assertion_evidence_evidence_ref_id
   on public.intel_assertion_evidence (evidence_ref_id);
 create index if not exists idx_intel_assertions_jurisdiction_id
