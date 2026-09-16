@@ -1,8 +1,10 @@
 'use client'
 
 import Image from 'next/image'
+import { useEffect } from 'react'
 import type { MarketCardModel, MarketTier } from './marketTypes'
 import { MarketRelatedRail } from './MarketRelatedRail'
+import './MarketProduction.css'
 
 type Spec = { label: string; value: string; icon?: string }
 
@@ -33,6 +35,32 @@ export function MarketDetailSheet({
 }: Props) {
   const secondary = tier === 'B' || listing.variant === 'catalogue'
 
+  useEffect(() => {
+    const previousTitle = document.title
+    const previousOverflow = document.body.style.overflow
+    document.title = `${listing.title} · Harbourview Market`
+    document.body.style.overflow = 'hidden'
+
+    const handlePopState = () => onClose()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+
+    window.history.pushState({ harbourviewMarketDetail: true }, '', window.location.href)
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.title = previousTitle
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('keydown', handleKeyDown)
+      if (window.history.state?.harbourviewMarketDetail) {
+        window.history.back()
+      }
+    }
+  }, [listing.title, onClose])
+
   return (
     <div
       className="cc-mkt-sheet"
@@ -42,7 +70,7 @@ export function MarketDetailSheet({
     >
       <div className="cc-mkt-sheet-handle" aria-hidden />
       <button type="button" className="cc-mkt-sheet-close" onClick={onClose}>
-        ← Market
+        Market
       </button>
 
       <div className="cc-mkt-sheet-scroll">
