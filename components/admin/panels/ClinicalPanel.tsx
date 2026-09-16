@@ -1,5 +1,4 @@
 /* eslint-disable */
-// @ts-nocheck — extracted from HubPanel
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
@@ -41,17 +40,4 @@ export function ClinicalPanel() {
             <tr><td>Evidence queue</td><td className="cell-mono">/admin/clinical-review</td><td>Publish gate</td></tr>
             <tr><td>Claim map</td><td className="cell-mono">/admin/clinical-review/claim-map</td><td>Commercial orientation</td></tr>
             <tr><td>API</td><td className="cell-mono">/api/clinical/admin/framework-alignment</td><td>Persist alignment</td></tr>
-            <tr><td>Command Centre</td><td className="cell-mono">Access Pathway → Corridors</td><td>Corridor flags</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div className="card-section">
-        <div className="card-section-title">Scope</div>
-        <p style={{fontSize:11,color:"#4A5E80",lineHeight:1.5}}>
-          Cannabinoid / medical-cannabis clinical-reference only. Non-SaMD professional reference.
-          Framework alignment is optional metadata for dossiers — never used for clinical inference.
-        </p>
-      </div>
-    </div>
-  );
-}
+            <tr><td>Command Centre</td><td className="cell-mono">Access Pathway → Corridors</td><td>Corridor flags
