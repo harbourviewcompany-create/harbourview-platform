@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "purpose": "Content-bound repository identity reconciliation for migrations renamed after production application. This record preserves historical release classifications without asserting a new production apply.",
+  "observed_at_utc": "2026-09-16T00:00:00Z",
+  "replacements": [
+    {"retired_version":"20260727163000","canonical_version":"20260911225324"},
+    {"retired_version":"20260731120000","canonical_version":"20260912103655"},
+    {"retired_version":"20260801150000","canonical_version":"20260912103723"},
+    {"retired_version":"20260802080000","canonical_version":"20260912103805"},
+    {"retired_version":"20260808190000","canonical_version":"20260911225008"},
+    {"retired_version":"20260808203000","canonical_version":"20260911225106"},
+    {"retired_version":"20260810202000","canonical_version":"20260911225151"},
+    {"retired_version":"20260810222500","canonical_version":"20260912103836"}
+  ],
+  "policy": "A replacement changes repository identity only. It does not authorize production application, alter production migration history, or declare the replacement body independently applied. Historical classifications remain preserved through this explicit reconciliation record."
+}
