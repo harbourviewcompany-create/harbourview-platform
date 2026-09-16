@@ -45,7 +45,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
           persist-credentials: false
-
       - name: Prepare production-shaped prerequisites
         shell: bash
         run: |
@@ -82,14 +81,12 @@ jobs:
           ('sig-a','20000000-0000-0000-0000-000000000001','Regulator A','https://example.test/a',now(),true,null,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{"what_changed":"Requirement changed","who_is_affected":"Importers","confidence_rationale":"Primary regulator","recommended_action":"Verify importer eligibility"}'::jsonb),
           ('sig-b',null,'Regulator A','https://example.test/b',now(),true,null,'signal',0.88,'market','market','medium','medium','Commercial change','Germany','DE','Market changed','Market summary','Market changed','Market summary','{}'::jsonb);
           SQL
-
       - name: Apply current complete Stage 0 migration chain
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225151_decision_intel_stage0_completion_hardening.sql
-
       - name: Verify completion invariants
         run: |
           set -euo pipefail
@@ -103,7 +100,6 @@ jobs:
             if has_table_privilege('authenticated','public.intel_customer_event_dossiers','SELECT') then raise exception 'customer direct dossier access'; end if;
           end $$;
           SQL
-
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -112,4 +108,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run Decision Intel completion contracts
+        run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts tests/intel/decisionIntelJurisdictionNavigation.test.ts
+
+  dashboard-route-policy:
+    name: Dashboard displayability, IA compatibility and jurisdiction policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify dashboard route, IA fallback and jurisdiction policy
         run: npx vitest run tests/intel/decisionIntelDashboardRoutes.test.ts tests/intel/decisionIntelIaFallback.test.ts tests/intel/decisionIntelJurisdictionNavigation.test.ts
