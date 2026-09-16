@@ -17,7 +17,7 @@ const paths = {
   privatePipeline: 'supabase/functions/hv-private-pipeline-runner/index.ts',
   passport: 'supabase/functions/compute-passport-score/index.ts',
   snapshot: 'supabase/functions/generate-org-snapshot/index.ts',
-  migration: 'supabase/migrations/20260810222500_harden_edge_function_cron_auth.sql',
+  migration: 'supabase/migrations/20260912103836_harden_edge_function_cron_auth.sql',
   // The schema-drift ACL repair lives in its own migration, not in the one
   // above. It was originally appended to 20260810222500 by commit 1f9660df,
   // which broke that migration's git-blob binding in the pending-production

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const completionMigration = readFileSync('supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql', 'utf8')
+const completionMigration = readFileSync('supabase/migrations/20260911225151_decision_intel_stage0_completion_hardening.sql', 'utf8')
 const dossierLoader = readFileSync('lib/intelligence-os/decisionDossier.ts', 'utf8')
 const dossierPage = readFileSync('app/dashboard/intel/events/[id]/page.tsx', 'utf8')
 
