@@ -9,7 +9,6 @@ import {
   type SupplyListing,
 } from '@/lib/server/supplyQuery'
 import { getSupplyCategoryMedia } from '@/lib/server/supplyMedia'
-import { getCountryLegalStatus, LEGAL_STATUS_LABELS } from '@/lib/server/countryLegalStatus'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -151,7 +150,6 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
   const { category, country, q } = await searchParams
   const activeCategory = category && isSupplyCategory(category) ? category : 'all'
   const activeCountry = country && COUNTRY_TABS.some((t) => t.value === country) ? country : 'all'
-  const legalStatus = activeCountry !== 'all' ? await getCountryLegalStatus(activeCountry) : null
 
   const listings = await getSupplyCatalog({
     category: activeCategory,
@@ -223,24 +221,6 @@ export default async function SupplyCatalogPage({ searchParams }: PageProps) {
             )
           })}
         </div>
-
-        {activeCountry !== 'all' ? (
-          <div className="mb-6 rounded-sm border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-6 text-white/60">
-            {legalStatus ? (
-              <p>
-                <span className="font-semibold text-white/80">Legal status in {legalStatus.country_name}:</span>{' '}
-                {LEGAL_STATUS_LABELS[legalStatus.legal_status]}
-                {legalStatus.notes ? <span className="text-white/50"> — {legalStatus.notes}</span> : null}
-                <span className="ml-2 text-white/30">(reviewed {legalStatus.last_reviewed})</span>
-              </p>
-            ) : (
-              <p>
-                Legal status for this market has not yet been individually reviewed. Products remain visible and
-                quotable, but please confirm your own import/compliance requirements before ordering.
-              </p>
-            )}
-          </div>
-        ) : null}
 
         <form action="/supply" method="get" className="mb-8 flex flex-wrap items-center gap-3">
           {activeCategory !== 'all' ? <input type="hidden" name="category" value={activeCategory} /> : null}

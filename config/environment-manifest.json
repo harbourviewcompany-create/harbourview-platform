@@ -465,7 +465,7 @@
     },
     {
       "id": "openai-key",
-      "names": ["OPENAI_API_KEY", "OPENAI_KEY"],
+      "names": ["OPENAI_API_KEY"],
       "stage": "Runtime only",
       "sensitivity": "Secret",
       "provider": "openai",

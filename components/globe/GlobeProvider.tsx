@@ -1,9 +1,9 @@
 /**
  * components/globe/GlobeProvider.tsx
  *
- * Loads the complete country universe for the globe. Latitude/longitude are
- * optional because polygon rendering is keyed by ISO2; only point-marker and
- * density layers require coordinates.
+ * Regulatory heatmap colours are loaded directly from evidence-backed published
+ * columns on countries, then kept current by Realtime country changes. Cached
+ * country data is never authoritative first paint.
  */
 'use client'
 
@@ -20,7 +20,7 @@ import { useGlobeRealtime, type RealtimeStatus } from './useGlobeRealtime'
 import {
   getGlobeCountryMarkers,
   mergeSignalRealtimeRow,
-  resolveGlobeDisplayTier,
+  resolvePublishedRegulatoryTier,
   type GlobeLiveData,
   type GlobeCountryMarker,
   type SignalRealtimeRow,
@@ -83,9 +83,9 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
           setLiveData({ ...bootstrap, countries: countriesResult.value })
           return
         }
-        console.error('[GlobeProvider] country query failed; rendering the complete cached/bootstrap payload:', countriesResult.reason)
-        setLiveData(bootstrap)
-        setLoadError('Live Market Access data is temporarily unavailable.')
+        console.error('[GlobeProvider] evidence-backed country query failed; rendering tiers neutral:', countriesResult.reason)
+        setLiveData({ ...bootstrap, countries: [] })
+        setLoadError('Verified market-access data is temporarily unavailable.')
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err))
@@ -109,29 +109,26 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
           const updated = payload.new as unknown as {
             iso_alpha2: string
             country_name: string
-            lat: number | null
-            lng: number | null
+            lat: number
+            lng: number
             opportunity_score: number | null
             signals_status: string | null
             market_access_status: string | null
-            regulatory_tier: string | null
             verified_regulatory_tier: string | null
             regulatory_tier_evidence_key: string | null
             regulatory_tier_verified_at: string | null
             regulatory_tier_expires_at: string | null
           }
           if (payload.eventType === 'DELETE' || !updated?.iso_alpha2) return prev
-          const display = resolveGlobeDisplayTier(updated)
           const marker: GlobeCountryMarker = {
             iso2: updated.iso_alpha2,
             name: updated.country_name,
-            lat: updated.lat ?? null,
-            lng: updated.lng ?? null,
+            lat: updated.lat,
+            lng: updated.lng,
             opportunityScore: updated.opportunity_score,
             signalsStatus: updated.signals_status,
             marketAccessStatus: updated.market_access_status,
-            regulatoryTier: display.tier,
-            regulatoryTierSource: display.source,
+            regulatoryTier: resolvePublishedRegulatoryTier(updated),
             regulatoryTierEvidenceKey: updated.regulatory_tier_evidence_key ?? null,
             regulatoryTierVerifiedAt: updated.regulatory_tier_verified_at ?? null,
             regulatoryTierExpiresAt: updated.regulatory_tier_expires_at ?? null,

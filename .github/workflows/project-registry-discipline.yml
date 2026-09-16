@@ -12,13 +12,6 @@ jobs:
   registry-discipline:
     name: Enforce registry impact discipline
     runs-on: ubuntu-latest
-    # Dependabot writes its own PR bodies and cannot be made to include a
-    # `## Registry Impact` section, so this gate fails on every Dependabot PR by
-    # construction. The gate exists to make a human declare the registry blast
-    # radius of a change; a version bump to package.json/package-lock.json has none
-    # to declare. Human-authored dependency PRs are still checked, because they do
-    # not run as this actor.
-    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

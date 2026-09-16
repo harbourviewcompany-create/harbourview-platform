@@ -1,5 +1,5 @@
--- Reconstructed from production. Applied directly, never committed.
--- Verbatim statements for version 20260913002300.
+-- Restored from production migration ledger on 2026-09-16.
+-- Source: supabase_migrations.schema_migrations (ledger-exact).
 
 -- Market Entry OS durable execution state.
 create table if not exists public.market_entry_missions (

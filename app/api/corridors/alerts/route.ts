@@ -1,13 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse }  from 'next/server'
-import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
+import { getSupabasePublicClientKey, getSupabaseUrl, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
 
 function getDb() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    getSupabaseUrl(),
+    getSupabasePublicClientKey(),
     { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } },
   )
 }

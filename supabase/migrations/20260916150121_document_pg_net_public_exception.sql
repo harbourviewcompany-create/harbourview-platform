@@ -1,0 +1,1 @@
+comment on extension pg_net is 'Installed in public because this extension does not support SET SCHEMA; retain until the extension provides supported relocation. Treat pg_net objects as infrastructure-only and do not grant application clients direct execution.';
