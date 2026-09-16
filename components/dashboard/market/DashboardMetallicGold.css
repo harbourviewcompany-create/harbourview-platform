@@ -1,0 +1,74 @@
+/* Dashboard-wide metallic gold chrome. Semantic green/red/blue statuses remain
+   reserved for status meaning; structural lines, active states and primary
+   controls use the metallic gold system. */
+:root {
+  --hv-dashboard-gold-metal: linear-gradient(105deg,#6b4a12 0%,#b47b20 16%,#ffe9a0 34%,#c99532 50%,#fff1ad 66%,#8a6119 82%,#d9aa45 100%);
+  --hv-dashboard-gold-soft: rgba(201,149,50,.30);
+  --hv-dashboard-gold-strong: rgba(201,149,50,.62);
+}
+
+.hvm2-root {
+  --hvm2-gold: #c99532;
+  --hvm2-gold-light: #ffe9a0;
+  --hvm2-border-soft: rgba(201,149,50,.22);
+}
+
+.hvm2-root .hvm-op-header,
+.hvm2-root .hvm-op-secondary-nav,
+.hvm2-root .hvm2-bottom-nav {
+  border-color: rgba(201,149,50,.22);
+}
+
+.hvm2-root .hvm-op-secondary-nav {
+  box-shadow: 0 -8px 16px -12px rgba(201,149,50,.28);
+}
+
+.hvm2-root .hvm-op-secondary-nav button.active,
+.hvm2-root .hvm2-bottom-nav button.active {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(rgba(201,149,50,.10),rgba(201,149,50,.10)) padding-box,
+    var(--hv-dashboard-gold-metal) border-box;
+  color: #ffe9a0;
+  box-shadow: inset 0 0 18px rgba(201,149,50,.06);
+}
+
+.hvm2-root .hvm-op-wordmark,
+.hvm2-root .hvm-op-eyebrow,
+.hvm2-root .hvm-op-group-heading > button,
+.hvm2-root .hvm-op-read-more {
+  background-image: var(--hv-dashboard-gold-metal);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.hvm2-root .hvm-op-row-list,
+.hvm2-root .hvm-op-row,
+.hvm2-root .hvm-op-operating-picture,
+.hvm2-root .hvm-op-pulse {
+  border-color: rgba(201,149,50,.18);
+}
+
+.hvm2-root .hvm2-bottom-nav.hvm-op-bottom-nav {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#07111d,#07111d) padding-box,
+    linear-gradient(145deg,rgba(201,149,50,.58),rgba(255,233,160,.16),rgba(201,149,50,.42)) border-box;
+}
+
+/* Gold focus rings are visible without relying on a flat yellow outline. */
+.hvm2-root button:focus-visible,
+.hvm2-root a:focus-visible,
+.hvm2-root input:focus-visible,
+.cc-app button:focus-visible,
+.cc-app a:focus-visible,
+.cc-app input:focus-visible {
+  outline: 2px solid #ffe9a0;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(201,149,50,.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hvm2-root *, .cc-app * { scroll-behavior: auto !important; }
+}
