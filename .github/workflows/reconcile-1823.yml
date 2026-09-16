@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   reconcile:
-    if: github.event.head_commit.message == 'chore(reconcile): install one-shot PR #1823 reconciler'
     runs-on: ubuntu-latest
     steps:
       - name: Reconcile branch with main
