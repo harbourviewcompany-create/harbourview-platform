@@ -82,7 +82,7 @@ jobs:
           insert into public.user_profiles values ('00000000-0000-0000-0000-000000000111','intel');
           insert into public.signals (id,snapshot_id,cluster_rep_id,source,url,date,reviewed,quality_label,quality_confidence,content_type,cat,pri,impact,commercial_impact,country,country_iso2,headline,summary,title_en,summary_en,analysis) values
           ('sig-a','20000000-0000-0000-0000-000000000001','sig-a','Regulator A','https://example.test/a',now(),true,'signal',0.91,'regulatory','regulatory','high','high','Potential market-access change','Germany','DE','Rule changed','Rule changed summary','Rule changed','Rule changed summary','{}'::jsonb),
-          ('sig-b',null,'sig-a','Industry B','https://example.test/b',now(),true,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb);
+          ('sig-b','20000000-0000-0000-0000-000000000001','sig-a','Industry B','https://example.test/b',now(),true,'signal',0.78,'regulatory','regulatory','medium','medium','Context','Germany','DE','Second report','Second report summary','Second report','Second report summary','{}'::jsonb);
           SQL
       - name: Apply current first-slice chain
         run: |
@@ -99,6 +99,7 @@ jobs:
             if not exists (select 1 from public.intel_events where id='event:sig-a') then raise exception 'event missing'; end if;
             if exists (select 1 from public.intel_assertions where review_status='verified') then raise exception 'verified state created by migration'; end if;
             if not exists (select 1 from public.intel_event_route_map where signal_id='sig-b' and event_id='event:sig-a') then raise exception 'cluster alias missing'; end if;
+            if (select count(*) from public.signals where snapshot_id='20000000-0000-0000-0000-000000000001') <> 2 then raise exception 'shared snapshot cardinality'; end if;
           end $$;
           SQL
       - name: Setup Node
