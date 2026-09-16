@@ -8,58 +8,27 @@
  */
 
 :root {
-  /* ── Core brand (DESIGN_SYSTEM) ───────────────────────────── */
   --hv-black: #030508;
   --hv-near-black: #050a10;
   --hv-navy: #0b1a2f;
   --hv-navy-deep: #081423;
   --hv-ocean-navy: #0a2138;
-
-  /* Metallic gold system (not flat yellow) */
-  --hv-gold-1: #f4e4a6;
-  --hv-gold-2: #e0c36a;
-  --hv-gold-3: #c9a227;
-  --hv-gold-4: #8a6b1a;
-  --hv-gold-5: #5c4810;
-  --hv-gold: #c9a227;
-  --hv-gold-deep: #8a6b1a;
+  --hv-gold-1: #f2dfab;
+  --hv-gold-2: #d8be76;
+  --hv-gold-3: #c6a55a;
+  --hv-gold-4: #a8842d;
+  --hv-gold-5: #6e551c;
+  --hv-gold: #c6a55a;
+  --hv-gold-deep: #a8842d;
   --hv-dark-gold: var(--hv-gold-deep);
-  --hv-gold-light: #e0c36a;
-  --hv-gold-metallic: linear-gradient(
-    135deg,
-    var(--hv-gold-1) 0%,
-    var(--hv-gold-2) 22%,
-    var(--hv-gold-3) 48%,
-    var(--hv-gold-2) 72%,
-    var(--hv-gold-4) 100%
-  );
-  --hv-gold-line: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--hv-gold-4) 12%,
-    var(--hv-gold-1) 50%,
-    var(--hv-gold-4) 88%,
-    transparent 100%
-  );
-  --hv-gold-text: linear-gradient(
-    180deg,
-    #f7e7b0 0%,
-    #e8c85a 42%,
-    #b8922a 100%
-  );
-  --hv-gold-sheen: linear-gradient(
-    105deg,
-    transparent 38%,
-    rgba(255, 255, 255, 0.38) 49%,
-    rgba(255, 255, 255, 0.12) 52%,
-    transparent 62%
-  );
-
+  --hv-gold-light: #d8be76;
+  --hv-gold-metallic: linear-gradient(135deg, var(--hv-gold-1) 0%, var(--hv-gold-2) 22%, var(--hv-gold-3) 48%, var(--hv-gold-2) 72%, var(--hv-gold-4) 100%);
+  --hv-gold-line: linear-gradient(90deg, transparent 0%, var(--hv-gold-4) 12%, var(--hv-gold-1) 50%, var(--hv-gold-4) 88%, transparent 100%);
+  --hv-gold-text: linear-gradient(180deg, #f2dfab 0%, #d8be76 42%, #a8842d 100%);
+  --hv-gold-sheen: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.38) 49%, rgba(255, 255, 255, 0.12) 52%, transparent 62%);
   --hv-ivory: #f5f1e8;
   --hv-offwhite: var(--hv-ivory);
   --hv-muted: #9ca3af;
-
-  /* ── Surfaces ─────────────────────────────────────────────── */
   --hv-bg-950: #03070d;
   --hv-bg-900: #06101b;
   --hv-bg-850: #091724;
@@ -68,20 +37,14 @@
   --hv-panel: rgba(6, 15, 25, 0.84);
   --hv-panel-strong: rgba(7, 17, 28, 0.92);
   --hv-panel-border: rgba(205, 218, 232, 0.16);
-  --hv-panel-border-warm: rgba(201, 162, 39, 0.28);
-
-  /* ── Text ─────────────────────────────────────────────────── */
+  --hv-panel-border-warm: rgba(198, 165, 90, 0.28);
   --hv-text-primary: var(--hv-ivory);
   --hv-text-secondary: rgba(245, 241, 232, 0.72);
   --hv-text-muted: rgba(245, 241, 232, 0.48);
-
-  /* ── Champagne scale (derived from gold) ──────────────────── */
   --hv-champagne-300: #f0d39a;
   --hv-champagne-400: #d8ad63;
   --hv-champagne-500: #bf8e44;
   --hv-champagne-muted: #b99157;
-
-  /* ── Globe (UI chrome; plate materials live in TS) ────────── */
   --hv-globe-ocean: #061525;
   --hv-globe-land: #182735;
   --hv-globe-land-soft: #223241;
@@ -90,12 +53,10 @@
   --hv-globe-selected-fill: rgba(194, 151, 79, 0.28);
   --hv-globe-selected-edge: rgba(240, 211, 154, 0.9);
   --hv-focus-ring: rgba(240, 211, 154, 0.5);
-
-  /* ── Command Centre aliases (single brand language) ───────── */
   --hvm2-bg: var(--hv-black);
   --hvm2-panel: var(--hv-navy-deep);
   --hvm2-panel-2: var(--hv-navy);
-  --hvm2-border: rgba(201, 162, 39, 0.2);
+  --hvm2-border: rgba(198, 165, 90, 0.2);
   --hvm2-border-soft: rgba(255, 255, 255, 0.08);
   --hvm2-gold: var(--hv-gold);
   --hvm2-gold-light: var(--hv-gold-light);
@@ -104,12 +65,6 @@
   --hvm2-faint: rgba(245, 241, 232, 0.34);
   --hvm2-ok: #64c08a;
   --hvm2-warn: #e4b458;
-
-  /*
-   * Compatibility aliases for residual ui/* components that still reference
-   * generic shadcn-style tokens (bg-background, text-foreground, etc.).
-   * Prefer --hv-* in new code.
-   */
   --background: var(--hv-black);
   --foreground: var(--hv-ivory);
   --card: var(--hv-navy-deep);
