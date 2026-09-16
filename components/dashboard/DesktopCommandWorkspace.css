@@ -21,21 +21,6 @@
   font-size: 30px;
 }
 
-/* Charts panel uses a wider shell for dual charts */
-.desktop-command-workspace-layer > .desktop-charts-workspace {
-  width: min(1120px, 100%);
-  margin: 0 auto;
-  padding: 20px 16px 28px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, #c6a55a 28%, transparent);
-  background: color-mix(in srgb, #07111f 94%, #020814);
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
-}
-
-.desktop-charts-workspace .hv-charts-card {
-  background: #07111f;
-}
-
 @media (max-width: 767px) {
   .desktop-command-workspace-layer {
     display: none;

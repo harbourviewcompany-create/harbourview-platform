@@ -11,33 +11,6 @@ on:
     # gate, and satisfying this gate broke AGENTS.md. That deadlock blocked the
     # duplicate-version fix this repository needs before any migration apply can
     # be recorded at all.
-    #
-    # This gate's scope is the Global Regulatory OS canonical surface, and the
-    # paths below still cover it. Dropping EVIDENCE_LOG.md narrows what triggers
-    # the workflow; it does not weaken any assertion the workflow makes. A PR
-    # touching both the evidence log and this gate's real surface still trips it
-    # through the remaining paths.
-    #
-    # DATABASE_CONTROL.md is deliberately NOT a trigger path either, for exactly
-    # the same reason and by exactly the same argument. AGENTS.md's "Required QA
-    # Commands by Change Type" §4 requires every migration PR to update
-    # docs/control/DATABASE_CONTROL.md. Listing it here fired this workflow on
-    # every such PR, and the "Verify migration isolation" step below then failed
-    # by construction, because a migration PR touches migrations. The same
-    # deadlock, one file over.
-    #
-    # The evidence that this trigger was over-scoped rather than load-bearing:
-    # nothing under scripts/global-reg-os/ references DATABASE_CONTROL.md at all.
-    # Every step in this job validates the Global Regulatory OS canonical package,
-    # its secrets, its manifest determinism, migration isolation, and its OpenAPI
-    # and AsyncAPI contracts. Not one of them reads that file. Removing it changes
-    # no assertion this workflow makes.
-    #
-    # The cost of leaving it was being paid silently: zero of the twelve most
-    # recent merged commits touching supabase/migrations/ updated
-    # DATABASE_CONTROL.md. The repository had already routed around this gate by
-    # skipping the AGENTS.md requirement every time, rather than by fixing the
-    # trigger. This makes the documented rule followable again.
     paths:
       - 'docs/control/global-regulatory-os/**'
       - 'scripts/global-reg-os/**'
@@ -52,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.13'
       - run: python -m pip install --disable-pip-version-check pyyaml jsonschema

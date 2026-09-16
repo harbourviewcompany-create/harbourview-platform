@@ -2,7 +2,7 @@
 
 **Status:** Active  
 **Source:** Deep audit of `harbourview-platform` main  
-**Audience:** Repository operator with Supabase + Vercel + GitHub dashboard access
+**Audience:** Tyler / operator with Supabase + Vercel + GitHub dashboard access  
 
 This runbook implements the **operator-only** half of the audit backlog. Code/CI guards ship separately in-repo.
 
@@ -24,12 +24,13 @@ Expect: redirect to login (3xx) or 401/403 — never admin shell HTML for anonym
 
 ```bash
 HARBOURVIEW_SMOKE_BASE_URL=https://harbourview.vercel.app npm run probe:production-visibility
+# or
 node scripts/probe-public-leakage.mjs
 ```
 
 Record results in `docs/control/EVIDENCE_LOG.md` with timestamp and production deployment commit SHA.
 
-### C. Role matrix
+### C. Role matrix (spot)
 
 | Actor | `/admin` | `/admin/applications` | `/api/clinical/admin/review` |
 |-------|----------|------------------------|------------------------------|
@@ -41,7 +42,7 @@ Record results in `docs/control/EVIDENCE_LOG.md` with timestamp and production d
 
 ## P0-3 — Intelligence / cron health
 
-### A. pg_cron active flags
+### A. pg_cron active flags (Supabase SQL)
 
 ```sql
 select jobid, jobname, schedule, active
@@ -49,7 +50,7 @@ from cron.job
 order by active, jobname;
 ```
 
-Flag any inactive job the product still depends on. Do not re-enable bulk quality ticks without compute-capacity review.
+Flag any inactive job the product still depends on. **Do not re-enable bulk quality ticks without Nano I/O budget review** (INTELLIGENCE_ARCHITECTURE_SPEC §2.8).
 
 ### B. Feed freshness
 
@@ -63,36 +64,38 @@ from public.signals;
 
 ### C. Vercel cron logs
 
-Confirm recent success for intelligence-ingest → extract → embed → notify and intelligence-health.
+Confirm recent success for: intelligence-ingest → extract → embed → notify; intelligence-health.
 
 ### D. Env for health alerts
 
-Verify production configuration for `CRON_SECRET`, `RESEND_API_KEY`, `HARBOURVIEW_PIPELINE_REVIEW_NOTIFY_EMAIL` (or `HARBOURVIEW_TO_EMAIL`), and `HARBOURVIEW_FROM_EMAIL` without exposing values in logs.
+Production: `CRON_SECRET`, `RESEND_API_KEY`, `HARBOURVIEW_PIPELINE_REVIEW_NOTIFY_EMAIL` (or `HARBOURVIEW_TO_EMAIL`), `HARBOURVIEW_FROM_EMAIL`.
 
 ---
 
 ## P0-1 — Migration lag triage
 
 1. Diff live `schema_migrations` vs `supabase/migrations/` and release-controls baselines.
-2. Process security/RLS/clinical migrations first, then features.
-3. Apply only with explicit operator approval.
-4. Record every apply in `docs/control/EVIDENCE_LOG.md` with migration version, timestamp, deployment/commit context, and result.
+2. Process: security/RLS/clinical first, then features.
+3. Apply only with operator approval; ledger row at **committed** version.
+4. Evidence each apply in EVIDENCE_LOG.md.
+
+See also: `committed-not-applied-baseline.json`, `pending-production-migration-decisions.json`.
 
 ---
 
 ## P1-5 — Unscheduled cron routes
 
-See `docs/control/CRON_ROUTE_DISPOSITION_2026-09-14.md`. Edit `vercel.json` only after product approval and quota review.
+See `docs/control/CRON_ROUTE_DISPOSITION_2026-09-14.md`. Edit `vercel.json` only after Pro plan / quota check.
 
 ---
 
-## P2 — Dashboard / CI
+## P2 — Dashboard / CI (operator)
 
 | Item | Action |
 |------|--------|
-| Branch protection | Apply the canonical main ruleset documented under `docs/control/` |
-| Dependabot | Converge branch or use least-privilege secrets as required |
-| Cloudflare / Netlify / GCP | Disconnect stale integrations after verifying dependency |
+| Branch protection | Apply per MAIN_BRANCH_PROTECTION_SPEC |
+| Dependabot | Converged branch or limited secrets |
+| Cloudflare / Netlify / GCP | Disconnect stale integrations |
 
 ---
 

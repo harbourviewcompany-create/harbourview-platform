@@ -1,0 +1,42 @@
+name: Production Database Governance Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-governance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-governance-audit:
+    name: production-governance-audit
+    # This workflow is intentionally absent from pull_request/push triggers.
+    # Manual execution is pinned to protected main so production credentials can
+    # never be supplied to arbitrary branch code.
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      GITHUB_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - name: Checkout protected main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Require production database credential
+        if: env.SUPABASE_DB_URL == ''
+        run: |
+          echo "::error::SUPABASE_DB_URL is required for scheduled/manual production governance audits."
+          exit 1
+      - name: Verify production governance and migration attribution
+        run: bash scripts/verify-production-governance.sh

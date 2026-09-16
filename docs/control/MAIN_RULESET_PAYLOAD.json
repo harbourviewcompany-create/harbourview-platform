@@ -1,0 +1,42 @@
+{
+  "name": "harbourview-main-protection",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/main"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": true,
+        "require_last_push_approval": false,
+        "required_approving_review_count": 1,
+        "required_review_thread_resolution": true,
+        "allowed_merge_methods": ["merge", "squash", "rebase"]
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "required_status_checks": [
+          {"context": "governance-gate", "integration_id": 15368},
+          {"context": "Type Check", "integration_id": 15368},
+          {"context": "Security / Leakage", "integration_id": 15368},
+          {"context": "Next.js Build", "integration_id": 15368}
+        ],
+        "do_not_enforce_on_create": false
+      }
+    },
+    {"type": "non_fast_forward"},
+    {"type": "deletion"}
+  ],
+  "bypass_actors": [
+    {"actor_id": 0, "actor_type": "OrganizationAdmin", "bypass_mode": "always"}
+  ]
+}

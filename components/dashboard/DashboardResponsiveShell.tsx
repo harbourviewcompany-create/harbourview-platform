@@ -53,14 +53,6 @@ const MobileCorridorToolHost = dynamic(
   { ssr: false },
 )
 
-const MobileChartsWorkspace = dynamic(
-  () =>
-    import('@/components/dashboard/command-workspace/MobileChartsWorkspace').then(m => ({
-      default: m.MobileChartsWorkspace,
-    })),
-  { ssr: false },
-)
-
 export function DashboardResponsiveShellContent({
   isMobile,
   decisionIntelAccess,
@@ -93,7 +85,6 @@ export function DashboardResponsiveShellContent({
         <>
           <MobileCommandCentreRebuild {...props} decisionIntelAccess={decisionIntelAccess} />
           <MobileCorridorToolHost />
-          <MobileChartsWorkspace />
         </>
       ) : (
         <>

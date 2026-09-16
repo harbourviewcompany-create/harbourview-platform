@@ -9,7 +9,6 @@ import {
 import type { MobileCommandTool } from './mobile-command/contracts'
 import { CorridorPlanWorkspace } from './command-workspace/CorridorPlanWorkspace'
 import { LandedCostWorkspace } from './command-workspace/LandedCostWorkspace'
-import InteractiveChartsPanel from './charts/InteractiveChartsPanel'
 import './DesktopCommandWorkspace.css'
 import './command-workspace/CorridorWorkspace.css'
 
@@ -29,7 +28,6 @@ const WORKSPACE_TOOLS = new Set<MobileCommandTool>([
   'financing-intake',
   'corridor-plan',
   'landed-cost',
-  'charts',
 ])
 
 function parseTool(value: string | null): MobileCommandTool | null {
@@ -71,24 +69,7 @@ export default function DesktopCommandWorkspace() {
 
   return (
     <div className="desktop-command-workspace-layer" data-desktop-command-workspace={tool}>
-      {tool === 'charts' ? (
-        <div className="hvm2-workspace desktop-charts-workspace" data-tool="charts">
-          <div className="hvm2-workspace-header flex items-center justify-between gap-4 mb-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[#c6a55a]">Command Centre</p>
-              <h3 className="text-[#f5f1e8]">Interactive Charts</h3>
-            </div>
-            <button
-              type="button"
-              onClick={close}
-              className="rounded-md border border-[#c6a55a]/40 px-3 py-1.5 text-sm text-[#c6a55a] hover:bg-[#c6a55a]/10"
-            >
-              Close
-            </button>
-          </div>
-          <InteractiveChartsPanel />
-        </div>
-      ) : tool === 'corridor-plan' ? (
+      {tool === 'corridor-plan' ? (
         <CorridorPlanWorkspace onClose={close} />
       ) : tool === 'landed-cost' ? (
         <LandedCostWorkspace onClose={close} />
