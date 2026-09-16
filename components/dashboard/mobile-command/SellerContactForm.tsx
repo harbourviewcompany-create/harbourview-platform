@@ -1,12 +1,20 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 import type { NormalizedListing } from './contracts'
 
 type Props = {
   listing: NormalizedListing
   onDone?: () => void
+}
+
+type ProfilePrefill = {
+  name: string
+  email: string
+  company: string
+  phone: string
 }
 
 function defaultMessage(listing: NormalizedListing): string {
@@ -20,11 +28,87 @@ function defaultMessage(listing: NormalizedListing): string {
   ].join('\n')
 }
 
+function pickString(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+async function loadProfilePrefill(): Promise<ProfilePrefill> {
+  const empty: ProfilePrefill = { name: '', email: '', company: '', phone: '' }
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return empty
+
+    const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+    const name = pickString(
+      meta.full_name,
+      meta.name,
+      meta.display_name,
+      [meta.given_name, meta.family_name].filter(Boolean).join(' '),
+      user.email?.split('@')[0],
+    )
+    const email = pickString(user.email, meta.email)
+    const company = pickString(meta.company, meta.organization, meta.company_name, meta.org)
+    const phone = pickString(meta.phone, meta.phone_number, meta.mobile)
+
+    // Best-effort profile row (schema may vary; ignore failures).
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, display_name, company, organization, phone, email')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile && typeof profile === 'object') {
+        const p = profile as Record<string, unknown>
+        return {
+          name: pickString(p.full_name, p.display_name, name),
+          email: pickString(p.email, email),
+          company: pickString(p.company, p.organization, company),
+          phone: pickString(p.phone, phone),
+        }
+      }
+    } catch {
+      // profiles relation may not exist in api schema — auth metadata is enough
+    }
+
+    return { name, email, company, phone }
+  } catch {
+    return empty
+  }
+}
+
 export function SellerContactForm({ listing, onDone }: Props) {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [feedback, setFeedback] = useState('')
   const [showOptional, setShowOptional] = useState(false)
+  const [prefill, setPrefill] = useState<ProfilePrefill>({
+    name: '',
+    email: '',
+    company: '',
+    phone: '',
+  })
+  const [prefillReady, setPrefillReady] = useState(false)
   const messageDefault = useMemo(() => defaultMessage(listing), [listing])
+
+  useEffect(() => {
+    let cancelled = false
+    loadProfilePrefill().then(data => {
+      if (cancelled) return
+      setPrefill(data)
+      if (data.company || data.phone) setShowOptional(true)
+      setPrefillReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -77,10 +161,8 @@ export function SellerContactForm({ listing, onDone }: Props) {
     )
 
     if (result.ok) {
-      // Stay on success screen; do not auto-close (so the user can read next steps).
       setStatus('success')
       setFeedback(result.message)
-      form.reset()
       return
     }
 
@@ -113,9 +195,21 @@ export function SellerContactForm({ listing, onDone }: Props) {
         your contact details stay private until they reply.
       </p>
 
+      {prefillReady && (prefill.name || prefill.email) ? (
+        <p className="cc-mkt-seller-form-prefill-hint">Filled from your Harbourview profile — edit if needed.</p>
+      ) : null}
+
       <label>
         Name
-        <input name="name" required maxLength={220} autoComplete="name" placeholder="Your name" />
+        <input
+          name="name"
+          required
+          maxLength={220}
+          autoComplete="name"
+          placeholder="Your name"
+          defaultValue={prefill.name}
+          key={`name-${prefillReady ? prefill.name : 'loading'}`}
+        />
       </label>
 
       <label>
@@ -128,6 +222,8 @@ export function SellerContactForm({ listing, onDone }: Props) {
           autoComplete="email"
           placeholder="you@company.com"
           inputMode="email"
+          defaultValue={prefill.email}
+          key={`email-${prefillReady ? prefill.email : 'loading'}`}
         />
       </label>
 
@@ -154,11 +250,26 @@ export function SellerContactForm({ listing, onDone }: Props) {
         <>
           <label>
             Company
-            <input name="company" maxLength={220} autoComplete="organization" placeholder="Optional" />
+            <input
+              name="company"
+              maxLength={220}
+              autoComplete="organization"
+              placeholder="Optional"
+              defaultValue={prefill.company}
+              key={`company-${prefillReady ? prefill.company : 'loading'}`}
+            />
           </label>
           <label>
             Phone
-            <input name="phone" maxLength={80} autoComplete="tel" inputMode="tel" placeholder="Optional" />
+            <input
+              name="phone"
+              maxLength={80}
+              autoComplete="tel"
+              inputMode="tel"
+              placeholder="Optional"
+              defaultValue={prefill.phone}
+              key={`phone-${prefillReady ? prefill.phone : 'loading'}`}
+            />
           </label>
         </>
       )}
