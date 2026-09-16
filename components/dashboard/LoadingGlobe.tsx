@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import styles from './LoadingGlobe.module.css'
 
 /**
@@ -17,18 +18,18 @@ export function LoadingGlobe({
 }) {
   const diameter = typeof size === 'number' ? `${size}px` : size
 
+  const rootStyle = {
+    width: diameter,
+    height: diameter,
+    ['--hv-globe-spin-ms']: `${spinDurationMs}ms`,
+  } as CSSProperties
+
   return (
     <div
       className={[styles.root, className].filter(Boolean).join(' ')}
       aria-hidden="true"
       data-loading-globe="true"
-      style={
-        {
-          width: diameter,
-          height: diameter,
-          ['--hv-globe-spin-ms' as string]: `${spinDurationMs}ms`,
-        } as React.CSSProperties
-      }
+      style={rootStyle}
     >
       <div className={styles.field} />
       <div className={styles.atmosphere} />
