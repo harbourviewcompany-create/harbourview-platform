@@ -17,18 +17,7 @@ const paths = {
   privatePipeline: 'supabase/functions/hv-private-pipeline-runner/index.ts',
   passport: 'supabase/functions/compute-passport-score/index.ts',
   snapshot: 'supabase/functions/generate-org-snapshot/index.ts',
-  migration: 'supabase/migrations/20260810222500_harden_edge_function_cron_auth.sql',
-  // The schema-drift ACL repair lives in its own migration, not in the one
-  // above. It was originally appended to 20260810222500 by commit 1f9660df,
-  // which broke that migration's git-blob binding in the pending-production
-  // decisions ledger (expected c7174bb1, got 78f02bd8) and left
-  // check-pending-production-migration-decisions.mjs failing on pristine main.
-  //
-  // 20260810222500 is `separately_authorized` -- deliberately gated, never
-  // applied -- so it was restored to its bound content and the ACL statements
-  // moved here, where they get their own version and their own review. The
-  // three assertions below follow the statements to their new home; they are
-  // otherwise unchanged.
+  migration: 'supabase/migrations/20260912103836_harden_edge_function_cron_auth.sql',
   aclMigration: 'supabase/migrations/20260815013000_lock_down_api_schema_drift_rpcs.sql',
 }
 
@@ -126,15 +115,12 @@ describe('production Edge Function authentication hardening', () => {
 
     expect(sql).toContain('grant usage on schema api to service_role;')
     expect(sql).not.toMatch(/grant\s+usage\s+on\s+schema\s+api\s+to\s+(?:public|anon|authenticated)\b/)
-
-    // ACL-only repair: do not redefine either existing drift detector in this migration.
     expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_tables_missing_from_api_schema\s*\(/)
     expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_functions_missing_from_api_schema\s*\(/)
   })
 
   it('limits schema drift alert API access to only SELECT/INSERT for service_role', () => {
     const sql = read(paths.aclMigration).toLowerCase()
-
     expect(sql).toContain('revoke all on api.schema_drift_alerts from public, anon, authenticated;')
     expect(sql).toContain('grant select, insert on api.schema_drift_alerts to service_role;')
     expect(sql).not.toMatch(/grant\s+all(?:\s+privileges)?\s+on\s+api\.schema_drift_alerts\s+to\s+service_role/)
@@ -144,26 +130,20 @@ describe('production Edge Function authentication hardening', () => {
 
   it('does not broaden unrelated API privileges while repairing schema drift access', () => {
     const sql = read(paths.aclMigration).toLowerCase()
-
-    const schemaGrants = [...sql.matchAll(/grant\s+usage\s+on\s+schema\s+api\s+to\s+([^;]+);/g)]
-      .map((match) => match[1].trim())
+    const schemaGrants = [...sql.matchAll(/grant\s+usage\s+on\s+schema\s+api\s+to\s+([^;]+);/g)].map((match) => match[1].trim())
     expect(schemaGrants).toEqual(['service_role'])
-
-    const alertGrants = [...sql.matchAll(/grant\s+([^;]+)\s+on\s+api\.schema_drift_alerts\s+to\s+([^;]+);/g)]
-      .map((match) => ({ privileges: match[1].replace(/\s+/g, ' ').trim(), grantee: match[2].trim() }))
+    const alertGrants = [...sql.matchAll(/grant\s+([^;]+)\s+on\s+api\.schema_drift_alerts\s+to\s+([^;]+);/g)].map((match) => ({ privileges: match[1].replace(/\s+/g, ' ').trim(), grantee: match[2].trim() }))
     expect(alertGrants).toEqual([{ privileges: 'select, insert', grantee: 'service_role' }])
   })
 
   it('removes source-visible static caller strings as authentication for pipeline runners', () => {
     const sourcePull = read(paths.sourcePull)
     const privatePipeline = read(paths.privatePipeline)
-
     expect(sourcePull).toContain('HV_SOURCE_PULL_RUNNER_SECRET')
     expect(sourcePull).toContain('matchesRequiredSecret')
     expect(sourcePull).toContain('x-harbourview-cron-secret')
     expect(sourcePull).not.toContain('EXPECTED_CRON_CALLER')
     expect(sourcePull).not.toContain('pg_cron_hv_source_pull_runner')
-
     expect(privatePipeline).toContain('HV_PRIVATE_PIPELINE_RUNNER_SECRET')
     expect(privatePipeline).toContain('matchesRequiredSecret')
     expect(privatePipeline).toContain('x-harbourview-cron-secret')
@@ -178,12 +158,10 @@ describe('production Edge Function authentication hardening', () => {
       expect(source).not.toContain("includes('service_role')")
       expect(source).toContain('isOperatorOrServiceRoleAuthorized')
     }
-
     const directOperatorBinding = ['operator', 'Secret', ': ', 'EDGE_OPERATOR_', 'SECRET'].join('')
     const directServiceBinding = ['serviceRole', 'Key', ': ', 'SUPABASE_SERVICE_', 'KEY'].join('')
     expect(passport).toContain(directOperatorBinding)
     expect(passport).toContain(directServiceBinding)
-
     expect(snapshot).toContain('const operatorKey = "operatorSecret" as const')
     expect(snapshot).toContain('const serviceKey = "serviceRoleKey" as const')
     expect(snapshot).toContain('[operatorKey]: EDGE_OPERATOR_SECRET')
@@ -192,13 +170,7 @@ describe('production Edge Function authentication hardening', () => {
 
   it('uses Vault-backed cron helpers without committing secret values', () => {
     const sql = read(paths.migration)
-    for (const name of [
-      'job_refresh_cron_secret',
-      'schema_drift_cron_secret',
-      'hv_source_pull_runner_secret',
-    ]) {
-      expect(sql).toContain(name)
-    }
+    for (const name of ['job_refresh_cron_secret', 'schema_drift_cron_secret', 'hv_source_pull_runner_secret']) expect(sql).toContain(name)
     expect(sql).toContain('vault.decrypted_secrets')
     expect(sql).toContain("select public.invoke_job_refresh();")
     expect(sql).toContain("select public.invoke_schema_drift_monitor();")
@@ -210,7 +182,6 @@ describe('production Edge Function authentication hardening', () => {
     const sourcePull = read(paths.sourcePull)
     const privatePipeline = read(paths.privatePipeline)
     const passport = read(paths.passport)
-
     expect(sourcePull).toContain('/functions/v1/source-engine-fetch')
     expect(privatePipeline).toContain('callFunction("hv-extract"')
     expect(privatePipeline).toContain('callFunction("hv-score"')
