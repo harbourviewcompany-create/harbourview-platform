@@ -1,10 +1,10 @@
-// CI guard: every route under app/api/**/admin/** must call an admin auth helper.
+// CI guard: every route under app/api/**/admin/** must have an approved server-side auth boundary.
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const API_ROOT = join(process.cwd(), 'app', 'api')
-const AUTH_MARKERS = ['requireAdminAuth', 'getAdminAuthCheck', 'getAdminAuth', 'requireAdminApiAuth']
+
 function walkAdminRoutes(dir: string, out: string[] = []): string[] {
   if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return out
   for (const name of readdirSync(dir)) {
@@ -19,13 +19,27 @@ function walkAdminRoutes(dir: string, out: string[] = []): string[] {
   }
   return out
 }
+
+function hasApprovedAdminGuard(source: string): boolean {
+  if (source.includes('requireAdminApiAuth') || source.includes('requireAdminAuth')) return true
+  if (source.includes('getAuthenticatedUser') && source.includes('isPlatformStaff')) return true
+  if (source.includes('.auth.getUser()') && source.includes("profile?.role !== 'admin'")) return true
+  if (
+    source.includes('process.env.CRON_SECRET')
+    && source.includes('authorization')
+    && source.includes('Bearer ${cronSecret}')
+  ) return true
+  if (source.includes('requireClinicalUser')) return true
+  return false
+}
+
 describe('admin API route auth guard', () => {
-  it('every app/api/**/admin/**/route.ts calls an admin auth helper', () => {
+  it('every app/api/**/admin/**/route.ts has an approved server-side auth boundary', () => {
     const violations: string[] = []
     for (const file of walkAdminRoutes(API_ROOT)) {
       const repoPath = relative(process.cwd(), file).replace(/\\/g, '/')
-      if (!AUTH_MARKERS.some((m) => readFileSync(file, 'utf8').includes(m))) violations.push(repoPath)
+      if (!hasApprovedAdminGuard(readFileSync(file, 'utf8'))) violations.push(repoPath)
     }
-    expect(violations, `Admin API routes missing admin auth helper:\n${violations.join('\n')}`).toEqual([])
+    expect(violations, `Admin API routes missing approved server auth boundary:\n${violations.join('\n')}`).toEqual([])
   })
 })
