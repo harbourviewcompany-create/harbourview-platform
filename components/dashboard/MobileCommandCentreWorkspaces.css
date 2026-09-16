@@ -25,28 +25,30 @@ button.hvm2-text-link {
   cursor: pointer;
 }
 
+/*
+ * Portaled to document.body (see WorkspacePanels). Must sit above every
+ * app-shell layer (header, secondary rail z-index:5, bottom nav).
+ */
 .hvm2-workspace {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 0;
   border: 0;
   border-radius: 0;
+  width: 100%;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
   background: #02070d;
   box-shadow: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
 .hvm2-workspace-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
@@ -106,6 +108,17 @@ button.hvm2-text-link {
   cursor: pointer;
 }
 
+/* Only this region scrolls — header stays put; submit is inside the scroll. */
+.hvm2-workspace-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+}
+
 .hvm2-workspace-context {
   margin: 14px 16px;
   padding: 12px;
@@ -135,7 +148,7 @@ button.hvm2-text-link {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 16px 28px;
+  padding: 4px 16px 80px;
   max-width: 560px;
   margin: 0 auto;
   width: 100%;
@@ -226,7 +239,7 @@ button.hvm2-text-link {
 .cc-mkt-inquiry-success {
   max-width: 560px;
   margin: 8px auto 0;
-  padding: 8px 16px 28px;
+  padding: 8px 16px 80px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -257,7 +270,8 @@ button.hvm2-text-link {
 
 .hvm2-workspace .cc-mkt-cta--block {
   min-height: 52px;
-  margin-top: 8px;
+  margin-top: 12px;
+  margin-bottom: 24px;
   border-radius: 13px;
   border: 1px solid #8a6119;
   background: linear-gradient(105deg, #6b4a12 0%, #b47b20 16%, #ffe9a0 34%, #c99532 50%, #fff1ad 66%, #8a6119 82%, #d9aa45 100%);
@@ -293,7 +307,7 @@ button.hvm2-text-link {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hvm2-workspace {
+  .hvm2-workspace-scroll {
     scroll-behavior: auto;
   }
 }
