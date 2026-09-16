@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { submitMarketplaceInquiryDirect } from '@/lib/marketplace/clientCapture'
 import type { NormalizedListing } from './contracts'
 
@@ -9,9 +9,22 @@ type Props = {
   onDone?: () => void
 }
 
+function defaultMessage(listing: NormalizedListing): string {
+  return [
+    `Interested in: ${listing.title}`,
+    'Quantity: ',
+    'Need by: ',
+    `Market / jurisdiction: ${listing.jurisdiction || ''}`,
+    '',
+    'Additional notes:',
+  ].join('\n')
+}
+
 export function SellerContactForm({ listing, onDone }: Props) {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
-  const [message, setMessage] = useState('')
+  const [feedback, setFeedback] = useState('')
+  const [showOptional, setShowOptional] = useState(false)
+  const messageDefault = useMemo(() => defaultMessage(listing), [listing])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -26,15 +39,18 @@ export function SellerContactForm({ listing, onDone }: Props) {
 
     if (!name || !email || !body) {
       setStatus('error')
-      setMessage('Name, email and message are required.')
+      setFeedback('Name, email, and message are required.')
       return
     }
 
     setStatus('submitting')
-    setMessage('')
+    setFeedback('')
 
     const listingId = listing.id
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(listingId)
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        listingId,
+      )
 
     const result = await submitMarketplaceInquiryDirect(
       {
@@ -61,54 +77,96 @@ export function SellerContactForm({ listing, onDone }: Props) {
     )
 
     if (result.ok) {
+      // Stay on success screen; do not auto-close (so the user can read next steps).
       setStatus('success')
-      setMessage(result.message)
+      setFeedback(result.message)
       form.reset()
-      onDone?.()
       return
     }
 
     setStatus('error')
-    setMessage(result.message)
+    setFeedback(result.message)
   }
 
   if (status === 'success') {
     return (
-      <div className="hvm2-workspace-context">
+      <div className="cc-mkt-inquiry-success" role="status">
         <strong>Inquiry sent</strong>
-        <p>{message}</p>
+        <p>
+          {feedback ||
+            'Harbourview will deliver your message. Contact details stay private until the seller replies.'}
+        </p>
+        <p className="cc-mkt-inquiry-success-next">
+          What happens next: the listing owner is notified through Harbourview. You will hear back through the same channel when they respond.
+        </p>
+        <button type="button" className="cc-mkt-cta cc-mkt-cta--block" onClick={() => onDone?.()}>
+          Back to Market
+        </button>
       </div>
     )
   }
 
   return (
-    <form className="cc-mkt-seller-form" onSubmit={handleSubmit}>
+    <form className="cc-mkt-seller-form" onSubmit={handleSubmit} noValidate>
       <p className="cc-mkt-seller-form-lead">
-        Message the seller about <strong>{listing.title}</strong>. Harbourview delivers your inquiry; contact details stay private until they reply.
+        Send an inquiry about <strong>{listing.title}</strong>. Harbourview delivers it;
+        your contact details stay private until they reply.
       </p>
+
       <label>
         Name
-        <input name="name" required maxLength={220} autoComplete="name" />
+        <input name="name" required maxLength={220} autoComplete="name" placeholder="Your name" />
       </label>
+
       <label>
         Work email
-        <input name="email" type="email" required maxLength={220} autoComplete="email" />
+        <input
+          name="email"
+          type="email"
+          required
+          maxLength={220}
+          autoComplete="email"
+          placeholder="you@company.com"
+          inputMode="email"
+        />
       </label>
-      <label>
-        Company
-        <input name="company" maxLength={220} autoComplete="organization" />
-      </label>
-      <label>
-        Phone optional
-        <input name="phone" maxLength={80} autoComplete="tel" />
-      </label>
+
       <label>
         Message
-        <textarea name="message" required maxLength={2500} rows={5} placeholder="Quantity, timing, destination market…" />
+        <textarea
+          name="message"
+          required
+          maxLength={2500}
+          rows={6}
+          defaultValue={messageDefault}
+        />
       </label>
-      {status === 'error' ? <p className="cc-mkt-seller-form-error">{message}</p> : null}
+
+      {!showOptional ? (
+        <button
+          type="button"
+          className="cc-mkt-inquiry-optional-toggle"
+          onClick={() => setShowOptional(true)}
+        >
+          Add company or phone (optional)
+        </button>
+      ) : (
+        <>
+          <label>
+            Company
+            <input name="company" maxLength={220} autoComplete="organization" placeholder="Optional" />
+          </label>
+          <label>
+            Phone
+            <input name="phone" maxLength={80} autoComplete="tel" inputMode="tel" placeholder="Optional" />
+          </label>
+        </>
+      )}
+
+      {status === 'error' ? <p className="cc-mkt-seller-form-error">{feedback}</p> : null}
+
       <button type="submit" className="cc-mkt-cta cc-mkt-cta--block" disabled={status === 'submitting'}>
-        {status === 'submitting' ? 'Sending…' : 'Contact seller'}
+        {status === 'submitting' ? 'Sending…' : 'Send inquiry'}
       </button>
     </form>
   )
