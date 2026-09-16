@@ -77,7 +77,7 @@ grant execute on function auth.uid() to authenticated, service_role;
 grant execute on function api.add_signal_to_eval_set(text,text,text,text,text,text)
   to authenticated, service_role;
 
-\i supabase/migrations/20260802080000_harden_eval_labels_and_alert_delivery.sql
+\i supabase/migrations/20260912103805_harden_eval_labels_and_alert_delivery.sql
 
 do $$
 begin
