@@ -1,0 +1,50 @@
+name: Temporary governance indentation repair
+
+on:
+  push:
+    branches:
+      - fix/governance-hardening-current-main-20260916
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+      - name: Repair YAML indentation and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          files = [
+              '.github/workflows/activate-p0-identity-org-context.yml',
+              '.github/workflows/apply-import-aware-regulatory-tier-classifier.yml',
+              '.github/workflows/apply-p0-p2-canonical-pipeline.yml',
+              '.github/workflows/apply-production-security-hardening.yml',
+              '.github/workflows/apply-regulatory-tier-classifier-negation-fix.yml',
+              '.github/workflows/consumables-imagery-post-merge-verification.yml',
+              '.github/workflows/harbourview-production-visual-verification.yml',
+              '.github/workflows/promote-production.yml',
+              '.github/workflows/reconstruct-stub-migrations.yml',
+              '.github/workflows/supabase-migrate.yml',
+          ]
+          for name in files:
+              p = Path(name)
+              text = p.read_text()
+              text = text.replace('\nuses: actions/upload-artifact@', '\n        uses: actions/upload-artifact@')
+              text = text.replace('\nuses: supabase/setup-cli@', '\n        uses: supabase/setup-cli@')
+              p.write_text(text)
+          tmp = Path('.github/workflows/tmp-fix-governance-indent-20260916.yml')
+          tmp.unlink()
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows
+          git commit -m 'fix(governance): restore workflow step indentation'
+          git push origin HEAD:"$GITHUB_REF_NAME"
