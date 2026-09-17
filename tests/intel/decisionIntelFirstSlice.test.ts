@@ -89,7 +89,8 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(completion).toContain("where e.customer_visibility = 'intel'")
     expect(completion).toContain("ia.review_status in ('migrated_reviewed','verified')")
     expect(controlDoc).toContain('Verification and publication are separate controls.')
-    expect(completionWorkflow).toContain('verified internal dossier leaked to customer projection')
+    expect(completionWorkflow).toContain('customer direct dossier access')
+    expect(completionWorkflow).toContain("customer_visibility='intel'")
   })
 
   it('makes assessment history append-only and trigger-controlled', () => {
