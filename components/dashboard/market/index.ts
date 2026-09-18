@@ -8,6 +8,7 @@ export { MarketFilterChips } from './MarketFilterChips'
 export { MarketRelatedRail } from './MarketRelatedRail'
 export { MarketSegmentTabs } from './MarketSegmentTabs'
 export { MarketStickyHeader } from './MarketStickyHeader'
+export { MarketplaceSelectionBar } from './MarketplaceSelectionBar'
 export type {
   MarketCardModel,
   MarketCardVariant,

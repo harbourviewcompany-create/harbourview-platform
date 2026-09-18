@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "purpose": "Document historical committed-not-applied baseline versions whose SQL bodies are absent from the repository. They are withdrawn replay candidates; future implementation must use a forward migration after live preflight.",
+  "verified_at": "2026-09-13T00:36:00Z",
+  "versions": [
+    {"version":"20260808190000","disposition":"withdrawn_historical_body"},
+    {"version":"20260808203000","disposition":"withdrawn_historical_body"},
+    {"version":"20260810202000","disposition":"withdrawn_historical_body"}
+  ]
+}

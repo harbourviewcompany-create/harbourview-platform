@@ -16,6 +16,35 @@
 --
 -- Regenerate with: node scripts/reconstruct-stub-migrations.mjs
 
+-- Repository-only addendum (not part of the verbatim production statements
+-- above): education_modules_public_select has no CREATE POLICY anywhere in
+-- the tracked migration history -- it was evidently created directly against
+-- production outside a migration (dashboard, or an untracked psql session).
+-- A from-scratch replay reaches this ALTER with the policy never having
+-- existed, and fails with "policy ... does not exist" (42704).
+--
+-- The FOR/TO scope below is not recoverable from history, but is not a
+-- guess: 20260831012629_consolidate_redundant_rls_policies_batch1.sql
+-- (six weeks later) drops this exact policy and folds it into
+-- education_modules_select with `for select to anon, authenticated` and a
+-- USING clause whose first disjunct is byte-identical to the one this file
+-- sets below -- confirming both the role scope and that this policy's
+-- lifetime ends at that consolidation regardless. See
+-- docs/control/RECONSTRUCTED_MIGRATION_IDEMPOTENCY_AUDIT_2026-08-31.md,
+-- instance 4.
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'education_modules'
+      and policyname = 'education_modules_public_select'
+  ) then
+    create policy "education_modules_public_select" on public.education_modules
+      for select to anon, authenticated
+      using (true);
+  end if;
+end $$;
+
 alter policy "education_modules_public_select" on public.education_modules
   using (
     publication_state = 'published'
