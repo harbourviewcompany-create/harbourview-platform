@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -50,6 +50,7 @@ const DealRoomsSection = dynamic(() => import('./mobile-command/sections/Account
 
 export default function MobileCommandCentreRebuild(props: Props) {
   const model = useMobileCommandModel(props)
+  const deferredSearchQuery = useDeferredValue(model.searchQuery)
   const [contextOpen, setContextOpen] = useState(false)
   const [passportModalOpen, setPassportModalOpen] = useState(false)
   const contextCloseRef = useRef<HTMLButtonElement | null>(null)
@@ -69,7 +70,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
     // Search indexing is intentionally lazy. Building normalized searchable text
     // across signals, listings, directories and evidence on every dashboard
     // mount is wasted work when the user never opens/types into Search.
-    if (!model.searchQuery.trim()) return []
+    if (!deferredSearchQuery.trim()) return []
 
     return buildCommandSearchIndex({
       signals: model.signals,
@@ -85,7 +86,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
       talent: model.talentRecords,
     })
   }, [
-    model.searchQuery,
+    deferredSearchQuery,
     model.signals,
     model.marketRows,
     props.watchlistData,
