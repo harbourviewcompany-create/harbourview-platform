@@ -8,6 +8,10 @@ type Props = {
   listing: MarketCardModel
   onOpen: (id: string) => void
   onCta: (id: string) => void
+  isSaved?: boolean
+  isCompared?: boolean
+  onToggleSaved?: (id: string) => void
+  onToggleCompare?: (id: string) => void
 }
 
 type MediaStage = 'primary' | 'fallback'
@@ -43,9 +47,8 @@ function resolveCardMedia(listing: MarketCardModel, stage: MediaStage): MarketCa
   }
 }
 
-export function MarketCard({ listing, onOpen, onCta }: Props) {
-  const secondary =
-    listing.variant === 'tierB-teaser' || listing.variant === 'catalogue'
+export function MarketCard({ listing, onOpen, onCta, isSaved = false, isCompared = false, onToggleSaved, onToggleCompare }: Props) {
+  const secondary = listing.variant === 'tierB-teaser' || listing.variant === 'catalogue'
   const [mediaStage, setMediaStage] = useState<MediaStage>('primary')
   const mediaSignature = listing.media
     ? `${listing.media.src}|${listing.media.fallbackSrc}|${listing.media.kind}`
@@ -71,10 +74,7 @@ export function MarketCard({ listing, onOpen, onCta }: Props) {
       role="button"
       aria-label={listing.title}
     >
-      <figure
-        className="cc-mkt-card-media hvm2-listing-media"
-        data-media-kind={media?.kind}
-      >
+      <figure className="cc-mkt-card-media hvm2-listing-media" data-media-kind={media?.kind}>
         {media ? (
           <Image
             className="cc-mkt-card-img"
@@ -86,39 +86,34 @@ export function MarketCard({ listing, onOpen, onCta }: Props) {
             quality={75}
             loading="lazy"
             onError={() => {
-              if (mediaStage === 'primary' && media.fallbackSrc && media.fallbackSrc !== media.src) {
-                setMediaStage('fallback')
-              }
+              if (mediaStage === 'primary' && media.fallbackSrc && media.fallbackSrc !== media.src) setMediaStage('fallback')
             }}
           />
-        ) : (
-          <div className="cc-mkt-card-img" style={{ background: 'var(--cc-panel)' }} />
-        )}
-        {media?.badgeLabel ? (
-          <span className="hvm2-listing-media-badge">{media.badgeLabel}</span>
-        ) : null}
+        ) : <div className="cc-mkt-card-img" style={{ background: 'var(--cc-panel)' }} />}
+        {media?.badgeLabel ? <span className="hvm2-listing-media-badge">{media.badgeLabel}</span> : null}
         {media?.caption ? <figcaption>{media.caption}</figcaption> : null}
-        {listing.badge ? (
-          <span className={`cc-mkt-badge${listing.badgeTone ? ` cc-mkt-badge--${listing.badgeTone}` : ''}`}>
-            {listing.badge}
-          </span>
-        ) : null}
+        {listing.badge ? <span className={`cc-mkt-badge${listing.badgeTone ? ` cc-mkt-badge--${listing.badgeTone}` : ''}`}>{listing.badge}</span> : null}
       </figure>
       <div className="cc-mkt-card-body">
+        <div className="hvm2-card-actions" aria-label={`${listing.title} actions`}>
+          {onToggleSaved ? (
+            <button type="button" className={`hvm2-card-action${isSaved ? ' is-active' : ''}`} aria-pressed={isSaved} aria-label={isSaved ? `Remove ${listing.title} from saved` : `Save ${listing.title}`} onClick={e => { e.stopPropagation(); onToggleSaved(listing.id) }}>
+              {isSaved ? 'Saved' : 'Save'}
+            </button>
+          ) : null}
+          {onToggleCompare ? (
+            <button type="button" className={`hvm2-card-action${isCompared ? ' is-active' : ''}`} aria-pressed={isCompared} aria-label={isCompared ? `Remove ${listing.title} from compare` : `Compare ${listing.title}`} onClick={e => { e.stopPropagation(); onToggleCompare(listing.id) }}>
+              {isCompared ? 'Compared' : 'Compare'}
+            </button>
+          ) : null}
+        </div>
         <h3 className="cc-mkt-card-title">{listing.title}</h3>
         <p className="cc-mkt-card-price">{listing.priceDisplay}</p>
         <div className="cc-mkt-card-meta">
           {listing.country ? <span>{listing.country}</span> : null}
           {listing.condition ? <span>{listing.condition}</span> : null}
         </div>
-        <button
-          type="button"
-          className={`cc-mkt-cta${secondary ? ' cc-mkt-cta--secondary' : ''}`}
-          onClick={e => {
-            e.stopPropagation()
-            onCta(listing.id)
-          }}
-        >
+        <button type="button" className={`cc-mkt-cta${secondary ? ' cc-mkt-cta--secondary' : ''}`} onClick={e => { e.stopPropagation(); onCta(listing.id) }}>
           {listing.ctaLabel}
         </button>
       </div>
