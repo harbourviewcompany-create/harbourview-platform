@@ -42,8 +42,8 @@ const CorridorEvidenceFlagsFromFixtures = dynamic(
   () => import('@/components/clinical/CorridorEvidenceFlagsPanel').then(m => ({ default: m.CorridorEvidenceFlagsFromFixtures })),
   { ssr: false, loading: () => null },
 )
-import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
-import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
+
+import type { CannabisEvent } from './data/industryEvents'
 import type { BankingProvider } from './data/bankingProviders'
 import type { PriceBenchmark } from './data/priceIntelligence'
 import type { LogisticsType } from './data/logisticsProviders'
@@ -4016,8 +4016,8 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
 
   const fromOptions = Array.from(new Set(CORRIDORS.map(c => c.from))).sort()
   const toOptions   = Array.from(new Set(CORRIDORS.map(c => c.to))).sort()
-  const costKeys    = Object.keys(CORRIDOR_COSTS)
-  const modelCost   = modelKey ? CORRIDOR_COSTS[modelKey] : null
+  const costKeys    = Object.keys(referenceData.corridor?.CORRIDOR_COSTS ?? {})
+  const modelCost   = modelKey ? referenceData.corridor?.CORRIDOR_COSTS ?? {}[modelKey] : null
   const modelCorr   = modelKey ? CORRIDORS.find(c => `${c.from}→${c.to}` === modelKey) : null
   const kgNum       = parseFloat(modelKg) || 0
 
@@ -4234,9 +4234,9 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
               const isLocal     = c.from.toLowerCase().includes(country.label.toLowerCase()) || c.to.toLowerCase().includes(country.label.toLowerCase())
               const live        = liveData[intelKey]
               const isLoading   = loadingKeys.has(intelKey)
-              const banking     = CORRIDOR_BANKING[intelKey]
-              const authority   = CORRIDOR_AUTHORITY[intelKey]
-              const costs       = CORRIDOR_COSTS[intelKey]
+              const banking     = referenceData.corridor?.CORRIDOR_BANKING ?? {}[intelKey]
+              const authority   = referenceData.corridor?.CORRIDOR_AUTHORITY ?? {}[intelKey]
+              const costs       = referenceData.corridor?.CORRIDOR_COSTS ?? {}[intelKey]
               const majorAlerts = live?.alerts.filter(a => a.severity === 'major').length ?? 0
               return (
                 <div
@@ -10717,7 +10717,7 @@ const EventsPage = React.memo(function EventsPage({
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return INDUSTRY_EVENTS.filter(e => {
+    return referenceData.events?.INDUSTRY_EVENTS ?? [].filter(e => {
       const matchUpcoming = tab === 'upcoming' ? evtIsUpcoming(e) : !evtIsUpcoming(e)
       const matchSearch   = !q || e.name.toLowerCase().includes(q) || e.city.toLowerCase().includes(q) ||
                             e.organizer.toLowerCase().includes(q) || e.focus.some(f => f.toLowerCase().includes(q))
@@ -10792,7 +10792,7 @@ const EventsPage = React.memo(function EventsPage({
               fontSize: '12px', padding: '7px 12px', outline: 'none',
             }}>
               <option value="">All types</option>
-              {Object.entries(EVENT_TYPE_LABELS).map(([k, v]) => (
+              {Object.entries(referenceData.events?.EVENT_TYPE_LABELS ?? {}).map(([k, v]) => (
                 <option key={k} value={k} style={{ background: '#050c18' }}>{v}</option>
               ))}
             </select>
@@ -10804,7 +10804,7 @@ const EventsPage = React.memo(function EventsPage({
                 color: filterMyRole ? '#10b981' : 'rgba(245,240,232,.5)',
                 fontSize: '11px', fontWeight: filterMyRole ? 700 : 400,
               }}>
-                ◎ For {role}s ({INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role)).length})
+                ◎ For {role}s ({referenceData.events?.INDUSTRY_EVENTS ?? [].filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role)).length})
               </button>
             )}
           </div>
@@ -10827,7 +10827,7 @@ const EventsPage = React.memo(function EventsPage({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {events.map(ev => {
                   const isRelevant = evtIsRelevant(ev, role)
-                  const typeColor  = EVENT_TYPE_COLORS[ev.type]
+                  const typeColor  = referenceData.events?.EVENT_TYPE_COLORS ?? {}[ev.type]
                   return (
                     <div key={ev.id} style={{
                       borderRadius: '10px', overflow: 'hidden',
@@ -10883,7 +10883,7 @@ const EventsPage = React.memo(function EventsPage({
                             <span style={{
                               fontSize: '9px', padding: '1px 6px', borderRadius: '4px', fontWeight: 600,
                               background: `${typeColor}14`, border: `1px solid ${typeColor}30`, color: typeColor,
-                            }}>{EVENT_TYPE_LABELS[ev.type]}</span>
+                            }}>{referenceData.events?.EVENT_TYPE_LABELS ?? {}[ev.type]}</span>
                           </div>
 
                           {/* Organizer */}
@@ -10914,7 +10914,7 @@ const EventsPage = React.memo(function EventsPage({
         </div>
 
         <div className="cc-feed-footer">
-          <span>{INDUSTRY_EVENTS.filter(evtIsUpcoming).length} upcoming events · Curated by Harbourview · Updated July 2026</span>
+          <span>{referenceData.events?.INDUSTRY_EVENTS ?? [].filter(evtIsUpcoming).length} upcoming events · Curated by Harbourview · Updated July 2026</span>
           <button
             className="cc-right-link"
             onClick={() => {
@@ -10931,7 +10931,7 @@ const EventsPage = React.memo(function EventsPage({
 
           {/* Role events card */}
           {role && (() => {
-            const upcoming  = INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role))
+            const upcoming  = referenceData.events?.INDUSTRY_EVENTS ?? [].filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role))
             const now       = new Date()
             const thisMonth = upcoming.filter(e => {
               const d = new Date(e.dateStart + 'T00:00:00')
@@ -10972,10 +10972,10 @@ const EventsPage = React.memo(function EventsPage({
           <div style={{ marginBottom: '18px' }}>
             <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>EVENTS OVERVIEW</div>
             {[
-              { lbl: 'Upcoming events',   val: String(INDUSTRY_EVENTS.filter(evtIsUpcoming).length) },
-              { lbl: 'Countries covered', val: String(new Set(INDUSTRY_EVENTS.filter(evtIsUpcoming).map(e => e.countryIso2)).size) },
+              { lbl: 'Upcoming events',   val: String(referenceData.events?.INDUSTRY_EVENTS ?? [].filter(evtIsUpcoming).length) },
+              { lbl: 'Countries covered', val: String(new Set(referenceData.events?.INDUSTRY_EVENTS ?? [].filter(evtIsUpcoming).map(e => e.countryIso2)).size) },
               { lbl: 'Regions',           val: '6' },
-              { lbl: `Relevant to ${role || 'you'}`, val: String(INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role)).length) },
+              { lbl: `Relevant to ${role || 'you'}`, val: String(referenceData.events?.INDUSTRY_EVENTS ?? [].filter(e => evtIsUpcoming(e) && evtIsRelevant(e, role)).length) },
             ].map(({ lbl, val }) => (
               <div key={lbl} className="cc-metric-row">
                 <span className="cc-metric-name">{lbl}</span>
@@ -10986,7 +10986,7 @@ const EventsPage = React.memo(function EventsPage({
 
           {/* Next featured */}
           {(() => {
-            const next = INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && e.featured)[0]
+            const next = referenceData.events?.INDUSTRY_EVENTS ?? [].filter(e => evtIsUpcoming(e) && e.featured)[0]
             if (!next) return null
             return (
               <div style={{ marginBottom: '18px' }}>
@@ -11004,7 +11004,7 @@ const EventsPage = React.memo(function EventsPage({
           <div style={{ marginBottom: '18px' }}>
             <div style={{ fontSize: '9px', letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(245,240,232,.3)', marginBottom: '8px' }}>UPCOMING BY REGION</div>
             {REGION_OPTIONS.map(r => {
-              const cnt = INDUSTRY_EVENTS.filter(e => evtIsUpcoming(e) && e.region === r).length
+              const cnt = referenceData.events?.INDUSTRY_EVENTS ?? [].filter(e => evtIsUpcoming(e) && e.region === r).length
               if (cnt === 0) return null
               return (
                 <div key={r} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
@@ -11049,7 +11049,9 @@ const EventsPage = React.memo(function EventsPage({
                 ))}
                 <button
                   onClick={() => { if (submitName && submitCity) setSubmitSent(true) }}
-                  style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, marginTop: '2px' }}
+                  style={
+  const referenceData = useCommandCentreReferenceData()
+{ padding: '7px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, marginTop: '2px' }}
                 >
                   Submit Event
                 </button>
@@ -11484,5 +11486,20 @@ export default function CommandCentre({
 
 
 
+
+const [corridorData, setCorridorData] = useState<typeof import('./data/corridorIntel') | null>(null)
+const [industryEventData, setIndustryEventData] = useState<typeof import('./data/industryEvents') | null>(null)
+
+function useCommandCentreReferenceData() {
+  const [data, setData] = useState<{ corridor: typeof import('./data/corridorIntel') | null; events: typeof import('./data/industryEvents') | null }>({ corridor: null, events: null })
+  useEffect(() => {
+    let active = true
+    void Promise.all([import('./data/corridorIntel'), import('./data/industryEvents')]).then(([corridor, events]) => {
+      if (active) setData({ corridor, events })
+    })
+    return () => { active = false }
+  }, [])
+  return data
+}
 
 
