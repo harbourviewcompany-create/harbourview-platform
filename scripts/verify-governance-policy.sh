@@ -5,7 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-fail=0
+fail=0 # governance policy gate
 pass_count=0
 fail_count=0
 pass_check() { printf 'PASS: %s\n' "$1"; pass_count=$((pass_count+1)); }
