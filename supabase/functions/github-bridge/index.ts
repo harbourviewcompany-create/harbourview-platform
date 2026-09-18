@@ -345,7 +345,10 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
 
     case 'get_tree': {
       const ref = (op.ref as string) ?? 'main'
-      const data = await gh(`${BASE}/git/trees/${encodeURIComponent(ref)}?recursive=1`, h)
+      const treeCommit = await gh(`${BASE}/commits/${encodeURIComponent(ref)}`, h)
+      const treeSha = treeCommit.commit?.tree?.sha
+      if (!treeSha) throw new Error(`Could not resolve tree sha for ref ${ref}`)
+      const data = await gh(`${BASE}/git/trees/${treeSha}?recursive=1`, h)
       return {
         ok: true, sha: data.sha, truncated: data.truncated,
         tree: (data.tree as Record<string, unknown>[]).map(n => ({ path: n.path, type: n.type, size: n.size, sha: n.sha }))
