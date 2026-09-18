@@ -38,10 +38,10 @@ test('current pending migration decision record is internally exact and remains 
 
 test('auth-hardening migration remains separately authorized and content-bound', () => {
   const record = decision.repository_only_decisions.find(
-    (entry) => entry.version === '20260810222500',
+    (entry) => entry.version === '20260912103836',
   )
   assert.ok(record)
-  assert.equal(record.file, '20260810222500_harden_edge_function_cron_auth.sql')
+  assert.equal(record.file, '20260912103836_harden_edge_function_cron_auth.sql')
   assert.equal(record.classification, 'separately_authorized')
   assert.equal(record.reason_code, 'independent_release_not_authorized')
 
@@ -78,7 +78,7 @@ test('rejects removal of an exact pending-migration decision', () => {
   )
   const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
   assert.ok(errors.some((error) => error.includes('repository-only file count mismatch')))
-  assert.ok(errors.some((error) => error.includes('expected exactly one decision for 20260731120000')))
+  assert.ok(errors.some((error) => error.includes('expected exactly one decision for 20260912103655')))
 })
 
 test('rejects treating a separately controlled migration as Elite Digest-approved', () => {
@@ -89,5 +89,5 @@ test('rejects treating a separately controlled migration as Elite Digest-approve
   record.classification = 'approved'
   const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
   assert.ok(errors.some((error) => error.includes('approved decision records')))
-  assert.ok(errors.some((error) => error.includes('20260802080000 must remain classified')))
+  assert.ok(errors.some((error) => error.includes('20260912103805 must remain classified')))
 })
