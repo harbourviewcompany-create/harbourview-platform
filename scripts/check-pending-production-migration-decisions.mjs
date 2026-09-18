@@ -84,7 +84,7 @@ export function validateDecisionData({ decision, releaseControl, migrationDirect
     errors.push('approved decision records do not exactly equal the three-file Elite Digest allowlist')
   }
 
-  for (const version of ['20260731120000', '20260801150000', '20260802080000']) {
+  for (const version of ['20260912103655', '20260912103723', '20260912103805']) {
     const matches = records.filter((record) => record.version === version)
     if (matches.length !== 1) errors.push(`expected exactly one decision for ${version}`)
     else if (matches[0].classification !== 'separately_authorized') {
