@@ -96,15 +96,19 @@ export async function getGlobeCountryMarkers(
 export async function getGlobeLiveData(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeLiveData> {
-  const countries = await getGlobeCountryMarkers(supabase)
+  // These datasets are independent. Run them concurrently so the globe's
+  // server-side cache fill is bounded by the slower query instead of their sum.
+  const [countriesResult, signalsResult] = await Promise.all([
+    getGlobeCountryMarkers(supabase),
+    supabase
+      .from('signals')
+      .select('id, headline, score, cat, country, country_iso2, created_at')
+      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(500),
+  ])
 
-  const { data: signalRows, error: signalsError } = await supabase
-    .from('signals')
-    .select('id, headline, score, cat, country, country_iso2, created_at')
-    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-    .order('created_at', { ascending: false })
-    .limit(500)
-
+  const { data: signalRows, error: signalsError } = signalsResult
   if (signalsError) {
     throw new Error(`getGlobeLiveData: signals query failed: ${signalsError.message}`)
   }
@@ -130,7 +134,7 @@ export async function getGlobeLiveData(
       unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
     }
   }
-  return { countries, signalsByIso2, unmappedSignalCountries }
+  return { countries: countriesResult, signalsByIso2, unmappedSignalCountries }
 }
 
 export type SignalRealtimeRow = {
