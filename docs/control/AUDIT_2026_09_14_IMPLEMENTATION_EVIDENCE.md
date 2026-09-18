@@ -1,7 +1,8 @@
 # Audit 2026-09-14 — Implementation Evidence
 
 **Date:** 2026-09-14  
-**Branch:** `chore/admin-auth-guards-current-main-20260914`  
+**Branch:** `chore/audit-2026-09-14-admin-auth-guards`  
+**PR:** https://github.com/harbourviewcompany-create/harbourview-platform/pull/1861  
 **Scope:** In-repo CI guards, control docs, issue drafts. **No** production schema, env, cron schedule, or dashboard changes.
 
 ## What landed
@@ -28,13 +29,15 @@
 - Dependency upgrades (sharp/hono)
 - Branch protection / Dependabot secrets / CF cleanup
 
-## Verification commands
+## Verification commands (local / CI)
 
 ```bash
 npm run test:admin-auth-inventory
 npm run check:admin-auth-inventory
-npm run test:security
+npm run test:security   # now includes the three new files
 ```
+
+Exact-head CI results: record on the PR checks tab after push.
 
 ## Registry
 
@@ -42,4 +45,4 @@ No PROJECT_REGISTRY status change claimed. Operator runbook remains the path to 
 
 ## Rollback
 
-Revert the commits on this branch. No production side effects.
+Revert PR commits. No production side effects.

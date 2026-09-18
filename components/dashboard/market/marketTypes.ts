@@ -77,5 +77,5 @@ export function resolveMarketTier(categoryKey: string | null | undefined): Marke
 
 export function defaultCtaForTier(tier: MarketTier, catalogue = false): string {
   if (catalogue) return 'View details'
-  return tier === 'A' ? 'Contact seller' : 'Request review'
+  return tier === 'A' ? 'Begin purchase inquiry' : 'Request review'
 }

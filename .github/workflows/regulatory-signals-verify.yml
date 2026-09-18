@@ -1,16 +1,6 @@
 name: Regulatory Signals Verify
 
 on:
-  # The `pull_request:` trigger here originally carried no branch or path
-  # filter, so this ran `npm ci` + typecheck + a full `next build` on every
-  # pull request in the repository.
-  #
-  # It is scoped rather than removed: this workflow is the ONLY place that runs
-  # `npm run test:live-source-intake` (tests/regulatory-sources/watcher.test.ts),
-  # `test:visibility`, `test:listing-quality` and
-  # `test:regulatory-signals-public-leakage` on a pull request. `ci.yml` runs
-  # none of those and does not run the full `npm test` either, so disabling the
-  # trigger outright dropped that coverage from PR validation.
   pull_request:
     branches:
       - main
@@ -34,67 +24,52 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
       - name: Typecheck
         run: npm run typecheck
-
       - name: Build
         run: |
           set -o pipefail
           npm run build 2>&1 | tee /tmp/harbourview-regulatory-signals-build.log
-
       - name: Upload build log
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: regulatory-signals-build-log
           path: /tmp/harbourview-regulatory-signals-build.log
           if-no-files-found: warn
           retention-days: 14
-
       - name: Public visibility test
         run: npm run test:visibility
-
       - name: Listing quality test
         run: npm run test:listing-quality
-
       - name: Live source intake test
         run: npm run test:live-source-intake
-
       - name: Regulatory Signals contract test
         run: npm run test:regulatory-signals-contract
-
       - name: Start built app for public route checks
         run: |
           npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/harbourview-next.log 2>&1 &
           echo $! > /tmp/harbourview-next.pid
           for i in {1..30}; do
-            if curl -fsS http://127.0.0.1:3000/signals >/dev/null; then
-              exit 0
-            fi
+            if curl -fsS http://127.0.0.1:3000/signals >/dev/null; then exit 0; fi
             sleep 2
           done
           cat /tmp/harbourview-next.log
           exit 1
-
       - name: Regulatory Signals public leakage test
         env:
           HARBOURVIEW_PUBLIC_BASE_URL: http://127.0.0.1:3000
         run: npm run test:regulatory-signals-public-leakage
-
       - name: Marketplace smoke test
         run: npm run smoke:marketplace
 

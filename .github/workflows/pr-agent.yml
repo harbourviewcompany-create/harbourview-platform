@@ -10,19 +10,23 @@ concurrency:
   group: pr-agent-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   pr_agent_job:
-    if: github.event.sender.type != 'Bot' && (github.event.pull_request.draft == false || github.event_name == 'issue_comment')
+    if: github.event.sender.type != 'Bot' && (github.event_name == 'pull_request' || github.event.issue.pull_request)
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
       issues: write
-      checks: write
     name: AI PR review
     steps:
       - name: Run PR-Agent
-        uses: the-pr-agent/pr-agent@main
+        uses: the-pr-agent/pr-agent@ca725b1ba511d82930d372ed9d79d9e95da23262 # immutable main commit verified 2026-09-11
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

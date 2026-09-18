@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-/** Local/CI inventory: list admin pages and whether they satisfy the auth guard. */
+/**
+ * Local/CI inventory: list admin pages and whether they satisfy the auth guard.
+ * Usage: node scripts/check-admin-auth-inventory.mjs
+ */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
@@ -21,17 +24,26 @@ function walk(dir, out = []) {
 
 const rows = []
 let failures = 0
+
 for (const file of walk(ROOT)) {
   const repoPath = relative(process.cwd(), file).replace(/\\/g, '/')
   const exempt = EXEMPT.some((f) => repoPath.includes(f) || repoPath.endsWith('app/admin/layout.tsx'))
   const underProtected = repoPath.includes('app/admin/(protected)/')
-  const hasMarker = MARKERS.some((m) => readFileSync(file, 'utf8').includes(m))
+  const src = readFileSync(file, 'utf8')
+  const hasMarker = MARKERS.some((m) => src.includes(m))
   const ok = exempt || underProtected || hasMarker || repoPath.endsWith('layout.tsx')
   if (!ok && (repoPath.endsWith('page.tsx') || repoPath.endsWith('route.ts'))) failures++
   rows.push({ path: repoPath, exempt, underProtected, hasMarker, ok })
 }
+
 console.log('Admin auth inventory')
 console.log('path\texempt\tprotected\tmarker\tok')
-for (const r of rows) console.log(`${r.path}\t${r.exempt}\t${r.underProtected}\t${r.hasMarker}\t${r.ok}`)
-if (failures > 0) { console.error(`\n${failures} violation(s)`); process.exit(1) }
+for (const r of rows) {
+  console.log(`${r.path}\t${r.exempt}\t${r.underProtected}\t${r.hasMarker}\t${r.ok}`)
+}
+
+if (failures > 0) {
+  console.error(`\n${failures} violation(s)`)
+  process.exit(1)
+}
 console.log(`\nOK (${rows.length} files scanned)`)

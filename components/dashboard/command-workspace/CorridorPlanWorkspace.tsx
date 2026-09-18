@@ -12,9 +12,12 @@ import {
   getPopularCorridors,
   APPLICABLE_TRADE_JURISDICTIONS,
 } from '@/lib/intelligence/tradeCorridors'
-import { assessClaimMapReadiness, corridorEvidenceFlags } from '@/lib/clinical/evidence-readiness'
-import type { EvidenceClaimMapEntry, EvidenceRecord } from '@/lib/clinical/types'
-import { adaptEvidenceDto } from '@/lib/clinical/evidenceRecordAdapter'
+import { CLAIM_MAP_FIXTURES } from '@/lib/fixtures/clinical/claim-map'
+import { EVIDENCE_FIXTURES } from '@/lib/fixtures/clinical/evidence'
+import {
+  assessClaimMapReadiness,
+  corridorEvidenceFlags,
+} from '@/lib/clinical/evidence-readiness'
 import { triageSort } from '@/lib/clinical/framework-gap'
 
 type PlanPayload = {
@@ -72,38 +75,9 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
     return popular
   }, [chipMode, popular])
 
-  const [claimMap, setClaimMap] = useState<EvidenceClaimMapEntry[]>([])
-  const [evidenceRecords, setEvidenceRecords] = useState<EvidenceRecord[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-
-    void fetch('/api/clinical/claim-map', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { entries: [] }))
-      .then((body: { entries?: EvidenceClaimMapEntry[] }) => {
-        if (!cancelled) setClaimMap(body.entries ?? [])
-      })
-      .catch(() => {
-        if (!cancelled) setClaimMap([])
-      })
-
-    void fetch('/api/clinical/evidence?limit=50', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { records: [] }))
-      .then((body: { records?: Parameters<typeof adaptEvidenceDto>[0][] }) => {
-        if (!cancelled) setEvidenceRecords((body.records ?? []).map(adaptEvidenceDto))
-      })
-      .catch(() => {
-        if (!cancelled) setEvidenceRecords([])
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const evidenceReadiness = useMemo(() => {
-    const assessments = claimMap.map((e) =>
-      assessClaimMapReadiness(e, evidenceRecords),
+    const assessments = CLAIM_MAP_FIXTURES.map((e) =>
+      assessClaimMapReadiness(e, EVIDENCE_FIXTURES),
     )
     // assessClaimMapReadiness triage-sorts within each claim, so flatMap yields
     // sorted runs concatenated end to end, not a globally sorted list. Slicing
@@ -125,10 +99,10 @@ export function CorridorPlanWorkspace({ onClose }: { onClose: () => void }) {
         label: g.title,
       })),
     }
-  }, [claimMap, evidenceRecords])
+  }, [])
   const evidenceFlags = useMemo(
-    () => corridorEvidenceFlags(claimMap, evidenceRecords),
-    [claimMap, evidenceRecords],
+    () => corridorEvidenceFlags(CLAIM_MAP_FIXTURES, EVIDENCE_FIXTURES),
+    [],
   )
 
   const setParams = useCallback(
