@@ -11066,6 +11066,18 @@ const EventsPage = React.memo(function EventsPage({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+function useCommandCentreReferenceData() {
+  const [data, setData] = useState<{ corridor: typeof import('./data/corridorIntel') | null; events: typeof import('./data/industryEvents') | null }>({ corridor: null, events: null })
+  useEffect(() => {
+    let active = true
+    void Promise.all([import('./data/corridorIntel'), import('./data/industryEvents')]).then(([corridor, events]) => {
+      if (active) setData({ corridor, events })
+    })
+    return () => { active = false }
+  }, [])
+  return data
+}
+
 export default function CommandCentre({
   signals: ssrSignals,
   digestSignals,
@@ -11486,20 +11498,5 @@ export default function CommandCentre({
 
 
 
-
-const [corridorData, setCorridorData] = useState<typeof import('./data/corridorIntel') | null>(null)
-const [industryEventData, setIndustryEventData] = useState<typeof import('./data/industryEvents') | null>(null)
-
-function useCommandCentreReferenceData() {
-  const [data, setData] = useState<{ corridor: typeof import('./data/corridorIntel') | null; events: typeof import('./data/industryEvents') | null }>({ corridor: null, events: null })
-  useEffect(() => {
-    let active = true
-    void Promise.all([import('./data/corridorIntel'), import('./data/industryEvents')]).then(([corridor, events]) => {
-      if (active) setData({ corridor, events })
-    })
-    return () => { active = false }
-  }, [])
-  return data
-}
 
 
