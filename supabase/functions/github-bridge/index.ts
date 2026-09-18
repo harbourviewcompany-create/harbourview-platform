@@ -355,6 +355,16 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       }
     }
 
+    case 'get_commit': {
+      const ref = (op.ref as string) ?? 'main'
+      const data = await gh(`${BASE}/commits/${encodeURIComponent(ref)}`, h)
+      return {
+        ok: true, sha: data.sha, message: data.commit?.message,
+        author: data.commit?.author?.name, date: data.commit?.author?.date,
+        html_url: data.html_url
+      }
+    }
+
     case 'create_ref': {
       const branch = op.branch as string | undefined
       if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
