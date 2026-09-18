@@ -74,7 +74,7 @@ test('rejects an altered Elite Digest allowlist binding', () => {
 test('rejects removal of an exact pending-migration decision', () => {
   const mutated = clone(decision)
   mutated.repository_only_decisions = mutated.repository_only_decisions.filter(
-    (record) => record.version !== '20260731120000',
+    (record) => record.version !== '20260912103655',
   )
   const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
   assert.ok(errors.some((error) => error.includes('repository-only file count mismatch')))
@@ -84,7 +84,7 @@ test('rejects removal of an exact pending-migration decision', () => {
 test('rejects treating a separately controlled migration as Elite Digest-approved', () => {
   const mutated = clone(decision)
   const record = mutated.repository_only_decisions.find(
-    (entry) => entry.version === '20260802080000',
+    (entry) => entry.version === '20260912103805',
   )
   record.classification = 'approved'
   const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
