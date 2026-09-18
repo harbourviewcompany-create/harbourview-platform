@@ -21,10 +21,10 @@
   --hv-gold-3: #c9a227;
   --hv-gold-4: #8a6b1a;
   --hv-gold-5: #5c4810;
-  --hv-gold: #c9a227;
-  --hv-gold-deep: #8a6b1a;
+  --hv-gold: #c6a55a;
+  --hv-gold-deep: #a8842d;
   --hv-dark-gold: var(--hv-gold-deep);
-  --hv-gold-light: #e0c36a;
+  --hv-gold-light: #d8be76;
   --hv-gold-metallic: linear-gradient(
     135deg,
     var(--hv-gold-1) 0%,
