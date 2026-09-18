@@ -30,12 +30,6 @@
   box-shadow: none;
 }
 
-/*
- * The section title/description duplicate the header and the rail chip on this
- * destination, so they are removed visually to get inventory above the fold --
- * kept in the accessibility tree, since the <h2> is the section's only
- * programmatic name.
- */
 .hvm2-market-section > .hvm2-section-heading {
   position: absolute;
   width: 1px;
@@ -48,12 +42,6 @@
   border: 0;
 }
 
-/*
- * Controls stay above the panel they filter: .hvm2-market-controls holds the
- * role="tablist" and #hvm2-market-panel is its role="tabpanel", so visual order
- * has to match DOM order here. Inventory-first is achieved by demoting the
- * quick-action links below the grid, not by lifting the grid above its own tabs.
- */
 .hvm2-market-section > .hvm2-market-controls { order: 1; gap: 8px; }
 .hvm2-market-section > .hvm2-workspace { order: 2; margin-top: 10px; }
 .hvm2-market-section > #hvm2-market-panel { order: 3; }
@@ -93,20 +81,6 @@
   border-color: rgba(198, 165, 90, 0.22);
 }
 
-/*
- * Media bleeds to the card edge: width cancels the card's horizontal padding and
- * the negative margins pull it flush. .hvm2-listing-card in
- * MarketplaceListingMedia.css already sets overflow:hidden, so the bleed stays
- * inside the card's border-radius and cannot widen the grid track.
- *
- * Scoped to .hvm2-listing-card specifically, not just .hvm2-market-section:
- * MarketCard.tsx's figure also carries the hvm2-listing-media class (for the
- * shared badge/figcaption/vignette styling in MarketplaceListingMedia.css),
- * but that figure lives inside .cc-mkt-card, which has padding: 0 -- these
- * bleed values are sized for .hvm2-listing-card's 10px/12px padding and were
- * bleeding a zero-padding card's media 10-12px past its own edges, cropping
- * and shifting every card image in the live .cc-mkt-grid feed.
- */
 .hvm2-market-section .hvm2-listing-card .hvm2-listing-media {
   width: calc(100% + 20px);
   margin: -10px -10px 10px;
@@ -134,11 +108,6 @@
   line-height: 1.25;
 }
 
-/*
- * The listing summary carries the compliance detail buyers scan for (batch
- * records, COA, phytosanitary docs). Clamped to fit the two-column card rather
- * than hidden, so the substance survives the density pass.
- */
 .hvm2-market-section .hvm2-listing-card > p {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -178,9 +147,7 @@
   font-weight: 850;
 }
 
-.hvm2-market-section .hvm2-listing-card:not(:first-child) .hvm2-inline-cta {
-  margin-top: auto;
-}
+.hvm2-market-section .hvm2-listing-card:not(:first-child) .hvm2-inline-cta { margin-top: auto; }
 
 .hvm2-market-section > .hvm2-quick-actions {
   position: relative;
@@ -210,12 +177,6 @@
 
 .hvm2-market-section > .hvm2-quick-actions a > span { font-size: 14px; }
 .hvm2-market-section > .hvm2-quick-actions a strong { font-size: 11px; line-height: 1.2; }
-
-/*
- * Sublabels ("Buyer-led requirement" etc.) are dropped in the compact row: the
- * bold label already names the action. This is the one content removal here --
- * the listing summary above is clamped instead.
- */
 .hvm2-market-section > .hvm2-quick-actions a small { display: none; }
 
 @media (max-width: 374px) {
@@ -225,4 +186,116 @@
 
 @media (min-width: 430px) {
   .hvm2-market-section .hvm2-listing-card:first-child .hvm2-listing-media { aspect-ratio: 1.75 / 1; }
+}
+
+/* UX pass: make discovery, scanning and touch interaction predictable. */
+.hvm2-root[data-active-destination="marketplace"] .hvm2-market-section > .hvm2-market-controls {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-top: 0;
+  padding: 8px;
+  background: rgba(2, 7, 13, .94);
+  backdrop-filter: blur(18px) saturate(120%);
+  -webkit-backdrop-filter: blur(18px) saturate(120%);
+}
+
+.hvm2-root[data-active-destination="marketplace"] .hvm2-search-field input {
+  min-width: 0;
+  min-height: 42px;
+  font-size: 14px;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .hvm2-search-field input::placeholder {
+  color: rgba(247, 241, 230, .48);
+}
+
+.hvm2-root[data-active-destination="marketplace"] .hvm2-tab-rail {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+.hvm2-root[data-active-destination="marketplace"] .hvm2-tab-rail::-webkit-scrollbar { display: none; }
+
+.hvm2-root[data-active-destination="marketplace"] .hvm2-tab-rail button {
+  scroll-snap-align: start;
+  touch-action: manipulation;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .hvm2-tab-rail button:focus-visible,
+.hvm2-root[data-active-destination="marketplace"] .hvm2-search-field:focus-within,
+.hvm2-root[data-active-destination="marketplace"] .hvm2-quick-actions a:focus-visible,
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card:focus-within {
+  outline: 2px solid rgba(255, 233, 160, .82);
+  outline-offset: 2px;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card {
+  min-height: 100%;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card-meta > * {
+  max-width: 100%;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 360px;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-rail-track {
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+}
+
+.hvm2-root[data-active-destination="marketplace"] .cc-mkt-rail-card {
+  scroll-snap-align: start;
+  min-height: 44px;
+}
+
+@media (max-width: 699px) {
+  .hvm2-root[data-active-destination="marketplace"] .hvm2-market-section > .hvm2-market-controls {
+    top: env(safe-area-inset-top, 0px);
+  }
+
+  .hvm2-root[data-active-destination="marketplace"] .hvm2-market-section > .hvm2-market-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hvm2-root[data-active-destination="marketplace"] .hvm2-market-section > .hvm2-market-controls .hvm2-tab-rail {
+    display: flex;
+    width: calc(100% + 2px);
+    margin: 0 -1px;
+  }
+
+  .hvm2-root[data-active-destination="marketplace"] .hvm2-market-section > .hvm2-market-controls .hvm2-tab-rail button {
+    flex: 0 0 auto;
+    min-width: 92px;
+  }
+
+  .hvm2-root[data-active-destination="marketplace"] .cc-mkt-card {
+    scroll-margin-top: 116px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hvm2-root[data-active-destination="marketplace"] .hvm2-tab-rail,
+  .hvm2-root[data-active-destination="marketplace"] .cc-mkt-rail-track {
+    scroll-behavior: auto;
+  }
 }
