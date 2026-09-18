@@ -44,12 +44,12 @@ const CorridorEvidenceFlagsFromFixtures = dynamic(
 )
 import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
-import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
-import { PRICE_BENCHMARKS, PRODUCT_TYPE_LABELS, PRODUCT_TYPE_ICONS, TIER_LABELS, TIER_COLORS, type PriceBenchmark } from './data/priceIntelligence'
-import { LOGISTICS_PROVIDERS, LOGISTICS_TYPE_LABELS, LOGISTICS_TYPE_COLORS, type LogisticsType } from './data/logisticsProviders'
-import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type JobType, type JobSector } from './data/jobsBoard'
-import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
-import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
+import type { BankingProvider } from './data/bankingProviders'
+import type { PriceBenchmark } from './data/priceIntelligence'
+import type { LogisticsType } from './data/logisticsProviders'
+import type { JobType, JobSector } from './data/jobsBoard'
+import type { InsuranceProviderRole, InsuranceLineType, InsuranceProvider } from './data/insuranceProviders'
+import type { LandedProductType } from './data/landedCostData'
 const WatchlistPage = dynamic(() => import('./pages/WatchlistPage').then(m => ({ default: m.WatchlistPage })))
 import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
@@ -7286,6 +7286,17 @@ const BANKING_ROLE_TYPES_MAP: Record<string, BankingProvider['type'][]> = {
 const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   country, region, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [bankingData, setBankingData] = useState<Awaited<ReturnType<typeof import('./data/bankingProviders')>> | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/bankingProviders').then((mod) => {
+      if (active) setBankingData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!bankingData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const BANKING_PROVIDERS = bankingData.BANKING_PROVIDERS\n  const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS\n  const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS\n  const STANCE_LABELS = bankingData.STANCE_LABELS\n  const STANCE_COLORS = bankingData.STANCE_COLORS
+
   const [search,      setSearch]      = useState('')
   const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
   const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
@@ -8657,6 +8668,17 @@ function benchmarkQuarterEnd(updatedQ: string): Date | null {
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [priceData, setPriceData] = useState<Awaited<ReturnType<typeof import('./data/priceIntelligence')>> | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/priceIntelligence').then((mod) => {
+      if (active) setPriceData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!priceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS\n  const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS\n  const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS\n  const TIER_LABELS = priceData.TIER_LABELS\n  const TIER_COLORS = priceData.TIER_COLORS
+
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
   const [filterRegion,   setFilterRegion]   = useState<string>('all')
@@ -9089,6 +9111,17 @@ const LOGISTICS_ROLE_TYPES_MAP: Record<string, LogisticsType[]> = {
 const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [logisticsData, setLogisticsData] = useState<Awaited<ReturnType<typeof import('./data/logisticsProviders')>> | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/logisticsProviders').then((mod) => {
+      if (active) setLogisticsData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!logisticsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const LOGISTICS_PROVIDERS = logisticsData.LOGISTICS_PROVIDERS\n  const LOGISTICS_TYPE_LABELS = logisticsData.LOGISTICS_TYPE_LABELS\n  const LOGISTICS_TYPE_COLORS = logisticsData.LOGISTICS_TYPE_COLORS
+
   const [search,        setSearch]        = useState('')
   const [filterType,    setFilterType]    = useState<LogisticsType | 'all'>('all')
   const [filterRegion,  setFilterRegion]  = useState<string>('all')
@@ -9361,6 +9394,17 @@ const ROLE_SECTORS_MAP: Record<string, JobSector[]> = {
 const JobsBoardPage = React.memo(function JobsBoardPage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [jobsData, setJobsData] = useState<Awaited<ReturnType<typeof import('./data/jobsBoard')>> | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/jobsBoard').then((mod) => {
+      if (active) setJobsData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!jobsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const JOB_LISTINGS = jobsData.JOB_LISTINGS\n  const JOB_TYPE_LABELS = jobsData.JOB_TYPE_LABELS\n  const JOB_TYPE_COLORS = jobsData.JOB_TYPE_COLORS\n  const JOB_SECTOR_LABELS = jobsData.JOB_SECTOR_LABELS
+
   const [search,        setSearch]        = useState('')
   const [filterSector,  setFilterSector]  = useState<JobSector | 'all'>('all')
   const [filterType,    setFilterType]    = useState<JobType | 'all'>('all')
@@ -9705,6 +9749,17 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
+  const [insuranceData, setInsuranceData] = useState<Awaited<ReturnType<typeof import('./data/insuranceProviders')>> | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/insuranceProviders').then((mod) => {
+      if (active) setInsuranceData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!insuranceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const INSURANCE_PROVIDERS = insuranceData.INSURANCE_PROVIDERS\n  const INSURANCE_LINE_LABELS = insuranceData.INSURANCE_LINE_LABELS\n  const INSURANCE_ROLE_LABELS = insuranceData.INSURANCE_ROLE_LABELS\n  const INSURANCE_ROLE_COLORS = insuranceData.INSURANCE_ROLE_COLORS
+
   const [search,        setSearch]        = useState('')
   const [filterRole,    setFilterRole]    = useState<InsuranceProviderRole | 'all'>('all')
   const [filterType,    setFilterType]    = useState<InsuranceLineType | 'all'>('all')
@@ -10273,6 +10328,17 @@ const LandedCostPage = React.memo(function LandedCostPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
+  const [landedData, setLandedData] = useState<Awaited<ReturnType<typeof import('./data/landedCostData')>> | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/landedCostData').then((mod) => {
+      if (active) setLandedData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!landedData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const EXPORTER_ORIGINS = landedData.EXPORTER_ORIGINS\n  const DESTINATION_MARKETS = landedData.DESTINATION_MARKETS\n  const FREIGHT_CORRIDORS = landedData.FREIGHT_CORRIDORS\n  const LANDED_PRODUCT_LABELS = landedData.LANDED_PRODUCT_LABELS\n  const calcLandedCost = landedData.calcLandedCost
+
   const exporterIso2s = EXPORTER_ORIGINS.map(o => o.iso2)
   const importerIso2s = DESTINATION_MARKETS.map(d => d.iso2)
 
