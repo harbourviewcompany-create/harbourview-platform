@@ -2,6 +2,13 @@ Status: Canonical registry with verified Harbourview Vercel production mapping a
 Scope: GitHub, Vercel and Supabase assets visible in connected audits, plus the 2026-05-17 verified Vercel connector state recorded in Notion dispatch `DSP-10` / `HAR-16 / HAR-22`.
 Change policy: This document is a control register. It is not approval to delete, pause, merge, deploy, reconfigure domains, change branch protection, change secrets, modify Supabase, modify runtime code, modify middleware, modify auth, modify dependencies or migrate anything without a separate approved cleanup PR or operator confirmation.
 
+
+## Platform performance optimization — 2026-09-18 (PR #1971)
+
+| System | Scope | Registry impact |
+|---|---|---|
+| Harbourview Platform | Dashboard/globe rendering and data-path performance optimization; targeted Supabase ordering indexes; browser performance telemetry | Recorded in the existing Harbourview Platform registry row; no new project, route family, deployment target, or external system introduced by this PR. |
+
 ## Intelligence pipeline optimization — 2026-08-20 (pointer)
 
 See `docs/control/INTEL_PIPELINE_OPTIMIZATION_REGISTRY_ROWS.md` for the PR #1598 object inventory, preserved pipeline invariants, verification evidence, and unchanged active cron state. The two migrations remain unapplied to production.
