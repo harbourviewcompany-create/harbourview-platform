@@ -468,14 +468,18 @@ const BriefingRoom = React.memo(function BriefingRoom({
         .finally(() => setAiBriefingLoading(false))
     }
 
-    const idleWindow = window.requestIdleCallback
-      ? window.requestIdleCallback(loadBriefing, { timeout: 2000 })
-      : window.setTimeout(loadBriefing, 1200)
+    let idleCallbackId: number | null = null
+    let timeoutId: number | null = null
+    if (window.requestIdleCallback) {
+      idleCallbackId = window.requestIdleCallback(loadBriefing, { timeout: 2000 })
+    } else {
+      timeoutId = window.setTimeout(loadBriefing, 1200)
+    }
 
     return () => {
       controller.abort()
-      if (typeof idleWindow === 'number') window.clearTimeout(idleWindow)
-      else window.cancelIdleCallback?.(idleWindow)
+      if (idleCallbackId !== null) window.cancelIdleCallback?.(idleCallbackId)
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
     }
   }, [country.label, country.iso2, role, countryIntel])
 
