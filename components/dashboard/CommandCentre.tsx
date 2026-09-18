@@ -44,6 +44,7 @@ const CorridorEvidenceFlagsFromFixtures = dynamic(
 )
 
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
+import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
 import { PROVIDER_TYPE_LABELS, STANCE_LABELS, type BankingProvider } from './data/bankingProviders'
 import type { PriceBenchmark } from './data/priceIntelligence'
 import type { LogisticsType } from './data/logisticsProviders'
@@ -3947,7 +3948,6 @@ function parseLogisticsRange(s: string): { currency: string; lo: number; hi: num
 }
 
 function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; label: string }; role: string }) {
-  const referenceData = useCommandCentreReferenceData()
   const [sectionTab,  setSectionTab]  = useState<'corridors' | 'modeller'>('corridors')
   const [search,      setSearch]      = useState('')
   const [filterFrom,  setFilterFrom]  = useState('')
@@ -4017,8 +4017,8 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
 
   const fromOptions = Array.from(new Set(CORRIDORS.map(c => c.from))).sort()
   const toOptions   = Array.from(new Set(CORRIDORS.map(c => c.to))).sort()
-  const costKeys    = Object.keys(referenceData.corridor?.CORRIDOR_COSTS ?? {})
-  const modelCost   = modelKey ? referenceData.corridor?.CORRIDOR_COSTS ?? {}[modelKey] : null
+  const costKeys    = Object.keys(CORRIDOR_COSTS)
+  const modelCost   = modelKey ? CORRIDOR_COSTS[modelKey] : null
   const modelCorr   = modelKey ? CORRIDORS.find(c => `${c.from}→${c.to}` === modelKey) : null
   const kgNum       = parseFloat(modelKg) || 0
 
@@ -4235,9 +4235,9 @@ function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; 
               const isLocal     = c.from.toLowerCase().includes(country.label.toLowerCase()) || c.to.toLowerCase().includes(country.label.toLowerCase())
               const live        = liveData[intelKey]
               const isLoading   = loadingKeys.has(intelKey)
-              const banking     = referenceData.corridor?.CORRIDOR_BANKING ?? {}[intelKey]
-              const authority   = referenceData.corridor?.CORRIDOR_AUTHORITY ?? {}[intelKey]
-              const costs       = referenceData.corridor?.CORRIDOR_COSTS ?? {}[intelKey]
+              const banking     = CORRIDOR_BANKING[intelKey]
+              const authority   = CORRIDOR_AUTHORITY[intelKey]
+              const costs       = CORRIDOR_COSTS[intelKey]
               const majorAlerts = live?.alerts.filter(a => a.severity === 'major').length ?? 0
               return (
                 <div
@@ -11086,17 +11086,6 @@ const EventsPage = React.memo(function EventsPage({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-function useCommandCentreReferenceData() {
-  const [data, setData] = useState<{ corridor: typeof import('./data/corridorIntel') | null; events: typeof import('./data/industryEvents') | null }>({ corridor: null, events: null })
-  useEffect(() => {
-    let active = true
-    void Promise.all([import('./data/corridorIntel'), import('./data/industryEvents')]).then(([corridor, events]) => {
-      if (active) setData({ corridor, events })
-    })
-    return () => { active = false }
-  }, [])
-  return data
-}
 
 export default function CommandCentre({
   signals: ssrSignals,
