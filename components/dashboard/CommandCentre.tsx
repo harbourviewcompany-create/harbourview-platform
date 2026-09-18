@@ -44,11 +44,11 @@ const CorridorEvidenceFlagsFromFixtures = dynamic(
 )
 
 import type { CannabisEvent } from './data/industryEvents'
-import type { BankingProvider } from './data/bankingProviders'
+import { PROVIDER_TYPE_LABELS, STANCE_LABELS, type BankingProvider } from './data/bankingProviders'
 import type { PriceBenchmark } from './data/priceIntelligence'
 import type { LogisticsType } from './data/logisticsProviders'
 import type { JobType, JobSector } from './data/jobsBoard'
-import type { InsuranceProviderRole, InsuranceLineType, InsuranceProvider } from './data/insuranceProviders'
+import { INSURANCE_ROLE_COLORS, INSURANCE_ROLE_LABELS, INSURANCE_LINE_LABELS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
 import type { LandedProductType } from './data/landedCostData'
 const WatchlistPage = dynamic(() => import('./pages/WatchlistPage').then(m => ({ default: m.WatchlistPage })))
 import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
@@ -3947,6 +3947,7 @@ function parseLogisticsRange(s: string): { currency: string; lo: number; hi: num
 }
 
 function CorridorPlaybooksSection({ country, role }: { country: { iso2: string; label: string }; role: string }) {
+  const referenceData = useCommandCentreReferenceData()
   const [sectionTab,  setSectionTab]  = useState<'corridors' | 'modeller'>('corridors')
   const [search,      setSearch]      = useState('')
   const [filterFrom,  setFilterFrom]  = useState('')
@@ -10723,6 +10724,7 @@ const EventsPage = React.memo(function EventsPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
+  const referenceData = useCommandCentreReferenceData()
   const [search,     setSearch]     = useState('')
   const [region,     setRegion]     = useState<string>('')
   const [typeFilter,   setTypeFilter]   = useState<string>('')
@@ -11139,7 +11141,6 @@ export default function CommandCentre({
   mySubmissions = [],
   hasOrg,
 }: Props) {
-  const referenceData = useCommandCentreReferenceData()
   const router = useRouter()
 
   // ── State ──────────────────────────────────────────────────────────────────
