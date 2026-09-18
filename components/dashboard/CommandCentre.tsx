@@ -7295,7 +7295,11 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
     return () => { active = false }
   }, [])
   if (!bankingData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const BANKING_PROVIDERS = bankingData.BANKING_PROVIDERS\n  const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS\n  const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS\n  const STANCE_LABELS = bankingData.STANCE_LABELS\n  const STANCE_COLORS = bankingData.STANCE_COLORS
+  const BANKING_PROVIDERS = bankingData.BANKING_PROVIDERS
+  const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS
+  const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS
+  const STANCE_LABELS = bankingData.STANCE_LABELS
+  const STANCE_COLORS = bankingData.STANCE_COLORS
 
   const [search,      setSearch]      = useState('')
   const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
@@ -8677,7 +8681,11 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
     return () => { active = false }
   }, [])
   if (!priceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS\n  const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS\n  const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS\n  const TIER_LABELS = priceData.TIER_LABELS\n  const TIER_COLORS = priceData.TIER_COLORS
+  const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS
+  const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS
+  const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS
+  const TIER_LABELS = priceData.TIER_LABELS
+  const TIER_COLORS = priceData.TIER_COLORS
 
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
@@ -9120,7 +9128,9 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
     return () => { active = false }
   }, [])
   if (!logisticsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const LOGISTICS_PROVIDERS = logisticsData.LOGISTICS_PROVIDERS\n  const LOGISTICS_TYPE_LABELS = logisticsData.LOGISTICS_TYPE_LABELS\n  const LOGISTICS_TYPE_COLORS = logisticsData.LOGISTICS_TYPE_COLORS
+  const LOGISTICS_PROVIDERS = logisticsData.LOGISTICS_PROVIDERS
+  const LOGISTICS_TYPE_LABELS = logisticsData.LOGISTICS_TYPE_LABELS
+  const LOGISTICS_TYPE_COLORS = logisticsData.LOGISTICS_TYPE_COLORS
 
   const [search,        setSearch]        = useState('')
   const [filterType,    setFilterType]    = useState<LogisticsType | 'all'>('all')
@@ -9403,7 +9413,10 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
     return () => { active = false }
   }, [])
   if (!jobsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const JOB_LISTINGS = jobsData.JOB_LISTINGS\n  const JOB_TYPE_LABELS = jobsData.JOB_TYPE_LABELS\n  const JOB_TYPE_COLORS = jobsData.JOB_TYPE_COLORS\n  const JOB_SECTOR_LABELS = jobsData.JOB_SECTOR_LABELS
+  const JOB_LISTINGS = jobsData.JOB_LISTINGS
+  const JOB_TYPE_LABELS = jobsData.JOB_TYPE_LABELS
+  const JOB_TYPE_COLORS = jobsData.JOB_TYPE_COLORS
+  const JOB_SECTOR_LABELS = jobsData.JOB_SECTOR_LABELS
 
   const [search,        setSearch]        = useState('')
   const [filterSector,  setFilterSector]  = useState<JobSector | 'all'>('all')
@@ -9758,7 +9771,10 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
     return () => { active = false }
   }, [])
   if (!insuranceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const INSURANCE_PROVIDERS = insuranceData.INSURANCE_PROVIDERS\n  const INSURANCE_LINE_LABELS = insuranceData.INSURANCE_LINE_LABELS\n  const INSURANCE_ROLE_LABELS = insuranceData.INSURANCE_ROLE_LABELS\n  const INSURANCE_ROLE_COLORS = insuranceData.INSURANCE_ROLE_COLORS
+  const INSURANCE_PROVIDERS = insuranceData.INSURANCE_PROVIDERS
+  const INSURANCE_LINE_LABELS = insuranceData.INSURANCE_LINE_LABELS
+  const INSURANCE_ROLE_LABELS = insuranceData.INSURANCE_ROLE_LABELS
+  const INSURANCE_ROLE_COLORS = insuranceData.INSURANCE_ROLE_COLORS
 
   const [search,        setSearch]        = useState('')
   const [filterRole,    setFilterRole]    = useState<InsuranceProviderRole | 'all'>('all')
@@ -10337,7 +10353,11 @@ const LandedCostPage = React.memo(function LandedCostPage({
     return () => { active = false }
   }, [])
   if (!landedData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const EXPORTER_ORIGINS = landedData.EXPORTER_ORIGINS\n  const DESTINATION_MARKETS = landedData.DESTINATION_MARKETS\n  const FREIGHT_CORRIDORS = landedData.FREIGHT_CORRIDORS\n  const LANDED_PRODUCT_LABELS = landedData.LANDED_PRODUCT_LABELS\n  const calcLandedCost = landedData.calcLandedCost
+  const EXPORTER_ORIGINS = landedData.EXPORTER_ORIGINS
+  const DESTINATION_MARKETS = landedData.DESTINATION_MARKETS
+  const FREIGHT_CORRIDORS = landedData.FREIGHT_CORRIDORS
+  const LANDED_PRODUCT_LABELS = landedData.LANDED_PRODUCT_LABELS
+  const calcLandedCost = landedData.calcLandedCost
 
   const exporterIso2s = EXPORTER_ORIGINS.map(o => o.iso2)
   const importerIso2s = DESTINATION_MARKETS.map(d => d.iso2)
@@ -11078,8 +11098,6 @@ function useCommandCentreReferenceData() {
 }
 
 export default function CommandCentre({
-  const referenceData = useCommandCentreReferenceData()
-
   signals: ssrSignals,
   digestSignals,
   digestWindow,
@@ -11121,6 +11139,7 @@ export default function CommandCentre({
   mySubmissions = [],
   hasOrg,
 }: Props) {
+  const referenceData = useCommandCentreReferenceData()
   const router = useRouter()
 
   // ── State ──────────────────────────────────────────────────────────────────
