@@ -7286,7 +7286,7 @@ const BANKING_ROLE_TYPES_MAP: Record<string, BankingProvider['type'][]> = {
 const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   country, region, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
-  const [bankingData, setBankingData] = useState<Awaited<ReturnType<typeof import('./data/bankingProviders')>> | null>(null)
+  const [bankingData, setBankingData] = useState<typeof import('./data/bankingProviders') | null>(null)
   useEffect(() => {
     let active = true
     void import('./data/bankingProviders').then((mod) => {
@@ -8668,7 +8668,7 @@ function benchmarkQuarterEnd(updatedQ: string): Date | null {
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
-  const [priceData, setPriceData] = useState<Awaited<ReturnType<typeof import('./data/priceIntelligence')>> | null>(null)
+  const [priceData, setPriceData] = useState<typeof import('./data/priceIntelligence') | null>(null)
   useEffect(() => {
     let active = true
     void import('./data/priceIntelligence').then((mod) => {
@@ -9111,7 +9111,7 @@ const LOGISTICS_ROLE_TYPES_MAP: Record<string, LogisticsType[]> = {
 const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
-  const [logisticsData, setLogisticsData] = useState<Awaited<ReturnType<typeof import('./data/logisticsProviders')>> | null>(null)
+  const [logisticsData, setLogisticsData] = useState<typeof import('./data/logisticsProviders') | null>(null)
   useEffect(() => {
     let active = true
     void import('./data/logisticsProviders').then((mod) => {
@@ -9394,7 +9394,7 @@ const ROLE_SECTORS_MAP: Record<string, JobSector[]> = {
 const JobsBoardPage = React.memo(function JobsBoardPage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
-  const [jobsData, setJobsData] = useState<Awaited<ReturnType<typeof import('./data/jobsBoard')>> | null>(null)
+  const [jobsData, setJobsData] = useState<typeof import('./data/jobsBoard') | null>(null)
   useEffect(() => {
     let active = true
     void import('./data/jobsBoard').then((mod) => {
@@ -9749,7 +9749,7 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
-  const [insuranceData, setInsuranceData] = useState<Awaited<ReturnType<typeof import('./data/insuranceProviders')>> | null>(null)
+  const [insuranceData, setInsuranceData] = useState<typeof import('./data/insuranceProviders') | null>(null)
   useEffect(() => {
     let active = true
     void import('./data/insuranceProviders').then((mod) => {
@@ -10328,7 +10328,7 @@ const LandedCostPage = React.memo(function LandedCostPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
-  const [landedData, setLandedData] = useState<Awaited<ReturnType<typeof import('./data/landedCostData')>> | null>(null)
+  const [landedData, setLandedData] = useState<typeof import('./data/landedCostData') | null>(null)
   useEffect(() => {
     let active = true
     void import('./data/landedCostData').then((mod) => {
