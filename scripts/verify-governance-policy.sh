@@ -11,13 +11,23 @@ fail_count=0
 pass_check() { printf 'PASS: %s\n' "$1"; pass_count=$((pass_count+1)); }
 fail_check() { printf 'FAIL: %s\n' "$1"; fail_count=$((fail_count+1)); fail=1; }
 
-if rulesets="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' 'https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets')"; then
-  if RULESETS="$rulesets" python3 - <<'PY'
-import json, os
+if ruleset_list="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' 'https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets')"; then
+  if RULESET_LIST="$ruleset_list" GITHUB_TOKEN="$GITHUB_TOKEN" python3 - <<'PY'
+import json, os, urllib.request
 from pathlib import Path
 expected=[x.strip() for x in Path('docs/control/REQUIRED_MAIN_STATUS_CHECKS.txt').read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
 if not expected: raise SystemExit('required status-check allowlist is empty')
-rulesets=json.loads(os.environ['RULESETS']); main=[]
+token=os.environ['GITHUB_TOKEN']
+def gh(url):
+    req=urllib.request.Request(url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+    with urllib.request.urlopen(req) as resp: return json.load(resp)
+ruleset_list=json.loads(os.environ['RULESET_LIST'])
+# The List Rulesets endpoint never returns conditions/rules (confirmed against
+# the live API, not an assumption) -- only GET /rulesets/{id} does. Fetch each
+# ruleset's full detail before filtering, or an active, correctly-configured
+# main ruleset is invisible to every check below.
+rulesets=[gh(f"https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets/{r['id']}") for r in ruleset_list]
+main=[]
 for r in rulesets:
     if r.get('enforcement')!='active': continue
     include=((r.get('conditions') or {}).get('ref_name') or {}).get('include') or []
