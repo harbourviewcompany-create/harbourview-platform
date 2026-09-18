@@ -8,9 +8,9 @@ on:
       - components/dashboard/**
       - lib/intelligence-os/**
       - docs/control/DATABASE_CONTROL.md
-      - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
-      - supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
-      - supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql
+      - supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql
+      - supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql
+      - supabase/migrations/20260911225151_decision_intel_stage0_completion_hardening.sql
       - tests/intel/**
       - .github/workflows/decision-intel-completion-hardening-verify.yml
   workflow_dispatch:
@@ -135,9 +135,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225151_decision_intel_stage0_completion_hardening.sql
 
       - name: Verify completion contracts
         shell: bash
