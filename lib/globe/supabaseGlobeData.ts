@@ -167,12 +167,15 @@ export function mergeSignalRealtimeRow(prev: GlobeLiveData, row: SignalRealtimeR
       },
     }
   }
+
   const existing = prev.signalsByIso2[iso2] ?? []
+  const nextSignals = [signal, ...existing.filter((s) => s.id !== signal.id)].slice(0, 50)
+
   return {
     ...prev,
     signalsByIso2: {
       ...prev.signalsByIso2,
-      [iso2]: [signal, ...existing.filter((s) => s.id !== signal.id)].slice(0, 50),
+      [iso2]: nextSignals,
     },
   }
 }
