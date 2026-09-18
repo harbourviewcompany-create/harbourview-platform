@@ -7031,3 +7031,34 @@ re-sourced, only retired. Re-sourcing all 34 against primary/official sources re
 session with outbound egress and is tracked in the tier-sourcing worklist; these 34 join
 that backlog and should be prioritised within it, since they are the ones that regressed
 from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR and CL.
+
+## 2026-09-17 -- PR-triggered workflow privilege audit: production secrets and untrusted checkout in the same job
+
+**Evidence ID:** `HV-PR-TRUST-BOUNDARY-AUDIT-20260917`
+
+**Scope:** documentation only. No workflow files changed. **Not applied.**
+
+**Context.** While repairing `governance-gate` (see `main-protection` ruleset
+update and PR #1961, both 2026-09-17), two of its checks kept failing
+independent of anything touched this session: `PR PRODUCTION SECRET` (10
+`pull_request`-triggered workflows reference production Supabase/Vercel
+secrets) and `PR TRUST-BOUNDARY` (9 of those 10 also check out and build the
+PR's own head content in the same privileged job). Confirmed both fail
+identically on main, pre-existing.
+
+Checked rather than assumed: this repository is public and forking is
+enabled (confirmed via the GitHub API). GitHub withholds secrets from
+fork-originated `pull_request` runs by default, which would make this inert
+today, but the toggle that overrides that default isn't visible through the
+API endpoints checked -- could not confirm whether it's on. All 20 most
+recent PRs sampled are same-repo branches, not forks, consistent with
+current internal-only practice, but that's practice, not a structural
+guarantee against a future fork PR.
+
+Full file lists, per-workflow detail, and un-evaluated remediation options in
+`docs/control/PR_PRIVILEGE_TRUST_BOUNDARY_AUDIT_2026-09-17.md`.
+
+**Decision:** **Open.** Recommend confirming the fork-secrets repo setting
+first (settles severity directly), then choosing a remediation from the
+document's list -- none evaluated in enough depth here to recommend one over
+the others.
