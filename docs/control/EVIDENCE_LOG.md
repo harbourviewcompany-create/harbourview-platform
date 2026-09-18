@@ -7031,3 +7031,13 @@ re-sourced, only retired. Re-sourcing all 34 against primary/official sources re
 session with outbound egress and is tracked in the tier-sourcing worklist; these 34 join
 that backlog and should be prioritised within it, since they are the ones that regressed
 from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR and CL.
+
+## 2026-09-18 — Governance gate repair consolidated in PR #1989
+
+**Change type:** governance/CI control-plane repair. No production schema, customer data, deployment ownership, or registry row change.
+
+**Scope:** repaired the governance-policy verifier syntax and ruleset-detail retrieval, isolated live migration-ledger comparison from pull-request execution, and restored the full edge-function-auth and pipeline-hardening regression suites after the earlier CI consolidation.
+
+**Verification:** exact PR head reports governance-policy validation against the live ruleset as 9/9 PASS; focused hardening/contract tests reported 31/31 PASS; current PR checks include CI, branch verification, migration-drift, production baseline, security, registry discipline, edge-function auth hardening, and release-safety checks passing.
+
+**Status:** Current — PR #1989 is the consolidated replacement for superseded PRs #1961 and #1980. Merge remains subject to the repository's independent approving-review requirement.
