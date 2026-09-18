@@ -8,8 +8,8 @@ on:
       - components/dashboard/**
       - lib/dashboard/**
       - lib/intelligence-os/**
-      - supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
-      - supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
+      - supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql
+      - supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql
       - tests/intel/**
       - docs/control/DATABASE_CONTROL.md
       - docs/control/EVIDENCE_LOG.md
@@ -112,8 +112,8 @@ jobs:
 
       - name: Apply original and corrective Stage 0 migrations
         run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql
 
       - name: Verify first-slice review contracts
         shell: bash
