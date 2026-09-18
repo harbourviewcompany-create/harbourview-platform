@@ -92,12 +92,15 @@ export default async function DashboardPage({
       userId = user.id
       userEmail = user.email ?? null
       userAppMetadata = user.app_metadata
-      userTier = await getUserTier()
-      const { data: prefs } = await supabase
-        .from('user_dashboard_preferences')
-        .select('country_iso2, role_id, active_workspace_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const [{ data: prefs }, resolvedUserTier] = await Promise.all([
+        supabase
+          .from('user_dashboard_preferences')
+          .select('country_iso2, role_id, active_workspace_id')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        getUserTier(),
+      ])
+      userTier = resolvedUserTier
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
       activeWorkspaceId = prefs?.active_workspace_id ?? null
