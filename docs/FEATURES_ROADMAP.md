@@ -34,15 +34,15 @@ Goal: close the loop from external media → classified signals → personalized
 
 | Item | Status | Notes / Evidence |
 |------|--------|------------------|
-| Meltwater connector skeleton | ✅ | `lib/connectors/meltwater.ts` |
-| BigQuery enrichment skeleton | ✅ | `lib/connectors/bigquery.ts` |
-| meltwater-enrich cron | ✅ | `app/api/cron/meltwater-enrich/route.ts` |
-| Digest narrative optimization | ✅ | Stronger commercial framing (`lib/signals/digestNarrative.ts`) |
-| Personal briefings tick | ✅ | Already live; continues to use Resend + cadence |
-| Wire Meltwater → source_documents / extract | 🟡 | Cron stages; full extract hand-off next |
-| BigQuery job for bulk quality re-score | ⬜ | After credentials + SQL template |
-| Preference storage + calendar sync | ⬜ | HubSpot / Google Calendar stubs |
-| Unified signal store cleanup | ⬜ | Address parallel tables noted in PLATFORM_OPTIMIZATION_REVIEW |
+| Meltwater connector (production-grade) | ✅ | Hashing, snapshot mapping, real HTTP client, safe no-op |
+| meltwater-enrich cron (production-grade) | ✅ | Writes `source_snapshots` with `pending_extraction`, content-hash dedupe, metrics, schema-tolerant insert |
+| BigQuery enrichment skeleton | ✅ | `lib/connectors/bigquery.ts` + SQL template |
+| Digest narrative optimization | ✅ | Stronger commercial framing |
+| Personal briefings tick | ✅ | Already live; Resend + cadence |
+| Canonical pipeline integration | ✅ | source_snapshots → intelligence-extract → promote |
+| BigQuery job for bulk quality re-score | ⬜ | After credentials |
+| Preference storage + calendar sync | ⬜ | HubSpot / Google Calendar stubs present |
+| Unified signal store cleanup | ⬜ | Address parallel tables |
 | Feed freshness SLO (promote within 24–48 h) | ⬜ | Operator + pipeline tuning |
 
 ## Still operator / partner dependent
@@ -58,8 +58,8 @@ Goal: close the loop from external media → classified signals → personalized
 
 ## Next Action
 
-1. Provision `MELTWATER_API_KEY` + at least one saved search ID; set `MELTWATER_SEARCH_IDS`.
-2. (Optional) Provision BigQuery project + service account for enrichment jobs.
-3. Run `bash scripts/smoke-phase2.sh` and complete remaining PHASE2_PRODUCTION_SMOKE sections.
-4. Monitor personal-briefings-tick + intelligence-notify + meltwater-enrich for delivery rates and narrative quality.
+1. Create/select a `source_registry` row for Meltwater and set `MELTWATER_SOURCE_ID`.
+2. Provision `MELTWATER_API_KEY` + `MELTWATER_SEARCH_IDS`.
+3. Dry-run `meltwater-enrich?dry=1`, then live; confirm `source_snapshots` rows with `pending_extraction`.
+4. Monitor next `intelligence-extract` (04:00 UTC) and digests/briefings.
 5. Decide repository visibility and update PROJECT_REGISTRY.
