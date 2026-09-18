@@ -76,7 +76,7 @@ if [ "$pr_contents_write" -eq 0 ]; then pass_check "no pull-request workflow gra
 
 production_secret_refs=0
 while IFS= read -r file; do
-  if grep -Eq '^[[:space:]]*pull_request([[:space:]]*:|[[:space:]]*$)' "$file" && grep -Eq '\$\\{\\{[[:space:]]*secrets\\.(SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET)[[:space:]]*\}\}' "$file"; then printf 'PR PRODUCTION SECRET: %s\n' "$file"; production_secret_refs=$((production_secret_refs+1)); fi
+  if grep -Eq '^[[:space:]]*pull_request([[:space:]]*:|[[:space:]]*$)' "$file" && grep -Eq 'secrets\\.(SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET)' "$file"; then printf 'PR PRODUCTION SECRET: %s\\n' "$file"; production_secret_refs=$((production_secret_refs+1)); fi
 done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
 if [ "$production_secret_refs" -eq 0 ]; then pass_check "no pull-request workflow references production database/deployment credentials"; else fail_check "$production_secret_refs pull-request workflow(s) reference production credentials"; fi
 
