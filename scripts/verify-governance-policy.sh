@@ -5,7 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-fail=0
+fail=0 # governance policy gate
 pass_count=0
 fail_count=0
 pass_check() { printf 'PASS: %s\n' "$1"; pass_count=$((pass_count+1)); }
@@ -81,7 +81,7 @@ done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -pri
 if [ "$production_secret_refs" -eq 0 ]; then pass_check "no pull-request workflow references production database/deployment credentials"; else fail_check "$production_secret_refs pull-request workflow(s) reference production credentials"; fi
 
 if grep -RInE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" >/tmp/governance-contents-write.txt 2>/dev/null; then
-  unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$|/reconstruct-stub-migrations\.yml$|/apply-command-centre-repair\.yml$|/production-admin-security-probe\.yml$|/auto-reconcile-migration-drift\.yml || true)
+  unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$|/reconstruct-stub-migrations\.yml$|/apply-command-centre-repair\.yml$|/production-admin-security-probe\.yml$' || true)
   if [ -n "$unexpected" ]; then printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved controlled workflows"; else pass_check "contents: write is limited to explicitly approved controlled workflows"; fi
 else
   pass_check "no workflow grants contents: write"
@@ -96,7 +96,6 @@ while IFS= read -r file; do
   fi
 done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
 if [ "$privileged_untrusted_checkout" -eq 0 ]; then pass_check "no privileged workflow checks out untrusted pull-request code"; else fail_check "$privileged_untrusted_checkout privileged workflow(s) contain an untrusted pull-request checkout/fetch pattern"; fi
-
 
 printf 'GOVERNANCE_POLICY_RESULT=%s PASS_COUNT=%s FAIL_COUNT=%s\n' "$([ "$fail" -eq 0 ] && echo PASS || echo FAIL)" "$pass_count" "$fail_count"
 exit "$fail"

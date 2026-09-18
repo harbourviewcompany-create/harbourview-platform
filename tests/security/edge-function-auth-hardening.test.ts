@@ -1,16 +1,220 @@
-import { readFileSync,readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe,expect,it } from 'vitest'
-import { isOperatorOrServiceRoleAuthorized,matchesRequiredSecret } from '../../supabase/functions/_shared/harbourview-auth'
-const root=process.cwd(),read=(p:string)=>readFileSync(join(root,p),'utf8')
-const migration=(v:string)=>{const f=readdirSync(join(root,'supabase/migrations')).find(n=>n.startsWith(v+'_')&&n.endsWith('.sql'));if(!f)throw new Error('canonical migration '+v+' is missing');return read(join('supabase/migrations',f))}
-const paths={jobRefresh:'supabase/functions/job-refresh/index.ts',schemaDrift:'supabase/functions/schema-drift-monitor/index.ts',sourcePull:'supabase/functions/hv-source-pull-runner/index.ts',privatePipeline:'supabase/functions/hv-private-pipeline-runner/index.ts',passport:'supabase/functions/compute-passport-score/index.ts',snapshot:'supabase/functions/generate-org-snapshot/index.ts'}
-describe('production Edge Function authentication hardening',()=>{
-it('fails closed for missing/wrong secrets',()=>{expect(matchesRequiredSecret('','')).toBe(false);expect(matchesRequiredSecret(undefined,'anything')).toBe(false);expect(matchesRequiredSecret('expected-secret','wrong-secret')).toBe(false);expect(matchesRequiredSecret('expected-secret','expected-secret')).toBe(true)})
-it('rejects fake service_role bearer strings',()=>{const o='operatorSecret' as const,s='serviceRoleKey' as const,c='callerSecret' as const,b={[o]:'operator-secret-value',[s]:'service-role-key-value'};expect(isOperatorOrServiceRoleAuthorized({...b,[c]:'operator-secret-value',authorization:null})).toBe(true);expect(isOperatorOrServiceRoleAuthorized({...b,[c]:null,authorization:'Bearer service-role-key-value'})).toBe(true);expect(isOperatorOrServiceRoleAuthorized({...b,[c]:null,authorization:'Bearer attacker-service_role-token'})).toBe(false)})
-it('uses dedicated cron auth',()=>{const a=read(paths.jobRefresh),b=read(paths.schemaDrift),c=read(paths.sourcePull);expect(a).toContain('JOB_REFRESH_CRON_SECRET');expect(b).toContain('SCHEMA_DRIFT_CRON_SECRET');expect(c).toContain('HV_SOURCE_PULL_RUNNER_SECRET');for(const x of [a,b,c]){expect(x).toContain('matchesRequiredSecret');expect(x).toContain('x-harbourview-cron-secret')}})
-it('restricts schema-drift RPCs to service_role',()=>{const s=read('supabase/migrations/20260815013000_lock_down_api_schema_drift_rpcs.sql').toLowerCase();expect(s).toContain('grant execute on function api.get_tables_missing_from_api_schema() to service_role;');expect(s).toContain('grant execute on function public.get_functions_missing_from_api_schema() to service_role;')})
-it('uses Vault-backed cron helpers',()=>{const s=migration('20260912103836');expect(s).toContain('vault.decrypted_secrets');for(const n of ['job_refresh_cron_secret','schema_drift_cron_secret','hv_source_pull_runner_secret'])expect(s).toContain(n)})
-it('uses exact auth helper in passport functions',()=>{for(const s of [read(paths.passport),read(paths.snapshot)])expect(s).toContain('isOperatorOrServiceRoleAuthorized')})
-it('preserves downstream behavior',()=>{expect(read(paths.sourcePull)).toContain('/functions/v1/source-engine-fetch');expect(read(paths.privatePipeline)).toContain('callFunction("hv-extract"');expect(read(paths.privatePipeline)).toContain('callFunction("hv-score"');expect(read(paths.passport)).toContain('/functions/v1/generate-org-snapshot')})
+import { describe, expect, it } from 'vitest'
+import {
+  isOperatorOrServiceRoleAuthorized,
+  matchesRequiredSecret,
+} from '../../supabase/functions/_shared/harbourview-auth'
+
+const root = process.cwd()
+const read = (path: string) => readFileSync(join(root, path), 'utf8')
+
+const paths = {
+  sharedAuth: 'supabase/functions/_shared/harbourview-auth.ts',
+  jobRefresh: 'supabase/functions/job-refresh/index.ts',
+  schemaDrift: 'supabase/functions/schema-drift-monitor/index.ts',
+  sourcePull: 'supabase/functions/hv-source-pull-runner/index.ts',
+  privatePipeline: 'supabase/functions/hv-private-pipeline-runner/index.ts',
+  passport: 'supabase/functions/compute-passport-score/index.ts',
+  snapshot: 'supabase/functions/generate-org-snapshot/index.ts',
+  migration: 'supabase/migrations/20260912103836_harden_edge_function_cron_auth.sql',
+  // The schema-drift ACL repair lives in its own migration, not in the one
+  // above. It was originally appended to 20260810222500 by commit 1f9660df,
+  // which broke that migration's git-blob binding in the pending-production
+  // decisions ledger (expected c7174bb1, got 78f02bd8) and left
+  // check-pending-production-migration-decisions.mjs failing on pristine main.
+  //
+  // 20260810222500 is `separately_authorized` -- deliberately gated, never
+  // applied -- so it was restored to its bound content and the ACL statements
+  // moved here, where they get their own version and their own review. The
+  // three assertions below follow the statements to their new home; they are
+  // otherwise unchanged.
+  aclMigration: 'supabase/migrations/20260815013000_lock_down_api_schema_drift_rpcs.sql',
+}
+
+// This repository does not currently provide a local migrated-Supabase/pgTAP
+// harness (no supabase start/db reset/test path in package scripts or CI). ACL
+// regression is therefore enforced as a fail-closed migration contract here and
+// complemented by read-only live ACL verification before production release.
+
+describe('production Edge Function authentication hardening', () => {
+  it('fails closed for missing/wrong cron secrets and accepts only an exact match', () => {
+    expect(matchesRequiredSecret('', '')).toBe(false)
+    expect(matchesRequiredSecret(undefined, 'anything')).toBe(false)
+    expect(matchesRequiredSecret('expected-secret', undefined)).toBe(false)
+    expect(matchesRequiredSecret('expected-secret', 'wrong-secret')).toBe(false)
+    expect(matchesRequiredSecret('expected-secret', 'expected-secret')).toBe(true)
+  })
+
+  it('accepts valid operator/service credentials and rejects fake service_role bearer strings', () => {
+    const operatorKey = 'operatorSecret' as const
+    const serviceKey = 'serviceRoleKey' as const
+    const callerKey = 'callerSecret' as const
+    const base = {
+      [operatorKey]: 'operator-secret-value',
+      [serviceKey]: 'service-role-key-value',
+    }
+
+    expect(isOperatorOrServiceRoleAuthorized({
+      ...base,
+      [callerKey]: 'operator-secret-value',
+      authorization: null,
+    })).toBe(true)
+
+    expect(isOperatorOrServiceRoleAuthorized({
+      ...base,
+      [callerKey]: null,
+      authorization: 'Bearer service-role-key-value',
+    })).toBe(true)
+
+    expect(isOperatorOrServiceRoleAuthorized({
+      ...base,
+      [callerKey]: 'wrong-secret',
+      authorization: 'Bearer service_role',
+    })).toBe(false)
+
+    expect(isOperatorOrServiceRoleAuthorized({
+      ...base,
+      [callerKey]: null,
+      authorization: 'Bearer attacker-service_role-token',
+    })).toBe(false)
+
+    expect(isOperatorOrServiceRoleAuthorized({
+      [operatorKey]: '',
+      [serviceKey]: '',
+      [callerKey]: '',
+      authorization: 'Bearer ',
+    })).toBe(false)
+  })
+
+  it('canonicalizes job-refresh without embedding provider credentials', () => {
+    const source = read(paths.jobRefresh)
+    expect(source).toContain("Deno.env.get('ADZUNA_APP_ID')")
+    expect(source).toContain("Deno.env.get('ADZUNA_APP_KEY')")
+    expect(source).toContain("Deno.env.get('JOB_REFRESH_CRON_SECRET')")
+    expect(source).toContain("req.method !== 'POST'")
+    expect(source).toContain('matchesRequiredSecret')
+    expect(source).toContain('x-harbourview-cron-secret')
+    expect(source).toContain('dry_run')
+    expect(source).not.toMatch(/ADZUNA_APP_KEY\s*=\s*['"][^'"]+['"]/)
+    expect(source).not.toMatch(/ADZUNA_APP_ID\s*=\s*['"][^'"]+['"]/)
+  })
+
+  it('requires a dedicated cron secret for the schema drift monitor', () => {
+    const source = read(paths.schemaDrift)
+    expect(source).toContain('SCHEMA_DRIFT_CRON_SECRET')
+    expect(source).toContain('matchesRequiredSecret')
+    expect(source).toContain('x-harbourview-cron-secret')
+    expect(source).toContain('service_not_configured')
+    expect(source).toContain('get_tables_missing_from_api_schema')
+    expect(source).toContain('get_functions_missing_from_api_schema')
+  })
+
+  it('grants schema drift RPC execution only to service_role through both PostgREST layers', () => {
+    const sql = read(paths.aclMigration).toLowerCase()
+
+    for (const fn of [
+      'get_tables_missing_from_api_schema',
+      'get_functions_missing_from_api_schema',
+    ]) {
+      for (const schema of ['api', 'public']) {
+        expect(sql).toContain(`revoke execute on function ${schema}.${fn}() from public, anon, authenticated;`)
+        expect(sql).toContain(`grant execute on function ${schema}.${fn}() to service_role;`)
+        expect(sql).not.toMatch(new RegExp(`grant\\s+execute\\s+on\\s+function\\s+${schema}\\.${fn}\\(\\)\\s+to\\s+(?:public|anon|authenticated)\\b`))
+      }
+    }
+
+    expect(sql).toContain('grant usage on schema api to service_role;')
+    expect(sql).not.toMatch(/grant\s+usage\s+on\s+schema\s+api\s+to\s+(?:public|anon|authenticated)\b/)
+
+    // ACL-only repair: do not redefine either existing drift detector in this migration.
+    expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_tables_missing_from_api_schema\s*\(/)
+    expect(sql).not.toMatch(/create\s+or\s+replace\s+function\s+(?:api|public)\.get_functions_missing_from_api_schema\s*\(/)
+  })
+
+  it('limits schema drift alert API access to only SELECT/INSERT for service_role', () => {
+    const sql = read(paths.aclMigration).toLowerCase()
+
+    expect(sql).toContain('revoke all on api.schema_drift_alerts from public, anon, authenticated;')
+    expect(sql).toContain('grant select, insert on api.schema_drift_alerts to service_role;')
+    expect(sql).not.toMatch(/grant\s+all(?:\s+privileges)?\s+on\s+api\.schema_drift_alerts\s+to\s+service_role/)
+    expect(sql).not.toMatch(/grant\s+(?:delete|update|truncate|references|trigger)\b[^;]*api\.schema_drift_alerts[^;]*service_role/)
+    expect(sql).not.toMatch(/grant\s+[^;]*api\.schema_drift_alerts[^;]*\b(?:public|anon|authenticated)\b/)
+  })
+
+  it('does not broaden unrelated API privileges while repairing schema drift access', () => {
+    const sql = read(paths.aclMigration).toLowerCase()
+
+    const schemaGrants = [...sql.matchAll(/grant\s+usage\s+on\s+schema\s+api\s+to\s+([^;]+);/g)]
+      .map((match) => match[1].trim())
+    expect(schemaGrants).toEqual(['service_role'])
+
+    const alertGrants = [...sql.matchAll(/grant\s+([^;]+)\s+on\s+api\.schema_drift_alerts\s+to\s+([^;]+);/g)]
+      .map((match) => ({ privileges: match[1].replace(/\s+/g, ' ').trim(), grantee: match[2].trim() }))
+    expect(alertGrants).toEqual([{ privileges: 'select, insert', grantee: 'service_role' }])
+  })
+
+  it('removes source-visible static caller strings as authentication for pipeline runners', () => {
+    const sourcePull = read(paths.sourcePull)
+    const privatePipeline = read(paths.privatePipeline)
+
+    expect(sourcePull).toContain('HV_SOURCE_PULL_RUNNER_SECRET')
+    expect(sourcePull).toContain('matchesRequiredSecret')
+    expect(sourcePull).toContain('x-harbourview-cron-secret')
+    expect(sourcePull).not.toContain('EXPECTED_CRON_CALLER')
+    expect(sourcePull).not.toContain('pg_cron_hv_source_pull_runner')
+
+    expect(privatePipeline).toContain('HV_PRIVATE_PIPELINE_RUNNER_SECRET')
+    expect(privatePipeline).toContain('matchesRequiredSecret')
+    expect(privatePipeline).toContain('x-harbourview-cron-secret')
+    expect(privatePipeline).not.toContain('const EXPECTED = "pg_cron_hv_private_pipeline_runner"')
+  })
+
+  it('uses the tested exact auth helper in both passport functions', () => {
+    const passport = read(paths.passport)
+    const snapshot = read(paths.snapshot)
+    for (const source of [passport, snapshot]) {
+      expect(source).not.toContain('includes("service_role")')
+      expect(source).not.toContain("includes('service_role')")
+      expect(source).toContain('isOperatorOrServiceRoleAuthorized')
+    }
+
+    const directOperatorBinding = ['operator', 'Secret', ': ', 'EDGE_OPERATOR_', 'SECRET'].join('')
+    const directServiceBinding = ['serviceRole', 'Key', ': ', 'SUPABASE_SERVICE_', 'KEY'].join('')
+    expect(passport).toContain(directOperatorBinding)
+    expect(passport).toContain(directServiceBinding)
+
+    expect(snapshot).toContain('const operatorKey = "operatorSecret" as const')
+    expect(snapshot).toContain('const serviceKey = "serviceRoleKey" as const')
+    expect(snapshot).toContain('[operatorKey]: EDGE_OPERATOR_SECRET')
+    expect(snapshot).toContain('[serviceKey]: SUPABASE_SERVICE_KEY')
+  })
+
+  it('uses Vault-backed cron helpers without committing secret values', () => {
+    const sql = read(paths.migration)
+    for (const name of [
+      'job_refresh_cron_secret',
+      'schema_drift_cron_secret',
+      'hv_source_pull_runner_secret',
+    ]) {
+      expect(sql).toContain(name)
+    }
+    expect(sql).toContain('vault.decrypted_secrets')
+    expect(sql).toContain("select public.invoke_job_refresh();")
+    expect(sql).toContain("select public.invoke_schema_drift_monitor();")
+    expect(sql).toContain("select public.hv_trigger_source_pull_runner();")
+    expect(sql).not.toMatch(/x-harbourview-cron-secret['"]?\s*[,=:]\s*['"][A-Za-z0-9_\-]{20,}/)
+  })
+
+  it('preserves critical downstream behavior while changing only inbound auth', () => {
+    const sourcePull = read(paths.sourcePull)
+    const privatePipeline = read(paths.privatePipeline)
+    const passport = read(paths.passport)
+
+    expect(sourcePull).toContain('/functions/v1/source-engine-fetch')
+    expect(privatePipeline).toContain('callFunction("hv-extract"')
+    expect(privatePipeline).toContain('callFunction("hv-score"')
+    expect(passport).toContain('/functions/v1/generate-org-snapshot')
+    expect(passport).toContain('passport.score.computed')
+  })
 })
