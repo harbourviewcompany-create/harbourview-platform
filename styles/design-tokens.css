@@ -14,10 +14,47 @@
   --hv-navy: #0b1a2f;
   --hv-navy-deep: #081423;
   --hv-ocean-navy: #0a2138;
-  --hv-gold: #c6a55a;
-  --hv-gold-deep: #a8842d;
+
+  /* Metallic gold system (not flat yellow) */
+  --hv-gold-1: #f4e4a6;
+  --hv-gold-2: #e0c36a;
+  --hv-gold-3: #c9a227;
+  --hv-gold-4: #8a6b1a;
+  --hv-gold-5: #5c4810;
+  --hv-gold: #c9a227;
+  --hv-gold-deep: #8a6b1a;
   --hv-dark-gold: var(--hv-gold-deep);
-  --hv-gold-light: #d8be76;
+  --hv-gold-light: #e0c36a;
+  --hv-gold-metallic: linear-gradient(
+    135deg,
+    var(--hv-gold-1) 0%,
+    var(--hv-gold-2) 22%,
+    var(--hv-gold-3) 48%,
+    var(--hv-gold-2) 72%,
+    var(--hv-gold-4) 100%
+  );
+  --hv-gold-line: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--hv-gold-4) 12%,
+    var(--hv-gold-1) 50%,
+    var(--hv-gold-4) 88%,
+    transparent 100%
+  );
+  --hv-gold-text: linear-gradient(
+    180deg,
+    #f7e7b0 0%,
+    #e8c85a 42%,
+    #b8922a 100%
+  );
+  --hv-gold-sheen: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.38) 49%,
+    rgba(255, 255, 255, 0.12) 52%,
+    transparent 62%
+  );
+
   --hv-ivory: #f5f1e8;
   --hv-offwhite: var(--hv-ivory);
   --hv-muted: #9ca3af;
@@ -31,7 +68,7 @@
   --hv-panel: rgba(6, 15, 25, 0.84);
   --hv-panel-strong: rgba(7, 17, 28, 0.92);
   --hv-panel-border: rgba(205, 218, 232, 0.16);
-  --hv-panel-border-warm: rgba(198, 165, 90, 0.22);
+  --hv-panel-border-warm: rgba(201, 162, 39, 0.28);
 
   /* ── Text ─────────────────────────────────────────────────── */
   --hv-text-primary: var(--hv-ivory);
@@ -52,13 +89,13 @@
   --hv-globe-border-active: rgba(240, 211, 154, 0.82);
   --hv-globe-selected-fill: rgba(194, 151, 79, 0.28);
   --hv-globe-selected-edge: rgba(240, 211, 154, 0.9);
-  --hv-focus-ring: rgba(240, 211, 154, 0.45);
+  --hv-focus-ring: rgba(240, 211, 154, 0.5);
 
   /* ── Command Centre aliases (single brand language) ───────── */
   --hvm2-bg: var(--hv-black);
   --hvm2-panel: var(--hv-navy-deep);
   --hvm2-panel-2: var(--hv-navy);
-  --hvm2-border: rgba(198, 165, 90, 0.16);
+  --hvm2-border: rgba(201, 162, 39, 0.2);
   --hvm2-border-soft: rgba(255, 255, 255, 0.08);
   --hvm2-gold: var(--hv-gold);
   --hvm2-gold-light: var(--hv-gold-light);
