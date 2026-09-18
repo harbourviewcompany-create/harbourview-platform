@@ -15,7 +15,9 @@ Required for shipped spines to deliver value in production. Code paths no-op or 
 | `NEXT_PUBLIC_ENABLE_SW` | Service worker in development | SW off in dev unless `1` |
 | `MELTWATER_API_KEY` | meltwater-enrich cron + connector | Connector no-ops; cron skips fetch |
 | `MELTWATER_SEARCH_IDS` | meltwater-enrich cron | Cron returns skipped (comma-separated IDs) |
+| `MELTWATER_SOURCE_ID` | meltwater-enrich → source_snapshots | **Required for staging**; cron skips writes if unset and no registry match |
 | `MELTWATER_LOOKBACK_HOURS` | meltwater-enrich | Defaults to 48 |
+| `MELTWATER_MAX_PER_SEARCH` | meltwater-enrich | Defaults to 40 (capped at 100) |
 | `BIGQUERY_PROJECT` | BigQuery enrichment connector | Connector no-ops |
 | `GOOGLE_APPLICATION_CREDENTIALS` / `GCP_SERVICE_ACCOUNT_JSON` | BigQuery + Google Calendar | Connectors no-op |
 | `HUBSPOT_ACCESS_TOKEN` / `HUBSPOT_API_KEY` | HubSpot preference stub | Stub no-ops |
@@ -35,9 +37,17 @@ Required for shipped spines to deliver value in production. Code paths no-op or 
 | 08:30 | `/api/cron/personal-briefings-tick` |
 | … | See `vercel.json` for full list |
 
+## Meltwater production setup
+
+1. Create (or reuse) a `source_registry` row for Meltwater and set `MELTWATER_SOURCE_ID` to its `id`.
+2. Set `MELTWATER_API_KEY` + `MELTWATER_SEARCH_IDS` (comma-separated saved-search IDs).
+3. Dry-run: `GET /api/cron/meltwater-enrich?dry=1` with `Authorization: Bearer $CRON_SECRET`.
+4. Confirm rows appear in `source_snapshots` with `processing_status = 'pending_extraction'`.
+5. Next `intelligence-extract` run (04:00 UTC) will process them into the signal pipeline.
+
 ## Operator actions
 
 1. Confirm all rows above on Vercel Production env.
 2. Run `personal-briefings-tick?dry=1` with Bearer secret.
-3. Run `meltwater-enrich?dry=1` after setting `MELTWATER_API_KEY` + `MELTWATER_SEARCH_IDS`.
+3. Run `meltwater-enrich?dry=1` after setting Meltwater vars + `MELTWATER_SOURCE_ID`.
 4. Set BNPL embed URL only after partner contract + HTTPS endpoint review.
