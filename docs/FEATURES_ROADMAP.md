@@ -2,7 +2,7 @@
 
 **Status**: Active Planning Document  
 **Owner**: Tyler / Harbourview Team  
-**Last Updated**: August 18, 2026  
+**Last Updated**: September 17, 2026  
 **Purpose**: Single source of truth for all planned features. All implementation must reference this document and update PROJECT_REGISTRY.md.
 
 ## Phase 0–1 — CLOSED (2026-07-28)
@@ -28,6 +28,23 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 | Env wiring doc | ✅ | `docs/control/ENV_PHASE2_WIRING.md` |
 | Registry Phase 2 rows | ✅ docs | `docs/control/PHASE2_REGISTRY_ROWS.md` |
 
+## Phase 3 — Signal enrichment + full briefing automation (IN PROGRESS — 2026-09)
+
+Goal: close the loop from external media → classified signals → personalized, scheduled briefings so the live feed and digests stay fresh and commercially useful.
+
+| Item | Status | Notes / Evidence |
+|------|--------|------------------|
+| Meltwater connector skeleton | ✅ | `lib/connectors/meltwater.ts` |
+| BigQuery enrichment skeleton | ✅ | `lib/connectors/bigquery.ts` |
+| meltwater-enrich cron | ✅ | `app/api/cron/meltwater-enrich/route.ts` |
+| Digest narrative optimization | ✅ | Stronger commercial framing (`lib/signals/digestNarrative.ts`) |
+| Personal briefings tick | ✅ | Already live; continues to use Resend + cadence |
+| Wire Meltwater → source_documents / extract | 🟡 | Cron stages; full extract hand-off next |
+| BigQuery job for bulk quality re-score | ⬜ | After credentials + SQL template |
+| Preference storage + calendar sync | ⬜ | HubSpot / Google Calendar stubs |
+| Unified signal store cleanup | ⬜ | Address parallel tables noted in PLATFORM_OPTIMIZATION_REVIEW |
+| Feed freshness SLO (promote within 24–48 h) | ⬜ | Operator + pipeline tuning |
+
 ## Still operator / partner dependent
 
 | Item | Status | Notes |
@@ -41,7 +58,8 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 
 ## Next Action
 
-1. Run `bash scripts/smoke-phase2.sh` (or BASE=custom domain).
-2. Complete `PHASE2_PRODUCTION_SMOKE.md` sections D–G.
-3. Publish missing playbooks for non-plan-ready tracked corridors.
-4. Decide repository visibility and update PROJECT_REGISTRY.
+1. Provision `MELTWATER_API_KEY` + at least one saved search ID; set `MELTWATER_SEARCH_IDS`.
+2. (Optional) Provision BigQuery project + service account for enrichment jobs.
+3. Run `bash scripts/smoke-phase2.sh` and complete remaining PHASE2_PRODUCTION_SMOKE sections.
+4. Monitor personal-briefings-tick + intelligence-notify + meltwater-enrich for delivery rates and narrative quality.
+5. Decide repository visibility and update PROJECT_REGISTRY.
