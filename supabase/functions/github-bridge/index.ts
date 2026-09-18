@@ -1,4 +1,19 @@
 /**
+ * github-bridge v24 -- added get_commit; create_ref/get_tree resolve via commits API (2026-09-18)
+ *   create_ref and get_tree both resolved refs via endpoints that only accept
+ *   branch names or exact/full SHAs (GET /branches/<ref> and GET /git/trees/<ref>
+ *   respectively). Passing an abbreviated commit SHA -- exactly what Vercel/GitHub
+ *   UIs display, e.g. "40516dd" -- silently resolved to the wrong object (a stray
+ *   tree with a colliding prefix) or a 422. For create_ref specifically, an
+ *   unresolvable fromRef fell through to branching off main with no error, which
+ *   is worse than failing loudly -- a caller could believe it branched off a
+ *   specific commit and be editing main instead. Both now resolve through
+ *   GET /commits/<ref>, the one GitHub endpoint that correctly accepts branch
+ *   names, tags, full SHAs, AND abbreviated SHAs uniformly. Also added
+ *   `get_commit` (same endpoint) so callers can resolve an abbreviated ref to
+ *   its full 40-char sha directly, standalone. Purely additive + two bug fixes;
+ *   no case removed.
+ *
  * github-bridge v23 -- batch runs sub-ops sequentially, not in parallel (2026-09-02)
  *   batch ran every sub-op concurrently via Promise.allSettled. A
  *   multi-file commit -- the batch operation's actual primary use case,
