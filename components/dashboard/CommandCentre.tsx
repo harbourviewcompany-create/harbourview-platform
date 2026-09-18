@@ -437,29 +437,46 @@ const BriefingRoom = React.memo(function BriefingRoom({
     setAiBriefing(null)
     setAiBriefingError(false)
     setAiBriefingLoading(true)
-    const intelMatches = countryIntel && countryIntel.country_code === country.iso2
-    const intel = intelMatches ? {
-      medical_status:       countryIntel!.medical_status,
-      market_access_status: countryIntel!.market_access_status,
-      import_status:        countryIntel!.import_status,
-      export_status:        countryIntel!.export_status,
-      opportunity_score:    countryIntel!.opportunity_score,
-      public_summary:       countryIntel!.public_summary,
-    } : null
-    fetch('/api/ai/briefing', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
-      signal:  controller.signal,
-    })
-      .then(r => r.json())
-      .then((d: { briefing?: string; error?: string }) => {
-        if (d.briefing) setAiBriefing(d.briefing)
-        else setAiBriefingError(true)
+
+    // AI briefing is secondary content. Schedule it during browser idle time so
+    // the initial dashboard render is not competing with the globe/chrome for
+    // network and main-thread budget. The timeout keeps the briefing responsive
+    // on browsers that remain continuously busy.
+    const loadBriefing = () => {
+      const intelMatches = countryIntel && countryIntel.country_code === country.iso2
+      const intel = intelMatches ? {
+        medical_status:       countryIntel!.medical_status,
+        market_access_status: countryIntel!.market_access_status,
+        import_status:        countryIntel!.import_status,
+        export_status:        countryIntel!.export_status,
+        opportunity_score:    countryIntel!.opportunity_score,
+        public_summary:       countryIntel!.public_summary,
+      } : null
+
+      fetch('/api/ai/briefing', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
+        signal:  controller.signal,
       })
-      .catch(err => { if (err?.name !== 'AbortError') setAiBriefingError(true) })
-      .finally(() => setAiBriefingLoading(false))
-    return () => controller.abort()
+        .then(r => r.json())
+        .then((d: { briefing?: string; error?: string }) => {
+          if (d.briefing) setAiBriefing(d.briefing)
+          else setAiBriefingError(true)
+        })
+        .catch(err => { if (err?.name !== 'AbortError') setAiBriefingError(true) })
+        .finally(() => setAiBriefingLoading(false))
+    }
+
+    const idleWindow = window.requestIdleCallback
+      ? window.requestIdleCallback(loadBriefing, { timeout: 2000 })
+      : window.setTimeout(loadBriefing, 1200)
+
+    return () => {
+      controller.abort()
+      if (typeof idleWindow === 'number') window.clearTimeout(idleWindow)
+      else window.cancelIdleCallback?.(idleWindow)
+    }
   }, [country.label, country.iso2, role, countryIntel])
 
   if (showMyBriefings) {
