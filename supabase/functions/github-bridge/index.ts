@@ -356,8 +356,8 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const branch = op.branch as string | undefined
       if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
       const fromRef = (op.from_ref as string) ?? 'main'
-      const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
-      const baseSha = baseBranch.commit?.sha
+      const baseCommit = await gh(`${BASE}/commits/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseCommit.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,
