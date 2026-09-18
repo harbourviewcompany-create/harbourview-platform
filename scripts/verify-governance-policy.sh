@@ -13,14 +13,21 @@ fail_check() { printf 'FAIL: %s\n' "$1"; fail_count=$((fail_count+1)); fail=1; }
 
 if ruleset_list="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' 'https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets')"; then
   if RULESET_LIST="$ruleset_list" GITHUB_TOKEN="$GITHUB_TOKEN" python3 - <<'PY'
-import json, os, urllib.request
+import json, os, time, urllib.error, urllib.request
 from pathlib import Path
 expected=[x.strip() for x in Path('docs/control/REQUIRED_MAIN_STATUS_CHECKS.txt').read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
 if not expected: raise SystemExit('required status-check allowlist is empty')
 token=os.environ['GITHUB_TOKEN']
 def gh(url):
     req=urllib.request.Request(url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
-    with urllib.request.urlopen(req) as resp: return json.load(resp)
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp: return json.load(resp)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or attempt == 3: raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if attempt == 3: raise
+        time.sleep(2 ** attempt)
 ruleset_list=json.loads(os.environ['RULESET_LIST'])
 # The List Rulesets endpoint never returns conditions/rules (confirmed against
 # the live API, not an assumption) -- only GET /rulesets/{id} does. Fetch each
