@@ -458,7 +458,7 @@
       "live_equivalent_versions": []
     },
     {
-      "version": "20260727163000",
+      "version": "20260911225324",
       "file": "20260911225324_clinical_api_surface.sql",
       "git_blob_sha": "04bcea31c4720e63ee13a62ac0e5973c885aafcc",
       "classification": "separately_authorized",
@@ -630,7 +630,7 @@
       ]
     },
     {
-      "version": "20260731120000",
+      "version": "20260912103655",
       "file": "20260912103655_signal_role_family_routing.sql",
       "git_blob_sha": "dffb02115fba8a05e80249d428b1f0916dba6ab5",
       "classification": "separately_authorized",
@@ -638,7 +638,7 @@
       "live_equivalent_versions": []
     },
     {
-      "version": "20260801150000",
+      "version": "20260912103723",
       "file": "20260912103723_api_expose_quality_and_routing_columns.sql",
       "git_blob_sha": "e44a7748aaa2c55309ab14b2474b175d36dacb8d",
       "classification": "separately_authorized",
@@ -654,7 +654,7 @@
       "live_equivalent_versions": []
     },
     {
-      "version": "20260802080000",
+      "version": "20260912103805",
       "file": "20260912103805_harden_eval_labels_and_alert_delivery.sql",
       "git_blob_sha": "3672f3a0f838578aefd050fb41d1c97b24871aaf",
       "classification": "separately_authorized",
@@ -750,7 +750,7 @@
       "live_equivalent_versions": []
     },
     {
-      "version": "20260810222500",
+      "version": "20260912103836",
       "file": "20260912103836_harden_edge_function_cron_auth.sql",
       "git_blob_sha": "e40f5f28a10b72a6ce40190119b8164e37adc74f",
       "classification": "separately_authorized",
