@@ -18,7 +18,6 @@ import {
 } from 'react'
 import { useGlobeRealtime, type RealtimeStatus } from './useGlobeRealtime'
 import {
-  getGlobeCountryMarkers,
   mergeSignalRealtimeRow,
   resolvePublishedRegulatoryTier,
   type GlobeLiveData,
@@ -69,23 +68,13 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    const bootstrapPromise = withRetry(() => fetchGlobeBootstrapData(), FETCH_RETRY_BACKOFFS_MS)
-    const liveCountriesPromise = withRetry(() => getGlobeCountryMarkers(), FETCH_RETRY_BACKOFFS_MS)
-
-    Promise.allSettled([bootstrapPromise, liveCountriesPromise])
-      .then(([bootstrapResult, countriesResult]) => {
+    withRetry(() => fetchGlobeBootstrapData(), FETCH_RETRY_BACKOFFS_MS)
+      .then((bootstrap) => {
         if (cancelled) return
-        if (bootstrapResult.status === 'rejected' && countriesResult.status === 'rejected') {
-          throw bootstrapResult.reason ?? countriesResult.reason
-        }
-        const bootstrap = bootstrapResult.status === 'fulfilled' ? bootstrapResult.value : EMPTY_DATA
-        if (countriesResult.status === 'fulfilled') {
-          setLiveData({ ...bootstrap, countries: countriesResult.value })
-          return
-        }
-        console.error('[GlobeProvider] evidence-backed country query failed; rendering tiers neutral:', countriesResult.reason)
-        setLiveData({ ...bootstrap, countries: [] })
-        setLoadError('Verified market-access data is temporarily unavailable.')
+        // Countries and signals arrive together from the server-cached bootstrap.
+        // Avoid a second browser PostgREST country query; Realtime remains the
+        // live-update path after the cached snapshot is installed.
+        setLiveData(bootstrap)
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err))
