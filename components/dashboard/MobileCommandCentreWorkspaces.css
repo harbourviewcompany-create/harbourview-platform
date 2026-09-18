@@ -26,31 +26,29 @@ button.hvm2-text-link {
 }
 
 /*
- * Full-screen sheet so intake / contact forms are never clipped by the
- * secondary rail or bottom nav (mobile production bug 2026-09-16).
+ * Portaled to document.body (see WorkspacePanels). Must sit above every
+ * app-shell layer (header, secondary rail z-index:5, bottom nav).
  */
 .hvm2-workspace {
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px));
+  padding: 0;
   border: 0;
   border-radius: 0;
+  width: 100%;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
   background: #02070d;
   box-shadow: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
 .hvm2-workspace-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
   flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
@@ -110,6 +108,17 @@ button.hvm2-text-link {
   cursor: pointer;
 }
 
+/* Only this region scrolls — header stays put; submit is inside the scroll. */
+.hvm2-workspace-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+}
+
 .hvm2-workspace-context {
   margin: 14px 16px;
   padding: 12px;
@@ -129,17 +138,17 @@ button.hvm2-text-link {
 
 .hvm2-workspace-context strong {
   display: block;
-  margin: 5px 0;
-  font-size: 13px;
+  margin: 5px 0 0;
+  font-size: 14px;
   color: var(--hvm2-text, #f5f1e8);
+  line-height: 1.35;
 }
 
-/* Seller contact form — full width, readable, no nav collision */
 .hvm2-workspace .cc-mkt-seller-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 16px 28px;
+  padding: 4px 16px 80px;
   max-width: 560px;
   margin: 0 auto;
   width: 100%;
@@ -151,6 +160,13 @@ button.hvm2-text-link {
   font-size: 13px;
   line-height: 1.55;
   color: rgba(247, 241, 230, 0.7);
+}
+
+.hvm2-workspace .cc-mkt-seller-form-prefill-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(224, 195, 106, 0.85);
 }
 
 .hvm2-workspace .cc-mkt-seller-form label {
@@ -181,7 +197,7 @@ button.hvm2-text-link {
 }
 
 .hvm2-workspace .cc-mkt-seller-form textarea {
-  min-height: 120px;
+  min-height: 140px;
   resize: vertical;
 }
 
@@ -192,7 +208,6 @@ button.hvm2-text-link {
   box-shadow: 0 0 0 3px rgba(201, 149, 50, 0.12);
 }
 
-/* Kill autofill yellow on dark UI */
 .hvm2-workspace .cc-mkt-seller-form input:-webkit-autofill,
 .hvm2-workspace .cc-mkt-seller-form input:-webkit-autofill:hover,
 .hvm2-workspace .cc-mkt-seller-form input:-webkit-autofill:focus {
@@ -202,9 +217,61 @@ button.hvm2-text-link {
   box-shadow: 0 0 0 1000px #0a1522 inset;
 }
 
+.hvm2-workspace .cc-mkt-seller-form-error {
+  margin: 0;
+  font-size: 13px;
+  color: #e4b458;
+}
+
+.cc-mkt-inquiry-optional-toggle {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--hvm2-gold-light, #ffe9a0);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cc-mkt-inquiry-success {
+  max-width: 560px;
+  margin: 8px auto 0;
+  padding: 8px 16px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.cc-mkt-inquiry-success strong {
+  font-size: 20px;
+  font-weight: 750;
+  color: var(--hvm2-text, #f5f1e8);
+}
+
+.cc-mkt-inquiry-success p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(247, 241, 230, 0.72);
+}
+
+.cc-mkt-inquiry-success-next {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(201, 149, 50, 0.22);
+  background: rgba(201, 149, 50, 0.06);
+  font-size: 13px !important;
+}
+
 .hvm2-workspace .cc-mkt-cta--block {
   min-height: 52px;
-  margin-top: 8px;
+  margin-top: 12px;
+  margin-bottom: 24px;
   border-radius: 13px;
   border: 1px solid #8a6119;
   background: linear-gradient(105deg, #6b4a12 0%, #b47b20 16%, #ffe9a0 34%, #c99532 50%, #fff1ad 66%, #8a6119 82%, #d9aa45 100%);
@@ -216,6 +283,7 @@ button.hvm2-text-link {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 6px 18px rgba(201, 149, 50, 0.28);
+  cursor: pointer;
 }
 
 .hvm2-workspace .rounded-3xl,
@@ -239,7 +307,7 @@ button.hvm2-text-link {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hvm2-workspace {
+  .hvm2-workspace-scroll {
     scroll-behavior: auto;
   }
 }
