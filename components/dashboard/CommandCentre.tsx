@@ -11086,13 +11086,23 @@ export default function CommandCentre({
       setIntelLoading(false)
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     setIntelLoading(true)
-    fetch(`/api/country-intel?iso2=${country.iso2}`)
+    fetch(`/api/country-intel?iso2=${country.iso2}`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
-      .then((data: CountryIntelProfile | null) => { if (!cancelled) { setLiveCountryIntel(data); setIntelLoading(false) } })
-      .catch(() => { if (!cancelled) { setLiveCountryIntel(null); setIntelLoading(false) } })
-    return () => { cancelled = true }
+      .then((data: CountryIntelProfile | null) => {
+        if (!controller.signal.aborted) {
+          setLiveCountryIntel(data)
+          setIntelLoading(false)
+        }
+      })
+      .catch(error => {
+        if (error?.name !== 'AbortError' && !controller.signal.aborted) {
+          setLiveCountryIntel(null)
+          setIntelLoading(false)
+        }
+      })
+    return () => controller.abort()
   }, [country.iso2, countryIntel])
 
   // ⌘K keyboard shortcut
