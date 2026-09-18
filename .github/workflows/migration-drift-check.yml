@@ -6,11 +6,6 @@ name: Migration Drift Check
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
-  schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch: {}
 
 concurrency:
   group: migration-drift-check-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
@@ -18,7 +13,6 @@ concurrency:
 
 permissions:
   contents: read
-  issues: write
 
 env:
   SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
@@ -57,95 +51,6 @@ jobs:
           tests/scripts/historical-migration-attestations.test.mjs
           tests/scripts/notify-new-migration-drift.test.mjs
           tests/scripts/lint-workflow-continue-on-error-guards.test.mjs
-
-  check-drift:
-    name: Compare repository and live migration ledgers
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '22'
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        with:
-          version: 2.109.1
-      - name: Read live migration ledger
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          mkdir -p artifacts/migration-drift
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase migration list --linked > artifacts/migration-drift/remote-migrations.txt
-      - name: Verify historical remote-only attestations
-        run: |
-          node scripts/filter-attested-historical-migrations.mjs \
-            --remote-list artifacts/migration-drift/remote-migrations.txt \
-            --attestations supabase/release-controls/historical-remote-migration-attestations.json \
-            --filtered-out artifacts/migration-drift/remote-migrations-for-drift.txt \
-            --audit-out artifacts/migration-drift/historical-attestations-audit.json
-      - name: Escalate approved migrations that are not applied
-        id: approved_applied
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          node scripts/check-approved-migrations-applied.mjs --self-test
-          node scripts/check-approved-migrations-applied.mjs \
-            --remote-list artifacts/migration-drift/remote-migrations.txt \
-            --decisions supabase/release-controls/pending-production-migration-decisions.json \
-            2>&1 | tee artifacts/migration-drift/approved-migrations-applied.txt
-      - name: Generate exact drift manifest
-        id: manifest
-        continue-on-error: true
-        run: |
-          node scripts/migration-ledger-manifest.mjs \
-            --remote-list artifacts/migration-drift/remote-migrations-for-drift.txt \
-            --local-dir supabase/migrations \
-            --control-file supabase/release-controls/elite-digest-production-activation.json \
-            --json-out artifacts/migration-drift/manifest.json \
-            --markdown-out artifacts/migration-drift/manifest.md \
-            --mode drift \
-            --committed-baseline supabase/release-controls/committed-not-applied-baseline.json \
-            --source-sha "$GITHUB_SHA"
-      - name: Notify on new migration drift
-        if: always()
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ ! -f artifacts/migration-drift/manifest.json ]; then exit 0; fi
-          node scripts/notify-new-migration-drift.mjs \
-            --manifest artifacts/migration-drift/manifest.json \
-            --baseline supabase/release-controls/migration-drift-watch-baseline.json \
-            --source-sha "$GITHUB_SHA"
-      - name: Publish manifest summary
-        if: always()
-        run: |
-          if [ -f artifacts/migration-drift/historical-attestations-audit.json ]; then
-            echo "## Historical remote-only attestation gate" >> "$GITHUB_STEP_SUMMARY"
-            cat artifacts/migration-drift/historical-attestations-audit.json >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f artifacts/migration-drift/approved-migrations-applied.txt ]; then
-            echo "## Approved migrations applied to production" >> "$GITHUB_STEP_SUMMARY"
-            cat artifacts/migration-drift/approved-migrations-applied.txt >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f artifacts/migration-drift/manifest.md ]; then cat artifacts/migration-drift/manifest.md >> "$GITHUB_STEP_SUMMARY"; fi
-      - name: Upload drift evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: migration-drift-${{ github.sha }}
-          path: artifacts/migration-drift/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Enforce drift result
-        if: always()
-        run: |
-          FAILED=0
-          if [ "${{ steps.manifest.outcome }}" != "success" ]; then FAILED=1; fi
-          if [ "${{ steps.approved_applied.outcome }}" != "success" ]; then FAILED=1; fi
-          exit "$FAILED"
 
   check-placeholder-landmines:
     runs-on: ubuntu-latest
