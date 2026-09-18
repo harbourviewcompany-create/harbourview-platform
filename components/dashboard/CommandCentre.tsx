@@ -11050,7 +11050,6 @@ const EventsPage = React.memo(function EventsPage({
                 <button
                   onClick={() => { if (submitName && submitCity) setSubmitSent(true) }}
                   style={
-  const referenceData = useCommandCentreReferenceData()
 { padding: '7px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, marginTop: '2px' }}
                 >
                   Submit Event
@@ -11079,6 +11078,8 @@ function useCommandCentreReferenceData() {
 }
 
 export default function CommandCentre({
+  const referenceData = useCommandCentreReferenceData()
+
   signals: ssrSignals,
   digestSignals,
   digestWindow,
