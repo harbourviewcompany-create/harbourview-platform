@@ -62,19 +62,27 @@ export default function MobileCommandCentreRebuild(props: Props) {
     ? 'Command domains and operating controls'
     : `${activeDestination?.label ?? 'Command'} sections`
 
-  const searchRecords = useMemo(() => buildCommandSearchIndex({
-    signals: model.signals,
-    listings: model.marketRows,
-    watchItems: props.watchlistData?.items ?? [],
-    localIntel: props.localIntel ?? null,
-    countryLabel: model.countryLabel,
-    countryIntel: props.countryIntel,
-    directories: model.directoryRecords,
-    genetics: model.geneticsRecords,
-    actions: model.nextActions,
-    evidenceDocuments: model.evidenceDocuments,
-    talent: model.talentRecords,
-  }), [
+  const searchRecords = useMemo(() => {
+    // Search indexing is intentionally lazy. Building normalized searchable text
+    // across signals, listings, directories and evidence on every dashboard
+    // mount is wasted work when the user never opens/types into Search.
+    if (!model.searchQuery.trim()) return []
+
+    return buildCommandSearchIndex({
+      signals: model.signals,
+      listings: model.marketRows,
+      watchItems: props.watchlistData?.items ?? [],
+      localIntel: props.localIntel ?? null,
+      countryLabel: model.countryLabel,
+      countryIntel: props.countryIntel,
+      directories: model.directoryRecords,
+      genetics: model.geneticsRecords,
+      actions: model.nextActions,
+      evidenceDocuments: model.evidenceDocuments,
+      talent: model.talentRecords,
+    })
+  }, [
+    model.searchQuery,
     model.signals,
     model.marketRows,
     props.watchlistData,
