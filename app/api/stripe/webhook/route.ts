@@ -6,10 +6,25 @@ import {stripe,tierFromPriceId} from '@/lib/stripe/server'
 import {SUPABASE_DB_SCHEMA} from '@/lib/supabase/env'
 function admin(){const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!url||!key)throw new Error('Stripe webhook Supabase configuration missing.');return createClient(url,key,{auth:{autoRefreshToken:false,persistSession:false},db:{schema:SUPABASE_DB_SCHEMA}})}
 type DB=ReturnType<typeof admin>;type Tier='free'|'intel'|'operator'
-async function processed(s:DB,id:string){const{data,error}=await s.from('stripe_webhook_events').select('id').eq('id',id).maybeSingle();if(error)throw error;return Boolean(data)}
+async function processed(s:DB,id:string){const{data,error}=await s.from('stripe_webhook_events').select('id').eq('id',id).maybeSingle();if(error)throw new Error('Webhook idempotency lookup failed');return Boolean(data)}
 async function mark(s:DB,e:Stripe.Event){const{error}=await s.from('stripe_webhook_events').insert({id:e.id,type:e.type,processed_at:new Date().toISOString()});if(error)throw error}
 async function userForCustomer(s:DB,c:string){const{data,error}=await s.from('user_profiles').select('id').eq('stripe_customer_id',c).maybeSingle();if(error)throw error;return data?.id??null}
 async function repair(s:DB,sub:Stripe.Subscription,c:string){const uid=sub.metadata?.supabase_user_id;if(!uid)return null;const{data:p,error}=await s.from('user_profiles').select('id,stripe_customer_id').eq('id',uid).maybeSingle();if(error)throw error;if(!p)return null;if(p.stripe_customer_id&&p.stripe_customer_id!==c)throw new Error('Stripe customer mapping conflict.');if(!p.stripe_customer_id){const{error:e}=await s.from('user_profiles').update({stripe_customer_id:c,updated_at:new Date().toISOString()}).eq('id',uid);if(e)throw e}return uid}
+async function recomputeUserEntitlement(s: DB, uid: string) {
+  const { data: subs, error } = await s.from('subscriptions').select('tier,status').eq('user_id', uid)
+  if (error) throw new Error('Entitlement subscription lookup failed')
+  let tier: Tier = 'free'
+  for (const x of subs ?? []) {
+    if (x.status !== 'active' && x.status !== 'trialing') continue
+    if (x.tier === 'operator') { tier = 'operator'; break }
+    if (x.tier === 'intel') tier = 'intel'
+  }
+  const { error: profileError } = await s.from('user_profiles').update({ tier, updated_at: new Date().toISOString() }).eq('id', uid)
+  if (profileError) throw new Error('Entitlement profile update failed')
+  const { error: authError } = await s.auth.admin.updateUserById(uid, { app_metadata: { subscription_tier: tier } })
+  if (authError) throw new Error('Entitlement metadata update failed')
+}
+
 async function entitlement(s:DB,uid:string){const{data:subs,error}=await s.from('subscriptions').select('tier,status').eq('user_id',uid);if(error)throw error;let tier:Tier='free';for(const x of subs??[]){if(x.status!=='active'&&x.status!=='trialing')continue;if(x.tier==='operator'){tier='operator';break}if(x.tier==='intel')tier='intel'}const{error:e}=await s.from('user_profiles').update({tier,updated_at:new Date().toISOString()}).eq('id',uid);if(e)throw e;const{error:ae}=await s.auth.admin.updateUserById(uid,{app_metadata:{subscription_tier:tier}});if(ae)throw ae}
 async function syncSub(s:DB,sub:Stripe.Subscription){const c=typeof sub.customer==='string'?sub.customer:sub.customer.id;const item=sub.items.data[0],price=item?.price?.id??null,tier=price?tierFromPriceId(price):null;if(!tier)return;let uid=await userForCustomer(s,c);if(!uid)uid=await repair(s,sub,c);if(!uid)return;const{error}=await s.from('subscriptions').upsert({id:sub.id,user_id:uid,stripe_customer_id:c,status:sub.status,tier,price_id:price,current_period_start:item?.current_period_start?new Date(item.current_period_start*1000).toISOString():null,current_period_end:item?.current_period_end?new Date(item.current_period_end*1000).toISOString():null,cancel_at_period_end:sub.cancel_at_period_end,canceled_at:sub.canceled_at?new Date(sub.canceled_at*1000).toISOString():null,updated_at:new Date().toISOString()},{onConflict:'id'});if(error)throw error;await entitlement(s,uid)}
 async function cancel(s:DB,sub:Stripe.Subscription){const c=typeof sub.customer==='string'?sub.customer:sub.customer.id;let uid=await userForCustomer(s,c);if(!uid){const{data,error}=await s.from('subscriptions').select('user_id').eq('id',sub.id).maybeSingle();if(error)throw error;uid=data?.user_id??null}if(!uid)return;const{error}=await s.from('subscriptions').update({status:'canceled',canceled_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',sub.id);if(error)throw error;await entitlement(s,uid)}
