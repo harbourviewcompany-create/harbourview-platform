@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
@@ -9,6 +9,29 @@ import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
 import { buildCommandSearchIndex } from './mobile-command/intelSearch'
+import {
+  ClinicalSection,
+  ComplianceSection,
+  DealRoomsSection,
+  EducationSection,
+  FinancingSection,
+  GeneticsSection,
+  JurisdictionSection,
+  MarketIntelligenceSection,
+  MarketplaceSection,
+  MarketStatusSection,
+  NetworkSection,
+  NextActionsSection,
+  PersonalBriefingSection,
+  ReviewGatesSection,
+  SearchSection,
+  SettingsSection,
+  SupplySection,
+  TalentSection,
+  WeeklySignalsSection,
+  RegulatoryWatchSection,
+  LocalIntelSection,
+} from './mobile-command/Sections'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import OrganizationContextControl from './OrganizationContextControl'
@@ -27,28 +50,6 @@ type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
 // loaded only when their section becomes visible. This avoids shipping the full
 // command surface (marketplace, regulatory, genetics, billing, etc.) on the
 // initial mobile dashboard route.
-const MarketIntelligenceSection = dynamic(() => import('./mobile-command/sections/CoreSections').then(m => ({ default: m.MarketIntelligenceSection })))
-const MarketplaceSection = dynamic(() => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.MarketplaceSection })))
-const SupplySection = dynamic(() => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.SupplySection })))
-const NextActionsSection = dynamic(() => import('./mobile-command/sections/IntelligenceSections').then(m => ({ default: m.NextActionsSection })))
-const SearchSection = dynamic(() => import('./mobile-command/sections/IntelligenceSections').then(m => ({ default: m.SearchSection })))
-const LocalIntelSection = dynamic(() => import('./mobile-command/sections/IntelligenceSections').then(m => ({ default: m.LocalIntelSection })))
-const PersonalBriefingSection = dynamic(() => import('./mobile-command/sections/PersonalBriefingLiveSection').then(m => ({ default: m.PersonalBriefingSection })))
-const WeeklySignalsSection = dynamic(() => import('./mobile-command/sections/DecisionSignalsSection').then(m => ({ default: m.WeeklySignalsSection })))
-const EducationSection = dynamic(() => import('./mobile-command/sections/EducationCommandSection').then(m => ({ default: m.EducationSection })))
-const RegulatoryWatchSection = dynamic(() => import('./mobile-command/sections/RegulatoryWatchWithCorpus').then(m => ({ default: m.RegulatoryWatchSection })))
-const JurisdictionSection = dynamic(() => import('./mobile-command/sections/JurisdictionCommandSection').then(m => ({ default: m.JurisdictionSection })))
-const NetworkSection = dynamic(() => import('./mobile-command/sections/NetworkCommandSection').then(m => ({ default: m.NetworkSection })))
-const MarketStatusSection = dynamic(() => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.MarketStatusSection })))
-const ReviewGatesSection = dynamic(() => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.ReviewGatesSection })))
-const TalentSection = dynamic(() => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.TalentSection })))
-const GeneticsSection = dynamic(() => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.GeneticsSection })))
-const ClinicalSection = dynamic(() => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.ClinicalSection })))
-const ComplianceSection = dynamic(() => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.ComplianceSection })))
-const FinancingSection = dynamic(() => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.FinancingSection })))
-const SettingsSection = dynamic(() => import('./mobile-command/sections/AccountSections').then(m => ({ default: m.SettingsSection })))
-const DealRoomsSection = dynamic(() => import('./mobile-command/sections/AccountSections').then(m => ({ default: m.DealRoomsSection })))
-
 export default function MobileCommandCentreRebuild(props: Props) {
   const model = useMobileCommandModel(props)
   const deferredSearchQuery = useDeferredValue(model.searchQuery)
