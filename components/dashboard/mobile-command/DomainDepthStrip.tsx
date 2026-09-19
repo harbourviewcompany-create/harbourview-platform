@@ -1,4 +1,5 @@
 import type { CommandSourceMeta } from './props'
+import type { CommandCentreSourceMeta } from '@/lib/dashboard/commandCentreDataTypes'
 
 type DomainDepthStripProps = {
   section: string
@@ -36,12 +37,12 @@ const DEFINITIONS: Record<string, DomainDefinition> = {
   'deal-rooms': { label: 'Deal rooms', keys: ['pipeline', 'evidenceData', 'mySubmissions'], missing: ['deal state machine', 'party/message ledger', 'document and approval history'] },
 }
 
-function sourceState(meta?: CommandSourceMeta) {
+function sourceState(meta?: CommandCentreSourceMeta) {
   if (!meta) return 'not loaded'
   return meta.state
 }
 
-function freshness(meta?: CommandSourceMeta) {
+function freshness(meta?: CommandCentreSourceMeta) {
   if (!meta) return null
   const at = meta.freshAt ?? meta.loadedAt
   const timestamp = Date.parse(at)
@@ -54,7 +55,7 @@ export default function DomainDepthStrip({ section, sources }: DomainDepthStripP
   const definition = DEFINITIONS[section] ?? { label: section, keys: [], missing: [] }
   const loaded = definition.keys
     .map(key => sources?.[key])
-    .filter(Boolean) as CommandSourceMeta[string][]
+    .filter((meta): meta is CommandCentreSourceMeta => Boolean(meta))
 
   const live = loaded.filter(meta => meta.state === 'live').length
   const degraded = loaded.filter(meta => ['partial', 'fallback', 'stale', 'error'].includes(meta.state)).length
