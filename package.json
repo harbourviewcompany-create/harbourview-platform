@@ -90,7 +90,7 @@
     "sonner": "^2.0.8",
     "stripe": "^22.6.2",
     "three": "^0.186.0",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
