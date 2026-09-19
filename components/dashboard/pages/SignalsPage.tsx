@@ -159,7 +159,7 @@ export const SignalsPage = React.memo(function SignalsPage({
     return map
   }, [filtered])
 
-  const activeGroups = SIG_GROUP_ORDER.filter(g => grouped[g]?.length)
+  const activeGroups = SIG_GROUP_ORDER.filter((g: SignalGroup) => grouped[g]?.length)
   const hasFilters   = filterImpact !== 'all' || filterConf !== 'all' || filterType !== 'all'
 
   // Reset to page 1 whenever filters change

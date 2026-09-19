@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import type {
   CountryIntelProfile,
@@ -14,10 +16,26 @@ import {
   type ConfidenceLane,
 } from '@/lib/dashboard/confidenceScoring'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
+import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { CommandPage } from '../CommandCentre'
 import { getRoleCommandDefault } from '@/lib/dashboard/roleCommandDefaults'
 import { combinePipelineStatus, pipelineSloMessage } from '@/lib/dashboard/pipelineSlo'
+import { GlobeProvider } from '@/components/globe/GlobeProvider'
+
+const MyBriefingsPanel = dynamic(
+  () => import('@/components/dashboard/MyBriefingsPanel').then((m) => ({ default: m.MyBriefingsPanel })),
+  { ssr: false },
+)
+const GlobeCanvas = dynamic(
+  () => import('@/components/globe/r3f/GlobeCanvas').then((m) => ({ default: m.GlobeCanvas })),
+  { ssr: false, loading: () => <div className="cc-globe-loading" /> },
+)
+
+function fmtStatus(v: string | null | undefined, fallback = '—'): string {
+  if (!v) return fallback
+  return v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
