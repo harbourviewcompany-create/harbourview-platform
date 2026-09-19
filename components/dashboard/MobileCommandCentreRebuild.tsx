@@ -7,7 +7,7 @@ import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
-import { buildCommandSearchIndex } from './mobile-command/intelSearch'
+import { buildCommandSearchIndex, searchCommandRecords } from './mobile-command/intelSearch'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import { matchWatchRuleHits, type WatchRuleLike } from './mobile-command/watchRuleHits'
@@ -194,8 +194,11 @@ export default function MobileCommandCentreRebuild(props: Props) {
     ? 'Command domains and operating controls'
     : `${activeDestination?.label ?? 'Command'} sections`
 
-  const searchRecords = useMemo(() => {
-    if (!deferredSearchQuery.trim()) return []
+  // Build the semantic search index only when Search is actually active.
+  // The index is expensive compared with filtering a prebuilt record set, so
+  // query keystrokes must never rebuild the whole command corpus.
+  const searchIndex = useMemo(() => {
+    if (model.activeSection !== 'search' || !deferredSearchQuery.trim()) return []
     return buildCommandSearchIndex({
       signals: model.signals,
       listings: model.marketRows,
@@ -211,9 +214,10 @@ export default function MobileCommandCentreRebuild(props: Props) {
     })
   }, [
     deferredSearchQuery,
+    model.activeSection,
     model.signals,
     model.marketRows,
-    props.watchlistData,
+    props.watchlistData?.items,
     props.localIntel,
     model.countryLabel,
     props.countryIntel,
@@ -223,6 +227,11 @@ export default function MobileCommandCentreRebuild(props: Props) {
     model.evidenceDocuments,
     model.talentRecords,
   ])
+
+  const searchRecords = useMemo(() => {
+    if (!deferredSearchQuery.trim()) return []
+    return searchCommandRecords(searchIndex, deferredSearchQuery, model.countryLabel)
+  }, [deferredSearchQuery, model.countryLabel, searchIndex])
 
   useEffect(() => {
     if (!contextOpen) return
