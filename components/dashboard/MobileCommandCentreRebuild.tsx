@@ -9,6 +9,7 @@ import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
 import { buildCommandSearchIndex, searchCommandRecords } from './mobile-command/intelSearch'
 import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
+import DomainDepthStrip from './mobile-command/DomainDepthStrip'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import { matchWatchRuleHits, type WatchRuleLike } from './mobile-command/watchRuleHits'
 import { buildCommandDelta } from '@/lib/dashboard/commandDelta'
@@ -427,7 +428,12 @@ export default function MobileCommandCentreRebuild(props: Props) {
 
       <main className="hvm2-main hvm-op-main">
         {model.activeGroup === 'marketplace' && <MarketplaceMediaStatus mediaStatus={props.marketplaceMediaStatus ?? 'live'} />}
-        {model.visibleSections.map(id => <Fragment key={id}>{sectionElements[id]}</Fragment>)}
+        {model.visibleSections.map(id => (
+          <Fragment key={id}>
+            <DomainDepthStrip section={id} sources={props.commandSourceMeta} />
+            {sectionElements[id]}
+          </Fragment>
+        ))}
       </main>
 
       <nav className="hvm2-bottom-nav hvm-op-bottom-nav" aria-label="Primary mobile command navigation">
