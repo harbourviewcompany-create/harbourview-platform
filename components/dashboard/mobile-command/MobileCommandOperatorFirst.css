@@ -238,7 +238,16 @@
 
 .hvm-op-row strong,
 .hvm-op-row small,
-.hvm-op-row .hvm-op-meta {
+.hvm-op-row .hvm2-data-meta {
+  display: block;
+  margin-top: 7px;
+  color: var(--hvm2-faint);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.hvm-op-meta {
   display: block;
 }
 
