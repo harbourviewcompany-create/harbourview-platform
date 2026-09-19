@@ -10,7 +10,7 @@ import {
   mentionToSnapshotRow,
   type MeltwaterSnapshotRow,
 } from '@/lib/connectors/meltwater'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
@@ -20,7 +20,7 @@ export const maxDuration = 120
 const DEFAULT_LOOKBACK_HOURS = 48
 const DEFAULT_MAX_PER_SEARCH = 40
 
-function getSupabaseAdmin(): SupabaseClient<any, any, 'api'> {
+function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase admin credentials missing')
@@ -31,7 +31,7 @@ function getSupabaseAdmin(): SupabaseClient<any, any, 'api'> {
 }
 
 async function resolveSourceId(
-  supabase: SupabaseClient<any, any, 'api'>,
+  supabase: ReturnType<typeof getSupabaseAdmin>,
 ): Promise<{ sourceId: string | null; reason?: string }> {
   const configured = process.env.MELTWATER_SOURCE_ID?.trim()
   if (configured) return { sourceId: configured }
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  let supabase: SupabaseClient<any, any, 'api'>
+  let supabase: ReturnType<typeof getSupabaseAdmin>
   try {
     supabase = getSupabaseAdmin()
   } catch (e) {
