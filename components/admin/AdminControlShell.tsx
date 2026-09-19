@@ -12,6 +12,7 @@ import {
   type ControlNavItem,
 } from '@/lib/admin/controlSurfaceNav'
 import { mkApi } from '@/components/admin/panels/shared'
+import { LoadingGlobe } from '@/components/dashboard/LoadingGlobe'
 
 type BadgeKey = NonNullable<ControlNavItem['badgeKey']>
 type BadgeCounts = Partial<Record<BadgeKey, number>>
@@ -139,15 +140,32 @@ function ShellInner({ children }: { children: ReactNode }) {
   )
 }
 
+function AdminShellSuspenseFallback() {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#080E1C',
+        color: '#D4C9B8',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 20,
+        padding: 24,
+      }}
+    >
+      <LoadingGlobe size={120} spinDurationMs={13000} />
+      <p style={{ margin: 0, fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>
+        Loading admin…
+      </p>
+    </div>
+  )
+}
+
 export function AdminControlShell({ children }: { children: ReactNode }) {
   return (
-    <Suspense
-      fallback={
-        <div style={{ minHeight: '100vh', background: '#080E1C', color: '#6A7E9B', padding: 24 }}>
-          Loading admin…
-        </div>
-      }
-    >
+    <Suspense fallback={<AdminShellSuspenseFallback />}>
       <ShellInner>{children}</ShellInner>
     </Suspense>
   )

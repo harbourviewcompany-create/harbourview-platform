@@ -31,27 +31,16 @@ describe('CI infrastructure hygiene', () => {
     expect(ci).not.toContain('cancel-in-progress: true')
   })
 
-  it('keeps E2E main-push-only, optional-credential-aware, and diagnoses readiness before Playwright', () => {
+  it('keeps PR CI free of silent Playwright/E2E reintroduction', () => {
     const ci = read('.github/workflows/ci.yml')
-    const e2eStart = ci.indexOf('  e2e:')
-    const e2e = ci.slice(e2eStart)
+    const active = activeYamlLines(ci)
 
-    expect(e2eStart).toBeGreaterThan(-1)
-    expect(e2e).toContain('needs: build')
-    expect(e2e).toContain("if: github.event_name == 'push' && github.ref == 'refs/heads/main'")
-    expect(e2e).toContain('name: Check optional E2E credentials')
-    expect(e2e).toContain("if: steps.e2e-creds.outputs.configured == 'true'")
-    expect(e2e).toContain("if: steps.e2e-creds.outputs.configured != 'true'")
-
-    const credentialGateIndex = e2e.indexOf('name: Check optional E2E credentials')
-    const readinessIndex = e2e.indexOf('name: Supabase E2E readiness')
-    const playwrightInstallIndex = e2e.indexOf('npx playwright install --with-deps chromium')
-    const e2eRunIndex = e2e.indexOf('npm run test:e2e')
-
-    expect(readinessIndex).toBeGreaterThan(credentialGateIndex)
-    expect(playwrightInstallIndex).toBeGreaterThan(readinessIndex)
-    expect(e2eRunIndex).toBeGreaterThan(playwrightInstallIndex)
-    expect(e2e).toContain('node scripts/check-supabase-e2e-readiness.mjs')
+    // E2E was removed from the PR CI topology; do not require a job that no longer exists.
+    expect(active).not.toMatch(/^ {2}e2e:\s*$/m)
+    expect(active).not.toContain('npx playwright install')
+    expect(active).not.toContain('npm run test:e2e')
+    expect(active).not.toContain('name: Check optional E2E credentials')
+    expect(active).not.toContain('name: Supabase E2E readiness')
   })
 })
 
