@@ -32,9 +32,18 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
   const searchParams = useSearchParams()
   const signalScope = model.currentCountry ? model.countryLabel : 'all'
+  const signalsLiveSurface = new Set([
+    'overview',
+    'market-intelligence',
+    'weekly-signals',
+    'personal-briefing',
+    'search',
+    'regulatory',
+  ]).has(model.activeSection)
   const { signals: effectiveSignals, status: signalsStatus } = useDashboardSignalsRealtime(
     props.signals,
     signalScope,
+    { enabled: signalsLiveSurface },
   )
   const countryParam = model.currentCountry ?? 'CA'
 
