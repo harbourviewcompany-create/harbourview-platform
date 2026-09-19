@@ -25,6 +25,12 @@ type FormularyRow = {
 export default function ClinicalReviewAdminPage() {
   const [evidence, setEvidence] = useState<EvidenceRow[]>([])
   const [formulary, setFormulary] = useState<FormularyRow[]>([])
+  const [metrics, setMetrics] = useState<{
+    backlog: number
+    live: number
+    evidence: { underReview: number; published: number; total: number }
+    formulary: { underReview: number; published: number; total: number }
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -39,6 +45,7 @@ export default function ClinicalReviewAdminPage() {
     const data = await res.json()
     setEvidence(data.evidence ?? [])
     setFormulary(data.formulary ?? [])
+    if (data.metrics) setMetrics(data.metrics)
   }, [])
 
   useEffect(() => {
@@ -84,6 +91,31 @@ export default function ClinicalReviewAdminPage() {
         </p>
         {error && <p className="mt-2 text-red-600">{error}</p>}
       </header>
+
+      {metrics && (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded border border-neutral-200 p-3 dark:border-neutral-700">
+            <div className="text-xs uppercase tracking-wide text-neutral-500">Backlog</div>
+            <div className="mt-1 text-2xl font-semibold">{metrics.backlog}</div>
+            <div className="text-xs text-neutral-500">under review</div>
+          </div>
+          <div className="rounded border border-neutral-200 p-3 dark:border-neutral-700">
+            <div className="text-xs uppercase tracking-wide text-neutral-500">Live</div>
+            <div className="mt-1 text-2xl font-semibold">{metrics.live}</div>
+            <div className="text-xs text-neutral-500">published</div>
+          </div>
+          <div className="rounded border border-neutral-200 p-3 dark:border-neutral-700">
+            <div className="text-xs uppercase tracking-wide text-neutral-500">Evidence queue</div>
+            <div className="mt-1 text-2xl font-semibold">{metrics.evidence.underReview}</div>
+            <div className="text-xs text-neutral-500">{metrics.evidence.published} published / {metrics.evidence.total} loaded</div>
+          </div>
+          <div className="rounded border border-neutral-200 p-3 dark:border-neutral-700">
+            <div className="text-xs uppercase tracking-wide text-neutral-500">Formulary queue</div>
+            <div className="mt-1 text-2xl font-semibold">{metrics.formulary.underReview}</div>
+            <div className="text-xs text-neutral-500">{metrics.formulary.published} published / {metrics.formulary.total} loaded</div>
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-3 font-medium">Evidence records</h2>

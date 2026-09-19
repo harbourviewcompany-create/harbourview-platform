@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { headers } from 'next/headers'
 import { getAdminAuthCheck } from '@/lib/auth/adminGuard'
 import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { buildClinicalReviewQueueMetrics } from '@/lib/clinical/reviewQueueMetrics'
 
 export const dynamic = 'force-dynamic'
 
@@ -207,12 +208,20 @@ export async function GET() {
     ),
   ])
 
+  const metrics = buildClinicalReviewQueueMetrics({
+    evidence: evidence as Array<{ review_status?: string | null }>,
+    formulary: formulary as Array<{ review_status?: string | null }>,
+    skus: skus as Array<{ review_status?: string | null }>,
+    jurisdictions: jurisdictions as Array<{ review_status?: string | null }>,
+  })
+
   return NextResponse.json({
     evidence,
     formulary,
     skus,
     jurisdictions,
     audit,
+    metrics,
     loadErrors,
   })
 }

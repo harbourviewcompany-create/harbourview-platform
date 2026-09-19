@@ -4,6 +4,10 @@ import { getAuthenticatedUser, createSupabaseServiceClient } from '@/lib/supabas
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+/**
+ * Tenant-safe: only rooms where the caller is initiator or counterparty.
+ * Defense-in-depth matches lib/marketplace/orgScope canAccessDealRoom.
+ */
 export async function GET() {
   const user = await getAuthenticatedUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -11,7 +15,7 @@ export async function GET() {
   const svc = await createSupabaseServiceClient()
   const { data, error } = await svc
     .from('deal_rooms')
-    .select('id, title, listing_ref, status, updated_at')
+    .select('id, title, listing_ref, status, updated_at, initiator_id, counterparty_id')
     .or(`initiator_id.eq.${user.id},counterparty_id.eq.${user.id}`)
     .order('updated_at', { ascending: false })
     .limit(10)

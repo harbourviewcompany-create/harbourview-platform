@@ -101,6 +101,10 @@ jobs:
         run: npx vitest run tests/dashboard/marketplaceFunnelMetrics.test.ts
       - name: Inquiry outcome + KYB helper tests
         run: npx vitest run tests/marketplace/inquiryOutcomeAndKyb.test.ts
+      - name: Marketplace org-scope
+        run: npx vitest run tests/marketplace/orgScope.test.ts
+      - name: Clinical review queue metrics
+        run: npx vitest run tests/clinical/reviewQueueMetrics.test.ts
       - name: KYB deal-room gate unit tests
         run: npx vitest run tests/marketplace/kybDealRoomGate.test.ts
       - name: Marketplace submission actions
