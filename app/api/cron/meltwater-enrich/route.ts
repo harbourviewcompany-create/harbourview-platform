@@ -82,7 +82,7 @@ async function resolveSourceId(
  * Returns count of newly inserted rows.
  */
 async function stageSnapshots(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, 'api'>,
   rows: MeltwaterSnapshotRow[],
 ): Promise<{ inserted: number; skipped: number; error?: string }> {
   if (rows.length === 0) return { inserted: 0, skipped: 0 }
