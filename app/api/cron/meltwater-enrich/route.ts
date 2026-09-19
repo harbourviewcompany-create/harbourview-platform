@@ -3,22 +3,6 @@
 // into source_snapshots (processing_status='pending_extraction') so the
 // existing intelligence-extract + trg_promote_snapshot path processes them
 // like any other source.
-//
-// Canonical pipeline:
-//   Meltwater API → source_snapshots (pending_extraction)
-//     → intelligence-extract / promote → signals → digests / briefings
-//
-// Required env:
-//   CRON_SECRET
-//   MELTWATER_API_KEY
-//   MELTWATER_SEARCH_IDS          (comma-separated saved-search IDs)
-//
-// Strongly recommended:
-//   MELTWATER_SOURCE_ID           (source_registry.id for this connector)
-//
-// Optional:
-//   MELTWATER_LOOKBACK_HOURS      (default 48)
-//   MELTWATER_MAX_PER_SEARCH      (default 40, max 100)
 
 import { NextRequest, NextResponse } from 'next/server'
 import {
@@ -36,7 +20,7 @@ export const maxDuration = 120
 const DEFAULT_LOOKBACK_HOURS = 48
 const DEFAULT_MAX_PER_SEARCH = 40
 
-function getSupabaseAdmin(): SupabaseClient<any, 'api'> {
+function getSupabaseAdmin(): SupabaseClient<any, any, 'api'> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase admin credentials missing')
@@ -46,18 +30,12 @@ function getSupabaseAdmin(): SupabaseClient<any, 'api'> {
   })
 }
 
-/**
- * Resolve the source_registry id used for Meltwater snapshots.
- * Prefer an explicit MELTWATER_SOURCE_ID. If absent, attempt to find a
- * registry row tagged as meltwater; otherwise skip writes (safe no-op).
- */
 async function resolveSourceId(
-  supabase: SupabaseClient<any, 'api'>,
+  supabase: SupabaseClient<any, any, 'api'>,
 ): Promise<{ sourceId: string | null; reason?: string }> {
   const configured = process.env.MELTWATER_SOURCE_ID?.trim()
   if (configured) return { sourceId: configured }
 
-  // Best-effort lookup: source_name / adapter / metadata containing meltwater
   const { data, error } = await supabase
     .from('source_registry')
     .select('id')
@@ -77,12 +55,8 @@ async function resolveSourceId(
   }
 }
 
-/**
- * Insert snapshots, skipping any whose content hash already exists for this source.
- * Returns count of newly inserted rows.
- */
 async function stageSnapshots(
-  supabase: SupabaseClient<any, 'api'>,
+  supabase: SupabaseClient<any, any, 'api'>,
   rows: MeltwaterSnapshotRow[],
 ): Promise<{ inserted: number; skipped: number; error?: string }> {
   if (rows.length === 0) return { inserted: 0, skipped: 0 }
@@ -90,7 +64,6 @@ async function stageSnapshots(
   const hashes = rows.map((r) => r.raw_html_hash)
   const sourceId = rows[0].source_id
 
-  // Dedupe against recent snapshots for this source
   const { data: existing, error: lookupError } = await supabase
     .from('source_snapshots')
     .select('raw_html_hash')
@@ -108,8 +81,6 @@ async function stageSnapshots(
     return { inserted: 0, skipped: rows.length }
   }
 
-  // Insert only novel rows. metadata column may or may not exist depending
-  // on migration state — strip it if the insert fails on that column.
   const payload = novel.map((r) => ({
     source_id: r.source_id,
     captured_url: r.captured_url,
@@ -120,14 +91,12 @@ async function stageSnapshots(
     fetch_status: r.fetch_status,
     changed: r.changed,
     error_message: r.error_message,
-    // metadata is best-effort; some deployments may not have the column yet
     metadata: r.metadata,
   }))
 
   let { error } = await supabase.from('source_snapshots').insert(payload)
 
   if (error && /metadata|column/i.test(error.message)) {
-    // Retry without metadata
     const stripped = payload.map(({ metadata: _m, ...rest }) => rest)
     const retry = await supabase.from('source_snapshots').insert(stripped)
     error = retry.error
@@ -173,7 +142,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  let supabase: SupabaseClient<any, 'api'>
+  let supabase: SupabaseClient<any, any, 'api'>
   try {
     supabase = getSupabaseAdmin()
   } catch (e) {
