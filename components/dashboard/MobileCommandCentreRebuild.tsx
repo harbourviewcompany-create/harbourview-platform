@@ -12,10 +12,15 @@ import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import { matchWatchRuleHits, type WatchRuleLike } from './mobile-command/watchRuleHits'
 import { buildCommandDelta } from '@/lib/dashboard/commandDelta'
-import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import dynamic from 'next/dynamic'
 import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import OrganizationContextControl from './OrganizationContextControl'
+import './MobileCommandCentreRebuild.css'
+import './mobile-command/MobileCommandOperatorFirst.css'
+import './mobile-command/MobileIntelInstitutional.css'
+import './mobile-command/MobileCommandNavigation.css'
+import './CommandCentre.css'
+import './mobile-command/MobileCommandSurfaceAlignment.css'
 
 const MarketIntelligenceSection = dynamic(
   () => import('./mobile-command/sections/CoreSections').then(m => ({ default: m.MarketIntelligenceSection })),
@@ -106,12 +111,6 @@ const CultivarPassportModal = dynamic(
   () => import('./CultivarPassportModal').then(m => ({ default: m.CultivarPassportModal })),
   { ssr: false },
 )
-import './MobileCommandCentreRebuild.css'
-import './mobile-command/MobileCommandOperatorFirst.css'
-import './mobile-command/MobileIntelInstitutional.css'
-import './mobile-command/MobileCommandNavigation.css'
-import './CommandCentre.css'
-import './mobile-command/MobileCommandSurfaceAlignment.css'
 
 type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
 
