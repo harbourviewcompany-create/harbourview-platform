@@ -44,22 +44,29 @@
 }
 
 /*
- * Soft longitudinal luminance — metallic doctrine (not candy stripes).
- * Rotation is readable; surface stays gold/brushed rather than graphic.
+ * Arctic / North-Pole projection: the pole stays centered while latitude
+ * rings and meridians rotate together, so this reads as a globe viewed from
+ * directly above the Arctic rather than a generic spinning sphere.
  */
 .surface {
   position: absolute;
-  inset: -12%;
+  inset: -10%;
   border-radius: 50%;
-  background: repeating-conic-gradient(
-    from 0deg,
-    rgba(255, 236, 180, 0.38) 0deg 8deg,
-    rgba(198, 165, 90, 0.12) 8deg 18deg,
-    rgba(70, 50, 18, 0.45) 18deg 26deg,
-    rgba(198, 165, 90, 0.08) 26deg 40deg
-  );
-  opacity: 0.85;
-  mix-blend-mode: soft-light;
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(255, 236, 180, 0.22) 0deg 1.2deg,
+      transparent 1.2deg 15deg
+    ),
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0 10%,
+      rgba(205, 218, 232, 0.14) 10.2% 10.8%,
+      transparent 11% 20%
+    ),
+    radial-gradient(circle at 50% 50%, rgba(198,165,90,0.18), rgba(6,18,30,0.16) 48%, rgba(1,6,13,0.7) 76%);
+  opacity: 0.95;
+  mix-blend-mode: screen;
   animation: hv-loading-globe-spin var(--hv-globe-spin-ms, 13000ms) linear infinite;
   will-change: transform;
 }
@@ -88,13 +95,29 @@
   pointer-events: none;
 }
 
-.equator {
+.polarGrid {
   position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 48%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(245, 241, 232, 0.18), transparent);
+  inset: 5%;
+  border-radius: 50%;
+  border: 1px solid rgba(198, 165, 90, 0.18);
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 12%, rgba(225, 232, 240, 0.12) 12.2% 12.7%, transparent 13% 24%),
+    repeating-conic-gradient(from 0deg, rgba(198, 165, 90, 0.18) 0deg 0.7deg, transparent 0.7deg 18deg);
+  transform: scaleY(0.94);
+  animation: hv-loading-globe-spin var(--hv-globe-spin-ms, 13000ms) linear infinite;
+  pointer-events: none;
+}
+
+.polarCap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24%;
+  height: 24%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 40%, rgba(245, 249, 255, 0.42), rgba(125, 158, 188, 0.2) 42%, transparent 72%);
+  box-shadow: 0 0 28px rgba(175, 205, 230, 0.12);
   pointer-events: none;
 }
 
@@ -108,7 +131,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .surface {
+  .surface,
+  .polarGrid {
     animation: none;
   }
 }
