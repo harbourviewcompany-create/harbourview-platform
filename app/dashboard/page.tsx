@@ -232,6 +232,7 @@ export default async function DashboardPage({
         userTier={userTier}
         openSignalsSearch={openSignalsSearch}
         wantedCount={wantedCount}
+        commandSourceMeta={commandData.sources}
         marketplaceRows={marketplaceProjection.rows}
         marketplaceMediaById={marketplaceProjection.mediaById}
         marketplaceMediaStatus={commandData.sources.marketplaceRows.requested && commandData.sources.marketplaceRows.errorCode === null
