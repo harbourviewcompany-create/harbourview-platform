@@ -9,10 +9,13 @@ export type GeneticsSourceMeta = {
   collaborationProjects?: CommandCentreSourceMeta
 }
 
-/** Shared compile-time prop contract for desktop and rebuilt mobile shells. */
+export type CommandSourceMeta = Record<string, CommandCentreSourceMeta>
+
 export type MobileCommandCentreProps = React.ComponentProps<typeof CommandCentre> & {
   /** Public-only marketplace media keyed by canonical listing UUID. */
   marketplaceMediaById?: MarketplaceMediaById
   /** Source-state metadata for the public Genetics projections used by Mobile Command. */
   geneticsSourceMeta?: GeneticsSourceMeta
+  /** Full source-state map used to make domain coverage/freshness explicit on mobile. */
+  commandSourceMeta?: CommandSourceMeta
 }
