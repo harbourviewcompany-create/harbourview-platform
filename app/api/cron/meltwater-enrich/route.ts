@@ -10,7 +10,7 @@ import {
   mentionToSnapshotRow,
   type MeltwaterSnapshotRow,
 } from '@/lib/connectors/meltwater'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
