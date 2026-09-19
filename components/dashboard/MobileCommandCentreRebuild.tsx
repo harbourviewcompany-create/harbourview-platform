@@ -12,33 +12,100 @@ import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
 import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
 import { matchWatchRuleHits, type WatchRuleLike } from './mobile-command/watchRuleHits'
 import { buildCommandDelta } from '@/lib/dashboard/commandDelta'
-import OrganizationContextControl from './OrganizationContextControl'
 import MarketplaceMediaStatus from './MarketplaceMediaStatus'
-import {
-  ClinicalSection,
-  ComplianceSection,
-  DealRoomsSection,
-  EducationSection,
-  FinancingSection,
-  GeneticsSection,
-  JurisdictionSection,
-  MarketIntelligenceSection,
-  MarketplaceSection,
-  MarketStatusSection,
-  NetworkSection,
-  NextActionsSection,
-  PersonalBriefingSection,
-  ReviewGatesSection,
-  SearchSection,
-  SettingsSection,
-  SupplySection,
-  TalentSection,
-  WeeklySignalsSection,
-  RegulatoryWatchSection,
-  LocalIntelSection,
-} from './mobile-command/Sections'
-import SignalSemanticSearch from './SignalSemanticSearch'
-import { CultivarPassportModal } from './CultivarPassportModal'
+import dynamic from 'next/dynamic'
+import MarketplaceMediaStatus from './MarketplaceMediaStatus'
+import OrganizationContextControl from './OrganizationContextControl'
+
+const MarketIntelligenceSection = dynamic(
+  () => import('./mobile-command/sections/CoreSections').then(m => ({ default: m.MarketIntelligenceSection })),
+  { loading: () => <CommandBootSection label="Loading market intelligence" /> },
+)
+const MarketplaceSection = dynamic(
+  () => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.MarketplaceSection })),
+  { loading: () => <CommandBootSection label="Loading marketplace" /> },
+)
+const SupplySection = dynamic(
+  () => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.SupplySection })),
+  { loading: () => <CommandBootSection label="Loading supply" /> },
+)
+const NextActionsSection = dynamic(
+  () => import('./mobile-command/sections/IntelligenceSections').then(m => ({ default: m.NextActionsSection })),
+  { loading: () => <CommandBootSection label="Loading actions" /> },
+)
+const SearchSection = dynamic(
+  () => import('./mobile-command/sections/IntelligenceSections').then(m => ({ default: m.SearchSection })),
+  { loading: () => <CommandBootSection label="Loading search" /> },
+)
+const LocalIntelSection = dynamic(
+  () => import('./mobile-command/sections/IntelligenceSections').then(m => ({ default: m.LocalIntelSection })),
+  { loading: () => <CommandBootSection label="Loading local intelligence" /> },
+)
+const PersonalBriefingSection = dynamic(
+  () => import('./mobile-command/sections/PersonalBriefingLiveSection').then(m => ({ default: m.PersonalBriefingSection })),
+  { loading: () => <CommandBootSection label="Loading briefing" /> },
+)
+const WeeklySignalsSection = dynamic(
+  () => import('./mobile-command/sections/DecisionSignalsSection').then(m => ({ default: m.WeeklySignalsSection })),
+  { loading: () => <CommandBootSection label="Loading signals" /> },
+)
+const EducationSection = dynamic(
+  () => import('./mobile-command/sections/EducationCommandSection').then(m => ({ default: m.EducationSection })),
+  { loading: () => <CommandBootSection label="Loading education" /> },
+)
+const RegulatoryWatchSection = dynamic(
+  () => import('./mobile-command/sections/RegulatoryWatchWithCorpus').then(m => ({ default: m.RegulatoryWatchSection })),
+  { loading: () => <CommandBootSection label="Loading regulatory watch" /> },
+)
+const JurisdictionSection = dynamic(
+  () => import('./mobile-command/sections/JurisdictionCommandSection').then(m => ({ default: m.JurisdictionSection })),
+  { loading: () => <CommandBootSection label="Loading jurisdiction" /> },
+)
+const NetworkSection = dynamic(
+  () => import('./mobile-command/sections/NetworkCommandSection').then(m => ({ default: m.NetworkSection })),
+  { loading: () => <CommandBootSection label="Loading network" /> },
+)
+const MarketStatusSection = dynamic(
+  () => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.MarketStatusSection })),
+  { loading: () => <CommandBootSection label="Loading market status" /> },
+)
+const ReviewGatesSection = dynamic(
+  () => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.ReviewGatesSection })),
+  { loading: () => <CommandBootSection label="Loading review gates" /> },
+)
+const TalentSection = dynamic(
+  () => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.TalentSection })),
+  { loading: () => <CommandBootSection label="Loading talent" /> },
+)
+const GeneticsSection = dynamic(
+  () => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.GeneticsSection })),
+  { loading: () => <CommandBootSection label="Loading genetics" /> },
+)
+const ComplianceSection = dynamic(
+  () => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.ComplianceSection })),
+  { loading: () => <CommandBootSection label="Loading compliance" /> },
+)
+const FinancingSection = dynamic(
+  () => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.FinancingSection })),
+  { loading: () => <CommandBootSection label="Loading financing" /> },
+)
+const ClinicalSection = dynamic(
+  () => import('./mobile-command/sections/ClinicalSection').then(m => ({ default: m.ClinicalSection })),
+  { loading: () => <CommandBootSection label="Loading clinical" /> },
+)
+const SettingsSection = dynamic(
+  () => import('./mobile-command/sections/AccountSections').then(m => ({ default: m.SettingsSection })),
+  { loading: () => <CommandBootSection label="Loading settings" /> },
+)
+const DealRoomsSection = dynamic(
+  () => import('./mobile-command/sections/AccountSections').then(m => ({ default: m.DealRoomsSection })),
+  { loading: () => <CommandBootSection label="Loading deal rooms" /> },
+)
+const SignalSemanticSearch = dynamic(() => import('./SignalSemanticSearch'), { ssr: false })
+const CultivarPassportModal = dynamic(
+  () => import('./CultivarPassportModal').then(m => ({ default: m.CultivarPassportModal })),
+  { ssr: false },
+)
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
@@ -47,6 +114,20 @@ import './CommandCentre.css'
 import './mobile-command/MobileCommandSurfaceAlignment.css'
 
 type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
+
+function CommandBootSection({ label }: { label: string }) {
+  return (
+    <div className="hvm2-section" aria-busy="true" aria-label={label}>
+      <div className="hvm2-section-heading">
+        <div>
+          <span>Harbourview</span>
+          <h2>{label}</h2>
+          <p>Preparing the active command surface…</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function MobileCommandCentreRebuild(props: Props) {
   const model = useMobileCommandModel(props)
