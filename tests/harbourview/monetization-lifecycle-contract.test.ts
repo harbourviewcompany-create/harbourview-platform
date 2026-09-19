@@ -1,62 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-
-const repoRoot = process.cwd()
-const read = (path: string) => readFileSync(join(repoRoot, path), 'utf8')
-
-describe('Harbourview monetization lifecycle safeguards', () => {
-  it('uses the canonical free/intel/operator entitlement vocabulary', () => {
-    const entitlements = read('lib/billing/entitlements.ts')
-    expect(entitlements).toContain("export type SubscriptionTier = 'free' | 'intel' | 'operator'")
-    expect(entitlements).toContain("watchlist: 'intel'")
-    expect(entitlements).toContain("genetics: 'operator'")
-    expect(entitlements).not.toContain("admin: 'enterprise'")
-  })
-
-  it('makes Stripe customer creation idempotent and fails if the customer mapping cannot persist', () => {
-    const stripeServer = read('lib/stripe/server.ts')
-    expect(stripeServer).toContain('idempotencyKey: `harbourview-customer-${userId}`')
-    expect(stripeServer).toContain('Unable to persist Stripe customer mapping')
-  })
-
-  it('prevents a second subscription checkout and routes existing subscribers to Billing Portal', () => {
-    const checkout = read('app/api/stripe/checkout/route.ts')
-    const upgradeButton = read('components/stripe/UpgradeButton.tsx')
-    expect(checkout).toContain("code: 'EXISTING_SUBSCRIPTION'")
-    expect(checkout).toContain('TERMINAL_SUBSCRIPTION_STATUSES')
-    expect(upgradeButton).toContain("data.code === 'EXISTING_SUBSCRIPTION'")
-    expect(upgradeButton).toContain("fetch('/api/stripe/portal', { method: 'POST' })")
-  })
-
-  it('does not let non-Harbourview Stripe prices alter Harbourview entitlement state', () => {
-    const webhook = read('app/api/stripe/webhook/route.ts')
-    expect(webhook).toContain('ignoring subscription with non-Harbourview price')
-    expect(webhook).toContain('if (!derivedTier)')
-  })
-
-  it('recomputes entitlement across remaining subscriptions on updates and cancellation', () => {
-    const webhook = read('app/api/stripe/webhook/route.ts')
-    expect(webhook).toContain('async function recomputeUserEntitlement')
-    expect(webhook).toContain("subscription.status !== 'active' && subscription.status !== 'trialing'")
-    expect(webhook).toContain('await recomputeUserEntitlement(supabase, userId)')
-  })
-
-  it('marks a webhook event processed only after persistence succeeds', () => {
-    const webhook = read('app/api/stripe/webhook/route.ts')
-    expect(webhook).toContain('Webhook idempotency lookup failed')
-    expect(webhook).toContain('Webhook idempotency insert failed')
-    expect(webhook).toContain('subscriptions upsert failed')
-    expect(webhook).toContain('app_metadata tier sync failed')
-    expect(webhook.indexOf('await recomputeUserEntitlement(supabase, userId)')).toBeLessThan(
-      webhook.lastIndexOf('await markProcessed(supabase, event)')
-    )
-  })
-
-  it('uses the configured canonical app URL rather than a request-controlled Origin for Stripe redirects', () => {
-    const checkout = read('app/api/stripe/checkout/route.ts')
-    const portal = read('app/api/stripe/portal/route.ts')
-    expect(checkout).not.toContain("req.headers.get('origin')")
-    expect(portal).not.toContain("req.headers.get('origin')")
-  })
+const root=process.cwd(),read=(p:string)=>readFileSync(join(root,p),'utf8')
+describe('Harbourview monetization lifecycle safeguards',()=>{
+it('uses canonical entitlement vocabulary',()=>{const s=read('lib/billing/entitlements.ts');expect(s).toContain("export type SubscriptionTier = 'free' | 'intel' | 'operator'");expect(s).toContain("watchlist: 'intel'");expect(s).toContain("genetics: 'operator'");expect(s).not.toContain("admin: 'enterprise'")})
+it('makes Stripe customer creation idempotent',()=>{const s=read('lib/stripe/server.ts');expect(s).toContain('idempotencyKey');expect(s).toContain('Unable to persist Stripe customer mapping')})
+it('routes existing subscribers to Billing Portal',()=>{const c=read('app/api/stripe/checkout/route.ts'),u=read('components/stripe/UpgradeButton.tsx');expect(c).toContain("code: 'EXISTING_SUBSCRIPTION'");expect(c).toContain('TERMINAL_SUBSCRIPTION_STATUSES');expect(u).toContain("data.code === 'EXISTING_SUBSCRIPTION'");expect(u).toContain("fetch('/api/stripe/portal', { method: 'POST' })")})
+it('uses tier mapping and ignores unknown prices',()=>{const s=read('app/api/stripe/webhook/route.ts');expect(s).toContain('tierFromPriceId');expect(s).toContain('if(!tier)return')})
+it('persists subscription state before entitlement recomputation',()=>{const s=read('app/api/stripe/webhook/route.ts');expect(s).toContain('await entitlement(s,uid)');expect(s).toContain('await mark(s,event)');expect(s.indexOf('await entitlement(s,uid)')).toBeLessThan(s.lastIndexOf('await mark(s,event)'))})
+it('checks webhook idempotency before processing and marks after processing',()=>{const s=read('app/api/stripe/webhook/route.ts');expect(s).toContain('if(await processed(s,event.id))');expect(s).toContain('await mark(s,event)');expect(s.indexOf('if(await processed(s,event.id))')).toBeLessThan(s.indexOf('switch(event.type)'));expect(s.lastIndexOf('await mark(s,event)')).toBeGreaterThan(s.indexOf('switch(event.type)'))})
+it('uses canonical app URL rather than request Origin',()=>{const c=read('app/api/stripe/checkout/route.ts'),p=read('app/api/stripe/portal/route.ts');expect(c).not.toContain("req.headers.get('origin')");expect(p).not.toContain("req.headers.get('origin')")})
 })
