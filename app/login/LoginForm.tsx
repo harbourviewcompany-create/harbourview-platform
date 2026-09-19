@@ -81,13 +81,21 @@ export default function LoginForm({
           router.refresh()
         }
       } else {
-        const { error: err } = await supabase.auth.signUp({
+        const { data, error: err } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
         })
         if (err) {
           setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
+        } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
+          // Supabase intentionally returns an obfuscated user for an existing
+          // confirmed account when email confirmation is enabled. Do not tell
+          // an existing user that we sent a new confirmation email.
+          setFeedback({
+            type: 'error',
+            text: 'An account already exists for this email. Sign in instead or use Forgot password.',
+          })
         } else {
           setSignupComplete(true)
         }
