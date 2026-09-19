@@ -26,7 +26,9 @@ const FEED_LIMIT = 30
 export function useDashboardSignalsRealtime(
   initialSignals: DashboardSignal[],
   countryLabel: string,
+  options: { enabled?: boolean } = {},
 ): { signals: DashboardSignal[]; status: SignalsRealtimeStatus } {
+  const enabled = options.enabled ?? true
   const initialScope = isGlobalSignalScope(countryLabel) ? 'all' : countryLabel
   const [signals, setSignals] = useState<DashboardSignal[]>(() =>
     canonicalizeDashboardSignals(initialSignals, initialScope, {
@@ -104,6 +106,10 @@ export function useDashboardSignalsRealtime(
   // Refresh when a signal is inserted OR later updated into reviewed/published
   // state. INSERT-only subscriptions missed the common review/promotion path.
   useEffect(() => {
+    if (!enabled) {
+      setStatus('degraded')
+      return
+    }
     mountedRef.current = true
     const supabase = createClient()
     const channel: RealtimeChannel = supabase
@@ -127,7 +133,7 @@ export function useDashboardSignalsRealtime(
       inFlightRef.current?.abort()
       supabase.removeChannel(channel)
     }
-  }, [scheduleRefresh])
+  }, [enabled, scheduleRefresh])
 
   return { signals, status }
 }
