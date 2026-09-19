@@ -1,0 +1,35 @@
+/* Mobile Command surface alignment.
+ *
+ * SectionShell is a structural wrapper, not another card. The content panels
+ * inside each section already own their borders, radii and surfaces. Keeping a
+ * second rounded navy surface around them made the shell edge stop before some
+ * dynamic/scrolling children on mobile and created the visible "blue box"
+ * misalignment seen at the bottom of the content stack.
+ */
+.hvm2-main.hvm-op-main > .hvm2-section {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 0 22px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.hvm2-main.hvm-op-main > .hvm2-section + .hvm2-section {
+  border-top: 1px solid rgba(201, 149, 50, 0.12);
+}
+
+/* The Market surface intentionally has its own controls/card chrome. */
+.hvm2-root[data-active-destination="marketplace"] .hvm2-market-section {
+  padding-top: 10px;
+}
+
+/* Keep the heading and content on the same horizontal grid as the main pane. */
+.hvm2-main.hvm-op-main > .hvm2-section > .hvm2-section-heading {
+  width: 100%;
+  min-width: 0;
+}
