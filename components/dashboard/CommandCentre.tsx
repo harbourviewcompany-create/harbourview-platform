@@ -396,6 +396,9 @@ const BriefingRoom = React.memo(function BriefingRoom({
   marketMetrics = [],
   tradeFlows = [],
   confidence,
+  pipeline,
+  wantedCount = 0,
+  listingCount = 0,
   onCountrySelect,
   onPageChange,
 }: {
@@ -407,6 +410,9 @@ const BriefingRoom = React.memo(function BriefingRoom({
   signals:          DashboardSignal[]
   marketMetrics?:   MarketMetric[]
   tradeFlows?:      TradeFlow[]
+  pipeline?:        PipelineCounts | null
+  wantedCount?:     number
+  listingCount?:    number
   // Real, data-driven confidence lanes computed upstream in CommandCentre from
   // the full per-lane data set. Optional: when absent (e.g. a caller that only
   // has country intel in scope) BriefingRoom falls back to computing lanes from
@@ -596,7 +602,50 @@ const BriefingRoom = React.memo(function BriefingRoom({
       {/* ── Right: Evidence confidence + Watch regions ────────────── */}
       <aside className="cc-briefing-right">
 
-        <div className="cc-right-section" style={{ borderLeft: '2px solid rgba(212,168,75,.35)', paddingLeft: 12 }}>
+        
+        {(pipeline || listingCount > 0 || wantedCount > 0) && (
+          <div className="cc-right-section">
+            <div className="cc-right-head">MARKETPLACE FUNNEL</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                { label: 'Listings', value: listingCount, page: 'marketplace' as const },
+                { label: 'Wanted', value: wantedCount || pipeline?.wanted || 0, page: 'marketplace' as const },
+                { label: 'Inquiry', value: pipeline?.inquiry ?? 0, page: 'marketplace' as const },
+                { label: 'Deal room', value: pipeline?.deal_room ?? 0, page: 'marketplace' as const },
+              ].map((cell) => (
+                <button
+                  key={cell.label}
+                  type="button"
+                  onClick={() => onPageChange?.(cell.page)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: '1px solid rgba(255,255,255,.08)',
+                    background: 'rgba(255,255,255,.03)',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                  }}
+                >
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#d4a84b' }}>{cell.value}</div>
+                  <div style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', color: 'rgba(245,240,232,.45)', marginTop: 2 }}>
+                    {cell.label}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="cc-right-link"
+              style={{ marginTop: 10, background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+              onClick={() => onPageChange?.('marketplace')}
+            >
+              Open marketplace pipeline →
+            </button>
+          </div>
+        )}
+
+<div className="cc-right-section" style={{ borderLeft: '2px solid rgba(212,168,75,.35)', paddingLeft: 12 }}>
           <div className="cc-right-head" style={{ color: '#d4a84b' }}>AI EXECUTIVE BRIEFING</div>
           {aiBriefingLoading ? (
             <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.4)', fontStyle: 'italic' }}>Generating briefing…</p>
@@ -808,6 +857,24 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
 ]
 
 // ── SignalsPage ────────────────────────────────────────────────────────────────
+
+
+function signalProvenance(s: DashboardSignal): { source: string; when: string; basis?: string } {
+  const source = s.sourceLabel?.trim() || s.tag?.label || 'Harbourview Intelligence'
+  const when =
+    s.timeAgo ||
+    (s.sourcePublishedAt && !Number.isNaN(Date.parse(s.sourcePublishedAt))
+      ? new Date(s.sourcePublishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null) ||
+    (s.observedAt && !Number.isNaN(Date.parse(s.observedAt))
+      ? `Observed ${new Date(s.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+      : null) ||
+    (s.publishedAt && !Number.isNaN(Date.parse(s.publishedAt))
+      ? new Date(s.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : null) ||
+    '—'
+  return { source, when, basis: s.freshnessBasis }
+}
 
 const SignalsPage = React.memo(function SignalsPage({
   country, region, role, signals, digestSignals, watchlistData, onPageChange, initialShowSearch = false, decisionIntelAccess,
@@ -1093,7 +1160,14 @@ const SignalsPage = React.memo(function SignalsPage({
                     <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                     <div className="cc-sig-body">
                       <strong>{s.title}</strong>
-                      <small>{s.market ? `${s.market}${region ? ` · ${region}` : ''} · ` : ''}{s.timeAgo}</small>
+                      <small>
+                        {s.market ? `${s.market}${region ? ` · ${region}` : ''} · ` : ''}
+                        {signalProvenance(s).when}
+                      </small>
+                      <small style={{ display: 'block', marginTop: 2, color: 'rgba(245,240,232,.4)' }}>
+                        Source: {signalProvenance(s).source}
+                        {s.sourceUrl ? ' · linked' : ''}
+                      </small>
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>
@@ -1111,8 +1185,8 @@ const SignalsPage = React.memo(function SignalsPage({
                       <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
                     </svg>
                     <div className="cc-sig-date">
-                      <em>Date</em>
-                      <span>{s.timeAgo}</span>
+                      <em>When</em>
+                      <span title={s.freshnessBasis ? `Basis: ${s.freshnessBasis}` : undefined}>{signalProvenance(s).when}</span>
                     </div>
                     <div className="cc-sig-acts">
                       <button className="cc-sig-brief" onClick={() => setSelectedSignal(s)}>Open brief</button>
@@ -11313,7 +11387,7 @@ export default function CommandCentre({
     const sharedProps = { country, region, role: roleLabel }
     switch (activePage) {
       case 'briefing':
-        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} confidence={briefingConfidence} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
+        return <BriefingRoom country={country} region={region} role={roleLabel} countryIntel={liveCountryIntel} intelLoading={intelLoading} signals={signals} marketMetrics={marketMetrics} tradeFlows={tradeFlows} confidence={briefingConfidence} pipeline={pipeline} wantedCount={wantedCount ?? wantedListings?.length ?? 0} listingCount={Object.values(marketplaceRows ?? {}).reduce((n, rows) => n + ((rows as unknown[] | undefined)?.length ?? 0), 0)} onCountrySelect={handleCountryChange} onPageChange={handlePageChange} />
       case 'digest':
         return <DigestPageLazy country={country} region={region} role={roleLabel} digestSignals={digestSignals} digestWindow={digestWindow} signals={signals} />
       case 'access-pathway':

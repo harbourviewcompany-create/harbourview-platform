@@ -95,6 +95,8 @@ jobs:
         run: npx vitest run tests/dashboard/commercialDashboard.test.tsx
       - name: Dashboard routing
         run: npx vitest run tests/dashboard/routing.test.ts
+      - name: Command Centre smoke (boot + pipeline-health)
+        run: npx vitest run tests/dashboard/command-centre-smoke.test.ts
       - name: Marketplace submission actions
         run: npx vitest run tests/actions/marketplaceSubmissionActions.test.ts
       - name: Supabase admin client isolation
