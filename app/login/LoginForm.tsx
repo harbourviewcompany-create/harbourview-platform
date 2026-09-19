@@ -96,7 +96,14 @@ export default function LoginForm({
             type: 'error',
             text: 'An account already exists for this email. Sign in instead or use Forgot password.',
           })
+        } else if (data.session) {
+          // If email confirmations are disabled, Supabase returns a live session.
+          // Never show a misleading "check your inbox" state in that case.
+          router.push(next ?? '/dashboard')
+          router.refresh()
         } else {
+          // With email confirmations enabled, signup succeeds without a session
+          // and Supabase sends the confirmation message through its configured mailer.
           setSignupComplete(true)
         }
       }
