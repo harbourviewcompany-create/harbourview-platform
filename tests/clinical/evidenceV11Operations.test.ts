@@ -7,6 +7,7 @@ const foundation = fs.readFileSync(path.join(root, 'supabase/migrations/20260814
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260814150000_clinical_evidence_v1_1_operations.sql'), 'utf8')
 const actions = fs.readFileSync(path.join(root, 'app/clinical/review/actions.ts'), 'utf8')
 const workbench = fs.readFileSync(path.join(root, 'app/clinical/review/page.tsx'), 'utf8')
+const adminWorkbench = fs.readFileSync(path.join(root, 'app/admin/(protected)/clinical-review/page.tsx'), 'utf8')
 const inspection = fs.readFileSync(path.join(root, 'app/clinical/review/source/[sourceId]/page.tsx'), 'utf8')
 const guard = fs.readFileSync(path.join(root, 'lib/auth/clinicalReviewGuard.ts'), 'utf8')
 const loader = fs.readFileSync(path.join(root, 'lib/server/clinicalEvidenceOperations.ts'), 'utf8')
@@ -58,19 +59,11 @@ describe('Clinical Evidence V1.1 governed operations', () => {
   })
 
   it('exposes the complete governed workflow without changing the public Clinical UI', () => {
-    for (const label of [
-      'Intake source',
-      'Capture immutable snapshot',
-      'Create ungraded evidence draft',
-      'Structured extraction',
-      'Provenance / qualified review',
-      'Reproducible grading assessment',
-      'Contradiction / partial supersession resolution',
-      'Verify reviewer credential',
-      'Publication / supersession',
-    ]) expect(workbench).toContain(label)
-    expect(workbench).toContain('Evidence operations queue')
-    expect(workbench).toContain('Freshness queue')
+    expect(workbench).toContain("redirect('/admin/clinical-review')")
+    expect(adminWorkbench).toContain('Clinical review queue')
+    expect(adminWorkbench).toContain('Publish')
+    expect(adminWorkbench).toContain('Under review')
+    expect(adminWorkbench).toContain('Retire')
     expect(loader).toContain('clinical_evidence_review_queue')
     expect(loader).toContain('clinical_evidence_freshness_queue')
   })

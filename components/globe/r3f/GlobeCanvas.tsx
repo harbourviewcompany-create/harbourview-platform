@@ -345,7 +345,7 @@ export function GlobeCanvas({
       <Canvas
         className="h-full w-full pointer-events-auto"
         frameloop="demand"
-        dpr={[1, 1.75]}
+        dpr={[1, 1.5]}
         aria-label="Harbourview country globe"
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
@@ -368,7 +368,7 @@ export function GlobeCanvas({
         <hemisphereLight args={['#243b5e', '#080409', 0.26]} />
 
         <Suspense fallback={null}>
-          <Stars radius={30} depth={10} count={3500} factor={1.2} saturation={0} fade speed={0} />
+          <Stars radius={30} depth={10} count={2200} factor={1.2} saturation={0} fade speed={0} />
 
           <group rotation={[0.08, 0.3, 0]}>
             <AtmosphereGlow heatBoost={atmosphereBoost} />

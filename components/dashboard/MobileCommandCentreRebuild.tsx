@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
@@ -49,6 +49,7 @@ type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
 
 export default function MobileCommandCentreRebuild(props: Props) {
   const model = useMobileCommandModel(props)
+  const deferredSearchQuery = useDeferredValue(model.searchQuery)
   const [contextOpen, setContextOpen] = useState(false)
   const [passportModalOpen, setPassportModalOpen] = useState(false)
   const contextCloseRef = useRef<HTMLButtonElement | null>(null)
@@ -112,19 +113,23 @@ export default function MobileCommandCentreRebuild(props: Props) {
     ? 'Command domains and operating controls'
     : `${activeDestination?.label ?? 'Command'} sections`
 
-  const searchRecords = useMemo(() => buildCommandSearchIndex({
-    signals: model.signals,
-    listings: model.marketRows,
-    watchItems: props.watchlistData?.items ?? [],
-    localIntel: props.localIntel ?? null,
-    countryLabel: model.countryLabel,
-    countryIntel: props.countryIntel,
-    directories: model.directoryRecords,
-    genetics: model.geneticsRecords,
-    actions: model.nextActions,
-    evidenceDocuments: model.evidenceDocuments,
-    talent: model.talentRecords,
-  }), [
+  const searchRecords = useMemo(() => {
+    if (!deferredSearchQuery.trim()) return []
+    return buildCommandSearchIndex({
+      signals: model.signals,
+      listings: model.marketRows,
+      watchItems: props.watchlistData?.items ?? [],
+      localIntel: props.localIntel ?? null,
+      countryLabel: model.countryLabel,
+      countryIntel: props.countryIntel,
+      directories: model.directoryRecords,
+      genetics: model.geneticsRecords,
+      actions: model.nextActions,
+      evidenceDocuments: model.evidenceDocuments,
+      talent: model.talentRecords,
+    })
+  }, [
+    deferredSearchQuery,
     model.signals,
     model.marketRows,
     props.watchlistData,

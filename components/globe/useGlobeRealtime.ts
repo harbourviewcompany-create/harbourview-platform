@@ -23,7 +23,7 @@ import { createClient } from '@/lib/supabase/client'
 export type RealtimeStatus = 'connected' | 'reconnecting' | 'degraded'
 
 type ChangePayload = {
-  table: 'signals' | 'countries' | 'market_metrics'
+  table: 'signals' | 'countries'
   eventType: 'INSERT' | 'UPDATE' | 'DELETE'
   new: Record<string, unknown>
   old: Record<string, unknown>
@@ -69,17 +69,6 @@ export function useGlobeRealtime(onChange: (payload: ChangePayload) => void) {
         (payload) =>
           onChangeRef.current({
             table: 'countries',
-            eventType: payload.eventType as ChangePayload['eventType'],
-            new: payload.new as Record<string, unknown>,
-            old: payload.old as Record<string, unknown>,
-          })
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'market_metrics' },
-        (payload) =>
-          onChangeRef.current({
-            table: 'market_metrics',
             eventType: payload.eventType as ChangePayload['eventType'],
             new: payload.new as Record<string, unknown>,
             old: payload.old as Record<string, unknown>,
