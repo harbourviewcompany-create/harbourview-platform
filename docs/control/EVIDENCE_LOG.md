@@ -7034,6 +7034,48 @@ session with outbound egress and is tracked in the tier-sourcing worklist; these
 that backlog and should be prioritised within it, since they are the ones that regressed
 from "shown" to "blank" and include CN, JP, MX, IN, TH, CH, SE, SG, TR, RU, AR and CL.
 
+## 2026-09-19 — Public cannabinoid research module added, ChEMBL-backed (PR #1991)
+
+**What.** New public surface `/intelligence/cannabinoid-research` (index) +
+`/intelligence/cannabinoid-research/[chemblId]` (detail), following the
+licensing-pathways/playbooks index→detail pattern. Data source: `public.cannabinoid_compounds`
+(created earlier this session via the Legal/Research MCP pipeline — currently 2 rows,
+CBD and CBDA from ChEMBL), exposed read-only via a new `api.cannabinoid_compounds` view
+(migration `20260919120000_expose_cannabinoid_compounds_api.sql`, not yet applied live —
+see PR body Risks).
+
+**QA (ordinary frontend gate, actually run against a fresh clone this session, not
+delegated to CI):**
+- `npm install --no-audit --no-fund --prefer-offline` — 669 packages, clean
+- `npx tsc --noEmit -p tsconfig.json` — 0 errors repo-wide
+- `npx eslint app/intelligence/cannabinoid-research lib/intelligence/cannabinoidCompounds.ts lib/platform/capabilityRegistry.ts` — first pass caught 2× `react/no-unescaped-entities` (apostrophes in JSX text — the same class of issue `fix-jsx-apostrophes` exists for), fixed with `&apos;`, re-run clean
+- `npm run build` — "Compiled successfully"; both new routes present in the manifest (`/intelligence/cannabinoid-research` static/ISR, `/intelligence/cannabinoid-research/[chemblId]` SSG via `generateStaticParams`)
+- `npx vitest run tests/platform/command-centre-route-registry.test.ts` — 7/7 passed
+
+**Depth & competitive bar.** Entity audit: `cannabinoid_compounds` existed with zero
+public surface before this PR (thin by AGENTS.md's definition) — now surfaced with
+index + detail views. Cross-links added to `/intelligence/licensing-pathways` and
+`/signals`. Registered in `lib/platform/capabilityRegistry.ts` with an explicit
+false-go risk (approval-status data misread as jurisdiction-specific regulatory/medical
+conclusion) and matching boundary copy on-page.
+
+**Not done / explicitly out of scope.** (1) The migration exposing `api.cannabinoid_compounds`
+is NOT yet applied to the live project — a separate Supabase write in this session hit
+an approval gate ("No approval received") partway through, so live-apply is pending a
+follow-up. Until applied, both pages render an empty/graceful state, not an error.
+(2) A `source_registry` row wiring ChEMBL into the *existing generic `api`/JSON adapter*
+in `source-engine-fetch` (for automated recurring ingestion, no new crawler code needed —
+confirmed by reading `supabase/functions/source-engine-fetch/index.ts` and
+`supabase/functions/_shared/structured-json.ts`) was also proposed this session but not
+applied, same approval-gate reason. (3) PubMed automation was investigated and intentionally
+NOT wired the same way: NCBI E-utilities' `esummary` JSON response is a keyed object
+(`{result: {uids: [...], "<pmid>": {...}, ...}}`), not a flat array, so it doesn't fit
+`parseStructuredJson`'s `records_path` contract without either a schema-shape workaround
+or a small dedicated adapter — flagged rather than forced in with a fragile config.
+
+**Rollback.** Revert the PR commit (pure addition). If the migration was applied live
+by the time of rollback: `drop view api.cannabinoid_compounds;`.
+
 ## 2026-09-17 -- PR-triggered workflow privilege audit: production secrets and untrusted checkout in the same job
 
 **Evidence ID:** `HV-PR-TRUST-BOUNDARY-AUDIT-20260917`
