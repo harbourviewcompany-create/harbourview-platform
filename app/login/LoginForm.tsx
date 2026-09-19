@@ -51,7 +51,6 @@ export default function LoginForm({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [signupComplete, setSignupComplete] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(
     error
       ? { type: 'error', text: error === 'auth_callback_failed' ? 'Authentication failed. Please try again.' : decodeURIComponent(error) }
@@ -90,9 +89,8 @@ export default function LoginForm({
         if (!response.ok) {
           setFeedback({ type: 'error', text: friendlyAuthError(result.error ?? 'We could not create the account. Please try again.') })
         } else {
-          // Signup confirmation is delivered by the server through the configured
-          // transactional mail provider, rather than Supabase's restricted default mailer.
-          setSignupComplete(true)
+          router.push(next ?? '/dashboard')
+          router.refresh()
         }
       }
     } catch (err) {
@@ -102,27 +100,7 @@ export default function LoginForm({
     }
   }
 
-  async function handleResendConfirmation() {
-    setLoading(true)
-    setFeedback(null)
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, next: next ?? '/dashboard' }),
-      })
-      const result = await response.json().catch(() => ({}))
-      setFeedback(response.ok
-        ? { type: 'success', text: 'Confirmation email resent.' }
-        : { type: 'error', text: friendlyAuthError(result.error ?? 'We could not resend the confirmation email.') }
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (signupComplete) {
-    return (
+  return (
       <div className="rounded-2xl border border-white/10 bg-[#07111F] p-8 text-center">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#C6A55A]/30 bg-[#C6A55A]/10 text-xl text-[#C6A55A]">✓</div>
         <h2 className="text-lg font-semibold text-[#F5F1E8]">Check your inbox</h2>
