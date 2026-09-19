@@ -40,6 +40,7 @@ export function useDashboardSignalsRealtime(
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlightRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
+  const hasMountedRef = useRef(false)
 
   const refresh = useCallback(async () => {
     const scope = countryRef.current
@@ -90,7 +91,14 @@ export function useDashboardSignalsRealtime(
       windowDays: WEEKLY_SIGNAL_WINDOW_DAYS,
       limit: FEED_LIMIT,
     }))
-    void refresh()
+
+    // The server payload is already the authoritative, page-scoped snapshot.
+    // Avoid immediately fetching the same feed again on mount; that duplicate
+    // no-store request competes with dashboard hydration and can delay the
+    // first interactive frame. Context changes still refresh because the
+    // server snapshot no longer represents the newly selected country.
+    if (hasMountedRef.current) void refresh()
+    hasMountedRef.current = true
   }, [countryLabel, initialSignals, refresh])
 
   // Refresh when a signal is inserted OR later updated into reviewed/published

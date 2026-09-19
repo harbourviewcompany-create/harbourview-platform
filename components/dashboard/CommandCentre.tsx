@@ -42,14 +42,15 @@ const CorridorEvidenceFlagsFromFixtures = dynamic(
   () => import('@/components/clinical/CorridorEvidenceFlagsPanel').then(m => ({ default: m.CorridorEvidenceFlagsFromFixtures })),
   { ssr: false, loading: () => null },
 )
-import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
+
 import { INDUSTRY_EVENTS, EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, type CannabisEvent } from './data/industryEvents'
-import { BANKING_PROVIDERS, PROVIDER_TYPE_LABELS, PROVIDER_TYPE_COLORS, STANCE_LABELS, STANCE_COLORS, type BankingProvider } from './data/bankingProviders'
-import { PRICE_BENCHMARKS, PRODUCT_TYPE_LABELS, PRODUCT_TYPE_ICONS, TIER_LABELS, TIER_COLORS, type PriceBenchmark } from './data/priceIntelligence'
-import { LOGISTICS_PROVIDERS, LOGISTICS_TYPE_LABELS, LOGISTICS_TYPE_COLORS, type LogisticsType } from './data/logisticsProviders'
-import { JOB_LISTINGS, JOB_TYPE_LABELS, JOB_TYPE_COLORS, JOB_SECTOR_LABELS, type JobType, type JobSector } from './data/jobsBoard'
-import { INSURANCE_PROVIDERS, INSURANCE_LINE_LABELS, INSURANCE_ROLE_LABELS, INSURANCE_ROLE_COLORS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
-import { EXPORTER_ORIGINS, DESTINATION_MARKETS, FREIGHT_CORRIDORS, LANDED_PRODUCT_LABELS, calcLandedCost, type LandedProductType } from './data/landedCostData'
+import { CORRIDOR_BANKING, CORRIDOR_AUTHORITY, CORRIDOR_COSTS } from './data/corridorIntel'
+import { PROVIDER_TYPE_LABELS, STANCE_LABELS, type BankingProvider } from './data/bankingProviders'
+import type { PriceBenchmark } from './data/priceIntelligence'
+import type { LogisticsType } from './data/logisticsProviders'
+import type { JobType, JobSector } from './data/jobsBoard'
+import { INSURANCE_ROLE_COLORS, INSURANCE_ROLE_LABELS, INSURANCE_LINE_LABELS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
+import type { LandedProductType } from './data/landedCostData'
 const WatchlistPage = dynamic(() => import('./pages/WatchlistPage').then(m => ({ default: m.WatchlistPage })))
 import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
@@ -177,6 +178,8 @@ type Props = {
   collaborationProjects?: PublicCollaborationProject[]
   mySubmissions?:       MySubmission[]
   hasOrg?:              boolean
+  /** When this user last opened the Command overview; null = never. See docs/COMMAND_SURFACE_SPEC.md 4.1. */
+  commandLastViewedAt?: string | null
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
@@ -437,29 +440,50 @@ const BriefingRoom = React.memo(function BriefingRoom({
     setAiBriefing(null)
     setAiBriefingError(false)
     setAiBriefingLoading(true)
-    const intelMatches = countryIntel && countryIntel.country_code === country.iso2
-    const intel = intelMatches ? {
-      medical_status:       countryIntel!.medical_status,
-      market_access_status: countryIntel!.market_access_status,
-      import_status:        countryIntel!.import_status,
-      export_status:        countryIntel!.export_status,
-      opportunity_score:    countryIntel!.opportunity_score,
-      public_summary:       countryIntel!.public_summary,
-    } : null
-    fetch('/api/ai/briefing', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
-      signal:  controller.signal,
-    })
-      .then(r => r.json())
-      .then((d: { briefing?: string; error?: string }) => {
-        if (d.briefing) setAiBriefing(d.briefing)
-        else setAiBriefingError(true)
+
+    // AI briefing is secondary content. Schedule it during browser idle time so
+    // the initial dashboard render is not competing with the globe/chrome for
+    // network and main-thread budget. The timeout keeps the briefing responsive
+    // on browsers that remain continuously busy.
+    const loadBriefing = () => {
+      const intelMatches = countryIntel && countryIntel.country_code === country.iso2
+      const intel = intelMatches ? {
+        medical_status:       countryIntel!.medical_status,
+        market_access_status: countryIntel!.market_access_status,
+        import_status:        countryIntel!.import_status,
+        export_status:        countryIntel!.export_status,
+        opportunity_score:    countryIntel!.opportunity_score,
+        public_summary:       countryIntel!.public_summary,
+      } : null
+
+      fetch('/api/ai/briefing', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ country: country.label, role: role ?? '', intel }),
+        signal:  controller.signal,
       })
-      .catch(err => { if (err?.name !== 'AbortError') setAiBriefingError(true) })
-      .finally(() => setAiBriefingLoading(false))
-    return () => controller.abort()
+        .then(r => r.json())
+        .then((d: { briefing?: string; error?: string }) => {
+          if (d.briefing) setAiBriefing(d.briefing)
+          else setAiBriefingError(true)
+        })
+        .catch(err => { if (err?.name !== 'AbortError') setAiBriefingError(true) })
+        .finally(() => setAiBriefingLoading(false))
+    }
+
+    let idleCallbackId: number | null = null
+    let timeoutId: number | null = null
+    if (window.requestIdleCallback) {
+      idleCallbackId = window.requestIdleCallback(loadBriefing, { timeout: 2000 })
+    } else {
+      timeoutId = window.setTimeout(loadBriefing, 1200)
+    }
+
+    return () => {
+      controller.abort()
+      if (idleCallbackId !== null) window.cancelIdleCallback?.(idleCallbackId)
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+    }
   }, [country.label, country.iso2, role, countryIntel])
 
   if (showMyBriefings) {
@@ -7265,6 +7289,21 @@ const BANKING_ROLE_TYPES_MAP: Record<string, BankingProvider['type'][]> = {
 const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   country, region, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [bankingData, setBankingData] = useState<typeof import('./data/bankingProviders') | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/bankingProviders').then((mod) => {
+      if (active) setBankingData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!bankingData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const BANKING_PROVIDERS = bankingData.BANKING_PROVIDERS
+  const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS
+  const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS
+  const STANCE_LABELS = bankingData.STANCE_LABELS
+  const STANCE_COLORS = bankingData.STANCE_COLORS
+
   const [search,      setSearch]      = useState('')
   const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
   const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
@@ -8636,6 +8675,21 @@ function benchmarkQuarterEnd(updatedQ: string): Date | null {
 const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [priceData, setPriceData] = useState<typeof import('./data/priceIntelligence') | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/priceIntelligence').then((mod) => {
+      if (active) setPriceData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!priceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS
+  const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS
+  const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS
+  const TIER_LABELS = priceData.TIER_LABELS
+  const TIER_COLORS = priceData.TIER_COLORS
+
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
   const [filterRegion,   setFilterRegion]   = useState<string>('all')
@@ -9068,6 +9122,19 @@ const LOGISTICS_ROLE_TYPES_MAP: Record<string, LogisticsType[]> = {
 const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [logisticsData, setLogisticsData] = useState<typeof import('./data/logisticsProviders') | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/logisticsProviders').then((mod) => {
+      if (active) setLogisticsData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!logisticsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const LOGISTICS_PROVIDERS = logisticsData.LOGISTICS_PROVIDERS
+  const LOGISTICS_TYPE_LABELS = logisticsData.LOGISTICS_TYPE_LABELS
+  const LOGISTICS_TYPE_COLORS = logisticsData.LOGISTICS_TYPE_COLORS
+
   const [search,        setSearch]        = useState('')
   const [filterType,    setFilterType]    = useState<LogisticsType | 'all'>('all')
   const [filterRegion,  setFilterRegion]  = useState<string>('all')
@@ -9340,6 +9407,20 @@ const ROLE_SECTORS_MAP: Record<string, JobSector[]> = {
 const JobsBoardPage = React.memo(function JobsBoardPage({
   country, role, onPageChange,
 }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void }) {
+  const [jobsData, setJobsData] = useState<typeof import('./data/jobsBoard') | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/jobsBoard').then((mod) => {
+      if (active) setJobsData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!jobsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const JOB_LISTINGS = jobsData.JOB_LISTINGS
+  const JOB_TYPE_LABELS = jobsData.JOB_TYPE_LABELS
+  const JOB_TYPE_COLORS = jobsData.JOB_TYPE_COLORS
+  const JOB_SECTOR_LABELS = jobsData.JOB_SECTOR_LABELS
+
   const [search,        setSearch]        = useState('')
   const [filterSector,  setFilterSector]  = useState<JobSector | 'all'>('all')
   const [filterType,    setFilterType]    = useState<JobType | 'all'>('all')
@@ -9684,6 +9765,20 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
+  const [insuranceData, setInsuranceData] = useState<typeof import('./data/insuranceProviders') | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/insuranceProviders').then((mod) => {
+      if (active) setInsuranceData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!insuranceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const INSURANCE_PROVIDERS = insuranceData.INSURANCE_PROVIDERS
+  const INSURANCE_LINE_LABELS = insuranceData.INSURANCE_LINE_LABELS
+  const INSURANCE_ROLE_LABELS = insuranceData.INSURANCE_ROLE_LABELS
+  const INSURANCE_ROLE_COLORS = insuranceData.INSURANCE_ROLE_COLORS
+
   const [search,        setSearch]        = useState('')
   const [filterRole,    setFilterRole]    = useState<InsuranceProviderRole | 'all'>('all')
   const [filterType,    setFilterType]    = useState<InsuranceLineType | 'all'>('all')
@@ -10252,6 +10347,21 @@ const LandedCostPage = React.memo(function LandedCostPage({
   role:    string
   onPageChange?: (page: CommandPage) => void
 }) {
+  const [landedData, setLandedData] = useState<typeof import('./data/landedCostData') | null>(null)
+  useEffect(() => {
+    let active = true
+    void import('./data/landedCostData').then((mod) => {
+      if (active) setLandedData(mod)
+    })
+    return () => { active = false }
+  }, [])
+  if (!landedData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const EXPORTER_ORIGINS = landedData.EXPORTER_ORIGINS
+  const DESTINATION_MARKETS = landedData.DESTINATION_MARKETS
+  const FREIGHT_CORRIDORS = landedData.FREIGHT_CORRIDORS
+  const LANDED_PRODUCT_LABELS = landedData.LANDED_PRODUCT_LABELS
+  const calcLandedCost = landedData.calcLandedCost
+
   const exporterIso2s = EXPORTER_ORIGINS.map(o => o.iso2)
   const importerIso2s = DESTINATION_MARKETS.map(d => d.iso2)
 
@@ -10962,7 +11072,8 @@ const EventsPage = React.memo(function EventsPage({
                 ))}
                 <button
                   onClick={() => { if (submitName && submitCity) setSubmitSent(true) }}
-                  style={{ padding: '7px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, marginTop: '2px' }}
+                  style={
+{ padding: '7px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'rgba(212,168,75,.15)', color: '#d4a84b', fontSize: '11px', fontWeight: 600, marginTop: '2px' }}
                 >
                   Submit Event
                 </button>
@@ -10976,6 +11087,7 @@ const EventsPage = React.memo(function EventsPage({
 })
 
 // ── Main component ────────────────────────────────────────────────────────────
+
 
 export default function CommandCentre({
   signals: ssrSignals,
@@ -11065,13 +11177,23 @@ export default function CommandCentre({
       setIntelLoading(false)
       return
     }
-    let cancelled = false
+    const controller = new AbortController()
     setIntelLoading(true)
-    fetch(`/api/country-intel?iso2=${country.iso2}`)
+    fetch(`/api/country-intel?iso2=${country.iso2}`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : null)
-      .then((data: CountryIntelProfile | null) => { if (!cancelled) { setLiveCountryIntel(data); setIntelLoading(false) } })
-      .catch(() => { if (!cancelled) { setLiveCountryIntel(null); setIntelLoading(false) } })
-    return () => { cancelled = true }
+      .then((data: CountryIntelProfile | null) => {
+        if (!controller.signal.aborted) {
+          setLiveCountryIntel(data)
+          setIntelLoading(false)
+        }
+      })
+      .catch(error => {
+        if (error?.name !== 'AbortError' && !controller.signal.aborted) {
+          setLiveCountryIntel(null)
+          setIntelLoading(false)
+        }
+      })
+    return () => controller.abort()
   }, [country.iso2, countryIntel])
 
   // ⌘K keyboard shortcut

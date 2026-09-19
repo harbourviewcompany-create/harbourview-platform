@@ -1,3 +1,5 @@
 import { redirect } from 'next/navigation'
-export const dynamic = 'force-dynamic'
-export default function Page() { redirect('/dashboard?page=countries') }
+
+export default function Page() {
+  redirect('/dashboard?page=countries')
+}

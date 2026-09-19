@@ -1,6 +1,6 @@
 // Sentry client-side (browser) initialization.
 // Docs: https://docs.sentry.io/platforms/javascript/guides/nextjs/
-//
+// 
 // Requires NEXT_PUBLIC_SENTRY_DSN to be set (safe to expose — DSNs are not
 // secret, they only accept writes). If unset, Sentry.init() no-ops safely.
 import * as Sentry from '@sentry/nextjs'
@@ -9,9 +9,8 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
 
-  // Trace a sample of transactions for performance monitoring. Keep low in
-  // production to control event volume/cost; raise temporarily when
-  // investigating a specific regression.
+  // Trace a sample of browser transactions so production performance data
+  // includes route transitions and browser Web Vitals when Sentry is enabled.
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
 
   // Session Replay — only capture replays on error, never sample healthy
@@ -20,6 +19,7 @@ Sentry.init({
   replaysOnErrorSampleRate: 1.0,
 
   integrations: [
+    Sentry.browserTracingIntegration(),
     Sentry.replayIntegration({
       // Mask all text/media by default — this app renders confidential
       // counterparty and marketplace data; err toward over-redaction.

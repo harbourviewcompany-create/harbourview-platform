@@ -5,6 +5,12 @@ import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 /**
  * Briefing cadence preferences re-use signal_subscriptions (markets + frequency)
  * to avoid a new table / migration drift. One row per user (onConflict user_id).
+ *
+ * min_confidence scale
+ * -------------------
+ * Canonical storage is 0–100 (same as signals confidence / quality_confidence*100).
+ * Older signup forms wrote 0–10; readers must normalize. See also
+ * lib/signals/digestCadence.ts CONFIDENCE_SCALE.
  */
 
 export type BriefingCadence = {
@@ -36,6 +42,18 @@ export function normalizeMarkets(raw: unknown): string[] {
   return Array.from(out).slice(0, 12)
 }
 
+/**
+ * Normalize stored min_confidence to the 0–100 signal scale.
+ * Values ≤ 10 are treated as the legacy 0–10 slider and scaled ×10.
+ */
+export function normalizeMinConfidence(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 50
+  const n = Math.max(0, raw)
+  // Legacy form wrote 0–10; current path writes 0–100.
+  if (n <= 10) return Math.min(100, Math.round(n * 10))
+  return Math.min(100, Math.round(n))
+}
+
 export async function getBriefingCadence(userId: string): Promise<BriefingCadence> {
   const svc = serviceClient()
   const { data } = await svc
@@ -58,10 +76,7 @@ export async function getBriefingCadence(userId: string): Promise<BriefingCadenc
     markets: normalizeMarkets(data.markets),
     frequency: data.frequency === 'weekly' ? 'weekly' : 'daily',
     active: Boolean(data.active),
-    min_confidence:
-      typeof data.min_confidence === 'number'
-        ? Math.min(100, Math.max(0, data.min_confidence))
-        : 50,
+    min_confidence: normalizeMinConfidence(data.min_confidence),
     subscriptionId: typeof data.id === 'string' ? data.id : null,
   }
 }
@@ -82,7 +97,7 @@ export async function upsertBriefingCadence(
   const active = patch.active ?? current.active
   const min_confidence =
     patch.min_confidence !== undefined
-      ? Math.min(100, Math.max(0, patch.min_confidence))
+      ? normalizeMinConfidence(patch.min_confidence)
       : current.min_confidence
 
   const svc = serviceClient()
@@ -111,8 +126,7 @@ export async function upsertBriefingCadence(
     markets: normalizeMarkets(data.markets),
     frequency: data.frequency === 'weekly' ? 'weekly' : 'daily',
     active: Boolean(data.active),
-    min_confidence:
-      typeof data.min_confidence === 'number' ? data.min_confidence : 50,
+    min_confidence: normalizeMinConfidence(data.min_confidence),
     subscriptionId: data.id,
   }
 }
@@ -123,6 +137,7 @@ export type CadenceSubscriber = {
   email: string
   markets: string[]
   frequency: 'daily' | 'weekly'
+  min_confidence: number
 }
 
 /** Active daily (or weekly on Mondays) subscribers for cron synthesis + email. */
@@ -134,7 +149,7 @@ export async function listCadenceSubscribersForTick(opts: {
   const isMonday = opts.todayUtc.getUTCDay() === 1
   const { data, error } = await svc
     .from('signal_subscriptions')
-    .select('id, user_id, email, markets, frequency')
+    .select('id, user_id, email, markets, frequency, min_confidence')
     .eq('active', true)
     .limit(opts.limit ?? 100)
 
@@ -151,5 +166,6 @@ export async function listCadenceSubscribersForTick(opts: {
       email: (row.email as string) ?? '',
       markets: normalizeMarkets(row.markets),
       frequency: (row.frequency === 'weekly' ? 'weekly' : 'daily') as 'daily' | 'weekly',
+      min_confidence: normalizeMinConfidence(row.min_confidence),
     }))
 }

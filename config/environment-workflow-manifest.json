@@ -125,7 +125,6 @@
         "E2E_INVITER_PASSWORD",
         "HV_SIGNAL_VERIFY_TOKEN",
         "HV_SIGNAL_VERIFY_TOKEN_CONFIRM",
-        "OPENAI_KEY",
         "POSTGRES_PASSWORD",
         "SUPABASE_DB_URL",
         "TEST_PASSWORD",
@@ -139,6 +138,19 @@
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
         "nextWebPreview": "Keep in CI/test secret store; do not copy to Worker runtime"
+      }
+    },
+    {
+      "id": "pr-review-third-party-secrets",
+      "names": ["OPENAI_KEY"],
+      "stage": "CI/Deploy only",
+      "sensitivity": "Secret",
+      "provider": "openai",
+      "requirement": "Consumed by .github/workflows/pr-agent.yml's 'AI PR review' job (the-pr-agent/pr-agent action) for auto-review/auto-describe on pull_request and issue_comment events. Confirmed live: repeated successful completed runs observed 2026-09-17 (e.g. run 35171675212). Not an application runtime secret.",
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Keep in CI secret store; do not copy to Worker runtime"
       }
     }
   ]

@@ -36,17 +36,17 @@
       }
     },
     {
-      "id": "market-entry-report-price",
+      "id": "stripe-market-entry-price-id",
       "names": ["STRIPE_PRICE_MARKET_ENTRY_REPORT"],
       "stage": "Runtime only",
       "sensitivity": "Plain variable",
-      "provider": "stripe/harbourview",
-      "requirement": "Optional configured Stripe Price ID for the Market Entry Report checkout; checkout fails closed when absent or invalid",
+      "provider": "stripe",
+      "requirement": "Required for the live Market Entry report purchase; app/api/market-entry/checkout/route.ts fails closed with HTTP 503 when absent or not a price_ identifier",
       "targets": ["next-app"],
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
-        "nextWebPreview": "Settings → Variables and Secrets → Variable only when the market-entry checkout is exercised"
+        "nextWebPreview": "Settings → Variables and Secrets → Variable when billing is in preview scope"
       }
     }
   ]
