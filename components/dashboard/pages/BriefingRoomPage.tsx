@@ -551,9 +551,9 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                 {' · '}
                 Conversion {formatRate(funnelMetrics.conversionRate)}
                 <br />
-                Outcomes: {funnelMetrics.wonProxy} qualified (win proxy)
+                Outcomes: {funnelMetrics.wonProxy} won
                 {' · '}
-                {funnelMetrics.lostProxy} not fit (loss)
+                {funnelMetrics.lostProxy} lost
                 {' · '}
                 Loss rate {formatRate(funnelMetrics.lossRate)}
                 {' · '}

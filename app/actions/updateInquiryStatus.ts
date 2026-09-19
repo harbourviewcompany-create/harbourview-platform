@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { getAdminDataClient } from '@/lib/supabase/adminDataClient';
-import { canTransitionReviewStatus, isInquiryPriority, isReviewStatus } from '@/lib/marketplace/inquiryWorkflow';
+import {
+  canSetCommercialOutcome,
+  canTransitionReviewStatus,
+  isCommercialOutcome,
+  isInquiryPriority,
+  isReviewStatus,
+} from '@/lib/marketplace/inquiryWorkflow';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_NOTES_LENGTH = 4000;
@@ -31,6 +37,8 @@ function normalizeWorkflowFields(formData: FormData) {
     notes: readField(formData, 'internal_response_notes'),
     nextFollowUpAt: normalizeDateTime(readField(formData, 'next_follow_up_at')),
     markContactedNow: readField(formData, 'mark_contacted_now') === '1',
+    commercialOutcome: readField(formData, 'commercial_outcome'),
+    commercialOutcomeReason: readField(formData, 'commercial_outcome_reason'),
   };
 }
 
@@ -55,13 +63,21 @@ async function fetchCurrentWorkflow(id: string, url: string, serviceRoleKey: str
 export async function applyInquiryWorkflowUpdate(id: string, formData: FormData): Promise<boolean> {
   await requireAdminAuth();
 
-  const { reviewStatus, priority, notes, nextFollowUpAt, markContactedNow } = normalizeWorkflowFields(formData);
+  const { reviewStatus, priority, notes, nextFollowUpAt, markContactedNow, commercialOutcome, commercialOutcomeReason } = normalizeWorkflowFields(formData);
 
   if (!UUID_PATTERN.test(id)) {
     return false;
   }
 
   if (!isReviewStatus(reviewStatus) || !isInquiryPriority(priority)) {
+    return false;
+  }
+
+  if (commercialOutcome && !isCommercialOutcome(commercialOutcome)) {
+    return false;
+  }
+
+  if (commercialOutcomeReason.length > MAX_NOTES_LENGTH) {
     return false;
   }
 
@@ -93,6 +109,9 @@ export async function applyInquiryWorkflowUpdate(id: string, formData: FormData)
     internal_response_notes: string | null;
     next_follow_up_at: string | null;
     last_contacted_at?: string;
+    commercial_outcome?: string | null;
+    commercial_outcome_reason?: string | null;
+    commercial_outcome_at?: string | null;
   } = {
     review_status: reviewStatus,
     priority,
@@ -102,6 +121,19 @@ export async function applyInquiryWorkflowUpdate(id: string, formData: FormData)
 
   if (markContactedNow || (reviewStatus === 'contacted' && !current.last_contacted_at)) {
     patch.last_contacted_at = new Date().toISOString();
+  }
+
+  let outcome = commercialOutcome || '';
+  if (!outcome && reviewStatus === 'qualified') outcome = 'won';
+  if (!outcome && reviewStatus === 'not_fit') outcome = 'lost';
+
+  if (outcome && isCommercialOutcome(outcome)) {
+    if (!canSetCommercialOutcome(reviewStatus)) {
+      return false;
+    }
+    patch.commercial_outcome = outcome;
+    patch.commercial_outcome_reason = commercialOutcomeReason || null;
+    patch.commercial_outcome_at = new Date().toISOString();
   }
 
   const response = await fetch(`${client.data.url}/rest/v1/marketplace_inquiries?id=eq.${encodeURIComponent(id)}`, {

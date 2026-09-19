@@ -15,7 +15,9 @@ Last updated: 2026-09-19
 | Role-default home page | Shipped | `lib/dashboard/roleCommandDefaults.ts` |
 | Pipeline SLO helpers | Shipped | `lib/dashboard/pipelineSlo.ts` |
 | CI Command Centre smoke | Shipped |
-| Marketplace funnel conversion rates | Shipped | contact / qualify / conversion via API |
+| Marketplace funnel conversion rates | Shipped |
+| Inquiry commercial_outcome (won/lost/withdrawn) | Shipped | migration + workflow + admin action |
+ contact / qualify / conversion via API |
 | Briefing action urgency + deadlines | Shipped | from signal analysis.deadline + confidence |
 | Coverage map (domain grid) | Shipped | baseline live/mixed/reference chips | `tests/dashboard/command-centre-smoke.test.ts` |
 

@@ -52,6 +52,10 @@ export function buildMarketplaceFunnelMetrics(input: {
   closed: number
   wanted?: number
   listings?: number
+  /** Explicit commercial_outcome counts when column is live */
+  won?: number
+  lost?: number
+  withdrawn?: number
 }): MarketplaceFunnelMetrics {
   const openInquiry = Math.max(0, input.receivedReviewing)
   const contacted = Math.max(0, input.contacted)
@@ -75,8 +79,8 @@ export function buildMarketplaceFunnelMetrics(input: {
     { key: 'closed', label: 'Closed', count: closed },
   ]
 
-  const wonProxy = qualified
-  const lostProxy = notFit
+  const wonProxy = input.won != null ? Math.max(0, input.won) : qualified
+  const lostProxy = input.lost != null ? Math.max(0, input.lost) : notFit
   const outcomeDenom = wonProxy + lostProxy
   const lossRate = outcomeDenom > 0 ? lostProxy / outcomeDenom : null
 

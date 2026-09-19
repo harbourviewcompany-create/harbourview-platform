@@ -36,6 +36,30 @@ export function isInquiryPriority(value: string): value is InquiryPriority {
   return (PRIORITIES as readonly string[]).includes(value);
 }
 
+export const COMMERCIAL_OUTCOMES = ['won', 'lost', 'withdrawn'] as const;
+export type CommercialOutcome = (typeof COMMERCIAL_OUTCOMES)[number];
+
+export const commercialOutcomeLabels: Record<CommercialOutcome, string> = {
+  won: 'Won',
+  lost: 'Lost',
+  withdrawn: 'Withdrawn',
+};
+
+export function isCommercialOutcome(value: string): value is CommercialOutcome {
+  return (COMMERCIAL_OUTCOMES as readonly string[]).includes(value);
+}
+
+/** Stages that may accept a commercial outcome */
+export function canSetCommercialOutcome(reviewStatus: ReviewStatus): boolean {
+  return (
+    reviewStatus === 'qualified' ||
+    reviewStatus === 'not_fit' ||
+    reviewStatus === 'closed' ||
+    reviewStatus === 'contacted'
+  );
+}
+
+
 export function getInquiryTypeLabel(inquiryType: string) {
   if (inquiryType === 'listing_submission') return 'Listing submission';
   if (inquiryType === 'wanted_request_submission') return 'Wanted request';

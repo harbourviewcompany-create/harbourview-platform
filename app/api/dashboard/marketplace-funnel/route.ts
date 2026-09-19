@@ -33,7 +33,7 @@ export async function GET() {
       db: { schema: SUPABASE_DB_SCHEMA },
     })
 
-    const [openRes, contactedRes, qualifiedRes, notFitRes, closedRes, wantedRes, listingsRes] =
+    const [openRes, contactedRes, qualifiedRes, notFitRes, closedRes, wantedRes, listingsRes, wonRes, lostRes, withdrawnRes] =
       await Promise.all([
         admin
           .from('marketplace_inquiries')
@@ -65,7 +65,24 @@ export async function GET() {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'approved')
           .neq('marketplace_section', 'wanted_requests'),
+        admin
+          .from('marketplace_inquiries')
+          .select('*', { count: 'exact', head: true })
+          .eq('commercial_outcome', 'won'),
+        admin
+          .from('marketplace_inquiries')
+          .select('*', { count: 'exact', head: true })
+          .eq('commercial_outcome', 'lost'),
+        admin
+          .from('marketplace_inquiries')
+          .select('*', { count: 'exact', head: true })
+          .eq('commercial_outcome', 'withdrawn'),
       ])
+
+    // Prefer commercial_outcome when column exists; fall back to stage proxies on error/zero schema lag
+    const won = wonRes.error ? undefined : (wonRes.count ?? 0)
+    const lost = lostRes.error ? undefined : (lostRes.count ?? 0)
+    const withdrawn = withdrawnRes.error ? undefined : (withdrawnRes.count ?? 0)
 
     const metrics = buildMarketplaceFunnelMetrics({
       receivedReviewing: openRes.count ?? 0,
@@ -75,6 +92,9 @@ export async function GET() {
       closed: closedRes.count ?? 0,
       wanted: wantedRes.count ?? 0,
       listings: listingsRes.count ?? 0,
+      won,
+      lost,
+      withdrawn,
     })
 
     return NextResponse.json({ ok: true, metrics })

@@ -42,3 +42,21 @@ describe('coverageOverridesFromSignals', () => {
     expect(coverageOverridesFromSignals(6).regulatory).toBe('live')
   })
 })
+
+
+describe('explicit commercial outcomes', () => {
+  it('prefers commercial_outcome counts over stage proxies', () => {
+    const m = buildMarketplaceFunnelMetrics({
+      receivedReviewing: 1,
+      contacted: 0,
+      qualified: 9,
+      notFit: 9,
+      closed: 0,
+      won: 2,
+      lost: 1,
+    })
+    expect(m.wonProxy).toBe(2)
+    expect(m.lostProxy).toBe(1)
+    expect(m.lossRate).toBeCloseTo(1 / 3)
+  })
+})
