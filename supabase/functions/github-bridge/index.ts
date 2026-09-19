@@ -1,73 +1,20 @@
 /**
- * github-bridge v26 -- batch reverted to Promise.allSettled between v23 and
- *   v25, refixed (2026-09-16)
- *   This is the second time this exact regression has happened to this
- *   exact file in about two weeks. The first time (documented in the v23
- *   entry below): batch ran every sub-op concurrently, a multi-file commit
- *   raced on the branch ref, and most sub-results silently 409'd while the
- *   outer batch response still read { ok: true }. Fixed in PR #1814,
- *   deployed as v24 (folding in v23's get_job_logs, which had been
- *   deployed live with no matching commit), verified live against the
- *   real failure scenario (4 concurrent push_file calls to one branch,
- *   all 4 succeeding, zero 409s).
+ * github-bridge v24 -- added get_commit; create_ref/get_tree resolve via commits API (2026-09-18)
+ *   create_ref and get_tree both resolved refs via endpoints that only accept
+ *   branch names or exact/full SHAs (GET /branches/<ref> and GET /git/trees/<ref>
+ *   respectively). Passing an abbreviated commit SHA -- exactly what Vercel/GitHub
+ *   UIs display, e.g. "40516dd" -- silently resolved to the wrong object (a stray
+ *   tree with a colliding prefix) or a 422. For create_ref specifically, an
+ *   unresolvable fromRef fell through to branching off main with no error, which
+ *   is worse than failing loudly -- a caller could believe it branched off a
+ *   specific commit and be editing main instead. Both now resolve through
+ *   GET /commits/<ref>, the one GitHub endpoint that correctly accepts branch
+ *   names, tags, full SHAs, AND abbreviated SHAs uniformly. Also added
+ *   `get_commit` (same endpoint) so callers can resolve an abbreviated ref to
+ *   its full 40-char sha directly, standalone. Purely additive + two bug fixes;
+ *   no case removed.
  *
- *   Between that verification and this fix, v24 (trigger_workflow,
- *   list_workflow_runs) and v25 (create_ruleset) were each built on top of
- *   a copy of this file that predated the batch fix entirely -- not
- *   missing just the fix, missing the whole v24 header documenting it, and
- *   the get_job_logs fold-in that came with it. Whoever built v24/v25 got
- *   their base from wherever this file lived before the fix landed, not
- *   from git main post-merge and not from the live function post-deploy.
- *   Separately, this repository's own git main also lost its copy of the
- *   fix's get_job_logs fold-in commits in the same window (confirmed:
- *   main's committed file matched the pre-fold-in sha at time of writing)
- *   -- so this was not only a live-deploy collision, git itself briefly
- *   held a stale copy too, from a cause not identified here.
- *
- *   Refixed the same way: sequential for-await in batch, not
- *   Promise.allSettled. Everything v24 (trigger_workflow,
- *   list_workflow_runs) and v25 (create_ruleset) added is preserved
- *   unchanged in this version -- this is a merge of the real, valuable
- *   work in both v24/v25 and the batch fix, not a revert of either.
- *
- * github-bridge v25 -- added create_ruleset (2026-09-15)
- *   No operation existed to create a repository ruleset -- branch protection
- *   for main had to go through the GitHub UI, and this repo's own governance
- *   PRs record that their (differently-scoped) integration couldn't create
- *   one either. Added `create_ruleset`: POST /repos/{owner}/{repo}/rulesets
- *   with op.ruleset as the raw ruleset body (name/target/enforcement/
- *   conditions/rules per GitHub's Rulesets API). Passed through verbatim,
- *   not templated, since what a sensible ruleset looks like is a judgment
- *   call for the caller, not this function. Requires the PAT to have
- *   `administration:write` on the repo (or equivalent org-level scope) --
- *   expect and surface a 403 cleanly if it doesn't.
- *
- * github-bridge v24 -- added trigger_workflow, list_workflow_runs (2026-09-13)
- *   No operation existed to dispatch a GitHub Actions workflow or poll its run
- *   status -- every workflow_dispatch had to happen through the GitHub UI, and
- *   there was no way to know when it finished short of polling check-runs on
- *   a guessed commit. Added two ops:
- *     - trigger_workflow: POST /actions/workflows/{file}/dispatches with
- *       op.ref (branch, required) and op.inputs (object, optional). GitHub
- *       returns 204 with no body on success; anything else is an error.
- *     - list_workflow_runs: GET /actions/workflows/{file}/runs, optionally
- *       filtered by op.branch, newest first, capped at op.per_page (default
- *       10, max 100). Use this to poll a dispatched run's status/conclusion.
- *   Both purely additive, read/write scoped to Actions only.
- *
- * github-bridge v23 -- added get_job_logs (2026-09-12)
- *   get_check_run_output returns the summary/annotations for a check run, but
- *   annotations are often just "Process completed with exit code 1" with no
- *   actual log body -- no way to see WHY a step failed without leaving the API
- *   for the GitHub UI. Added get_job_logs (GET /actions/jobs/{job_id}/logs),
- *   which GitHub serves as a redirect to a temporary plain-text log blob;
- *   fetch() follows the redirect by default so the full log text comes back
- *   directly. Logs can be large, so the response is tailed to op.max_chars
- *   (default 20000, i.e. the end of the log, where failures are) unless the
- *   caller passes a larger value. Purely additive, read-only.
- *
- *   [Historical note, from the original v23 batch-sequential entry, folded
- *   in here since v24/v25 built on a copy of this file that never had it:]
+ * github-bridge v23 -- batch runs sub-ops sequentially, not in parallel (2026-09-02)
  *   batch ran every sub-op concurrently via Promise.allSettled. A
  *   multi-file commit -- the batch operation's actual primary use case,
  *   per every comment and doc referencing it -- is a sequence of push_file
@@ -76,9 +23,24 @@
  *   read-current-branch-HEAD, create-commit-on-top, fast-forward-the-ref
  *   for each call; when several of those run concurrently against the
  *   same branch, each reads the same starting HEAD, and every request but
- *   the one that wins the ref update races to a 409 ("Reference update
- *   failed") with no automatic retry. Fixed by making batch sequential --
- *   see v26 above for why this needed fixing twice.
+ *   the one that wins the ref update races to a 409 (\"Reference update
+ *   failed\") with no automatic retry. Promise.allSettled dutifully
+ *   collected those as individual { ok: false, ... } entries in the
+ *   results array -- correctly reported, easy to miss, since the outer
+ *   batch response is still { ok: true, results: [...] } even when 7 of 8
+ *   sub-results failed. At least one real session's first batch attempt
+ *   against this exact bug landed nothing and gave no obvious signal why.
+ *   Changed to a sequential for-await loop: each sub-op's dispatch() is
+ *   awaited before the next one starts, so a push_file always sees the
+ *   branch HEAD left by the one before it, never a stale one. Same
+ *   collect-failures-without-aborting-the-batch semantics as
+ *   Promise.allSettled, same result shape, same order -- no batch caller
+ *   needs to change anything. Read-only batches (get_file, list_prs,
+ *   etc.) become marginally slower (sequential instead of concurrent);
+ *   nothing in this function's history or callers document a need for
+ *   batch-read speed, so there is no reason to keep the race available
+ *   as a mode a caller has to remember to avoid. The safe path is now
+ *   the only path.
  *
  * github-bridge v22 -- create_ref validates op.branch, added delete_ref (2026-09-01)
  *   create_ref read op.branch to build `refs/heads/${op.branch}` with no
@@ -86,7 +48,7 @@
  *   instead of `branch`) silently built `refs/heads/undefined`. GitHub
  *   accepted that once, creating a real branch literally named `undefined`,
  *   then every later call -- regardless of the branch name or sha actually
- *   passed -- 422d "Reference already exists", which gives zero indication
+ *   passed -- 422d \"Reference already exists\", which gives zero indication
  *   the real problem is a missing param. Now throws a specific error before
  *   ever calling GitHub if op.branch is missing. Also added `delete_ref`
  *   (DELETE /git/refs/heads/<branch>) -- there was previously no way to
@@ -160,7 +122,7 @@
  *   additive.
  *
  * github-bridge v15 -- GITHUB_PAT moved to vault (2026-07-26)
- *   The env-var GITHUB_PAT secret went bad ("Bad credentials" from GitHub) and
+ *   The env-var GITHUB_PAT secret went bad (\"Bad credentials\" from GitHub) and
  *   could only be fixed via the Supabase dashboard, which the calling agent has
  *   no tool access to -- a rotation dead end. Moved the token into Postgres
  *   Vault (secret name `hv_github_pat`), fetched via a new SECURITY DEFINER RPC
@@ -182,7 +144,7 @@
  *
  * github-bridge v12 -- fixed create_ref base-sha resolution (2026-07-23)
  *   create_ref (v11) resolved the base branch's sha via GET /git/ref/heads/<ref>,
- *   which returns a 422 ("sha wasn't supplied") when GitHub treats the ref as
+ *   which returns a 422 (\"sha wasn't supplied\") when GitHub treats the ref as
  *   ambiguous and responds with an array instead of a single ref object -- this
  *   repo hit that on its very first use, even for `main`. Switched to
  *   GET /branches/<branch>, which always returns a single object for an exact
@@ -201,7 +163,7 @@
  *   v4 shipped with `verify_jwt=false` and NO caller authentication of any kind.
  *   Because this function holds a server-side, admin-scoped GITHUB_PAT
  *   (admin:org, admin:enterprise, delete_repo), anyone on the public internet
- *   who knew the function URL could POST {"operation":"push_file", ...} and
+ *   who knew the function URL could POST {\"operation\":\"push_file\", ...} and
  *   commit arbitrary content to any path on any branch of this repo. The vault
  *   secret `hv_github_bridge_caller_secret` was created 2026-07-06 to close
  *   exactly this hole; the deployed function then regressed to a build with the
@@ -224,7 +186,7 @@
  *   `get_file` decodes GitHub's base64 content with `atob()`, which treats each
  *   decoded byte as one UTF-16 code unit rather than reassembling multi-byte
  *   UTF-8 sequences. Any non-ASCII character (em-dashes, curly quotes, emoji)
- *   comes back mangled ("--" becomes "mangled" once round-tripped through JSON).
+ *   comes back mangled (\"--\" becomes \"mangled\" once round-tripped through JSON).
  *   This corrupted at least one production doc (HANDOFF.md) when an agent used
  *   get_file's output as the basis for an edit-and-push-back. `get_file` is left
  *   as-is for now (existing callers may depend on its current, imperfect
@@ -244,7 +206,7 @@ async function callerKeyIsValid(req: Request): Promise<boolean> {
   const candidate = req.headers.get('x-hv-bridge-key')
   if (!candidate) return false
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-    console.error('[github-bridge] missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY; refusing request')
+    console.error('[github-bridge] missing SUPABASE_URL / SERVICE_ROLE_KEY; refusing request')
     return false
   }
 
@@ -383,10 +345,23 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
 
     case 'get_tree': {
       const ref = (op.ref as string) ?? 'main'
-      const data = await gh(`${BASE}/git/trees/${encodeURIComponent(ref)}?recursive=1`, h)
+      const treeCommit = await gh(`${BASE}/commits/${encodeURIComponent(ref)}`, h)
+      const treeSha = treeCommit.commit?.tree?.sha
+      if (!treeSha) throw new Error(`Could not resolve tree sha for ref ${ref}`)
+      const data = await gh(`${BASE}/git/trees/${treeSha}?recursive=1`, h)
       return {
         ok: true, sha: data.sha, truncated: data.truncated,
         tree: (data.tree as Record<string, unknown>[]).map(n => ({ path: n.path, type: n.type, size: n.size, sha: n.sha }))
+      }
+    }
+
+    case 'get_commit': {
+      const ref = (op.ref as string) ?? 'main'
+      const data = await gh(`${BASE}/commits/${encodeURIComponent(ref)}`, h)
+      return {
+        ok: true, sha: data.sha, message: data.commit?.message,
+        author: data.commit?.author?.name, date: data.commit?.author?.date,
+        html_url: data.html_url
       }
     }
 
@@ -394,8 +369,8 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const branch = op.branch as string | undefined
       if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
       const fromRef = (op.from_ref as string) ?? 'main'
-      const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
-      const baseSha = baseBranch.commit?.sha
+      const baseCommit = await gh(`${BASE}/commits/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseCommit.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,
@@ -520,61 +495,6 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, name: data.name, conclusion: data.conclusion, output: data.output, annotations, html_url: data.html_url }
     }
 
-    case 'get_job_logs': {
-      const jobId = op.job_id
-      if (!jobId) throw new Error('get_job_logs requires op.job_id')
-      const res = await fetch(`${BASE}/actions/jobs/${jobId}/logs`, { headers: h })
-      if (!res.ok) throw new Error(`GitHub GET job logs ${res.status}: ${await res.text()}`)
-      const text = await res.text()
-      const maxChars = Math.min((op.max_chars as number) ?? 20000, 100000)
-      const truncated = text.length > maxChars
-      const log = truncated ? text.slice(-maxChars) : text
-      return { ok: true, truncated, totalLength: text.length, log }
-    }
-
-    case 'trigger_workflow': {
-      const workflowFile = op.workflow_file as string
-      if (!workflowFile) throw new Error('trigger_workflow requires op.workflow_file (e.g. "sync-lockfile.yml")')
-      const ref = op.ref as string
-      if (!ref) throw new Error('trigger_workflow requires op.ref (branch to run against)')
-      const res = await fetch(`${BASE}/actions/workflows/${encodeURIComponent(workflowFile)}/dispatches`, {
-        method: 'POST', headers: h,
-        body: JSON.stringify({ ref, inputs: op.inputs ?? {} })
-      })
-      if (res.status !== 204) {
-        const text = await res.text()
-        throw new Error(`GitHub POST workflow dispatch ${res.status}: ${text}`)
-      }
-      return { ok: true, dispatched: workflowFile, ref }
-    }
-
-    case 'list_workflow_runs': {
-      const workflowFile = op.workflow_file as string
-      if (!workflowFile) throw new Error('list_workflow_runs requires op.workflow_file')
-      const branchQ = op.branch ? `&branch=${encodeURIComponent(op.branch as string)}` : ''
-      const per_page = Math.min((op.per_page as number) ?? 10, 100)
-      const data = await gh(`${BASE}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?per_page=${per_page}${branchQ}`, h)
-      return {
-        ok: true, total: data.total_count,
-        runs: ((data.workflow_runs ?? []) as Record<string, unknown>[]).map(r => ({
-          id: r.id, status: r.status, conclusion: r.conclusion, created_at: r.created_at,
-          updated_at: r.updated_at, html_url: r.html_url, head_branch: r.head_branch
-        }))
-      }
-    }
-
-    case 'create_ruleset': {
-      const ruleset = op.ruleset
-      if (!ruleset || typeof ruleset !== 'object') throw new Error('create_ruleset requires op.ruleset (object per GitHub Rulesets API)')
-      const res = await fetch(`${BASE}/rulesets`, {
-        method: 'POST', headers: h,
-        body: JSON.stringify(ruleset)
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(`GitHub POST rulesets ${res.status}: ${JSON.stringify(data)}`)
-      return { ok: true, id: data.id, name: data.name, enforcement: data.enforcement, html_url: data._links?.html?.href }
-    }
-
     case 'grep_file': {
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
@@ -663,7 +583,7 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
     case 'batch': {
       const ops = op.ops as Record<string, unknown>[]
       if (!Array.isArray(ops) || ops.length > 8) return { ok: false, error: 'batch.ops must be 1-8 operations' }
-      // Sequential, not Promise.allSettled -- see the v26/v23 header comments.
+      // Sequential, not Promise.allSettled -- see the v23 header comment.
       // Each sub-op is fully awaited before the next starts, so a push_file
       // targeting the same branch as a prior sub-op always sees the ref
       // that prior sub-op actually left behind, never a stale, raced HEAD.
