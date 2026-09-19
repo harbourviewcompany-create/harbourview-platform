@@ -73,6 +73,18 @@ export function MarketIntelligenceSection({
                 readString(metric, ['metric_value', 'display_value', 'value']),
                 readString(metric, ['metric_unit', 'unit']),
               )}</p>
+              <small className="hvm2-data-meta">
+                {[
+                  readString(metric, ['period_label', 'period', 'timeframe']),
+                  readString(metric, ['source_name', 'source', 'publisher']),
+                  readString(metric, ['updated_at', 'observed_at', 'verified_at'])
+                    ? `Updated ${new Date(readString(metric, ['updated_at', 'observed_at', 'verified_at'])).toLocaleDateString()}`
+                    : '',
+                  readString(metric, ['confidence_label', 'confidence'])
+                    ? `Confidence: ${readString(metric, ['confidence_label', 'confidence'])}`
+                    : '',
+                ].filter(Boolean).join(' · ') || 'Source and freshness under review'}
+              </small>
             </article>
           ))}
           {tradeFlows.map((flow, index) => (
@@ -84,6 +96,16 @@ export function MarketIntelligenceSection({
                 readString(flow, ['flow_direction']) ? `${titleCase(readString(flow, ['flow_direction']))} flow` : '',
                 readString(flow, ['permit_authority']) ? `Permit: ${readString(flow, ['permit_authority'])}` : '',
               ].filter(Boolean).join(' · ') || 'Corridor evidence under review'}</p>
+              <small className="hvm2-data-meta">
+                {[
+                  readString(flow, ['volume_display', 'volume', 'quantity']) ? `Volume: ${readString(flow, ['volume_display', 'volume', 'quantity'])}` : '',
+                  readString(flow, ['value_display', 'trade_value', 'value']) ? `Value: ${readString(flow, ['value_display', 'trade_value', 'value'])}` : '',
+                  readString(flow, ['source_name', 'source', 'publisher']),
+                  readString(flow, ['updated_at', 'observed_at', 'verified_at'])
+                    ? `Updated ${new Date(readString(flow, ['updated_at', 'observed_at', 'verified_at'])).toLocaleDateString()}`
+                    : '',
+                ].filter(Boolean).join(' · ') || 'Source and freshness under review'}
+              </small>
             </article>
           ))}
         </div>
