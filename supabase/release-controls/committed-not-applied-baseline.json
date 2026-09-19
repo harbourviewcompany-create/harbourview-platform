@@ -8,7 +8,7 @@
     "baselined": 102,
     "repository_versions_at_snapshot": 1037,
     "applied_versions_at_snapshot": 925,
-    "note": "Removed 8 versions on 2026-09-19 after re-verifying that the exact repository identities are present in production."
+    "note": "Seven baseline entries were removed on 2026-09-19 after re-verifying the corresponding retired identity set against production. Eight retired identities were checked; one was already absent from the baseline."
   },
   "versions": [
     "20260430000003",
@@ -123,5 +123,5 @@
   "applied_and_removed_20260919_site_suffix": "20260831030000 was applied verbatim from the committed migration on 2026-09-19 after a live preflight showed 7 remaining signals would change. Post-apply verification showed zero remaining changes under the migration function and the exact repository version was recorded in supabase_migrations.schema_migrations.",
   "applied_and_removed_20260919_digest": "20260831023000 was applied verbatim on 2026-09-19; its current-date digest backfill was a no-op because no current-day digest row existed. The exact repository version was recorded in production.",
   "applied_and_removed_20260919_command_and_cannabinoid_api": "20260916220000 and 20260919120000 were applied verbatim on 2026-09-19 and recorded at their exact repository versions. Verified command_last_viewed_at exists and api.cannabinoid_compounds is publicly SELECT-readable by anon/authenticated.",
-  "notes": " These eight versions were previously retained during a 2026-09-16 identity reconciliation, but the live ledger now confirms the exact replacement versions are themselves applied, so retaining them in committed-not-applied would be false drift."
+  "notes": "The baseline is a repository-only triage ledger, not production authorization. The 102 remaining entries are either requiring forward reconciliation, explicitly obsolete, or fresh/unclassified candidates requiring a separate disposition before any production activation."
 }
