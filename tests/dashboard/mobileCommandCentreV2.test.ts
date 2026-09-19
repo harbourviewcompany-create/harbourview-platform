@@ -174,11 +174,33 @@ describe('Mobile Command Centre operator architecture', () => {
     const document = renderMobileCommand()
     const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
 
-    expect(pulse).toEqual(['5', '1', '1'])
-    expect(document.body.textContent).toContain('Open corridor execution plan')
+    // Attention counts operator exceptions only. The two corridor launchers are
+    // `kind: 'tool'` and are excluded, which is why this is 3 and not 5 — see
+    // docs/COMMAND_SURFACE_SPEC.md 4.2. Before that change a Doctor/Prescriber's
+    // two highest-priority items were "Open corridor execution plan" and "Run
+    // landed cost + sensitivity".
+    expect(pulse).toEqual(['3', '1', '1'])
     expect(document.body.textContent).toContain('German import requirements updated')
     expect(document.body.textContent).toContain('EU-GMP export requirement')
     expect(document.querySelectorAll('.hvm-op-compact-zero')).toHaveLength(0)
+  })
+
+  it('offers the corridor launchers as tools rather than letting them occupy the priority slots', () => {
+    const document = renderMobileCommand()
+
+    // Still reachable — demoted, not removed.
+    const tools = [...document.querySelectorAll('.hvm-op-tool')].map(node => node.textContent || '')
+    expect(tools.some(label => label.includes('Open corridor execution plan'))).toBe(true)
+    expect(tools.some(label => label.includes('Run landed cost + sensitivity'))).toBe(true)
+
+    // ...and absent from the two "Requires attention" rows.
+    const attentionLabels = [...document.querySelectorAll('.hvm-op-attention-row strong')]
+      .map(node => node.textContent || '')
+    expect(attentionLabels).not.toHaveLength(0)
+    for (const label of attentionLabels) {
+      expect(label).not.toContain('Open corridor execution plan')
+      expect(label).not.toContain('Run landed cost + sensitivity')
+    }
   })
 
   it('compresses only empty intelligence and opportunity categories into tappable zero rows', () => {

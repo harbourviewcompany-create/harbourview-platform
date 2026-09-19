@@ -3,8 +3,11 @@
 import type { MobileCommandCentreProps } from './props'
 import { readString, type NextAction, type NormalizedListing } from './contracts'
 import type { SectionRef } from './SectionUI'
+import type { WatchRuleHit } from './watchRuleHits'
+import { describeFreshness, formatDeltaSentence, isNewSince, type CommandDelta } from '@/lib/dashboard/commandDelta'
 import './MobileCommandZeroStateDensity.css'
 import './MobileCommandRemediation.css'
+import './CommandOverviewDelta.css'
 
 function signalTitle(signal: unknown) {
   return readString(signal, ['title', 'headline', 'title_en'], 'Material intelligence update')
@@ -18,11 +21,27 @@ function signalMarket(signal: unknown) {
   return readString(signal, ['market', 'country', 'jurisdiction'], '')
 }
 
-function signalMeta(signal: unknown, countryLabel: string) {
+/**
+ * Row metadata a reader can act on: where, when, and how well sourced.
+ *
+ * This replaces "Active-country match" / "Broader watch", which restated the
+ * jurisdiction already shown in the header and told the reader nothing about the
+ * item. Age comes from `describeFreshness`, which refuses to present an observed
+ * or ingested timestamp as a publication time — see docs/COMMAND_SURFACE_SPEC.md
+ * §3 and §4.3 on why that distinction matters on this corpus.
+ */
+function signalMeta(signal: unknown) {
   const market = signalMarket(signal)
-  const type = readString(signal, ['type', 'cat', 'content_type'], '')
-  const activeCountryMatch = market.localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0
-  return [market, type, activeCountryMatch ? 'Active-country match' : 'Broader watch'].filter(Boolean).join(' · ')
+  const age = describeFreshness(signal as { timeAgo?: string; freshnessBasis?: string })
+  const source = readString(signal, ['sourceLabel'], '')
+  const confidence = (signal as { confidence?: number })?.confidence
+
+  return [
+    market,
+    age,
+    source,
+    typeof confidence === 'number' && confidence > 0 ? `${Math.round(confidence)}% confidence` : '',
+  ].filter(Boolean).join(' · ')
 }
 
 function CompactZeroState({
@@ -53,8 +72,12 @@ export default function CommandOverviewOperator({
   countryLabel,
   roleLabel,
   attentionItems,
+  corridorTools = [],
   signals,
   opportunities,
+  watchRuleHits = [],
+  delta,
+  lastViewedAt,
   operatingPicture,
   onOpenActions,
   onOpenIntel,
@@ -65,8 +88,12 @@ export default function CommandOverviewOperator({
   countryLabel: string
   roleLabel: string
   attentionItems: NextAction[]
+  corridorTools?: NextAction[]
   signals: MobileCommandCentreProps['signals']
   opportunities: NormalizedListing[]
+  watchRuleHits?: WatchRuleHit[]
+  delta?: CommandDelta
+  lastViewedAt?: string | null
   operatingPicture?: string | null
   onOpenActions: () => void
   onOpenIntel: () => void
@@ -77,17 +104,28 @@ export default function CommandOverviewOperator({
     .map((signal, index) => ({
       signal,
       index,
+      isNew: isNewSince(signal as { freshnessAt?: string }, lastViewedAt),
       activeCountryMatch: signalMarket(signal).localeCompare(countryLabel, undefined, { sensitivity: 'base' }) === 0,
     }))
-    .sort((a, b) => Number(b.activeCountryMatch) - Number(a.activeCountryMatch) || a.index - b.index)
+    // What is new to this reader leads, then jurisdiction, then the feed's own order.
+    .sort((a, b) =>
+      Number(b.isNew) - Number(a.isNew)
+      || Number(b.activeCountryMatch) - Number(a.activeCountryMatch)
+      || a.index - b.index)
     .slice(0, 2)
-    .map(item => item.signal)
   const opportunityRows = opportunities.slice(0, 2)
   const attentionRows = attentionItems.slice(0, 2)
+  const deltaSentence = delta ? formatDeltaSentence(delta) : ''
 
   return (
     <section id="overview" ref={sectionRef} className="hvm-op-command" aria-labelledby="hvm-op-command-heading">
       <h2 id="hvm-op-command-heading" className="hvm-op-sr-only">Command operating view</h2>
+
+      {deltaSentence ? (
+        <p className={`hvm-op-delta${delta?.state === 'changed' ? ' hvm-op-delta-changed' : ''}`}>
+          {deltaSentence}
+        </p>
+      ) : null}
 
       <div className="hvm-op-pulse" aria-label={`Operating state for ${countryLabel}, ${roleLabel}`}>
         <button type="button" onClick={onOpenActions}>
@@ -134,6 +172,34 @@ export default function CommandOverviewOperator({
         )}
       </section>
 
+      {watchRuleHits.length > 0 ? (
+        <section className="hvm-op-group" aria-labelledby="hvm-op-watch-heading">
+          <div className="hvm-op-group-heading">
+            <div>
+              <span className="hvm-op-eyebrow">Your watch rules</span>
+              <h3 id="hvm-op-watch-heading">
+                {watchRuleHits.length} {watchRuleHits.length === 1 ? 'rule matched' : 'rules matched'}
+              </h3>
+            </div>
+            <button type="button" onClick={onOpenIntel}>View all</button>
+          </div>
+          <div className="hvm-op-row-list">
+            {watchRuleHits.slice(0, 2).map(hit => (
+              <button key={hit.signalId} type="button" className="hvm-op-row" onClick={onOpenIntel}>
+                <div>
+                  <span className="hvm-op-meta">
+                    {[hit.market, hit.timeAgo].filter(Boolean).join(' · ')}
+                  </span>
+                  <strong>{hit.title}</strong>
+                  <small>Matched: {hit.matchedKeywords.slice(0, 4).join(', ')}</small>
+                </div>
+                <span aria-hidden="true">→</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {signalRows.length > 0 ? (
         <section className="hvm-op-group" aria-labelledby="hvm-op-changes-heading">
           <div className="hvm-op-group-heading">
@@ -144,10 +210,13 @@ export default function CommandOverviewOperator({
             <button type="button" onClick={onOpenIntel}>View all</button>
           </div>
           <div className="hvm-op-row-list">
-            {signalRows.map((signal, index) => (
+            {signalRows.map(({ signal, isNew }, index) => (
               <button key={readString(signal, ['id'], `signal-${index}`)} type="button" className="hvm-op-row" onClick={onOpenIntel}>
                 <div>
-                  <span className="hvm-op-meta">{signalMeta(signal, countryLabel)}</span>
+                  <span className="hvm-op-meta">
+                    {isNew ? <em className="hvm-op-new">New</em> : null}
+                    {signalMeta(signal)}
+                  </span>
                   <strong>{signalTitle(signal)}</strong>
                   <small>{signalSummary(signal)}</small>
                 </div>
@@ -194,6 +263,20 @@ export default function CommandOverviewOperator({
           onOpen={onOpenOpportunities}
         />
       )}
+
+      {corridorTools.length > 0 ? (
+        <section className="hvm-op-tools" aria-labelledby="hvm-op-tools-heading">
+          <h3 id="hvm-op-tools-heading" className="hvm-op-eyebrow">Tools</h3>
+          <div className="hvm-op-tool-row">
+            {corridorTools.map(tool => (
+              <a key={tool.id} href={tool.href} className="hvm-op-tool">
+                {tool.label}
+                <span aria-hidden="true">→</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="hvm-op-operating-picture" aria-labelledby="hvm-op-picture-heading">
         <div className="hvm-op-group-heading">
