@@ -198,7 +198,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
   // The index is expensive compared with filtering a prebuilt record set, so
   // query keystrokes must never rebuild the whole command corpus.
   const searchIndex = useMemo(() => {
-    if (model.activeSection !== 'search' || !deferredSearchQuery.trim()) return []
+    if (model.activeSection !== 'search') return []
     return buildCommandSearchIndex({
       signals: model.signals,
       listings: model.marketRows,
@@ -213,7 +213,6 @@ export default function MobileCommandCentreRebuild(props: Props) {
       talent: model.talentRecords,
     })
   }, [
-    deferredSearchQuery,
     model.activeSection,
     model.signals,
     model.marketRows,
