@@ -13,6 +13,13 @@ export const COMMAND_CENTRE_COPY = {
     error: 'Requested Command Centre data is temporarily unavailable. Retry without changing submitted information.',
     stale: 'Some requested records are older than their configured freshness window and are labelled accordingly.',
   },
+  loadingBoundary: {
+    eyebrow: 'HARBOURVIEW COMMAND CENTRE',
+    title: 'Loading the operating picture',
+    detail:
+      'Resolving jurisdiction, role, marketplace, intelligence, education, compliance and review controls.',
+    ariaLabel: 'Loading Harbourview Command Centre',
+  },
   errorBoundary: {
     eyebrow: 'Harbourview Command Centre',
     title: 'The command surface could not finish loading',

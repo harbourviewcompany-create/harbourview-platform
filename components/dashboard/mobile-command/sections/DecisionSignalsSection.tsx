@@ -183,6 +183,7 @@ export function WeeklySignalsSection({ sectionRef, signals, countryLabel, access
       eyebrow="Intel"
       title="Weekly signals"
       description="Jurisdiction matches first. Open a dossier for evidence and unknowns."
+      dataSource="live"
     >
       {orderedSignals.length > 0 ? (
         <div className="hvm2-intel-record-list" aria-label="Decision intelligence events">

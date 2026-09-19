@@ -133,6 +133,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
           returnTo: commandReturnTo,
         }),
         tone: 'gold' as const,
+        kind: 'tool' as const,
       },
       {
         id: 'landed-cost',
@@ -148,6 +149,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
           returnTo: commandReturnTo,
         }),
         tone: 'gold' as const,
+        kind: 'tool' as const,
       },
     ]
   }, [commandReturnTo, countryParam, model.currentRole])

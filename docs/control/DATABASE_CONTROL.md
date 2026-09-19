@@ -364,6 +364,37 @@ Database work is complete only when environment, SQL/migrations, RLS impact, pub
 - Human approval status: scope directed by Tyler on 2026-09-07 ("All markets
   matter"). **Apply to production and merge remain unapproved.**
 
+## Command overview view stamp (2026-09-16)
+
+- Migration: `supabase/migrations/20260916220000_command_last_viewed_at.sql`.
+  Controlling document: `docs/COMMAND_SURFACE_SPEC.md` §4.1.
+- Scope: one nullable `timestamptz` column, `command_last_viewed_at`, added to
+  `public.user_dashboard_preferences` via `add column if not exists`, plus a
+  column comment. No new table, no RLS change, no grant change, no data written,
+  no other table touched.
+- **No new RLS policy is needed and none was added.** That table's existing
+  select/update/insert/delete policies are row-scoped on `auth.uid() = user_id`
+  and are column-agnostic, so the new column inherits per-user isolation. The
+  policies were last hardened by `20260708214318` and `20260831011430`.
+- Data classification: per-user behavioural timestamp (internal). It records
+  only when a user opened their own Command overview. It is written by the
+  authenticated user's own session through `PATCH /api/dashboard/preferences`,
+  which resolves `user_id` from `auth.getUser()` and never from the request body.
+- Client cannot set an arbitrary time. The API accepts `true` ("stamp now",
+  server clock) or an ISO string, and rejects any timestamp in the future — a
+  stamp ahead of `now()` would silently suppress every later delta.
+- Nullable with no default, deliberately: NULL means "never viewed" and the UI
+  renders first-visit counters rather than a misleading zero delta. Existing
+  rows therefore need no backfill.
+- Rollback: `alter table public.user_dashboard_preferences drop column if exists
+  command_last_viewed_at;`. Blast radius is the Command delta line only; the
+  surface falls back to its counters when the column is absent from the payload.
+- **Not applied to production.** Per `docs/control/AGENT_OPERATING_FACTS.md` §1,
+  merging this migration does not apply it; `supabase-migrate.yml` is
+  `workflow_dispatch`-only. Applying to production requires Tyler's explicit
+  sign-off under `CLAUDE.md` Rule 3c and is **not** covered by the approval of
+  the spec that authorised writing this code.
+
 ## Remaining historical control entries
 
 Historical database-control entries below this line are preserved in git history from prior DATABASE_CONTROL commits and in `docs/control/EVIDENCE_LOG.md`. New Decision Intel Stage 0 work is governed by the Stage 0 product boundary section above plus `INTEL_DECISION_OS_RLS_MIGRATION.md`.
