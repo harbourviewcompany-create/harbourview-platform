@@ -16,6 +16,8 @@ import {
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { CommandPage } from '../CommandCentre'
+import { getRoleCommandDefault } from '@/lib/dashboard/roleCommandDefaults'
+import { combinePipelineStatus, pipelineSloMessage } from '@/lib/dashboard/pipelineSlo'
 
 // ── BriefingRoom page ─────────────────────────────────────────────────────────
 
@@ -181,8 +183,17 @@ export const BriefingRoom = React.memo(function BriefingRoom({
   /** Role playbook modules (max 3) — the operator's default action path. */
   const priorityActions = useMemo(() => {
     const modules = (role ? BRIEFING_ROLE_MODULES[role] : null) ?? []
-    return modules.slice(0, 3)
+    if (modules.length > 0) return modules.slice(0, 3)
+    // Fallback: role command defaults when playbook map has no entry
+    const d = getRoleCommandDefault(role)
+    return d.priorities.slice(0, 3).map((page, i) => ({
+      page,
+      icon: '◎',
+      label: page.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      why: i === 0 ? d.focus : `Role-priority surface for ${role || 'operators'}`,
+    }))
   }, [role])
+  const roleFocus = useMemo(() => getRoleCommandDefault(role).focus, [role])
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -346,6 +357,11 @@ export const BriefingRoom = React.memo(function BriefingRoom({
               </strong>
             </div>
             <div style={{ fontSize: 11, color: 'rgba(245,240,232,.45)', lineHeight: 1.45 }}>
+              {pipelineSloMessage(
+                combinePipelineStatus(pipelineHealth.status, pipelineHealth.feedAgeHours, pipelineHealth.digestAgeDays),
+                pipelineHealth.feedAgeHours,
+              )}
+              <br />
               Feed age:{' '}
               {pipelineHealth.feedAgeHours == null
                 ? 'unknown'
@@ -359,6 +375,11 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                 ? ` · ${pipelineHealth.alertCount} alert${pipelineHealth.alertCount === 1 ? '' : 's'}`
                 : ''}
             </div>
+            {roleFocus ? (
+              <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(245,240,232,.4)' }}>
+                Focus: {roleFocus}
+              </div>
+            ) : null}
             <button
               type="button"
               className="cc-right-link"

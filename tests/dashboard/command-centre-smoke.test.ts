@@ -70,3 +70,25 @@ describe('signal provenance contract', () => {
     expect(src).toMatch(/Source:/)
   })
 })
+
+
+describe('role defaults + pipeline SLO modules', () => {
+  it('exposes role command defaults', () => {
+    const rel = 'lib/dashboard/roleCommandDefaults.ts'
+    expect(existsSync(join(root, rel))).toBe(true)
+    const src = read(rel)
+    expect(src).toContain('resolveCommandHome')
+    expect(src).toContain('ROLE_COMMAND_DEFAULTS')
+    expect(src).toContain('Importer')
+    expect(src).toContain('Compliance')
+  })
+
+  it('exposes pipeline SLO thresholds', () => {
+    const rel = 'lib/dashboard/pipelineSlo.ts'
+    expect(existsSync(join(root, rel))).toBe(true)
+    const src = read(rel)
+    expect(src).toContain('PIPELINE_SLO')
+    expect(src).toContain('evaluateFeedSlo')
+    expect(src).toContain('combinePipelineStatus')
+  })
+})

@@ -395,7 +395,9 @@ export const SignalsPage = React.memo(function SignalsPage({
                     </div>
                     <div className="cc-sig-acts">
                       <button className="cc-sig-brief" onClick={() => setSelectedSignal(s)}>Open brief</button>
-                      <button className="cc-sig-watch" onClick={() => onPageChange?.('watchlist')}>↗ Add to watchlist</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('watchlist')}>↗ Watchlist</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('regulatory')}>Regulatory</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('marketplace')}>Marketplace</button>
                     </div>
                   </div>
                 )

@@ -15,6 +15,7 @@ import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import { ROLE_PROFILES } from '@/lib/dashboard/roleMetricsConfig'
+import { resolveCommandHome } from '@/lib/dashboard/roleCommandDefaults'
 import type { PublicCultivarPassportDTO } from '@/lib/genetics/dto'
 import { complianceRegions } from '@/lib/compliance/regions'
 import { formatOpportunityScore } from '@/lib/dashboard/opportunityScore'
@@ -858,24 +859,6 @@ const SIG_GROUP_ORDER: SignalGroup[] = [
 
 // ── SignalsPage ────────────────────────────────────────────────────────────────
 
-
-function signalProvenance(s: DashboardSignal): { source: string; when: string; basis?: string } {
-  const source = s.sourceLabel?.trim() || s.tag?.label || 'Harbourview Intelligence'
-  const when =
-    s.timeAgo ||
-    (s.sourcePublishedAt && !Number.isNaN(Date.parse(s.sourcePublishedAt))
-      ? new Date(s.sourcePublishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-      : null) ||
-    (s.observedAt && !Number.isNaN(Date.parse(s.observedAt))
-      ? `Observed ${new Date(s.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-      : null) ||
-    (s.publishedAt && !Number.isNaN(Date.parse(s.publishedAt))
-      ? new Date(s.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-      : null) ||
-    '—'
-  return { source, when, basis: s.freshnessBasis }
-}
-
 const SignalsPage = React.memo(function SignalsPage({
   country, region, role, signals, digestSignals, watchlistData, onPageChange, initialShowSearch = false, decisionIntelAccess,
 }: {
@@ -1160,14 +1143,7 @@ const SignalsPage = React.memo(function SignalsPage({
                     <span className={`cc-sig-dot ${imp.toLowerCase()}`} />
                     <div className="cc-sig-body">
                       <strong>{s.title}</strong>
-                      <small>
-                        {s.market ? `${s.market}${region ? ` · ${region}` : ''} · ` : ''}
-                        {signalProvenance(s).when}
-                      </small>
-                      <small style={{ display: 'block', marginTop: 2, color: 'rgba(245,240,232,.4)' }}>
-                        Source: {signalProvenance(s).source}
-                        {s.sourceUrl ? ' · linked' : ''}
-                      </small>
+                      <small>{s.market ? `${s.market}${region ? ` · ${region}` : ''} · ` : ''}{s.timeAgo}</small>
                     </div>
                     <div className="cc-sig-why">
                       <em>Why it matters</em>
@@ -1185,12 +1161,14 @@ const SignalsPage = React.memo(function SignalsPage({
                       <text x="18" y="22" textAnchor="middle" fontSize="9" fill="var(--cc-text)" fontWeight="600">{s.confidence}%</text>
                     </svg>
                     <div className="cc-sig-date">
-                      <em>When</em>
-                      <span title={s.freshnessBasis ? `Basis: ${s.freshnessBasis}` : undefined}>{signalProvenance(s).when}</span>
+                      <em>Date</em>
+                      <span>{s.timeAgo}</span>
                     </div>
                     <div className="cc-sig-acts">
                       <button className="cc-sig-brief" onClick={() => setSelectedSignal(s)}>Open brief</button>
-                      <button className="cc-sig-watch" onClick={() => onPageChange?.('watchlist')}>↗ Add to watchlist</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('watchlist')}>↗ Watchlist</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('regulatory')}>Regulatory</button>
+                      <button className="cc-sig-watch" onClick={() => onPageChange?.('marketplace')}>Marketplace</button>
                     </div>
                   </div>
                 )
@@ -11235,7 +11213,12 @@ export default function CommandCentre({
   const [country,          setCountry]         = useState(initialCountry)
   const [region,           setRegion]          = useState('')
   const [role,             setRole]            = useState(initialRoleId ?? '')
-  const [activePage,       setActivePage]      = useState<CommandPage>(initialPage ?? 'briefing')
+  const roleShortForHome = initialRoleId
+    ? (ROLE_PROFILES[initialRoleId as keyof typeof ROLE_PROFILES]?.short ?? null)
+    : null
+  const [activePage,       setActivePage]      = useState<CommandPage>(
+    () => resolveCommandHome(roleShortForHome, initialPage ?? null),
+  )
   const [paletteOpen,      setPaletteOpen]     = useState(false)
   const [liveCountryIntel, setLiveCountryIntel] = useState<CountryIntelProfile | null>(countryIntel ?? null)
   const [intelLoading,     setIntelLoading]     = useState(false)
