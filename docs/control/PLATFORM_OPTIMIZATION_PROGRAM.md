@@ -14,7 +14,10 @@ Last updated: 2026-09-19
 | Signal deep-links | Shipped | Watchlist / Regulatory / Marketplace |
 | Role-default home page | Shipped | `lib/dashboard/roleCommandDefaults.ts` |
 | Pipeline SLO helpers | Shipped | `lib/dashboard/pipelineSlo.ts` |
-| CI Command Centre smoke | Shipped | `tests/dashboard/command-centre-smoke.test.ts` |
+| CI Command Centre smoke | Shipped |
+| Marketplace funnel conversion rates | Shipped | contact / qualify / conversion via API |
+| Briefing action urgency + deadlines | Shipped | from signal analysis.deadline + confidence |
+| Coverage map (domain grid) | Shipped | baseline live/mixed/reference chips | `tests/dashboard/command-centre-smoke.test.ts` |
 
 ## Still required (not fully automated in UI)
 

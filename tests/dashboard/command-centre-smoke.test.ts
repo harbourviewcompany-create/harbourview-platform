@@ -92,3 +92,22 @@ describe('role defaults + pipeline SLO modules', () => {
     expect(src).toContain('combinePipelineStatus')
   })
 })
+
+
+describe('marketplace funnel + coverage + briefing actions', () => {
+  it('exposes marketplace funnel metrics module and API', () => {
+    expect(existsSync(join(root, 'lib/dashboard/marketplaceFunnelMetrics.ts'))).toBe(true)
+    expect(existsSync(join(root, 'app/api/dashboard/marketplace-funnel/route.ts'))).toBe(true)
+    const api = read('app/api/dashboard/marketplace-funnel/route.ts')
+    expect(api).toMatch(/Unauthorized|getUser/)
+    expect(api).toContain('buildMarketplaceFunnelMetrics')
+  })
+
+  it('exposes coverage map and briefing actions builders', () => {
+    expect(existsSync(join(root, 'lib/dashboard/coverageMap.ts'))).toBe(true)
+    expect(existsSync(join(root, 'lib/dashboard/briefingActions.ts'))).toBe(true)
+    const actions = read('lib/dashboard/briefingActions.ts')
+    expect(actions).toContain('buildBriefingActions')
+    expect(actions).toContain('deadlineLabel')
+  })
+})

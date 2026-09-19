@@ -21,6 +21,9 @@ import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { CommandPage } from '../CommandCentre'
 import { getRoleCommandDefault } from '@/lib/dashboard/roleCommandDefaults'
 import { combinePipelineStatus, pipelineSloMessage } from '@/lib/dashboard/pipelineSlo'
+import { formatRate, type MarketplaceFunnelMetrics } from '@/lib/dashboard/marketplaceFunnelMetrics'
+import { buildBriefingActions } from '@/lib/dashboard/briefingActions'
+import { buildCoverageMapSnapshot } from '@/lib/dashboard/coverageMap'
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 
 const MyBriefingsPanel = dynamic(
@@ -183,6 +186,7 @@ export const BriefingRoom = React.memo(function BriefingRoom({
     digestAgeDays: number | null
     alertCount: number
   } | null>(null)
+  const [funnelMetrics, setFunnelMetrics] = useState<MarketplaceFunnelMetrics | null>(null)
   const confBars = useMemo<ConfidenceLane[]>(
     () => confidence ?? buildConfidenceLanes({ countryIntel, signals, countryLabel: country.label }),
     [confidence, countryIntel, signals, country.label],
@@ -198,20 +202,17 @@ export const BriefingRoom = React.memo(function BriefingRoom({
     [signals],
   )
 
-  /** Role playbook modules (max 3) — the operator's default action path. */
+  /** Role playbook modules (max 3) with urgency / deadline from live signals. */
   const priorityActions = useMemo(() => {
     const modules = (role ? BRIEFING_ROLE_MODULES[role] : null) ?? []
-    if (modules.length > 0) return modules.slice(0, 3)
-    // Fallback: role command defaults when playbook map has no entry
-    const d = getRoleCommandDefault(role)
-    return d.priorities.slice(0, 3).map((page, i) => ({
-      page,
-      icon: '◎',
-      label: page.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      why: i === 0 ? d.focus : `Role-priority surface for ${role || 'operators'}`,
-    }))
-  }, [role])
+    return buildBriefingActions({
+      roleShort: role,
+      signals,
+      playbook: modules.length > 0 ? modules.slice(0, 3) : undefined,
+    })
+  }, [role, signals])
   const roleFocus = useMemo(() => getRoleCommandDefault(role).focus, [role])
+  const coverageMap = useMemo(() => buildCoverageMapSnapshot(country.iso2), [country.iso2])
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -236,6 +237,17 @@ export const BriefingRoom = React.memo(function BriefingRoom({
       .catch(() => {
         setPipelineHealth({ status: 'unknown', feedAgeHours: null, digestAgeDays: null, alertCount: 0 })
       })
+    return () => controller.abort()
+  }, [])
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    fetch('/api/dashboard/marketplace-funnel', { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { metrics?: MarketplaceFunnelMetrics } | null) => {
+        if (d?.metrics) setFunnelMetrics(d.metrics)
+      })
+      .catch(() => { /* non-blocking */ })
     return () => controller.abort()
   }, [])
 
@@ -475,9 +487,21 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span style={{ opacity: 0.7 }}>{m.icon}</span>
                     <strong style={{ fontSize: 12 }}>{i + 1}. {m.label}</strong>
+                    {'urgency' in m && m.urgency ? (
+                      <span style={{
+                        marginLeft: 'auto',
+                        fontSize: 9,
+                        letterSpacing: '.06em',
+                        textTransform: 'uppercase',
+                        color: m.urgency === 'now' ? '#e05555' : m.urgency === 'soon' ? '#d4a84b' : 'rgba(245,240,232,.4)',
+                      }}>
+                        {m.urgency}
+                      </span>
+                    ) : null}
                   </div>
                   <p className="cc-right-prose" style={{ margin: 0, fontSize: 11, color: 'rgba(245,240,232,.45)' }}>
                     {m.why}
+                    {'deadlineLabel' in m && m.deadlineLabel ? ` · ${m.deadlineLabel}` : ''}
                   </p>
                 </button>
               ))}
@@ -485,15 +509,15 @@ export const BriefingRoom = React.memo(function BriefingRoom({
           </div>
         )}
 
-        {(pipeline || listingCount > 0 || wantedCount > 0) && (
+        {(funnelMetrics || pipeline || listingCount > 0 || wantedCount > 0) && (
           <div className="cc-right-section">
             <div className="cc-right-head">MARKETPLACE FUNNEL</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
-                { label: 'Listings', value: listingCount, page: 'marketplace' as const },
-                { label: 'Wanted', value: wantedCount || pipeline?.wanted || 0, page: 'marketplace' as const },
-                { label: 'Inquiry', value: pipeline?.inquiry ?? 0, page: 'marketplace' as const },
-                { label: 'Deal room', value: pipeline?.deal_room ?? 0, page: 'marketplace' as const },
+                { label: 'Listings', value: funnelMetrics?.buckets.find(b => b.key === 'listings')?.count ?? listingCount, page: 'marketplace' as const },
+                { label: 'Wanted', value: funnelMetrics?.buckets.find(b => b.key === 'wanted')?.count ?? (wantedCount || pipeline?.wanted || 0), page: 'marketplace' as const },
+                { label: 'Open inquiry', value: funnelMetrics?.openInquiry ?? pipeline?.inquiry ?? 0, page: 'marketplace' as const },
+                { label: 'Qualified', value: funnelMetrics?.qualified ?? pipeline?.matched ?? 0, page: 'marketplace' as const },
               ].map((cell) => (
                 <button
                   key={cell.label}
@@ -516,6 +540,15 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                 </button>
               ))}
             </div>
+            {funnelMetrics && (
+              <div style={{ marginTop: 10, fontSize: 11, color: 'rgba(245,240,232,.45)', lineHeight: 1.45 }}>
+                Contact rate {formatRate(funnelMetrics.contactRate)}
+                {' · '}
+                Qualify rate {formatRate(funnelMetrics.qualificationRate)}
+                {' · '}
+                Conversion {formatRate(funnelMetrics.conversionRate)}
+              </div>
+            )}
             <button
               type="button"
               className="cc-right-link"
@@ -526,6 +559,37 @@ export const BriefingRoom = React.memo(function BriefingRoom({
             </button>
           </div>
         )}
+
+        <div className="cc-right-section">
+          <div className="cc-right-head">COVERAGE MAP · {country.iso2}</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {coverageMap.cells.map((cell) => (
+              <span
+                key={cell.domain}
+                title={cell.note ?? cell.label}
+                style={{
+                  fontSize: 10,
+                  padding: '4px 8px',
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,.08)',
+                  color:
+                    cell.tier === 'live' ? '#5fb87a'
+                    : cell.tier === 'mixed' ? '#d4a84b'
+                    : 'rgba(245,240,232,.45)',
+                  background:
+                    cell.tier === 'live' ? 'rgba(95,184,122,.1)'
+                    : cell.tier === 'mixed' ? 'rgba(212,168,75,.1)'
+                    : 'rgba(255,255,255,.03)',
+                }}
+              >
+                {cell.label}
+              </span>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 10, color: 'rgba(245,240,232,.35)' }}>
+            {coverageMap.liveCount} live · {coverageMap.mixedCount} mixed · {coverageMap.referenceCount} reference
+          </div>
+        </div>
 
         <div className="cc-right-section" style={{ borderLeft: '2px solid rgba(212,168,75,.35)', paddingLeft: 12 }}>
           <div className="cc-right-head" style={{ color: '#d4a84b' }}>AI EXECUTIVE BRIEFING</div>
