@@ -2,13 +2,18 @@
 
 import { Fragment, type ReactNode, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import dynamic from 'next/dynamic'
 import { ALL_COUNTRIES } from '@/lib/dashboard/countries'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 import type { MobileCommandCentreProps } from './mobile-command/props'
 import { PRIMARY_NAV, SECTION_NAV, readString, type SectionId } from './mobile-command/contracts'
 import { buildCommandSearchIndex } from './mobile-command/intelSearch'
+import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
+import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
+import { matchWatchRuleHits, type WatchRuleLike } from './mobile-command/watchRuleHits'
+import { buildCommandDelta } from '@/lib/dashboard/commandDelta'
+import OrganizationContextControl from './OrganizationContextControl'
+import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import {
   ClinicalSection,
   ComplianceSection,
@@ -32,10 +37,6 @@ import {
   RegulatoryWatchSection,
   LocalIntelSection,
 } from './mobile-command/Sections'
-import { useMobileCommandModel } from './mobile-command/useMobileCommandModel'
-import CommandOverviewOperator from './mobile-command/CommandOverviewOperator'
-import OrganizationContextControl from './OrganizationContextControl'
-import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import SignalSemanticSearch from './SignalSemanticSearch'
 import { CultivarPassportModal } from './CultivarPassportModal'
 import './MobileCommandCentreRebuild.css'
@@ -46,10 +47,6 @@ import './CommandCentre.css'
 
 type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
 
-// Keep the mobile shell small: section implementations are grouped by domain and
-// loaded only when their section becomes visible. This avoids shipping the full
-// command surface (marketplace, regulatory, genetics, billing, etc.) on the
-// initial mobile dashboard route.
 export default function MobileCommandCentreRebuild(props: Props) {
   const model = useMobileCommandModel(props)
   const deferredSearchQuery = useDeferredValue(model.searchQuery)
@@ -60,8 +57,56 @@ export default function MobileCommandCentreRebuild(props: Props) {
   const secondaryNavRef = useRef<HTMLElement | null>(null)
   const secondaryButtonRefs = useRef(new Map<SectionId, HTMLButtonElement>())
 
-  const attentionItems = model.nextActions.filter(item => item.tone === 'warn' || item.tone === 'gold')
+  // Tool launchers are always present and never role-specific, so they are not
+  // "requires attention" — excluding them lets a real exception reach the two
+  // priority slots (docs/COMMAND_SURFACE_SPEC.md 4.2).
+  const attentionItems = model.nextActions.filter(
+    item => item.kind !== 'tool' && (item.tone === 'warn' || item.tone === 'gold'),
+  )
+  const corridorTools = model.nextActions.filter(item => item.kind === 'tool')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')
+
+  // Watch-rule hits are the strongest personalization signal available and were
+  // previously confined to the Intel and Regulatory sections (spec 4.4). Rules
+  // are org-scoped, so this is empty for users without a workspace.
+  const watchRuleHits = useMemo(
+    () => matchWatchRuleHits(
+      model.signals,
+      (props.watchlistData?.rules ?? []) as WatchRuleLike[],
+      6,
+    ),
+    [model.signals, props.watchlistData?.rules],
+  )
+
+  const commandDelta = useMemo(
+    () => buildCommandDelta({
+      signals: model.signals,
+      watchRuleHits: watchRuleHits.length,
+      lastViewedAt: props.commandLastViewedAt,
+    }),
+    [model.signals, watchRuleHits.length, props.commandLastViewedAt],
+  )
+
+  // Stamp the visit only once the operator is actually on the Command overview.
+  //
+  // Two things this deliberately gets right:
+  //  - It is gated on activeSection, not on mount. Landing deep-linked into
+  //    Market or Intel must not consume a delta the operator never saw.
+  //  - It runs after the delta above is computed from the *previous* stamp, so
+  //    the view being looked at still reports what changed rather than zeroing
+  //    itself on arrival.
+  // Once per mount; failure is silent, because a missed stamp only means the
+  // next delta covers a slightly longer window.
+  const viewStampedRef = useRef(false)
+  useEffect(() => {
+    if (viewStampedRef.current || model.activeSection !== 'overview') return
+    viewStampedRef.current = true
+    void fetch('/api/dashboard/preferences', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ command_last_viewed_at: true }),
+    }).catch(() => undefined)
+  }, [model.activeSection])
   const activeDestination = PRIMARY_NAV.find(item => item.id === model.activeGroup)
   const showSecondaryNav = model.groupSections.length > 1
   const secondaryNavLabel = model.activeGroup === 'overview'
@@ -69,11 +114,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
     : `${activeDestination?.label ?? 'Command'} sections`
 
   const searchRecords = useMemo(() => {
-    // Search indexing is intentionally lazy. Building normalized searchable text
-    // across signals, listings, directories and evidence on every dashboard
-    // mount is wasted work when the user never opens/types into Search.
     if (!deferredSearchQuery.trim()) return []
-
     return buildCommandSearchIndex({
       signals: model.signals,
       listings: model.marketRows,
@@ -173,8 +214,12 @@ export default function MobileCommandCentreRebuild(props: Props) {
         countryLabel={model.countryLabel}
         roleLabel={model.roleLabel}
         attentionItems={attentionItems}
+        corridorTools={corridorTools}
         signals={model.signals}
         opportunities={opportunityRows}
+        watchRuleHits={watchRuleHits}
+        delta={commandDelta}
+        lastViewedAt={props.commandLastViewedAt}
         operatingPicture={props.countryIntel?.public_summary}
         onOpenActions={() => model.navigateToSection('next-actions')}
         onOpenIntel={() => model.navigateToSection('weekly-signals')}

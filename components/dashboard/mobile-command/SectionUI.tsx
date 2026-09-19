@@ -4,6 +4,15 @@ import { HarbourviewCard } from '@/components/ui/HarbourviewPanel'
 
 export type SectionRef = (node: HTMLElement | null) => void
 
+/** Honest labeling for operator trust — never imply static lists are live intel. */
+export type SectionDataSource = 'live' | 'reference' | 'mixed'
+
+const DATA_SOURCE_LABEL: Record<SectionDataSource, string> = {
+  live: 'Live',
+  reference: 'Reference',
+  mixed: 'Mixed',
+}
+
 /**
  * Launch-quality section shell for every mobile Command section.
  * Layout chrome stays on hvm2-* CSS; surface language is shared via tokens.
@@ -15,6 +24,7 @@ export function SectionShell({
   title,
   description,
   action,
+  dataSource,
   className = '',
   children,
 }: {
@@ -24,6 +34,8 @@ export function SectionShell({
   title: string
   description: string
   action?: React.ReactNode
+  /** When set, shows Live / Reference / Mixed so static panels cannot impersonate live data. */
+  dataSource?: SectionDataSource
   className?: string
   children: React.ReactNode
 }) {
@@ -31,7 +43,23 @@ export function SectionShell({
     <section id={id} ref={sectionRef} className={`hvm2-section ${className}`.trim()}>
       <header className="hvm2-section-heading">
         <div>
-          <span>{eyebrow}</span>
+          <span className="hvm2-section-eyebrow-row">
+            <span>{eyebrow}</span>
+            {dataSource ? (
+              <span
+                className={`hvm2-data-source hvm2-data-source-${dataSource}`}
+                title={
+                  dataSource === 'live'
+                    ? 'Backed by live platform data for this session'
+                    : dataSource === 'reference'
+                      ? 'Curated reference content — not a live marketplace feed'
+                      : 'Combines live data with curated reference content'
+                }
+              >
+                {DATA_SOURCE_LABEL[dataSource]}
+              </span>
+            ) : null}
+          </span>
           <h2>{title}</h2>
           <p>{description}</p>
         </div>

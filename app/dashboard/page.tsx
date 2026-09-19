@@ -83,6 +83,7 @@ export default async function DashboardPage({
   let storedRoleId: string | null = null
   let activeWorkspaceId: string | null = null
   let hasOrg = false
+  let commandLastViewedAt: string | null = null
   let userTier: Awaited<ReturnType<typeof getUserTier>> = 'free'
 
   try {
@@ -95,7 +96,7 @@ export default async function DashboardPage({
       const [{ data: prefs }, resolvedUserTier] = await Promise.all([
         supabase
           .from('user_dashboard_preferences')
-          .select('country_iso2, role_id, active_workspace_id')
+          .select('country_iso2, role_id, active_workspace_id, command_last_viewed_at')
           .eq('user_id', user.id)
           .maybeSingle(),
         getUserTier(),
@@ -104,6 +105,7 @@ export default async function DashboardPage({
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
       activeWorkspaceId = prefs?.active_workspace_id ?? null
+      commandLastViewedAt = prefs?.command_last_viewed_at ?? null
 
       if (activeWorkspaceId) {
         const [{ data: membership }, { data: workspace }] = await Promise.all([
@@ -218,6 +220,7 @@ export default async function DashboardPage({
       <DashboardResponsiveShell
         key={`${countryIso2 ?? 'none'}-${roleId ?? 'none'}-${activeWorkspaceId ?? 'personal'}-${urlPage ?? 'none'}`}
         hasOrg={hasOrg}
+        commandLastViewedAt={commandLastViewedAt}
         signals={routedSignals}
         digestSignals={routedDigestSignals}
         digestWindow={dailyDigest.window}

@@ -1,0 +1,88 @@
+/*
+ * Command overview: since-last-visit line, new markers, and the tools row.
+ * docs/COMMAND_SURFACE_SPEC.md §4.1–4.4.
+ *
+ * Uses the existing --hvm2-* tokens and the hvm-op-* class family rather than
+ * introducing a second style system in this module (AGENTS.md, Coding & Style).
+ */
+
+.hvm-op-delta {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--hvm2-muted);
+}
+
+/* Something actually changed for this reader — earn a little more weight. */
+.hvm-op-delta-changed {
+  color: var(--hvm2-gold-light);
+  font-weight: 600;
+}
+
+/* "New" marker on an intelligence row the reader has not seen before. */
+.hvm-op-new {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--hvm2-gold);
+  border-radius: 999px;
+  color: var(--hvm2-gold);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  vertical-align: baseline;
+}
+
+/*
+ * Tools row. Corridor planner and landed cost are always available and never
+ * role-specific, so they read as tools here instead of competing for the
+ * priority slots above (spec §4.2).
+ */
+/*
+ * Order 6 puts the tools row last, after the operating picture (4) and the
+ * commercial group (5). They are utilities, so they close the surface rather
+ * than interrupting the intelligence above them.
+ */
+.hvm-op-tools {
+  order: 6;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--hvm2-border-soft);
+}
+
+.hvm-op-tools .hvm-op-eyebrow {
+  display: block;
+  margin: 0 0 8px;
+}
+
+.hvm-op-tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hvm-op-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--hvm2-border-soft);
+  border-radius: 10px;
+  color: var(--hvm2-text);
+  font-size: 13px;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.hvm-op-tool span {
+  color: var(--hvm2-gold);
+}
+
+@media (hover: hover) {
+  .hvm-op-tool:hover {
+    border-color: var(--hvm2-gold);
+  }
+}

@@ -4,3 +4,4 @@
 -- 500 matching rows in created_at DESC order.
 create index if not exists idx_signals_created_at_desc
   on public.signals (created_at desc);
+create index if not exists idx_signals_created_at_desc on public.signals (created_at desc);

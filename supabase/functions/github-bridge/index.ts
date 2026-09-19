@@ -1,4 +1,19 @@
 /**
+ * github-bridge v24 -- added get_commit; create_ref/get_tree resolve via commits API (2026-09-18)
+ *   create_ref and get_tree both resolved refs via endpoints that only accept
+ *   branch names or exact/full SHAs (GET /branches/<ref> and GET /git/trees/<ref>
+ *   respectively). Passing an abbreviated commit SHA -- exactly what Vercel/GitHub
+ *   UIs display, e.g. "40516dd" -- silently resolved to the wrong object (a stray
+ *   tree with a colliding prefix) or a 422. For create_ref specifically, an
+ *   unresolvable fromRef fell through to branching off main with no error, which
+ *   is worse than failing loudly -- a caller could believe it branched off a
+ *   specific commit and be editing main instead. Both now resolve through
+ *   GET /commits/<ref>, the one GitHub endpoint that correctly accepts branch
+ *   names, tags, full SHAs, AND abbreviated SHAs uniformly. Also added
+ *   `get_commit` (same endpoint) so callers can resolve an abbreviated ref to
+ *   its full 40-char sha directly, standalone. Purely additive + two bug fixes;
+ *   no case removed.
+ *
  * github-bridge v23 -- batch runs sub-ops sequentially, not in parallel (2026-09-02)
  *   batch ran every sub-op concurrently via Promise.allSettled. A
  *   multi-file commit -- the batch operation's actual primary use case,
@@ -330,10 +345,23 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
 
     case 'get_tree': {
       const ref = (op.ref as string) ?? 'main'
-      const data = await gh(`${BASE}/git/trees/${encodeURIComponent(ref)}?recursive=1`, h)
+      const treeCommit = await gh(`${BASE}/commits/${encodeURIComponent(ref)}`, h)
+      const treeSha = treeCommit.commit?.tree?.sha
+      if (!treeSha) throw new Error(`Could not resolve tree sha for ref ${ref}`)
+      const data = await gh(`${BASE}/git/trees/${treeSha}?recursive=1`, h)
       return {
         ok: true, sha: data.sha, truncated: data.truncated,
         tree: (data.tree as Record<string, unknown>[]).map(n => ({ path: n.path, type: n.type, size: n.size, sha: n.sha }))
+      }
+    }
+
+    case 'get_commit': {
+      const ref = (op.ref as string) ?? 'main'
+      const data = await gh(`${BASE}/commits/${encodeURIComponent(ref)}`, h)
+      return {
+        ok: true, sha: data.sha, message: data.commit?.message,
+        author: data.commit?.author?.name, date: data.commit?.author?.date,
+        html_url: data.html_url
       }
     }
 
@@ -341,8 +369,8 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       const branch = op.branch as string | undefined
       if (!branch) throw new Error('create_ref requires op.branch (the new branch name, without refs/heads/ prefix)')
       const fromRef = (op.from_ref as string) ?? 'main'
-      const baseBranch = await gh(`${BASE}/branches/${encodeURIComponent(fromRef)}`, h)
-      const baseSha = baseBranch.commit?.sha
+      const baseCommit = await gh(`${BASE}/commits/${encodeURIComponent(fromRef)}`, h)
+      const baseSha = baseCommit.sha
       if (!baseSha) throw new Error(`Could not resolve sha for base ref ${fromRef}`)
       const res = await fetch(`${BASE}/git/refs`, {
         method: 'POST', headers: h,

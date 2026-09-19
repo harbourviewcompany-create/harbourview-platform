@@ -41,6 +41,24 @@ function normalizeHeatmapLayer(value: unknown): string | null | undefined {
   return ALLOWED_HEATMAP_LAYERS.has(normalized) ? normalized : undefined
 }
 
+/**
+ * Command overview view-stamp (docs/COMMAND_SURFACE_SPEC.md 4.1).
+ *
+ * Accepts `true` as "stamp it now" so the client never has to send — and the
+ * server never has to trust — a clock it does not control. An explicit ISO
+ * string is also accepted for completeness, but a future timestamp is rejected:
+ * a view-stamp ahead of now() would silently suppress every subsequent delta.
+ */
+function normalizeCommandViewedAt(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  if (value === true) return new Date().toISOString()
+  if (typeof value !== 'string') return undefined
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed) || parsed > Date.now()) return undefined
+  return new Date(parsed).toISOString()
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -49,7 +67,7 @@ export async function GET() {
 
     const { data } = await supabase
       .from('user_dashboard_preferences')
-      .select('country_iso2, role_id, heatmap_layer, active_workspace_id')
+      .select('country_iso2, role_id, heatmap_layer, active_workspace_id, command_last_viewed_at')
       .eq('user_id', user.id)
       .single()
 
@@ -70,12 +88,14 @@ export async function PATCH(req: NextRequest) {
     const roleId = normalizeString(body.role_id)
     const heatmapLayer = normalizeHeatmapLayer(body.heatmap_layer)
     const activeWorkspaceId = normalizeUuidOrNull(body.active_workspace_id)
+    const commandLastViewedAt = normalizeCommandViewedAt(body.command_last_viewed_at)
 
     if (
       ('country_iso2' in body && countryIso2 === undefined) ||
       ('role_id' in body && roleId === undefined) ||
       ('heatmap_layer' in body && heatmapLayer === undefined) ||
-      ('active_workspace_id' in body && activeWorkspaceId === undefined)
+      ('active_workspace_id' in body && activeWorkspaceId === undefined) ||
+      ('command_last_viewed_at' in body && commandLastViewedAt === undefined)
     ) {
       return NextResponse.json({ ok: false, error: 'Invalid dashboard preference payload.' }, { status: 400 })
     }
@@ -109,6 +129,7 @@ export async function PATCH(req: NextRequest) {
       role_id?: string | null
       heatmap_layer?: string | null
       active_workspace_id?: string | null
+      command_last_viewed_at?: string | null
     } = {
       user_id: user.id,
       updated_at: new Date().toISOString(),
@@ -118,6 +139,7 @@ export async function PATCH(req: NextRequest) {
     if ('role_id' in body) payload.role_id = roleId
     if ('heatmap_layer' in body) payload.heatmap_layer = heatmapLayer
     if ('active_workspace_id' in body) payload.active_workspace_id = activeWorkspaceId
+    if ('command_last_viewed_at' in body) payload.command_last_viewed_at = commandLastViewedAt
 
     const { error } = await supabase
       .from('user_dashboard_preferences')

@@ -178,6 +178,8 @@ type Props = {
   collaborationProjects?: PublicCollaborationProject[]
   mySubmissions?:       MySubmission[]
   hasOrg?:              boolean
+  /** When this user last opened the Command overview; null = never. See docs/COMMAND_SURFACE_SPEC.md 4.1. */
+  commandLastViewedAt?: string | null
 }
 
 // ── Globe (dynamic — SSR off) ─────────────────────────────────────────────────
