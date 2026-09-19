@@ -36,7 +36,7 @@ export const maxDuration = 120
 const DEFAULT_LOOKBACK_HOURS = 48
 const DEFAULT_MAX_PER_SEARCH = 40
 
-function getSupabaseAdmin(): SupabaseClient {
+function getSupabaseAdmin(): SupabaseClient<any, 'api'> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error('Supabase admin credentials missing')
@@ -52,7 +52,7 @@ function getSupabaseAdmin(): SupabaseClient {
  * registry row tagged as meltwater; otherwise skip writes (safe no-op).
  */
 async function resolveSourceId(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<any, 'api'>,
 ): Promise<{ sourceId: string | null; reason?: string }> {
   const configured = process.env.MELTWATER_SOURCE_ID?.trim()
   if (configured) return { sourceId: configured }
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  let supabase: SupabaseClient
+  let supabase: SupabaseClient<any, 'api'>
   try {
     supabase = getSupabaseAdmin()
   } catch (e) {
