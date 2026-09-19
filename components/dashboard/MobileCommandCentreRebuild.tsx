@@ -44,6 +44,7 @@ import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
 import './mobile-command/MobileCommandNavigation.css'
 import './CommandCentre.css'
+import './mobile-command/MobileCommandSurfaceAlignment.css'
 
 type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
 
