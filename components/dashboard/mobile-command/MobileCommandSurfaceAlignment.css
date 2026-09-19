@@ -33,3 +33,70 @@
   width: 100%;
   min-width: 0;
 }
+
+
+.hvm-domain-depth {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(201, 149, 50, 0.18);
+  border-radius: 10px;
+  background: rgba(8, 12, 18, 0.72);
+  box-sizing: border-box;
+}
+
+.hvm-domain-depth-top,
+.hvm-domain-depth-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.hvm-domain-depth-top {
+  font-size: 11px;
+}
+
+.hvm-domain-depth-top strong {
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.hvm-domain-depth-top > span:last-child,
+.hvm-domain-depth-meta {
+  color: rgba(235, 232, 222, 0.58);
+}
+
+.hvm-domain-depth-kicker {
+  color: rgba(201, 149, 50, 0.88);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.hvm-domain-depth-meta {
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 10px;
+}
+
+.hvm-domain-depth-gap {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(201, 149, 50, 0.10);
+  color: rgba(235, 232, 222, 0.72);
+  font-size: 10px;
+}
+
+.hvm-domain-depth-gap span {
+  color: rgba(201, 149, 50, 0.82);
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .hvm-domain-depth {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+  }
+}
