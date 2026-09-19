@@ -16,6 +16,7 @@ import { requireAdminAuth } from '@/lib/auth/adminGuard'
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import crypto from 'node:crypto'
+import { assertPartiesKybVerified } from '@/lib/marketplace/kybDealRoomGate'
 
 function getDb() {
   return createClient(
@@ -34,6 +35,8 @@ export async function POST(
   const body = await request.json().catch(() => ({}))
   const nda_required = body.nda_required ?? false
   const notes = body.notes ?? null
+  const kyb_override = Boolean(body.kyb_override)
+  const kyb_override_reason = typeof body.kyb_override_reason === 'string' ? body.kyb_override_reason.trim() : ''
 
   const db = getDb()
 
@@ -61,6 +64,28 @@ export async function POST(
 
   if (!listing || !buyer) {
     return NextResponse.json({ ok: false, error: 'Match references missing listing or buyer_request' }, { status: 422 })
+  }
+
+
+  const listingUserId = listing && typeof listing === 'object' && 'user_id' in listing ? (listing as { user_id?: string }).user_id : null
+  const buyerUserId = buyer && typeof buyer === 'object' && 'user_id' in buyer ? (buyer as { user_id?: string }).user_id : null
+
+  if (!kyb_override) {
+    const gate = await assertPartiesKybVerified(db, [
+      { userId: listingUserId, role: 'listing_owner' },
+      { userId: buyerUserId, role: 'buyer' },
+    ])
+    if (!gate.ok) {
+      return NextResponse.json(
+        { ok: false, error: gate.message, code: gate.code, missing: gate.missing },
+        { status: 403 },
+      )
+    }
+  } else if (!kyb_override_reason || kyb_override_reason.length < 8) {
+    return NextResponse.json(
+      { ok: false, error: 'kyb_override requires kyb_override_reason (min 8 chars)' },
+      { status: 400 },
+    )
   }
 
   // Create the deal room

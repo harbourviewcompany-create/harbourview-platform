@@ -366,7 +366,7 @@ function Inquiries({ api, toast }) {
     setLoading(true);
     try {
       const d = await api.get("marketplace_inquiries",
-        "select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,review_status,priority,last_contacted_at,next_follow_up_at&order=created_at.desc&limit=300"
+        "select=id,created_at,inquiry_type,contact_company,contact_name,contact_email,contact_phone,status,message,review_status,priority,last_contacted_at,next_follow_up_at,commercial_outcome,commercial_outcome_reason&order=created_at.desc&limit=300"
       );
       setRows(d);
     } catch(e) { toast({type:"error",text:e.message}); }
@@ -382,6 +382,22 @@ function Inquiries({ api, toast }) {
       toast({type:"success",text:`Marked ${review_status}`});
     } catch(e) { toast({type:"error",text:e.message}); }
   };
+
+  const setOutcome = async (id, commercial_outcome, commercial_outcome_reason = "") => {
+    try {
+      await api.patch("marketplace_inquiries", `id=eq.${id}`, {
+        commercial_outcome,
+        commercial_outcome_reason: commercial_outcome_reason || null,
+        commercial_outcome_at: new Date().toISOString(),
+        review_status: commercial_outcome === "won" ? "qualified" : commercial_outcome === "lost" ? "not_fit" : "closed",
+      });
+      setRows(r => r.map(x => x.id === id ? { ...x, commercial_outcome, commercial_outcome_reason, review_status: commercial_outcome === "won" ? "qualified" : commercial_outcome === "lost" ? "not_fit" : "closed" } : x));
+      toast({ type: "success", text: `Outcome: ${commercial_outcome}` });
+    } catch (e) {
+      toast({ type: "error", text: "Failed to set outcome" });
+    }
+  };
+
 
   const typeLabel = {listing_submission:"Listing",wanted_request_submission:"Wanted",quote_routing:"Quote",quote_request:"Quote"};
   const priColor = {urgent:"red",high:"warn",medium:"gray",low:"gray"};
@@ -413,11 +429,19 @@ function Inquiries({ api, toast }) {
                 <dt>Follow up</dt><dd>{fmtDt(detail.next_follow_up_at)}</dd>
               </dl>
               <div style={{marginTop:14,padding:12,background:"#060C1A",borderRadius:6,fontSize:12,color:"#A0B0C8",lineHeight:1.6}}>{detail.message}</div>
-              <div style={{marginTop:14,display:"flex",gap:8}}>
-                <button className="btn btn-success btn-sm" onClick={()=>{setReview(detail.id,"closed");setDetail(null);}}>Close</button>
-                <button className="btn btn-blue btn-sm" onClick={()=>{setReview(detail.id,"pending_response");setDetail(null);}}>Pending response</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>{setReview(detail.id,"rejected");setDetail(null);}}>Reject</button>
+              <div style={{marginTop:14,display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button className="btn btn-success btn-sm" onClick={()=>{setOutcome(detail.id,"won","admin hub");setDetail(null);}}>Won</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>{setOutcome(detail.id,"lost","admin hub");setDetail(null);}}>Lost</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>{setOutcome(detail.id,"withdrawn","admin hub");setDetail(null);}}>Withdrawn</button>
+                <button className="btn btn-blue btn-sm" onClick={()=>{setReview(detail.id,"contacted");setDetail(null);}}>Contacted</button>
+                <button className="btn btn-ghost btn-sm" onClick={()=>{setReview(detail.id,"closed");setDetail(null);}}>Close</button>
               </div>
+              {detail.commercial_outcome && (
+                <p style={{marginTop:10,fontSize:11,color:"#8a9bb0"}}>
+                  Outcome: {detail.commercial_outcome}
+                  {detail.commercial_outcome_reason ? ` — ${detail.commercial_outcome_reason}` : ""}
+                </p>
+              )}
             </div>
           </div>
         </div>

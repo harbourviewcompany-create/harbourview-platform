@@ -99,6 +99,8 @@ jobs:
         run: npx vitest run tests/dashboard/command-centre-smoke.test.ts
       - name: Marketplace funnel metrics unit tests
         run: npx vitest run tests/dashboard/marketplaceFunnelMetrics.test.ts
+      - name: KYB deal-room gate unit tests
+        run: npx vitest run tests/marketplace/kybDealRoomGate.test.ts
       - name: Marketplace submission actions
         run: npx vitest run tests/actions/marketplaceSubmissionActions.test.ts
       - name: Supabase admin client isolation
