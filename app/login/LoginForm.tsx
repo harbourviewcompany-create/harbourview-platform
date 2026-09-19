@@ -81,29 +81,17 @@ export default function LoginForm({
           router.refresh()
         }
       } else {
-        const { data, error: err } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, next: next ?? '/dashboard' }),
         })
-        if (err) {
-          setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
-        } else if (data.user && (data.user.identities?.length ?? 0) === 0) {
-          // Supabase intentionally returns an obfuscated user for an existing
-          // confirmed account when email confirmation is enabled. Do not tell
-          // an existing user that we sent a new confirmation email.
-          setFeedback({
-            type: 'error',
-            text: 'An account already exists for this email. Sign in instead or use Forgot password.',
-          })
-        } else if (data.session) {
-          // If email confirmations are disabled, Supabase returns a live session.
-          // Never show a misleading "check your inbox" state in that case.
-          router.push(next ?? '/dashboard')
-          router.refresh()
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          setFeedback({ type: 'error', text: friendlyAuthError(result.error ?? 'We could not create the account. Please try again.') })
         } else {
-          // With email confirmations enabled, signup succeeds without a session
-          // and Supabase sends the confirmation message through its configured mailer.
+          // Signup confirmation is delivered by the server through the configured
+          // transactional mail provider, rather than Supabase's restricted default mailer.
           setSignupComplete(true)
         }
       }
@@ -116,17 +104,21 @@ export default function LoginForm({
 
   async function handleResendConfirmation() {
     setLoading(true)
-    const supabase = createClient()
-    const { error: err } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${next ?? '/dashboard'}` },
-    })
-    setLoading(false)
-    setFeedback(err
-      ? { type: 'error', text: friendlyAuthError(err.message) }
-      : { type: 'success', text: 'Confirmation email resent.' }
-    )
+    setFeedback(null)
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, next: next ?? '/dashboard' }),
+      })
+      const result = await response.json().catch(() => ({}))
+      setFeedback(response.ok
+        ? { type: 'success', text: 'Confirmation email resent.' }
+        : { type: 'error', text: friendlyAuthError(result.error ?? 'We could not resend the confirmation email.') }
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (signupComplete) {
