@@ -2,7 +2,7 @@
 
 **Status**: Active Planning Document  
 **Owner**: Tyler / Harbourview Team  
-**Last Updated**: August 18, 2026  
+**Last Updated**: September 17, 2026  
 **Purpose**: Single source of truth for all planned features. All implementation must reference this document and update PROJECT_REGISTRY.md.
 
 ## Phase 0–1 — CLOSED (2026-07-28)
@@ -28,6 +28,23 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 | Env wiring doc | ✅ | `docs/control/ENV_PHASE2_WIRING.md` |
 | Registry Phase 2 rows | ✅ docs | `docs/control/PHASE2_REGISTRY_ROWS.md` |
 
+## Phase 3 — Signal enrichment + full briefing automation (IN PROGRESS — 2026-09)
+
+Goal: close the loop from external media → classified signals → personalized, scheduled briefings so the live feed and digests stay fresh and commercially useful.
+
+| Item | Status | Notes / Evidence |
+|------|--------|------------------|
+| Meltwater connector (production-grade) | ✅ | Hashing, snapshot mapping, real HTTP client, safe no-op |
+| meltwater-enrich cron (production-grade) | ✅ | Writes `source_snapshots` with `pending_extraction`, content-hash dedupe, metrics, schema-tolerant insert |
+| BigQuery enrichment skeleton | ✅ | `lib/connectors/bigquery.ts` + SQL template |
+| Digest narrative optimization | ✅ | Stronger commercial framing |
+| Personal briefings tick | ✅ | Already live; Resend + cadence |
+| Canonical pipeline integration | ✅ | source_snapshots → intelligence-extract → promote |
+| BigQuery job for bulk quality re-score | ⬜ | After credentials |
+| Preference storage + calendar sync | ⬜ | HubSpot / Google Calendar stubs present |
+| Unified signal store cleanup | ⬜ | Address parallel tables |
+| Feed freshness SLO (promote within 24–48 h) | ⬜ | Operator + pipeline tuning |
+
 ## Still operator / partner dependent
 
 | Item | Status | Notes |
@@ -41,7 +58,8 @@ See prior audit. Public supplier directory closed in `e0f87ff`.
 
 ## Next Action
 
-1. Run `bash scripts/smoke-phase2.sh` (or BASE=custom domain).
-2. Complete `PHASE2_PRODUCTION_SMOKE.md` sections D–G.
-3. Publish missing playbooks for non-plan-ready tracked corridors.
-4. Decide repository visibility and update PROJECT_REGISTRY.
+1. Create/select a `source_registry` row for Meltwater and set `MELTWATER_SOURCE_ID`.
+2. Provision `MELTWATER_API_KEY` + `MELTWATER_SEARCH_IDS`.
+3. Dry-run `meltwater-enrich?dry=1`, then live; confirm `source_snapshots` rows with `pending_extraction`.
+4. Monitor next `intelligence-extract` (04:00 UTC) and digests/briefings.
+5. Decide repository visibility and update PROJECT_REGISTRY.

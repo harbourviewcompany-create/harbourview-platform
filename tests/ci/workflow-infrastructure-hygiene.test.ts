@@ -31,10 +31,16 @@ describe('CI infrastructure hygiene', () => {
     expect(ci).not.toContain('cancel-in-progress: true')
   })
 
-  it('keeps E2E execution out of PR CI when no E2E job is configured', () => {
+  it('keeps PR CI free of silent Playwright/E2E reintroduction', () => {
     const ci = read('.github/workflows/ci.yml')
-    const e2eStart = ci.indexOf('  e2e:')
-    expect(e2eStart).toBe(-1)
+    const active = activeYamlLines(ci)
+
+    // E2E was removed from the PR CI topology; do not require a job that no longer exists.
+    expect(active).not.toMatch(/^ {2}e2e:\s*$/m)
+    expect(active).not.toContain('npx playwright install')
+    expect(active).not.toContain('npm run test:e2e')
+    expect(active).not.toContain('name: Check optional E2E credentials')
+    expect(active).not.toContain('name: Supabase E2E readiness')
   })
 })
 
