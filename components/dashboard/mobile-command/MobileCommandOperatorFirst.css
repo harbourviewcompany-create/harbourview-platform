@@ -346,14 +346,16 @@
 }
 
 .hvm-op-secondary-nav {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  max-height: 30dvh;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 8px var(--hvm-op-inline);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
   border-top: 1px solid var(--hvm2-border-soft);
   border-bottom: 1px solid var(--hvm2-border-soft);
   background: rgba(2, 8, 20, 0.96);
@@ -361,6 +363,10 @@
   box-shadow: 0 -8px 16px -12px rgba(0, 0, 0, 0.5);
   position: relative;
   z-index: 5;
+}
+
+.hvm-op-secondary-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .hvm-op-secondary-nav button {
@@ -583,7 +589,7 @@
   }
 
   .hvm-op-secondary-nav {
-    max-height: none;
-    overflow-y: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 }
