@@ -37,7 +37,8 @@ export function LoadingGlobe({
         <div className={styles.surface} />
         <div className={styles.metal} />
         <div className={styles.limb} />
-        <div className={styles.equator} />
+        <div className={styles.polarGrid} />
+        <div className={styles.polarCap} />
       </div>
     </div>
   )
