@@ -116,7 +116,14 @@ describe('Harbourview P0 identity, organization, membership and operating contex
 
   it('restores the signed-in saved role while allowing a no-role Command context', () => {
     expect(dashboardPage).toContain('const roleId = urlRole ?? storedRoleId')
-    expect(dashboardPage).toContain(".select('country_iso2, role_id, active_workspace_id')")
+    // Asserted per column rather than as one literal select string: the guard
+    // here is that the saved country, role and workspace are all restored, and
+    // that intent survives a column being added to the same select (as
+    // command_last_viewed_at was, per docs/COMMAND_SURFACE_SPEC.md 4.1).
+    const prefsSelect = dashboardPage.match(/\.from\('user_dashboard_preferences'\)\s*\n\s*\.select\('([^']+)'\)/)
+    expect(prefsSelect).not.toBeNull()
+    const selectedPrefColumns = (prefsSelect?.[1] ?? '').split(',').map(column => column.trim())
+    expect(selectedPrefColumns).toEqual(expect.arrayContaining(['country_iso2', 'role_id', 'active_workspace_id']))
     expect(dashboardPage).toContain("activeWorkspaceId ?? 'personal'")
   })
 
