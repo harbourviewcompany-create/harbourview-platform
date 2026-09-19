@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-const migration = readFileSync('supabase/migrations/20260911225008_decision_intel_stage0_first_slice.sql', 'utf8')
-const hardening = readFileSync('supabase/migrations/20260911225106_decision_intel_stage0_review_fixes.sql', 'utf8')
-const completion = readFileSync('supabase/migrations/20260911225151_decision_intel_stage0_completion_hardening.sql', 'utf8')
+const migration = readFileSync('supabase/migrations/20260808190000_decision_intel_stage0_first_slice.sql', 'utf8')
+const hardening = readFileSync('supabase/migrations/20260808203000_decision_intel_stage0_review_fixes.sql', 'utf8')
+const completion = readFileSync('supabase/migrations/20260810202000_decision_intel_stage0_completion_hardening.sql', 'utf8')
 const intelUi = readFileSync('components/dashboard/mobile-command/sections/DecisionSignalsSection.tsx', 'utf8')
 const mobileShell = readFileSync('components/dashboard/MobileCommandCentreRebuild.tsx', 'utf8')
 const desktopShell = readFileSync('components/dashboard/CommandCentre.tsx', 'utf8')
