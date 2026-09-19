@@ -10,7 +10,7 @@ import {
   mentionToSnapshotRow,
   type MeltwaterSnapshotRow,
 } from '@/lib/connectors/meltwater'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 
 export const dynamic = 'force-dynamic'
@@ -56,7 +56,7 @@ async function resolveSourceId(
 }
 
 async function stageSnapshots(
-  supabase: SupabaseClient<any, any, 'api'>,
+  supabase: ReturnType<typeof getSupabaseAdmin>,
   rows: MeltwaterSnapshotRow[],
 ): Promise<{ inserted: number; skipped: number; error?: string }> {
   if (rows.length === 0) return { inserted: 0, skipped: 0 }
