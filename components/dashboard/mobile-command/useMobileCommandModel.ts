@@ -11,6 +11,15 @@ import {
   buildLandedCostToolHref,
 } from '@/components/dashboard/mobile-command/contracts'
 
+const SIGNALS_LIVE_SURFACES = new Set([
+  'overview',
+  'market-intelligence',
+  'weekly-signals',
+  'personal-briefing',
+  'search',
+  'regulatory',
+])
+
 const COMMAND_RETURN_PARAM_KEYS = [
   'page',
   'section',
@@ -32,14 +41,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   const model = useBaseMobileCommandModel(props)
   const searchParams = useSearchParams()
   const signalScope = model.currentCountry ? model.countryLabel : 'all'
-  const signalsLiveSurface = new Set([
-    'overview',
-    'market-intelligence',
-    'weekly-signals',
-    'personal-briefing',
-    'search',
-    'regulatory',
-  ]).has(model.activeSection)
+  const signalsLiveSurface = SIGNALS_LIVE_SURFACES.has(model.activeSection)
   const { signals: effectiveSignals, status: signalsStatus } = useDashboardSignalsRealtime(
     props.signals,
     signalScope,
