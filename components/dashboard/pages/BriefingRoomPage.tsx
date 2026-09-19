@@ -23,7 +23,7 @@ import { getRoleCommandDefault } from '@/lib/dashboard/roleCommandDefaults'
 import { combinePipelineStatus, pipelineSloMessage } from '@/lib/dashboard/pipelineSlo'
 import { formatRate, type MarketplaceFunnelMetrics } from '@/lib/dashboard/marketplaceFunnelMetrics'
 import { buildBriefingActions } from '@/lib/dashboard/briefingActions'
-import { buildCoverageMapSnapshot } from '@/lib/dashboard/coverageMap'
+import { buildCoverageMapSnapshot, coverageOverridesFromSignals } from '@/lib/dashboard/coverageMap'
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 
 const MyBriefingsPanel = dynamic(
@@ -212,7 +212,10 @@ export const BriefingRoom = React.memo(function BriefingRoom({
     })
   }, [role, signals])
   const roleFocus = useMemo(() => getRoleCommandDefault(role).focus, [role])
-  const coverageMap = useMemo(() => buildCoverageMapSnapshot(country.iso2), [country.iso2])
+  const coverageMap = useMemo(
+    () => buildCoverageMapSnapshot(country.iso2, coverageOverridesFromSignals(signals.length)),
+    [country.iso2, signals.length],
+  )
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -547,6 +550,14 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                 Qualify rate {formatRate(funnelMetrics.qualificationRate)}
                 {' · '}
                 Conversion {formatRate(funnelMetrics.conversionRate)}
+                <br />
+                Outcomes: {funnelMetrics.wonProxy} qualified (win proxy)
+                {' · '}
+                {funnelMetrics.lostProxy} not fit (loss)
+                {' · '}
+                Loss rate {formatRate(funnelMetrics.lossRate)}
+                {' · '}
+                {funnelMetrics.closed} closed
               </div>
             )}
             <button

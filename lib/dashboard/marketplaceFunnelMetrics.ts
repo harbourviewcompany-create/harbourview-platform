@@ -35,6 +35,12 @@ export type MarketplaceFunnelMetrics = {
   qualificationRate: number | null
   /** Rough conversion proxy: qualified / total */
   conversionRate: number | null
+  /** Qualified — best current proxy for commercial wins (no explicit won status yet) */
+  wonProxy: number
+  /** not_fit — explicit commercial loss/reject path */
+  lostProxy: number
+  /** lost / (won+lost) when either outcome exists */
+  lossRate: number | null
   computedAt: string
 }
 
@@ -69,6 +75,11 @@ export function buildMarketplaceFunnelMetrics(input: {
     { key: 'closed', label: 'Closed', count: closed },
   ]
 
+  const wonProxy = qualified
+  const lostProxy = notFit
+  const outcomeDenom = wonProxy + lostProxy
+  const lossRate = outcomeDenom > 0 ? lostProxy / outcomeDenom : null
+
   return {
     buckets,
     openInquiry,
@@ -80,6 +91,9 @@ export function buildMarketplaceFunnelMetrics(input: {
     contactRate,
     qualificationRate,
     conversionRate,
+    wonProxy,
+    lostProxy,
+    lossRate,
     computedAt: new Date().toISOString(),
   }
 }

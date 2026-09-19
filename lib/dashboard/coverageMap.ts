@@ -54,3 +54,15 @@ export function buildCoverageMapSnapshot(
     computedAt: new Date().toISOString(),
   }
 }
+
+
+/** Raise intel domains to live when the jurisdiction has recent signal volume. */
+export function coverageOverridesFromSignals(signalCount: number): Partial<Record<string, CoverageTier>> {
+  if (signalCount >= 5) {
+    return { signals: 'live', regulatory: 'live' }
+  }
+  if (signalCount >= 1) {
+    return { signals: 'live', regulatory: 'mixed' }
+  }
+  return { signals: 'mixed', regulatory: 'reference' }
+}
