@@ -97,6 +97,23 @@ while IFS= read -r file; do
 done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
 if [ "$privileged_untrusted_checkout" -eq 0 ]; then pass_check "no privileged workflow checks out untrusted pull-request code"; else fail_check "$privileged_untrusted_checkout privileged workflow(s) contain an untrusted pull-request checkout/fetch pattern"; fi
 
+printf 'GOVERNANCE_POLICY_RESULT=%s PASS_COUNT=%s FAIL_COUNT=%s\n' "$([ "$fail" -eq 0 ] && echo PASS || echo FAIL)" "$pass_count" "$fail_count"
+exit "$fail"
+ || true)
+  if [ -n "$unexpected" ]; then printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved controlled workflows"; else pass_check "contents: write is limited to explicitly approved controlled workflows"; fi
+else
+  pass_check "no workflow grants contents: write"
+fi
+
+if grep -RInE 'github\.event\.(pull_request|issue)\.(body|title)' "$workflow_dir" >/tmp/governance-body-title.txt 2>/dev/null; then cat /tmp/governance-body-title.txt; fail_check "workflow directly interpolates attacker-controlled issue/PR body or title data"; else pass_check "no direct issue/PR body or title interpolation detected"; fi
+
+privileged_untrusted_checkout=0
+while IFS= read -r file; do
+  if grep -Eq 'github\.event\.pull_request\.head\.(sha|repo\.full_name)|refs/pull/\$\{\{[^}]*pull_request[^}]*\}\}/(merge|head)' "$file"; then
+    if grep -Eq '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$|secrets[.](SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET)' "$file"; then printf 'PR TRUST-BOUNDARY: %s\n' "$file"; privileged_untrusted_checkout=$((privileged_untrusted_checkout+1)); fi
+  fi
+done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
+if [ "$privileged_untrusted_checkout" -eq 0 ]; then pass_check "no privileged workflow checks out untrusted pull-request code"; else fail_check "$privileged_untrusted_checkout privileged workflow(s) contain an untrusted pull-request checkout/fetch pattern"; fi
 
 printf 'GOVERNANCE_POLICY_RESULT=%s PASS_COUNT=%s FAIL_COUNT=%s\n' "$([ "$fail" -eq 0 ] && echo PASS || echo FAIL)" "$pass_count" "$fail_count"
 exit "$fail"
