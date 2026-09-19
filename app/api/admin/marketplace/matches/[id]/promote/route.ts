@@ -86,6 +86,13 @@ export async function POST(
       { ok: false, error: 'kyb_override requires kyb_override_reason (min 8 chars)' },
       { status: 400 },
     )
+  } else {
+    console.info('harbourview_deal_room_kyb_override', {
+      matchId,
+      reason: kyb_override_reason.slice(0, 200),
+      listingUserId,
+      buyerUserId,
+    })
   }
 
   // Create the deal room

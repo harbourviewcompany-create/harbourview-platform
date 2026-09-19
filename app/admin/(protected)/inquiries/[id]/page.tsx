@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { requireAdminAuth } from '@/lib/auth/adminGuard';
 import { fetchAdminSupabaseJson, getAdminDataClient, type AdminDataError } from '@/lib/supabase/adminDataClient';
 import {
+  COMMERCIAL_OUTCOMES,
+  commercialOutcomeLabels,
   getInquiryTypeLabel,
   getRecommendedTemplateKey,
   priorityLabels,
@@ -34,6 +36,9 @@ type MarketplaceInquiry = {
   last_contacted_at: string | null;
   next_follow_up_at: string | null;
   internal_response_notes: string | null;
+  commercial_outcome: string | null;
+  commercial_outcome_reason: string | null;
+  commercial_outcome_at: string | null;
 };
 
 function formatDate(value: string | null) {
@@ -196,6 +201,25 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
                 Internal response notes
                 <textarea name="internal_response_notes" defaultValue={inquiry.internal_response_notes || ''} rows={7} className="mt-2 w-full resize-y rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2" />
               </label>
+              <label className="block text-sm text-[#F5F1E8]/75">
+                Commercial outcome
+                <select name="commercial_outcome" defaultValue={inquiry.commercial_outcome || ''} className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2">
+                  <option value="">Not set</option>
+                  {COMMERCIAL_OUTCOMES.map((outcome) => (
+                    <option key={outcome} value={outcome}>{commercialOutcomeLabels[outcome]}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm text-[#F5F1E8]/75">
+                Outcome reason
+                <input
+                  type="text"
+                  name="commercial_outcome_reason"
+                  defaultValue={inquiry.commercial_outcome_reason || ''}
+                  placeholder="e.g. price, jurisdiction, capacity, withdrawn by buyer"
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2"
+                />
+              </label>
               <label className="flex items-center gap-3 text-sm text-[#F5F1E8]/75">
                 <input type="checkbox" name="mark_contacted_now" value="1" className="h-4 w-4 accent-[#C6A55A]" />
                 Mark contacted now
@@ -214,6 +238,9 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
               <div><dt className="text-[#C6A55A]">Legacy status</dt><dd>{inquiry.status}</dd></div>
               <div><dt className="text-[#C6A55A]">Last contacted</dt><dd>{formatDate(inquiry.last_contacted_at)}</dd></div>
               <div><dt className="text-[#C6A55A]">Next follow-up</dt><dd>{formatDate(inquiry.next_follow_up_at)}</dd></div>
+              <div><dt className="text-[#C6A55A]">Commercial outcome</dt><dd>{inquiry.commercial_outcome ? (commercialOutcomeLabels[inquiry.commercial_outcome as keyof typeof commercialOutcomeLabels] || inquiry.commercial_outcome) : 'Not set'}</dd></div>
+              <div><dt className="text-[#C6A55A]">Outcome reason</dt><dd>{inquiry.commercial_outcome_reason || '—'}</dd></div>
+              <div><dt className="text-[#C6A55A]">Outcome at</dt><dd>{formatDate(inquiry.commercial_outcome_at)}</dd></div>
               <div><dt className="text-[#C6A55A]">Inquiry ID</dt><dd>{inquiry.id}</dd></div>
             </dl>
           </div>
