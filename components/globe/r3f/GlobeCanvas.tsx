@@ -39,63 +39,6 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   return null
 }
 
-function IntroOrbitTracker({
-  active,
-  controlsRef,
-  onProgress,
-}: {
-  active: boolean
-  controlsRef: RefObject<ComponentRef<typeof OrbitControls> | null>
-  onProgress: (progress: { azimuthAccumRad: number; elapsedMs: number }) => void
-}) {
-  const startedAtRef = useRef<number | null>(null)
-  const lastAzimuthRef = useRef<number | null>(null)
-  const accumRef = useRef(0)
-
-  useFrame(() => {
-    if (!active) return
-    const controls = controlsRef.current as {
-      getAzimuthalAngle?: () => number
-      autoRotateSpeed?: number
-    } | null
-    if (!controls?.getAzimuthalAngle) return
-
-    const now = performance.now()
-    if (startedAtRef.current === null) {
-      startedAtRef.current = now
-      lastAzimuthRef.current = controls.getAzimuthalAngle()
-      accumRef.current = 0
-    }
-
-    const az = controls.getAzimuthalAngle()
-    const prev = lastAzimuthRef.current ?? az
-    let delta = az - prev
-    if (delta > Math.PI) delta -= Math.PI * 2
-    if (delta < -Math.PI) delta += Math.PI * 2
-    accumRef.current += Math.abs(delta)
-    lastAzimuthRef.current = az
-
-    if (typeof controls.autoRotateSpeed === 'number') {
-      controls.autoRotateSpeed = introSpinAutoRotateSpeed(accumRef.current)
-    }
-
-    onProgress({
-      azimuthAccumRad: accumRef.current,
-      elapsedMs: now - startedAtRef.current,
-    })
-  })
-
-  useEffect(() => {
-    if (!active) {
-      startedAtRef.current = null
-      lastAzimuthRef.current = null
-      accumRef.current = 0
-    }
-  }, [active])
-
-  return null
-}
-
 function IntroRevealClock({
   active,
   onElapsed,
@@ -188,13 +131,11 @@ export function GlobeCanvas({
   onIntroPhaseChange?: (phase: GlobeIntroPhase) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
-  const { liveData, loading } = useGlobe()
+  const { liveData } = useGlobe()
   const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('revealing')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
   const [heatBoost, setHeatBoost] = useState(0)
-  const spinElapsedMsRef = useRef(0)
-  const azimuthAccumRadRef = useRef(0)
   const lastRevealStepRef = useRef(-1)
 
   useEffect(() => {
