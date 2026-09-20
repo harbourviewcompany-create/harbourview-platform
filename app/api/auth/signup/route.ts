@@ -1,10 +1,22 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 function safeNext(value: unknown) {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return '/dashboard'
   return value
+}
+
+function looksLikeEmailDeliveryFailure(message: string) {
+  const lower = message.toLowerCase()
+  return (
+    lower.includes('error sending confirmation email') ||
+    lower.includes('error sending email') ||
+    lower.includes('smtp') ||
+    lower.includes('gomail') ||
+    lower.includes('email provider') ||
+    lower.includes('mailer')
+  )
 }
 
 export async function POST(request: Request) {
@@ -13,7 +25,7 @@ export async function POST(request: Request) {
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body?.password === 'string' ? body.password : ''
     const next = safeNext(body?.next)
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
     }
     if (password.length < 8) {
@@ -35,11 +47,12 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient()
+    const redirectTo = `${new URL(request.url).origin}/auth/callback?next=${encodeURIComponent(next)}`
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${new URL(request.url).origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        emailRedirectTo: redirectTo,
         data: { signup_source: 'harbourview_web' },
       },
     })
@@ -51,6 +64,53 @@ export async function POST(request: Request) {
         status: error.status,
         message: error.message,
       })
+
+      // If Supabase Auth itself cannot hand the confirmation message to SMTP,
+      // do not let a broken mail transport make public signup unavailable.
+      // Create the user as already confirmed and establish the session directly.
+      // This is intentionally server-only; the service-role key never reaches the browser.
+      if (looksLikeEmailDeliveryFailure(error.message)) {
+        try {
+          const admin = await createSupabaseServiceClient()
+          const { data: created, error: createError } = await admin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: { signup_source: 'harbourview_web', email_delivery_fallback: true },
+          })
+
+          if (!createError && created.user) {
+            const { data: signedIn, error: signInError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            })
+            if (!signInError && signedIn.session) {
+              console.warn('[auth/signup] SMTP fallback used; account auto-confirmed', {
+                userId: created.user.id,
+              })
+              return NextResponse.json({ ok: true, needsConfirmation: false, next })
+            }
+            console.error('[auth/signup] SMTP fallback created user but session sign-in failed', {
+              name: signInError?.name,
+              code: signInError?.code,
+              status: signInError?.status,
+              message: signInError?.message,
+            })
+          } else if (createError && !createError.message.toLowerCase().includes('already registered')) {
+            console.error('[auth/signup] SMTP fallback createUser failed', {
+              name: createError.name,
+              code: createError.code,
+              status: createError.status,
+              message: createError.message,
+            })
+          }
+        } catch (fallbackError) {
+          console.error('[auth/signup] SMTP fallback unavailable', {
+            name: fallbackError instanceof Error ? fallbackError.name : 'unknown',
+            message: fallbackError instanceof Error ? fallbackError.message : 'unknown',
+          })
+        }
+      }
 
       const authError = error.message.toLowerCase()
       let message = 'We could not create the account. Please try again.'
