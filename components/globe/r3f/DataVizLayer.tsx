@@ -58,16 +58,34 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
     [countries],
   )
 
+  /** Collapse DE-BW / US-CA style codes onto the parent plate marker. */
+  const parentIso2 = (iso2: string) => {
+    const upper = iso2.toUpperCase()
+    if (upper.startsWith('DE-')) return 'DE'
+    if (upper.startsWith('US-')) return 'US'
+    if (upper.startsWith('CA-')) return 'CA'
+    if (upper.startsWith('AU-')) return 'AU'
+    return upper
+  }
+
   const signalEvents = useMemo(() => {
     const byIso2 = new Map<string, GlobeSignal>()
 
     for (const signal of Object.values(signalsByIso2).flat()) {
-      const iso2 = signal.countryIso2
-      if (!iso2 || !countryByIso2.has(iso2)) continue
+      const raw = signal.countryIso2
+      if (!raw) continue
+      const iso2 = parentIso2(raw)
+      // Prefer parent country centroid when subnational code is not on the plate set
+      const resolved =
+        countryByIso2.has(iso2) ? iso2
+        : countryByIso2.has(raw) ? raw
+        : null
+      if (!resolved) continue
 
-      const existing = byIso2.get(iso2)
+      const existing = byIso2.get(resolved)
+      const candidate = { ...signal, countryIso2: resolved }
       if (!existing || (signal.score ?? 0) > (existing.score ?? 0)) {
-        byIso2.set(iso2, signal)
+        byIso2.set(resolved, candidate)
       }
     }
 

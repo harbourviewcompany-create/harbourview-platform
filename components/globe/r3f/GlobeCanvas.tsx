@@ -171,7 +171,7 @@ export function GlobeCanvas({
   focusedCountryIso2,
   activeLayerId,
   routerStep,
-  subNationalIso2s = ['US', 'DE', 'CA', 'AU'],
+  subNationalIso2s: subNationalIso2sProp = ['US', 'CA'],
   tierPalette = 'metal',
   onHoverCountry,
   onSelectCountry,
@@ -189,6 +189,28 @@ export function GlobeCanvas({
   onSelectCountry?: (countryIso2: string) => void
   onIntroPhaseChange?: (phase: GlobeIntroPhase) => void
 }) {
+  // Germany (and AU) bundesland/state plates look like a marker swarm at
+  // continental zoom — only expand when the operator is focused on that parent.
+  const effectiveSubNationalIso2s = useMemo(() => {
+    const base = new Set(subNationalIso2sProp)
+    const focus = (selectedCountryIso2 ?? focusedCountryIso2 ?? '').toUpperCase()
+    const selected = (selectedCountryIso2s ?? []).map((s) => s.toUpperCase())
+    const wantsDe =
+      focus === 'DE' ||
+      focus.startsWith('DE-') ||
+      selected.some((s) => s === 'DE' || s.startsWith('DE-'))
+    const wantsAu =
+      focus === 'AU' ||
+      focus.startsWith('AU-') ||
+      selected.some((s) => s === 'AU' || s.startsWith('AU-'))
+    if (wantsDe) base.add('DE')
+    else base.delete('DE')
+    if (wantsAu) base.add('AU')
+    else base.delete('AU')
+    // Always allow large federations when requested by prop defaults
+    return Array.from(base)
+  }, [subNationalIso2sProp, selectedCountryIso2, focusedCountryIso2, selectedCountryIso2s])
+
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const { liveData, loading } = useGlobe()
   const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
@@ -380,7 +402,7 @@ export function GlobeCanvas({
             <OceanSphere />
             <CountryPolygonMeshLayer
               selectedCountryIso2={selectedCountryIso2}
-              subNationalIso2s={subNationalIso2s}
+              subNationalIso2s={effectiveSubNationalIso2s}
               selectedCountryIso2s={selectedCountryIso2s}
               focusedCountryIso2={interactionLocked ? undefined : focusedCountryIso2}
               activeLayerId={activeLayerId}
