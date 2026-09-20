@@ -32,7 +32,7 @@ function friendlyAuthError(message: string) {
   if (lower.includes('rate limit')) {
     return 'Too many attempts. Please wait a moment and try again.'
   }
-  return message
+  return 'We could not complete that authentication request. Please try again.'
 }
 
 export default function LoginForm({
@@ -86,7 +86,7 @@ export default function LoginForm({
         setFeedback({ type: 'success', text: 'A new confirmation email has been sent. Check your inbox and spam folder.' })
       }
     } catch (err) {
-      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Something went wrong. Please try again.' })
+      setFeedback({ type: 'error', text: friendlyAuthError(err instanceof Error ? err.message : '') })
     } finally {
       setLoading(false)
     }
