@@ -8,30 +8,22 @@ export const featureFlags = {
   water: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_WATER', true),
   globeForceFallback: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_FORCE_FALLBACK', false),
   /**
-   * Colours country plates by `countries.regulatory_tier`.
-   *
-   * ON by default as of 2026-07-10. All 203 countries are classified, so the
-   * globe communicates market access on first load rather than rendering as
-   * undifferentiated gold.
-   *
-   * Set NEXT_PUBLIC_HARBOURVIEW_GLOBE_REGULATORY_TIERS=false to kill the
-   * colouring without a code change if a tier turns out to be wrong.
+   * Colours country and live subnational plates from evidence-backed
+   * regulatory tiers.
    */
   globeRegulatoryTiers: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_REGULATORY_TIERS', true),
   /**
-   * Continuous Gaussian heat-density surface above country plates.
-   * OFF by default until visual + performance validation.
-   * NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP=true to enable.
+   * Continuous spherical Gaussian density surface built from live country
+   * opportunity + signal activity. Quality automatically scales down on
+   * constrained devices.
    */
-  globeHeatmap: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP', false),
+  globeHeatmap: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEATMAP', true),
   /**
-   * Selective bloom + vignette when heatmap is active.
-   * Requires globeHeatmap. NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM=true
+   * Selective bloom + vignette for the live heat surface and event markers.
    */
-  globeHeatBloom: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM', false),
+  globeHeatBloom: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM', true),
   /**
-   * Atmosphere limb reacts to global heat metric (warm tint + intensity).
-   * Requires globeHeatmap. NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE=true
+   * Atmosphere limb reacts to the live global heat metric.
    */
   globeHeatAtmosphere: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE', true),
 }
