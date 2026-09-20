@@ -1,4 +1,4 @@
-/* Harbourview Arctic loading globe — static SVG + lightweight CSS animation. */
+/* Harbourview Arctic loading globe — static SVG with a continuous spin. */
 
 .root {
   position: relative;
@@ -15,18 +15,17 @@
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
-  animation: hv-loading-globe-breathe 2400ms ease-in-out infinite;
+  animation: hv-loading-globe-spin 7200ms linear infinite;
+  transform-origin: center;
+  will-change: transform;
 }
 
-@keyframes hv-loading-globe-breathe {
-  0%,
-  100% {
-    opacity: 0.9;
-    transform: scale(0.985);
+@keyframes hv-loading-globe-spin {
+  from {
+    transform: rotate(0deg);
   }
-  50% {
-    opacity: 1;
-    transform: scale(1);
+  to {
+    transform: rotate(360deg);
   }
 }
 
