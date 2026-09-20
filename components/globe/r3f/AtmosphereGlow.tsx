@@ -58,8 +58,8 @@ export function AtmosphereGlow({ heatBoost = 0 }: AtmosphereGlowProps) {
       uniforms: {
         uGlowColor: { value: new Color(0.1, 0.27, 0.72) },
         uHeatTint: { value: new Color(0.91, 0.77, 0.28) }, // #e8c547
-        uCoefficient: { value: 0.34 },
-        uPower: { value: 4.4 },
+        uCoefficient: { value: 0.19 },
+        uPower: { value: 5.2 },
         uHeatBoost: { value: 0 },
       },
       blending: AdditiveBlending,
