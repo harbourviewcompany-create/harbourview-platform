@@ -71,8 +71,9 @@ describe('Harbourview P0 identity, organization, membership and operating contex
 
   it('removes the one-organization API assumption and returns deterministic memberships', () => {
     expect(orgCreate).not.toContain('USER_ALREADY_HAS_ORG')
-    expect(orgCreate).toContain('workspace_members')
-    expect(orgCreate).toContain('active_workspace_id: ws.id')
+    expect(orgCreate).toContain('create_workspace_for_user')
+    expect(orgCreate).toContain('active_workspace_id')
+    expect(orgCreate).not.toContain('MEMBERSHIP_FAILED')
     expect(orgMe).toContain('memberships')
     expect(orgMe).toContain('.sort((a, b) =>')
     expect(orgMe).toContain('active_mode: activeMembership ? "organization" : "personal"')
