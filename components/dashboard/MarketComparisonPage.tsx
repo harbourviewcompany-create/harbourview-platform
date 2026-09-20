@@ -73,10 +73,13 @@ export function MarketComparisonPage({ initialCountryIso2, countryOptions }: Pro
 
       <div className="cc-panel" style={{ padding: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[['A', left, setLeft], ['B', right, setRight]].map(([slot, value, setter]) => (
+          {([
+            ['A', left, setLeft],
+            ['B', right, setRight],
+          ] as const).map(([slot, value, setter]) => (
             <label key={String(slot)} style={{ display: 'grid', gap: 7 }}>
               <span style={{ fontSize: 9, letterSpacing: '.16em', color: 'rgba(245,240,232,.42)', textTransform: 'uppercase' }}>Market {slot}</span>
-              <select value={String(value)} onChange={e => (setter as (v: string) => void)(e.target.value)} style={{ minHeight: 42, borderRadius: 10, border: '1px solid rgba(212,168,75,.2)', background: '#06101A', color: '#F5F0E8', padding: '0 12px' }}>
+              <select value={String(value)} onChange={e => setter(e.target.value)} style={{ minHeight: 42, borderRadius: 10, border: '1px solid rgba(212,168,75,.2)', background: '#06101A', color: '#F5F0E8', padding: '0 12px' }}>
                 {countryOptions.filter(c => c.value !== 'GLOBAL').map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </label>
