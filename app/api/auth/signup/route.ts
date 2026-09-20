@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createSupabaseServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
 
 function safeNext(value: unknown) {
@@ -35,31 +35,26 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = await createSupabaseServiceClient()
-    const { data, error } = await supabase.auth.admin.createUser({
+    const supabase = await createClient()
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      email_confirm: true,
-      user_metadata: { signup_source: 'harbourview_web' },
+      options: {
+        emailRedirectTo: `${new URL(request.url).origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        data: { signup_source: 'harbourview_web' },
+      },
     })
 
-    if (error || !data.user) {
-      console.error('[auth/signup] createUser failed', { message: error?.message })
-      const message = error?.message?.toLowerCase() ?? ''
-      if (
-        message.includes('already registered') ||
-        message.includes('already exists') ||
-        message.includes('already been registered')
-      ) {
-        return NextResponse.json(
-          { error: 'An account already exists for this email. Sign in instead or use Forgot password.' },
-          { status: 409 },
-        )
-      }
-      return NextResponse.json({ error: 'We could not create the account. Please try again.' }, { status: 500 })
+    if (error) {
+      console.error('[auth/signup] signUp failed', { message: error.message })
+      return NextResponse.json(
+        { error: 'We could not create the account. Please try again.' },
+        { status: 400 },
+      )
     }
 
-    return NextResponse.json({ ok: true, next })
+
+    return NextResponse.json({ ok: true, needsConfirmation: !data.session, next })
   } catch (error) {
     console.error('[auth/signup] unexpected error', {
       name: error instanceof Error ? error.name : 'unknown',
