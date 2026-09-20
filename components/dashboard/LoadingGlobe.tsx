@@ -3,18 +3,16 @@ import styles from './LoadingGlobe.module.css'
 
 /**
  * Lightweight Arctic loading globe for route-level loading boundaries.
- *
- * The artwork is a true polar/circumpolar composition; motion is deliberately
- * optical rather than a flat 360° spin so the loader still reads as a globe.
+ * Uses a static SVG asset so the loading state does not depend on WebGL/R3F.
  */
 export function LoadingGlobe({
-  size = 260,
-  spinDurationMs = 15000,
+  size = 200,
+  spinDurationMs = 13000,
   className,
 }: {
   /** Diameter in px (or any CSS length when passed as string). */
   size?: number | string
-  /** Duration of the very subtle lighting drift. */
+  /** Full rotation duration; slow enough to read as a globe rather than a spinner. */
   spinDurationMs?: number
   className?: string
 }) {
@@ -29,23 +27,18 @@ export function LoadingGlobe({
         {
           width: diameter,
           height: diameter,
-          ['--hv-globe-motion-ms' as string]: `${spinDurationMs}ms`,
+          ['--hv-globe-spin-ms' as string]: `${spinDurationMs}ms`,
         } as CSSProperties
       }
     >
-      <div className={styles.halo} />
-      <div className={styles.sphere}>
-        <img
-          className={styles.globe}
-          src="/harbourview-loading-globe.svg"
-          alt=""
-          width="900"
-          height="900"
-          draggable={false}
-        />
-        <div className={styles.specular} />
-      </div>
-      <div className={styles.rim} />
+      <img
+        className={styles.globe}
+        src="/harbourview-loading-globe.svg"
+        alt=""
+        width="900"
+        height="900"
+        draggable={false}
+      />
     </div>
   )
 }
