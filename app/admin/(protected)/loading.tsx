@@ -61,7 +61,7 @@ export default function AdminProtectedLoading() {
       </p>
 
       <div style={{ marginTop: 8 }}>
-        <LoadingGlobe size={140} spinDurationMs={13000} />
+        <LoadingGlobe size={140} />
       </div>
 
       <div
