@@ -50,7 +50,7 @@ function getRatelimiter(limit: number, windowMs: number): Ratelimit | null {
       redis,
       limiter: Ratelimit.slidingWindow(limit, `${windowMs} ms`),
       prefix: 'harbourview:ratelimit',
-      analytics: true,
+      analytics: false,
     })
     ratelimiters.set(key, limiter)
   }
