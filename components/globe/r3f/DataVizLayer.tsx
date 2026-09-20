@@ -2,10 +2,9 @@
  * Live market intelligence markers for the globe.
  *
  * Country markers show aggregate opportunity/activity. Signal markers show
- * individual live intelligence events at the evidence-backed country centroid
- * supplied by the signal's country_iso2. Multiple events at one centroid are
- * stacked vertically so we do not invent sub-country precision that the data
- * does not contain.
+ * country-level intelligence activity at the evidence-backed country centroid
+ * supplied by the signal's country_iso2. Multiple events in one country are
+ * aggregated into a single marker so the globe remains legible at a glance.
  */
 'use client'
 
@@ -30,8 +29,7 @@ type DataVizLayerProps = {
 const GLOBE_SURFACE_RADIUS = 2.35 + PLATE_LIFT + IDLE_EXTRUSION
 const MARKER_LIFT = 0.01
 const EVENT_BASE_LIFT = 0.035
-const EVENT_STACK_LIFT = 0.008
-const MAX_SIGNAL_MARKERS = 500
+const MAX_SIGNAL_MARKERS = 216
 
 function latLngToVector3(lat: number, lng: number, radius: number) {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -60,14 +58,21 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
     [countries],
   )
 
-  const signalEvents = useMemo(
-    () =>
-      Object.values(signalsByIso2)
-        .flat()
-        .filter((signal) => signal.countryIso2 && countryByIso2.has(signal.countryIso2))
-        .slice(0, MAX_SIGNAL_MARKERS),
-    [signalsByIso2, countryByIso2],
-  )
+  const signalEvents = useMemo(() => {
+    const byIso2 = new Map<string, GlobeSignal>()
+
+    for (const signal of Object.values(signalsByIso2).flat()) {
+      const iso2 = signal.countryIso2
+      if (!iso2 || !countryByIso2.has(iso2)) continue
+
+      const existing = byIso2.get(iso2)
+      if (!existing || (signal.score ?? 0) > (existing.score ?? 0)) {
+        byIso2.set(iso2, signal)
+      }
+    }
+
+    return Array.from(byIso2.values()).slice(0, MAX_SIGNAL_MARKERS)
+  }, [signalsByIso2, countryByIso2])
 
   const signalCount = signalEvents.length
 
@@ -129,20 +134,13 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
     const signalMesh = signalMeshRef.current
     if (signalMesh && signalCount > 0) {
       const now = state.clock.elapsedTime
-      const stackIndexByIso2 = new Map<string, number>()
 
       signalEvents.forEach((signal, i) => {
         const country = signal.countryIso2 ? countryByIso2.get(signal.countryIso2) : undefined
         if (!country) return
 
         const iso2 = country.iso2
-        const stackIndex = stackIndexByIso2.get(iso2) ?? 0
-        stackIndexByIso2.set(iso2, stackIndex + 1)
-
-        const baseRadius =
-          GLOBE_SURFACE_RADIUS +
-          EVENT_BASE_LIFT +
-          Math.min(stackIndex, 9) * EVENT_STACK_LIFT
+        const baseRadius = GLOBE_SURFACE_RADIUS + EVENT_BASE_LIFT
         const { x, y, z } = latLngToVector3(country.lat, country.lng, baseRadius)
         signalDummy.position.set(x, y, z)
 
