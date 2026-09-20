@@ -53,6 +53,7 @@ import type { JobType, JobSector } from './data/jobsBoard'
 import { INSURANCE_ROLE_COLORS, INSURANCE_ROLE_LABELS, INSURANCE_LINE_LABELS, type InsuranceProviderRole, type InsuranceLineType, type InsuranceProvider } from './data/insuranceProviders'
 import type { LandedProductType } from './data/landedCostData'
 const WatchlistPage = dynamic(() => import('./pages/WatchlistPage').then(m => ({ default: m.WatchlistPage })))
+const MarketComparisonPage = dynamic(() => import('./MarketComparisonPage').then(m => ({ default: m.MarketComparisonPage })))
 import { WatchlistUpgradeGate } from './WatchlistUpgradeGate'
 import type { FeatureAccess } from '@/lib/billing/entitlements'
 const DigestPageLazy = dynamic(() => import('./pages/DigestPage').then(m => m.DigestPage))
@@ -80,6 +81,7 @@ export type CommandPage =
   | 'local-intel'
   | 'signals'
   | 'watchlist'
+  | 'compare'
   | 'settings'
   | 'genetics'
   | 'clinical'
@@ -212,6 +214,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'marketplace', label: 'Marketplace',   icon: '⊞' },
       { id: 'signals',     label: 'Intelligence',  icon: '≋' },
       { id: 'watchlist',   label: 'Watchlist',     icon: '◈' },
+      { id: 'compare',    label: 'Compare Markets', icon: '⇄' },
     ],
   },
   {
@@ -11387,6 +11390,8 @@ export default function CommandCentre({
         return <LocalIntelPage country={country} region={region} role={roleLabel} signals={signals} countryIntel={liveCountryIntel} localIntel={localIntel} onPageChange={handlePageChange} />
       case 'signals':
         return <SignalsPage country={country} region={region} role={roleLabel} signals={signals} digestSignals={digestSignals} watchlistData={watchlistData} onPageChange={handlePageChange} initialShowSearch={openSignalsSearch} decisionIntelAccess={decisionIntelAccess} />
+      case 'compare':
+        return <MarketComparisonPage initialCountryIso2={country.iso2} countryOptions={countryOptions} />
       case 'watchlist':
         if (watchlistAccess && !watchlistAccess.granted) {
           return <WatchlistUpgradeGate access={watchlistAccess} />
