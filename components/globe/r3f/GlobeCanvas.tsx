@@ -23,10 +23,12 @@ import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import {
   GLOBE_INTRO,
+  introSpinAutoRotateSpeed,
   introTierBlend,
   isIntroInteractionLocked,
   shouldFinishReveal,
   shouldForceGoldPlates,
+  shouldStartReveal,
   type GlobeIntroPhase,
 } from '@/lib/globe/globe-intro'
 
@@ -36,6 +38,63 @@ function AutoRotateInvalidator({ active }: { active: boolean }) {
   useFrame((state) => {
     if (active) state.invalidate()
   })
+  return null
+}
+
+function IntroOrbitTracker({
+  active,
+  controlsRef,
+  onProgress,
+}: {
+  active: boolean
+  controlsRef: RefObject<ComponentRef<typeof OrbitControls> | null>
+  onProgress: (progress: { azimuthAccumRad: number; elapsedMs: number }) => void
+}) {
+  const startedAtRef = useRef<number | null>(null)
+  const lastAzimuthRef = useRef<number | null>(null)
+  const accumRef = useRef(0)
+
+  useFrame(() => {
+    if (!active) return
+    const controls = controlsRef.current as {
+      getAzimuthalAngle?: () => number
+      autoRotateSpeed?: number
+    } | null
+    if (!controls?.getAzimuthalAngle) return
+
+    const now = performance.now()
+    if (startedAtRef.current === null) {
+      startedAtRef.current = now
+      lastAzimuthRef.current = controls.getAzimuthalAngle()
+      accumRef.current = 0
+    }
+
+    const az = controls.getAzimuthalAngle()
+    const prev = lastAzimuthRef.current ?? az
+    let delta = az - prev
+    if (delta > Math.PI) delta -= Math.PI * 2
+    if (delta < -Math.PI) delta += Math.PI * 2
+    accumRef.current += Math.abs(delta)
+    lastAzimuthRef.current = az
+
+    if (typeof controls.autoRotateSpeed === 'number') {
+      controls.autoRotateSpeed = introSpinAutoRotateSpeed(accumRef.current)
+    }
+
+    onProgress({
+      azimuthAccumRad: accumRef.current,
+      elapsedMs: now - startedAtRef.current,
+    })
+  })
+
+  useEffect(() => {
+    if (!active) {
+      startedAtRef.current = null
+      lastAzimuthRef.current = null
+      accumRef.current = 0
+    }
+  }, [active])
+
   return null
 }
 
@@ -131,11 +190,13 @@ export function GlobeCanvas({
   onIntroPhaseChange?: (phase: GlobeIntroPhase) => void
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
-  const { liveData } = useGlobe()
-  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('revealing')
+  const { liveData, loading } = useGlobe()
+  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
   const [heatBoost, setHeatBoost] = useState(0)
+  const spinElapsedMsRef = useRef(0)
+  const azimuthAccumRadRef = useRef(0)
   const lastRevealStepRef = useRef(-1)
 
   useEffect(() => {
@@ -195,9 +256,39 @@ export function GlobeCanvas({
     setHeatBoost(boost)
   }, [])
 
-  // The loading frame is deliberately static: Arctic-down, gold landmasses,
-  // no borders/data layers. The reveal clock fades into the live globe without
-  // rotating the opening frame away from the requested loading orientation.
+  const tryAdvanceFromSpin = useCallback(() => {
+    if (introPhase !== 'spinning') return
+    if (
+      !shouldStartReveal({
+        azimuthAccumRad: azimuthAccumRadRef.current,
+        spinElapsedMs: spinElapsedMsRef.current,
+        loading,
+        prefersReducedMotion,
+      })
+    ) {
+      return
+    }
+    if (prefersReducedMotion) {
+      setIntroPhase('ready')
+      return
+    }
+    lastRevealStepRef.current = -1
+    setRevealElapsedMs(0)
+    setIntroPhase('revealing')
+  }, [introPhase, loading, prefersReducedMotion])
+
+  useEffect(() => {
+    tryAdvanceFromSpin()
+  }, [tryAdvanceFromSpin, loading])
+
+  const handleOrbitProgress = useCallback(
+    ({ azimuthAccumRad, elapsedMs }: { azimuthAccumRad: number; elapsedMs: number }) => {
+      azimuthAccumRadRef.current = azimuthAccumRad
+      spinElapsedMsRef.current = elapsedMs
+      tryAdvanceFromSpin()
+    },
+    [tryAdvanceFromSpin],
+  )
 
   const handleRevealElapsed = useCallback(
     (elapsedMs: number) => {
@@ -221,10 +312,10 @@ export function GlobeCanvas({
 
   const isHovering = !!focusedCountryIso2
   const isSelected = !!selectedCountryIso2
-  const introSpinning = false
+  const introSpinning = introPhase === 'spinning' && !prefersReducedMotion
   const introRevealing = introPhase === 'revealing' && !prefersReducedMotion
   const shouldAutoRotate =
-    !introSpinning && !introRevealing && !isHovering && !isSelected && introPhase === 'ready'
+    introSpinning || introRevealing || (!isHovering && !isSelected && introPhase === 'ready')
   const autoRotateSpeed = introSpinning
     ? GLOBE_INTRO.spinAutoRotateSpeed
     : introRevealing
@@ -279,7 +370,7 @@ export function GlobeCanvas({
         <Suspense fallback={null}>
           <Stars radius={30} depth={10} count={2200} factor={1.2} saturation={0} fade speed={0} />
 
-          <group rotation={[Math.PI / 2, 0, 0]}>
+          <group rotation={[0.08, 0.3, 0]}>
             <AtmosphereGlow heatBoost={atmosphereBoost} />
             <OceanSphere />
             <CountryPolygonMeshLayer
@@ -306,7 +397,7 @@ export function GlobeCanvas({
                 <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
               )
             ) : null}
-            {introPhase === 'ready' ? <CountryBorderLayer /> : null}
+            <CountryBorderLayer />
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
@@ -317,7 +408,12 @@ export function GlobeCanvas({
           <GlobeHeatEffects enabled={bloomEnabled} />
         </Suspense>
 
-        <AutoRotateInvalidator active={shouldAutoRotate || introSpinning || introRevealing} />
+        <AutoRotateInvalidator active={shouldAutoRotate} />
+        <IntroOrbitTracker
+          active={introSpinning}
+          controlsRef={controlsRef}
+          onProgress={handleOrbitProgress}
+        />
         <IntroRevealClock active={introRevealing} onElapsed={handleRevealElapsed} />
         <OrbitControls
           ref={controlsRef}
