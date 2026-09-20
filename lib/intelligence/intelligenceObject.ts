@@ -18,7 +18,7 @@ export function buildSignalIntelligence(signal: {
   cat: string | null
   createdAt: string
   countryIso2: string | null
-}, market: { iso2: string; name: string }): IntelligenceObject {
+}, market: { iso2: string; name: string }, evidence?: { key?: string | null; verifiedAt?: string | null; expiresAt?: string | null; source?: string | null }): IntelligenceObject {
   const category = (signal.cat ?? 'market').trim() || 'market'
   const normalized = category.toLowerCase()
   const implication = normalized.includes('regulat')
@@ -34,8 +34,8 @@ export function buildSignalIntelligence(signal: {
     headline: signal.headline,
     relevance: signal.score,
     observedAt: signal.createdAt,
-    source: null,
-    evidence: { key: null, verifiedAt: null, expiresAt: null },
+    source: evidence?.source ?? null,
+    evidence: { key: evidence?.key ?? null, verifiedAt: evidence?.verifiedAt ?? null, expiresAt: evidence?.expiresAt ?? null },
     implication,
     recommendedAction: 'Open intelligence and review the evidence before taking action.',
   }
