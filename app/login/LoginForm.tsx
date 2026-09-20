@@ -63,6 +63,35 @@ export default function LoginForm({
   const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), [email])
   const canSubmit = emailValid && (mode === 'signin' ? password.length > 0 : passwordLongEnough)
 
+  async function handleResendConfirmation() {
+    if (!emailValid) {
+      setFeedback({ type: 'error', text: 'Enter the email address you used to sign up.' })
+      return
+    }
+
+    setLoading(true)
+    setFeedback(null)
+    try {
+      const supabase = createClient()
+      const { error: err } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next ?? '/dashboard')}`,
+        },
+      })
+      if (err) {
+        setFeedback({ type: 'error', text: friendlyAuthError(err.message) })
+      } else {
+        setFeedback({ type: 'success', text: 'A new confirmation email has been sent. Check your inbox and spam folder.' })
+      }
+    } catch (err) {
+      setFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Something went wrong. Please try again.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -88,6 +117,8 @@ export default function LoginForm({
         const result = await response.json().catch(() => ({}))
         if (!response.ok) {
           setFeedback({ type: 'error', text: friendlyAuthError(result.error ?? 'We could not create the account. Please try again.') })
+        } else if (result.needsConfirmation) {
+          setFeedback({ type: 'success', text: `We sent a confirmation link to ${email}. Check your inbox and spam folder.` })
         } else {
           router.push(next ?? '/dashboard')
           router.refresh()
