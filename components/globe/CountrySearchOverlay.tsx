@@ -5,6 +5,7 @@ import { KeyboardEvent, useEffect, useMemo, useState } from 'react'
 import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/country-role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { createClient } from '@/lib/supabase/client'
+import { useGlobe } from './GlobeProvider'
 
 function SearchIcon() {
   return (
@@ -23,12 +24,16 @@ export function CountrySearchOverlay({
   onSelectCountry: (countryIso2: string) => void
   onNotSure: () => void
   onAnnouncement?: (message: string) => void
+  selectedCountryIso2?: string
 }) {
   const [query, setQuery] = useState('')
   const [isFocused, setIsFocused] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [signedIn, setSignedIn] = useState<boolean | null>(null)
   const [selectedCountryForReturn, setSelectedCountryForReturn] = useState<string | null>(null)
+  const [recentMarkets, setRecentMarkets] = useState<string[]>([])
+  const [collapsed, setCollapsed] = useState(false)
+  const { liveData } = useGlobe()
 
   const matches = useMemo(() => countryOptions.filter((country) =>
     tokenMatchesSearch(query, [
@@ -55,6 +60,18 @@ export function CountrySearchOverlay({
   }, [query])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('hv_recent_markets') ?? '[]')
+      if (Array.isArray(saved)) setRecentMarkets(saved.filter((v): v is string => typeof v === 'string').slice(0, 4))
+    } catch { /* ignore malformed local state */ }
+  }, [])
+
+  useEffect(() => {
+    if (selectedCountryIso2) setCollapsed(true)
+  }, [selectedCountryIso2])
+
+  useEffect(() => {
     const supabase = createClient()
     let mounted = true
     supabase.auth.getUser().then(({ data }) => {
@@ -72,6 +89,12 @@ export function CountrySearchOverlay({
   const selectCountry = (countryIso2: string) => {
     const selected = countryOptions.find((country) => country.iso2 === countryIso2)
     setSelectedCountryForReturn(countryIso2)
+    setRecentMarkets((previous) => {
+      const next = [countryIso2, ...previous.filter((iso2) => iso2 !== countryIso2)].slice(0, 4)
+      try { window.localStorage.setItem('hv_recent_markets', JSON.stringify(next)) } catch { /* ignore storage failures */ }
+      return next
+    })
+    setCollapsed(true)
     onSelectCountry(countryIso2)
     setQuery('')
     setHighlightedIndex(0)
@@ -127,6 +150,17 @@ export function CountrySearchOverlay({
         transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
       }}
     >
+      {selectedCountryIso2 && collapsed ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '9px 12px' }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: '9px', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(212,173,58,0.82)' }}>Market routing</p>
+            <p style={{ margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', color: 'rgba(255,255,255,0.78)' }}>{countryOptions.find((country) => country.iso2 === selectedCountryIso2)?.name ?? selectedCountryIso2}</p>
+          </div>
+          <button type="button" onClick={() => setCollapsed(false)} style={{ flexShrink: 0, border: '1px solid rgba(212,173,58,0.28)', borderRadius: 999, padding: '7px 10px', color: 'rgba(212,173,58,0.9)', background: 'rgba(255,255,255,0.03)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Change</button>
+        </div>
+      ) : null}
+      {(!selectedCountryIso2 || !collapsed) ? (
+      <>
       <div style={{ padding: '10px 14px 0 14px' }}>
         <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, rgba(212,173,58,0.8) 20%, rgba(212,173,58,0.8) 80%, transparent)', marginBottom: '9px', borderRadius: '1px' }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'baseline', gap: '10px' }}>
@@ -215,6 +249,8 @@ export function CountrySearchOverlay({
           {matches.length === 0 ? <p style={{ padding: '8px 10px', fontSize: '13px', color: 'rgba(255,255,255,0.52)' }}>No markets found.</p> : null}
         </div>
       ) : null}
+      </>
+      )}
     </div>
   )
 }
