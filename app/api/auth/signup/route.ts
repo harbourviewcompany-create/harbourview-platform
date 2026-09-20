@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       }
 
       return NextResponse.json({
-        error: message,
+        error: `${message} [${error.code ?? 'AUTH_ERROR'}: ${error.message}]`,
         debug: { name: error.name, code: error.code ?? null, status: error.status ?? null, message: error.message },
       }, { status })
     }
