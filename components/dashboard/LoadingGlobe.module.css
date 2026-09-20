@@ -13,19 +13,20 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transform-origin: 50% 50%;
-  animation: hv-loading-globe-spin var(--hv-globe-spin-ms, 13000ms) linear infinite;
-  will-change: transform;
   user-select: none;
   -webkit-user-drag: none;
+  animation: hv-loading-globe-breathe 2400ms ease-in-out infinite;
 }
 
-@keyframes hv-loading-globe-spin {
-  from {
-    transform: rotate(0deg);
+@keyframes hv-loading-globe-breathe {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(0.985);
   }
-  to {
-    transform: rotate(360deg);
+  50% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
