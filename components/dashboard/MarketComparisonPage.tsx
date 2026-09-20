@@ -11,6 +11,8 @@ type Market = {
   signalsStatus: string | null
 }
 
+type RawCountry = { iso2?: string; name?: string; opportunityScore?: number | null; marketAccessStatus?: string | null; regulatoryTier?: string | null; signalsStatus?: string | null }
+
 type Props = {
   initialCountryIso2: string
   countryOptions: { value: string; label: string }[]
@@ -32,7 +34,7 @@ export function MarketComparisonPage({ initialCountryIso2, countryOptions }: Pro
       .then(r => r.json())
       .then(data => {
         if (cancelled) return
-        setMarkets((data.countries ?? []).map((c: any) => ({
+        setMarkets((data.countries ?? []).map((c: RawCountry) => ({
           iso2: c.iso2,
           name: c.name,
           opportunityScore: c.opportunityScore ?? null,
