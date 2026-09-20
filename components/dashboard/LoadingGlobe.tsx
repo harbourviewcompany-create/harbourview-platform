@@ -1,9 +1,8 @@
-import type { CSSProperties } from 'react'
 import styles from './LoadingGlobe.module.css'
 
 /**
- * Lightweight CSS globe for route-level loading boundaries.
- * Intentionally free of R3F / GlobeProvider so first paint stays fast.
+ * Lightweight Arctic loading globe for route-level loading boundaries.
+ * Uses a static SVG asset so the loading state does not depend on WebGL/R3F.
  */
 export function LoadingGlobe({
   size = 200,
@@ -12,34 +11,33 @@ export function LoadingGlobe({
 }: {
   /** Diameter in px (or any CSS length when passed as string). */
   size?: number | string
-  /** Full rotation duration; slower reads as command, not spinner. */
+  /** Full rotation duration; slow enough to read as a globe rather than a spinner. */
   spinDurationMs?: number
   className?: string
 }) {
   const diameter = typeof size === 'number' ? `${size}px` : size
-
-  const rootStyle = {
-    width: diameter,
-    height: diameter,
-    ['--hv-globe-spin-ms']: `${spinDurationMs}ms`,
-  } as CSSProperties
 
   return (
     <div
       className={[styles.root, className].filter(Boolean).join(' ')}
       aria-hidden="true"
       data-loading-globe="true"
-      style={rootStyle}
+      style={
+        {
+          width: diameter,
+          height: diameter,
+          ['--hv-globe-spin-ms' as string]: `${spinDurationMs}ms`,
+        } as React.CSSProperties
+      }
     >
-      <div className={styles.field} />
-      <div className={styles.atmosphere} />
-      <div className={styles.shell}>
-        <div className={styles.surface} />
-        <div className={styles.metal} />
-        <div className={styles.limb} />
-        <div className={styles.polarGrid} />
-        <div className={styles.polarCap} />
-      </div>
+      <img
+        className={styles.globe}
+        src="/harbourview-loading-globe.svg"
+        alt=""
+        width="900"
+        height="900"
+        draggable={false}
+      />
     </div>
   )
 }
