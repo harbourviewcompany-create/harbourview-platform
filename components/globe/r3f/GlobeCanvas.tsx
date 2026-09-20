@@ -23,12 +23,10 @@ import type { GlobeTierPalette } from '@/lib/globe/globe-materials'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import {
   GLOBE_INTRO,
-  introSpinAutoRotateSpeed,
   introTierBlend,
   isIntroInteractionLocked,
   shouldFinishReveal,
   shouldForceGoldPlates,
-  shouldStartReveal,
   type GlobeIntroPhase,
 } from '@/lib/globe/globe-intro'
 
@@ -191,7 +189,7 @@ export function GlobeCanvas({
 }) {
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const { liveData, loading } = useGlobe()
-  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
+  const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('revealing')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
   const [heatBoost, setHeatBoost] = useState(0)
@@ -256,39 +254,9 @@ export function GlobeCanvas({
     setHeatBoost(boost)
   }, [])
 
-  const tryAdvanceFromSpin = useCallback(() => {
-    if (introPhase !== 'spinning') return
-    if (
-      !shouldStartReveal({
-        azimuthAccumRad: azimuthAccumRadRef.current,
-        spinElapsedMs: spinElapsedMsRef.current,
-        loading,
-        prefersReducedMotion,
-      })
-    ) {
-      return
-    }
-    if (prefersReducedMotion) {
-      setIntroPhase('ready')
-      return
-    }
-    lastRevealStepRef.current = -1
-    setRevealElapsedMs(0)
-    setIntroPhase('revealing')
-  }, [introPhase, loading, prefersReducedMotion])
-
-  useEffect(() => {
-    tryAdvanceFromSpin()
-  }, [tryAdvanceFromSpin, loading])
-
-  const handleOrbitProgress = useCallback(
-    ({ azimuthAccumRad, elapsedMs }: { azimuthAccumRad: number; elapsedMs: number }) => {
-      azimuthAccumRadRef.current = azimuthAccumRad
-      spinElapsedMsRef.current = elapsedMs
-      tryAdvanceFromSpin()
-    },
-    [tryAdvanceFromSpin],
-  )
+  // The loading frame is deliberately static: Arctic-down, gold landmasses,
+  // no borders/data layers. The reveal clock fades into the live globe without
+  // rotating the opening frame away from the requested loading orientation.
 
   const handleRevealElapsed = useCallback(
     (elapsedMs: number) => {
@@ -312,7 +280,7 @@ export function GlobeCanvas({
 
   const isHovering = !!focusedCountryIso2
   const isSelected = !!selectedCountryIso2
-  const introSpinning = introPhase === 'spinning' && !prefersReducedMotion
+  const introSpinning = false
   const introRevealing = introPhase === 'revealing' && !prefersReducedMotion
   const shouldAutoRotate =
     !introSpinning && !introRevealing && !isHovering && !isSelected && introPhase === 'ready'
@@ -409,11 +377,6 @@ export function GlobeCanvas({
         </Suspense>
 
         <AutoRotateInvalidator active={shouldAutoRotate || introSpinning || introRevealing} />
-        <IntroOrbitTracker
-          active={introSpinning}
-          controlsRef={controlsRef}
-          onProgress={handleOrbitProgress}
-        />
         <IntroRevealClock active={introRevealing} onElapsed={handleRevealElapsed} />
         <OrbitControls
           ref={controlsRef}
