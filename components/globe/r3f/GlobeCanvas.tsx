@@ -386,16 +386,20 @@ export function GlobeCanvas({
               onSelectCountry={handleSelectCountry}
             />
             {introPhase === 'ready' ? (
-              heatEnabled ? (
-                <HeatDensityLayer
+              <>
+                {heatEnabled ? (
+                  <HeatDensityLayer
+                    countries={liveData.countries}
+                    signalsByIso2={liveData.signalsByIso2}
+                    prefersReducedMotion={prefersReducedMotion}
+                    onHeatBoost={handleHeatBoost}
+                  />
+                ) : null}
+                <DataVizLayer
                   countries={liveData.countries}
                   signalsByIso2={liveData.signalsByIso2}
-                  prefersReducedMotion={prefersReducedMotion}
-                  onHeatBoost={handleHeatBoost}
                 />
-              ) : (
-                <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
-              )
+              </>
             ) : null}
             <CountryBorderLayer />
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
