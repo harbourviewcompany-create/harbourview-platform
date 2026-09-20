@@ -35,8 +35,8 @@ export function MarketComparisonPage({ initialCountryIso2, countryOptions }: Pro
       .then(data => {
         if (cancelled) return
         setMarkets((data.countries ?? []).map((c: RawCountry) => ({
-          iso2: c.iso2,
-          name: c.name,
+          iso2: c.iso2 ?? '',
+          name: c.name ?? c.iso2 ?? 'Unknown market',
           opportunityScore: c.opportunityScore ?? null,
           marketAccessStatus: c.marketAccessStatus ?? null,
           regulatoryTier: c.regulatoryTier ?? null,
