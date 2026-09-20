@@ -93,7 +93,7 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
     [signalList],
   )
   const topIntelligence = useMemo(
-    () => topSignal ? buildSignalIntelligence(topSignal, { iso2: countryIso2.toUpperCase(), name: countryName }) : null,
+    () => topSignal ? buildSignalIntelligence(topSignal, { iso2: countryIso2.toUpperCase(), name: countryName }, marker ? { key: marker.regulatoryTierEvidenceKey, verifiedAt: marker.regulatoryTierVerifiedAt, expiresAt: marker.regulatoryTierExpiresAt, source: briefing?.regulatory_body ?? null } : undefined) : null,
     [topSignal, countryIso2, countryName],
   )
   const marker = useMemo(
