@@ -21,9 +21,9 @@ export const featureFlags = {
   /**
    * Selective bloom + vignette for the live heat surface and event markers.
    */
-  globeHeatBloom: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM', true),
+  globeHeatBloom: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_BLOOM', false),
   /**
    * Atmosphere limb reacts to the live global heat metric.
    */
-  globeHeatAtmosphere: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE', true),
+  globeHeatAtmosphere: getEnvFlag('NEXT_PUBLIC_HARBOURVIEW_GLOBE_HEAT_ATMOSPHERE', false),
 }
