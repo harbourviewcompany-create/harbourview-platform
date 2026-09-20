@@ -20,7 +20,7 @@ export const GLOBE_INTRO = {
   /** Expected gold orbit duration (ms) at spinAutoRotateSpeed — docs / CSS fallback. */
   spinDurationMs: 2800,
   /** Hard cap if azimuth tracking never completes (ms). */
-  spinMaxDurationMs: 5200,
+  spinMaxDurationMs: 3200,
   /** One full turn in radians (OrbitControls azimuth). */
   fullOrbitRad: Math.PI * 2,
   /** Gold → tier material lerp after spin (ms). */
