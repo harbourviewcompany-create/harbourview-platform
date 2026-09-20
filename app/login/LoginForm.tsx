@@ -119,6 +119,9 @@ export default function LoginForm({
           setFeedback({ type: 'error', text: friendlyAuthError(result.error ?? 'We could not create the account. Please try again.') })
         } else if (result.needsConfirmation) {
           setFeedback({ type: 'success', text: `We sent a confirmation link to ${email}. Check your inbox and spam folder.` })
+        } else if (result.emailDeliveryFallback) {
+          router.push(next ?? '/dashboard')
+          router.refresh()
         } else {
           router.push(next ?? '/dashboard')
           router.refresh()
@@ -223,7 +226,7 @@ export default function LoginForm({
         </div>
       )}
 
-      {mode === 'signup' && feedback?.type === 'success' && (
+      {mode === 'signup' && feedback?.type === 'success' && !feedback.text.startsWith('Your account was created successfully') && (
         <div className="mt-5 text-center">
           <button
             type="button"
