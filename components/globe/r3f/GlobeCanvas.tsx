@@ -312,6 +312,11 @@ export function GlobeCanvas({
 
   const isHovering = !!focusedCountryIso2
   const isSelected = !!selectedCountryIso2
+  const showSubnationalBorders =
+    selectedCountryIso2 === 'US' ||
+    selectedCountryIso2 === 'CA' ||
+    focusedCountryIso2 === 'US' ||
+    focusedCountryIso2 === 'CA'
   const introSpinning = introPhase === 'spinning' && !prefersReducedMotion
   const introRevealing = introPhase === 'revealing' && !prefersReducedMotion
   const shouldAutoRotate =
@@ -401,7 +406,7 @@ export function GlobeCanvas({
                 />
               </>
             ) : null}
-            <CountryBorderLayer />
+            <CountryBorderLayer showSubnational={showSubnationalBorders} />
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
