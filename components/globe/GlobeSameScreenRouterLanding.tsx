@@ -312,6 +312,7 @@ export function GlobeSameScreenRouterLanding() {
           }}
           onNotSure={() => dispatch({ type: 'NOT_SURE_COUNTRY' })}
           onAnnouncement={setSrAnnouncement}
+          selectedCountryIso2={state.selectedCountryIso2}
         />
 
         <p className="sr-only" aria-live="polite" aria-atomic="true">
