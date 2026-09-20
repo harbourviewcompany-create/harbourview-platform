@@ -158,7 +158,9 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
 
       signalMesh.instanceMatrix.needsUpdate = true
       if (signalMesh.instanceColor) signalMesh.instanceColor.needsUpdate = true
-      signalMesh.material.opacity = 0.78 + 0.12 * (0.5 + 0.5 * Math.sin(now * 1.4))
+      const signalMaterialInstance = signalMesh.material as MeshPhongMaterial
+      signalMaterialInstance.opacity = 0.78 + 0.12 * (0.5 + 0.5 * Math.sin(now * 1.4))
+      state.invalidate()
     }
   })
 
