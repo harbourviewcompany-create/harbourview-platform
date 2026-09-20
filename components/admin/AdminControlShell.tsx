@@ -155,7 +155,7 @@ function AdminShellSuspenseFallback() {
         padding: 24,
       }}
     >
-      <LoadingGlobe size={120} spinDurationMs={13000} />
+      <LoadingGlobe size={120} />
       <p style={{ margin: 0, fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>
         Loading admin…
       </p>
