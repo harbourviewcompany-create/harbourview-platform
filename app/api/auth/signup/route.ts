@@ -47,10 +47,26 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('[auth/signup] signUp failed', { message: error.message })
-      return NextResponse.json(
-        { error: 'We could not create the account. Please try again.' },
-        { status: 400 },
-      )
+
+      const authError = error.message.toLowerCase()
+      let message = 'We could not create the account. Please try again.'
+      let status = 400
+
+      if (authError.includes('email address not authorized') || authError.includes('email_address_not_authorized')) {
+        message = 'Email confirmation is not configured for public signups yet. Please try again later.'
+        status = 503
+      } else if (authError.includes('rate limit') || authError.includes('over_email_send_rate_limit')) {
+        message = 'Email confirmation is temporarily rate-limited. Please wait a moment and try again.'
+        status = 429
+      } else if (authError.includes('already registered') || authError.includes('already exists')) {
+        message = 'An account already exists for this email. Try signing in instead.'
+      } else if (authError.includes('password')) {
+        message = 'That password does not meet the account security requirements.'
+      } else if (authError.includes('invalid email') || authError.includes('email_address_invalid')) {
+        message = 'Enter a valid email address.'
+      }
+
+      return NextResponse.json({ error: message }, { status })
     }
 
 
