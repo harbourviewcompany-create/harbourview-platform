@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body?.password === 'string' ? body.password : ''
     const next = safeNext(body?.next)
+    const debug = new URL(request.url).searchParams.get('debug') === '1'
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })
@@ -71,6 +72,12 @@ export async function POST(request: Request) {
         message = 'Enter a valid email address.'
       }
 
+      if (debug) {
+        return NextResponse.json({
+          error: message,
+          debug: { name: error.name, code: error.code ?? null, status: error.status ?? null, message: error.message },
+        }, { status })
+      }
       return NextResponse.json({ error: message }, { status })
     }
 
