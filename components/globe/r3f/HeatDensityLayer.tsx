@@ -94,10 +94,10 @@ const FRAG = /* glsl */ `
     vec3 col = heatColor(d);
 
     float fresnel = pow(1.0 - max(dot(normalize(vNormalW), normalize(vViewDir)), 0.0), 2.8);
-    col += col * fresnel * 0.25;
+    col += col * fresnel * 0.08;
 
     float emit = smoothstep(0.4, 1.0, d);
-    col += col * emit * 0.45;
+    col += col * emit * 0.12;
 
     float alpha = uOpacity * smoothstep(0.02, 0.25, d);
     gl_FragColor = vec4(col, alpha);
@@ -152,8 +152,8 @@ export function HeatDensityLayer({
         uColorMid: { value: new Color('#1a7a5c') },
         uColorHot: { value: new Color('#e8c547') },
         uColorPeak: { value: new Color('#f5f0e0') },
-        uOpacity: { value: 0.82 },
-        uMaxAltitude: { value: maxAltitude },
+        uOpacity: { value: 0.55 },
+        uMaxAltitude: { value: Math.min(maxAltitude, 0.06) },
         uSurfaceRadius: { value: HEAT_CONFIG.surfaceRadius },
         uDensityFloor: { value: HEAT_CONFIG.densityFloor },
         uTime: { value: 0 },
