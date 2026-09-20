@@ -55,6 +55,8 @@ type GlobeContextType = {
   status: RealtimeStatus
   loading: boolean
   loadError: string | null
+  degraded: boolean
+  loadedAt: number | null
   reconnect: () => void
 }
 
@@ -65,6 +67,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [liveData, setLiveData] = useState<GlobeLiveData>(EMPTY_DATA)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [degraded, setDegraded] = useState(false)
+  const [loadedAt, setLoadedAt] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -75,9 +79,14 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         // Avoid a second browser PostgREST country query; Realtime remains the
         // live-update path after the cached snapshot is installed.
         setLiveData(bootstrap)
+        setDegraded(false)
+        setLoadedAt(Date.now())
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err))
+        if (!cancelled) {
+          setDegraded(true)
+          setLoadError(err instanceof Error ? err.message : String(err))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -136,8 +145,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   const { status, reconnect } = useGlobeRealtime(handleRealtimeChange)
   const value = useMemo(
-    () => ({ liveData, status, loading, loadError, reconnect }),
-    [liveData, status, loading, loadError, reconnect]
+    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect }),
+    [liveData, status, loading, loadError, degraded, loadedAt, reconnect]
   )
   return <GlobeContext.Provider value={value}>{children}</GlobeContext.Provider>
 }
