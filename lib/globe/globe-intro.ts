@@ -103,7 +103,7 @@ export function shouldForceGoldPlates({
   prefersReducedMotion: boolean
 }): boolean {
   if (prefersReducedMotion) return false
-  return introPhase === 'spinning'
+  return introPhase !== 'ready'
 }
 
 /**
