@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import styles from './LoadingGlobe.module.css'
 
 /**
@@ -27,7 +28,7 @@ export function LoadingGlobe({
           width: diameter,
           height: diameter,
           ['--hv-globe-spin-ms' as string]: `${spinDurationMs}ms`,
-        } as React.CSSProperties
+        } as CSSProperties
       }
     >
       <img
