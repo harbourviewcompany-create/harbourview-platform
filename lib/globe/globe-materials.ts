@@ -1,6 +1,18 @@
 import type { GlobeLayerId } from '@/types/globe-router'
 import { hvTokens } from '@/lib/harbourview/design-tokens'
 
+function mixHex(from: string, to: string, amount: number): string {
+  const parse = (hex: string) => {
+    const raw = hex.replace('#', '')
+    return [0, 2, 4].map((i) => parseInt(raw.slice(i, i + 2), 16))
+  }
+  const [fr, fg, fb] = parse(from)
+  const [tr, tg, tb] = parse(to)
+  const t = Math.max(0, Math.min(1, amount))
+  const h = (a: number, b: number) => Math.round(a + (b - a) * t).toString(16).padStart(2, '0')
+  return `#${h(fr, tr)}${h(fg, tg)}${h(fb, tb)}`
+}
+
 /**
  * Reviewed regulatory access tier, sourced from `countries.regulatory_tier`.
  *
@@ -151,18 +163,18 @@ export function resolveCountryMaterialState({
     //     as its tier from every lighting angle, not just where the sun hits.
     // The result looks more like a painted data-map than polished metal — which
     // is the correct tradeoff when the whole point is legibility of the tier.
-    base.plateBase = tier.plate
-    base.emissive = tier.plate
-    base.emissiveIntensity = 0.55
-    base.borderColor = tier.border
-    base.metalness = 0.05
-    base.roughness = 0.85
-    base.clearcoat = 0.0
-    base.clearcoatRoughness = 1.0
+    // Tier is a secondary signal: retain Harbourview's metallic-gold identity
+    // and use a restrained tint rather than turning the globe into a rainbow map.
+    const tierMix = regulatoryTier === 'prohibited' ? 0.24 : 0.32
+    base.plateBase = mixHex(base.plateBase, tier.plate, tierMix)
+    base.emissive = mixHex(base.emissive, tier.emissive, 0.28)
+    base.emissiveIntensity = regulatoryTier === 'prohibited' ? 0.12 : 0.15
+    base.borderColor = mixHex(base.borderColor, tier.border, 0.28)
+    base.metalness = 0.78
+    base.roughness = 0.34
+    base.clearcoat = 0.24
+    base.clearcoatRoughness = 0.28
     if (regulatoryTier === 'prohibited') {
-      // Prohibited still recedes: dimmer self-glow so reachable markets carry
-      // the visual weight, but it stays clearly its own colour.
-      base.emissiveIntensity = 0.32
       base.sidewallColor = hvTokens.globe.sidewallDisabled
     }
   }
