@@ -9,6 +9,7 @@ import { buildCommercialNextActions } from '@/lib/dashboard/buildCommercialActio
 import {
   buildCorridorPlanToolHref,
   buildLandedCostToolHref,
+  type NextAction,
 } from '@/components/dashboard/mobile-command/contracts'
 
 const SIGNALS_LIVE_SURFACES = new Set([
@@ -85,7 +86,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
   }, [commandReturnTo, countryParam, model.nextActions])
 
   /** High-confidence signals become priority rows so Command is not org-setup-only. */
-  const signalPriorityActions = useMemo(() => {
+  const signalPriorityActions = useMemo<NextAction[]>(() => {
     const ranked = [...effectiveSignals]
       .filter(s => typeof s.confidence === 'number' ? s.confidence >= 70 : true)
       .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
@@ -106,7 +107,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     })
   }, [effectiveSignals, model.commandHref])
 
-  const rolePromptActions = useMemo(() => {
+  const rolePromptActions = useMemo<NextAction[]>(() => {
     if (model.currentRole) return []
     return [{
       id: 'choose-role',
@@ -117,7 +118,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     }]
   }, [model])
 
-  const commercialActions = useMemo(() => buildCommercialNextActions(
+  const commercialActions = useMemo<NextAction[]>(() => buildCommercialNextActions(
     effectiveSignals.map(signal => ({
       id: signal.id,
       title: signal.title,
@@ -153,7 +154,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     },
   ), [props.collaborationProjects, props.cultivarPassports, props.geneticsSourceMeta, props.serviceProviders])
 
-  const corridorActions = useMemo(() => {
+  const corridorActions = useMemo<NextAction[]>(() => {
     const origin = countryParam
     const destination = origin === 'DE' ? 'CA' : 'DE'
     return [
