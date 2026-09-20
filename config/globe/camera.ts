@@ -3,12 +3,12 @@ export const GLOBE_CAMERA_CONFIG = {
   near: 0.1,
   far: 100,
   // Continent-scale opening frame (was 7.8 — too tight on North America).
-  initialPosition: [0, 0.6, 11.2] as [number, number, number],
+  initialPosition: [0, 0.05, 10.6] as [number, number, number],
   initialTarget: [0, 0, 0] as [number, number, number],
   minDistance: 3.0,
   maxDistance: 16,
-  minPolarAngle: Math.PI * 0.08,
-  maxPolarAngle: Math.PI * 0.92,
+  minPolarAngle: Math.PI * 0.04,
+  maxPolarAngle: Math.PI * 0.96,
   distanceByState: {
     country: { min: 4.75, max: 16 },
     selected: { min: 3.0, max: 5.85 },
