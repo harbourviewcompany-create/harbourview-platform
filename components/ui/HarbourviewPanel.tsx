@@ -79,13 +79,14 @@ export function HarbourviewPanel({
   )
 }
 
-export type HarbourviewBottomSheetSize = 'confirm' | 'role' | 'intent' | 'search'
+export type HarbourviewBottomSheetSize = 'confirm' | 'role' | 'intent' | 'market' | 'search'
 
 const SHEET_SIZE_CLASS: Record<HarbourviewBottomSheetSize, string> = {
   confirm: 'max-h-[24svh]',
   role: 'max-h-[64svh]',
   intent: 'max-h-[62svh]',
-  search: 'max-h-[72svh]',
+  market: 'max-h-[68svh]',
+  search: 'max-h-[76svh]',
 }
 
 /**
