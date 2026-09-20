@@ -29,7 +29,7 @@ export const HEAT_CONFIG = {
   maxAltitude: 0.14,
   surfaceRadius: 2.35 + PLATE_LIFT + IDLE_EXTRUSION,
   densityFloor: 0.04,
-  saturation: 0.85,
+  saturation: 0.68,
 } as const
 
 export type HeatPoint = {
