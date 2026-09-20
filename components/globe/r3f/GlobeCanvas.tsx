@@ -315,7 +315,7 @@ export function GlobeCanvas({
   const introSpinning = introPhase === 'spinning' && !prefersReducedMotion
   const introRevealing = introPhase === 'revealing' && !prefersReducedMotion
   const shouldAutoRotate =
-    introSpinning || introRevealing || (!isHovering && !isSelected && introPhase === 'ready')
+    !introSpinning && !introRevealing && !isHovering && !isSelected && introPhase === 'ready'
   const autoRotateSpeed = introSpinning
     ? GLOBE_INTRO.spinAutoRotateSpeed
     : introRevealing
@@ -370,7 +370,7 @@ export function GlobeCanvas({
         <Suspense fallback={null}>
           <Stars radius={30} depth={10} count={2200} factor={1.2} saturation={0} fade speed={0} />
 
-          <group rotation={[0.08, 0.3, 0]}>
+          <group rotation={[Math.PI / 2, 0, 0]}>
             <AtmosphereGlow heatBoost={atmosphereBoost} />
             <OceanSphere />
             <CountryPolygonMeshLayer
@@ -397,7 +397,7 @@ export function GlobeCanvas({
                 <DataVizLayer countries={liveData.countries} signalsByIso2={liveData.signalsByIso2} />
               )
             ) : null}
-            <CountryBorderLayer />
+            {introPhase === 'ready' ? <CountryBorderLayer /> : null}
             {!interactionLocked && focusedCountryIso2 && <CountryGlobeLabel iso2={focusedCountryIso2} />}
           </group>
           <CameraFlyToController
