@@ -64,33 +64,58 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     return `/dashboard?${params.toString()}`
   }, [model.currentCountry, model.activeSection, model.currentRole, searchParams])
 
+  // Operational next-actions first; at most one org onboarding CTA, appended last.
+  // Previously create+join monopolized the two priority slots on overview.
   const organizationActions = useMemo(() => {
     const organizationAction = model.nextActions.find(action => action.id === 'organization')
-    if (!organizationAction) return model.nextActions
+    const operational = model.nextActions.filter(action => action.id !== 'organization')
+    if (!organizationAction) return operational
 
     const returnParam = encodeURIComponent(commandReturnTo)
-    const onboarding = [
-      {
-        ...organizationAction,
-        id: 'organization-create',
-        label: 'Create an organization profile',
-        detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
-        href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
-      },
-      {
-        ...organizationAction,
-        id: 'organization-join',
-        label: 'Join an organization',
-        detail: 'Use an invitation to connect an existing Harbourview organization to your operating context.',
-        href: `/organization/join?returnTo=${returnParam}`,
-      },
-    ]
+    const onboarding = {
+      ...organizationAction,
+      id: 'organization-create',
+      label: 'Create an organization profile',
+      detail: 'Required for marketplace submissions and reviewed introductions. Join via invitation from org settings if you already have one.',
+      href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
+      tone: 'warn' as const,
+    }
 
-    return [
-      ...onboarding,
-      ...model.nextActions.filter(action => action.id !== 'organization'),
-    ]
+    return [...operational, onboarding]
   }, [commandReturnTo, countryParam, model.nextActions])
+
+  /** High-confidence signals become priority rows so Command is not org-setup-only. */
+  const signalPriorityActions = useMemo(() => {
+    const ranked = [...effectiveSignals]
+      .filter(s => typeof s.confidence === 'number' ? s.confidence >= 70 : true)
+      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+      .slice(0, 3)
+
+    return ranked.map((s, index) => {
+      const conf = typeof s.confidence === 'number' ? s.confidence : 0
+      const when = s.timeAgo || s.sourceLabel || ''
+      const impact = (typeof s.commercialImpact === 'string' && s.commercialImpact.trim())
+        || 'Open intelligence for reviewed context.'
+      return {
+        id: `signal-priority-${s.id || index}`,
+        label: (s.title || 'Material intelligence update').slice(0, 96),
+        detail: [s.market, when, impact].filter(Boolean).join(' · ').slice(0, 160),
+        href: model.commandHref('weekly-signals'),
+        tone: (conf >= 85 ? 'warn' : 'gold') as 'warn' | 'gold',
+      }
+    })
+  }, [effectiveSignals, model.commandHref])
+
+  const rolePromptActions = useMemo(() => {
+    if (model.currentRole) return []
+    return [{
+      id: 'choose-role',
+      label: 'Choose your operating role',
+      detail: 'Role focuses priority actions (marketplace, clinical, compliance) for this jurisdiction.',
+      href: model.commandHref('overview'),
+      tone: 'gold' as const,
+    }]
+  }, [model])
 
   const commercialActions = useMemo(() => buildCommercialNextActions(
     effectiveSignals.map(signal => ({
@@ -170,6 +195,13 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     signals: effectiveSignals,
     signalsStatus,
     geneticsRecords,
-    nextActions: [...corridorActions, ...organizationActions, ...commercialActions],
+    // Signal + commercial work leads; org onboarding trails so overview is operational.
+    nextActions: [
+      ...corridorActions,
+      ...rolePromptActions,
+      ...signalPriorityActions,
+      ...commercialActions,
+      ...organizationActions,
+    ],
   }
 }

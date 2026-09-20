@@ -114,7 +114,8 @@ export default function CommandOverviewOperator({
       || a.index - b.index)
     .slice(0, 2)
   const opportunityRows = opportunities.slice(0, 2)
-  const attentionRows = attentionItems.slice(0, 2)
+  // Show enough slots that org onboarding cannot monopolize the surface.
+  const attentionRows = attentionItems.slice(0, 4)
   const deltaSentence = delta ? formatDeltaSentence(delta) : ''
 
   return (
@@ -141,6 +142,17 @@ export default function CommandOverviewOperator({
           <strong>{opportunities.length}</strong>
         </button>
       </div>
+
+      {(signals?.length ?? 0) > 0 || opportunities.length > 0 || attentionItems.length > 0 ? (
+        <p className="hvm-op-live-strip" style={{ fontSize: 12, color: 'rgba(245,240,232,.55)', margin: '0 0 12px' }}>
+          {(signals?.length ?? 0) > 0 ? `${signals!.length} signal${signals!.length === 1 ? '' : 's'}` : 'No signals'}
+          {' · '}
+          {attentionItems.length} priority
+          {' · '}
+          {opportunities.length} opportunit{opportunities.length === 1 ? 'y' : 'ies'}
+          {roleLabel && roleLabel !== 'All roles' ? ` · ${roleLabel}` : ' · set a role for a sharper queue'}
+        </p>
+      ) : null}
 
       <section className="hvm-op-group" aria-labelledby="hvm-op-attention-heading">
         <div className="hvm-op-group-heading">
