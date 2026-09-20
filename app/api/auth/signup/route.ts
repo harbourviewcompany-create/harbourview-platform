@@ -72,13 +72,13 @@ export async function POST(request: Request) {
         message = 'Enter a valid email address.'
       }
 
-      if (debug) {
+      if (true) {
         return NextResponse.json({
           error: message,
           debug: { name: error.name, code: error.code ?? null, status: error.status ?? null, message: error.message },
         }, { status })
       }
-      return NextResponse.json({ error: message }, { status })
+      return NextResponse.json({ error: message, debug: { name: error.name, code: error.code ?? null, status: error.status ?? null, message: error.message } }, { status })
     }
 
     return NextResponse.json({ ok: true, needsConfirmation: !data.session, next })
