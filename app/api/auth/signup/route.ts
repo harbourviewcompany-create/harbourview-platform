@@ -88,7 +88,7 @@ export async function POST(request: Request) {
               console.warn('[auth/signup] SMTP fallback used; account auto-confirmed', {
                 userId: created.user.id,
               })
-              return NextResponse.json({ ok: true, needsConfirmation: false, next })
+              return NextResponse.json({ ok: true, needsConfirmation: false, emailDeliveryFallback: true, next }, { headers: { 'Cache-Control': 'no-store' } })
             }
             console.error('[auth/signup] SMTP fallback created user but session sign-in failed', {
               name: signInError?.name,
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status })
     }
 
-    return NextResponse.json({ ok: true, needsConfirmation: !data.session, next })
+    return NextResponse.json({ ok: true, needsConfirmation: !data.session, emailDeliveryFallback: false, next }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('[auth/signup] unexpected error', {
       name: error instanceof Error ? error.name : 'unknown',
