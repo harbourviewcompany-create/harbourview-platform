@@ -408,7 +408,7 @@ export function GlobeCanvas({
           <GlobeHeatEffects enabled={bloomEnabled} />
         </Suspense>
 
-        <AutoRotateInvalidator active={shouldAutoRotate} />
+        <AutoRotateInvalidator active={shouldAutoRotate || introSpinning || introRevealing} />
         <IntroOrbitTracker
           active={introSpinning}
           controlsRef={controlsRef}
