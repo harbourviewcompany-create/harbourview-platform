@@ -1,4 +1,4 @@
-/* Harbourview Arctic loading globe — static SVG with a continuous spin. */
+/* Harbourview Arctic loading globe — restrained motion, depth, and polish. */
 
 .root {
   position: relative;
@@ -6,6 +6,37 @@
   margin-inline: auto;
   aspect-ratio: 1;
   contain: layout paint;
+  isolation: isolate;
+}
+
+.root::before {
+  content: '';
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(198, 165, 90, 0.1) 0%,
+    rgba(198, 165, 90, 0.035) 42%,
+    transparent 72%
+  );
+  filter: blur(10px);
+  animation: hv-loading-globe-aura 3200ms ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.root::after {
+  content: '';
+  position: absolute;
+  inset: 1.5%;
+  border: 1px solid rgba(198, 165, 90, 0.22);
+  border-top-color: rgba(255, 225, 145, 0.78);
+  border-radius: 50%;
+  transform: rotate(-18deg);
+  animation: hv-loading-globe-orbit 12000ms linear infinite;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .globe {
@@ -18,6 +49,7 @@
   animation: hv-loading-globe-spin 7200ms linear infinite;
   transform-origin: center;
   will-change: transform;
+  backface-visibility: hidden;
 }
 
 @keyframes hv-loading-globe-spin {
@@ -29,7 +61,30 @@
   }
 }
 
+@keyframes hv-loading-globe-orbit {
+  from {
+    transform: rotate(-18deg);
+  }
+  to {
+    transform: rotate(342deg);
+  }
+}
+
+@keyframes hv-loading-globe-aura {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .root::before,
+  .root::after,
   .globe {
     animation: none;
   }
