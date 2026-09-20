@@ -1,10 +1,10 @@
 /**
  * Live market intelligence markers for the globe.
  *
- * Country markers show aggregate opportunity/activity. Signal markers show
- * country-level intelligence activity at the evidence-backed country centroid
- * supplied by the signal's country_iso2. Multiple events in one country are
- * aggregated into a single marker so the globe remains legible at a glance.
+ * Country markers show aggregate opportunity/activity — but only for countries
+ * that actually have signal activity or meaningful opportunity, and after
+ * spatial thinning so dense regions (e.g. Central Europe) do not read as a
+ * marker swarm. Signal markers remain one-per-parent-country.
  */
 'use client'
 
@@ -30,6 +30,12 @@ const GLOBE_SURFACE_RADIUS = 2.35 + PLATE_LIFT + IDLE_EXTRUSION
 const MARKER_LIFT = 0.01
 const EVENT_BASE_LIFT = 0.035
 const MAX_SIGNAL_MARKERS = 216
+/** Hard cap — prioritised by activity so Europe does not fill with idle dots. */
+const MAX_COUNTRY_MARKERS = 48
+/** Min angular separation (degrees) between rendered country markers. */
+const MIN_MARKER_SEPARATION_DEG = 4.5
+/** Opportunity alone is not enough; require this floor OR active signals. */
+const OPPORTUNITY_MARKER_FLOOR = 35
 
 function latLngToVector3(lat: number, lng: number, radius: number) {
   const phi = (90 - lat) * (Math.PI / 180)
@@ -40,6 +46,55 @@ function latLngToVector3(lat: number, lng: number, radius: number) {
     z: radius * Math.sin(phi) * Math.sin(theta),
   }
 }
+
+function angularDistanceDeg(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = Math.PI / 180
+  const dLat = (lat2 - lat1) * toRad
+  const dLng = (lng2 - lng1) * toRad
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLng / 2) ** 2
+  return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * (180 / Math.PI)
+}
+
+/**
+ * Rank countries by activity and drop near-neighbours so Central Europe
+ * (DE/AT/CZ/…) does not render a solid field of green spheres.
+ */
+function selectVisibleCountryMarkers(
+  countries: GlobeCountryMarker[],
+  signalsByIso2: Record<string, GlobeSignal[]>,
+): GlobeCountryMarker[] {
+  const ranked = countries
+    .map((c) => {
+      const iso = (c.iso2 ?? '').toUpperCase()
+      let signalCount = signalsByIso2[c.iso2]?.length ?? signalsByIso2[iso]?.length ?? 0
+      // Roll up subnational signal bags (DE-BY, …) onto the parent plate.
+      if (signalCount === 0 && iso.length === 2) {
+        for (const [key, list] of Object.entries(signalsByIso2)) {
+          if (key.toUpperCase().startsWith(`${iso}-`)) signalCount += list.length
+        }
+      }
+      const opportunity = c.opportunityScore ?? 0
+      const active = signalCount > 0 || opportunity >= OPPORTUNITY_MARKER_FLOOR
+      const score = signalCount * 10 + opportunity
+      return { c, signalCount, opportunity, active, score }
+    })
+    .filter((row) => row.active)
+    .sort((a, b) => b.score - a.score)
+
+  const selected: GlobeCountryMarker[] = []
+  for (const row of ranked) {
+    if (selected.length >= MAX_COUNTRY_MARKERS) break
+    const tooClose = selected.some(
+      (s) => angularDistanceDeg(s.lat, s.lng, row.c.lat, row.c.lng) < MIN_MARKER_SEPARATION_DEG,
+    )
+    if (tooClose) continue
+    selected.push(row.c)
+  }
+  return selected
+}
+
 
 const BASE_COLOR = new Color('#2f6f4f')
 const HOT_COLOR = new Color('#00ff88')
@@ -52,11 +107,16 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
   const countryDummy = useMemo(() => new Object3D(), [])
   const signalDummy = useMemo(() => new Object3D(), [])
 
-  const countryCount = countries.length
   const countryByIso2 = useMemo(
     () => new Map(countries.map((country) => [country.iso2, country])),
     [countries],
   )
+
+  const visibleCountries = useMemo(
+    () => selectVisibleCountryMarkers(countries, signalsByIso2),
+    [countries, signalsByIso2],
+  )
+  const countryCount = visibleCountries.length
 
   /** Collapse DE-BW / US-CA style codes onto the parent plate marker. */
   const parentIso2 = (iso2: string) => {
@@ -94,7 +154,7 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
 
   const signalCount = signalEvents.length
 
-  const countryGeometry = useMemo(() => new SphereGeometry(0.015, 16, 16), [])
+  const countryGeometry = useMemo(() => new SphereGeometry(0.012, 12, 12), [])
   const signalGeometry = useMemo(() => new SphereGeometry(0.009, 12, 12), [])
 
   const countryMaterial = useMemo(
@@ -127,7 +187,7 @@ export function DataVizLayer({ countries, signalsByIso2 }: DataVizLayerProps) {
   useFrame((state) => {
     const countryMesh = countryMeshRef.current
     if (countryMesh && countryCount > 0) {
-      countries.forEach((country, i) => {
+      visibleCountries.forEach((country, i) => {
         const { x, y, z } = latLngToVector3(
           country.lat,
           country.lng,

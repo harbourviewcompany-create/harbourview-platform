@@ -101,6 +101,6 @@ describe('subnational regulatory tiers', () => {
       'utf8',
     )
 
-    expect(globeCanvas).toMatch(/subNationalIso2s\s*=\s*\['US',\s*'DE',\s*'CA',\s*'AU'\]/)
+    expect(globeCanvas).toMatch(/subNationalIso2sProp\s*=\s*\['US',\s*'CA'\]/)
   })
 })
