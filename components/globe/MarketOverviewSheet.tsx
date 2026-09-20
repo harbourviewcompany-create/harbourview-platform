@@ -9,6 +9,7 @@ import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '
 import type { JurisdictionBriefing } from '@/lib/globe/jurisdictionBriefingTypes'
 import { BRIEFING_SELECT } from '@/lib/globe/jurisdictionBriefingTypes'
 import { useGlobe } from './GlobeProvider'
+import { buildSignalIntelligence } from '@/lib/intelligence/intelligenceObject'
 
 function getClient() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +91,14 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   const topSignal = useMemo(
     () => [...signalList].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))[0] ?? null,
     [signalList],
+  )
+  const topIntelligence = useMemo(
+    () => topSignal ? buildSignalIntelligence(topSignal, { iso2: countryIso2.toUpperCase(), name: countryName }) : null,
+    [topSignal, countryIso2, countryName],
+  )
+  const marker = useMemo(
+    () => liveData.countries.find((country) => country.iso2.toUpperCase() === countryIso2.toUpperCase()) ?? null,
+    [liveData.countries, countryIso2],
   )
   const signalCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -174,6 +183,14 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
         'minute',
       )
     : null
+  const health = useMemo(() => ({
+    access: marker?.marketAccessStatus ?? 'Unclassified',
+    opportunity: marker?.opportunityScore != null ? Math.round(marker.opportunityScore) : null,
+    activity: signalList.length,
+    risk: signalCounts.get('regulatory') ?? signalCounts.get('regulation') ?? 0,
+    evidence: briefing?.confidence_score ?? null,
+  }), [marker, signalList.length, signalCounts, briefing?.confidence_score])
+
   const reviewed = briefing?.last_reviewed_date
     ? new Date(briefing.last_reviewed_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
     : null
@@ -222,6 +239,27 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
           ) : null}
         </div>
 
+        <div className="grid gap-2 rounded-2xl border border-white/8 bg-white/[0.025] p-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--hv-gold-light)]/72">Market health</p>
+            <span className="text-[9px] uppercase tracking-[0.14em] text-white/32">Current context</span>
+          </div>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[
+              ['ACCESS', health.access],
+              ['OPPORTUNITY', health.opportunity == null ? '—' : String(health.opportunity)],
+              ['ACTIVITY', String(health.activity)],
+              ['RISK', String(health.risk)],
+              ['EVIDENCE', health.evidence == null ? '—' : String(health.evidence) + '%'],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-lg border border-white/6 bg-black/10 px-2 py-2">
+                <div className="truncate text-[8px] font-semibold uppercase tracking-[0.12em] text-white/35">{label}</div>
+                <div className="mt-1 truncate text-[11px] font-medium text-[color:var(--hv-ivory)]">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-3 gap-2">
           <SignalMetric label="Live signals" value={signalList.length} />
           <SignalMetric label="Regulatory" value={signalCounts.get('regulatory') ?? signalCounts.get('regulation') ?? 0} />
@@ -242,6 +280,18 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
               <span className="text-[9px] uppercase tracking-[0.14em] text-white/32">{topSignal.cat ?? 'Market intelligence'}</span>
             </div>
             <p className="text-sm leading-6 text-white/82">{topSignal.headline}</p>
+            {topIntelligence ? (
+              <div className="grid gap-2 border-t border-white/7 pt-3">
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">Implication</p>
+                  <p className="mt-1 text-xs leading-5 text-white/65">{topIntelligence.implication}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-white/35">Next action</p>
+                  <p className="mt-1 text-xs leading-5 text-white/65">{topIntelligence.recommendedAction}</p>
+                </div>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.14em] text-white/32">
               <span>{new Date(topSignal.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
               {topSignal.score != null ? <span>Signal score {topSignal.score}</span> : null}
@@ -284,6 +334,13 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
             {briefing.market_dynamics && <BriefingSection label="Market dynamics" text={briefing.market_dynamics} />}
             {briefing.regulatory_outlook && <BriefingSection label="Regulatory outlook" text={briefing.regulatory_outlook} />}
             {briefing.regulatory_body && <BriefingSection label="Regulatory body" text={briefing.regulatory_body} />}
+            <div className="grid gap-2 rounded-xl border border-white/8 bg-white/[0.02] p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--hv-gold-light)]/70">Evidence provenance</div>
+              <p className="text-xs leading-5 text-white/55">
+                {briefing.last_reviewed_date ? 'Briefing reviewed ' + new Date(briefing.last_reviewed_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + '.' : 'No review date is recorded.'}
+                {briefing.regulatory_body ? ' Source authority: ' + briefing.regulatory_body + '.' : ''}
+              </p>
+            </div>
             {briefing.confidence_score != null ? (
               <div className="rounded-xl border border-white/8 bg-white/[0.025] p-3">
                 <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.16em]">
