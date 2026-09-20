@@ -20,6 +20,7 @@ export function CountrySearchOverlay({
   onSelectCountry,
   onNotSure,
   onAnnouncement,
+  selectedCountryIso2,
 }: {
   onSelectCountry: (countryIso2: string) => void
   onNotSure: () => void
