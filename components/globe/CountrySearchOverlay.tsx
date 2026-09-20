@@ -268,7 +268,7 @@ export function CountrySearchOverlay({
         </div>
       ) : null}
       </>
-      )}
+      ) : null}
     </div>
   )
 }
