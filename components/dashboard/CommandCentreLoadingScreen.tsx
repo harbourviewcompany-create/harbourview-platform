@@ -122,7 +122,7 @@ export function CommandCentreLoadingScreen() {
               marginTop: 'clamp(30px, 5vh, 52px)',
             }}
           >
-            <LoadingGlobe size="100%" spinDurationMs={15000} />
+            <LoadingGlobe size="100%" />
           </div>
 
           <div
