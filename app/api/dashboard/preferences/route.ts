@@ -141,11 +141,55 @@ export async function PATCH(req: NextRequest) {
     if ('active_workspace_id' in body) payload.active_workspace_id = activeWorkspaceId
     if ('command_last_viewed_at' in body) payload.command_last_viewed_at = commandLastViewedAt
 
-    const { error } = await supabase
+    // PATCH semantics matter here: a dashboard preference update must not
+    // silently replace the active organization that the org-onboarding flow
+    // just bound. Using upsert made PostgREST evaluate the INSERT policy for
+    // partial payloads and produced intermittent 500s on mobile after org
+    // creation. Update an existing row, and only insert when no row exists.
+    const { data: existing, error: existingError } = await supabase
       .from('user_dashboard_preferences')
-      .upsert(payload, { onConflict: 'user_id' })
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    if (existingError) {
+      console.error('[dashboard-preferences-read]', {
+        code: existingError.code,
+        message: existingError.message,
+        userId: user.id,
+      })
+      return NextResponse.json({ ok: false, error: 'Dashboard preferences could not be read.' }, { status: 500 })
+    }
+
+    if (existing) {
+      const { error } = await supabase
+        .from('user_dashboard_preferences')
+        .update(payload)
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('[dashboard-preferences-update]', {
+          code: error.code,
+          message: error.message,
+          userId: user.id,
+        })
+        return NextResponse.json({ ok: false, error: 'Dashboard preferences could not be updated.' }, { status: 500 })
+      }
+    } else {
+      const { error } = await supabase
+        .from('user_dashboard_preferences')
+        .insert(payload)
+
+      if (error) {
+        console.error('[dashboard-preferences-insert]', {
+          code: error.code,
+          message: error.message,
+          userId: user.id,
+        })
+        return NextResponse.json({ ok: false, error: 'Dashboard preferences could not be created.' }, { status: 500 })
+      }
+    }
+
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ ok: false }, { status: 500 })
