@@ -46,7 +46,12 @@ export async function POST(request: Request) {
     })
 
     if (error) {
-      console.error('[auth/signup] signUp failed', { message: error.message })
+      console.error('[auth/signup] signUp failed', {
+        name: error.name,
+        code: error.code,
+        status: error.status,
+        message: error.message,
+      })
 
       const authError = error.message.toLowerCase()
       let message = 'We could not create the account. Please try again.'
@@ -68,7 +73,6 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ error: message }, { status })
     }
-
 
     return NextResponse.json({ ok: true, needsConfirmation: !data.session, next })
   } catch (error) {
