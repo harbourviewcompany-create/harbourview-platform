@@ -97,8 +97,12 @@ export default function OrganizationCreateForm() {
       const dest = new URL(returnTo, window.location.origin)
       if (orgId) dest.searchParams.set('created', orgId)
       dest.searchParams.set('bound', '1')
-      router.replace(`${dest.pathname}${dest.search}`)
-      router.refresh()
+
+      // Organization creation changes server-resolved dashboard context
+      // (active workspace, membership, passport). Use a hard navigation so
+      // mobile Safari cannot leave the previous Command Centre tree mounted
+      // after the successful POST.
+      window.location.replace(`${dest.pathname}${dest.search}`)
     } catch {
       setError('Organization could not be created. Check your connection and retry.')
     } finally {
