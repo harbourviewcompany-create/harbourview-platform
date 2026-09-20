@@ -118,7 +118,7 @@ export function CommandCentreLoadingScreen() {
 
           <div
             style={{
-              width: 'min(62vw, 340px)',
+              width: 'min(68vw, 360px)',
               marginTop: 'clamp(30px, 5vh, 52px)',
             }}
           >
