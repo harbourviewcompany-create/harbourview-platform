@@ -214,6 +214,9 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
               Review access
             </Link>
           </div>
+          <Link href={`/dashboard?country=${encodeURIComponent(countryIso2)}&page=compare`} className="flex min-h-9 items-center justify-center rounded-full border border-white/8 text-[9px] font-semibold uppercase tracking-[0.13em] text-white/48">
+            Compare this market
+          </Link>
           <div className="flex items-center justify-center gap-5 text-[10px] font-semibold uppercase tracking-[0.1em]">
             <Link href={`/login?next=${encodeURIComponent(commandReturn)}`} className="text-[color:var(--hv-gold-light)]/80">Sign in</Link>
             <Link href={`/login?mode=signup&next=${encodeURIComponent(commandReturn)}`} className="text-[color:var(--hv-gold-light)]/80">Create account</Link>
