@@ -25,14 +25,17 @@ import {
   type SignalRealtimeRow,
 } from '@/lib/globe/supabaseGlobeData'
 
-async function fetchGlobeBootstrapData(): Promise<GlobeLiveData> {
+async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; degraded: boolean }> {
   const res = await fetch('/api/globe', { cache: 'no-store' })
   if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
   const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
   return {
-    countries: data.countries ?? [],
-    signalsByIso2: data.signalsByIso2 ?? {},
-    unmappedSignalCountries: data.unmappedSignalCountries ?? {},
+    data: {
+      countries: data.countries ?? [],
+      signalsByIso2: data.signalsByIso2 ?? {},
+      unmappedSignalCountries: data.unmappedSignalCountries ?? {},
+    },
+    degraded: data.degraded === true,
   }
 }
 
@@ -78,8 +81,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         // Countries and signals arrive together from the server-cached bootstrap.
         // Avoid a second browser PostgREST country query; Realtime remains the
         // live-update path after the cached snapshot is installed.
-        setLiveData(bootstrap)
-        setDegraded(false)
+        setLiveData(bootstrap.data)
+        setDegraded(bootstrap.degraded)
         setLoadedAt(Date.now())
       })
       .catch((err) => {
