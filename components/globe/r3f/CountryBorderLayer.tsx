@@ -61,7 +61,7 @@ function collectOuterRings(
   return out
 }
 
-export function CountryBorderLayer() {
+export function CountryBorderLayer({ showSubnational = false }: { showSubnational?: boolean }) {
   // -------------------------------------------------------------------------
   // Build geometries once. useMemo ensures these run only on mount, not on
   // every frame — the THREE.BufferGeometry objects are stable references.
@@ -105,7 +105,7 @@ export function CountryBorderLayer() {
       new THREE.LineBasicMaterial({
         color: new THREE.Color('#4f3212'),
         transparent: true,
-        opacity: 0.62,
+        opacity: 0.28,
         depthTest: true,
         depthWrite: false,
       }),
@@ -116,9 +116,9 @@ export function CountryBorderLayer() {
   const worldMat = useMemo(
     () =>
       new THREE.LineBasicMaterial({
-        color: new THREE.Color('#e8c868'),
+        color: new THREE.Color('#d8bd72'),
         transparent: true,
-        opacity: 0.88,
+        opacity: 0.42,
         depthTest: true,
         depthWrite: false,
       }),
@@ -131,7 +131,7 @@ export function CountryBorderLayer() {
       new THREE.LineBasicMaterial({
         color: new THREE.Color('#b8982a'),
         transparent: true,
-        opacity: 0.56,
+        opacity: 0.26,
         depthTest: true,
         depthWrite: false,
       }),
@@ -144,7 +144,7 @@ export function CountryBorderLayer() {
       new THREE.LineBasicMaterial({
         color: new THREE.Color('#b8982a'),
         transparent: true,
-        opacity: 0.52,
+        opacity: 0.24,
         depthTest: true,
         depthWrite: false,
       }),
@@ -155,8 +155,12 @@ export function CountryBorderLayer() {
     <group renderOrder={30} userData={{ layer: 'country-and-subdivision-borders' }}>
       {/* Bronze underlay creates the darker machined groove beside the reflective edge. */}
       <lineSegments geometry={worldGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
-      <lineSegments geometry={usGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
-      <lineSegments geometry={caGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
+      {showSubnational ? (
+        <>
+          <lineSegments geometry={usGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
+          <lineSegments geometry={caGeom} material={borderShadowMat} renderOrder={29} scale={0.9988} />
+        </>
+      ) : null}
       {/* All world country borders — 1 draw call */}
       <lineSegments
         geometry={worldGeom}
@@ -164,17 +168,12 @@ export function CountryBorderLayer() {
         renderOrder={30}
       />
       {/* All U.S. state borders — 1 draw call */}
-      <lineSegments
-        geometry={usGeom}
-        material={usMat}
-        renderOrder={31}
-      />
-      {/* All Canadian province borders — 1 draw call */}
-      <lineSegments
-        geometry={caGeom}
-        material={caMat}
-        renderOrder={32}
-      />
+      {showSubnational ? (
+        <>
+          <lineSegments geometry={usGeom} material={usMat} renderOrder={31} />
+          <lineSegments geometry={caGeom} material={caMat} renderOrder={32} />
+        </>
+      ) : null}
     </group>
   )
 }
