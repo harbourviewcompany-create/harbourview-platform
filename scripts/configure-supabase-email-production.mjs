@@ -42,10 +42,10 @@ const patch = {
   external_email_enabled: true,
   mailer_autoconfirm: false,
   mailer_allow_unverified_email_sign_ins: false,
-  smtp_admin_email: 'signals@harbourview.co',
-  smtp_host: 'smtp.resend.com',
+  smtp_admin_email: 'harbourviewcompany@gmail.com',
+  smtp_host: 'smtp.gmail.com',
   smtp_port: '465',
-  smtp_user: 'resend',
+  smtp_user: 'harbourviewcompany@gmail.com',
   smtp_pass: smtpPassword,
   smtp_sender_name: 'Harbourview',
 }
@@ -78,9 +78,9 @@ const verified = {
 if (
   after.external_email_enabled !== true ||
   after.mailer_autoconfirm !== false ||
-  after.smtp_host !== 'smtp.resend.com' ||
+  after.smtp_host !== 'smtp.gmail.com' ||
   String(after.smtp_port) !== '465' ||
-  after.smtp_user !== 'resend'
+  after.smtp_user !== 'harbourviewcompany@gmail.com'
 ) {
   console.error(JSON.stringify({ ...verified, verified: false }))
   process.exit(1)
