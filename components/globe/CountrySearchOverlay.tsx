@@ -205,6 +205,24 @@ export function CountrySearchOverlay({
       </label>
       <p id="country-search-help" className="sr-only">Type to filter countries, provinces, or U.S. states. Use up and down arrow keys to choose a result, then press Enter to select.</p>
 
+      {!showResults && !query.trim() && recentMarkets.length > 0 ? (
+        <div style={{ padding: '2px 14px 7px' }}>
+          <div style={{ marginBottom: 5, fontSize: 8, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)' }}>Recent markets</div>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {recentMarkets.map((iso2) => {
+              const option = countryOptions.find((country) => country.iso2 === iso2)
+              if (!option) return null
+              const signalCount = liveData.signalsByIso2[iso2]?.length ?? 0
+              return (
+                <button key={iso2} type="button" onClick={() => selectCountry(iso2)} style={{ flexShrink: 0, border: '1px solid rgba(212,173,58,0.16)', borderRadius: 999, padding: '6px 9px', background: 'rgba(255,255,255,0.025)', color: 'rgba(255,255,255,0.62)', fontSize: 9 }}>
+                  {option.name}{signalCount > 0 ? ` · ${signalCount}` : ''}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {!showResults && signedIn !== null ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', borderTop: '1px solid rgba(212,173,58,0.12)', padding: '7px 14px 9px 14px', fontSize: '9.5px' }}>
           {signedIn ? (
