@@ -53,6 +53,7 @@ const PAGE_SOURCE_REQUIREMENTS = {
   digest: ['signals', 'dailyDigest', 'countryIntel'],
   'access-pathway': ['countryIntel', 'orgPathway', 'publicPathway', 'jurisdictionPlaybook', 'pathwayMatrix', 'sourceCoverage'],
   marketplace: ['wantedCount', 'marketplaceRows', 'pipeline', 'wantedListings', 'countryIntel', 'publicPathway', 'cannabisOperators', 'operatorLicenceMatrix', 'mySubmissions'],
+  compare: ['marketMetrics', 'tradeFlows', 'countryIntel', 'publicPathway'],
   evidence: ['evidenceData', 'sourceCoverage', 'registryCoverageSummary', 'professionals', 'publicPathway'],
   education: ['signals', 'liveEduTiles', 'recentEduModules', 'educationTracks', 'countryEducationOverlays', 'publicPathway'],
   regulatory: ['signals', 'watchlistData', 'countryIntel', 'sourceCoverage', 'jurisdictionPlaybook', 'pathwayMatrix'],
