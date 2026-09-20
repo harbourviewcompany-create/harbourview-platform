@@ -81,11 +81,15 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   const [expanded, setExpanded] = useState(false)
   const cache = useRef<Map<string, JurisdictionBriefing | null>>(new Map())
   const [retryKey, setRetryKey] = useState(0)
-  const { liveData } = useGlobe()
+  const { liveData, status: realtimeStatus, degraded, loadedAt } = useGlobe()
 
   const signalList = useMemo(
     () => liveData.signalsByIso2[countryIso2.toUpperCase()] ?? [],
     [liveData.signalsByIso2, countryIso2],
+  )
+  const topSignal = useMemo(
+    () => [...signalList].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))[0] ?? null,
+    [signalList],
   )
   const signalCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -157,6 +161,19 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   const parentCountry = countryIso2.split('-')[0]
   const createOrgHref = `/organization/new?country=${encodeURIComponent(parentCountry)}&returnTo=${encodeURIComponent(commandReturn)}`
   const title = `${countryName} market`
+  const freshnessLabel = degraded
+    ? 'DEGRADED'
+    : realtimeStatus === 'connected'
+      ? 'LIVE'
+      : loadedAt
+        ? 'CACHED'
+        : 'CONNECTING'
+  const freshnessDetail = loadedAt
+    ? new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
+        -Math.max(0, Math.round((Date.now() - loadedAt) / 60_000)),
+        'minute',
+      )
+    : null
   const reviewed = briefing?.last_reviewed_date
     ? new Date(briefing.last_reviewed_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
     : null
@@ -172,6 +189,14 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
           <button type="button" onClick={onEnter} disabled={isLoading} className={hvPanelPrimaryCtaClass}>
             Enter {countryName} market
           </button>
+          <div className="grid grid-cols-2 gap-2">
+            <Link href={commandReturn} className="flex min-h-10 items-center justify-center rounded-full border border-[color:var(--hv-gold)]/22 px-3 text-center text-[9px] font-semibold uppercase tracking-[0.13em] text-[color:var(--hv-gold-light)]/82">
+              Open intelligence
+            </Link>
+            <Link href={`${commandReturn}&section=regulatory`} className="flex min-h-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.025] px-3 text-center text-[9px] font-semibold uppercase tracking-[0.13em] text-white/60">
+              Review access
+            </Link>
+          </div>
           <div className="flex items-center justify-center gap-5 text-[10px] font-semibold uppercase tracking-[0.1em]">
             <Link href={`/login?next=${encodeURIComponent(commandReturn)}`} className="text-[color:var(--hv-gold-light)]/80">Sign in</Link>
             <Link href={`/login?mode=signup&next=${encodeURIComponent(commandReturn)}`} className="text-[color:var(--hv-gold-light)]/80">Create account</Link>
@@ -184,6 +209,9 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
         <div className="grid gap-2 rounded-2xl border border-[color:var(--hv-gold)]/18 bg-[color:var(--hv-gold)]/[0.045] p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--hv-gold-light)]/78">Market access</span>
+            <span className={degraded ? 'text-[9px] uppercase tracking-[0.14em] text-amber-300/70' : realtimeStatus === 'connected' ? 'text-[9px] uppercase tracking-[0.14em] text-emerald-300/75' : 'text-[9px] uppercase tracking-[0.14em] text-white/38'}>
+              {freshnessLabel}{freshnessDetail ? ` · ${freshnessDetail}` : ''}
+            </span>
             {reviewed ? <span className="text-[9px] uppercase tracking-[0.14em] text-white/35">Reviewed {reviewed}</span> : null}
           </div>
           <p className="text-sm font-medium leading-5 text-[color:var(--hv-ivory)]">
@@ -204,6 +232,20 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
           <div className="grid gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--hv-gold-light)]/72">Market snapshot</p>
             <p className="text-sm leading-6 text-[color:var(--hv-ivory)]/82">{briefing.public_summary}</p>
+          </div>
+        ) : null}
+
+        {topSignal ? (
+          <div className="grid gap-2 rounded-2xl border border-emerald-300/12 bg-emerald-300/[0.035] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/75">Priority signal</p>
+              <span className="text-[9px] uppercase tracking-[0.14em] text-white/32">{topSignal.cat ?? 'Market intelligence'}</span>
+            </div>
+            <p className="text-sm leading-6 text-white/82">{topSignal.headline}</p>
+            <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.14em] text-white/32">
+              <span>{new Date(topSignal.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+              {topSignal.score != null ? <span>Signal score {topSignal.score}</span> : null}
+            </div>
           </div>
         ) : null}
 
