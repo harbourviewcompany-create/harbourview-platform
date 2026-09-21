@@ -6,7 +6,7 @@ Effective: 2026-09-16.
 
 ## Production acceptance contract
 
-Every jurisdiction published by the Market Access globe must have one individually reviewed primary source. The required inventory is the 291 national jurisdiction rows plus the 88 currently rendered subnational rows: 379 jurisdiction keys total.
+Every jurisdiction published by the Market Access globe must have one individually reviewed primary source. The required inventory is the 203 national jurisdiction rows plus the 88 currently rendered subnational rows: 291 jurisdiction keys total.
 
 A qualifying source must be one of:
 
@@ -66,9 +66,9 @@ Subnational rows are first-class jurisdictions. They cannot inherit a parent cou
 
 Production GO requires all of the following:
 
-1. 291/291 national rows hardened.
+1. 203/203 national rows hardened.
 2. 88/88 rendered subnational rows hardened.
-3. 379/379 total hardened.
+3. 291/291 total hardened.
 4. Zero missing, expired, wrong-level, wrong-parent, missing-snapshot, future-effective, reused-current-evidence, or duplicate-source failures.
 5. Fresh CI, typecheck, tests, build, migration-drift, security, and production-read-only verification green.
 6. Globe rendering confirms the same 379-jurisdiction publication boundary without legacy or inherited fallback.
