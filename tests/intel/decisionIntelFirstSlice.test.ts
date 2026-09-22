@@ -190,7 +190,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
     expect(tierResolver).toContain(".from('user_profiles')")
     expect(tierResolver).toContain(".select('tier')")
     expect(tierResolver).toContain(".eq('id', user.id)")
-    expect(dashboardPage).toContain('decisionIntelAccess={decisionIntelAccess}')
+    expect(dashboardPage).toMatch(/decisionIntelAccess\s*=\s*\{decisionIntelAccess\}/)
     expect(dossierPage).toContain(".from('user_profiles')")
     expect(dossierPage).toContain("canAccess('signals', normalizeSubscriptionTier(profile?.tier))")
     expect(dossierPage).not.toContain("requireAuth('signals')")
