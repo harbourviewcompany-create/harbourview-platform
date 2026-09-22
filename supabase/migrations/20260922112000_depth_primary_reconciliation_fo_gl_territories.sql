@@ -1,0 +1,113 @@
+insert into public.source_registry(source_name,source_url,jurisdiction,country,iso,sub_region,region,language,adapter,crawl_cadence,relevance_status,jurisdiction_code,tier,requires_auth,source_type,crawl_allowed,regulator_class,notes)
+values
+('Faroe Islands Lógasavn — Regulation No. 495/2026 on controlled substances','https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer','Faroe Islands','Faroe Islands','FO','Northern Europe','Europe','da','html_snapshot','daily','active','FO',1,false,'government_regulator',true,'other','Primary 2026 controlled-substance regulation; cannabis is expressly listed and medical/scientific authorization rules are stated.'),
+('United Nations — Western Sahara decolonization status','https://www.un.org/dppa/decolonization/en/nsgt/western-sahara','Western Sahara','Western Sahara','EH','Northern Africa','Africa','en','html_snapshot','weekly','active','EH',1,false,'international_organization',true,'other','Authoritative UN status source. Political/decolonization status only; not a cannabis regulatory source.')
+on conflict (source_url) do update set is_active=true,jurisdiction_code=excluded.jurisdiction_code,tier=excluded.tier,notes=excluded.notes,updated_at=now();
+
+update public.regulatory_market_access_evidence
+set tier='medical_limited_trade',
+rationale=case when jurisdiction_iso2='FO'
+ then 'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; the regulation states Lists B, D and E are for medical and scientific use and provides permit rules for medical cultivation/distribution. No general adult-use commercial retail pathway is established by this instrument.'
+ else 'Greenland Act No. 24 of 25 November 2022 establishes that controlled substances may be restricted to medical or scientific use; the 2025 self-government regulation governs controlled substances and includes cannabis. Commercial adult-use cannabis is not established by the cited framework; permitted medical/scientific activity remains subject to authorization.' end,
+authority_name=case when jurisdiction_iso2='FO'
+ then 'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances'
+ else 'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances' end,
+authority_url=case when jurisdiction_iso2='FO'
+ then 'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer'
+ else 'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da' end,
+verified_at=now(),expires_at=now()+interval '1 year'
+where jurisdiction_iso2 in ('FO','GL') and active;
+
+insert into public.regulatory_market_access_claims(
+ evidence_key,jurisdiction_iso2,claim_key,claim_text,product_class,jurisdiction_scope,
+ authority_name,authority_url,source_effective_date,retrieved_at,verified_at,expires_at,evidence_status)
+values
+('hv-mkt-complete-fo-20260913','FO','primary-evidence-claim:hv-mkt-complete-fo-20260913',
+ 'Faroe Islands controlled-substance rules place cannabis within the controlled framework and limit listed controlled substances to medical/scientific use; permitted commercial activities require authorization. No general adult-use retail pathway is established by the cited regulation.',
+ 'any','jurisdiction','Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
+ 'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer','2026-05-26',now(),now(),now()+interval '1 year','verified'),
+('hv-mkt-complete-gl-20260913','GL','primary-evidence-claim:hv-mkt-complete-gl-20260913',
+ 'Greenland controlled-substance law restricts controlled substances to authorized medical/scientific use; cannabis is included in the controlled framework. Commercial adult-use cannabis is not established by the cited Greenland framework.',
+ 'any','jurisdiction','Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
+ 'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',null,now(),now(),now()+interval '1 year','verified')
+on conflict (claim_key) do update set claim_text=excluded.claim_text,authority_name=excluded.authority_name,authority_url=excluded.authority_url,verified_at=excluded.verified_at,expires_at=excluded.expires_at,evidence_status='verified',updated_at=now();
+
+insert into public.country_intel(country_code,country_name,public_summary,commercial_pathway_summary,review_status,regulatory_tier,last_reviewed_at,last_enriched_at) values
+('FO','Faroe Islands','The Faroe Islands have a distinct controlled-substance framework. Regulation No. 495 of 26 May 2026 includes cannabis in the controlled-substance schedules and provides authorization rules for medical/scientific activity.','No general adult-use commercial retail pathway is established by the cited 2026 regulation; authorized medical/scientific activity is the supported commercial-access basis.','active','medical_limited_trade',now(),now()),
+('GL','Greenland','Greenland has its own controlled-substance legislation under Inatsisartut Act No. 24 of 25 November 2022 and subsequent self-government regulations. Cannabis is included in the controlled framework, with authorization-based exceptions.','Commercial adult-use cannabis is not established by the cited framework; authorized medical/scientific activity and limited low-THC import pathways are subject to Greenlandic authorization.','active','medical_limited_trade',now(),now()),
+('EH','Western Sahara','Western Sahara remains a UN-listed Non-Self-Governing Territory. A distinct authoritative cannabis commercial-access regime for the territory was not established from the sources reviewed; jurisdictional status requires separate treatment rather than automatic inheritance from Morocco.','Commercial cannabis access is unresolved in the Harbourview jurisdiction model pending a territory-specific authoritative regulatory source.','blocked','unresolved',now(),now()),
+('FK','Falkland Islands','Falkland Islands legislation treats cannabis and cannabis resin as controlled drugs under the territory’s controlled-drug framework.','No general adult-use commercial cannabis pathway is established by the cited legislation; controlled activity remains subject to the territory’s drug-control framework.','active','prohibited',now(),now()),
+('HK','Hong Kong','Hong Kong Police Force states cannabis, THC and other cannabinoids are controlled under the Dangerous Drugs Ordinance.','No general adult-use commercial cannabis pathway is established by the cited Hong Kong framework.','active','prohibited',now(),now()),
+('PR','Puerto Rico','Puerto Rico Department of Health administers and enforces the territory’s medical-cannabis laws and regulations through its Medical Cannabis Regulatory Board.','Commercial access is limited to the regulated medical-cannabis framework rather than general adult-use retail.','active','medical_limited_trade',now(),now()),
+('SC','Seychelles','Seychelles government statements indicate that recreational marijuana has not been legalized; cannabis remains subject to the controlled-drug framework.','No general adult-use commercial cannabis pathway is established by the current government position and cited framework; territory-specific medical access requires further primary-source verification.','active','prohibited',now(),now())
+on conflict(country_code) do update set public_summary=excluded.public_summary,commercial_pathway_summary=excluded.commercial_pathway_summary,review_status=excluded.review_status,regulatory_tier=excluded.regulatory_tier,last_reviewed_at=excluded.last_reviewed_at,last_enriched_at=excluded.last_enriched_at,updated_at=now();
+
+insert into public.regulatory_pathways(country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,prescription_notes,source_urls,verification,last_verified_at,qualifying_conditions,prescriber_scope,min_age,reimbursement)
+select c.id,'FO','depth-v1-fo','Faroe Islands medical/scientific cannabis authorization pathway','medical_access_program',
+'Faroe Islands Regulation No. 495 of 26 May 2026 on controlled substances','Faroe Islands / Danish Medicines Agency framework','active','2026-05-26',
+'Cannabis is controlled and authorized activity is limited to the medical/scientific framework described in the regulation; no general adult-use retail pathway is established by the cited instrument.',
+null,array['https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer'],'needs_review',null,array[]::text[],null,null,null
+from public.countries c where c.iso_alpha2='FO'
+on conflict (slug) do nothing;
+
+insert into public.regulatory_pathways(country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,prescription_notes,source_urls,verification,last_verified_at,qualifying_conditions,prescriber_scope,min_age,reimbursement)
+select c.id,'GL','depth-v1-gl','Greenland controlled-substance medical/scientific pathway','medical_access_program',
+'Inatsisartut Act No. 24 of 25 November 2022 and Greenland Self-Government Regulation No. 61 of 22 August 2025 on controlled substances','Greenland Self-Government / Landslægeembedet','active',null,
+'Cannabis is included in Greenland’s controlled-substance framework. Medical/scientific use and specified import activity require authorization; no general adult-use commercial retail pathway is established by the cited framework.',
+null,array['https://nalunaarutit.gl/groenlandsk-lovgivning/2022/l-24-2022?sc_lang=da','https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da'],'needs_review',null,array[]::text[],null,null,null
+from public.countries c where c.iso_alpha2='GL'
+on conflict (slug) do nothing;
+
+insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
+select 'pathway',rp.id,'Regulation No. 495 of 26 May 2026 on controlled substances',null,'regulator',
+'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer','2026-05-26',current_date,
+'Cannabis is listed in the controlled-substance schedules; Lists B, D and E are for medical and scientific use and authorization rules apply.'
+from public.regulatory_pathways rp where rp.iso_alpha2='FO' and rp.slug='depth-v1-fo'
+and not exists(select 1 from public.regulatory_citations rc where rc.entity_id=rp.id);
+
+insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
+select 'pathway',rp.id,'Inatsisartut Act No. 24 of 25 November 2022 / Regulation No. 61 of 22 August 2025',null,'regulator',
+'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',null,current_date,
+'Greenland controlled-substance rules govern cannabis within an authorization-based medical/scientific framework.'
+from public.regulatory_pathways rp where rp.iso_alpha2='GL' and rp.slug='depth-v1-gl'
+and not exists(select 1 from public.regulatory_citations rc where rc.entity_id=rp.id);
+
+update public.regulatory_pathways set verification='verified',last_verified_at=now(),updated_at=now() where slug in ('depth-v1-fo','depth-v1-gl');
+update public.jurisdiction_data_depth_tasks set status='verified',updated_at=now() where dimension_key='country_intel' and jurisdiction_key in ('EH','FK','FO','GL','HK','PR','SC');
+update public.jurisdiction_data_depth_tasks set status='verified',updated_at=now() where dimension_key in ('verified_regulatory_evidence','verified_regulatory_claims','verified_pathways') and jurisdiction_key in ('FO','GL');
+
+update public.jurisdiction_dimension_coverage c
+set status=case
+ when c.dimension_key='country_intel' and d.jurisdiction_level='subnational' then 'inherited'
+ when c.dimension_key='country_intel' and d.country_intel_rows>0 then 'verified_populated'
+ when c.dimension_key='country_intel' then 'open'
+ when c.dimension_key='market_metrics' and d.jurisdiction_level='subnational' then 'not_applicable'
+ when c.dimension_key='market_metrics' and d.metric_rows>0 then 'verified_populated'
+ when c.dimension_key='market_metrics' then 'open'
+ when c.dimension_key='trade_flows' and d.jurisdiction_level='subnational' then 'not_applicable'
+ when c.dimension_key='trade_flows' and d.trade_flow_rows>0 then 'verified_populated'
+ when c.dimension_key='trade_flows' then 'open'
+ when c.dimension_key='signals' and d.jurisdiction_level='subnational' then 'not_applicable'
+ when c.dimension_key='signals' and d.signal_rows>0 then 'verified_populated'
+ when c.dimension_key='signals' then 'open'
+ when c.dimension_key='source_registry' and d.registered_source_rows>0 then 'verified_populated'
+ when c.dimension_key='source_registry' then 'open'
+ when c.dimension_key='source_snapshots' and d.successful_snapshot_rows>0 then 'verified_populated'
+ when c.dimension_key='source_snapshots' then 'open'
+ when c.dimension_key='verified_regulatory_evidence' and d.current_verified_evidence_rows>0 then 'verified_populated'
+ when c.dimension_key='verified_regulatory_evidence' then 'open'
+ when c.dimension_key='verified_regulatory_claims' and d.verified_claim_rows>0 then 'verified_populated'
+ when c.dimension_key='verified_regulatory_claims' then 'open'
+ when c.dimension_key='verified_pathways' and d.verified_pathway_rows>0 then 'verified_populated'
+ when c.dimension_key='verified_pathways' then 'open'
+ when c.dimension_key='verified_format_rules' and d.verified_format_rule_rows>0 then 'verified_populated'
+ when c.dimension_key='verified_format_rules' then 'open'
+ when c.dimension_key='regulatory_calendar' and d.calendar_rows>0 then 'verified_populated'
+ when c.dimension_key='regulatory_calendar' then 'open'
+ else c.status end,
+ applicability=case
+  when c.dimension_key in ('market_metrics','trade_flows','signals') and d.jurisdiction_level='subnational' then 'not_applicable'
+  when c.dimension_key='country_intel' and d.jurisdiction_level='subnational' then 'inherited'
+  else 'applicable' end,
+ last_evaluated_at=now()
+from public.v_jurisdiction_data_depth d where d.jurisdiction_key=c.jurisdiction_key;
