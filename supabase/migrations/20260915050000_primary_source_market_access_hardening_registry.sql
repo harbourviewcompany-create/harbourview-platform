@@ -5,7 +5,7 @@
 
 create table if not exists public.regulatory_market_access_primary_sources (
   jurisdiction_iso2 text primary key,
-  jurisdiction_level text not null default case when jurisdiction_iso2 ~ '^[A-Z]{2}$' then 'national' else 'subnational' end
+  jurisdiction_level text not null
     check (jurisdiction_level in ('national','subnational')),
   parent_iso2 text,
   source_class text not null check (source_class in ('primary_regulator','primary_government_legal','primary_gazette','primary_court_or_official_decision')),
