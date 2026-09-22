@@ -98,6 +98,12 @@ export type JurisdictionCounterpartyDTO = {
 }
 
 export type JurisdictionDataDepthDTO = {
+  jurisdictionLevel: 'national' | 'subnational'
+  researchQueueRows: number
+  openResearchQueueRows: number
+  tradeDataApplicable: boolean
+  marketMetricApplicable: boolean
+  signalCountryApplicable: boolean
   populatedDimensions: number
   totalDimensions: number
   depthPct: number
