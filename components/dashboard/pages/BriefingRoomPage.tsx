@@ -23,7 +23,7 @@ import { getRoleCommandDefault } from '@/lib/dashboard/roleCommandDefaults'
 import { combinePipelineStatus, pipelineSloMessage } from '@/lib/dashboard/pipelineSlo'
 import { formatRate, type MarketplaceFunnelMetrics } from '@/lib/dashboard/marketplaceFunnelMetrics'
 import { buildBriefingActions } from '@/lib/dashboard/briefingActions'
-import { buildCoverageMapSnapshot, coverageOverridesFromSignals } from '@/lib/dashboard/coverageMap'
+import { buildCoverageMapSnapshot, coverageOverridesFromLiveSources } from '@/lib/dashboard/coverageMap'
 import { GlobeProvider } from '@/components/globe/GlobeProvider'
 
 const MyBriefingsPanel = dynamic(
@@ -212,45 +212,50 @@ export const BriefingRoom = React.memo(function BriefingRoom({
     })
   }, [role, signals])
   const roleFocus = useMemo(() => getRoleCommandDefault(role).focus, [role])
-  const coverageMap = useMemo(
-    () => buildCoverageMapSnapshot(country.iso2, coverageOverridesFromSignals(signals.length)),
-    [country.iso2, signals.length],
-  )
+  const coverageMap = useMemo(() => {
+    const pipelineOpen = pipeline
+      ? (pipeline.wanted ?? 0) + (pipeline.inquiry ?? 0) + (pipeline.proof_review ?? 0) + (pipeline.matched ?? 0) + (pipeline.deal_room ?? 0)
+      : 0
+    return buildCoverageMapSnapshot(
+      country.iso2,
+      coverageOverridesFromLiveSources({
+        signalCount: signals.length,
+        marketplaceCount: listingCount + wantedCount,
+        pipelineOpen,
+        hasPathway: Boolean(countryIntel?.commercial_pathway_summary),
+      }),
+    )
+  }, [country.iso2, signals.length, listingCount, wantedCount, pipeline, countryIntel?.commercial_pathway_summary])
 
   React.useEffect(() => {
     const controller = new AbortController()
-    fetch('/api/dashboard/pipeline-health', { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: {
+    const { signal } = controller
+    void Promise.all([
+      fetch('/api/dashboard/pipeline-health', { signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      fetch('/api/dashboard/marketplace-funnel', { signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ]).then(([health, funnel]) => {
+      const d = health as {
         status?: 'healthy' | 'warning' | 'critical'
         metrics?: { feed_age_hours?: number | null; digest_age_days?: number | null }
         alerts?: unknown[]
-      } | null) => {
-        if (!d?.status) {
-          setPipelineHealth({ status: 'unknown', feedAgeHours: null, digestAgeDays: null, alertCount: 0 })
-          return
-        }
+      } | null
+      if (!d?.status) {
+        setPipelineHealth({ status: 'unknown', feedAgeHours: null, digestAgeDays: null, alertCount: 0 })
+      } else {
         setPipelineHealth({
           status: d.status,
           feedAgeHours: d.metrics?.feed_age_hours ?? null,
           digestAgeDays: d.metrics?.digest_age_days ?? null,
           alertCount: Array.isArray(d.alerts) ? d.alerts.length : 0,
         })
-      })
-      .catch(() => {
-        setPipelineHealth({ status: 'unknown', feedAgeHours: null, digestAgeDays: null, alertCount: 0 })
-      })
-    return () => controller.abort()
-  }, [])
-
-  React.useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/dashboard/marketplace-funnel', { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { metrics?: MarketplaceFunnelMetrics } | null) => {
-        if (d?.metrics) setFunnelMetrics(d.metrics)
-      })
-      .catch(() => { /* non-blocking */ })
+      }
+      const f = funnel as { metrics?: MarketplaceFunnelMetrics } | null
+      if (f?.metrics) setFunnelMetrics(f.metrics)
+    })
     return () => controller.abort()
   }, [])
 

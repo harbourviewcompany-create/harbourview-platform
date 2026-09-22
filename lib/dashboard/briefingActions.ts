@@ -32,12 +32,39 @@ function urgencyFromSignal(s: DashboardSignal): { urgency: BriefingAction['urgen
   return { urgency: 'watch' }
 }
 
+const PAGE_ICONS: Partial<Record<CommandPage, string>> = {
+  signals: '◉',
+  regulatory: '◷',
+  marketplace: '⊞',
+  clinical: '✚',
+  compliance: '◫',
+  licences: '⊙',
+  genetics: '❋',
+  evidence: '▦',
+  education: '◈',
+  'access-pathway': '◎',
+  'trade-calc': '¤',
+  logistics: '⬡',
+  prices: '⊞',
+  kyb: '✓',
+  briefing: '◎',
+}
+
 export function buildBriefingActions(input: {
   roleShort?: string | null
   signals: DashboardSignal[]
   playbook?: Array<{ page: CommandPage; icon: string; label: string; why: string }>
 }): BriefingAction[] {
-  const playbook = input.playbook ?? []
+  const d = getRoleCommandDefault(input.roleShort)
+  const playbook = [...(input.playbook ?? [])]
+
+  // Prefer role priority order when playbook entries overlap.
+  playbook.sort((a, b) => {
+    const ia = d.priorities.indexOf(a.page)
+    const ib = d.priorities.indexOf(b.page)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+  })
+
   if (playbook.length > 0) {
     return playbook.slice(0, 3).map((m, i) => {
       const related = input.signals.find((s) =>
@@ -48,13 +75,12 @@ export function buildBriefingActions(input: {
     })
   }
 
-  const d = getRoleCommandDefault(input.roleShort)
   return d.priorities.slice(0, 3).map((page, i) => {
     const top = input.signals[i]
     const u = top ? urgencyFromSignal(top) : { urgency: (i === 0 ? 'soon' : 'watch') as BriefingAction['urgency'] }
     return {
       page,
-      icon: '◎',
+      icon: PAGE_ICONS[page] ?? '◎',
       label: page.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       why: i === 0 ? d.focus : `Role-priority surface`,
       urgency: u.urgency,
