@@ -142,6 +142,21 @@ export default function MobileCommandCentreRebuild(props: Props) {
   // Tool launchers are always present and never role-specific, so they are not
   // "requires attention" — excluding them lets a real exception reach the two
   // priority slots (docs/COMMAND_SURFACE_SPEC.md 4.2).
+
+  // Soft role gate: once per browser session, open context when Command has no role.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (model.currentRole) return
+    if (model.activeSection !== 'overview') return
+    try {
+      if (sessionStorage.getItem('hv_role_gate_shown') === '1') return
+      sessionStorage.setItem('hv_role_gate_shown', '1')
+    } catch {
+      /* private mode */
+    }
+    setContextOpen(true)
+  }, [model.currentRole, model.activeSection])
+
   const attentionItems = model.nextActions.filter(
     item => item.kind !== 'tool' && (item.tone === 'warn' || item.tone === 'gold'),
   )

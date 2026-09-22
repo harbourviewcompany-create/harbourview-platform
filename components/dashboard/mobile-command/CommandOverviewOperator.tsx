@@ -136,6 +136,38 @@ export default function CommandOverviewOperator({
         </p>
       ) : null}
 
+      {(!roleLabel || roleLabel === 'All roles') ? (
+        <div
+          className="hvm-op-role-gate"
+          style={{
+            margin: '0 0 12px',
+            padding: '10px 12px',
+            borderRadius: 10,
+            border: '1px solid rgba(212,175,55,.35)',
+            background: 'rgba(212,175,55,.08)',
+          }}
+        >
+          <p style={{ margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'rgba(245,240,232,.88)' }}>
+            Choose an operating role to rank priorities (marketplace, clinical, compliance) for this jurisdiction.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenContext}
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#0b0f14',
+              background: 'linear-gradient(135deg,#d4af37,#c9a227)',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 12px',
+            }}
+          >
+            Choose role
+          </button>
+        </div>
+      ) : null}
+
       <div className="hvm-op-pulse" aria-label={`Operating state for ${countryLabel}, ${roleLabel}`}>
         <button type="button" onClick={onOpenActions}>
           <span>Attention</span>

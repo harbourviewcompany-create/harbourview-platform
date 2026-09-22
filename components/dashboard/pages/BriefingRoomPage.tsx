@@ -425,6 +425,21 @@ export const BriefingRoom = React.memo(function BriefingRoom({
                 Focus: {roleFocus}
               </div>
             ) : null}
+      {!role && (
+        <div className="cc-role-gate" role="region" aria-label="Role selection prompt" style={{
+          margin: '0 0 12px',
+          padding: '12px 14px',
+          borderRadius: 10,
+          border: '1px solid rgba(212,175,55,.35)',
+          background: 'rgba(212,175,55,.08)',
+        }}>
+          <strong style={{ display: 'block', marginBottom: 6, color: '#d4af37', fontSize: 13 }}>Choose an operating role</strong>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, color: 'rgba(245,240,232,.8)' }}>
+            Priorities, pathway modules, and coverage focus sharpen once a role is set in the Command header.
+          </p>
+        </div>
+      )}
+
             <button
               type="button"
               className="cc-right-link"
