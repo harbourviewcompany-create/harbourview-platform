@@ -2,7 +2,7 @@
 
 **Status**: Active Planning Document  
 **Owner**: Tyler / Harbourview Team  
-**Last Updated**: September 17, 2026  
+**Last Updated**: September 22, 2026  
 **Purpose**: Single source of truth for all planned features. All implementation must reference this document and update PROJECT_REGISTRY.md.
 
 ## Phase 0–1 — CLOSED (2026-07-28)
@@ -43,7 +43,7 @@ Goal: close the loop from external media → classified signals → personalized
 | BigQuery job for bulk quality re-score | ⬜ | After credentials |
 | Preference storage + calendar sync | ⬜ | HubSpot / Google Calendar stubs present |
 | Unified signal store cleanup | ⬜ | Address parallel tables |
-| Feed freshness SLO (promote within 24–48 h) | ⬜ | Operator + pipeline tuning |
+| Feed freshness SLO (promote within 24–48 h) | ◐ partial | Product thresholds in `lib/dashboard/pipelineSlo.ts` (6h healthy / 24h warning); Briefing `/api/dashboard/pipeline-health`; SignalStrip content band aligned to same SLO; ops still need Meltwater + promote cadence monitoring |
 
 ## Still operator / partner dependent
 
