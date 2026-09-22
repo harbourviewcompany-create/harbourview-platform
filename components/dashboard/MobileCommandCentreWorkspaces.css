@@ -26,13 +26,13 @@ button.hvm2-text-link {
 }
 
 /*
- * Portaled to document.body (see WorkspacePanels). Must sit above every
- * app-shell layer (header, secondary rail z-index:5, bottom nav).
+ * Portaled via AppPortal → #hvm-portal-root. Sit above shell chrome
+ * (secondary rail z-index: 5, bottom nav).
  */
 .hvm2-workspace {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 10000 !important;
+  z-index: var(--hv-portal-z, 10000) !important;
   display: flex;
   flex-direction: column;
   margin: 0;
@@ -108,7 +108,6 @@ button.hvm2-text-link {
   cursor: pointer;
 }
 
-/* Only this region scrolls — header stays put; submit is inside the scroll. */
 .hvm2-workspace-scroll {
   flex: 1 1 auto;
   min-height: 0;
