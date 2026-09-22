@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { PAGE_SOURCE_REQUIREMENTS, getRequiredCommandCentreSourceKeys } from '@/lib/dashboard/commandCentreSourcePlan'
+import {
+  CORE_OPERATOR_DEPTH,
+  PAGE_SOURCE_REQUIREMENTS,
+  getRequiredCommandCentreSourceKeys,
+} from '@/lib/dashboard/commandCentreSourcePlan'
 import { COMMAND_CENTRE_PAGE_IDS } from '@/lib/platform/commandCentreRegistry'
 
 describe('Command Centre demand-driven source plan', () => {
@@ -7,14 +11,14 @@ describe('Command Centre demand-driven source plan', () => {
     expect(Object.keys(PAGE_SOURCE_REQUIREMENTS).sort()).toEqual([...COMMAND_CENTRE_PAGE_IDS].sort())
   })
 
-  it('does not load marketplace or genetics sources for settings', () => {
+  it('settings keeps a light coverage footprint', () => {
     const settings = getRequiredCommandCentreSourceKeys('settings')
-    expect(settings.size).toBe(0)
+    expect(settings.has('sourceCoverage')).toBe(true)
     expect(settings.has('marketplaceRows')).toBe(false)
     expect(settings.has('cultivarPassports')).toBe(false)
   })
 
-  it('loads only the marketplace source family for marketplace operations', () => {
+  it('loads marketplace core without genetics bulk', () => {
     const marketplace = getRequiredCommandCentreSourceKeys('marketplace')
     expect(marketplace.has('marketplaceRows')).toBe(true)
     expect(marketplace.has('operatorLicenceMatrix')).toBe(true)
@@ -25,9 +29,6 @@ describe('Command Centre demand-driven source plan', () => {
   it('loads genetics records for the genetics page', () => {
     const genetics = getRequiredCommandCentreSourceKeys('genetics')
     expect(genetics.has('cultivarPassports')).toBe(true)
-    expect(genetics.has('serviceProviders')).toBe(true)
-    expect(genetics.has('collaborationProjects')).toBe(true)
-    expect(genetics.has('countryIntel')).toBe(true)
     expect(genetics.has('signals')).toBe(true)
   })
 
@@ -43,5 +44,18 @@ describe('Command Centre demand-driven source plan', () => {
     expect(keys.has('pipeline')).toBe(true)
     expect(keys.has('watchlistData')).toBe(true)
     expect(keys.has('evidenceData')).toBe(true)
+  })
+
+  it('exports core operator depth keys', () => {
+    expect(CORE_OPERATOR_DEPTH).toEqual(
+      expect.arrayContaining(['signals', 'pipeline', 'watchlistData', 'evidenceData']),
+    )
+  })
+
+  it('prices and trade-calc pull pipeline + marketplace depth', () => {
+    expect(getRequiredCommandCentreSourceKeys('prices').has('pipeline')).toBe(true)
+    expect(getRequiredCommandCentreSourceKeys('prices').has('marketplaceRows')).toBe(true)
+    expect(getRequiredCommandCentreSourceKeys('trade-calc').has('pipeline')).toBe(true)
+    expect(getRequiredCommandCentreSourceKeys('trade-calc').has('signals')).toBe(true)
   })
 })

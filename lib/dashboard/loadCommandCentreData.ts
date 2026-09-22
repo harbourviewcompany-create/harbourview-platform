@@ -11,7 +11,7 @@ import type {
   CommandCentreSourceMeta,
 } from '@/lib/dashboard/commandCentreDataTypes'
 
-const DEFAULT_SOURCE_TIMEOUT_MS = 8_000
+const DEFAULT_SOURCE_TIMEOUT_MS = 12_000
 
 class CommandCentreSourceFailure extends Error {
   readonly durationMs: number

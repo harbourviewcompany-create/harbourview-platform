@@ -31,7 +31,18 @@ export type DashboardCommandSourceKey =
   | 'countryEducationOverlays'
   | 'pathwayMatrix'
 
+/** Cross-cutting sources every operator surface should prefer when relevant. */
+export const CORE_OPERATOR_DEPTH = [
+  'signals',
+  'countryIntel',
+  'pipeline',
+  'watchlistData',
+  'evidenceData',
+  'sourceCoverage',
+] as const satisfies readonly DashboardCommandSourceKey[]
+
 const PAGE_SOURCE_REQUIREMENTS = {
+
   // `briefing` is also the fallback for a null page -- `normalizeCommandPage`
   // returns null for a bare `/dashboard`, and `getRequiredCommandCentreSourceKeys`
   // resolves that here. So this list is what a visitor gets before any `?page=`
@@ -163,7 +174,7 @@ const PAGE_SOURCE_REQUIREMENTS = {
     'pipeline',
     'sourceCoverage',
   ],
-  settings: [],
+  settings: ['sourceCoverage', 'registryCoverageSummary'],
   genetics: [
     'cultivarPassports',
     'serviceProviders',
@@ -213,8 +224,10 @@ const PAGE_SOURCE_REQUIREMENTS = {
     'sourceCoverage',
     'registryCoverageSummary',
     'publicPathway',
+    'pipeline',
+    'signals',
   ],
-  events: ['signals', 'countryIntel', 'watchlistData', 'marketMetrics'],
+  events: ['signals', 'countryIntel', 'watchlistData', 'marketMetrics', 'pipeline', 'sourceCoverage'],
   experts: [
     'professionals',
     'serviceProviders',
@@ -235,6 +248,9 @@ const PAGE_SOURCE_REQUIREMENTS = {
     'countryIntel',
     'signals',
     'sourceCoverage',
+    'pipeline',
+    'watchlistData',
+    'marketplaceRows',
   ],
   logistics: [
     'tradeFlows',
@@ -242,8 +258,11 @@ const PAGE_SOURCE_REQUIREMENTS = {
     'countryIntel',
     'publicPathway',
     'marketplaceRows',
+    'pipeline',
+    'signals',
+    'sourceCoverage',
   ],
-  jobs: ['professionals', 'serviceProviders', 'cannabisOperators', 'countryIntel'],
+  jobs: ['professionals', 'serviceProviders', 'cannabisOperators', 'countryIntel', 'signals', 'pipeline', 'sourceCoverage'],
   notifications: ['watchlistData', 'pipeline', 'signals', 'evidenceData'],
   kyb: [
     'evidenceData',
@@ -252,7 +271,7 @@ const PAGE_SOURCE_REQUIREMENTS = {
     'operatorLicenceMatrix',
     'pipeline',
   ],
-  insurance: ['marketMetrics', 'countryIntel', 'publicPathway', 'cannabisOperators'],
+  insurance: ['marketMetrics', 'countryIntel', 'publicPathway', 'cannabisOperators', 'signals', 'sourceCoverage'],
   licences: [
     'cannabisOperators',
     'operatorLicenceMatrix',
@@ -261,7 +280,7 @@ const PAGE_SOURCE_REQUIREMENTS = {
     'pathwayMatrix',
     'sourceCoverage',
   ],
-  'trade-calc': ['tradeFlows', 'marketMetrics', 'countryIntel', 'publicPathway'],
+  'trade-calc': ['tradeFlows', 'marketMetrics', 'countryIntel', 'publicPathway', 'signals', 'pipeline', 'marketplaceRows', 'sourceCoverage'],
   organization: ['orgPathway', 'publicPathway', 'mySubmissions', 'pipeline', 'evidenceData', 'cannabisOperators'],
   talent: ['professionals', 'serviceProviders', 'cannabisOperators', 'countryIntel', 'signals'],
 } as const satisfies Record<CommandPage, readonly DashboardCommandSourceKey[]>
