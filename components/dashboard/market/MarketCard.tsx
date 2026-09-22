@@ -31,10 +31,7 @@ function resolveCardMedia(listing: MarketCardModel, stage: MediaStage): MarketCa
         fallbackCaption: media.fallbackCaption,
       }
     }
-    // Buyer UI: hide representative provenance badge; keep alt text.
-    if (media.kind === 'representative') {
-      return { ...media, badgeLabel: null }
-    }
+    // Representative media must remain explicitly disclosed in buyer UI.
     return media
   }
 
