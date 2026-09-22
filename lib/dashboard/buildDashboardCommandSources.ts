@@ -348,6 +348,9 @@ type DashboardCommandSourceContext = CommandCentreLoadContext & Readonly<{
   page: CommandPage | null
 }>
 
+
+/** Non-critical sources fail faster so the shell can render. */
+const SECONDARY_SOURCE_TIMEOUT_MS = 6_000
 export function buildDashboardCommandSources(context: DashboardCommandSourceContext) {
   const { countryIso2, roleId, userId, page } = context
   const required = getRequiredCommandCentreSourceKeys(page)
@@ -431,6 +434,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Role education modules',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     orgPathway: {
       enabled: enabled('orgPathway'),
@@ -463,6 +467,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Recent education modules',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     localIntel: {
       enabled: enabled('localIntel'),
@@ -470,6 +475,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: null,
       sourceLabel: 'Local intelligence',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     sourceCoverage: {
       enabled: enabled('sourceCoverage'),
@@ -484,6 +490,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: undefined,
       sourceLabel: 'Registry coverage summary',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     jurisdictionPlaybook: {
       enabled: enabled('jurisdictionPlaybook'),
@@ -498,6 +505,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Education tracks',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     marketMetrics: {
       enabled: enabled('marketMetrics'),
@@ -519,6 +527,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: undefined,
       sourceLabel: 'Public professional projection',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     cannabisOperators: {
       enabled: enabled('cannabisOperators') || enabled('operatorLicenceMatrix'),
@@ -540,6 +549,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Public cultivar passports',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     serviceProviders: {
       enabled: enabled('serviceProviders'),
@@ -547,6 +557,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Public service providers',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     collaborationProjects: {
       enabled: enabled('collaborationProjects'),
@@ -554,6 +565,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Public collaboration projects',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     mySubmissions: {
       enabled: enabled('mySubmissions'),
@@ -567,6 +579,7 @@ export function buildDashboardCommandSources(context: DashboardCommandSourceCont
       fallback: [],
       sourceLabel: 'Country education overlays',
       access: 'public',
+      timeoutMs: SECONDARY_SOURCE_TIMEOUT_MS,
     },
     pathwayMatrix: {
       enabled: enabled('pathwayMatrix'),

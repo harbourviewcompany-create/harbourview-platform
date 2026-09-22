@@ -259,7 +259,14 @@ export const BriefingRoom = React.memo(function BriefingRoom({
     return () => controller.abort()
   }, [])
 
+  // Reset AI narrative when context changes; do not auto-fetch (cost + TTI).
   React.useEffect(() => {
+    setAiBriefing(null)
+    setAiBriefingError(false)
+    setAiBriefingLoading(false)
+  }, [country.label, country.iso2, role])
+
+  const loadAiBriefing = React.useCallback(() => {
     const controller = new AbortController()
     setAiBriefing(null)
     setAiBriefingError(false)
@@ -612,10 +619,28 @@ export const BriefingRoom = React.memo(function BriefingRoom({
           {aiBriefingLoading ? (
             <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.4)', fontStyle: 'italic' }}>Generating briefing…</p>
           ) : aiBriefing ? (
-            <p className="cc-right-prose" style={{ lineHeight: 1.6 }}>{aiBriefing}</p>
-          ) : aiBriefingError ? (
-            <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.3)', fontStyle: 'italic' }}>Briefing unavailable — check connection.</p>
-          ) : null}
+            <div>
+              <p className="cc-right-prose" style={{ lineHeight: 1.6 }}>{aiBriefing}</p>
+              <button type="button" className="cc-btn cc-btn-ghost" style={{ marginTop: 8 }} onClick={() => loadAiBriefing()}>
+                Refresh AI briefing
+              </button>
+            </div>
+          ) : (
+            <div>
+              {aiBriefingError ? (
+                <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.3)', fontStyle: 'italic', marginBottom: 8 }}>
+                  Briefing unavailable — check connection.
+                </p>
+              ) : (
+                <p className="cc-right-prose" style={{ color: 'rgba(245,240,232,.35)', fontStyle: 'italic', marginBottom: 8 }}>
+                  Optional AI narrative — runs only when requested.
+                </p>
+              )}
+              <button type="button" className="cc-btn cc-btn-ghost" onClick={() => loadAiBriefing()}>
+                Generate AI briefing
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="cc-right-section">
