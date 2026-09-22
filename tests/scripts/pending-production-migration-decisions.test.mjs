@@ -36,14 +36,21 @@ test('current pending migration decision record is internally exact and remains 
   assert.equal(result.activationStatus, 'HOLD')
 })
 
-test('auth-hardening migration remains separately authorized and content-bound', () => {
-  const file = '20260810222500_harden_edge_function_cron_auth.sql'
+test('retired auth-hardening migration is represented by explicit identity reconciliation', () => {
   assert.equal(decision.repository_only_decisions.some((entry) => entry.version === '20260810222500'), false)
-  const body = fs.readFileSync(path.join(migrationDirectory, file))
-  const text = body.toString('utf8')
-  assert.match(text, /create or replace function public\.invoke_job_refresh\(\)/i)
-  assert.match(text, /vault\.decrypted_secrets/i)
-  assert.match(text, /cron\.alter_job/i)
+  const identity = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, 'supabase/release-controls/migration-identity-reconciliation-20260916.json'),
+      'utf8',
+    ),
+  )
+  assert.deepEqual(
+    identity.replacements.find((entry) => entry.retired_version === '20260810222500'),
+    {
+      retired_version: '20260810222500',
+      canonical_version: '20260912103836',
+    },
+  )
 })
 test('rejects an altered Elite Digest allowlist binding', () => {
   const mutated = clone(decision)
