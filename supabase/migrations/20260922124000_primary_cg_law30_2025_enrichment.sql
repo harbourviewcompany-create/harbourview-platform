@@ -1,0 +1,26 @@
+-- Replace secondary Republic of the Congo cannabis evidence with the official Journal officiel Law No. 30-2025.
+update public.regulatory_market_access_evidence set active=false where evidence_key='hv-mkt-complete-cg-20260913';
+
+insert into public.source_registry
+(source_name,source_url,jurisdiction,country,iso,jurisdiction_code,source_type,regulator_class,verification_notes,is_active,crawl_allowed,notes)
+select 'Secrétariat Général du Gouvernement — Journal officiel de la République du Congo','https://www.sgg.cg/JO/2025/congo-jo-2025-39.pdf','Republic of the Congo','Republic of the Congo','CG','CG','legal','official_gazette','Official Journal publication containing Law No. 30-2025 of 22 August 2025 on illicit narcotics, psychotropic substances and precursors.',true,true,'Primary legal source verified 2026-09-22.'
+where not exists(select 1 from public.source_registry where source_url='https://www.sgg.cg/JO/2025/congo-jo-2025-39.pdf');
+
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
+select 'primary-evidence-cg-law30-2025-20260922','CG','prohibited','Law No. 30-2025 regulates illicit production, possession, manufacture, transport, trafficking and use of narcotic drugs and psychotropic substances. Articles 44 and 53 expressly cover cannabis, including cannabis oil and other cannabis derivatives, while Article 52 prohibits use outside medical prescriptions. The law does not establish a general commercial cannabis retail pathway.','Secrétariat Général du Gouvernement — Journal officiel de la République du Congo','https://www.sgg.cg/JO/2025/congo-jo-2025-39.pdf','2025-08-22',now(),'2027-03-22',true
+where not exists(select 1 from public.regulatory_market_access_evidence where evidence_key='primary-evidence-cg-law30-2025-20260922');
+
+insert into public.regulatory_market_access_claims
+(evidence_key,jurisdiction_iso2,claim_key,claim_text,product_class,jurisdiction_scope,authority_name,authority_url,source_effective_date,retrieved_at,verified_at,expires_at,evidence_status)
+select 'primary-evidence-cg-law30-2025-20260922','CG','primary-evidence-claim:primary-evidence-cg-law30-2025-20260922','Republic of the Congo controls illicit narcotic and psychotropic substances under Law No. 30-2025; the law expressly addresses cannabis and prohibits illicit commercial activities and non-prescribed use. No general commercial cannabis retail pathway is established by the cited law.','any','CG','Secrétariat Général du Gouvernement — Journal officiel de la République du Congo','https://www.sgg.cg/JO/2025/congo-jo-2025-39.pdf','2025-08-22',now(),now(),'2027-03-22','verified'
+where not exists(select 1 from public.regulatory_market_access_claims where claim_key='primary-evidence-claim:primary-evidence-cg-law30-2025-20260922');
+
+insert into public.regulatory_calendar(iso2,event_type,title,summary,expected_date,confidence,source_url,source_label,status)
+select 'CG','effective','Republic of the Congo Law No. 30-2025 — narcotics control framework','Primary Journal officiel publication of Law No. 30-2025 dated 22 August 2025; the law expressly addresses cannabis and illicit narcotics activity.','2025-08-22','confirmed','https://www.sgg.cg/JO/2025/congo-jo-2025-39.pdf','Primary legal source','effective'
+where not exists(select 1 from public.regulatory_calendar where iso2='CG' and source_url='https://www.sgg.cg/JO/2025/congo-jo-2025-39.pdf');
+
+update public.jurisdiction_dimension_coverage set status='verified_populated',applicability='applicable',evidence_basis='Primary Republic of the Congo Journal officiel source and verified cannabis-specific evidence/claim.',last_evaluated_at=now(),notes='Primary regulatory source reconciled.' where jurisdiction_key='CG' and dimension_key in ('source_registry','verified_regulatory_evidence','verified_regulatory_claims','regulatory_calendar');
+update public.jurisdiction_dimension_coverage set status='verified_empty',applicability='applicable',evidence_basis='Cited primary law establishes controls/prohibitions but no general commercial cannabis product-format rules.',last_evaluated_at=now(),notes='No unsupported format rules inferred.' where jurisdiction_key='CG' and dimension_key='verified_format_rules';
+update public.jurisdiction_dimension_coverage set status='verified_empty',applicability='applicable',evidence_basis='Primary law establishes prohibitions and prescription controls but does not establish a commercial cannabis pathway.',last_evaluated_at=now(),notes='No unsupported pathway row created.' where jurisdiction_key='CG' and dimension_key='verified_pathways';
+update public.jurisdiction_data_depth_tasks set status='verified',updated_at=now(),notes=coalesce(notes,'')||' Reconciled from primary Law No. 30-2025 on 2026-09-22.' where jurisdiction_key='CG' and dimension_key in ('source_registry','verified_regulatory_evidence','verified_regulatory_claims','regulatory_calendar','verified_format_rules','verified_pathways');
