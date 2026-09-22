@@ -146,6 +146,22 @@ function registryUpdated(files) {
   return files.includes(registryPath);
 }
 
+function isDependabotNoRegistryChange(pr, files) {
+  const actor = pr?.user?.login ?? '';
+  const headRef = pr?.head?.ref ?? '';
+  const isDependabot = actor === 'dependabot[bot]' || headRef.startsWith('dependabot/');
+  if (!isDependabot || files.includes(registryPath)) return false;
+
+  const dependencyOnlyFiles = new Set([
+    'package.json',
+    'package-lock.json',
+    'pnpm-lock.yaml',
+    'yarn.lock',
+  ]);
+  return files.length > 0 && files.every(
+    (file) => dependencyOnlyFiles.has(file) || file.startsWith('.github/workflows/'),
+  );
+}
 function registryFilesPresent() {
   const missing = [];
   if (!fs.existsSync(registryPath)) missing.push(registryPath);
@@ -176,7 +192,8 @@ async function main() {
     errors.push(`Missing required registry/control file(s): ${missingRegistryFiles.join(', ')}`);
   }
 
-  if (sensitiveFiles.length > 0) {
+  const dependabotNoRegistryChange = isDependabotNoRegistryChange(pr, files);
+  if (sensitiveFiles.length > 0 && !dependabotNoRegistryChange) {
     if (!hasRegistryImpactSection(body)) {
       errors.push('Sensitive files changed, but PR body does not include a `## Registry Impact` section.');
     }
@@ -190,6 +207,10 @@ async function main() {
     if (!registryUpdated(files) && newRowChecked && !/^-\s*\[[xX]\]\s+HOLD/im.test(body)) {
       errors.push('PR references a new registry row but does not update PROJECT_REGISTRY.md or mark the PR as HOLD.');
     }
+  }
+
+  if (dependabotNoRegistryChange) {
+    console.log('GO: Dependabot dependency/workflow update has no project-registry impact; PR-body registry metadata is not required.');
   }
 
   printList('Changed files', files);
