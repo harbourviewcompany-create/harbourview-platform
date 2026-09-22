@@ -271,7 +271,6 @@ jobs:
       - name: Supabase E2E readiness
         id: readiness
         if: steps.e2e-creds.outputs.configured == 'true'
-        continue-on-error: true
         run: node scripts/check-supabase-e2e-readiness.mjs
       - name: Install Playwright Chromium
         if: steps.e2e-creds.outputs.configured == 'true' && steps.readiness.outcome == 'success'
@@ -279,9 +278,6 @@ jobs:
       - name: Run E2E
         if: steps.e2e-creds.outputs.configured == 'true' && steps.readiness.outcome == 'success'
         run: npm run test:e2e
-      - name: Fail when configured E2E is not ready
-        if: steps.e2e-creds.outputs.configured == 'true' && steps.readiness.outcome != 'success'
-        run: exit 1
       - name: Report E2E not configured
         if: steps.e2e-creds.outputs.configured != 'true'
         run: echo 'E2E credentials are not configured; browser tests were skipped.'
@@ -306,7 +302,19 @@ jobs:
               "governance-gate") grep -qE '^  governance-gate:$' .github/workflows/ci.yml ;;
               "Type Check") grep -qE '^    name: Type Check$' .github/workflows/ci.yml ;;
               "Security / Leakage") grep -qE '^    name: Security / Leakage$' .github/workflows/ci.yml ;;
-              "Next.js Build") grep -qE '^    name: Next\\.js Build$' .github/workflows/ci.yml ;;
+              "Next.js Build") grep -qE '^    name: Next\.js Build ;;
+              *) echo "Unknown required status check in repository contract: $check" >&2; exit 1 ;;
+            esac
+          done
+          grep -q "if: github.event_name == 'push' && github.ref == 'refs/heads/main'" .github/workflows/ci.yml
+          echo "Repository governance contract validated."
+
+      - name: Record external GitHub administration gate
+        run: |
+          echo "Remote ruleset enforcement is an administrator-controlled GitHub setting."
+          echo "This workflow validates the repository-side governance contract only."
+          echo "Do not treat this step as proof that the remote ruleset is active."
+ .github/workflows/ci.yml ;;
               *) echo "Unknown required status check in repository contract: $check" >&2; exit 1 ;;
             esac
           done
