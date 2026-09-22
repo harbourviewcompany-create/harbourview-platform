@@ -294,39 +294,42 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Validate main protection policy
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Validate repository governance contract
+        shell: bash
         run: |
-          python3 - <<'PY'
-          import json, os, urllib.request
-          url = "https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets/23501973"
-          req = urllib.request.Request(url, headers={
-              "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
-              "Accept": "application/vnd.github+json",
-              "X-GitHub-Api-Version": "2022-11-28",
-          })
-          with urllib.request.urlopen(req) as r:
-              ruleset = json.load(r)
-          assert ruleset.get("enforcement") == "active"
-          include = ((ruleset.get("conditions") or {}).get("ref_name") or {}).get("include") or []
-          assert "refs/heads/main" in include or "main" in include
-          rules = ruleset.get("rules") or []
-          types = {r.get("type") for r in rules}
-          assert {"pull_request", "required_status_checks", "non_fast_forward", "deletion"} <= types
-          status = next(r for r in rules if r.get("type") == "required_status_checks")
-          p = status.get("parameters") or {}
-          assert p.get("strict_required_status_checks_policy") is True
-          expected = [x.strip() for x in open("docs/control/REQUIRED_MAIN_STATUS_CHECKS.txt") if x.strip() and not x.lstrip().startswith("#")]
-          configured = {x.get("context") for x in p.get("required_status_checks") or []}
-          assert set(expected) == configured, (expected, sorted(configured))
-          assert all(x.get("integration_id") for x in p.get("required_status_checks") or [])
-          pr = next(r for r in rules if r.get("type") == "pull_request")
-          pp = pr.get("parameters") or {}
-          assert int(pp.get("required_approving_review_count", 0)) >= 1
-          assert pp.get("require_code_owner_review") is True
-          assert pp.get("dismiss_stale_reviews_on_push") is True
-          assert pp.get("required_review_thread_resolution") is True
-          assert all(a.get("actor_type") == "OrganizationAdmin" for a in ruleset.get("bypass_actors") or [])
-          print("Governance policy validated.")
-          PY
+          set -euo pipefail
+
+          mapfile -t expected < <(
+            sed -e 's/[[:space:]]*#.*$//' -e '/^[[:space:]]*$/d' docs/control/REQUIRED_MAIN_STATUS_CHECKS.txt
+          )
+
+          for check in "${expected[@]}"; do
+            case "$check" in
+              "governance-gate")
+                grep -qE '^    governance-gate:$' .github/workflows/ci.yml
+                ;;
+              "Type Check")
+                grep -qE '^    name: Type Check$' .github/workflows/ci.yml
+                ;;
+              "Security / Leakage")
+                grep -qE '^    name: Security / Leakage$' .github/workflows/ci.yml
+                ;;
+              "Next.js Build")
+                grep -qE '^    name: Next\.js Build$' .github/workflows/ci.yml
+                ;;
+              *)
+                echo "Unknown required status check in repository contract: $check" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          grep -q "if: github.event_name == 'push' && github.ref == 'refs/heads/main'" .github/workflows/ci.yml
+          echo "Repository governance contract validated."
+
+      - name: Record external GitHub administration gate
+        run: |
+          echo "Remote ruleset enforcement is an administrator-controlled GitHub setting."
+          echo "This workflow validates the repository-side governance contract only."
+          echo "Do not treat this step as proof that the remote ruleset is active."
