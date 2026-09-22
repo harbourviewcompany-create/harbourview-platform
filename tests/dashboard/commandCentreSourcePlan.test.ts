@@ -22,8 +22,26 @@ describe('Command Centre demand-driven source plan', () => {
     expect(marketplace.has('cultivarPassports')).toBe(false)
   })
 
-  it('loads genetics records only for the genetics page', () => {
+  it('loads genetics records for the genetics page', () => {
     const genetics = getRequiredCommandCentreSourceKeys('genetics')
-    expect(genetics).toEqual(new Set(['cultivarPassports', 'serviceProviders', 'collaborationProjects', 'countryIntel']))
+    expect(genetics.has('cultivarPassports')).toBe(true)
+    expect(genetics.has('serviceProviders')).toBe(true)
+    expect(genetics.has('collaborationProjects')).toBe(true)
+    expect(genetics.has('countryIntel')).toBe(true)
+    expect(genetics.has('signals')).toBe(true)
+  })
+
+  it('briefing loads pipeline, watchlist and evidence for command depth', () => {
+    const briefing = getRequiredCommandCentreSourceKeys('briefing')
+    for (const key of ['signals', 'pipeline', 'watchlistData', 'evidenceData', 'countryIntel', 'marketplaceRows'] as const) {
+      expect(briefing.has(key)).toBe(true)
+    }
+  })
+
+  it('null page uses briefing depth (default dashboard)', () => {
+    const keys = getRequiredCommandCentreSourceKeys(null)
+    expect(keys.has('pipeline')).toBe(true)
+    expect(keys.has('watchlistData')).toBe(true)
+    expect(keys.has('evidenceData')).toBe(true)
   })
 })

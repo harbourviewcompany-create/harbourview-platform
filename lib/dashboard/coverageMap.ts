@@ -66,3 +66,38 @@ export function coverageOverridesFromSignals(signalCount: number): Partial<Recor
   }
   return { signals: 'mixed', regulatory: 'reference' }
 }
+
+/**
+ * Build coverage overrides from multiple live command sources so the operator
+ * map reflects pipeline/marketplace/evidence depth, not signals alone.
+ */
+export function coverageOverridesFromLiveSources(input: {
+  signalCount?: number
+  marketplaceCount?: number
+  pipelineOpen?: number
+  evidenceCount?: number
+  hasPathway?: boolean
+}): Partial<Record<string, CoverageTier>> {
+  const out: Partial<Record<string, CoverageTier>> = {
+    ...coverageOverridesFromSignals(input.signalCount ?? 0),
+  }
+
+  const m = input.marketplaceCount ?? 0
+  if (m >= 8) out.marketplace = 'live'
+  else if (m >= 1) out.marketplace = 'mixed'
+  else out.marketplace = 'reference'
+
+  const p = input.pipelineOpen ?? 0
+  if (p >= 3) out.pathway = 'live'
+  else if (p >= 1 || input.hasPathway) out.pathway = 'mixed'
+
+  const e = input.evidenceCount ?? 0
+  if (e >= 5) {
+    out.evidence = 'live'
+    out.clinical = 'mixed'
+  } else if (e >= 1) {
+    out.evidence = 'mixed'
+  }
+
+  return out
+}

@@ -13,13 +13,13 @@ type DomainDefinition = {
 }
 
 const DEFINITIONS: Record<string, DomainDefinition> = {
-  overview: { label: 'Command', keys: ['signals', 'pipeline', 'watchlistData', 'evidenceData', 'countryIntel'], missing: ['last-visit deltas by entity', 'role-routed events', 'cross-domain dependency graph'] },
+  overview: { label: 'Command', keys: ['signals', 'pipeline', 'watchlistData', 'evidenceData', 'countryIntel', 'marketplaceRows', 'marketMetrics', 'dailyDigest'], missing: ['last-visit deltas by entity', 'role-routed events', 'cross-domain dependency graph'] },
   'market-intelligence': { label: 'Market intelligence', keys: ['marketMetrics', 'tradeFlows', 'signals'], missing: ['price history', 'supply/demand time series', 'market concentration'] },
   marketplace: { label: 'Marketplace', keys: ['marketplaceRows', 'wantedListings', 'mySubmissions'], missing: ['counterparty verification', 'availability windows', 'transaction history'] },
   supply: { label: 'Supply', keys: ['marketplaceRows', 'wantedListings'], missing: ['capacity', 'committed inventory', 'lead-time history'] },
-  'next-actions': { label: 'Actions', keys: ['pipeline', 'signals', 'evidenceData', 'watchlistData'], missing: ['owner/deadline state', 'dependencies', 'completion history'] },
+  'next-actions': { label: 'Actions', keys: ['pipeline', 'signals', 'evidenceData', 'watchlistData', 'marketplaceRows'], missing: ['owner/deadline state', 'dependencies', 'completion history'] },
   'weekly-signals': { label: 'Intelligence', keys: ['signals', 'dailyDigest', 'sourceCoverage'], missing: ['corroboration graph', 'event timestamps', 'role/entity routing'] },
-  'personal-briefing': { label: 'Briefing', keys: ['dailyDigest', 'signals', 'pipeline', 'watchlistData'], missing: ['personal event ledger', 'unread state by entity', 'priority rationale'] },
+  'personal-briefing': { label: 'Briefing', keys: ['dailyDigest', 'signals', 'pipeline', 'watchlistData', 'marketplaceRows', 'marketMetrics'], missing: ['personal event ledger', 'unread state by entity', 'priority rationale'] },
   search: { label: 'Search', keys: ['signals', 'marketplaceRows', 'watchlistData', 'evidenceData'], missing: ['documents', 'people/organizations graph', 'cross-domain semantic evidence'] },
   education: { label: 'Education', keys: ['liveEduTiles', 'educationTracks', 'countryEducationOverlays', 'recentEduModules'], missing: ['competency state', 'expiry tracking', 'organization requirements'] },
   jurisdiction: { label: 'Jurisdiction', keys: ['countryIntel', 'publicPathway', 'orgPathway', 'pathwayMatrix', 'sourceCoverage'], missing: ['requirement-level evidence', 'effective-date history', 'activity/product matrix'] },
