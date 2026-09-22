@@ -386,6 +386,12 @@ export async function GET(req: NextRequest) {
         sourceUrl: event.source_url,
       })),
       dataDepth: dataDepth ? {
+        jurisdictionLevel: dataDepth.jurisdiction_level,
+        researchQueueRows: dataDepth.research_queue_rows,
+        openResearchQueueRows: dataDepth.open_research_queue_rows,
+        tradeDataApplicable: dataDepth.trade_data_applicable,
+        marketMetricApplicable: dataDepth.market_metric_applicable,
+        signalCountryApplicable: dataDepth.signal_country_applicable,
         populatedDimensions: dataDepth.populated_dimensions,
         totalDimensions: dataDepth.total_dimensions,
         depthPct: Number(dataDepth.depth_pct),
