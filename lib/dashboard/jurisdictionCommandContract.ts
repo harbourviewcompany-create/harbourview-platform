@@ -97,6 +97,42 @@ export type JurisdictionCounterpartyDTO = {
   verificationStatus: 'verified'
 }
 
+export type JurisdictionDataDepthDTO = {
+  populatedDimensions: number
+  totalDimensions: number
+  depthPct: number
+  countryIntelRows: number
+  evidenceRows: number
+  currentVerifiedEvidenceRows: number
+  snapshottedEvidenceRows: number
+  claimRows: number
+  verifiedClaimRows: number
+  claimProductClasses: number
+  pathwayRows: number
+  verifiedPathwayRows: number
+  pathwayTypes: number
+  formatRuleRows: number
+  verifiedFormatRuleRows: number
+  distinctFormats: number
+  metricRows: number
+  metricTypes: number
+  tradeFlowRows: number
+  tradeProductCategories: number
+  signalRows: number
+  recentSignalRows: number
+  activeSourceRows: number
+  officialSourceRows: number
+  snapshotRows: number
+  successfulSnapshotRows: number
+  calendarRows: number
+  openCalendarRows: number
+  latestSourceCheck: string | null
+  latestSnapshotAt: string | null
+  latestSignalAt: string | null
+  latestEvidenceVerifiedAt: string | null
+  latestPathwayVerifiedAt: string | null
+}
+
 export type JurisdictionComparisonDTO = {
   iso2: string
   name: string
@@ -143,6 +179,7 @@ export type JurisdictionCommandDTO = {
     conflictAssessment: 'not-modeled'
     gaps: string[]
   }
+  dataDepth: JurisdictionDataDepthDTO | null
   access: {
     lanes: JurisdictionAccessLane[]
     route: JurisdictionRouteResolutionDTO
