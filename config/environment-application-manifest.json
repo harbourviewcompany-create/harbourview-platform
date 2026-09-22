@@ -14,7 +14,9 @@
       "sensitivity": "Plain variable",
       "provider": "harbourview",
       "requirement": "Optional browser-visible globe heat controls; current code defaults apply when absent",
-      "targets": ["next-app"],
+      "targets": [
+        "next-app"
+      ],
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
@@ -23,12 +25,16 @@
     },
     {
       "id": "ops-autonomy-control",
-      "names": ["OPS_AUTONOMY_ENABLED"],
+      "names": [
+        "OPS_AUTONOMY_ENABLED"
+      ],
       "stage": "Runtime only",
       "sensitivity": "Plain variable",
       "provider": "harbourview",
       "requirement": "Optional ops-autonomy kill switch; current loop is enabled unless explicitly set to false",
-      "targets": ["next-app"],
+      "targets": [
+        "next-app"
+      ],
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
@@ -37,16 +43,100 @@
     },
     {
       "id": "stripe-market-entry-price-id",
-      "names": ["STRIPE_PRICE_MARKET_ENTRY_REPORT"],
+      "names": [
+        "STRIPE_PRICE_MARKET_ENTRY_REPORT"
+      ],
       "stage": "Runtime only",
       "sensitivity": "Plain variable",
       "provider": "stripe",
       "requirement": "Required for the live Market Entry report purchase; app/api/market-entry/checkout/route.ts fails closed with HTTP 503 when absent or not a price_ identifier",
-      "targets": ["next-app"],
+      "targets": [
+        "next-app"
+      ],
       "status": "live",
       "cloudflare": {
         "intelligenceHealthWorker": "Not used",
         "nextWebPreview": "Settings → Variables and Secrets → Variable when billing is in preview scope"
+      }
+    },
+    {
+      "id": "meltwater-enrichment",
+      "names": [
+        "MELTWATER_API_KEY",
+        "MELTWATER_SOURCE_ID",
+        "MELTWATER_SEARCH_IDS",
+        "MELTWATER_LOOKBACK_HOURS",
+        "MELTWATER_MAX_PER_SEARCH"
+      ],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "meltwater",
+      "requirement": "Optional Meltwater enrichment; cron and connector no-op safely when credentials or search configuration are absent",
+      "targets": [
+        "next-app"
+      ],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings → Variables and Secrets → Secret when Meltwater enrichment is enabled in preview"
+      }
+    },
+    {
+      "id": "bigquery-enrichment",
+      "names": [
+        "BIGQUERY_PROJECT",
+        "GCP_SERVICE_ACCOUNT_JSON",
+        "GOOGLE_APPLICATION_CREDENTIALS"
+      ],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "google-cloud",
+      "requirement": "Optional BigQuery enrichment skeleton; connector remains inactive until project and credentials are provisioned",
+      "targets": [
+        "next-app"
+      ],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings → Variables and Secrets → Secret when BigQuery enrichment is in preview scope"
+      }
+    },
+    {
+      "id": "google-calendar-briefing-sync",
+      "names": [
+        "GOOGLE_CALENDAR_CREDENTIALS",
+        "GOOGLE_CALENDAR_ID"
+      ],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "google",
+      "requirement": "Optional briefing calendar sync stubs; inactive until credentials and calendar id are provisioned",
+      "targets": [
+        "next-app"
+      ],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings → Variables and Secrets → Secret when calendar sync is in preview scope"
+      }
+    },
+    {
+      "id": "hubspot-preference-sync",
+      "names": [
+        "HUBSPOT_ACCESS_TOKEN",
+        "HUBSPOT_API_KEY"
+      ],
+      "stage": "Runtime only",
+      "sensitivity": "Secret",
+      "provider": "hubspot",
+      "requirement": "Optional HubSpot preference sync stubs; inactive until a token is provisioned",
+      "targets": [
+        "next-app"
+      ],
+      "status": "live",
+      "cloudflare": {
+        "intelligenceHealthWorker": "Not used",
+        "nextWebPreview": "Settings → Variables and Secrets → Secret when HubSpot sync is in preview scope"
       }
     }
   ]

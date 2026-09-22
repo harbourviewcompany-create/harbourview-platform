@@ -13,6 +13,10 @@ const ALLOWED_CLASSIFICATIONS = new Set([
   'requiring_forward_reconciliation',
 ])
 
+function repositoryRootFromMigrationDirectory(migrationDirectory) {
+  return path.resolve(migrationDirectory, '..', '..')
+}
+
 function gitBlobSha(filePath) {
   const content = fs.readFileSync(filePath)
   return crypto
@@ -27,6 +31,8 @@ export function validateDecisionData({ decision, releaseControl, migrationDirect
   const liveOnly = decision.live_only_reconciliation ?? []
   const allowlist = decision.elite_digest_allowlist_unchanged ?? []
   const canonicalAllowlist = releaseControl.approved_migrations ?? []
+  const identityReconciliation = JSON.parse(fs.readFileSync(path.join(repositoryRootFromMigrationDirectory(migrationDirectory), 'supabase/release-controls/migration-identity-reconciliation-20260916.json'), 'utf8'))
+  const replacements = new Map((identityReconciliation.replacements ?? []).map((entry) => [entry.retired_version, entry.canonical_version]))
 
   if ((decision.status ?? decision.activation_status) !== 'HOLD') {
     errors.push('status must remain HOLD')
@@ -86,9 +92,16 @@ export function validateDecisionData({ decision, releaseControl, migrationDirect
 
   for (const version of ['20260731120000', '20260801150000', '20260802080000']) {
     const matches = records.filter((record) => record.version === version)
-    if (matches.length !== 1) errors.push(`expected exactly one decision for ${version}`)
-    else if (matches[0].classification !== 'separately_authorized') {
-      errors.push(`${version} must remain classified separately_authorized`)
+    const replacement = replacements.get(version)
+    if (matches.length === 1) {
+      if (matches[0].classification !== 'separately_authorized') {
+        errors.push(`${version} must remain classified separately_authorized`)
+      }
+      if (replacement) errors.push(`${version} is retired by migration identity reconciliation and must not remain a live pending decision`)
+    } else if (matches.length !== 0) {
+      errors.push(`duplicate decision records for retired version ${version}`)
+    } else if (!replacement) {
+      errors.push(`missing decision and identity reconciliation for ${version}`)
     }
   }
 

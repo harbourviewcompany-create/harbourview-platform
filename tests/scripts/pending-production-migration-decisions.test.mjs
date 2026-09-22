@@ -36,34 +36,22 @@ test('current pending migration decision record is internally exact and remains 
   assert.equal(result.activationStatus, 'HOLD')
 })
 
-test('auth-hardening migration remains separately authorized and content-bound', () => {
-  const record = decision.repository_only_decisions.find(
-    (entry) => entry.version === '20260810222500',
+test('retired auth-hardening migration is represented by explicit identity reconciliation', () => {
+  assert.equal(decision.repository_only_decisions.some((entry) => entry.version === '20260810222500'), false)
+  const identity = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, 'supabase/release-controls/migration-identity-reconciliation-20260916.json'),
+      'utf8',
+    ),
   )
-  assert.ok(record)
-  assert.equal(record.file, '20260810222500_harden_edge_function_cron_auth.sql')
-  assert.equal(record.classification, 'separately_authorized')
-  assert.equal(record.reason_code, 'independent_release_not_authorized')
-
-  // Assert the binding against the file on disk rather than a second hardcoded
-  // literal. The literal that used to sit here held the same value the ledger
-  // carried, so when the migration body legitimately changed -- switching from a
-  // direct `update cron.job` to cron.alter_job(...), the only form postgres is
-  // granted -- both copies went stale together and neither caught it.
-  const body = fs.readFileSync(path.join(migrationDirectory, record.file))
-  const onDisk = crypto
-    .createHash('sha1')
-    .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
-    .digest('hex')
-  assert.equal(record.git_blob_sha, onDisk)
-
-  // A gutted or placeholder body must not satisfy the binding silently.
-  const text = body.toString('utf8')
-  assert.match(text, /create or replace function public\.invoke_job_refresh\(\)/i)
-  assert.match(text, /vault\.decrypted_secrets/i)
-  assert.match(text, /cron\.alter_job/i)
+  assert.deepEqual(
+    identity.replacements.find((entry) => entry.retired_version === '20260810222500'),
+    {
+      retired_version: '20260810222500',
+      canonical_version: '20260912103836',
+    },
+  )
 })
-
 test('rejects an altered Elite Digest allowlist binding', () => {
   const mutated = clone(decision)
   mutated.elite_digest_allowlist_unchanged[0].git_blob_sha = '0'.repeat(40)
@@ -71,23 +59,22 @@ test('rejects an altered Elite Digest allowlist binding', () => {
   assert.ok(errors.some((error) => error.includes('allowlist differs')))
 })
 
-test('rejects removal of an exact pending-migration decision', () => {
-  const mutated = clone(decision)
-  mutated.repository_only_decisions = mutated.repository_only_decisions.filter(
-    (record) => record.version !== '20260731120000',
-  )
-  const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
-  assert.ok(errors.some((error) => error.includes('repository-only file count mismatch')))
-  assert.ok(errors.some((error) => error.includes('expected exactly one decision for 20260731120000')))
+test('accepts retired migration identities through explicit reconciliation', () => {
+  const retired = ['20260731120000', '20260801150000', '20260802080000']
+  for (const version of retired) {
+    assert.equal(decision.repository_only_decisions.some((record) => record.version === version), false)
+  }
+  const errors = validateDecisionData({ decision, releaseControl, migrationDirectory })
+  assert.equal(errors.some((error) => error.includes('retired version')), false)
 })
 
 test('rejects treating a separately controlled migration as Elite Digest-approved', () => {
   const mutated = clone(decision)
   const record = mutated.repository_only_decisions.find(
-    (entry) => entry.version === '20260802080000',
+    (entry) => entry.version === '20260727160000',
   )
   record.classification = 'approved'
   const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
   assert.ok(errors.some((error) => error.includes('approved decision records')))
-  assert.ok(errors.some((error) => error.includes('20260802080000 must remain classified')))
+  assert.ok(errors.some((error) => error.includes('approved decision records')))
 })
