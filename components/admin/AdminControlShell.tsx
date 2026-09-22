@@ -13,6 +13,7 @@ import {
 } from '@/lib/admin/controlSurfaceNav'
 import { mkApi } from '@/components/admin/panels/shared'
 import { LoadingGlobe } from '@/components/dashboard/LoadingGlobe'
+import { COMMAND_CENTRE_COPY } from '@/lib/platform/commandCentreCopy'
 
 type BadgeKey = NonNullable<ControlNavItem['badgeKey']>
 type BadgeCounts = Partial<Record<BadgeKey, number>>
@@ -141,6 +142,7 @@ function ShellInner({ children }: { children: ReactNode }) {
 }
 
 function AdminShellSuspenseFallback() {
+  const copy = COMMAND_CENTRE_COPY.adminLoadingBoundary
   return (
     <div
       style={{
@@ -157,7 +159,7 @@ function AdminShellSuspenseFallback() {
     >
       <LoadingGlobe size={120} />
       <p style={{ margin: 0, fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#C9A84C' }}>
-        Loading admin…
+        {copy.shellLabel}
       </p>
     </div>
   )
