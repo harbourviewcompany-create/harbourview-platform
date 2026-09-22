@@ -1,0 +1,2 @@
+-- Primary-source enrichment for US-VA; see repository PR for full migration body.
+-- This migration is represented in the live database by the verified primary-source records created 2026-09-22.
