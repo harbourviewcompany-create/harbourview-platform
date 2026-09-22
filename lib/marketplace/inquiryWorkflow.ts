@@ -175,3 +175,20 @@ Regards,
 Harbourview`,
   },
 ];
+
+
+/** True when workflow update must include a commercial outcome (+ reason). */
+export function requiresCommercialOutcome(
+  reviewStatus: ReviewStatus,
+  outcome: string | null | undefined,
+  reason: string | null | undefined,
+): { ok: boolean; error?: string } {
+  if (reviewStatus !== 'closed') return { ok: true }
+  if (!outcome || !isCommercialOutcome(outcome)) {
+    return { ok: false, error: 'commercial_outcome_required' }
+  }
+  if (!reason || reason.trim().length < 3) {
+    return { ok: false, error: 'commercial_outcome_reason_required' }
+  }
+  return { ok: true }
+}

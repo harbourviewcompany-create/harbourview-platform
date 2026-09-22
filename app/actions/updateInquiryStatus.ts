@@ -9,6 +9,7 @@ import {
   isCommercialOutcome,
   isInquiryPriority,
   isReviewStatus,
+  requiresCommercialOutcome,
 } from '@/lib/marketplace/inquiryWorkflow';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -124,15 +125,25 @@ export async function applyInquiryWorkflowUpdate(id: string, formData: FormData)
   }
 
   let outcome = commercialOutcome || '';
+  // Stage proxies when ops omit explicit outcome on terminal status paths.
   if (!outcome && reviewStatus === 'qualified') outcome = 'won';
   if (!outcome && reviewStatus === 'not_fit') outcome = 'lost';
+
+  const outcomeGate = requiresCommercialOutcome(reviewStatus, outcome || null, commercialOutcomeReason || null);
+  if (!outcomeGate.ok) {
+    return false;
+  }
 
   if (outcome && isCommercialOutcome(outcome)) {
     if (!canSetCommercialOutcome(reviewStatus)) {
       return false;
     }
     patch.commercial_outcome = outcome;
-    patch.commercial_outcome_reason = commercialOutcomeReason || null;
+    patch.commercial_outcome_reason = commercialOutcomeReason || (
+      reviewStatus === 'qualified' ? 'auto:qualified' :
+      reviewStatus === 'not_fit' ? 'auto:not_fit' :
+      null
+    );
     patch.commercial_outcome_at = new Date().toISOString();
   }
 

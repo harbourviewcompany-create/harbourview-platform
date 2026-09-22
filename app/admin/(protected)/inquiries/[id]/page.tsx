@@ -203,6 +203,7 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
               </label>
               <label className="block text-sm text-[#F5F1E8]/75">
                 Commercial outcome
+                <span className="mt-1 block text-[11px] text-white/45">Required when status is Closed (won / lost / withdrawn + reason).</span>
                 <select name="commercial_outcome" defaultValue={inquiry.commercial_outcome || ''} className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2">
                   <option value="">Not set</option>
                   {COMMERCIAL_OUTCOMES.map((outcome) => (
@@ -215,6 +216,7 @@ export default async function AdminInquiryDetailPage({ params }: { params: Promi
                 <input
                   type="text"
                   name="commercial_outcome_reason"
+                  placeholder="Required for Closed — short commercial reason"
                   defaultValue={inquiry.commercial_outcome_reason || ''}
                   placeholder="e.g. price, jurisdiction, capacity, withdrawn by buyer"
                   className="mt-2 w-full rounded-xl border border-white/10 bg-[#081423] px-4 py-3 text-[#F5F1E8] outline-none ring-[#C6A55A]/40 focus:ring-2"
