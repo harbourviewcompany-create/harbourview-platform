@@ -20,6 +20,19 @@ export const COMMAND_CENTRE_COPY = {
       'Resolving jurisdiction, role, marketplace, intelligence, education, compliance and review controls.',
     ariaLabel: 'Loading Harbourview Command Centre',
   },
+  countryLoadingBoundary: {
+    eyebrow: 'HARBOURVIEW COMMAND CENTRE',
+    title: 'Loading market workspace',
+    detail: 'Resolving jurisdiction pathway, evidence posture and operating modules for this market.',
+    ariaLabel: 'Loading country command workspace',
+  },
+  adminLoadingBoundary: {
+    eyebrow: 'Admin control surface',
+    title: 'Loading panel',
+    detail: 'Resolving operator controls and review queues.',
+    ariaLabel: 'Loading admin control surface',
+    shellLabel: 'Loading admin…',
+  },
   errorBoundary: {
     eyebrow: 'Harbourview Command Centre',
     title: 'The command surface could not finish loading',

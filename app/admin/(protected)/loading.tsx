@@ -1,4 +1,7 @@
 import { LoadingGlobe } from '@/components/dashboard/LoadingGlobe'
+import { COMMAND_CENTRE_COPY } from '@/lib/platform/commandCentreCopy'
+
+const copy = COMMAND_CENTRE_COPY.adminLoadingBoundary
 
 /**
  * Admin segment loading — paints inside AdminControlShell content area.
@@ -9,7 +12,7 @@ export default function AdminProtectedLoading() {
   return (
     <div
       aria-busy="true"
-      aria-label="Loading admin control surface"
+      aria-label={copy.ariaLabel}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -43,7 +46,7 @@ export default function AdminProtectedLoading() {
           textTransform: 'uppercase',
         }}
       >
-        Admin control surface
+        {copy.eyebrow}
       </p>
       <h1
         style={{
@@ -54,10 +57,10 @@ export default function AdminProtectedLoading() {
           color: '#E8DFD0',
         }}
       >
-        Loading panel
+        {copy.title}
       </h1>
       <p style={{ margin: 0, maxWidth: 480, color: '#6A7E9B', fontSize: 14, lineHeight: 1.55 }}>
-        Resolving operator controls and review queues.
+        {copy.detail}
       </p>
 
       <div style={{ marginTop: 8 }}>
