@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const promoteRoute = readFileSync('app/api/admin/marketplace/matches/[id]/promote/route.ts', 'utf8')
 const orgCreateRoute = readFileSync('app/api/org/create/route.ts', 'utf8')
+const orgCreateMigration = readFileSync('supabase/migrations/20260920154810_create_atomic_org_onboarding.sql', 'utf8')
 const snapshotWriter = readFileSync('supabase/functions/generate-org-snapshot/index.ts', 'utf8')
 const snapshotMigration = readFileSync(
   'supabase/migrations/20260813184000_restore_hv_org_snapshots_foundation.sql',
@@ -19,9 +20,10 @@ describe('commercial-graph baseline contract repairs', () => {
   it('uses the supported workspace membership role without reintroducing a single-org constraint', () => {
     expect(orgCreateRoute).not.toContain('role: "owner"')
     expect(orgCreateRoute).not.toContain('.eq("role", "owner")')
-    expect(orgCreateRoute).toContain('role: "admin"')
+    expect(orgCreateRoute).toContain('create_workspace_for_user')
+    expect(orgCreateMigration).toContain("'role', 'admin'")
     expect(orgCreateRoute).not.toContain('USER_ALREADY_HAS_ORG')
-    expect(orgCreateRoute).toContain('active_workspace_id: ws.id')
+    expect(orgCreateRoute).toContain('p_user_id: user.id')
   })
 
   it('restores one private org snapshot per workspace', () => {

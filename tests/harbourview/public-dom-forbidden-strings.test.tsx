@@ -4,6 +4,7 @@ import React from 'react'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { CountrySearchOverlay } from '@/components/globe/CountrySearchOverlay'
+import { GlobeProvider } from '@/components/globe/GlobeProvider'
 import { IntentCardGrid } from '@/components/globe/IntentCardGrid'
 import { MarketplaceListingCard } from '@/components/marketplace/MarketplaceListingCard'
 import type { PublicMarketplaceListing } from '@/lib/marketplace/publicListings'
@@ -48,6 +49,10 @@ const FORBIDDEN_PATTERNS = [...FORBIDDEN_PUBLIC_FIELD_NAMES, ...USER_PROVIDED_FO
   (value) => new RegExp(`\\b${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'),
 )
 
+function renderGlobeSurface(element: React.ReactElement) {
+  return renderToStaticMarkup(<GlobeProvider>{element}</GlobeProvider>)
+}
+
 function assertNoForbiddenStrings(dom: string, label: string) {
   const hits = FORBIDDEN_PATTERNS.map((pattern) => pattern.source).filter((pattern) => new RegExp(pattern, 'i').test(dom))
   expect(hits, `${label} leaked forbidden strings`).toEqual([])
@@ -55,10 +60,10 @@ function assertNoForbiddenStrings(dom: string, label: string) {
 
 describe('public DOM forbidden string guardrails', () => {
   it('keeps homepage globe search and intent results DOM public-safe', () => {
-    const searchHtml = renderToStaticMarkup(
+    const searchHtml = renderGlobeSurface(
       <CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />,
     )
-    const resultHtml = renderToStaticMarkup(
+    const resultHtml = renderGlobeSurface(
       <IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />,
     )
 
@@ -72,8 +77,8 @@ describe('public DOM forbidden string guardrails', () => {
   })
 
   it('covers homepage and marketplace surfaces as route-level DOM checks', () => {
-    const homepageSearchHtml = renderToStaticMarkup(<CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />)
-    const homepageResultsHtml = renderToStaticMarkup(<IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />)
+    const homepageSearchHtml = renderGlobeSurface(<CountrySearchOverlay onSelectCountry={() => undefined} onNotSure={() => undefined} />)
+    const homepageResultsHtml = renderGlobeSurface(<IntentCardGrid countryName="Germany" countryIso2="DE" mode="single_market" roleId="importer" selectedIntentId="view_market_signals" onSelectIntent={() => undefined} />)
     const marketCardHtml = renderToStaticMarkup(<MarketplaceListingCard listing={fixtureListings[1]} />)
 
     assertNoForbiddenStrings(homepageSearchHtml, '/ homepage globe search')
