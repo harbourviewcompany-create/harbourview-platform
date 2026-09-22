@@ -45,6 +45,8 @@ export default function RootLayout({
     <html lang="en">
       <body className="flex flex-col min-h-screen">
         <ShellWrapper>{children}</ShellWrapper>
+        {/* Dedicated mount for AppPortal overlays (above app-shell stacking contexts) */}
+        <div id="hvm-portal-root" />
         <RegisterServiceWorker />
       </body>
     </html>
