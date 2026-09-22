@@ -185,7 +185,7 @@ describe('Decision Intelligence Stage 0 first slice', () => {
 
   it('uses user_profiles.tier as the single Decision Intel entitlement authority', () => {
     expect(dashboardPage).toContain("import { getUserTier } from '@/lib/stripe/tier'")
-    expect(dashboardPage).toContain('userTier = await getUserTier()')
+    expect(dashboardPage).toMatch(/(?:userTier|resolvedUserTier)\s*=\s*await getUserTier\(\)/)
     expect(dashboardPage).toContain("canAccess('signals', normalizeSubscriptionTier(userTier))")
     expect(tierResolver).toContain(".from('user_profiles')")
     expect(tierResolver).toContain(".select('tier')")
