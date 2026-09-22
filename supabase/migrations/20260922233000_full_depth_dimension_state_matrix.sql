@@ -49,7 +49,6 @@ with mapped as (
   select
     c.jurisdiction_key,
     case c.dimension_key
-      when 'country_intel' then 'identity'
       when 'verified_regulatory_evidence' then 'regulatory_status'
       when 'verified_regulatory_claims' then 'claims'
       when 'verified_pathways' then 'pathways'
