@@ -127,6 +127,7 @@ function buildPathwaySteps(
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const rawCountry = (searchParams.get('country') ?? '').trim().toUpperCase()
+  const jurisdictionKey = rawCountry
   const countryIso2 = rawCountry.includes('-') ? rawCountry.split('-')[0] : rawCountry
   const roleId = safeParam(searchParams.get('role'), 64)
   const rawActivity = (searchParams.get('activity') ?? 'market-entry') as JurisdictionActivity
@@ -167,7 +168,7 @@ export async function GET(req: NextRequest) {
       getEvidenceData(null, countryIso2),
       getJurisdictionEvidenceStatus(countryIso2),
       getSourceCoverage(countryIso2),
-      getJurisdictionDataDepth(countryIso2),
+      getJurisdictionDataDepth(jurisdictionKey),
       getComparisonCountryScores(countryIso2, 6),
       roleId ? getPublicPathwayTemplate(countryIso2, roleId) : Promise.resolve<PathwayData>({ template: null, steps: [], requirements: [], progress: null, requirementStatuses: [] }),
     ])
