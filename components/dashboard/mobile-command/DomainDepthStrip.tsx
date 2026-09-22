@@ -139,6 +139,40 @@ function freshness(meta?: CommandCentreSourceMeta) {
   return hours < 1 ? 'fresh' : hours < 24 ? `updated ${hours}h ago` : `updated ${Math.round(hours / 24)}d ago`
 }
 
+function diagnoseSources(
+  keys: string[],
+  sources?: CommandSourceMeta,
+): { label: string; detail: string }[] {
+  const notes: { label: string; detail: string }[] = []
+  for (const key of keys) {
+    const meta = sources?.[key]
+    if (!meta || !meta.requested) {
+      notes.push({ label: key, detail: 'not requested for this surface' })
+      continue
+    }
+    switch (meta.state) {
+      case 'live':
+        break
+      case 'empty':
+        notes.push({ label: key, detail: 'live source, no rows for this context' })
+        break
+      case 'stale':
+        notes.push({ label: key, detail: freshness(meta) ? `stale · ${freshness(meta)}` : 'stale' })
+        break
+      case 'error':
+        notes.push({ label: key, detail: meta.errorCode ? `error · ${meta.errorCode}` : 'error' })
+        break
+      case 'partial':
+      case 'fallback':
+        notes.push({ label: key, detail: meta.state })
+        break
+      default:
+        notes.push({ label: key, detail: String(meta.state) })
+    }
+  }
+  return notes.slice(0, 4)
+}
+
 export default function DomainDepthStrip({ section, sources }: DomainDepthStripProps) {
   const definition = DEFINITIONS[section] ?? { label: section, keys: [], missing: [] }
   const loaded = definition.keys
@@ -146,24 +180,39 @@ export default function DomainDepthStrip({ section, sources }: DomainDepthStripP
     .filter((meta): meta is CommandCentreSourceMeta => Boolean(meta))
 
   const live = loaded.filter(meta => meta.state === 'live').length
+  const empty = loaded.filter(meta => meta.state === 'empty').length
   const degraded = loaded.filter(meta => ['partial', 'fallback', 'stale', 'error'].includes(meta.state)).length
   const requested = loaded.filter(meta => meta.requested).length
   const coverage = loaded.length === 0 ? 0 : Math.round((live / loaded.length) * 100)
   const freshnessMeta = loaded.find(meta => meta.freshAt) ?? loaded[0]
   const freshLabel = freshness(freshnessMeta)
   const primaryGap = definition.missing[0]
+  const diagnoses = diagnoseSources(definition.keys, sources)
+  const attention = diagnoses.filter(d => !d.detail.includes('not requested'))
+
+  let healthLabel = 'Source state healthy'
+  if (degraded > 0) healthLabel = `${degraded} source${degraded === 1 ? '' : 's'} need attention`
+  else if (empty > 0 && live === 0) healthLabel = `${empty} source${empty === 1 ? '' : 's'} empty for this context`
+  else if (empty > 0) healthLabel = `${live} live · ${empty} empty`
 
   return (
     <aside className="hvm-domain-depth" aria-label={`${definition.label} data coverage`}>
       <div className="hvm-domain-depth-top">
         <span className="hvm-domain-depth-kicker">DATA DEPTH</span>
         <strong>{coverage}% live coverage</strong>
-        <span>{requested}/{loaded.length || 0} sources requested</span>
+        <span>{requested}/{definition.keys.length || 0} sources tracked</span>
       </div>
       <div className="hvm-domain-depth-meta">
-        <span>{degraded ? `${degraded} source${degraded === 1 ? '' : 's'} need attention` : 'Source state healthy'}</span>
+        <span>{healthLabel}</span>
         {freshLabel && <span>{freshLabel}</span>}
       </div>
+      {attention.length > 0 && (
+        <ul className="hvm-domain-depth-diag" style={{ margin: '6px 0 0', paddingLeft: 16, fontSize: 12, opacity: 0.9 }}>
+          {attention.map((row) => (
+            <li key={row.label}><span style={{ opacity: 0.75 }}>{row.label}</span> — {row.detail}</li>
+          ))}
+        </ul>
+      )}
       {primaryGap && (
         <div className="hvm-domain-depth-gap">
           <span>Next depth:</span> {primaryGap}

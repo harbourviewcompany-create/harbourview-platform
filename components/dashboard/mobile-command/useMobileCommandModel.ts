@@ -11,6 +11,53 @@ import {
   buildLandedCostToolHref,
   type NextAction,
 } from '@/components/dashboard/mobile-command/contracts'
+import { getRoleCommandDefault } from '@/lib/dashboard/roleCommandDefaults'
+import type { CommandPage } from '@/components/dashboard/CommandCentre'
+
+
+/** Lower score = higher priority. Role pages boost matching action hrefs/ids. */
+function roleActionScore(action: NextAction, priorities: readonly CommandPage[]): number {
+  const href = (action.href ?? '').toLowerCase()
+  const id = (action.id ?? '').toLowerCase()
+  const label = (action.label ?? '').toLowerCase()
+  const hay = `${href} ${id} ${label}`
+
+  const pageHints: Record<string, string[]> = {
+    marketplace: ['marketplace', 'listing', 'wanted', 'commercial', 'deal'],
+    signals: ['signal', 'weekly-signals', 'intelligence'],
+    regulatory: ['regulatory', 'watch', 'signal'],
+    clinical: ['clinical', 'formulary', 'physician'],
+    compliance: ['compliance', 'licence', 'gmp'],
+    licences: ['licence', 'license', 'permit'],
+    genetics: ['genetics', 'cultivar'],
+    evidence: ['evidence', 'review-gate', 'coa'],
+    education: ['education', 'module', 'track'],
+    'access-pathway': ['pathway', 'jurisdiction', 'access'],
+    'trade-calc': ['landed', 'trade-calc', 'corridor'],
+    logistics: ['logistics', 'corridor', 'freight'],
+    prices: ['price', 'market-intelligence'],
+    kyb: ['kyb', 'organization', 'verify'],
+    banking: ['banking', 'financ'],
+    countries: ['countr', 'jurisdiction'],
+    briefing: ['briefing', 'overview', 'digest'],
+  }
+
+  for (let i = 0; i < priorities.length; i++) {
+    const page = priorities[i]
+    const hints = pageHints[page] ?? [page]
+    if (hints.some((h) => hay.includes(h))) return i
+  }
+  // Role prompt and org setup trail operational work unless nothing else matches
+  if (id.includes('choose-role')) return 80
+  if (id.includes('organization')) return 90
+  if ((action as { kind?: string }).kind === 'tool') return 70
+  return 40
+}
+
+function orderActionsForRole(actions: NextAction[], roleShort: string | null | undefined): NextAction[] {
+  const { priorities } = getRoleCommandDefault(roleShort)
+  return [...actions].sort((a, b) => roleActionScore(a, priorities) - roleActionScore(b, priorities))
+}
 
 const SIGNALS_LIVE_SURFACES = new Set([
   'overview',
@@ -191,18 +238,25 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     ]
   }, [commandReturnTo, countryParam, model.currentRole])
 
+  const roleDefault = getRoleCommandDefault(model.roleShort ?? model.currentRole)
+
+  const unorderedNextActions = [
+    ...corridorActions,
+    ...rolePromptActions,
+    ...signalPriorityActions,
+    ...commercialActions,
+    ...organizationActions,
+  ]
+
+  // Role-ordered priority so Importer/Compliance/Clinical see relevant work first.
+  const nextActions = orderActionsForRole(unorderedNextActions, model.roleShort ?? model.currentRole)
+
   return {
     ...model,
     signals: effectiveSignals,
     signalsStatus,
     geneticsRecords,
-    // Signal + commercial work leads; org onboarding trails so overview is operational.
-    nextActions: [
-      ...corridorActions,
-      ...rolePromptActions,
-      ...signalPriorityActions,
-      ...commercialActions,
-      ...organizationActions,
-    ],
+    roleFocus: roleDefault.focus,
+    nextActions,
   }
 }

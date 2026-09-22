@@ -71,6 +71,7 @@ export default function CommandOverviewOperator({
   sectionRef,
   countryLabel,
   roleLabel,
+  roleFocus,
   attentionItems,
   corridorTools = [],
   signals,
@@ -87,6 +88,7 @@ export default function CommandOverviewOperator({
   sectionRef: SectionRef
   countryLabel: string
   roleLabel: string
+  roleFocus?: string
   attentionItems: NextAction[]
   corridorTools?: NextAction[]
   signals: MobileCommandCentreProps['signals']
@@ -125,6 +127,12 @@ export default function CommandOverviewOperator({
       {deltaSentence ? (
         <p className={`hvm-op-delta${delta?.state === 'changed' ? ' hvm-op-delta-changed' : ''}`}>
           {deltaSentence}
+        </p>
+      ) : null}
+
+      {roleFocus ? (
+        <p className="hvm-op-role-focus" style={{ fontSize: 12, color: 'rgba(212,175,55,.85)', margin: '0 0 10px', lineHeight: 1.4 }}>
+          Role focus · {roleFocus}
         </p>
       ) : null}
 

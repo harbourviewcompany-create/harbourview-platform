@@ -304,6 +304,7 @@ export default function MobileCommandCentreRebuild(props: Props) {
         countryLabel={model.countryLabel}
         roleLabel={model.roleLabel}
         attentionItems={attentionItems}
+        roleFocus={(model as { roleFocus?: string }).roleFocus}
         corridorTools={corridorTools}
         signals={model.signals}
         opportunities={opportunityRows}
