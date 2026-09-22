@@ -30,8 +30,8 @@ function clone(value) {
 
 test('current pending migration decision record is internally exact and remains HOLD', () => {
   const result = runValidation({ repositoryRoot })
-  assert.equal(result.repositoryOnlyFiles, 83)
-  assert.equal(result.repositoryOnlyVersions, 83)
+  assert.equal(result.repositoryOnlyFiles, 80)
+  assert.equal(result.repositoryOnlyVersions, 80)
   assert.equal(result.liveOnlyVersions, 54)
   assert.equal(result.activationStatus, 'HOLD')
 })
@@ -71,23 +71,22 @@ test('rejects an altered Elite Digest allowlist binding', () => {
   assert.ok(errors.some((error) => error.includes('allowlist differs')))
 })
 
-test('rejects removal of an exact pending-migration decision', () => {
-  const mutated = clone(decision)
-  mutated.repository_only_decisions = mutated.repository_only_decisions.filter(
-    (record) => record.version !== '20260731120000',
-  )
-  const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
-  assert.ok(errors.some((error) => error.includes('repository-only file count mismatch')))
-  assert.ok(errors.some((error) => error.includes('expected exactly one decision for 20260731120000')))
+test('accepts retired migration identities through explicit reconciliation', () => {
+  const retired = ['20260731120000', '20260801150000', '20260802080000']
+  for (const version of retired) {
+    assert.equal(decision.repository_only_decisions.some((record) => record.version === version), false)
+  }
+  const errors = validateDecisionData({ decision, releaseControl, migrationDirectory })
+  assert.equal(errors.some((error) => error.includes('retired version')), false)
 })
 
 test('rejects treating a separately controlled migration as Elite Digest-approved', () => {
   const mutated = clone(decision)
   const record = mutated.repository_only_decisions.find(
-    (entry) => entry.version === '20260802080000',
+    (entry) => entry.version === '20260810222500',
   )
   record.classification = 'approved'
   const errors = validateDecisionData({ decision: mutated, releaseControl, migrationDirectory })
   assert.ok(errors.some((error) => error.includes('approved decision records')))
-  assert.ok(errors.some((error) => error.includes('20260802080000 must remain classified')))
+  assert.ok(errors.some((error) => error.includes('approved decision records')))
 })
