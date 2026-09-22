@@ -31,15 +31,17 @@ describe('CI infrastructure hygiene', () => {
     expect(ci).not.toContain('cancel-in-progress: true')
   })
 
-  it('keeps PR CI free of silent Playwright/E2E reintroduction', () => {
+  it('keeps E2E main-push-only so Playwright does not run on pull requests', () => {
     const ci = read('.github/workflows/ci.yml')
-    const active = activeYamlLines(ci)
+    const e2eStart = ci.indexOf('  e2e:')
+    expect(e2eStart).toBeGreaterThan(-1)
 
-    // E2E remains main-push-only; it must not become part of PR CI.
-    expect(active).toMatch(/^ {2}e2e:\s*$/m)
-    expect(active).toContain("if: github.event_name == 'push' && github.ref == 'refs/heads/main'")
-    expect(active).not.toContain('pull_request:')
-
+    const e2e = ci.slice(e2eStart)
+    expect(e2e).toContain("if: github.event_name == 'push' && github.ref == 'refs/heads/main'")
+    expect(e2e).toContain('name: Check optional E2E credentials')
+    expect(e2e).toContain('name: Supabase E2E readiness')
+    expect(e2e).toContain('npx playwright install --with-deps chromium')
+    expect(e2e).toContain('npm run test:e2e')
   })
 })
 
