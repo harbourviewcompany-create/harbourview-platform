@@ -35,6 +35,18 @@ function pickString(...values: unknown[]): string {
   return ''
 }
 
+/** tyler.campbell.ott → Tyler Campbell Ott (last-resort when no full_name) */
+function humanizeLocalPart(local: string): string {
+  return local
+    .replace(/[._+-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
 async function loadProfilePrefill(): Promise<ProfilePrefill> {
   const empty: ProfilePrefill = { name: '', email: '', company: '', phone: '' }
   try {
@@ -46,18 +58,18 @@ async function loadProfilePrefill(): Promise<ProfilePrefill> {
     if (!user) return empty
 
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>
-    const name = pickString(
+    const emailLocal = user.email?.includes('@') ? user.email.split('@')[0] : ''
+    const nameFromMeta = pickString(
       meta.full_name,
       meta.name,
       meta.display_name,
       [meta.given_name, meta.family_name].filter(Boolean).join(' '),
-      user.email?.split('@')[0],
     )
+    const name = nameFromMeta || (emailLocal ? humanizeLocalPart(emailLocal) : '')
     const email = pickString(user.email, meta.email)
     const company = pickString(meta.company, meta.organization, meta.company_name, meta.org)
     const phone = pickString(meta.phone, meta.phone_number, meta.mobile)
 
-    // Best-effort profile row (schema may vary; ignore failures).
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -75,7 +87,7 @@ async function loadProfilePrefill(): Promise<ProfilePrefill> {
         }
       }
     } catch {
-      // profiles relation may not exist in api schema — auth metadata is enough
+      // profiles may not exist in api schema
     }
 
     return { name, email, company, phone }

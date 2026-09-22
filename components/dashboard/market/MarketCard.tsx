@@ -24,12 +24,16 @@ function resolveCardMedia(listing: MarketCardModel, stage: MediaStage): MarketCa
         src: media.fallbackSrc,
         altText: media.fallbackAltText,
         kind: 'representative',
-        badgeLabel: 'Representative image',
+        badgeLabel: null,
         caption: media.fallbackCaption,
         fallbackSrc: media.fallbackSrc,
         fallbackAltText: media.fallbackAltText,
         fallbackCaption: media.fallbackCaption,
       }
+    }
+    // Buyer UI: hide representative provenance badge; keep alt text.
+    if (media.kind === 'representative') {
+      return { ...media, badgeLabel: null }
     }
     return media
   }

@@ -39,6 +39,8 @@ export function MarketDetailSheet({
   const secondary = tier === 'B' || listing.variant === 'catalogue'
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const showMediaBadge =
+    Boolean(listing.media?.badgeLabel) && listing.media?.kind !== 'representative'
 
   useEffect(() => {
     const handlePopState = () => onCloseRef.current()
@@ -87,8 +89,8 @@ export function MarketDetailSheet({
                 quality={80}
               />
             ) : null}
-            {listing.media?.badgeLabel ? (
-              <span className="hvm2-listing-media-badge">{listing.media.badgeLabel}</span>
+            {showMediaBadge ? (
+              <span className="hvm2-listing-media-badge">{listing.media!.badgeLabel}</span>
             ) : null}
             {listing.media?.caption ? <figcaption>{listing.media.caption}</figcaption> : null}
           </figure>
