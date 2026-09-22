@@ -3,6 +3,11 @@
 import Link from 'next/link'
 import type { DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { SignalFeedbackButtons } from '@/components/dashboard/SignalFeedbackButtons'
+import {
+  contentFeedBandMessage,
+  inferContentFeedBand,
+  type ContentFeedBand,
+} from '@/lib/dashboard/pipelineSlo'
 
 export type { DashboardSignal }
 
@@ -39,40 +44,9 @@ function qualityMeta(s: DashboardSignal): string {
   return parts.length ? ` · ${parts.join(' · ')}` : ''
 }
 
-/** Hours since event from DashboardSignal.timeAgo strings. Mirrors quality.ts bands. */
-function hoursFromTimeAgo(timeAgo: string): number | null {
-  const t = timeAgo.trim()
-  if (t === 'Just now') return 0
-  const h = /^(\d+)h ago$/i.exec(t)
-  if (h) return Number(h[1])
-  const d = /^(\d+)d ago$/i.exec(t)
-  if (d) return Number(d[1]) * 24
-  const w = /^(\d+)w ago$/i.exec(t)
-  if (w) return Number(w[1]) * 24 * 7
-  return null
-}
-
-type FeedFreshness = 'live' | 'recent' | 'stale' | 'unknown'
-
-function inferFeedFreshness(signals: DashboardSignal[]): FeedFreshness {
-  if (signals.length === 0) return 'unknown'
-  let newest = Number.POSITIVE_INFINITY
-  let any = false
-  for (const s of signals) {
-    const hours = hoursFromTimeAgo(s.timeAgo)
-    if (hours === null) continue
-    any = true
-    if (hours < newest) newest = hours
-  }
-  if (!any) return 'unknown'
-  if (newest <= 36) return 'live'
-  if (newest <= 24 * 5) return 'recent'
-  return 'stale'
-}
-
-function FreshnessBadge({ band, isLive }: { band: FeedFreshness; isLive: boolean }) {
+function FreshnessBadge({ band, isLive }: { band: ContentFeedBand; isLive: boolean }) {
   // Prefer content-derived band; fall back to parent isLive only when unknown.
-  const effective: FeedFreshness =
+  const effective: ContentFeedBand =
     band !== 'unknown' ? band : isLive ? 'live' : 'unknown'
 
   if (effective === 'live') {
@@ -85,8 +59,12 @@ function FreshnessBadge({ band, isLive }: { band: FeedFreshness; isLive: boolean
   }
   if (effective === 'recent') {
     return (
-      <span className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(198,165,90,0.55)' }}>
-        Recent
+      <span
+        className="text-[9px] uppercase tracking-[0.1em]"
+        style={{ color: 'rgba(198,165,90,0.55)' }}
+        title="Newest strip signal is past the 6h healthy SLO window"
+      >
+        Aging
       </span>
     )
   }
@@ -95,7 +73,7 @@ function FreshnessBadge({ band, isLive }: { band: FeedFreshness; isLive: boolean
       <span
         className="text-[9px] uppercase tracking-[0.1em]"
         style={{ color: 'rgba(224,128,128,0.75)' }}
-        title="Newest signal in this strip is older than 5 days"
+        title="Newest strip signal is older than the 24h product SLO"
       >
         Stale
       </span>
@@ -114,7 +92,8 @@ export interface SignalStripProps {
 }
 
 export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) {
-  const freshness = inferFeedFreshness(signals)
+  const freshness = inferContentFeedBand(signals.map((s) => s.timeAgo))
+  const bandMessage = contentFeedBandMessage(freshness)
 
   return (
     <aside
@@ -138,12 +117,15 @@ export function SignalStrip({ signals = [], isLive = false }: SignalStripProps) 
         </div>
       </div>
 
-      {freshness === 'stale' && signals.length > 0 && (
+      {bandMessage && signals.length > 0 && (
         <p
           className="mb-2 text-[9px] leading-snug"
-          style={{ color: 'rgba(224,128,128,0.65)' }}
+          style={{
+            color:
+              freshness === 'stale' ? 'rgba(224,128,128,0.65)' : 'rgba(198,165,90,0.55)',
+          }}
         >
-          Feed content is older than 5 days. Ops monitors alert on promotion silence; search the corpus for the latest match.
+          {bandMessage}
         </p>
       )}
 
