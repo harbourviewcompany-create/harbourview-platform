@@ -307,7 +307,33 @@ jobs:
           for check in "${expected[@]}"; do
             case "$check" in
               "governance-gate")
-                grep -qE '^    governance-gate:$' .github/workflows/ci.yml
+                grep -qE '^  governance-gate:
+                ;;
+              "Type Check")
+                grep -qE '^    name: Type Check$' .github/workflows/ci.yml
+                ;;
+              "Security / Leakage")
+                grep -qE '^    name: Security / Leakage$' .github/workflows/ci.yml
+                ;;
+              "Next.js Build")
+                grep -qE '^    name: Next\.js Build$' .github/workflows/ci.yml
+                ;;
+              *)
+                echo "Unknown required status check in repository contract: $check" >&2
+                exit 1
+                ;;
+            esac
+          done
+
+          grep -q "if: github.event_name == 'push' && github.ref == 'refs/heads/main'" .github/workflows/ci.yml
+          echo "Repository governance contract validated."
+
+      - name: Record external GitHub administration gate
+        run: |
+          echo "Remote ruleset enforcement is an administrator-controlled GitHub setting."
+          echo "This workflow validates the repository-side governance contract only."
+          echo "Do not treat this step as proof that the remote ruleset is active."
+ .github/workflows/ci.yml
                 ;;
               "Type Check")
                 grep -qE '^    name: Type Check$' .github/workflows/ci.yml
