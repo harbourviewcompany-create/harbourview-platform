@@ -196,6 +196,15 @@ export function JurisdictionSection(props: Props) {
             </div>
           </div>
 
+          {data?.dataDepth ? (
+            <div className={styles.qualityGrid} aria-label="Jurisdiction data depth">
+              <div className={styles.qualityCard}><span>Data depth</span><strong>{data.dataDepth.depthPct.toFixed(0)}%</strong><small>{data.dataDepth.populatedDimensions}/{data.dataDepth.totalDimensions} dimensions populated</small></div>
+              <div className={styles.qualityCard}><span>Regulatory detail</span><strong>{data.dataDepth.verifiedPathwayRows} pathways · {data.dataDepth.verifiedFormatRuleRows} rules</strong><small>{data.dataDepth.currentVerifiedEvidenceRows} current evidence · {data.dataDepth.verifiedClaimRows} verified claims</small></div>
+              <div className={styles.qualityCard}><span>Commercial data</span><strong>{data.dataDepth.metricTypes} metric types · {data.dataDepth.tradeFlowRows} flows</strong><small>{data.dataDepth.metricRows} metric records · {data.dataDepth.tradeProductCategories} trade categories</small></div>
+              <div className={styles.qualityCard}><span>Intelligence corpus</span><strong>{data.dataDepth.signalRows} signals · {data.dataDepth.activeSourceRows} sources</strong><small>{data.dataDepth.recentSignalRows} signals in the last 90 days · {data.dataDepth.snapshotRows} snapshots</small></div>
+            </div>
+          ) : null}
+
           <div className={styles.actions} aria-label="Jurisdiction actions">
             <Link
               className={`${styles.action} ${styles.actionPrimary}`}
