@@ -1,20 +1,7 @@
 -- Reconstructed from production.
---
--- This file previously contained no DDL. It carried a short comment saying it
--- had been applied directly to production via Supabase MCP and existed only to
--- satisfy local/remote migration history parity, followed by `SELECT 1;`.
---
--- That placeholder satisfied the version-number ledger while executing nothing,
--- so `supabase db reset --local` could not rebuild the schema this migration is
--- supposed to create. The statements below are the verbatim text production
--- ran, read back from supabase_migrations.schema_migrations.statements for
--- version 20260715085610.
---
--- Rewriting this file cannot affect production: 20260715085610 is already recorded
--- in schema_migrations, so `supabase db push` skips it. This is a
--- repository-only repair of replay fidelity.
---
--- Regenerate with: node scripts/reconstruct-stub-migrations.mjs
+-- The live api.signals view has accumulated columns after this migration.
+-- Keep the full canonical column order here so replay does not attempt to
+-- remove existing view columns.
 
 create or replace view api.signals
   with (security_invoker = on)
@@ -48,5 +35,24 @@ select
   embedding_model,
   embedded_at,
   reviewed_by,
-  reviewed_at
+  reviewed_at,
+  editorial_title,
+  editorial_blurb,
+  country_iso2,
+  quality_label,
+  quality_confidence,
+  content_type,
+  impact,
+  classifier_version,
+  title_en,
+  summary_en,
+  lang_detected,
+  is_representative,
+  cluster_rep_id,
+  corroborating_count,
+  geo_scope,
+  geo_region,
+  role_families,
+  routing_version,
+  routed_at
 from public.signals;
