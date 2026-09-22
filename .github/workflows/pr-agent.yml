@@ -26,7 +26,7 @@ jobs:
     name: AI PR review
     steps:
       - name: Run PR-Agent
-        uses: the-pr-agent/pr-agent@ca725b1ba511d82930d372ed9d79d9e95da23262 # immutable main commit verified 2026-09-11
+        uses: the-pr-agent/pr-agent@226ba52cb5bf635ec6434fa640d35201e081856f # immutable main commit verified 2026-09-11
         env:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
