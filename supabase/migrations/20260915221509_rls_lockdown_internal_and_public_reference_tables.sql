@@ -14,7 +14,12 @@
 alter table public.country_cannabis_legal_status enable row level security;
 alter table public.source_discovery_jobs enable row level security;
 alter table public.source_discovery_attempts enable row level security;
-alter table public.hv_gemini_embed_queue enable row level security;
+do $rls_embed_queue$
+begin
+  if to_regclass('public.hv_gemini_embed_queue') is not null then
+    execute 'alter table public.hv_gemini_embed_queue enable row level security';
+  end if;
+end $rls_embed_queue$;
 alter table public.hv_gemini_key_rotation enable row level security;
 alter table public.hv_gemini_key_cooldown enable row level security;
 alter table public.hv_local_classifier_centroids enable row level security;
