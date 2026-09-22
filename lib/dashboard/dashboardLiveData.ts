@@ -294,6 +294,66 @@ export async function getJurisdictionEvidenceStatus(iso2: string | null): Promis
   }
 }
 
+export type JurisdictionDataDepth = {
+  jurisdiction_key: string
+  country_name: string
+  populated_dimensions: number
+  total_dimensions: number
+  depth_pct: number
+  country_intel_rows: number
+  active_country_intel_rows: number
+  evidence_rows: number
+  current_verified_evidence_rows: number
+  snapshotted_evidence_rows: number
+  claim_rows: number
+  verified_claim_rows: number
+  claim_product_classes: number
+  pathway_rows: number
+  verified_pathway_rows: number
+  pathway_types: number
+  format_rule_rows: number
+  verified_format_rule_rows: number
+  distinct_formats: number
+  metric_rows: number
+  metric_types: number
+  latest_metric_period: string | null
+  trade_flow_rows: number
+  trade_product_categories: number
+  signal_rows: number
+  reviewed_signal_rows: number
+  recent_signal_rows: number
+  registered_source_rows: number
+  active_source_rows: number
+  official_source_rows: number
+  snapshot_rows: number
+  successful_snapshot_rows: number
+  calendar_rows: number
+  open_calendar_rows: number
+  latest_source_check: string | null
+  latest_snapshot_at: string | null
+  latest_signal_at: string | null
+  latest_evidence_verified_at: string | null
+  latest_pathway_verified_at: string | null
+}
+
+export async function getJurisdictionDataDepth(iso2: string | null): Promise<JurisdictionDataDepth | null> {
+  if (!iso2) return null
+  const safeIso2 = iso2.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '')
+  if (!safeIso2) return null
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('v_jurisdiction_data_depth')
+      .select('*')
+      .eq('jurisdiction_key', safeIso2)
+      .maybeSingle()
+    if (error || !data) return null
+    return data as JurisdictionDataDepth
+  } catch {
+    return null
+  }
+}
+
 export async function getCountryIntelProfile(iso2: string | null): Promise<CountryIntelProfile | null> {
   if (!iso2) return null
   const safeIso2 = iso2.trim().toUpperCase().replace(/[^A-Z]/g, '')
