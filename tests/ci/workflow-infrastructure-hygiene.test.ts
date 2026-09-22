@@ -35,12 +35,11 @@ describe('CI infrastructure hygiene', () => {
     const ci = read('.github/workflows/ci.yml')
     const active = activeYamlLines(ci)
 
-    // E2E was removed from the PR CI topology; do not require a job that no longer exists.
-    expect(active).not.toMatch(/^ {2}e2e:\s*$/m)
-    expect(active).not.toContain('npx playwright install')
-    expect(active).not.toContain('npm run test:e2e')
-    expect(active).not.toContain('name: Check optional E2E credentials')
-    expect(active).not.toContain('name: Supabase E2E readiness')
+    // E2E remains main-push-only; it must not become part of PR CI.
+    expect(active).toMatch(/^ {2}e2e:\s*$/m)
+    expect(active).toContain("if: github.event_name == 'push' && github.ref == 'refs/heads/main'")
+    expect(active).not.toContain('pull_request:')
+
   })
 })
 
