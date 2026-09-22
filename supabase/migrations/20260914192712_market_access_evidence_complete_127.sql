@@ -8,7 +8,7 @@
 --
 -- Before this artifact is used to rebuild a fresh environment, regenerate the full
 -- evidence INSERT from the authoritative source and replace this guarded artifact.
-DO $
+DO $guard$
 declare
   v_total integer;
   v_published integer;
@@ -41,4 +41,4 @@ begin
   -- authoritative evidence completion is handled by later evidence migrations
   -- and fail-closed resolution. Replay must not pretend that absent evidence is
   -- published merely to satisfy a historical postcondition.
-end $;
+end $guard$;
