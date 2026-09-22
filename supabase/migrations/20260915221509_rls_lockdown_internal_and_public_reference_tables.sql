@@ -30,7 +30,7 @@ on public.country_cannabis_legal_status for select
 to anon, authenticated
 using (true);
 
-do $$
+do $rls_policies$
 declare t text;
 begin
   foreach t in array array[
@@ -41,6 +41,9 @@ begin
     'hv_gemini_key_cooldown',
     'hv_local_classifier_centroids'
   ] loop
+    if to_regclass('public.' || t) is null then
+      continue;
+    end if;
     execute format('drop policy if exists %I_admin_operator_select on public.%I', t, t);
     execute format($p$
       create policy %I_admin_operator_select on public.%I for select
@@ -51,4 +54,4 @@ begin
       ))
     $p$, t, t);
   end loop;
-end $$;
+end $rls_policies$;
