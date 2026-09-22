@@ -295,6 +295,12 @@ export async function getJurisdictionEvidenceStatus(iso2: string | null): Promis
 }
 
 export type JurisdictionDataDepth = {
+  jurisdiction_level: 'national' | 'subnational'
+  research_queue_rows: number
+  open_research_queue_rows: number
+  trade_data_applicable: boolean
+  market_metric_applicable: boolean
+  signal_country_applicable: boolean
   jurisdiction_key: string
   country_name: string
   populated_dimensions: number
