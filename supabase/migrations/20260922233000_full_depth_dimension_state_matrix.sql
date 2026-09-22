@@ -100,63 +100,96 @@ where s.jurisdiction_key = mapped.jurisdiction_key
   and s.dimension_key = mapped.dimension_key
   and s.contract_version = '2026-09-22.v1';
 
--- Fill measurable provenance/freshness fields from existing source/evidence layers.
+-- Fill measurable provenance/freshness fields from the existing evidence layer.
 update public.jurisdiction_data_depth_dimension_state s
 set
-  evidence_count = x.evidence_count,
-  primary_source_count = x.primary_source_count,
-  latest_verified_at = x.latest_verified_at,
+  evidence_count = case s.dimension_key
+    when 'source_registry' then coalesce(v.registered_source_rows,0)
+    when 'source_snapshot' then coalesce(v.successful_snapshot_rows,0)
+    when 'claims' then coalesce(v.verified_claim_rows,0)
+    when 'pathways' then coalesce(v.verified_pathway_rows,0)
+    when 'format_rules' then coalesce(v.verified_format_rule_rows,0)
+    when 'market_metrics' then coalesce(v.metric_rows,0)
+    when 'trade_flows' then coalesce(v.trade_flow_rows,0)
+    when 'signals' then coalesce(v.signal_rows,0)
+    when 'calendar' then coalesce(v.calendar_rows,0)
+    when 'regulatory_status' then coalesce(v.current_verified_evidence_rows,0)
+    else s.evidence_count
+  end,
+  primary_source_count = case
+    when s.dimension_key in ('source_registry','source_snapshot','claims','regulatory_status')
+      then coalesce(v.official_source_rows,0)
+    else s.primary_source_count
+  end,
+  latest_verified_at = case s.dimension_key
+    when 'source_registry' then v.latest_source_check
+    when 'source_snapshot' then v.latest_snapshot_at
+    when 'claims' then v.latest_evidence_verified_at
+    when 'regulatory_status' then v.latest_evidence_verified_at
+    when 'pathways' then v.latest_pathway_verified_at
+    when 'market_metrics' then v.latest_metric_updated_at
+    when 'trade_flows' then v.latest_trade_verified_at
+    when 'signals' then v.latest_signal_at
+    when 'calendar' then v.latest_calendar_update
+    else s.latest_verified_at
+  end,
   freshness_deadline = case
-    when x.latest_verified_at is not null then x.latest_verified_at + make_interval(days => d.freshness_days)
+    when d.freshness_days is not null and (
+      case s.dimension_key
+        when 'source_registry' then v.latest_source_check
+        when 'source_snapshot' then v.latest_snapshot_at
+        when 'claims' then v.latest_evidence_verified_at
+        when 'regulatory_status' then v.latest_evidence_verified_at
+        when 'pathways' then v.latest_pathway_verified_at
+        when 'market_metrics' then v.latest_metric_updated_at
+        when 'trade_flows' then v.latest_trade_verified_at
+        when 'signals' then v.latest_signal_at
+        when 'calendar' then v.latest_calendar_update
+        else s.latest_verified_at
+      end
+    ) is not null
+      then (
+        case s.dimension_key
+          when 'source_registry' then v.latest_source_check
+          when 'source_snapshot' then v.latest_snapshot_at
+          when 'claims' then v.latest_evidence_verified_at
+          when 'regulatory_status' then v.latest_evidence_verified_at
+          when 'pathways' then v.latest_pathway_verified_at
+          when 'market_metrics' then v.latest_metric_updated_at
+          when 'trade_flows' then v.latest_trade_verified_at
+          when 'signals' then v.latest_signal_at
+          when 'calendar' then v.latest_calendar_update
+          else s.latest_verified_at
+        end
+      ) + make_interval(days => d.freshness_days)
     else null
   end,
   status = case
     when s.applicability = 'not_applicable' then 'complete'
-    when x.latest_verified_at is not null and x.latest_verified_at + make_interval(days => d.freshness_days) < now()
-      and d.freshness_days is not null then 'stale'
+    when d.freshness_days is not null and (
+      case s.dimension_key
+        when 'source_registry' then v.latest_source_check
+        when 'source_snapshot' then v.latest_snapshot_at
+        when 'claims' then v.latest_evidence_verified_at
+        when 'regulatory_status' then v.latest_evidence_verified_at
+        when 'pathways' then v.latest_pathway_verified_at
+        when 'market_metrics' then v.latest_metric_updated_at
+        when 'trade_flows' then v.latest_trade_verified_at
+        when 'signals' then v.latest_signal_at
+        when 'calendar' then v.latest_calendar_update
+        else s.latest_verified_at
+      end
+    ) + make_interval(days => d.freshness_days) < now()
+      then 'stale'
     else s.status
   end,
   updated_at = now()
 from public.jurisdiction_data_depth_dimensions d
-left join lateral (
-  select
-    case s2.dimension_key
-      when 'source_registry' then coalesce(v.registered_source_rows,0)
-      when 'source_snapshot' then coalesce(v.successful_snapshot_rows,0)
-      when 'claims' then coalesce(v.verified_claim_rows,0)
-      when 'pathways' then coalesce(v.verified_pathway_rows,0)
-      when 'format_rules' then coalesce(v.verified_format_rule_rows,0)
-      when 'market_metrics' then coalesce(v.metric_rows,0)
-      when 'trade_flows' then coalesce(v.trade_flow_rows,0)
-      when 'signals' then coalesce(v.signal_rows,0)
-      when 'calendar' then coalesce(v.calendar_rows,0)
-      when 'regulatory_status' then coalesce(v.current_verified_evidence_rows,0)
-      when 'identity' then 1
-      else 0
-    end evidence_count,
-    case
-      when s2.dimension_key in ('source_registry','source_snapshot','claims','regulatory_status') then
-        case when coalesce(v.official_source_rows,0) > 0 then v.official_source_rows else 0 end
-      else 0
-    end primary_source_count,
-    case s2.dimension_key
-      when 'source_registry' then v.latest_source_check
-      when 'source_snapshot' then v.latest_snapshot_at
-      when 'claims' then v.latest_evidence_verified_at
-      when 'regulatory_status' then v.latest_evidence_verified_at
-      when 'pathways' then v.latest_pathway_verified_at
-      when 'market_metrics' then v.latest_metric_updated_at
-      when 'trade_flows' then v.latest_trade_verified_at
-      when 'signals' then v.latest_signal_at
-      when 'calendar' then v.latest_calendar_update
-      else now()
-    end latest_verified_at
-  from public.v_jurisdiction_data_depth v
-  cross join lateral (select s.dimension_key) s2
-  where v.jurisdiction_key = s.jurisdiction_key
-) x on true
-where s.dimension_key = d.dimension_key
-  and s.contract_version = d.contract_version;
+join public.v_jurisdiction_data_depth v
+  on v.jurisdiction_key = s.jurisdiction_key
+where d.dimension_key = s.dimension_key
+  and d.contract_version = s.contract_version
+  and s.contract_version = '2026-09-22.v1';
 
 create or replace view public.v_jurisdiction_data_depth_contract
 with (security_invoker = on) as
