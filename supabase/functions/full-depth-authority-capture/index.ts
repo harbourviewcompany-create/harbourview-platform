@@ -22,9 +22,14 @@ const ruleDimensions = new Set([
 ]);
 
 function auth(req: Request) {
-  const supplied = req.headers.get("x-harbourview-operator-secret");
-  const expected = Deno.env.get("HARBOURVIEW_FULL_DEPTH_CAPTURE_SECRET");
-  return Boolean(expected && supplied && supplied === expected);
+  const expectedServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const suppliedBearer = req.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+  const suppliedOperator = req.headers.get("x-harbourview-operator-secret");
+  const expectedOperator = Deno.env.get("HARBOURVIEW_FULL_DEPTH_CAPTURE_SECRET");
+  return Boolean(
+    (expectedServiceRole && suppliedBearer && suppliedBearer === expectedServiceRole) ||
+    (expectedOperator && suppliedOperator && suppliedOperator === expectedOperator)
+  );
 }
 
 async function sha256(value: string) {
