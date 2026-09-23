@@ -62,7 +62,7 @@ on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
 select c.id,'UY','depth-v1-uy-adult-use-cultivation','Licensed psychoactive cannabis cultivation for adult-use market',
-'licensed_market','Law 19.172 and implementing regulations','IRCCA','active','2014-05-02',
+'licensed_market','Law 19.172 and implementing regulations','IRCCA','active',null,
 'IRCCA current licence records identify active licences for psychoactive cannabis cultivation for adult use. This record evidences licensed cultivation, not a claim that every retail or cross-border commercial activity is permitted.',
 array['https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/'],
 'needs_review',now()
@@ -78,7 +78,7 @@ and not exists(select 1 from public.regulatory_citations c where c.entity_type='
 
 insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
 select 'pathway',p.id,'IRCCA Resolution 18/2026','Medicinal/research licence reforms','regulator',
-'https://ircca.gub.uy/ircca-adopta-medidas-con-el-objetivo-de-desburocratizar-y-favorecer-el-acceso-a-licencias/','2026-04-01',current_date,
+'https://ircca.gub.uy/ircca-adopta-medidas-con-el-objetivo-de-desburocratizar-y-favorecer-el-acceso-a-licencias/',null,current_date,
 'IRCCA reports lower medicinal licence costs, eliminated research costs and longer licence duration, retroactive to 2026-01-01.'
 from public.regulatory_pathways p where p.iso_alpha2='UY' and p.slug='depth-v1-uy-medicinal-research'
 and not exists(select 1 from public.regulatory_citations c where c.entity_type='pathway' and c.entity_id=p.id and c.citation_url='https://ircca.gub.uy/ircca-adopta-medidas-con-el-objetivo-de-desburocratizar-y-favorecer-el-acceso-a-licencias/');
