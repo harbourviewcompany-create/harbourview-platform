@@ -2,6 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const originalApiKey = process.env.ANTHROPIC_API_KEY
 
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(async () => ({
+    auth: {
+      getUser: vi.fn(async () => ({ data: { user: { id: 'ci-test-user' }, session: null }, error: null })),
+    },
+  })),
+}))
+
 describe('AI briefing route fallback', () => {
   beforeEach(() => {
     delete process.env.ANTHROPIC_API_KEY
