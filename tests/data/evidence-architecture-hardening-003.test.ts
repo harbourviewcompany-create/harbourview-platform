@@ -19,7 +19,8 @@ describe('evidence architecture hardening 003', () => {
     expect(migration).toContain('v_jurisdiction_data_depth_evaluator_ungated')
     expect(migration).toContain('v_jurisdiction_data_depth_evaluator')
     expect(migration).toContain('v_jurisdiction_verified_snapshot_gate')
-    expect(migration).toContain('verified structured evidence exists without a qualifying source snapshot')
+    expect(migration).toContain('Verified structured evidence exists without a qualifying source snapshot')
+    expect(migration).toContain('publication-qualifying only when its referenced snapshot passes the cryptographic/fetch/payload/source-registry gate')
   })
   test('requires legacy regulatory evidence to match a successful captured snapshot', () => {
     expect(migration).toContain('lower(ss.raw_html_hash)=lower(e.source_snapshot_sha256)')
