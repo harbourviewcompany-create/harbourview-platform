@@ -189,6 +189,21 @@ async function processJob(job: any) {
   },{onConflict:"jurisdiction_key,dimension_key"});
   if(appError) throw new Error(`applicability_insert_failed: ${appError.message}`);
 
+  const { error: stateError } = await supabase
+    .from("jurisdiction_data_depth_dimension_state")
+    .update({
+      applicability: result.applicability,
+      evidence_count: 1,
+      primary_source_count: 1,
+      latest_verified_at: now,
+      last_evaluated_at: now,
+      updated_at: now,
+    })
+    .eq("jurisdiction_key", job.jurisdiction_key)
+    .eq("dimension_key", job.dimension_key)
+    .eq("contract_version", "2026-09-22.v1");
+  if (stateError) throw new Error(`state_update_failed: ${stateError.message}`);
+
   if (ruleDimensions.has(job.dimension_key) && result.applicability==="applicable") {
     const {error: ruleError}=await supabase.from("jurisdiction_regulatory_rules").insert({
       jurisdiction_key:job.jurisdiction_key,
