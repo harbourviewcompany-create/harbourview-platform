@@ -50,13 +50,13 @@ create or replace view public.v_jurisdiction_structured_evidence_provenance
 with (security_invoker = on) as
 select 'rule' evidence_kind, r.jurisdiction_key, r.rule_dimension dimension_key,
        r.id evidence_id, r.source_url evidence_url, r.source_snapshot_id,
-       g.qualifying_snapshot, r.verification_status, r.verified_at,
+       g.source_id source_registry_id, g.qualifying_snapshot, r.verification_status, r.verified_at,
        g.snapshot_hash, g.fetched_at
 from public.jurisdiction_regulatory_rules r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
 union all
 select 'regulator', r.jurisdiction_key, 'regulator', r.id, r.source_url, r.source_snapshot_id,
-       g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+       g.source_id, g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
 from public.jurisdiction_regulators r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
 union all
