@@ -138,12 +138,23 @@ begin
       check_expr := regexp_replace(check_expr, '(^|[^A-Za-z_])auth\\.uid\\(\\)', '\\1(SELECT auth.uid())', 'g');
     end if;
 
-    if using_expr is not null and length(using_expr) - length(replace(using_expr, '(', '')) = length(using_expr) - length(replace(using_expr, ')', ''))
-       and (check_expr is null or length(check_expr) - length(replace(check_expr, '(', '')) = length(check_expr) - length(replace(check_expr, ')', ''))) then
-      execute format('alter policy %I on %I.%I using (%s) with check (%s)', r.policyname, r.schemaname, r.tablename, using_expr, check_expr);
-    elsif using_expr is not null and length(using_expr) - length(replace(using_expr, '(', '')) = length(using_expr) - length(replace(using_expr, ')', '')) then
-      execute format('alter policy %I on %I.%I using (%s)', r.policyname, r.schemaname, r.tablename, using_expr);
-    elsif check_expr is not null and length(check_expr) - length(replace(check_expr, '(', '')) = length(check_expr) - length(replace(check_expr, ')', '')) then
+    -- ALTER POLICY accepts USING and WITH CHECK independently. Never emit
+    -- a WITH CHECK clause for policies that do not have one; doing so produces
+    -- invalid SQL (and can surface as SQLSTATE 22P02 during replay).
+    if using_expr is not null
+       and btrim(using_expr) <> ''
+       and length(using_expr) - length(replace(using_expr, '(', '')) = length(using_expr) - length(replace(using_expr, ')', ''))
+       and (check_expr is null
+            or (btrim(check_expr) <> ''
+                and length(check_expr) - length(replace(check_expr, '(', '')) = length(check_expr) - length(replace(check_expr, ')', '')))) then
+      if check_expr is null or btrim(check_expr) = '' then
+        execute format('alter policy %I on %I.%I using (%s)', r.policyname, r.schemaname, r.tablename, using_expr);
+      else
+        execute format('alter policy %I on %I.%I using (%s) with check (%s)', r.policyname, r.schemaname, r.tablename, using_expr, check_expr);
+      end if;
+    elsif check_expr is not null
+          and btrim(check_expr) <> ''
+          and length(check_expr) - length(replace(check_expr, '(', '')) = length(check_expr) - length(replace(check_expr, ')', '')) then
       execute format('alter policy %I on %I.%I with check (%s)', r.policyname, r.schemaname, r.tablename, check_expr);
     end if;
   end loop;
