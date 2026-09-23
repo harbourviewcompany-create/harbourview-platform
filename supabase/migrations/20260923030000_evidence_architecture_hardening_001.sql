@@ -1,5 +1,6 @@
 -- Phase 1 is intentionally non-destructive: historical verified rows may predate
--- snapshot provenance. They remain visible to diagnostics but are not publication-grade.
+-- snapshot provenance. Existing verified rows are not silently upgraded and remain visible
+-- to diagnostics, but are not publication-grade.
 -- Future writes are fail-closed so new verified facts cannot bypass provenance.
 
 do $$
