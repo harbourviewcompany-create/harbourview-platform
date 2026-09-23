@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 
 // ISR: reference intelligence surface
 export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 // ── Static corridor reference (endpoint linking, ISO2 required for playbook hrefs) ─────────
 const CORRIDORS = [

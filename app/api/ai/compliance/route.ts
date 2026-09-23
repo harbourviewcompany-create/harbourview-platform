@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,11 +44,19 @@ type Body = {
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY?.trim()
     if (!apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
     }
 
+    // Rate limit is now a secondary layer behind the session check above;
+    // it was previously the only gate, and this route had no auth at all.
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
     const now = Date.now()
     const rl = rateLimit.get(ip)

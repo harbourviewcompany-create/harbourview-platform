@@ -14,7 +14,12 @@
 alter table public.country_cannabis_legal_status enable row level security;
 alter table public.source_discovery_jobs enable row level security;
 alter table public.source_discovery_attempts enable row level security;
-alter table public.hv_gemini_embed_queue enable row level security;
+do $rls_embed_queue$
+begin
+  if to_regclass('public.hv_gemini_embed_queue') is not null then
+    execute 'alter table public.hv_gemini_embed_queue enable row level security';
+  end if;
+end $rls_embed_queue$;
 alter table public.hv_gemini_key_rotation enable row level security;
 alter table public.hv_gemini_key_cooldown enable row level security;
 alter table public.hv_local_classifier_centroids enable row level security;
@@ -25,7 +30,7 @@ on public.country_cannabis_legal_status for select
 to anon, authenticated
 using (true);
 
-do $$
+do $rls_policies$
 declare t text;
 begin
   foreach t in array array[
@@ -36,6 +41,9 @@ begin
     'hv_gemini_key_cooldown',
     'hv_local_classifier_centroids'
   ] loop
+    if to_regclass('public.' || t) is null then
+      continue;
+    end if;
     execute format('drop policy if exists %I_admin_operator_select on public.%I', t, t);
     execute format($p$
       create policy %I_admin_operator_select on public.%I for select
@@ -46,4 +54,4 @@ begin
       ))
     $p$, t, t);
   end loop;
-end $$;
+end $rls_policies$;
