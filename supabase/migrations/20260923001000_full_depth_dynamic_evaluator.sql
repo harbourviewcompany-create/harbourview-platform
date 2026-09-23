@@ -58,6 +58,16 @@ opportunity_counts as (
          max(verified_at) filter (where verification_status='verified') latest_verified_at
   from public.jurisdiction_opportunities group by jurisdiction_key
 ),
+generic_evidence as (
+  select jurisdiction_key,dimension_key,
+         count(*) filter(where verification_status='verified') verified_rows,
+         count(*) filter(where verification_status='verified' and coalesce(g.qualifying_snapshot,false) and g.captured_url=source_url) qualified_rows,
+         count(*) filter(where verification_status='conflict') conflict_rows,
+         max(verified_at) filter(where verification_status='verified') latest_verified_at
+  from public.jurisdiction_data_depth_evidence e
+  left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=e.source_snapshot_id
+  group by jurisdiction_key,dimension_key
+),
 legacy as (
   select * from public.v_jurisdiction_data_depth
 ),
@@ -96,6 +106,8 @@ select
   case
     when b.applicability='unknown' then 'unmeasured'
     when b.applicability='not_applicable' then 'complete'
+    when b.dimension_key not in ('regulatory_status','regulatory_tier')
+      and coalesce(ge.qualified_rows,0)>0 and coalesce(ge.conflict_rows,0)=0 then 'complete'
     when b.dimension_key='identity' then 'complete'
     when b.dimension_key='hierarchy' then b.status
     when b.dimension_key='regulatory_status' then
@@ -177,6 +189,8 @@ select
     else b.status
   end as evaluated_status,
   case
+    when b.dimension_key not in ('regulatory_status','regulatory_tier')
+      and coalesce(ge.qualified_rows,0)>0 and coalesce(ge.conflict_rows,0)=0 then null
     when b.dimension_key='regulatory_status' and coalesce(ma.current_verified_rows,0)>0 and coalesce(ma.qualifying_current_rows,0)=0
       then 'Current verified market-access evidence exists but lacks a qualifying source snapshot with matching SHA-256 and registered source URL.'
     when b.dimension_key='regulatory_tier' and c.verified_regulatory_tier is not null and coalesce(ma.qualifying_current_rows,0)=0
@@ -194,6 +208,7 @@ select
   end as evaluated_blocker_reason,
   case b.dimension_key
     when 'regulatory_status' then coalesce(l.current_verified_evidence_rows,0)
+ then coalesce(l.current_verified_evidence_rows,0)
     when 'source_registry' then coalesce(l.active_source_rows,0)
     when 'source_snapshot' then coalesce(l.successful_snapshot_rows,0)
     when 'claims' then coalesce(l.verified_claim_rows,0)
@@ -219,7 +234,7 @@ select
     when 'counterparties' then coalesce((select verified_rows from participant_counts where jurisdiction_key=b.jurisdiction_key and participant_type='counterparty'),0)
     when 'relationships' then coalesce(rel.verified_rows,0)
     when 'opportunities' then coalesce(oc.verified_rows,0)
-    else b.evidence_count
+    else coalesce(ge.qualified_rows,b.evidence_count)
   end as evaluated_evidence_count,
   b.primary_source_count,
   b.latest_verified_at,
@@ -243,6 +258,7 @@ left join participant_counts pc on pc.jurisdiction_key=b.jurisdiction_key and pc
 end
 left join relationship_counts rel on rel.jurisdiction_key=b.jurisdiction_key
 left join opportunity_counts oc on oc.jurisdiction_key=b.jurisdiction_key
+left join generic_evidence ge on ge.jurisdiction_key=b.jurisdiction_key and ge.dimension_key=b.dimension_key
 left join market_access_snapshot_gate ma on ma.jurisdiction_key=b.jurisdiction_key;
 
 create or replace view public.v_jurisdiction_data_depth_summary
