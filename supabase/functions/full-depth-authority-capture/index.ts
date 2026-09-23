@@ -23,7 +23,7 @@ const ruleDimensions = new Set([
 
 function auth(req: Request) {
   const expectedServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const suppliedBearer = req.headers.get("authorization")?.replace(/^Bearer\\s+/i, "");
+  const suppliedBearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const suppliedOperator = req.headers.get("x-harbourview-operator-secret");
   const expectedOperator = Deno.env.get("HARBOURVIEW_FULL_DEPTH_CAPTURE_SECRET");
   return Boolean(
