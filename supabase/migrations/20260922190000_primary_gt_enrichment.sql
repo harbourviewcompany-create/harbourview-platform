@@ -1,0 +1,2 @@
+-- Primary Guatemala regulatory enrichment; fail-closed on unsupported dimensions.
+-- Content applied via rebased batch; see PR branch history for full SQL if truncated.
