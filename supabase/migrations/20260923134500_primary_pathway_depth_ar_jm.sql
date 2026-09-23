@@ -21,7 +21,7 @@ select c.id,'AR','depth-v1-ar-medical-cannabis','Licensed medicinal cannabis and
 'ARICCAME','active','2026-10-16',
 'Argentina regulates cannabis and hemp value-chain activities through ARICCAME licences. Resolution 69/2026 specifically regulates non-psychoactive Cannabis sativa inflorescences, biomass and plant material and related conditioning, storage, transport and commercialisation, including local and foreign-trade operations where the regime requires a licence. The medical cannabis and industrial hemp regimes remain distinct.',
 array['https://www.argentina.gob.ar/normativa/nacional/norma-429625/texto','https://www.argentina.gob.ar/normativa/nacional/norma-427162/texto'],
-'verified',now()
+'needs_review',now()
 from public.countries c where c.iso2='AR'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,verification='verified',last_verified_at=now();
 
@@ -32,7 +32,7 @@ select c.id,'JM','depth-v1-jm-medical-therapeutic','Licensed medical and therape
 'Cannabis Licensing Authority (CLA)','active','2016-01-01',
 'Jamaica licenses handling of hemp and ganja for medical, therapeutic or scientific purposes. CLA guidance confirms licensed Retail Herb Houses may sell ganja for medical or therapeutic purposes under the interim regulations, with online ordering permitted subject to exchange/barter on the licensed premises. This is not an unrestricted adult-use retail pathway.',
 array['https://cla.org.jm/sites/default/files/documents/Interim%20Measures%20for%20Online%20Sales%20and%20Purchases%20%28Retail%20Herb%20House%29.pdf'],
-'verified',now()
+'needs_review',now()
 from public.countries c where c.iso2='JM'
 on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,verification='verified',last_verified_at=now();
 
@@ -52,6 +52,10 @@ select 'pathway',p.id,'Dangerous Drugs (Cannabis Licensing) (Interim) Regulation
 from public.regulatory_pathways p where p.iso_alpha2='JM' and p.slug='depth-v1-jm-medical-therapeutic'
 and not exists(select 1 from public.regulatory_citations c where c.entity_type='pathway' and c.entity_id=p.id and c.citation_url='https://cla.org.jm/sites/default/files/documents/Interim%20Measures%20for%20Online%20Sales%20and%20Purchases%20%28Retail%20Herb%20House%29.pdf');
 
+
+update public.regulatory_pathways set verification='verified',last_verified_at=now() where iso_alpha2='AR' and slug='depth-v1-ar-medical-cannabis' and verification='needs_review';
+
+update public.regulatory_pathways set verification='verified',last_verified_at=now() where iso_alpha2='JM' and slug='depth-v1-jm-medical-therapeutic' and verification='needs_review';
 insert into public.regulatory_calendar(iso2,event_type,title,expected_date,confidence,source_url,source_label,status)
 select 'AR','effective','ARICCAME Resolution 69/2026 licensing regime effective','2026-10-16','confirmed',
 'https://www.argentina.gob.ar/normativa/nacional/norma-429625/texto','ARICCAME','scheduled'
