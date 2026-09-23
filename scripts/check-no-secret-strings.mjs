@@ -118,6 +118,7 @@ const placeholderSecret =
 const assignment = /\b([A-Za-z_][A-Za-z0-9_]*)\b\s*[:=]\s*(.+)$/;
 const safeAssignmentValue = /^(?:process\.env\.|Deno\.env\.get\(|env\.|secrets\.|vars\.|\$\{\{\s*(?:secrets|vars|github|inputs)\.|<|your_|example|REPLACE_ME|CHANGEME|1$|true$|false$|0$|''$)/i;
 const shellVariableReference = /^\$\{?[A-Z_][A-Z0-9_]*\}?$/;
+const localVariableReference = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /**
  * Supabase's `config.toml` interpolation form: `secret_key = "env(SECRET_NAME)"`
  * names an environment variable, exactly like `${VAR}` or `process.env.VAR`
@@ -235,6 +236,10 @@ function isAllowedSensitiveAssignment(identifier, rawValue) {
   const value = stripAssignmentTerminator(rawValue);
   if (safeAssignmentValue.test(value)) return true;
   if (shellVariableReference.test(value)) return true;
+  // A local variable-to-variable assignment does not embed a secret value.
+  // Keep the right-hand side constrained to a plain identifier so this cannot
+  // become a general bypass for literal expressions.
+  if (localVariableReference.test(value)) return true;
   if (postgresAclShorthand.test(value)) return true;
   if (isTestFixtureRunScopedValue(identifier, value)) return true;
   if (requestBodyReference.test(value)) return true;
@@ -363,6 +368,8 @@ function runSelfTest() {
     // reference to another already-established shell variable two lines
     // below the password assignment above -- same file, same real bug.
     ['quoted reference to another shell variable', 'export E2E_TEST_USER_PASSWORD="${TEST_PASSWORD}"', 0],
+    ['local variable reference', 'ANTHROPIC_API_KEY = originalApiKey', 0],
+    ['local variable reference on process env', 'process.env.ANTHROPIC_API_KEY = originalApiKey', 0],
     ['quoted reference, unquoted form still matches too', 'export E2E_TEST_USER_PASSWORD=${TEST_PASSWORD}', 0],
     ['ordinary tokenization variable', 'const roleTokens = currentRole.split(/[^a-z]+/)', 0],
     ['postgres acl evidence', 'service_role=X/postgres', 0],
