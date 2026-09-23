@@ -71,11 +71,13 @@ select 'pathway',id,'Law No. VIII-602',
  'https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6',
  '2025-11-01',current_date,
  'The law defines lawful circulation of controlled narcotic/psychotropic substances and establishes Schedule I restrictions and exceptions for registered medicinal products and scientific research.'
-from public.regulatory_pathways
-where slug='depth-v1-lt-controlled-medicinal'
+from public.regulatory_pathways p
+where p.slug='depth-v1-lt-controlled-medicinal'
 and not exists (
-  select 1 from public.regulatory_citations c
-  where c.entity_type='pathway' and c.entity_id=public.regulatory_pathways.id
+  select 1
+  from public.regulatory_citations c
+  where c.entity_type='pathway'
+    and c.entity_id=p.id
     and c.citation_url='https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6'
 );
 
