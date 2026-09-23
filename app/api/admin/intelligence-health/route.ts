@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     outcomeRpc,
     { count: decisionEvents7d },
     { count: autonomyPoliciesCount },
+    { count: sourceYieldMetricsCount },
   ] = await Promise.all([
     supabase.from('source_snapshots').select('*', { count: 'exact', head: true })
       .eq('processing_status', 'pending_extraction'),
@@ -83,13 +84,15 @@ export async function GET(request: Request) {
     supabase.from('ia_signals').select('*', { count: 'exact', head: true })
       .gte('detected_at', stale7d.slice(0, 10)),
     publicClient.rpc('hv_intelligence_outcome_check'),
-    // Public schema tables (service role). Missing table → null counts, not hard fail.
     publicClient
       .from('signal_decision_events')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', stale7d),
     publicClient
       .from('autonomy_policies')
+      .select('*', { count: 'exact', head: true }),
+    publicClient
+      .from('source_yield_metrics')
       .select('*', { count: 'exact', head: true }),
   ])
 
@@ -157,7 +160,8 @@ export async function GET(request: Request) {
     signal_engine: {
       decision_events_7d: decisionEvents7d ?? 0,
       autonomy_policies_count: autonomyPoliciesCount ?? 0,
-      note: 'Counts are zero until migrations 20260923120000 / 20260923140000 are applied.',
+      source_yield_metrics_count: sourceYieldMetricsCount ?? 0,
+      note: 'Counts require migrations 20260923120000 / 20260923140000 / 20260923160000 applied.',
     },
     generated_at:    new Date().toISOString(),
   })
