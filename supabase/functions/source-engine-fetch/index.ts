@@ -369,7 +369,16 @@ Deno.serve(async (req: Request) => {
     .limit(limit);
 
   if (requestUrl.searchParams.get("pass")?.startsWith("continuous")) {
-    query = query.eq("tier", 1);
+    query = query.eq("tier", 1)
+      .in("source_type", [
+        "regulator",
+        "regulator_official",
+        "official_regulator",
+        "government_official",
+        "government_regulator",
+        "official_legal",
+        "primary_legislation",
+      ]);
   }
 
   if (sourceIdParam) query = query.eq("id", sourceIdParam);
