@@ -33,6 +33,9 @@ describe('full-depth dynamic evaluator', () => {
     expect(migration).toContain('current_verified_evidence_rows')
     expect(migration).toContain('snapshotted_evidence_rows')
     expect(migration).toContain('c.verified_regulatory_tier')
+    expect(migration).toContain('v_jurisdiction_verified_snapshot_gate')
+    expect(migration).toContain('qualifying_current_rows')
+    expect(migration).toContain('lower(e.source_snapshot_sha256)=lower(g.snapshot_hash)')
   })
 
   test('conflicts cannot become complete', () => {
