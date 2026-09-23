@@ -9,7 +9,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useThree } from '@react-three/fiber'
-import { DataTexture, LinearFilter, RedFormat, SRGBColorSpace } from 'three'
+import { DataTexture, LinearFilter, NoColorSpace, RedFormat } from 'three'
 import type { GlobeCountryMarker, GlobeSignal } from '@/lib/globe/supabaseGlobeData'
 import {
   HEAT_CONFIG,
@@ -110,7 +110,10 @@ export function useHeatDensityTexture(opts: {
         if (!tex || tex.image.width !== w || tex.image.height !== h) {
           tex?.dispose()
           tex = new DataTexture(bufferRef.current, w, h, RedFormat)
-          tex.colorSpace = SRGBColorSpace
+          // Density is a scalar/non-color texture. Applying sRGB decoding to the
+          // red channel corrupts the KDE values before the shader thresholds them.
+          tex.colorSpace = NoColorSpace
+          tex.needsUpdate = true
           tex.minFilter = LinearFilter
           tex.magFilter = LinearFilter
           tex.flipY = false
@@ -130,6 +133,16 @@ export function useHeatDensityTexture(opts: {
         const onMessage = (event: MessageEvent<HeatWorkerResponse & { error?: string }>) => {
           if (event.data.id !== id) return
           worker.removeEventListener('message', onMessage)
+          if (event.data.error) {
+            // A worker failure must never leave the layer permanently invisible.
+            // Fall back to the same pure CPU implementation used when workers
+            // are unavailable.
+            const field = computeDensityField(pts, width, height)
+            const data = densityToUint8(field, bufferRef.current ?? undefined)
+            bufferRef.current = data
+            applyUint8(data, width, height)
+            return
+          }
           applyUint8(event.data.data, event.data.width, event.data.height)
         }
         worker.addEventListener('message', onMessage)
@@ -140,8 +153,17 @@ export function useHeatDensityTexture(opts: {
           height,
           bandwidthDeg: HEAT_CONFIG.bandwidthDeg,
         }
-        worker.postMessage(msg)
-        return
+        try {
+          worker.postMessage(msg)
+          return
+        } catch {
+          worker.removeEventListener('message', onMessage)
+          const field = computeDensityField(pts, width, height)
+          const data = densityToUint8(field, bufferRef.current ?? undefined)
+          bufferRef.current = data
+          applyUint8(data, width, height)
+          return
+        }
       }
 
       const compute = () => {

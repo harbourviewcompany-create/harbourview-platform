@@ -12,6 +12,21 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+  # Previously unwatched: every open Dependabot alert on this repo (8, incl.
+  # 2 high: sharp, js-yaml) is in this subproject's own lockfile, which had
+  # no dependabot.yml entry, so no PR was ever opened for any of them.
+  - package-ecosystem: "npm"
+    directory: "/tools/intelligence-engine-studio"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    reviewers:
+      - harbourviewcompany-create
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
