@@ -3,18 +3,19 @@
 | Migration | Purpose | Production effect |
 |-----------|---------|-------------------|
 | `20260923120000_signal_engine_autonomy_foundations.sql` | `autonomy_policies` + `signal_decision_events` | Tables only; **no** Full Auto enablement; RLS deny client roles |
+| `20260923140000_signal_autonomy_columns_and_decision_log.sql` | Columns on `signals` + AFTER UPDATE decision log | Observability only; promote path unchanged |
 | Existing `classifier_validation` | Mechanical promote gate | Unchanged by this work |
 
 ## Rules
 
-1. Additive only (`CREATE IF NOT EXISTS`, `ON CONFLICT DO NOTHING`).
+1. Additive only (`CREATE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `ON CONFLICT DO NOTHING`).
 2. Never flip `gate_passed` / `requires_human` without stratified eval evidence + owner sign-off.
-3. Client roles (`anon`, `authenticated`) have no grants; use service role / security definer for writers.
-4. See `docs/SIGNALS_MAX_AUTOMATION_DESIGN.md` for autonomy levels and gate stack.
+3. Client roles (`anon`, `authenticated`) have no grants on autonomy tables; use service role / security definer for writers.
+4. Do not rewrite `hv_promote_signals` in autonomy PRs unless the change is a verified reconstruction of the live body.
+5. See `docs/SIGNALS_MAX_AUTOMATION_DESIGN.md` for autonomy levels and gate stack.
 
-## Next (not in this migration)
+## Next (not yet shipped)
 
-- Optional columns on `signals`: `autonomy_level`, `gate_scores`, `promotion_path`
 - `source_yield_metrics`
-- Admin read UI for decision events
-- AFTER UPDATE logging trigger (only when promote path is ready)
+- Admin UI surface for decision events (API counts available via intelligence-health)
+- Evaluator that writes `autonomy_level` / `gate_scores` before promote
