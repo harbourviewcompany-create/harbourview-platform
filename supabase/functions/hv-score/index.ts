@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isOperatorOrServiceRoleAuthorized } from "../_shared/harbourview-auth.ts";
 
 // ============================================================
 // hv-score v1
@@ -12,8 +13,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const DEV_BYPASS_SECRET = Deno.env.get("HV_DEV_BYPASS_SECRET") ?? "";
-const CRON_CALLER_HEADER = "x-harbourview-cron-caller";
-const EXPECTED_CRON_CALLER = "pg_cron_hv_score";
+// Replaces the old static "pg_cron_hv_score" caller header, which was
+// plaintext in a public repo and so wasn't a secret at all. Callers now
+// authenticate with either this per-function secret (x-harbourview-cron-secret)
+// or the service-role bearer token, matching hv-private-pipeline-runner and
+// hv-pipeline-orchestrator, which already send the latter — no caller changes
+// needed for those two.
+const HV_SCORE_CRON_SECRET = Deno.env.get("HV_SCORE_CRON_SECRET") ?? "";
+const CRON_SECRET_HEADER = "x-harbourview-cron-secret";
 
 const HV_WORKSPACE_ID = "a85840b4-c522-4cb8-9097-2f6c30a78417";
 
@@ -65,12 +72,16 @@ function respond(status: number, body: Record<string, unknown>): Response {
 }
 
 function authorizeCaller(req: Request): Response | null {
-  const cronCaller = req.headers.get(CRON_CALLER_HEADER) ?? "";
   const devBypass = req.headers.get("x-hv-dev-bypass") ?? "";
-  const isCron = cronCaller === EXPECTED_CRON_CALLER;
-  const isDev = DEV_BYPASS_SECRET && devBypass === DEV_BYPASS_SECRET;
-  if (!isCron && !isDev) {
-    return respond(403, { ok: false, error: "forbidden", reason: "Requires cron caller or dev bypass header" });
+  const isDev = Boolean(DEV_BYPASS_SECRET) && devBypass === DEV_BYPASS_SECRET;
+  const isAuthorized = isOperatorOrServiceRoleAuthorized({
+    operatorSecret: HV_SCORE_CRON_SECRET,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    callerSecret: req.headers.get(CRON_SECRET_HEADER),
+    authorization: req.headers.get("Authorization"),
+  });
+  if (!isAuthorized && !isDev) {
+    return respond(403, { ok: false, error: "forbidden", reason: "Requires operator secret, service-role bearer, or dev bypass header" });
   }
   return null;
 }

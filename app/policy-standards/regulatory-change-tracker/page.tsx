@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 }
 
 // ISR: regulatory tracker — short window keeps published change data fresh
-export const revalidate = 900
+export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 type Signal = { id: string; headline: string; country: string | null; date: string | null; top_lane: string | null; cat: string | null }
 

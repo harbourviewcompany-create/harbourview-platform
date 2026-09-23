@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -126,6 +127,15 @@ function briefingResponse(briefing: string, options: { cached?: boolean; degrade
 }
 
 export async function POST(request: Request) {
+  // The only caller, CommandCentre, is only rendered under /dashboard, which
+  // proxy.ts already requires a session for — this route itself had no auth
+  // of its own, so it was reachable directly by anyone with the URL.
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   let body: unknown
   try {
     body = await request.json()

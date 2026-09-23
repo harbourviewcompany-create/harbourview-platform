@@ -63,7 +63,8 @@ type GlobeContextType = {
   reconnect: () => void
 }
 
-const GlobeContext = createContext<GlobeContextType | null>(null)
+/** Exported so surfaces that only need liveData can soft-fall back outside the provider (SSR smoke). */
+export const GlobeContext = createContext<GlobeContextType | null>(null)
 const EMPTY_DATA: GlobeLiveData = { countries: [], signalsByIso2: {}, unmappedSignalCountries: {} }
 
 export function GlobeProvider({ children }: { children: ReactNode }) {
