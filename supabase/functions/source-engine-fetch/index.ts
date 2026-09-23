@@ -368,6 +368,10 @@ Deno.serve(async (req: Request) => {
     .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(limit);
 
+  if (requestUrl.searchParams.get("pass")?.startsWith("continuous")) {
+    query = query.eq("tier", 1);
+  }
+
   if (sourceIdParam) query = query.eq("id", sourceIdParam);
   if (adapterParam) query = query.eq("adapter", adapterParam);
   if (tierParam) query = query.eq("tier", Number(tierParam));
