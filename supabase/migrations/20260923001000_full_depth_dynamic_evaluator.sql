@@ -99,7 +99,25 @@ select
     when b.dimension_key='access_rules' then
       case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
            when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
-    when b.dimension_key in ('commercial_activity','import','export','distribution','testing','packaging_labeling','tax_fees') then
+    when b.dimension_key='commercial_activity' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key='import' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key='export' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key='distribution' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key='testing' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key='packaging_labeling' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key='tax_fees' then
       case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
            when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
     when b.dimension_key='regulator' then
