@@ -17,15 +17,31 @@ type Props = {
 }
 
 export function MarketFeed({ rows, loading, onOpen, onCta, savedIds = new Set(), comparedIds = new Set(), onToggleSaved, onToggleCompare }: Props) {
+  let gridImageIndex = 0
+
   return (
     <div className="cc-mkt-feed">
       {rows.map(row => {
         if (row.type === 'grid') {
           return (
             <div key={row.id} className="cc-mkt-grid">
-              {row.items.map(item => (
-                <MarketCard key={item.id} listing={item} onOpen={onOpen} onCta={onCta} isSaved={savedIds.has(item.id)} isCompared={comparedIds.has(item.id)} onToggleSaved={onToggleSaved} onToggleCompare={onToggleCompare} />
-              ))}
+              {row.items.map(item => {
+                const priority = gridImageIndex < 4
+                gridImageIndex += 1
+                return (
+                  <MarketCard
+                    key={item.id}
+                    listing={item}
+                    onOpen={onOpen}
+                    onCta={onCta}
+                    isSaved={savedIds.has(item.id)}
+                    isCompared={comparedIds.has(item.id)}
+                    onToggleSaved={onToggleSaved}
+                    onToggleCompare={onToggleCompare}
+                    priority={priority}
+                  />
+                )
+              })}
             </div>
           )
         }
@@ -33,9 +49,20 @@ export function MarketFeed({ rows, loading, onOpen, onCta, savedIds = new Set(),
           return <MarketRelatedRail key={row.id} title={row.title} items={row.items} onOpen={onOpen} />
         }
         if (row.type === 'featured') {
+          const priority = gridImageIndex < 4
+          gridImageIndex += 1
           return (
             <div key={row.id} className="cc-mkt-grid">
-              <MarketCard listing={row.item} onOpen={onOpen} onCta={onCta} isSaved={savedIds.has(row.item.id)} isCompared={comparedIds.has(row.item.id)} onToggleSaved={onToggleSaved} onToggleCompare={onToggleCompare} />
+              <MarketCard
+                listing={row.item}
+                onOpen={onOpen}
+                onCta={onCta}
+                isSaved={savedIds.has(row.item.id)}
+                isCompared={comparedIds.has(row.item.id)}
+                onToggleSaved={onToggleSaved}
+                onToggleCompare={onToggleCompare}
+                priority={priority}
+              />
             </div>
           )
         }
