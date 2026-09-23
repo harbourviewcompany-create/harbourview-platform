@@ -192,9 +192,32 @@ async function processJob(job: any) {
     .eq("verification_status","verified")
     .maybeSingle();
   if (existingEvidenceError) throw new Error(`evidence_lookup_failed: ${existingEvidenceError.message}`);
-  const evidenceWrite = existingEvidence
-    ? await supabase.from("jurisdiction_data_depth_evidence").update({...evidenceRow,updated_at:now}).eq("id",existingEvidence.id)
-    : await supabase.from("jurisdiction_data_depth_evidence").insert(evidenceRow);
+  let evidenceWrite;
+  if (existingEvidence) {
+    evidenceWrite = await supabase
+      .from("jurisdiction_data_depth_evidence")
+      .update({...evidenceRow,updated_at:now})
+      .eq("id",existingEvidence.id);
+  } else {
+    evidenceWrite = await supabase
+      .from("jurisdiction_data_depth_evidence")
+      .insert(evidenceRow);
+    if (evidenceWrite.error?.code === "23505") {
+      const {data: racedEvidence,error:racedLookupError}=await supabase
+        .from("jurisdiction_data_depth_evidence")
+        .select("id")
+        .eq("jurisdiction_key",job.jurisdiction_key)
+        .eq("dimension_key",job.dimension_key)
+        .eq("verification_status","verified")
+        .maybeSingle();
+      if (racedLookupError) throw new Error(`evidence_race_lookup_failed: ${racedLookupError.message}`);
+      if (!racedEvidence) throw new Error(`evidence_write_failed: ${evidenceWrite.error.message}`);
+      evidenceWrite = await supabase
+        .from("jurisdiction_data_depth_evidence")
+        .update({...evidenceRow,updated_at:now})
+        .eq("id",racedEvidence.id);
+    }
+  }
   if (evidenceWrite.error) throw new Error(`evidence_write_failed: ${evidenceWrite.error.message}`);
 
   const {error: appError}=await supabase.from("jurisdiction_data_depth_applicability_evidence").upsert({
