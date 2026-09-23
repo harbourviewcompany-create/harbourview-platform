@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 
 // ISR: directory data
 export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 type Professional = {
   id: string
