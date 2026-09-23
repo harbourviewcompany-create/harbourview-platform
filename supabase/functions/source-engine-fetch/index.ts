@@ -18,6 +18,7 @@ type SourceRow = {
   requires_translation: boolean | null;
   requires_auth: boolean | null;
   metadata: Record<string, unknown> | null;
+  jurisdiction_code: string | null;
 };
 
 type SnapshotCandidate = {
@@ -360,15 +361,16 @@ Deno.serve(async (req: Request) => {
     return respond(400, { ok: false, error: "invalid_adapter", valid: validAdapters });
   }
 
+  const continuousPass = requestUrl.searchParams.get("pass")?.startsWith("continuous") ?? false;
   let query = supabase
     .from("source_registry")
-    .select("id,source_name,source_url,adapter,tier,language,requires_translation,requires_auth,metadata")
+    .select("id,source_name,source_url,adapter,tier,language,requires_translation,requires_auth,metadata,jurisdiction_code")
     .eq("is_active", true)
     .eq("relevance_status", "active")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(limit);
 
-  if (requestUrl.searchParams.get("pass")?.startsWith("continuous")) {
+  if (continuousPass) {
     query = query.eq("tier", 1)
       .in("source_type", [
         "regulator",
@@ -379,6 +381,27 @@ Deno.serve(async (req: Request) => {
         "official_legal",
         "primary_legislation",
       ]);
+
+    // Spend continuous-worker capacity on jurisdictions that are still blocked.
+    // This prevents the worker from repeatedly consuming batches on already-verified
+    // jurisdictions while 235 jurisdictions remain fail-closed.
+    const { data: blockedJurisdictions, error: blockedError } = await supabase
+      .from("countries")
+      .select("iso_alpha2")
+      .is("verified_regulatory_tier", null)
+      .limit(400);
+
+    if (blockedError) {
+      return respond(500, { ok: false, error: "blocked_jurisdiction_query_failed", detail: blockedError.message });
+    }
+
+    const blockedCodes = (blockedJurisdictions ?? [])
+      .map((row) => typeof row.iso_alpha2 === "string" ? row.iso_alpha2 : "")
+      .filter(Boolean);
+
+    if (blockedCodes.length > 0) {
+      query = query.in("jurisdiction_code", blockedCodes);
+    }
   }
 
   if (sourceIdParam) query = query.eq("id", sourceIdParam);
