@@ -10,8 +10,7 @@ where not exists(select 1 from public.regulatory_market_access_evidence where ev
 
 insert into public.regulatory_market_access_evidence
 (evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
-select 'primary-evidence-my-20260923','medical_limited_trade',
- 'medical_limited_trade',
+select 'primary-evidence-my-20260923','MY','medical_limited_trade',
  'Malaysia''s Ministry of Health states that cannabis is controlled under the Dangerous Drugs Act 1952, Poisons Act 1952 and Sale of Drugs Act 1952, including controls on import, export, sale, supply, manufacture, cultivation, possession and use. For human medical products, the Ministry states importation and related manufacture, sale, supply, possession and use can occur by appropriately licensed or authorized persons, and that cannabis-based medical products require product registration before manufacture, sale, supply, import, possession or administration. The current Ministry FAQ also records that no cannabis-based human medical product was registered at the time of publication, so this is a tightly controlled medical legal pathway rather than a general commercial market.',
  'Ministry of Health Malaysia — Pharmaceutical Services Programme',
  'https://pharmacy.moh.gov.my/ms/entri/soalan-lazim-kanabis-cannabis.html',
