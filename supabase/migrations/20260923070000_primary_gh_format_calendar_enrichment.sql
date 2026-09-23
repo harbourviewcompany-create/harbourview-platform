@@ -34,7 +34,7 @@ where not exists(select 1 from public.regulatory_calendar where iso2='GH' and ti
 insert into public.regulatory_calendar
 (iso2,event_type,title,expected_date,confidence,source_url,source_label,status)
 select 'GH','effective','NACOC presents first cannabis cultivation licences','2026-07-31','confirmed',
-'https://www.ncc.gov.gh/2026/07/%F0%9D%90%8D%F0%9D%80%80%F0%9D%82%F0%9D%90%8E%F0%9D%82%F0%9D%84-%F0%9D%90%8F%F0%9D%8D%80%F0%9D%90%8E%F0%9D%90%82-%F0%9D%90%8E%F0%9D%90%82-%F0%9D%90%82%F0%9D%90%9A%F0%9D%90%9C/','Narcotics Control Commission — Ghana','effective'
+'https://www.ncc.gov.gh/2026/07/%F0%9D%90%8D%F0%9D%90%80%F0%9D%90%82%F0%9D%90%8E%F0%9D%90%82-%F0%9D%90%AB%F0%9D%90%AC%F0%9D%90%AC%F0%9D%90%A7%F0%9D%90%AD%F0%9D%90%AC-%F0%9D%90%82%F0%9D%90%9A%F0%9D%90%A7/','Narcotics Control Commission — Ghana','effective'
 where not exists(select 1 from public.regulatory_calendar where iso2='GH' and title='NACOC presents first cannabis cultivation licences');
 
 update public.jurisdiction_dimension_coverage
