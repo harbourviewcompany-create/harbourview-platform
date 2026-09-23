@@ -48,8 +48,21 @@ select c.id,'CL','depth-v1-cl-controlled-medical-cannabis','Controlled medicinal
 'Chile subjects cannabis-related controlled substances to ISP authorization and control. Official ISP material identifies annual forecasts, official import/export certificates, controlled-product distribution documentation, prescription-based dispensing, transport authorization and destruction controls. Pharmaceutical products require sanitary registration before distribution or use.',
 array['https://www.ispch.cl/anamed/medicamentos/estupefacientes-y-psicotropicos/','https://www.ispch.cl/anamed/medicamentos/registro-sanitario-de-productos-farmaceuticos/'],
 'needs_review',now()
-from public.countries c where c.iso2='CL'
-on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now();
+from public.countries c
+where c.iso2='CL'
+  and not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='CL' and p.slug='depth-v1-cl-controlled-medical-cannabis');
+
+update public.regulatory_pathways
+set name='Controlled medicinal cannabis and pharmaceutical distribution/import pathway',
+    pathway_type='domestic_authorization',
+    legal_basis='DS 404/1983; DS 3/2010; Law 20.000 and implementing controlled-substance rules',
+    regulator='Instituto de Salud Pública de Chile',
+    status='active',
+    effective_date=null,
+    summary='Chile subjects cannabis-related controlled substances to ISP authorization and control. Official ISP material identifies annual forecasts, official import/export certificates, controlled-product distribution documentation, prescription-based dispensing, transport authorization and destruction controls. Pharmaceutical products require sanitary registration before distribution or use.',
+    source_urls=array['https://www.ispch.cl/anamed/medicamentos/estupefacientes-y-psicotropicos/','https://www.ispch.cl/anamed/medicamentos/registro-sanitario-de-productos-farmaceuticos/'],
+    last_verified_at=now()
+where iso_alpha2='CL' and slug='depth-v1-cl-controlled-medical-cannabis';
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at)
@@ -59,8 +72,21 @@ select c.id,'EC','depth-v1-ec-nonpsychoactive-cannabis-products','Regulated non-
 'Ecuador regulates specified finished products containing non-psychoactive cannabis or hemp. ARCSA rules require operating authorization and product registration/notification as applicable; imported finished products are subject to registration/notification requirements, while applicable medicines and medicinal products are subject to pharmaceutical controls.',
 array['https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/06/Acuerdo-Ministerial-148_Reglamento-para-el-uso-terapeutico-prescripcion-y-dispensacion-del-cannabis-medicinal-y-productos-farmaceuticos-que-contienen-cannabinoides.pdf'],
 'needs_review',now()
-from public.countries c where c.iso2='EC'
-on conflict(slug) do update set name=excluded.name,pathway_type=excluded.pathway_type,legal_basis=excluded.legal_basis,regulator=excluded.regulator,status=excluded.status,effective_date=excluded.effective_date,summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now();
+from public.countries c
+where c.iso2='EC'
+  and not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='EC' and p.slug='depth-v1-ec-nonpsychoactive-cannabis-products');
+
+update public.regulatory_pathways
+set name='Regulated non-psychoactive cannabis/hemp product pathway',
+    pathway_type='licensed_market',
+    legal_basis='ARCSA-DE-002-2021-MAFG; Acuerdo Ministerial 109; medicinal-cannabis therapeutic-use regulations',
+    regulator='ARCSA / Ministry of Health',
+    status='active',
+    effective_date='2021-02-03',
+    summary='Ecuador regulates specified finished products containing non-psychoactive cannabis or hemp. ARCSA rules require operating authorization and product registration/notification as applicable; imported finished products are subject to registration/notification requirements, while applicable medicines and medicinal products are subject to pharmaceutical controls.',
+    source_urls=array['https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/02/Resolucion-ARCSA-DE-002-2021-MAFG_Normativa-Tecnica-Sanitaria-para-la-regulacion-y-control-de-productos-terminados-de-uso-y-consumo-humano-que-contengan-Cannabis-No-Psicoactivo-o-Canamo.pdf','https://www.controlsanitario.gob.ec/wp-content/uploads/downloads/2021/06/Acuerdo-Ministerial-148_Reglamento-para-el-uso-terapeutico-prescripcion-y-dispensacion-del-cannabis-medicinal-y-productos-farmaceuticos-que-contienen-cannabinoides.pdf'],
+    last_verified_at=now()
+where iso_alpha2='EC' and slug='depth-v1-ec-nonpsychoactive-cannabis-products';
 
 insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
 select 'pathway',p.id,'DS 404/1983 and DS 3/2010','Controlled substances and pharmaceutical registration','regulator',
