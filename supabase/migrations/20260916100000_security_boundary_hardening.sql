@@ -75,16 +75,14 @@ end $$;
 -- Pin the search path on every SECURITY DEFINER function that is exposed to a
 -- browser role and currently lacks an explicit search_path setting.
 --
--- Use PostgreSQL's machine-readable object identity instead of casting the OID to
--- regprocedure. A regprocedure text input must contain a complete signature;
--- pg_identify_object returns the exact ALTER FUNCTION identity, including the
--- required argument list, without reparsing a function name.
-do $$
+-- pg_proc.oid::regprocedure is PostgreSQL's canonical machine-readable function
+-- identity, including the complete argument signature required by ALTER FUNCTION.
+do $
 declare
   r record;
 begin
   for r in
-    select (pg_identify_object('pg_proc'::regclass, p.oid, 0)).identity as function_signature
+    select p.oid::regprocedure::text as function_signature
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where p.prosecdef
@@ -99,7 +97,7 @@ begin
       r.function_signature
     );
   end loop;
-end $$;
+end $;
 
 -- Public corridor statistics are intentionally exposed through the API route.
 -- The wrapper is SECURITY DEFINER and returns only the aggregate contract, so
