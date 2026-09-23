@@ -12,6 +12,8 @@ type Props = {
   isCompared?: boolean
   onToggleSaved?: (id: string) => void
   onToggleCompare?: (id: string) => void
+  /** True for above-the-fold cards — improves LCP on mobile Market. */
+  priority?: boolean
 }
 
 type MediaStage = 'primary' | 'fallback'
@@ -48,7 +50,16 @@ function resolveCardMedia(listing: MarketCardModel, stage: MediaStage): MarketCa
   }
 }
 
-export function MarketCard({ listing, onOpen, onCta, isSaved = false, isCompared = false, onToggleSaved, onToggleCompare }: Props) {
+export function MarketCard({
+  listing,
+  onOpen,
+  onCta,
+  isSaved = false,
+  isCompared = false,
+  onToggleSaved,
+  onToggleCompare,
+  priority = false,
+}: Props) {
   const secondary = listing.variant === 'tierB-teaser' || listing.variant === 'catalogue'
   const [mediaStage, setMediaStage] = useState<MediaStage>('primary')
   const mediaSignature = listing.media
@@ -85,7 +96,8 @@ export function MarketCard({ listing, onOpen, onCta, isSaved = false, isCompared
             height={480}
             sizes="(max-width: 640px) 50vw, 320px"
             quality={75}
-            loading="lazy"
+            priority={priority}
+            loading={priority ? 'eager' : 'lazy'}
             onError={() => {
               if (mediaStage === 'primary' && media.fallbackSrc && media.fallbackSrc !== media.src) setMediaStage('fallback')
             }}
