@@ -71,18 +71,3 @@ set status='verified_populated',applicability='applicable',
 last_evaluated_at=now()
 where jurisdiction_key='JM' and dimension_key in ('source_registry','verified_pathways');
 
--- Keep research queue pressure explicit for the remaining evidence dimensions.
-insert into public.jurisdiction_data_depth_tasks
-(jurisdiction_key,dimension_key,status,notes,updated_at)
-select j.iso2,d.dimension_key,'research_required',
-'Jurisdiction has primary regulatory evidence, but this dimension has not been independently evidenced by a primary source; do not infer completeness from the market-access pathway.',
-now()
-from public.countries j
-cross join public.jurisdiction_data_depth_dimensions d
-where j.iso2 in ('BR','CO','AR','JM')
-and d.dimension_key in ('format_rules','access_rules','commercial_activity','import','export','distribution','testing','packaging_labeling','tax_fees','regulator','change_history','market_metrics','trade_flows','participants','buyers','sellers','counterparties','relationships','opportunities','signals')
-and not exists (
-  select 1 from public.jurisdiction_data_depth_tasks t
-  where t.jurisdiction_key=j.iso2 and t.dimension_key=d.dimension_key
-)
-on conflict do nothing;
