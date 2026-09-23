@@ -48,6 +48,8 @@ export async function GET(request: Request) {
     { data: trajectoryRows },
     { count: signalCount7d },
     outcomeRpc,
+    { count: decisionEvents7d },
+    { count: autonomyPoliciesCount },
   ] = await Promise.all([
     supabase.from('source_snapshots').select('*', { count: 'exact', head: true })
       .eq('processing_status', 'pending_extraction'),
@@ -81,6 +83,14 @@ export async function GET(request: Request) {
     supabase.from('ia_signals').select('*', { count: 'exact', head: true })
       .gte('detected_at', stale7d.slice(0, 10)),
     publicClient.rpc('hv_intelligence_outcome_check'),
+    // Public schema tables (service role). Missing table → null counts, not hard fail.
+    publicClient
+      .from('signal_decision_events')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', stale7d),
+    publicClient
+      .from('autonomy_policies')
+      .select('*', { count: 'exact', head: true }),
   ])
 
   const isoSet = new Set((coverageRows ?? []).map((r: { iso: string | null }) => r.iso).filter(Boolean))
@@ -144,6 +154,11 @@ export async function GET(request: Request) {
       return acc
     }, {}),
     signals_last_7d: signalCount7d ?? 0,
+    signal_engine: {
+      decision_events_7d: decisionEvents7d ?? 0,
+      autonomy_policies_count: autonomyPoliciesCount ?? 0,
+      note: 'Counts are zero until migrations 20260923120000 / 20260923140000 are applied.',
+    },
     generated_at:    new Date().toISOString(),
   })
 }
