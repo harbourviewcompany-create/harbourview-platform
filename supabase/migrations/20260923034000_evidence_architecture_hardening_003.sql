@@ -108,10 +108,10 @@ legacy_regulatory as (
              select 1
              from public.source_snapshots ss
              join public.source_registry sr on sr.id=ss.source_id
-             where lower(ss.snapshot_hash)=lower(e.source_snapshot_sha256)
-               and ss.http_status between 200 and 299
-               and ss.fetched_at is not null
-               and ss.raw_payload is not null and length(ss.raw_payload)>0
+             where lower(ss.raw_html_hash)=lower(e.source_snapshot_sha256)
+               and ss.fetch_status='success'
+               and ss.captured_at is not null
+               and ss.captured_text is not null and length(ss.captured_text)>0
                and sr.source_url=e.authority_url
            )) qualifying_current,
          count(*) filter (where e.active and e.verified_at is not null and e.expires_at>=now()) current_rows
