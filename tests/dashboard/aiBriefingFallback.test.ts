@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const originalApiKey = process.env.ANTHROPIC_API_KEY
-
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: {
@@ -12,13 +10,12 @@ vi.mock('@/lib/supabase/server', () => ({
 
 describe('AI briefing route fallback', () => {
   beforeEach(() => {
-    delete process.env.ANTHROPIC_API_KEY
+    vi.stubEnv('ANTHROPIC_API_KEY', '')
     vi.restoreAllMocks()
   })
 
   afterEach(() => {
-    if (originalApiKey === undefined) delete process.env.ANTHROPIC_API_KEY
-    else process.env.ANTHROPIC_API_KEY = originalApiKey
+    vi.unstubAllEnvs()
   })
 
   it('returns a grounded 200 fallback when the enhanced provider is not configured', async () => {
