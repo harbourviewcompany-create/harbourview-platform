@@ -60,6 +60,29 @@ opportunity_counts as (
 ),
 legacy as (
   select * from public.v_jurisdiction_data_depth
+),
+market_access_snapshot_gate as (
+  select
+    e.jurisdiction_iso2 as jurisdiction_key,
+    count(*) filter (
+      where e.active
+        and e.verified_at is not null
+        and e.expires_at >= now()
+    ) as current_verified_rows,
+    count(*) filter (
+      where e.active
+        and e.verified_at is not null
+        and e.expires_at >= now()
+        and e.source_snapshot_sha256 is not null
+        and g.qualifying_snapshot
+        and lower(e.source_snapshot_sha256)=lower(g.snapshot_hash)
+        and e.authority_url=g.registered_source_url
+    ) as qualifying_current_rows
+  from public.regulatory_market_access_evidence e
+  left join public.v_jurisdiction_verified_snapshot_gate g
+    on lower(e.source_snapshot_sha256)=lower(g.snapshot_hash)
+   and e.authority_url=g.registered_source_url
+  group by e.jurisdiction_iso2
 )
 select
   b.jurisdiction_key,
@@ -76,13 +99,11 @@ select
     when b.dimension_key='identity' then 'complete'
     when b.dimension_key='hierarchy' then b.status
     when b.dimension_key='regulatory_status' then
-      case when coalesce(l.current_verified_evidence_rows,0)>0
-             and coalesce(l.snapshotted_evidence_rows,0)>0 then 'complete'
-           when coalesce(l.evidence_rows,0)>0 then 'blocked'
+      case when coalesce(ma.qualifying_current_rows,0)>0 then 'complete'
+           when coalesce(ma.current_verified_rows,0)>0 then 'blocked'
            else 'missing' end
     when b.dimension_key='regulatory_tier' then
-      case when l.current_verified_evidence_rows>0
-             and l.snapshotted_evidence_rows>0
+      case when coalesce(ma.qualifying_current_rows,0)>0
              and c.verified_regulatory_tier is not null then 'complete'
            when c.verified_regulatory_tier is not null then 'blocked'
            else 'missing' end
@@ -156,10 +177,10 @@ select
     else b.status
   end as evaluated_status,
   case
-    when b.dimension_key='regulatory_status' and coalesce(l.evidence_rows,0)>0 and coalesce(l.current_verified_evidence_rows,0)=0
-      then 'Evidence exists but no current verified non-expired evidence is available.'
-    when b.dimension_key='regulatory_tier' and c.verified_regulatory_tier is not null and coalesce(l.snapshotted_evidence_rows,0)=0
-      then 'Verified tier exists without qualifying snapshotted evidence.'
+    when b.dimension_key='regulatory_status' and coalesce(ma.current_verified_rows,0)>0 and coalesce(ma.qualifying_current_rows,0)=0
+      then 'Current verified market-access evidence exists but lacks a qualifying source snapshot with matching SHA-256 and registered source URL.'
+    when b.dimension_key='regulatory_tier' and c.verified_regulatory_tier is not null and coalesce(ma.qualifying_current_rows,0)=0
+      then 'Verified tier exists without qualifying current primary-source snapshot provenance.'
     when b.dimension_key in ('access_rules','commercial_activity','import','export','distribution','testing','packaging_labeling','tax_fees')
       and coalesce(rc.conflict_rows,0)>0 then 'Conflicting structured rule evidence requires resolution.'
     when b.dimension_key='change_history' and coalesce(cc.conflict_rows,0)>0 then 'Conflicting change evidence requires resolution.'
@@ -221,7 +242,8 @@ left join participant_counts pc on pc.jurisdiction_key=b.jurisdiction_key and pc
   when b.dimension_key='counterparties' then 'counterparty'
 end
 left join relationship_counts rel on rel.jurisdiction_key=b.jurisdiction_key
-left join opportunity_counts oc on oc.jurisdiction_key=b.jurisdiction_key;
+left join opportunity_counts oc on oc.jurisdiction_key=b.jurisdiction_key
+left join market_access_snapshot_gate ma on ma.jurisdiction_key=b.jurisdiction_key;
 
 create or replace view public.v_jurisdiction_data_depth_summary
 with (security_invoker = on) as
