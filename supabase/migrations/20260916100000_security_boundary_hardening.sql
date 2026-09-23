@@ -77,7 +77,7 @@ end $$;
 --
 -- pg_proc.oid::regprocedure is PostgreSQL's canonical machine-readable function
 -- identity, including the complete argument signature required by ALTER FUNCTION.
-do $
+do $func$
 declare
   r record;
 begin
@@ -97,7 +97,7 @@ begin
       r.function_signature
     );
   end loop;
-end $;
+end $func$;
 
 -- Public corridor statistics are intentionally exposed through the API route.
 -- The wrapper is SECURITY DEFINER and returns only the aggregate contract, so
