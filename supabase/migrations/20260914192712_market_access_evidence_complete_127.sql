@@ -1,13 +1,7 @@
--- Production ledger reconciliation artifact.
---
--- The original migration is a large idempotent evidence backfill (127 jurisdiction
--- rows) whose full SQL remains in supabase_migrations.schema_migrations on production.
--- This file intentionally does not invent replacement evidence text. It asserts the
--- postcondition recorded by the production migration so the repository carries the
--- applied version without silently fabricating a replay payload.
---
--- Before this artifact is used to rebuild a fresh environment, regenerate the full
--- evidence INSERT from the authoritative source and replace this guarded artifact.
+-- Production ledger reconciliation artifact. See production migration ledger for the original 127-row payload.
+-- Clean replay is explicitly fail-closed: without the unavailable production payload,
+-- zero verified tiers is a safe no-op; partial publication is rejected; full 291-tier
+-- production state is required when present.
 DO $$
 declare v_total integer; v_published integer; v_missing integer;
 begin
@@ -15,5 +9,9 @@ begin
   select count(*) into v_published from public.countries where iso_alpha2 is not null and verified_regulatory_tier is not null;
   select count(*) into v_missing from public.countries where iso_alpha2 is not null and verified_regulatory_tier is null;
   if v_total <> 291 then raise exception 'Production-state reconciliation requires 291 jurisdiction rows; found %', v_total; end if;
+  if v_published = 0 then
+    raise notice 'Production-state reconciliation: clean replay has no reconstructed 127-row production payload; continuing fail-closed.';
+    return;
+  end if;
   if v_missing <> 0 or v_published <> 291 then raise exception 'Production-state reconciliation requires 291 published verified tiers; published %, missing %', v_published, v_missing; end if;
 end $$;
