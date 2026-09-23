@@ -55,7 +55,11 @@ set jurisdiction_level='subnational',
     updated_at=now()
 from explicit_parent e
 where h.jurisdiction_key=e.jurisdiction_key
-  and h.jurisdiction_level='unknown';
+  and h.jurisdiction_level='unknown'
+  and exists (
+    select 1 from public.countries parent
+    where parent.iso_alpha2=e.parent_jurisdiction_key
+  );
 
 create index if not exists jurisdiction_hierarchy_parent_idx
   on public.jurisdiction_hierarchy(parent_jurisdiction_key);
