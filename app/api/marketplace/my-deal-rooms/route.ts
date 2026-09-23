@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAuthenticatedUser, createSupabaseServiceClient } from '@/lib/supabase/server'
+import { dealRoomPartiesFromRow, filterDealRoomsForUser } from '@/lib/marketplace/orgScope'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -25,5 +26,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to load deal rooms' }, { status: 500 })
   }
 
-  return NextResponse.json({ rooms: data ?? [] })
+  const rows = data ?? []
+  const allowedIds = new Set(
+    filterDealRoomsForUser(
+      rows.map((row) => ({ id: row.id, ...dealRoomPartiesFromRow(row) })),
+      user.id,
+    ).map((r) => r.id),
+  )
+  const scoped = rows.filter((row) => allowedIds.has(row.id))
+
+  return NextResponse.json({ rooms: scoped })
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { assertPartiesKybVerified } from '@/lib/marketplace/kybDealRoomGate'
+import { canCreateDealRoomBetweenParties } from '@/lib/marketplace/orgScope'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -41,6 +42,17 @@ export async function POST(req: NextRequest) {
       .eq('id', listingId)
       .maybeSingle()
     listingOwnerId = listing?.user_id ?? null
+  }
+
+  const partiesOk = canCreateDealRoomBetweenParties({
+    initiatorId: user.id,
+    counterpartyId: listingOwnerId,
+  })
+  if (!partiesOk.allowed) {
+    return NextResponse.json(
+      { error: 'Cannot open a deal room with yourself as the only party', code: 'SELF_DEAL_BLOCKED' },
+      { status: 400 },
+    )
   }
 
   if (!kyb_override) {

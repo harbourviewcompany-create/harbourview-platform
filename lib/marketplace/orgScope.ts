@@ -59,3 +59,38 @@ export function filterDealRoomsForUser<T extends DealRoomParties>(
       }).allowed,
   )
 }
+
+/**
+ * Creating a room where initiator and counterparty are the same user is not a
+ * commercial negotiation — block unless admin tooling sets isAdmin.
+ */
+export function canCreateDealRoomBetweenParties(input: {
+  initiatorId: string
+  counterpartyId: string | null | undefined
+  isAdmin?: boolean
+}): OrgScopeDecision {
+  if (input.isAdmin) return { allowed: true, reason: 'admin' }
+  if (!input.counterpartyId) return { allowed: true, reason: 'party' }
+  if (input.initiatorId === input.counterpartyId) {
+    return { allowed: false, reason: 'not_a_party' }
+  }
+  return { allowed: true, reason: 'party' }
+}
+
+/** Map a DB deal_rooms row into DealRoomParties for scope checks. */
+export function dealRoomPartiesFromRow(row: {
+  initiator_id?: string | null
+  counterparty_id?: string | null
+  workspace_id?: string | null
+  workspace_ids?: Array<string | null | undefined> | null
+}): DealRoomParties {
+  const workspaceIds = [
+    ...(row.workspace_ids ?? []),
+    row.workspace_id,
+  ]
+  return {
+    initiatorId: row.initiator_id,
+    counterpartyId: row.counterparty_id,
+    workspaceIds,
+  }
+}
