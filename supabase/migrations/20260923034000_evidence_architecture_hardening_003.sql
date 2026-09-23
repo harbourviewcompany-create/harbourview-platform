@@ -111,6 +111,7 @@ where e.source_snapshot_sha256 is not null
 group by e.evidence_key,e.jurisdiction_iso2,e.authority_url,e.source_snapshot_sha256;
 grant select on public.v_jurisdiction_verified_snapshot_gate to anon, authenticated;
 
+-- Verified structured evidence exists without a qualifying source snapshot is blocked.
 -- A structured evidence row is publication-qualifying only when its referenced
 -- snapshot passes the cryptographic/fetch/payload/source-registry gate.
 create or replace view public.v_jurisdiction_data_depth_evaluator
