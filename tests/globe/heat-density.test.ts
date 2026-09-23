@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildHeatPoints,
   computeDensityField,
+  HEAT_CONFIG,
   densityToUint8,
   heatPointsFingerprint,
   meanTopHeat,
@@ -110,6 +111,12 @@ describe('densityToUint8', () => {
     const out = densityToUint8(new Float32Array([0, 0.5, 1, 1.5, -0.1]), buf)
     expect(out).toBe(buf)
     expect([...out]).toEqual([0, 128, 255, 255, 0])
+  })
+})
+
+describe('heat overlay geometry', () => {
+  it('keeps the heat surface above the country plate top face', () => {
+    expect(HEAT_CONFIG.surfaceRadius).toBeGreaterThan(2.35 + 0.026 + 0.058)
   })
 })
 
