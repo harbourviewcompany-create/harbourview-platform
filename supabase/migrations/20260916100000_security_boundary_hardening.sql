@@ -126,6 +126,8 @@ begin
         or coalesce(with_check, '') !~ '\\( SELECT auth\\.uid\\(\\)'
       )
   loop
+    -- pg_policies expressions are already parenthesized; rebuild them with a
+    -- fresh initPlan wrapper rather than nesting a second policy predicate.
     using_expr := r.qual;
     check_expr := r.with_check;
 
@@ -136,11 +138,12 @@ begin
       check_expr := regexp_replace(check_expr, '(^|[^A-Za-z_])auth\\.uid\\(\\)', '\\1(SELECT auth.uid())', 'g');
     end if;
 
-    if using_expr is not null and check_expr is not null then
+    if using_expr is not null and length(using_expr) - length(replace(using_expr, '(', '')) = length(using_expr) - length(replace(using_expr, ')', ''))
+       and (check_expr is null or length(check_expr) - length(replace(check_expr, '(', '')) = length(check_expr) - length(replace(check_expr, ')', ''))) then
       execute format('alter policy %I on %I.%I using (%s) with check (%s)', r.policyname, r.schemaname, r.tablename, using_expr, check_expr);
-    elsif using_expr is not null then
+    elsif using_expr is not null and length(using_expr) - length(replace(using_expr, '(', '')) = length(using_expr) - length(replace(using_expr, ')', '')) then
       execute format('alter policy %I on %I.%I using (%s)', r.policyname, r.schemaname, r.tablename, using_expr);
-    elsif check_expr is not null then
+    elsif check_expr is not null and length(check_expr) - length(replace(check_expr, '(', '')) = length(check_expr) - length(replace(check_expr, ')', '')) then
       execute format('alter policy %I on %I.%I with check (%s)', r.policyname, r.schemaname, r.tablename, check_expr);
     end if;
   end loop;
