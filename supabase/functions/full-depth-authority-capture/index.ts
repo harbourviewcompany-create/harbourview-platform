@@ -126,9 +126,21 @@ Dates must be YYYY-MM-DD or null. Payload must contain only facts supported by t
 }
 
 async function processJob(job: any) {
-  await supabase.from("jurisdiction_data_depth_capture_jobs")
-    .update({status:"capturing",attempts:(job.attempts ?? 0)+1,last_error:null,updated_at:new Date().toISOString()})
-    .eq("id",job.id);
+  const { data: claimedJob, error: claimError } = await supabase
+    .from("jurisdiction_data_depth_capture_jobs")
+    .update({
+      status:"capturing",
+      attempts:(job.attempts ?? 0)+1,
+      last_error:null,
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",job.id)
+    .eq("status","queued")
+    .select("id,jurisdiction_key,dimension_key,attempts")
+    .maybeSingle();
+  if (claimError) throw new Error(`job_claim_failed: ${claimError.message}`);
+  if (!claimedJob) return {status:"skipped",reason:"JOB_ALREADY_CLAIMED"};
+  job = claimedJob;
 
   const {data: sources,error: sourceError} = await supabase.from("source_registry")
     .select("id,source_name,source_url,jurisdiction_code,iso,is_active,crawl_allowed,source_type,regulator_class")
@@ -156,7 +168,7 @@ async function processJob(job: any) {
   }
 
   const now = new Date().toISOString();
-  const {error: evidenceError} = await supabase.from("jurisdiction_data_depth_evidence").upsert({
+  const evidenceRow = {
     jurisdiction_key:job.jurisdiction_key,
     dimension_key:job.dimension_key,
     evidence_kind:result.evidence_kind,
@@ -171,8 +183,19 @@ async function processJob(job: any) {
     verification_status:"verified",
     verified_at:now,
     updated_at:now,
-  },{onConflict:"jurisdiction_key,dimension_key"});
-  if (evidenceError) throw new Error(`evidence_insert_failed: ${evidenceError.message}`);
+  };
+  const { data: existingEvidence, error: existingEvidenceError } = await supabase
+    .from("jurisdiction_data_depth_evidence")
+    .select("id")
+    .eq("jurisdiction_key",job.jurisdiction_key)
+    .eq("dimension_key",job.dimension_key)
+    .eq("verification_status","verified")
+    .maybeSingle();
+  if (existingEvidenceError) throw new Error(`evidence_lookup_failed: ${existingEvidenceError.message}`);
+  const evidenceWrite = existingEvidence
+    ? await supabase.from("jurisdiction_data_depth_evidence").update({...evidenceRow,updated_at:now}).eq("id",existingEvidence.id)
+    : await supabase.from("jurisdiction_data_depth_evidence").insert(evidenceRow);
+  if (evidenceWrite.error) throw new Error(`evidence_write_failed: ${evidenceWrite.error.message}`);
 
   const {error: appError}=await supabase.from("jurisdiction_data_depth_applicability_evidence").upsert({
     jurisdiction_key:job.jurisdiction_key,
