@@ -28,6 +28,9 @@ begin
     if new.verified_at is null then
       raise exception 'verified evidence requires verified_at';
     end if;
+    if tg_table_name = 'jurisdiction_regulatory_changes' and new.effective_at is null then
+      raise exception 'verified regulatory changes require effective_at';
+    end if;
   end if;
   return new;
 end;
