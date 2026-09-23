@@ -1,4 +1,4 @@
--- Primary Kazakhstan industrial-cannabis enrichment; fail-closed on unsupported dimensions.
+-- Primary Kazakhstan industrial-cannabis enrichment; fail-closed on unsupported dimensions. Idempotent source/evidence/claim writes.
 update public.regulatory_market_access_evidence set active=false,expires_at=now() where evidence_key='hv-mkt-complete-kz-20260913';
 
 insert into public.regulatory_market_access_evidence
