@@ -61,22 +61,22 @@ from public.jurisdiction_regulators r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
 union all
 select 'change', r.jurisdiction_key, r.dimension_key, r.id, r.source_url, r.source_snapshot_id,
-       g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+       g.source_id, g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
 from public.jurisdiction_regulatory_changes r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
 union all
 select 'participant', r.jurisdiction_key, r.participant_type, r.id, r.source_url, r.source_snapshot_id,
-       g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+       g.source_id, g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
 from public.jurisdiction_market_participants r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
 union all
 select 'relationship', r.jurisdiction_key, 'relationships', r.id, r.source_url, r.source_snapshot_id,
-       g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+       g.source_id, g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
 from public.jurisdiction_relationships r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
 union all
 select 'opportunity', r.jurisdiction_key, 'opportunities', r.id, r.source_url, r.source_snapshot_id,
-       g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+       g.source_id, g.qualifying_snapshot, r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
 from public.jurisdiction_opportunities r
 left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id;
 
