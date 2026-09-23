@@ -6,6 +6,7 @@
  * countries.regulatory_tier field is intentionally not read for colouring.
  */
 import { createClient } from '@/lib/supabase/client'
+import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
 import type { RegulatoryTier } from './globe-materials'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -70,19 +71,32 @@ export async function getGlobeCountryMarkers(
     .select(
       'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
     )
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
 
   if (countriesError) {
     throw new Error(`getGlobeCountryMarkers: countries query failed: ${countriesError.message}`)
   }
 
   const nowMs = Date.now()
-  return (countryRows ?? []).map((c) => ({
+  const centroidByIso2 = new Map(
+    naturalEarthCountriesPayload.countries.map((country) => [
+      country.iso2,
+      country.centroid,
+    ]),
+  )
+
+  // The database remains authoritative for stored coordinates. If a country
+  // record has no coordinates, use the checked-in Natural Earth centroid so the
+  // 291-jurisdiction globe/heat surface does not silently drop that jurisdiction.
+  // This is geometry positioning, not regulatory inference.
+  return (countryRows ?? []).map((c) => {
+    const centroid = centroidByIso2.get(c.iso_alpha2)
+    const lat = Number.isFinite(c.lat) ? c.lat : centroid?.[1] ?? null
+    const lng = Number.isFinite(c.lng) ? c.lng : centroid?.[0] ?? null
+    return {
     iso2: c.iso_alpha2,
     name: c.country_name,
-    lat: c.lat,
-    lng: c.lng,
+    lat,
+    lng,
     opportunityScore: c.opportunity_score,
     signalsStatus: c.signals_status,
     marketAccessStatus: c.market_access_status,
@@ -90,7 +104,10 @@ export async function getGlobeCountryMarkers(
     regulatoryTierEvidenceKey: c.regulatory_tier_evidence_key ?? null,
     regulatoryTierVerifiedAt: c.regulatory_tier_verified_at ?? null,
     regulatoryTierExpiresAt: c.regulatory_tier_expires_at ?? null,
-  }))
+    }
+  }).filter((marker): marker is GlobeCountryMarker =>
+    Number.isFinite(marker.lat) && Number.isFinite(marker.lng)
+  )
 }
 
 export async function getGlobeLiveData(
