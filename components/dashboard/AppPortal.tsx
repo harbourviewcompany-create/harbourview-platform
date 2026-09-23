@@ -1,9 +1,18 @@
 'use client'
 
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
 const PORTAL_ATTR = 'data-hvm-portal-open'
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
 
 /**
  * Locks document scroll while any AppPortal is open.
@@ -49,12 +58,44 @@ function useEscapeToClose(open: boolean, onEscape?: () => void) {
   }, [open, onEscape])
 }
 
-function resolvePortalTarget(): HTMLElement | null {
+/** Keep Tab cycling inside the portal layer while open. */
+function useFocusTrap(open: boolean, containerRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const root = containerRef.current
+      if (!root) return
+
+      const nodes = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+        el => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
+      )
+      if (nodes.length === 0) return
+
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      const active = document.activeElement as HTMLElement | null
+
+      if (event.shiftKey) {
+        if (!active || active === first || !root.contains(active)) {
+          event.preventDefault()
+          last.focus()
+        }
+      } else if (!active || active === last || !root.contains(active)) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, containerRef])
+}
+
+export function resolvePortalTarget(): HTMLElement | null {
   if (typeof document === 'undefined') return null
-  return (
-    document.getElementById('hvm-portal-root') ??
-    document.body
-  )
+  return document.getElementById('hvm-portal-root') ?? document.body
 }
 
 type AppPortalProps = {
@@ -65,17 +106,24 @@ type AppPortalProps = {
 }
 
 /**
- * Renders children into document.body (or #hvm-portal-root when present)
+ * Renders children into #hvm-portal-root (or document.body)
  * so overlays escape app-shell stacking contexts (secondary nav, bottom nav).
  */
 export function AppPortal({ open, children, onEscape }: AppPortalProps) {
+  const layerRef = useRef<HTMLDivElement>(null)
   useBodyScrollLock(open)
   useEscapeToClose(open, onEscape)
+  useFocusTrap(open, layerRef)
 
   if (!open) return null
 
   const target = resolvePortalTarget()
   if (!target) return null
 
-  return createPortal(children, target)
+  return createPortal(
+    <div ref={layerRef} className="hvm-portal-layer" data-hvm-portal-layer="">
+      {children}
+    </div>,
+    target,
+  )
 }
