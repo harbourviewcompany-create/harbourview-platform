@@ -208,7 +208,6 @@ select
   end as evaluated_blocker_reason,
   case b.dimension_key
     when 'regulatory_status' then coalesce(l.current_verified_evidence_rows,0)
- then coalesce(l.current_verified_evidence_rows,0)
     when 'source_registry' then coalesce(l.active_source_rows,0)
     when 'source_snapshot' then coalesce(l.successful_snapshot_rows,0)
     when 'claims' then coalesce(l.verified_claim_rows,0)
