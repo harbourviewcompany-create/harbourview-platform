@@ -1,6 +1,6 @@
 -- Primary-source evidence tranche: Chile and Ecuador.
 -- Verified against government/regulator sources on 2026-09-23.
--- Unsupported dimensions remain unresolved.
+-- Unsupported dimensions remain unresolved. All pathway writes are idempotent without relying on non-unique slug conflict targets.
 
 insert into public.source_registry
 (source_name,source_url,jurisdiction_code,country,iso,tier,source_type,crawl_allowed,is_active,region,language,adapter,crawl_cadence,relevance_status,next_crawl_at,network_status,verification_notes,verification_checked_at,regulator_class,content_type,metadata)
