@@ -74,14 +74,17 @@ end $$;
 
 -- Pin the search path on every SECURITY DEFINER function that is exposed to a
 -- browser role and currently lacks an explicit search_path setting.
+--
+-- Use the function OID rendered as regprocedure rather than reconstructing the
+-- signature from pg_get_function_identity_arguments(). This preserves PostgreSQL's
+-- exact parser representation for overloaded, variadic, OUT-argument, and
+-- otherwise unusual function signatures and avoids replay-only SQLSTATE 22P02.
 do $$
 declare
   r record;
 begin
   for r in
-    select n.nspname as schema_name,
-           p.proname as function_name,
-           pg_get_function_identity_arguments(p.oid) as identity_args
+    select p.oid::regprocedure as function_signature
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where p.prosecdef
@@ -92,8 +95,8 @@ begin
       and has_function_privilege(p.oid, 'public', 'execute')
   loop
     execute format(
-      'alter function %I.%I(%s) set search_path = pg_catalog, public, api, signals, regulatory_signals, extensions',
-      r.schema_name, r.function_name, r.identity_args
+      'alter function %s set search_path = pg_catalog, public, api, signals, regulatory_signals, extensions',
+      r.function_signature
     );
   end loop;
 end $$;
@@ -126,8 +129,6 @@ begin
         or coalesce(with_check, '') !~ '\\( SELECT auth\\.uid\\(\\)'
       )
   loop
-    -- pg_policies expressions are already parenthesized; rebuild them with a
-    -- fresh initPlan wrapper rather than nesting a second policy predicate.
     using_expr := r.qual;
     check_expr := r.with_check;
 
@@ -138,9 +139,6 @@ begin
       check_expr := regexp_replace(check_expr, '(^|[^A-Za-z_])auth\\.uid\\(\\)', '\\1(SELECT auth.uid())', 'g');
     end if;
 
-    -- ALTER POLICY accepts USING and WITH CHECK independently. Never emit
-    -- a WITH CHECK clause for policies that do not have one; doing so produces
-    -- invalid SQL (and can surface as SQLSTATE 22P02 during replay).
     if using_expr is not null
        and btrim(using_expr) <> ''
        and length(using_expr) - length(replace(using_expr, '(', '')) = length(using_expr) - length(replace(using_expr, ')', ''))
