@@ -75,16 +75,16 @@ end $$;
 -- Pin the search path on every SECURITY DEFINER function that is exposed to a
 -- browser role and currently lacks an explicit search_path setting.
 --
--- Use the function OID rendered as regprocedure rather than reconstructing the
--- signature from pg_get_function_identity_arguments(). This preserves PostgreSQL's
--- exact parser representation for overloaded, variadic, OUT-argument, and
--- otherwise unusual function signatures and avoids replay-only SQLSTATE 22P02.
+-- Use PostgreSQL's machine-readable object identity instead of casting the OID to
+-- regprocedure. A regprocedure text input must contain a complete signature;
+-- pg_identify_object returns the exact ALTER FUNCTION identity, including the
+-- required argument list, without reparsing a function name.
 do $$
 declare
   r record;
 begin
   for r in
-    select p.oid::regprocedure as function_signature
+    select (pg_identify_object('pg_proc'::regclass, p.oid, 0)).identity as function_signature
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where p.prosecdef
