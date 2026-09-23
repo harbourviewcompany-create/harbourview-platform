@@ -88,6 +88,29 @@ begin
   end if;
 end $$;
 
+-- Canonical snapshot gate used by both legacy regulatory evidence and structured evidence.
+create or replace view public.v_jurisdiction_verified_snapshot_gate
+with (security_invoker=on) as
+select
+  e.evidence_key,
+  e.jurisdiction_iso2 as jurisdiction_key,
+  e.authority_url,
+  e.source_snapshot_sha256,
+  bool_or(
+    ss.fetch_status='success'
+    and ss.captured_at is not null
+    and ss.captured_text is not null
+    and length(ss.captured_text)>0
+    and lower(ss.raw_html_hash)=lower(e.source_snapshot_sha256)
+    and sr.source_url=e.authority_url
+  ) as qualifying
+from public.regulatory_market_access_evidence e
+left join public.source_snapshots ss on ss.source_id in (select id from public.source_registry where source_url=e.authority_url)
+left join public.source_registry sr on sr.id=ss.source_id
+where e.source_snapshot_sha256 is not null
+group by e.evidence_key,e.jurisdiction_iso2,e.authority_url,e.source_snapshot_sha256;
+grant select on public.v_jurisdiction_verified_snapshot_gate to anon, authenticated;
+
 -- A structured evidence row is publication-qualifying only when its referenced
 -- snapshot passes the cryptographic/fetch/payload/source-registry gate.
 create or replace view public.v_jurisdiction_data_depth_evaluator
@@ -105,14 +128,8 @@ legacy_regulatory as (
          count(*) filter (where e.active and e.verified_at is not null and e.expires_at>=now()
            and e.source_snapshot_sha256 is not null
            and exists (
-             select 1
-             from public.source_snapshots ss
-             join public.source_registry sr on sr.id=ss.source_id
-             where lower(ss.raw_html_hash)=lower(e.source_snapshot_sha256)
-               and ss.fetch_status='success'
-               and ss.captured_at is not null
-               and ss.captured_text is not null and length(ss.captured_text)>0
-               and sr.source_url=e.authority_url
+             select 1 from public.v_jurisdiction_verified_snapshot_gate g
+             where g.evidence_key=e.evidence_key and g.qualifying
            )) qualifying_current,
          count(*) filter (where e.active and e.verified_at is not null and e.expires_at>=now()) current_rows
   from public.regulatory_market_access_evidence e
