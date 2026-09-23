@@ -50,6 +50,7 @@ values
 ('relationships','Relationships/network edges','network','Evidence-backed relationships between market entities.',false,false,30,270),
 ('opportunities','Commercial opportunities','commercial','Evidence-backed opportunities and eligibility constraints.',false,false,14,280),
 ('signals','Intelligence signals','intelligence','Fresh classified market/regulatory signals.',false,false,7,290),
+('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),
 ('freshness','Source/data freshness','quality','Freshness and expiry state for underlying evidence.',false,false,7,300),
 ('uncertainty','Conflict/uncertainty state','quality','Explicit conflict, stale, inference and blocked state.',false,false,7,310),
 ('research_queue','Research queue/unresolved gaps','quality','Explicit unresolved evidence and research gaps.',false,false,7,320)
@@ -111,13 +112,14 @@ with mapped as (
    when 'source_registry' then 'source_registry'
    when 'source_snapshots' then 'source_snapshot'
    when 'regulatory_calendar' then 'calendar'
+   when 'country_intel' then 'jurisdiction_intelligence'
   end dimension_key,
   c.status,c.applicability,c.evidence_basis,c.parent_jurisdiction_key,c.last_evaluated_at
  from public.jurisdiction_dimension_coverage c
  where c.dimension_key in
  ('verified_regulatory_evidence','verified_regulatory_claims','verified_pathways',
   'verified_format_rules','market_metrics','trade_flows','signals','source_registry',
-  'source_snapshots','regulatory_calendar')
+  'source_snapshots','regulatory_calendar','country_intel')
 )
 update public.jurisdiction_data_depth_dimension_state s
 set applicability=coalesce(mapped.applicability,'unknown'),
@@ -186,6 +188,18 @@ from (
  group by jurisdiction_iso2
 ) src
 where s.jurisdiction_key=src.jurisdiction_key and s.dimension_key=src.dimension_key
+  and s.contract_version='2026-09-23.v2';
+
+-- Regulatory tier depth is complete only when the tier is tied to an existing evidence key.
+update public.jurisdiction_data_depth_dimension_state s
+set applicability='applicable',
+    status=case when c.verified_regulatory_tier is not null and c.regulatory_tier_evidence_key is not null then 'complete' else 'missing' end,
+    evidence_count=case when c.regulatory_tier_evidence_key is not null then 1 else 0 end,
+    primary_source_count=case when c.regulatory_tier_evidence_key is not null then 1 else 0 end,
+    evidence_basis=case when c.regulatory_tier_evidence_key is not null then 'countries.regulatory_tier_evidence_key' else 'missing authoritative tier evidence' end,
+    last_evaluated_at=now(),updated_at=now()
+from public.countries c
+where s.jurisdiction_key=c.iso_alpha2 and s.dimension_key='regulatory_tier'
   and s.contract_version='2026-09-23.v2';
 
 create or replace view public.v_jurisdiction_full_depth_291
