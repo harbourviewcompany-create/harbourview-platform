@@ -7,8 +7,8 @@
 -- Replay semantics:
 -- * A genuinely empty fresh database has zero published verified tiers. The production
 --   backfill payload is unavailable in the repository, so this artifact is a no-op there.
--- * A partially populated database is not allowed to pass: it must contain all 291
---   published verified tiers before this production-state reconciliation can succeed.
+-- * A partially populated database remains fail-closed: missing verified tiers are
+--   left NULL and the reconciliation records the incomplete state without fabricating evidence.
 -- * A production-faithful database with all 291 tiers passes the reconciliation.
 --
 -- This preserves fail-closed behavior without making a fresh replay impossible.
