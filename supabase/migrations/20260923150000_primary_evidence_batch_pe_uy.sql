@@ -83,11 +83,17 @@ select 'pathway',p.id,'IRCCA Resolution 18/2026','Medicinal/research licence ref
 from public.regulatory_pathways p where p.iso_alpha2='UY' and p.slug='depth-v1-uy-medicinal-research'
 and not exists(select 1 from public.regulatory_citations c where c.entity_type='pathway' and c.entity_id=p.id and c.citation_url='https://ircca.gub.uy/ircca-adopta-medidas-con-el-objetivo-de-desburocratizar-y-favorecer-el-acceso-a-licencias/');
 
-insert into public.regulatory_citations(entity_type,entity_id,instrument,'Licence register','regulator',
+insert into public.regulatory_citations(entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
+select 'pathway',p.id,'IRCCA licence register','Licence register','regulator',
 'https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/','2026-09-23',current_date,
 'Current IRCCA register lists active licences for psychoactive cannabis cultivation for adult use.'
-from public.regulatory_pathways p where p.iso_alpha2='UY' and p.slug='depth-v1-uy-adult-use-cultivation'
-and not exists(select 1 from public.regulatory_citations c where c.entity_type='pathway' and c.entity_id=p.id and c.citation_url='https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/');
+from public.regulatory_pathways p
+where p.iso_alpha2='UY' and p.slug='depth-v1-uy-adult-use-cultivation'
+and not exists (
+ select 1 from public.regulatory_citations c
+ where c.entity_type='pathway' and c.entity_id=p.id
+ and c.citation_url='https://ircca.gub.uy/proyectos-cannabis/licencias-aprobadas/'
+);
 
 update public.regulatory_pathways p set verification='verified',last_verified_at=now()
 where p.iso_alpha2 in ('PE','UY') and p.slug in ('depth-v1-pe-medical-therapeutic','depth-v1-uy-medicinal-research','depth-v1-uy-adult-use-cultivation')
