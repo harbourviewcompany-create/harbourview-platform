@@ -400,3 +400,8 @@
     background-color: rgba(198, 165, 90, 0.1);
   }
 }
+
+/* Portal layer: wrapper for AppPortal children (focus trap root). */
+.hvm-portal-layer {
+  display: contents;
+}

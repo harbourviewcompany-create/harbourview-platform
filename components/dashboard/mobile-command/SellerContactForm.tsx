@@ -36,7 +36,7 @@ function pickString(...values: unknown[]): string {
 }
 
 /** tyler.campbell.ott → Tyler Campbell Ott (last-resort when no full_name) */
-function humanizeLocalPart(local: string): string {
+export function humanizeLocalPart(local: string): string {
   return local
     .replace(/[._+-]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -45,6 +45,37 @@ function humanizeLocalPart(local: string): string {
     .filter(Boolean)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(' ')
+}
+
+/** Persist contact fields so the next inquiry prefills without relying on email local-part. */
+async function persistInquiryProfile(fields: {
+  name: string
+  company: string
+  phone: string
+}): Promise<void> {
+  try {
+    const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+    const nextMeta: Record<string, unknown> = { ...meta }
+    if (fields.name && !pickString(meta.full_name, meta.name, meta.display_name)) {
+      nextMeta.full_name = fields.name
+    }
+    if (fields.company && !pickString(meta.company, meta.organization, meta.company_name)) {
+      nextMeta.company = fields.company
+    }
+    if (fields.phone && !pickString(meta.phone, meta.phone_number, meta.mobile)) {
+      nextMeta.phone = fields.phone
+    }
+
+    await supabase.auth.updateUser({ data: nextMeta })
+  } catch {
+    // Best-effort only — inquiry already succeeded
+  }
 }
 
 async function loadProfilePrefill(): Promise<ProfilePrefill> {
@@ -173,6 +204,7 @@ export function SellerContactForm({ listing, onDone }: Props) {
     )
 
     if (result.ok) {
+      void persistInquiryProfile({ name, company, phone })
       setStatus('success')
       setFeedback(result.message)
       return
