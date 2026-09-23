@@ -135,7 +135,7 @@ export function resolveCountryMaterialState({
 
   if (layerId === 'opportunity_heat') {
     base.emissive = '#8f7628'
-    base.emissiveIntensity: 0.12
+    base.emissiveIntensity = 0.12
   }
 
   if (layerId === 'documentation_burden') {
