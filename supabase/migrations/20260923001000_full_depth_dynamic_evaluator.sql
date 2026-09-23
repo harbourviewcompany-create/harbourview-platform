@@ -96,7 +96,10 @@ select
       case when l.verified_pathway_rows>0 then 'complete' else 'missing' end
     when b.dimension_key='format_rules' then
       case when l.verified_format_rule_rows>0 then 'complete' else 'missing' end
-    when b.dimension_key in ('access_rules','commercial_activity','import','export','distribution','testing','packaging_labeling','tax_fees') then
+    when b.dimension_key='access_rules' then
+      case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
+           when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
+    when b.dimension_key in ('commercial_activity','import','export','distribution','testing','packaging_labeling','tax_fees') then
       case when coalesce(rc.verified_rows,0)>0 and coalesce(rc.conflict_rows,0)=0 then 'complete'
            when coalesce(rc.conflict_rows,0)>0 then 'conflict' else 'missing' end
     when b.dimension_key='regulator' then
