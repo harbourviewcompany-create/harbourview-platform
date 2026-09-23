@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import { KeyboardEvent, useContext, useEffect, useMemo, useState } from 'react'
 import { allCountryAndProvinceOptions as countryOptions } from '@/config/globe/country-role-profiles'
 import { tokenMatchesSearch } from '@/lib/globe/search-normalization'
 import { createClient } from '@/lib/supabase/client'
-import { useGlobe } from './GlobeProvider'
+import { GlobeContext } from './GlobeProvider'
 
 function SearchIcon() {
   return (
@@ -34,7 +34,9 @@ export function CountrySearchOverlay({
   const [selectedCountryForReturn, setSelectedCountryForReturn] = useState<string | null>(null)
   const [recentMarkets, setRecentMarkets] = useState<string[]>([])
   const [collapsed, setCollapsed] = useState(false)
-  const { liveData } = useGlobe()
+  // Prefer GlobeProvider when mounted; empty signals when rendered outside (SSR smoke).
+  const globeCtx = useContext(GlobeContext)
+  const liveData = globeCtx?.liveData ?? { countries: [], signalsByIso2: {}, unmappedSignalCountries: {} }
 
   const matches = useMemo(() => countryOptions.filter((country) =>
     tokenMatchesSearch(query, [
