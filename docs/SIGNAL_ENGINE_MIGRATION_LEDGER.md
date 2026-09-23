@@ -4,7 +4,15 @@
 |-----------|---------|-------------------|
 | `20260923120000_signal_engine_autonomy_foundations.sql` | `autonomy_policies` + `signal_decision_events` | Tables only; **no** Full Auto enablement; RLS deny client roles |
 | `20260923140000_signal_autonomy_columns_and_decision_log.sql` | Columns on `signals` + AFTER UPDATE decision log | Observability only; promote path unchanged |
+| `20260923160000_source_yield_metrics.sql` | `source_yield_metrics` + private 7d refresh | Observability; no promote |
 | Existing `classifier_validation` | Mechanical promote gate | Unchanged by this work |
+
+## Application code
+
+| Module | Role |
+|--------|------|
+| `lib/signals/autonomyEvaluate.ts` | Pure evaluator stub — proposes levels, **never promotes** |
+| `tests/signals/autonomyEvaluate.test.ts` | Fail-closed policy tests |
 
 ## Rules
 
@@ -16,6 +24,6 @@
 
 ## Next (not yet shipped)
 
-- `source_yield_metrics`
-- Admin UI surface for decision events (API counts available via intelligence-health)
-- Evaluator that writes `autonomy_level` / `gate_scores` before promote
+- Wire evaluator into a cron job that **writes scores only** (still calls existing promote RPC separately)
+- Cron schedule for `private.refresh_source_yield_metrics_7d()`
+- Admin UI list of decision events
