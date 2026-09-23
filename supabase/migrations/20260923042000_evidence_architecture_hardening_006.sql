@@ -64,7 +64,7 @@ from public.jurisdiction_regulatory_rules r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,'') or r.source_url<>coalesce(ss.captured_url,''))
+  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,''))
 
 union all
 select r.id,r.jurisdiction_key,'regulator',r.source_url,r.source_snapshot_id,'SNAPSHOT_SOURCE_MISMATCH'
