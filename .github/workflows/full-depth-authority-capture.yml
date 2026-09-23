@@ -1,0 +1,34 @@
+name: Full-Depth Authority Evidence Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Cells per worker invocation"
+        required: false
+        default: "10"
+  schedule:
+    - cron: "*/10 * * * *"
+
+concurrency:
+  group: full-depth-authority-capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Capture authoritative evidence batch
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LIMIT: ${{ inputs.limit || '10' }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          response="$(
+            curl --fail-with-body --silent --show-error --max-time 540               -X POST               -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"               -H "Content-Type: application/json"               "$SUPABASE_URL/functions/v1/full-depth-authority-capture?limit=$LIMIT"
+          )"
+          printf '%s\n' "$response"

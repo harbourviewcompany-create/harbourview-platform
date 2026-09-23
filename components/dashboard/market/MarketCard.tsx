@@ -96,8 +96,8 @@ export function MarketCard({
             height={480}
             sizes="(max-width: 640px) 50vw, 320px"
             quality={75}
-            priority={priority}
-            loading={priority ? 'eager' : 'lazy'}
+            priority={false}
+            loading="lazy"
             onError={() => {
               if (mediaStage === 'primary' && media.fallbackSrc && media.fallbackSrc !== media.src) setMediaStage('fallback')
             }}
