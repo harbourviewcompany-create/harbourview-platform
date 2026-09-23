@@ -27,7 +27,10 @@ export const HEAT_CONFIG = {
   defaultQuality: 'medium' as HeatQuality,
   bandwidthDeg: 3.2,
   maxAltitude: 0.14,
-  surfaceRadius: 2.35 + PLATE_LIFT + IDLE_EXTRUSION,
+  // Float the heat surface above the country top faces. Keeping this exactly
+  // coplanar with the plates causes the depth test to discard the transparent
+  // overlay on some views/GPU paths.
+  surfaceRadius: 2.35 + PLATE_LIFT + IDLE_EXTRUSION + 0.012,
   densityFloor: 0.04,
   saturation: 0.68,
 } as const
