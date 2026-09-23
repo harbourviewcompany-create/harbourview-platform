@@ -59,9 +59,21 @@ values
  '{https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6}',
  'needs_review',now(),
  ARRAY['registered medicinal product exception','scientific research','controlled-substance licensing'])
-on conflict(slug) do update set
- summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now(),
- qualifying_conditions=excluded.qualifying_conditions;
+where not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='LT' and p.slug='depth-v1-lt-controlled-medicinal');
+
+update public.regulatory_pathways
+set name='Controlled medicinal/research authorization under narcotics framework',
+    pathway_type='medical_access_program',
+    legal_basis='Law No. VIII-602 on Control of Narcotic and Psychotropic Substances',
+    regulator='Lithuanian State Medicines Control Agency',
+    status='active',
+    effective_date='2025-11-01',
+    summary='Schedule I controlled substances may circulate only under statutory exceptions, including registered medicinal products and scientific research, with licensing requirements for relevant controlled medicinal-product activities. This is not an adult-use retail pathway.',
+    source_urls='{https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6}',
+    verification='needs_review',
+    last_verified_at=now(),
+    qualifying_conditions=ARRAY['registered medicinal product exception','scientific research','controlled-substance licensing']
+where iso_alpha2='LT' and slug='depth-v1-lt-controlled-medicinal';
 
 insert into public.regulatory_citations
 (entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
