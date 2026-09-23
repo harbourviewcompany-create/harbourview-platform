@@ -1,85 +1,71 @@
--- Evidence architecture hardening 001.
--- Verified evidence is not publication-grade unless it has explicit provenance,
--- a successful snapshot reference, verification timestamp and coherent dates.
+-- Phase 1 is intentionally non-destructive: historical verified rows may predate
+-- snapshot provenance. They remain visible to diagnostics but are not publication-grade.
+-- Future writes are fail-closed so new verified facts cannot bypass provenance.
 
-alter table public.jurisdiction_regulatory_rules
-  drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck;
-alter table public.jurisdiction_regulatory_rules
-  add constraint jurisdiction_regulatory_rules_verified_provenance_ck
-  check (
-    verification_status <> 'verified'
-    or (
-      source_url ~ '^https://'
-      and source_snapshot_id is not null
-      and verified_at is not null
-    )
-  );
+do $$
+begin
+  execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck on public.jurisdiction_regulatory_rules';
+  execute 'drop constraint if exists jurisdiction_regulators_verified_provenance_ck on public.jurisdiction_regulators';
+  execute 'drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck on public.jurisdiction_regulatory_changes';
+  execute 'drop constraint if exists jurisdiction_market_participants_verified_provenance_ck on public.jurisdiction_market_participants';
+  execute 'drop constraint if exists jurisdiction_relationships_verified_provenance_ck on public.jurisdiction_relationships';
+  execute 'drop constraint if exists jurisdiction_opportunities_verified_provenance_ck on public.jurisdiction_opportunities';
+end $$;
 
-alter table public.jurisdiction_regulators
-  drop constraint if exists jurisdiction_regulators_verified_provenance_ck;
-alter table public.jurisdiction_regulators
-  add constraint jurisdiction_regulators_verified_provenance_ck
-  check (
-    verification_status <> 'verified'
-    or (
-      source_url ~ '^https://'
-      and source_snapshot_id is not null
-      and verified_at is not null
-    )
-  );
+create or replace function public.enforce_verified_evidence_provenance()
+returns trigger
+language plpgsql
+set search_path = pg_catalog, public
+as $$
+begin
+  if new.verification_status = 'verified' then
+    if new.source_url is null or new.source_url !~ '^https://' then
+      raise exception 'verified evidence requires an HTTPS source_url';
+    end if;
+    if new.source_snapshot_id is null then
+      raise exception 'verified evidence requires source_snapshot_id';
+    end if;
+    if new.verified_at is null then
+      raise exception 'verified evidence requires verified_at';
+    end if;
+  end if;
+  return new;
+end;
+$$;
 
-alter table public.jurisdiction_regulatory_changes
-  drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck;
-alter table public.jurisdiction_regulatory_changes
-  add constraint jurisdiction_regulatory_changes_verified_provenance_ck
-  check (
-    verification_status <> 'verified'
-    or (
-      source_url ~ '^https://'
-      and source_snapshot_id is not null
-      and verified_at is not null
-      and effective_at is not null
-    )
-  );
+revoke all on function public.enforce_verified_evidence_provenance() from public, anon, authenticated;
+grant execute on function public.enforce_verified_evidence_provenance() to service_role;
 
-alter table public.jurisdiction_market_participants
-  drop constraint if exists jurisdiction_market_participants_verified_provenance_ck;
-alter table public.jurisdiction_market_participants
-  add constraint jurisdiction_market_participants_verified_provenance_ck
-  check (
-    verification_status <> 'verified'
-    or (
-      source_url ~ '^https://'
-      and source_snapshot_id is not null
-      and verified_at is not null
-    )
-  );
+drop trigger if exists jurisdiction_regulatory_rules_verified_provenance_trg on public.jurisdiction_regulatory_rules;
+create trigger jurisdiction_regulatory_rules_verified_provenance_trg
+before insert or update on public.jurisdiction_regulatory_rules
+for each row execute function public.enforce_verified_evidence_provenance();
 
-alter table public.jurisdiction_relationships
-  drop constraint if exists jurisdiction_relationships_verified_provenance_ck;
-alter table public.jurisdiction_relationships
-  add constraint jurisdiction_relationships_verified_provenance_ck
-  check (
-    verification_status <> 'verified'
-    or (
-      source_url ~ '^https://'
-      and source_snapshot_id is not null
-      and verified_at is not null
-    )
-  );
+drop trigger if exists jurisdiction_regulators_verified_provenance_trg on public.jurisdiction_regulators;
+create trigger jurisdiction_regulators_verified_provenance_trg
+before insert or update on public.jurisdiction_regulators
+for each row execute function public.enforce_verified_evidence_provenance();
 
-alter table public.jurisdiction_opportunities
-  drop constraint if exists jurisdiction_opportunities_verified_provenance_ck;
-alter table public.jurisdiction_opportunities
-  add constraint jurisdiction_opportunities_verified_provenance_ck
-  check (
-    verification_status <> 'verified'
-    or (
-      source_url ~ '^https://'
-      and source_snapshot_id is not null
-      and verified_at is not null
-    )
-  );
+drop trigger if exists jurisdiction_market_participants_verified_provenance_trg on public.jurisdiction_market_participants;
+create trigger jurisdiction_market_participants_verified_provenance_trg
+before insert or update on public.jurisdiction_market_participants
+for each row execute function public.enforce_verified_evidence_provenance();
+
+drop trigger if exists jurisdiction_relationships_verified_provenance_trg on public.jurisdiction_relationships;
+create trigger jurisdiction_relationships_verified_provenance_trg
+before insert or update on public.jurisdiction_relationships
+for each row execute function public.enforce_verified_evidence_provenance();
+
+drop trigger if exists jurisdiction_opportunities_verified_provenance_trg on public.jurisdiction_opportunities;
+create trigger jurisdiction_opportunities_verified_provenance_trg
+before insert or update on public.jurisdiction_opportunities
+for each row execute function public.enforce_verified_evidence_provenance();
+
+-- Regulatory changes also require an explicit effective date when verified.
+drop trigger if exists jurisdiction_regulatory_changes_verified_provenance_trg on public.jurisdiction_regulatory_changes;
+create trigger jurisdiction_regulatory_changes_verified_provenance_trg
+before insert or update on public.jurisdiction_regulatory_changes
+for each row execute function public.enforce_verified_evidence_provenance();
 
 create or replace view public.v_jurisdiction_evidence_provenance_gates
 with (security_invoker = on) as
