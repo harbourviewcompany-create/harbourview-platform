@@ -16,8 +16,10 @@ export const metadata: Metadata = {
   },
 }
 
-// ISR: directory data
-export const revalidate = 3600
+// Supplier records are live and approval state can change at any time. Keep this page out of
+// the build-time static generation path so production builds never block on Supabase data.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 type SupplierCapabilities = {
   business_type?: string
