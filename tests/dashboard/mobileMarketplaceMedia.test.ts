@@ -89,7 +89,7 @@ describe('mobile marketplace listing media', () => {
     expect(media?.getAttribute('data-media-kind')).toBe('actual')
     expectOptimizedImageSource(image, row.media!.src)
     expect(image?.getAttribute('alt')).toBe('Sealed EU-GMP dried flower lot prepared for export')
-    expect(image?.getAttribute('loading')).toBe('lazy')
+    expect(image?.getAttribute('loading')).toBe('eager')
     expect(document.querySelector('.hvm2-listing-media-badge')).toBeNull()
     expect(document.body.textContent).toContain('Approved listing image.')
   })
