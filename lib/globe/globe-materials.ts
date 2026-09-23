@@ -152,28 +152,22 @@ export function resolveCountryMaterialState({
   if (regulatoryTier) {
     const tier = TIER_PALETTES[palette][regulatoryTier]
     // Tier colouring must WIN over the globe's gold metallic lighting, not tint
-    // through it. Earlier versions kept metalness/clearcoat and a gold emissive,
-    // so every plate was lit by the same gold environment map and the tiers
-    // washed into one indistinguishable gold (confirmed on device). Here the
-    // tier plate becomes an almost-flat, self-lit fill:
-    //   * metalness ~0  → hue is not replaced by the gold env-map reflection
-    //   * clearcoat 0   → no gold specular hotspot on the lit face
-    //   * emissive = the plate hue itself, at high intensity → shadowed faces
-    //     stay ON-COLOUR instead of falling to gold-black, so a country reads
-    //     as its tier from every lighting angle, not just where the sun hits.
-    // The result looks more like a painted data-map than polished metal — which
-    // is the correct tradeoff when the whole point is legibility of the tier.
-    // Tier is a secondary signal: retain Harbourview's metallic-gold identity
-    // and use a restrained tint rather than turning the globe into a rainbow map.
-    const tierMix = regulatoryTier === 'prohibited' ? 0.24 : 0.32
-    base.plateBase = mixHex(base.plateBase, tier.plate, tierMix)
-    base.emissive = mixHex(base.emissive, tier.emissive, 0.28)
-    base.emissiveIntensity = regulatoryTier === 'prohibited' ? 0.12 : 0.15
-    base.borderColor = mixHex(base.borderColor, tier.border, 0.28)
-    base.metalness = 0.78
-    base.roughness = 0.34
-    base.clearcoat = 0.24
-    base.clearcoatRoughness = 0.28
+    // through it. A weak mix + high metalness made every plate wash to the same
+    // gold under the env map (confirmed on device). Published tiers use a
+    // near-flat, self-lit fill:
+    //   * plate ≈ tier hue (strong mix) so the Market Access legend matches
+    //   * metalness low → hue is not replaced by the gold env-map reflection
+    //   * clearcoat off → no gold specular hotspot on the lit face
+    //   * emissive = the plate hue → shadowed faces stay on-colour
+    // Unreviewed countries (regulatoryTier null) keep the neutral gold plate.
+    base.plateBase = mixHex(base.plateBase, tier.plate, 0.92)
+    base.emissive = tier.emissive
+    base.emissiveIntensity = tier.emissiveIntensity
+    base.borderColor = mixHex(base.borderColor, tier.border, 0.75)
+    base.metalness = 0.12
+    base.roughness = 0.42
+    base.clearcoat = 0
+    base.clearcoatRoughness = 0.5
     if (regulatoryTier === 'prohibited') {
       base.sidewallColor = hvTokens.globe.sidewallDisabled
     }
