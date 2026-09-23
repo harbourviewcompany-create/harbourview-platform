@@ -7,14 +7,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const MODEL = Deno.env.get("FULL_DEPTH_EVIDENCE_MODEL") ?? "gpt-5.6-luna";
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-const dimensions = new Set([
-  "identity","hierarchy","regulatory_status","regulatory_tier","source_registry",
-  "source_snapshot","claims","pathways","format_rules","access_rules",
-  "commercial_activity","import","export","distribution","testing",
-  "packaging_labeling","tax_fees","regulator","calendar","change_history",
-  "market_metrics","trade_flows","participants","buyers","sellers","counterparties",
-  "relationships","opportunities","signals","freshness","uncertainty","research_queue",
-]);
+
 
 const ruleDimensions = new Set([
   "access_rules","commercial_activity","import","export","distribution",
