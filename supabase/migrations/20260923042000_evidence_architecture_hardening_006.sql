@@ -64,7 +64,7 @@ from public.jurisdiction_regulatory_rules r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,''))
+  and (r.source_snapshot_id is null or sr.id is null or r.source_url<>coalesce(sr.source_url,''))
 
 union all
 select r.id,r.jurisdiction_key,'regulator',r.source_url,r.source_snapshot_id,'SNAPSHOT_SOURCE_MISMATCH'
@@ -72,7 +72,7 @@ from public.jurisdiction_regulators r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,'') or r.source_url<>coalesce(ss.captured_url,''))
+  and (r.source_snapshot_id is null or sr.id is null or r.source_url<>coalesce(sr.source_url,''))
 
 union all
 select r.id,r.jurisdiction_key,r.dimension_key,r.source_url,r.source_snapshot_id,'SNAPSHOT_SOURCE_MISMATCH'
@@ -80,7 +80,7 @@ from public.jurisdiction_regulatory_changes r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,'') or r.source_url<>coalesce(ss.captured_url,''))
+  and (r.source_snapshot_id is null or sr.id is null or r.source_url<>coalesce(sr.source_url,''))
 
 union all
 select r.id,r.jurisdiction_key,r.participant_type,r.source_url,r.source_snapshot_id,'SNAPSHOT_SOURCE_MISMATCH'
@@ -88,7 +88,7 @@ from public.jurisdiction_market_participants r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,'') or r.source_url<>coalesce(ss.captured_url,''))
+  and (r.source_snapshot_id is null or sr.id is null or r.source_url<>coalesce(sr.source_url,''))
 
 union all
 select r.id,r.jurisdiction_key,'relationships',r.source_url,r.source_snapshot_id,'SNAPSHOT_SOURCE_MISMATCH'
@@ -96,7 +96,7 @@ from public.jurisdiction_relationships r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,'') or r.source_url<>coalesce(ss.captured_url,''))
+  and (r.source_snapshot_id is null or sr.id is null or r.source_url<>coalesce(sr.source_url,''))
 
 union all
 select r.id,r.jurisdiction_key,'opportunities',r.source_url,r.source_snapshot_id,'SNAPSHOT_SOURCE_MISMATCH'
@@ -104,7 +104,7 @@ from public.jurisdiction_opportunities r
 join public.source_snapshots ss on ss.id=r.source_snapshot_id
 join public.source_registry sr on sr.id=ss.source_id
 where r.verification_status='verified'
-  and (r.source_snapshot_id is null or r.source_url<>coalesce(sr.source_url,'') or r.source_url<>coalesce(ss.captured_url,'')); 
+  and (r.source_snapshot_id is null or sr.id is null or r.source_url<>coalesce(sr.source_url,'')); 
 
 create or replace view public.v_jurisdiction_data_depth_applicability_gate
 with (security_invoker=on) as
