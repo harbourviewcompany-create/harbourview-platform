@@ -50,7 +50,6 @@ values
 ('relationships','Relationships/network edges','network','Evidence-backed relationships between market entities.',false,false,30,270),
 ('opportunities','Commercial opportunities','commercial','Evidence-backed opportunities and eligibility constraints.',false,false,14,280),
 ('signals','Intelligence signals','intelligence','Fresh classified market/regulatory signals.',false,false,7,290),
-('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),
 ('freshness','Source/data freshness','quality','Freshness and expiry state for underlying evidence.',false,false,7,300),
 ('uncertainty','Conflict/uncertainty state','quality','Explicit conflict, stale, inference and blocked state.',false,false,7,310),
 ('research_queue','Research queue/unresolved gaps','quality','Explicit unresolved evidence and research gaps.',false,false,7,320)
@@ -97,7 +96,7 @@ select c.iso_alpha2,d.dimension_key,d.contract_version
 from public.countries c cross join public.jurisdiction_data_depth_dimensions d
 on conflict (jurisdiction_key,dimension_key,contract_version) do nothing;
 
--- Map the existing evidence system into the 32-dimension state matrix.
+-- Map the existing evidence system into the 32-dimension state matrix. Jurisdiction intelligence remains a separate analyst-synthesis layer and is not one of the 32 contract dimensions.
 with mapped as (
  select
   c.jurisdiction_key,
@@ -112,7 +111,6 @@ with mapped as (
    when 'source_registry' then 'source_registry'
    when 'source_snapshots' then 'source_snapshot'
    when 'regulatory_calendar' then 'calendar'
-   when 'country_intel' then 'jurisdiction_intelligence'
   end dimension_key,
   c.status,c.applicability,c.evidence_basis,c.parent_jurisdiction_key,c.last_evaluated_at
  from public.jurisdiction_dimension_coverage c
