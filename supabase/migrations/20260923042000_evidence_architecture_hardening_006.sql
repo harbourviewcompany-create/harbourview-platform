@@ -116,6 +116,7 @@ select s.jurisdiction_key,s.dimension_key,s.applicability,
          when a.id is null then 'MISSING_APPLICABILITY_EVIDENCE'
          when a.verification_status<>'verified' then 'UNVERIFIED_APPLICABILITY'
          when not coalesce(g.qualifying_snapshot,false) then 'APPLICABILITY_SNAPSHOT_INVALID'
+         when a.source_url is distinct from g.registered_source_url then 'APPLICABILITY_SOURCE_MISMATCH'
          else 'OK'
        end gate_code
 from public.jurisdiction_data_depth_dimension_state s
@@ -156,10 +157,10 @@ create or replace view public.v_jurisdiction_data_depth_conflict_gate
 with (security_invoker=on) as
 select jurisdiction_key,rule_dimension dimension_key,
        count(*) filter(where verification_status='conflict') conflict_rows,
-       count(*) filter(where verification_status='verified' and effective_from<=current_date and (effective_to is null or effective_to>=current_date)) current_verified_rows,
+       count(*) filter(where verification_status='verified' and effective_from is not null and effective_from<=current_date and (effective_to is null or effective_to>=current_date)) current_verified_rows,
        case
          when count(*) filter(where verification_status='conflict')>0 then 'CONFLICT'
-         when count(*) filter(where verification_status='verified' and effective_from<=current_date and (effective_to is null or effective_to>=current_date))>1 then 'MULTIPLE_CURRENT_VERIFIED'
+         when count(*) filter(where verification_status='verified' and effective_from is not null and effective_from<=current_date and (effective_to is null or effective_to>=current_date))>1 then 'MULTIPLE_CURRENT_VERIFIED'
          else 'OK'
        end gate_code
 from public.jurisdiction_regulatory_rules
