@@ -88,28 +88,60 @@ begin
   end if;
 end $$;
 
--- Canonical snapshot gate used by both legacy regulatory evidence and structured evidence.
-create or replace view public.v_jurisdiction_verified_snapshot_gate
-with (security_invoker=on) as
-select
-  e.evidence_key,
-  e.jurisdiction_iso2 as jurisdiction_key,
-  e.authority_url,
-  e.source_snapshot_sha256,
-  bool_or(
-    ss.fetch_status='success'
-    and ss.captured_at is not null
-    and ss.captured_text is not null
-    and length(ss.captured_text)>0
-    and lower(ss.raw_html_hash)=lower(e.source_snapshot_sha256)
-    and sr.source_url=e.authority_url
-  ) as qualifying
-from public.regulatory_market_access_evidence e
-left join public.source_snapshots ss on ss.source_id in (select id from public.source_registry where source_url=e.authority_url)
-left join public.source_registry sr on sr.id=ss.source_id
-where e.source_snapshot_sha256 is not null
-group by e.evidence_key,e.jurisdiction_iso2,e.authority_url,e.source_snapshot_sha256;
-grant select on public.v_jurisdiction_verified_snapshot_gate to anon, authenticated;
+-- Keep the generic snapshot gate from hardening 002 authoritative.
+-- It is keyed by source_snapshots.id and must remain independent of any
+-- particular evidence table. Legacy regulatory evidence and structured
+-- evidence bind to it separately below.
+
+-- Bind structured evidence to the exact registered source URL in addition to
+-- the generic snapshot qualification. This prevents a valid snapshot of one
+-- authority page from qualifying evidence that cites another page.
+create or replace view public.v_jurisdiction_structured_evidence_provenance
+with (security_invoker = on) as
+select 'rule' evidence_kind, r.jurisdiction_key, r.rule_dimension dimension_key,
+       r.id evidence_id, r.source_url evidence_url, r.source_snapshot_id,
+       g.source_id source_registry_id,
+       (coalesce(g.qualifying_snapshot,false) and r.source_url=g.registered_source_url) qualifying_snapshot,
+       r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+from public.jurisdiction_regulatory_rules r
+left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
+union all
+select 'regulator', r.jurisdiction_key, 'regulator', r.id, r.source_url, r.source_snapshot_id,
+       g.source_id,
+       (coalesce(g.qualifying_snapshot,false) and r.source_url=g.registered_source_url),
+       r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+from public.jurisdiction_regulators r
+left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
+union all
+select 'change', r.jurisdiction_key, r.dimension_key, r.id, r.source_url, r.source_snapshot_id,
+       g.source_id,
+       (coalesce(g.qualifying_snapshot,false) and r.source_url=g.registered_source_url),
+       r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+from public.jurisdiction_regulatory_changes r
+left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
+union all
+select 'participant', r.jurisdiction_key, r.participant_type, r.id, r.source_url, r.source_snapshot_id,
+       g.source_id,
+       (coalesce(g.qualifying_snapshot,false) and r.source_url=g.registered_source_url),
+       r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+from public.jurisdiction_market_participants r
+left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
+union all
+select 'relationship', r.jurisdiction_key, 'relationships', r.id, r.source_url, r.source_snapshot_id,
+       g.source_id,
+       (coalesce(g.qualifying_snapshot,false) and r.source_url=g.registered_source_url),
+       r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+from public.jurisdiction_relationships r
+left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id
+union all
+select 'opportunity', r.jurisdiction_key, 'opportunities', r.id, r.source_url, r.source_snapshot_id,
+       g.source_id,
+       (coalesce(g.qualifying_snapshot,false) and r.source_url=g.registered_source_url),
+       r.verification_status, r.verified_at, g.snapshot_hash, g.fetched_at
+from public.jurisdiction_opportunities r
+left join public.v_jurisdiction_verified_snapshot_gate g on g.snapshot_id=r.source_snapshot_id;
+
+grant select on public.v_jurisdiction_structured_evidence_provenance to anon, authenticated;
 
 -- Verified structured evidence exists without a qualifying source snapshot is blocked.
 -- A structured evidence row is publication-qualifying only when its referenced
