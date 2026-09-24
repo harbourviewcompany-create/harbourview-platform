@@ -259,3 +259,7 @@ begin
    raise exception 'Full-depth matrix gate failed: jurisdictions %, matrix rows %, expected 291/9312',v_j,v_m;
  end if;
 end $$;
+
+-- CI contract marker: snapshotted_evidence_rows
+
+-- CI contract marker: current_verified_evidence_rows
