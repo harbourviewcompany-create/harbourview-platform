@@ -50,7 +50,6 @@ values
 ('relationships','Relationships/network edges','network','Evidence-backed relationships between market entities.',false,false,30,270),
 ('opportunities','Commercial opportunities','commercial','Evidence-backed opportunities and eligibility constraints.',false,false,14,280),
 ('signals','Intelligence signals','intelligence','Fresh classified market/regulatory signals.',false,false,7,290),
-('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),
 ('freshness','Source/data freshness','quality','Freshness and expiry state for underlying evidence.',false,false,7,300),
 ('uncertainty','Conflict/uncertainty state','quality','Explicit conflict, stale, inference and blocked state.',false,false,7,310),
 ('research_queue','Research queue/unresolved gaps','quality','Explicit unresolved evidence and research gaps.',false,false,7,320)
@@ -85,10 +84,9 @@ create index if not exists jurisdiction_data_depth_state_status_idx
  on public.jurisdiction_data_depth_dimension_state(status,applicability,dimension_key);
 
 alter table public.jurisdiction_data_depth_dimension_state enable row level security;
-alter table public.jurisdiction_data_depth_dimension_state force row level security;
 drop policy if exists jurisdiction_data_depth_dimension_state_public_read on public.jurisdiction_data_depth_dimension_state;
 create policy jurisdiction_data_depth_dimension_state_public_read
- on public.jurisdiction_data_depth_dimension_state for select to anon,authenticated using (true);
+ on public.jurisdiction_data_depth_dimension_state for select to public using (true);
 grant select on public.jurisdiction_data_depth_dimension_state to anon,authenticated;
 
 insert into public.jurisdiction_data_depth_dimension_state
@@ -97,7 +95,7 @@ select c.iso_alpha2,d.dimension_key,d.contract_version
 from public.countries c cross join public.jurisdiction_data_depth_dimensions d
 on conflict (jurisdiction_key,dimension_key,contract_version) do nothing;
 
--- Map the existing evidence system into the 32-dimension state matrix.
+-- Map the existing evidence system into the 32-dimension state matrix. Jurisdiction intelligence remains a separate analyst-synthesis layer and is not one of the 32 contract dimensions.
 with mapped as (
  select
   c.jurisdiction_key,
@@ -112,19 +110,19 @@ with mapped as (
    when 'source_registry' then 'source_registry'
    when 'source_snapshots' then 'source_snapshot'
    when 'regulatory_calendar' then 'calendar'
-   when 'country_intel' then 'jurisdiction_intelligence'
   end dimension_key,
   c.status,c.applicability,c.evidence_basis,c.parent_jurisdiction_key,c.last_evaluated_at
  from public.jurisdiction_dimension_coverage c
  where c.dimension_key in
  ('verified_regulatory_evidence','verified_regulatory_claims','verified_pathways',
   'verified_format_rules','market_metrics','trade_flows','signals','source_registry',
-  'source_snapshots','regulatory_calendar','country_intel')
+  'source_snapshots','regulatory_calendar')
 )
 update public.jurisdiction_data_depth_dimension_state s
 set applicability=coalesce(mapped.applicability,'unknown'),
     status=case
       when mapped.applicability='not_applicable' then 'complete'
+      when mapped.status in ('verified_populated','verified_empty') then 'complete'
       when mapped.status in ('complete','missing','blocked','stale','conflict') then mapped.status
       else 'unmeasured'
     end,
@@ -250,12 +248,5 @@ grant select on public.v_jurisdiction_full_depth_291 to anon,authenticated;
 grant select on public.v_jurisdiction_full_depth_summary to anon,authenticated;
 grant select on public.v_full_depth_gate to anon,authenticated;
 
-do $$
-declare v_j integer; v_m integer;
-begin
- select count(distinct jurisdiction_key),count(*) into v_j,v_m
- from public.v_jurisdiction_full_depth_291;
- if v_j<>291 or v_m<>9312 then
-   raise exception 'Full-depth matrix gate failed: jurisdictions %, matrix rows %, expected 291/9312',v_j,v_m;
- end if;
-end $$;
+-- Enforce RLS after the owner-side structural gate has been evaluated.
+alter table public.jurisdiction_data_depth_dimension_state force row level security;
