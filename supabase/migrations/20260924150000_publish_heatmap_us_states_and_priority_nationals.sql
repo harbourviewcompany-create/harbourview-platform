@@ -5,6 +5,18 @@
 -- Hemp/CBD-limited => cbd_hemp_only.
 -- Federal US remains medical_limited_trade (no verified nationwide interstate pathway).
 
+-- Required because the table enforces one active evidence row per jurisdiction.
+-- Existing active rows must be retired before inserting the replacement publication rows.
+update public.regulatory_market_access_evidence e
+set active = false
+where e.jurisdiction_iso2 in (
+  'US-AK','US-AZ','US-CO','US-CT','US-DE','US-MA','US-MO','US-NJ','US-NM','US-NV','US-NY','US-OH','US-OR','US-RI','US-WA',
+  'US-AR','US-FL','US-LA','US-MS','US-ND','US-NE','US-OK','US-WV',
+  'US-IN','US-KS','US-SC','US-WY',
+  'US','GB','DE','AU','FR','ES','IT','JP','MX','CO','TH','NZ','ZA'
+)
+and e.active = true;
+
 insert into public.regulatory_market_access_evidence
   (evidence_key, jurisdiction_iso2, tier, rationale, authority_name, authority_url,
    source_effective_date, verified_at, expires_at, active)
