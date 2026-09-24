@@ -1,3 +1,16 @@
+-- ============================================================================
+-- STATUS NOTE added 2026-09-20 (not part of the original migration):
+-- The table/index/helper-function portions of this file were applied to
+-- production on 2026-09-20 under version 20260920000001
+-- (daily_brief_lineage_data_model_partial_apply.sql). The run_daily_digest()
+-- rewrite/patch in this file was NOT applied: the live run_daily_digest()
+-- has evolved past what this file expects (manual fallback, smart-truncate,
+-- feedback-based ranking added Aug 30-Sep 1, after this file was written).
+-- Lineage-aware GATING inside run_daily_digest() remains un-integrated and
+-- needs a manual rebase against the current live function, not a raw apply
+-- of this file. Do not apply this file directly.
+-- ============================================================================
+
 -- Seed the delta-intelligence event memory from previously published, source-backed
 -- Daily Brief headlines so the first post-deploy edition compares against prior
 -- presentations instead of starting from an empty history.
