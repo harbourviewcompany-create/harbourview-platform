@@ -21,9 +21,11 @@ describe('globe regulatory heatmap legibility', () => {
 
     expect(neutral.plateBase.toLowerCase()).not.toBe(legal.plateBase.toLowerCase())
     expect(legal.plateBase.toLowerCase()).not.toBe(prohibited.plateBase.toLowerCase())
-    // Strong fill: legal should be clearly green-ward, not near pure gold
-    expect(legal.metalness).toBeLessThan(0.3)
-    expect(legal.emissiveIntensity).toBeGreaterThan(0.4)
+    // Metallic plates with clear tier hue — not flat paint, not washed gold
+    expect(legal.metalness).toBeGreaterThan(0.7)
+    expect(legal.emissiveIntensity).toBeGreaterThan(0.25)
     expect(legal.plateBase.toLowerCase()).toMatch(/^#[0-9a-f]{6}$/)
+    expect(legal.clearcoat).toBeGreaterThan(0.2)
+    expect(legal.metalness).toBeGreaterThan(neutral.metalness - 0.2)
   })
 })
