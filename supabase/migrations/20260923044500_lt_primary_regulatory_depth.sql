@@ -48,8 +48,8 @@ on conflict(claim_key) do update set
 
 insert into public.regulatory_pathways
 (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at,qualifying_conditions)
-values
-((select id from public.countries where iso_alpha2='LT'),'LT',
+select
+(select id from public.countries where iso_alpha2='LT'),'LT',
  'depth-v1-lt-controlled-medicinal',
  'Controlled medicinal/research authorization under narcotics framework',
  'medical_access_program',
