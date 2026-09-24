@@ -255,7 +255,7 @@ begin
  if v_j<>291 or v_m<>9312 then
    raise exception 'Full-depth matrix gate failed: jurisdictions %, matrix rows %, expected 291/9312',v_j,v_m;
  end if;
-end $;
+end $$;
 
 -- Enforce RLS after the owner-side structural gate has been evaluated.
 alter table public.jurisdiction_data_depth_dimension_state force row level security;
