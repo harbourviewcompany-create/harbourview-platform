@@ -10,8 +10,8 @@
     "repository_migration_files": 841,
     "repository_unique_versions": 841,
     "live_versions": 809,
-    "repository_only_versions": 83,
-    "repository_only_files": 83,
+    "repository_only_versions": 82,
+    "repository_only_files": 82,
     "live_only_versions": 54,
     "duplicate_repository_versions": [],
     "pending_duplicate_versions": [],
@@ -705,14 +705,6 @@
       "version": "20260804235000",
       "file": "20260804235000_separate_marketplace_source_intake.sql",
       "git_blob_sha": "c479829950a44c7a4baa47d5be061e90a86a7461",
-      "classification": "requiring_forward_reconciliation",
-      "reason_code": "fresh_snapshot_requires_disposition",
-      "live_equivalent_versions": []
-    },
-    {
-      "version": "20260804235500",
-      "file": "20260804235500_fix_source_import_batch_function.sql",
-      "git_blob_sha": "5a87f354d88e8f92b13088a8147516c7c0efe66d",
       "classification": "requiring_forward_reconciliation",
       "reason_code": "fresh_snapshot_requires_disposition",
       "live_equivalent_versions": []
