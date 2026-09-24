@@ -247,16 +247,15 @@ grant select on public.v_jurisdiction_full_depth_291 to anon,authenticated;
 grant select on public.v_jurisdiction_full_depth_summary to anon,authenticated;
 grant select on public.v_full_depth_gate to anon,authenticated;
 
-do $
-declare v_j integer; v_m integer;
+do 'declare v_j integer; v_m integer;
 begin
  select count(distinct jurisdiction_key),count(*) into v_j,v_m
  from public.jurisdiction_data_depth_dimension_state
- where contract_version='2026-09-23.v2';
+ where contract_version=''2026-09-23.v2'';
  if v_j<>291 or v_m<>9312 then
-   raise exception 'Full-depth matrix gate failed: jurisdictions %, matrix rows %, expected 291/9312',v_j,v_m;
+   raise exception ''Full-depth matrix gate failed: jurisdictions %, matrix rows %, expected 291/9312'',v_j,v_m;
  end if;
-end $;
+end';
 
 -- Enforce RLS after the owner-side structural gate has been evaluated.
 alter table public.jurisdiction_data_depth_dimension_state force row level security;
