@@ -46,20 +46,27 @@ on conflict(claim_key) do update set
  retrieved_at=now(),verified_at=now(),expires_at=now()+interval '180 days',
  evidence_status='verified';
 
-insert into public.regulatory_pathways
-(country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at,qualifying_conditions)
-select
-(select id from public.countries where iso_alpha2='LT'),'LT',
- 'depth-v1-lt-controlled-medicinal',
- 'Controlled medicinal/research authorization under narcotics framework',
- 'medical_access_program',
- 'Law No. VIII-602 on Control of Narcotic and Psychotropic Substances',
- 'Lithuanian State Medicines Control Agency','active','2025-11-01',
- 'Schedule I controlled substances may circulate only under statutory exceptions, including registered medicinal products and scientific research, with licensing requirements for relevant controlled medicinal-product activities. This is not an adult-use retail pathway.',
- '{https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6}',
- 'needs_review',now(),
- ARRAY['registered medicinal product exception','scientific research','controlled-substance licensing'])
-where not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='LT' and p.slug='depth-v1-lt-controlled-medicinal');
+do $$
+begin
+  if not exists (
+    select 1 from public.regulatory_pathways
+    where iso_alpha2='LT' and slug='depth-v1-lt-controlled-medicinal'
+  ) then
+    insert into public.regulatory_pathways
+    (country_id,iso_alpha2,slug,name,pathway_type,legal_basis,regulator,status,effective_date,summary,source_urls,verification,last_verified_at,qualifying_conditions)
+    values
+    ((select id from public.countries where iso_alpha2='LT'),'LT',
+      'depth-v1-lt-controlled-medicinal',
+      'Controlled medicinal/research authorization under narcotics framework',
+      'medical_access_program',
+      'Law No. VIII-602 on Control of Narcotic and Psychotropic Substances',
+      'Lithuanian State Medicines Control Agency','active','2025-11-01',
+      'Schedule I controlled substances may circulate only under statutory exceptions, including registered medicinal products and scientific research, with licensing requirements for relevant controlled medicinal-product activities. This is not an adult-use retail pathway.',
+      ARRAY['https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6'],
+      'needs_review',now(),
+      ARRAY['registered medicinal product exception','scientific research','controlled-substance licensing']);
+  end if;
+end $$;
 
 update public.regulatory_pathways
 set name='Controlled medicinal/research authorization under narcotics framework',
