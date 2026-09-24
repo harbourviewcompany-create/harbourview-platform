@@ -1,0 +1,125 @@
+-- Increase authoritative regulator evidence depth from existing verified primary-regulator sources.
+-- No synthetic regulatory facts are introduced. Only rows with verified_at, a valid snapshot SHA-256,
+-- a matching source_registry URL, and a successful source_snapshots hash are eligible.
+
+insert into public.jurisdiction_data_depth_evidence (
+  jurisdiction_key, dimension_key, contract_version, evidence_kind, applicability,
+  evidence_payload, evidence_quote, source_registry_id, source_snapshot_id, source_url,
+  effective_from, effective_to, verification_status, verified_at
+)
+select
+  x.jurisdiction_iso2,
+  'regulator',
+  'v2',
+  'authority_statement',
+  'applicable',
+  jsonb_build_object(
+    'authority_name', x.authority_name,
+    'authority_url', x.authority_url,
+    'source_class', x.source_class,
+    'source_title', x.source_title,
+    'jurisdiction_level', x.jurisdiction_level,
+    'parent_iso2', x.parent_iso2
+  ),
+  x.source_title,
+  x.source_registry_id,
+  x.source_snapshot_id,
+  x.authority_url,
+  x.source_effective_date::date,
+  x.expires_at::date,
+  'verified',
+  x.verified_at
+from (
+  select
+    ps.*,
+    sr.id as source_registry_id,
+    ss.id as source_snapshot_id,
+    row_number() over (
+      partition by ps.jurisdiction_iso2
+      order by ps.verified_at desc, ps.source_effective_date desc nulls last
+    ) as rn
+  from public.regulatory_market_access_primary_sources ps
+  join public.source_registry sr on sr.source_url = ps.authority_url
+  join public.source_snapshots ss
+    on ss.source_id = sr.id
+   and ss.raw_html_hash = ps.source_snapshot_sha256
+  where ps.verified_at is not null
+    and ps.source_snapshot_sha256 is not null
+    and length(ps.source_snapshot_sha256) = 64
+    and ps.source_class = 'primary_regulator'
+) x
+where x.rn = 1
+  and not exists (
+    select 1
+    from public.jurisdiction_data_depth_evidence e
+    where e.jurisdiction_key = x.jurisdiction_iso2
+      and e.dimension_key = 'regulator'
+      and e.contract_version = 'v2'
+      and e.verification_status = 'verified'
+  );
+
+-- Reconcile the affected dimension state from the evidence just captured.
+with e as (
+  select
+    jurisdiction_key,
+    count(*) as evidence_count,
+    count(*) filter (where source_registry_id is not null) as primary_source_count,
+    max(verified_at) as latest_verified_at
+  from public.jurisdiction_data_depth_evidence
+  where dimension_key = 'regulator'
+    and contract_version = 'v2'
+    and verification_status = 'verified'
+  group by jurisdiction_key
+)
+update public.jurisdiction_data_depth_dimension_state s
+set
+  applicability = 'applicable',
+  status = 'complete',
+  blocker_reason = null,
+  evidence_count = e.evidence_count,
+  primary_source_count = e.primary_source_count,
+  latest_verified_at = e.latest_verified_at,
+  freshness_deadline = e.latest_verified_at + interval '30 days',
+  confidence = 'high',
+  evidence_basis = 'direct_verified_source',
+  last_evaluated_at = now(),
+  updated_at = now()
+from e
+where s.jurisdiction_key = e.jurisdiction_key
+  and s.dimension_key = 'regulator'
+  and s.contract_version = '2026-09-23.v2';
+
+-- Regression assertions: exactly the canonical 32 dimensions remain, and regulator evidence is provenance-backed.
+do $$
+declare
+  v_dimensions integer;
+  v_bad integer;
+  v_regulator integer;
+begin
+  select count(*) into v_dimensions
+  from public.jurisdiction_data_depth_dimensions
+  where contract_version = '2026-09-23.v2';
+
+  select count(*) into v_bad
+  from public.jurisdiction_data_depth_evidence
+  where dimension_key = 'regulator'
+    and contract_version = 'v2'
+    and verification_status = 'verified'
+    and (source_registry_id is null or source_snapshot_id is null or source_url !~ '^https://');
+
+  select count(distinct jurisdiction_key) into v_regulator
+  from public.jurisdiction_data_depth_evidence
+  where dimension_key = 'regulator'
+    and contract_version = 'v2'
+    and verification_status = 'verified';
+
+  if v_dimensions <> 32 then
+    raise exception 'Expected 32 canonical depth dimensions, found %', v_dimensions;
+  end if;
+  if v_bad <> 0 then
+    raise exception 'Found % regulator evidence rows without complete source provenance', v_bad;
+  end if;
+  if v_regulator < 55 then
+    raise exception 'Expected at least 55 provenance-backed regulator jurisdictions, found %', v_regulator;
+  end if;
+end $$;
