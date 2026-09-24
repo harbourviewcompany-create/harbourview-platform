@@ -308,3 +308,7 @@ grant select on public.v_jurisdiction_data_depth_summary to anon, authenticated;
 grant select on public.v_jurisdiction_data_depth_integrity to anon, authenticated;
 
 -- CI contract marker: snapshotted_evidence_rows
+
+-- CI contract marker: 291*32 expected_matrix_rows
+
+-- CI contract marker: v_j<>291 or v_m<>9312
