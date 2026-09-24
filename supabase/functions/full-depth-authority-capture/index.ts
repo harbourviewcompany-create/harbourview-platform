@@ -245,7 +245,7 @@ async function processJob(job: any) {
     })
     .eq("jurisdiction_key", job.jurisdiction_key)
     .eq("dimension_key", job.dimension_key)
-    .eq("contract_version", "2026-09-22.v1");
+    .eq("contract_version", "2026-09-23.v2");
   if (stateError) throw new Error(`state_update_failed: ${stateError.message}`);
 
   if (ruleDimensions.has(job.dimension_key) && result.applicability==="applicable") {
