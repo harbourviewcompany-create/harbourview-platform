@@ -151,23 +151,20 @@ export function resolveCountryMaterialState({
   // away, and the legend carries the meaning regardless.
   if (regulatoryTier) {
     const tier = TIER_PALETTES[palette][regulatoryTier]
-    // Tier colouring must WIN over the globe's gold metallic lighting, not tint
-    // through it. A weak mix + high metalness made every plate wash to the same
-    // gold under the env map (confirmed on device). Published tiers use a
-    // near-flat, self-lit fill:
-    //   * plate ≈ tier hue (strong mix) so the Market Access legend matches
-    //   * metalness low → hue is not replaced by the gold env-map reflection
-    //   * clearcoat off → no gold specular hotspot on the lit face
-    //   * emissive = the plate hue → shadowed faces stay on-colour
-    // Unreviewed countries (regulatoryTier null) keep the neutral gold plate.
-    base.plateBase = mixHex(base.plateBase, tier.plate, 0.92)
-    base.emissive = tier.emissive
-    base.emissiveIntensity = tier.emissiveIntensity
-    base.borderColor = mixHex(base.borderColor, tier.border, 0.75)
-    base.metalness = 0.12
-    base.roughness = 0.42
-    base.clearcoat = 0
-    base.clearcoatRoughness = 0.5
+    // Metallic Market Access: keep Harbourview brushed-gold identity (metalness,
+    // clearcoat, specular) while tinting enough that tiers stay legible under
+    // the env map. Flat full-fill (mix ~0.9, metalness ~0) was readable but
+    // looked like a painted choropleth; mix ~0.3 washed to uniform gold.
+    // Target: polished metal plates with a clear tier hue.
+    const tierMix = regulatoryTier === 'prohibited' ? 0.52 : 0.62
+    base.plateBase = mixHex(base.plateBase, tier.plate, tierMix)
+    base.emissive = mixHex(base.emissive, tier.emissive, 0.55)
+    base.emissiveIntensity = regulatoryTier === 'prohibited' ? 0.28 : 0.36
+    base.borderColor = mixHex(base.borderColor, tier.border, 0.5)
+    base.metalness = 0.82
+    base.roughness = 0.26
+    base.clearcoat = 0.32
+    base.clearcoatRoughness = 0.24
     if (regulatoryTier === 'prohibited') {
       base.sidewallColor = hvTokens.globe.sidewallDisabled
     }
