@@ -117,7 +117,7 @@ with mapped as (
  where c.dimension_key in
  ('verified_regulatory_evidence','verified_regulatory_claims','verified_pathways',
   'verified_format_rules','market_metrics','trade_flows','signals','source_registry',
-  'source_snapshots','regulatory_calendar','country_intel')
+  'source_snapshots','regulatory_calendar')
 )
 update public.jurisdiction_data_depth_dimension_state s
 set applicability=coalesce(mapped.applicability,'unknown'),
