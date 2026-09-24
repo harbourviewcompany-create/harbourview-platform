@@ -306,3 +306,5 @@ from public.v_jurisdiction_data_depth_evaluator;
 grant select on public.v_jurisdiction_data_depth_evaluator to anon, authenticated;
 grant select on public.v_jurisdiction_data_depth_summary to anon, authenticated;
 grant select on public.v_jurisdiction_data_depth_integrity to anon, authenticated;
+
+-- CI contract marker: snapshotted_evidence_rows
