@@ -84,7 +84,6 @@ create index if not exists jurisdiction_data_depth_state_status_idx
  on public.jurisdiction_data_depth_dimension_state(status,applicability,dimension_key);
 
 alter table public.jurisdiction_data_depth_dimension_state enable row level security;
-alter table public.jurisdiction_data_depth_dimension_state force row level security;
 drop policy if exists jurisdiction_data_depth_dimension_state_public_read on public.jurisdiction_data_depth_dimension_state;
 create policy jurisdiction_data_depth_dimension_state_public_read
  on public.jurisdiction_data_depth_dimension_state for select to public using (true);
@@ -256,4 +255,7 @@ begin
  if v_j<>291 or v_m<>9312 then
    raise exception 'Full-depth matrix gate failed: jurisdictions %, matrix rows %, expected 291/9312',v_j,v_m;
  end if;
-end $$;
+end $;
+
+-- Enforce RLS after the owner-side structural gate has been evaluated.
+alter table public.jurisdiction_data_depth_dimension_state force row level security;
