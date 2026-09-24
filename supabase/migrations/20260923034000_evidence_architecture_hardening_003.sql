@@ -1,4 +1,6 @@
 -- Evidence architecture hardening 003.
+-- publication-qualifying only when its referenced snapshot passes the cryptographic/fetch/payload/source-registry gate
+-- snapshotted_evidence_rows is an audit-visible evidence count, not a publication shortcut.
 -- Canonical hierarchy resolution and publication gating.
 -- No parent/subnational inheritance is inferred from prose or regular expressions.
 
