@@ -33,7 +33,10 @@ const VERT = /* glsl */ `
   varying vec3 vViewDir;
 
   vec2 sphereUv(vec3 p) {
-    float lng = atan(p.z, -p.x);
+    // Keep the shader's equirectangular mapping identical to
+    // computeDensityField(): longitude runs -180..180 with 0° at the
+    // +X meridian. Using -p.x here mirrored the heat surface by 180°.
+    float lng = atan(p.z, p.x);
     float lat = asin(clamp(p.y, -1.0, 1.0));
     return vec2(
       (lng + 3.14159265) / (2.0 * 3.14159265),
