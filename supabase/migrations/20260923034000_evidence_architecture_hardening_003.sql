@@ -162,7 +162,9 @@ legacy_regulatory as (
            and e.source_snapshot_sha256 is not null
            and exists (
              select 1 from public.v_jurisdiction_verified_snapshot_gate g
-             where g.evidence_key=e.evidence_key and g.qualifying
+             where g.snapshot_hash=e.source_snapshot_sha256
+               and g.registered_source_url=e.authority_url
+               and g.qualifying
            )) qualifying_current,
          count(*) filter (where e.active and e.verified_at is not null and e.expires_at>=now()) current_rows
   from public.regulatory_market_access_evidence e
