@@ -28,6 +28,7 @@ const RETIRED_ALIAS_VERSIONS = new Set([
   '20260801150000',
   '20260802080000',
   '20260810222500',
+  '20260804235500',
 ])
 
 function gitBlobSha(filePath) {
