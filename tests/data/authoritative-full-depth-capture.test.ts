@@ -31,6 +31,8 @@ describe('authoritative full-depth capture', () => {
     expect(worker).not.toContain('parent_jurisdiction_key')
     expect(worker).not.toContain('p_iso')
     expect(worker).toContain('jurisdiction_code.eq')
+    expect(worker).toContain('contract_version", "2026-09-23.v2')
+    expect(worker).toContain('fetch_status: response.ok ? "success" : "http_error"')
   })
 
   it('uses a first-party captured source as the only extraction input', () => {
