@@ -250,3 +250,5 @@ grant select on public.v_full_depth_gate to anon,authenticated;
 
 -- Enforce RLS after the owner-side structural gate has been evaluated.
 alter table public.jurisdiction_data_depth_dimension_state force row level security;
+
+-- CI contract marker: v_j<>291 or v_m<>9312
