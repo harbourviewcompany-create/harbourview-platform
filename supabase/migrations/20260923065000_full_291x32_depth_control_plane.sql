@@ -87,7 +87,7 @@ alter table public.jurisdiction_data_depth_dimension_state enable row level secu
 alter table public.jurisdiction_data_depth_dimension_state force row level security;
 drop policy if exists jurisdiction_data_depth_dimension_state_public_read on public.jurisdiction_data_depth_dimension_state;
 create policy jurisdiction_data_depth_dimension_state_public_read
- on public.jurisdiction_data_depth_dimension_state for select to anon,authenticated using (true);
+ on public.jurisdiction_data_depth_dimension_state for select to public using (true);
 grant select on public.jurisdiction_data_depth_dimension_state to anon,authenticated;
 
 insert into public.jurisdiction_data_depth_dimension_state
