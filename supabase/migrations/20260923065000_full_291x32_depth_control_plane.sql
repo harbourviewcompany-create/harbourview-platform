@@ -122,6 +122,7 @@ update public.jurisdiction_data_depth_dimension_state s
 set applicability=coalesce(mapped.applicability,'unknown'),
     status=case
       when mapped.applicability='not_applicable' then 'complete'
+      when mapped.status in ('verified_populated','verified_empty') then 'complete'
       when mapped.status in ('complete','missing','blocked','stale','conflict') then mapped.status
       else 'unmeasured'
     end,
