@@ -23,10 +23,9 @@ describe('evidence architecture hardening 003', () => {
     expect(migration).toContain('publication-qualifying only when its referenced snapshot passes the cryptographic/fetch/payload/source-registry gate')
   })
   test('requires legacy regulatory evidence to match a successful captured snapshot', () => {
-    expect(migration).toContain('lower(ss.raw_html_hash)=lower(e.source_snapshot_sha256)')
-    expect(migration).toContain("ss.fetch_status='success'")
-    expect(migration).toContain('ss.captured_text is not null')
-    expect(migration).toContain('sr.source_url=e.authority_url')
+    expect(migration).toContain('g.snapshot_hash=e.source_snapshot_sha256')
+    expect(migration).toContain('g.registered_source_url=e.authority_url')
+    expect(migration).toContain('g.qualifying')
   })
   test('makes aggregate readiness depend on the gated evaluator', () => {
     expect(migration).toContain('from public.v_jurisdiction_data_depth_evaluator group by jurisdiction_key')
