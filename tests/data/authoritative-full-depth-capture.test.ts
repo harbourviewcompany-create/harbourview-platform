@@ -19,6 +19,10 @@ describe('authoritative full-depth capture', () => {
     expect(migration).toContain("source_snapshot_id uuid not null")
     expect(migration).toContain("evidence_quote text not null")
     expect(migration).toContain("verification_status")
+    expect(migration).toContain("g.registered_source_url")
+    expect(migration).toContain("enforce_full_depth_evidence_provenance")
+    expect(migration).toContain("enforce_full_depth_applicability_provenance")
+    expect(migration).not.toContain("g.captured_url")
   })
 
   it('fails closed when source text cannot support the extracted quote', () => {
