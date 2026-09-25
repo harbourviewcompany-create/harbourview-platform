@@ -4,7 +4,7 @@ create or replace view public.v_jurisdiction_data_depth
 with (security_invoker = on) as
 with base as (
   select c.id, c.iso_alpha2 as jurisdiction_key, c.country_name, c.country_slug, c.iso_alpha3,
-         c.region, c.subregion, c.market_access_status, c.medical_status, c.adult_use_status,
+         c.region, c.subregion, c.jurisdiction_level, c.market_access_status, c.medical_status, c.adult_use_status,
          c.import_status, c.export_status, c.regulatory_tier, c.regulatory_tier_verified_at,
          c.data_completeness, c.last_updated_label
   from public.countries c
