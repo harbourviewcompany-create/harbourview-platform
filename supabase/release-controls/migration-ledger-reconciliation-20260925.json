@@ -1,0 +1,219 @@
+{
+  "generated_at": "2026-09-25",
+  "production_project": "zvxdgdkukjrrwamdpqrg",
+  "production_migration_count": 1082,
+  "repository_migration_file_count": 1233,
+  "unresolved_production_versions": 53,
+  "status": "HOLD",
+  "rule": "Do not fabricate or synthesize missing migration source. Resolve only with recovered source, byte/content verification, or an explicitly documented historical attestation.",
+  "unresolved": [
+    {
+      "version": "20260730112526",
+      "name": "job_search_seed_remaining_settings_and_opportunities"
+    },
+    {
+      "version": "20260731090302",
+      "name": "job_search_adzuna_vault_credentials"
+    },
+    {
+      "version": "20260820140000"
+    },
+    {
+      "version": "20260821120000"
+    },
+    {
+      "version": "20260821121000"
+    },
+    {
+      "version": "20260821190000"
+    },
+    {
+      "version": "20260920170252",
+      "name": "harden_zero_cost_rules_analysis_batch"
+    },
+    {
+      "version": "20260920182846",
+      "name": "20260920223000_harden_zero_cost_enrichment"
+    },
+    {
+      "version": "20260920183010",
+      "name": "20260920223500_refine_deadline_extraction"
+    },
+    {
+      "version": "20260920215219",
+      "name": "20260920224500_repair_limited_rules_analysis"
+    },
+    {
+      "version": "20260922101715",
+      "name": "jurisdiction_data_depth_subnational_source_alignment_v2"
+    },
+    {
+      "version": "20260922101742",
+      "name": "backfill_jurisdiction_depth_research_queue"
+    },
+    {
+      "version": "20260922101831",
+      "name": "seed_verified_subnational_regulatory_sources_v2"
+    },
+    {
+      "version": "20260922101839",
+      "name": "seed_ontario_regulatory_source"
+    },
+    {
+      "version": "20260922101846",
+      "name": "jurisdiction_data_depth_task_queue"
+    },
+    {
+      "version": "20260922113553",
+      "name": "20260922120000_primary_tv_va_source_enrichment"
+    },
+    {
+      "version": "20260922113644",
+      "name": "20260922120500_reconcile_tv_va_depth_integrity"
+    },
+    {
+      "version": "20260922114014",
+      "name": "20260922121000_primary_ca_ke_regulatory_enrichment"
+    },
+    {
+      "version": "20260922114024",
+      "name": "20260922121500_reconcile_ca_ke_depth_coverage"
+    },
+    {
+      "version": "20260922114129",
+      "name": "20260922122000_reconcile_va_source_registry_coverage"
+    },
+    {
+      "version": "20260922114156",
+      "name": "20260922122500_add_va_blocked_evidence_task"
+    },
+    {
+      "version": "20260922230557",
+      "name": "refresh_authoritative_cannabis_source_endpoints_20260922"
+    },
+    {
+      "version": "20260922230647",
+      "name": "activate_refreshed_authoritative_cannabis_sources_20260922"
+    },
+    {
+      "version": "20260922230800",
+      "name": "refine_australia_odc_authority_endpoint_20260922"
+    },
+    {
+      "version": "20260922230955",
+      "name": "activate_canadian_provincial_authority_sources_20260922"
+    },
+    {
+      "version": "20260922231124",
+      "name": "refresh_canadian_retail_authority_endpoints_20260922"
+    },
+    {
+      "version": "20260922231319",
+      "name": "refresh_italy_cannabis_authority_endpoint_20260922"
+    },
+    {
+      "version": "20260922231639",
+      "name": "bind_official_primary_source_hashes_nl_de_by_20260922"
+    },
+    {
+      "version": "20260923080456",
+      "name": "refresh_current_cannabis_authority_endpoints_20260923"
+    },
+    {
+      "version": "20260923084523",
+      "name": "20260923012000_source_engine_continuous_worker_timeout_fix"
+    },
+    {
+      "version": "20260923090443",
+      "name": "refresh-current-authority-endpoints-ag-bs-ch-dk-md-20260923"
+    },
+    {
+      "version": "20260923090925",
+      "name": "align-ag-current-enacted-cannabis-act-endpoint-20260923"
+    },
+    {
+      "version": "20260923093347",
+      "name": "align-target-authority-pages-20260923"
+    },
+    {
+      "version": "20260923093443",
+      "name": "bind-fresh-ch-dk-bs-md-authority-evidence-20260923"
+    },
+    {
+      "version": "20260923093459",
+      "name": "align-primary-hashes-to-fresh-authority-evidence-20260923"
+    },
+    {
+      "version": "20260923093511",
+      "name": "restore-ag-legislation-fetch-endpoint-20260923"
+    },
+    {
+      "version": "20260923093637",
+      "name": "refresh-illinois-authority-endpoint-20260923"
+    },
+    {
+      "version": "20260923093724",
+      "name": "bind-illinois-first-party-evidence-20260923"
+    },
+    {
+      "version": "20260923093907",
+      "name": "bind-vermont-first-party-cannabis-evidence-20260923"
+    },
+    {
+      "version": "20260925101224",
+      "name": "20260924152000_regulatory_tier_evidence_reconciliation"
+    },
+    {
+      "version": "20260925101233",
+      "name": "20260924162000_regulator_evidence_depth_backfill"
+    },
+    {
+      "version": "20260925101240",
+      "name": "20260924170000_structured_dimension_adjudication_engine_v2"
+    },
+    {
+      "version": "20260925101244",
+      "name": "20260924170100_structured_adjudication_engine_rls"
+    },
+    {
+      "version": "20260925101329",
+      "name": "20260925070000_fix_structured_adjudication_gate_insert"
+    },
+    {
+      "version": "20260925101359",
+      "name": "20260925071000_fix_structured_adjudication_registered_source_url"
+    },
+    {
+      "version": "20260925101426",
+      "name": "20260925072000_fix_structured_adjudication_tier_source_binding"
+    },
+    {
+      "version": "20260925101503",
+      "name": "full_depth_capture_invocation_logs"
+    },
+    {
+      "version": "20260925115756",
+      "name": "full_depth_capture_dispatcher"
+    },
+    {
+      "version": "20260925115815",
+      "name": "full_depth_capture_dispatcher_url"
+    },
+    {
+      "version": "20260925115841",
+      "name": "20260925115700_structured_adjudication_pipeline_table_rls"
+    },
+    {
+      "version": "20260925120408",
+      "name": "20260925072000_full_depth_authority_source_bindings"
+    },
+    {
+      "version": "20260925121126",
+      "name": "20260925073000_full_depth_dimension_adjudication_engine"
+    },
+    {
+      "version": "20260925130901",
+      "name": "requeue_full_depth_provider_failures_and_accelerate_authority_discovery"
+    }
+  ]
+}
