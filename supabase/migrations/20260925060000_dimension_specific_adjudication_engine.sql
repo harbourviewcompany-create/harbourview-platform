@@ -22,18 +22,22 @@ values
 ('freshness','v1','structural_fact',true,true,false,false,'captured snapshot age and SHA-256 integrity',true,false),
 ('uncertainty','v1','verified_research',true,true,true,false,'explicit conflict/blocked adjudication with evidence lineage',true,false),
 ('research_queue','v1','verified_research',false,false,false,false,'derived unresolved work queue; stored separately from authoritative evidence',false,false)
-on conflict public.jurisdiction_data_depth_dimension_gate_contract enable row level security;
+on conflict (dimension_key) do update set
+ contract_version=excluded.contract_version,
+ evidence_kind=excluded.evidence_kind,
+ requires_source_registry=excluded.requires_source_registry,
+ requires_source_snapshot=excluded.requires_source_snapshot,
+ requires_quote=excluded.requires_quote,
+ requires_effective_date=excluded.requires_effective_date,
+ semantic_rule=excluded.semantic_rule,
+ authoritative_source_required=excluded.authoritative_source_required,
+ parent_inheritance_allowed=excluded.parent_inheritance_allowed,
+ updated_at=now();
+
+alter table public.jurisdiction_data_depth_dimension_gate_contract enable row level security;
 revoke all on public.jurisdiction_data_depth_dimension_gate_contract from public;
 grant select on public.jurisdiction_data_depth_dimension_gate_contract to service_role;
 
-on conflict (dimension_key) do update set
- contract_version=excluded.contract_version,evidence_kind=excluded.evidence_kind,
- requires_source_registry=excluded.requires_source_registry,requires_source_snapshot=excluded.requires_source_snapshot,
- requires_quote=excluded.requires_quote,requires_effective_date=excluded.requires_effective_date,
- semantic_rule=excluded.semantic_rule,authoritative_source_required=excluded.authoritative_source_required,
- parent_inheritance_allowed=excluded.parent_inheritance_allowed,updated_at=now();
-
-alter table
 create table if not exists public.jurisdiction_data_depth_research_queue (
   id uuid primary key default gen_random_uuid(),
   jurisdiction_key text not null,
