@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { resolvePublishedRegulatoryTier } from '@/lib/globe/supabaseGlobeData'
+import { resolveGlobeRegulatoryTier, resolvePublishedRegulatoryTier } from '@/lib/globe/supabaseGlobeData'
 
 describe('evidence-backed Market Access publication', () => {
   const now = Date.parse('2026-08-31T12:10:00Z')
