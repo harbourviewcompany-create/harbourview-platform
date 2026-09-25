@@ -511,7 +511,7 @@ test('replay reconstructs the Colombia briefing that no repository migration see
 
 test('replay corrects the historical function privilege probe without changing production migration semantics', () => {
   const file = '20260916100000_security_boundary_hardening.sql'
-  const patch = contentPatches.find((item) => item.file === file)
+  const patch = contentPatches.find((item) => item.file === file && item.anchor.includes('has_function_privilege'))
   assert.ok(patch)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   assert.equal(original.includes(patch.anchor), true)
