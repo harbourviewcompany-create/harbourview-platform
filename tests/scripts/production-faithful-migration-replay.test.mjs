@@ -422,21 +422,13 @@ test('synthetic education policy foundation fails closed when its boundary or pr
   assert.equal(planReplaySyntheticFoundations({ migrationFiles: [prerequisite, boundary] }).length, 1)
 })
 
-test('replay hardens extant tables while guarding absent production-local staging relations', () => {
+test('canonical migration hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 16)
-  const patch = contentPatches.find((item) => item.file === file)
-  assert.ok(patch)
-
+  assert.equal(contentPatches.find((item) => item.file === file), undefined)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  assert.equal(original.includes(patch.anchor), true)
-  assert.equal(original.includes(patch.replacement), false)
-
-  const replayCopy = original.replace(patch.anchor, patch.replacement)
-  assert.match(replayCopy, /to_regclass\(format\('public\.%I', t\)\) is null/i)
-  assert.match(replayCopy, /alter table public\.%I enable row level security/i)
-  assert.match(replayCopy, /revoke all on public\.%I from anon, authenticated/i)
-  assert.match(replayCopy, /'country_name_aliases'/i)
+  assert.match(original, /to_regclass\(format\('public\\.%I', t\)\) is not null/i)
+  assert.match(original, /alter table public\.%I enable row level security/i)
+  assert.match(original, /revoke all on public\.%I from anon, authenticated/i)
 })
 
 test('replay normalizes the historical security policy regex only in the temporary workspace', () => {
@@ -462,20 +454,12 @@ test('replay reconciles the historical Legal Data Hunter network-status enum onl
   assert.equal(original.includes(patch.replacement), false)
 })
 
-test('replay evaluates source_registry content_type using its reconstructed text-array type', () => {
+test('canonical heatmap migration evaluates source_registry content_type using its reconstructed text-array type', () => {
   const file = '20260816120000_auto_heatmap_from_signals.sql'
-  const patch = contentPatches.find((item) => item.file === file)
-  assert.ok(patch)
-
+  assert.equal(contentPatches.find((item) => item.file === file), undefined)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  const columnMigration = fs.readFileSync(
-    path.join(root, 'supabase/migrations/20260715130000_stage1_add_content_type_to_source_registry.sql'),
-    'utf8',
-  )
-  assert.match(columnMigration, /content_type text\[\]/i)
-  assert.equal(original.includes(patch.anchor), true)
-  assert.match(patch.replacement, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
-  assert.match(patch.replacement, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
+  assert.match(original, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
+  assert.match(original, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
 })
 
 test('replay reconciles the legacy and Prescriber OS clinical contracts additively', () => {
