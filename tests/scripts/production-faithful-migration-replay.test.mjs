@@ -403,7 +403,7 @@ test('synthetic education policy foundation fails closed when its boundary or pr
 
 test('replay hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 15)
+  assert.equal(contentPatches.length, 16)
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
 
@@ -425,6 +425,17 @@ test('replay normalizes the historical security policy regex only in the tempora
   )
   assert.ok(patch)
   assert.equal(patch.replacement.includes("auth\\\\.uid"), false)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
+test('replay reconciles the historical Legal Data Hunter network-status enum only in the temporary workspace', () => {
+  const file = '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.equal(patch.anchor, "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',")
+  assert.equal(patch.replacement, "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',")
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   assert.equal(original.includes(patch.anchor), true)
   assert.equal(original.includes(patch.replacement), false)
