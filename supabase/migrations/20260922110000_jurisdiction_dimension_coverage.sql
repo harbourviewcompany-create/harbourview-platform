@@ -35,8 +35,8 @@ seed as (
   select
     b.jurisdiction_key,d.dimension_key,
     case
-      when d.dimension_key in ('trade_flows','market_metrics','signals') and b.jurisdiction_level='subnational' then 'not_applicable'
-      when d.dimension_key='country_intel' and b.jurisdiction_level='subnational' then 'inherited'
+      when d.dimension_key in ('trade_flows','market_metrics','signals') and b.jurisdiction_key ~ '^(US|CA|DE|AU)-' then 'not_applicable'
+      when d.dimension_key='country_intel' and b.jurisdiction_key ~ '^(US|CA|DE|AU)-' then 'inherited'
       when d.dimension_key='country_intel' and b.active_country_intel_rows>0 then 'verified_populated'
       when d.dimension_key='verified_regulatory_evidence' and b.current_verified_evidence_rows>0 then 'verified_populated'
       when d.dimension_key='verified_regulatory_claims' and b.verified_claim_rows>0 then 'verified_populated'
@@ -51,14 +51,14 @@ seed as (
       else 'open'
     end status,
     case
-      when d.dimension_key in ('trade_flows','market_metrics','signals') and b.jurisdiction_level='subnational' then 'not_applicable'
-      when d.dimension_key='country_intel' and b.jurisdiction_level='subnational' then 'inherited'
+      when d.dimension_key in ('trade_flows','market_metrics','signals') and b.jurisdiction_key ~ '^(US|CA|DE|AU)-' then 'not_applicable'
+      when d.dimension_key='country_intel' and b.jurisdiction_key ~ '^(US|CA|DE|AU)-' then 'inherited'
       else 'applicable'
     end applicability,
     case
-      when d.dimension_key in ('trade_flows','market_metrics','signals') and b.jurisdiction_level='subnational'
+      when d.dimension_key in ('trade_flows','market_metrics','signals') and b.jurisdiction_key ~ '^(US|CA|DE|AU)-'
         then 'Platform model currently defines this dimension as national-only.'
-      when d.dimension_key='country_intel' and b.jurisdiction_level='subnational'
+      when d.dimension_key='country_intel' and b.jurisdiction_key ~ '^(US|CA|DE|AU)-'
         then 'Country-level intelligence is inherited conceptually from the parent jurisdiction; no local row is counted as local evidence.'
       else null
     end evidence_basis
