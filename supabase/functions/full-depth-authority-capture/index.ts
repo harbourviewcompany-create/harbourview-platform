@@ -18,10 +18,12 @@ function auth(req: Request) {
   const expectedServiceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const suppliedBearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const suppliedOperator = req.headers.get("x-harbourview-operator-secret");
+  const suppliedDispatch = req.headers.get("x-harbourview-dispatch-token");
   const expectedOperator = Deno.env.get("HARBOURVIEW_FULL_DEPTH_CAPTURE_SECRET");
   return Boolean(
     (expectedServiceRole && suppliedBearer && suppliedBearer === expectedServiceRole) ||
-    (expectedOperator && suppliedOperator && suppliedOperator === expectedOperator)
+    (expectedOperator && suppliedOperator && suppliedOperator === expectedOperator) ||
+    (suppliedDispatch && suppliedDispatch.length >= 32)
   );
 }
 
@@ -280,6 +282,17 @@ Deno.serve(async (req)=>{
 
   if(req.method!=="POST") return Response.json({error:"method_not_allowed"},{status:405});
   if(!auth(req)) return Response.json({error:"unauthorized"},{status:401});
+  const suppliedDispatch=req.headers.get("x-harbourview-dispatch-token");
+  if(suppliedDispatch) {
+    const {data:dispatchConfig,error:dispatchConfigError}=await supabase
+      .from("full_depth_capture_dispatch_config")
+      .select("dispatch_token,enabled,batch_limit")
+      .eq("id",true)
+      .maybeSingle();
+    if(dispatchConfigError || !dispatchConfig?.enabled || dispatchConfig.dispatch_token!==suppliedDispatch) {
+      return Response.json({error:"invalid_dispatch_token"},{status:401});
+    }
+  }
   if(!OPENAI_API_KEY) return Response.json({error:"OPENAI_API_KEY_missing"},{status:503});
 
   const url=new URL(req.url);
