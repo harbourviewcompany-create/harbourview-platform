@@ -2,7 +2,9 @@
   "generated_at": "2026-09-25",
   "production_project": "zvxdgdkukjrrwamdpqrg",
   "production_migration_count": 1090,
-  "repository_migration_file_count": 1233,
+  "repository_migration_file_count": 1234,
+  "status": "HOLD",
+  "rule": "Do not fabricate or synthesize missing migration source. Resolve only with recovered source, byte/content verification, or an explicitly documented historical attestation.",
   "reconciled_filename_aliases": [
     {
       "production_version": "20260920182846",
@@ -115,11 +117,39 @@
       "source_file": "20260925072000_fix_structured_adjudication_tier_source_binding.sql",
       "source_sha": "84b8ccbc5ec35608fecb2d2ae0f58039f76df623",
       "reconciled_file": "20260925101426_fix_structured_adjudication_tier_source_binding.sql"
+    },
+    {
+      "production_version": "20260925145633",
+      "production_name": "publish_heatmap_au_de_subnational",
+      "source_file": "20260925200000_publish_heatmap_au_de_subnational.sql",
+      "source_sha": "49fbc5990346c5af956832295e1f6d8e4553b333",
+      "reconciled_file": "20260925145633_publish_heatmap_au_de_subnational.sql",
+      "source_origin": "main"
     }
   ],
-  "unresolved_production_versions": 45,
-  "status": "HOLD",
-  "rule": "Do not fabricate or synthesize missing migration source. Resolve only with recovered source, byte/content verification, or an explicitly documented historical attestation.",
+  "repository_version_collision_resolutions": [
+    {
+      "source_file": "20260923043000_kz_pathway_calendar_format_depth.sql",
+      "reconciled_file": "20260923043002_kz_pathway_calendar_format_depth.sql"
+    },
+    {
+      "source_file": "20260923063000_primary_me_drug_control_2026.sql",
+      "reconciled_file": "20260923063002_primary_me_drug_control_2026.sql"
+    },
+    {
+      "source_file": "20260923070000_primary_kw_ly_enrichment.sql",
+      "reconciled_file": "20260923070002_primary_kw_ly_enrichment.sql"
+    },
+    {
+      "source_file": "20260924073000_primary_sn_drug_code_enrichment.sql",
+      "reconciled_file": "20260924073002_primary_sn_drug_code_enrichment.sql"
+    },
+    {
+      "source_file": "20260924150000_authoritative_evidence_depth_backfill.sql",
+      "reconciled_file": "20260924150001_authoritative_evidence_depth_backfill.sql"
+    }
+  ],
+  "unresolved_production_versions": 44,
   "unresolved": [
     {
       "version": "20260730112526",
@@ -292,12 +322,9 @@
     {
       "version": "20260925144959",
       "name": "fix_full_depth_applicability_provenance_trigger"
-    },
-    {
-      "version": "20260925145633",
-      "name": "publish_heatmap_au_de_subnational"
     }
   ],
+  "remaining_duplicate_repository_versions": [],
   "registry_impact": "none",
   "production_write_performed": false
 }
