@@ -1,4 +1,26 @@
 /**
+ * github-bridge v27 -- restored v23-v26 ops lost to a stale-branch squash-merge (2026-09-25)
+ *   PR #1983 (this file's own v24 entry below, "added get_commit...") was
+ *   branched off main on 2026-09-18 and sat open ~19 hours. In that window,
+ *   three more PRs landed directly on main: v24 (trigger_workflow,
+ *   list_workflow_runs), v25 (create_ruleset), and v26 (a second fix for the
+ *   batch-concurrency regression, folding in v23's get_job_logs). PR #1983
+ *   was never rebased before merging and was squash-merged as-is on
+ *   2026-09-19, so its stale snapshot overwrote main -- silently deleting
+ *   get_job_logs, trigger_workflow, list_workflow_runs, and create_ruleset,
+ *   with no merge conflict to flag it (GitHub's squash merge does not diff
+ *   against the current base the way a real merge commit would). Caught on
+ *   2026-09-25 by grep-checking main for get_job_logs after the fact and
+ *   getting zero matches. Fixed by restoring all four removed cases
+ *   verbatim from PR #1983's diff (the removed lines were still visible in
+ *   the PR's file patch) and keeping this version's get_commit /
+ *   create_ref / get_tree fixes, which were not affected. Net effect:
+ *   nothing lost, nothing reverted, get_commit added for real this time.
+ *   Lesson for next time a branch sits open more than a few hours: re-run
+ *   create_ref (or rebase) against current main immediately before merging,
+ *   not just at branch-creation time -- an open PR's base does not update
+ *   itself, and this repo's squash-merge does not warn you when it's stale.
+ *
  * github-bridge v24 -- added get_commit; create_ref/get_tree resolve via commits API (2026-09-18)
  *   create_ref and get_tree both resolved refs via endpoints that only accept
  *   branch names or exact/full SHAs (GET /branches/<ref> and GET /git/trees/<ref>
