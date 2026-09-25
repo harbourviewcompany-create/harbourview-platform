@@ -85,21 +85,45 @@ returns integer language plpgsql security definer set search_path=public as $$
 declare n integer;
 begin
   update jurisdiction_data_depth_dimension_state s
-  set evidence_count=e.cnt, primary_source_count=e.primary_cnt,
-      latest_verified_at=e.latest_verified, confidence=e.confidence,
-      evidence_basis=e.basis, status='complete',
+  set evidence_count=coalesce(e.cnt,0),
+      primary_source_count=coalesce(e.primary_cnt,0),
+      latest_verified_at=e.latest_verified,
+      confidence=e.confidence,
+      evidence_basis=e.basis,
+      status=case
+        when e.cnt > 0 then 'complete'
+        when s.status='blocked' then 'blocked'
+        else 'unmeasured'
+      end,
       last_evaluated_at=now(), updated_at=now()
   from (
-    select jurisdiction_key,count(*) cnt,
-           count(distinct source_registry_id) filter(where source_registry_id is not null) primary_cnt,
-           max(verified_at) latest_verified,
-           case when bool_or((evidence_payload->>'confidence')='high') then 'high'
-                when bool_or((evidence_payload->>'confidence')='medium') then 'medium'
-                when bool_or((evidence_payload->>'confidence')='low') then 'low' else null end confidence,
-           string_agg(distinct evidence_kind,', ' order by evidence_kind) basis
-    from jurisdiction_data_depth_evidence
-    where dimension_key=p_dimension and verification_status='verified'
-    group by jurisdiction_key
+    select s0.jurisdiction_key,
+           count(e.id) cnt,
+           count(distinct e.source_registry_id) filter(where e.source_registry_id is not null) primary_cnt,
+           max(e.verified_at) latest_verified,
+           case when bool_or((e.evidence_payload->>'confidence')='high') then 'high'
+                when bool_or((e.evidence_payload->>'confidence')='medium') then 'medium'
+                when bool_or((e.evidence_payload->>'confidence')='low') then 'low' else null end confidence,
+           string_agg(distinct e.evidence_kind,', ' order by e.evidence_kind) basis
+    from jurisdiction_data_depth_dimension_state s0
+    left join jurisdiction_data_depth_evidence e
+      on e.jurisdiction_key=s0.jurisdiction_key
+     and e.dimension_key=s0.dimension_key
+     and e.verification_status='verified'
+    left join jurisdiction_data_depth_dimension_gate_contract g
+      on g.dimension_key=s0.dimension_key
+    where s0.dimension_key=p_dimension
+      and (
+        e.id is null
+        or (
+          (not coalesce(g.requires_source_registry,true) or e.source_registry_id is not null)
+          and (not coalesce(g.requires_source_snapshot,true) or e.source_snapshot_id is not null)
+          and (not coalesce(g.requires_quote,true) or nullif(btrim(e.evidence_quote),'') is not null)
+          and (not coalesce(g.requires_effective_date,true) or e.effective_from is not null)
+          and (not coalesce(g.parent_inheritance_allowed,false) or coalesce(e.evidence_payload->>'inherited_from','')='')
+        )
+      )
+    group by s0.jurisdiction_key
   ) e
   where s.dimension_key=p_dimension and s.jurisdiction_key=e.jurisdiction_key;
   get diagnostics n=row_count;
