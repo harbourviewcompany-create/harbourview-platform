@@ -174,6 +174,12 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260916100000_security_boundary_hardening.sql',
+    anchor: "and has_function_privilege(p.oid,'public','execute')",
+    replacement: "and has_function_privilege('public', p.oid, 'execute')",
+  },
+
+  {
     file: '20260723183914_lock_down_21_anon_exposed_public_tables.sql',
     anchor: `  LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
