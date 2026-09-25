@@ -149,7 +149,7 @@
       "reconciled_file": "20260924150001_authoritative_evidence_depth_backfill.sql"
     }
   ],
-  "unresolved_production_versions": 44,
+  "unresolved_production_versions": 4,
   "unresolved": [
     {
       "version": "20260730112526",
@@ -508,5 +508,12 @@
   "registry_impact": "none",
   "production_write_performed": false,
   "formal_attestation_path": "supabase/release-controls/production-only-migration-source-attestation-20260925.json",
-  "formal_attestation_status": "FORMALLY_ATTESTED_WITH_SOURCE_GAP"
+  "formal_attestation_status": "RECOVERED_WITH_4_PRODUCTION_LEDGER_ONLY_GAPS_AND_1_SENSITIVE_SOURCE_WITHHELD",
+  "recovery_summary": {
+    "production_only_total": 44,
+    "exact_sources_recovered_from_production_statements": 39,
+    "sensitive_exact_source_recovered_but_withheld": 1,
+    "production_ledger_rows_with_null_statements": 4,
+    "production_write_performed": false
+  }
 }
