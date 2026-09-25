@@ -254,25 +254,8 @@ const REPLAY_CONTENT_PATCHES = [
     replacement: "and has_function_privilege('public', p.oid, 'execute')",
   },
 
-  {
-    file: '20260723183914_lock_down_21_anon_exposed_public_tables.sql',
-    anchor: `  LOOP
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
-  END LOOP;`,
-    replacement: `  LOOP
-    IF to_regclass(format('public.%I', t)) IS NULL THEN
-      CONTINUE;
-    END IF;
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
-    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
-  END LOOP;`,
-  },
-  {
-    file: '20260816120000_auto_heatmap_from_signals.sql',
-    anchor: `        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')`,
-    replacement: `        or coalesce(s.content_type, '{}'::text[]) && array['regulatory', 'legislation', 'official_notice']::text[]`,
-  },
+
+
   {
     file: '20260901022725_pin_search_path_on_mutable_functions.sql',
     anchor: `alter function public.hv_gemini_embed_backfill_tick(integer) set search_path = 'public';`,
