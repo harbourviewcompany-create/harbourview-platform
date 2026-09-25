@@ -130,7 +130,10 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
             opportunityScore: updated.opportunity_score,
             signalsStatus: updated.signals_status,
             marketAccessStatus: updated.market_access_status,
-            ...(() => {\n              const resolved = resolveGlobeRegulatoryTier(updated)\n              return { regulatoryTier: resolved.tier, regulatoryTierProvenance: resolved.provenance }\n            })(),
+            ...(() => {
+              const resolved = resolveGlobeRegulatoryTier(updated)
+              return { regulatoryTier: resolved.tier, regulatoryTierProvenance: resolved.provenance }
+            })(),
             regulatoryTierEvidenceKey: updated.regulatory_tier_evidence_key ?? null,
             regulatoryTierVerifiedAt: updated.regulatory_tier_verified_at ?? null,
             regulatoryTierExpiresAt: updated.regulatory_tier_expires_at ?? null,
