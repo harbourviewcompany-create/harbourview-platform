@@ -4,7 +4,7 @@ import path from 'node:path'
 
 describe('full-depth v2 capture control plane', () => {
   const migration = fs.readFileSync(
-    path.join(process.cwd(),'supabase/migrations/20260924130000_full_depth_v2_capture_control_plane.sql'),
+    path.join(process.cwd(),'supabase/migrations/20260924130500_full_depth_v2_capture_control_plane.sql'),
     'utf8',
   )
 
