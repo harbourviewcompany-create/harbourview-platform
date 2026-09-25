@@ -331,6 +331,51 @@ test('repository equivalence manifest is pinned to the exact canonical migration
   )
 })
 
+test('live-version shadow files do not invalidate an exact canonical equivalence', () => {
+  const repository = {
+    files: [
+      '20260807000900_revoke_data_api_execute_on_secret_accessors.sql',
+      '20260807181844_revoke_data_api_execute_on_secret_accessors.sql',
+    ],
+    versions: ['20260807000900', '20260807181844'],
+    filesByVersion: {
+      '20260807000900': ['20260807000900_revoke_data_api_execute_on_secret_accessors.sql'],
+      '20260807181844': ['20260807181844_revoke_data_api_execute_on_secret_accessors.sql'],
+    },
+    gitBlobShaByFile: {
+      '20260807000900_revoke_data_api_execute_on_secret_accessors.sql':
+        '01ff55e434af1b433c95a795ca03576fd1765d49',
+      '20260807181844_revoke_data_api_execute_on_secret_accessors.sql':
+        '2d5764d76bd5208597a23454742ccab9cdb84761',
+    },
+    duplicateVersions: [],
+    invalidFiles: [],
+  }
+  const equivalences = {
+    version: 1,
+    equivalences: [
+      {
+        live_version: '20260807181844',
+        repository_version: '20260807000900',
+        file: '20260807000900_revoke_data_api_execute_on_secret_accessors.sql',
+        git_blob_sha: '01ff55e434af1b433c95a795ca03576fd1765d49',
+      },
+    ],
+  }
+  const manifest = buildManifest({
+    repository,
+    remote: { parsedRows: 1, remoteVersions: ['20260807181844'] },
+    control: {
+      version: 1,
+      release: 'shadow-test',
+      approved_migrations: [],
+    },
+    equivalences,
+  })
+  assert.equal(manifest.live_version_equivalence_mismatches.length, 0)
+  assert.equal(manifest.historical_live_version_aliases.length, 1)
+})
+
 test('canonicalized live-only migrations preserve the exact recovered SQL statements', () => {
   const signalQualitySql = fs
     .readFileSync(
