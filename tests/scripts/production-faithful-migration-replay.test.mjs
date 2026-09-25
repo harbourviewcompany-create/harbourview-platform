@@ -608,6 +608,16 @@ test('replay compares market_access_status as text so either column shape works'
   assert.equal(original.includes(patch.replacement), false)
 })
 
+test('replay restores jurisdiction_level to the historical depth view only in the temporary workspace', () => {
+  const file = '20260922101323_jurisdiction_data_depth_v1.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.equal(patch.replacement.includes('c.jurisdiction_level, c.region, c.subregion'), true)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
 test('canonical heatmap migration evaluates source_registry content_type using its reconstructed text-array type', () => {
   const file = '20260816120000_auto_heatmap_from_signals.sql'
   assert.equal(contentPatches.find((item) => item.file === file), undefined)
