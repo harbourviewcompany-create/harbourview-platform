@@ -321,6 +321,20 @@
         "production_statement_chars": 10541,
         "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed production live version 20260924123109 is byte-identical to the recovered canonical repository migration content now stored at repository version 20260924130500. No production history row was changed."
       }
+    },
+    {
+      "live_version": "20260925170555",
+      "repository_version": "20260925130000",
+      "file": "20260925130000_progressive_depth_cycle_v1.sql",
+      "git_blob_sha": "a762856a92f0ac218c152c302432bc45bee8472e",
+      "provenance": {
+        "type": "apply_time_alias_read_only_verified",
+        "production_name": "progressive_depth_cycle_v1",
+        "production_statement_count": 1,
+        "production_statement_md5": "9c42d8d91c9462e8f308b885ed724268",
+        "production_statement_chars": 3449,
+        "production_apply_evidence": "Read-only production ledger verification on 2026-09-25 confirmed live version 20260925170555 stores progressive_depth_cycle_v1. The canonical repository migration is pinned by Git blob SHA a762856a92f0ac218c152c302432bc45bee8472e and matches the production migration content; no production history row was changed."
+      }
     }
   ]
 }
