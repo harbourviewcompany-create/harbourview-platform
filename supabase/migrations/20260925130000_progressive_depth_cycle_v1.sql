@@ -80,3 +80,4 @@ begin
   if exists(select 1 from cron.job where jobname='harbourview-progressive-depth-cycle') then perform cron.unschedule('harbourview-progressive-depth-cycle'); end if;
   perform cron.schedule('harbourview-progressive-depth-cycle','*/2 * * * *','select public.run_progressive_depth_cycle_v1();');
 end $$;
+-- Registry impact remains within the existing Harbourview Platform / Marketplace Supabase control boundary.
