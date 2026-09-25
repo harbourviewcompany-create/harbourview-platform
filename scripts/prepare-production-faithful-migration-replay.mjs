@@ -239,6 +239,11 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260922101323_jurisdiction_data_depth_v1.sql',
+    anchor: "  select c.id, c.iso_alpha2 as jurisdiction_key, c.country_name, c.country_slug, c.iso_alpha3,\n         c.region, c.subregion, c.market_access_status, c.medical_status, c.adult_use_status,",
+    replacement: "  select c.id, c.iso_alpha2 as jurisdiction_key, c.country_name, c.country_slug, c.iso_alpha3,\n         c.jurisdiction_level, c.region, c.subregion, c.market_access_status, c.medical_status, c.adult_use_status,",
+  },
+  {
     file: '20260922110000_jurisdiction_dimension_coverage.sql',
     anchor: "base as (select * from public.v_jurisdiction_data_depth),",
     replacement: "base as (select v.*, c.jurisdiction_level from public.v_jurisdiction_data_depth v join public.countries c on c.iso_alpha2 = v.jurisdiction_key),",
