@@ -347,7 +347,7 @@ test('synthetic education policy foundation fails closed when its boundary or pr
 
 test('replay hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 13)
+  assert.equal(contentPatches.length, 14)
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
 
