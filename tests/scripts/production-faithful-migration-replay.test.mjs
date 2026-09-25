@@ -442,6 +442,17 @@ test('replay reconstructs the Colombia briefing that no repository migration see
   assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
 })
 
+test('replay corrects the historical function privilege probe without changing production migration semantics', () => {
+  const file = '20260916100000_security_boundary_hardening.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.equal(patch.anchor, "and has_function_privilege(p.oid,'public','execute')")
+  assert.equal(patch.replacement, "and has_function_privilege('public', p.oid, 'execute')")
+})
+
 test('replay guards production-only relations and routines instead of failing on them', () => {
   const guarded = [
     ['20260822000000_service_role_policy_scoping.sql', /to_regclass\('job_search\.opportunities'\) is not null/i],
