@@ -10,6 +10,14 @@ END $$;
 DO $listing_type$
 BEGIN
   IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_constraint
+    WHERE conrelid = 'public.listings'::regclass
+      AND conname = 'listings_listing_type_check'
+  ) THEN
+    ALTER TABLE public.listings DROP CONSTRAINT listings_listing_type_check;
+  END IF;
+
+  IF EXISTS (
     SELECT 1 FROM pg_catalog.pg_attribute a
     JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
     WHERE c.oid = 'public.listings'::regclass
