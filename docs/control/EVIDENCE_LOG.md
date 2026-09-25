@@ -7106,3 +7106,50 @@ Full file lists, per-workflow detail, and un-evaluated remediation options in
 first (settles severity directly), then choosing a remediation from the
 document's list -- none evaluated in enough depth here to recommend one over
 the others.
+
+## 2026-09-25: Signals feed data-completeness review + hv_promote_signals safeguard fix
+
+**Trigger:** Tyler asked for a data-completeness review of the signals feed.
+
+**Finding:** Live feed had grown to 7,248 of 14,413 signals `reviewed=true`, but only
+418 had a proper editorial title. 5,270 had a blank `action` and were raw scraped
+body-text fragments; another ~848 had action labels (`rejected_oos_auto`,
+`reverted_bulk_junk_2026_07_19`, `Awaiting title`) that explicitly said they should
+NOT be live. Root cause: cron job `hv-quality-promote` (`hv_promote_signals()`, every
+10/40 min) promoted anything with `quality_label='signal'` at confidence >=0.65
+straight to `reviewed=true`, with no title requirement, no URL-level dedup, and no
+action stamp -- an independent pipeline built separately from the earlier Stage 0-4
+classify/title/dedup/promote work, unaware of its conventions.
+
+**Actions taken (all reversible, live):**
+- Reverted the ~6,118 ungated/mislabeled rows to `reviewed=false`.
+- Deduped the remaining `approved`/`approved_auto` batch by exact URL and title
+  trigram similarity (killed page-chunking dupes, e.g. one Canada.ca licensee
+  table had produced 61 separate "signals").
+- Paused `hv-quality-promote` immediately to stop it re-promoting the same junk
+  on its next run.
+- Patched `hv_promote_signals()` to require: a generated `editorial_title`,
+  a non-junk headline, not on `excluded_source_domains`, and no other live row
+  sharing the same non-aggregator URL. Now stamps `action` for traceability.
+- Widened `api.rows_needing_titles()` so title generation also covers the
+  corpus-classifier's `quality_label` rows, not just the old
+  `signal_classifications` table.
+- Added `hv_title_dispatch_tick()` + cron job `hv-title-dispatch` (*/5 min) to
+  actually generate titles for quality-gated candidates via `hv-classify`
+  mode=titles -- this step didn't exist for the corpus-classifier path before,
+  so promotion could never have gated on it.
+- Re-enabled `hv-quality-promote` (10,40 * * * *) now running against the
+  patched function.
+
+**Verified:** feed dropped 7,248 -> ~900 clean rows, then grew back to 1,222+ within
+~20 minutes purely from the fixed automated loop (title-dispatch -> promote),
+confirming the pipeline is self-sustaining without manual intervention.
+
+**Still open / not addressed this pass:**
+- Two other dormant/parallel promotion paths remain in the repo
+  (`source-engine-daily-promote` staging via the old inverted scorer;
+  the original Stage 3 `intel_pipeline_tick`, cron gone) -- not reconciled
+  into one canonical pipeline.
+- Freshness: `date` still mostly reflects crawl time not publish time (known
+  prior finding, unchanged).
+- Gov-source coverage still ~5% of live signals.
