@@ -237,7 +237,7 @@ where not exists (
 // catalog shape that differs from the repository's reconstructed zero state.
 // Patch only the temporary replay copy with a type/absence-correct equivalent;
 // checked migrations and the production ledger stay unchanged.
-const REPLAY_CONTENT_PATCHES = [
+// Every replay patch is applied only inside the disposable local replay workspace; production migrations remain byte-for-byte unchanged.\nconst REPLAY_CONTENT_PATCHES = [
   {
     file: '20260922101323_jurisdiction_data_depth_v1.sql',
     anchor: "  select c.id, c.iso_alpha2 as jurisdiction_key, c.country_name, c.country_slug, c.iso_alpha3,\n         c.region, c.subregion, c.market_access_status, c.medical_status, c.adult_use_status,",
