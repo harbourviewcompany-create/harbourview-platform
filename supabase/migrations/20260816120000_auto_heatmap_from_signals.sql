@@ -137,7 +137,7 @@ as $$
       select
         coalesce(s.tier, 99) <= 1
         or coalesce(s.source_type, '') in ('regulator', 'government_official', 'gazette', 'official_gazette')
-        or coalesce(s.content_type, '') in ('regulatory', 'legislation', 'official_notice')
+        or coalesce(s.content_type, '{}'::text[]) && array['regulatory','legislation','official_notice']::text[]
       from public.source_registry s
       where s.id = p_source_id
     ),
