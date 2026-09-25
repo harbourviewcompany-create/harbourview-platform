@@ -320,7 +320,7 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
 })
 
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 3)
+  assert.equal(syntheticFoundations.length, 4)
   const foundation = syntheticFoundations.find(
     (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
   )
@@ -330,6 +330,13 @@ test('replay materializes the missing education policy identities immediately be
   assert.match(foundation.content, /policyname = 'education_modules_public_select'/i)
   assert.match(foundation.content, /create policy "education_modules_public_select"/i)
   assert.match(foundation.content, /policyname = 'public read sections of published modules'/i)
+
+  const gemini = syntheticFoundations.find(
+    (item) => item.destination === '20260920204959_replay_gemini_embedding_column.sql',
+  )
+  assert.ok(gemini)
+  assert.equal(gemini.before, '20260920205000_optimize_gemini_embedding_queue_scan.sql')
+  assert.match(gemini.content, /embedding_gemini_1024 vector\(1024\)/)
   assert.match(foundation.content, /create policy "public read sections of published modules"/i)
   assert.equal((foundation.content.match(/using \(false\)/gi) ?? []).length, 2)
 
