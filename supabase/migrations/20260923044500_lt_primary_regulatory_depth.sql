@@ -56,10 +56,10 @@ values
  'Law No. VIII-602 on Control of Narcotic and Psychotropic Substances',
  'Lithuanian State Medicines Control Agency','active','2025-11-01',
  'Schedule I controlled substances may circulate only under statutory exceptions, including registered medicinal products and scientific research, with licensing requirements for relevant controlled medicinal-product activities. This is not an adult-use retail pathway.',
- '{https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6}',
+ ARRAY['https://e-seimas.lrs.lt/portal/legalActPrint/lt?actualEditionId=dbhKmMISzP&category=TAD&documentId=TAIS.48770&jfwid=-17i2t420n6'],
  'needs_review',now(),
  ARRAY['registered medicinal product exception','scientific research','controlled-substance licensing'])
-on conflict(slug) do update set
+on conflict (country_id, slug) do update set
  summary=excluded.summary,source_urls=excluded.source_urls,last_verified_at=now(),
  qualifying_conditions=excluded.qualifying_conditions;
 
