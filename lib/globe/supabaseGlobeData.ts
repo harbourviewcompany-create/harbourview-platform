@@ -1,9 +1,10 @@
 /**
  * lib/globe/supabaseGlobeData.ts
  *
- * Public Market Access colour is sourced from countries.verified_regulatory_tier,
- * which is populated only by structured regulatory evidence. The legacy
- * countries.regulatory_tier field is intentionally not read for colouring.
+ * Public Market Access colour prefers the evidence-backed published tier.
+ * Where that publication layer is not yet populated, the existing reviewed
+ * regulatory_tier is used as a bounded legacy coverage fallback. The fallback
+ * is exposed as provenance and is never treated as new evidence.
  */
 import { createClient } from '@/lib/supabase/client'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
@@ -23,6 +24,7 @@ export type GlobeCountryMarker = {
   regulatoryTierEvidenceKey: string | null
   regulatoryTierVerifiedAt: string | null
   regulatoryTierExpiresAt: string | null
+  regulatoryTierProvenance: 'verified' | 'legacy' | null
 }
 
 export type GlobeSignal = {
@@ -40,7 +42,10 @@ export type GlobeLiveData = {
   unmappedSignalCountries: Record<string, number>
 }
 
-export type PublishedTierRow = {\n  regulatory_tier?: string | null\n  regulatory_tier_needs_review?: boolean | null\n  regulatory_tier_last_derived_at?: string | null
+export type PublishedTierRow = {
+  regulatory_tier?: string | null
+  regulatory_tier_needs_review?: boolean | null
+  regulatory_tier_last_derived_at?: string | null
   verified_regulatory_tier?: string | null
   regulatory_tier_evidence_key?: string | null
   regulatory_tier_verified_at?: string | null
@@ -61,6 +66,28 @@ export function resolvePublishedRegulatoryTier(
   if (!Number.isFinite(verifiedMs) || !Number.isFinite(expiresMs)) return null
   if (verifiedMs > nowMs || expiresMs <= nowMs) return null
   return tier
+}
+
+export function resolveGlobeRegulatoryTier(
+  row: PublishedTierRow,
+  nowMs: number = Date.now(),
+): { tier: RegulatoryTier | null; provenance: 'verified' | 'legacy' | null } {
+  const verified = resolvePublishedRegulatoryTier(row, nowMs)
+  if (verified) return { tier: verified, provenance: 'verified' }
+
+  const legacy = row.regulatory_tier as RegulatoryTier | null | undefined
+  const derivedAt = row.regulatory_tier_last_derived_at
+    ? Date.parse(row.regulatory_tier_last_derived_at)
+    : NaN
+  const legacyEligible =
+    !!legacy &&
+    row.regulatory_tier_needs_review !== true &&
+    Number.isFinite(derivedAt) &&
+    derivedAt <= nowMs &&
+    derivedAt >= nowMs - 31 * 24 * 60 * 60 * 1000
+  return legacyEligible
+    ? { tier: legacy, provenance: 'legacy' }
+    : { tier: null, provenance: null }
 }
 
 export async function getGlobeCountryMarkers(
@@ -100,7 +127,10 @@ export async function getGlobeCountryMarkers(
     opportunityScore: c.opportunity_score,
     signalsStatus: c.signals_status,
     marketAccessStatus: c.market_access_status,
-    regulatoryTier: resolvePublishedRegulatoryTier(c, nowMs),
+    ...(() => {
+      const resolved = resolveGlobeRegulatoryTier(c, nowMs)
+      return { regulatoryTier: resolved.tier, regulatoryTierProvenance: resolved.provenance }
+    })(),
     regulatoryTierEvidenceKey: c.regulatory_tier_evidence_key ?? null,
     regulatoryTierVerifiedAt: c.regulatory_tier_verified_at ?? null,
     regulatoryTierExpiresAt: c.regulatory_tier_expires_at ?? null,
