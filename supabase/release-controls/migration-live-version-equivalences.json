@@ -310,8 +310,8 @@
     },
     {
       "live_version": "20260924123109",
-      "repository_version": "20260924130000",
-      "file": "20260924130000_full_depth_v2_capture_control_plane.sql",
+      "repository_version": "20260924130500",
+      "file": "20260924130500_full_depth_v2_capture_control_plane.sql",
       "git_blob_sha": "67dbc24528c40f68f4793938cbc6c4258a61be4c",
       "provenance": {
         "type": "apply_time_alias_read_only_verified",
@@ -319,7 +319,7 @@
         "production_statement_count": 1,
         "production_statement_md5": "37fe6be789ce9b0f76d3f2655d2617e1",
         "production_statement_chars": 10541,
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed production live version 20260924123109 is byte-identical to canonical repository migration 20260924130000. No production history row was changed."
+        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed production live version 20260924123109 is byte-identical to the recovered canonical repository migration content now stored at repository version 20260924130500. No production history row was changed."
       }
     }
   ]

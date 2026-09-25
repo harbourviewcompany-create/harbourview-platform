@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   planReplayContentPatches,
   planReplayExclusions,
+  planReplayLiveVersionShadows,
   planReplayRelocations,
   planReplaySyntheticFoundations,
   planReplayVersionCollisionRenames,
@@ -215,6 +216,61 @@ test('replay relocates only evidenced reconstruction files before their first de
   assert.match(clinicalPreflight, /clinical prescriber os governance preflight failed/i)
 })
 
+test('replay excludes local files that shadow a production live-version equivalence', () => {
+  const live = '20260807181844'
+  const canonical = '20260807000900_revoke_data_api_execute_on_secret_accessors.sql'
+  const shadow = '20260807181844_revoke_data_api_execute_on_secret_accessors.sql'
+  assert.deepEqual(
+    planReplayLiveVersionShadows({
+      decisions: {
+        equivalences: [
+          {
+            live_version: live,
+            repository_version: '20260807000900',
+            file: canonical,
+          },
+        ],
+      },
+      migrationFiles: [canonical, shadow],
+    }),
+    [
+      {
+        version: live,
+        file: shadow,
+        canonical_file: canonical,
+        canonical_version: '20260807000900',
+        reason_code: 'live_version_shadow_of_canonical_equivalence',
+      },
+    ],
+  )
+})
+
+test('replay live-version shadow detection fails closed when the canonical file or exact shadow is absent', () => {
+  const decisions = {
+    equivalences: [
+      {
+        live_version: '20260807181844',
+        repository_version: '20260807000900',
+        file: '20260807000900_revoke_data_api_execute_on_secret_accessors.sql',
+      },
+    ],
+  }
+  assert.deepEqual(
+    planReplayLiveVersionShadows({
+      decisions,
+      migrationFiles: ['20260807000900_revoke_data_api_execute_on_secret_accessors.sql'],
+    }),
+    [],
+  )
+  assert.deepEqual(
+    planReplayLiveVersionShadows({
+      decisions,
+      migrationFiles: ['20260807181844_revoke_data_api_execute_on_secret_accessors.sql'],
+    }),
+    [],
+  )
+})
+
 test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {
   assert.deepEqual(
     planReplayRelocations({
@@ -264,7 +320,7 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
 })
 
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 3)
+  assert.equal(syntheticFoundations.length, 6)
   const foundation = syntheticFoundations.find(
     (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
   )
@@ -274,6 +330,27 @@ test('replay materializes the missing education policy identities immediately be
   assert.match(foundation.content, /policyname = 'education_modules_public_select'/i)
   assert.match(foundation.content, /create policy "education_modules_public_select"/i)
   assert.match(foundation.content, /policyname = 'public read sections of published modules'/i)
+
+  const gemini = syntheticFoundations.find(
+    (item) => item.destination === '20260920204959_replay_gemini_embedding_column.sql',
+  )
+  assert.ok(gemini)
+  assert.equal(gemini.before, '20260920205000_optimize_gemini_embedding_queue_scan.sql')
+  assert.match(gemini.content, /embedding_gemini_1024 vector\(1024\)/)
+
+  const claudeStaging = syntheticFoundations.find(
+    (item) => item.destination === '20260921004055_replay_claude_push_staging.sql',
+  )
+  assert.ok(claudeStaging)
+  assert.equal(claudeStaging.before, '20260921004056_harden_internal_tables_and_rules_repair_rpc.sql')
+  assert.match(claudeStaging.content, /create table if not exists public\._claude_push_staging/i)
+
+  const depthTasks = syntheticFoundations.find(
+    (item) => item.destination === '20260922104459_replay_jurisdiction_data_depth_tasks.sql',
+  )
+  assert.ok(depthTasks)
+  assert.equal(depthTasks.before, '20260922104500_primary_us_jurisdiction_depth_enrichment.sql')
+  assert.match(depthTasks.content, /create table if not exists public\.jurisdiction_data_depth_tasks/i)
   assert.match(foundation.content, /create policy "public read sections of published modules"/i)
   assert.equal((foundation.content.match(/using \(false\)/gi) ?? []).length, 2)
 
@@ -345,37 +422,44 @@ test('synthetic education policy foundation fails closed when its boundary or pr
   assert.equal(planReplaySyntheticFoundations({ migrationFiles: [prerequisite, boundary] }).length, 1)
 })
 
-test('replay hardens extant tables while guarding absent production-local staging relations', () => {
+test('canonical migration hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 13)
-  const patch = contentPatches.find((item) => item.file === file)
-  assert.ok(patch)
+  assert.equal(contentPatches.find((item) => item.file === file), undefined)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.ok(original.includes("IF to_regclass(format('public.%I', t)) IS NOT NULL THEN"))
+  assert.match(original, /alter table public\.%I enable row level security/i)
+  assert.match(original, /revoke all on public\.%I from anon, authenticated/i)
+})
 
+test('replay normalizes the historical security policy regex only in the temporary workspace', () => {
+  const file = '20260916100000_security_boundary_hardening.sql'
+  const patch = contentPatches.find(
+    (item) => item.file === file && item.replacement.includes("auth\\.uid\\(\\)"),
+  )
+  assert.ok(patch)
+  assert.equal(patch.replacement.includes("auth\\\\.uid"), false)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   assert.equal(original.includes(patch.anchor), true)
   assert.equal(original.includes(patch.replacement), false)
-
-  const replayCopy = original.replace(patch.anchor, patch.replacement)
-  assert.match(replayCopy, /to_regclass\(format\('public\.%I', t\)\) is null/i)
-  assert.match(replayCopy, /alter table public\.%I enable row level security/i)
-  assert.match(replayCopy, /revoke all on public\.%I from anon, authenticated/i)
-  assert.match(replayCopy, /'country_name_aliases'/i)
 })
 
-test('replay evaluates source_registry content_type using its reconstructed text-array type', () => {
-  const file = '20260816120000_auto_heatmap_from_signals.sql'
+test('replay reconciles the historical Legal Data Hunter network-status enum only in the temporary workspace', () => {
+  const file = '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql'
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
-
+  assert.equal(patch.anchor, "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',")
+  assert.equal(patch.replacement, "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',")
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  const columnMigration = fs.readFileSync(
-    path.join(root, 'supabase/migrations/20260715130000_stage1_add_content_type_to_source_registry.sql'),
-    'utf8',
-  )
-  assert.match(columnMigration, /content_type text\[\]/i)
   assert.equal(original.includes(patch.anchor), true)
-  assert.match(patch.replacement, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
-  assert.match(patch.replacement, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
+test('canonical heatmap migration evaluates source_registry content_type using its reconstructed text-array type', () => {
+  const file = '20260816120000_auto_heatmap_from_signals.sql'
+  assert.equal(contentPatches.find((item) => item.file === file), undefined)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.match(original, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
+  assert.ok(original.includes("&& array['regulatory','legislation','official_notice']::text[]"))
 })
 
 test('replay reconciles the legacy and Prescriber OS clinical contracts additively', () => {
@@ -440,6 +524,17 @@ test('replay reconstructs the Colombia briefing that no repository migration see
   assert.match(foundation.content, /\$hvco\$CO\$hvco\$/)
   assert.match(foundation.content, /where not exists/i)
   assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
+})
+
+test('replay corrects the historical function privilege probe without changing production migration semantics', () => {
+  const file = '20260916100000_security_boundary_hardening.sql'
+  const patch = contentPatches.find((item) => item.file === file && item.anchor.includes('has_function_privilege'))
+  assert.ok(patch)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.equal(patch.anchor, "and has_function_privilege(p.oid,'public','execute')")
+  assert.equal(patch.replacement, "and has_function_privilege('public', p.oid, 'execute')")
 })
 
 test('replay guards production-only relations and routines instead of failing on them', () => {
