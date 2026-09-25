@@ -7,6 +7,21 @@ BEGIN
   END IF;
 END $$;
 
+DO $
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_attribute a
+    JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+    WHERE c.oid = 'public.listings'::regclass
+      AND a.attname = 'listing_type'
+      AND a.attnotnull
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+  ) THEN
+    ALTER TABLE public.listings ALTER COLUMN listing_type DROP NOT NULL;
+  END IF;
+END $;
+
 ALTER TABLE public.listings
   ADD COLUMN IF NOT EXISTS category public.marketplace_category,
   ADD COLUMN IF NOT EXISTS title text,
