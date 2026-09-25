@@ -98,7 +98,7 @@ const REPLAY_SYNTHETIC_FOUNDATIONS = [
 -- historical migrations can execute. It is never a production migration or
 -- migration-ledger entry.
 alter table public.signals
-  add column if not exists embedding_gemini_1024 extensions.vector(1024);
+  add column if not exists embedding_gemini_1024 vector(1024);
 `,
   },
   {
