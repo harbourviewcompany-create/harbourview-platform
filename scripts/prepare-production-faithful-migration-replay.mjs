@@ -6,6 +6,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const DECISIONS_FILE = 'supabase/release-controls/pending-production-migration-decisions.json'
+const EQUIVALENCE_FILE = 'supabase/release-controls/migration-live-version-equivalences.json'
 const MIGRATIONS_DIR = 'supabase/migrations'
 const EXCLUDED_SUFFIX = '.replay-excluded'
 
@@ -694,11 +695,12 @@ export function planReplayContentPatches({ migrationFiles }) {
 
 export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = false } = {}) {
   const decisions = JSON.parse(fs.readFileSync(path.join(repositoryRoot, DECISIONS_FILE), 'utf8'))
+  const equivalences = JSON.parse(fs.readFileSync(path.join(repositoryRoot, EQUIVALENCE_FILE), 'utf8'))
   const migrationDirectory = path.join(repositoryRoot, MIGRATIONS_DIR)
   const migrationFiles = fs.readdirSync(migrationDirectory).filter((file) => file.endsWith('.sql'))
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
   const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
-  const liveVersionShadows = planReplayLiveVersionShadows({ decisions: { live_version_equivalences: decisions.live_version_equivalences ?? [] }, migrationFiles })
+  const liveVersionShadows = planReplayLiveVersionShadows({ decisions: equivalences, migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
   const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
   const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
