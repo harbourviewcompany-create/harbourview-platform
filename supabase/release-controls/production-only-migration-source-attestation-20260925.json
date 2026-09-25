@@ -451,5 +451,6 @@
       "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925144959_fix_full_depth_applicability_provenance_trigger.sql"
     }
   ],
-  "production_write_performed": false
+  "production_write_performed": false,
+  "recovery_scope_note": "The four PRODUCTION_LEDGER_ONLY_NO_STATEMENTS records are unrecoverable from the production migration metadata currently inspected; this attestation does not assert exhaustive Git-history irrecoverability."
 }
