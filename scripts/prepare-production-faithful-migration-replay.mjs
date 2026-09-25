@@ -83,6 +83,25 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260920204959_replay_gemini_embedding_column.sql',
+    before: '20260920205000_optimize_gemini_embedding_queue_scan.sql',
+    required: [
+      '20260617191632_signals_embedding_1024.sql',
+      '20260920205000_optimize_gemini_embedding_queue_scan.sql',
+    ],
+    content: `-- Replay-only reconstruction of the production Gemini embedding column.
+--
+-- Production has a 1024-dimensional Gemini embedding column on public.signals,
+-- but the recovered repository migration history contains consumers of that
+-- column without a canonical CREATE/ALTER COLUMN migration. This foundation
+-- exists only in the temporary production-faithful replay workspace so later
+-- historical migrations can execute. It is never a production migration or
+-- migration-ledger entry.
+alter table public.signals
+  add column if not exists embedding_gemini_1024 extensions.vector(1024);
+`,
+  },
+  {
     destination: '20260830135959_replay_colombia_country_briefing.sql',
     before: '20260830140000_full_regulatory_tier_coverage.sql',
     required: [
