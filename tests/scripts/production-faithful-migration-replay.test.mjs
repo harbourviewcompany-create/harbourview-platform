@@ -215,6 +215,61 @@ test('replay relocates only evidenced reconstruction files before their first de
   assert.match(clinicalPreflight, /clinical prescriber os governance preflight failed/i)
 })
 
+test('replay excludes local files that shadow a production live-version equivalence', () => {
+  const live = '20260807181844'
+  const canonical = '20260807000900_revoke_data_api_execute_on_secret_accessors.sql'
+  const shadow = '20260807181844_revoke_data_api_execute_on_secret_accessors.sql'
+  assert.deepEqual(
+    planReplayLiveVersionShadows({
+      decisions: {
+        equivalences: [
+          {
+            live_version: live,
+            repository_version: '20260807000900',
+            file: canonical,
+          },
+        ],
+      },
+      migrationFiles: [canonical, shadow],
+    }),
+    [
+      {
+        version: live,
+        file: shadow,
+        canonical_file: canonical,
+        canonical_version: '20260807000900',
+        reason_code: 'live_version_shadow_of_canonical_equivalence',
+      },
+    ],
+  )
+})
+
+test('replay live-version shadow detection fails closed when the canonical file or exact shadow is absent', () => {
+  const decisions = {
+    equivalences: [
+      {
+        live_version: '20260807181844',
+        repository_version: '20260807000900',
+        file: '20260807000900_revoke_data_api_execute_on_secret_accessors.sql',
+      },
+    ],
+  }
+  assert.deepEqual(
+    planReplayLiveVersionShadows({
+      decisions,
+      migrationFiles: ['20260807000900_revoke_data_api_execute_on_secret_accessors.sql'],
+    }),
+    [],
+  )
+  assert.deepEqual(
+    planReplayLiveVersionShadows({
+      decisions,
+      migrationFiles: ['20260807181844_revoke_data_api_execute_on_secret_accessors.sql'],
+    }),
+    [],
+  )
+})
+
 test('replay relocation is suppressed unless source, destination boundary and ordering evidence are all present', () => {
   assert.deepEqual(
     planReplayRelocations({
