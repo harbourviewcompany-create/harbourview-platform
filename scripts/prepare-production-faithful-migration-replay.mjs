@@ -175,6 +175,11 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql',
+    anchor: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',",
+    replacement: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',",
+  },
+  {
     file: '20260916100000_security_boundary_hardening.sql',
     anchor: "    select schemaname, tablename, policyname, qual, with_check from pg_policies\n    where schemaname in ('public','api','signals','regulatory_signals','storage')\n      and (coalesce(qual,'') ~ '(^|[^A-Za-z_])auth\\\\.uid\\\\(\\\\)'\n        or coalesce(with_check,'') ~ '(^|[^A-Za-z_])auth\\\\.uid\\\\(\\\\)')\n      and (coalesce(qual,'') !~ '\\\\( SELECT auth\\\\.uid\\\\(\\\\)'\n        or coalesce(with_check,'') !~ '\\\\( SELECT auth\\\\.uid\\\\(\\\\)')\n",
     replacement: "    select schemaname, tablename, policyname, qual, with_check from pg_policies\n    where schemaname in ('public','api','signals','regulatory_signals','storage')\n      and (coalesce(qual,'') ~ '(^|[^A-Za-z_])auth\\.uid\\(\\)'\n        or coalesce(with_check,'') ~ '(^|[^A-Za-z_])auth\\.uid\\(\\)')\n      and (coalesce(qual,'') !~ '\\( SELECT auth\\.uid\\(\\)'\n        or coalesce(with_check,'') !~ '\\( SELECT auth\\.uid\\(\\)')\n",
