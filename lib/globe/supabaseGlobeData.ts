@@ -40,7 +40,7 @@ export type GlobeLiveData = {
   unmappedSignalCountries: Record<string, number>
 }
 
-export type PublishedTierRow = {
+export type PublishedTierRow = {\n  regulatory_tier?: string | null\n  regulatory_tier_needs_review?: boolean | null\n  regulatory_tier_last_derived_at?: string | null
   verified_regulatory_tier?: string | null
   regulatory_tier_evidence_key?: string | null
   regulatory_tier_verified_at?: string | null
@@ -69,7 +69,7 @@ export async function getGlobeCountryMarkers(
   const { data: countryRows, error: countriesError } = await supabase
     .from('countries')
     .select(
-      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
+      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, regulatory_tier, regulatory_tier_needs_review, regulatory_tier_last_derived_at, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
     )
 
   if (countriesError) {
