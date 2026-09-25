@@ -48,11 +48,13 @@ do $func$
 declare r record;
 begin
   for r in
-    select n.nspname as schema_name, p.proname as function_name,
-           pg_get_function_identity_arguments(p.oid) as identity_arguments
+    select n.nspname as schema_name,
+           p.proname as function_name,
+           coalesce(pg_get_function_identity_arguments(p.oid), '') as identity_arguments
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
-    where p.prosecdef
+    where p.prokind = 'f'
+      and p.prosecdef
       and n.nspname in ('public','api','signals','regulatory_signals')
       and (p.proconfig is null or not exists (
         select 1 from unnest(p.proconfig) c where c like 'search_path=%'
