@@ -495,6 +495,61 @@ async function dispatch(op: Record<string, unknown>, h: Record<string, string>):
       return { ok: true, name: data.name, conclusion: data.conclusion, output: data.output, annotations, html_url: data.html_url }
     }
 
+    case 'get_job_logs': {
+      const jobId = op.job_id
+      if (!jobId) throw new Error('get_job_logs requires op.job_id')
+      const res = await fetch(`${BASE}/actions/jobs/${jobId}/logs`, { headers: h })
+      if (!res.ok) throw new Error(`GitHub GET job logs ${res.status}: ${await res.text()}`)
+      const text = await res.text()
+      const maxChars = Math.min((op.max_chars as number) ?? 20000, 100000)
+      const truncated = text.length > maxChars
+      const log = truncated ? text.slice(-maxChars) : text
+      return { ok: true, truncated, totalLength: text.length, log }
+    }
+
+    case 'trigger_workflow': {
+      const workflowFile = op.workflow_file as string
+      if (!workflowFile) throw new Error('trigger_workflow requires op.workflow_file (e.g. "sync-lockfile.yml")')
+      const ref = op.ref as string
+      if (!ref) throw new Error('trigger_workflow requires op.ref (branch to run against)')
+      const res = await fetch(`${BASE}/actions/workflows/${encodeURIComponent(workflowFile)}/dispatches`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ ref, inputs: op.inputs ?? {} })
+      })
+      if (res.status !== 204) {
+        const text = await res.text()
+        throw new Error(`GitHub POST workflow dispatch ${res.status}: ${text}`)
+      }
+      return { ok: true, dispatched: workflowFile, ref }
+    }
+
+    case 'list_workflow_runs': {
+      const workflowFile = op.workflow_file as string
+      if (!workflowFile) throw new Error('list_workflow_runs requires op.workflow_file')
+      const branchQ = op.branch ? `&branch=${encodeURIComponent(op.branch as string)}` : ''
+      const per_page = Math.min((op.per_page as number) ?? 10, 100)
+      const data = await gh(`${BASE}/actions/workflows/${encodeURIComponent(workflowFile)}/runs?per_page=${per_page}${branchQ}`, h)
+      return {
+        ok: true, total: data.total_count,
+        runs: ((data.workflow_runs ?? []) as Record<string, unknown>[]).map(r => ({
+          id: r.id, status: r.status, conclusion: r.conclusion, created_at: r.created_at,
+          updated_at: r.updated_at, html_url: r.html_url, head_branch: r.head_branch
+        }))
+      }
+    }
+
+    case 'create_ruleset': {
+      const ruleset = op.ruleset
+      if (!ruleset || typeof ruleset !== 'object') throw new Error('create_ruleset requires op.ruleset (object per GitHub Rulesets API)')
+      const res = await fetch(`${BASE}/rulesets`, {
+        method: 'POST', headers: h,
+        body: JSON.stringify(ruleset)
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(`GitHub POST rulesets ${res.status}: ${JSON.stringify(data)}`)
+      return { ok: true, id: data.id, name: data.name, enforcement: data.enforcement, html_url: data._links?.html?.href }
+    }
+
     case 'grep_file': {
       const ref = op.ref ? `?ref=${encodeURIComponent(op.ref as string)}` : ''
       const data = await gh(`${BASE}/contents/${op.path}${ref}`, h)
