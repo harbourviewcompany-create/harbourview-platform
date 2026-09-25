@@ -35,6 +35,11 @@ describe("dimension-specific adjudication engine", () => {
   it("is transactionally replayable and has no malformed DDL boundary", () => {
     expect(migration).not.toMatch(/\\)\\s*alter table\\s*$/m);
     expect(migration).toContain("on conflict (dimension_key) do update set");
+    expect(migration).toContain("requires_source_registry");
+    expect(migration).toContain("requires_source_snapshot");
+    expect(migration).toContain("requires_quote");
+    expect(migration).toContain("requires_effective_date");
+    expect(migration).toContain("verification_status='verified'");
     expect(migration).toContain("alter table public.jurisdiction_data_depth_dimension_gate_contract enable row level security;");
     expect(migration).toContain("alter table public.jurisdiction_data_depth_research_queue enable row level security;");
     expect(migration).toContain("revoke all on function public.refresh_depth_research_queue(integer) from public;");
