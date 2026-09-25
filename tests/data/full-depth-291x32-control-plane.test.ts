@@ -7,6 +7,10 @@ describe('291x32 depth control plane', () => {
     resolve(process.cwd(), 'supabase/migrations/20260923065000_full_291x32_depth_control_plane.sql'),
     'utf8',
   );
+  const reconciliationSql = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260924140000_safe_291x32_contract_reconciliation.sql'),
+    'utf8',
+  );
 
   const expected = [
     'identity','hierarchy','regulatory_status','regulatory_tier','source_registry',
@@ -24,12 +28,16 @@ describe('291x32 depth control plane', () => {
       expect(sql).toContain(`('${key}',`);
     }
 
-    expect(sql).not.toContain("('jurisdiction_intelligence',");
+    expect(reconciliationSql).toContain("delete from public.jurisdiction_data_depth_dimensions");
+    expect(reconciliationSql).toContain("where dimension_key='jurisdiction_intelligence'");
+    expect(reconciliationSql).toContain("dimension_count <> 32");
   });
 
-  it('does not map analyst jurisdiction intelligence into the 32-cell matrix', () => {
-    expect(sql).not.toContain("when 'country_intel' then 'jurisdiction_intelligence'");
-    expect(sql).not.toContain("'source_snapshots','regulatory_calendar','country_intel'");
+  it('removes the historical analyst-intelligence dimension from the contracted matrix', () => {
+    expect(reconciliationSql).toContain("delete from public.jurisdiction_data_depth_dimension_state");
+    expect(reconciliationSql).toContain("where dimension_key='jurisdiction_intelligence'");
+    expect(reconciliationSql).toContain("delete from public.jurisdiction_data_depth_dimensions");
+    expect(reconciliationSql).toContain("where dimension_key='jurisdiction_intelligence'");
   });
 
   it('keeps the matrix gate at 291 x 32', () => {
