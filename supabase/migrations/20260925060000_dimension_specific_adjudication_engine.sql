@@ -22,6 +22,10 @@ values
 ('freshness','v1','structural_fact',true,true,false,false,'captured snapshot age and SHA-256 integrity',true,false),
 ('uncertainty','v1','verified_research',true,true,true,false,'explicit conflict/blocked adjudication with evidence lineage',true,false),
 ('research_queue','v1','verified_research',false,false,false,false,'derived unresolved work queue; stored separately from authoritative evidence',false,false)
+alter table public.jurisdiction_data_depth_dimension_gate_contract enable row level security;
+revoke all on public.jurisdiction_data_depth_dimension_gate_contract from public;
+grant select on public.jurisdiction_data_depth_dimension_gate_contract to service_role;
+
 on conflict (dimension_key) do update set
  contract_version=excluded.contract_version,evidence_kind=excluded.evidence_kind,
  semantic_rule=excluded.semantic_rule,updated_at=now();
