@@ -56,17 +56,11 @@ async function capture(source: any) {
     const hash = await sha256(body);
     const { data, error } = await supabase.from("source_snapshots").insert({
       source_id: source.id,
-      captured_url: source.source_url,
-      captured_title: source.source_name,
       captured_text: text,
       raw_html_hash: hash,
       captured_at: started,
       fetch_status: response.ok ? "success" : "http_error",
-      error_message: response.ok ? null : `HTTP ${response.status}`,
-      language_detected: "unknown",
-      word_count: text ? text.split(/\s+/).length : 0,
-      requires_translation: false,
-    }).select("id,captured_url,captured_text,raw_html_hash,fetch_status,captured_at").single();
+    }).select("id,captured_text,raw_html_hash,fetch_status,captured_at").single();
     if (error) throw new Error(`snapshot_insert_failed: ${error.message}`);
     if (!response.ok) throw new Error(`http_${response.status}`);
     return data;
