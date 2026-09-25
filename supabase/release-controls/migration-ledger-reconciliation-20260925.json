@@ -1,9 +1,123 @@
 {
   "generated_at": "2026-09-25",
   "production_project": "zvxdgdkukjrrwamdpqrg",
-  "production_migration_count": 1082,
+  "production_migration_count": 1090,
   "repository_migration_file_count": 1233,
-  "unresolved_production_versions": 53,
+  "reconciled_filename_aliases": [
+    {
+      "production_version": "20260920182846",
+      "production_name": "20260920223000_harden_zero_cost_enrichment",
+      "source_file": "20260920223000_harden_zero_cost_enrichment.sql",
+      "source_sha": "6d59c87f6515bfbe5b36688c511ad76a041cf5ab",
+      "reconciled_file": "20260920182846_harden_zero_cost_enrichment.sql"
+    },
+    {
+      "production_version": "20260920183010",
+      "production_name": "20260920223500_refine_deadline_extraction",
+      "source_file": "20260920223500_refine_deadline_extraction.sql",
+      "source_sha": "d0e2ffc90668e4a0fca203b5483e3a0f9b289d83",
+      "reconciled_file": "20260920183010_refine_deadline_extraction.sql"
+    },
+    {
+      "production_version": "20260920215219",
+      "production_name": "20260920224500_repair_limited_rules_analysis",
+      "source_file": "20260920224500_repair_limited_rules_analysis.sql",
+      "source_sha": "810b7ba34b55db1bdcd6d6106a596b5841f4521c",
+      "reconciled_file": "20260920215219_repair_limited_rules_analysis.sql"
+    },
+    {
+      "production_version": "20260922113553",
+      "production_name": "20260922120000_primary_tv_va_source_enrichment",
+      "source_file": "20260922120000_primary_tv_va_source_enrichment.sql",
+      "source_sha": "1b57c7b0db0bf9cbf5a47090fac7615f5f7d2bde",
+      "reconciled_file": "20260922113553_primary_tv_va_source_enrichment.sql"
+    },
+    {
+      "production_version": "20260922113644",
+      "production_name": "20260922120500_reconcile_tv_va_depth_integrity",
+      "source_file": "20260922120500_reconcile_tv_va_depth_integrity.sql",
+      "source_sha": "2757e5653d19979fcd6f6f5fbcec75fddcba3c21",
+      "reconciled_file": "20260922113644_reconcile_tv_va_depth_integrity.sql"
+    },
+    {
+      "production_version": "20260922114014",
+      "production_name": "20260922121000_primary_ca_ke_regulatory_enrichment",
+      "source_file": "20260922121000_primary_ca_ke_regulatory_enrichment.sql",
+      "source_sha": "54c81048e917777ac430f2f0cab7228f7798908d",
+      "reconciled_file": "20260922114014_primary_ca_ke_regulatory_enrichment.sql"
+    },
+    {
+      "production_version": "20260922114024",
+      "production_name": "20260922121500_reconcile_ca_ke_depth_coverage",
+      "source_file": "20260922121500_reconcile_ca_ke_depth_coverage.sql",
+      "source_sha": "410f1df7778752ad281e4c540627aa80f5280536",
+      "reconciled_file": "20260922114024_reconcile_ca_ke_depth_coverage.sql"
+    },
+    {
+      "production_version": "20260922114129",
+      "production_name": "20260922122000_reconcile_va_source_registry_coverage",
+      "source_file": "20260922122000_reconcile_va_source_registry_coverage.sql",
+      "source_sha": "0a3b55bb4cb0c8a0ddacbb22d493690d35d32927",
+      "reconciled_file": "20260922114129_reconcile_va_source_registry_coverage.sql"
+    },
+    {
+      "production_version": "20260922114156",
+      "production_name": "20260922122500_add_va_blocked_evidence_task",
+      "source_file": "20260922122500_add_va_blocked_evidence_task.sql",
+      "source_sha": "61d9907638e7cacf856e8e8f14cd3cb6c0ab3829",
+      "reconciled_file": "20260922114156_add_va_blocked_evidence_task.sql"
+    },
+    {
+      "production_version": "20260925101224",
+      "production_name": "20260924152000_regulatory_tier_evidence_reconciliation",
+      "source_file": "20260924152000_regulatory_tier_evidence_reconciliation.sql",
+      "source_sha": "d7dafea03077f8999526037aa7dde91ddb318e27",
+      "reconciled_file": "20260925101224_regulatory_tier_evidence_reconciliation.sql"
+    },
+    {
+      "production_version": "20260925101233",
+      "production_name": "20260924162000_regulator_evidence_depth_backfill",
+      "source_file": "20260924162000_regulator_evidence_depth_backfill.sql",
+      "source_sha": "286e62cbb63b77b23b9211ad8de53683d15ee0c4",
+      "reconciled_file": "20260925101233_regulator_evidence_depth_backfill.sql"
+    },
+    {
+      "production_version": "20260925101240",
+      "production_name": "20260924170000_structured_dimension_adjudication_engine_v2",
+      "source_file": "20260924170000_structured_dimension_adjudication_engine_v2.sql",
+      "source_sha": "45e2e6571fd6b1a1a6e6ef4657f24f9c424d6e79",
+      "reconciled_file": "20260925101240_structured_dimension_adjudication_engine_v2.sql"
+    },
+    {
+      "production_version": "20260925101244",
+      "production_name": "20260924170100_structured_adjudication_engine_rls",
+      "source_file": "20260924170100_structured_adjudication_engine_rls.sql",
+      "source_sha": "ad8f767e95ea1a678cd5ff4bd5d56145943988b9",
+      "reconciled_file": "20260925101244_structured_adjudication_engine_rls.sql"
+    },
+    {
+      "production_version": "20260925101329",
+      "production_name": "20260925070000_fix_structured_adjudication_gate_insert",
+      "source_file": "20260925070000_fix_structured_adjudication_gate_insert.sql",
+      "source_sha": "275199dbc9f906f73e4612565ac8470eff0d3d4a",
+      "reconciled_file": "20260925101329_fix_structured_adjudication_gate_insert.sql"
+    },
+    {
+      "production_version": "20260925101359",
+      "production_name": "20260925071000_fix_structured_adjudication_registered_source_url",
+      "source_file": "20260925071000_fix_structured_adjudication_registered_source_url.sql",
+      "source_sha": "2d5d97df133743bfb59e5b4524db464a20d34465",
+      "reconciled_file": "20260925101359_fix_structured_adjudication_registered_source_url.sql"
+    },
+    {
+      "production_version": "20260925101426",
+      "production_name": "20260925072000_fix_structured_adjudication_tier_source_binding",
+      "source_file": "20260925072000_fix_structured_adjudication_tier_source_binding.sql",
+      "source_sha": "84b8ccbc5ec35608fecb2d2ae0f58039f76df623",
+      "reconciled_file": "20260925101426_fix_structured_adjudication_tier_source_binding.sql"
+    }
+  ],
+  "unresolved_production_versions": 45,
   "status": "HOLD",
   "rule": "Do not fabricate or synthesize missing migration source. Resolve only with recovered source, byte/content verification, or an explicitly documented historical attestation.",
   "unresolved": [
@@ -32,18 +146,6 @@
       "name": "harden_zero_cost_rules_analysis_batch"
     },
     {
-      "version": "20260920182846",
-      "name": "20260920223000_harden_zero_cost_enrichment"
-    },
-    {
-      "version": "20260920183010",
-      "name": "20260920223500_refine_deadline_extraction"
-    },
-    {
-      "version": "20260920215219",
-      "name": "20260920224500_repair_limited_rules_analysis"
-    },
-    {
       "version": "20260922101715",
       "name": "jurisdiction_data_depth_subnational_source_alignment_v2"
     },
@@ -62,30 +164,6 @@
     {
       "version": "20260922101846",
       "name": "jurisdiction_data_depth_task_queue"
-    },
-    {
-      "version": "20260922113553",
-      "name": "20260922120000_primary_tv_va_source_enrichment"
-    },
-    {
-      "version": "20260922113644",
-      "name": "20260922120500_reconcile_tv_va_depth_integrity"
-    },
-    {
-      "version": "20260922114014",
-      "name": "20260922121000_primary_ca_ke_regulatory_enrichment"
-    },
-    {
-      "version": "20260922114024",
-      "name": "20260922121500_reconcile_ca_ke_depth_coverage"
-    },
-    {
-      "version": "20260922114129",
-      "name": "20260922122000_reconcile_va_source_registry_coverage"
-    },
-    {
-      "version": "20260922114156",
-      "name": "20260922122500_add_va_blocked_evidence_task"
     },
     {
       "version": "20260922230557",
@@ -160,34 +238,6 @@
       "name": "bind-vermont-first-party-cannabis-evidence-20260923"
     },
     {
-      "version": "20260925101224",
-      "name": "20260924152000_regulatory_tier_evidence_reconciliation"
-    },
-    {
-      "version": "20260925101233",
-      "name": "20260924162000_regulator_evidence_depth_backfill"
-    },
-    {
-      "version": "20260925101240",
-      "name": "20260924170000_structured_dimension_adjudication_engine_v2"
-    },
-    {
-      "version": "20260925101244",
-      "name": "20260924170100_structured_adjudication_engine_rls"
-    },
-    {
-      "version": "20260925101329",
-      "name": "20260925070000_fix_structured_adjudication_gate_insert"
-    },
-    {
-      "version": "20260925101359",
-      "name": "20260925071000_fix_structured_adjudication_registered_source_url"
-    },
-    {
-      "version": "20260925101426",
-      "name": "20260925072000_fix_structured_adjudication_tier_source_binding"
-    },
-    {
       "version": "20260925101503",
       "name": "full_depth_capture_invocation_logs"
     },
@@ -214,6 +264,38 @@
     {
       "version": "20260925130901",
       "name": "requeue_full_depth_provider_failures_and_accelerate_authority_discovery"
+    },
+    {
+      "version": "20260925130957",
+      "name": "promote_verified_discovered_authority_sources_and_bind_full_depth_v2"
+    },
+    {
+      "version": "20260925131034",
+      "name": "repair_discovered_authority_primary_source_class_mapping"
+    },
+    {
+      "version": "20260925131055",
+      "name": "repair_discovered_authority_primary_source_one_per_jurisdiction"
+    },
+    {
+      "version": "20260925131318",
+      "name": "secure_full_depth_provider_secret_accessor"
+    },
+    {
+      "version": "20260925131545",
+      "name": "expand_full_depth_google_provider_key_fallbacks"
+    },
+    {
+      "version": "20260925131628",
+      "name": "add_full_depth_google_key_pool_accessor"
+    },
+    {
+      "version": "20260925144959",
+      "name": "fix_full_depth_applicability_provenance_trigger"
+    },
+    {
+      "version": "20260925145633",
+      "name": "publish_heatmap_au_de_subnational"
     }
   ],
   "registry_impact": "none",
