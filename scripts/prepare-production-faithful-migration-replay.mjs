@@ -600,7 +600,7 @@ export function planReplayExclusions({ decisions, migrationFiles }) {
 export function planReplayLiveVersionShadows({ decisions, migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   const decisionsByLiveVersion = new Map()
-  for (const decision of decisions.live_version_equivalences ?? []) {
+  for (const decision of decisions.equivalences ?? []) {
     if (!/^\\d{14}$/.test(decision.live_version ?? '')) continue
     if (!/^\\d{14}$/.test(decision.repository_version ?? '')) continue
     if (typeof decision.file !== 'string') continue
