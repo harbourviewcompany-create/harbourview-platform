@@ -324,7 +324,6 @@ test('repository equivalence manifest is pinned to the exact canonical migration
     equivalences,
   })
 
-  if (manifest.live_version_equivalence_mismatches.length > 0) console.error('LIVE_VERSION_EQUIVALENCE_MISMATCHES', JSON.stringify(manifest.live_version_equivalence_mismatches, null, 2))
   assert.equal(manifest.live_version_equivalence_mismatches.length, 0)
   assert.equal(
     manifest.historical_live_version_aliases.length,
