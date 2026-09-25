@@ -420,10 +420,11 @@ test('replay hardens extant tables while guarding absent production-local stagin
 
 test('replay normalizes the historical security policy regex only in the temporary workspace', () => {
   const file = '20260916100000_security_boundary_hardening.sql'
-  const patch = contentPatches.find((item) => item.file === file)
+  const patch = contentPatches.find(
+    (item) => item.file === file && item.replacement.includes("auth\\.uid\\(\\)"),
+  )
   assert.ok(patch)
-  assert.match(patch.replacement, /auth\\\\\.uid\\\\\\(\\\\\\)/)
-  assert.doesNotMatch(patch.replacement, /auth\\\\\\\\\.uid/)
+  assert.equal(patch.replacement.includes("auth\\\\.uid"), false)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   assert.equal(original.includes(patch.anchor), true)
   assert.equal(original.includes(patch.replacement), false)
