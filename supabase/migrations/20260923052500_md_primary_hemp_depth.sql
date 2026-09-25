@@ -46,7 +46,7 @@ values
  'Regulation on cultivation of plants containing narcotic or psychotropic substances',
  'Permanent Committee for Drug Control','active',null,
  'Authorized persons and legal entities may cultivate hemp for scientific purposes and/or production of seed and fibre, subject to an activity authorization. This is not an adult-use retail pathway.',
- '{https://www.legis.md/cautare/downloadpdf/97922}','needs_review',now(),
+ ARRAY['https://www.legis.md/cautare/downloadpdf/97922'],'needs_review',now(),
  ARRAY['authorization required','seed and fibre production','scientific purposes'])
 on conflict(slug) do update set summary=excluded.summary,source_urls=excluded.source_urls,
 last_verified_at=now(),qualifying_conditions=excluded.qualifying_conditions;
@@ -56,10 +56,10 @@ insert into public.regulatory_citations
 select 'pathway',id,'Moldova cultivation regulation','Paragraph 4 — hemp cultivation','statute',
 'https://www.legis.md/cautare/downloadpdf/97922',null,current_date,
 'Hemp is defined as any plant of the Cannabis species; cultivation is permitted for scientific purposes and/or production of seed and fibre when the required authorization is held.'
-from public.regulatory_pathways
-where slug='depth-v1-md-authorized-hemp'
+from public.regulatory_pathways p
+where p.slug='depth-v1-md-authorized-hemp'
 and not exists(select 1 from public.regulatory_citations c where c.entity_type='pathway'
-and c.entity_id=public.regulatory_pathways.id
+and c.entity_id=p.id
 and c.citation_url='https://www.legis.md/cautare/downloadpdf/97922');
 
 update public.regulatory_pathways set verification='verified',last_verified_at=now(),updated_at=now()
