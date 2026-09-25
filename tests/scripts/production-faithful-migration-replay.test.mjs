@@ -403,7 +403,7 @@ test('synthetic education policy foundation fails closed when its boundary or pr
 
 test('replay hardens extant tables while guarding absent production-local staging relations', () => {
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
-  assert.equal(contentPatches.length, 14)
+  assert.equal(contentPatches.length, 15)
   const patch = contentPatches.find((item) => item.file === file)
   assert.ok(patch)
 
@@ -416,6 +416,17 @@ test('replay hardens extant tables while guarding absent production-local stagin
   assert.match(replayCopy, /alter table public\.%I enable row level security/i)
   assert.match(replayCopy, /revoke all on public\.%I from anon, authenticated/i)
   assert.match(replayCopy, /'country_name_aliases'/i)
+})
+
+test('replay normalizes the historical security policy regex only in the temporary workspace', () => {
+  const file = '20260916100000_security_boundary_hardening.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.match(patch.replacement, /auth\\\\\.uid\\\\\\(\\\\\\)/)
+  assert.doesNotMatch(patch.replacement, /auth\\\\\\\\\.uid/)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
 })
 
 test('replay evaluates source_registry content_type using its reconstructed text-array type', () => {
