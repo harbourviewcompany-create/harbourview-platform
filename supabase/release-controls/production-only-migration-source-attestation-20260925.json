@@ -1,0 +1,456 @@
+{
+  "schema_version": "migration-source-attestation/v1",
+  "generated_at": "2026-09-25",
+  "repository": "harbourviewcompany-create/harbourview-platform",
+  "branch": "fix/migration-ledger-reconciliation-20260925-v2",
+  "production_project": "zvxdgdkukjrrwamdpqrg",
+  "purpose": "Recovery register for 44 production-applied migration versions. Exact SQL is recovered from production statements where present; one credential-bearing source is withheld from Git; four rows contain no stored statements.",
+  "attestation_basis": [
+    "Production migration ledger confirms each listed version/name was applied.",
+    "39 versions have exact SQL recovered from supabase_migrations.schema_migrations.statements and stored as archival artifacts.",
+    "20260731090302 has exact SQL recovered but contains credential material and is withheld from Git.",
+    "20260820140000, 20260821120000, 20260821121000, and 20260821190000 have null production statements, so no SQL body was recoverable.",
+    "No SQL was fabricated or synthesized."
+  ],
+  "status": "RECOVERED_WITH_4_PRODUCTION_LEDGER_ONLY_GAPS_AND_1_SENSITIVE_SOURCE_WITHHELD",
+  "records": [
+    {
+      "version": "20260730112526",
+      "name": "job_search_seed_remaining_settings_and_opportunities",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260730112526_job_search_seed_remaining_settings_and_opportunities.sql"
+    },
+    {
+      "version": "20260731090302",
+      "name": "job_search_adzuna_vault_credentials",
+      "source_status": "RECOVERED_EXACT_SENSITIVE_REDACTED",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered; credential-bearing source withheld from Git.",
+      "sensitive_source_withheld": true
+    },
+    {
+      "version": "20260820140000",
+      "name": null,
+      "source_status": "PRODUCTION_LEDGER_ONLY_NO_STATEMENTS",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": false,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Production ledger row has null statements; no SQL body is stored for this version."
+    },
+    {
+      "version": "20260821120000",
+      "name": null,
+      "source_status": "PRODUCTION_LEDGER_ONLY_NO_STATEMENTS",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": false,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Production ledger row has null statements; no SQL body is stored for this version."
+    },
+    {
+      "version": "20260821121000",
+      "name": null,
+      "source_status": "PRODUCTION_LEDGER_ONLY_NO_STATEMENTS",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": false,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Production ledger row has null statements; no SQL body is stored for this version."
+    },
+    {
+      "version": "20260821190000",
+      "name": null,
+      "source_status": "PRODUCTION_LEDGER_ONLY_NO_STATEMENTS",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": false,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Production ledger row has null statements; no SQL body is stored for this version."
+    },
+    {
+      "version": "20260920170252",
+      "name": "harden_zero_cost_rules_analysis_batch",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260920170252_harden_zero_cost_rules_analysis_batch.sql"
+    },
+    {
+      "version": "20260922101715",
+      "name": "jurisdiction_data_depth_subnational_source_alignment_v2",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922101715_jurisdiction_data_depth_subnational_source_alignment_v2.sql"
+    },
+    {
+      "version": "20260922101742",
+      "name": "backfill_jurisdiction_depth_research_queue",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922101742_backfill_jurisdiction_depth_research_queue.sql"
+    },
+    {
+      "version": "20260922101831",
+      "name": "seed_verified_subnational_regulatory_sources_v2",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922101831_seed_verified_subnational_regulatory_sources_v2.sql"
+    },
+    {
+      "version": "20260922101839",
+      "name": "seed_ontario_regulatory_source",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922101839_seed_ontario_regulatory_source.sql"
+    },
+    {
+      "version": "20260922101846",
+      "name": "jurisdiction_data_depth_task_queue",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922101846_jurisdiction_data_depth_task_queue.sql"
+    },
+    {
+      "version": "20260922230557",
+      "name": "refresh_authoritative_cannabis_source_endpoints_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922230557_refresh_authoritative_cannabis_source_endpoints_20260922.sql"
+    },
+    {
+      "version": "20260922230647",
+      "name": "activate_refreshed_authoritative_cannabis_sources_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922230647_activate_refreshed_authoritative_cannabis_sources_20260922.sql"
+    },
+    {
+      "version": "20260922230800",
+      "name": "refine_australia_odc_authority_endpoint_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922230800_refine_australia_odc_authority_endpoint_20260922.sql"
+    },
+    {
+      "version": "20260922230955",
+      "name": "activate_canadian_provincial_authority_sources_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922230955_activate_canadian_provincial_authority_sources_20260922.sql"
+    },
+    {
+      "version": "20260922231124",
+      "name": "refresh_canadian_retail_authority_endpoints_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922231124_refresh_canadian_retail_authority_endpoints_20260922.sql"
+    },
+    {
+      "version": "20260922231319",
+      "name": "refresh_italy_cannabis_authority_endpoint_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922231319_refresh_italy_cannabis_authority_endpoint_20260922.sql"
+    },
+    {
+      "version": "20260922231639",
+      "name": "bind_official_primary_source_hashes_nl_de_by_20260922",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260922231639_bind_official_primary_source_hashes_nl_de_by_20260922.sql"
+    },
+    {
+      "version": "20260923080456",
+      "name": "refresh_current_cannabis_authority_endpoints_20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923080456_refresh_current_cannabis_authority_endpoints_20260923.sql"
+    },
+    {
+      "version": "20260923084523",
+      "name": "20260923012000_source_engine_continuous_worker_timeout_fix",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923084523_20260923012000_source_engine_continuous_worker_timeout_fix.sql"
+    },
+    {
+      "version": "20260923090443",
+      "name": "refresh-current-authority-endpoints-ag-bs-ch-dk-md-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923090443_refresh-current-authority-endpoints-ag-bs-ch-dk-md-20260923.sql"
+    },
+    {
+      "version": "20260923090925",
+      "name": "align-ag-current-enacted-cannabis-act-endpoint-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923090925_align-ag-current-enacted-cannabis-act-endpoint-20260923.sql"
+    },
+    {
+      "version": "20260923093347",
+      "name": "align-target-authority-pages-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093347_align-target-authority-pages-20260923.sql"
+    },
+    {
+      "version": "20260923093443",
+      "name": "bind-fresh-ch-dk-bs-md-authority-evidence-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093443_bind-fresh-ch-dk-bs-md-authority-evidence-20260923.sql"
+    },
+    {
+      "version": "20260923093459",
+      "name": "align-primary-hashes-to-fresh-authority-evidence-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093459_align-primary-hashes-to-fresh-authority-evidence-20260923.sql"
+    },
+    {
+      "version": "20260923093511",
+      "name": "restore-ag-legislation-fetch-endpoint-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093511_restore-ag-legislation-fetch-endpoint-20260923.sql"
+    },
+    {
+      "version": "20260923093637",
+      "name": "refresh-illinois-authority-endpoint-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093637_refresh-illinois-authority-endpoint-20260923.sql"
+    },
+    {
+      "version": "20260923093724",
+      "name": "bind-illinois-first-party-evidence-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093724_bind-illinois-first-party-evidence-20260923.sql"
+    },
+    {
+      "version": "20260923093907",
+      "name": "bind-vermont-first-party-cannabis-evidence-20260923",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260923093907_bind-vermont-first-party-cannabis-evidence-20260923.sql"
+    },
+    {
+      "version": "20260925101503",
+      "name": "full_depth_capture_invocation_logs",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925101503_full_depth_capture_invocation_logs.sql"
+    },
+    {
+      "version": "20260925115756",
+      "name": "full_depth_capture_dispatcher",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925115756_full_depth_capture_dispatcher.sql"
+    },
+    {
+      "version": "20260925115815",
+      "name": "full_depth_capture_dispatcher_url",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925115815_full_depth_capture_dispatcher_url.sql"
+    },
+    {
+      "version": "20260925115841",
+      "name": "20260925115700_structured_adjudication_pipeline_table_rls",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925115841_20260925115700_structured_adjudication_pipeline_table_rls.sql"
+    },
+    {
+      "version": "20260925120408",
+      "name": "20260925072000_full_depth_authority_source_bindings",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925120408_20260925072000_full_depth_authority_source_bindings.sql"
+    },
+    {
+      "version": "20260925121126",
+      "name": "20260925073000_full_depth_dimension_adjudication_engine",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925121126_20260925073000_full_depth_dimension_adjudication_engine.sql"
+    },
+    {
+      "version": "20260925130901",
+      "name": "requeue_full_depth_provider_failures_and_accelerate_authority_discovery",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925130901_requeue_full_depth_provider_failures_and_accelerate_authority_discovery.sql"
+    },
+    {
+      "version": "20260925130957",
+      "name": "promote_verified_discovered_authority_sources_and_bind_full_depth_v2",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925130957_promote_verified_discovered_authority_sources_and_bind_full_depth_v2.sql"
+    },
+    {
+      "version": "20260925131034",
+      "name": "repair_discovered_authority_primary_source_class_mapping",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925131034_repair_discovered_authority_primary_source_class_mapping.sql"
+    },
+    {
+      "version": "20260925131055",
+      "name": "repair_discovered_authority_primary_source_one_per_jurisdiction",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925131055_repair_discovered_authority_primary_source_one_per_jurisdiction.sql"
+    },
+    {
+      "version": "20260925131318",
+      "name": "secure_full_depth_provider_secret_accessor",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925131318_secure_full_depth_provider_secret_accessor.sql"
+    },
+    {
+      "version": "20260925131545",
+      "name": "expand_full_depth_google_provider_key_fallbacks",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925131545_expand_full_depth_google_provider_key_fallbacks.sql"
+    },
+    {
+      "version": "20260925131628",
+      "name": "add_full_depth_google_key_pool_accessor",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925131628_add_full_depth_google_key_pool_accessor.sql"
+    },
+    {
+      "version": "20260925144959",
+      "name": "fix_full_depth_applicability_provenance_trigger",
+      "source_status": "RECOVERED_EXACT_FROM_PRODUCTION_LEDGER",
+      "production_ledger_status": "APPLIED",
+      "sql_content_attested": true,
+      "execution_recommendation": "DO_NOT_REPLAY",
+      "recovery_basis": "Exact production statements recovered and stored as non-executable archival source.",
+      "recovery_artifact": "supabase/release-controls/recovered-migration-sources/20260925144959_fix_full_depth_applicability_provenance_trigger.sql"
+    }
+  ],
+  "production_write_performed": false,
+  "recovery_scope_note": "The four PRODUCTION_LEDGER_ONLY_NO_STATEMENTS records are unrecoverable from the production migration metadata currently inspected; this attestation does not assert exhaustive Git-history irrecoverability."
+}
