@@ -243,6 +243,11 @@ function evaluateLiveVersionEquivalences({ repository, remoteSet, equivalences }
     const actualBlobSha = repository.gitBlobShaByFile[entry.file] ?? null
     const directRepositoryVersionAlsoApplied = remoteSet.has(entry.repository_version)
     const repositoryHistoryPlaceholder = entry.repository_version_state === 'history_placeholder'
+    const liveVersionShadowFile = repository.filesByVersion[entry.live_version]?.[0] ?? null
+    const liveVersionShadow =
+      remoteSet.has(entry.live_version) &&
+      repository.filesByVersion[entry.live_version]?.length === 1 &&
+      liveVersionShadowFile !== entry.file
     const directRepositoryVersionAllowed =
       !directRepositoryVersionAlsoApplied || repositoryHistoryPlaceholder
     const fileExact =
@@ -250,7 +255,7 @@ function evaluateLiveVersionEquivalences({ repository, remoteSet, equivalences }
       files[0] === entry.file &&
       actualBlobSha === entry.git_blob_sha
 
-    if (!fileExact || !directRepositoryVersionAllowed) {
+    if (!fileExact || (!directRepositoryVersionAllowed && !liveVersionShadow)) {
       equivalenceMismatches.push({
         live_version: entry.live_version,
         repository_version: entry.repository_version,
@@ -260,6 +265,7 @@ function evaluateLiveVersionEquivalences({ repository, remoteSet, equivalences }
         expected_git_blob_sha: entry.git_blob_sha,
         actual_git_blob_sha: actualBlobSha,
         direct_repository_version_also_applied: directRepositoryVersionAlsoApplied,
+      live_version_shadow: liveVersionShadow,
       })
       continue
     }
