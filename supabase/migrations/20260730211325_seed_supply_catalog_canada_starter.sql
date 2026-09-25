@@ -1,3 +1,45 @@
+-- Replay preflight: production established the listings contract outside the recorded
+-- migration chronology. Restore the minimum complete shape before the seed batches.
+DO $$
+BEGIN
+  IF to_regtype('public.price_range') IS NULL THEN
+    CREATE TYPE public.price_range AS ENUM ('under_100k','100k_500k','500k_1m','1m_5m','5m_plus','negotiable');
+  END IF;
+END $$;
+
+ALTER TABLE public.listings
+  ADD COLUMN IF NOT EXISTS category public.marketplace_category,
+  ADD COLUMN IF NOT EXISTS title text,
+  ADD COLUMN IF NOT EXISTS description text,
+  ADD COLUMN IF NOT EXISTS product_type text,
+  ADD COLUMN IF NOT EXISTS region public.region,
+  ADD COLUMN IF NOT EXISTS price_range public.price_range,
+  ADD COLUMN IF NOT EXISTS seller_type public.seller_type,
+  ADD COLUMN IF NOT EXISTS high_level_specs jsonb DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS public_visibility boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_featured boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS price_amount numeric,
+  ADD COLUMN IF NOT EXISTS price_currency text DEFAULT 'USD',
+  ADD COLUMN IF NOT EXISTS location_country text,
+  ADD COLUMN IF NOT EXISTS condition text,
+  ADD COLUMN IF NOT EXISTS brand text,
+  ADD COLUMN IF NOT EXISTS model text,
+  ADD COLUMN IF NOT EXISTS quantity numeric,
+  ADD COLUMN IF NOT EXISTS unit text,
+  ADD COLUMN IF NOT EXISTS average_rating numeric(3,2),
+  ADD COLUMN IF NOT EXISTS review_count bigint DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS sold_by_harbourview boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS sku text,
+  ADD COLUMN IF NOT EXISTS stock_qty integer,
+  ADD COLUMN IF NOT EXISTS lead_time_days integer,
+  ADD COLUMN IF NOT EXISTS moq integer,
+  ADD COLUMN IF NOT EXISTS compliance_flags jsonb DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS target_countries text[] DEFAULT '{}'::text[],
+  ADD COLUMN IF NOT EXISTS slug text,
+  ADD COLUMN IF NOT EXISTS marketplace_section text DEFAULT 'equipment',
+  ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+
 
 insert into public.listings
   (id, category, title, description, product_type, region, price_range, seller_type,
