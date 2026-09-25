@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   planReplayContentPatches,
   planReplayExclusions,
+  planReplayLiveVersionShadows,
   planReplayRelocations,
   planReplaySyntheticFoundations,
   planReplayVersionCollisionRenames,
