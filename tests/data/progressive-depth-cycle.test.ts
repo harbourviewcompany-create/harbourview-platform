@@ -13,6 +13,7 @@ test("progressive cycle serializes work and preserves fail-closed stages", () =>
   expect(migration).toContain("adjudicate_structured_commercial_rules_v5(500)");
   expect(migration).toContain("adjudicate_structured_evidence_v6(500)");
   expect(migration).toContain("adjudicate_structured_access_rules_v1(500)");
+  expect(migration).toContain("adjudicate_structured_status_format_v1(500)");
   expect(migration).toContain("refresh_depth_freshness_v2(291)");
   expect(migration).toContain("refresh_depth_research_queue(10000)");
   expect(migration).toContain("harbourview-progressive-depth-cycle");
