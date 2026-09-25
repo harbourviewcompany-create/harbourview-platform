@@ -66,7 +66,7 @@ async function capture(source: any) {
       language_detected: "unknown",
       word_count: text ? text.split(/\s+/).length : 0,
       requires_translation: false,
-    }).select("id,captured_url,captured_text,raw_html_hash,fetch_status,captured_at").single();
+    }).select("id,captured_text,raw_html_hash,fetch_status,captured_at").single();
     if (error) throw new Error(`snapshot_insert_failed: ${error.message}`);
     if (!response.ok) throw new Error(`http_${response.status}`);
     return data;
