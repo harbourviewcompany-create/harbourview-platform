@@ -426,7 +426,7 @@ test('canonical migration hardens extant tables while guarding absent production
   const file = '20260723183914_lock_down_21_anon_exposed_public_tables.sql'
   assert.equal(contentPatches.find((item) => item.file === file), undefined)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  assert.match(original, /to_regclass\(format\('public\\.%I', t\)\) is not null/i)
+  assert.ok(original.includes("IF to_regclass(format('public.%I', t)) IS NOT NULL THEN"))
   assert.match(original, /alter table public\.%I enable row level security/i)
   assert.match(original, /revoke all on public\.%I from anon, authenticated/i)
 })
@@ -459,7 +459,7 @@ test('canonical heatmap migration evaluates source_registry content_type using i
   assert.equal(contentPatches.find((item) => item.file === file), undefined)
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   assert.match(original, /coalesce\(s\.content_type, '\{\}'::text\[\]\)/i)
-  assert.match(original, /&& array\['regulatory', 'legislation', 'official_notice'\]::text\[\]/i)
+  assert.ok(original.includes("&& array['regulatory','legislation','official_notice']::text[]"))
 })
 
 test('replay reconciles the legacy and Prescriber OS clinical contracts additively', () => {
