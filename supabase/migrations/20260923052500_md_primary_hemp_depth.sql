@@ -48,20 +48,8 @@ values
  'Authorized persons and legal entities may cultivate hemp for scientific purposes and/or production of seed and fibre, subject to an activity authorization. This is not an adult-use retail pathway.',
  '{https://www.legis.md/cautare/downloadpdf/97922}','needs_review',now(),
  ARRAY['authorization required','seed and fibre production','scientific purposes'])
-where not exists (select 1 from public.regulatory_pathways p where p.iso_alpha2='MD' and p.slug='depth-v1-md-authorized-hemp');
-
-update public.regulatory_pathways
-set name='Authorized hemp cultivation for seed, fibre and scientific purposes',
-    pathway_type='domestic_authorization',
-    legal_basis='Regulation on cultivation of plants containing narcotic or psychotropic substances',
-    regulator='Permanent Committee for Drug Control',
-    status='active',
-    effective_date=null,
-    summary='Authorized persons and legal entities may cultivate hemp for scientific purposes and/or production of seed and fibre, subject to an activity authorization. This is not an adult-use retail pathway.',
-    source_urls='{https://www.legis.md/cautare/downloadpdf/97922}',
-    last_verified_at=now(),
-    qualifying_conditions=ARRAY['authorization required','seed and fibre production','scientific purposes']
-where iso_alpha2='MD' and slug='depth-v1-md-authorized-hemp';
+on conflict(slug) do update set summary=excluded.summary,source_urls=excluded.source_urls,
+last_verified_at=now(),qualifying_conditions=excluded.qualifying_conditions;
 
 insert into public.regulatory_citations
 (entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt)
