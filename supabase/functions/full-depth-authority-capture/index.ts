@@ -119,7 +119,16 @@ Dates must be YYYY-MM-DD or null. Payload must contain only facts supported by t
   return parsed;
 }
 
-async function processJob(job: any) {
+async function logEvent(invocationId: string, eventType: string, fields: Record<string, unknown> = {}) {
+  const { error } = await supabase.from("jurisdiction_data_depth_capture_invocation_events").insert({
+    invocation_id: invocationId,
+    event_type: eventType,
+    ...fields,
+  });
+  if (error) throw new Error(`invocation_event_log_failed: ${error.message}`);
+}
+
+async function processJob(job: any, invocationId: string) {
   const { data: claimedJob, error: claimError } = await supabase
     .from("jurisdiction_data_depth_capture_jobs")
     .update({
@@ -263,25 +272,106 @@ async function processJob(job: any) {
 }
 
 Deno.serve(async (req)=>{
+  const invocationId = crypto.randomUUID();
+  const startedAt = Date.now();
+  const requestId = req.headers.get("x-harbourview-request-id") ?? req.headers.get("x-github-run-id");
+  let invocationStatus = "running";
+  let requestedLimit = 10;
+
   if(req.method!=="POST") return Response.json({error:"method_not_allowed"},{status:405});
   if(!auth(req)) return Response.json({error:"unauthorized"},{status:401});
   if(!OPENAI_API_KEY) return Response.json({error:"OPENAI_API_KEY_missing"},{status:503});
 
   const url=new URL(req.url);
-  const limit=Math.max(1,Math.min(Number(url.searchParams.get("limit") ?? "10"),25));
-  const {data:jobs,error}=await supabase.from("jurisdiction_data_depth_capture_jobs")
-    .select("id,jurisdiction_key,dimension_key,attempts")
-    .eq("status","queued").order("updated_at",{ascending:true}).limit(limit);
-  if(error) return Response.json({error:error.message},{status:500});
+  requestedLimit=Math.max(1,Math.min(Number(url.searchParams.get("limit") ?? "10"),25));
 
-  const results=[];
-  for(const job of jobs ?? []) {
-    try { results.push({job_id:job.id,jurisdiction_key:job.jurisdiction_key,dimension_key:job.dimension_key,...await processJob(job)}); }
-    catch(e) {
-      const message=e instanceof Error?e.message:String(e);
-      await supabase.from("jurisdiction_data_depth_capture_jobs").update({status:"needs_review",last_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("id",job.id);
-      results.push({job_id:job.id,status:"needs_review",error:message});
+  const {error: invocationInsertError}=await supabase.from("jurisdiction_data_depth_capture_invocations").insert({
+    id: invocationId,
+    request_id: requestId,
+    worker_version: "v2-invocation-logs",
+    contract_version: "2026-09-23.v2",
+    requested_limit: requestedLimit,
+    status: "running",
+  });
+  if(invocationInsertError) return Response.json({error:`invocation_log_start_failed: ${invocationInsertError.message}`},{status:500});
+
+  await logEvent(invocationId, "invocation_started", {status:"running", metadata:{requested_limit:requestedLimit}});
+
+  try {
+    const {data:jobs,error}=await supabase.from("jurisdiction_data_depth_capture_jobs")
+      .select("id,jurisdiction_key,dimension_key,attempts")
+      .eq("status","queued").order("updated_at",{ascending:true}).limit(requestedLimit);
+    if(error) throw new Error(`queue_select_failed: ${error.message}`);
+
+    await supabase.from("jurisdiction_data_depth_capture_invocations").update({selected_jobs:(jobs ?? []).length}).eq("id",invocationId);
+    await logEvent(invocationId, "jobs_selected", {status:"running", metadata:{selected_jobs:(jobs ?? []).length}});
+
+    const results=[];
+    for(const job of jobs ?? []) {
+      try {
+        const result=await processJob(job,invocationId);
+        results.push({job_id:job.id,jurisdiction_key:job.jurisdiction_key,dimension_key:job.dimension_key,...result});
+        if(result.status==="skipped") {
+          await logEvent(invocationId, "job_skipped", {
+            job_id:job.id,
+            jurisdiction_key:job.jurisdiction_key,
+            dimension_key:job.dimension_key,
+            status:"skipped",
+            error_code:String(result.reason ?? "JOB_SKIPPED"),
+          });
+        }
+      } catch(e) {
+        const message=e instanceof Error?e.message:String(e);
+        await supabase.from("jurisdiction_data_depth_capture_jobs").update({status:"needs_review",last_error:message.slice(0,1000),updated_at:new Date().toISOString()}).eq("id",job.id);
+        await logEvent(invocationId, "job_failed", {
+          job_id:job.id,
+          jurisdiction_key:job.jurisdiction_key,
+          dimension_key:job.dimension_key,
+          status:"needs_review",
+          error_code:"JOB_PROCESSING_FAILED",
+          error_message:message.slice(0,1000),
+        });
+        results.push({job_id:job.id,jurisdiction_key:job.jurisdiction_key,dimension_key:job.dimension_key,status:"needs_review",error:message});
+      }
     }
+
+    const counts = results.reduce((a,r) => {
+      a.selected_jobs++;
+      if(r.status==="complete") a.completed_jobs++;
+      else if(r.status==="needs_review") a.needs_review_jobs++;
+      else if(r.status==="blocked") a.blocked_jobs++;
+      else if(r.status==="skipped") a.skipped_jobs++;
+      return a;
+    }, {selected_jobs:0,completed_jobs:0,needs_review_jobs:0,blocked_jobs:0,skipped_jobs:0});
+
+    const durationMs=Date.now()-startedAt;
+    await supabase.from("jurisdiction_data_depth_capture_invocations").update({
+      status:"completed",
+      completed_at:new Date().toISOString(),
+      duration_ms:durationMs,
+      claimed_jobs:results.filter(r=>r.status!=="skipped").length,
+      completed_jobs:counts.completed_jobs,
+      needs_review_jobs:counts.needs_review_jobs,
+      blocked_jobs:counts.blocked_jobs,
+      skipped_jobs:counts.skipped_jobs,
+      failed_jobs:0,
+      response_status:200,
+      metadata:{model:MODEL},
+    }).eq("id",invocationId);
+    await logEvent(invocationId, "invocation_completed", {status:"completed",duration_ms:durationMs,metadata:counts});
+    return Response.json({ok:true,invocation_id:invocationId,model:MODEL,processed:results.length,results});
+  } catch(e) {
+    const message=e instanceof Error?e.message:String(e);
+    const durationMs=Date.now()-startedAt;
+    await supabase.from("jurisdiction_data_depth_capture_invocations").update({
+      status:"failed",
+      completed_at:new Date().toISOString(),
+      duration_ms:durationMs,
+      response_status:500,
+      error_code:"INVOCATION_FAILED",
+      error_message:message.slice(0,1000),
+    }).eq("id",invocationId);
+    await logEvent(invocationId, "invocation_failed", {status:"failed",error_code:"INVOCATION_FAILED",error_message:message.slice(0,1000),duration_ms:durationMs});
+    return Response.json({ok:false,invocation_id:invocationId,error:message},{status:500});
   }
-  return Response.json({ok:true,model:MODEL,processed:results.length,results});
 });
