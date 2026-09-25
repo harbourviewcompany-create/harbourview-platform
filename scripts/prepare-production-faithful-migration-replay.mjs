@@ -596,6 +596,33 @@ export function planReplayExclusions({ decisions, migrationFiles }) {
   return exclusions.sort((a, b) => a.version.localeCompare(b.version))
 }
 
+export function planReplayLiveVersionShadows({ decisions, migrationFiles }) {
+  const fileSet = new Set(migrationFiles)
+  const decisionsByLiveVersion = new Map()
+  for (const decision of decisions.live_version_equivalences ?? []) {
+    if (!/^\\d{14}$/.test(decision.live_version ?? '')) continue
+    if (!/^\\d{14}$/.test(decision.repository_version ?? '')) continue
+    if (typeof decision.file !== 'string') continue
+    decisionsByLiveVersion.set(decision.live_version, decision)
+  }
+
+  const shadows = []
+  for (const [liveVersion, decision] of decisionsByLiveVersion) {
+    const liveFiles = migrationFiles.filter((file) => migrationVersion(file) === liveVersion)
+    if (liveFiles.length !== 1) continue
+    if (liveFiles[0] === decision.file) continue
+    if (!fileSet.has(decision.file)) continue
+    shadows.push({
+      version: liveVersion,
+      file: liveFiles[0],
+      canonical_file: decision.file,
+      canonical_version: decision.repository_version,
+      reason_code: 'live_version_shadow_of_canonical_equivalence',
+    })
+  }
+  return shadows.sort((a, b) => a.version.localeCompare(b.version))
+}
+
 export function planReplayZeroStateSkips({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_ZERO_STATE_SKIPS.filter((file) => fileSet.has(file))
@@ -671,6 +698,7 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   const migrationFiles = fs.readdirSync(migrationDirectory).filter((file) => file.endsWith('.sql'))
   const exclusions = planReplayExclusions({ decisions, migrationFiles })
   const zeroStateSkips = planReplayZeroStateSkips({ migrationFiles })
+  const liveVersionShadows = planReplayLiveVersionShadows({ decisions: { live_version_equivalences: decisions.live_version_equivalences ?? [] }, migrationFiles })
   const relocations = planReplayRelocations({ migrationFiles })
   const versionCollisionRenames = planReplayVersionCollisionRenames({ migrationFiles })
   const syntheticFoundations = planReplaySyntheticFoundations({ migrationFiles })
@@ -682,6 +710,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       const destination = `${source}${EXCLUDED_SUFFIX}`
       if (!fs.existsSync(source)) throw new Error(`Replay exclusion source disappeared: ${item.file}`)
       if (fs.existsSync(destination)) throw new Error(`Replay exclusion destination already exists: ${path.basename(destination)}`)
+      fs.renameSync(source, destination)
+    }
+    for (const shadow of liveVersionShadows) {
+      const source = path.join(migrationDirectory, shadow.file)
+      const destination = `${source}${EXCLUDED_SUFFIX}`
+      if (!fs.existsSync(source)) throw new Error(`Replay live-version shadow source disappeared: ${shadow.file}`)
+      if (fs.existsSync(destination)) throw new Error(`Replay live-version shadow destination already exists: ${path.basename(destination)}`)
       fs.renameSync(source, destination)
     }
     for (const file of zeroStateSkips) {
@@ -728,6 +763,7 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
   return {
     exclusions,
     zeroStateSkips,
+    liveVersionShadows,
     relocations,
     versionCollisionRenames,
     syntheticFoundations,
@@ -742,6 +778,7 @@ if (isDirect) {
     const {
       exclusions,
       zeroStateSkips,
+      liveVersionShadows,
       relocations,
       versionCollisionRenames,
       syntheticFoundations,
@@ -754,6 +791,12 @@ if (isDirect) {
       for (const item of exclusions) {
         console.log(`- ${item.file} -> live/repository equivalent ${item.repository_equivalent_versions.join(', ')}`)
       }
+    }
+    if (liveVersionShadows.length === 0) {
+      console.log('Production-faithful replay: no local files shadow a production live-version equivalence.')
+    } else {
+      console.log(`Production-faithful replay: ${apply ? 'excluded' : 'would exclude'} ${liveVersionShadows.length} local live-version shadow file(s):`)
+      for (const item of liveVersionShadows) console.log(`- ${item.file} -> canonical ${item.canonical_file} (${item.canonical_version})`)
     }
     if (zeroStateSkips.length === 0) {
       console.log('Production-faithful replay: no zero-state-inapplicable historical repair/duplicate files require exclusion.')
