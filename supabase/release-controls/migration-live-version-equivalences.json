@@ -222,8 +222,8 @@
     },
     {
       "live_version": "20260924123109",
-      "repository_version": "20260924130000",
-      "file": "20260924130000_full_depth_v2_capture_control_plane.sql",
+      "repository_version": "20260924130500",
+      "file": "20260924130500_full_depth_v2_capture_control_plane.sql",
       "git_blob_sha": "67dbc24528c40f68f4793938cbc6c4258a61be4c",
       "provenance": {
         "type": "apply_time_alias_read_only_verified",
