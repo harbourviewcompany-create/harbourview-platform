@@ -41,3 +41,19 @@ describe('authoritative full-depth capture', () => {
     expect(worker).toContain('Use ONLY the supplied captured first-party authority text')
   })
 })
+
+
+describe('live source snapshot schema alignment', () => {
+  it('does not write fields absent from the production source_snapshots schema', () => {
+    const worker = fs.readFileSync(
+      path.join(process.cwd(),'supabase/functions/full-depth-authority-capture/index.ts'),'utf8'
+    )
+    expect(worker).not.toContain('captured_url:')
+    expect(worker).not.toContain('captured_title:')
+    expect(worker).not.toContain('error_message:')
+    expect(worker).not.toContain('language_detected:')
+    expect(worker).not.toContain('word_count:')
+    expect(worker).not.toContain('requires_translation:')
+    expect(worker).toContain('select("id,captured_text,raw_html_hash,fetch_status,captured_at")')
+  })
+})
