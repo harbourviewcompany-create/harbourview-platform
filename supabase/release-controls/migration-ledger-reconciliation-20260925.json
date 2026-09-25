@@ -215,5 +215,7 @@
       "version": "20260925130901",
       "name": "requeue_full_depth_provider_failures_and_accelerate_authority_discovery"
     }
-  ]
+  ],
+  "registry_impact": "none",
+  "production_write_performed": false
 }
