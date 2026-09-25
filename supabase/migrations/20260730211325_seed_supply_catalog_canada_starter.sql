@@ -7,7 +7,7 @@ BEGIN
   END IF;
 END $$;
 
-DO $
+DO $listing_type$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_catalog.pg_attribute a
@@ -20,7 +20,7 @@ BEGIN
   ) THEN
     ALTER TABLE public.listings ALTER COLUMN listing_type DROP NOT NULL;
   END IF;
-END $;
+END $listing_type$;
 
 ALTER TABLE public.listings
   ADD COLUMN IF NOT EXISTS category public.marketplace_category,
