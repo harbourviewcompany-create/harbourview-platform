@@ -31,6 +31,6 @@ export const getGlobeLiveDataCached = unstable_cache(
   // param defaults to the browser client type. Runtime `.from()` is schema-agnostic.
   async (): Promise<GlobeLiveData> =>
     getGlobeLiveData(serverAnonClient() as unknown as SupabaseClient),
-  ['globe-live-data-v1'],
+  ['globe-live-data-v2'],
   { revalidate: GLOBE_REVALIDATE_SECONDS, tags: ['globe'] },
 )
