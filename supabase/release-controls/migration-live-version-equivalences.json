@@ -221,94 +221,6 @@
       }
     },
     {
-      "live_version": "20260920023351",
-      "repository_version": "20260919190000",
-      "file": "20260919190000_optimize_talent_candidate_rls_and_function_search_path.sql",
-      "git_blob_sha": "883a2c848d914c65e372a73eba0ada78aa0f9dcc",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "276c9a952a219df51bbcaf4a4d2db44f",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260920102919",
-      "repository_version": "20260920063000",
-      "file": "20260920063000_add_missing_digest_foreign_key_indexes.sql",
-      "git_blob_sha": "10a0a57d9b65003ac748bde08dba3122ceaabb12",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "65d63b96d41d8af29ade511b10d309f6",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260920103012",
-      "repository_version": "20260920064000",
-      "file": "20260920064000_optimize_signals_search_and_reviewed_feed.sql",
-      "git_blob_sha": "3333d3aebcc112ce6feeb35689ab6708eb5c0377",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "67f6786399fa94155cddb51489ca497c",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260920103108",
-      "repository_version": "20260920065000",
-      "file": "20260920065000_optimize_source_registry_and_entity_job_queues.sql",
-      "git_blob_sha": "6535337233790df08de9eca0622b261815e4344b",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "4328b52cf2f5766a58cc3db7537b90ae",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260920110659",
-      "repository_version": "20260922113000",
-      "file": "20260922113000_jurisdiction_depth_integrity_view.sql",
-      "git_blob_sha": "5c3e2170b1973bef00d56ba7baaa750652759265",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "f6555d75d95a2b835e7c1d44852a0211",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260924112808",
-      "repository_version": "20260922230000",
-      "file": "20260922230000_full_depth_intelligence_contract.sql",
-      "git_blob_sha": "8e3a5d1307bc4a8b56a4d837064190c82d674665",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "153e8e778c4cc68b2da879b991ce4098",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260924112814",
-      "repository_version": "20260923060000",
-      "file": "20260923060000_jurisdiction_evidence_depth_291.sql",
-      "git_blob_sha": "8f0d763dd859003e52a43cfb46a7d58882dd62ee",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "2795de7894dfe535836e3fa6000633f3",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
-      "live_version": "20260924113301",
-      "repository_version": "20260924133000",
-      "file": "20260924133000_reconcile_291x32_coverage_states.sql",
-      "git_blob_sha": "81c3f5637d11ecb1a8c79a02b2880fd2907c2f5a",
-      "provenance": {
-        "type": "direct_content_match_read_only",
-        "production_statement_md5": "2579138beeb44b91d4ca961dceb929b2",
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed the production statement payload is byte-identical to the pinned canonical repository migration file."
-      }
-    },
-    {
       "live_version": "20260924123109",
       "repository_version": "20260924130500",
       "file": "20260924130500_full_depth_v2_capture_control_plane.sql",
@@ -319,7 +231,7 @@
         "production_statement_count": 1,
         "production_statement_md5": "37fe6be789ce9b0f76d3f2655d2617e1",
         "production_statement_chars": 10541,
-        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed production live version 20260924123109 is byte-identical to the recovered canonical repository migration content now stored at repository version 20260924130500. No production history row was changed."
+        "production_apply_evidence": "Read-only verification on 2026-09-25 confirmed production live version 20260924123109 is byte-identical to canonical repository migration 20260924130000. No production history row was changed."
       }
     }
   ]

@@ -1,0 +1,6 @@
+-- HISTORICAL RECOVERY ARTIFACT
+-- Production migration version: 20260923093459
+-- Recovered verbatim from production supabase_migrations.schema_migrations.statements.
+-- DO NOT REPLAY: archival source only.
+
+update public.regulatory_market_access_primary_sources set source_snapshot_sha256='ec35526b04e58789e479efefce4bafc520eeb45b66a166a123c480b8b7cf3312',verified_at=now(),expires_at=now()+interval '30 days' where jurisdiction_iso2='CH'; update public.regulatory_market_access_primary_sources set source_snapshot_sha256='67d0727d5d3ec2faca2328c9f58a203a15ba00563f382f4473424bba55e7a3df',verified_at=now(),expires_at=now()+interval '30 days' where jurisdiction_iso2='DK'; update public.regulatory_market_access_primary_sources set source_snapshot_sha256='964d253e5fcd8c95847158aca7f82d96c173f31272f5b376d54f7c4839946430',verified_at=now(),expires_at=now()+interval '30 days' where jurisdiction_iso2='US-MD'; update public.regulatory_market_access_primary_sources set source_snapshot_sha256='2bbf701dc9687f420bb0347a9034d8d4dd9da44546e53166a2e253f8ef2eafa8',verified_at=now(),expires_at=now()+interval '30 days' where jurisdiction_iso2='BS'; select api.refresh_verified_market_access_tiers('align-primary-hashes-20260923') as refreshed;
