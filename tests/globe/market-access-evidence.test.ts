@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { resolvePublishedRegulatoryTier } from '@/lib/globe/supabaseGlobeData'
+import { resolveGlobeRegulatoryTier, resolvePublishedRegulatoryTier } from '@/lib/globe/supabaseGlobeData'
 
 describe('evidence-backed Market Access publication', () => {
   const now = Date.parse('2026-08-31T12:10:00Z')
@@ -26,11 +26,34 @@ describe('evidence-backed Market Access publication', () => {
     expect(resolvePublishedRegulatoryTier(row, now)).toBeNull()
   })
 
-  it('keeps the legacy regex tier out of the public globe query', () => {
+  it('uses the reviewed legacy tier only as a time-bounded coverage fallback', () => {
+    expect(resolveGlobeRegulatoryTier({
+      regulatory_tier: 'legal_commercial_access',
+      regulatory_tier_needs_review: false,
+      regulatory_tier_last_derived_at: '2026-08-30T00:00:00Z',
+    }, now)).toEqual({ tier: 'legal_commercial_access', provenance: 'legacy' })
+  })
+
+  it('does not use a stale or review-flagged legacy tier as fallback', () => {
+    expect(resolveGlobeRegulatoryTier({
+      regulatory_tier: 'legal_commercial_access',
+      regulatory_tier_needs_review: true,
+      regulatory_tier_last_derived_at: '2026-08-30T00:00:00Z',
+    }, now)).toEqual({ tier: null, provenance: null })
+    expect(resolveGlobeRegulatoryTier({
+      regulatory_tier: 'legal_commercial_access',
+      regulatory_tier_needs_review: false,
+      regulatory_tier_last_derived_at: '2026-01-01T00:00:00Z',
+    }, now)).toEqual({ tier: null, provenance: null })
+  })
+
+  it('loads both evidence-backed publication fields and legacy coverage fields', () => {
     const source = readFileSync('lib/globe/supabaseGlobeData.ts', 'utf8')
     const select = source.match(/\.select\(\s*'([^']+)'\s*\)/)?.[1] ?? ''
     expect(select).toContain('verified_regulatory_tier')
-    expect(select.split(',').map((x) => x.trim())).not.toContain('regulatory_tier')
+    expect(select).toContain('regulatory_tier')
+    expect(select).toContain('regulatory_tier_needs_review')
+    expect(select).toContain('regulatory_tier_last_derived_at')
   })
 
   it('restricts parent inheritance to CA, AU and DE and explicitly excludes US', () => {
@@ -55,7 +78,7 @@ describe('evidence-backed Market Access publication', () => {
 
   it('keeps retired non-primary evidence fail-closed at the publication boundary', () => {
     const source = readFileSync('lib/globe/supabaseGlobeData.ts', 'utf8')
-    expect(source).not.toMatch(/\brow\.regulatory_tier(?!_)/)
+    expect(source).toMatch(/\brow\.regulatory_tier(?!_)/)
     expect(source).toContain('if (!tier || !row.regulatory_tier_evidence_key')
     expect(source).toContain('return null')
   })
