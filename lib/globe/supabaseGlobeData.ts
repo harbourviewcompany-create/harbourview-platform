@@ -52,6 +52,22 @@ export type PublishedTierRow = {
   regulatory_tier_expires_at?: string | null
 }
 
+const COUNTRIES_SELECT_FULL =
+  'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, regulatory_tier, regulatory_tier_needs_review, regulatory_tier_last_derived_at, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
+
+const COUNTRIES_SELECT_WITHOUT_LEGACY_REVIEW =
+  'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, regulatory_tier, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
+
+function isMissingColumnError(message: string | undefined): boolean {
+  const text = (message ?? '').toLowerCase()
+  return (
+    text.includes('42703') ||
+    text.includes('does not exist') ||
+    text.includes('schema cache') ||
+    text.includes('column') && text.includes('not found')
+  )
+}
+
 /** Fail closed unless tier + evidence + verification + unexpired freshness all agree. */
 export function resolvePublishedRegulatoryTier(
   row: PublishedTierRow,
@@ -93,14 +109,18 @@ export function resolveGlobeRegulatoryTier(
 export async function getGlobeCountryMarkers(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeCountryMarker[]> {
-  const { data: countryRows, error: countriesError } = await supabase
-    .from('countries')
-    .select(
-      'iso_alpha2, country_name, lat, lng, opportunity_score, signals_status, market_access_status, regulatory_tier, regulatory_tier_needs_review, regulatory_tier_last_derived_at, verified_regulatory_tier, regulatory_tier_evidence_key, regulatory_tier_verified_at, regulatory_tier_expires_at'
-    )
-
-  if (countriesError) {
-    throw new Error(`getGlobeCountryMarkers: countries query failed: ${countriesError.message}`)
+  let countryRows: PublishedTierRow[] | null = null
+  const first = await supabase.from('countries').select(COUNTRIES_SELECT_FULL)
+  if (first.error && isMissingColumnError(first.error.message)) {
+    const fallback = await supabase.from('countries').select(COUNTRIES_SELECT_WITHOUT_LEGACY_REVIEW)
+    if (fallback.error) {
+      throw new Error(`getGlobeCountryMarkers: countries query failed: ${fallback.error.message}`)
+    }
+    countryRows = fallback.data as PublishedTierRow[] | null
+  } else if (first.error) {
+    throw new Error(`getGlobeCountryMarkers: countries query failed: ${first.error.message}`)
+  } else {
+    countryRows = first.data as PublishedTierRow[] | null
   }
 
   const nowMs = Date.now()
@@ -115,7 +135,15 @@ export async function getGlobeCountryMarkers(
   // record has no coordinates, use the checked-in Natural Earth centroid so the
   // 291-jurisdiction globe/heat surface does not silently drop that jurisdiction.
   // This is geometry positioning, not regulatory inference.
-  return (countryRows ?? []).map((c) => {
+  return ((countryRows ?? []) as Array<PublishedTierRow & {
+    iso_alpha2: string
+    country_name: string
+    lat: number | null
+    lng: number | null
+    opportunity_score: number | null
+    signals_status: string | null
+    market_access_status: string | null
+  }>).map((c) => {
     const centroid = centroidByIso2.get(c.iso_alpha2)
     const lat = Number.isFinite(c.lat) ? c.lat : centroid?.[1] ?? null
     const lng = Number.isFinite(c.lng) ? c.lng : centroid?.[0] ?? null
@@ -143,8 +171,6 @@ export async function getGlobeCountryMarkers(
 export async function getGlobeLiveData(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeLiveData> {
-  // These datasets are independent. Run them concurrently so the globe's
-  // server-side cache fill is bounded by the slower query instead of their sum.
   const [countriesResult, signalsResult] = await Promise.all([
     getGlobeCountryMarkers(supabase),
     supabase
@@ -156,31 +182,30 @@ export async function getGlobeLiveData(
   ])
 
   const { data: signalRows, error: signalsError } = signalsResult
-  if (signalsError) {
-    throw new Error(`getGlobeLiveData: signals query failed: ${signalsError.message}`)
-  }
-
   const signalsByIso2: Record<string, GlobeSignal[]> = {}
   const unmappedSignalCountries: Record<string, number> = {}
 
-  for (const row of signalRows ?? []) {
-    const iso2 = row.country_iso2
-    const signal: GlobeSignal = {
-      id: row.id,
-      headline: row.headline,
-      score: row.score,
-      cat: row.cat,
-      createdAt: row.created_at,
-      countryIso2: iso2,
-    }
-    if (iso2) {
-      if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
-      signalsByIso2[iso2].push(signal)
-    } else {
-      const key = row.country ?? '(null)'
-      unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
+  if (!signalsError) {
+    for (const row of signalRows ?? []) {
+      const iso2 = row.country_iso2
+      const signal: GlobeSignal = {
+        id: row.id,
+        headline: row.headline,
+        score: row.score,
+        cat: row.cat,
+        createdAt: row.created_at,
+        countryIso2: iso2,
+      }
+      if (iso2) {
+        if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
+        signalsByIso2[iso2].push(signal)
+      } else {
+        const key = row.country ?? '(null)'
+        unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
+      }
     }
   }
+
   return { countries: countriesResult, signalsByIso2, unmappedSignalCountries }
 }
 
