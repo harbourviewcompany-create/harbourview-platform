@@ -758,3 +758,5 @@ test('replay compares market_access_status as text so either column shape works'
   // The SET clause keeps its enum cast; only the predicate changes.
   assert.match(original, /END::market_access_status\nWHERE/)
 })
+
+// Replay harness regression coverage intentionally runs against a disposable local workspace.
