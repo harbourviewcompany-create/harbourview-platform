@@ -14,7 +14,7 @@ const migration = readFileSync(
 
 test("progressive cycle serializes work and preserves fail-closed stages", () => {
   expect(migration).toContain("pg_try_advisory_lock");
-  expect(migration).toContain("extract_depth_candidates(5)");
+  expect(migration).toContain("extract_depth_candidates(300)");
   expect(migration).toContain("adjudicate_structured_pathway_regulator_v4(500)");
   expect(migration).toContain("adjudicate_structured_commercial_rules_v5(500)");
   expect(migration).toContain("adjudicate_structured_evidence_v6(500)");
