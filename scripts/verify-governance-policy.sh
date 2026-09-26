@@ -11,13 +11,23 @@ fail_count=0
 pass_check() { printf 'PASS: %s\n' "$1"; pass_count=$((pass_count+1)); }
 fail_check() { printf 'FAIL: %s\n' "$1"; fail_count=$((fail_count+1)); fail=1; }
 
-if rulesets="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' 'https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets')"; then
-  if RULESETS="$rulesets" python3 - <<'PY'
-import json, os
+if ruleset_list="$(curl --fail --silent --show-error --retry 3 --retry-delay 1 -H "Authorization: Bearer ${GITHUB_TOKEN}" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' 'https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets')"; then
+  if RULESET_LIST="$ruleset_list" GITHUB_TOKEN="$GITHUB_TOKEN" python3 - <<'PY'
+import json, os, urllib.request
 from pathlib import Path
 expected=[x.strip() for x in Path('docs/control/REQUIRED_MAIN_STATUS_CHECKS.txt').read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
 if not expected: raise SystemExit('required status-check allowlist is empty')
-rulesets=json.loads(os.environ['RULESETS']); main=[]
+token=os.environ['GITHUB_TOKEN']
+def gh(url):
+    req=urllib.request.Request(url, headers={'Authorization': f'Bearer {token}', 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+    with urllib.request.urlopen(req) as resp: return json.load(resp)
+ruleset_list=json.loads(os.environ['RULESET_LIST'])
+# The List Rulesets endpoint never returns conditions/rules (confirmed against
+# the live API, not an assumption) -- only GET /rulesets/{id} does. Fetch each
+# ruleset's full detail before filtering, or an active, correctly-configured
+# main ruleset is invisible to every check below.
+rulesets=[gh(f"https://api.github.com/repos/harbourviewcompany-create/harbourview-platform/rulesets/{r['id']}") for r in ruleset_list]
+main=[]
 for r in rulesets:
     if r.get('enforcement')!='active': continue
     include=((r.get('conditions') or {}).get('ref_name') or {}).get('include') or []
@@ -81,25 +91,7 @@ done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -pri
 if [ "$production_secret_refs" -eq 0 ]; then pass_check "no pull-request workflow references production database/deployment credentials"; else fail_check "$production_secret_refs pull-request workflow(s) reference production credentials"; fi
 
 if grep -RInE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" >/tmp/governance-contents-write.txt 2>/dev/null; then
-  unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$|/reconstruct-stub-migrations\.yml$|/apply-command-centre-repair\.yml$|/production-admin-security-probe\.yml$|/auto-reconcile-migration-drift\.yml || true)
-  if [ -n "$unexpected" ]; then printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved controlled workflows"; else pass_check "contents: write is limited to explicitly approved controlled workflows"; fi
-else
-  pass_check "no workflow grants contents: write"
-fi
-
-if grep -RInE 'github\.event\.(pull_request|issue)\.(body|title)' "$workflow_dir" >/tmp/governance-body-title.txt 2>/dev/null; then cat /tmp/governance-body-title.txt; fail_check "workflow directly interpolates attacker-controlled issue/PR body or title data"; else pass_check "no direct issue/PR body or title interpolation detected"; fi
-
-privileged_untrusted_checkout=0
-while IFS= read -r file; do
-  if grep -Eq 'github\.event\.pull_request\.head\.(sha|repo\.full_name)|refs/pull/\$\{\{[^}]*pull_request[^}]*\}\}/(merge|head)' "$file"; then
-    if grep -Eq '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$|secrets[.](SUPABASE_DB_URL|SUPABASE_DB_PASSWORD|SUPABASE_ACCESS_TOKEN|SUPABASE_SERVICE_ROLE_KEY|VERCEL_AUTOMATION_BYPASS_SECRET)' "$file"; then printf 'PR TRUST-BOUNDARY: %s\n' "$file"; privileged_untrusted_checkout=$((privileged_untrusted_checkout+1)); fi
-  fi
-done < <(find "$workflow_dir" -type f \( -name '*.yml' -o -name '*.yaml' \) -print)
-if [ "$privileged_untrusted_checkout" -eq 0 ]; then pass_check "no privileged workflow checks out untrusted pull-request code"; else fail_check "$privileged_untrusted_checkout privileged workflow(s) contain an untrusted pull-request checkout/fetch pattern"; fi
-
-printf 'GOVERNANCE_POLICY_RESULT=%s PASS_COUNT=%s FAIL_COUNT=%s\n' "$([ "$fail" -eq 0 ] && echo PASS || echo FAIL)" "$pass_count" "$fail_count"
-exit "$fail"
- || true)
+  unexpected=$(grep -RlE '^[[:space:]]+contents:[[:space:]]+write[[:space:]]*$' "$workflow_dir" | grep -vE '/deploy-preview\.yml$|/cleanup-preview-branches\.yml$|/marketplace-browser-smoke\.yml$|/sync-figma-tokens\.yml$|/reconstruct-stub-migrations\.yml$|/apply-command-centre-repair\.yml$|/production-admin-security-probe\.yml$|/auto-reconcile-migration-drift\.yml$' || true)
   if [ -n "$unexpected" ]; then printf '%s\n' "$unexpected"; fail_check "contents: write exists outside the explicitly approved controlled workflows"; else pass_check "contents: write is limited to explicitly approved controlled workflows"; fi
 else
   pass_check "no workflow grants contents: write"
