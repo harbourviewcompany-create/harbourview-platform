@@ -12,7 +12,7 @@ export const revalidate = 3600
 export const dynamic = 'force-dynamic'
 
 export default async function ExportImportReadinessPage() {
-  const allModules = await getPublishedEducationModules()
+  const allModules = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getPublishedEducationModules()
   const modules = allModules.filter(m =>
     ['export', 'import', 'logistics', 'compliance'].includes(m.track_id)
   )
