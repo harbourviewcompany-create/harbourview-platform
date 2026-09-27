@@ -8,6 +8,7 @@
  */
 import { createClient } from '@/lib/supabase/client'
 import { naturalEarthCountriesPayload } from '@/data/globe/natural-earth-countries'
+import { supplementaryJurisdictionCentroids } from '@/data/globe/supplementary-jurisdiction-centroids'
 import type { RegulatoryTier } from './globe-materials'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -130,6 +131,9 @@ export async function getGlobeCountryMarkers(
       country.centroid,
     ]),
   )
+  for (const [iso2, centroid] of Object.entries(supplementaryJurisdictionCentroids)) {
+    if (!centroidByIso2.has(iso2)) centroidByIso2.set(iso2, centroid)
+  }
 
   // The database remains authoritative for stored coordinates. If a country
   // record has no coordinates, use the checked-in Natural Earth centroid so the
