@@ -232,7 +232,8 @@ export function GlobeSameScreenRouterLanding() {
         {fallbackReason ? (
           <PremiumStaticGlobeFallback reason={fallbackReason} />
         ) : (
-          <GlobeCanvas
+          <GlobeRenderErrorBoundary>
+            <GlobeCanvas
             selectedCountryIso2={state.selectedCountryIso2}
             selectedCountryIso2s={state.selectedCountryIso2s}
             focusedCountryIso2={
@@ -254,7 +255,8 @@ export function GlobeSameScreenRouterLanding() {
                 countryIso2,
               })
             }
-          />
+            />
+          </GlobeRenderErrorBoundary>
         )}
 
         <CountrySearchOverlay
