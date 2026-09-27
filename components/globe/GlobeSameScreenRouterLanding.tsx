@@ -63,7 +63,7 @@ function getFallbackContextItems(state: GlobeRouterState) {
   return items
 }
 
-type GlobeFallbackReason = 'flag-disabled' | 'reduced-motion' | 'webgl-unavailable' | 'low-performance'
+type GlobeFallbackReason = 'flag-disabled' | 'webgl-unavailable'
 
 const INTERACTIVE_GLOBE_ENABLED = featureFlags.interactiveGlobe
 
@@ -78,22 +78,10 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
 
     if (typeof window === 'undefined') return
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setReason('reduced-motion')
-      return
-    }
-
     const canvas = document.createElement('canvas')
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
     if (!gl) {
       setReason('webgl-unavailable')
-      return
-    }
-
-    const cores = navigator.hardwareConcurrency ?? 4
-    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
-    if (cores <= 2 || memory <= 2) {
-      setReason('low-performance')
       return
     }
 
@@ -108,14 +96,10 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
  * "heat" wash — mirrors the WebGL intro without requiring WebGL.
  */
 function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
-  const [phase, setPhase] = useState<GlobeIntroPhase>(
-    reason === 'reduced-motion' ? 'ready' : 'spinning',
-  )
+  const [phase, setPhase] = useState<GlobeIntroPhase>('spinning')
 
   const reasonLabel = useMemo(() => {
     switch (reason) {
-      case 'reduced-motion':
-        return 'Reduced motion mode'
       case 'webgl-unavailable':
         return 'WebGL unavailable'
       case 'low-performance':
@@ -126,10 +110,6 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
   }, [reason])
 
   useEffect(() => {
-    if (reason === 'reduced-motion') {
-      setPhase('ready')
-      return
-    }
     setPhase('spinning')
     const revealTimer = window.setTimeout(() => setPhase('revealing'), GLOBE_INTRO.spinDurationMs)
     const readyTimer = window.setTimeout(
@@ -172,7 +152,7 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
             background:
               'radial-gradient(circle at 32% 24%, rgba(255,240,180,0.55), transparent 22%), radial-gradient(circle at 42% 42%, rgba(180,140,55,0.92) 0%, rgba(90,65,22,0.96) 52%, rgba(20,14,6,0.98) 100%)',
             animation:
-              phase === 'spinning' && reason !== 'reduced-motion'
+              phase === 'spinning'
                 ? `hv-css-globe-spin ${spinMs}ms linear 1 forwards`
                 : undefined,
             transform: 'translate(-50%, -50%)',
@@ -188,7 +168,7 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
               'conic-gradient(from 210deg, rgba(47,212,111,0.22), rgba(242,197,61,0.2), rgba(240,125,46,0.18), rgba(43,194,194,0.16), rgba(178,59,59,0.14), rgba(47,212,111,0.22))',
             opacity: phase === 'ready' || phase === 'revealing' ? 1 : 0,
             animation:
-              phase === 'revealing' && reason !== 'reduced-motion'
+              phase === 'revealing'
                 ? `hv-css-globe-reveal ${revealMs}ms ease-out 1 forwards`
                 : undefined,
             transition: phase === 'ready' ? 'opacity 200ms ease-out' : undefined,
