@@ -207,7 +207,7 @@ export function GlobeSameScreenRouterLanding() {
 
   return (
     <GlobeProvider>
-      <main className="relative min-h-svh overflow-hidden bg-[#01050d] text-white">
+      <main className="relative h-svh min-h-svh overflow-hidden bg-[#01050d] text-white">
         {fallbackReason ? (
           <PremiumStaticGlobeFallback reason={fallbackReason} />
         ) : (
