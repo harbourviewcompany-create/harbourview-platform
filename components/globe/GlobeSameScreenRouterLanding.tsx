@@ -102,9 +102,7 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
     switch (reason) {
       case 'webgl-unavailable':
         return 'WebGL unavailable'
-      case 'low-performance':
-        return 'Performance protection'
-      default:
+      case 'flag-disabled':
         return 'Interactive globe disabled'
     }
   }, [reason])
