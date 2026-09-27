@@ -81,7 +81,7 @@ select
   count(*) as total_dimensions,
   count(*) filter(where status in ('verified_populated','verified_empty','not_applicable')) as complete_dimensions,
   count(*) filter(where status='verified_populated') as populated_dimensions,
-  count(*) filter(where status='not_applicable') as not_applicable_dimensions,
+  count(*) filter(where status='not_applicable') as "not_applicable_dimensions",
   count(*) filter(where status='inherited') as inherited_dimensions,
   count(*) filter(where status='open') as open_dimensions,
   count(*) filter(where status='blocked') as blocked_dimensions,
