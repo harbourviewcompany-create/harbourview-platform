@@ -29,7 +29,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
 }
 
 export default async function LicensingPathwaysPage() {
-  const playbooks = await getAllPlaybooks()
+  const playbooks = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getAllPlaybooks()
 
   return (
     <>
