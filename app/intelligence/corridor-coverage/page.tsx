@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 // ISR: reference intelligence surface
 export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 export default async function CorridorCoveragePage() {
   const report = await getCorridorCoverageReport()
