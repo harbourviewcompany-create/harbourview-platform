@@ -139,7 +139,29 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
   )
 }
 
-class GlobeRenderErrorBoundary extends React.Component<\n  { children: React.ReactNode },\n  { hasError: boolean }\n> {\n  state = { hasError: false }\n\n  static getDerivedStateFromError() {\n    return { hasError: true }\n  }\n\n  componentDidCatch(error: Error) {\n    console.error('[GlobeRenderErrorBoundary]', error)\n  }\n\n  render() {\n    if (this.state.hasError) {\n      return <PremiumStaticGlobeFallback reason="render-error" />\n    }\n    return this.props.children\n  }\n}\n\nexport function GlobeSameScreenRouterLanding() {
+class GlobeRenderErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[GlobeRenderErrorBoundary]', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <PremiumStaticGlobeFallback reason="render-error" />
+    }
+    return this.props.children
+  }
+}
+
+export function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
