@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getGlobeLiveDataCached, GLOBE_REVALIDATE_SECONDS } from '@/lib/globe/globeDataServer'
-import type { GlobeLiveData } from '@/lib/globe/supabaseGlobeData'
 
-// Cached at the route-segment level too; must be a static literal for Next.
-export const revalidate = 300
-
+// ISR revalidate made Next prerender this route during `next build`.
+// The live query exceeds the 60s static generation budget and fails production.
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 /**
  * Cached globe payload for the client GlobeProvider. Replaces a per-visitor
- * browser PostgREST query with a single server-side query cached for 5 minutes
- * — lowers load on the (Micro) database and keeps the heat map rendering from
- * cache during a transient DB blip. On hard failure it returns an empty payload
- * with `degraded: true` and HTTP 200, so the globe renders the sphere with no
- * markers rather than dead-ending on an error.
+ * browser PostgREST query with a single server-side query cached for 5 minutes.
+ * On hard failure it returns 503 so an empty payload is not cached as healthy.
  */
 export async function GET() {
   try {
@@ -35,9 +32,6 @@ export async function GET() {
       },
     )
   } catch (err) {
-    // Do not turn an upstream schema/database failure into a false HTTP 200.
-    // The provider has bounded retry logic; a 5xx makes the failure observable
-    // and prevents an empty globe payload from being cached as healthy data.
     console.error('[api/globe] live data failure:', err)
     return NextResponse.json(
       {
