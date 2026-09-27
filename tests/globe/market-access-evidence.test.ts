@@ -49,7 +49,7 @@ describe('evidence-backed Market Access publication', () => {
 
   it('loads both evidence-backed publication fields and legacy coverage fields', () => {
     const source = readFileSync('lib/globe/supabaseGlobeData.ts', 'utf8')
-    const select = source.match(/\.select\(\s*'([^']+)'\s*\)/)?.[1] ?? ''
+    const select = source.match(/const COUNTRIES_SELECT_FULL\s*=\s*'([^']+)'/)?.[1] ?? ''
     expect(select).toContain('verified_regulatory_tier')
     expect(select).toContain('regulatory_tier')
     expect(select).toContain('regulatory_tier_needs_review')

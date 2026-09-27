@@ -182,11 +182,14 @@ export async function getGlobeLiveData(
   ])
 
   const { data: signalRows, error: signalsError } = signalsResult
+  if (signalsError) {
+    throw new Error(`getGlobeLiveData: signals query failed: ${signalsError.message}`)
+  }
+
   const signalsByIso2: Record<string, GlobeSignal[]> = {}
   const unmappedSignalCountries: Record<string, number> = {}
 
-  if (!signalsError) {
-    for (const row of signalRows ?? []) {
+  for (const row of signalRows ?? []) {
       const iso2 = row.country_iso2
       const signal: GlobeSignal = {
         id: row.id,
@@ -203,7 +206,6 @@ export async function getGlobeLiveData(
         const key = row.country ?? '(null)'
         unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
       }
-    }
   }
 
   return { countries: countriesResult, signalsByIso2, unmappedSignalCountries }
