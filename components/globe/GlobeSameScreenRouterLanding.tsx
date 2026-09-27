@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -90,8 +90,9 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
 }
 
 /**
- * Static fallback with a CSS gold 360° spin, then a soft settle into a warmer
- * "heat" wash — mirrors the WebGL intro without requiring WebGL.
+ * Cartographic fallback used only when WebGL cannot initialize or an explicit
+ * force-fallback flag is enabled. It uses the same Harbourview globe artwork
+ * already shipped for lightweight loading states instead of abstract circles.
  */
 function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
   const reasonLabel = reason === 'webgl-unavailable' ? 'Interactive globe unavailable' : 'Globe fallback'
