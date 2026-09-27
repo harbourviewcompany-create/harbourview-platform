@@ -55,8 +55,14 @@ test.describe('production public routes', () => {
     // Globe route controller OR its fallback heading must be present
     const globeControl = page.getByLabel(/Interactive Harbourview globe route controller/i)
     const globeCanvas = page.getByLabel(/Harbourview country globe/i)
-    const globeFallback = page.getByRole('heading', { name: /Market routing fallback/i })
+    const globeFallback = page.getByRole('heading', { name: /Market routing/i })
     await expect(globeControl.or(globeCanvas).or(globeFallback).first()).toBeVisible()
+
+    if (await globeCanvas.count()) {
+      const box = await globeCanvas.boundingBox()
+      expect(box?.width ?? 0, 'homepage globe canvas must fill the viewport width').toBeGreaterThanOrEqual(0.8 * 1440)
+      expect(box?.height ?? 0, 'homepage globe canvas must fill the viewport height').toBeGreaterThanOrEqual(0.8 * 900)
+    }
   })
 
   test('intake form renders and invalid submission remains safe', async ({ page }) => {
