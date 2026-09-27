@@ -54,6 +54,7 @@ const LEGAL_LABEL: Record<string, string> = {
 async function getAllBriefings(): Promise<Briefing[]> {
   const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (process.env.NEXT_PHASE === 'phase-production-build') return []
   if (!url || !key) return []
 
   const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
