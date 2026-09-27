@@ -15,7 +15,7 @@ export const revalidate = 3600
 export const dynamic = 'force-dynamic'
 
 export default async function CannabinoidResearchPage() {
-  const compounds = await getAllCannabinoidCompounds()
+  const compounds = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getAllCannabinoidCompounds()
 
   return (
     <>

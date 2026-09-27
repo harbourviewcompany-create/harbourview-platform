@@ -128,7 +128,7 @@ function ListingGridCard({ listing }: { listing: PublicListing }) {
 }
 
 export default async function MarketplaceListingsPage() {
-  const listings = await getPublicListings()
+  const listings = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getPublicListings()
 
   return (
     <>

@@ -16,7 +16,15 @@ export const revalidate = 3600
 export const dynamic = 'force-dynamic'
 
 export default async function CorridorCoveragePage() {
-  const report = await getCorridorCoverageReport()
+  const report = process.env.NEXT_PHASE === 'phase-production-build' ? {
+    trackedCorridorCount: 0,
+    planReadyCount: 0,
+    publishedPlaybookCount: 0,
+    asOf: 'build-time',
+    publishedIso2: [],
+    corridors: [],
+    disclaimer: 'Live corridor coverage loads at runtime.',
+  } : await getCorridorCoverageReport()
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 text-zinc-100">
