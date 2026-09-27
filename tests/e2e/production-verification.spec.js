@@ -60,8 +60,9 @@ test.describe('production public routes', () => {
 
     if (await globeCanvas.count()) {
       const box = await globeCanvas.boundingBox()
-      expect(box?.width ?? 0, 'homepage globe canvas must fill the viewport width').toBeGreaterThanOrEqual(0.8 * 1440)
-      expect(box?.height ?? 0, 'homepage globe canvas must fill the viewport height').toBeGreaterThanOrEqual(0.8 * 900)
+      const viewport = await page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }))
+      expect(box?.width ?? 0, 'homepage globe canvas must fill the viewport width').toBeGreaterThanOrEqual(0.8 * viewport.width)
+      expect(box?.height ?? 0, 'homepage globe canvas must fill the viewport height').toBeGreaterThanOrEqual(0.8 * viewport.height)
     }
   })
 
