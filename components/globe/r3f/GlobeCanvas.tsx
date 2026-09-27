@@ -213,6 +213,7 @@ export function GlobeCanvas({
 
   const controlsRef = useRef<ComponentRef<typeof OrbitControls> | null>(null)
   const { liveData, loading } = useGlobe()
+  const [constrainedDevice, setConstrainedDevice] = useState(false)
   const [introPhase, setIntroPhase] = useState<GlobeIntroPhase>('spinning')
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const [revealElapsedMs, setRevealElapsedMs] = useState(0)
@@ -223,6 +224,10 @@ export function GlobeCanvas({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const cores = navigator.hardwareConcurrency ?? 4
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4
+    setConstrainedDevice(cores <= 2 || memory <= 2)
+
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     const apply = () => setPrefersReducedMotion(mq.matches)
     apply()
@@ -354,6 +359,7 @@ export function GlobeCanvas({
   const heatEnabled =
     featureFlags.globeHeatmap &&
     !featureFlags.globeForceFallback &&
+    !constrainedDevice &&
     introPhase === 'ready'
   const atmosphereBoost =
     heatEnabled && featureFlags.globeHeatAtmosphere && !prefersReducedMotion ? heatBoost : 0
@@ -372,7 +378,7 @@ export function GlobeCanvas({
       <Canvas
         className="h-full w-full pointer-events-auto"
         frameloop="demand"
-        dpr={[1, 1.5]}
+        dpr={constrainedDevice ? [1, 1] : [1, 1.5]}
         aria-label="Harbourview country globe"
         camera={{
           fov: GLOBE_CAMERA_CONFIG.fov,
@@ -395,7 +401,7 @@ export function GlobeCanvas({
         <hemisphereLight args={['#243b5e', '#080409', 0.26]} />
 
         <Suspense fallback={null}>
-          <Stars radius={30} depth={10} count={2200} factor={1.2} saturation={0} fade speed={0} />
+          <Stars radius={30} depth={10} count={constrainedDevice ? 600 : 2200} factor={1.2} saturation={0} fade speed={0} />
 
           <group rotation={[0.08, 0.3, 0]}>
             <AtmosphereGlow heatBoost={atmosphereBoost} />
