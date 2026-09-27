@@ -13,3 +13,7 @@ Connector evidence before the 2026-05-19 follow-up trigger: the Vercel project d
 Connector/dashboard evidence before the 2026-05-20 trigger: PR #426 was merged into main at eba6092f3e43a7942220b44ab4e9e85d8386e775, but Vercel production remained on an older deployment. Attempting to redeploy the older Vercel deployment failed because its source SHA c0fa7cab814a22a47699dd553e48c686efb0a576 no longer represents the current main tip. This metadata commit exists so Vercel receives a fresh main-branch production source commit that includes the PR #426 globe dataset.
 
 This file is deployment-control metadata only. It does not change runtime behavior, environment variables, domains, aliases, Supabase, RLS, auth, package files, marketplace DTO allowlists, Vercel config, secrets, or production data.
+
+## 2026-09-27 globe viewport repair trigger
+
+The homepage globe repair is on `main` at `8ddfba0e891d41164c39e9592d56dd91fa3a3e0f` (plus this deployment-control marker). The release includes the explicit `h-svh` landing viewport, removal of the stale interactive-globe fallback gate, and a browser regression check that rejects a collapsed WebGL canvas. This marker exists only to force a fresh canonical `main` deployment after the previous production attempts for the globe repair failed.
