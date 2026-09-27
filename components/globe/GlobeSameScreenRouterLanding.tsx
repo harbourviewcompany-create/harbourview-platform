@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -63,7 +63,7 @@ function getFallbackContextItems(state: GlobeRouterState) {
   return items
 }
 
-type GlobeFallbackReason = 'webgl-unavailable' | 'force-fallback'
+type GlobeFallbackReason = 'webgl-unavailable' | 'force-fallback' | 'render-error'
 
 function useGlobeFallbackReason(): GlobeFallbackReason | null {
   const [reason, setReason] = useState<GlobeFallbackReason | null>(null)
@@ -94,7 +94,7 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
  * "heat" wash — mirrors the WebGL intro without requiring WebGL.
  */
 function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
-  const reasonLabel = reason === 'webgl-unavailable' ? 'Interactive globe unavailable' : 'Globe fallback'
+  const reasonLabel = reason === 'webgl-unavailable' ? 'Interactive globe unavailable' : reason === 'render-error' ? 'Interactive globe unavailable' : 'Globe fallback'
 
   return (
     <div
@@ -139,7 +139,7 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
   )
 }
 
-export function GlobeSameScreenRouterLanding() {
+class GlobeRenderErrorBoundary extends React.Component<\n  { children: React.ReactNode },\n  { hasError: boolean }\n> {\n  state = { hasError: false }\n\n  static getDerivedStateFromError() {\n    return { hasError: true }\n  }\n\n  componentDidCatch(error: Error) {\n    console.error('[GlobeRenderErrorBoundary]', error)\n  }\n\n  render() {\n    if (this.state.hasError) {\n      return <PremiumStaticGlobeFallback reason="render-error" />\n    }\n    return this.props.children\n  }\n}\n\nexport function GlobeSameScreenRouterLanding() {
   const router = useRouter()
   const [state, dispatch] = useGlobeRouterState()
   const [srAnnouncement, setSrAnnouncement] = useState('')
