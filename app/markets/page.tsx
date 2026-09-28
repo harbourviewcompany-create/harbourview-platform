@@ -59,11 +59,16 @@ function deriveMaturity(programStatus: string | null): string {
   return 'unknown'
 }
 
-async function getAllBriefings(): Promise<Briefing[]> {
+type BriefingLoadResult = {
+  briefings: Briefing[]
+  degraded: boolean
+}
+
+async function getAllBriefings(): Promise<BriefingLoadResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (process.env.NEXT_PHASE === 'phase-production-build') return []
-  if (!url || !key) return []
+  if (process.env.NEXT_PHASE === 'phase-production-build') return { briefings: [], degraded: false }
+  if (!url || !key) return { briefings: [], degraded: true }
 
   try {
     const svc = createClient(url, key, {
@@ -74,12 +79,12 @@ async function getAllBriefings(): Promise<Briefing[]> {
       .from('cc_jurisdiction_briefings')
       .select('country_iso2,jurisdiction_slug,program_status,public_summary,market_dynamics,last_reviewed_date,review_state')
       .eq('jurisdiction_type', 'country')
-      .in('review_state', ['reviewed', 'published'])
+      .eq('review_state', 'reviewed')
       .order('last_reviewed_date', { ascending: false })
 
     if (error) {
       console.error('[markets] cc_jurisdiction_briefings degraded:', error.message)
-      return []
+      return { briefings: [], degraded: true }
     }
 
     const seen = new Set<string>()
@@ -102,15 +107,15 @@ async function getAllBriefings(): Promise<Briefing[]> {
         signal_count: null,
       })
     }
-    return result
+    return { briefings: result, degraded: false }
   } catch (error) {
     console.error('[markets] briefing source unavailable:', error)
-    return []
+    return { briefings: [], degraded: true }
   }
 }
 
 export default async function MarketsPage() {
-  const briefings = await getAllBriefings()
+  const { briefings, degraded } = await getAllBriefings()
   const briefingMap = new Map(briefings.map(b => [b.country_iso2, b]))
 
   const hasBriefings = briefings.length > 0
@@ -129,7 +134,9 @@ export default async function MarketsPage() {
             Weekly synthesised intelligence across {SYNTHESIS_MARKETS.length} active regulated markets.
             {hasBriefings
               ? ` Last updated ${briefings[0]?.week_ending ?? ''}.`
-              : ' Briefings are generated every Monday — check back soon.'}
+              : degraded
+                ? ' Live briefing data is temporarily unavailable; market routing remains available.'
+                : ' Briefings are generated every Monday — check back soon.'}
           </p>
           {hasBriefings && (
             <div className="mkt-legend">
@@ -181,7 +188,9 @@ export default async function MarketsPage() {
                     </div>
                   </>
                 ) : (
-                  <p className="mkt-pending">Briefing pending — first synthesis runs Monday 03:00 UTC</p>
+                  <p className="mkt-pending">
+                    {degraded ? 'Live briefing temporarily unavailable.' : 'Briefing pending — first synthesis runs Monday 03:00 UTC'}
+                  </p>
                 )}
 
                 <div className="mkt-card-accent" style={{ background: maturityColor }} />
