@@ -83,6 +83,29 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260922189959_replay_gt_market_access_evidence.sql',
+    before: '20260922190000_primary_gt_enrichment.sql',
+    required: [
+      '20260922190000_primary_gt_enrichment.sql',
+    ],
+    content: `-- Replay-only reconstruction of the Guatemala evidence parent that existed
+-- before the recorded 20260922190000 claim insert ran in production.
+--
+-- The production migration updates this legacy evidence identity before writing
+-- an FK-backed claim. Repository zero-state has no earlier creator for that row,
+-- so materialize only the missing parent in the temporary replay workspace.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
+values
+('hv-mkt-complete-gt-20260913','GT','prohibited',
+ 'Replay parent for the production Guatemala primary-source enrichment migration.',
+ 'Congress of the Republic of Guatemala / Ministry of Public Health',
+ 'https://www.congreso.gob.gt/detalle_pdf/decretos/1217',
+ date '1992-09-23',now(),now()+interval '180 days',true)
+on conflict (evidence_key) do nothing;
+`,
+  },
+  {
     destination: '20260922111959_replay_fo_gl_market_access_evidence.sql',
     before: '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
     required: [
