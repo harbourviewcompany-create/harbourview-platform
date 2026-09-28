@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { allCountryAndProvinceOptionMap, getCountryName } from '@/config/globe/country-role-profiles'
 import { roleProfileMap } from '@/config/globe/role-profiles'
 import type { GlobeRouterState } from '@/types/globe-router'
@@ -63,7 +63,7 @@ function getFallbackContextItems(state: GlobeRouterState) {
   return items
 }
 
-type GlobeFallbackReason = 'webgl-unavailable' | 'force-fallback'
+type GlobeFallbackReason = 'webgl-unavailable' | 'force-fallback' | 'render-error'
 
 function useGlobeFallbackReason(): GlobeFallbackReason | null {
   const [reason, setReason] = useState<GlobeFallbackReason | null>(null)
@@ -94,7 +94,7 @@ function useGlobeFallbackReason(): GlobeFallbackReason | null {
  * "heat" wash — mirrors the WebGL intro without requiring WebGL.
  */
 function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason }) {
-  const reasonLabel = reason === 'webgl-unavailable' ? 'Interactive globe unavailable' : 'Globe fallback'
+  const reasonLabel = reason === 'webgl-unavailable' ? 'Interactive globe unavailable' : reason === 'render-error' ? 'Interactive globe unavailable' : 'Globe fallback'
 
   return (
     <div
@@ -137,6 +137,28 @@ function PremiumStaticGlobeFallback({ reason }: { reason: GlobeFallbackReason })
       </div>
     </div>
   )
+}
+
+class GlobeRenderErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('[GlobeRenderErrorBoundary]', error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <PremiumStaticGlobeFallback reason="render-error" />
+    }
+    return this.props.children
+  }
 }
 
 export function GlobeSameScreenRouterLanding() {
@@ -210,7 +232,8 @@ export function GlobeSameScreenRouterLanding() {
         {fallbackReason ? (
           <PremiumStaticGlobeFallback reason={fallbackReason} />
         ) : (
-          <GlobeCanvas
+          <GlobeRenderErrorBoundary>
+            <GlobeCanvas
             selectedCountryIso2={state.selectedCountryIso2}
             selectedCountryIso2s={state.selectedCountryIso2s}
             focusedCountryIso2={
@@ -232,7 +255,8 @@ export function GlobeSameScreenRouterLanding() {
                 countryIso2,
               })
             }
-          />
+            />
+          </GlobeRenderErrorBoundary>
         )}
 
         <CountrySearchOverlay
