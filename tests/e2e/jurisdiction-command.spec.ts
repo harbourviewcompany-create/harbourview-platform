@@ -171,6 +171,7 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       viewport: { width: 390, height: 844 },
       isMobile: true,
       hasTouch: true,
+      // The production shell can register a service worker; block it so this\n      // test's failure injection reaches page.route deterministically.\n      serviceWorkers: 'block',
     })
 
     try {

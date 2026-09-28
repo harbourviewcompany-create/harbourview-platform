@@ -127,7 +127,16 @@ test.describe('Mobile Intel authenticated evidence', () => {
 
     for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }, { width: 430, height: 932 }] as const) {
       for (const stateName of states) {
-        const context = await browser.newContext({ ...sharedContextOptions(), viewport, storageState, isMobile: true, hasTouch: true })
+        const context = await browser.newContext({
+          ...sharedContextOptions(),
+          viewport,
+          storageState,
+          isMobile: true,
+          hasTouch: true,
+          // Prevent the registered production service worker from bypassing
+          // the deterministic /api/clinical/workspace route fixture.
+          serviceWorkers: 'block',
+        })
         try {
           const page = await context.newPage()
           await page.route(/\/api\/clinical\/workspace(?:\?.*)?$/, async route => {

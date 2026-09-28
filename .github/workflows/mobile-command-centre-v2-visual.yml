@@ -324,7 +324,7 @@ jobs:
           -- Public image projection fixture. It uses the exact public DTO shape
           -- and points to an existing first-party asset so the browser verifies
           -- an image-bearing card without any production data write.
-          create table if not exists api.marketplace_item_images (
+          create table if not exists public.marketplace_item_images (
             id uuid primary key,
             item_id uuid not null,
             image_class text not null,
@@ -342,7 +342,7 @@ jobs:
             rights_status text not null
           );
 
-          insert into api.marketplace_item_images (
+          insert into public.marketplace_item_images (
             id, item_id, image_class, image_role, source_type,
             public_url, thumbnail_url, hero_url, gallery_url, social_url,
             alt_text, caption, is_illustrative, review_status, rights_status
@@ -367,7 +367,7 @@ jobs:
           grant select, insert, update, delete on all tables in schema api to authenticated, service_role;
           grant select on all tables in schema api to anon;
           grant select, insert, update, delete on public.user_dashboard_preferences to authenticated, service_role;
-          grant select on public.marketplace_public_listings_v1 to anon, authenticated, service_role;
+          grant select on public.marketplace_public_listings_v1 to anon, authenticated, service_role;\n          grant select on public.marketplace_item_images to anon, authenticated, service_role;
           grant select on api.marketplace_public_listings_v1 to anon, authenticated, service_role;
           SQL
           : > supabase/seed.sql

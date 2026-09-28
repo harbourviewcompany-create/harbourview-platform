@@ -620,17 +620,37 @@ test('replay replaces production-local pathway country UUIDs with canonical ISO 
   }
 })
 
-test('replay rewrites the full-depth UPDATE FROM join without referencing the target alias inside JOIN ON', () => {
+test('replay reconciles the full-depth state matrix with the zero-state catalog shape', () => {
   const file = '20260922233000_full_depth_dimension_state_matrix.sql'
-  const patch = contentPatches.find((item) => item.file === file)
-  assert.ok(patch)
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 3)
 
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  assert.equal(original.includes(patch.anchor), true)
-  assert.equal(original.includes(patch.replacement), false)
-  assert.match(patch.anchor, /join public\.v_jurisdiction_data_depth v\s+on v\.jurisdiction_key = s\.jurisdiction_key/i)
-  assert.match(patch.replacement, /public\.jurisdiction_data_depth_dimensions d,\s+public\.v_jurisdiction_data_depth v/i)
-  assert.match(patch.replacement, /where v\.jurisdiction_key = s\.jurisdiction_key\s+and d\.dimension_key = s\.dimension_key/i)
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  const joinPatch = patches.find((item) =>
+    /join public\.v_jurisdiction_data_depth v\s+on v\.jurisdiction_key = s\.jurisdiction_key/i.test(item.anchor),
+  )
+  assert.ok(joinPatch)
+  assert.match(joinPatch.replacement, /public\.jurisdiction_data_depth_dimensions d,\s+public\.v_jurisdiction_data_depth v/i)
+  assert.match(joinPatch.replacement, /where v\.jurisdiction_key = s\.jurisdiction_key\s+and d\.dimension_key = s\.dimension_key/i)
+
+  const contractPatch = patches.find((item) => item.replacement.includes('end as evidence_state'))
+  assert.ok(contractPatch)
+  assert.match(
+    contractPatch.replacement,
+    /d\.requires_primary_source,\s+s\.status,\s+case[\s\S]*end as evidence_state,\s+s\.contract_version,\s+s\.applicability/i,
+  )
+
+  const summaryPatch = patches.find((item) => item.replacement.includes('unknown_applicability_dimensions'))
+  assert.ok(summaryPatch)
+  assert.match(
+    summaryPatch.replacement,
+    /unmeasured_dimensions,[\s\S]*contract_depth_pct,[\s\S]*regulatory_publication_ready,[\s\S]*unknown_applicability_dimensions,[\s\S]*not_applicable_dimensions/i,
+  )
 })
 
 test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {

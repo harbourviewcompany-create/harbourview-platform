@@ -7352,13 +7352,6 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
     })
     return () => { active = false }
   }, [])
-  if (!bankingData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const BANKING_PROVIDERS = bankingData.BANKING_PROVIDERS
-  const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS
-  const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS
-  const STANCE_LABELS = bankingData.STANCE_LABELS
-  const STANCE_COLORS = bankingData.STANCE_COLORS
-
   const [search,      setSearch]      = useState('')
   const [filterType,  setFilterType]  = useState<BankingProvider['type'] | 'all'>('all')
   const [filterStance, setFilterStance] = useState<BankingProvider['stance'] | 'all'>('all')
@@ -7366,9 +7359,12 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
   const [filterMyRole, setFilterMyRole] = useState(false)
   const [expanded,    setExpanded]    = useState<string | null>(null)
 
-  const roleTypes = useMemo<BankingProvider['type'][]>(() => BANKING_ROLE_TYPES_MAP[role] ?? [], [role])
+  // Keep the hook count stable while the asynchronously-loaded provider module
+  // resolves. Returning before these hooks caused React #310 on first visit.
+  const roleTypes = BANKING_ROLE_TYPES_MAP[role] ?? []
+  const BANKING_PROVIDERS = bankingData?.BANKING_PROVIDERS ?? []
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     const ql = search.toLowerCase()
     return BANKING_PROVIDERS
       .filter(p => {
@@ -7388,23 +7384,29 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
         if (b.featured && !a.featured) return 1
         return 0
       })
-  }, [search, filterType, filterStance, filterRegion, filterMyRole, roleTypes])
+  })()
 
-  const featured = useMemo(() => BANKING_PROVIDERS.filter(p => p.featured), [])
+  const featured = BANKING_PROVIDERS.filter(p => p.featured)
 
-  const regionCounts = useMemo(() => {
+  const regionCounts = (() => {
     const m: Record<string, number> = {}
     for (const p of BANKING_PROVIDERS) for (const r of p.regions) m[r] = (m[r] ?? 0) + 1
     return m
-  }, [])
+  })()
 
-  const typeCounts = useMemo(() => {
+  const typeCounts = (() => {
     const m: Record<string, number> = {}
     for (const p of BANKING_PROVIDERS) m[p.type] = (m[p.type] ?? 0) + 1
     return m
-  }, [])
+  })()
 
   const regions = ['Europe', 'Americas', 'Asia-Pacific', 'Africa', 'Oceania']
+
+  if (!bankingData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS
+  const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS
+  const STANCE_LABELS = bankingData.STANCE_LABELS
+  const STANCE_COLORS = bankingData.STANCE_COLORS
 
   return (
     <div className="cc-two-col-page">
