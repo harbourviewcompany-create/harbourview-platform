@@ -158,7 +158,9 @@ test.describe('Mobile Intel authenticated evidence', () => {
             await expect(page.getByRole('status').filter({ hasText: 'withheld pending exact prescriber-inspectable provenance' })).toBeVisible()
           }
           if (stateName === 'error') {
-            await expect(page.getByRole('alert')).toContainText('Visual fixture: Clinical source unavailable.')
+            await expect(
+              page.getByRole('alert').filter({ hasText: 'Visual fixture: Clinical source unavailable.' }).first(),
+            ).toContainText('Visual fixture: Clinical source unavailable.')
           }
 
           await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)

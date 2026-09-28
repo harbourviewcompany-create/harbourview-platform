@@ -658,8 +658,9 @@ test.describe('Command Centre authenticated responsive verification', () => {
               const commandRoot = page.locator('.cc-app:visible')
               await expect(commandRoot).toBeVisible()
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
-              await expect(commandRoot.locator('.cc-main')).not.toBeEmpty()
-              await expect(commandRoot.locator('.cc-main')).toContainText(/\S/)
+              const commandMain = page.locator('[data-dashboard-renderer="desktop"]:visible main:visible').first()
+              await expect(commandMain, `desktop page "${commandPage}" should expose a visible main content surface`).toBeVisible()
+              await expect(commandMain).toContainText(/\S/)
               verifiedPages.push(commandPage)
             }
             report.verifiedDesktopPages = verifiedPages

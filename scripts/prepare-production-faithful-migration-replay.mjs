@@ -420,6 +420,12 @@ from public.v_jurisdiction_data_depth_contract`,
 from public.v_jurisdiction_data_depth_contract`,
   },
   {
+    file: '20260922233000_full_depth_dimension_state_matrix.sql',
+    anchor: `  ) as full_depth_ready;`,
+    replacement: `  ) as full_depth_ready
+from public.v_jurisdiction_data_depth_contract;`,
+  },
+  {
     file: '20260923001000_full_depth_dynamic_evaluator.sql',
     anchor: `select
   jurisdiction_key,

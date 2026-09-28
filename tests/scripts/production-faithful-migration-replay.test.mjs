@@ -653,6 +653,17 @@ test('replay reconciles the full-depth state matrix with the zero-state catalog 
   )
 })
 
+test('replay restores the source relation for the initial full-depth integrity view', () => {
+  const file = '20260922233000_full_depth_dimension_state_matrix.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes('from public.v_jurisdiction_data_depth_contract;'),
+  )
+  assert.ok(patch, 'missing initial integrity-view replay patch')
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
 test('replay preserves the full-depth summary view column contract in later evaluator migrations', () => {
   for (const file of [
     '20260923001000_full_depth_dynamic_evaluator.sql',

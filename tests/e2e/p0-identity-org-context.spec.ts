@@ -172,7 +172,15 @@ test.describe.serial('authenticated organization onboarding', () => {
       await expect(page.getByRole('combobox', { name: /Country required/i })).toHaveValue('MX')
       await page.getByRole('button', { name: 'Create organization', exact: true }).click()
 
-      await page.waitForURL(url => `${url.pathname}${url.search}` === COMMAND_RETURN, { timeout: 30_000 })
+      await page.waitForURL(url =>
+        url.pathname === '/dashboard'
+        && url.searchParams.get('country') === 'MX'
+        && url.searchParams.get('role') === 'doctor_prescriber'
+        && url.searchParams.get('page') === 'briefing'
+        && url.searchParams.get('section') === 'overview'
+        && url.searchParams.get('bound') === '1'
+        && Boolean(url.searchParams.get('created')),
+      { timeout: 30_000 })
       await expect(page.locator('[data-mobile-command-version="2"]')).toBeVisible({ timeout: 30_000 })
 
       const orgContext = await readOrgContext(page)
