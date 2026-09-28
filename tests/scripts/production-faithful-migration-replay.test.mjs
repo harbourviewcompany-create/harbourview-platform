@@ -591,6 +591,17 @@ test('replay reconciles every non-canonical territory row, not just the original
   assert.match(patch.replacement, /if v_total = 291 then/i)
 })
 
+test('replay replaces the production-local Tuvalu country UUID with canonical ISO lookup', () => {
+  const file = '20260922120000_primary_tv_va_source_enrichment.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.match(patch.anchor, /39d4e117-d0ae-4669-8f0c-b631afee0ef1/)
+  assert.match(patch.replacement, /select id from public\.countries where iso_alpha2='TV' limit 1/i)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
 test('replay compares market_access_status as text so either column shape works', () => {
   const file = '20260901021633_document_medical_only_reclassification_via_rpc.sql'
   const patch = contentPatches.find((item) => item.file === file)
