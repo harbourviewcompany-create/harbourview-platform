@@ -10,7 +10,8 @@ export const runtime = 'nodejs'
 /**
  * Cached globe payload for the client GlobeProvider. Replaces a per-visitor
  * browser PostgREST query with a single server-side query cached for 5 minutes.
- * On hard failure it returns 503 so an empty payload is not cached as healthy.
+ * On hard failure it serves checked-in country geometry with degraded=true so
+ * market routing remains usable while live database enrichment recovers.
  */
 export async function GET() {
   try {
