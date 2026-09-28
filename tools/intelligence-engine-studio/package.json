@@ -15,7 +15,7 @@
     "intelligence:json-worker": "tsx scripts/engine/json-worker.ts"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
+    "@google/genai": "^2.24.0",
     "@hookform/resolvers": "^5.2.1",
     "@supabase/supabase-js": "^2.116.0",
     "autoprefixer": "^10.6.1",
