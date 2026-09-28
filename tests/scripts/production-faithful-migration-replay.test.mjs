@@ -320,7 +320,7 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
 })
 
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 6)
+  assert.equal(syntheticFoundations.length, 7)
   const foundation = syntheticFoundations.find(
     (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
   )
@@ -351,6 +351,15 @@ test('replay materializes the missing education policy identities immediately be
   assert.ok(depthTasks)
   assert.equal(depthTasks.before, '20260922104500_primary_us_jurisdiction_depth_enrichment.sql')
   assert.match(depthTasks.content, /create table if not exists public\.jurisdiction_data_depth_tasks/i)
+
+  const foGlEvidence = syntheticFoundations.find(
+    (item) => item.destination === '20260922111959_replay_fo_gl_market_access_evidence.sql',
+  )
+  assert.ok(foGlEvidence)
+  assert.equal(foGlEvidence.before, '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql')
+  assert.match(foGlEvidence.content, /hv-mkt-complete-fo-20260913/)
+  assert.match(foGlEvidence.content, /hv-mkt-complete-gl-20260913/)
+  assert.match(foGlEvidence.content, /on conflict \(evidence_key\) do nothing/i)
   assert.match(foundation.content, /create policy "public read sections of published modules"/i)
   assert.equal((foundation.content.match(/using \(false\)/gi) ?? []).length, 2)
 
