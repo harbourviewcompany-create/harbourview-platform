@@ -1,5 +1,5 @@
 import 'server-only'
-import { orientationListingsForSections } from '@/lib/marketplace/orientationSupplyCatalog'
+import { ORIENTATION_SUPPLY_CATALOG, orientationListingsForSections } from '@/lib/marketplace/orientationSupplyCatalog'
 import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
@@ -92,6 +92,15 @@ function baseParams(limit = 12, sort = 'featured'): URLSearchParams {
 
 export async function getPublicListings(limit = 20): Promise<PublicListing[]> {
   return queryListings(baseParams(limit))
+}
+
+export async function getPublicListingsResilient(limit = 20): Promise<PublicListing[]> {
+  try {
+    return await getPublicListings(limit)
+  } catch (error) {
+    console.error('[marketplace] public listings degraded; serving orientation catalogue:', error)
+    return ORIENTATION_SUPPLY_CATALOG.slice(0, limit)
+  }
 }
 
 export async function getPublicListingsByCategory(category: string): Promise<PublicListing[]> {
