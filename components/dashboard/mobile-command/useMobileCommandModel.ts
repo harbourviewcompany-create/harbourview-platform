@@ -112,8 +112,9 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     return `/dashboard?${params.toString()}`
   }, [model.currentCountry, model.activeSection, model.currentRole, searchParams])
 
-  // Operational next-actions first; at most one org onboarding CTA, appended last.
-  // Previously create+join monopolized the two priority slots on overview.
+  // Keep organization onboarding explicit. The overview renders these two CTAs
+  // in a compact strip so they remain reachable without monopolizing the
+  // operational-priority rows.
   const organizationActions = useMemo(() => {
     const organizationAction = model.nextActions.find(action => action.id === 'organization')
     const operational = model.nextActions.filter(action => action.id !== 'organization')
@@ -131,7 +132,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     const joinOnboarding = {
       ...organizationAction,
       id: 'organization-join',
-      label: 'Join an existing organization',
+      label: 'Join an organization',
       detail: 'Use an invitation to join an existing Harbourview operating workspace.',
       href: `/organization/join?returnTo=${returnParam}`,
       tone: 'gold' as const,
