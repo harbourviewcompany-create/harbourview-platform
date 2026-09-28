@@ -34,13 +34,13 @@ export function globeRouterReducer(
         inlineNotice: undefined,
       }
     case 'MARKET_ENTER':
-      // Role is an optional operating-context preference, not an entry gate.
-      // The destination restores a signed-in user's saved role when available;
-      // otherwise role remains null, which Command presents as All roles.
+      // Keep the logged-out funnel useful: choose a role before routing so a
+      // single-market visitor lands on the public country-role preview instead
+      // of being sent straight into the authenticated Command Centre.
       return {
         ...state,
-        step: 'routing',
-        routeStatus: 'resolving',
+        step: 'role',
+        routeStatus: 'idle',
         selectedIntentId: undefined,
         roleSearchQuery: '',
       }
