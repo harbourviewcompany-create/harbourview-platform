@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getGlobeLiveDataCached, GLOBE_REVALIDATE_SECONDS } from '@/lib/globe/globeDataServer'
+import { getStaticGlobeCountryMarkers } from '@/lib/globe/supabaseGlobeData'
 
 // ISR revalidate made Next prerender this route during `next build`.
 // The live query exceeds the 60s static generation budget and fails production.
@@ -17,7 +18,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ...data,
-        degraded: false,
+        degraded: (data.degradedSources?.length ?? 0) > 0,
         diagnostics: {
           countryCount: data.countries.length,
           mappedSignalCountryCount: Object.keys(data.signalsByIso2).length,
@@ -33,19 +34,25 @@ export async function GET() {
     )
   } catch (err) {
     console.error('[api/globe] live data failure:', err)
+    const countries = getStaticGlobeCountryMarkers()
     return NextResponse.json(
       {
-        countries: [],
+        countries,
         signalsByIso2: {},
         unmappedSignalCountries: {},
+        degradedSources: ['countries', 'signals'],
         degraded: true,
-        error: 'globe_live_data_unavailable',
+        error: 'globe_live_data_degraded',
+        diagnostics: {
+          countryCount: countries.length,
+          mappedSignalCountryCount: 0,
+          regulatoryTierCount: 0,
+          coordinateCount: countries.length,
+        },
       },
       {
-        status: 503,
         headers: {
-          'Cache-Control': 'no-store',
-          'Retry-After': '3',
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=3600',
         },
       },
     )
