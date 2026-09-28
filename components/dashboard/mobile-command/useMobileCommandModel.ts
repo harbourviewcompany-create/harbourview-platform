@@ -150,6 +150,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         detail: [s.market, when, impact].filter(Boolean).join(' · ').slice(0, 160),
         href: model.commandHref('weekly-signals'),
         tone: (conf >= 85 ? 'warn' : 'gold') as 'warn' | 'gold',
+        kind: 'intel' as const,
       }
     })
   }, [effectiveSignals, model.commandHref])
