@@ -97,18 +97,18 @@ const REPLAY_SYNTHETIC_FOUNDATIONS = [
 -- Materialize only the missing parent rows in the temporary replay workspace;
 -- checked-in migration bodies and the production ledger remain immutable.
 insert into public.regulatory_market_access_evidence
-(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,retrieved_at,verified_at,expires_at,evidence_status,active)
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
 values
 ('hv-mkt-complete-fo-20260913','FO','medical_limited_trade',
  'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; authorized activity is within the medical/scientific framework and no general adult-use retail pathway is established by the cited instrument.',
  'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
  'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer',
- date '2026-05-26',now(),now(),now()+interval '1 year','verified',true),
+ date '2026-05-26',now(),now()+interval '1 year',true),
 ('hv-mkt-complete-gl-20260913','GL','medical_limited_trade',
  'Greenland controlled-substance law places cannabis within an authorization-based medical/scientific framework; no general adult-use commercial retail pathway is established by the cited framework.',
  'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
  'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',
- null,now(),now(),now()+interval '1 year','verified',true)
+ null,now(),now()+interval '1 year',true)
 on conflict (evidence_key) do nothing;
 `,
   },
