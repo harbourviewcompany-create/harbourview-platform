@@ -623,7 +623,7 @@ test('replay replaces production-local pathway country UUIDs with canonical ISO 
 test('replay reconciles the full-depth state matrix with the zero-state catalog shape', () => {
   const file = '20260922233000_full_depth_dimension_state_matrix.sql'
   const patches = contentPatches.filter((item) => item.file === file)
-  assert.equal(patches.length, 3)
+  assert.equal(patches.length, 4)
 
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   for (const patch of patches) {
@@ -651,6 +651,24 @@ test('replay reconciles the full-depth state matrix with the zero-state catalog 
     summaryPatch.replacement,
     /unmeasured_dimensions,[\s\S]*contract_depth_pct,[\s\S]*regulatory_publication_ready,[\s\S]*unknown_applicability_dimensions,[\s\S]*not_applicable_dimensions/i,
   )
+})
+
+test('replay normalizes partial implementation rows to valid source kinds', () => {
+  const file = '20260922234500_full_depth_dimension_source_registry.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 4)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  const normalizedKinds = new Set(patches.map((patch) => {
+    const match = patch.replacement.match(/'2026-09-22\.v1','([^']+)'/)
+    return match?.[1]
+  }))
+  assert.deepEqual([...normalizedKinds].sort(), ['derived', 'table'])
 })
 
 test('replay restores the source relation for the initial full-depth integrity view', () => {

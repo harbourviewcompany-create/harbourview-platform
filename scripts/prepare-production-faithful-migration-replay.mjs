@@ -420,6 +420,26 @@ from public.v_jurisdiction_data_depth_contract`,
 from public.v_jurisdiction_data_depth_contract`,
   },
   {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('import','2026-09-22.v1','partial','public.regulatory_market_access_claims'",
+    replacement: "('import','2026-09-22.v1','table','public.regulatory_market_access_claims'",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('export','2026-09-22.v1','partial','public.regulatory_market_access_claims'",
+    replacement: "('export','2026-09-22.v1','table','public.regulatory_market_access_claims'",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('regulator','2026-09-22.v1','partial','public.regulatory_pathways + public.source_registry'",
+    replacement: "('regulator','2026-09-22.v1','derived','public.regulatory_pathways + public.source_registry'",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('opportunities','2026-09-22.v1','partial','public.countries + intelligence/network data'",
+    replacement: "('opportunities','2026-09-22.v1','derived','public.countries + intelligence/network data'",
+  },
+  {
     file: '20260922233000_full_depth_dimension_state_matrix.sql',
     anchor: `  ) as full_depth_ready;`,
     replacement: `  ) as full_depth_ready

@@ -111,6 +111,7 @@ export default async function DashboardPage({
       if (activeWorkspaceId) {
         const [{ data: membership }, { data: workspace }] = await Promise.all([
           supabase
+            .schema('public')
             .from('workspace_members')
             .select('workspace_id')
             .eq('workspace_id', activeWorkspaceId)
@@ -118,6 +119,7 @@ export default async function DashboardPage({
             .eq('status', 'active')
             .maybeSingle(),
           supabase
+            .schema('public')
             .from('workspaces')
             .select('id,status')
             .eq('id', activeWorkspaceId)

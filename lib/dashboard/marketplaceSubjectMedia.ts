@@ -22,6 +22,16 @@ const VIEW_DEFAULT_ASSET: Record<MarketView, string> = {
   'new-products': 'representative/v2/grow-lighting.png',
 }
 
+const VIEW_LOCAL_FALLBACK_ASSET: Record<MarketView, string> = {
+  cannabis: '/marketplace/images/product-inventory.webp',
+  wanted: '/marketplace/images/product-inventory.webp',
+  opportunities: '/marketplace/images/retail-facility.webp',
+  equipment: '/marketplace/images/extraction-equipment.webp',
+  consumables: '/marketplace/images/packaging-pouches.webp',
+  services: '/marketplace/images/advisory-services.webp',
+  'new-products': '/marketplace/images/grow-lighting.webp',
+}
+
 function toPublicSrc(assetPath: string): string {
   if (assetPath.startsWith('http')) return assetPath
   return `${PUBLIC_MEDIA_BASE}${assetPath.replace(/^\//, '')}`
@@ -71,7 +81,7 @@ export function getSubjectRepresentativeMedia(
     kind: 'representative',
     badgeLabel: REPRESENTATIVE_BADGE,
     caption: REPRESENTATIVE_CAPTION,
-    fallbackSrc: src,
+    fallbackSrc: VIEW_LOCAL_FALLBACK_ASSET[view],
     fallbackAltText: altText,
     fallbackCaption: REPRESENTATIVE_CAPTION,
   }

@@ -8740,13 +8740,6 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
     })
     return () => { active = false }
   }, [])
-  if (!priceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
-  const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS
-  const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS
-  const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS
-  const TIER_LABELS = priceData.TIER_LABELS
-  const TIER_COLORS = priceData.TIER_COLORS
-
   const [filterProduct,  setFilterProduct]  = useState<string>('all')
   const [filterTier,     setFilterTier]     = useState<string>('all')
   const [filterRegion,   setFilterRegion]   = useState<string>('all')
@@ -8770,7 +8763,8 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
   const roleChannel   = PRICE_ROLE_CHANNEL_MAP[role] ?? ''
 
   const filtered = useMemo(() => {
-    let list = PRICE_BENCHMARKS.slice()
+    if (!priceData) return [] as PriceBenchmark[]
+    let list = priceData.PRICE_BENCHMARKS.slice()
     if (filterProduct !== 'all') list = list.filter(b => b.product === filterProduct)
     if (filterTier    !== 'all') list = list.filter(b => b.tier    === filterTier)
     if (filterRegion  !== 'all') list = list.filter(b => b.region  === filterRegion)
@@ -8796,9 +8790,19 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
       })
     }
     return list
-  }, [filterProduct, filterTier, filterRegion, filterChannel, sortBy, country, roleProducts])
+  }, [priceData, filterProduct, filterTier, filterRegion, filterChannel, sortBy, country, roleProducts])
 
-  const compareItems = useMemo(() => PRICE_BENCHMARKS.filter(b => compareIds.has(b.id)), [compareIds])
+  const compareItems = useMemo(
+    () => priceData ? priceData.PRICE_BENCHMARKS.filter(b => compareIds.has(b.id)) : [],
+    [priceData, compareIds],
+  )
+
+  if (!priceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS
+  const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS
+  const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS
+  const TIER_LABELS = priceData.TIER_LABELS
+  const TIER_COLORS = priceData.TIER_COLORS
 
   const toggleCompare = (id: string) => {
     setCompareIds(prev => {
