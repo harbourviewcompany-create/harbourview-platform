@@ -41,6 +41,8 @@ export type GlobeLiveData = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
   unmappedSignalCountries: Record<string, number>
+  /** Live sources that failed while a usable degraded payload was retained. */
+  degradedSources?: Array<'countries' | 'signals'>
 }
 
 export type PublishedTierRow = {
@@ -105,6 +107,25 @@ export function resolveGlobeRegulatoryTier(
   return legacyEligible
     ? { tier: legacy, provenance: 'legacy' }
     : { tier: null, provenance: null }
+}
+
+export function getStaticGlobeCountryMarkers(): GlobeCountryMarker[] {
+  return naturalEarthCountriesPayload.countries
+    .map((country) => ({
+      iso2: country.iso2,
+      name: country.name,
+      lat: country.centroid[1],
+      lng: country.centroid[0],
+      opportunityScore: null,
+      signalsStatus: null,
+      marketAccessStatus: null,
+      regulatoryTier: null,
+      regulatoryTierEvidenceKey: null,
+      regulatoryTierVerifiedAt: null,
+      regulatoryTierExpiresAt: null,
+      regulatoryTierProvenance: null,
+    }))
+    .filter((marker) => Number.isFinite(marker.lat) && Number.isFinite(marker.lng))
 }
 
 export async function getGlobeCountryMarkers(
@@ -175,7 +196,8 @@ export async function getGlobeCountryMarkers(
 export async function getGlobeLiveData(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
 ): Promise<GlobeLiveData> {
-  const [countriesResult, signalsResult] = await Promise.all([
+  const degradedSources: Array<'countries' | 'signals'> = []
+  const [countriesResult, signalsResult] = await Promise.allSettled([
     getGlobeCountryMarkers(supabase),
     supabase
       .from('signals')
@@ -185,34 +207,58 @@ export async function getGlobeLiveData(
       .limit(500),
   ])
 
-  const { data: signalRows, error: signalsError } = signalsResult
-  if (signalsError) {
-    throw new Error(`getGlobeLiveData: signals query failed: ${signalsError.message}`)
+  let countries: GlobeCountryMarker[]
+  if (countriesResult.status === 'fulfilled' && countriesResult.value.length > 0) {
+    countries = countriesResult.value
+  } else {
+    degradedSources.push('countries')
+    if (countriesResult.status === 'rejected') {
+      console.error('[globe] countries source degraded:', countriesResult.reason)
+    } else {
+      console.error('[globe] countries source returned no rows; using static geometry fallback')
+    }
+    countries = getStaticGlobeCountryMarkers()
   }
 
   const signalsByIso2: Record<string, GlobeSignal[]> = {}
   const unmappedSignalCountries: Record<string, number> = {}
+  let signalRows: SignalRealtimeRow[] = []
 
-  for (const row of signalRows ?? []) {
-      const iso2 = row.country_iso2
-      const signal: GlobeSignal = {
-        id: row.id,
-        headline: row.headline,
-        score: row.score,
-        cat: row.cat,
-        createdAt: row.created_at,
-        countryIso2: iso2,
-      }
-      if (iso2) {
-        if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
-        signalsByIso2[iso2].push(signal)
-      } else {
-        const key = row.country ?? '(null)'
-        unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
-      }
+  if (signalsResult.status === 'fulfilled' && !signalsResult.value.error) {
+    signalRows = (signalsResult.value.data ?? []) as SignalRealtimeRow[]
+  } else {
+    degradedSources.push('signals')
+    const reason = signalsResult.status === 'rejected'
+      ? signalsResult.reason
+      : signalsResult.value.error?.message
+    console.error('[globe] signals source degraded:', reason)
   }
 
-  return { countries: countriesResult, signalsByIso2, unmappedSignalCountries }
+  for (const row of signalRows) {
+    const iso2 = row.country_iso2
+    const signal: GlobeSignal = {
+      id: row.id,
+      headline: row.headline,
+      score: row.score,
+      cat: row.cat,
+      createdAt: row.created_at,
+      countryIso2: iso2,
+    }
+    if (iso2) {
+      if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
+      signalsByIso2[iso2].push(signal)
+    } else {
+      const key = row.country ?? '(null)'
+      unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
+    }
+  }
+
+  return {
+    countries,
+    signalsByIso2,
+    unmappedSignalCountries,
+    degradedSources: degradedSources.length > 0 ? degradedSources : undefined,
+  }
 }
 
 export type SignalRealtimeRow = {
