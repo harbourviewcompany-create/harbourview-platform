@@ -653,6 +653,26 @@ test('replay reconciles the full-depth state matrix with the zero-state catalog 
   )
 })
 
+test('replay preserves the full-depth summary view column contract in later evaluator migrations', () => {
+  for (const file of [
+    '20260923001000_full_depth_dynamic_evaluator.sql',
+    '20260923034000_evidence_architecture_hardening_003.sql',
+  ]) {
+    const patch = contentPatches.find((item) => item.file === file)
+    assert.ok(patch, `missing summary-view replay patch for ${file}`)
+
+    const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+
+    const normalized = patch.replacement.replace(/\s+/g, ' ')
+    assert.match(
+      normalized,
+      /unmeasured_dimensions.*contract_depth_pct.*regulatory_publication_ready.*unknown_applicability_dimensions.*not_applicable_dimensions/i,
+    )
+  }
+})
+
 test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {
   const file = '20260922165000_primary_netherlands_format_rules.sql'
   const patches = contentPatches.filter((item) => item.file === file)

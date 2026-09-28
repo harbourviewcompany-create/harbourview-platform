@@ -420,6 +420,66 @@ from public.v_jurisdiction_data_depth_contract`,
 from public.v_jurisdiction_data_depth_contract`,
   },
   {
+    file: '20260923001000_full_depth_dynamic_evaluator.sql',
+    anchor: `select
+  jurisdiction_key,
+  max(country_name) country_name,
+  count(*) total_contract_dimensions,
+  count(*) filter (where evaluated_status='complete') complete_dimensions,
+  count(*) filter (where evaluated_status='missing') missing_dimensions,
+  count(*) filter (where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+  count(*) filter (where evaluated_status='unmeasured') unmeasured_dimensions,
+  count(*) filter (where applicability='unknown') unknown_applicability_dimensions,
+  count(*) filter (where applicability='not_applicable') not_applicable_dimensions,
+  round(100.0 * count(*) filter (where evaluated_status='complete') /
+    nullif(count(*) filter (where applicability <> 'unknown'),0),2) contract_depth_pct,
+  bool_and(
+    not required_for_regulatory_publication
+    or evaluated_status='complete'
+  ) as regulatory_publication_ready
+from public.v_jurisdiction_data_depth_evaluator`,
+    replacement: `select
+  jurisdiction_key,
+  max(country_name) country_name,
+  count(*) total_contract_dimensions,
+  count(*) filter (where evaluated_status='complete') complete_dimensions,
+  count(*) filter (where evaluated_status='missing') missing_dimensions,
+  count(*) filter (where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+  count(*) filter (where evaluated_status='unmeasured') unmeasured_dimensions,
+  round(100.0 * count(*) filter (where evaluated_status='complete') /
+    nullif(count(*) filter (where applicability <> 'unknown'),0),2) contract_depth_pct,
+  bool_and(
+    not required_for_regulatory_publication
+    or evaluated_status='complete'
+  ) as regulatory_publication_ready,
+  count(*) filter (where applicability='unknown') unknown_applicability_dimensions,
+  count(*) filter (where applicability='not_applicable') not_applicable_dimensions
+from public.v_jurisdiction_data_depth_evaluator`,
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: `select jurisdiction_key,max(country_name) country_name,count(*) total_contract_dimensions,
+ count(*) filter(where evaluated_status='complete') complete_dimensions,
+ count(*) filter(where evaluated_status='missing') missing_dimensions,
+ count(*) filter(where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+ count(*) filter(where evaluated_status='unmeasured') unmeasured_dimensions,
+ count(*) filter(where applicability='unknown') unknown_applicability_dimensions,
+ count(*) filter(where applicability='not_applicable') not_applicable_dimensions,
+ round(100.0*count(*) filter(where evaluated_status='complete')/nullif(count(*) filter(where applicability<>'unknown'),0),2) contract_depth_pct,
+ bool_and(not required_for_regulatory_publication or evaluated_status='complete') regulatory_publication_ready
+from public.v_jurisdiction_data_depth_evaluator group by jurisdiction_key;`,
+    replacement: `select jurisdiction_key,max(country_name) country_name,count(*) total_contract_dimensions,
+ count(*) filter(where evaluated_status='complete') complete_dimensions,
+ count(*) filter(where evaluated_status='missing') missing_dimensions,
+ count(*) filter(where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+ count(*) filter(where evaluated_status='unmeasured') unmeasured_dimensions,
+ round(100.0*count(*) filter(where evaluated_status='complete')/nullif(count(*) filter(where applicability<>'unknown'),0),2) contract_depth_pct,
+ bool_and(not required_for_regulatory_publication or evaluated_status='complete') regulatory_publication_ready,
+ count(*) filter(where applicability='unknown') unknown_applicability_dimensions,
+ count(*) filter(where applicability='not_applicable') not_applicable_dimensions
+from public.v_jurisdiction_data_depth_evaluator group by jurisdiction_key;`,
+  },
+  {
     file: '20260922233000_full_depth_dimension_state_matrix.sql',
     anchor: "from public.jurisdiction_data_depth_dimensions d\njoin public.v_jurisdiction_data_depth v\n  on v.jurisdiction_key = s.jurisdiction_key\nwhere d.dimension_key = s.dimension_key",
     replacement: "from public.jurisdiction_data_depth_dimensions d,\n     public.v_jurisdiction_data_depth v\nwhere v.jurisdiction_key = s.jurisdiction_key\n  and d.dimension_key = s.dimension_key",
