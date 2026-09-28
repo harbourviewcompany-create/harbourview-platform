@@ -368,7 +368,7 @@ export function GlobeCanvas({
 
   return (
     <div
-      className={className ?? 'absolute inset-0 pointer-events-none'}
+      className={className ?? 'absolute inset-0 h-full w-full pointer-events-none'}
       style={{ cursor: !interactionLocked && isHovering ? 'pointer' : 'default' }}
       data-globe-intro={introPhase}
       data-globe-force-gold={forceGold ? 'true' : 'false'}
@@ -377,6 +377,7 @@ export function GlobeCanvas({
     >
       <Canvas
         className="h-full w-full pointer-events-auto"
+        style={{ width: '100%', height: '100%', display: 'block' }}
         frameloop="demand"
         dpr={constrainedDevice ? [1, 1] : [1, 1.5]}
         aria-label="Harbourview country globe"
