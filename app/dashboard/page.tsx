@@ -95,6 +95,7 @@ export default async function DashboardPage({
       userAppMetadata = user.app_metadata
       const [{ data: prefs }, resolvedUserTier] = await Promise.all([
         supabase
+          .schema('public')
           .from('user_dashboard_preferences')
           .select('country_iso2, role_id, active_workspace_id, command_last_viewed_at')
           .eq('user_id', user.id)
