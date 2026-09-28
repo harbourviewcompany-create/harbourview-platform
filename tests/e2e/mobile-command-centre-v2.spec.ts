@@ -555,7 +555,7 @@ test.describe('Mobile Command operator-first verification', () => {
       })
       try {
         const page = await context.newPage()
-        const response = await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded' })
+        const response = await page.goto('/dashboard?country=CA&role=exporter&page=briefing', { waitUntil: 'domcontentloaded' })
         expect(response?.status()).toBeLessThan(400)
 
         await expect(page.locator('.cc-app')).toBeVisible()
