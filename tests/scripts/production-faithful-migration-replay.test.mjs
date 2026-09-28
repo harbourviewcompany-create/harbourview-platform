@@ -612,6 +612,31 @@ test('replay replaces production-local pathway country UUIDs with canonical ISO 
   }
 })
 
+test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {
+  const file = '20260922165000_primary_netherlands_format_rules.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 3)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  assert.equal(
+    patches.filter((patch) => patch.replacement.includes("'needs_review',null,'2025-04-07'")).length,
+    2,
+  )
+  const provenancePatch = patches.find((patch) =>
+    patch.replacement.includes('Controlled Cannabis Supply Chain Experiment — product rules'),
+  )
+  assert.ok(provenancePatch)
+  assert.match(provenancePatch.replacement, /insert into public\.regulatory_citations/i)
+  assert.match(provenancePatch.replacement, /source_type,citation_url/i)
+  assert.match(provenancePatch.replacement, /update public\.pathway_format_rules r/i)
+  assert.match(provenancePatch.replacement, /verification='verified'/i)
+})
+
 test('replay records the DPRK evidence block idempotently when the task was seeded earlier', () => {
   const file = '20260922123500_record_kp_primary_source_block.sql'
   const patch = contentPatches.find((item) => item.file === file)

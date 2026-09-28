@@ -53,47 +53,41 @@ async function openIntelState(page: Page, section: string, expectedTab: string, 
   await page.screenshot({ path: path.join(evidenceRoot, file), fullPage: false })
 }
 
-const clinicalVisualFixture = {
-  state: 'loaded', query: 'Dravet syndrome', message: 'Reviewed evidence records match this clinical question.',
-  synthesis: {
-    recordCount: 1, currentRecordCount: 1, gradedRecordCount: 0, ungradedRecordCount: 1,
-    regulatedDrugRecordCount: 1, generalCannabisRecordCount: 0, evidenceTypes: { 'product-monograph': 1 },
-    hasMaterialConflict: false, hasDegradedSource: false, lastVerifiedAt: '2026-08-14T13:55:00Z',
-    summary: '1 published source record; 0 clinically graded and 1 ungraded. This count summary does not infer efficacy or comparative superiority.',
-  },
-  changes: [{
-    id: '00000000-0000-4000-8000-000000000141', evidenceRecordId: '00000000-0000-4000-8000-000000000140', eventType: 'published',
-    title: 'Regulated cannabinoid medicine indication added to Clinical Evidence V1',
-    summary: 'A Canadian regulated-drug indication record was added with explicit product-monograph provenance and ungraded certainty; it does not generalize to cannabis products or genetics.',
-    materiality: 'medium', jurisdiction: ['Canada'], professionRelevance: ['doctor','nurse_practitioner','pharmacist','other'],
-    occurredAt: '2026-08-14T13:45:00Z', verifiedAt: '2026-08-14T13:55:00Z',
-    primarySource: { title: 'EPIDIOLEX Product Monograph', publisher: 'Jazz Pharmaceuticals Research UK Limited', url: 'https://pp.jazzpharma.com/pi/epidiolex.ca.PM-en.pdf', sourceId: 'ca-epidiolex-pm-2024-10-30' },
-  }],
-  records: [{
-    id: '00000000-0000-4000-8000-000000000140', slug: 'ca-epidiolex-dravet-indication', title: 'EPIDIOLEX authorized indication — Dravet syndrome',
-    summary: 'The Canadian product monograph identifies EPIDIOLEX as adjunctive therapy for seizures associated with Dravet syndrome in patients 2 years of age and older. This is regulatory product-indication metadata, not an independent Harbourview efficacy recommendation.',
-    condition: 'Dravet syndrome', conditionAliases: ['DS'], population: 'Patients 2 years of age and older with seizures associated with Dravet syndrome',
-    intervention: 'Cannabidiol (EPIDIOLEX)', formulation: 'Oral solution 100 mg/mL', cannabinoid: ['CBD'], interventionClass: 'regulated-cannabinoid-drug',
-    comparator: null, outcome: 'Authorized indication metadata; no comparative conclusion is asserted.', evidenceType: 'product-monograph', evidenceStrength: 'ungraded',
-    evidenceStrengthMethod: 'Regulatory indication record; Harbourview Clinical Evidence V1 does not convert authorization into a clinical certainty grade.',
-    uncertainty: 'Product-monograph authorization does not establish comparative superiority or substitute for patient-specific clinical judgment.', conflictStatus: 'none',
-    jurisdiction: ['Canada'], professionRelevance: ['doctor','nurse_practitioner','pharmacist','other'],
-    primarySource: { title: 'EPIDIOLEX Product Monograph', publisher: 'Jazz Pharmaceuticals Research UK Limited', url: 'https://pp.jazzpharma.com/pi/epidiolex.ca.PM-en.pdf', sourceId: 'ca-epidiolex-pm-2024-10-30' },
-    publicationDate: '2024-10-30', effectiveDate: '2023-11-15', verifiedAt: '2026-08-14T13:55:00Z', supersessionState: 'current', supersededById: null,
-    reviewStatus: 'published', gradingMethodKey: 'harbourview-clinical-evidence-v1', publicationScope: 'source-metadata', freshnessStatus: 'current',
-  }],
-}
+type ClinicalWorkspaceVisualState = 'loaded' | 'review-required' | 'permission' | 'error'
 
-const clinicalStateFixtures = {
-  loaded: clinicalVisualFixture,
-  'no-evidence': { ...clinicalVisualFixture, state: 'no-evidence', query: 'recognized condition', records: [], changes: [], synthesis: { ...clinicalVisualFixture.synthesis, recordCount: 0, currentRecordCount: 0, regulatedDrugRecordCount: 0, ungradedRecordCount: 0, evidenceTypes: {}, lastVerifiedAt: null, summary: 'No published evidence records are available for deterministic synthesis.' }, message: 'The condition is recognized, but no reviewed evidence record is available in this evidence spine.' },
-  'no-match': { ...clinicalVisualFixture, state: 'no-match', query: 'unmapped term', records: [], changes: [], synthesis: { ...clinicalVisualFixture.synthesis, recordCount: 0, currentRecordCount: 0, regulatedDrugRecordCount: 0, ungradedRecordCount: 0, evidenceTypes: {}, lastVerifiedAt: null, summary: 'No published evidence records are available for deterministic synthesis.' }, message: 'No reviewed condition or evidence record matches this search.' },
-  stale: { ...clinicalVisualFixture, state: 'stale', message: 'Only stale, review-required or superseded evidence matches. Do not treat it as current guidance.', records: clinicalVisualFixture.records.map(record => ({ ...record, freshnessStatus: 'review-required', supersessionState: 'partially-superseded' })) },
-  conflicted: { ...clinicalVisualFixture, state: 'conflicted', message: 'Materially conflicting evidence is present. Inspect the underlying sources before relying on a conclusion.', records: clinicalVisualFixture.records.map(record => ({ ...record, conflictStatus: 'material-conflict', evidenceStrength: 'conflicted' })), synthesis: { ...clinicalVisualFixture.synthesis, hasMaterialConflict: true } },
-  'degraded-source': { ...clinicalVisualFixture, state: 'degraded-source', message: 'A source required by this evidence set is degraded or has unresolved currentness. Verify the primary source before relying on it.', records: clinicalVisualFixture.records.map(record => ({ ...record, freshnessStatus: 'source-degraded', freshnessReason: 'Source currentness could not be confirmed.' })), synthesis: { ...clinicalVisualFixture.synthesis, hasDegradedSource: true } },
-  permission: { ...clinicalVisualFixture, state: 'permission', query: '', records: [], changes: [], synthesis: { ...clinicalVisualFixture.synthesis, recordCount: 0, currentRecordCount: 0, regulatedDrugRecordCount: 0, ungradedRecordCount: 0, evidenceTypes: {}, lastVerifiedAt: null, summary: 'No published evidence records are available for deterministic synthesis.' }, message: 'Clinical evidence is not available under the current access context.' },
-  error: { ...clinicalVisualFixture, state: 'error', query: '', records: [], changes: [], synthesis: { ...clinicalVisualFixture.synthesis, recordCount: 0, currentRecordCount: 0, regulatedDrugRecordCount: 0, ungradedRecordCount: 0, evidenceTypes: {}, lastVerifiedAt: null, summary: 'No published evidence records are available for deterministic synthesis.' }, message: 'Clinical evidence could not be loaded. Retry before relying on this workspace.' },
-} as const
+function clinicalWorkspaceFixture(state: ClinicalWorkspaceVisualState) {
+  return {
+    state,
+    jurisdiction: 'CA',
+    safety: [],
+    regimens: [],
+    monitoring: [],
+    guidelines: [],
+    interactions: [],
+    interactionState: state === 'review-required' ? 'review-required' : 'empty',
+    interactionProvenanceRejected: state === 'review-required' ? 5 : 0,
+    formulary: [],
+    authority: {
+      state: state === 'permission' ? 'permission' : 'unknown',
+      verifiedClinician: false,
+      jurisdiction: 'CA',
+      professional: null,
+      capabilities: { recommend: null, prescribe: null, dispense: null, claimAppropriateness: null },
+      evidenceVersion: null,
+      effectiveFrom: null,
+      effectiveTo: null,
+      notes: state === 'permission'
+        ? 'Verified clinician access required.'
+        : 'Professional authority intentionally unresolved in visual fixture.',
+      ...(state === 'error' ? { error: 'Visual fixture: Clinical source unavailable.' } : {}),
+    },
+    diagnostics: state === 'review-required'
+      ? ['5 interaction record(s) withheld pending inspectable provenance.']
+      : state === 'error'
+        ? ['Visual fixture: Clinical source unavailable.']
+        : [],
+  }
+}
 
 test.describe('Mobile Intel authenticated evidence', () => {
   test.describe.configure({ mode: 'serial' })
@@ -125,31 +119,50 @@ test.describe('Mobile Intel authenticated evidence', () => {
     } finally { await context.close() }
   })
 
-  test('captures authenticated Clinical Evidence V1 loaded and adverse states at all required mobile viewports', async ({ browser }) => {
-    test.setTimeout(420_000); await fs.mkdir(evidenceRoot, { recursive: true }); const storageState = await authenticate(browser)
-    for (const viewport of [{ width: 375, height: 812 },{ width: 390, height: 844 },{ width: 430, height: 932 }] as const) {
-      for (const [stateName, fixture] of Object.entries(clinicalStateFixtures)) {
+  test('captures the current authenticated Clinical workspace states at all required mobile viewports', async ({ browser }) => {
+    test.setTimeout(300_000)
+    await fs.mkdir(evidenceRoot, { recursive: true })
+    const storageState = await authenticate(browser)
+    const states: ClinicalWorkspaceVisualState[] = ['loaded', 'review-required', 'permission', 'error']
+
+    for (const viewport of [{ width: 375, height: 812 }, { width: 390, height: 844 }, { width: 430, height: 932 }] as const) {
+      for (const stateName of states) {
         const context = await browser.newContext({ ...sharedContextOptions(), viewport, storageState, isMobile: true, hasTouch: true })
         try {
           const page = await context.newPage()
-          await page.route('**/api/clinical/evidence**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }))
+          await page.route(/\/api\/clinical\/workspace(?:\?.*)?$/, async route => {
+            await route.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              body: JSON.stringify(clinicalWorkspaceFixture(stateName)),
+            })
+          })
+
           const response = await page.goto('/dashboard?country=CA&role=exporter&page=clinical&section=clinical', { waitUntil: 'domcontentloaded', timeout: 60_000 })
-          expect(response?.status()).toBeLessThan(400); await expect(page.locator('#clinical')).toBeVisible()
-          await expect(page.getByText('Professional clinical command', { exact: true })).toBeVisible()
-          await expect(page.getByRole('region', { name: 'Evidence command · Canada · Exporter' })).toBeVisible()
-          if (stateName !== 'loaded') await expect(page.locator('.hvc-state-panel[role="status"]').getByText(fixture.message, { exact: true })).toBeVisible()
-          await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
-          for (const label of ['Command','Market','Intel','Actions']) await expect(page.locator('.hvm-op-bottom-nav')).toContainText(label)
-          expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
-          if (stateName === 'loaded') {
-            await expect(page.getByText('EPIDIOLEX authorized indication — Dravet syndrome', { exact: true })).toBeVisible()
-            await expect(page.getByText('1 reviewed record', { exact: true })).toBeVisible()
-            await expect(page.getByText('1 current · 0 graded · 1 ungraded', { exact: true })).toBeVisible()
-            await expect(page.getByText(/Counts describe the reviewed corpus only; they do not infer efficacy or comparative superiority\./)).toBeVisible()
+          expect(response?.status()).toBeLessThan(400)
+          await expect(page.locator('#clinical')).toBeVisible()
+          await expect(page.getByRole('region', { name: 'Clinical workspace' })).toBeVisible()
+          await expect(page.getByLabel('Clinical evidence question', { exact: true })).toBeVisible()
+          await expect(page.getByText(`Workspace ${stateName}`, { exact: true })).toBeVisible()
+
+          if (stateName === 'review-required') {
+            await expect(page.getByRole('status').filter({ hasText: 'withheld pending exact prescriber-inspectable provenance' })).toBeVisible()
           }
-          await page.screenshot({ path: path.join(evidenceRoot, `clinical-evidence-${stateName}-${viewport.width}x${viewport.height}.png`), fullPage: false })
-        } finally { await context.close() }
+          if (stateName === 'error') {
+            await expect(page.getByRole('alert')).toContainText('Visual fixture: Clinical source unavailable.')
+          }
+
+          await expect(page.getByText(/under the ACMPR framework/i)).toHaveCount(0)
+          for (const label of ['Command', 'Market', 'Intel', 'Actions']) {
+            await expect(page.locator('.hvm-op-bottom-nav')).toContainText(label)
+          }
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+          await page.screenshot({ path: path.join(evidenceRoot, `clinical-workspace-${stateName}-${viewport.width}x${viewport.height}.png`), fullPage: false })
+        } finally {
+          await context.close()
+        }
       }
     }
   })
+
 })

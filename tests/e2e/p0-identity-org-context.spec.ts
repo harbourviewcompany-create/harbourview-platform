@@ -168,8 +168,8 @@ test.describe.serial('authenticated organization onboarding', () => {
       expect(new URL(page.url()).searchParams.get('returnTo')).toBe(COMMAND_RETURN)
 
       const legalName = `Harbourview E2E ${Date.now()}`
-      await page.getByText('Legal name', { exact: true }).locator('..').getByRole('textbox').fill(legalName)
-      await expect(page.getByText('Country code', { exact: true }).locator('..').getByRole('textbox')).toHaveValue('MX')
+      await page.getByRole('textbox', { name: /Legal name/i }).fill(legalName)
+      await expect(page.getByRole('combobox', { name: /Country required/i })).toHaveValue('MX')
       await page.getByRole('button', { name: 'Create organization', exact: true }).click()
 
       await page.waitForURL(url => `${url.pathname}${url.search}` === COMMAND_RETURN, { timeout: 30_000 })
@@ -220,7 +220,7 @@ test.describe.serial('authenticated organization onboarding', () => {
         const url = new URL(page.url())
         expect(url.searchParams.get('country')).toBe('CA')
         expect(url.searchParams.get('returnTo')).toBe('/dashboard?country=CA&page=briefing&section=overview')
-        await expect(page.getByRole('heading', { name: 'Create organization', exact: true })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Create your operating organization', exact: true })).toBeVisible()
         await assertNoMarketingShell(page)
         await page.screenshot({ path: path.join(evidenceRoot, viewport.file), fullPage: false, animations: 'disabled' })
       } finally {

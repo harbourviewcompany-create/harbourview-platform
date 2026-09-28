@@ -148,6 +148,7 @@ export async function PATCH(req: NextRequest) {
     // partial payloads and produced intermittent 500s on mobile after org
     // creation. Update an existing row, and only insert when no row exists.
     const { data: existing, error: existingError } = await supabase
+      .schema('public')
       .from('user_dashboard_preferences')
       .select('user_id')
       .eq('user_id', user.id)

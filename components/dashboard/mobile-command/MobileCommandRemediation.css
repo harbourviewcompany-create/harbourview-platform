@@ -118,6 +118,7 @@
 }
 
 .hvm-op-org-actions {
+  order: 2;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
@@ -349,5 +350,25 @@
   .hvm-op-page-title {
     margin-top: 0;
     font-size: 22px;
+  }
+
+  /* Preserve the compact coverage summary while collapsing verbose diagnostics
+     on the shortest supported operator viewport. */
+  .hvm-domain-depth {
+    margin-bottom: 6px;
+    padding: 7px 9px;
+  }
+
+  .hvm-domain-depth-diag,
+  .hvm-domain-depth-gap {
+    display: none;
+  }
+
+  .hvm-op-role-focus {
+    margin-bottom: 6px !important;
+  }
+
+  .hvm-op-live-strip {
+    margin-bottom: 6px !important;
   }
 }

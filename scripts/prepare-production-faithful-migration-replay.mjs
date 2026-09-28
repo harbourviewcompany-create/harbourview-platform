@@ -304,6 +304,49 @@ const REPLAY_CONTENT_PATCHES = [
     replacement: "select (select id from public.countries where iso_alpha2='ML' limit 1),'ML','depth-v1-ml-authorized-research'",
   },
   {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "  'verified',now(),'2025-04-07',\n  'Products and packaging must meet experiment requirements; THC/CBD information and required labeling apply.'",
+    replacement: "  'needs_review',null,'2025-04-07',\n  'Products and packaging must meet experiment requirements; THC/CBD information and required labeling apply.'",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "  'verified',now(),'2025-04-07',\n  'Edibles must be made and packaged by designated growers under the experiment requirements.'",
+    replacement: "  'needs_review',null,'2025-04-07',\n  'Edibles must be made and packaged by designated growers under the experiment requirements.'",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "update public.jurisdiction_dimension_coverage\nset status='verified_populated'",
+    replacement: `-- Zero-state replay reconciliation: production already had these format-rule
+-- identities/citations when this migration ran, so the verified inserts above
+-- were skipped there. A repository replay creates the rows here; attach the
+-- cited Government.nl source first, then cross the verification trigger.
+insert into public.regulatory_citations(
+  entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt
+)
+select
+  'rule',r.id,'Controlled Cannabis Supply Chain Experiment — product rules',null,'regulator',
+  r.source_urls[1],'2025-04-07',current_date,
+  'Government.nl states the product and packaging rules applicable during the controlled cannabis supply-chain experiment.'
+from public.pathway_format_rules r
+join public.product_formats pf on pf.id=r.format_id
+where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be'
+  and pf.slug in ('dried_flower','edibles')
+  and not exists (
+    select 1 from public.regulatory_citations c
+    where c.entity_type='rule' and c.entity_id=r.id and c.citation_url=r.source_urls[1]
+  );
+
+update public.pathway_format_rules r
+set verification='verified',last_verified_at=now(),updated_at=now()
+from public.product_formats pf
+where r.format_id=pf.id
+  and r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be'
+  and pf.slug in ('dried_flower','edibles');
+
+update public.jurisdiction_dimension_coverage
+set status='verified_populated'`,
+  },
+  {
     file: '20260922123500_record_kp_primary_source_block.sql',
     anchor: "where jurisdiction_key='KP'\nand not exists(select 1 from public.jurisdiction_data_depth_tasks where jurisdiction_key='KP' and dimension_key='verified_regulatory_evidence' and status='blocked');",
     replacement: "where jurisdiction_key='KP'\nand not exists(select 1 from public.jurisdiction_data_depth_tasks where jurisdiction_key='KP' and dimension_key='verified_regulatory_evidence' and status='blocked')\non conflict (jurisdiction_key,dimension_key) do update set\n  jurisdiction_level=excluded.jurisdiction_level,\n  status='blocked',\n  priority=excluded.priority,\n  evidence_required=excluded.evidence_required,\n  notes=excluded.notes,\n  updated_at=now();",

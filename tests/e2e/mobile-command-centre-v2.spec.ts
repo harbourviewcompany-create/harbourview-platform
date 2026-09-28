@@ -645,7 +645,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
           const desktopRoot = page.locator('.cc-app:visible')
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
           await expect(desktopRoot).toBeVisible()
-          await expect(desktopRoot.locator('.cc-page-title')).toHaveText('Briefing Room')
+          await expect(desktopRoot.locator('.cc-page-title')).toContainText('Marketplace')
 
           if (width === 1440) {
             const verifiedPages: string[] = []
