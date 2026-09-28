@@ -66,6 +66,7 @@ export async function GET() {
     if (!user) return NextResponse.json({ preferences: null })
 
     const { data } = await supabase
+      .schema('public')
       .from('user_dashboard_preferences')
       .select('country_iso2, role_id, heatmap_layer, active_workspace_id, command_last_viewed_at')
       .eq('user_id', user.id)
@@ -163,6 +164,7 @@ export async function PATCH(req: NextRequest) {
 
     if (existing) {
       const { error } = await supabase
+        .schema('public')
         .from('user_dashboard_preferences')
         .update(payload)
         .eq('user_id', user.id)
@@ -177,6 +179,7 @@ export async function PATCH(req: NextRequest) {
       }
     } else {
       const { error } = await supabase
+        .schema('public')
         .from('user_dashboard_preferences')
         .insert(payload)
 
