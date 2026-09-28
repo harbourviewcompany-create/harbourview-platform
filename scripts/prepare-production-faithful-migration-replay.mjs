@@ -304,6 +304,11 @@ const REPLAY_CONTENT_PATCHES = [
     replacement: "select (select id from public.countries where iso_alpha2='ML' limit 1),'ML','depth-v1-ml-authorized-research'",
   },
   {
+    file: '20260922123500_record_kp_primary_source_block.sql',
+    anchor: "where jurisdiction_key='KP'\nand not exists(select 1 from public.jurisdiction_data_depth_tasks where jurisdiction_key='KP' and dimension_key='verified_regulatory_evidence' and status='blocked');",
+    replacement: "where jurisdiction_key='KP'\nand not exists(select 1 from public.jurisdiction_data_depth_tasks where jurisdiction_key='KP' and dimension_key='verified_regulatory_evidence' and status='blocked')\non conflict (jurisdiction_key,dimension_key) do update set\n  jurisdiction_level=excluded.jurisdiction_level,\n  status='blocked',\n  priority=excluded.priority,\n  evidence_required=excluded.evidence_required,\n  notes=excluded.notes,\n  updated_at=now();",
+  },
+  {
     file: '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql',
     anchor: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',",
     replacement: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',",

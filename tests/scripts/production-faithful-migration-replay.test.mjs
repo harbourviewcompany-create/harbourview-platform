@@ -612,6 +612,18 @@ test('replay replaces production-local pathway country UUIDs with canonical ISO 
   }
 })
 
+test('replay records the DPRK evidence block idempotently when the task was seeded earlier', () => {
+  const file = '20260922123500_record_kp_primary_source_block.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.match(patch.anchor, /status='blocked'/i)
+  assert.match(patch.replacement, /on conflict \(jurisdiction_key,dimension_key\) do update/i)
+  assert.match(patch.replacement, /status='blocked'/i)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
 test('replay compares market_access_status as text so either column shape works', () => {
   const file = '20260901021633_document_medical_only_reclassification_via_rpc.sql'
   const patch = contentPatches.find((item) => item.file === file)
