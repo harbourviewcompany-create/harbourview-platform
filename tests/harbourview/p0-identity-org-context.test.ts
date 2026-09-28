@@ -106,10 +106,10 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     }
   })
 
-  it('makes role optional and represents All roles as null/empty rather than a fabricated role', () => {
+  it('routes public market entry through role selection while preserving nullable All roles in Command', () => {
     const marketEnter = globeReducer.slice(globeReducer.indexOf("case 'MARKET_ENTER':"), globeReducer.indexOf("case 'COUNTRY_CLEAR':"))
-    expect(marketEnter).toContain("step: 'routing'")
-    expect(marketEnter).not.toContain("step: 'role'")
+    expect(marketEnter).toContain("step: 'role'")
+    expect(marketEnter).not.toContain("step: 'routing'")
     expect(globeResolver).toContain("href: appendGlobeQuery('/dashboard', input)")
     expect(mobileCommand).toContain('<option value="">All roles</option>')
     expect(mobileCommand).toContain('{ role_id: value || null }')
