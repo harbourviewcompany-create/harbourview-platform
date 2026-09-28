@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
 import { SYNTHESIS_MARKETS } from '@/lib/intelligence/jurisdictionSynthesis'
 import { flagEmoji } from '@/lib/utils/flagEmoji'
-import { guardIsrQuery } from '@/lib/isr/isrQueryGuard'
 
 export const metadata: Metadata = {
   title: 'Global Cannabis Markets — Weekly Intelligence Briefings | Harbourview',
@@ -29,7 +28,7 @@ type Briefing = {
   market_maturity: string
   summary: string
   week_ending: string
-  signal_count: number
+  signal_count: number | null
 }
 
 const MATURITY_COLOR: Record<string, string> = {
@@ -51,32 +50,63 @@ const LEGAL_LABEL: Record<string, string> = {
   unknown:       'Unknown',
 }
 
+function deriveMaturity(programStatus: string | null): string {
+  const value = (programStatus ?? '').toLowerCase()
+  if (value.includes('prohibit') || value.includes('illegal')) return 'restricted'
+  if (value.includes('adult') || value.includes('recreational')) return 'mature'
+  if (value.includes('medical')) return 'developing'
+  if (value.includes('decrim') || value.includes('cbd')) return 'emerging'
+  return 'unknown'
+}
+
 async function getAllBriefings(): Promise<Briefing[]> {
-  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (process.env.NEXT_PHASE === 'phase-production-build') return []
   if (!url || !key) return []
 
-  const svc = createClient(url, key, { auth: { persistSession: false }, db: { schema: SUPABASE_DB_SCHEMA } })
-  const { data, error } = await svc
-    .from('jurisdiction_briefings')
-    .select('country_iso2, country_name, headline, legal_status, market_maturity, summary, week_ending, signal_count')
-    .eq('status', 'published')
-    .order('week_ending', { ascending: false })
-  guardIsrQuery(error, 'markets: jurisdiction_briefings')
+  try {
+    const svc = createClient(url, key, {
+      auth: { persistSession: false },
+      db: { schema: SUPABASE_DB_SCHEMA },
+    })
+    const { data, error } = await svc
+      .from('cc_jurisdiction_briefings')
+      .select('country_iso2,jurisdiction_slug,program_status,public_summary,market_dynamics,last_reviewed_date,review_state')
+      .eq('jurisdiction_type', 'country')
+      .in('review_state', ['reviewed', 'published'])
+      .order('last_reviewed_date', { ascending: false })
 
-  if (!data) return []
-
-  // One per country — latest week only
-  const seen = new Set<string>()
-  const result: Briefing[] = []
-  for (const row of data) {
-    if (!seen.has(row.country_iso2)) {
-      seen.add(row.country_iso2)
-      result.push(row as Briefing)
+    if (error) {
+      console.error('[markets] cc_jurisdiction_briefings degraded:', error.message)
+      return []
     }
+
+    const seen = new Set<string>()
+    const result: Briefing[] = []
+    for (const row of data ?? []) {
+      if (!row.country_iso2 || seen.has(row.country_iso2)) continue
+      seen.add(row.country_iso2)
+      const headline = row.market_dynamics?.trim()
+        || row.public_summary?.trim()
+        || row.program_status?.trim()
+        || 'Reviewed market briefing available.'
+      result.push({
+        country_iso2: row.country_iso2,
+        country_name: null,
+        headline,
+        legal_status: row.program_status ?? 'Status under review',
+        market_maturity: deriveMaturity(row.program_status),
+        summary: row.public_summary ?? '',
+        week_ending: row.last_reviewed_date ?? '',
+        signal_count: null,
+      })
+    }
+    return result
+  } catch (error) {
+    console.error('[markets] briefing source unavailable:', error)
+    return []
   }
-  return result
 }
 
 export default async function MarketsPage() {
@@ -146,8 +176,8 @@ export default async function MarketsPage() {
                     </div>
                     <p className="mkt-headline">{briefing.headline}</p>
                     <div className="mkt-footer">
-                      <span className="mkt-signals">{briefing.signal_count} signals</span>
-                      <span className="mkt-week">w/e {briefing.week_ending}</span>
+                      <span className="mkt-signals">{briefing.signal_count === null ? 'reviewed brief' : `${briefing.signal_count} signals`}</span>
+                      <span className="mkt-week">{briefing.week_ending ? `reviewed ${briefing.week_ending}` : 'review date pending'}</span>
                     </div>
                   </>
                 ) : (
