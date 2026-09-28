@@ -17,6 +17,7 @@ import dynamic from 'next/dynamic'
 import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import OrganizationContextControl from './OrganizationContextControl'
 import { MarketplaceSection } from './mobile-command/sections/MarketplaceSections'
+import { ClinicalSection } from './mobile-command/sections/ClinicalSection'
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
@@ -91,10 +92,6 @@ const ComplianceSection = dynamic(
 const FinancingSection = dynamic(
   () => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.FinancingSection })),
   { loading: () => <CommandBootSection label="Loading financing" /> },
-)
-const ClinicalSection = dynamic(
-  () => import('./mobile-command/sections/ClinicalSection').then(m => ({ default: m.ClinicalSection })),
-  { loading: () => <CommandBootSection sectionId="clinical" label="Loading clinical" /> },
 )
 const SettingsSection = dynamic(
   () => import('./mobile-command/sections/AccountSections').then(m => ({ default: m.SettingsSection })),
