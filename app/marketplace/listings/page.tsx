@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
-import { getPublicListings, type PublicListing } from '@/lib/server/listingsQuery'
+import { getPublicListingsResilient, type PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getMarketplaceCategory, isMarketplaceCategoryKey } from '@/lib/marketplace/taxonomy'
 
@@ -128,7 +128,7 @@ function ListingGridCard({ listing }: { listing: PublicListing }) {
 }
 
 export default async function MarketplaceListingsPage() {
-  const listings = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getPublicListings()
+  const listings = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getPublicListingsResilient()
 
   return (
     <>
