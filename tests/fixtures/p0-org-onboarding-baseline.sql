@@ -67,7 +67,9 @@ create table if not exists public.hv_passports (
   verification_level text,
   completeness_band text,
   recall_exposure_flag boolean not null default false,
-  created_at timestamptz not null default now()
+  public_snapshot jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.hv_licences (
