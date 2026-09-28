@@ -653,6 +653,17 @@ test('replay reconciles the full-depth state matrix with the zero-state catalog 
   )
 })
 
+test('replay classifies country-only structured-depth tasks as national', () => {
+  const file = '20260922240000_full_depth_structured_backing_models.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes("'national'"),
+  )
+  assert.ok(patch, 'missing country-level task replay patch')
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
 test('replay normalizes partial implementation rows to valid source kinds', () => {
   const file = '20260922234500_full_depth_dimension_source_registry.sql'
   const patches = contentPatches.filter((item) => item.file === file)

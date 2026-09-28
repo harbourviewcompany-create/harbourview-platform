@@ -420,6 +420,11 @@ from public.v_jurisdiction_data_depth_contract`,
 from public.v_jurisdiction_data_depth_contract`,
   },
   {
+    file: '20260922240000_full_depth_structured_backing_models.sql',
+    anchor: "  c.jurisdiction_level,\n  case",
+    replacement: "  'national',\n  case",
+  },
+  {
     file: '20260922234500_full_depth_dimension_source_registry.sql',
     anchor: "('import','2026-09-22.v1','partial','public.regulatory_market_access_claims'",
     replacement: "('import','2026-09-22.v1','table','public.regulatory_market_access_claims'",

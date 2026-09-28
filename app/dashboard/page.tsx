@@ -14,7 +14,7 @@ import { mergePathwayData, deriveRequirementStatusesFromIntel } from '@/lib/dash
 import { canAccess, checkFeatureAccess, normalizeSubscriptionTier } from '@/lib/billing/entitlements'
 import { getUserTier } from '@/lib/stripe/tier'
 import { normalizeCommandPage } from '@/lib/platform/commandCentreRegistry'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createSupabaseServiceClient } from '@/lib/supabase/server'
 import { attachDecisionIntelDashboardRoutes } from '@/lib/intelligence-os/dashboardRoutes'
 import type { RoleId } from '@/types/globe-router'
 
@@ -109,8 +109,13 @@ export default async function DashboardPage({
       commandLastViewedAt = prefs?.command_last_viewed_at ?? null
 
       if (activeWorkspaceId) {
+        // Server-only membership validation uses the service client so RLS on the
+        // operating-context tables cannot incorrectly collapse a valid org into
+        // personal mode. The lookup remains scoped to the authenticated user and
+        // selected workspace ID.
+        const workspaceClient = await createSupabaseServiceClient()
         const [{ data: membership }, { data: workspace }] = await Promise.all([
-          supabase
+          workspaceClient
             .schema('public')
             .from('workspace_members')
             .select('workspace_id')
@@ -118,7 +123,7 @@ export default async function DashboardPage({
             .eq('user_id', user.id)
             .eq('status', 'active')
             .maybeSingle(),
-          supabase
+          workspaceClient
             .schema('public')
             .from('workspaces')
             .select('id,status')
