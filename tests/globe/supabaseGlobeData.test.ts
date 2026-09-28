@@ -104,7 +104,7 @@ describe('getGlobeLiveData', () => {
     expect(result.unmappedSignalCountries).toEqual({ Global: 1 })
   })
 
-  it('fails loud when the signals query errors, rather than returning an empty globe silently', async () => {
+  it('keeps country routing data when the optional signals query degrades', async () => {
     fromMock.mockImplementation((table: string) => {
       if (table === 'countries') return makeQueryBuilder({ data: [countryRow], error: null })
       if (table === 'signals') return makeQueryBuilder({ data: null, error: { message: 'boom' } })
@@ -112,7 +112,13 @@ describe('getGlobeLiveData', () => {
     })
 
     const { getGlobeLiveData } = await import('@/lib/globe/supabaseGlobeData')
-    await expect(getGlobeLiveData()).rejects.toThrow(/signals query failed: boom/)
+    const result = await getGlobeLiveData()
+
+    expect(result.countries).toHaveLength(1)
+    expect(result.countries[0]).toMatchObject({ iso2: 'US', name: 'United States' })
+    expect(result.signalsByIso2).toEqual({})
+    expect(result.unmappedSignalCountries).toEqual({})
+    expect(result.degradedSources).toEqual(['signals'])
   })
 })
 
