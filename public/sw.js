@@ -1,5 +1,5 @@
 /* Harbourview service worker — network-first for navigations; cache static shell assets. */
-const CACHE = 'harbourview-shell-v1'
+const CACHE = 'harbourview-shell-v2'
 const PRECACHE = ['/', '/manifest.webmanifest', '/icons/icon-192.svg', '/icons/icon-512.svg']
 
 self.addEventListener('install', (event) => {
@@ -22,21 +22,27 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
 
-  // Never cache authenticated API or dashboard data aggressively — network only.
+  // API and authenticated dashboard requests are network-only. Returning the
+  // cached HTML shell here corrupts JSON/chunk callers and masks real failures.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/dashboard')) {
-    event.respondWith(fetch(req).catch(() => caches.match('/')))
+    event.respondWith(fetch(req))
+    return
+  }
+
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).catch(() => caches.match(req).then((hit) => hit || caches.match('/'))),
+    )
     return
   }
 
   event.respondWith(
-    fetch(req)
-      .then((res) => {
+    fetch(req).then((res) => {
+      if (res.ok && (url.pathname.startsWith('/icons/') || url.pathname === '/manifest.webmanifest')) {
         const copy = res.clone()
-        if (res.ok && (url.pathname.startsWith('/icons/') || url.pathname === '/manifest.webmanifest')) {
-          caches.open(CACHE).then((cache) => cache.put(req, copy))
-        }
-        return res
-      })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match('/'))),
+        caches.open(CACHE).then((cache) => cache.put(req, copy))
+      }
+      return res
+    }),
   )
 })
