@@ -591,15 +591,25 @@ test('replay reconciles every non-canonical territory row, not just the original
   assert.match(patch.replacement, /if v_total = 291 then/i)
 })
 
-test('replay replaces the production-local Tuvalu country UUID with canonical ISO lookup', () => {
-  const file = '20260922120000_primary_tv_va_source_enrichment.sql'
-  const patch = contentPatches.find((item) => item.file === file)
-  assert.ok(patch)
-  assert.match(patch.anchor, /39d4e117-d0ae-4669-8f0c-b631afee0ef1/)
-  assert.match(patch.replacement, /select id from public\.countries where iso_alpha2='TV' limit 1/i)
-  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
-  assert.equal(original.includes(patch.anchor), true)
-  assert.equal(original.includes(patch.replacement), false)
+test('replay replaces production-local pathway country UUIDs with canonical ISO lookups', () => {
+  const cases = [
+    ['20260922120000_primary_tv_va_source_enrichment.sql', '39d4e117-d0ae-4669-8f0c-b631afee0ef1', 'TV'],
+    ['20260922121000_primary_ca_ke_regulatory_enrichment.sql', 'a2c3726a-12a5-40c6-a640-65a735c579ac', 'CA'],
+    ['20260922121000_primary_ca_ke_regulatory_enrichment.sql', '8ff64be8-1f33-42b5-9ba7-7cdd13c6fe6a', 'KE'],
+    ['20260923061000_primary_lv_law_2026_enrichment.sql', 'a4e3067f-de8f-40a8-9633-24271c893c51', 'LV'],
+    ['20260923072000_primary_mc_cannabis_control_enrichment.sql', '1a237176-7a4f-43ba-9d94-ea63b9ad3382', 'MC'],
+    ['20260925081500_primary_vu_hemp_medical_enrichment.sql', '58526c26-b97d-410d-aa39-3e1a3b6e66b0', 'VU'],
+    ['20260925090000_primary_ml_law83_14_enrichment.sql', 'ee9ec5dd-845e-41ae-b088-98a84f667a74', 'ML'],
+  ]
+
+  for (const [file, uuid, iso2] of cases) {
+    const patch = contentPatches.find((item) => item.file === file && item.anchor.includes(uuid))
+    assert.ok(patch, `missing replay patch for ${file} / ${iso2}`)
+    assert.match(patch.replacement, new RegExp(`select id from public\\.countries where iso_alpha2='${iso2}' limit 1`, 'i'))
+    const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
 })
 
 test('replay compares market_access_status as text so either column shape works', () => {

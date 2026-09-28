@@ -274,6 +274,36 @@ const REPLAY_CONTENT_PATCHES = [
     replacement: "values((select id from public.countries where iso_alpha2='TV' limit 1),'TV','depth-v1-tv'",
   },
   {
+    file: '20260922121000_primary_ca_ke_regulatory_enrichment.sql',
+    anchor: "values('a2c3726a-12a5-40c6-a640-65a735c579ac','CA','depth-v1-ca'",
+    replacement: "values((select id from public.countries where iso_alpha2='CA' limit 1),'CA','depth-v1-ca'",
+  },
+  {
+    file: '20260922121000_primary_ca_ke_regulatory_enrichment.sql',
+    anchor: "values('8ff64be8-1f33-42b5-9ba7-7cdd13c6fe6a','KE','depth-v1-ke'",
+    replacement: "values((select id from public.countries where iso_alpha2='KE' limit 1),'KE','depth-v1-ke'",
+  },
+  {
+    file: '20260923061000_primary_lv_law_2026_enrichment.sql',
+    anchor: "select 'a4e3067f-de8f-40a8-9633-24271c893c51','LV','depth-v1-lv-industrial-hemp'",
+    replacement: "select (select id from public.countries where iso_alpha2='LV' limit 1),'LV','depth-v1-lv-industrial-hemp'",
+  },
+  {
+    file: '20260923072000_primary_mc_cannabis_control_enrichment.sql',
+    anchor: "select '1a237176-7a4f-43ba-9d94-ea63b9ad3382','MC','depth-v1-mc-authorized-non-narcotic-cannabis'",
+    replacement: "select (select id from public.countries where iso_alpha2='MC' limit 1),'MC','depth-v1-mc-authorized-non-narcotic-cannabis'",
+  },
+  {
+    file: '20260925081500_primary_vu_hemp_medical_enrichment.sql',
+    anchor: "select '58526c26-b97d-410d-aa39-3e1a3b6e66b0','VU','depth-v1-vu-medical-hemp'",
+    replacement: "select (select id from public.countries where iso_alpha2='VU' limit 1),'VU','depth-v1-vu-medical-hemp'",
+  },
+  {
+    file: '20260925090000_primary_ml_law83_14_enrichment.sql',
+    anchor: "select 'ee9ec5dd-845e-41ae-b088-98a84f667a74','ML','depth-v1-ml-authorized-research'",
+    replacement: "select (select id from public.countries where iso_alpha2='ML' limit 1),'ML','depth-v1-ml-authorized-research'",
+  },
+  {
     file: '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql',
     anchor: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',",
     replacement: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',",
