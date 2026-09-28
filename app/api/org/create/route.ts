@@ -100,6 +100,25 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const activeWorkspaceId =
+    typeof data === "object" &&
+    data !== null &&
+    "active_workspace_id" in data &&
+    typeof data.active_workspace_id === "string"
+      ? data.active_workspace_id
+      : null
+
+  if (!activeWorkspaceId) {
+    console.error("org.create", {
+      code: "MISSING_ACTIVE_WORKSPACE",
+      userId: user.id,
+    })
+    return NextResponse.json(
+      { error: "Organization was created without an active operating context.", code: "CREATE_CONTEXT_FAILED" },
+      { status: 500 },
+    )
+  }
+
   return NextResponse.json(
     {
       data: {
