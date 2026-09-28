@@ -305,6 +305,26 @@ const REPLAY_CONTENT_PATCHES = [
   },
   {
     file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "select\n  '01fdfa6a-1295-4f84-8ade-dbabf9b245be',\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"source\":\"designated_growers\"}'::jsonb,",
+    replacement: "select\n  (select id from public.regulatory_pathways where slug='nl-experiment' limit 1),\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"source\":\"designated_growers\"}'::jsonb,",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "where pf.slug='dried_flower'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be' and r.format_id=pf.id\n);",
+    replacement: "where pf.slug='dried_flower'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id=(select id from public.regulatory_pathways where slug='nl-experiment' limit 1) and r.format_id=pf.id\n);",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "select\n  '01fdfa6a-1295-4f84-8ade-dbabf9b245be',\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"raw_cannabis_only\":true,\"concentrates_prohibited\":true,\"made_and_packaged_by_grower\":true}'::jsonb,",
+    replacement: "select\n  (select id from public.regulatory_pathways where slug='nl-experiment' limit 1),\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"raw_cannabis_only\":true,\"concentrates_prohibited\":true,\"made_and_packaged_by_grower\":true}'::jsonb,",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "where pf.slug='edibles'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be' and r.format_id=pf.id\n);",
+    replacement: "where pf.slug='edibles'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id=(select id from public.regulatory_pathways where slug='nl-experiment' limit 1) and r.format_id=pf.id\n);",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
     anchor: "  'verified',now(),'2025-04-07',\n  'Products and packaging must meet experiment requirements; THC/CBD information and required labeling apply.'",
     replacement: "  'needs_review',null,'2025-04-07',\n  'Products and packaging must meet experiment requirements; THC/CBD information and required labeling apply.'",
   },
@@ -329,7 +349,8 @@ select
   'Government.nl states the product and packaging rules applicable during the controlled cannabis supply-chain experiment.'
 from public.pathway_format_rules r
 join public.product_formats pf on pf.id=r.format_id
-where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be'
+join public.regulatory_pathways p on p.id=r.pathway_id
+where p.slug='nl-experiment'
   and pf.slug in ('dried_flower','edibles')
   and not exists (
     select 1 from public.regulatory_citations c
@@ -338,9 +359,10 @@ where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be'
 
 update public.pathway_format_rules r
 set verification='verified',last_verified_at=now(),updated_at=now()
-from public.product_formats pf
+from public.product_formats pf, public.regulatory_pathways p
 where r.format_id=pf.id
-  and r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be'
+  and p.id=r.pathway_id
+  and p.slug='nl-experiment'
   and pf.slug in ('dried_flower','edibles');
 
 update public.jurisdiction_dimension_coverage

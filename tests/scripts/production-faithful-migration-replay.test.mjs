@@ -615,7 +615,7 @@ test('replay replaces production-local pathway country UUIDs with canonical ISO 
 test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {
   const file = '20260922165000_primary_netherlands_format_rules.sql'
   const patches = contentPatches.filter((item) => item.file === file)
-  assert.equal(patches.length, 3)
+  assert.equal(patches.length, 7)
 
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   for (const patch of patches) {
@@ -626,6 +626,10 @@ test('replay attaches Netherlands rule citations before crossing the verified tr
   assert.equal(
     patches.filter((patch) => patch.replacement.includes("'needs_review',null,'2025-04-07'")).length,
     2,
+  )
+  assert.equal(
+    patches.filter((patch) => patch.replacement.includes("select id from public.regulatory_pathways where slug='nl-experiment' limit 1")).length,
+    4,
   )
   const provenancePatch = patches.find((patch) =>
     patch.replacement.includes('Controlled Cannabis Supply Chain Experiment — product rules'),
