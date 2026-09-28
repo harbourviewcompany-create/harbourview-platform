@@ -120,16 +120,24 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     if (!organizationAction) return operational
 
     const returnParam = encodeURIComponent(commandReturnTo)
-    const onboarding = {
+    const createOnboarding = {
       ...organizationAction,
       id: 'organization-create',
       label: 'Create an organization profile',
-      detail: 'Required for marketplace submissions and reviewed introductions. Join via invitation from org settings if you already have one.',
+      detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
       href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
       tone: 'warn' as const,
     }
+    const joinOnboarding = {
+      ...organizationAction,
+      id: 'organization-join',
+      label: 'Join an existing organization',
+      detail: 'Use an invitation to join an existing Harbourview operating workspace.',
+      href: `/organization/join?returnTo=${returnParam}`,
+      tone: 'gold' as const,
+    }
 
-    return [...operational, onboarding]
+    return [...operational, createOnboarding, joinOnboarding]
   }, [commandReturnTo, countryParam, model.nextActions])
 
   /** High-confidence signals become priority rows so Command is not org-setup-only. */
