@@ -16,6 +16,7 @@ import { buildCommandDelta } from '@/lib/dashboard/commandDelta'
 import dynamic from 'next/dynamic'
 import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import OrganizationContextControl from './OrganizationContextControl'
+import { MarketplaceSection } from './mobile-command/sections/MarketplaceSections'
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
@@ -26,10 +27,6 @@ import './mobile-command/MobileCommandSurfaceAlignment.css'
 const MarketIntelligenceSection = dynamic(
   () => import('./mobile-command/sections/CoreSections').then(m => ({ default: m.MarketIntelligenceSection })),
   { loading: () => <CommandBootSection label="Loading market intelligence" /> },
-)
-const MarketplaceSection = dynamic(
-  () => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.MarketplaceSection })),
-  { loading: () => <CommandBootSection sectionId="marketplace" label="Loading marketplace" /> },
 )
 const SupplySection = dynamic(
   () => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.SupplySection })),
