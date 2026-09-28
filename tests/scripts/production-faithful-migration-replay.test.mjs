@@ -620,6 +620,19 @@ test('replay replaces production-local pathway country UUIDs with canonical ISO 
   }
 })
 
+test('replay rewrites the full-depth UPDATE FROM join without referencing the target alias inside JOIN ON', () => {
+  const file = '20260922233000_full_depth_dimension_state_matrix.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.match(patch.anchor, /join public\.v_jurisdiction_data_depth v\s+on v\.jurisdiction_key = s\.jurisdiction_key/i)
+  assert.match(patch.replacement, /public\.jurisdiction_data_depth_dimensions d,\s+public\.v_jurisdiction_data_depth v/i)
+  assert.match(patch.replacement, /where v\.jurisdiction_key = s\.jurisdiction_key\s+and d\.dimension_key = s\.dimension_key/i)
+})
+
 test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {
   const file = '20260922165000_primary_netherlands_format_rules.sql'
   const patches = contentPatches.filter((item) => item.file === file)

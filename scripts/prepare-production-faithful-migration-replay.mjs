@@ -327,6 +327,11 @@ const REPLAY_CONTENT_PATCHES = [
     replacement: "select (select id from public.countries where iso_alpha2='ML' limit 1),'ML','depth-v1-ml-authorized-research'",
   },
   {
+    file: '20260922233000_full_depth_dimension_state_matrix.sql',
+    anchor: "from public.jurisdiction_data_depth_dimensions d\njoin public.v_jurisdiction_data_depth v\n  on v.jurisdiction_key = s.jurisdiction_key\nwhere d.dimension_key = s.dimension_key",
+    replacement: "from public.jurisdiction_data_depth_dimensions d,\n     public.v_jurisdiction_data_depth v\nwhere v.jurisdiction_key = s.jurisdiction_key\n  and d.dimension_key = s.dimension_key",
+  },
+  {
     file: '20260922165000_primary_netherlands_format_rules.sql',
     anchor: "select\n  '01fdfa6a-1295-4f84-8ade-dbabf9b245be',\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"source\":\"designated_growers\"}'::jsonb,",
     replacement: "select\n  (select id from public.regulatory_pathways where slug='nl-experiment' limit 1),\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"source\":\"designated_growers\"}'::jsonb,",
