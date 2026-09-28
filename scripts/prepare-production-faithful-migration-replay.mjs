@@ -83,6 +83,36 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260922111959_replay_fo_gl_market_access_evidence.sql',
+    before: '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
+    required: [
+      '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
+      '20260926032000_repair_fo_gl_regulatory_evidence_fk.sql',
+    ],
+    content: `-- Replay-only reconstruction of the FO/GL evidence parents that existed
+-- before the recorded 20260922112000 claim insert ran in production.
+--
+-- The canonical repository history contains the forward repair at
+-- 20260926032000, but a zero-state replay reaches the FK-dependent claims first.
+-- Materialize only the missing parent rows in the temporary replay workspace;
+-- checked-in migration bodies and the production ledger remain immutable.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,retrieved_at,verified_at,expires_at,evidence_status,active)
+values
+('hv-mkt-complete-fo-20260913','FO','medical_limited_trade',
+ 'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; authorized activity is within the medical/scientific framework and no general adult-use retail pathway is established by the cited instrument.',
+ 'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
+ 'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer',
+ date '2026-05-26',now(),now(),now()+interval '1 year','verified',true),
+('hv-mkt-complete-gl-20260913','GL','medical_limited_trade',
+ 'Greenland controlled-substance law places cannabis within an authorization-based medical/scientific framework; no general adult-use commercial retail pathway is established by the cited framework.',
+ 'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
+ 'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',
+ null,now(),now(),now()+interval '1 year','verified',true)
+on conflict (evidence_key) do nothing;
+`,
+  },
+  {
     destination: '20260922104459_replay_jurisdiction_data_depth_tasks.sql',
     before: '20260922104500_primary_us_jurisdiction_depth_enrichment.sql',
     required: [
