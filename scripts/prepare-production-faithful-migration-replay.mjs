@@ -269,6 +269,11 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260922120000_primary_tv_va_source_enrichment.sql',
+    anchor: "values('39d4e117-d0ae-4669-8f0c-b631afee0ef1','TV','depth-v1-tv'",
+    replacement: "values((select id from public.countries where iso_alpha2='TV' limit 1),'TV','depth-v1-tv'",
+  },
+  {
     file: '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql',
     anchor: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',",
     replacement: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'quarantined',",
