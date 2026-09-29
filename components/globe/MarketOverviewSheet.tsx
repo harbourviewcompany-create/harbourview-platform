@@ -82,7 +82,7 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
   const [expanded, setExpanded] = useState(false)
   const cache = useRef<Map<string, JurisdictionBriefing | null>>(new Map())
   const [retryKey, setRetryKey] = useState(0)
-  const { liveData, status: realtimeStatus, degraded, loadedAt } = useGlobe()
+  const { liveData, status: realtimeStatus, degraded, loadedAt, loadError, retryLoad } = useGlobe()
 
   const signalList = useMemo(
     () => liveData.signalsByIso2[countryIso2.toUpperCase()] ?? [],
@@ -226,6 +226,12 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
       }
     >
       <div className="grid gap-4">
+        {loadError ? (
+          <div role="status" className="rounded-xl border border-amber-500/20 bg-amber-900/10 p-3 text-xs text-amber-100/80">
+            Live market data is temporarily unavailable. You can still choose a market and continue.
+            <button type="button" onClick={retryLoad} className="ml-2 font-semibold text-[color:var(--hv-gold-light)]">Retry data</button>
+          </div>
+        ) : null}
         <div className="grid gap-2 rounded-2xl border border-[color:var(--hv-gold)]/18 bg-[color:var(--hv-gold)]/[0.045] p-4">
           <div className="flex items-center justify-between gap-3">
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--hv-gold-light)]/78">Market access</span>

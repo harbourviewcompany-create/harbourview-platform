@@ -26,7 +26,7 @@ import {
 } from '@/lib/globe/supabaseGlobeData'
 
 async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; degraded: boolean }> {
-  const res = await fetch('/api/globe', { cache: 'no-store' })
+  const res = await fetch('/api/globe', { cache: 'no-store', signal: AbortSignal.timeout(8_000) })
   if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
   const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
   return {
@@ -51,7 +51,9 @@ async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly numb
   }
   throw lastErr
 }
-const FETCH_RETRY_BACKOFFS_MS = [800, 2000] as const
+// A database outage must not leave the market sheet waiting through three
+// long gateway timeouts for every visitor.
+const FETCH_RETRY_BACKOFFS_MS = [800] as const
 
 type GlobeContextType = {
   liveData: GlobeLiveData
@@ -61,6 +63,7 @@ type GlobeContextType = {
   degraded: boolean
   loadedAt: number | null
   reconnect: () => void
+  retryLoad: () => void
 }
 
 /** Exported so surfaces that only need liveData can soft-fall back outside the provider (SSR smoke). */
@@ -73,6 +76,13 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [degraded, setDegraded] = useState(false)
   const [loadedAt, setLoadedAt] = useState<number | null>(null)
+  const [loadKey, setLoadKey] = useState(0)
+
+  const retryLoad = useCallback(() => {
+    setLoading(true)
+    setLoadError(null)
+    setLoadKey((key) => key + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -97,7 +107,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       })
 
     return () => { cancelled = true }
-  }, [])
+  }, [loadKey])
 
   const handleRealtimeChange = useCallback(
     (payload: {
@@ -152,8 +162,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   const { status, reconnect } = useGlobeRealtime(handleRealtimeChange)
   const value = useMemo(
-    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect }),
-    [liveData, status, loading, loadError, degraded, loadedAt, reconnect]
+    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect, retryLoad }),
+    [liveData, status, loading, loadError, degraded, loadedAt, reconnect, retryLoad]
   )
   return <GlobeContext.Provider value={value}>{children}</GlobeContext.Provider>
 }
