@@ -538,6 +538,21 @@ alter table public.jurisdiction_opportunities
   drop constraint if exists jurisdiction_opportunities_verified_provenance_ck;`,
   },
   {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: 'create or replace view public.v_jurisdiction_verified_snapshot_gate\nwith (security_invoker=on) as',
+    replacement: 'create or replace view public.v_jurisdiction_legacy_market_snapshot_gate\nwith (security_invoker=on) as',
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: 'grant select on public.v_jurisdiction_verified_snapshot_gate to anon, authenticated;',
+    replacement: 'grant select on public.v_jurisdiction_legacy_market_snapshot_gate to anon, authenticated;',
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: 'select 1 from public.v_jurisdiction_verified_snapshot_gate g\n             where g.evidence_key=e.evidence_key and g.qualifying',
+    replacement: 'select 1 from public.v_jurisdiction_legacy_market_snapshot_gate g\n             where g.evidence_key=e.evidence_key and g.qualifying',
+  },
+  {
     file: '20260923033000_evidence_snapshot_gate_002.sql',
     anchor: "  ss.fetch_status,\n  sr.source_url registered_source_url,",
     replacement: "  ss.fetch_status,\n  ss.captured_url,\n  sr.source_url registered_source_url,",

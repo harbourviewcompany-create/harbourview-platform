@@ -573,6 +573,22 @@ test('replay reconstructs the Colombia briefing that no repository migration see
   assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
 })
 
+test('replay preserves the structured snapshot gate when legacy market evidence changes view shape', () => {
+  const file = '20260923034000_evidence_architecture_hardening_003.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 3)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  assert.ok(patches.some((patch) => patch.replacement.includes('v_jurisdiction_legacy_market_snapshot_gate')))
+  assert.ok(patches.some((patch) => patch.anchor.includes('grant select on public.v_jurisdiction_verified_snapshot_gate')))
+  assert.ok(patches.some((patch) => patch.anchor.includes('where g.evidence_key=e.evidence_key and g.qualifying')))
+})
+
 test('replay normalizes malformed provenance constraint drops without changing production history', () => {
   const file = '20260923030000_evidence_architecture_hardening_001.sql'
   const patch = contentPatches.find((item) => item.file === file)
