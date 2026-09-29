@@ -4,7 +4,7 @@ import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataB
 import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
-import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import { loadCommandCentreData, withTimeout } from '@/lib/dashboard/loadCommandCentreData'
 import {
   getActiveEvidenceData,
   getActiveOrgPathwayProgress,
@@ -24,6 +24,8 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = 'force-dynamic'
+
+const CONTEXT_READ_TIMEOUT_MS = 8_000
 
 const ROLE_ALIASES: Record<string, RoleId> = {
   buyer: 'importer',
@@ -93,14 +95,14 @@ export default async function DashboardPage({
       userId = user.id
       userEmail = user.email ?? null
       userAppMetadata = user.app_metadata
-      const [{ data: prefs }, resolvedUserTier] = await Promise.all([
+      const [{ data: prefs }, resolvedUserTier] = await withTimeout(() => Promise.all([
         supabase
           .from('user_dashboard_preferences')
           .select('country_iso2, role_id, active_workspace_id, command_last_viewed_at')
           .eq('user_id', user.id)
           .maybeSingle(),
         getUserTier(),
-      ])
+      ]), CONTEXT_READ_TIMEOUT_MS)
       userTier = resolvedUserTier
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
@@ -108,7 +110,7 @@ export default async function DashboardPage({
       commandLastViewedAt = prefs?.command_last_viewed_at ?? null
 
       if (activeWorkspaceId) {
-        const [{ data: membership }, { data: workspace }] = await Promise.all([
+        const [{ data: membership }, { data: workspace }] = await withTimeout(() => Promise.all([
           supabase
             .from('workspace_members')
             .select('workspace_id')
@@ -122,12 +124,15 @@ export default async function DashboardPage({
             .eq('id', activeWorkspaceId)
             .eq('status', 'active')
             .maybeSingle(),
-        ])
+        ]), CONTEXT_READ_TIMEOUT_MS)
         hasOrg = Boolean(membership && workspace)
         if (!hasOrg) activeWorkspaceId = null
       }
     }
   } catch (error) {
+    // Optional context must not block the shell or retain an unverified workspace.
+    activeWorkspaceId = null
+    hasOrg = false
     console.error('[command-centre-auth-context]', {
       code: error instanceof Error ? error.name : 'AUTH_CONTEXT_FAILED',
     })
