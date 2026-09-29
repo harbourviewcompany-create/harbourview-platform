@@ -15,9 +15,11 @@ export function GlobeDataNotice() {
   const noCountries = liveData.countries.length === 0
   if (!degraded && !loadError && !noCountries) return null
 
-  const message = noCountries
-    ? 'Live market data could not be loaded. You can still choose a country.'
-    : 'Some live signals are temporarily unavailable. The map is showing the latest regulatory data.'
+  const message = liveData.countriesUnavailable
+    ? 'Live regulatory data is temporarily unavailable. Country routing remains available on the static globe.'
+    : noCountries
+      ? 'Live market data could not be loaded. You can still choose a country.'
+      : 'Some live signals are temporarily unavailable. The map is showing the latest regulatory data.'
 
   return (
     <div
