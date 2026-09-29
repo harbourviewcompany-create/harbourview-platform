@@ -84,6 +84,7 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
     '20260714225601_expose_intel_eval_set_via_api_schema.sql',
     '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
     '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
+    '20260923043000_kz_pathway_calendar_format_depth.sql',
   ])
 
   const originalRegulatory = fs.readFileSync(path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'), 'utf8')
@@ -133,6 +134,16 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
   assert.match(canonicalSignalsView, /cannot drop columns from view/i)
   assert.match(reconstructedSignalsView, /Reconstructed from production/i)
   assert.match(reconstructedSignalsView, /create or replace view api\.signals/i)
+})
+
+test('zero-state replay skips the redundant Kazakhstan 43000 copy only because 43001 is byte-equivalent', () => {
+  const duplicate = '20260923043000_kz_pathway_calendar_format_depth.sql'
+  const canonical = '20260923043001_kz_pathway_calendar_format_depth.sql'
+  const duplicateSql = fs.readFileSync(path.join(root, 'supabase/migrations', duplicate), 'utf8')
+  const canonicalSql = fs.readFileSync(path.join(root, 'supabase/migrations', canonical), 'utf8')
+
+  assert.equal(duplicateSql, canonicalSql)
+  assert.ok(planReplayZeroStateSkips({ migrationFiles }).includes(duplicate))
 })
 
 test('zero-state skips are suppressed when their exact historical files are absent', () => {

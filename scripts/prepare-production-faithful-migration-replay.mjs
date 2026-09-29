@@ -25,6 +25,9 @@ const REPLAY_ZERO_STATE_SKIPS = [
   // database-local. The immediately-following 20260722185015 migration resolves
   // the same two jobs by name and applies the same active=true state.
   '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
+  // Exact duplicate of the immediately-following 20260923043001 file; keeping
+  // both makes Supabase reject the shared 20260923043000 ledger version.
+  '20260923043000_kz_pathway_calendar_format_depth.sql',
 ]
 
 // A recorded reconstruction/reconciliation can have a timestamp later than the
