@@ -283,11 +283,12 @@ test.describe.serial('authenticated organization onboarding', () => {
 
       const tokenInput = page.getByPlaceholder('Paste invitation token')
       await tokenInput.fill('f'.repeat(64))
-      await page.getByRole('button', { name: 'Join organization', exact: true }).click()
       await expect(page.getByRole('alert').filter({ hasText: 'could not be found' })).toContainText('could not be found')
 
       await tokenInput.fill(INVITE_TOKEN)
-      await page.getByRole('button', { name: 'Join organization', exact: true }).click()
+      const acceptInvitation = page.getByRole('button', { name: 'Accept invitation', exact: true })
+      await expect(acceptInvitation).toBeEnabled({ timeout: 20_000 })
+      await acceptInvitation.click()
       await expect(page.getByRole('status')).toContainText('Organization joined')
       await page.waitForURL(url => `${url.pathname}${url.search}` === COMMAND_RETURN, { timeout: 30_000 })
 
