@@ -359,6 +359,8 @@ test('replay materializes the missing education policy identities immediately be
   assert.equal(depthEvidence.before, '20260923001000_full_depth_dynamic_evaluator.sql')
   assert.match(depthEvidence.content, /create table if not exists public\.jurisdiction_data_depth_evidence/i)
   assert.match(depthEvidence.content, /references public\.source_snapshots\(id\)/i)
+  assert.match(depthEvidence.content, /create or replace view public\.v_jurisdiction_verified_snapshot_gate/i)
+  assert.match(depthEvidence.content, /qualifying_snapshot/i)
 
   const foGlEvidence = syntheticFoundations.find(
     (item) => item.destination === '20260922111959_replay_fo_gl_market_access_evidence.sql',
