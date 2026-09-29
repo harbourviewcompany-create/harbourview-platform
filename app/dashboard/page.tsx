@@ -135,35 +135,53 @@ export default async function DashboardPage({
       activeWorkspaceId = prefs?.active_workspace_id ?? null
       commandLastViewedAt = prefs?.command_last_viewed_at ?? null
 
-      const candidateWorkspaceIds = Array.from(new Set(
-        [activeWorkspaceId, createdWorkspaceId].filter((value): value is string => Boolean(value)),
-      ))
-      if (candidateWorkspaceIds.length > 0) {
-        // Server-only validation prevents RLS/cache lag from collapsing a newly
-        // created, committed organization back into personal mode. The
-        // post-create ?created=... hint is never trusted on its own.
+      if (activeWorkspaceId) {
+        const [{ data: membership }, { data: workspace }] = await withTimeout(() => Promise.all([
+          supabase
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('workspace_id', activeWorkspaceId)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .maybeSingle(),
+          supabase
+            .from('workspaces')
+            .select('id,status')
+            .eq('id', activeWorkspaceId)
+            .eq('status', 'active')
+            .maybeSingle(),
+        ]), CONTEXT_READ_TIMEOUT_MS)
+        hasOrg = Boolean(membership && workspace)
+        if (!hasOrg) activeWorkspaceId = null
+      }
+
+      if (!hasOrg && createdWorkspaceId) {
+        // A post-create workspace hint is never trusted by itself. It is only a
+        // recovery path for the short window where the authenticated/RLS read
+        // can lag the committed membership immediately after organization
+        // creation.
         const workspaceClient = await createSupabaseServiceClient()
-        const [{ data: memberships }, { data: workspaces }] = await withTimeout(() => Promise.all([
+        const [{ data: membership }, { data: workspace }] = await withTimeout(() => Promise.all([
           workspaceClient
             .schema('public')
             .from('workspace_members')
             .select('workspace_id')
+            .eq('workspace_id', createdWorkspaceId)
             .eq('user_id', user.id)
             .eq('status', 'active')
-            .in('workspace_id', candidateWorkspaceIds),
+            .maybeSingle(),
           workspaceClient
             .schema('public')
             .from('workspaces')
             .select('id,status')
+            .eq('id', createdWorkspaceId)
             .eq('status', 'active')
-            .in('id', candidateWorkspaceIds),
+            .maybeSingle(),
         ]), CONTEXT_READ_TIMEOUT_MS)
-        const membershipIds = new Set((memberships ?? []).map(row => row.workspace_id))
-        const activeWorkspaceIds = new Set((workspaces ?? []).map(row => row.id))
-        const preferredIds = [activeWorkspaceId, createdWorkspaceId].filter((value): value is string => Boolean(value))
-        const resolvedWorkspaceId = preferredIds.find(id => membershipIds.has(id) && activeWorkspaceIds.has(id)) ?? null
-        activeWorkspaceId = resolvedWorkspaceId
-        hasOrg = Boolean(resolvedWorkspaceId)
+        if (membership && workspace) {
+          activeWorkspaceId = createdWorkspaceId
+          hasOrg = true
+        }
       }
     }
   } catch (error) {
