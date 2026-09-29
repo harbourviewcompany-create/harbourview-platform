@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'
-import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { ROLE_PROFILES, type DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
-import { loadCommandCentreData } from '@/lib/dashboard/loadCommandCentreData'
+import { loadCommandCentreData, withTimeout } from '@/lib/dashboard/loadCommandCentreData'
 import {
   getActiveEvidenceData,
   getActiveOrgPathwayProgress,
@@ -24,6 +24,8 @@ export const metadata: Metadata = {
 }
 
 export const dynamic = 'force-dynamic'
+
+const CONTEXT_READ_TIMEOUT_MS = 8_000
 
 const ROLE_ALIASES: Record<string, RoleId> = {
   buyer: 'importer',
@@ -64,6 +66,20 @@ function normalizeRoleParam(raw: string | null): string | null {
   return ROLE_PROFILES[resolved] ? resolved : null
 }
 
+async function loadDashboardSignalRoutes(signals: DashboardSignal[]): Promise<DashboardSignal[]> {
+  try {
+    return await withTimeout(() => attachDecisionIntelDashboardRoutes(signals), CONTEXT_READ_TIMEOUT_MS)
+  } catch {
+    console.error('[command-centre-route-enrichment]', { code: 'ROUTE_ENRICHMENT_UNAVAILABLE' })
+    // Keep reviewed content, but never offer a dossier route that was not verified.
+    return signals.map(signal => ({
+      ...signal,
+      decisionIntelEventId: undefined,
+      decisionRecommendationState: undefined,
+    }))
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -86,21 +102,27 @@ export default async function DashboardPage({
   let commandLastViewedAt: string | null = null
   let userTier: Awaited<ReturnType<typeof getUserTier>> = 'free'
 
+  // Authentication is required; a failed verification belongs in the existing
+  // retry boundary, not the optional-context fallback below.
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await withTimeout(
+    () => supabase.auth.getUser(), CONTEXT_READ_TIMEOUT_MS,
+  )
+  if (authError || !user) throw new Error('Dashboard session could not be verified')
+
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       userId = user.id
       userEmail = user.email ?? null
       userAppMetadata = user.app_metadata
-      const [{ data: prefs }, resolvedUserTier] = await Promise.all([
+      const [{ data: prefs }, resolvedUserTier] = await withTimeout(() => Promise.all([
         supabase
           .from('user_dashboard_preferences')
           .select('country_iso2, role_id, active_workspace_id, command_last_viewed_at')
           .eq('user_id', user.id)
           .maybeSingle(),
         getUserTier(),
-      ])
+      ]), CONTEXT_READ_TIMEOUT_MS)
       userTier = resolvedUserTier
       storedCountryIso2 = normalizeCountryParam(prefs?.country_iso2 ?? null)
       storedRoleId = normalizeRoleParam(prefs?.role_id ?? null)
@@ -108,7 +130,7 @@ export default async function DashboardPage({
       commandLastViewedAt = prefs?.command_last_viewed_at ?? null
 
       if (activeWorkspaceId) {
-        const [{ data: membership }, { data: workspace }] = await Promise.all([
+        const [{ data: membership }, { data: workspace }] = await withTimeout(() => Promise.all([
           supabase
             .from('workspace_members')
             .select('workspace_id')
@@ -122,12 +144,15 @@ export default async function DashboardPage({
             .eq('id', activeWorkspaceId)
             .eq('status', 'active')
             .maybeSingle(),
-        ])
+        ]), CONTEXT_READ_TIMEOUT_MS)
         hasOrg = Boolean(membership && workspace)
         if (!hasOrg) activeWorkspaceId = null
       }
     }
   } catch (error) {
+    // Optional context must not block the shell or retain an unverified workspace.
+    activeWorkspaceId = null
+    hasOrg = false
     console.error('[command-centre-auth-context]', {
       code: error instanceof Error ? error.name : 'AUTH_CONTEXT_FAILED',
     })
@@ -199,8 +224,8 @@ export default async function DashboardPage({
   // membership tooling. app_metadata is not treated as a second entitlement authority.
   const decisionIntelAccess = canAccess('signals', normalizeSubscriptionTier(userTier))
   const [routedSignals, routedDigestSignals] = await Promise.all([
-    attachDecisionIntelDashboardRoutes(signals),
-    attachDecisionIntelDashboardRoutes(dailyDigest.signals),
+    loadDashboardSignalRoutes(signals),
+    loadDashboardSignalRoutes(dailyDigest.signals),
   ])
 
   const pathwayData = deriveRequirementStatusesFromIntel(

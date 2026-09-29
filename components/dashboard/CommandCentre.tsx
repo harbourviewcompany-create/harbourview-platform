@@ -7353,6 +7353,10 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
     return () => { active = false }
   }, [])
   if (!bankingData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  return <BankingDirectoryPageContent country={country} region={region} role={role} onPageChange={onPageChange} bankingData={bankingData} />
+})
+
+function BankingDirectoryPageContent({ country, region, role, onPageChange, bankingData }: { country: { iso2: string; label: string }; region: string; role: string; onPageChange?: (page: CommandPage) => void } & { bankingData: typeof import('./data/bankingProviders') }) {
   const BANKING_PROVIDERS = bankingData.BANKING_PROVIDERS
   const PROVIDER_TYPE_LABELS = bankingData.PROVIDER_TYPE_LABELS
   const PROVIDER_TYPE_COLORS = bankingData.PROVIDER_TYPE_COLORS
@@ -7656,7 +7660,7 @@ const BankingDirectoryPage = React.memo(function BankingDirectoryPage({
       </div>
     </div>
   )
-})
+}
 
 // ── Notification Centre page ───────────────────────────────────────────────────
 
@@ -8739,6 +8743,10 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
     return () => { active = false }
   }, [])
   if (!priceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  return <PriceIntelligencePageContent country={country} role={role} onPageChange={onPageChange} priceData={priceData} />
+})
+
+function PriceIntelligencePageContent({ country, role, onPageChange, priceData }: { country: { iso2: string; label: string }; role: string; onPageChange?: (page: CommandPage) => void } & { priceData: typeof import('./data/priceIntelligence') }) {
   const PRICE_BENCHMARKS = priceData.PRICE_BENCHMARKS
   const PRODUCT_TYPE_LABELS = priceData.PRODUCT_TYPE_LABELS
   const PRODUCT_TYPE_ICONS = priceData.PRODUCT_TYPE_ICONS
@@ -9138,7 +9146,7 @@ const PriceIntelligencePage = React.memo(function PriceIntelligencePage({
       </div>
     </div>
   )
-})
+}
 
 // ── Logistics Directory page ───────────────────────────────────────────────────
 
@@ -9186,6 +9194,10 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
     return () => { active = false }
   }, [])
   if (!logisticsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  return <LogisticsDirectoryPageContent country={country} role={role} onPageChange={onPageChange} logisticsData={logisticsData} />
+})
+
+function LogisticsDirectoryPageContent({ country, role, onPageChange, logisticsData }: { country: { iso2: string; label: string }; role: string; onPageChange?: (page: CommandPage) => void } & { logisticsData: typeof import('./data/logisticsProviders') }) {
   const LOGISTICS_PROVIDERS = logisticsData.LOGISTICS_PROVIDERS
   const LOGISTICS_TYPE_LABELS = logisticsData.LOGISTICS_TYPE_LABELS
   const LOGISTICS_TYPE_COLORS = logisticsData.LOGISTICS_TYPE_COLORS
@@ -9433,7 +9445,7 @@ const LogisticsDirectoryPage = React.memo(function LogisticsDirectoryPage({
       </div>
     </div>
   )
-})
+}
 
 // ── Jobs Board page ────────────────────────────────────────────────────────────
 
@@ -9471,6 +9483,10 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
     return () => { active = false }
   }, [])
   if (!jobsData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  return <JobsBoardPageContent country={country} role={role} onPageChange={onPageChange} jobsData={jobsData} />
+})
+
+function JobsBoardPageContent({ country, role, onPageChange, jobsData }: { country: { iso2: string; label: string }; role: string; onPageChange?: (page: CommandPage) => void } & { jobsData: typeof import('./data/jobsBoard') }) {
   const JOB_LISTINGS = jobsData.JOB_LISTINGS
   const JOB_TYPE_LABELS = jobsData.JOB_TYPE_LABELS
   const JOB_TYPE_COLORS = jobsData.JOB_TYPE_COLORS
@@ -9733,7 +9749,7 @@ const JobsBoardPage = React.memo(function JobsBoardPage({
       </div>
     </div>
   )
-})
+}
 
 // ── Insurance Directory page ──────────────────────────────────────────────────
 
@@ -9829,6 +9845,15 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
     return () => { active = false }
   }, [])
   if (!insuranceData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  return <InsuranceDirectoryPageContent country={country} region={region} role={role} onPageChange={onPageChange} insuranceData={insuranceData} />
+})
+
+function InsuranceDirectoryPageContent({ country, region, role, onPageChange, insuranceData }: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+  onPageChange?: (page: CommandPage) => void
+} & { insuranceData: typeof import('./data/insuranceProviders') }) {
   const INSURANCE_PROVIDERS = insuranceData.INSURANCE_PROVIDERS
   const INSURANCE_LINE_LABELS = insuranceData.INSURANCE_LINE_LABELS
   const INSURANCE_ROLE_LABELS = insuranceData.INSURANCE_ROLE_LABELS
@@ -10016,7 +10041,7 @@ const InsuranceDirectoryPage = React.memo(function InsuranceDirectoryPage({
       </div>
     </div>
   )
-})
+}
 
 // ── Licence Tracker page ───────────────────────────────────────────────────────
 
@@ -10411,6 +10436,15 @@ const LandedCostPage = React.memo(function LandedCostPage({
     return () => { active = false }
   }, [])
   if (!landedData) return <div className="cc-page-loading" aria-busy="true">Loading…</div>
+  return <LandedCostPageContent country={country} region={region} role={role} onPageChange={onPageChange} landedData={landedData} />
+})
+
+function LandedCostPageContent({ country, region, role, onPageChange, landedData }: {
+  country: { iso2: string; label: string }
+  region:  string
+  role:    string
+  onPageChange?: (page: CommandPage) => void
+} & { landedData: typeof import('./data/landedCostData') }) {
   const EXPORTER_ORIGINS = landedData.EXPORTER_ORIGINS
   const DESTINATION_MARKETS = landedData.DESTINATION_MARKETS
   const FREIGHT_CORRIDORS = landedData.FREIGHT_CORRIDORS
@@ -10735,7 +10769,7 @@ const LandedCostPage = React.memo(function LandedCostPage({
       </div>
     </div>
   )
-})
+}
 
 // ── Events page ───────────────────────────────────────────────────────────────
 

@@ -21,11 +21,9 @@ const QUARANTINED_SUITES = [
   'tests/clinical/evidenceV11Operations.test.ts',
   'tests/dashboard/dashboardMarketplaceRows.test.ts',
   'tests/dashboard/marketplaceMediaMergeReadiness.test.ts',
-  'tests/dashboard/mobileCommandCentreV2.test.ts',
   'tests/dashboard/mobileIntelInstitutional.test.tsx',
   'tests/globe-russia-radial-clearance.test.ts',
   'tests/harbourview/p0-identity-org-context.test.ts',
-  'tests/intel/decisionIntelFirstSlice.test.ts',
   // Added 2026-08-20 when origin/main was merged in. Fails on origin/main
   // independently of this PR: `decisionDossier.ts` narrowed its fail-closed
   // guard to `if (route.status === 'error' && !isSyntheticEventRoute)` in

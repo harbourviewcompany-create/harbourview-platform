@@ -8,7 +8,9 @@
  * Admins may pass kyb_override + kyb_override_reason on the promote API.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { createSupabaseServiceClient } from '@/lib/supabase/server'
+
+type KybDataClient = Pick<Awaited<ReturnType<typeof createSupabaseServiceClient>>, 'from'>
 
 export type KybGateParty = {
   userId: string | null | undefined
@@ -27,7 +29,7 @@ export type KybGateResult =
 const VERIFIED_STATUSES = new Set(['verified', 'admin_verified', 'approved', 'source_verified'])
 
 async function userHasVerifiedEvidence(
-  db: SupabaseClient<any, any, any, any, any>,
+  db: KybDataClient,
   userId: string,
 ): Promise<boolean> {
   const { data: membership } = await db
@@ -52,7 +54,7 @@ async function userHasVerifiedEvidence(
 }
 
 export async function assertPartiesKybVerified(
-  db: SupabaseClient<any, any, any, any, any>,
+  db: KybDataClient,
   parties: KybGateParty[],
 ): Promise<KybGateResult> {
   const withIds = parties.filter((p): p is KybGateParty & { userId: string } => Boolean(p.userId))

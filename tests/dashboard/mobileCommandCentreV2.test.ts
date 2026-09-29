@@ -1,5 +1,5 @@
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToReadableStream } from 'react-dom/server'
 import { parseHTML } from 'linkedom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import MobileCommandCentreRebuild from '@/components/dashboard/MobileCommandCentreRebuild'
@@ -26,6 +26,18 @@ const navigation = vi.hoisted(() => ({
   replace: vi.fn(),
   search: { value: 'country=CA&role=exporter' },
 }))
+
+// Model Next's resolved lazy sections with React Suspense for this SSR harness.
+// The browser visual gate separately exercises Next's real chunk loader.
+vi.mock('next/dynamic', async () => {
+  const { createElement, lazy, Suspense } = await import('react')
+  return { default: (loader: Parameters<typeof lazy>[0], options: { ssr?: boolean; loading?: () => React.ReactNode } = {}) => {
+    if (options.ssr === false) return () => null
+    const Component = lazy(loader)
+    return (props: Record<string, unknown>) => createElement(Suspense,
+      { fallback: options.loading?.() ?? null }, createElement(Component, props))
+  } }
+})
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -110,8 +122,11 @@ function mobileProps(overrides: Partial<MobileCommandCentreProps> = {}): MobileC
   }
 }
 
-function renderMobileCommand(overrides: Partial<MobileCommandCentreProps> = {}) {
-  const markup = renderToStaticMarkup(createElement(MobileCommandCentreRebuild, mobileProps(overrides)))
+async function renderMobileCommand(overrides: Partial<MobileCommandCentreProps> = {}) {
+  // Wait for real lazy sections; static markup renders only their Suspense fallbacks.
+  const stream = await renderToReadableStream(createElement(MobileCommandCentreRebuild, mobileProps(overrides)))
+  await stream.allReady
+  const markup = await new Response(stream).text()
   return parseHTML(`<!doctype html><html><body>${markup}</body></html>`).document
 }
 
@@ -122,14 +137,14 @@ beforeEach(() => {
 })
 
 describe('Mobile Command Centre operator architecture', () => {
-  it('defines exactly the approved four primary platform modes', () => {
+  it('defines exactly the approved four primary platform modes', async () => {
     expect(PRIMARY_NAV.map(item => item.label)).toEqual(['Command', 'Market', 'Intel', 'Actions'])
     expect(PRIMARY_NAV.map(item => item.id)).toEqual(['overview', 'marketplace', 'weekly-signals', 'next-actions'])
     expect(PRIMARY_NAV.some(item => item.label === 'Clinical')).toBe(false)
     expect(PRIMARY_NAV.some(item => item.label === 'Context')).toBe(false)
   })
 
-  it('keeps every section mapped exactly once with operational domains owned by Command', () => {
+  it('keeps every section mapped exactly once with operational domains owned by Command', async () => {
     const grouped = Object.values(SECTION_GROUPS).flat()
     const sectionIds = SECTION_NAV.map(section => section.id)
 
@@ -150,8 +165,8 @@ describe('Mobile Command Centre operator architecture', () => {
     }
   })
 
-  it('renders the current operator-first Command landing without obsolete catalogue chrome', () => {
-    const document = renderMobileCommand()
+  it('renders the current operator-first Command landing without obsolete catalogue chrome', async () => {
+    const document = await renderMobileCommand()
     const text = document.body.textContent || ''
 
     expect(document.querySelector('[data-mobile-command-version="2"]')).not.toBeNull()
@@ -170,23 +185,27 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(document.querySelector('[data-command-module]')).toBeNull()
   })
 
-  it('uses action, canonical signal and opportunity data for the Command pulse and previews', () => {
-    const document = renderMobileCommand()
+  it('uses action, canonical signal and opportunity data for the Command pulse and previews', async () => {
+    const document = await renderMobileCommand()
     const pulse = [...document.querySelectorAll('.hvm-op-pulse strong')].map(node => node.textContent)
 
     // Attention counts operator exceptions only. The two corridor launchers are
-    // `kind: 'tool'` and are excluded, which is why this is 3 and not 5 — see
+    // `kind: 'tool'` and are excluded. One signal priority plus inquiry,
+    // wanted and proof-review exceptions yield four attention items — see
     // docs/COMMAND_SURFACE_SPEC.md 4.2. Before that change a Doctor/Prescriber's
     // two highest-priority items were "Open corridor execution plan" and "Run
     // landed cost + sensitivity".
-    expect(pulse).toEqual(['3', '1', '1'])
+    expect(pulse).toEqual(['4', '1', '1'])
+    expect(document.body.textContent).toContain('Review 1 active inquiry')
+    expect(document.body.textContent).toContain('Assess 1 wanted request')
+    expect(document.body.textContent).toContain('1 proof gate require review')
     expect(document.body.textContent).toContain('German import requirements updated')
     expect(document.body.textContent).toContain('EU-GMP export requirement')
     expect(document.querySelectorAll('.hvm-op-compact-zero')).toHaveLength(0)
   })
 
-  it('offers the corridor launchers as tools rather than letting them occupy the priority slots', () => {
-    const document = renderMobileCommand()
+  it('offers the corridor launchers as tools rather than letting them occupy the priority slots', async () => {
+    const document = await renderMobileCommand()
 
     // Still reachable — demoted, not removed.
     const tools = [...document.querySelectorAll('.hvm-op-tool')].map(node => node.textContent || '')
@@ -203,8 +222,8 @@ describe('Mobile Command Centre operator architecture', () => {
     }
   })
 
-  it('compresses only empty intelligence and opportunity categories into tappable zero rows', () => {
-    const document = renderMobileCommand({
+  it('compresses only empty intelligence and opportunity categories into tappable zero rows', async () => {
+    const document = await renderMobileCommand({
       signals: [] as unknown as MobileCommandCentreProps['signals'],
       marketplaceRows: { cannabis: [supplyListing], opportunities: [] },
     })
@@ -219,9 +238,9 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(document.querySelector('#hvm-op-opportunity-heading')).toBeNull()
   })
 
-  it('renders only the committed Intel section and exposes the current Intel secondary navigation', () => {
+  it('renders only the committed Intel section and exposes the current Intel secondary navigation', async () => {
     navigation.search.value = 'country=CA&role=exporter&page=signals&section=weekly-signals'
-    const document = renderMobileCommand()
+    const document = await renderMobileCommand()
 
     expect(document.querySelector('[data-active-destination="weekly-signals"]')).not.toBeNull()
     expect(document.querySelector('#weekly-signals')).not.toBeNull()
@@ -231,8 +250,8 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(document.querySelector('.hvm2-section-rail')).toBeNull()
   })
 
-  it('keeps Command-owned operational domains reachable through the current secondary navigation', () => {
-    const landing = renderMobileCommand()
+  it('keeps Command-owned operational domains reachable through the current secondary navigation', async () => {
+    const landing = await renderMobileCommand()
     const navText = landing.querySelector('.hvm-op-secondary-nav')?.textContent ?? ''
     expect(navText).toContain('Clinical')
     expect(navText).toContain('Jurisdiction')
@@ -241,15 +260,15 @@ describe('Mobile Command Centre operator architecture', () => {
     for (const section of ['clinical', 'jurisdiction', 'network'] as const) {
       const page = SECTION_TO_DESKTOP_PAGE[section]
       navigation.search.value = `country=CA&role=exporter&page=${page}&section=${section}`
-      const document = renderMobileCommand()
+      const document = await renderMobileCommand()
       expect(document.querySelector(`#${section}`)).not.toBeNull()
       expect(document.querySelector('[data-active-destination="overview"]')).not.toBeNull()
     }
   })
 
-  it('keeps the primary bottom navigation as the stable way back to Command from Intel', () => {
+  it('keeps the primary bottom navigation as the stable way back to Command from Intel', async () => {
     navigation.search.value = 'country=CA&role=exporter&page=signals&section=weekly-signals'
-    const document = renderMobileCommand()
+    const document = await renderMobileCommand()
     const primary = document.querySelector('[aria-label="Primary mobile command navigation"]')
     expect(primary).not.toBeNull()
     expect(primary?.textContent).toContain('Command')
@@ -258,9 +277,9 @@ describe('Mobile Command Centre operator architecture', () => {
     expect(primary?.textContent).toContain('Actions')
   })
 
-  it('renders the committed marketplace section while preserving the complete category universe in contracts', () => {
+  it('renders the committed marketplace section while preserving the complete category universe in contracts', async () => {
     navigation.search.value = 'country=CA&role=exporter&page=marketplace&section=marketplace&marketView=cannabis'
-    const document = renderMobileCommand()
+    const document = await renderMobileCommand()
 
     expect(document.querySelector('[data-active-destination="marketplace"]')).not.toBeNull()
     expect(document.querySelector('#marketplace')).not.toBeNull()
@@ -270,13 +289,13 @@ describe('Mobile Command Centre operator architecture', () => {
     ])
   })
 
-  it('normalizes marketplace confidence without conflating stored percentages and fractions', () => {
+  it('normalizes marketplace confidence without conflating stored percentages and fractions', async () => {
     expect(normalizeListing(supplyListing, 0, 'cannabis', 'Canada').confidence).toBe(78)
     expect(parseConfidence('78')).toBe(78)
     expect(confidenceFractionToPercent(0.82)).toBe(82)
   })
 
-  it('keeps query and contained-tool helpers stable', () => {
+  it('keeps query and contained-tool helpers stable', async () => {
     expect(parseMobileCommandTool('corridor-plan')).toBe('corridor-plan')
     expect(parseMobileCommandTool('external-checkout')).toBeNull()
     expect(defaultListingTypeForView('equipment')).toBe('Used / Surplus Equipment')
