@@ -538,6 +538,11 @@ alter table public.jurisdiction_opportunities
   drop constraint if exists jurisdiction_opportunities_verified_provenance_ck;`,
   },
   {
+    file: '20260923043000_evidence_architecture_hardening_007.sql',
+    anchor: 'with x as (select * from public.jurisdiction_data_depth_evaluator)',
+    replacement: 'with x as (select * from public.v_jurisdiction_data_depth_evaluator)',
+  },
+  {
     file: '20260923034000_evidence_architecture_hardening_003.sql',
     anchor: 'create or replace view public.v_jurisdiction_verified_snapshot_gate\nwith (security_invoker=on) as',
     replacement: 'create or replace view public.v_jurisdiction_legacy_market_snapshot_gate\nwith (security_invoker=on) as',

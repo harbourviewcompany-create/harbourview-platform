@@ -573,6 +573,18 @@ test('replay reconstructs the Colombia briefing that no repository migration see
   assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
 })
 
+test('replay corrects the hardening 007 evaluator view name without changing production history', () => {
+  const file = '20260923043000_evidence_architecture_hardening_007.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.equal(patch.anchor, 'with x as (select * from public.jurisdiction_data_depth_evaluator)')
+  assert.equal(patch.replacement, 'with x as (select * from public.v_jurisdiction_data_depth_evaluator)')
+})
+
 test('replay preserves the structured snapshot gate when legacy market evidence changes view shape', () => {
   const file = '20260923034000_evidence_architecture_hardening_003.sql'
   const patches = contentPatches.filter((item) => item.file === file)
