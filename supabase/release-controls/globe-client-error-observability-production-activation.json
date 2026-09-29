@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "release": "globe-client-error-observability-production-activation",
+  "production_project_ref": "zvxdgdkukjrrwamdpqrg",
+  "approved_migrations": [
+    {
+      "version": "20260929084500",
+      "file": "20260929084500_expand_client_error_boundaries.sql",
+      "git_blob_sha": "6448d7e5c407cca5ab3ea3ff66d5bc88eb16c70a"
+    }
+  ],
+  "preflight_sql": "tests/sql/globe_client_error_observability_preflight_read_only.sql",
+  "postflight_sql": "tests/sql/globe_client_error_observability_postflight_read_only.sql"
+}
