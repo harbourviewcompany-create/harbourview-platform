@@ -725,6 +725,18 @@ test('replay preserves the full-depth summary view column contract in later eval
   }
 })
 
+test('replay exposes captured_url on the verified snapshot gate before dynamic evaluator consumers', () => {
+  const file = '20260923033000_evidence_snapshot_gate_002.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.match(patch.replacement, /ss\.captured_url/)
+  assert.match(patch.replacement, /registered_source_url/)
+})
+
 test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {
   const file = '20260922165000_primary_netherlands_format_rules.sql'
   const patches = contentPatches.filter((item) => item.file === file)
