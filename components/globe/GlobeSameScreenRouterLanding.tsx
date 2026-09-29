@@ -21,6 +21,7 @@ import { MarketOverviewSheet } from './MarketOverviewSheet'
 import { RoleSelectSheet } from './RoleSelectSheet'
 import { GlobeRegulatoryLegend } from './GlobeRegulatoryLegend'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
+import { reportClientError } from '@/lib/errorReporting'
 import { GlobeProvider } from './GlobeProvider'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
@@ -151,6 +152,7 @@ class GlobeRenderErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error) {
     console.error('[GlobeRenderErrorBoundary]', error)
+    reportClientError('globe', error)
   }
 
   render() {

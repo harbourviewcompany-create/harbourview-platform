@@ -13,6 +13,7 @@ import {
   parseSupabaseMigrationList,
   readRepositoryMigrations,
   selectNewCommittedNotApplied,
+  selectUnapprovedPendingOutsideBaseline,
 } from '../../scripts/migration-ledger-manifest.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -508,4 +509,33 @@ test('the shipped committed-not-applied baseline is well formed and loadable', (
   )
   const phantom = raw.versions.filter((version) => !migrationVersions.has(version))
   assert.deepEqual(phantom, [], `baselined versions with no migration file: ${phantom.join(', ')}`)
+})
+
+
+test('activation baseline permits known unrelated pending versions but blocks new ones', () => {
+  const baseline = {
+    file: 'test-baseline',
+    versions: new Set(['20260801150000', '20260915050000']),
+  }
+
+  assert.deepEqual(
+    selectUnapprovedPendingOutsideBaseline(
+      ['20260801150000', '20260915050000'],
+      baseline,
+    ),
+    [],
+  )
+
+  assert.deepEqual(
+    selectUnapprovedPendingOutsideBaseline(
+      ['20260801150000', '20260929090000'],
+      baseline,
+    ),
+    ['20260929090000'],
+  )
+
+  assert.deepEqual(
+    selectUnapprovedPendingOutsideBaseline(['20260801150000'], null),
+    ['20260801150000'],
+  )
 })

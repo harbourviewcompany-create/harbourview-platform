@@ -475,7 +475,8 @@ export function renderManifestMarkdown(manifest) {
   }
 
   lines.push('', '## Gate requirements', '')
-  for (const [name, passed] of Object.entries(manifest.activation_gate.requirements)) {
+  const gateRequirements = manifest.execution_gate?.requirements ?? manifest.activation_gate.requirements
+  for (const [name, passed] of Object.entries(gateRequirements)) {
     lines.push(`- ${passed ? 'PASS' : 'FAIL'} — \`${name}\``)
   }
 
@@ -544,6 +545,11 @@ export function selectNewCommittedNotApplied(committedNotApplied, baseline) {
   return committedNotApplied.filter((version) => !baseline.versions.has(version))
 }
 
+export function selectUnapprovedPendingOutsideBaseline(unexpectedPending, baseline) {
+  if (!baseline) return [...unexpectedPending]
+  return unexpectedPending.filter((version) => !baseline.versions.has(version))
+}
+
 function writeOutput(filePath, content) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, content)
@@ -581,11 +587,16 @@ export function runCli(argv = process.argv.slice(2)) {
     manifest.committed_not_applied,
     committedBaseline,
   )
+  const unapprovedPendingOutsideBaseline = selectUnapprovedPendingOutsideBaseline(
+    manifest.unexpected_pending,
+    committedBaseline,
+  )
   manifest.committed_not_applied_baseline = committedBaseline
     ? {
         file: committedBaseline.file,
         baselined_versions: committedBaseline.versions.size,
         new_versions: newCommittedNotApplied,
+        unapproved_pending_outside_baseline: unapprovedPendingOutsideBaseline,
       }
     : null
 
@@ -593,26 +604,57 @@ export function runCli(argv = process.argv.slice(2)) {
   const newCommittedDrift = newCommittedNotApplied.length > 0
   const equivalenceDrift = manifest.live_version_equivalence_mismatches.length > 0
   const approvedStillPending = manifest.approved_pending.length > 0
-  const unexpectedPending = manifest.unexpected_pending.length > 0
   const approvedFilesExact = manifest.approved_file_mismatches.length === 0
   const repositoryNamesValid = manifest.invalid_migration_filenames.length === 0
+  const noPendingDuplicateVersions = manifest.pending_duplicate_versions.length === 0
+  const allApprovedPending =
+    manifest.approved_pending.length === control.approved_migrations.length &&
+    manifest.approved_already_applied.length === 0
   const allApprovedApplied =
     manifest.approved_already_applied.length === control.approved_migrations.length
 
-  manifest.execution_gate = {
-    ok:
-      args.mode === 'drift'
-        ? !remoteDrift && !equivalenceDrift && !newCommittedDrift
-        : args.mode === 'activation-preflight'
-          ? manifest.activation_gate.ok
-          : !remoteDrift &&
-            !equivalenceDrift &&
-            !approvedStillPending &&
-            !unexpectedPending &&
-            approvedFilesExact &&
-            repositoryNamesValid &&
-            allApprovedApplied,
+  const activationPreflightRequirements = {
+    no_remote_only_versions: !remoteDrift,
+    live_version_equivalences_exact: !equivalenceDrift,
+    no_unapproved_pending_outside_baseline: unapprovedPendingOutsideBaseline.length === 0,
+    all_approved_versions_pending: allApprovedPending,
+    approved_files_exact: approvedFilesExact,
+    no_pending_duplicate_versions: noPendingDuplicateVersions,
+    no_invalid_migration_filenames: repositoryNamesValid,
   }
+
+  const activationPostflightRequirements = {
+    no_remote_only_versions: !remoteDrift,
+    live_version_equivalences_exact: !equivalenceDrift,
+    no_unapproved_pending_outside_baseline: unapprovedPendingOutsideBaseline.length === 0,
+    all_approved_versions_applied: allApprovedApplied,
+    no_approved_versions_still_pending: !approvedStillPending,
+    approved_files_exact: approvedFilesExact,
+    no_pending_duplicate_versions: noPendingDuplicateVersions,
+    no_invalid_migration_filenames: repositoryNamesValid,
+  }
+
+  const driftRequirements = {
+    no_remote_only_versions: !remoteDrift,
+    live_version_equivalences_exact: !equivalenceDrift,
+    no_new_committed_not_applied_versions: !newCommittedDrift,
+  }
+
+  manifest.execution_gate =
+    args.mode === 'drift'
+      ? {
+          ok: Object.values(driftRequirements).every(Boolean),
+          requirements: driftRequirements,
+        }
+      : args.mode === 'activation-preflight'
+        ? {
+            ok: Object.values(activationPreflightRequirements).every(Boolean),
+            requirements: activationPreflightRequirements,
+          }
+        : {
+            ok: Object.values(activationPostflightRequirements).every(Boolean),
+            requirements: activationPostflightRequirements,
+          }
 
   writeOutput(args['json-out'], `${JSON.stringify(manifest, null, 2)}\n`)
   writeOutput(args['markdown-out'], renderManifestMarkdown(manifest))
@@ -637,12 +679,12 @@ export function runCli(argv = process.argv.slice(2)) {
     return manifest
   }
 
-  if (args.mode === 'activation-preflight' && !manifest.activation_gate.ok) {
-    const failedRequirements = Object.entries(manifest.activation_gate.requirements)
+  if (args.mode === 'activation-preflight' && !manifest.execution_gate.ok) {
+    const failedRequirements = Object.entries(manifest.execution_gate.requirements)
       .filter(([, passed]) => !passed)
       .map(([name]) => name)
     throw new Error(
-      `Activation manifest is HOLD. Failed requirements: ${failedRequirements.join(', ')}. Unexpected pending versions: ${manifest.unexpected_pending.join(', ') || 'none'}`,
+      `Activation manifest is HOLD. Failed requirements: ${failedRequirements.join(', ')}. Unapproved pending outside baseline: ${unapprovedPendingOutsideBaseline.join(', ') || 'none'}`,
     )
   }
 

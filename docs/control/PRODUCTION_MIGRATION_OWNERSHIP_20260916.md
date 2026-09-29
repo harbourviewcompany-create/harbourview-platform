@@ -8,13 +8,15 @@ Production schema changes are owned by the repository migration pipeline:
 - Live ledger: `supabase_migrations.schema_migrations`
 - Drift gate: `.github/workflows/migration-drift-check.yml`
 - Production activation path: `.github/workflows/supabase-migrate.yml`
+- Release scope: a reviewed content-hash-pinned manifest under `supabase/release-controls/`
+- Known historical repository-only backlog is isolated by `committed-not-applied-baseline.json`; a release activation may apply only the files explicitly approved by its selected manifest.
 - Production deployment must use the protected `production-database` environment and a reviewed `main` commit.
 
 Supabase's current guidance is consistent with this boundary: remote schema changes should go through version-controlled migration files, and production deployment should be coordinated so only one actor runs the migration push at a time. See the Supabase migration documentation.
 
 ## Non-canonical paths
 
-Legacy one-off workflows and runbooks that invoke `psql` directly against the production project or manually insert rows into `supabase_migrations.schema_migrations` are not production migration owners. They are historical operational artifacts and must not be used for new schema changes.
+Legacy one-off workflows and runbooks that invoke `psql` directly against the production project or manually insert rows into `supabase_migrations.schema_migrations` are not production migration owners. They are historical operational artifacts and must not be used for new schema changes. The canonical workflow may use `psql` internally after the release-control and drift gates pass, because it applies only the content-hash-pinned files from the selected reviewed manifest and registers each file in the ledger in the same transaction.
 
 Before a legacy activation workflow is re-enabled, its migration must first exist in `supabase/migrations/`, pass the drift gate, and be applied through the canonical production migration workflow.
 
