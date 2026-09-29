@@ -726,6 +726,16 @@ test('replay preserves the full-depth summary view column contract in later eval
   }
 })
 
+test('replay projects dimension labels required by the dynamic evaluator output', () => {
+  const file = '20260923001000_full_depth_dynamic_evaluator.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes("d.display_name, d.layer"),
+  )
+  assert.ok(patch)
+  assert.match(patch.replacement, /d\.display_name, d\.layer/)
+  assert.match(patch.replacement, /required_for_regulatory_publication/)
+})
+
 test('replay exposes captured_url on the verified snapshot gate before dynamic evaluator consumers', () => {
   const file = '20260923033000_evidence_snapshot_gate_002.sql'
   const patch = contentPatches.find((item) => item.file === file)
