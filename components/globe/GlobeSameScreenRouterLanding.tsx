@@ -23,6 +23,7 @@ import { GlobeRegulatoryLegend } from './GlobeRegulatoryLegend'
 import { featureFlags } from '@/lib/harbourview/feature-flags'
 import { reportClientError } from '@/lib/errorReporting'
 import { GlobeProvider } from './GlobeProvider'
+import { hvPanelPrimaryCtaClass } from '@/components/ui/HarbourviewPanel'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -219,8 +220,13 @@ export function GlobeSameScreenRouterLanding() {
     }
 
     dispatch({ type: 'ROUTE_RESOLVED', href: result.href })
-    router.push(result.href)
-  }, [dispatch, router, state])
+  }, [dispatch, state])
+
+  useEffect(() => {
+    if (state.step === 'routing' && state.routeStatus === 'resolved' && state.resolvedHref) {
+      router.push(state.resolvedHref)
+    }
+  }, [router, state.step, state.routeStatus, state.resolvedHref])
 
   const showLegend =
     featureFlags.globeRegulatoryTiers &&
@@ -310,6 +316,32 @@ export function GlobeSameScreenRouterLanding() {
             }}
             onBack={() => dispatch({ type: 'BACK' })}
           />
+        ) : null}
+
+        {state.step === 'routing' ? (
+          <RouterBottomSheet
+            eyebrow="MARKET ROUTING"
+            title={state.selectedCountryIso2
+              ? `Opening ${getCountryName(state.selectedCountryIso2)} dashboard`
+              : 'Opening your market route'}
+            size="market"
+            onBack={() => dispatch({ type: 'BACK' })}
+            footer={state.resolvedHref ? (
+              <button
+                type="button"
+                className={hvPanelPrimaryCtaClass}
+                onClick={() => window.location.assign(state.resolvedHref!)}
+              >
+                Continue to dashboard
+              </button>
+            ) : null}
+          >
+            <p role="status" className="text-sm leading-6 text-white/72">
+              {state.resolvedHref
+                ? 'Opening your destination. If navigation pauses, continue using the button below. Sign-in may be required.'
+                : 'Finding your destination…'}
+            </p>
+          </RouterBottomSheet>
         ) : null}
 
         {state.step === 'fallback' ? (

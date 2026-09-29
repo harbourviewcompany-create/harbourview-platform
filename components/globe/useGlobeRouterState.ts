@@ -31,6 +31,7 @@ export function globeRouterReducer(
         selectedIntentId: undefined,
         roleSearchQuery: '',
         routeStatus: 'idle',
+        resolvedHref: undefined,
         inlineNotice: undefined,
       }
     case 'MARKET_ENTER':
@@ -41,6 +42,7 @@ export function globeRouterReducer(
         ...state,
         step: 'routing',
         routeStatus: 'resolving',
+        resolvedHref: undefined,
         selectedIntentId: undefined,
         roleSearchQuery: '',
       }
@@ -104,6 +106,7 @@ export function globeRouterReducer(
         ...state,
         step: 'routing',
         routeStatus: 'resolving',
+        resolvedHref: undefined,
         selectedRoleId: action.roleId,
         selectedIntentId: undefined,
         roleSearchQuery: '',

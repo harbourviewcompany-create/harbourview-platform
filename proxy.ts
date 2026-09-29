@@ -20,6 +20,21 @@ function applyNoStoreHeaders(response: NextResponse) {
 }
 
 const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
+const AUTH_CHECK_TIMEOUT_MS = 8_000
+
+async function withAuthCheckTimeout<T>(request: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      request,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Auth service unavailable')), AUTH_CHECK_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
 
 function tierMeetsMinimum(
   actual: SubscriptionTier | string | undefined,
@@ -105,9 +120,19 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null
+  try {
+    const result = await withAuthCheckTimeout(supabase.auth.getUser())
+    user = result.data.user
+  } catch (error) {
+    console.error('[harbourview:auth] Auth check failed', {
+      message: error instanceof Error ? error.message : 'Unknown auth error',
+    })
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.search = `?next=${encodeURIComponent(returnPath)}&error=${encodeURIComponent('Sign-in is temporarily unavailable. Please retry shortly.')}`
+    return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
+  }
 
   if (!user) {
     const loginUrl = request.nextUrl.clone()
