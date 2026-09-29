@@ -1,5 +1,5 @@
 /* Harbourview service worker — network-first for navigations; cache static shell assets. */
-const CACHE = 'harbourview-shell-v1'
+const CACHE = 'harbourview-shell-v2'
 const PRECACHE = ['/', '/manifest.webmanifest', '/icons/icon-192.svg', '/icons/icon-512.svg']
 
 self.addEventListener('install', (event) => {
@@ -22,9 +22,11 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
 
-  // Never cache authenticated API or dashboard data aggressively — network only.
+  // Authenticated/API traffic must preserve real HTTP failure semantics.
+  // Returning the cached landing page here turns upstream failures into HTML
+  // responses and makes dashboard outages look like navigation failures.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/dashboard')) {
-    event.respondWith(fetch(req).catch(() => caches.match('/')))
+    event.respondWith(fetch(req))
     return
   }
 
