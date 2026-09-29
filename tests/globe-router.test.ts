@@ -333,6 +333,26 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
+  it('enters the selected dashboard without waiting for briefing data or a role', () => {
+    const selected = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
+    const entering = globeRouterReducer(selected, { type: 'MARKET_ENTER' })
+    const route = resolveGlobeRoute({
+      countryIso2: entering.selectedCountryIso2,
+      countryIso2s: entering.selectedCountryIso2s,
+      roleId: entering.selectedRoleId,
+      intentId: entering.selectedIntentId,
+      mode: entering.mode,
+      source: 'globe_router',
+      layerId: entering.activeLayerId ?? 'country_select',
+    })
+
+    expect(entering.step).toBe('routing')
+    expect(entering.resolvedHref).toBeUndefined()
+    expect(route.status).toBe('resolved')
+    expect(route.href).toContain('/dashboard?')
+    expect(route.href).toContain('country=DE')
+  })
+
   it('returns to the country step on back from market_overview so the camera can fly back to globe', () => {
     const afterCountry = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const afterBack = globeRouterReducer(afterCountry, { type: 'BACK' })

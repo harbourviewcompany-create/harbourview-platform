@@ -31,16 +31,18 @@ export function globeRouterReducer(
         selectedIntentId: undefined,
         roleSearchQuery: '',
         routeStatus: 'idle',
+        resolvedHref: undefined,
         inlineNotice: undefined,
       }
     case 'MARKET_ENTER':
-      // Keep the logged-out funnel useful: choose a role before routing so a
-      // single-market visitor lands on the public country-role preview instead
-      // of being sent straight into the authenticated Command Centre.
+      // Role is an optional operating-context preference, not an entry gate.
+      // The destination restores a signed-in user's saved role when available;
+      // otherwise role remains null, which Command presents as All roles.
       return {
         ...state,
-        step: 'role',
-        routeStatus: 'idle',
+        step: 'routing',
+        routeStatus: 'resolving',
+        resolvedHref: undefined,
         selectedIntentId: undefined,
         roleSearchQuery: '',
       }
@@ -104,6 +106,7 @@ export function globeRouterReducer(
         ...state,
         step: 'routing',
         routeStatus: 'resolving',
+        resolvedHref: undefined,
         selectedRoleId: action.roleId,
         selectedIntentId: undefined,
         roleSearchQuery: '',

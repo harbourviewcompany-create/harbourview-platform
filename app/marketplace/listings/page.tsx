@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { PublicCard, PublicHero, PublicLinkCard, PublicSection, SectionHeader } from '@/components/PublicUi'
 import { MARKETPLACE_CONFIDENTIALITY_CAVEAT } from '@/lib/content/complianceCopy'
-import { getPublicListingsResilient, type PublicListing } from '@/lib/server/listingsQuery'
+import { getPublicListings, type PublicListing } from '@/lib/server/listingsQuery'
 import { getPublicListingHref } from '@/lib/marketplace/publicListingHref'
 import { getMarketplaceCategory, isMarketplaceCategoryKey } from '@/lib/marketplace/taxonomy'
 
@@ -128,9 +128,18 @@ function ListingGridCard({ listing }: { listing: PublicListing }) {
 }
 
 export default async function MarketplaceListingsPage() {
-  const listings = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getPublicListingsResilient()
-  const orientationMode = listings.length > 0
-    && listings.every(listing => listing.high_level_specs?.orientation_only === true)
+  let listings: PublicListing[] = []
+  let listingsUnavailable = false
+  if (process.env.NEXT_PHASE !== 'phase-production-build') {
+    try {
+      listings = await getPublicListings()
+    } catch (error) {
+      // Keep the public navigation usable when the listing database is down.
+      // Do not present a failed query as proof that there are no listings.
+      console.error('[marketplace/listings] public listings unavailable:', error)
+      listingsUnavailable = true
+    }
+  }
 
   return (
     <>
@@ -152,20 +161,14 @@ export default async function MarketplaceListingsPage() {
       </PublicHero>
 
       <PublicSection tone="dark">
-        <SectionHeader
-          eyebrow={orientationMode ? 'Marketplace orientation' : 'Current reviewed listings'}
-          title={orientationMode
-            ? 'Live listing data is temporarily unavailable; category orientation remains available.'
-            : 'Approved public summaries across marketplace categories.'}
-        />
-        {orientationMode ? (
-          <PublicCard className="mb-5 p-5">
-            <p className="text-sm leading-7 text-white/62">
-              These examples are orientation-only and are not current inventory, offers, availability or seller commitments.
+        <SectionHeader eyebrow="Current reviewed listings" title="Approved public summaries across marketplace categories." />
+        {listingsUnavailable ? (
+          <PublicCard className="p-7">
+            <p role="status" className="text-sm leading-7 text-white/62">
+              Reviewed listings are temporarily unavailable. Explore the Network or return to this page later.
             </p>
           </PublicCard>
-        ) : null}
-        {listings.length === 0 ? (
+        ) : listings.length === 0 ? (
           <PublicCard className="p-7">
             <p className="text-sm leading-7 text-white/62">
               No approved public listings are currently available. Category orientation pages and intake routes remain live for reviewed submissions and qualified requests.

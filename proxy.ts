@@ -20,6 +20,21 @@ function applyNoStoreHeaders(response: NextResponse) {
 }
 
 const TIER_ORDER: SubscriptionTier[] = ['free', 'intel', 'operator']
+const AUTH_CHECK_TIMEOUT_MS = 8_000
+
+async function withAuthCheckTimeout<T>(request: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      request,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Auth service unavailable')), AUTH_CHECK_TIMEOUT_MS)
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
 
 function tierMeetsMinimum(
   actual: SubscriptionTier | string | undefined,
@@ -52,6 +67,9 @@ export async function proxy(request: NextRequest) {
 
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  // Preserve market, page and section context through sign-in. Only a local
+  // pathname and its existing query are accepted as the return destination.
+  const returnPath = `${normalizedPathname}${request.nextUrl.search}`
 
   const redirectTo = LEGACY_REDIRECTS[normalizedPathname]
   if (redirectTo) {
@@ -81,7 +99,7 @@ export async function proxy(request: NextRequest) {
     })
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
+    loginUrl.search = `?next=${encodeURIComponent(returnPath)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
     return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
   }
 
@@ -102,14 +120,24 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null
+  try {
+    const result = await withAuthCheckTimeout(supabase.auth.getUser())
+    user = result.data.user
+  } catch (error) {
+    console.error('[harbourview:auth] Auth check failed', {
+      message: error instanceof Error ? error.message : 'Unknown auth error',
+    })
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.search = `?next=${encodeURIComponent(returnPath)}&error=${encodeURIComponent('Sign-in is temporarily unavailable. Please retry shortly.')}`
+    return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
+  }
 
   if (!user) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
+    loginUrl.search = `?next=${encodeURIComponent(returnPath)}`
     return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
   }
 
