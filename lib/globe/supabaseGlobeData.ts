@@ -43,6 +43,8 @@ export type GlobeLiveData = {
   unmappedSignalCountries: Record<string, number>
   /** True when the signals query failed and the payload carries countries only. */
   signalsUnavailable?: boolean
+  /** True when live country metadata failed and neutral checked-in geography is being served. */
+  countriesUnavailable?: boolean
 }
 
 export type PublishedTierRow = {
@@ -107,6 +109,59 @@ export function resolveGlobeRegulatoryTier(
   return legacyEligible
     ? { tier: legacy, provenance: 'legacy' }
     : { tier: null, provenance: null }
+}
+
+const supplementaryJurisdictionNames: Record<string, string> = {
+  MC: 'Monaco',
+  MH: 'Marshall Islands',
+  MV: 'Maldives',
+  NR: 'Nauru',
+  SM: 'San Marino',
+  TV: 'Tuvalu',
+  VA: 'Vatican City',
+}
+
+/**
+ * Neutral, checked-in geography for DB/PostgREST outages. This deliberately
+ * publishes no market/tier state; it only preserves country routing and the
+ * interactive globe while live regulatory metadata is unavailable.
+ */
+export function getStaticGlobeCountryMarkers(): GlobeCountryMarker[] {
+  const markers: GlobeCountryMarker[] = naturalEarthCountriesPayload.countries.map((country) => ({
+    iso2: country.iso2,
+    name: country.name,
+    lat: country.centroid[1],
+    lng: country.centroid[0],
+    opportunityScore: null,
+    signalsStatus: null,
+    marketAccessStatus: null,
+    regulatoryTier: null,
+    regulatoryTierEvidenceKey: null,
+    regulatoryTierVerifiedAt: null,
+    regulatoryTierExpiresAt: null,
+    regulatoryTierProvenance: null,
+  }))
+
+  const seen = new Set(markers.map((marker) => marker.iso2))
+  for (const [iso2, [lng, lat]] of Object.entries(supplementaryJurisdictionCentroids)) {
+    if (seen.has(iso2)) continue
+    markers.push({
+      iso2,
+      name: supplementaryJurisdictionNames[iso2] ?? iso2,
+      lat,
+      lng,
+      opportunityScore: null,
+      signalsStatus: null,
+      marketAccessStatus: null,
+      regulatoryTier: null,
+      regulatoryTierEvidenceKey: null,
+      regulatoryTierVerifiedAt: null,
+      regulatoryTierExpiresAt: null,
+      regulatoryTierProvenance: null,
+    })
+  }
+
+  return markers
 }
 
 export async function getGlobeCountryMarkers(
@@ -217,9 +272,9 @@ export async function getGlobeSignals(
 }
 
 /**
- * Countries are required; signals are an overlay. A countries failure throws.
- * A signals failure keeps the country layer (heat map, click targets, routing)
- * and is reported through `signalsUnavailable` plus a server log.
+ * Live country metadata and signals are independent enrichments on top of the
+ * checked-in globe geometry. If either backend query fails, preserve routing
+ * with neutral static countries and mark the missing layer explicitly.
  */
 export async function getGlobeLiveData(
   supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
@@ -229,22 +284,29 @@ export async function getGlobeLiveData(
     getGlobeSignals(supabase),
   ])
 
-  if (countriesResult.status === 'rejected') throw countriesResult.reason
+  const countriesUnavailable = countriesResult.status === 'rejected'
+  const signalsUnavailable = signalsResult.status === 'rejected'
 
-  if (signalsResult.status === 'rejected') {
+  if (countriesUnavailable) {
     console.error(
-      '[globe] signals query failed; serving countries without signals:',
+      '[globe] countries query failed; serving neutral static geography:',
+      countriesResult.reason instanceof Error ? countriesResult.reason.message : countriesResult.reason,
+    )
+  }
+  if (signalsUnavailable) {
+    console.error(
+      '[globe] signals query failed; serving without live signals:',
       signalsResult.reason instanceof Error ? signalsResult.reason.message : signalsResult.reason,
     )
-    return {
-      countries: countriesResult.value,
-      signalsByIso2: {},
-      unmappedSignalCountries: {},
-      signalsUnavailable: true,
-    }
   }
 
-  return { countries: countriesResult.value, ...signalsResult.value }
+  return {
+    countries: countriesUnavailable ? getStaticGlobeCountryMarkers() : countriesResult.value,
+    signalsByIso2: signalsUnavailable ? {} : signalsResult.value.signalsByIso2,
+    unmappedSignalCountries: signalsUnavailable ? {} : signalsResult.value.unmappedSignalCountries,
+    ...(countriesUnavailable ? { countriesUnavailable: true } : {}),
+    ...(signalsUnavailable ? { signalsUnavailable: true } : {}),
+  }
 }
 
 export type SignalRealtimeRow = {
