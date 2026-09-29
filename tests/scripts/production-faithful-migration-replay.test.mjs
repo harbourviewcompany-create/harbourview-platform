@@ -573,6 +573,19 @@ test('replay reconstructs the Colombia briefing that no repository migration see
   assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
 })
 
+test('replay normalizes malformed provenance constraint drops without changing production history', () => {
+  const file = '20260923030000_evidence_architecture_hardening_001.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.match(patch.anchor, /execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck/i)
+  assert.match(patch.replacement, /alter table public\.jurisdiction_regulatory_rules\s+drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck/i)
+  assert.match(patch.replacement, /alter table public\.jurisdiction_opportunities\s+drop constraint if exists jurisdiction_opportunities_verified_provenance_ck/i)
+})
+
 test('replay corrects the historical function privilege probe without changing production migration semantics', () => {
   const file = '20260916100000_security_boundary_hardening.sql'
   const patch = contentPatches.find((item) => item.file === file && item.anchor.includes('has_function_privilege'))
