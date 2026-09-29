@@ -98,8 +98,10 @@ describe('Harbourview P0 identity, organization, membership and operating contex
     expect(activeWorkspace).toContain(".eq('id', requestedWorkspaceId)")
     expect(activeWorkspace).toContain(".eq('status', 'active')")
     expect(dashboardPage).toContain(".from('workspaces')")
-    expect(dashboardPage).toContain(".eq('id', activeWorkspaceId)")
-    expect(dashboardPage).toContain('Boolean(membership && workspace)')
+    expect(dashboardPage).toContain(".in('id', candidateWorkspaceIds)")
+    expect(dashboardPage).toContain(".in('workspace_id', candidateWorkspaceIds)")
+    expect(dashboardPage).toContain("membershipIds.has(id) && activeWorkspaceIds.has(id)")
+    expect(dashboardPage).toContain("createdWorkspaceId")
     for (const source of [watchRules, watchItems, licenceSubmit]) {
       expect(source).toContain('resolveActiveWorkspace')
       expect(source).not.toContain(".select('workspace_id')\n    .eq('user_id', userId)\n    .limit(1)")
