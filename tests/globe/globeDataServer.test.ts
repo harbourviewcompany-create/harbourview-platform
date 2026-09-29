@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const countriesMock = vi.fn()
 const signalsMock = vi.fn()
+const staticCountry = { iso2: 'CA', name: 'Canada', lat: 56, lng: -106 }
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ unstable_cache: <T extends (...a: never[]) => unknown>(fn: T) => fn }))
@@ -14,6 +15,7 @@ vi.mock('@/lib/supabase/env', () => ({
 vi.mock('@/lib/globe/supabaseGlobeData', () => ({
   getGlobeCountryMarkers: (...a: unknown[]) => countriesMock(...a),
   getGlobeSignals: (...a: unknown[]) => signalsMock(...a),
+  getStaticGlobeCountryMarkers: () => [staticCountry],
 }))
 
 const country = { iso2: 'CA', name: 'Canada', lat: 1, lng: 2 }
@@ -45,10 +47,25 @@ describe('getGlobeLiveDataCached', () => {
     expect(data.signalsUnavailable).toBe(true)
   })
 
-  it('throws when countries fail so the route can answer 503', async () => {
+  it('uses neutral static geography when countries fail', async () => {
     countriesMock.mockRejectedValue(new Error('countries down'))
-    signalsMock.mockResolvedValue({ signalsByIso2: {}, unmappedSignalCountries: {} })
+    signalsMock.mockResolvedValue({ signalsByIso2: { CA: [] }, unmappedSignalCountries: {} })
     const { getGlobeLiveDataCached } = await import('@/lib/globe/globeDataServer')
-    await expect(getGlobeLiveDataCached()).rejects.toThrow(/countries down/)
+    const data = await getGlobeLiveDataCached()
+    expect(data.countries).toEqual([staticCountry])
+    expect(data.countriesUnavailable).toBe(true)
+    expect(data.signalsByIso2).toEqual({ CA: [] })
+    expect(data.signalsUnavailable).toBeUndefined()
+  })
+
+  it('keeps static routing even when both live layers fail', async () => {
+    countriesMock.mockRejectedValue(new Error('countries down'))
+    signalsMock.mockRejectedValue(new Error('signals down'))
+    const { getGlobeLiveDataCached } = await import('@/lib/globe/globeDataServer')
+    const data = await getGlobeLiveDataCached()
+    expect(data.countries).toEqual([staticCountry])
+    expect(data.countriesUnavailable).toBe(true)
+    expect(data.signalsUnavailable).toBe(true)
+    expect(data.signalsByIso2).toEqual({})
   })
 })

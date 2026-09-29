@@ -122,15 +122,24 @@ describe('getGlobeLiveData', () => {
     errSpy.mockRestore()
   })
 
-  it('still fails loud when the countries query errors', async () => {
+  it('falls back to neutral static geography when the countries query errors', async () => {
     fromMock.mockImplementation((table: string) => {
       if (table === 'countries') return makeQueryBuilder({ data: null, error: { message: 'countries down' } })
       if (table === 'signals') return makeQueryBuilder({ data: [], error: null })
       throw new Error(`unexpected table: ${table}`)
     })
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const { getGlobeLiveData } = await import('@/lib/globe/supabaseGlobeData')
-    await expect(getGlobeLiveData()).rejects.toThrow(/countries query failed: countries down/)
+    const result = await getGlobeLiveData()
+
+    expect(result.countries.length).toBeGreaterThan(100)
+    expect(result.countriesUnavailable).toBe(true)
+    expect(result.countries.every((country) => country.regulatoryTier === null)).toBe(true)
+    expect(result.countries.every((country) => country.regulatoryTierProvenance === null)).toBe(true)
+    expect(result.signalsByIso2).toEqual({})
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
   })
 })
 

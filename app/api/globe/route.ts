@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { getGlobeLiveDataCached, GLOBE_REVALIDATE_SECONDS } from '@/lib/globe/globeDataServer'
-import { getStaticGlobeCountryMarkers } from '@/lib/globe/supabaseGlobeData'
 
 // ISR revalidate made Next prerender this route during `next build`.
 // The live query exceeds the 60s static generation budget and fails production.
@@ -10,7 +9,9 @@ export const runtime = 'nodejs'
 /**
  * Cached globe payload for the client GlobeProvider. Replaces a per-visitor
  * browser PostgREST query with a single server-side query cached for 5 minutes.
- * On hard country-source failure it serves checked-in geometry with degraded=true so routing remains usable.
+ * Live-data failures normally degrade to neutral checked-in geography. Only an
+ * unexpected server failure returns 503, so country routing remains available
+ * during Supabase/PostgREST incidents.
  */
 export async function GET() {
   try {
@@ -18,8 +19,10 @@ export async function GET() {
     return NextResponse.json(
       {
         ...data,
-        degraded: data.signalsUnavailable === true,
+        degraded: data.signalsUnavailable === true || data.countriesUnavailable === true,
         diagnostics: {
+          countrySource: data.countriesUnavailable === true ? 'static' : 'live',
+          signalsSource: data.signalsUnavailable === true ? 'unavailable' : 'live',
           countryCount: data.countries.length,
           mappedSignalCountryCount: Object.keys(data.signalsByIso2).length,
           regulatoryTierCount: data.countries.filter((c) => c.regulatoryTier !== null).length,
@@ -34,25 +37,19 @@ export async function GET() {
     )
   } catch (err) {
     console.error('[api/globe] live data failure:', err)
-    const countries = getStaticGlobeCountryMarkers()
     return NextResponse.json(
       {
-        countries,
+        countries: [],
         signalsByIso2: {},
         unmappedSignalCountries: {},
-        signalsUnavailable: true,
         degraded: true,
-        error: 'globe_live_data_degraded',
-        diagnostics: {
-          countryCount: countries.length,
-          mappedSignalCountryCount: 0,
-          regulatoryTierCount: 0,
-          coordinateCount: countries.length,
-        },
+        error: 'globe_live_data_unavailable',
       },
       {
+        status: 503,
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=3600',
+          'Cache-Control': 'no-store',
+          'Retry-After': '3',
         },
       },
     )
