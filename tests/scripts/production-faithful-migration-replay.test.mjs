@@ -576,7 +576,7 @@ test('replay reconstructs the Colombia briefing that no repository migration see
 test('replay preserves the structured snapshot gate when legacy market evidence changes view shape', () => {
   const file = '20260923034000_evidence_architecture_hardening_003.sql'
   const patches = contentPatches.filter((item) => item.file === file)
-  assert.equal(patches.length, 3)
+  assert.equal(patches.length, 4)
 
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   for (const patch of patches) {
