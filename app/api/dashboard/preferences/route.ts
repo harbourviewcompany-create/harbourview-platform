@@ -5,6 +5,17 @@ import { resolveMarketCountryIso2 } from '@/lib/market/marketCode'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 15 // fail fast: was inheriting the 300s fluid default and hung a live user request for 5 minutes
 
+const UPSTREAM_TIMEOUT_MS = 8_000
+
+async function withTimeout<T>(operation: () => PromiseLike<T>, timeoutMs = UPSTREAM_TIMEOUT_MS): Promise<T> {
+  return await Promise.race([
+    Promise.resolve().then(operation),
+    new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('dashboard_preferences_upstream_timeout')), timeoutMs)
+    }),
+  ])
+}
+
 const ALLOWED_HEATMAP_LAYERS = new Set(['opportunity', 'regulatory', 'activity', 'none'])
 
 /**
@@ -62,15 +73,14 @@ function normalizeCommandViewedAt(value: unknown): string | null | undefined {
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await withTimeout(() => supabase.auth.getUser())
     if (!user) return NextResponse.json({ preferences: null })
 
-    const { data } = await supabase
-      .schema('public')
+    const { data } = await withTimeout(() => supabase
       .from('user_dashboard_preferences')
       .select('country_iso2, role_id, heatmap_layer, active_workspace_id, command_last_viewed_at')
       .eq('user_id', user.id)
-      .single()
+      .single())
 
     return NextResponse.json({ preferences: data ?? null })
   } catch {
@@ -81,7 +91,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await withTimeout(() => supabase.auth.getUser())
     if (!user) return NextResponse.json({ ok: false }, { status: 401 })
 
     const body = await req.json() as Record<string, unknown>
@@ -102,7 +112,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if ('active_workspace_id' in body && activeWorkspaceId) {
-      const [{ data: membership }, { data: workspace }] = await Promise.all([
+      const [{ data: membership }, { data: workspace }] = await withTimeout(() => Promise.all([
         supabase
           .from('workspace_members')
           .select('workspace_id')
@@ -116,7 +126,7 @@ export async function PATCH(req: NextRequest) {
           .eq('id', activeWorkspaceId)
           .eq('status', 'active')
           .maybeSingle(),
-      ])
+      ]))
 
       if (!membership || !workspace) {
         return NextResponse.json({ ok: false, error: 'Active organization membership and active workspace required.' }, { status: 403 })
@@ -147,12 +157,11 @@ export async function PATCH(req: NextRequest) {
     // just bound. Using upsert made PostgREST evaluate the INSERT policy for
     // partial payloads and produced intermittent 500s on mobile after org
     // creation. Update an existing row, and only insert when no row exists.
-    const { data: existing, error: existingError } = await supabase
-      .schema('public')
+    const { data: existing, error: existingError } = await withTimeout(() => supabase
       .from('user_dashboard_preferences')
       .select('user_id')
       .eq('user_id', user.id)
-      .maybeSingle()
+      .maybeSingle())
 
     if (existingError) {
       console.error('[dashboard-preferences-read]', {
@@ -164,11 +173,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (existing) {
-      const { error } = await supabase
-        .schema('public')
+      const { error } = await withTimeout(() => supabase
         .from('user_dashboard_preferences')
         .update(payload)
-        .eq('user_id', user.id)
+        .eq('user_id', user.id))
 
       if (error) {
         console.error('[dashboard-preferences-update]', {
@@ -179,10 +187,9 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ ok: false, error: 'Dashboard preferences could not be updated.' }, { status: 500 })
       }
     } else {
-      const { error } = await supabase
-        .schema('public')
+      const { error } = await withTimeout(() => supabase
         .from('user_dashboard_preferences')
-        .insert(payload)
+        .insert(payload))
 
       if (error) {
         console.error('[dashboard-preferences-insert]', {
