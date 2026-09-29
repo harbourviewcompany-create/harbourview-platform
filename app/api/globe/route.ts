@@ -17,7 +17,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ...data,
-        degraded: false,
+        degraded: data.signalsUnavailable === true,
         diagnostics: {
           countryCount: data.countries.length,
           mappedSignalCountryCount: Object.keys(data.signalsByIso2).length,

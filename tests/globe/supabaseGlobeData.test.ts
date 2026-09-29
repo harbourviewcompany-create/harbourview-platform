@@ -104,15 +104,33 @@ describe('getGlobeLiveData', () => {
     expect(result.unmappedSignalCountries).toEqual({ Global: 1 })
   })
 
-  it('fails loud when the signals query errors, rather than returning an empty globe silently', async () => {
+  it('keeps the country layer and flags signalsUnavailable when the signals query errors', async () => {
     fromMock.mockImplementation((table: string) => {
       if (table === 'countries') return makeQueryBuilder({ data: [countryRow], error: null })
       if (table === 'signals') return makeQueryBuilder({ data: null, error: { message: 'boom' } })
       throw new Error(`unexpected table: ${table}`)
     })
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const { getGlobeLiveData } = await import('@/lib/globe/supabaseGlobeData')
-    await expect(getGlobeLiveData()).rejects.toThrow(/signals query failed: boom/)
+    const result = await getGlobeLiveData()
+
+    expect(result.countries.length).toBeGreaterThan(0)
+    expect(result.signalsByIso2).toEqual({})
+    expect(result.signalsUnavailable).toBe(true)
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
+  })
+
+  it('still fails loud when the countries query errors', async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === 'countries') return makeQueryBuilder({ data: null, error: { message: 'countries down' } })
+      if (table === 'signals') return makeQueryBuilder({ data: [], error: null })
+      throw new Error(`unexpected table: ${table}`)
+    })
+
+    const { getGlobeLiveData } = await import('@/lib/globe/supabaseGlobeData')
+    await expect(getGlobeLiveData()).rejects.toThrow(/countries query failed: countries down/)
   })
 })
 

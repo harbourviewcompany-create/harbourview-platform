@@ -41,6 +41,8 @@ export type GlobeLiveData = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
   unmappedSignalCountries: Record<string, number>
+  /** True when the signals query failed and the payload carries countries only. */
+  signalsUnavailable?: boolean
 }
 
 export type PublishedTierRow = {
@@ -187,7 +189,15 @@ export async function getGlobeLiveData(
 
   const { data: signalRows, error: signalsError } = signalsResult
   if (signalsError) {
-    throw new Error(`getGlobeLiveData: signals query failed: ${signalsError.message}`)
+    // Signals are an overlay. A signals failure must not take down the country
+    // layer (heat map, click targets, routing), so degrade to countries only.
+    console.error('[globe] signals query failed; serving countries without signals:', signalsError.message)
+    return {
+      countries: countriesResult,
+      signalsByIso2: {},
+      unmappedSignalCountries: {},
+      signalsUnavailable: true,
+    }
   }
 
   const signalsByIso2: Record<string, GlobeSignal[]> = {}

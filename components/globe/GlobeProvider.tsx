@@ -25,17 +25,30 @@ import {
   type SignalRealtimeRow,
 } from '@/lib/globe/supabaseGlobeData'
 
-async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; degraded: boolean }> {
-  const res = await fetch('/api/globe', { cache: 'no-store' })
-  if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
-  const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
-  return {
-    data: {
-      countries: data.countries ?? [],
-      signalsByIso2: data.signalsByIso2 ?? {},
-      unmappedSignalCountries: data.unmappedSignalCountries ?? {},
-    },
-    degraded: data.degraded === true,
+/** Per-attempt ceiling so a hung /api/globe cannot hold the intro spin forever. */
+const FETCH_TIMEOUT_MS = 8000
+
+export async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; degraded: boolean }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch('/api/globe', { cache: 'no-store', signal: controller.signal })
+    if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
+    const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
+    return {
+      data: {
+        countries: data.countries ?? [],
+        signalsByIso2: data.signalsByIso2 ?? {},
+        unmappedSignalCountries: data.unmappedSignalCountries ?? {},
+        signalsUnavailable: data.signalsUnavailable === true,
+      },
+      degraded: data.degraded === true || data.signalsUnavailable === true,
+    }
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error(`globe fetch timed out after ${FETCH_TIMEOUT_MS}ms`)
+    throw err
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -51,7 +64,7 @@ async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly numb
   }
   throw lastErr
 }
-const FETCH_RETRY_BACKOFFS_MS = [800, 2000] as const
+const FETCH_RETRY_BACKOFFS_MS = [800] as const
 
 type GlobeContextType = {
   liveData: GlobeLiveData
