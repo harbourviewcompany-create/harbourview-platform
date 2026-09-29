@@ -53,6 +53,7 @@ async function queryListings(params: URLSearchParams): Promise<PublicListing[]> 
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${TARGET_PUBLIC_VIEW}?${params.toString()}`, {
       ...PUBLIC_LISTING_CACHE,
+      signal: AbortSignal.timeout(12_000),
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,

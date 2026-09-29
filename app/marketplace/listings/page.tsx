@@ -128,7 +128,18 @@ function ListingGridCard({ listing }: { listing: PublicListing }) {
 }
 
 export default async function MarketplaceListingsPage() {
-  const listings = process.env.NEXT_PHASE === 'phase-production-build' ? [] : await getPublicListings()
+  let listings: PublicListing[] = []
+  let listingsUnavailable = false
+  if (process.env.NEXT_PHASE !== 'phase-production-build') {
+    try {
+      listings = await getPublicListings()
+    } catch (error) {
+      // Keep the public navigation usable when the listing database is down.
+      // Do not present a failed query as proof that there are no listings.
+      console.error('[marketplace/listings] public listings unavailable:', error)
+      listingsUnavailable = true
+    }
+  }
 
   return (
     <>
@@ -151,7 +162,13 @@ export default async function MarketplaceListingsPage() {
 
       <PublicSection tone="dark">
         <SectionHeader eyebrow="Current reviewed listings" title="Approved public summaries across marketplace categories." />
-        {listings.length === 0 ? (
+        {listingsUnavailable ? (
+          <PublicCard className="p-7">
+            <p role="status" className="text-sm leading-7 text-white/62">
+              Reviewed listings are temporarily unavailable. Explore the Network or return to this page later.
+            </p>
+          </PublicCard>
+        ) : listings.length === 0 ? (
           <PublicCard className="p-7">
             <p className="text-sm leading-7 text-white/62">
               No approved public listings are currently available. Category orientation pages and intake routes remain live for reviewed submissions and qualified requests.
