@@ -471,6 +471,11 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260923033000_evidence_snapshot_gate_002.sql',
+    anchor: "  ss.fetch_status,\n  sr.source_url registered_source_url,",
+    replacement: "  ss.fetch_status,\n  ss.captured_url,\n  sr.source_url registered_source_url,",
+  },
+  {
     file: '20260922120000_primary_tv_va_source_enrichment.sql',
     anchor: "values('39d4e117-d0ae-4669-8f0c-b631afee0ef1','TV','depth-v1-tv'",
     replacement: "values((select id from public.countries where iso_alpha2='TV' limit 1),'TV','depth-v1-tv'",
