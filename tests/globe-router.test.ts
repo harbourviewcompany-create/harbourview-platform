@@ -333,24 +333,17 @@ describe('Harbourview globe same-screen router', () => {
     expect(afterRole.selectedRoleId).toBe('cultivator_producer')
   })
 
-  it('enters the selected dashboard without waiting for briefing data or a role', () => {
+  it('requires role selection before routing from market overview', () => {
     const selected = globeRouterReducer(initialGlobeRouterState, { type: 'COUNTRY_SELECT', countryIso2: 'DE' })
     const entering = globeRouterReducer(selected, { type: 'MARKET_ENTER' })
-    const route = resolveGlobeRoute({
-      countryIso2: entering.selectedCountryIso2,
-      countryIso2s: entering.selectedCountryIso2s,
-      roleId: entering.selectedRoleId,
-      intentId: entering.selectedIntentId,
-      mode: entering.mode,
-      source: 'globe_router',
-      layerId: entering.activeLayerId ?? 'country_select',
-    })
+    const routed = globeRouterReducer(entering, { type: 'ROLE_SELECT', roleId: 'importer' })
 
-    expect(entering.step).toBe('routing')
-    expect(entering.resolvedHref).toBeUndefined()
-    expect(route.status).toBe('resolved')
-    expect(route.href).toContain('/dashboard?')
-    expect(route.href).toContain('country=DE')
+    expect(entering.step).toBe('role')
+    expect(entering.routeStatus).toBe('idle')
+    expect(entering.selectedRoleId).toBeUndefined()
+    expect(routed.step).toBe('routing')
+    expect(routed.routeStatus).toBe('resolving')
+    expect(routed.selectedRoleId).toBe('importer')
   })
 
   it('returns to the country step on back from market_overview so the camera can fly back to globe', () => {
