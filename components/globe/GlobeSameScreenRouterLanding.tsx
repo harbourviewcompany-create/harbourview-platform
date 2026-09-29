@@ -332,7 +332,7 @@ export function GlobeSameScreenRouterLanding() {
                 className={hvPanelPrimaryCtaClass}
                 onClick={() => window.location.assign(state.resolvedHref!)}
               >
-                Continue to dashboard
+                {state.resolvedHref.startsWith('/dashboard') ? 'Continue to dashboard' : 'Continue to destination'}
               </button>
             ) : null}
           >
