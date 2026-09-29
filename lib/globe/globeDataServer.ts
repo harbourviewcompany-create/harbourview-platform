@@ -5,6 +5,7 @@ import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '
 import {
   getGlobeCountryMarkers,
   getGlobeSignals,
+  getStaticGlobeCountryMarkers,
   type GlobeLiveData,
 } from './supabaseGlobeData'
 
@@ -41,26 +42,35 @@ const getSignalsCached = unstable_cache(
 )
 
 /**
- * Countries are required and throw on hard failure (the route answers 503).
- * Signals degrade to empty with `signalsUnavailable: true`.
+ * Live country metadata and signals are cached independently. A backend outage
+ * must not take down country routing: countries fall back to neutral checked-in
+ * geography, while signals fall back to empty. Flags tell the UI which layer
+ * is unavailable.
  */
 export async function getGlobeLiveDataCached(): Promise<GlobeLiveData> {
   const [countries, signals] = await Promise.allSettled([getCountriesCached(), getSignalsCached()])
 
-  if (countries.status === 'rejected') throw countries.reason
+  const countriesUnavailable = countries.status === 'rejected'
+  const signalsUnavailable = signals.status === 'rejected'
 
-  if (signals.status === 'rejected') {
+  if (countriesUnavailable) {
     console.error(
-      '[globe] signals unavailable; serving countries only:',
+      '[globe] countries unavailable; serving neutral static geography:',
+      countries.reason instanceof Error ? countries.reason.message : countries.reason,
+    )
+  }
+  if (signalsUnavailable) {
+    console.error(
+      '[globe] signals unavailable; serving without live signals:',
       signals.reason instanceof Error ? signals.reason.message : signals.reason,
     )
-    return {
-      countries: countries.value,
-      signalsByIso2: {},
-      unmappedSignalCountries: {},
-      signalsUnavailable: true,
-    }
   }
 
-  return { countries: countries.value, ...signals.value }
+  return {
+    countries: countriesUnavailable ? getStaticGlobeCountryMarkers() : countries.value,
+    signalsByIso2: signalsUnavailable ? {} : signals.value.signalsByIso2,
+    unmappedSignalCountries: signalsUnavailable ? {} : signals.value.unmappedSignalCountries,
+    ...(countriesUnavailable ? { countriesUnavailable: true } : {}),
+    ...(signalsUnavailable ? { signalsUnavailable: true } : {}),
+  }
 }
