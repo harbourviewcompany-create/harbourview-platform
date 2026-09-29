@@ -9,7 +9,9 @@ export const runtime = 'nodejs'
 /**
  * Cached globe payload for the client GlobeProvider. Replaces a per-visitor
  * browser PostgREST query with a single server-side query cached for 5 minutes.
- * On hard failure it returns 503 so an empty payload is not cached as healthy.
+ * Live-data failures normally degrade to neutral checked-in geography. Only an
+ * unexpected server failure returns 503, so country routing remains available
+ * during Supabase/PostgREST incidents.
  */
 export async function GET() {
   try {
@@ -17,8 +19,10 @@ export async function GET() {
     return NextResponse.json(
       {
         ...data,
-        degraded: data.signalsUnavailable === true,
+        degraded: data.signalsUnavailable === true || data.countriesUnavailable === true,
         diagnostics: {
+          countrySource: data.countriesUnavailable === true ? 'static' : 'live',
+          signalsSource: data.signalsUnavailable === true ? 'unavailable' : 'live',
           countryCount: data.countries.length,
           mappedSignalCountryCount: Object.keys(data.signalsByIso2).length,
           regulatoryTierCount: data.countries.filter((c) => c.regulatoryTier !== null).length,

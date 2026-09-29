@@ -44,6 +44,25 @@ describe('fetchGlobeBootstrapData', () => {
     expect(result.data.countries).toHaveLength(1)
   })
 
+  it('preserves countriesUnavailable and marks the client degraded', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          countries: [{ iso2: 'CA' }],
+          signalsByIso2: {},
+          unmappedSignalCountries: {},
+          countriesUnavailable: true,
+          degraded: true,
+        }),
+      })),
+    )
+    const result = await fetchGlobeBootstrapData()
+    expect(result.degraded).toBe(true)
+    expect(result.data.countriesUnavailable).toBe(true)
+  })
+
   it('rejects on a non-OK response', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) })))
     await expect(fetchGlobeBootstrapData()).rejects.toThrow(/503/)

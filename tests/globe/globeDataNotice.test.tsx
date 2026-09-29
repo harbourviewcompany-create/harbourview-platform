@@ -28,6 +28,20 @@ describe('GlobeDataNotice', () => {
     expect(html).toContain('signals are temporarily unavailable')
     expect(html).toContain('Retry')
   })
+  it('explains neutral static routing when live country metadata is unavailable', () => {
+    const html = render({
+      degraded: true,
+      liveData: {
+        countries: [country],
+        signalsByIso2: {},
+        unmappedSignalCountries: {},
+        countriesUnavailable: true,
+      },
+    })
+    expect(html).toContain('regulatory data is temporarily unavailable')
+    expect(html).toContain('Country routing remains available')
+    expect(html).toContain('Retry')
+  })
   it('explains missing data and keeps country selection message when empty', () => {
     const html = render({
       degraded: true, loadError: 'globe fetch failed: 503',
