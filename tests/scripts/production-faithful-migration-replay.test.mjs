@@ -546,6 +546,24 @@ test('replay reconciles the legacy and Prescriber OS clinical contracts additive
   assert.match(patch.replacement, /alter column source_locator set not null/i)
 })
 
+test('replay uses the canonical globally-unique pathway slug for Lithuania conflict handling', () => {
+  const file = '20260923044500_lt_primary_regulatory_depth.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.equal(patch.anchor, 'on conflict (country_id, slug) do update set')
+  assert.equal(patch.replacement, 'on conflict (slug) do update set')
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+
+  const schema = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260702033107_regulatory_product_format_matrix.sql'),
+    'utf8',
+  )
+  assert.match(schema, /create table public\.regulatory_pathways[\s\S]*slug text not null unique/i)
+})
+
 test('production-local relation guard is suppressed when the exact migration is absent', () => {
   assert.deepEqual(planReplayContentPatches({ migrationFiles: [] }), [])
 })
