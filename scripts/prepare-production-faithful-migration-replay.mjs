@@ -1268,16 +1268,24 @@ export function planReplayVersionCollisionRenames({ migrationFiles }) {
 export function planReplaySyntheticFoundations({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   const seenDestinations = new Set()
-  return REPLAY_SYNTHETIC_FOUNDATIONS.filter((item) => {
-    if (seenDestinations.has(item.destination)) return false
-    if (fileSet.has(item.destination) || !fileSet.has(item.before)) return false
-    if (!item.required.every((file) => fileSet.has(file))) return false
-    const destinationVersion = migrationVersion(item.destination)
-    const beforeVersion = migrationVersion(item.before)
-    const eligible = Boolean(destinationVersion && beforeVersion && destinationVersion < beforeVersion)
-    if (eligible) seenDestinations.add(item.destination)
-    return eligible
-  })
+
+  // Some recovered replay foundations are duplicated in historical handoffs.
+  // Prefer the last eligible definition: later entries are the reconciled
+  // canonical copies, while earlier duplicates may contain truncated recovery
+  // text. Reverse-filter-reverse keeps the canonical source order intact.
+  return [...REPLAY_SYNTHETIC_FOUNDATIONS]
+    .reverse()
+    .filter((item) => {
+      if (seenDestinations.has(item.destination)) return false
+      if (fileSet.has(item.destination) || !fileSet.has(item.before)) return false
+      if (!item.required.every((file) => fileSet.has(file))) return false
+      const destinationVersion = migrationVersion(item.destination)
+      const beforeVersion = migrationVersion(item.before)
+      const eligible = Boolean(destinationVersion && beforeVersion && destinationVersion < beforeVersion)
+      if (eligible) seenDestinations.add(item.destination)
+      return eligible
+    })
+    .reverse()
 }
 
 export function planReplayContentPatches({ migrationFiles }) {
