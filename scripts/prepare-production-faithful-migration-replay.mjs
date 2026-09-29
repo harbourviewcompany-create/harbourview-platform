@@ -83,6 +83,16 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260922101715_replay_jurisdiction_data_depth_subnational_source_alignment_v2.sql',
+    before: '20260922110000_jurisdiction_dimension_coverage.sql',
+    required: [
+      '20260922101323_jurisdiction_data_depth_v1.sql',
+      '20260922110000_jurisdiction_dimension_coverage.sql',
+    ],
+    sourceArtifact:
+      'supabase/release-controls/recovered-migration-sources/20260922101715_jurisdiction_data_depth_subnational_source_alignment_v2.sql',
+  },
+  {
     destination: '20260922104459_replay_jurisdiction_data_depth_tasks.sql',
     before: '20260922104500_primary_us_jurisdiction_depth_enrichment.sql',
     required: [
@@ -805,7 +815,19 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       if (!fs.existsSync(path.join(migrationDirectory, item.before))) {
         throw new Error(`Replay synthetic foundation boundary disappeared: ${item.before}`)
       }
-      fs.writeFileSync(destination, item.content, 'utf8')
+
+      let content = item.content
+      if (!content && item.sourceArtifact) {
+        const sourceArtifact = path.join(repositoryRoot, item.sourceArtifact)
+        if (!fs.existsSync(sourceArtifact)) {
+          throw new Error(`Replay recovered foundation source disappeared: ${item.sourceArtifact}`)
+        }
+        content = fs.readFileSync(sourceArtifact, 'utf8')
+      }
+      if (!content) {
+        throw new Error(`Replay synthetic foundation has no content source: ${item.destination}`)
+      }
+      fs.writeFileSync(destination, content, 'utf8')
     }
     for (const item of contentPatches) {
       const target = path.join(migrationDirectory, item.file)
