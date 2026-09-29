@@ -360,6 +360,7 @@ test('replay materializes the missing education policy identities immediately be
   assert.match(depthEvidence.content, /create table if not exists public\.jurisdiction_data_depth_evidence/i)
   assert.match(depthEvidence.content, /references public\.source_snapshots\(id\)/i)
   assert.match(depthEvidence.content, /create or replace view public\.v_jurisdiction_verified_snapshot_gate/i)
+  assert.match(depthEvidence.content, /ss\.captured_url/i)
   assert.match(depthEvidence.content, /qualifying_snapshot/i)
 
   const foGlEvidence = syntheticFoundations.find(
