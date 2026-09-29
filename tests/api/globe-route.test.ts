@@ -41,7 +41,23 @@ describe('GET /api/globe', () => {
     expect(body.countries).toHaveLength(1)
   })
 
-  it('returns 503 no-store when countries fail', async () => {
+  it('returns 200 degraded when static countries are serving', async () => {
+    liveMock.mockResolvedValue({
+      countries: [country],
+      signalsByIso2: {},
+      unmappedSignalCountries: {},
+      countriesUnavailable: true,
+    })
+    const { GET } = await import('@/app/api/globe/route')
+    const res = await GET()
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.degraded).toBe(true)
+    expect(body.diagnostics.countrySource).toBe('static')
+    expect(body.countries).toHaveLength(1)
+  })
+
+  it('returns 503 no-store only on an unexpected server failure', async () => {
     liveMock.mockRejectedValue(new Error('down'))
     const { GET } = await import('@/app/api/globe/route')
     const res = await GET()
