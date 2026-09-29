@@ -25,17 +25,30 @@ import {
   type SignalRealtimeRow,
 } from '@/lib/globe/supabaseGlobeData'
 
-async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; degraded: boolean }> {
-  const res = await fetch('/api/globe', { cache: 'no-store' })
-  if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
-  const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
-  return {
-    data: {
-      countries: data.countries ?? [],
-      signalsByIso2: data.signalsByIso2 ?? {},
-      unmappedSignalCountries: data.unmappedSignalCountries ?? {},
-    },
-    degraded: data.degraded === true,
+/** Per-attempt ceiling so a hung /api/globe cannot hold the intro spin forever. */
+const FETCH_TIMEOUT_MS = 8000
+
+export async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; degraded: boolean }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch('/api/globe', { cache: 'no-store', signal: controller.signal })
+    if (!res.ok) throw new Error(`globe fetch failed: ${res.status}`)
+    const data = (await res.json()) as GlobeLiveData & { degraded?: boolean }
+    return {
+      data: {
+        countries: data.countries ?? [],
+        signalsByIso2: data.signalsByIso2 ?? {},
+        unmappedSignalCountries: data.unmappedSignalCountries ?? {},
+        signalsUnavailable: data.signalsUnavailable === true,
+      },
+      degraded: data.degraded === true || data.signalsUnavailable === true,
+    }
+  } catch (err) {
+    if (controller.signal.aborted) throw new Error(`globe fetch timed out after ${FETCH_TIMEOUT_MS}ms`)
+    throw err
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -51,7 +64,7 @@ async function withRetry<T>(attempt: () => Promise<T>, backoffsMs: readonly numb
   }
   throw lastErr
 }
-const FETCH_RETRY_BACKOFFS_MS = [800, 2000] as const
+const FETCH_RETRY_BACKOFFS_MS = [800] as const
 
 type GlobeContextType = {
   liveData: GlobeLiveData
@@ -61,6 +74,8 @@ type GlobeContextType = {
   degraded: boolean
   loadedAt: number | null
   reconnect: () => void
+  /** Re-run the /api/globe bootstrap (used by the degraded-state Retry). */
+  reload: () => void
 }
 
 /** Exported so surfaces that only need liveData can soft-fall back outside the provider (SSR smoke). */
@@ -73,6 +88,12 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [degraded, setDegraded] = useState(false)
   const [loadedAt, setLoadedAt] = useState<number | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
+  const reload = useCallback(() => {
+    setLoading(true)
+    setLoadError(null)
+    setReloadToken((n) => n + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -84,6 +105,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         // live-update path after the cached snapshot is installed.
         setLiveData(bootstrap.data)
         setDegraded(bootstrap.degraded)
+        setLoadError(null)
         setLoadedAt(Date.now())
       })
       .catch((err) => {
@@ -97,7 +119,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       })
 
     return () => { cancelled = true }
-  }, [])
+  }, [reloadToken])
 
   const handleRealtimeChange = useCallback(
     (payload: {
@@ -152,8 +174,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   const { status, reconnect } = useGlobeRealtime(handleRealtimeChange)
   const value = useMemo(
-    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect }),
-    [liveData, status, loading, loadError, degraded, loadedAt, reconnect]
+    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect, reload }),
+    [liveData, status, loading, loadError, degraded, loadedAt, reconnect, reload]
   )
   return <GlobeContext.Provider value={value}>{children}</GlobeContext.Provider>
 }

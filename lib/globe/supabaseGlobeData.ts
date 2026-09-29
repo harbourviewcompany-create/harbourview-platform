@@ -41,8 +41,8 @@ export type GlobeLiveData = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
   unmappedSignalCountries: Record<string, number>
-  /** Live sources that failed while a usable degraded payload was retained. */
-  degradedSources?: Array<'countries' | 'signals'>
+  /** True when the signals query failed and the payload carries countries only. */
+  signalsUnavailable?: boolean
 }
 
 export type PublishedTierRow = {
@@ -193,48 +193,27 @@ export async function getGlobeCountryMarkers(
   )
 }
 
-export async function getGlobeLiveData(
-  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
-): Promise<GlobeLiveData> {
-  const degradedSources: Array<'countries' | 'signals'> = []
-  const [countriesResult, signalsResult] = await Promise.allSettled([
-    getGlobeCountryMarkers(supabase),
-    supabase
-      .from('signals')
-      .select('id, headline, score, cat, country, country_iso2, created_at')
-      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: false })
-      .limit(500),
-  ])
+export type GlobeSignalsData = Pick<GlobeLiveData, 'signalsByIso2' | 'unmappedSignalCountries'>
 
-  let countries: GlobeCountryMarker[]
-  if (countriesResult.status === 'fulfilled' && countriesResult.value.length > 0) {
-    countries = countriesResult.value
-  } else {
-    degradedSources.push('countries')
-    if (countriesResult.status === 'rejected') {
-      console.error('[globe] countries source degraded:', countriesResult.reason)
-    } else {
-      console.error('[globe] countries source returned no rows; using static geometry fallback')
-    }
-    countries = getStaticGlobeCountryMarkers()
+/** Signals overlay only. Throws on query failure so callers can decide how to degrade. */
+export async function getGlobeSignals(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeSignalsData> {
+  const { data: signalRows, error: signalsError } = await supabase
+    .from('signals')
+    .select('id, headline, score, cat, country, country_iso2, created_at')
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (signalsError) {
+    throw new Error(`getGlobeSignals: signals query failed: ${signalsError.message}`)
   }
 
   const signalsByIso2: Record<string, GlobeSignal[]> = {}
   const unmappedSignalCountries: Record<string, number> = {}
-  let signalRows: SignalRealtimeRow[] = []
 
-  if (signalsResult.status === 'fulfilled' && !signalsResult.value.error) {
-    signalRows = (signalsResult.value.data ?? []) as SignalRealtimeRow[]
-  } else {
-    degradedSources.push('signals')
-    const reason = signalsResult.status === 'rejected'
-      ? signalsResult.reason
-      : signalsResult.value.error?.message
-    console.error('[globe] signals source degraded:', reason)
-  }
-
-  for (const row of signalRows) {
+  for (const row of signalRows ?? []) {
     const iso2 = row.country_iso2
     const signal: GlobeSignal = {
       id: row.id,
@@ -253,12 +232,38 @@ export async function getGlobeLiveData(
     }
   }
 
-  return {
-    countries,
-    signalsByIso2,
-    unmappedSignalCountries,
-    degradedSources: degradedSources.length > 0 ? degradedSources : undefined,
+  return { signalsByIso2, unmappedSignalCountries }
+}
+
+/**
+ * Countries are required; signals are an overlay. A countries failure throws.
+ * A signals failure keeps the country layer (heat map, click targets, routing)
+ * and is reported through `signalsUnavailable` plus a server log.
+ */
+export async function getGlobeLiveData(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeLiveData> {
+  const [countriesResult, signalsResult] = await Promise.allSettled([
+    getGlobeCountryMarkers(supabase),
+    getGlobeSignals(supabase),
+  ])
+
+  if (countriesResult.status === 'rejected') throw countriesResult.reason
+
+  if (signalsResult.status === 'rejected') {
+    console.error(
+      '[globe] signals query failed; serving countries without signals:',
+      signalsResult.reason instanceof Error ? signalsResult.reason.message : signalsResult.reason,
+    )
+    return {
+      countries: countriesResult.value,
+      signalsByIso2: {},
+      unmappedSignalCountries: {},
+      signalsUnavailable: true,
+    }
   }
+
+  return { countries: countriesResult.value, ...signalsResult.value }
 }
 
 export type SignalRealtimeRow = {

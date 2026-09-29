@@ -10,8 +10,7 @@ export const runtime = 'nodejs'
 /**
  * Cached globe payload for the client GlobeProvider. Replaces a per-visitor
  * browser PostgREST query with a single server-side query cached for 5 minutes.
- * On hard failure it serves checked-in country geometry with degraded=true so
- * market routing remains usable while live database enrichment recovers.
+ * On hard country-source failure it serves checked-in geometry with degraded=true so routing remains usable.
  */
 export async function GET() {
   try {
@@ -19,7 +18,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ...data,
-        degraded: (data.degradedSources?.length ?? 0) > 0,
+        degraded: data.signalsUnavailable === true,
         diagnostics: {
           countryCount: data.countries.length,
           mappedSignalCountryCount: Object.keys(data.signalsByIso2).length,
@@ -41,7 +40,7 @@ export async function GET() {
         countries,
         signalsByIso2: {},
         unmappedSignalCountries: {},
-        degradedSources: ['countries', 'signals'],
+        signalsUnavailable: true,
         degraded: true,
         error: 'globe_live_data_degraded',
         diagnostics: {
