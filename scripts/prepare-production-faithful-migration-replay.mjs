@@ -514,6 +514,30 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260923030000_evidence_architecture_hardening_001.sql',
+    anchor: `do $
+begin
+  execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck on public.jurisdiction_regulatory_rules';
+  execute 'drop constraint if exists jurisdiction_regulators_verified_provenance_ck on public.jurisdiction_regulators';
+  execute 'drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck on public.jurisdiction_regulatory_changes';
+  execute 'drop constraint if exists jurisdiction_market_participants_verified_provenance_ck on public.jurisdiction_market_participants';
+  execute 'drop constraint if exists jurisdiction_relationships_verified_provenance_ck on public.jurisdiction_relationships';
+  execute 'drop constraint if exists jurisdiction_opportunities_verified_provenance_ck on public.jurisdiction_opportunities';
+end $;`,
+    replacement: `alter table public.jurisdiction_regulatory_rules
+  drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck;
+alter table public.jurisdiction_regulators
+  drop constraint if exists jurisdiction_regulators_verified_provenance_ck;
+alter table public.jurisdiction_regulatory_changes
+  drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck;
+alter table public.jurisdiction_market_participants
+  drop constraint if exists jurisdiction_market_participants_verified_provenance_ck;
+alter table public.jurisdiction_relationships
+  drop constraint if exists jurisdiction_relationships_verified_provenance_ck;
+alter table public.jurisdiction_opportunities
+  drop constraint if exists jurisdiction_opportunities_verified_provenance_ck;`,
+  },
+  {
     file: '20260923033000_evidence_snapshot_gate_002.sql',
     anchor: "  ss.fetch_status,\n  sr.source_url registered_source_url,",
     replacement: "  ss.fetch_status,\n  ss.captured_url,\n  sr.source_url registered_source_url,",
