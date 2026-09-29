@@ -98,7 +98,7 @@ export default function ClinicalEvidenceCommandPage({
 
   if (!jurisdiction) {
     return (
-      <div className="space-y-4">
+      <div className="cc-page space-y-4">
         <section className={panel} data-testid="clinical-command-context-required">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#d4a853]">Clinical decision surface</p>
           <h2 className="mt-2 text-xl font-semibold text-white">Jurisdiction required</h2>
@@ -117,7 +117,7 @@ export default function ClinicalEvidenceCommandPage({
   const productCount = summary?.formulary.length ?? 0
 
   return (
-    <div className="space-y-4" data-testid="clinical-command-decision-surface">
+    <div className="cc-page space-y-4" data-testid="clinical-command-decision-surface">
       <section className={panel}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
