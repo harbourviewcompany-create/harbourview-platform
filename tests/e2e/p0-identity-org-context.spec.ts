@@ -288,7 +288,7 @@ test.describe.serial('authenticated organization onboarding', () => {
 
       await tokenInput.fill(INVITE_TOKEN)
       await page.getByRole('button', { name: 'Join organization', exact: true }).click()
-      await expect(page.getByRole('status')).toContainText('Invitation accepted')
+      await expect(page.getByRole('status')).toContainText('Organization joined')
       await page.waitForURL(url => `${url.pathname}${url.search}` === COMMAND_RETURN, { timeout: 30_000 })
 
       const orgContext = await readOrgContext(page)

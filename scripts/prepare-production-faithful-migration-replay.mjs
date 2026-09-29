@@ -515,7 +515,7 @@ where not exists (
 const REPLAY_CONTENT_PATCHES = [
   {
     file: '20260923030000_evidence_architecture_hardening_001.sql',
-    anchor: `do $
+    anchor: `do $$
 begin
   execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck on public.jurisdiction_regulatory_rules';
   execute 'drop constraint if exists jurisdiction_regulators_verified_provenance_ck on public.jurisdiction_regulators';
@@ -523,7 +523,7 @@ begin
   execute 'drop constraint if exists jurisdiction_market_participants_verified_provenance_ck on public.jurisdiction_market_participants';
   execute 'drop constraint if exists jurisdiction_relationships_verified_provenance_ck on public.jurisdiction_relationships';
   execute 'drop constraint if exists jurisdiction_opportunities_verified_provenance_ck on public.jurisdiction_opportunities';
-end $;`,
+end $$;`,
     replacement: `alter table public.jurisdiction_regulatory_rules
   drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck;
 alter table public.jurisdiction_regulators

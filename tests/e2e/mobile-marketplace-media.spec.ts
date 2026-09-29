@@ -45,7 +45,7 @@ async function authenticate(browser: Browser) {
 }
 
 async function assertAllHealthyMedia(page: Page) {
-  const cards = page.locator('.cc-mkt-card')
+  const cards = page.locator('.cc-mkt-card:visible')
   await expect(cards.first()).toBeVisible({ timeout: 30_000 })
   const cardCount = await cards.count()
   expect(cardCount).toBeGreaterThan(0)
