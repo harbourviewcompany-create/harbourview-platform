@@ -320,7 +320,7 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
 })
 
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 6)
+  assert.equal(syntheticFoundations.length, 7)
   const foundation = syntheticFoundations.find(
     (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
   )
@@ -344,6 +344,28 @@ test('replay materializes the missing education policy identities immediately be
   assert.ok(claudeStaging)
   assert.equal(claudeStaging.before, '20260921004056_harden_internal_tables_and_rules_repair_rpc.sql')
   assert.match(claudeStaging.content, /create table if not exists public\._claude_push_staging/i)
+
+  const recoveredSubnationalAlignment = syntheticFoundations.find(
+    (item) =>
+      item.destination ===
+      '20260922101715_replay_jurisdiction_data_depth_subnational_source_alignment_v2.sql',
+  )
+  assert.ok(recoveredSubnationalAlignment)
+  assert.equal(
+    recoveredSubnationalAlignment.before,
+    '20260922110000_jurisdiction_dimension_coverage.sql',
+  )
+  assert.equal(
+    recoveredSubnationalAlignment.sourceArtifact,
+    'supabase/release-controls/recovered-migration-sources/20260922101715_jurisdiction_data_depth_subnational_source_alignment_v2.sql',
+  )
+  const recoveredSubnationalSql = fs.readFileSync(
+    path.join(root, recoveredSubnationalAlignment.sourceArtifact),
+    'utf8',
+  )
+  assert.match(recoveredSubnationalSql, /Production migration version: 20260922101715/i)
+  assert.match(recoveredSubnationalSql, /as jurisdiction_level/i)
+  assert.match(recoveredSubnationalSql, /create view public\.v_jurisdiction_data_depth/i)
 
   const depthTasks = syntheticFoundations.find(
     (item) => item.destination === '20260922104459_replay_jurisdiction_data_depth_tasks.sql',
