@@ -659,8 +659,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
               const commandRoot = page.locator('.cc-app:visible')
               await expect(commandRoot).toBeVisible({ timeout: 30_000 })
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
-              const commandMain = page.locator('[data-dashboard-renderer="desktop"]:visible main:visible').first()
-              await expect(commandMain, `desktop page "${commandPage}" should expose a visible main content surface`).toBeVisible()
+              const commandMain = page.locator('[data-dashboard-renderer="desktop"]:visible .cc-page:visible').first()
+              await expect(commandMain, `desktop page "${commandPage}" should expose a visible command page surface`).toBeVisible()
               await expect(commandMain).toContainText(/\S/)
               verifiedPages.push(commandPage)
             }
