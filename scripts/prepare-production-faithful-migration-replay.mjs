@@ -138,6 +138,24 @@ left join public.source_registry sr on sr.id=ss.source_id;
 `,
   },
   {
+    destination: '20260923002959_replay_jurisdiction_regulators_conflict_key.sql',
+    before: '20260923003000_authority_evidence_tranche_001.sql',
+    required: [
+      '20260922240000_full_depth_structured_backing_models.sql',
+      '20260923003000_authority_evidence_tranche_001.sql',
+    ],
+    content: `-- Replay-only reconstruction of the production conflict target used by
+-- 20260923003000_authority_evidence_tranche_001.sql.
+--
+-- Production already had a unique identity for regulator names within each
+-- jurisdiction. The recovered CREATE TABLE migration does not contain that
+-- constraint, so zero-state replay must materialize it before the recorded
+-- ON CONFLICT clause runs. This never changes production migration history.
+create unique index if not exists jurisdiction_regulators_jurisdiction_name_uq
+  on public.jurisdiction_regulators(jurisdiction_key, regulator_name);
+`,
+  },
+  {
     destination: '20260922189959_replay_gt_market_access_evidence.sql',
     before: '20260922190000_primary_gt_enrichment.sql',
     required: [
