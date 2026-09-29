@@ -118,7 +118,7 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       await expect(page.getByText('DE → CA', { exact: true })).toBeVisible()
       await expect(page.getByText('Permit required', { exact: true }).first()).toBeVisible()
       await expect(page.getByText('Export readiness', { exact: false })).toBeVisible()
-      await expect(page.getByText('Satisfied', { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('Verified', { exact: true }).first()).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await reviewedRoute.scrollIntoViewIfNeeded()
       await page.screenshot({

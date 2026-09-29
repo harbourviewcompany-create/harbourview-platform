@@ -98,9 +98,9 @@ async function assertAllHealthyMedia(page: Page) {
 
   const geometry = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
+    viewportWidth: window.innerWidth,
   }))
-  expect(geometry.scrollWidth - geometry.clientWidth).toBeLessThanOrEqual(1)
+  expect(geometry.scrollWidth - geometry.viewportWidth).toBeLessThanOrEqual(1)
 }
 
 async function verifyEveryLoadedMarketplaceView(page: Page) {

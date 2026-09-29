@@ -75,6 +75,12 @@ export default async function DashboardPage({
   const urlRole = normalizeRoleParam(firstParam(params.role))
   const urlPage = normalizeCommandPage(firstParam(params.page))
   const openSignalsSearch = firstParam(params.search) === '1'
+  const createdWorkspaceParam = firstParam(params.bound) === '1'
+    ? firstParam(params.created)
+    : null
+  const createdWorkspaceId = createdWorkspaceParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(createdWorkspaceParam)
+    ? createdWorkspaceParam
+    : null
 
   let userId: string | null = null
   let userEmail: string | null = null
@@ -108,31 +114,35 @@ export default async function DashboardPage({
       activeWorkspaceId = prefs?.active_workspace_id ?? null
       commandLastViewedAt = prefs?.command_last_viewed_at ?? null
 
-      if (activeWorkspaceId) {
-        // Server-only membership validation uses the service client so RLS on the
-        // operating-context tables cannot incorrectly collapse a valid org into
-        // personal mode. The lookup remains scoped to the authenticated user and
-        // selected workspace ID.
+      const candidateWorkspaceIds = Array.from(new Set(
+        [activeWorkspaceId, createdWorkspaceId].filter((value): value is string => Boolean(value)),
+      ))
+      if (candidateWorkspaceIds.length > 0) {
+        // Server-only validation prevents RLS/cache lag from collapsing a newly
+        // created, committed organization back into personal mode. The
+        // post-create ?created=... hint is never trusted on its own.
         const workspaceClient = await createSupabaseServiceClient()
-        const [{ data: membership }, { data: workspace }] = await Promise.all([
+        const [{ data: memberships }, { data: workspaces }] = await Promise.all([
           workspaceClient
             .schema('public')
             .from('workspace_members')
             .select('workspace_id')
-            .eq('workspace_id', activeWorkspaceId)
             .eq('user_id', user.id)
             .eq('status', 'active')
-            .maybeSingle(),
+            .in('workspace_id', candidateWorkspaceIds),
           workspaceClient
             .schema('public')
             .from('workspaces')
             .select('id,status')
-            .eq('id', activeWorkspaceId)
             .eq('status', 'active')
-            .maybeSingle(),
+            .in('id', candidateWorkspaceIds),
         ])
-        hasOrg = Boolean(membership && workspace)
-        if (!hasOrg) activeWorkspaceId = null
+        const membershipIds = new Set((memberships ?? []).map(row => row.workspace_id))
+        const activeWorkspaceIds = new Set((workspaces ?? []).map(row => row.id))
+        const preferredIds = [activeWorkspaceId, createdWorkspaceId].filter((value): value is string => Boolean(value))
+        const resolvedWorkspaceId = preferredIds.find(id => membershipIds.has(id) && activeWorkspaceIds.has(id)) ?? null
+        activeWorkspaceId = resolvedWorkspaceId
+        hasOrg = Boolean(resolvedWorkspaceId)
       }
     }
   } catch (error) {

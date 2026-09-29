@@ -452,6 +452,11 @@ from public.v_jurisdiction_data_depth_contract;`,
   },
   {
     file: '20260923001000_full_depth_dynamic_evaluator.sql',
+    anchor: "  select s.*, c.country_name, c.jurisdiction_level,\n         d.required_for_regulatory_publication, d.requires_primary_source, d.freshness_days",
+    replacement: "  select s.*, c.country_name, 'national'::text as jurisdiction_level,\n         d.required_for_regulatory_publication, d.requires_primary_source, d.freshness_days",
+  },
+  {
+    file: '20260923001000_full_depth_dynamic_evaluator.sql',
     anchor: `select
   jurisdiction_key,
   max(country_name) country_name,

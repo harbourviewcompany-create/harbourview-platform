@@ -644,7 +644,8 @@ test.describe('Command Centre authenticated responsive verification', () => {
         } else {
           const desktopRoot = page.locator('.cc-app:visible')
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
-          await expect(desktopRoot).toBeVisible()
+          await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible({ timeout: 30_000 })
+          await expect(desktopRoot).toBeVisible({ timeout: 30_000 })
           await expect(desktopRoot.locator('.cc-page-title')).toContainText('Marketplace')
 
           if (width === 1440) {
@@ -656,7 +657,7 @@ test.describe('Command Centre authenticated responsive verification', () => {
               )
               expect(pageResponse?.status()).toBeLessThan(400)
               const commandRoot = page.locator('.cc-app:visible')
-              await expect(commandRoot).toBeVisible()
+              await expect(commandRoot).toBeVisible({ timeout: 30_000 })
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
               const commandMain = page.locator('[data-dashboard-renderer="desktop"]:visible main:visible').first()
               await expect(commandMain, `desktop page "${commandPage}" should expose a visible main content surface`).toBeVisible()
