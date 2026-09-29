@@ -1,11 +1,17 @@
-// Shared beacon logic for app/country/[country]/error.tsx,
-// app/admin/(protected)/error.tsx, and app/global-error.tsx. Kept as one
-// function so the stack-truncation length and transport fallback stay in
-// sync between boundaries instead of drifting if edited independently.
+// Shared client-error boundary contract and beacon logic. Keep the accepted
+// boundary names in one runtime-safe module so browser reporters and the API
+// validator cannot silently drift apart.
 
 const MAX_CLIENT_STACK_LENGTH = 4000
 
-export function reportClientError(boundary: 'country_role' | 'global' | 'admin', error: Error & { digest?: string }) {
+export const CLIENT_ERROR_BOUNDARIES = ['country_role', 'global', 'admin', 'globe'] as const
+export type ClientErrorBoundary = (typeof CLIENT_ERROR_BOUNDARIES)[number]
+
+export function isClientErrorBoundary(value: unknown): value is ClientErrorBoundary {
+  return typeof value === 'string' && (CLIENT_ERROR_BOUNDARIES as readonly string[]).includes(value)
+}
+
+export function reportClientError(boundary: ClientErrorBoundary, error: Error & { digest?: string }) {
   const payload = JSON.stringify({
     boundary,
     route: window.location.pathname,

@@ -18,6 +18,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { enforceRateLimit, getClientIp } from '@/lib/network/rateLimit'
+import { isClientErrorBoundary } from '@/lib/errorReporting'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
 
     const { boundary, route, digest, message, stack, viewportWidth, extra } = body as Record<string, unknown>
 
-    if (boundary !== 'country_role' && boundary !== 'global' && boundary !== 'admin') {
+    if (!isClientErrorBoundary(boundary)) {
       return NextResponse.json({ ok: false }, { status: 200 })
     }
     if (typeof message !== 'string' || message.trim().length === 0) {
