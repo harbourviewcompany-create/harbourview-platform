@@ -397,6 +397,7 @@ test('replay materializes the missing education policy identities immediately be
   assert.equal(regulatorRuleDimension.before, '20260923003000_authority_evidence_tranche_001.sql')
   assert.match(regulatorRuleDimension.content, /drop constraint if exists jurisdiction_regulatory_rules_rule_dimension_check/i)
   assert.match(regulatorRuleDimension.content, /'regulator'/i)
+  assert.match(regulatorRuleDimension.content, /'calendar'/i)
   assert.match(foundation.content, /create policy "public read sections of published modules"/i)
   assert.equal((foundation.content.match(/using \(false\)/gi) ?? []).length, 2)
 
