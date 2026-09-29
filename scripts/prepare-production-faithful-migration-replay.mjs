@@ -517,6 +517,11 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260923044500_lt_primary_regulatory_depth.sql',
+    anchor: 'on conflict (country_id, slug) do update set',
+    replacement: 'on conflict (slug) do update set',
+  },
+  {
     file: '20260923030000_evidence_architecture_hardening_001.sql',
     anchor: `do $$
 begin
