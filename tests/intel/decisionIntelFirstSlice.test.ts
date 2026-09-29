@@ -224,7 +224,9 @@ describe('Decision Intelligence Stage 0 first slice', () => {
 
   it('hydrates dossier links and recommendation posture from canonical displayability while preserving only proven compatibility paths', () => {
     expect(dashboardPage).toContain('attachDecisionIntelDashboardRoutes(signals)')
-    expect(dashboardPage).toContain('attachDecisionIntelDashboardRoutes(dailyDigest.signals)')
+    expect(dashboardPage).toContain('loadDashboardSignalRoutes(signals)')
+    expect(dashboardPage).toContain('loadDashboardSignalRoutes(dailyDigest.signals)')
+    expect(dashboardPage).toContain('withTimeout(() => attachDecisionIntelDashboardRoutes(signals), CONTEXT_READ_TIMEOUT_MS)')
     expect(dashboardRoutes).toContain(".rpc('resolve_intel_dashboard_routes'")
     expect(dashboardRoutes).toContain("decisionIntelEventId: owned.displayable ? owned.event_id : ''")
     expect(dashboardRoutes).toContain('decisionRecommendationState')
