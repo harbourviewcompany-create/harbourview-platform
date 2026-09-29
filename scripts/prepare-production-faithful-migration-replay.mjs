@@ -91,9 +91,9 @@ const REPLAY_SYNTHETIC_FOUNDATIONS = [
     ],
     content: `-- Replay-only reconstruction of the authoritative depth evidence relation.
 -- The recorded dynamic evaluator queries this table before the repository's
--- canonical CREATE TABLE migration at 20260923131000. Production already had
--- the relation at evaluator time. Materialize the canonical table shape only
--- in the temporary replay workspace; the later migration remains authoritative
+-- canonical table migration at 20260923131000. Production already had the
+-- relation at evaluator time. Materialize the canonical table shape only in
+-- the temporary replay workspace; the later migration remains authoritative
 -- for indexes, RLS, grants and the evidence-gate view.
 create table if not exists public.jurisdiction_data_depth_evidence (
   id uuid primary key default gen_random_uuid(),
@@ -125,7 +125,18 @@ select
   sr.source_url registered_source_url,
   case
     when ss.id is null then false
-    when lower(ss.raw_html_hash) !~ '^[0-9a-f]{64}  {
+    when lower(ss.raw_html_hash) !~ '^[0-9a-f]{64}$' then false
+    when ss.captured_at is null then false
+    when ss.fetch_status <> 'success' then false
+    when ss.captured_text is null or length(ss.captured_text)=0 then false
+    when sr.id is null or sr.source_url is null then false
+    else true
+  end qualifying_snapshot
+from public.source_snapshots ss
+left join public.source_registry sr on sr.id=ss.source_id;
+`,
+  },
+  {
     destination: '20260922189959_replay_gt_market_access_evidence.sql',
     before: '20260922190000_primary_gt_enrichment.sql',
     required: [
