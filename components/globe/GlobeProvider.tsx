@@ -74,6 +74,8 @@ type GlobeContextType = {
   degraded: boolean
   loadedAt: number | null
   reconnect: () => void
+  /** Re-run the /api/globe bootstrap (used by the degraded-state Retry). */
+  reload: () => void
 }
 
 /** Exported so surfaces that only need liveData can soft-fall back outside the provider (SSR smoke). */
@@ -86,6 +88,12 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [degraded, setDegraded] = useState(false)
   const [loadedAt, setLoadedAt] = useState<number | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
+  const reload = useCallback(() => {
+    setLoading(true)
+    setLoadError(null)
+    setReloadToken((n) => n + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -97,6 +105,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
         // live-update path after the cached snapshot is installed.
         setLiveData(bootstrap.data)
         setDegraded(bootstrap.degraded)
+        setLoadError(null)
         setLoadedAt(Date.now())
       })
       .catch((err) => {
@@ -110,7 +119,7 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
       })
 
     return () => { cancelled = true }
-  }, [])
+  }, [reloadToken])
 
   const handleRealtimeChange = useCallback(
     (payload: {
@@ -165,8 +174,8 @@ export function GlobeProvider({ children }: { children: ReactNode }) {
 
   const { status, reconnect } = useGlobeRealtime(handleRealtimeChange)
   const value = useMemo(
-    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect }),
-    [liveData, status, loading, loadError, degraded, loadedAt, reconnect]
+    () => ({ liveData, status, loading, loadError, degraded, loadedAt, reconnect, reload }),
+    [liveData, status, loading, loadError, degraded, loadedAt, reconnect, reload]
   )
   return <GlobeContext.Provider value={value}>{children}</GlobeContext.Provider>
 }

@@ -174,55 +174,77 @@ export async function getGlobeCountryMarkers(
   )
 }
 
-export async function getGlobeLiveData(
-  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
-): Promise<GlobeLiveData> {
-  const [countriesResult, signalsResult] = await Promise.all([
-    getGlobeCountryMarkers(supabase),
-    supabase
-      .from('signals')
-      .select('id, headline, score, cat, country, country_iso2, created_at')
-      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: false })
-      .limit(500),
-  ])
+export type GlobeSignalsData = Pick<GlobeLiveData, 'signalsByIso2' | 'unmappedSignalCountries'>
 
-  const { data: signalRows, error: signalsError } = signalsResult
+/** Signals overlay only. Throws on query failure so callers can decide how to degrade. */
+export async function getGlobeSignals(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeSignalsData> {
+  const { data: signalRows, error: signalsError } = await supabase
+    .from('signals')
+    .select('id, headline, score, cat, country, country_iso2, created_at')
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(500)
+
   if (signalsError) {
-    // Signals are an overlay. A signals failure must not take down the country
-    // layer (heat map, click targets, routing), so degrade to countries only.
-    console.error('[globe] signals query failed; serving countries without signals:', signalsError.message)
-    return {
-      countries: countriesResult,
-      signalsByIso2: {},
-      unmappedSignalCountries: {},
-      signalsUnavailable: true,
-    }
+    throw new Error(`getGlobeSignals: signals query failed: ${signalsError.message}`)
   }
 
   const signalsByIso2: Record<string, GlobeSignal[]> = {}
   const unmappedSignalCountries: Record<string, number> = {}
 
   for (const row of signalRows ?? []) {
-      const iso2 = row.country_iso2
-      const signal: GlobeSignal = {
-        id: row.id,
-        headline: row.headline,
-        score: row.score,
-        cat: row.cat,
-        createdAt: row.created_at,
-        countryIso2: iso2,
-      }
-      if (iso2) {
-        if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
-        signalsByIso2[iso2].push(signal)
-      } else {
-        const key = row.country ?? '(null)'
-        unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
-      }
+    const iso2 = row.country_iso2
+    const signal: GlobeSignal = {
+      id: row.id,
+      headline: row.headline,
+      score: row.score,
+      cat: row.cat,
+      createdAt: row.created_at,
+      countryIso2: iso2,
+    }
+    if (iso2) {
+      if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
+      signalsByIso2[iso2].push(signal)
+    } else {
+      const key = row.country ?? '(null)'
+      unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
+    }
   }
 
-  return { countries: countriesResult, signalsByIso2, unmappedSignalCountries }
+  return { signalsByIso2, unmappedSignalCountries }
+}
+
+/**
+ * Countries are required; signals are an overlay. A countries failure throws.
+ * A signals failure keeps the country layer (heat map, click targets, routing)
+ * and is reported through `signalsUnavailable` plus a server log.
+ */
+export async function getGlobeLiveData(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeLiveData> {
+  const [countriesResult, signalsResult] = await Promise.allSettled([
+    getGlobeCountryMarkers(supabase),
+    getGlobeSignals(supabase),
+  ])
+
+  if (countriesResult.status === 'rejected') throw countriesResult.reason
+
+  if (signalsResult.status === 'rejected') {
+    console.error(
+      '[globe] signals query failed; serving countries without signals:',
+      signalsResult.reason instanceof Error ? signalsResult.reason.message : signalsResult.reason,
+    )
+    return {
+      countries: countriesResult.value,
+      signalsByIso2: {},
+      unmappedSignalCountries: {},
+      signalsUnavailable: true,
+    }
+  }
+
+  return { countries: countriesResult.value, ...signalsResult.value }
 }
 
 export type SignalRealtimeRow = {

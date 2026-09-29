@@ -134,6 +134,14 @@ describe('getGlobeLiveData', () => {
   })
 })
 
+describe('getGlobeSignals', () => {
+  it('throws on query failure so callers can decide how to degrade', async () => {
+    fromMock.mockImplementation(() => makeQueryBuilder({ data: null, error: { message: 'boom' } }))
+    const { getGlobeSignals } = await import('@/lib/globe/supabaseGlobeData')
+    await expect(getGlobeSignals()).rejects.toThrow(/signals query failed: boom/)
+  })
+})
+
 describe('mergeSignalRealtimeRow', () => {
   const emptyState = { countries: [], signalsByIso2: {}, unmappedSignalCountries: {} }
 
