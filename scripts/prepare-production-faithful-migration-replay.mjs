@@ -138,6 +138,30 @@ left join public.source_registry sr on sr.id=ss.source_id;
 `,
   },
   {
+    destination: '20260923002958_replay_regulatory_rule_dimensions.sql',
+    before: '20260923003000_authority_evidence_tranche_001.sql',
+    required: [
+      '20260922240000_full_depth_structured_backing_models.sql',
+      '20260923003000_authority_evidence_tranche_001.sql',
+    ],
+    content: `-- Replay-only reconstruction of the production regulatory-rule dimension
+-- constraint used by the first authority-evidence tranche.
+--
+-- Production accepted regulator authority rows through jurisdiction_regulatory_rules,
+-- while the recovered table-creation migration omits 'regulator' from its check.
+-- Restore only that missing production shape in the temporary replay workspace.
+alter table public.jurisdiction_regulatory_rules
+  drop constraint if exists jurisdiction_regulatory_rules_rule_dimension_check;
+
+alter table public.jurisdiction_regulatory_rules
+  add constraint jurisdiction_regulatory_rules_rule_dimension_check
+  check (rule_dimension in (
+    'access_rules','commercial_activity','import','export','distribution',
+    'testing','packaging_labeling','tax_fees','regulator'
+  ));
+`,
+  },
+  {
     destination: '20260923002959_replay_jurisdiction_regulators_conflict_key.sql',
     before: '20260923003000_authority_evidence_tranche_001.sql',
     required: [
