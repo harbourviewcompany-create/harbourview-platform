@@ -6,7 +6,8 @@ const staticCountry = { iso2: 'CA', name: 'Canada', lat: 56, lng: -106 }
 
 vi.mock('server-only', () => ({}))
 vi.mock('next/cache', () => ({ unstable_cache: <T extends (...a: never[]) => unknown>(fn: T) => fn }))
-vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({}) }))
+const createClientMock = vi.fn<(...args: unknown[]) => object>(() => ({}))
+vi.mock('@supabase/supabase-js', () => ({ createClient: (...a: unknown[]) => createClientMock(...a) }))
 vi.mock('@/lib/supabase/env', () => ({
   getSupabaseUrl: () => 'https://example.supabase.co',
   getSupabasePublicClientKey: () => 'anon',
@@ -67,5 +68,18 @@ describe('getGlobeLiveDataCached', () => {
     expect(data.countriesUnavailable).toBe(true)
     expect(data.signalsUnavailable).toBe(true)
     expect(data.signalsByIso2).toEqual({})
+  })
+
+  it('builds the server client with a bounded fetch so an unreachable database fails fast', async () => {
+    createClientMock.mockClear()
+    countriesMock.mockResolvedValue([country])
+    signalsMock.mockResolvedValue({ signalsByIso2: {}, unmappedSignalCountries: {} })
+    const { getGlobeLiveDataCached, GLOBE_QUERY_TIMEOUT_MS } = await import('@/lib/globe/globeDataServer')
+    await getGlobeLiveDataCached()
+
+    expect(GLOBE_QUERY_TIMEOUT_MS).toBeLessThan(8000)
+    expect(createClientMock).toHaveBeenCalled()
+    const options = createClientMock.mock.calls[0][2] as { global?: { fetch?: unknown } }
+    expect(typeof options.global?.fetch).toBe('function')
   })
 })

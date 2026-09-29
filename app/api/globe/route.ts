@@ -6,6 +6,8 @@ import { globeCacheControl, reportGlobeDegraded, reportGlobeHardFailure } from '
 // The live query exceeds the 60s static generation budget and fails production.
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+// Two 4s-bounded queries run in parallel; cap the function well above that.
+export const maxDuration = 15
 
 /**
  * Cached globe payload for the client GlobeProvider. Replaces a per-visitor

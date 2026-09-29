@@ -8,9 +8,17 @@ import {
   getStaticGlobeCountryMarkers,
   type GlobeLiveData,
 } from './supabaseGlobeData'
+import { createTimeoutFetch } from './fetchWithTimeout'
 
 /** How long a cached globe payload is served before revalidation. */
 export const GLOBE_REVALIDATE_SECONDS = 300
+
+/**
+ * Per-request ceiling for the server-side Supabase queries. Must stay well under
+ * the client's 8s /api/globe deadline (GlobeProvider) so a hung database yields
+ * the static fallback instead of a client timeout.
+ */
+export const GLOBE_QUERY_TIMEOUT_MS = 4000
 
 /**
  * Anonymous, cookie-free server client. Deliberately NOT the cookie-aware
@@ -21,6 +29,7 @@ function serverAnonClient() {
   return createClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
     db: { schema: SUPABASE_DB_SCHEMA },
+    global: { fetch: createTimeoutFetch(GLOBE_QUERY_TIMEOUT_MS) },
   }) as unknown as SupabaseClient
 }
 
