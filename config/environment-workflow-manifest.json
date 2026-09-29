@@ -148,9 +148,7 @@
     },
     {
       "id": "pr-review-third-party-secrets",
-      "names": [
-        "OPENAI_KEY"
-      ],
+      "names": ["OPENAI_KEY"],
       "stage": "CI/Deploy only",
       "sensitivity": "Secret",
       "provider": "openai",
