@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getGlobeLiveDataCached, GLOBE_REVALIDATE_SECONDS } from '@/lib/globe/globeDataServer'
+import { globeCacheControl, reportGlobeDegraded, reportGlobeHardFailure } from '@/lib/globe/degradedReporting'
 
 // ISR revalidate made Next prerender this route during `next build`.
 // The live query exceeds the 60s static generation budget and fails production.
@@ -16,10 +17,17 @@ export const runtime = 'nodejs'
 export async function GET() {
   try {
     const data = await getGlobeLiveDataCached()
+    const degraded = data.signalsUnavailable === true || data.countriesUnavailable === true
+    if (degraded) {
+      reportGlobeDegraded({
+        countriesUnavailable: data.countriesUnavailable === true,
+        signalsUnavailable: data.signalsUnavailable === true,
+      })
+    }
     return NextResponse.json(
       {
         ...data,
-        degraded: data.signalsUnavailable === true || data.countriesUnavailable === true,
+        degraded,
         diagnostics: {
           countrySource: data.countriesUnavailable === true ? 'static' : 'live',
           signalsSource: data.signalsUnavailable === true ? 'unavailable' : 'live',
@@ -31,12 +39,13 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': `public, s-maxage=${GLOBE_REVALIDATE_SECONDS}, stale-while-revalidate=3600`,
+          'Cache-Control': globeCacheControl(degraded, GLOBE_REVALIDATE_SECONDS),
         },
       },
     )
   } catch (err) {
     console.error('[api/globe] live data failure:', err)
+    reportGlobeHardFailure(err)
     return NextResponse.json(
       {
         countries: [],
