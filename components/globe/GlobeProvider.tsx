@@ -41,8 +41,12 @@ export async function fetchGlobeBootstrapData(): Promise<{ data: GlobeLiveData; 
         signalsByIso2: data.signalsByIso2 ?? {},
         unmappedSignalCountries: data.unmappedSignalCountries ?? {},
         signalsUnavailable: data.signalsUnavailable === true,
+        countriesUnavailable: data.countriesUnavailable === true,
       },
-      degraded: data.degraded === true || data.signalsUnavailable === true,
+      degraded:
+        data.degraded === true ||
+        data.signalsUnavailable === true ||
+        data.countriesUnavailable === true,
     }
   } catch (err) {
     if (controller.signal.aborted) throw new Error(`globe fetch timed out after ${FETCH_TIMEOUT_MS}ms`)
