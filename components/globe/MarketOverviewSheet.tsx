@@ -92,13 +92,13 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
     () => [...signalList].sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity))[0] ?? null,
     [signalList],
   )
-  const topIntelligence = useMemo(
-    () => topSignal ? buildSignalIntelligence(topSignal, { iso2: countryIso2.toUpperCase(), name: countryName }, marker ? { key: marker.regulatoryTierEvidenceKey, verifiedAt: marker.regulatoryTierVerifiedAt, expiresAt: marker.regulatoryTierExpiresAt } : undefined) : null,
-    [topSignal, countryIso2, countryName],
-  )
   const marker = useMemo(
     () => liveData.countries.find((country) => country.iso2.toUpperCase() === countryIso2.toUpperCase()) ?? null,
     [liveData.countries, countryIso2],
+  )
+  const topIntelligence = useMemo(
+    () => topSignal ? buildSignalIntelligence(topSignal, { iso2: countryIso2.toUpperCase(), name: countryName }, marker ? { key: marker.regulatoryTierEvidenceKey, verifiedAt: marker.regulatoryTierVerifiedAt, expiresAt: marker.regulatoryTierExpiresAt } : undefined) : null,
+    [topSignal, countryIso2, countryName, marker],
   )
   const signalCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -203,14 +203,14 @@ export function MarketOverviewSheet({ countryIso2, countryName, onEnter, onBack 
       onBack={onBack}
       footer={
         <div className="grid gap-2.5">
-          <button type="button" onClick={onEnter} disabled={isLoading} className={hvPanelPrimaryCtaClass}>
+          <button type="button" onClick={onEnter} className={hvPanelPrimaryCtaClass}>
             Enter {countryName} market
           </button>
           <div className="grid grid-cols-2 gap-2">
             <Link href={commandReturn} className="flex min-h-10 items-center justify-center rounded-full border border-[color:var(--hv-gold)]/22 px-3 text-center text-[9px] font-semibold uppercase tracking-[0.13em] text-[color:var(--hv-gold-light)]/82">
               Open intelligence
             </Link>
-            <Link href={`${commandReturn}&section=regulatory`} className="flex min-h-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.025] px-3 text-center text-[9px] font-semibold uppercase tracking-[0.13em] text-white/60">
+            <Link href={`/dashboard?country=${encodeURIComponent(countryIso2)}&page=briefing&section=regulatory`} className="flex min-h-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.025] px-3 text-center text-[9px] font-semibold uppercase tracking-[0.13em] text-white/60">
               Review access
             </Link>
           </div>

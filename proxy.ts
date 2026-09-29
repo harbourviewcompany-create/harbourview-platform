@@ -52,6 +52,9 @@ export async function proxy(request: NextRequest) {
 
   const normalizedPathname =
     pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  // Preserve market, page and section context through sign-in. Only a local
+  // pathname and its existing query are accepted as the return destination.
+  const returnPath = `${normalizedPathname}${request.nextUrl.search}`
 
   const redirectTo = LEGACY_REDIRECTS[normalizedPathname]
   if (redirectTo) {
@@ -81,7 +84,7 @@ export async function proxy(request: NextRequest) {
     })
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
+    loginUrl.search = `?next=${encodeURIComponent(returnPath)}&error=${encodeURIComponent('Auth configuration is missing a browser-safe Supabase public key.')}`
     return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
   }
 
@@ -109,7 +112,7 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
-    loginUrl.search = `?next=${encodeURIComponent(normalizedPathname)}`
+    loginUrl.search = `?next=${encodeURIComponent(returnPath)}`
     return applyNoStoreHeaders(NextResponse.redirect(loginUrl))
   }
 
