@@ -41,6 +41,10 @@ export type GlobeLiveData = {
   countries: GlobeCountryMarker[]
   signalsByIso2: Record<string, GlobeSignal[]>
   unmappedSignalCountries: Record<string, number>
+  /** True when the signals query failed and the payload carries countries only. */
+  signalsUnavailable?: boolean
+  /** True when live country metadata failed and neutral checked-in geography is being served. */
+  countriesUnavailable?: boolean
 }
 
 export type PublishedTierRow = {
@@ -105,6 +109,59 @@ export function resolveGlobeRegulatoryTier(
   return legacyEligible
     ? { tier: legacy, provenance: 'legacy' }
     : { tier: null, provenance: null }
+}
+
+const supplementaryJurisdictionNames: Record<string, string> = {
+  MC: 'Monaco',
+  MH: 'Marshall Islands',
+  MV: 'Maldives',
+  NR: 'Nauru',
+  SM: 'San Marino',
+  TV: 'Tuvalu',
+  VA: 'Vatican City',
+}
+
+/**
+ * Neutral, checked-in geography for DB/PostgREST outages. This deliberately
+ * publishes no market/tier state; it only preserves country routing and the
+ * interactive globe while live regulatory metadata is unavailable.
+ */
+export function getStaticGlobeCountryMarkers(): GlobeCountryMarker[] {
+  const markers: GlobeCountryMarker[] = naturalEarthCountriesPayload.countries.map((country) => ({
+    iso2: country.iso2,
+    name: country.name,
+    lat: country.centroid[1],
+    lng: country.centroid[0],
+    opportunityScore: null,
+    signalsStatus: null,
+    marketAccessStatus: null,
+    regulatoryTier: null,
+    regulatoryTierEvidenceKey: null,
+    regulatoryTierVerifiedAt: null,
+    regulatoryTierExpiresAt: null,
+    regulatoryTierProvenance: null,
+  }))
+
+  const seen = new Set(markers.map((marker) => marker.iso2))
+  for (const [iso2, [lng, lat]] of Object.entries(supplementaryJurisdictionCentroids)) {
+    if (seen.has(iso2)) continue
+    markers.push({
+      iso2,
+      name: supplementaryJurisdictionNames[iso2] ?? iso2,
+      lat,
+      lng,
+      opportunityScore: null,
+      signalsStatus: null,
+      marketAccessStatus: null,
+      regulatoryTier: null,
+      regulatoryTierEvidenceKey: null,
+      regulatoryTierVerifiedAt: null,
+      regulatoryTierExpiresAt: null,
+      regulatoryTierProvenance: null,
+    })
+  }
+
+  return markers
 }
 
 export async function getGlobeCountryMarkers(
@@ -172,47 +229,84 @@ export async function getGlobeCountryMarkers(
   )
 }
 
-export async function getGlobeLiveData(
-  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
-): Promise<GlobeLiveData> {
-  const [countriesResult, signalsResult] = await Promise.all([
-    getGlobeCountryMarkers(supabase),
-    supabase
-      .from('signals')
-      .select('id, headline, score, cat, country, country_iso2, created_at')
-      .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .order('created_at', { ascending: false })
-      .limit(500),
-  ])
+export type GlobeSignalsData = Pick<GlobeLiveData, 'signalsByIso2' | 'unmappedSignalCountries'>
 
-  const { data: signalRows, error: signalsError } = signalsResult
+/** Signals overlay only. Throws on query failure so callers can decide how to degrade. */
+export async function getGlobeSignals(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeSignalsData> {
+  const { data: signalRows, error: signalsError } = await supabase
+    .from('signals')
+    .select('id, headline, score, cat, country, country_iso2, created_at')
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(500)
+
   if (signalsError) {
-    throw new Error(`getGlobeLiveData: signals query failed: ${signalsError.message}`)
+    throw new Error(`getGlobeSignals: signals query failed: ${signalsError.message}`)
   }
 
   const signalsByIso2: Record<string, GlobeSignal[]> = {}
   const unmappedSignalCountries: Record<string, number> = {}
 
   for (const row of signalRows ?? []) {
-      const iso2 = row.country_iso2
-      const signal: GlobeSignal = {
-        id: row.id,
-        headline: row.headline,
-        score: row.score,
-        cat: row.cat,
-        createdAt: row.created_at,
-        countryIso2: iso2,
-      }
-      if (iso2) {
-        if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
-        signalsByIso2[iso2].push(signal)
-      } else {
-        const key = row.country ?? '(null)'
-        unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
-      }
+    const iso2 = row.country_iso2
+    const signal: GlobeSignal = {
+      id: row.id,
+      headline: row.headline,
+      score: row.score,
+      cat: row.cat,
+      createdAt: row.created_at,
+      countryIso2: iso2,
+    }
+    if (iso2) {
+      if (!signalsByIso2[iso2]) signalsByIso2[iso2] = []
+      signalsByIso2[iso2].push(signal)
+    } else {
+      const key = row.country ?? '(null)'
+      unmappedSignalCountries[key] = (unmappedSignalCountries[key] ?? 0) + 1
+    }
   }
 
-  return { countries: countriesResult, signalsByIso2, unmappedSignalCountries }
+  return { signalsByIso2, unmappedSignalCountries }
+}
+
+/**
+ * Live country metadata and signals are independent enrichments on top of the
+ * checked-in globe geometry. If either backend query fails, preserve routing
+ * with neutral static countries and mark the missing layer explicitly.
+ */
+export async function getGlobeLiveData(
+  supabase: SupabaseClient = createClient() as unknown as SupabaseClient,
+): Promise<GlobeLiveData> {
+  const [countriesResult, signalsResult] = await Promise.allSettled([
+    getGlobeCountryMarkers(supabase),
+    getGlobeSignals(supabase),
+  ])
+
+  const countriesUnavailable = countriesResult.status === 'rejected'
+  const signalsUnavailable = signalsResult.status === 'rejected'
+
+  if (countriesUnavailable) {
+    console.error(
+      '[globe] countries query failed; serving neutral static geography:',
+      countriesResult.reason instanceof Error ? countriesResult.reason.message : countriesResult.reason,
+    )
+  }
+  if (signalsUnavailable) {
+    console.error(
+      '[globe] signals query failed; serving without live signals:',
+      signalsResult.reason instanceof Error ? signalsResult.reason.message : signalsResult.reason,
+    )
+  }
+
+  return {
+    countries: countriesUnavailable ? getStaticGlobeCountryMarkers() : countriesResult.value,
+    signalsByIso2: signalsUnavailable ? {} : signalsResult.value.signalsByIso2,
+    unmappedSignalCountries: signalsUnavailable ? {} : signalsResult.value.unmappedSignalCountries,
+    ...(countriesUnavailable ? { countriesUnavailable: true } : {}),
+    ...(signalsUnavailable ? { signalsUnavailable: true } : {}),
+  }
 }
 
 export type SignalRealtimeRow = {

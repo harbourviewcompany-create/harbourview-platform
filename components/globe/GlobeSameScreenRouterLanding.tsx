@@ -24,6 +24,7 @@ import { featureFlags } from '@/lib/harbourview/feature-flags'
 import { reportClientError } from '@/lib/errorReporting'
 import { GlobeProvider } from './GlobeProvider'
 import { hvPanelPrimaryCtaClass } from '@/components/ui/HarbourviewPanel'
+import { GlobeDataNotice } from './GlobeDataNotice'
 
 function buildFallbackIntakeHref(state: GlobeRouterState) {
   if (state.resolvedHref) return state.resolvedHref
@@ -282,6 +283,8 @@ export function GlobeSameScreenRouterLanding() {
         </p>
 
         {showLegend ? <GlobeRegulatoryLegend /> : null}
+
+        <GlobeDataNotice />
 
         {state.step === 'market_overview' && state.selectedCountryIso2 ? (
           <MarketOverviewSheet

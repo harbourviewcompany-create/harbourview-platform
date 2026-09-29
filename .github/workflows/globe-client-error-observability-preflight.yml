@@ -1,0 +1,160 @@
+name: Globe client-error observability preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/globe-client-error-observability-preflight.yml'
+      - '.github/workflows/supabase-migrate.yml'
+      - 'scripts/migration-ledger-manifest.mjs'
+      - 'tests/scripts/migration-ledger-manifest.test.mjs'
+      - 'supabase/migrations/20260929084500_expand_client_error_boundaries.sql'
+      - 'supabase/release-controls/globe-client-error-observability-production-activation.json'
+      - 'supabase/release-controls/committed-not-applied-baseline.json'
+      - 'supabase/release-controls/migration-live-version-equivalences.json'
+      - 'tests/sql/globe_client_error_observability_preflight_read_only.sql'
+      - 'tests/sql/globe_client_error_observability_postflight_read_only.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: globe-client-error-observability-preflight
+  cancel-in-progress: true
+
+env:
+  SUPABASE_PROJECT_REF: zvxdgdkukjrrwamdpqrg
+  RELEASE_CONTROL_FILE: supabase/release-controls/globe-client-error-observability-production-activation.json
+  COMMITTED_BASELINE_FILE: supabase/release-controls/committed-not-applied-baseline.json
+  PGHOST: aws-1-us-west-2.pooler.supabase.com
+  PGPORT: '5432'
+  PGUSER: postgres.zvxdgdkukjrrwamdpqrg
+  PGDATABASE: postgres
+
+jobs:
+  repository-contract:
+    name: Validate release-control code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+
+      - name: Verify migration manifest contract tests
+        run: node --test tests/scripts/migration-ledger-manifest.test.mjs
+
+      - name: Verify migration manifest script parses
+        run: node --check scripts/migration-ledger-manifest.mjs
+
+      - name: Verify release-control hash is still exact
+        run: |
+          node - <<'NODE'
+          const crypto = require('crypto')
+          const fs = require('fs')
+          const control = JSON.parse(fs.readFileSync(process.env.RELEASE_CONTROL_FILE, 'utf8'))
+          if (!Array.isArray(control.approved_migrations) || control.approved_migrations.length !== 1) {
+            throw new Error('Globe release control must approve exactly one migration')
+          }
+          const migration = control.approved_migrations[0]
+          const path = `supabase/migrations/${migration.file}`
+          const body = fs.readFileSync(path)
+          const actual = crypto
+            .createHash('sha1')
+            .update(Buffer.concat([Buffer.from(`blob ${body.length}\0`), body]))
+            .digest('hex')
+          if (actual !== migration.git_blob_sha) {
+            throw new Error(`Release-control hash drift: expected ${migration.git_blob_sha}, got ${actual}`)
+          }
+          console.log(`Pinned migration verified: ${migration.version} @ ${actual}`)
+          NODE
+
+  live-read-only-preflight:
+    name: Read-only production preflight
+    needs: repository-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
+        with:
+          version: 2.109.1
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Read linked migration ledger
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          mkdir -p artifacts/globe-client-error-preflight
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          supabase migration list --linked \
+            > artifacts/globe-client-error-preflight/remote-migrations.txt
+
+      - name: Prove exact release scope against live ledger
+        run: |
+          node scripts/migration-ledger-manifest.mjs \
+            --remote-list artifacts/globe-client-error-preflight/remote-migrations.txt \
+            --local-dir supabase/migrations \
+            --control-file "$RELEASE_CONTROL_FILE" \
+            --committed-baseline "$COMMITTED_BASELINE_FILE" \
+            --json-out artifacts/globe-client-error-preflight/manifest.json \
+            --markdown-out artifacts/globe-client-error-preflight/manifest.md \
+            --mode activation-preflight \
+            --source-sha "$GITHUB_SHA"
+
+      - name: Build masked read-only connection string
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          ENCODED_PASSWORD=$(python3 - <<'PY'
+          import os
+          import urllib.parse
+          password = os.environ.get('SUPABASE_DB_PASSWORD', '')
+          if not password:
+              raise SystemExit('SUPABASE_DB_PASSWORD is missing')
+          print(urllib.parse.quote(password, safe=''))
+          PY
+          )
+          DB_URL="postgresql://${PGUSER}:${ENCODED_PASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+          echo "::add-mask::$DB_URL"
+          echo "DB_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Run release-specific SQL preflight read-only
+        run: |
+          set -o pipefail
+          psql "$DB_URL" -X -qAt -v ON_ERROR_STOP=1 \
+            -c "begin transaction read only;" \
+            -f tests/sql/globe_client_error_observability_preflight_read_only.sql \
+            -c "rollback;" \
+            | tee artifacts/globe-client-error-preflight/sql-preflight.txt
+          if [ -s artifacts/globe-client-error-preflight/sql-preflight.txt ]; then
+            echo "::error::Production preflight returned blocking rows."
+            exit 1
+          fi
+
+      - name: Publish preflight evidence
+        if: always()
+        run: |
+          if [ -f artifacts/globe-client-error-preflight/manifest.md ]; then
+            cat artifacts/globe-client-error-preflight/manifest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload preflight evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: globe-client-error-preflight-${{ github.sha }}
+          path: artifacts/globe-client-error-preflight/
+          if-no-files-found: warn
+          retention-days: 30

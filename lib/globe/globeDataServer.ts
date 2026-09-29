@@ -2,7 +2,12 @@ import 'server-only'
 import { unstable_cache } from 'next/cache'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseUrl, getSupabasePublicClientKey, SUPABASE_DB_SCHEMA } from '@/lib/supabase/env'
-import { getGlobeLiveData, type GlobeLiveData } from './supabaseGlobeData'
+import {
+  getGlobeCountryMarkers,
+  getGlobeSignals,
+  getStaticGlobeCountryMarkers,
+  type GlobeLiveData,
+} from './supabaseGlobeData'
 
 /** How long a cached globe payload is served before revalidation. */
 export const GLOBE_REVALIDATE_SECONDS = 300
@@ -16,21 +21,56 @@ function serverAnonClient() {
   return createClient(getSupabaseUrl(), getSupabasePublicClientKey(), {
     auth: { persistSession: false },
     db: { schema: SUPABASE_DB_SCHEMA },
-  })
+  }) as unknown as SupabaseClient
 }
 
 /**
- * Cached globe payload. The underlying DB query runs at most once per
- * GLOBE_REVALIDATE_SECONDS regardless of visitor count. This both removes
- * per-visitor load from the (Micro) database and lets the globe render from
- * cache during a transient DB blip. Throws on hard failure — the route handler
- * degrades gracefully rather than surfacing an error to the client.
+ * Countries and signals are cached independently. unstable_cache does not store
+ * a thrown result, so a transient signals failure is never pinned for the whole
+ * revalidate window and cannot evict a healthy countries snapshot.
  */
-export const getGlobeLiveDataCached = unstable_cache(
-  // Cast: serverAnonClient() is typed to the `api` schema; getGlobeLiveData's
-  // param defaults to the browser client type. Runtime `.from()` is schema-agnostic.
-  async (): Promise<GlobeLiveData> =>
-    getGlobeLiveData(serverAnonClient() as unknown as SupabaseClient),
-  ['globe-live-data-v2'],
+const getCountriesCached = unstable_cache(
+  async () => getGlobeCountryMarkers(serverAnonClient()),
+  ['globe-countries-v3'],
   { revalidate: GLOBE_REVALIDATE_SECONDS, tags: ['globe'] },
 )
+
+const getSignalsCached = unstable_cache(
+  async () => getGlobeSignals(serverAnonClient()),
+  ['globe-signals-v3'],
+  { revalidate: GLOBE_REVALIDATE_SECONDS, tags: ['globe'] },
+)
+
+/**
+ * Live country metadata and signals are cached independently. A backend outage
+ * must not take down country routing: countries fall back to neutral checked-in
+ * geography, while signals fall back to empty. Flags tell the UI which layer
+ * is unavailable.
+ */
+export async function getGlobeLiveDataCached(): Promise<GlobeLiveData> {
+  const [countries, signals] = await Promise.allSettled([getCountriesCached(), getSignalsCached()])
+
+  const countriesUnavailable = countries.status === 'rejected'
+  const signalsUnavailable = signals.status === 'rejected'
+
+  if (countriesUnavailable) {
+    console.error(
+      '[globe] countries unavailable; serving neutral static geography:',
+      countries.reason instanceof Error ? countries.reason.message : countries.reason,
+    )
+  }
+  if (signalsUnavailable) {
+    console.error(
+      '[globe] signals unavailable; serving without live signals:',
+      signals.reason instanceof Error ? signals.reason.message : signals.reason,
+    )
+  }
+
+  return {
+    countries: countriesUnavailable ? getStaticGlobeCountryMarkers() : countries.value,
+    signalsByIso2: signalsUnavailable ? {} : signals.value.signalsByIso2,
+    unmappedSignalCountries: signalsUnavailable ? {} : signals.value.unmappedSignalCountries,
+    ...(countriesUnavailable ? { countriesUnavailable: true } : {}),
+    ...(signalsUnavailable ? { signalsUnavailable: true } : {}),
+  }
+}
