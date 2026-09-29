@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import DashboardResponsiveShell from '@/components/dashboard/DashboardResponsiveShell'
 import CommandCentreDataBoundary from '@/components/dashboard/CommandCentreDataBoundary'
-import { ROLE_PROFILES } from '@/lib/dashboard/dashboardShared'
+import { ROLE_PROFILES, type DashboardSignal } from '@/lib/dashboard/dashboardShared'
 import { getEduCategoriesForRole } from '@/lib/dashboard/dashboardServerData'
 import { buildDashboardCommandSources } from '@/lib/dashboard/buildDashboardCommandSources'
 import { loadCommandCentreData, withTimeout } from '@/lib/dashboard/loadCommandCentreData'
@@ -66,6 +66,20 @@ function normalizeRoleParam(raw: string | null): string | null {
   return ROLE_PROFILES[resolved] ? resolved : null
 }
 
+async function loadDashboardSignalRoutes(signals: DashboardSignal[]): Promise<DashboardSignal[]> {
+  try {
+    return await withTimeout(() => attachDecisionIntelDashboardRoutes(signals), CONTEXT_READ_TIMEOUT_MS)
+  } catch {
+    console.error('[command-centre-route-enrichment]', { code: 'ROUTE_ENRICHMENT_UNAVAILABLE' })
+    // Keep reviewed content, but never offer a dossier route that was not verified.
+    return signals.map(signal => ({
+      ...signal,
+      decisionIntelEventId: undefined,
+      decisionRecommendationState: undefined,
+    }))
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -88,9 +102,15 @@ export default async function DashboardPage({
   let commandLastViewedAt: string | null = null
   let userTier: Awaited<ReturnType<typeof getUserTier>> = 'free'
 
+  // Authentication is required; a failed verification belongs in the existing
+  // retry boundary, not the optional-context fallback below.
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await withTimeout(
+    () => supabase.auth.getUser(), CONTEXT_READ_TIMEOUT_MS,
+  )
+  if (authError || !user) throw new Error('Dashboard session could not be verified')
+
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       userId = user.id
       userEmail = user.email ?? null
@@ -204,8 +224,8 @@ export default async function DashboardPage({
   // membership tooling. app_metadata is not treated as a second entitlement authority.
   const decisionIntelAccess = canAccess('signals', normalizeSubscriptionTier(userTier))
   const [routedSignals, routedDigestSignals] = await Promise.all([
-    attachDecisionIntelDashboardRoutes(signals),
-    attachDecisionIntelDashboardRoutes(dailyDigest.signals),
+    loadDashboardSignalRoutes(signals),
+    loadDashboardSignalRoutes(dailyDigest.signals),
   ])
 
   const pathwayData = deriveRequirementStatusesFromIntel(

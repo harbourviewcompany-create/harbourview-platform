@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   read: vi.fn(),
+  auth: vi.fn(),
+  routes: vi.fn(),
   tier: vi.fn(),
   load: vi.fn(),
 }))
@@ -16,13 +18,13 @@ vi.mock('@/lib/dashboard/activeWorkspaceDashboardData', () => ({
 vi.mock('@/lib/dashboard/pathwayReadiness', () => ({ mergePathwayData: vi.fn(), deriveRequirementStatusesFromIntel: vi.fn() }))
 vi.mock('@/lib/billing/entitlements', () => ({ canAccess: () => false, checkFeatureAccess: () => false, normalizeSubscriptionTier: (v: string) => v }))
 vi.mock('@/lib/stripe/tier', () => ({ getUserTier: mocks.tier }))
-vi.mock('@/lib/intelligence-os/dashboardRoutes', () => ({ attachDecisionIntelDashboardRoutes: async (v: unknown) => v }))
+vi.mock('@/lib/intelligence-os/dashboardRoutes', () => ({ attachDecisionIntelDashboardRoutes: mocks.routes }))
 vi.mock('@/lib/dashboard/loadCommandCentreData', async importOriginal => ({
   ...await importOriginal<typeof import('@/lib/dashboard/loadCommandCentreData')>(),
   loadCommandCentreData: mocks.load,
 }))
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({
-  auth: { getUser: async () => ({ data: { user: { id: 'test-user', email: 'test@example.com' } } }) },
+  auth: { getUser: mocks.auth },
   from: (table: string) => {
     const query = { select: () => query, eq: () => query, maybeSingle: () => mocks.read(table) }
     return query
@@ -36,6 +38,8 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.resetAllMocks() }
 function setup() {
   vi.useFakeTimers()
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  mocks.auth.mockResolvedValue({ data: { user: { id: 'test-user', email: 'test@example.com' } }, error: null })
+  mocks.routes.mockImplementation(async (value: unknown) => value)
   mocks.tier.mockResolvedValue('free')
   mocks.load.mockResolvedValue({
     state: 'live', sources: { marketplaceRows: { requested: false, errorCode: null } },
@@ -92,6 +96,47 @@ describe('dashboard optional context outages', () => {
     expect(rendered).toBe(true)
     const page = await pending
     expect(page.props.children.props.userTier).toBe('free')
+  })
+
+  it('fails closed when the page authentication check stalls', async () => {
+    setup()
+    mocks.auth.mockImplementation(() => new Promise(() => {}))
+    let outcome = 'pending'
+    const pending = DashboardPage({ searchParams: Promise.resolve({ country: 'DE' }) })
+      .then(() => { outcome = 'rendered' }, () => { outcome = 'rejected' })
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(outcome).toBe('rejected')
+    await pending
+    expect(mocks.read).not.toHaveBeenCalled()
+    expect(mocks.load).not.toHaveBeenCalled()
+  })
+
+  it('does not load dashboard data when the page cannot verify a user', async () => {
+    setup()
+    mocks.auth.mockResolvedValue({ data: { user: null }, error: new Error('Auth unavailable') })
+    await expect(DashboardPage({ searchParams: Promise.resolve({ country: 'DE' }) })).rejects.toThrow()
+    expect(mocks.load).not.toHaveBeenCalled()
+  })
+
+  it('preserves signal content but suppresses unverified dossier routes after a stall', async () => {
+    setup()
+    mocks.read.mockResolvedValue({ data: null })
+    mocks.routes.mockImplementation(() => new Promise(() => {}))
+    const signal = { id: 'test-signal', title: 'Reviewed headline', decisionIntelEventId: 'stale-event', decisionRecommendationState: 'act_now' }
+    const bundle = await mocks.load()
+    bundle.data.signals = [signal]
+    bundle.data.dailyDigest.signals = [signal]
+    mocks.load.mockResolvedValue(bundle)
+    let rendered = false
+    const pending = DashboardPage({ searchParams: Promise.resolve({ country: 'DE' }) })
+      .then(page => { rendered = true; return page })
+    await vi.advanceTimersByTimeAsync(8_000)
+    expect(rendered).toBe(true)
+    const page = await pending
+    for (const values of [page.props.children.props.signals, page.props.children.props.digestSignals]) {
+      expect(values).toEqual([{ ...signal, decisionIntelEventId: undefined, decisionRecommendationState: undefined }])
+    }
+    expect(signal.decisionIntelEventId).toBe('stale-event')
   })
 
 })
