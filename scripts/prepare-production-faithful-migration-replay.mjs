@@ -83,6 +83,39 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
   {
+    destination: '20260923000959_replay_jurisdiction_data_depth_evidence.sql',
+    before: '20260923001000_full_depth_dynamic_evaluator.sql',
+    required: [
+      '20260923001000_full_depth_dynamic_evaluator.sql',
+      '20260923131000_authoritative_full_depth_evidence_store.sql',
+    ],
+    content: `-- Replay-only reconstruction of the authoritative depth evidence relation.
+-- The recorded dynamic evaluator queries this table before the repository's
+-- canonical CREATE TABLE migration at 20260923131000. Production already had
+-- the relation at evaluator time. Materialize the canonical table shape only
+-- in the temporary replay workspace; the later migration remains authoritative
+-- for indexes, RLS, grants and the evidence-gate view.
+create table if not exists public.jurisdiction_data_depth_evidence (
+  id uuid primary key default gen_random_uuid(),
+  jurisdiction_key text not null references public.countries(iso_alpha2) on update cascade on delete cascade,
+  dimension_key text not null references public.jurisdiction_data_depth_dimensions(dimension_key) on update cascade on delete cascade,
+  evidence_kind text not null check (evidence_kind in ('authority_rule','authority_statement','structural_fact','verified_research')),
+  applicability text not null check (applicability in ('applicable','not_applicable')),
+  evidence_payload jsonb not null,
+  evidence_quote text not null,
+  source_registry_id uuid not null references public.source_registry(id) on delete restrict,
+  source_snapshot_id uuid not null references public.source_snapshots(id) on delete restrict,
+  source_url text not null,
+  effective_from date,
+  effective_to date,
+  verification_status text not null default 'pending' check (verification_status in ('pending','verified','superseded','conflict')),
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+`,
+  },
+  {
     destination: '20260922189959_replay_gt_market_access_evidence.sql',
     before: '20260922190000_primary_gt_enrichment.sql',
     required: [
