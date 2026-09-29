@@ -157,7 +157,7 @@ alter table public.jurisdiction_regulatory_rules
   add constraint jurisdiction_regulatory_rules_rule_dimension_check
   check (rule_dimension in (
     'access_rules','commercial_activity','import','export','distribution',
-    'testing','packaging_labeling','tax_fees','regulator'
+    'testing','packaging_labeling','tax_fees','regulator','calendar'
   ));
 `,
   },
