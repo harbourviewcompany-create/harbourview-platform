@@ -698,7 +698,9 @@ test('replay preserves the full-depth summary view column contract in later eval
     '20260923001000_full_depth_dynamic_evaluator.sql',
     '20260923034000_evidence_architecture_hardening_003.sql',
   ]) {
-    const patch = contentPatches.find((item) => item.file === file)
+    const patch = contentPatches.find((item) =>
+      item.file === file && item.replacement.includes('regulatory_publication_ready'),
+    )
     assert.ok(patch, `missing summary-view replay patch for ${file}`)
 
     const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
