@@ -92,6 +92,8 @@ jobs:
             supabase/migrations/00000000000000_p0_org_onboarding_baseline.sql
           cp /tmp/harbourview-production-migrations/20260814122000_p0_identity_org_context.sql \
             supabase/migrations/20260814122000_p0_identity_org_context.sql
+          cp /tmp/harbourview-production-migrations/20260920154810_create_atomic_org_onboarding.sql \
+            supabase/migrations/20260920154810_create_atomic_org_onboarding.sql
           : > supabase/seed.sql
 
       - name: Start isolated local Supabase
