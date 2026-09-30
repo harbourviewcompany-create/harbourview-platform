@@ -75,6 +75,12 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
     destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
     before: '20260820130000_hv_pipeline_optimization.sql',
   },
+  {
+    source: '20260923060000_primary_om_law67_2026_enrichment.sql',
+    sibling: '20260923060000_jurisdiction_evidence_depth_291.sql',
+    destination: '20260923060001_replay_primary_om_law67_2026_enrichment.sql',
+    before: '20260923061000_primary_lv_law_2026_enrichment.sql',
+  },
 ]
 
 // Production had these named RLS policies before the reconstructed 20260719083306
