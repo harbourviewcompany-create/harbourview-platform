@@ -611,6 +611,21 @@ test('replay uses the canonical globally-unique pathway slug for Lithuania confl
   assert.match(schema, /create table public\.regulatory_pathways[\s\S]*slug text not null unique/i)
 })
 
+test('replay yields the one-active-direct slot before authoritative tranche 3 replacement evidence', () => {
+  const file = '20260923080000_authoritative_market_access_adjudication_tranche_3_20260923.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes("jurisdiction_iso2 in ('GH','ZM','VU')"),
+  )
+  assert.ok(patch)
+  assert.match(patch.replacement, /set active=false, expires_at=least\(expires_at, now\(\)\)/i)
+  assert.match(patch.replacement, /primary-evidence-gh-20260923/)
+  assert.match(patch.replacement, /primary-evidence-zm-20260923/)
+  assert.match(patch.replacement, /primary-evidence-vu-20260923/)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes("jurisdiction_iso2 in ('GH','ZM','VU')"), false)
+})
 test('replay replaces every production-local Ghana pathway UUID with the canonical gh-hemp pathway', () => {
   const file = '20260923070000_primary_gh_format_calendar_enrichment.sql'
   const patch = contentPatches.find((item) => item.file === file && item.replaceAll)
