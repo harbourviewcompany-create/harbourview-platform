@@ -72,6 +72,10 @@ describe('Vercel deployment admission policy', () => {
     expect(productionPromotionWorkflow).toContain('gitSource:{type:"github",repoId:1214598473,ref:$ref}')
     expect(productionPromotionWorkflow).toContain('target:"production"')
     expect(productionPromotionWorkflow).toContain('Compare repository and live migration ledgers')
+    expect(productionPromotionWorkflow).not.toContain('"Critical Env Secrets"')
+    expect(productionPromotionWorkflow).toContain('npm run check:critical-env')
+    expect(productionPromotionWorkflow).toContain('HF_TOKEN_SERVER: ${{ secrets.HF_TOKEN_SERVER }}')
+    expect(productionPromotionWorkflow).toContain('SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}')
   })
 
   it('keeps ignoreCommand only as a second-layer build control', () => {
