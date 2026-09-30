@@ -85,6 +85,9 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
     '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
     '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
     '20260923043000_kz_pathway_calendar_format_depth.sql',
+    '20260923063000_primary_me_drug_control_2026.sql',
+    '20260923070000_primary_kw_ly_enrichment.sql',
+    '20260924073000_primary_sn_drug_code_enrichment.sql',
   ])
 
   const originalRegulatory = fs.readFileSync(path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'), 'utf8')
@@ -144,6 +147,20 @@ test('zero-state replay skips the redundant Kazakhstan 43000 copy only because 4
 
   assert.equal(duplicateSql, canonicalSql)
   assert.ok(planReplayZeroStateSkips({ migrationFiles }).includes(duplicate))
+})
+
+test('zero-state replay skips later-timestamp twins only when the retained successor is byte-equivalent', () => {
+  for (const [duplicate, canonical] of [
+    ['20260923043000_kz_pathway_calendar_format_depth.sql', '20260923043001_kz_pathway_calendar_format_depth.sql'],
+    ['20260923063000_primary_me_drug_control_2026.sql', '20260923063001_primary_me_drug_control_2026.sql'],
+    ['20260923070000_primary_kw_ly_enrichment.sql', '20260923070001_primary_kw_ly_enrichment.sql'],
+    ['20260924073000_primary_sn_drug_code_enrichment.sql', '20260924073001_primary_sn_drug_code_enrichment.sql'],
+  ]) {
+    const duplicateSql = fs.readFileSync(path.join(root, 'supabase/migrations', duplicate), 'utf8')
+    const canonicalSql = fs.readFileSync(path.join(root, 'supabase/migrations', canonical), 'utf8')
+    assert.equal(duplicateSql, canonicalSql, `${duplicate} must remain byte-equivalent to ${canonical}`)
+    assert.ok(zeroStateSkips.includes(duplicate))
+  }
 })
 
 test('zero-state skips are suppressed when their exact historical files are absent', () => {
@@ -348,6 +365,34 @@ test('replay separates the September 23 evidence-depth and Oman migrations witho
   const siblingSql = fs.readFileSync(path.join(root, 'supabase/migrations', sibling), 'utf8')
   assert.match(sourceSql, /Primary Oman regulatory provenance/i)
   assert.match(siblingSql, /291-jurisdiction regulatory \+ intelligence evidence depth hardening/i)
+})
+
+test('replay resolves every remaining distinct duplicate-version group in timestamp order', () => {
+  const planned = planReplayVersionCollisionRenames({ migrationFiles })
+
+  for (const expected of [
+    ['20260923064000_reconcile_snapshot_depth_automatically.sql', '20260923064001_replay_reconcile_snapshot_depth_automatically.sql'],
+    ['20260923065000_full_depth_tn_to.sql', '20260923065001_replay_full_depth_tn_to.sql'],
+    ['20260924150000_publish_heatmap_us_states_and_priority_nationals.sql', '20260924150001_replay_publish_heatmap_us_states_and_priority_nationals.sql'],
+    ['20260925060000_harden_full_depth_dimension_contract_rls.sql', '20260925060001_replay_harden_full_depth_dimension_contract_rls.sql'],
+    ['20260925060000_primary_kg_law69_2024_enrichment.sql', '20260925060002_replay_primary_kg_law69_2024_enrichment.sql'],
+  ]) {
+    const [source, destination] = expected
+    const rename = planned.find((item) => item.source === source)
+    assert.ok(rename, `missing replay rename for ${source}`)
+    assert.equal(rename.destination, destination)
+    assert.equal(migrationFiles.includes(destination), false)
+  }
+
+  const triple = planned.filter((item) => item.source.startsWith('20260925060000_'))
+  assert.equal(triple.length, 2)
+  for (const item of triple) {
+    assert.deepEqual(item.collisionGroup, [
+      '20260925060000_dimension_specific_adjudication_engine.sql',
+      '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+      '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    ])
+  }
 })
 
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
