@@ -563,6 +563,20 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260923080000_authoritative_market_access_adjudication_tranche_3_20260923.sql',
+    anchor: `-- Authoritative adjudication tranche 3: first-party current sources.`,
+    replacement: `-- Authoritative adjudication tranche 3: first-party current sources.
+-- Zero-state replay: older verified evidence rows for these jurisdictions are
+-- still active, while production had already reconciled publication authority.
+-- Retain the older rows as audit history but yield the one-active-direct slot
+-- before inserting the newer primary evidence identities below.
+update public.regulatory_market_access_evidence
+set active=false, expires_at=least(expires_at, now())
+where jurisdiction_iso2 in ('GH','ZM','VU')
+  and active=true
+  and evidence_key not in ('primary-evidence-gh-20260923','primary-evidence-zm-20260923','primary-evidence-vu-20260923');`,
+  },
+  {
     file: '20260923070000_primary_gh_format_calendar_enrichment.sql',
     anchor: "'5796e807-c701-4c51-80a5-fdaf74a60ddb'",
     replacement: "(select id from public.regulatory_pathways where slug='gh-hemp' limit 1)",
