@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server'
 export async function resolveActiveWorkspace(userId: string) {
   const supabase = await createSupabaseServiceClient()
   const { data: prefs, error: prefsError } = await supabase
+    .schema('public')
     .from('user_dashboard_preferences')
     .select('active_workspace_id')
     .eq('user_id', userId)
@@ -20,6 +21,7 @@ export async function resolveActiveWorkspace(userId: string) {
 
   const [{ data: membership, error: membershipError }, { data: workspace, error: workspaceError }] = await Promise.all([
     supabase
+      .schema('public')
       .from('workspace_members')
       .select('workspace_id,role,status')
       .eq('workspace_id', requestedWorkspaceId)
@@ -27,6 +29,7 @@ export async function resolveActiveWorkspace(userId: string) {
       .eq('status', 'active')
       .maybeSingle(),
     supabase
+      .schema('public')
       .from('workspaces')
       .select('id,status')
       .eq('id', requestedWorkspaceId)

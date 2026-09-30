@@ -112,24 +112,33 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
     return `/dashboard?${params.toString()}`
   }, [model.currentCountry, model.activeSection, model.currentRole, searchParams])
 
-  // Operational next-actions first; at most one org onboarding CTA, appended last.
-  // Previously create+join monopolized the two priority slots on overview.
+  // Keep organization onboarding explicit. The overview renders these two CTAs
+  // in a compact strip so they remain reachable without monopolizing the
+  // operational-priority rows.
   const organizationActions = useMemo(() => {
     const organizationAction = model.nextActions.find(action => action.id === 'organization')
     const operational = model.nextActions.filter(action => action.id !== 'organization')
     if (!organizationAction) return operational
 
     const returnParam = encodeURIComponent(commandReturnTo)
-    const onboarding = {
+    const createOnboarding = {
       ...organizationAction,
       id: 'organization-create',
       label: 'Create an organization profile',
-      detail: 'Required for marketplace submissions and reviewed introductions. Join via invitation from org settings if you already have one.',
+      detail: 'Create the operating entity used for marketplace submissions, evidence and reviewed introductions.',
       href: `/organization/new?country=${encodeURIComponent(countryParam)}&returnTo=${returnParam}`,
       tone: 'warn' as const,
     }
+    const joinOnboarding = {
+      ...organizationAction,
+      id: 'organization-join',
+      label: 'Join an organization',
+      detail: 'Use an invitation to join an existing Harbourview operating workspace.',
+      href: `/organization/join?returnTo=${returnParam}`,
+      tone: 'gold' as const,
+    }
 
-    return [...operational, onboarding]
+    return [...operational, createOnboarding, joinOnboarding]
   }, [commandReturnTo, countryParam, model.nextActions])
 
   /** High-confidence signals become priority rows so Command is not org-setup-only. */
@@ -150,6 +159,7 @@ export function useMobileCommandModel(props: MobileCommandCentreProps) {
         detail: [s.market, when, impact].filter(Boolean).join(' · ').slice(0, 160),
         href: model.commandHref('weekly-signals'),
         tone: (conf >= 85 ? 'warn' : 'gold') as 'warn' | 'gold',
+        kind: 'intel' as const,
       }
     })
   }, [effectiveSignals, model.commandHref])

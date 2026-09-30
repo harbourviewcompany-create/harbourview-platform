@@ -118,7 +118,7 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       await expect(page.getByText('DE → CA', { exact: true })).toBeVisible()
       await expect(page.getByText('Permit required', { exact: true }).first()).toBeVisible()
       await expect(page.getByText('Export readiness', { exact: false })).toBeVisible()
-      await expect(page.getByText('Satisfied', { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('Verified', { exact: true }).first()).toBeVisible()
       await assertNoHorizontalOverflow(page)
       await reviewedRoute.scrollIntoViewIfNeeded()
       await page.screenshot({
@@ -171,13 +171,14 @@ test.describe('Jurisdiction Command mobile evidence', () => {
       viewport: { width: 390, height: 844 },
       isMobile: true,
       hasTouch: true,
+      // The production shell can register a service worker; block it so this\n      // test's failure injection reaches page.route deterministically.\n      serviceWorkers: 'block',
     })
 
     try {
-      const page = await context.newPage()
-      await page.route('**/api/dashboard/jurisdiction-command?**', async route => {
+      await context.route('**/api/dashboard/jurisdiction-command**', async route => {
         await route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"forced evidence failure"}' })
       })
+      const page = await context.newPage()
       await page.goto('/dashboard?country=CA&role=all&section=jurisdiction&page=access-pathway', {
         waitUntil: 'domcontentloaded',
         timeout: 60_000,

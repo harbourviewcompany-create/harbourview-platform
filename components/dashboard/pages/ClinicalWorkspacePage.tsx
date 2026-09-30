@@ -336,7 +336,7 @@ export default function ClinicalWorkspacePage({
                 <StatePanel title="Awaiting explicit query" detail="Enter a condition or clinical question in the search field above, then submit." />
               )}
               {answer && (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-3" data-testid="clinical-evidence-result">
                   <div className={subcard}>
                     <p className="text-xs uppercase tracking-[0.12em] text-white/40">{answer.state}</p>
                     <p className="mt-2 text-sm leading-6 text-white/75">{answer.answer}</p>

@@ -25,6 +25,15 @@ const REPLAY_ZERO_STATE_SKIPS = [
   // database-local. The immediately-following 20260722185015 migration resolves
   // the same two jobs by name and applies the same active=true state.
   '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
+  // Exact duplicate of the immediately-following 20260923043001 file; keeping
+  // both makes Supabase reject the shared 20260923043000 ledger version.
+  '20260923043000_kz_pathway_calendar_format_depth.sql',
+  '20260923060000_primary_om_law67_2026_enrichment.sql',
+  // Byte-identical to their immediately-following canonical copies. The other
+  // migration sharing each timestamp remains at the recorded ledger version.
+  '20260923063000_primary_me_drug_control_2026.sql',
+  '20260923070000_primary_kw_ly_enrichment.sql',
+  '20260924073000_primary_sn_drug_code_enrichment.sql',
 ]
 
 // A recorded reconstruction/reconciliation can have a timestamp later than the
@@ -72,6 +81,46 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
     destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
     before: '20260820130000_hv_pipeline_optimization.sql',
   },
+  {
+    source: '20260923064000_reconcile_snapshot_depth_automatically.sql',
+    sibling: '20260923064000_full_depth_ne_pw_sb_st.sql',
+    destination: '20260923064001_replay_reconcile_snapshot_depth_automatically.sql',
+    before: '20260923064500_kp_source_registry_discovery.sql',
+  },
+  {
+    source: '20260923065000_full_depth_tn_to.sql',
+    sibling: '20260923065000_full_291x32_depth_control_plane.sql',
+    destination: '20260923065001_replay_full_depth_tn_to.sql',
+    before: '20260923070000_primary_gh_format_calendar_enrichment.sql',
+  },
+  {
+    source: '20260924150000_publish_heatmap_us_states_and_priority_nationals.sql',
+    sibling: '20260924150000_authoritative_evidence_depth_backfill.sql',
+    destination: '20260924150001_replay_publish_heatmap_us_states_and_priority_nationals.sql',
+    before: '20260924152000_regulatory_tier_evidence_reconciliation.sql',
+  },
+  {
+    source: '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+    sibling: '20260925060000_dimension_specific_adjudication_engine.sql',
+    collisionGroup: [
+      '20260925060000_dimension_specific_adjudication_engine.sql',
+      '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+      '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    ],
+    destination: '20260925060001_replay_harden_full_depth_dimension_contract_rls.sql',
+    before: '20260925070000_fix_structured_adjudication_gate_insert.sql',
+  },
+  {
+    source: '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    sibling: '20260925060000_dimension_specific_adjudication_engine.sql',
+    collisionGroup: [
+      '20260925060000_dimension_specific_adjudication_engine.sql',
+      '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+      '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    ],
+    destination: '20260925060002_replay_primary_kg_law69_2024_enrichment.sql',
+    before: '20260925070000_fix_structured_adjudication_gate_insert.sql',
+  },
 ]
 
 // Production had these named RLS policies before the reconstructed 20260719083306
@@ -82,6 +131,281 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
 // production-recorded migration replace both predicates. No checked-in migration
 // or production ledger entry is changed.
 const REPLAY_SYNTHETIC_FOUNDATIONS = [
+  {
+    destination: '20260923000959_replay_jurisdiction_data_depth_evidence.sql',
+    before: '20260923001000_full_depth_dynamic_evaluator.sql',
+    required: [
+      '20260923001000_full_depth_dynamic_evaluator.sql',
+      '20260923131000_authoritative_full_depth_evidence_store.sql',
+    ],
+    content: `-- Replay-only reconstruction of the authoritative depth evidence relation.
+-- The recorded dynamic evaluator queries this table before the repository's
+-- canonical table migration at 20260923131000. Production already had the
+-- relation at evaluator time. Materialize the canonical table shape only in
+-- the temporary replay workspace; the later migration remains authoritative
+-- for indexes, RLS, grants and the evidence-gate view.
+create table if not exists public.jurisdiction_data_depth_evidence (
+  id uuid primary key default gen_random_uuid(),
+  jurisdiction_key text not null references public.countries(iso_alpha2) on update cascade on delete cascade,
+  dimension_key text not null references public.jurisdiction_data_depth_dimensions(dimension_key) on update cascade on delete cascade,
+  evidence_kind text not null check (evidence_kind in ('authority_rule','authority_statement','structural_fact','verified_research')),
+  applicability text not null check (applicability in ('applicable','not_applicable')),
+  evidence_payload jsonb not null,
+  evidence_quote text not null,
+  source_registry_id uuid not null references public.source_registry(id) on delete restrict,
+  source_snapshot_id uuid not null references public.source_snapshots(id) on delete restrict,
+  source_url text not null,
+  effective_from date,
+  effective_to date,
+  verification_status text not null default 'pending' check (verification_status in ('pending','verified','superseded','conflict')),
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create or replace view public.v_jurisdiction_verified_snapshot_gate
+with (security_invoker = on) as
+select
+  ss.id snapshot_id,
+  ss.source_id,
+  ss.raw_html_hash snapshot_hash,
+  ss.captured_at fetched_at,
+  ss.fetch_status,
+  ss.captured_url,
+  sr.source_url registered_source_url,
+  case
+    when ss.id is null then false
+    when lower(ss.raw_html_hash) !~ '^[0-9a-f]{64}$' then false
+    when ss.captured_at is null then false
+    when ss.fetch_status <> 'success' then false
+    when ss.captured_text is null or length(ss.captured_text)=0 then false
+    when sr.id is null or sr.source_url is null then false
+    else true
+  end qualifying_snapshot
+from public.source_snapshots ss
+left join public.source_registry sr on sr.id=ss.source_id;
+`,
+  },
+  {
+    destination: '20260923002958_replay_regulatory_rule_dimensions.sql',
+    before: '20260923003000_authority_evidence_tranche_001.sql',
+    required: [
+      '20260922240000_full_depth_structured_backing_models.sql',
+      '20260923003000_authority_evidence_tranche_001.sql',
+    ],
+    content: `-- Replay-only reconstruction of the production regulatory-rule dimension
+-- constraint used by the first authority-evidence tranche.
+--
+-- Production accepted regulator authority rows through jurisdiction_regulatory_rules,
+-- while the recovered table-creation migration omits 'regulator' from its check.
+-- Restore only that missing production shape in the temporary replay workspace.
+alter table public.jurisdiction_regulatory_rules
+  drop constraint if exists jurisdiction_regulatory_rules_rule_dimension_check;
+
+alter table public.jurisdiction_regulatory_rules
+  add constraint jurisdiction_regulatory_rules_rule_dimension_check
+  check (rule_dimension in (
+    'access_rules','commercial_activity','import','export','distribution',
+    'testing','packaging_labeling','tax_fees','regulator','calendar'
+  ));
+`,
+  },
+  {
+    destination: '20260923002959_replay_jurisdiction_regulators_conflict_key.sql',
+    before: '20260923003000_authority_evidence_tranche_001.sql',
+    required: [
+      '20260922240000_full_depth_structured_backing_models.sql',
+      '20260923003000_authority_evidence_tranche_001.sql',
+    ],
+    content: `-- Replay-only reconstruction of the production conflict target used by
+-- 20260923003000_authority_evidence_tranche_001.sql.
+--
+-- Production already had a unique identity for regulator names within each
+-- jurisdiction. The recovered CREATE TABLE migration does not contain that
+-- constraint, so zero-state replay must materialize it before the recorded
+-- ON CONFLICT clause runs. This never changes production migration history.
+create unique index if not exists jurisdiction_regulators_jurisdiction_name_uq
+  on public.jurisdiction_regulators(jurisdiction_key, regulator_name);
+`,
+  },
+  {
+    destination: '20260922189959_replay_gt_market_access_evidence.sql',
+    before: '20260922190000_primary_gt_enrichment.sql',
+    required: [
+      '20260922190000_primary_gt_enrichment.sql',
+    ],
+    content: `-- Replay-only reconstruction of the Guatemala evidence parent that existed
+-- before the recorded 20260922190000 claim insert ran in production.
+--
+-- The production migration updates this legacy evidence identity before writing
+-- an FK-backed claim. Repository zero-state has no earlier creator for that row,
+-- so materialize only the missing parent in the temporary replay workspace.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
+values
+('hv-mkt-complete-gt-20260913','GT','prohibited',
+ 'Replay parent for the production Guatemala primary-source enrichment migration.',
+ 'Congress of the Republic of Guatemala / Ministry of Public Health',
+ 'https://www.congreso.gob.gt/detalle_pdf/decretos/1217',
+ date '1992-09-23',now(),now()+interval '180 days',true)
+on conflict (evidence_key) do nothing;
+`,
+  },
+  {
+    destination: '20260922111959_replay_fo_gl_market_access_evidence.sql',
+    before: '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
+    required: [
+      '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
+      '20260926032000_repair_fo_gl_regulatory_evidence_fk.sql',
+    ],
+    content: `-- Replay-only reconstruction of the FO/GL evidence parents that existed
+-- before the recorded 20260922112000 claim insert ran in production.
+--
+-- The canonical repository history contains the forward repair at
+-- 20260926032000, but a zero-state replay reaches the FK-dependent claims first.
+-- Materialize only the missing parent rows in the temporary replay workspace;
+-- checked-in migration bodies and the production ledger remain immutable.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
+values
+('hv-mkt-complete-fo-20260913','FO','medical_limited_trade',
+ 'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; authorized activity is within the medical/scientific framework and no general adult-use retail pathway is established by the cited instrument.',
+ 'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
+ 'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer',
+ date '2026-05-26',now(),now()+interval '1 year',true),
+('hv-mkt-complete-gl-20260913','GL','medical_limited_trade',
+ 'Greenland controlled-substance law places cannabis within an authorization-based medical/scientific framework; no general adult-use commercial retail pathway is established by the cited framework.',
+ 'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
+ 'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',
+ null,now(),now()+interval '1 year',true)
+on conflict (evidence_key) do nothing;
+`,
+  },
+  {
+    destination: '20260922104459_replay_jurisdiction_data_depth_tasks.sql',
+    before: '20260922104500_primary_us_jurisdiction_depth_enrichment.sql',
+    required: [
+      '20260922101323_jurisdiction_data_depth_v1.sql',
+      '20260922104500_primary_us_jurisdiction_depth_enrichment.sql',
+    ],
+    content: `-- Replay-only foundation for the production jurisdiction data-depth task queue.
+--
+-- The repository contains consumers of this task table but no canonical CREATE TABLE
+-- migration. The temporary table carries the columns exercised by the recovered
+-- migrations. It is never a production migration or migration-ledger entry.
+create table if not exists public.jurisdiction_data_depth_tasks (
+  id bigint generated by default as identity primary key,
+  jurisdiction_key text not null,
+  dimension_key text not null,
+  jurisdiction_level text,
+  status text not null default 'open',
+  priority integer not null default 0,
+  evidence_required boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+`,
+  },
+  {
+    destination: '20260921004055_replay_claude_push_staging.sql',
+    before: '20260921004056_harden_internal_tables_and_rules_repair_rpc.sql',
+    required: [
+      '20260723183914_lock_down_21_anon_exposed_public_tables.sql',
+      '20260921004056_harden_internal_tables_and_rules_repair_rpc.sql',
+    ],
+    content: `-- Replay-only relation foundation for the production _claude_push_staging table.
+--
+-- The production table is referenced by the recovered security-hardening migration,
+-- but no canonical CREATE TABLE migration exists in the repository history. The
+-- temporary relation is intentionally minimal because this replay only requires
+-- the relation to exist for RLS/grant hardening. It is never a production migration
+-- or migration-ledger entry.
+create table if not exists public._claude_push_staging (
+  id bigint generated by default as identity primary key
+);
+`,
+  },
+  {
+    destination: '20260920204959_replay_gemini_embedding_column.sql',
+    before: '20260920205000_optimize_gemini_embedding_queue_scan.sql',
+    required: [
+      '20260617191632_signals_embedding_1024.sql',
+      '20260920205000_optimize_gemini_embedding_queue_scan.sql',
+    ],
+    content: `-- Replay-only reconstruction of the production Gemini embedding column.
+--
+-- Production has a 1024-dimensional Gemini embedding column on public.signals,
+-- but the recovered repository migration history contains consumers of that
+-- column without a canonical CREATE/ALTER COLUMN migration. This foundation
+-- exists only in the temporary production-faithful replay workspace so later
+-- historical migrations can execute. It is never a production migration or
+-- migration-ledger entry.
+alter table public.signals
+  a then false
+    when ss.captured_at is null then false
+    when ss.fetch_status <> 'success' then false
+    when ss.captured_text is null or length(ss.captured_text)=0 then false
+    when sr.id is null or sr.source_url is null then false
+    else true
+  end qualifying_snapshot
+from public.source_snapshots ss
+left join public.source_registry sr on sr.id=ss.source_id;
+`,
+  },
+  {
+    destination: '20260922189959_replay_gt_market_access_evidence.sql',
+    before: '20260922190000_primary_gt_enrichment.sql',
+    required: [
+      '20260922190000_primary_gt_enrichment.sql',
+    ],
+    content: `-- Replay-only reconstruction of the Guatemala evidence parent that existed
+-- before the recorded 20260922190000 claim insert ran in production.
+--
+-- The production migration updates this legacy evidence identity before writing
+-- an FK-backed claim. Repository zero-state has no earlier creator for that row,
+-- so materialize only the missing parent in the temporary replay workspace.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
+values
+('hv-mkt-complete-gt-20260913','GT','prohibited',
+ 'Replay parent for the production Guatemala primary-source enrichment migration.',
+ 'Congress of the Republic of Guatemala / Ministry of Public Health',
+ 'https://www.congreso.gob.gt/detalle_pdf/decretos/1217',
+ date '1992-09-23',now(),now()+interval '180 days',true)
+on conflict (evidence_key) do nothing;
+`,
+  },
+  {
+    destination: '20260922111959_replay_fo_gl_market_access_evidence.sql',
+    before: '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
+    required: [
+      '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql',
+      '20260926032000_repair_fo_gl_regulatory_evidence_fk.sql',
+    ],
+    content: `-- Replay-only reconstruction of the FO/GL evidence parents that existed
+-- before the recorded 20260922112000 claim insert ran in production.
+--
+-- The canonical repository history contains the forward repair at
+-- 20260926032000, but a zero-state replay reaches the FK-dependent claims first.
+-- Materialize only the missing parent rows in the temporary replay workspace;
+-- checked-in migration bodies and the production ledger remain immutable.
+insert into public.regulatory_market_access_evidence
+(evidence_key,jurisdiction_iso2,tier,rationale,authority_name,authority_url,source_effective_date,verified_at,expires_at,active)
+values
+('hv-mkt-complete-fo-20260913','FO','medical_limited_trade',
+ 'Faroe Islands Regulation No. 495 of 26 May 2026 lists cannabis in the controlled-substance schedules; authorized activity is within the medical/scientific framework and no general adult-use retail pathway is established by the cited instrument.',
+ 'Lógasavn / Faroe Islands — Regulation No. 495 of 26 May 2026 on controlled substances',
+ 'https://www.logir.fo/Bekendtgorelse/495-af-26-05-2026-for-Faeroerne-om-euforiserende-stoffer',
+ date '2026-05-26',now(),now()+interval '1 year',true),
+('hv-mkt-complete-gl-20260913','GL','medical_limited_trade',
+ 'Greenland controlled-substance law places cannabis within an authorization-based medical/scientific framework; no general adult-use commercial retail pathway is established by the cited framework.',
+ 'Greenland Self-Government — Regulation No. 61 of 22 August 2025 on controlled substances',
+ 'https://nalunaarutit.gl/groenlandsk-lovgivning/2025/selvstyrets-bekendtgørelse-nr-61-af-01_09_2025?sc_lang=da',
+ null,now(),now()+interval '1 year',true)
+on conflict (evidence_key) do nothing;
+`,
+  },
   {
     destination: '20260922104459_replay_jurisdiction_data_depth_tasks.sql',
     before: '20260922104500_primary_us_jurisdiction_depth_enrichment.sql',
@@ -238,6 +562,415 @@ where not exists (
 // Patch only the temporary replay copy with a type/absence-correct equivalent;
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
+  {
+    file: '20260923080000_authoritative_market_access_adjudication_tranche_3_20260923.sql',
+    anchor: `-- Authoritative adjudication tranche 3: first-party current sources.`,
+    replacement: `-- Authoritative adjudication tranche 3: first-party current sources.
+-- Zero-state replay: older verified evidence rows for these jurisdictions are
+-- still active, while production had already reconciled publication authority.
+-- Retain the older rows as audit history but yield the one-active-direct slot
+-- before inserting the newer primary evidence identities below.
+update public.regulatory_market_access_evidence
+set active=false, expires_at=least(expires_at, now())
+where jurisdiction_iso2 in ('GH','ZM','VU')
+  and active=true
+  and evidence_key not in ('primary-evidence-gh-20260923','primary-evidence-zm-20260923','primary-evidence-vu-20260923');`,
+  },
+  {
+    file: '20260923070000_primary_gh_format_calendar_enrichment.sql',
+    anchor: "'5796e807-c701-4c51-80a5-fdaf74a60ddb'",
+    replacement: "(select id from public.regulatory_pathways where slug='gh-hemp' limit 1)",
+    replaceAll: true,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),\n`,
+    replacement: ``,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `   when 'country_intel' then 'jurisdiction_intelligence'\n`,
+    replacement: ``,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `insert into public.jurisdiction_data_depth_dimensions
+(dimension_key,display_name,layer,description,required_for_regulatory_publication,requires_primary_source,freshness_days,sort_order)`,
+    replacement: `-- Zero-state replay: this table already exists from 20260922230000 with
+-- contract_version defaulting to 2026-09-22.v1. CREATE TABLE IF NOT EXISTS above
+-- does not replace that default, so the v2 upsert would otherwise keep all
+-- dimension rows on v1 and seed zero v2 state rows.
+alter table public.jurisdiction_data_depth_dimensions
+  alter column contract_version set default '2026-09-23.v2';
+
+insert into public.jurisdiction_data_depth_dimensions
+(dimension_key,display_name,layer,description,required_for_regulatory_publication,requires_primary_source,freshness_days,sort_order)`,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `create index if not exists jurisdiction_data_depth_state_status_idx
+ on public.jurisdiction_data_depth_dimension_state(status,applicability,dimension_key);`,
+    replacement: `-- Zero-state replay: the state table also pre-exists from the v1 contract.
+-- Keep future implicit inserts aligned with the v2 migration's declared shape.
+alter table public.jurisdiction_data_depth_dimension_state
+  alter column contract_version set default '2026-09-23.v2';
+
+create index if not exists jurisdiction_data_depth_state_status_idx
+ on public.jurisdiction_data_depth_dimension_state(status,applicability,dimension_key);`,
+  },
+  {
+    file: '20260923044500_lt_primary_regulatory_depth.sql',
+    anchor: 'on conflict (country_id, slug) do update set',
+    replacement: 'on conflict (slug) do update set',
+  },
+  {
+    file: '20260923030000_evidence_architecture_hardening_001.sql',
+    anchor: `do $$
+begin
+  execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck on public.jurisdiction_regulatory_rules';
+  execute 'drop constraint if exists jurisdiction_regulators_verified_provenance_ck on public.jurisdiction_regulators';
+  execute 'drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck on public.jurisdiction_regulatory_changes';
+  execute 'drop constraint if exists jurisdiction_market_participants_verified_provenance_ck on public.jurisdiction_market_participants';
+  execute 'drop constraint if exists jurisdiction_relationships_verified_provenance_ck on public.jurisdiction_relationships';
+  execute 'drop constraint if exists jurisdiction_opportunities_verified_provenance_ck on public.jurisdiction_opportunities';
+end $$;`,
+    replacement: `alter table public.jurisdiction_regulatory_rules
+  drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck;
+alter table public.jurisdiction_regulators
+  drop constraint if exists jurisdiction_regulators_verified_provenance_ck;
+alter table public.jurisdiction_regulatory_changes
+  drop constraint if exists jurisdiction_regulatory_changes_verified_provenance_ck;
+alter table public.jurisdiction_market_participants
+  drop constraint if exists jurisdiction_market_participants_verified_provenance_ck;
+alter table public.jurisdiction_relationships
+  drop constraint if exists jurisdiction_relationships_verified_provenance_ck;
+alter table public.jurisdiction_opportunities
+  drop constraint if exists jurisdiction_opportunities_verified_provenance_ck;`,
+  },
+  {
+    file: '20260923043000_evidence_architecture_hardening_007.sql',
+    anchor: 'with x as (select * from public.jurisdiction_data_depth_evaluator)',
+    replacement: 'with x as (select * from public.v_jurisdiction_data_depth_evaluator)',
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: 'create or replace view public.v_jurisdiction_verified_snapshot_gate\nwith (security_invoker=on) as',
+    replacement: 'create or replace view public.v_jurisdiction_legacy_market_snapshot_gate\nwith (security_invoker=on) as',
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: 'grant select on public.v_jurisdiction_verified_snapshot_gate to anon, authenticated;',
+    replacement: 'grant select on public.v_jurisdiction_legacy_market_snapshot_gate to anon, authenticated;',
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: 'select 1 from public.v_jurisdiction_verified_snapshot_gate g\n             where g.evidence_key=e.evidence_key and g.qualifying',
+    replacement: 'select 1 from public.v_jurisdiction_legacy_market_snapshot_gate g\n             where g.evidence_key=e.evidence_key and g.qualifying',
+  },
+  {
+    file: '20260923033000_evidence_snapshot_gate_002.sql',
+    anchor: "  ss.fetch_status,\n  sr.source_url registered_source_url,",
+    replacement: "  ss.fetch_status,\n  ss.captured_url,\n  sr.source_url registered_source_url,",
+  },
+  {
+    file: '20260922120000_primary_tv_va_source_enrichment.sql',
+    anchor: "values('39d4e117-d0ae-4669-8f0c-b631afee0ef1','TV','depth-v1-tv'",
+    replacement: "values((select id from public.countries where iso_alpha2='TV' limit 1),'TV','depth-v1-tv'",
+  },
+  {
+    file: '20260922121000_primary_ca_ke_regulatory_enrichment.sql',
+    anchor: "values('a2c3726a-12a5-40c6-a640-65a735c579ac','CA','depth-v1-ca'",
+    replacement: "values((select id from public.countries where iso_alpha2='CA' limit 1),'CA','depth-v1-ca'",
+  },
+  {
+    file: '20260922121000_primary_ca_ke_regulatory_enrichment.sql',
+    anchor: "values('8ff64be8-1f33-42b5-9ba7-7cdd13c6fe6a','KE','depth-v1-ke'",
+    replacement: "values((select id from public.countries where iso_alpha2='KE' limit 1),'KE','depth-v1-ke'",
+  },
+  {
+    file: '20260923061000_primary_lv_law_2026_enrichment.sql',
+    anchor: "select 'a4e3067f-de8f-40a8-9633-24271c893c51','LV','depth-v1-lv-industrial-hemp'",
+    replacement: "select (select id from public.countries where iso_alpha2='LV' limit 1),'LV','depth-v1-lv-industrial-hemp'",
+  },
+  {
+    file: '20260923072000_primary_mc_cannabis_control_enrichment.sql',
+    anchor: "select '1a237176-7a4f-43ba-9d94-ea63b9ad3382','MC','depth-v1-mc-authorized-non-narcotic-cannabis'",
+    replacement: "select (select id from public.countries where iso_alpha2='MC' limit 1),'MC','depth-v1-mc-authorized-non-narcotic-cannabis'",
+  },
+  {
+    file: '20260925081500_primary_vu_hemp_medical_enrichment.sql',
+    anchor: "select '58526c26-b97d-410d-aa39-3e1a3b6e66b0','VU','depth-v1-vu-medical-hemp'",
+    replacement: "select (select id from public.countries where iso_alpha2='VU' limit 1),'VU','depth-v1-vu-medical-hemp'",
+  },
+  {
+    file: '20260925090000_primary_ml_law83_14_enrichment.sql',
+    anchor: "select 'ee9ec5dd-845e-41ae-b088-98a84f667a74','ML','depth-v1-ml-authorized-research'",
+    replacement: "select (select id from public.countries where iso_alpha2='ML' limit 1),'ML','depth-v1-ml-authorized-research'",
+  },
+  {
+    file: '20260922233000_full_depth_dimension_state_matrix.sql',
+    anchor: `select
+  s.jurisdiction_key,
+  c.country_name,
+  s.dimension_key,
+  d.display_name,
+  d.layer,
+  d.required_for_regulatory_publication,
+  d.requires_primary_source,
+  s.applicability,
+  s.status,
+  s.blocker_reason,
+  s.evidence_count,
+  s.primary_source_count,
+  s.latest_verified_at,
+  s.freshness_deadline,
+  s.confidence,
+  s.evidence_basis,
+  s.parent_jurisdiction_key,
+  s.last_evaluated_at,
+  s.contract_version
+from public.jurisdiction_data_depth_dimension_state s`,
+    replacement: `select
+  s.jurisdiction_key,
+  c.country_name,
+  s.dimension_key,
+  d.display_name,
+  d.layer,
+  d.required_for_regulatory_publication,
+  d.requires_primary_source,
+  s.status,
+  case
+    when s.evidence_count > 0 then 'evidence_present'
+    when s.applicability = 'not_applicable' then 'not_applicable'
+    else 'not_yet_measured'
+  end as evidence_state,
+  s.contract_version,
+  s.applicability,
+  s.blocker_reason,
+  s.evidence_count,
+  s.primary_source_count,
+  s.latest_verified_at,
+  s.freshness_deadline,
+  s.confidence,
+  s.evidence_basis,
+  s.parent_jurisdiction_key,
+  s.last_evaluated_at
+from public.jurisdiction_data_depth_dimension_state s`,
+  },
+  {
+    file: '20260922233000_full_depth_dimension_state_matrix.sql',
+    anchor: `select
+  jurisdiction_key,
+  max(country_name) country_name,
+  count(*) total_contract_dimensions,
+  count(*) filter (where status='complete') complete_dimensions,
+  count(*) filter (where status='missing') missing_dimensions,
+  count(*) filter (where status in ('blocked','stale','conflict')) blocked_dimensions,
+  count(*) filter (where status='unmeasured') unmeasured_dimensions,
+  count(*) filter (where applicability='unknown') unknown_applicability_dimensions,
+  count(*) filter (where applicability='not_applicable') not_applicable_dimensions,
+  round(
+    100.0 * count(*) filter (where status='complete')
+    / nullif(count(*) filter (where applicability <> 'unknown'),0), 2
+  ) contract_depth_pct,
+  bool_and(
+    not required_for_regulatory_publication
+    or (applicability='not_applicable' and status='complete')
+    or (applicability='applicable' and status='complete')
+  ) as regulatory_publication_ready
+from public.v_jurisdiction_data_depth_contract`,
+    replacement: `select
+  jurisdiction_key,
+  max(country_name) country_name,
+  count(*) total_contract_dimensions,
+  count(*) filter (where status='complete') complete_dimensions,
+  count(*) filter (where status='missing') missing_dimensions,
+  count(*) filter (where status in ('blocked','stale','conflict')) blocked_dimensions,
+  count(*) filter (where status='unmeasured') unmeasured_dimensions,
+  round(
+    100.0 * count(*) filter (where status='complete')
+    / nullif(count(*) filter (where applicability <> 'unknown'),0), 2
+  ) contract_depth_pct,
+  bool_and(
+    not required_for_regulatory_publication
+    or (applicability='not_applicable' and status='complete')
+    or (applicability='applicable' and status='complete')
+  ) as regulatory_publication_ready,
+  count(*) filter (where applicability='unknown') unknown_applicability_dimensions,
+  count(*) filter (where applicability='not_applicable') not_applicable_dimensions
+from public.v_jurisdiction_data_depth_contract`,
+  },
+  {
+    file: '20260922240000_full_depth_structured_backing_models.sql',
+    anchor: "  c.jurisdiction_level,\n  case",
+    replacement: "  'national',\n  case",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('import','2026-09-22.v1','partial','public.regulatory_market_access_claims'",
+    replacement: "('import','2026-09-22.v1','table','public.regulatory_market_access_claims'",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('export','2026-09-22.v1','partial','public.regulatory_market_access_claims'",
+    replacement: "('export','2026-09-22.v1','table','public.regulatory_market_access_claims'",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('regulator','2026-09-22.v1','partial','public.regulatory_pathways + public.source_registry'",
+    replacement: "('regulator','2026-09-22.v1','derived','public.regulatory_pathways + public.source_registry'",
+  },
+  {
+    file: '20260922234500_full_depth_dimension_source_registry.sql',
+    anchor: "('opportunities','2026-09-22.v1','partial','public.countries + intelligence/network data'",
+    replacement: "('opportunities','2026-09-22.v1','derived','public.countries + intelligence/network data'",
+  },
+  {
+    file: '20260922233000_full_depth_dimension_state_matrix.sql',
+    anchor: `  ) as full_depth_ready;`,
+    replacement: `  ) as full_depth_ready
+from public.v_jurisdiction_data_depth_contract;`,
+  },
+  {
+    file: '20260923001000_full_depth_dynamic_evaluator.sql',
+    anchor: "  select s.*, c.country_name, c.jurisdiction_level,\n         d.required_for_regulatory_publication, d.requires_primary_source, d.freshness_days",
+    replacement: "  select s.*, c.country_name, 'national'::text as jurisdiction_level,\n         d.display_name, d.layer,\n         d.required_for_regulatory_publication, d.requires_primary_source, d.freshness_days",
+  },
+  {
+    file: '20260923001000_full_depth_dynamic_evaluator.sql',
+    anchor: `select
+  jurisdiction_key,
+  max(country_name) country_name,
+  count(*) total_contract_dimensions,
+  count(*) filter (where evaluated_status='complete') complete_dimensions,
+  count(*) filter (where evaluated_status='missing') missing_dimensions,
+  count(*) filter (where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+  count(*) filter (where evaluated_status='unmeasured') unmeasured_dimensions,
+  count(*) filter (where applicability='unknown') unknown_applicability_dimensions,
+  count(*) filter (where applicability='not_applicable') not_applicable_dimensions,
+  round(100.0 * count(*) filter (where evaluated_status='complete') /
+    nullif(count(*) filter (where applicability <> 'unknown'),0),2) contract_depth_pct,
+  bool_and(
+    not required_for_regulatory_publication
+    or evaluated_status='complete'
+  ) as regulatory_publication_ready
+from public.v_jurisdiction_data_depth_evaluator`,
+    replacement: `select
+  jurisdiction_key,
+  max(country_name) country_name,
+  count(*) total_contract_dimensions,
+  count(*) filter (where evaluated_status='complete') complete_dimensions,
+  count(*) filter (where evaluated_status='missing') missing_dimensions,
+  count(*) filter (where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+  count(*) filter (where evaluated_status='unmeasured') unmeasured_dimensions,
+  round(100.0 * count(*) filter (where evaluated_status='complete') /
+    nullif(count(*) filter (where applicability <> 'unknown'),0),2) contract_depth_pct,
+  bool_and(
+    not required_for_regulatory_publication
+    or evaluated_status='complete'
+  ) as regulatory_publication_ready,
+  count(*) filter (where applicability='unknown') unknown_applicability_dimensions,
+  count(*) filter (where applicability='not_applicable') not_applicable_dimensions
+from public.v_jurisdiction_data_depth_evaluator`,
+  },
+  {
+    file: '20260923034000_evidence_architecture_hardening_003.sql',
+    anchor: `select jurisdiction_key,max(country_name) country_name,count(*) total_contract_dimensions,
+ count(*) filter(where evaluated_status='complete') complete_dimensions,
+ count(*) filter(where evaluated_status='missing') missing_dimensions,
+ count(*) filter(where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+ count(*) filter(where evaluated_status='unmeasured') unmeasured_dimensions,
+ count(*) filter(where applicability='unknown') unknown_applicability_dimensions,
+ count(*) filter(where applicability='not_applicable') not_applicable_dimensions,
+ round(100.0*count(*) filter(where evaluated_status='complete')/nullif(count(*) filter(where applicability<>'unknown'),0),2) contract_depth_pct,
+ bool_and(not required_for_regulatory_publication or evaluated_status='complete') regulatory_publication_ready
+from public.v_jurisdiction_data_depth_evaluator group by jurisdiction_key;`,
+    replacement: `select jurisdiction_key,max(country_name) country_name,count(*) total_contract_dimensions,
+ count(*) filter(where evaluated_status='complete') complete_dimensions,
+ count(*) filter(where evaluated_status='missing') missing_dimensions,
+ count(*) filter(where evaluated_status in ('blocked','stale','conflict')) blocked_dimensions,
+ count(*) filter(where evaluated_status='unmeasured') unmeasured_dimensions,
+ round(100.0*count(*) filter(where evaluated_status='complete')/nullif(count(*) filter(where applicability<>'unknown'),0),2) contract_depth_pct,
+ bool_and(not required_for_regulatory_publication or evaluated_status='complete') regulatory_publication_ready,
+ count(*) filter(where applicability='unknown') unknown_applicability_dimensions,
+ count(*) filter(where applicability='not_applicable') not_applicable_dimensions
+from public.v_jurisdiction_data_depth_evaluator group by jurisdiction_key;`,
+  },
+  {
+    file: '20260922233000_full_depth_dimension_state_matrix.sql',
+    anchor: "from public.jurisdiction_data_depth_dimensions d\njoin public.v_jurisdiction_data_depth v\n  on v.jurisdiction_key = s.jurisdiction_key\nwhere d.dimension_key = s.dimension_key",
+    replacement: "from public.jurisdiction_data_depth_dimensions d,\n     public.v_jurisdiction_data_depth v\nwhere v.jurisdiction_key = s.jurisdiction_key\n  and d.dimension_key = s.dimension_key",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "select\n  '01fdfa6a-1295-4f84-8ade-dbabf9b245be',\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"source\":\"designated_growers\"}'::jsonb,",
+    replacement: "select\n  (select id from public.regulatory_pathways where slug='nl-experiment' limit 1),\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"source\":\"designated_growers\"}'::jsonb,",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "where pf.slug='dried_flower'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be' and r.format_id=pf.id\n);",
+    replacement: "where pf.slug='dried_flower'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id=(select id from public.regulatory_pathways where slug='nl-experiment' limit 1) and r.format_id=pf.id\n);",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "select\n  '01fdfa6a-1295-4f84-8ade-dbabf9b245be',\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"raw_cannabis_only\":true,\"concentrates_prohibited\":true,\"made_and_packaged_by_grower\":true}'::jsonb,",
+    replacement: "select\n  (select id from public.regulatory_pathways where slug='nl-experiment' limit 1),\n  pf.id,\n  'permitted',\n  '{\"experiment_phase\":true,\"raw_cannabis_only\":true,\"concentrates_prohibited\":true,\"made_and_packaged_by_grower\":true}'::jsonb,",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "where pf.slug='edibles'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id='01fdfa6a-1295-4f84-8ade-dbabf9b245be' and r.format_id=pf.id\n);",
+    replacement: "where pf.slug='edibles'\nand not exists (\n  select 1 from public.pathway_format_rules r\n  where r.pathway_id=(select id from public.regulatory_pathways where slug='nl-experiment' limit 1) and r.format_id=pf.id\n);",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "  'verified',now(),'2025-04-07',\n  'Products and packaging must meet experiment requirements; THC/CBD information and required labeling apply.'",
+    replacement: "  'needs_review',null,'2025-04-07',\n  'Products and packaging must meet experiment requirements; THC/CBD information and required labeling apply.'",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "  'verified',now(),'2025-04-07',\n  'Edibles must be made and packaged by designated growers under the experiment requirements.'",
+    replacement: "  'needs_review',null,'2025-04-07',\n  'Edibles must be made and packaged by designated growers under the experiment requirements.'",
+  },
+  {
+    file: '20260922165000_primary_netherlands_format_rules.sql',
+    anchor: "update public.jurisdiction_dimension_coverage\nset status='verified_populated'",
+    replacement: `-- Zero-state replay reconciliation: production already had these format-rule
+-- identities/citations when this migration ran, so the verified inserts above
+-- were skipped there. A repository replay creates the rows here; attach the
+-- cited Government.nl source first, then cross the verification trigger.
+insert into public.regulatory_citations(
+  entity_type,entity_id,instrument,article,source_type,citation_url,published_date,accessed_date,excerpt
+)
+select
+  'rule',r.id,'Controlled Cannabis Supply Chain Experiment — product rules',null,'regulator',
+  r.source_urls[1],'2025-04-07',current_date,
+  'Government.nl states the product and packaging rules applicable during the controlled cannabis supply-chain experiment.'
+from public.pathway_format_rules r
+join public.product_formats pf on pf.id=r.format_id
+join public.regulatory_pathways p on p.id=r.pathway_id
+where p.slug='nl-experiment'
+  and pf.slug in ('dried_flower','edibles')
+  and not exists (
+    select 1 from public.regulatory_citations c
+    where c.entity_type='rule' and c.entity_id=r.id and c.citation_url=r.source_urls[1]
+  );
+
+update public.pathway_format_rules r
+set verification='verified',last_verified_at=now(),updated_at=now()
+from public.product_formats pf, public.regulatory_pathways p
+where r.format_id=pf.id
+  and p.id=r.pathway_id
+  and p.slug='nl-experiment'
+  and pf.slug in ('dried_flower','edibles');
+
+update public.jurisdiction_dimension_coverage
+set status='verified_populated'`,
+  },
+  {
+    file: '20260922123500_record_kp_primary_source_block.sql',
+    anchor: "where jurisdiction_key='KP'\nand not exists(select 1 from public.jurisdiction_data_depth_tasks where jurisdiction_key='KP' and dimension_key='verified_regulatory_evidence' and status='blocked');",
+    replacement: "where jurisdiction_key='KP'\nand not exists(select 1 from public.jurisdiction_data_depth_tasks where jurisdiction_key='KP' and dimension_key='verified_regulatory_evidence' and status='blocked')\non conflict (jurisdiction_key,dimension_key) do update set\n  jurisdiction_level=excluded.jurisdiction_level,\n  status='blocked',\n  priority=excluded.priority,\n  evidence_required=excluded.evidence_required,\n  notes=excluded.notes,\n  updated_at=now();",
+  },
   {
     file: '20260918000156_add_legal_data_hunter_mcp_bridge_source.sql',
     anchor: "   'mcp_bridge', 'legal_database', array['regulatory'], false, false, 'not_applicable',",
@@ -706,9 +1439,9 @@ export function planReplayRelocations({ migrationFiles }) {
 export function planReplayVersionCollisionRenames({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_VERSION_COLLISION_RENAMES.filter((item) => {
+    const expectedCollisionFiles = item.collisionGroup ?? [item.source, item.sibling]
     if (
-      !fileSet.has(item.source) ||
-      !fileSet.has(item.sibling) ||
+      !expectedCollisionFiles.every((file) => fileSet.has(file)) ||
       !fileSet.has(item.before) ||
       fileSet.has(item.destination)
     ) return false
@@ -723,26 +1456,38 @@ export function planReplayVersionCollisionRenames({ migrationFiles }) {
     return Boolean(
       sourceVersion &&
         sourceVersion === siblingVersion &&
+        expectedCollisionFiles.every((file) => migrationVersion(file) === sourceVersion) &&
         destinationVersion &&
         beforeVersion &&
         sourceVersion < destinationVersion &&
         destinationVersion < beforeVersion &&
-        collisionFiles.length === 2 &&
-        collisionFiles.includes(item.source) &&
-        collisionFiles.includes(item.sibling),
+        collisionFiles.length === expectedCollisionFiles.length &&
+        expectedCollisionFiles.every((file) => collisionFiles.includes(file)),
     )
   })
 }
 
 export function planReplaySyntheticFoundations({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
-  return REPLAY_SYNTHETIC_FOUNDATIONS.filter((item) => {
-    if (fileSet.has(item.destination) || !fileSet.has(item.before)) return false
-    if (!item.required.every((file) => fileSet.has(file))) return false
-    const destinationVersion = migrationVersion(item.destination)
-    const beforeVersion = migrationVersion(item.before)
-    return Boolean(destinationVersion && beforeVersion && destinationVersion < beforeVersion)
-  })
+  const seenDestinations = new Set()
+
+  // Some recovered replay foundations are duplicated in historical handoffs.
+  // Prefer the last eligible definition: later entries are the reconciled
+  // canonical copies, while earlier duplicates may contain truncated recovery
+  // text. Reverse-filter-reverse keeps the canonical source order intact.
+  return [...REPLAY_SYNTHETIC_FOUNDATIONS]
+    .reverse()
+    .filter((item) => {
+      if (seenDestinations.has(item.destination)) return false
+      if (fileSet.has(item.destination) || !fileSet.has(item.before)) return false
+      if (!item.required.every((file) => fileSet.has(file))) return false
+      const destinationVersion = migrationVersion(item.destination)
+      const beforeVersion = migrationVersion(item.before)
+      const eligible = Boolean(destinationVersion && beforeVersion && destinationVersion < beforeVersion)
+      if (eligible) seenDestinations.add(item.destination)
+      return eligible
+    })
+    .reverse()
 }
 
 export function planReplayContentPatches({ migrationFiles }) {
@@ -812,10 +1557,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       const original = fs.readFileSync(target, 'utf8')
       const first = original.indexOf(item.anchor)
       const last = original.lastIndexOf(item.anchor)
-      if (first === -1 || first !== last) {
+      if (first === -1 || (!item.replaceAll && first !== last)) {
         throw new Error(`Replay content patch anchor mismatch: ${item.file}`)
       }
-      fs.writeFileSync(target, original.replace(item.anchor, item.replacement), 'utf8')
+      const corrected = item.replaceAll
+        ? original.split(item.anchor).join(item.replacement)
+        : original.replace(item.anchor, item.replacement)
+      fs.writeFileSync(target, corrected, 'utf8')
     }
   }
 

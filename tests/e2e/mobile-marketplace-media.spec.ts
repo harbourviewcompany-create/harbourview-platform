@@ -45,12 +45,10 @@ async function authenticate(browser: Browser) {
 }
 
 async function assertAllHealthyMedia(page: Page) {
-  const cards = page.locator('.cc-mkt-card')
+  const cards = page.locator('.cc-mkt-card:visible')
   await expect(cards.first()).toBeVisible({ timeout: 30_000 })
   const cardCount = await cards.count()
   expect(cardCount).toBeGreaterThan(0)
-
-  const boxes: { x: number; y: number; width: number; height: number }[] = []
 
   for (let index = 0; index < cardCount; index += 1) {
     const card = cards.nth(index)
@@ -69,10 +67,21 @@ async function assertAllHealthyMedia(page: Page) {
 
     await expect(card.locator('.cc-mkt-card-title')).toBeVisible()
     await expect(card.locator('.cc-mkt-cta')).toBeVisible()
-
-    const box = await card.boundingBox()
-    if (box) boxes.push(box)
   }
+
+  // Capture every card rectangle in one DOM evaluation so all coordinates use
+  // the same document scroll position. Playwright boundingBox() is viewport-
+  // relative; comparing boxes gathered after independently scrolling each card
+  // produces false overlap failures.
+  const boxes = await cards.evaluateAll((nodes) => nodes.map((node) => {
+    const rect = node.getBoundingClientRect()
+    return {
+      x: rect.left,
+      y: rect.top + window.scrollY,
+      width: rect.width,
+      height: rect.height,
+    }
+  }))
 
   // Regression guard for a real production bug (reported 2026-08-28): a
   // negative-margin media-bleed rule leaked in from an unrelated dead card
@@ -98,9 +107,9 @@ async function assertAllHealthyMedia(page: Page) {
 
   const geometry = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
+    viewportWidth: window.innerWidth,
   }))
-  expect(geometry.scrollWidth - geometry.clientWidth).toBeLessThanOrEqual(1)
+  expect(geometry.scrollWidth - geometry.viewportWidth).toBeLessThanOrEqual(1)
 }
 
 async function verifyEveryLoadedMarketplaceView(page: Page) {

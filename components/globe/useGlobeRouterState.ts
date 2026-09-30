@@ -35,14 +35,15 @@ export function globeRouterReducer(
         inlineNotice: undefined,
       }
     case 'MARKET_ENTER':
-      // Role is an optional operating-context preference, not an entry gate.
-      // The destination restores a signed-in user's saved role when available;
-      // otherwise role remains null, which Command presents as All roles.
+      // Role is part of the routing contract. Country context is selected first,
+      // then the operator chooses the role Harbourview should use to tailor the
+      // destination before the resolver is allowed to navigate.
       return {
         ...state,
-        step: 'routing',
-        routeStatus: 'resolving',
+        step: 'role',
+        routeStatus: 'idle',
         resolvedHref: undefined,
+        selectedRoleId: undefined,
         selectedIntentId: undefined,
         roleSearchQuery: '',
       }

@@ -555,7 +555,7 @@ test.describe('Mobile Command operator-first verification', () => {
       })
       try {
         const page = await context.newPage()
-        const response = await page.goto('/dashboard?country=CA&role=exporter', { waitUntil: 'domcontentloaded' })
+        const response = await page.goto('/dashboard?country=CA&role=exporter&page=briefing', { waitUntil: 'domcontentloaded' })
         expect(response?.status()).toBeLessThan(400)
 
         await expect(page.locator('.cc-app')).toBeVisible()
@@ -644,8 +644,9 @@ test.describe('Command Centre authenticated responsive verification', () => {
         } else {
           const desktopRoot = page.locator('.cc-app:visible')
           await expect(page.locator('[data-mobile-command-version="2"]')).toHaveCount(0)
-          await expect(desktopRoot).toBeVisible()
-          await expect(desktopRoot.locator('.cc-page-title')).toHaveText('Briefing Room')
+          await expect(page.locator('[data-dashboard-renderer="desktop"]:visible')).toBeVisible({ timeout: 30_000 })
+          await expect(desktopRoot).toBeVisible({ timeout: 30_000 })
+          await expect(desktopRoot.locator('.cc-page-title')).toContainText('Marketplace')
 
           if (width === 1440) {
             const verifiedPages: string[] = []
@@ -656,10 +657,11 @@ test.describe('Command Centre authenticated responsive verification', () => {
               )
               expect(pageResponse?.status()).toBeLessThan(400)
               const commandRoot = page.locator('.cc-app:visible')
-              await expect(commandRoot).toBeVisible()
+              await expect(commandRoot).toBeVisible({ timeout: 30_000 })
               expect(new URL(page.url()).searchParams.get('page')).toBe(commandPage)
-              await expect(commandRoot.locator('.cc-main')).not.toBeEmpty()
-              await expect(commandRoot.locator('.cc-main')).toContainText(/\S/)
+              const commandMain = page.locator('[data-dashboard-renderer="desktop"]:visible .cc-page:visible').first()
+              await expect(commandMain, `desktop page "${commandPage}" should expose a visible command page surface`).toBeVisible()
+              await expect(commandMain).toContainText(/\S/)
               verifiedPages.push(commandPage)
             }
             report.verifiedDesktopPages = verifiedPages

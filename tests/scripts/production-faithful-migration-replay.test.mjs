@@ -84,6 +84,11 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
     '20260714225601_expose_intel_eval_set_via_api_schema.sql',
     '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
     '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
+    '20260923043000_kz_pathway_calendar_format_depth.sql',
+    '20260923060000_primary_om_law67_2026_enrichment.sql',
+    '20260923063000_primary_me_drug_control_2026.sql',
+    '20260923070000_primary_kw_ly_enrichment.sql',
+    '20260924073000_primary_sn_drug_code_enrichment.sql',
   ])
 
   const originalRegulatory = fs.readFileSync(path.join(root, 'supabase/migrations/20260312000000_regulatory_signals_v1.sql'), 'utf8')
@@ -133,6 +138,31 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
   assert.match(canonicalSignalsView, /cannot drop columns from view/i)
   assert.match(reconstructedSignalsView, /Reconstructed from production/i)
   assert.match(reconstructedSignalsView, /create or replace view api\.signals/i)
+})
+
+test('zero-state replay skips the redundant Kazakhstan 43000 copy only because 43001 is byte-equivalent', () => {
+  const duplicate = '20260923043000_kz_pathway_calendar_format_depth.sql'
+  const canonical = '20260923043001_kz_pathway_calendar_format_depth.sql'
+  const duplicateSql = fs.readFileSync(path.join(root, 'supabase/migrations', duplicate), 'utf8')
+  const canonicalSql = fs.readFileSync(path.join(root, 'supabase/migrations', canonical), 'utf8')
+
+  assert.equal(duplicateSql, canonicalSql)
+  assert.ok(planReplayZeroStateSkips({ migrationFiles }).includes(duplicate))
+})
+
+test('zero-state replay skips later-timestamp twins only when the retained successor is byte-equivalent', () => {
+  for (const [duplicate, canonical] of [
+    ['20260923043000_kz_pathway_calendar_format_depth.sql', '20260923043001_kz_pathway_calendar_format_depth.sql'],
+    ['20260923060000_primary_om_law67_2026_enrichment.sql', '20260923060001_primary_om_law67_2026_enrichment.sql'],
+    ['20260923063000_primary_me_drug_control_2026.sql', '20260923063001_primary_me_drug_control_2026.sql'],
+    ['20260923070000_primary_kw_ly_enrichment.sql', '20260923070001_primary_kw_ly_enrichment.sql'],
+    ['20260924073000_primary_sn_drug_code_enrichment.sql', '20260924073001_primary_sn_drug_code_enrichment.sql'],
+  ]) {
+    const duplicateSql = fs.readFileSync(path.join(root, 'supabase/migrations', duplicate), 'utf8')
+    const canonicalSql = fs.readFileSync(path.join(root, 'supabase/migrations', canonical), 'utf8')
+    assert.equal(duplicateSql, canonicalSql, `${duplicate} must remain byte-equivalent to ${canonical}`)
+    assert.ok(zeroStateSkips.includes(duplicate))
+  }
 })
 
 test('zero-state skips are suppressed when their exact historical files are absent', () => {
@@ -319,8 +349,36 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
   )
 })
 
+test('replay resolves every remaining distinct duplicate-version group in timestamp order', () => {
+  const planned = planReplayVersionCollisionRenames({ migrationFiles })
+
+  for (const expected of [
+    ['20260923064000_reconcile_snapshot_depth_automatically.sql', '20260923064001_replay_reconcile_snapshot_depth_automatically.sql'],
+    ['20260923065000_full_depth_tn_to.sql', '20260923065001_replay_full_depth_tn_to.sql'],
+    ['20260924150000_publish_heatmap_us_states_and_priority_nationals.sql', '20260924150001_replay_publish_heatmap_us_states_and_priority_nationals.sql'],
+    ['20260925060000_harden_full_depth_dimension_contract_rls.sql', '20260925060001_replay_harden_full_depth_dimension_contract_rls.sql'],
+    ['20260925060000_primary_kg_law69_2024_enrichment.sql', '20260925060002_replay_primary_kg_law69_2024_enrichment.sql'],
+  ]) {
+    const [source, destination] = expected
+    const rename = planned.find((item) => item.source === source)
+    assert.ok(rename, `missing replay rename for ${source}`)
+    assert.equal(rename.destination, destination)
+    assert.equal(migrationFiles.includes(destination), false)
+  }
+
+  const triple = planned.filter((item) => item.source.startsWith('20260925060000_'))
+  assert.equal(triple.length, 2)
+  for (const item of triple) {
+    assert.deepEqual(item.collisionGroup, [
+      '20260925060000_dimension_specific_adjudication_engine.sql',
+      '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+      '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    ])
+  }
+})
+
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
-  assert.equal(syntheticFoundations.length, 6)
+  assert.equal(syntheticFoundations.length, 11)
   const foundation = syntheticFoundations.find(
     (item) => item.destination === '20260719083305_replay_education_policy_identities.sql',
   )
@@ -351,6 +409,53 @@ test('replay materializes the missing education policy identities immediately be
   assert.ok(depthTasks)
   assert.equal(depthTasks.before, '20260922104500_primary_us_jurisdiction_depth_enrichment.sql')
   assert.match(depthTasks.content, /create table if not exists public\.jurisdiction_data_depth_tasks/i)
+
+  const depthEvidence = syntheticFoundations.find(
+    (item) => item.destination === '20260923000959_replay_jurisdiction_data_depth_evidence.sql',
+  )
+  assert.ok(depthEvidence)
+  assert.equal(depthEvidence.before, '20260923001000_full_depth_dynamic_evaluator.sql')
+  assert.match(depthEvidence.content, /create table if not exists public\.jurisdiction_data_depth_evidence/i)
+  assert.match(depthEvidence.content, /references public\.source_snapshots\(id\)/i)
+  assert.match(depthEvidence.content, /create or replace view public\.v_jurisdiction_verified_snapshot_gate/i)
+  assert.match(depthEvidence.content, /ss\.captured_url/i)
+  assert.match(depthEvidence.content, /qualifying_snapshot/i)
+
+  const foGlEvidence = syntheticFoundations.find(
+    (item) => item.destination === '20260922111959_replay_fo_gl_market_access_evidence.sql',
+  )
+  assert.ok(foGlEvidence)
+  assert.equal(foGlEvidence.before, '20260922112000_depth_primary_reconciliation_fo_gl_territories.sql')
+  assert.match(foGlEvidence.content, /hv-mkt-complete-fo-20260913/)
+  assert.match(foGlEvidence.content, /hv-mkt-complete-gl-20260913/)
+  assert.match(foGlEvidence.content, /on conflict \(evidence_key\) do nothing/i)
+
+  const gtEvidence = syntheticFoundations.find(
+    (item) => item.destination === '20260922189959_replay_gt_market_access_evidence.sql',
+  )
+  assert.ok(gtEvidence)
+  assert.equal(gtEvidence.before, '20260922190000_primary_gt_enrichment.sql')
+  assert.match(gtEvidence.content, /hv-mkt-complete-gt-20260913/)
+  assert.match(gtEvidence.content, /on conflict \(evidence_key\) do nothing/i)
+
+
+  const regulatorConflictKey = syntheticFoundations.find(
+    (item) => item.destination === '20260923002959_replay_jurisdiction_regulators_conflict_key.sql',
+  )
+  assert.ok(regulatorConflictKey)
+  assert.equal(regulatorConflictKey.before, '20260923003000_authority_evidence_tranche_001.sql')
+  assert.match(regulatorConflictKey.content, /create unique index if not exists jurisdiction_regulators_jurisdiction_name_uq/i)
+  assert.match(regulatorConflictKey.content, /jurisdiction_key, regulator_name/i)
+
+
+  const regulatorRuleDimension = syntheticFoundations.find(
+    (item) => item.destination === '20260923002958_replay_regulatory_rule_dimensions.sql',
+  )
+  assert.ok(regulatorRuleDimension)
+  assert.equal(regulatorRuleDimension.before, '20260923003000_authority_evidence_tranche_001.sql')
+  assert.match(regulatorRuleDimension.content, /drop constraint if exists jurisdiction_regulatory_rules_rule_dimension_check/i)
+  assert.match(regulatorRuleDimension.content, /'regulator'/i)
+  assert.match(regulatorRuleDimension.content, /'calendar'/i)
   assert.match(foundation.content, /create policy "public read sections of published modules"/i)
   assert.equal((foundation.content.match(/using \(false\)/gi) ?? []).length, 2)
 
@@ -488,6 +593,98 @@ test('replay reconciles the legacy and Prescriber OS clinical contracts additive
   assert.match(patch.replacement, /alter column source_locator set not null/i)
 })
 
+test('replay uses the canonical globally-unique pathway slug for Lithuania conflict handling', () => {
+  const file = '20260923044500_lt_primary_regulatory_depth.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.equal(patch.anchor, 'on conflict (country_id, slug) do update set')
+  assert.equal(patch.replacement, 'on conflict (slug) do update set')
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+
+  const schema = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260702033107_regulatory_product_format_matrix.sql'),
+    'utf8',
+  )
+  assert.match(schema, /create table public\.regulatory_pathways[\s\S]*slug text not null unique/i)
+})
+
+test('replay yields the one-active-direct slot before authoritative tranche 3 replacement evidence', () => {
+  const file = '20260923080000_authoritative_market_access_adjudication_tranche_3_20260923.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes("jurisdiction_iso2 in ('GH','ZM','VU')"),
+  )
+  assert.ok(patch)
+  assert.match(patch.replacement, /set active=false, expires_at=least\(expires_at, now\(\)\)/i)
+  assert.match(patch.replacement, /primary-evidence-gh-20260923/)
+  assert.match(patch.replacement, /primary-evidence-zm-20260923/)
+  assert.match(patch.replacement, /primary-evidence-vu-20260923/)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes("jurisdiction_iso2 in ('GH','ZM','VU')"), false)
+})
+test('replay replaces every production-local Ghana pathway UUID with the canonical gh-hemp pathway', () => {
+  const file = '20260923070000_primary_gh_format_calendar_enrichment.sql'
+  const patch = contentPatches.find((item) => item.file === file && item.replaceAll)
+  assert.ok(patch)
+  assert.equal(patch.anchor, "'5796e807-c701-4c51-80a5-fdaf74a60ddb'")
+  assert.equal(patch.replacement, "(select id from public.regulatory_pathways where slug='gh-hemp' limit 1)")
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  const occurrences = original.split(patch.anchor).length - 1
+  assert.ok(occurrences >= 4)
+  assert.match(
+    fs.readFileSync(path.join(root, 'supabase/migrations/20260702033716_seed_pathway_stubs_long_tail.sql'), 'utf8'),
+    /\('GH','gh-hemp'/,
+  )
+})
+
+test('replay advances the inherited full-depth contract defaults from v1 to v2 before matrix seeding', () => {
+  const file = '20260923065000_full_291x32_depth_control_plane.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 4)
+
+  const v1Dimensions = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260922230000_full_depth_intelligence_contract.sql'),
+    'utf8',
+  )
+  const v1State = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260922233000_full_depth_dimension_state_matrix.sql'),
+    'utf8',
+  )
+  assert.match(v1Dimensions, /contract_version text not null default '2026-09-22\.v1'/i)
+  assert.match(v1State, /contract_version text not null default '2026-09-22\.v1'/i)
+
+  const dimensionsPatch = patches.find((item) =>
+    item.replacement.includes('alter table public.jurisdiction_data_depth_dimensions'),
+  )
+  const statePatch = patches.find((item) =>
+    item.replacement.includes('alter table public.jurisdiction_data_depth_dimension_state'),
+  )
+  assert.ok(dimensionsPatch)
+  assert.ok(statePatch)
+  const analystDimensionPatch = patches.find((item) =>
+    item.anchor.includes("('jurisdiction_intelligence'"),
+  )
+  const inheritedMappingPatch = patches.find((item) =>
+    item.anchor.includes("when 'country_intel' then 'jurisdiction_intelligence'"),
+  )
+  assert.ok(analystDimensionPatch)
+  assert.ok(inheritedMappingPatch)
+  assert.equal(analystDimensionPatch.replacement, '')
+  assert.equal(inheritedMappingPatch.replacement, '')
+  assert.match(dimensionsPatch.replacement, /set default '2026-09-23\.v2'/i)
+  assert.match(statePatch.replacement, /set default '2026-09-23\.v2'/i)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    if (patch.replacement) assert.equal(original.includes(patch.replacement), false)
+  }
+})
 test('production-local relation guard is suppressed when the exact migration is absent', () => {
   assert.deepEqual(planReplayContentPatches({ migrationFiles: [] }), [])
 })
@@ -524,6 +721,47 @@ test('replay reconstructs the Colombia briefing that no repository migration see
   assert.match(foundation.content, /\$hvco\$CO\$hvco\$/)
   assert.match(foundation.content, /where not exists/i)
   assert.match(foundation.content, /never a production migration or a migration-ledger entry/i)
+})
+
+test('replay corrects the hardening 007 evaluator view name without changing production history', () => {
+  const file = '20260923043000_evidence_architecture_hardening_007.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.equal(patch.anchor, 'with x as (select * from public.jurisdiction_data_depth_evaluator)')
+  assert.equal(patch.replacement, 'with x as (select * from public.v_jurisdiction_data_depth_evaluator)')
+})
+
+test('replay preserves the structured snapshot gate when legacy market evidence changes view shape', () => {
+  const file = '20260923034000_evidence_architecture_hardening_003.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 4)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  assert.ok(patches.some((patch) => patch.replacement.includes('v_jurisdiction_legacy_market_snapshot_gate')))
+  assert.ok(patches.some((patch) => patch.anchor.includes('grant select on public.v_jurisdiction_verified_snapshot_gate')))
+  assert.ok(patches.some((patch) => patch.anchor.includes('where g.evidence_key=e.evidence_key and g.qualifying')))
+})
+
+test('replay normalizes malformed provenance constraint drops without changing production history', () => {
+  const file = '20260923030000_evidence_architecture_hardening_001.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.match(patch.anchor, /execute 'drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck/i)
+  assert.match(patch.replacement, /alter table public\.jurisdiction_regulatory_rules\s+drop constraint if exists jurisdiction_regulatory_rules_verified_provenance_ck/i)
+  assert.match(patch.replacement, /alter table public\.jurisdiction_opportunities\s+drop constraint if exists jurisdiction_opportunities_verified_provenance_ck/i)
 })
 
 test('replay corrects the historical function privilege probe without changing production migration semantics', () => {
@@ -580,6 +818,185 @@ test('replay reconciles every non-canonical territory row, not just the original
   }
   // Production's canonical shape stays a strict no-op.
   assert.match(patch.replacement, /if v_total = 291 then/i)
+})
+
+test('replay replaces production-local pathway country UUIDs with canonical ISO lookups', () => {
+  const cases = [
+    ['20260922120000_primary_tv_va_source_enrichment.sql', '39d4e117-d0ae-4669-8f0c-b631afee0ef1', 'TV'],
+    ['20260922121000_primary_ca_ke_regulatory_enrichment.sql', 'a2c3726a-12a5-40c6-a640-65a735c579ac', 'CA'],
+    ['20260922121000_primary_ca_ke_regulatory_enrichment.sql', '8ff64be8-1f33-42b5-9ba7-7cdd13c6fe6a', 'KE'],
+    ['20260923061000_primary_lv_law_2026_enrichment.sql', 'a4e3067f-de8f-40a8-9633-24271c893c51', 'LV'],
+    ['20260923072000_primary_mc_cannabis_control_enrichment.sql', '1a237176-7a4f-43ba-9d94-ea63b9ad3382', 'MC'],
+    ['20260925081500_primary_vu_hemp_medical_enrichment.sql', '58526c26-b97d-410d-aa39-3e1a3b6e66b0', 'VU'],
+    ['20260925090000_primary_ml_law83_14_enrichment.sql', 'ee9ec5dd-845e-41ae-b088-98a84f667a74', 'ML'],
+  ]
+
+  for (const [file, uuid, iso2] of cases) {
+    const patch = contentPatches.find((item) => item.file === file && item.anchor.includes(uuid))
+    assert.ok(patch, `missing replay patch for ${file} / ${iso2}`)
+    assert.match(patch.replacement, new RegExp(`select id from public\\.countries where iso_alpha2='${iso2}' limit 1`, 'i'))
+    const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+})
+
+test('replay reconciles the full-depth state matrix with the zero-state catalog shape', () => {
+  const file = '20260922233000_full_depth_dimension_state_matrix.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 4)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  const joinPatch = patches.find((item) =>
+    /join public\.v_jurisdiction_data_depth v\s+on v\.jurisdiction_key = s\.jurisdiction_key/i.test(item.anchor),
+  )
+  assert.ok(joinPatch)
+  assert.match(joinPatch.replacement, /public\.jurisdiction_data_depth_dimensions d,\s+public\.v_jurisdiction_data_depth v/i)
+  assert.match(joinPatch.replacement, /where v\.jurisdiction_key = s\.jurisdiction_key\s+and d\.dimension_key = s\.dimension_key/i)
+
+  const contractPatch = patches.find((item) => item.replacement.includes('end as evidence_state'))
+  assert.ok(contractPatch)
+  assert.match(
+    contractPatch.replacement,
+    /d\.requires_primary_source,\s+s\.status,\s+case[\s\S]*end as evidence_state,\s+s\.contract_version,\s+s\.applicability/i,
+  )
+
+  const summaryPatch = patches.find((item) => item.replacement.includes('unknown_applicability_dimensions'))
+  assert.ok(summaryPatch)
+  assert.match(
+    summaryPatch.replacement,
+    /unmeasured_dimensions,[\s\S]*contract_depth_pct,[\s\S]*regulatory_publication_ready,[\s\S]*unknown_applicability_dimensions,[\s\S]*not_applicable_dimensions/i,
+  )
+})
+
+test('replay classifies country-only structured-depth tasks as national', () => {
+  const file = '20260922240000_full_depth_structured_backing_models.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes("'national'"),
+  )
+  assert.ok(patch, 'missing country-level task replay patch')
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
+test('replay normalizes partial implementation rows to valid source kinds', () => {
+  const file = '20260922234500_full_depth_dimension_source_registry.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 4)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  const normalizedKinds = new Set(patches.map((patch) => {
+    const match = patch.replacement.match(/'2026-09-22\.v1','([^']+)'/)
+    return match?.[1]
+  }))
+  assert.deepEqual([...normalizedKinds].sort(), ['derived', 'table'])
+})
+
+test('replay restores the source relation for the initial full-depth integrity view', () => {
+  const file = '20260922233000_full_depth_dimension_state_matrix.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes('from public.v_jurisdiction_data_depth_contract;'),
+  )
+  assert.ok(patch, 'missing initial integrity-view replay patch')
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+})
+
+test('replay preserves the full-depth summary view column contract in later evaluator migrations', () => {
+  for (const file of [
+    '20260923001000_full_depth_dynamic_evaluator.sql',
+    '20260923034000_evidence_architecture_hardening_003.sql',
+  ]) {
+    const patch = contentPatches.find((item) =>
+      item.file === file && item.replacement.includes('regulatory_publication_ready'),
+    )
+    assert.ok(patch, `missing summary-view replay patch for ${file}`)
+
+    const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+
+    const normalized = patch.replacement.replace(/\s+/g, ' ')
+    assert.match(
+      normalized,
+      /unmeasured_dimensions.*contract_depth_pct.*regulatory_publication_ready.*unknown_applicability_dimensions.*not_applicable_dimensions/i,
+    )
+  }
+})
+
+test('replay projects dimension labels required by the dynamic evaluator output', () => {
+  const file = '20260923001000_full_depth_dynamic_evaluator.sql'
+  const patch = contentPatches.find((item) =>
+    item.file === file && item.replacement.includes("d.display_name, d.layer"),
+  )
+  assert.ok(patch)
+  assert.match(patch.replacement, /d\.display_name, d\.layer/)
+  assert.match(patch.replacement, /required_for_regulatory_publication/)
+})
+
+test('replay exposes captured_url on the verified snapshot gate before dynamic evaluator consumers', () => {
+  const file = '20260923033000_evidence_snapshot_gate_002.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
+  assert.match(patch.replacement, /ss\.captured_url/)
+  assert.match(patch.replacement, /registered_source_url/)
+})
+
+test('replay attaches Netherlands rule citations before crossing the verified trigger', () => {
+  const file = '20260922165000_primary_netherlands_format_rules.sql'
+  const patches = contentPatches.filter((item) => item.file === file)
+  assert.equal(patches.length, 7)
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  for (const patch of patches) {
+    assert.equal(original.includes(patch.anchor), true)
+    assert.equal(original.includes(patch.replacement), false)
+  }
+
+  assert.equal(
+    patches.filter((patch) => patch.replacement.includes("'needs_review',null,'2025-04-07'")).length,
+    2,
+  )
+  assert.equal(
+    patches.filter((patch) => patch.replacement.includes("select id from public.regulatory_pathways where slug='nl-experiment' limit 1")).length,
+    4,
+  )
+  const provenancePatch = patches.find((patch) =>
+    patch.replacement.includes('Controlled Cannabis Supply Chain Experiment — product rules'),
+  )
+  assert.ok(provenancePatch)
+  assert.match(provenancePatch.replacement, /insert into public\.regulatory_citations/i)
+  assert.match(provenancePatch.replacement, /source_type,citation_url/i)
+  assert.match(provenancePatch.replacement, /update public\.pathway_format_rules r/i)
+  assert.match(provenancePatch.replacement, /verification='verified'/i)
+})
+
+test('replay records the DPRK evidence block idempotently when the task was seeded earlier', () => {
+  const file = '20260922123500_record_kp_primary_source_block.sql'
+  const patch = contentPatches.find((item) => item.file === file)
+  assert.ok(patch)
+  assert.match(patch.anchor, /status='blocked'/i)
+  assert.match(patch.replacement, /on conflict \(jurisdiction_key,dimension_key\) do update/i)
+  assert.match(patch.replacement, /status='blocked'/i)
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  assert.equal(original.includes(patch.anchor), true)
+  assert.equal(original.includes(patch.replacement), false)
 })
 
 test('replay compares market_access_status as text so either column shape works', () => {

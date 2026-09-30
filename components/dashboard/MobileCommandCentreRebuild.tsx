@@ -16,6 +16,8 @@ import { buildCommandDelta } from '@/lib/dashboard/commandDelta'
 import dynamic from 'next/dynamic'
 import MarketplaceMediaStatus from './MarketplaceMediaStatus'
 import OrganizationContextControl from './OrganizationContextControl'
+import { MarketplaceSection } from './mobile-command/sections/MarketplaceSections'
+import { ClinicalSection } from './mobile-command/sections/ClinicalSection'
 import './MobileCommandCentreRebuild.css'
 import './mobile-command/MobileCommandOperatorFirst.css'
 import './mobile-command/MobileIntelInstitutional.css'
@@ -26,10 +28,6 @@ import './mobile-command/MobileCommandSurfaceAlignment.css'
 const MarketIntelligenceSection = dynamic(
   () => import('./mobile-command/sections/CoreSections').then(m => ({ default: m.MarketIntelligenceSection })),
   { loading: () => <CommandBootSection label="Loading market intelligence" /> },
-)
-const MarketplaceSection = dynamic(
-  () => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.MarketplaceSection })),
-  { loading: () => <CommandBootSection label="Loading marketplace" /> },
 )
 const SupplySection = dynamic(
   () => import('./mobile-command/sections/MarketplaceSections').then(m => ({ default: m.SupplySection })),
@@ -53,7 +51,7 @@ const PersonalBriefingSection = dynamic(
 )
 const WeeklySignalsSection = dynamic(
   () => import('./mobile-command/sections/DecisionSignalsSection').then(m => ({ default: m.WeeklySignalsSection })),
-  { loading: () => <CommandBootSection label="Loading signals" /> },
+  { loading: () => <CommandBootSection sectionId="weekly-signals" label="Loading signals" /> },
 )
 const EducationSection = dynamic(
   () => import('./mobile-command/sections/EducationCommandSection').then(m => ({ default: m.EducationSection })),
@@ -65,11 +63,11 @@ const RegulatoryWatchSection = dynamic(
 )
 const JurisdictionSection = dynamic(
   () => import('./mobile-command/sections/JurisdictionCommandSection').then(m => ({ default: m.JurisdictionSection })),
-  { loading: () => <CommandBootSection label="Loading jurisdiction" /> },
+  { loading: () => <CommandBootSection sectionId="jurisdiction" label="Loading jurisdiction" /> },
 )
 const NetworkSection = dynamic(
   () => import('./mobile-command/sections/NetworkCommandSection').then(m => ({ default: m.NetworkSection })),
-  { loading: () => <CommandBootSection label="Loading network" /> },
+  { loading: () => <CommandBootSection sectionId="network" label="Loading network" /> },
 )
 const MarketStatusSection = dynamic(
   () => import('./mobile-command/sections/OperationsSections').then(m => ({ default: m.MarketStatusSection })),
@@ -95,10 +93,6 @@ const FinancingSection = dynamic(
   () => import('./mobile-command/sections/DomainSections').then(m => ({ default: m.FinancingSection })),
   { loading: () => <CommandBootSection label="Loading financing" /> },
 )
-const ClinicalSection = dynamic(
-  () => import('./mobile-command/sections/ClinicalSection').then(m => ({ default: m.ClinicalSection })),
-  { loading: () => <CommandBootSection label="Loading clinical" /> },
-)
 const SettingsSection = dynamic(
   () => import('./mobile-command/sections/AccountSections').then(m => ({ default: m.SettingsSection })),
   { loading: () => <CommandBootSection label="Loading settings" /> },
@@ -115,9 +109,9 @@ const CultivarPassportModal = dynamic(
 
 type Props = MobileCommandCentreProps & { decisionIntelAccess?: FeatureAccess }
 
-function CommandBootSection({ label }: { label: string }) {
+function CommandBootSection({ label, sectionId }: { label: string; sectionId?: SectionId }) {
   return (
-    <div className="hvm2-section" aria-busy="true" aria-label={label}>
+    <div id={sectionId} className="hvm2-section" aria-busy="true" aria-label={label}>
       <div className="hvm2-section-heading">
         <div>
           <span>Harbourview</span>
@@ -158,7 +152,9 @@ export default function MobileCommandCentreRebuild(props: Props) {
   }, [model.currentRole, model.activeSection])
 
   const attentionItems = model.nextActions.filter(
-    item => item.kind !== 'tool' && (item.tone === 'warn' || item.tone === 'gold'),
+    item =>
+      (item.kind == null || item.kind === 'attention') &&
+      (item.tone === 'warn' || item.tone === 'gold'),
   )
   const corridorTools = model.nextActions.filter(item => item.kind === 'tool')
   const opportunityRows = model.marketRows.filter(row => row.view === 'opportunities')

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
-import { planReplayVersionCollisionRenames } from '../../scripts/prepare-production-faithful-migration-replay.mjs'
+import {
+  planReplayVersionCollisionRenames,
+  planReplayZeroStateSkips,
+} from '../../scripts/prepare-production-faithful-migration-replay.mjs'
 
 const root = process.cwd()
 const migrationFiles = fs.readdirSync(path.join(root, 'supabase/migrations')).filter((file) => file.endsWith('.sql'))
@@ -16,11 +19,30 @@ const heatmapSource = '20260820120000_heatmap_conflict_freeze_seed.sql'
 const clinicalSibling = '20260820120000_clinical_pilot_local_authorities_au_gb_br.sql'
 const heatmapBoundary = '20260820130000_hv_pipeline_optimization.sql'
 
-test('resolved repository tree no longer requires duplicate-version replay renames', () => {
+test('replay preparation resolves every current duplicate migration version', () => {
   assert.equal(migrationFiles.includes(australiaSource), false)
   assert.equal(migrationFiles.includes(australiaResolved), true)
   assert.equal(migrationFiles.includes(clinicalSibling), false)
-  assert.deepEqual(planReplayVersionCollisionRenames({ migrationFiles }), [])
+
+  const skips = new Set(planReplayZeroStateSkips({ migrationFiles }))
+  const renames = planReplayVersionCollisionRenames({ migrationFiles })
+  const renameBySource = new Map(renames.map((item) => [item.source, item.destination]))
+  const preparedFiles = migrationFiles
+    .filter((file) => !skips.has(file))
+    .map((file) => renameBySource.get(file) ?? file)
+
+  const byVersion = new Map()
+  for (const file of preparedFiles) {
+    const version = file.slice(0, 14)
+    const files = byVersion.get(version) ?? []
+    files.push(file)
+    byVersion.set(version, files)
+  }
+
+  const unresolved = [...byVersion.entries()].filter(([, files]) => files.length > 1)
+  assert.deepEqual(unresolved, [])
+  assert.ok(skips.has('20260923060000_primary_om_law67_2026_enrichment.sql'))
+  assert.ok(renames.some((item) => item.source === '20260925060000_primary_kg_law69_2024_enrichment.sql'))
 })
 
 // Body assertions inherited from the superseded

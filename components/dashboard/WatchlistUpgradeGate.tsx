@@ -13,7 +13,7 @@ export function WatchlistUpgradeGate({ access }: { access: FeatureAccess }) {
   const currentLabel = TIER_LABEL[access.currentTier] ?? access.currentTier
 
   return (
-    <div className="wug-root">
+    <div className="cc-page wug-root" data-command-page="watchlist-upgrade">
       <style>{CSS}</style>
       <div className="wug-icon">◈</div>
       <div className="wug-title">Watchlist is a {requiredLabel} feature</div>

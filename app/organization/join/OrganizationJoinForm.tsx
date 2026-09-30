@@ -120,7 +120,7 @@ export default function OrganizationJoinForm() {
 
       setStatus('success')
       window.setTimeout(() => {
-        window.location.replace(returnTo)
+        router.replace(returnTo)
       }, 350)
     } catch {
       setError('The invitation could not be accepted. Check your connection and retry.')
