@@ -41,7 +41,7 @@ test('replay preparation resolves every current duplicate migration version', ()
 
   const unresolved = [...byVersion.entries()].filter(([, files]) => files.length > 1)
   assert.deepEqual(unresolved, [])
-  assert.ok(renames.some((item) => item.source === '20260923060000_primary_om_law67_2026_enrichment.sql'))
+  assert.ok(skips.has('20260923060000_primary_om_law67_2026_enrichment.sql'))
   assert.ok(renames.some((item) => item.source === '20260925060000_primary_kg_law69_2024_enrichment.sql'))
 })
 
