@@ -563,6 +563,32 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `insert into public.jurisdiction_data_depth_dimensions
+(dimension_key,display_name,layer,description,required_for_regulatory_publication,requires_primary_source,freshness_days,sort_order)`,
+    replacement: `-- Zero-state replay: this table already exists from 20260922230000 with
+-- contract_version defaulting to 2026-09-22.v1. CREATE TABLE IF NOT EXISTS above
+-- does not replace that default, so the v2 upsert would otherwise keep all
+-- dimension rows on v1 and seed zero v2 state rows.
+alter table public.jurisdiction_data_depth_dimensions
+  alter column contract_version set default '2026-09-23.v2';
+
+insert into public.jurisdiction_data_depth_dimensions
+(dimension_key,display_name,layer,description,required_for_regulatory_publication,requires_primary_source,freshness_days,sort_order)`,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `create index if not exists jurisdiction_data_depth_state_status_idx
+ on public.jurisdiction_data_depth_dimension_state(status,applicability,dimension_key);`,
+    replacement: `-- Zero-state replay: the state table also pre-exists from the v1 contract.
+-- Keep future implicit inserts aligned with the v2 migration's declared shape.
+alter table public.jurisdiction_data_depth_dimension_state
+  alter column contract_version set default '2026-09-23.v2';
+
+create index if not exists jurisdiction_data_depth_state_status_idx
+ on public.jurisdiction_data_depth_dimension_state(status,applicability,dimension_key);`,
+  },
+  {
     file: '20260923044500_lt_primary_regulatory_depth.sql',
     anchor: 'on conflict (country_id, slug) do update set',
     replacement: 'on conflict (slug) do update set',
