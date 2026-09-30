@@ -611,6 +611,22 @@ test('replay uses the canonical globally-unique pathway slug for Lithuania confl
   assert.match(schema, /create table public\.regulatory_pathways[\s\S]*slug text not null unique/i)
 })
 
+test('replay replaces every production-local Ghana pathway UUID with the canonical gh-hemp pathway', () => {
+  const file = '20260923070000_primary_gh_format_calendar_enrichment.sql'
+  const patch = contentPatches.find((item) => item.file === file && item.replaceAll)
+  assert.ok(patch)
+  assert.equal(patch.anchor, "'5796e807-c701-4c51-80a5-fdaf74a60ddb'")
+  assert.equal(patch.replacement, "(select id from public.regulatory_pathways where slug='gh-hemp' limit 1)")
+
+  const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
+  const occurrences = original.split(patch.anchor).length - 1
+  assert.ok(occurrences >= 4)
+  assert.match(
+    fs.readFileSync(path.join(root, 'supabase/migrations/20260702033716_seed_pathway_stubs_long_tail.sql'), 'utf8'),
+    /\('GH','gh-hemp'/,
+  )
+})
+
 test('replay advances the inherited full-depth contract defaults from v1 to v2 before matrix seeding', () => {
   const file = '20260923065000_full_291x32_depth_control_plane.sql'
   const patches = contentPatches.filter((item) => item.file === file)
