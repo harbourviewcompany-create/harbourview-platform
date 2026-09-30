@@ -12,7 +12,7 @@ The exact-SHA production promotion workflow remains authoritative. This Cloudfla
 
 ## Vercel branch policy
 
-Vercel reads `vercel.json` and the repository's ignore script. Existing production/main and approved preview/deploy intent rules remain unchanged by the Cloudflare architecture work.
+Vercel reads `vercel.json` and the repository's ignore script. Automatic Git deployment is denied for `main`; only deliberate `preview/*` branches are admitted automatically. Production is owned by `.github/workflows/promote-production.yml`, which creates the exact reviewed SHA explicitly after its release gates pass. The ignore script remains a second-layer build control for admitted deployments.
 
 ## Netlify branch policy
 

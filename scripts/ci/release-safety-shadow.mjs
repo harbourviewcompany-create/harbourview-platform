@@ -16,7 +16,7 @@ if (!pkg.scripts?.['test:security']) note('warning', 'missing-security', 'packag
 const vercel = fs.existsSync('vercel.json') ? JSON.parse(fs.readFileSync('vercel.json', 'utf8')) : null
 const expectedDeploymentRules = {
   '**': false,
-  main: true,
+  main: false,
   'preview/*': true,
 }
 const hasExactFailClosedDeploymentPolicy = (rules) => {
@@ -33,7 +33,7 @@ if (!vercel) {
   note(
     'error',
     'vercel-git-policy-not-fail-closed',
-    'Vercel Git deployment admission must deny all branches by default and allow only main plus preview/*',
+    'Vercel Git deployment admission must deny production main and all branches by default, allowing only preview/*; production is owned by the exact-SHA promotion workflow',
   )
 }
 
