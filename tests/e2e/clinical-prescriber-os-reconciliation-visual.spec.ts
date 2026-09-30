@@ -164,12 +164,13 @@ test.describe('Clinical Prescriber OS reconciled mobile hierarchy', () => {
         const question = page.getByLabel('Clinical evidence question', { exact: true })
         await question.fill('Dravet syndrome')
         await page.getByRole('button', { name: 'Search evidence', exact: true }).click()
-        await expect(page.getByText('No governed evidence matched this question.', { exact: true })).toBeVisible()
+        await expect(page.getByTestId('clinical-evidence-result')).toBeVisible()
+        await expect(page.getByText('Awaiting explicit query', { exact: true })).toHaveCount(0)
         await assertNoHorizontalPageOverflow(page)
 
         if (viewport.width === 390) {
           await page.screenshot({
-            path: path.join(evidenceRoot, '390x844-clinical-explicit-no-match.png'),
+            path: path.join(evidenceRoot, '390x844-clinical-explicit-result.png'),
             fullPage: false,
           })
         }
