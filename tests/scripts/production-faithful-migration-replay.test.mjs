@@ -651,7 +651,7 @@ test('replay advances the inherited full-depth contract defaults from v1 to v2 b
   const original = fs.readFileSync(path.join(root, 'supabase/migrations', file), 'utf8')
   for (const patch of patches) {
     assert.equal(original.includes(patch.anchor), true)
-    assert.equal(original.includes(patch.replacement), false)
+    if (patch.replacement) assert.equal(original.includes(patch.replacement), false)
   }
 })
 test('production-local relation guard is suppressed when the exact migration is absent', () => {
