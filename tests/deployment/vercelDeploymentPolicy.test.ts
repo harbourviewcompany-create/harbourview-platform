@@ -12,10 +12,11 @@ type VercelConfig = {
 
 const config = JSON.parse(fs.readFileSync('vercel.json', 'utf8')) as VercelConfig
 const manualPreviewWorkflow = fs.readFileSync('.github/workflows/deploy-preview.yml', 'utf8')
+const productionPromotionWorkflow = fs.readFileSync('.github/workflows/promote-production.yml', 'utf8')
 
 const expectedRules: Record<string, boolean> = {
   '**': false,
-  main: true,
+  main: false,
   'preview/*': true,
 }
 
@@ -40,12 +41,12 @@ function deploymentEnabledFor(branch: string): boolean {
 }
 
 describe('Vercel deployment admission policy', () => {
-  it('is fail-closed and allows only main plus one-level preview/* branches', () => {
+  it('is fail-closed and allows only one-level preview/* branches to auto-deploy', () => {
     expect(config.git?.deploymentEnabled).toEqual(expectedRules)
   })
 
   it.each([
-    ['main', true],
+    ['main', false],
     ['preview/manual-release-candidate', true],
     ['sync/intel-main-3', false],
     ['dependabot/npm_and_yarn/next-16.3.3', false],
@@ -63,6 +64,14 @@ describe('Vercel deployment admission policy', () => {
     expect(manualPreviewWorkflow).toContain('workflow_dispatch:')
     expect(manualPreviewWorkflow).toContain("SAFE_BRANCH=$(echo \"$SOURCE_BRANCH\" | tr '/' '-')")
     expect(manualPreviewWorkflow).toContain('PREVIEW_BRANCH="preview/${SAFE_BRANCH}"')
+  })
+
+  it('requires production to flow through the exact-SHA promotion workflow', () => {
+    expect(productionPromotionWorkflow).toContain("node-version: '24'")
+    expect(productionPromotionWorkflow).toContain('"https://api.vercel.com/v13/deployments?teamId=${TEAM_ID}&forceNew=1"')
+    expect(productionPromotionWorkflow).toContain('gitSource:{type:"github",repoId:1214598473,ref:$ref}')
+    expect(productionPromotionWorkflow).toContain('target:"production"')
+    expect(productionPromotionWorkflow).toContain('Compare repository and live migration ledgers')
   })
 
   it('keeps ignoreCommand only as a second-layer build control', () => {
