@@ -563,6 +563,12 @@ where not exists (
 // checked migrations and the production ledger stay unchanged.
 const REPLAY_CONTENT_PATCHES = [
   {
+    file: '20260923070000_primary_gh_format_calendar_enrichment.sql',
+    anchor: "'5796e807-c701-4c51-80a5-fdaf74a60ddb'",
+    replacement: "(select id from public.regulatory_pathways where slug='gh-hemp' limit 1)",
+    replaceAll: true,
+  },
+  {
     file: '20260923065000_full_291x32_depth_control_plane.sql',
     anchor: `('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),\n`,
     replacement: ``,
@@ -1537,10 +1543,13 @@ export function runReplayPreparation({ repositoryRoot = process.cwd(), apply = f
       const original = fs.readFileSync(target, 'utf8')
       const first = original.indexOf(item.anchor)
       const last = original.lastIndexOf(item.anchor)
-      if (first === -1 || first !== last) {
+      if (first === -1 || (!item.replaceAll && first !== last)) {
         throw new Error(`Replay content patch anchor mismatch: ${item.file}`)
       }
-      fs.writeFileSync(target, original.replace(item.anchor, item.replacement), 'utf8')
+      const corrected = item.replaceAll
+        ? original.split(item.anchor).join(item.replacement)
+        : original.replace(item.anchor, item.replacement)
+      fs.writeFileSync(target, corrected, 'utf8')
     }
   }
 
