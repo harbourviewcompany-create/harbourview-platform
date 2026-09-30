@@ -85,6 +85,7 @@ test('zero-state replay skips only evidenced production-only, duplicate, and loc
     '20260715085610_fix_stale_api_signals_view_missing_reviewer_columns.sql',
     '20260722182917_enable_hv_quality_pipeline_and_promote_crons.sql',
     '20260923043000_kz_pathway_calendar_format_depth.sql',
+    '20260923060000_primary_om_law67_2026_enrichment.sql',
     '20260923063000_primary_me_drug_control_2026.sql',
     '20260923070000_primary_kw_ly_enrichment.sql',
     '20260924073000_primary_sn_drug_code_enrichment.sql',
@@ -152,6 +153,7 @@ test('zero-state replay skips the redundant Kazakhstan 43000 copy only because 4
 test('zero-state replay skips later-timestamp twins only when the retained successor is byte-equivalent', () => {
   for (const [duplicate, canonical] of [
     ['20260923043000_kz_pathway_calendar_format_depth.sql', '20260923043001_kz_pathway_calendar_format_depth.sql'],
+    ['20260923060000_primary_om_law67_2026_enrichment.sql', '20260923060001_primary_om_law67_2026_enrichment.sql'],
     ['20260923063000_primary_me_drug_control_2026.sql', '20260923063001_primary_me_drug_control_2026.sql'],
     ['20260923070000_primary_kw_ly_enrichment.sql', '20260923070001_primary_kw_ly_enrichment.sql'],
     ['20260924073000_primary_sn_drug_code_enrichment.sql', '20260924073001_primary_sn_drug_code_enrichment.sql'],
@@ -345,26 +347,6 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
     }),
     [],
   )
-})
-
-test('replay separates the September 23 evidence-depth and Oman migrations without changing production history', () => {
-  const source = '20260923060000_primary_om_law67_2026_enrichment.sql'
-  const sibling = '20260923060000_jurisdiction_evidence_depth_291.sql'
-  const destination = '20260923060001_replay_primary_om_law67_2026_enrichment.sql'
-  const boundary = '20260923061000_primary_lv_law_2026_enrichment.sql'
-
-  const planned = planReplayVersionCollisionRenames({ migrationFiles })
-  const rename = planned.find((item) => item.source === source)
-  assert.ok(rename)
-  assert.equal(rename.sibling, sibling)
-  assert.equal(rename.destination, destination)
-  assert.equal(rename.before, boundary)
-  assert.equal(migrationFiles.includes(destination), false)
-
-  const sourceSql = fs.readFileSync(path.join(root, 'supabase/migrations', source), 'utf8')
-  const siblingSql = fs.readFileSync(path.join(root, 'supabase/migrations', sibling), 'utf8')
-  assert.match(sourceSql, /Primary Oman regulatory provenance/i)
-  assert.match(siblingSql, /291-jurisdiction regulatory \+ intelligence evidence depth hardening/i)
 })
 
 test('replay resolves every remaining distinct duplicate-version group in timestamp order', () => {
