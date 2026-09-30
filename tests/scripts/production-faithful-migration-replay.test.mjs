@@ -330,6 +330,26 @@ test('duplicate-version replay rename fails closed unless the exact two-file col
   )
 })
 
+test('replay separates the September 23 evidence-depth and Oman migrations without changing production history', () => {
+  const source = '20260923060000_primary_om_law67_2026_enrichment.sql'
+  const sibling = '20260923060000_jurisdiction_evidence_depth_291.sql'
+  const destination = '20260923060001_replay_primary_om_law67_2026_enrichment.sql'
+  const boundary = '20260923061000_primary_lv_law_2026_enrichment.sql'
+
+  const planned = planReplayVersionCollisionRenames({ migrationFiles })
+  const rename = planned.find((item) => item.source === source)
+  assert.ok(rename)
+  assert.equal(rename.sibling, sibling)
+  assert.equal(rename.destination, destination)
+  assert.equal(rename.before, boundary)
+  assert.equal(migrationFiles.includes(destination), false)
+
+  const sourceSql = fs.readFileSync(path.join(root, 'supabase/migrations', source), 'utf8')
+  const siblingSql = fs.readFileSync(path.join(root, 'supabase/migrations', sibling), 'utf8')
+  assert.match(sourceSql, /Primary Oman regulatory provenance/i)
+  assert.match(siblingSql, /291-jurisdiction regulatory \+ intelligence evidence depth hardening/i)
+})
+
 test('replay materializes the missing education policy identities immediately before the recorded ALTER POLICY migration', () => {
   assert.equal(syntheticFoundations.length, 11)
   const foundation = syntheticFoundations.find(
