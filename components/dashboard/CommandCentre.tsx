@@ -10150,7 +10150,7 @@ const LicenceTrackerPage = React.memo(function LicenceTrackerPage({
   }
 
   return (
-    <div className="cc-page" style={{ padding: '20px 24px', maxWidth: 1080, margin: '0 auto' }}>
+    <div className="cc-page" style={{ display: 'block', padding: '20px 24px', maxWidth: 1080, margin: '0 auto' }}>
       <style>{`
         .lt-stat { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 14px 18px; flex: 1; cursor: pointer; transition: border-color .15s; }
         .lt-stat:hover { border-color: rgba(212,168,75,.3); }
@@ -10460,7 +10460,7 @@ const LandedCostPage = React.memo(function LandedCostPage({
   const customMarginHigh = sell && result.totalLandedPerKg.low  > 0 ? ((sell - result.totalLandedPerKg.low ) / sell) * 100 : null
 
   return (
-    <div className="cc-page" style={{ padding: '20px 24px' }}>
+    <div className="cc-page" style={{ display: 'block', padding: '20px 24px' }}>
       <style>{`
         .tc-panel { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 18px 20px; }
         .tc-inp { width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); border-radius: 7px; padding: 8px 11px; color: #f5f0e8; font-size: .82rem; outline: none; }
