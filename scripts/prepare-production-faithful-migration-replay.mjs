@@ -564,6 +564,16 @@ where not exists (
 const REPLAY_CONTENT_PATCHES = [
   {
     file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `('jurisdiction_intelligence','Jurisdiction intelligence','intelligence','Reviewed jurisdiction-level intelligence synthesis.',false,false,30,295),\n`,
+    replacement: ``,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
+    anchor: `   when 'country_intel' then 'jurisdiction_intelligence'\n`,
+    replacement: ``,
+  },
+  {
+    file: '20260923065000_full_291x32_depth_control_plane.sql',
     anchor: `insert into public.jurisdiction_data_depth_dimensions
 (dimension_key,display_name,layer,description,required_for_regulatory_publication,requires_primary_source,freshness_days,sort_order)`,
     replacement: `-- Zero-state replay: this table already exists from 20260922230000 with
