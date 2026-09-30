@@ -40,6 +40,17 @@ describe('globe intro', () => {
     ).toBe(false)
   })
 
+  it('releases the intro on the hard timeout even while live data is still loading', () => {
+    expect(
+      shouldStartReveal({
+        azimuthAccumRad: 0.1,
+        spinElapsedMs: GLOBE_INTRO.spinMaxDurationMs,
+        loading: true,
+        prefersReducedMotion: false,
+      }),
+    ).toBe(true)
+  })
+
   it('starts reveal after a measured full orbit when data is ready', () => {
     expect(
       shouldStartReveal({
