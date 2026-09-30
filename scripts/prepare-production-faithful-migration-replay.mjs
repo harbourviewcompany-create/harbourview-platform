@@ -28,6 +28,7 @@ const REPLAY_ZERO_STATE_SKIPS = [
   // Exact duplicate of the immediately-following 20260923043001 file; keeping
   // both makes Supabase reject the shared 20260923043000 ledger version.
   '20260923043000_kz_pathway_calendar_format_depth.sql',
+  '20260923060000_primary_om_law67_2026_enrichment.sql',
   // Byte-identical to their immediately-following canonical copies. The other
   // migration sharing each timestamp remains at the recorded ledger version.
   '20260923063000_primary_me_drug_control_2026.sql',
@@ -79,12 +80,6 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
     sibling: '20260820120000_clinical_pilot_local_authorities_au_gb_br.sql',
     destination: '20260820120001_replay_heatmap_conflict_freeze_seed.sql',
     before: '20260820130000_hv_pipeline_optimization.sql',
-  },
-  {
-    source: '20260923060000_primary_om_law67_2026_enrichment.sql',
-    sibling: '20260923060000_jurisdiction_evidence_depth_291.sql',
-    destination: '20260923060001_replay_primary_om_law67_2026_enrichment.sql',
-    before: '20260923061000_primary_lv_law_2026_enrichment.sql',
   },
   {
     source: '20260923064000_reconcile_snapshot_depth_automatically.sql',
