@@ -614,7 +614,7 @@ test('replay uses the canonical globally-unique pathway slug for Lithuania confl
 test('replay advances the inherited full-depth contract defaults from v1 to v2 before matrix seeding', () => {
   const file = '20260923065000_full_291x32_depth_control_plane.sql'
   const patches = contentPatches.filter((item) => item.file === file)
-  assert.equal(patches.length, 2)
+  assert.equal(patches.length, 4)
 
   const v1Dimensions = fs.readFileSync(
     path.join(root, 'supabase/migrations/20260922230000_full_depth_intelligence_contract.sql'),
@@ -635,6 +635,16 @@ test('replay advances the inherited full-depth contract defaults from v1 to v2 b
   )
   assert.ok(dimensionsPatch)
   assert.ok(statePatch)
+  const analystDimensionPatch = patches.find((item) =>
+    item.anchor.includes("('jurisdiction_intelligence'"),
+  )
+  const inheritedMappingPatch = patches.find((item) =>
+    item.anchor.includes("when 'country_intel' then 'jurisdiction_intelligence'"),
+  )
+  assert.ok(analystDimensionPatch)
+  assert.ok(inheritedMappingPatch)
+  assert.equal(analystDimensionPatch.replacement, '')
+  assert.equal(inheritedMappingPatch.replacement, '')
   assert.match(dimensionsPatch.replacement, /set default '2026-09-23\.v2'/i)
   assert.match(statePatch.replacement, /set default '2026-09-23\.v2'/i)
 
