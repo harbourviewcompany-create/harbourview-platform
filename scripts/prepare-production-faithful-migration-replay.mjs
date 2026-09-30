@@ -28,6 +28,11 @@ const REPLAY_ZERO_STATE_SKIPS = [
   // Exact duplicate of the immediately-following 20260923043001 file; keeping
   // both makes Supabase reject the shared 20260923043000 ledger version.
   '20260923043000_kz_pathway_calendar_format_depth.sql',
+  // Byte-identical to their immediately-following canonical copies. The other
+  // migration sharing each timestamp remains at the recorded ledger version.
+  '20260923063000_primary_me_drug_control_2026.sql',
+  '20260923070000_primary_kw_ly_enrichment.sql',
+  '20260924073000_primary_sn_drug_code_enrichment.sql',
 ]
 
 // A recorded reconstruction/reconciliation can have a timestamp later than the
@@ -80,6 +85,46 @@ const REPLAY_VERSION_COLLISION_RENAMES = [
     sibling: '20260923060000_jurisdiction_evidence_depth_291.sql',
     destination: '20260923060001_replay_primary_om_law67_2026_enrichment.sql',
     before: '20260923061000_primary_lv_law_2026_enrichment.sql',
+  },
+  {
+    source: '20260923064000_reconcile_snapshot_depth_automatically.sql',
+    sibling: '20260923064000_full_depth_ne_pw_sb_st.sql',
+    destination: '20260923064001_replay_reconcile_snapshot_depth_automatically.sql',
+    before: '20260923064500_kp_source_registry_discovery.sql',
+  },
+  {
+    source: '20260923065000_full_depth_tn_to.sql',
+    sibling: '20260923065000_full_291x32_depth_control_plane.sql',
+    destination: '20260923065001_replay_full_depth_tn_to.sql',
+    before: '20260923070000_primary_gh_format_calendar_enrichment.sql',
+  },
+  {
+    source: '20260924150000_publish_heatmap_us_states_and_priority_nationals.sql',
+    sibling: '20260924150000_authoritative_evidence_depth_backfill.sql',
+    destination: '20260924150001_replay_publish_heatmap_us_states_and_priority_nationals.sql',
+    before: '20260924152000_regulatory_tier_evidence_reconciliation.sql',
+  },
+  {
+    source: '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+    sibling: '20260925060000_dimension_specific_adjudication_engine.sql',
+    collisionGroup: [
+      '20260925060000_dimension_specific_adjudication_engine.sql',
+      '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+      '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    ],
+    destination: '20260925060001_replay_harden_full_depth_dimension_contract_rls.sql',
+    before: '20260925070000_fix_structured_adjudication_gate_insert.sql',
+  },
+  {
+    source: '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    sibling: '20260925060000_dimension_specific_adjudication_engine.sql',
+    collisionGroup: [
+      '20260925060000_dimension_specific_adjudication_engine.sql',
+      '20260925060000_harden_full_depth_dimension_contract_rls.sql',
+      '20260925060000_primary_kg_law69_2024_enrichment.sql',
+    ],
+    destination: '20260925060002_replay_primary_kg_law69_2024_enrichment.sql',
+    before: '20260925070000_fix_structured_adjudication_gate_insert.sql',
   },
 ]
 
@@ -1343,9 +1388,9 @@ export function planReplayRelocations({ migrationFiles }) {
 export function planReplayVersionCollisionRenames({ migrationFiles }) {
   const fileSet = new Set(migrationFiles)
   return REPLAY_VERSION_COLLISION_RENAMES.filter((item) => {
+    const expectedCollisionFiles = item.collisionGroup ?? [item.source, item.sibling]
     if (
-      !fileSet.has(item.source) ||
-      !fileSet.has(item.sibling) ||
+      !expectedCollisionFiles.every((file) => fileSet.has(file)) ||
       !fileSet.has(item.before) ||
       fileSet.has(item.destination)
     ) return false
@@ -1360,13 +1405,13 @@ export function planReplayVersionCollisionRenames({ migrationFiles }) {
     return Boolean(
       sourceVersion &&
         sourceVersion === siblingVersion &&
+        expectedCollisionFiles.every((file) => migrationVersion(file) === sourceVersion) &&
         destinationVersion &&
         beforeVersion &&
         sourceVersion < destinationVersion &&
         destinationVersion < beforeVersion &&
-        collisionFiles.length === 2 &&
-        collisionFiles.includes(item.source) &&
-        collisionFiles.includes(item.sibling),
+        collisionFiles.length === expectedCollisionFiles.length &&
+        expectedCollisionFiles.every((file) => collisionFiles.includes(file)),
     )
   })
 }
